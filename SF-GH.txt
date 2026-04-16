@@ -1,0 +1,73 @@
+====================================================================================================
+SVN-GitHub Mirror Workflow
+====================================================================================================
+
+This document explains how to connect an existing SVN repository with GitHub, so that SVN remains
+the authoritative source while GitHub acts as a signed mirror.
+
+Each system ignores the other's metadata (.svn vs .git).
+
+----------------------------------------------------------------------------------------------------
+Checkout the SVN repository
+----------------------------------------------------------------------------------------------------
+
+If not yet checked out:
+    svn checkout --username=<USER> svn+ssh://<SVN_URL>
+Otherwise, ensure the working copy is clean (no generated files).
+
+SVN metadata will be stored in .svn.
+
+----------------------------------------------------------------------------------------------------
+Configure ignore rules
+----------------------------------------------------------------------------------------------------
+
+SVN ignore rules:
+    svn propset svn:ignore "$(echo -e "0_excluded_directory\n.git")" .
+
+This ensures SVN ignores Git's metadata and excluded directories.
+
+Git ignore rules - create a .gitignore file containing:
+    0_excluded_directory
+    .svn
+
+This ensures Git ignores SVN's metadata and excluded directories.
+
+----------------------------------------------------------------------------------------------------
+Create a GitHub repository
+----------------------------------------------------------------------------------------------------
+
+On GitHub, click New repository.
+Copy the full SSH URL (for example: git@github.com:<USER>/<REPO>.git).
+
+Initialize Git and configure signing:
+    git init
+    git config commit.gpgsign true
+
+This enables commit signing (requires a configured GPG or SSH key).
+
+Add GitHub remote:
+    git remote add origin git@github.com:<USER>/<REPO>.git
+
+Stage and commit files:
+    git add -A
+    git commit -S -m "Initial commit from SVN working copy"
+
+The -S flag signs the commit.
+
+Push to GitHub:
+    git branch -M main
+    git push -u origin main
+
+----------------------------------------------------------------------------------------------------
+Daily workflow
+----------------------------------------------------------------------------------------------------
+
+Work with SVN as usual:
+    svn commit -m "Your message"
+
+Ensure the working copy is clean (no generated files), then synchronize with GitHub:
+    git add -A
+    git commit -S -m "Mirror SVN commit(s)"
+    git push
+
+====================================================================================================

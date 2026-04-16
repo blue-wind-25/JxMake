@@ -13,6 +13,10 @@ and various tools.
 
 Building JxMake requires Java SDK 8 or later (note that Java SDK 8 is an LTS version).
 
+This project is mirrored on both SourceForge and GitHub:
+    https://sourceforge.net/projects/jxmake
+    https://github.com/blue-wind-25/JxMake
+
 ----------------------------------------------------------------------------------------------------
 
 Please refer to the JxMake usage page (run it with the '-h' or '--browse-docs' option) for how to

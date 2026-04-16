@@ -1,0 +1,450 @@
+SrcPathPrefix := $abs_path('2-fwctestdata')
+DstPathPrefix := $abs_path('3-fwctestdata-res')
+
+$mkdir(${DstPathPrefix})
+
+
+function __DO_TEST_INTHEX__()
+
+    FNMS := 'l' '`l' 's1' 's2' 'x' 'y' 'z' 'z'
+
+   #goto test_compose
+
+    foreach FNM in ${FNMS}
+
+        echoln "##### ${FNM} #####"
+
+        startAddressOffset := 0
+        fnPrefix           := ''
+        if $str_begwith(${FNM}, '`')
+            startAddressOffset := 1048576
+            fnPrefix           := '`'
+            FNM                := $str_rmfchr(${FNM})
+        endif
+
+        sbf := :"${SrcPathPrefix}/${FNM}.bin"
+        shf := :"${SrcPathPrefix}/${FNM}.hex"
+        dbf := :"${DstPathPrefix}/${fnPrefix}${FNM}.bin"
+        dhf := :"${DstPathPrefix}/${fnPrefix}${FNM}.hex"
+
+        echoln '>>> RAWBIN & INTHEX'
+        fwc0 := $fwc_load_raw_bin  (${sbf}, ${startAddressOffset})
+        fwc1 := $fwc_load_raw_bin  (${sbf}, ${startAddressOffset})
+        fwc2 := $fwc_load_intel_hex(${shf}, ${startAddressOffset})
+        echoln $fwc_equals(${fwc0}, ${fwc1})
+        echoln $fwc_equals(${fwc0}, ${fwc2})
+        echoln $fwc_equals(${fwc1}, ${fwc2})
+        echoln
+
+        $fwc_save_raw_bin  (${fwc1}, :"${dbf}.1")
+        $fwc_save_raw_bin  (${fwc2}, :"${dbf}.2")
+        $fwc_save_intel_hex(${fwc1}, :"${dhf}.1")
+        $fwc_save_intel_hex(${fwc2}, :"${dhf}.2")
+
+        $fwc_delete(${fwc1})
+        $fwc_delete(${fwc2})
+        echoln '>>> RAWBIN'
+        fwc1 := $fwc_load_raw_bin(:"${dbf}.1")
+        fwc2 := $fwc_load_raw_bin(:"${dbf}.2")
+        echoln $fwc_equals(${fwc0}, ${fwc1})
+        echoln $fwc_equals(${fwc0}, ${fwc2})
+        echoln $fwc_equals(${fwc1}, ${fwc2})
+        echoln
+
+        $fwc_delete(${fwc0})
+        $fwc_delete(${fwc1})
+        $fwc_delete(${fwc2})
+        echoln '>>> INTHEX'
+        fwc0 := $fwc_load_intel_hex(  ${shf}   )
+        fwc1 := $fwc_load_intel_hex(:"${dhf}.1")
+        fwc2 := $fwc_load_intel_hex(:"${dhf}.2")
+        echoln $fwc_equals(${fwc0}, ${fwc1})
+        echoln $fwc_equals(${fwc0}, ${fwc2})
+        echoln $fwc_equals(${fwc1}, ${fwc2})
+        echoln
+
+        $fwc_delete(${fwc0})
+        $fwc_delete(${fwc1})
+        $fwc_delete(${fwc2})
+
+    endforeach
+
+label test_compose :
+
+    echoln '##### COMPOSE #####'
+
+    ##### !!! TODO : Add more tests? !!! #####
+
+    fwcd := $fwc_new()
+    fwcs := $fwc_load_intel_hex(:"${SrcPathPrefix}/s1.hex")
+    echoln $fwc_compose(${fwcd}, ${fwcs})
+
+    mfa := $fwc_max_final_addr(${fwcd})
+    inc mfa
+    echoln $fwc_compose(${fwcd}, ${fwcs}, ${mfa})
+
+    mfa := $fwc_max_final_addr(${fwcs})
+    inc mfa
+    neg mfa, ${mfa}
+    echoln $fwc_compose(${fwcd}, ${fwcs}, ${mfa})
+
+    $fwc_save_raw_bin  (${fwcd},  :"${DstPathPrefix}/s1x3.bin")
+    $fwc_save_intel_hex(${fwcd},  :"${DstPathPrefix}/s1x3.hex")
+
+    $fwc_delete(${fwcd})
+    $fwc_delete(${fwcs})
+
+    fwc1 := $fwc_load_raw_bin  (:"${DstPathPrefix}/s1x3.bin")
+    fwc2 := $fwc_load_intel_hex(:"${DstPathPrefix}/s1x3.hex")
+
+    echoln
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+endfunction
+
+
+function __DO_TEST_ELFBIN__()
+    local const example_ELF_ISecRules_SAMD21 := [["
+{
+    "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRules",
+    "@java.util.ArrayList#add" : [
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+            "reName" : "\.text",
+            "compositeName" : ".code",
+            "addressOffset" : 0x00002000,
+            "appendAfter" : null
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+            "reName" : "\.ARM.exidx",
+            "compositeName" : ".code",
+            "addressOffset" : 0x00000000,
+            "appendAfter" : ".text"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+            "reName" : "\.data",
+            "compositeName" : ".code",
+            "addressOffset" : 0x00000000,
+            "appendAfter" : ".code"
+        }
+    ]
+}
+"]]
+
+    local const default_ELF_ESecRules := [["
+{
+    "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRules",
+    "@java.util.ArrayList#add" : [
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "(\.[a-zA-Z0-9_]+?)?\.attributes"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.bss"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.comment"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.debug.*"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.eeprom"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.gnu.*"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.heap"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "(\.[a-zA-Z0-9_]+?)?\.info"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.note.*"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.stack_dummy"
+        }
+        ,
+        {
+            "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+            "reName" : "\.[a-zA-Z0-9_]+tab$"
+        }
+    ]
+}
+"]]
+
+    FNM := 'e-atmega'   'e-samd21'
+    OFS := 0            0x00002000
+    ISR := ?            ${example_ELF_ISecRules_SAMD21}
+    ESR := ?            ${default_ELF_ESecRules}
+
+    foreach I, FNM in ${FNM}
+
+        echoln "##### ${FNM} #####"
+        echoln '>>> ELFBIN & INTHEX/RAWBIN'
+
+        sbe := :"${SrcPathPrefix}/${FNM}.elf"
+        sbh := :"${SrcPathPrefix}/${FNM}.hex"
+        sbb := :"${SrcPathPrefix}/${FNM}.bin"
+
+                                 fwc0 := $fwc_load_elf_bin  (${sbe}, 0, ${ISR}<I>, ${ESR}<I>)
+        if $valid_path(${sbh}) ; fwc1 := $fwc_load_intel_hex(${sbh}                         )
+        else                   ; fwc1 := $fwc_load_raw_bin  (${sbb}, ${OFS}<I>              )
+        endif
+
+        echoln $fwc_equals(${fwc0}, ${fwc1}, true) # Compare after flattening
+        echoln
+
+        $fwc_delete(${fwc0})
+        $fwc_delete(${fwc1})
+
+    endforeach
+
+endfunction
+
+
+function __DO_TEST_MTSREC__()
+    FNM := 's2'
+    echoln "##### ${FNM} #####"
+    echoln '>>> RAWBIN & MTSREC'
+
+    startAddressOffset := $csel(0, 1048576, 0)
+
+    sbf  := :"${SrcPathPrefix}/${FNM}.bin"
+    ssf1 := :"${SrcPathPrefix}/${FNM}.1.mot"
+    ssf2 := :"${SrcPathPrefix}/${FNM}.3.mot"
+    dbf  := :"${DstPathPrefix}/${FNM}.bin"
+    dsf1 := :"${DstPathPrefix}/${FNM}.1.mot"
+    dsf2 := :"${DstPathPrefix}/${FNM}.3.mot"
+
+    fwc0 := $fwc_load_raw_bin  (${sbf }, ${startAddressOffset})
+    fwc1 := $fwc_load_moto_srec(${ssf1}, ${startAddressOffset})
+    fwc2 := $fwc_load_moto_srec(${ssf2}, ${startAddressOffset})
+    echoln $fwc_equals(${fwc0}, ${fwc1})
+    echoln $fwc_equals(${fwc0}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln
+
+    $fwc_save_raw_bin  (${fwc0}, ${dbf })
+    $fwc_save_moto_srec(${fwc1}, ${dsf1})
+    $fwc_save_moto_srec(${fwc2}, ${dsf2})
+
+    $fwc_delete(${fwc0})
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+
+    fwc0 := $fwc_load_raw_bin  (${dbf }, ${startAddressOffset})
+    fwc1 := $fwc_load_moto_srec(${dsf1}                       )
+    fwc2 := $fwc_load_moto_srec(${dsf2}                       )
+    echoln $fwc_equals(${fwc0}, ${fwc1})
+    echoln $fwc_equals(${fwc0}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln
+
+    $fwc_delete(${fwc0})
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+endfunction
+
+
+function __DO_TEST_TEKHEX__()
+    FNM := 'x & u'
+    echoln "##### ${FNM} #####"
+    echoln '>>> TEKHEX & INTHEX'
+
+    startAddressOffset := $csel(0, 1048576, 0)
+
+    shf  := :"${SrcPathPrefix}/x.hex"
+    ssf1 := :"${SrcPathPrefix}/x.bin.ext.tek"
+    ssf2 := :"${SrcPathPrefix}/x.hex.ext.tek"
+    ssfU := :"${SrcPathPrefix}/u.tek"
+    dsf1 := :"${DstPathPrefix}/x.bin.ext.tek"
+    dsf2 := :"${DstPathPrefix}/x.hex.ext.tek"
+    dsfU := :"${DstPathPrefix}/u.ext.tek"
+
+    fwcH := $fwc_load_intel_hex(${shf }, ${startAddressOffset})
+    fwc1 := $fwc_load_tektx_hex(${ssf1}, ${startAddressOffset})
+    fwc2 := $fwc_load_tektx_hex(${ssf2}, ${startAddressOffset})
+    fwcU := $fwc_load_tektx_hex(${ssfU}, ${startAddressOffset})
+    echoln $fwc_equals(${fwcH}, ${fwc1})
+    echoln $fwc_equals(${fwcH}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln
+
+    $fwc_save_tektx_hex(${fwc1}, ${dsf1})
+    $fwc_save_tektx_hex(${fwc2}, ${dsf2})
+    $fwc_save_tektx_hex(${fwcU}, ${dsfU})
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwcU})
+
+    fwc1 := $fwc_load_tektx_hex(${dsf1})
+    fwc2 := $fwc_load_tektx_hex(${dsf2})
+    fwcU := $fwc_load_tektx_hex(${dsfU})
+    echoln $fwc_equals(${fwcH}, ${fwc1})
+    echoln $fwc_equals(${fwcH}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    $fwc_delete(${fwcH})
+    fwcH := $fwc_load_tektx_hex(${ssfU}, ${startAddressOffset})
+    echoln $fwc_equals(${fwcH}, ${fwcU})
+    echoln
+
+    $fwc_delete(${fwcH})
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwcU})
+endfunction
+
+
+function __DO_TEST_MOSTEC__()
+    FNM := 'v1 & v2'
+    echoln "##### ${FNM} #####"
+    echoln '>>> MOSTEC & INTHEX'
+
+    startAddressOffset := $csel(0, 16384, 0)
+
+    ssf1 := :"${SrcPathPrefix}/v1.mos"
+    ssf2 := :"${SrcPathPrefix}/v2.mos"
+    dsf1 := :"${DstPathPrefix}/v1.mos"
+    dsf2 := :"${DstPathPrefix}/v2.mos"
+    dhf1 := :"${DstPathPrefix}/v1.hex"
+    dhf2 := :"${DstPathPrefix}/v2.hex"
+
+    fwc1 := $fwc_load_mos_tech(${ssf1}, ${startAddressOffset})
+    fwc2 := $fwc_load_mos_tech(${ssf2}, ${startAddressOffset})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln
+
+    $fwc_save_mos_tech (${fwc1}, ${dsf1})
+    $fwc_save_mos_tech (${fwc2}, ${dsf2})
+    $fwc_save_intel_hex(${fwc1}, ${dhf1})
+    $fwc_save_intel_hex(${fwc2}, ${dhf2})
+
+    fwc3 := $fwc_load_mos_tech(${dsf1})
+    fwc4 := $fwc_load_mos_tech(${dsf2})
+    echoln $fwc_equals(${fwc3}, ${fwc4})
+    echoln $fwc_equals(${fwc3}, ${fwc1})
+    echoln $fwc_equals(${fwc4}, ${fwc2})
+    echoln
+
+    $fwc_delete(${fwc3})
+    $fwc_delete(${fwc4})
+
+    fwc3 := $fwc_load_intel_hex(${dhf1})
+    fwc4 := $fwc_load_intel_hex(${dhf2})
+    echoln $fwc_equals(${fwc3}, ${fwc4})
+    echoln $fwc_equals(${fwc3}, ${fwc1})
+    echoln $fwc_equals(${fwc4}, ${fwc2})
+    echoln
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwc3})
+    $fwc_delete(${fwc4})
+endfunction
+
+
+function __DO_TEST_TIXHEX__()
+    FNM := 'w'
+    echoln "##### ${FNM} #####"
+    echoln '>>> TIXHEX & INTHEX'
+
+    startAddressOffset := $csel(0, 16384, 0)
+
+    ssf := :"${SrcPathPrefix}/w.tix"
+    dsf := :"${DstPathPrefix}/w.tix"
+    dhf := :"${DstPathPrefix}/w.hex"
+
+    fwc1 := $fwc_load_titxt_hex(${ssf}, ${startAddressOffset})
+
+    $fwc_save_titxt_hex(${fwc1}, ${dsf})
+    $fwc_save_intel_hex(${fwc1}, ${dhf})
+
+    fwc2 := $fwc_load_titxt_hex(${dsf})
+    fwc3 := $fwc_load_intel_hex(${dhf})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc3})
+    echoln
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwc3})
+endfunction
+
+
+function __DO_TEST_ASCHEX_VLVMEM__()
+    startAddressOffset := $csel(0, 16384, 0)
+
+    shf1 := :"${SrcPathPrefix}/v1.mos"
+    saf1 := :"${SrcPathPrefix}/v1.asc"
+    svf1 := :"${SrcPathPrefix}/v1.mem"
+
+    shf2 := :"${SrcPathPrefix}/x.hex"
+    saf2 := :"${SrcPathPrefix}/x.asc"
+    svf2 := :"${SrcPathPrefix}/x.mem"
+
+    FNM := 'v1'
+    echoln "##### ${FNM} #####"
+    echoln '>>> ASCHEX & VLVMEM'
+
+    fwc1 := $fwc_load_mos_tech (${shf1}, ${startAddressOffset})
+    fwc2 := $fwc_load_ascii_hex(${saf1}, ${startAddressOffset})
+    fwc3 := $fwc_load_vl_vmem  (${svf1}, ${startAddressOffset})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc3})
+    echoln $fwc_equals(${fwc2}, ${fwc3})
+    echoln
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwc3})
+
+    fwc1 := $fwc_load_intel_hex(${shf2}, ${startAddressOffset})
+    fwc2 := $fwc_load_ascii_hex(${saf2}, ${startAddressOffset})
+    fwc3 := $fwc_load_vl_vmem  (${svf2}, ${startAddressOffset})
+    echoln $fwc_equals(${fwc1}, ${fwc2})
+    echoln $fwc_equals(${fwc1}, ${fwc3})
+    echoln $fwc_equals(${fwc2}, ${fwc3})
+    echoln
+
+    $fwc_delete(${fwc1})
+    $fwc_delete(${fwc2})
+    $fwc_delete(${fwc3})
+endfunction
+
+
+$call(__DO_TEST_ELFBIN__       )
+$call(__DO_TEST_INTHEX__       )
+$call(__DO_TEST_MTSREC__       )
+$call(__DO_TEST_TEKHEX__       )
+$call(__DO_TEST_MOSTEC__       )
+$call(__DO_TEST_TIXHEX__       )
+$call(__DO_TEST_ASCHEX_VLVMEM__)

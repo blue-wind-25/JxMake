@@ -1,0 +1,85 @@
+:::include <C++XBuildTool_BM_ESP8266>
+
+
+  if __os_windows__  ; APDir := $cat_path( $uhd(), 'AppData/Local/Arduino15/packages' )
+elif __os_mac__      ; APDir := $cat_path( $uhd(), 'Library/Arduino15/packages'       )
+elif __os_linux__    ; APDir := $cat_path( $uhd(), '.arduino15/packages'              )
+endif
+
+    XTENSA_TOOLCHAIN_PATH   := $cat_path(${APDir},  'esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec'   )
+for I := 2 to 0 step -1
+    ESPTOOL_EXECUTABLE_PATH := $cat_path(${APDir}, :"esp8266/hardware/esp8266/3.1.${I}/tools/esptool/esptool.py" )
+    if $valid_path(${ESPTOOL_EXECUTABLE_PATH}) : break
+endfor
+
+   #ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd(), 'Projects/z/esptool-v3.0-src/esptool.py'   )
+   #ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd(), 'Projects/z/esptool-v3.1-src/esptool.py'   )
+   #ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd(), 'Projects/z/esptool-v4.6.2-src/esptool.py' )
+   #ESPTOOL_EXECUTABLE_PATH := $cat_path( $jtd(), 'esptool3/esptool.py'                      )
+   #ESPTOOL_EXECUTABLE_PATH := $cat_path( $jtd(), 'esptool4/esptool.py'                      )
+   #ESPTOOL_EXECUTABLE_PATH := ''
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM1'
+else
+    SPort := '/dev/ttyUSB0'
+endif
+
+
+$call(init_project                   )
+$call(treat_warnings_as_errors, 1    )
+$call(enable_debug_info       , 1    )
+$call(select_optimization     , size )
+$call(print_devenv_config            )
+$call(silent_stdxxx           , false)
+$call(silent_stdxxx_syslib    , true )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME  := $call( exe_fpath, main    )
+PROG_OBJS  := $call( obj_fpath, main.cpp)
+PROG_OBJS +:= $call(sobj_fpath, vectors )
+
+LD_SCRIPT := 'esp8266.ld'
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_bm_esp8266 clean
+# jxmake -C ..\test\src\cpp_bm_esp8266 run
+target run
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call( e8266bm_link_exe, $call(use_ld, ${LD_SCRIPT}) )
+    $call( gen_lst         , ${PROG_NAME}                )
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(compile_s)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_esp8266 userial
+# jxmake -C ..\test\src\cpp_bm_esp8266 userial
+target userial
+    jxmake run
+    $call(e8266bm_upload_esptool, ${PROG_NAME}, ${SPort})
+endtarget

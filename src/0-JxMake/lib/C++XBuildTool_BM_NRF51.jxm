@@ -1,0 +1,247 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - ARM GCC - Bare-Metal nRF51 Series                                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+
+ ##### Include the ARM C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_ARM.jxm'
+:::include_once 'DownloadXPackOpenOCD.jxm'
+
+
+##### Update the flag
+__BuildTool_Target__  := 'ARM (nRF51 Series)'
+
+
+##### Update the definitions of executables, paths, and options
+(*
+ * https://www.nordicsemi.com/Products/Development-software/s130
+ *
+ * SoC          nRF51422    nRF51822    nRF51824
+ * CPU          Cortex-M0   Cortex-M0   Cortex-M0
+ * FPU          No          No          No
+ * RAM   (kB)   16/32       16/32       16
+ * Flash (kB)   128/256     128/256     256
+ *)
+const NRF51_CommonCPUOptions     := '-mcpu=cortex-m0' '-mthumb'
+const NRF51_CommonCompileOptions := '-ffunction-sections' '-fdata-sections' '-ffreestanding' '-fno-builtin'
+const NRF51_CommonCompileMDef    := '-D__NRF51_BARE_METAL__'
+
+CppCommonAssemblerFlags  +:= ${NRF51_CommonCPUOptions} ${NRF51_CommonCompileOptions} ${NRF51_CommonCompileMDef}
+
+CppCommonCcCompileFlags  +:= ${NRF51_CommonCPUOptions} ${NRF51_CommonCompileOptions} ${NRF51_CommonCompileMDef}
+
+CppCommonCxxCompileFlags +:= ${NRF51_CommonCPUOptions} ${NRF51_CommonCompileOptions}
+CppCommonCxxCompileFlags +:= ${CppMinimizeSizeCompileFlags}
+
+CppCommonLinkFlags       +:= ${NRF51_CommonCPUOptions} '-nostdlib' '-nostartfiles' '-Wl,--gc-sections'
+
+DebuggerProgram           := ${ARMDebugger}
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Download (and install) the latest and OpenOCD from xPack
+    $call(download_latest_xpackopenocd_from_xpack, ${dlOnlyIfNotExist})
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Define some default values for SWD
+                                    const __Def_N51BM_DEFAULT_APP_OFFSET__ := '0x00000000'
+
+                                    const   N51BM_SWD_Default_Interface    := 'stlink'
+                                    const   N51BM_SWD_Default_Transport    := 'hla_swd'
+                                    const   N51BM_SWD_Default_AdapterSpeed := 2000
+
+                                                                                           ##### !!! TODO : What about different SoCs? !!! #####
+if !&${N51BM_SWD_Target_Device}   : const   N51BM_SWD_Target_Device        := 'nrf51'      # nRF51822
+if !&${N51BM_SWD_Target_CPUTapID} : const   N51BM_SWD_Target_CPUTapID      := '0x0bb11477' # nRF51822
+
+                                    const   N51BM_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+                                    const   N51BM_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+                                    const   N51BM_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function __n51bm_check_swd_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__openocd_print_udev_rules__, ${XPackOOCD_udev_rule})
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function n51bm_reset_swd(?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${N51BM_SWD_Default_Interface}
+    transport    ?:= ${N51BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N51BM_SWD_Default_AdapterSpeed}
+    # Perform reset
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_reset_swd__                                 , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${N51BM_SWD_Target_Device}                             \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__n51bm_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to upload the given program via SWD
+function n51bm_upload_swd(progName, ?interface, ?transport, ?adapterSpeed, ?appOffset)
+    # Set the default values
+    interface    ?:= ${N51BM_SWD_Default_Interface}
+    transport    ?:= ${N51BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N51BM_SWD_Default_AdapterSpeed}
+    appOffset    ?:= ${__Def_N51BM_DEFAULT_APP_OFFSET__}
+    # Determine the path and commands
+                 local HexFile   := ~${progName/(.+)\.elf/$1.hex/}
+                 local Commands  := 'init' 'halt'
+    if !${appOffset} : Commands +:= 'nrf51 mass_erase'
+                       Commands +:= :"program ${HexFile} verify reset exit ${appOffset}"
+    # Perform upload
+    # NOTE : We cannot call '__armgcc_upload_swd_simple__' here because nRF51 requires custom commands
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_user_cmd_swd__                              , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${N51BM_SWD_Target_Device}                           , \
+        ${Commands}                                          , \
+        ${N51BM_SWD_Target_CPUTapID}                           \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__n51bm_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function n51bm_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd)
+    # Set the default values
+    interface    ?:= ${N51BM_SWD_Default_Interface}
+    transport    ?:= ${N51BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N51BM_SWD_Default_AdapterSpeed}
+    # Print message about GDB as needed
+    $call(__armgcc_debug_swd_start_print_gdb_info__, 'n51bm_debug_swd_gdb', ${Pico_MCU}, ${progName}, ${DebuggerProgram}, ${noGDBExecCmd})
+    # Run OpenOCD in server mode
+    $cmd_streaming_on()
+    $exec(                                                      \
+        __armgcc_debug_swd_start_exec_openocd__,                \
+        $call(__ccat_LDLibraryPaths__, ${RP2040OOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                  , \
+        ${XPackOOCD_scripts_dir}                              , \
+        ${interface}                                          , \
+        ${transport}                                          , \
+        ${adapterSpeed}                                       , \
+        ${N51BM_SWD_Target_Device}                            , \
+        ${N51BM_SWD_GDBPort}                                  , \
+        ${N51BM_SWD_TCLPort}                                  , \
+        ${N51BM_SWD_TelnetPort}                                 \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__n51bm_check_swd_error_and_print_help__)
+endfunction
+
+function n51bm_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default values
+    autoConnect ?:= true
+    # Execute GDB
+    $sh_delay()
+    $cmd_streaming_on()
+    $exec(                             \
+        __armgcc_debug_swd_gdb_exec__, \
+        $call(__get_LDLibraryPaths__), \
+        ${DebuggerProgram}           , \
+        ${N51BM_SWD_GDBPort}         , \
+        ${progName}                  , \
+        ${autoConnect}                 \
+    )
+    $cmd_streaming_off()
+    $sh_restore()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to link executable files (in case of nRF51, also create the HEX file)
+function n51bm_link_exe(?extraOptions)
+    # Link and create the HEX file
+    $call(link_exe, ${extraOptions}, true, false)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText                        := __c_cyan__  "Bare-Metal nRF51" __c_white__
+    local NGInfo                        := __c_white__ 'for ' ${NGText} ' '
+    local __CPP_BTLIB_HELP_EN_gen_lst__ := true
+    $call(__origin__, ${NGInfo}, 1, true, false, true, true)
+   #$call(__btlib_help_print_title_functions__, 7, 25, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories,      ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist        ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ "    n51bm_reset_swd      (            ?interface   , " __c_white__ ': reset the attached ' __c_cyan__ 'nRF51' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport          - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed      - the default is \'' __c_yellow__ ${N51BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln
+    echoln __c_green__ "    n51bm_upload_swd     (progName  , ?interface   , " __c_white__ ': upload program to the attached ' __c_cyan__ 'nRF51' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?appOffset               ) ' __c_green__ '      interface   ' __c_white__ ' SWD interface nam                 - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                         - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                     - the default is \'' __c_yellow__ ${N51BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      appOffset   ' __c_white__ ' application start offset in flash - the default is \'' __c_yellow__ ${__Def_N51BM_DEFAULT_APP_OFFSET__} __c_white__ '\''
+    echoln
+    echoln __c_green__ "    n51bm_debug_swd_start(progName  , ?interface   , " __c_white__ ': start a debug session for the attached ' __c_cyan__ 'nRF51' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_white__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                      ?noGDBExecCmd) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                      - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                               - the default is \'' __c_yellow__ ${N51BM_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                           - the default is \'' __c_yellow__ ${N51BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      noGDBExecCmd' __c_white__ ' do not print the command to execute GDB - the default is \'' __c_yellow__ false __c_white__ '\''
+    echoln
+    echoln __c_green__ "    n51bm_debug_swd_gdb  (progName  , ?autoConnect ) " __c_white__ ': execute the GDB program for the attached ' __c_cyan__ 'nRF51' __c_white__ ' which can be used to connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session'
+    echoln
+    echoln __c_green__ "    n51bm_link_exe       (?extraOptions            ) " __c_white__ ': link a ' ${NGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_reset__
+endfunction

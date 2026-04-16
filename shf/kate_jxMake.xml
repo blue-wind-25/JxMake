@@ -1,0 +1,911 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE language SYSTEM "language.dtd"
+    [
+        <!ENTITY libname   "&lt;\S+&gt;"           >
+        <!ENTITY symname   "[_a-zA-Z][_a-zA-Z0-9]*">
+        <!ENTITY decnum    "[+-]?[0-9]+"           >
+        <!ENTITY hexnum    "[+-]?0[xX][0-9a-fA-F]+">
+        <!ENTITY hexchr    "[0-9a-fA-F]"           >
+        <!ENTITY unaryoper "[@~!+-]"               >
+        <!ENTITY evalifbr  "\[\s+(?=.*\])"         >
+        <!ENTITY regexpchr "(?:[^\/]|(\\\/))*"     >
+        <!ENTITY rvmark    "[\^](?=&symname;)"     >
+    ]
+>
+<!-- ~/.kde/share/apps/katepart/syntax/ -->
+<!-- https://docs.kde.org/stable5/en/kate/katepart/highlight.html -->
+<language
+    name="JxMake Specification File"
+    section="Other"
+    version="1.0.121"
+    kateversion="2.4"
+    indenter="normal"
+    mimetype="text/plain"
+    extensions="JxMakeFile;JxMakeSpec;*.jxm"
+    author="Aloysius Indrayanto"
+    license="LGPL"
+    priority="99"
+>
+    <highlighting>
+        <list name="Keywords">
+            <item> jxmake </item>
+            <item> jxwait </item>
+            <item> depload </item>
+            <item> sdepload </item>
+            <item> echo </item>
+            <item> echoln </item>
+            <item> local </item>
+            <item> const </item>
+            <item> unset </item>
+            <item> function </item>
+            <item> endfunction </item>
+            <item> supersede </item>
+            <item> __origin__ </item>
+            <item> target </item>
+            <item> endtarget </item>
+            <item> extradep </item>
+            <item> label </item>
+            <item> goto </item>
+            <item> sgoto </item>
+            <item> if </item>
+            <item> elif </item>
+            <item> else </item>
+            <item> endif </item>
+            <item> for </item>
+            <item> to </item>
+            <item> step </item>
+            <item> endfor </item>
+            <item> foreach </item>
+            <item> in </item>
+            <item> skip </item>
+            <item> endforeach </item>
+            <item> while </item>
+            <item> endwhile </item>
+            <item> do </item>
+            <item> whilst </item>
+            <item> repeat </item>
+            <item> until </item>
+            <item> loop </item>
+            <item> endloop </item>
+            <item> continue </item>
+            <item> break </item>
+            <item> return </item>
+            <item> inc </item>
+            <item> dec </item>
+            <item> add </item>
+            <item> sub </item>
+            <item> mul </item>
+            <item> div </item>
+            <item> mod </item>
+            <item> abs </item>
+            <item> neg </item>
+            <item> shl </item>
+            <item> shr </item>
+            <item> min </item>
+            <item> max </item>
+            <item> not </item>
+            <item> and </item>
+            <item> or </item>
+            <item> xor </item>
+            <item> eval </item>
+            <item> deprecate </item>
+            <item> deprecated </item>
+            <item> by </item>
+        </list>
+        <list name="SVars">
+            <item> cmdecho </item>
+            <item> cmdstreaming </item>
+            <item> lserr </item>
+            <item> jxmakefile </item>
+            <item> function </item>
+            <item> cmdtargets </item>
+            <item> usn </item>
+            <item> target </item>
+            <item> excode </item>
+            <item> stderr </item>
+            <item> stdout </item>
+        </list>
+        <list name="SVarShortcuts">
+            <item> __jxm_ver_major__ </item>
+            <item> __jxm_ver_minor__ </item>
+            <item> __jxm_ver_patch__ </item>
+            <item> __jxm_ver_value__ </item>
+            <item> __jxm_ver_devel__ </item>
+            <item> __os_name__ </item>
+            <item> __os_name_actual__ </item>
+            <item> __os_windows__ </item>
+            <item> __os_posix__ </item>
+            <item> __os_linux__ </item>
+            <item> __os_bsd__ </item>
+            <item> __os_mac__ </item>
+            <item> __os_cygwin__ </item>
+            <item> __os_mingw__ </item>
+            <item> __os_msys__ </item>
+            <item> __os_posix_compat__ </item>
+            <item> __os_arch__ </item>
+            <item> __os_bit_count__ </item>
+            <item> __os_32bit__ </item>
+            <item> __os_64bit__ </item>
+            <item> __os_be__ </item>
+            <item> __os_le__ </item>
+            <item> __os_dsep_char__ </item>
+            <item> __os_psep_char__ </item>
+            <item> __re_all__ </item>
+            <item> __include_paths__ </item>
+            <item> __class_paths__ </item>
+        </list>
+        <list name="ANSIEscapeCodes">
+            <item> __c_use_dark__  </item>
+            <item> __c_use_light__ </item>
+            <item> __c_clrscr__  </item>
+            <item> __c_black__ </item>
+            <item> __c_dgray__ </item>
+            <item> __c_lgray__ </item>
+            <item> __c_red__ </item>
+            <item> __c_green__ </item>
+            <item> __c_yellow__ </item>
+            <item> __c_blue__ </item>
+            <item> __c_magenta__ </item>
+            <item> __c_cyan__ </item>
+            <item> __c_white__ </item>
+            <item> __c_reset__ </item>
+        </list>
+        <list name="Options">
+            <item> warning </item>
+            <item> push </item>
+            <item> pop </item>
+            <item> disable </item>
+            <item> enable </item>
+        </list>
+        <contexts>
+            <context name="NormalText" attribute="NormalText" lineEndContext="#pop">
+                <!-- ================================================== Code Folding Beg ================================================== -->
+                <RegExpr      String="\.macro\b"                           attribute="MacroDef" context="#stay"     beginRegion="MacroDef"    />
+                <RegExpr      String="\.endmacro\b"                        attribute="MacroDef" context="#stay"       endRegion="MacroDef"    />
+                <RegExpr      String="\bfunction\b"                        attribute="Keyword"  context="#stay"     beginRegion="Function"    />
+                <RegExpr      String="\bendfunction\b"                     attribute="Keyword"  context="#stay"       endRegion="Function"    />
+                <RegExpr      String="\btarget\b"                          attribute="Keyword"  context="#stay"     beginRegion="Target"      />
+                <RegExpr      String="\bendtarget\b"                       attribute="Keyword"  context="#stay"       endRegion="Target"      />
+                <!--
+                <RegExpr      String="\bif\b(?:(?=.+;)|(?!.*:(?!&quot;)))" attribute="Keyword"  context="#stay"     beginRegion="CondIf"      />
+                -->
+                <RegExpr      String="\bif\b(?:(?=.+;)|(?!.*\s:))"         attribute="Keyword"  context="#stay"     beginRegion="CondIf"      />
+                <RegExpr      String="\bendif\b"                           attribute="Keyword"  context="#stay"       endRegion="CondIf"      />
+                <RegExpr      String="\bfor\b"                             attribute="Keyword"  context="#stay"     beginRegion="LoopFor"     />
+                <RegExpr      String="\bendfor\b"                          attribute="Keyword"  context="#stay"       endRegion="LoopFor"     />
+                <RegExpr      String="\bforeach\b"                         attribute="Keyword"  context="#stay"     beginRegion="LoopForEach" />
+                <RegExpr      String="\bendforeach\b"                      attribute="Keyword"  context="#stay"       endRegion="LoopForEach" />
+                <RegExpr      String="\bwhile\b"                           attribute="Keyword"  context="#stay"     beginRegion="LoopWhile"   />
+                <RegExpr      String="\bendwhile\b"                        attribute="Keyword"  context="#stay"       endRegion="LoopWhile"   />
+                <RegExpr      String="\brepeat\b"                          attribute="Keyword"  context="#stay"     beginRegion="LoopRepUntil"/>
+                <RegExpr      String="\buntil\b"                           attribute="Keyword"  context="#stay"       endRegion="LoopRepUntil"/>
+                <RegExpr      String="\bdo\b"                              attribute="Keyword"  context="#stay"     beginRegion="LoopDoWhilst"/>
+                <RegExpr      String="\bwhilst\b"                          attribute="Keyword"  context="#stay"       endRegion="LoopDoWhilst"/>
+                <RegExpr      String="\bloop\b"                            attribute="Keyword"  context="#stay"     beginRegion="LoopForever" />
+                <RegExpr      String="\bendloop\b"                         attribute="Keyword"  context="#stay"       endRegion="LoopForever" />
+                <!-- ================================================== Code "Folding End ================================================== -->
+                <LineContinue                                                      attribute="CombineNL"      context="#stay"         />
+                <IncludeRules                                                                                 context="CommentEval"   />
+                <DetectChar   char=";"                                             attribute="ForceNL"        context="#pop"          />
+                <RegExpr      String="\.option\b"                                  attribute="MacroDef"       context="OptionDef"     />
+                <RegExpr      String="\.undefmacro\b"                              attribute="MacroDef"       context="#stay"         />
+                <RegExpr      String="\.\$(?=&symname;\b)"                         attribute="MacroUseMark"   context="MacroUsage"    />
+                <RegExpr      String="&rvmark;"                                    attribute="RefVarMark"     context="#stay"         />
+                <RegExpr      String="\beval\b"                                    attribute="Keyword"        context="EvalStatement1"/>
+                <RegExpr      String="\blabel(?=\s+&symname;\s+:)"                 attribute="Keyword"        context="LabelEval"     />
+                <RegExpr      String="\becho(?:ln)\b"                              attribute="Keyword"        context="VarAssign"     />
+                <keyword      String="Keywords"                                    attribute="Keyword"        context="#stay"         />
+                <RegExpr      String="\+(?=jxmake\s+)"                             attribute="SKeyword"       context="#stay"         />
+                <keyword      String="SVarShortcuts"                               attribute="SVarShortcut"   context="#stay"         />
+                <keyword      String="ANSIEscapeCodes"                             attribute="ANSIEscapeCode" context="#stay"         />
+                <RegExpr      String=":::s?include(_once)?(?=\s+&libname;)\b"      attribute="SKeyword"       context="IncludeLib"    />
+                <RegExpr      String=":::s?include(_once)?\b"                      attribute="SKeyword"       context="#stay"         />
+                <RegExpr      String=":::pragma\b"                                 attribute="SKeyword"       context="Pragma"        />
+                <RegExpr      String="\b&decnum;\b"                                attribute="Number"         context="#stay"         />
+                <RegExpr      String="\b&hexnum;\b"                                attribute="Number"         context="#stay"         />
+                <RegExpr      String="(?:[-+?]|-\+|\+-)(?=@)" firstNonSpace="true" attribute="CommandSpcXDir" context="CommandEvalSE" />
+                <DetectChar   char="@"                        firstNonSpace="true" attribute="Command"        context="CommandEval"   />
+                <IncludeRules                                                                                 context="BoolEval"      />
+                <IncludeRules                                                                                 context="StringEval"    />
+                <IncludeRules                                                                                 context="StringMLEval"  />
+                <IncludeRules                                                                                 context="OperatorEval"  />
+                <IncludeRules                                                                                 context="SROperEvalD"   />
+                <IncludeRules                                                                                 context="VariableEval"  />
+                <IncludeRules                                                                                 context="FunctionEval"  />
+            </context>
+            <context name="CommentEval">
+                <StringDetect String="(*" attribute="Comment" context="MLComment" beginRegion="MLComment"/>
+                <DetectChar   char="#"    attribute="Comment" context="Comment"                          />
+            </context>
+            <context name="OptionDef" lineEndContext="#pop">
+                <LineContinue                  attribute="CombineNL" context="#stay"     />
+                <keyword      String="Options" attribute="Keyword"   context="#stay"     />
+                <DetectChar   char="&apos;"    attribute="ODString"  context="ODStringSQ"/>
+                <DetectChar   char="&quot;"    attribute="ODString"  context="ODStringDQ"/>
+            </context>
+            <context name="ODStringSQ" attribute="ODString" lineEndContext="#pop">
+                <LineContinue               attribute="CombineNL" context="#stay"/>
+                <DetectChar   char="&apos;" attribute="ODString"  context="#pop" />
+            </context>
+            <context name="ODStringDQ" attribute="ODString" lineEndContext="#pop">
+                <LineContinue               attribute="CombineNL" context="#stay"/>
+                <DetectChar   char="&quot;" attribute="ODString"  context="#pop" />
+            </context>
+            <context name="VarAssign" lineEndContext="#pop">
+                <LineContinue                          attribute="CombineNL"      context="#stay"       />
+                <IncludeRules                                                     context="CommentEval" />
+                <DetectChar   char=";"                 attribute="ForceNL"        context="#pop"        />
+                <keyword      String="Keywords"        attribute="Keyword"        context="#stay"       />
+                <keyword      String="SVarShortcuts"   attribute="SVarShortcut"   context="#stay"       />
+                <keyword      String="ANSIEscapeCodes" attribute="ANSIEscapeCode" context="#stay"       />
+                <RegExpr      String="\b&decnum;\b"    attribute="Number"         context="#stay"       />
+                <RegExpr      String="\b&hexnum;\b"    attribute="Number"         context="#stay"       />
+                <RegExpr      String=":(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
+                <RegExpr      String=".(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
+                <IncludeRules                                                     context="BoolEval"    />
+                <IncludeRules                                                     context="StringEval"  />
+                <IncludeRules                                                     context="StringMLEval"/>
+                <IncludeRules                                                     context="VariableEval"/>
+                <IncludeRules                                                     context="FunctionEval"/>
+                <IncludeRules                                                     context="PROperEval"  />
+                <IncludeRules                                                     context="SROperEvalD" />
+            </context>
+            <context name="MLComment" attribute="Comment" lineEndContext="#stay">
+                <RegExpr      String="#.*\(\*" attribute="Comment" context="#stay"                          />
+                <StringDetect String="(*"      attribute="Comment" context="MLComment"                      />
+                <StringDetect String="*)"      attribute="Comment" context="#pop"      endRegion="MLComment"/>
+            </context>
+            <context name="LabelEval" attribute="NormalText" lineEndContext="#pop">
+                <LineContinue                        attribute="CombineNL" context="#stay"/>
+                <RegExpr      String="\b&symname;\b"                       context="#stay"/>
+                <RegExpr      String="\s+:\s*"       attribute="ROperator" context="#pop" />
+            </context>
+            <context name="IncludeLib" lineEndContext="#pop">
+                <RegExpr String="&libname;" attribute="IncLibName" context="#pop"/>
+            </context>
+            <context name="Pragma" lineEndContext="#pop">
+                <RegExpr String="&symname;" attribute="Keyword" context="#pop"/>
+            </context>
+            <context name="MacroUsage" attribute="MacroUse" lineEndContext="#pop">
+            </context>
+            <context name="CommandEvalSE" attribute="Command" lineEndContext="#pop">
+                <LineContinue        attribute="CombineNL" context="#stay"           />
+                <DetectChar char="@" attribute="Command"   context="#pop!CommandEval"/>
+            </context>
+            <context name="Comment" attribute="Comment" lineEndContext="#pop">
+                <LineContinue attribute="CombineNL" context="#stay"/>
+            </context>
+            <context name="EvalStatement1" lineEndContext="#pop">
+                <LineContinue                    attribute="CombineNL" context="#stay"              />
+                <IncludeRules                                          context="CommentEval"        />
+                <DetectChar   char=";"           attribute="ForceNL"   context="#pop"               />
+                <Detect2Chars char=":" char1="=" attribute="ROperator" context="#pop!EvalStatement2"/>
+            </context>
+            <context name="EvalStatement2" lineEndContext="#pop">
+                <LineContinue                                                                                 attribute="CombineNL"  context="#stay"           />
+                <IncludeRules                                                                                                        context="CommentEval"     />
+                <DetectChar   char=";"                                                                        attribute="ForceNL"    context="#pop"            />
+                <RegExpr      String="\b&decnum;\b"                                                           attribute="Number"     context="#stay"           />
+                <RegExpr      String="\b&hexnum;\b"                                                           attribute="Number"     context="#stay"           />
+                <keyword      String="SVarShortcuts"                                                          attribute="NormalText" context="#stay"           />
+                <IncludeRules                                                                                                        context="BoolEval"        />
+                <IncludeRules                                                                                                        context="VariableEval"    />
+                <!-- Inline Function -->
+                <RegExpr      String="\s+&unaryoper;*(?=&symname;&evalifbr;)"                                 attribute="SOperator"  context="EvalStatementIF1"/>
+                <RegExpr      String="\s+(?:\](?=\s+)|\]$)"                                                   attribute="SOperator"  context="#stay"           />
+                <DetectChar   char=","                                                                        attribute="SOperator"  context="#stay"           />
+                <!-- Unary and Binary Operators -->
+                <RegExpr      String="\s+(?:&lt;=&gt;|&lt;=|&gt;=|==|!=|)(?=\s+)"                             attribute="SOperator"  context="#stay"           />
+                <RegExpr      String="\s+(?:\*{1,2}|[/%+-]|&lt;{1,2}|&gt;{1,2}|&amp;{1,2}|\^|\|{1,2})(?=\s+)" attribute="SOperator"  context="#stay"           />
+                <RegExpr      String="(?:\s+|\()&unaryoper;+(?=\S+)"                                          attribute="SOperator"  context="#stay"           />
+                <AnyChar      String="()"                                                                     attribute="SOperator"  context="#stay"           />
+                <!-- Ternary Operator -->
+                <RegExpr      String="\s+[?:](?=\s+)"                                                         attribute="SOperator"  context="#stay"           />
+            </context>
+            <context name="EvalStatementIF1" lineEndContext="#pop">
+                <LineContinue                                  attribute="CombineNL"   context="#stay"                />
+                <RegExpr      String="&symname;(?=&evalifbr;)" attribute="SOperatorIF" context="#pop!EvalStatementIF2"/>
+            </context>
+            <context name="EvalStatementIF2" lineEndContext="#pop">
+                <LineContinue                                  attribute="CombineNL"   context="#stay"/>
+                <RegExpr      String="&evalifbr;"              attribute="SOperator"   context="#pop" />
+            </context>
+            <context name="OperatorEval" lineEndContext="#pop">
+                <RegExpr      String="\s+=(?=\s)"    attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+\+=(?=\s)"  attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+\?=(?=\s)"  attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+:=(?=\s)"   attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+\+:=(?=\s)" attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+\?:=(?=\s)" attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+:\+=(?=\s)" attribute="ROperator"  context="#pop!VarAssign"/>
+                <RegExpr      String="\s+:\?=(?=\s)" attribute="ROperator"  context="#pop!VarAssign"/>
+                <Detect2Chars char="\" char1="?"     attribute="NormalText" context="#stay"         />
+                <Detect2Chars char="\" char1="%"     attribute="NormalText" context="#stay"         />
+                <RegExpr      String="\s+:\s"        attribute="SOperator"  context="#stay"         />
+                <DetectChar   char="?"               attribute="SOperator"  context="#stay"         />
+                <RegExpr      String="%[1-9]?"       attribute="SOperator"  context="#stay"         />
+                <DetectChar   char="!"               attribute="SOperator"  context="#stay"         />
+                <DetectChar   char="&amp;"           attribute="SOperator"  context="#stay"         />
+                <DetectChar   char="("               attribute="ROperator"  context="#stay"         />
+                <DetectChar   char=")"               attribute="ROperator"  context="#stay"         />
+                <DetectChar   char=","               attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&lt;\s"     attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&lt;=\s"    attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&gt;\s"     attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&gt;=\s"    attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&amp;?==\s" attribute="ROperator"  context="#stay"         />
+                <RegExpr      String="\s+&amp;?!=\s" attribute="ROperator"  context="#stay"         />
+                <IncludeRules                                               context="PROperEval"    />
+                <IncludeRules                                               context="SROperEvalS"   />
+            </context>
+            <context name="PROperEval" lineEndContext="#pop">
+                <RegExpr String="[~\^\-](?=\$[{\[])" attribute="PROperEval" context="#stay"/>
+            </context>
+            <context name="SROperEvalS" lineEndContext="#pop">
+                <RegExpr String="(?:\{|\})(?=\s+|[,)]|$)" attribute="PROperEval" context="#stay"/>
+            </context>
+            <context name="SROperEvalD" lineEndContext="#pop">
+                <RegExpr String="(?:\{\{|\}\})(?=\s+|[,)]|$)" attribute="PROperEval" context="#stay"/>
+            </context>
+            <context name="BoolEval" lineEndContext="#pop">
+                <StringDetect String="true"  attribute="Number" context="#stay"/>
+                <StringDetect String="false" attribute="Number" context="#stay"/>
+            </context>
+            <context name="StringEval" lineEndContext="#pop">
+                <IncludeRules                                  context="StringEvalCommon"/>
+                <DetectChar   char="&#96;"  attribute="String" context="RQString"        />
+                <DetectChar   char="&apos;" attribute="String" context="SQString"        />
+                <DetectChar   char="&quot;" attribute="String" context="DQString"        />
+            </context>
+            <context name="RQString" attribute="String" lineEndContext="#pop">
+                <LineContinue              attribute="CombineNL" context="#stay"/>
+                <DetectChar   char="&#96;" attribute="String"    context="#pop" />
+            </context>
+            <context name="SQString" attribute="String" lineEndContext="#pop">
+                <LineContinue               attribute="CombineNL" context="#stay"         />
+                <IncludeRules                                     context="SQStringCommon"/>
+                <DetectChar   char="&apos;" attribute="String"    context="#pop"          />
+            </context>
+            <context name="DQString" attribute="String" lineEndContext="#pop">
+                <LineContinue               attribute="CombineNL" context="#stay"         />
+                <IncludeRules                                     context="DQStringCommon"/>
+                <DetectChar   char="&quot;" attribute="String"    context="#pop"          />
+            </context>
+            <context name="StringMLEval" lineEndContext="#stay">
+                <StringDetect String="[[&quot;" attribute="StringMLMarker" context="DQStringML" beginRegion="DQStringML"/>
+            </context>
+            <context name="DQStringML" attribute="String" lineEndContext="#stay">
+                <IncludeRules                                              context="DQStringCommon"                       />
+                <StringDetect String="&quot;]]" attribute="StringMLMarker" context="#pop"           endRegion="DQStringML"/>
+            </context>
+            <context name="StringEvalUFN" lineEndContext="#pop">
+                <IncludeRules                                         context="StringEvalCommon"/>
+                <DetectChar   char="&apos;" attribute="UFunctionName" context="SQStringUFN"     />
+                <DetectChar   char="&quot;" attribute="UFunctionName" context="DQStringUFN"     />
+            </context>
+            <context name="SQStringUFN" attribute="UFunctionName" lineEndContext="#pop!UFunctionCall2">
+                <LineContinue               attribute="CombineNL"     context="#stay"              />
+                <IncludeRules                                         context="SQStringCommon"     />
+                <DetectChar   char="&apos;" attribute="UFunctionName" context="#pop!UFunctionCall2"/>
+            </context>
+            <context name="DQStringUFN" attribute="UFunctionName" lineEndContext="#pop!UFunctionCall2">
+                <LineContinue               attribute="CombineNL"     context="#stay"              />
+                <IncludeRules                                         context="DQStringCommon"     />
+                <DetectChar   char="&quot;" attribute="UFunctionName" context="#pop!UFunctionCall2"/>
+            </context>
+            <context name="StringEvalCommon">
+                <RegExpr String="\.(?=&quot;)" attribute="StringDQF" context="#stay"/>
+                <RegExpr String=":(?=&quot;)"  attribute="StringDQF" context="#stay"/>
+            </context>
+            <context name="SQStringCommon">
+                <Detect2Chars char="\" char1="&apos;" attribute="EscapeSeq" context="#stay"/>
+                <Detect2Chars char="\" char1="\"      attribute="EscapeSeq" context="#stay"/>
+            </context>
+            <context name="DQStringCommon">
+                <Detect2Chars char="\"      char1="t"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="v"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="r"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="n"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="f"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="b"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="&apos;" attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="&quot;" attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="\"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="$"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="~"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="^"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="-"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="+"      attribute="EscapeSeq" context="#stay"          />
+                <Detect2Chars char="\"      char1="?"      attribute="EscapeSeq" context="#stay"          />
+                <RegExpr      String="\\o[0-7]{3}"         attribute="EscapeSeq" context="#stay"          />
+                <RegExpr      String="\\d[0-9]{3}"         attribute="EscapeSeq" context="#stay"          />
+                <RegExpr      String="\\x&hexchr;{2}"      attribute="EscapeSeq" context="#stay"          />
+                <RegExpr      String="\\u&hexchr;{4}"      attribute="EscapeSeq" context="#stay"          />
+                <RegExpr      String="\\U&hexchr;{6}"      attribute="EscapeSeq" context="#stay"          />
+                <IncludeRules                                                    context="VariableEvalDQS"/>
+                <IncludeRules                                                    context="PROperEval"     />
+            </context>
+            <context name="VariableEval" lineEndContext="#pop">
+                <Detect2Chars char="$" char1="{" attribute="RVariableEval" context="RVariableEval"/>
+                <Detect2Chars char="$" char1="[" attribute="SVariableEval" context="SVariableEval"/>
+            </context>
+            <context name="RVariableEval" lineEndContext="#pop">
+                <LineContinue                     attribute="CombineNL"     context="#stay"              />
+                <RegExpr      String="\}(?!&lt;)" attribute="RVariableEval" context="#pop"               />
+                <RegExpr      String="\}(?=&lt;)" attribute="RVariableEval" context="#pop!VariableEvalN" />
+                <IncludeRules                                               context="RVariableEvalCommon"/>
+            </context>
+            <context name="SVariableEval" lineEndContext="#pop">
+                <LineContinue                     attribute="CombineNL"     context="#stay"              />
+                <RegExpr      String="\](?!&lt;)" attribute="SVariableEval" context="#pop"               />
+                <RegExpr      String="\](?=&lt;)" attribute="SVariableEval" context="#pop!VariableEvalN" />
+                <IncludeRules                                               context="SVariableEvalCommon"/>
+            </context>
+            <context name="VariableEvalN" attribute="RVariableEval" lineEndContext="#pop">
+                <LineContinue                       attribute="CombineNL"     context="#stay"/>
+                <DetectChar   char="&lt;"           attribute="VariableEvalN" context="#stay"/>
+                <DetectChar   char="&gt;"           attribute="VariableEvalN" context="#pop" />
+                <DetectChar   char=","              attribute="VariableEvalN" context="#stay"/>
+                <DetectChar   char=":"              attribute="VariableEvalN" context="#stay"/>
+                <RegExpr      String="\b&decnum;\b" attribute="Number"        context="#stay"/>
+                <RegExpr      String="\b&hexnum;\b" attribute="Number"        context="#stay"/>
+            </context>
+            <context name="VariableEvalDQS" lineEndContext="#pop">
+                <Detect2Chars char="$" char1="{" attribute="RVariableEval" context="RVariableEvalDQS"/>
+                <Detect2Chars char="$" char1="[" attribute="SVariableEval" context="SVariableEvalDQS"/>
+            </context>
+            <context name="RVariableEvalDQS" lineEndContext="#pop">
+                <LineContinue          attribute="CombineNL"     context="#stay"              />
+                <DetectChar   char="}" attribute="RVariableEval" context="#pop"               />
+                <IncludeRules                                    context="RVariableEvalCommon"/>
+            </context>
+            <context name="SVariableEvalDQS" lineEndContext="#pop">
+                <LineContinue          attribute="CombineNL"     context="#stay"              />
+                <DetectChar   char="]" attribute="SVariableEval" context="#pop"               />
+                <IncludeRules                                    context="SVariableEvalCommon"/>
+            </context>
+            <context name="RVariableEvalCommon">
+                <RegExpr    String="&rvmark;"  attribute="RefVarMark"    context="#stay"   />
+                <RegExpr    String="&symname;" attribute="RVariableEval" context="#stay"   />
+                <DetectChar char="/"           attribute="RegExprM"      context="RegExpr1"/>
+            </context>
+            <context name="SVariableEvalCommon">
+                <keyword    String="SVars"           attribute="SVariableEval" context="#stay"   />
+                <RegExpr    String="preq[\^*?+%~]"   attribute="SVariableEval" context="#stay"   />
+                <RegExpr    String="preq[1-9][0-9]*" attribute="SVariableEval" context="#stay"   />
+                <RegExpr    String="preq:&symname;"  attribute="SVariableEval" context="#stay"   />
+                <DetectChar char="/"                 attribute="RegExprM"      context="RegExpr1"/>
+            </context>
+            <context name="RegExpr1" attribute="RegExpr1" lineEndContext="#pop">
+                <Detect2Chars char="\" char1="/" attribute="RegExpr1" context="#stay"        />
+                <Detect2Chars char="\" char1="\" attribute="RegExpr1" context="#stay"        />
+                <DetectChar   char="/"           attribute="RegExprM" context="#pop!RegExpr2"/>
+            </context>
+            <context name="RegExpr2" attribute="RegExpr2" lineEndContext="#pop">
+                <StringDetect String="\${"       attribute="RVariableEval" context="RegExpr2_PlainRVarEval"/>
+                <Detect2Chars char="\" char1="/" attribute="RegExpr2"      context="#stay"                 />
+                <Detect2Chars char="\" char1="\" attribute="RegExpr2"      context="#stay"                 />
+                <DetectChar   char="/"           attribute="RegExprM"      context="#pop"                  />
+            </context>
+            <context name="RegExpr2_PlainRVarEval" attribute="RVariableEval" lineEndContext="#pop">
+                <DetectChar char="}" attribute="RVariableEval" context="#pop"                  />
+                <DetectChar char="/" attribute="ErrorText"     context="#pop#pop#pop!ErrorText"/>
+            </context>
+            <context name="FunctionEval" lineEndContext="#pop">
+                <RegExpr String="-(?=\$&symname;\s*\()" attribute="SuppressError" context="#stay"          />
+                <RegExpr String="\$(?=&symname;\s*\()"  attribute="BFunctionCall" context="FunctionEvalBeg"/>
+            </context>
+            <context name="FunctionEvalBeg" lineEndContext="#pop">
+                <StringDetect String="call"               attribute="BFunctionCall" context="UFunctionCall1"/>
+                <StringDetect String="exec"               attribute="BFunctionCall" context="UFunctionCall1"/>
+                <StringDetect String="add_target"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="add_extradep"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="has_var"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="nop"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="alt_glibc_for"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sh_delay"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sh_restore"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_echo_off"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_echo_on"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_streaming_off"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_streaming_on"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_stderr_chk_off" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_stderr_chk_on"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_stdout_chk_off" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_stdout_chk_on"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmd_clear_state"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="silent_sem"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="restore_sem"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="micros"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="millis"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="datetime"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sleep"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="getenv"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="clear_project"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="exit"               attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cwd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ptd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="uhd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="jdd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="jtd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="jxd"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="set_rwx3"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cat_paths"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cat_path"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="abs_path"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rel_path"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="valid_path"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="uptodate_path"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="newer_path"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="same_path"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_abs"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_rel"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_file"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_directory"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_symlink"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_readable"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_writable"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_is_executable" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_last_part"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_rm_last_part"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="path_ndsep"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="symlink_target"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="symlink_real_apath" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="symlink_resolve"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="dir_name"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="file_name"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="file_ext"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="file_mime_type"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="touch"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rmfiles_rec"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rmfiles"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rmfile"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cpfile"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mvfile"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="srfile_rec"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mkdir"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rmdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rmdir"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cpdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="lsdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="lsdir"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="srdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="txzdir_rec"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untxz_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tbz2dir_rec"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untbz2_rec"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tgzdir_rec"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untgz_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tzipdir_rec"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untzip_rec"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untar_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="unzip_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="unxz"               attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="xz"                 attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bzip2"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bunzip2"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gzip"               attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gunzip"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="get_file_nel"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="get_file"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="put_file"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="md2_sum_file"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="md5_sum_file"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha1_sum_file"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha2_224sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha2_256sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha2_384sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha2_512sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha3_224sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha3_256sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha3_384sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sha3_512sum_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="to_cp"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="to_ch"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ucase"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="lcase"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tcase"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ltrim"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="rtrim"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="strim"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="strlen"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="substr"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_replace"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_fidx"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_lidx"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_begwith"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_endwith"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_rmfchr"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="str_rmlchr"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_from_glob"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_match"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_split"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_replace"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_quote_repval"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="re_quote"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="color_udiff"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="explode"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfchars"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfspaces"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfdots"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfpipes"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sflines"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfdseps"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sfpseps"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="implode"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="flatten"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftchars"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftspaces"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftdots"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftpipes"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftlines"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftdseps"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftpseps"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_count"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="partnm"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="partn"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_fidx"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_lidx"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_remove"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_insert"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="part_replace"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="contains"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="lookup"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="unique"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="erase_ifempty"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="erase_ifnot"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="erase_if"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="repeat"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stack"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="series"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="interleave"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ftt_stack"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sort_ascending"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sort_descending"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_new_from"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_new"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_delete"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_clear"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_put"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_add"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_remove"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_get"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_keys"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_num_keys"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_num_vals"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_to_edata"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_from_edata"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="map_valid_handle"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="nmap_from_json"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="nmap_delete"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_new"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_delete"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_clear"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_push"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_peek"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_pop"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_num_elems"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_to_edata"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_from_edata"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="stk_valid_handle"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_new"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_delete"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_size"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_cursor"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_seek_abs"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_seek_beg"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_seek_end"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_seek_cur"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_truncate"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_save_file"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_load_file"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_save_base64str" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_load_base64str" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_set_be"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_set_le"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_byte"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_byte"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_uint08"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_sint08"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_uint08"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_sint08"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_uint16"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_sint16"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_uint16"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_sint16"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_uint32"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_sint32"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_uint32"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_sint32"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_uint64"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_sint64"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_uint64"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_sint64"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_flt32"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_flt32"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_dbl64"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_dbl64"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_utf8"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_utf8"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_utf16"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_utf16"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_wr_utf32"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_rd_utf32"       attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_range_clr"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_range_cpy"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_range_cut"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_range_pst"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_range_ovr"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="bse_valid_handle"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_new"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_delete"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_raw_bin"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_elf_bin"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_intel_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_moto_srec" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_tektx_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_mos_tech"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_titxt_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_ascii_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_load_vl_vmem"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_raw_bin"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_intel_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_moto_srec" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_tektx_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_mos_tech"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_save_titxt_hex" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_clear"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_min_start_addr" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_max_final_addr" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_equals"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="fwc_compose"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="cmp"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="not"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="and"                attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="or"                 attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="csel"               attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="printf"             attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="sprintf"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="vprintf"            attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="vsprintf"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="read_line"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="read_pswd"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="resolve_ip"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_head"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_get"           attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_post"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_download"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_set_auth"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="http_clr_auth"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ssl_trust_all"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gh_get_tags"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gh_get_assets"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="ls_serial_ports"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mcu_reset"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mcu_bootloader"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mcu_prog_cfg_json"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mcu_prog_cfg_ini"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="mcu_prog_exec"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="serial_console"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tcp_serial_console" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="serial_plotter"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tcp_serial_plotter" attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="xmlframe_file"      attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="xmlframe_string"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="xml_escape"         attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="aboard_from_file"   attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="aboard_selector"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="aboard_getselconf"  attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="esp_st_decoder"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gdl_cpp_include"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gdl_cpp_module"     attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="gdl_java_import"    attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="pp_java_scf"        attribute="BFunctionCall" context="BFunctionCall" />
+            </context>
+            <context name="BFunctionCall" attribute="BFunctionCall" lineEndContext="#stay">
+                <LineContinue          attribute="CombineNL"     context="#stay"        />
+                <IncludeRules                                    context="CommentEval"  />
+                <DetectChar   char=";" attribute="ForceNL"       context="#stay"        />
+                <DetectChar   char=")" attribute="BFunctionCall" context="#pop#pop"     />
+                <IncludeRules                                    context="XFunctionCall"/>
+            </context>
+            <context name="UFunctionCall1" attribute="BFunctionCall" lineEndContext="#stay">
+                <LineContinue                                  attribute="CombineNL"     context="#stay"         />
+                <IncludeRules                                                            context="CommentEval"   />
+                <DetectChar   char=";"                         attribute="ForceNL"       context="#stay"         />
+                <DetectChar   char=")"                         attribute="BFunctionCall" context="#pop#pop"      />
+                <StringDetect String="__origin__"              attribute="Keyword"       context="UFunctionCall2"/>
+                <RegExpr      String="&symname;"               attribute="UFunctionName" context="UFunctionCall2"/>
+                <RegExpr      String="\$[\{\[]&symname;[\}\]]" attribute="UFunctionName" context="UFunctionCall2"/>
+                <IncludeRules                                                            context="StringEvalUFN" />
+            </context>
+            <context name="UFunctionCall2" attribute="BFunctionCall" lineEndContext="#stay">
+                <LineContinue          attribute="CombineNL"     context="#stay"        />
+                <IncludeRules                                    context="CommentEval"  />
+                <DetectChar   char=";" attribute="ForceNL"       context="#stay"        />
+                <DetectChar   char=")" attribute="BFunctionCall" context="#pop#pop#pop" />
+                <IncludeRules                                    context="XFunctionCall"/>
+            </context>
+            <context name="XFunctionCall" lineEndContext="#pop">
+                <LineContinue                          attribute="CombineNL"      context="#stay"       />
+                <DetectChar   char=","                 attribute="ROperator"      context="#stay"       />
+                <DetectChar   char="?"                 attribute="SOperator"      context="#stay"       />
+                <IncludeRules                                                     context="BoolEval"    />
+                <IncludeRules                                                     context="StringEval"  />
+                <IncludeRules                                                     context="VariableEval"/>
+                <IncludeRules                                                     context="PROperEval"  />
+                <IncludeRules                                                     context="SROperEvalS" />
+                <IncludeRules                                                     context="SROperEvalD" />
+                <IncludeRules                                                     context="FunctionEval"/>
+                <keyword      String="SVarShortcuts"   attribute="SVarShortcut"   context="#stay"       />
+                <keyword      String="ANSIEscapeCodes" attribute="ANSIEscapeCode" context="#stay"       />
+                <RegExpr      String="&symname;"       attribute="NormalText"     context="#stay"       />
+                <RegExpr      String="\b&decnum;\b"    attribute="Number"         context="#stay"       />
+                <RegExpr      String="\b&hexnum;\b"    attribute="Number"         context="#stay"       />
+            </context>
+            <context name="CommandEval" attribute="Command" lineEndContext="#pop">
+                <LineContinue                 attribute="CombineNL" context="#stay"       />
+                <IncludeRules                                       context="CommentEval" />
+                <DetectChar   char=";"        attribute="ForceNL"   context="#pop"        />
+                <RegExpr      String="[\r\n]" attribute="Command"   context="#pop"        />
+                <StringDetect String="clrenv" attribute="Keyword"   context="#stay"       />
+                <StringDetect String="delenv" attribute="Keyword"   context="#stay"       />
+                <StringDetect String="setenv" attribute="Keyword"   context="#stay"       />
+                <StringDetect String="addenv" attribute="Keyword"   context="#stay"       />
+                <StringDetect String="sstdin" attribute="Keyword"   context="#stay"       />
+                <StringDetect String="jxmake" attribute="Keyword"   context="#stay"       />
+                <IncludeRules                                       context="StringEval"  />
+                <IncludeRules                                       context="VariableEval"/>
+                <IncludeRules                                       context="PROperEval"  />
+                <IncludeRules                                       context="SROperEvalS" />
+                <IncludeRules                                       context="SROperEvalD" />
+            </context>
+            <context name="ErrorText" attribute="ErrorText" lineEndContext="#pop">
+            </context>
+        </contexts>
+        <itemDatas>
+            <itemData name="NormalText"     defStyleNum="dsNormal"   spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="false" underline="false"/>
+            <itemData name="ErrorText"      defStyleNum="dsError"    spellChecking="false" color="#FF0000" selColor="#FF0000" bold="true"  italic="true"  underline="true" />
+            <itemData name="CombineNL"      defStyleNum="dsNormal"   spellChecking="false" color="#808080" selColor="#808080" bold="false" italic="false" underline="false"/>
+            <itemData name="ForceNL"        defStyleNum="dsKeyword"  spellChecking="false" color="#FF0000" selColor="#FF0000" bold="true"  italic="true"  underline="false"/>
+            <itemData name="Comment"        defStyleNum="dsComment"  spellChecking="true"  color="#808080" selColor="#808080" bold="false" italic="false" underline="false"/>
+            <itemData name="Keyword"        defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="false"/>
+            <itemData name="SKeyword"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="true" />
+            <itemData name="MacroDef"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="true" />
+            <itemData name="MacroUseMark"   defStyleNum="dsKeyword"  spellChecking="false" color="#FF3F3F" selColor="#FF3F3F" bold="true"  italic="true"  underline="true" />
+            <itemData name="MacroUse"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="true"  underline="false"/>
+            <itemData name="IncLibName"     defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="true"  underline="false"/>
+            <itemData name="Number"         defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
+            <itemData name="String"         defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="false" italic="false" underline="false"/>
+            <itemData name="StringMLMarker" defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="true"  italic="false" underline="false"/>
+            <itemData name="StringDQF"      defStyleNum="dsString"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="true"  italic="true"  underline="false"/>
+            <itemData name="ODString"       defStyleNum="dsString"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="false" underline="false"/>
+            <itemData name="EscapeSeq"      defStyleNum="dsString"   spellChecking="false" color="#005AB3" selColor="#005AB3" bold="true"  italic="false" underline="false"/>
+            <itemData name="PROperEval"     defStyleNum="dsString"   spellChecking="false" color="#D08290" selColor="#D08290" bold="true"  italic="false" underline="false"/>
+            <itemData name="RefVarMark"     defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="false" underline="false"/>
+            <itemData name="RVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#006A00" selColor="#006A00" bold="false" italic="false" underline="false"/>
+            <itemData name="SVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#5A00B3" selColor="#5A00B3" bold="false" italic="false" underline="false"/>
+            <itemData name="SVarShortcut"   defStyleNum="dsVariable" spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="true"  underline="false"/>
+            <itemData name="VariableEvalN"  defStyleNum="dsVariable" spellChecking="false" color="#FF3F3F" selColor="#FF3F3F" bold="true"  italic="false" underline="false"/>
+            <itemData name="ANSIEscapeCode" defStyleNum="dsVariable" spellChecking="false" color="#404040" selColor="#404040" bold="true"  italic="true"  underline="false"/>
+            <itemData name="SuppressError"  defStyleNum="dsFunction" spellChecking="false" color="#0000BF" selColor="#0000BF" bold="true"  italic="true"  underline="true" />
+            <itemData name="BFunctionCall"  defStyleNum="dsFunction" spellChecking="false" color="#0000BF" selColor="#0000BF" bold="false" italic="true"  underline="false"/>
+            <itemData name="UFunctionName"  defStyleNum="dsFunction" spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="false" underline="false"/>
+            <itemData name="ROperator"      defStyleNum="dsOperator" spellChecking="false" color="#CF6E00" selColor="#CF6E00" bold="false" italic="false" underline="false"/>
+            <itemData name="SOperator"      defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="false" underline="false"/>
+            <itemData name="SOperatorIF"    defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="true"  underline="false"/>
+            <itemData name="Command"        defStyleNum="dsNormal"   spellChecking="false" color="#C8A4A2" selColor="#C8A4A2" bold="true"  italic="false" underline="false"/>
+            <itemData name="CommandSpcXDir" defStyleNum="dsNormal"   spellChecking="false" color="#C8A4A2" selColor="#C8A4A2" bold="true"  italic="false" underline="true" />
+            <itemData name="RegExprM"       defStyleNum="dsNormal"   spellChecking="false" color="#50C0C0" selColor="#50C0C0" bold="true"  italic="true"  underline="false"/>
+            <itemData name="RegExpr1"       defStyleNum="dsNormal"   spellChecking="false" color="#5F5FBF" selColor="#5F5FBF" bold="false" italic="true"  underline="false"/>
+            <itemData name="RegExpr2"       defStyleNum="dsNormal"   spellChecking="false" color="#BF5F5F" selColor="#BF5F5F" bold="false" italic="true"  underline="false"/>
+        </itemDatas>
+    </highlighting>
+    <general>
+        <comments>
+            <comment name="singleLine" start="#"                             />
+            <comment name="multiLine"  start="(*" end="*)" region="MLComment"/>
+        </comments>
+        <keywords casesensitive="true"/>
+    </general>
+</language>

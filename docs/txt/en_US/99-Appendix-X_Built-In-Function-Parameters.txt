@@ -1,0 +1,1424 @@
+st,====================================================================================================
+Explanation of the Parameters of Some Built-in Functions.
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+$fwc_load_elf_bin()
+----------------------------------------------------------------------------------------------------
+
+<fwc_handle> $fwc_load_elf_bin ( <path>, [start_addr_ofs], [is_rule], [es_rule] )
+
+
+[path]           : a string that specifies the path of the ELF file to be loaded.
+
+[start_addr_ofs] : a number that specifies the start address offset; the default is 0.
+
+[is_rule]        : a JSON string that specifies the included section rules; the default is not
+                   specified (none).
+
+[es_rule]        : a JSON string that specifies the excluded section rules; the default is the
+                   special string 'DEFAULT' which will make the system to use the default rules
+                   from 'FWComposer.default_ELF_ESecRules()'; pass an empty string to use none.
+
+
+The JSON string format for [is_rule] corresponds to the 'FWComposer.ELF_ISecRules' and
+'FWComposer.ELF_ISecRule' classes:
+
+    {
+        "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRules",
+        "@java.util.ArrayList#add" : [
+            {
+                "@class"        : "jxm.tool.fwc.FWComposer$ELF_ISecRule"                   ,
+                "reName"        : <regular_expression_string_of_the_section_name>          ,
+                "compositeName" : <plain_string_for_the_composite_name>                    ,
+                "addressOffset" : <start_address_offset_of_the_section_within_the_firmware>,
+                "appendAfter"   : null | <plain_string_of_a_reference_section_name>
+            }
+            ,
+            ...
+        ]
+    }
+
+To ensure that the class versions match exactly, the serial version UID can be included by replacing
+the array list specifier with something like:
+    "@java.util.ArrayList[__0_JxMake_SerialVersionUID__:<serial_version_uid>]#add"
+
+For example, the [is_rule] for ATSAMD21G18A could be:
+
+    myJSONString := [["
+    {
+        "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRules",
+        "@java.util.ArrayList[__0_JxMake_SerialVersionUID__:0x0000090900000001]#add" : [
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+                "reName" : "\.text",
+                "compositeName" : ".code",
+                "addressOffset" : 0x00002000,
+                "appendAfter" : null
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+                "reName" : "\.ARM.exidx",
+                "compositeName" : ".code",
+                "addressOffset" : 0x00000000,
+                "appendAfter" : ".text"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ISecRule",
+                "reName" : "\.data",
+                "compositeName" : ".code",
+                "addressOffset" : 0x00000000,
+                "appendAfter" : ".code"
+            }
+        ]
+    }
+    "]]
+
+
+The JSON string format for [es_rule] corresponds to the 'FWComposer.ELF_ESecRules' and
+'FWComposer.ELF_ESecRule' classes:
+
+    {
+        "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRules",
+        "@java.util.ArrayList#add" : [
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : <regular_expression_string_of_the_section_name>
+            }
+            ,
+            ...
+        ]
+    }
+
+To ensure that the class versions match exactly, the serial version UID can be included by replacing
+the array list specifier with something like:
+    "@java.util.ArrayList[__0_JxMake_SerialVersionUID__:<serial_version_uid>]#add"
+
+For example, the [es_rule] for 'FWComposer.default_ELF_ESecRules()' could be:
+
+    myJSONString := [["
+    {
+        "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRules",
+        "@java.util.ArrayList[__0_JxMake_SerialVersionUID__:0x0000090900000001]#add" : [
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "(\.[a-zA-Z0-9_]+?)?\.attributes"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.bss"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.comment"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.debug.*"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.eeprom"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.gnu.*"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.heap"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "(\.[a-zA-Z0-9_]+?)?\.info"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.note.*"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.stack_dummy"
+            }
+            ,
+            {
+                "@class" : "jxm.tool.fwc.FWComposer$ELF_ESecRule",
+                "reName" : "\.[a-zA-Z0-9_]+tab$"
+            }
+        ]
+    }
+    "]]
+
+
+----------------------------------------------------------------------------------------------------
+$mcu_prog_cfg_json()
+----------------------------------------------------------------------------------------------------
+
+<json_string > $mcu_prog_cfg_json ( <config_name> )
+
+
+<config_name> : a string that specifies the configuration name.
+
+    For <config_name>, multiple spaces (' ') and dashes ('-') will be replaced internally with
+    a single underscore ('_').
+
+    Available strings for generic-part names:
+        1. For predefined generic-part names, it is case-insensitive.
+        2. For custom generic-part names, it is case-sensitive.
+
+        These are the predefined generic-part names:
+            'ISP'
+            'TPI'
+            'UPDI'
+            'PDI'
+
+            'LGT8'
+
+            'SWIM'
+            'SWIMSTM8S'
+            'SWIMSTM8L'
+
+            'SWD'
+
+            'PIC10'
+            'PIC12'
+            'PIC16'
+            'PIC18'
+            'PIC24'
+            'dsPIC30'
+            'dsPIC33'
+            ##### !!! TODO : Other PICs !!! #####
+
+            'AVR109'
+            'STK500'
+            'STK500v2'
+            'Chip45'
+            'TSB'
+            'URCLOCK'
+            'STM32Serial'
+            'STM32DFU'      ##### !!! TODO !!! #####
+            'LUFAHID'       ##### !!! TODO !!! #####
+            'AVRDFU'        ##### !!! TODO !!! #####
+            'OpenBLT'
+            'SAMBA'
+            'USBasp'        ##### !!! TODO !!! #####
+
+        Examples of custom generic-part names:
+            'jxm.ugc.ProgSWIM$ConfigSTM8S'
+            'jxm.ugc.ProgPIC18$Config'
+
+    Available strings for specific-part names:
+        1. For predefined specific-part names, the first part is case-insensitive, but the second part is case-sensitive.
+        2. For custom specific-part names, both parts are case-sensitive.
+
+        These are the predefined specific-part names:
+            'ISP:ATmega328P'
+            'ISP:ArduinoUnoR3'
+            'ISP:ArduinoUnoRev3'
+            'ISP:ArduinoNano'
+            'ISP:ArduinoProMini'
+            'ISP:ArduinoMicro'
+
+            'TPI:ATtiny10'
+
+            'UPDI:ATmega4808'
+            'UPDI:ATmega4809'
+            'UPDI:ThinaryNanoEvery'
+            'UPDI:ArduinoNanoEvery'
+            'UPDI:ArduinoUnoWiFiR2'
+            'UPDI:ArduinoUnoWiFiRev2'
+            'UPDI:ATtiny3226'
+            'UPDI:AVR32DA'                   // ??? ??? ???
+            'UPDI:AVR64DA'                   // ??? ??? ???
+            'UPDI:AVR128DA'
+            'UPDI:AVR32DB'                   // ??? ??? ???
+            'UPDI:AVR64DB'                   // ??? ??? ???
+            'UPDI:AVR128DB'                  // ??? ??? ???
+            'UPDI:AVR16DD'                   // ??? ??? ???
+            'UPDI:AVR32DD'                   // ??? ??? ???
+            'UPDI:AVR64DD'                   // ??? ??? ???
+            'UPDI:AVR16DU'                   // ??? ??? ???
+            'UPDI:AVR32DU'                   // ??? ??? ???
+            'UPDI:AVR64DU'                   // ??? ??? ???
+            'UPDI:AVR16EA'                   // ??? ??? ???
+            'UPDI:AVR32EA'
+            'UPDI:AVR64EA'                   // ??? ??? ???
+            'UPDI:AVR32SD'                   // ??? ??? ???
+            'UPDI:AVR64SD'                   // ??? ??? ???
+
+            'PDI:ATxmega16D4'
+
+            'LGT8:LGT8F328P'
+
+            'SWIM:STM8S003'
+            'SWIM:STM8S103'
+            'SWIM:STM8L151'
+
+            'PIC:PIC10F200'                  // ??? ??? ???
+            'PIC:PIC10F202'                  // ??? ??? ???
+            'PIC:PIC10F204'                  // ??? ??? ???
+            'PIC:PIC10F206'                  // ??? ??? ???
+            'PIC:PIC10F220'                  // ??? ??? ???
+            'PIC:PIC10F222'                  // ??? ??? ???
+            'PIC:PIC12F508'
+            'PIC:PIC12F509'
+            'PIC:PIC12F629'
+            'PIC:PIC12F675'
+            'PIC:PIC16F54'
+            'PIC:PIC16F57'
+            'PIC:PIC16F59'
+            'PIC:PIC16F630'
+            'PIC:PIC16F676'
+            'PIC:PIC16F73'
+            'PIC:PIC16F74'
+            'PIC:PIC16F76'
+            'PIC:PIC16F77'
+            'PIC:PIC16F83'
+            'PIC:PIC16F84'
+            'PIC:PIC16F84A'
+            'PIC:PIC16F870'
+            'PIC:PIC16F871'
+            'PIC:PIC16F872'
+            'PIC:PIC16F873'
+            'PIC:PIC16F873A'
+            'PIC:PIC16F874'
+            'PIC:PIC16F874A'
+            'PIC:PIC16F876'
+            'PIC:PIC16F876A'
+            'PIC:PIC16F877'
+            'PIC:PIC16F877A'
+            'PIC:PIC16F1501'
+            'PIC:PIC16F1503'
+            'PIC:PIC16F1507'
+            'PIC:PIC16F1508'
+            'PIC:PIC16F1509'
+            'PIC:PIC18F2520'
+            'PIC:PIC18F4520'
+            'PIC:PIC18F24J11'
+            'PIC:PIC18F25J11'
+            'PIC:PIC18F26J11'
+            'PIC:PIC18F44J11'
+            'PIC:PIC18F45J11'
+            'PIC:PIC18F46J11'
+            'PIC:PIC18F24J50'
+            'PIC:PIC18F25J50'
+            'PIC:PIC18F26J50'
+            'PIC:PIC18F44J50'
+            'PIC:PIC18F45J50'
+            'PIC:PIC18F46J50'
+            'PIC:PIC18F25K50'
+            'PIC:PIC18F45K50'
+            'PIC:PIC24FJ32GB00x'
+            'PIC:PIC24FJ64GB00x'
+            'PIC:dsPIC30F3010'
+            'PIC:dsPIC30F3011'
+            'PIC:dsPIC33EP16GS202'
+            'PIC:dsPIC33EP32GS202'           // ??? ??? ???
+
+            'AVR109:ATmega8U2'
+            'AVR109:ATmega16U2'
+            'AVR109:ATmega32U2'
+            'AVR109:ATmega16U4'
+            'AVR109:ATmega32U4'
+            'AVR109:ArduinoLeonardo'
+            'AVR109:SparkFunProMicro'
+            'AVR109:AdafruitTrinket'
+            'AVR109:AdafruitItsyBitsy32U4'
+            'AVR109:AT90USB82'
+            'AVR109:AT90USB162'
+            'AVR109:AT90USB646'
+            'AVR109:AT90USB1286'
+            'AVR109:AT90USB647'
+            'AVR109:AT90USB1287'
+            'AVR109:DTAVRInoduino'
+
+            'STK500:ATtiny13'
+            'STK500:ATmega8A'
+            'STK500:ATmega16A'
+            'STK500:ATmega32A'
+            'STK500:ATmega64A'
+            'STK500:ATmega128A'
+            'STK500:ATmega48P'
+            'STK500:ATmega88P'
+            'STK500:ATmega168P'
+            'STK500:ATmega328P'
+            'STK500:ArduinoUnoR3'
+            'STK500:ArduinoUnoRev3'
+            'STK500:ArduinoNano'
+            'STK500:ArduinoProMini168'
+            'STK500:ArduinoProMini328'
+            'STK500:ArduinoProMini'
+            'STK500:ATmega640'
+            'STK500:ATmega1280'
+            'STK500:ATmega2560'
+            'STK500:ArduinoMega1280'
+            'STK500:ArduinoMega2560'
+            'STK500:ArduinoMega'
+
+            'STK500v2:...'                   // See 'STK500:*'
+            'Chip45:...'                     // See 'STK500:*'
+            'TSB:...'                        // See 'STK500:*'
+
+            'URCLOCK:ATmega8A'
+            'URCLOCK:ATmega16A'
+            'URCLOCK:ATmega32A'
+            'URCLOCK:ATmega64A'
+            'URCLOCK:ATmega128A'
+            'URCLOCK:ATmega48P'
+            'URCLOCK:ATmega88P'
+            'URCLOCK:ATmega168P'
+            'URCLOCK:ATmega328P'
+            'URCLOCK:ATmega164P'
+            'URCLOCK:ATmega324P'
+            'URCLOCK:ATmega644P'
+            'URCLOCK:ATmega1284P'
+
+            'STM32Serial:STM32_8k_128B'
+            'STM32Serial:STM32_8k_256B'
+                                  ...
+            'STM32Serial:STM32_8k_2k'
+            'STM32Serial:STM32_16k_128B'
+            'STM32Serial:STM32_16k_256B'
+                                   ...
+            'STM32Serial:STM32_16k_2k'
+            'STM32Serial:STM32_32k_128B'
+            'STM32Serial:STM32_32k_256B'
+                                   ...
+            'STM32Serial:STM32_32k_4k'
+            'STM32Serial:STM32_64k_256B'
+            'STM32Serial:STM32_64k_512B'
+                                   ...
+            'STM32Serial:STM32_64k_4k'
+            'STM32Serial:STM32_128k_512B'
+            'STM32Serial:STM32_128k_1k'
+                                   ...
+            'STM32Serial:STM32_128k_8k'
+            'STM32Serial:STM32_256k_1k'
+            'STM32Serial:STM32_256k_2k'
+                                   ...
+            'STM32Serial:STM32_256k_32k'
+            'STM32Serial:STM32_512k_2k'
+            'STM32Serial:STM32_512k_4k'
+                                   ...
+            'STM32Serial:STM32_512k_32k'
+            'STM32Serial:STM32_1M_4k'
+            'STM32Serial:STM32_1M_8k'
+                                   ...
+            'STM32Serial:STM32_1M_64k'
+            'STM32Serial:STM32_2M_8k'
+            'STM32Serial:STM32_2M_16k'
+                                   ...
+            'STM32Serial:STM32_2M_128k'
+
+            'STM32DFU:...'                   // See 'STM32Serial:*'   ##### !!! TODO !!! #####
+
+            'LUFAHID:...'                    // See 'AVR109:*'        ##### !!! TODO !!! #####
+
+            'AVRDFU:...'                     // See 'AVR109:*'        ##### !!! TODO !!! #####
+            'AVRDFU:ATxmega16A4U'            // ??? ??? ???
+            'AVRDFU:ATxmega32A4U'            // ??? ??? ???
+            'AVRDFU:ATxmega64A4U'            // ??? ??? ???
+            'AVRDFU:ATxmega128A4U'           // ??? ??? ???
+
+            'OpenBLT:...'                    // See 'STM32Serial:*'
+
+            'SAMBA:ATSAM3A4'                 // ??? ??? ???
+            'SAMBA:ATSAM3A8'                 // ??? ??? ???
+            'SAMBA:ATSAM3X4'                 // ??? ??? ???
+            'SAMBA:ATSAM3X8'
+            'SAMBA:ArduinoDue'
+            'SAMBA:DiymoreDueR3'
+            'SAMBA:ATSAMD21x15'              // ??? ??? ???
+            'SAMBA:ATSAMD21x16'              // ??? ??? ???
+            'SAMBA:ATSAMD21x17'              // ??? ??? ???
+            'SAMBA:ATSAMD21x18'
+            'SAMBA:ArduinoZero'
+            'SAMBA:ArduinoMKRZero'
+            'SAMBA:SeeeduinoXIAO'
+            'SAMBA:AdafruitFeatherM0'
+            'SAMBA:SparkFunSAMD21Mini'
+
+            'USBASP:...'                     // See 'STK500:*'        ##### !!! TODO !!! #####
+
+            ##### !!! TODO : Add more strings !!! #####
+
+        Examples of custom specific-part names:
+            'jxm.ugc.ProgLGT8$Config:LGT8F328P'
+            'jxm.ugc.ProgPIC18$Config:PIC18F4520'
+
+    Available predefined strings for 'jxm.ugc.ProgSWDLowLevel$Config.memoryFlash.driverName' (case-sensitive):
+        'stm32f0x'                           // ??? ??? ???
+        'stm32f1x'
+        'stm32f2x'                           // ??? ??? ???
+        'stm32f3x'                           // ??? ??? ???
+        'stm32f4x'
+        'stm32f6x'                           // ??? ??? ???
+        'stm32f7x'                           // ??? ??? ???
+        'stm32g0x0'
+        'stm32g4x'
+        'stm32h72x'                          // ??? ??? ???
+        'stm32h73x'                          // ??? ??? ???
+        'stm32h74x_bank0'                    // ??? ??? ???
+        'stm32h74x_bank1'                    // ??? ??? ???
+        'stm32h75x_bank0'
+        'stm32h75x_bank1'                    // ??? ??? ???
+        'stm32h7ax_bank0'                    // ??? ??? ???
+        'stm32h7ax_bank1'                    // ??? ??? ???
+        'stm32h7bx_bank0'                    // ??? ??? ???
+        'stm32h7bx_bank1'                    // ??? ??? ???
+        'stm32h742_w25q'                     // ??? ??? ???
+        'stm32h743_w25q'                     // ??? ??? ???
+        'stm32h750_w25q'
+        'stm32h753_w25q'                     // ??? ??? ???
+        'stm32l0x'
+        'stm32l1x'
+        'stm32l4x'
+        'stm32l5x_ns'                        // ??? ??? ???
+        'stm32l5x_s'                         // ??? ??? ???
+        'stm32xl_bank0'                      // ??? ??? ???
+        'stm32xl_bank1'                      // ??? ??? ???
+        'stm32wlex'
+        'nrf51'
+        'nrf52'
+        'atsamdx'
+        'atsam3x'
+        'rp2040'
+        'rp235x'
+        'rp235xx'
+        'rp2350'
+        'rp235x_blm'
+        'rp235xx_blm'
+        'rp2350_blm'
+        'renesas_ra4m1'
+
+        ##### !!! TODO : Add more strings !!! #####
+
+    It is also possible to use a fully qualified custom class name for the string above; for example:
+        'org.myown.MySWD_FlashLoader.my_mcu_name'
+    Note that the class 'MySWD_FlashLoader' must extends the 'SWDFlashLoader' class and has this public static function:
+        public static Specifier _getSpecifier_my_mcu_name(final ProgSWD.Config config, final SWDExecInst swdExecInst)
+    implemented.
+
+        It is also possible to use a fully qualified custom class name for the string above; for example:
+            'org.myown.MySWD_FlashLoader.my_mcu_name'
+        Note that the class 'MySWD_FlashLoader' must extend the 'jxm.ugc.fl.SWDFlashLoader' class and
+        implement the following public static method:
+            public static Specifier _getSpecifier_my_mcu_name(
+                final ProgSWD.Config config,
+                final SWDExecInst    swdExecInst
+            )
+
+    Available predefined strings for 'jxm.ugc.ProgBootSAMBA$Config.appletInfo.flashDriver' (case-sensitive):
+        'D2X'
+        'D5X'                                // ??? ??? ???
+        'EFC'                                // ??? ??? ???
+        'EEFC'
+
+        It is also possible to use a fully qualified custom class name for the string above; for example:
+            'org.myown.MySAMBA_FlashDriver'
+        Note that the class 'MySAMBA_FlashDriver' must extend the 'jxm.ugc.ProgBootSAMBA$FlashOper'
+        class and implement all the required methods.
+
+    Please consult the 'Prog*.Config' classes and the MCU datasheets about how to modify/fill the
+    JSON string.
+
+
+<json_string> : the resulting basic JSON string.
+
+
+To ensure that the class versions match exactly, the resulting JSON string will include a special
+serial version UID field ('__0_JxMake_SerialVersionUID__'), if this is not required you can remove
+this field from the JSON string.
+
+
+Example:
+
+    myJSONString := [["
+        {
+            "@class" : "jxm.ugc.ProgISP$Config",
+            "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+            "spiMode" : "_0",
+            "ssMode" : "ActiveLow",
+            "programmingEnable" : {
+                "@class" : "jxm.ugc.ProgISP$Config$ProgrammingEnable",
+                "instruction" : [ 0xAC, 0x53, 0x00, 0x00 ],
+                "responseCheck" : [ -1  , -1  , 0x53, -1   ],
+                "retryCount" : 32
+            },
+            "readSignature" : {
+                "@class" : "jxm.ugc.ProgISP$Config$ReadSignature",
+                "instruction" : [
+                    0x30, 0x00, 0x00, 0x00, 0x30, 0x00, 0x01, 0x00, 0x30, 0x00, 0x02, 0x00
+                ],
+                "responseIndex" : [ 3, 7, 11 ]
+            },
+            "chipErase" : {
+                "@class" : "jxm.ugc.ProgISP$Config$ChipErase",
+                "instruction" : [ 0xAC, 0x80, 0x00, 0x00 ],
+                "waitDelay_MS" : 10
+            },
+            "memoryFlash" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryFlash",
+                "paged" : true,
+                "totalSize" : 32768,
+                "pageSize" : 128,
+                "numPages" : 256,
+                "instruction_LoadExtAddrByte" : [ 0x4D, 0x00, -1  , 0x00 ],
+                "a0idx_LoadExtAddrByte" : 2,
+                "instruction_ReadProgMemLB" : [ 0x20, -1  , -1  , 0x00 ],
+                "instruction_ReadProgMemHB" : [ 0x28, -1  , -1  , 0x00 ],
+                "a1idx_ReadProgMemXB" : 1,
+                "a0idx_ReadProgMemXB" : 2,
+                "responseIndex_ReadProgMemXB" : 3,
+                "readDataBuff" : null,
+                "instruction_LoadProgMemLB" : [ 0x40, -1  , -1  , -1   ],
+                "instruction_LoadProgMemHB" : [ 0x48, -1  , -1  , -1   ],
+                "a1idx_LoadProgMemXB" : 1,
+                "a0idx_LoadProgMemXB" : 2,
+                "dtidx_LoadProgMemXB" : 3,
+                "instruction_WriteProgMemPage" : [ 0x4C, -1  , -1  , 0x00 ],
+                "a1idx_WriteProgMemPage" : 1,
+                "a0idx_WriteProgMemPage" : 2,
+                "waitDelay_MS_WriteProgMemPage" : 5,
+                "paged_direct" : false,
+                "pageSize_direct" : 0,
+                "numPages_direct" : 0,
+                "instruction_WritePageDirect" : null,
+                "a1idx_WritePageDirect" : 1,
+                "a0idx_WritePageDirect" : 2,
+                "waitDelay_MS_WritePageDirect" : 5,
+                "instruction_WriteProgMemLB" : null,
+                "instruction_WriteProgMemHB" : null,
+                "a1idx_WriteProgMemXB" : 1,
+                "a0idx_WriteProgMemXB" : 2,
+                "dtidx_WriteProgMemXB" : 3,
+                "waitDelay_MS_WriteProgMem" : 5
+            },
+            "memoryEEPROM" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryEEPROM",
+                "totalSize" : 1024,
+                "instruction_ReadEEPROMMem" : [ 0xA0, -1  , -1  , 0x00 ],
+                "a1idx_ReadEEPROMMem" : 1,
+                "a0idx_ReadEEPROMMem" : 2,
+                "responseIndex_ReadEEPROMMem" : 3,
+                "instruction_WriteEEPROMMem" : [ 0xC0, -1  , -1  , -1   ],
+                "a1idx_WriteEEPROMMem" : 1,
+                "a0idx_WriteEEPROMMem" : 2,
+                "dtidx_WriteEEPROMMem" : 3,
+                "waitDelay_MS_WriteEEPROMMem" : 4
+            },
+            "memoryLFuse" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryLFuse",
+                "instruction_ReadLFuse" : [ 0x50, 0x00, 0x00, 0x00 ],
+                "responseIndex_ReadLFuse" : 3,
+                "instruction_WriteLFuse" : [ 0xAC, 0xA0, 0x00, -1   ],
+                "dtidx_WriteLFuse" : 3,
+                "waitDelay_MS_WriteLFuse" : 5
+            },
+            "memoryHFuse" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryHFuse",
+                "instruction_ReadHFuse" : [ 0x58, 0x08, 0x00, 0x00 ],
+                "responseIndex_ReadHFuse" : 3,
+                "instruction_WriteHFuse" : [ 0xAC, 0xA8, 0x00, -1   ],
+                "dtidx_WriteHFuse" : 3,
+                "waitDelay_MS_WriteHFuse" : 5
+            },
+            "memoryEFuse" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryEFuse",
+                "instruction_ReadEFuse" : [ 0x50, 0x08, 0x00, 0x00 ],
+                "responseIndex_ReadEFuse" : 3,
+                "instruction_WriteEFuse" : [ 0xAC, 0xA4, 0x00, -1   ],
+                "dtidx_WriteEFuse" : 3,
+                "waitDelay_MS_WriteEFuse" : 5
+            },
+            "memoryLockBits" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryLockBits",
+                "instruction_ReadLockBits" : [ 0x58, 0x00, 0x00, 0x00 ],
+                "responseIndex_ReadLockBits" : 3,
+                "instruction_WriteLockBits" : [ 0xAC, 0xE0, 0x00, -1   ],
+                "dtidx_WriteLockBits" : 3,
+                "waitDelay_MS_WriteLockBits" : 5
+            },
+            "memoryCalibrationByte" : {
+                "@class" : "jxm.ugc.ProgISP$Config$MemoryCalibrationByte",
+                "instruction_ReadCalibrationByte" : [ 0x38, 0x00, 0x00, 0x00 ],
+                "responseIndex_ReadCalibrationByte" : 3
+            }
+        }
+    "]]
+
+
+----------------------------------------------------------------------------------------------------
+$mcu_prog_cfg_ini()
+----------------------------------------------------------------------------------------------------
+
+<ini_string > $mcu_prog_cfg_ini ( <config_name> )
+
+
+<config_name> : a string that specifies the configuration name.
+
+<ini_string>  : the resulting basic INI string.
+
+
+NOTE : Please refer to '$mcu_prog_cfg_json()' for more details.
+
+
+Example:
+
+    myINIString := [["
+        [CLASS:jxm.ugc.ProgISP$Config@0x0000090900000001]
+
+        spiMode                                                 = _0
+
+        ssMode                                                  = ActiveLow
+
+        programmingEnable.instruction                           = 0xAC, 0x53, 0x00, 0x00
+        programmingEnable.responseCheck                         = -1  , -1  , 0x53, -1
+        programmingEnable.retryCount                            = 32
+
+        readSignature.instruction                               = 0x30, 0x00, 0x00, 0x00, 0x30, 0x00, 0x01, 0x00, 0x30, \
+                                                                  0x00, 0x02, 0x00
+        readSignature.responseIndex                             = 3, 7, 11
+
+        chipErase.instruction                                   = 0xAC, 0x80, 0x00, 0x00
+        chipErase.waitDelay_MS                                  = 10
+
+        memoryFlash.paged                                       = true
+        memoryFlash.totalSize                                   = 32768
+        memoryFlash.pageSize                                    = 128
+        memoryFlash.numPages                                    = 256
+        memoryFlash.instruction_LoadExtAddrByte                 = 0x4D, 0x00, -1  , 0x00
+        memoryFlash.a0idx_LoadExtAddrByte                       = 2
+        memoryFlash.instruction_ReadProgMemLB                   = 0x20, -1  , -1  , 0x00
+        memoryFlash.instruction_ReadProgMemHB                   = 0x28, -1  , -1  , 0x00
+        memoryFlash.a1idx_ReadProgMemXB                         = 1
+        memoryFlash.a0idx_ReadProgMemXB                         = 2
+        memoryFlash.responseIndex_ReadProgMemXB                 = 3
+        memoryFlash.readDataBuff                                = null
+        memoryFlash.instruction_LoadProgMemLB                   = 0x40, -1  , -1  , -1
+        memoryFlash.instruction_LoadProgMemHB                   = 0x48, -1  , -1  , -1
+        memoryFlash.a1idx_LoadProgMemXB                         = 1
+        memoryFlash.a0idx_LoadProgMemXB                         = 2
+        memoryFlash.dtidx_LoadProgMemXB                         = 3
+        memoryFlash.instruction_WriteProgMemPage                = 0x4C, -1  , -1  , 0x00
+        memoryFlash.a1idx_WriteProgMemPage                      = 1
+        memoryFlash.a0idx_WriteProgMemPage                      = 2
+        memoryFlash.waitDelay_MS_WriteProgMemPage               = 5
+        memoryFlash.paged_direct                                = false
+        memoryFlash.pageSize_direct                             = 0
+        memoryFlash.numPages_direct                             = 0
+        memoryFlash.instruction_WritePageDirect                 = null
+        memoryFlash.a1idx_WritePageDirect                       = 1
+        memoryFlash.a0idx_WritePageDirect                       = 2
+        memoryFlash.waitDelay_MS_WritePageDirect                = 5
+        memoryFlash.instruction_WriteProgMemLB                  = null
+        memoryFlash.instruction_WriteProgMemHB                  = null
+        memoryFlash.a1idx_WriteProgMemXB                        = 1
+        memoryFlash.a0idx_WriteProgMemXB                        = 2
+        memoryFlash.dtidx_WriteProgMemXB                        = 3
+        memoryFlash.waitDelay_MS_WriteProgMem                   = 5
+
+        memoryEEPROM.totalSize                                  = 1024
+        memoryEEPROM.instruction_ReadEEPROMMem                  = 0xA0, -1  , -1  , 0x00
+        memoryEEPROM.a1idx_ReadEEPROMMem                        = 1
+        memoryEEPROM.a0idx_ReadEEPROMMem                        = 2
+        memoryEEPROM.responseIndex_ReadEEPROMMem                = 3
+        memoryEEPROM.instruction_WriteEEPROMMem                 = 0xC0, -1  , -1  , -1
+        memoryEEPROM.a1idx_WriteEEPROMMem                       = 1
+        memoryEEPROM.a0idx_WriteEEPROMMem                       = 2
+        memoryEEPROM.dtidx_WriteEEPROMMem                       = 3
+        memoryEEPROM.waitDelay_MS_WriteEEPROMMem                = 4
+
+        memoryLFuse.instruction_ReadLFuse                       = 0x50, 0x00, 0x00, 0x00
+        memoryLFuse.responseIndex_ReadLFuse                     = 3
+        memoryLFuse.instruction_WriteLFuse                      = 0xAC, 0xA0, 0x00, -1
+        memoryLFuse.dtidx_WriteLFuse                            = 3
+        memoryLFuse.waitDelay_MS_WriteLFuse                     = 5
+
+        memoryHFuse.instruction_ReadHFuse                       = 0x58, 0x08, 0x00, 0x00
+        memoryHFuse.responseIndex_ReadHFuse                     = 3
+        memoryHFuse.instruction_WriteHFuse                      = 0xAC, 0xA8, 0x00, -1
+        memoryHFuse.dtidx_WriteHFuse                            = 3
+        memoryHFuse.waitDelay_MS_WriteHFuse                     = 5
+
+        memoryEFuse.instruction_ReadEFuse                       = 0x50, 0x08, 0x00, 0x00
+        memoryEFuse.responseIndex_ReadEFuse                     = 3
+        memoryEFuse.instruction_WriteEFuse                      = 0xAC, 0xA4, 0x00, -1
+        memoryEFuse.dtidx_WriteEFuse                            = 3
+        memoryEFuse.waitDelay_MS_WriteEFuse                     = 5
+
+        memoryLockBits.instruction_ReadLockBits                 = 0x58, 0x00, 0x00, 0x00
+        memoryLockBits.responseIndex_ReadLockBits               = 3
+        memoryLockBits.instruction_WriteLockBits                = 0xAC, 0xE0, 0x00, -1
+        memoryLockBits.dtidx_WriteLockBits                      = 3
+        memoryLockBits.waitDelay_MS_WriteLockBits               = 5
+
+        memoryCalibrationByte.instruction_ReadCalibrationByte   = 0x38, 0x00, 0x00, 0x00
+        memoryCalibrationByte.responseIndex_ReadCalibrationByte = 3
+    "]]
+
+
+----------------------------------------------------------------------------------------------------
+$mcu_prog_exec()
+----------------------------------------------------------------------------------------------------
+
+<output_value> $mcu_prog_exec ( <bend_spec>, <prg_spec>, <mcu_sig>, <cmds>, <fwc_handle>, <empty_byte> )
+
+
+<bend_spec>    : a set of strings that specify the backend to be used.
+
+    { <backend_name> [, parameter]... }
+
+    For <backend_name>, multiple spaces (' ') and dashes ('-') will be replaced internally with
+    a single underscore ('_').
+
+    Backend USB_ISS                : { 'USB-ISS'                      ,
+                                       <serial_device_name>
+                                     }
+
+    Backend JxMake DASA            : { 'DASA' or 'JxMake DASA'        ,
+                                       <serial_device_name>
+                                     }
+
+    Backend JxMake USB-GPIO Module : { 'USB-GPIO' or 'JxMake USB-GPIO',
+                                       <primary_serial_device_name>   ,
+                                       <secondary_serial_device_name> ,
+                                       <auto_notify_error_message>
+                                     }
+
+    Examples:
+
+        myBackendSpecifier := 'USB-ISS'         '/dev/ttyACM0'
+        myBackendSpecifier := 'JxMake DASA'     '/dev/ttyUSB0'
+
+        myBackendSpecifier := 'Jxmake USB-GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+        myBackendSpecifier := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+        myBackendSpecifier := 'JXMAKE_USB_GPIO' ''             '0'            'true'
+
+    NOTE : # Some '<prg_spec>' does not require '<bend_spec>', in this case you must put an empty
+             string ('') for '<bend_spec>' (see below to find out which one).
+           # When using 'JxMake USB-GPIO', you can pass '' as the '<primary_serial_device_name>'
+             and the pair number to the '<secondary_serial_device_name>' to auto-connect to the
+             Nth available JxMake USB-GPIO module.
+           # Please note that if more than one JxMake USB-GPIO module is connected to the same
+             external USB hub, the detection process may not be too reliable (depending on the hub
+             make and model)!
+
+
+<prg_spec>     : a set of strings that specify the programmer to be used.
+
+    { <programmer_name> , <parameter>... }
+
+    For <programmer_name>, multiple spaces (' ') and dashes ('-') will be replaced internally with
+    a single underscore ('_').
+
+    Backend ProgISP             : { 'ProgISP'                      ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <spi_clock_frequency>
+                                  }
+
+    Backend ProgTPI             : { 'ProgTPI'                      ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgUPDI            : { 'ProgUPDI'                     ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgPDI             : { 'ProgPDI'                      ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgSWIM            : { 'ProgSWIM'                     ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <UNUSED>                       ,
+                                  }
+
+    Backend ProgSWD             : { 'ProgSWD'                      ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <swd_clock_frequency>          ,
+                                    [index_to_default_multidrop_id],   # Index starts from 1
+                                    [multidrop_id]...
+                                  }
+
+    Backend ProgPIC16           : { 'ProgPIC16'                    ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <pgc_frequency>                    # Currently ignored by the ProgPIC16 implementation
+                                  }
+
+    Backend ProgPIC18           : { 'ProgPIC18'                    ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <pgc_frequency>
+                                  }
+
+    Backend ProgPIC24           : { 'ProgPIC24'                    ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <pgc_frequency>
+                                  }
+
+    Backend ProgDSPIC30         : { 'ProgDSPIC30'                  ,
+                                    <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <UNUSED>                       ,
+                                    <pgc_frequency>                    # Currently ignored by the ProgDSPIC30 implementation in non-EICSP mode
+                                  }
+
+    Backend ProgJTAG            : { 'ProgJTAG'                     ,
+                                    <UNUSED>                       ,
+                                    <UNUSED>                       ,
+                                    <tck_default_clock_frequency>
+                                  }
+
+    Backend ProgBootAVR109      : { 'ProgBootAVR109'               ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <magic_baudrate_or_baudrate>       # Typically 1200:
+                                  }                                    #     + Values > 0 are treated as explicit magic baudrates to trigger
+                                                                       #       CDC ACM bootloader mode
+                                                                       #     + Values from 0 to -2400 (inclusive) are internally replaced with
+                                                                       #       the default magic baudrate to trigger CDC ACM bootloader mode
+                                                                       #     + Values < -2400 indicate the target is not a CDC ACM bootloader
+                                                                       #       and will be internally converted to a positive value before use
+
+    Backend ProgBootSTK500      : { 'ProgBootSTK500'               ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgBootSTK500v2    : { 'ProgBootSTK500v2'             ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgBootChip45B2    : { 'ProgBootChip45B2'             ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,
+                                    <rs485>                            # Put <= 0 to use normal serial mode
+                                  }
+
+    Backend ProgBootChip45B3    : { 'ProgBootChip45B3'             ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,
+                                    <rs485_address>                ,   # Put <= 0 to use normal serial mode
+                                    [XTEA_key1_UInt32              ,
+                                     XTEA_key2_UInt32              ,
+                                     XTEA_key3_UInt32              ,
+                                     XTEA_key4_UInt32]
+                                  }
+
+    Backend ProgBootTSB         : { 'ProgBootTSB'                  ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,
+                                    [current_password]             ,
+                                    [new_password]
+                                  }
+
+    Backend ProgBootURCLOCK     : { 'ProgBootURCLOCK'              ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>
+                                  }
+
+    Backend ProgBootSTM32Serial : { 'ProgBootSTM32Serial'          ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,
+                                    <go_address>                       # Put < 0 to use the default address 0x08000000
+                                  }
+
+    ##### !!! TODO !!! #####
+    Backend ProgBootSTM32DFU    : { 'ProgBootSTM32DFU'             ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    [vid]                          ,
+                                    [pid]                          ,
+                                    [serial_number]
+                                  }
+
+    Backend ProgBootLUFAPrinter : { 'ProgBootLUFAPrinter'          ,
+    (<bend_spec> := '')             <lufa_printer_name>
+                                  }
+
+    ##### !!! TODO !!! #####
+    Backend ProgBootAVRDFU      : { 'ProgBootAVRDFU'               ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    [vid]                          ,
+                                    [pid]                          ,
+                                    [serial_number]
+                                  }
+
+    Backend ProgBootOpenBLT     : { 'ProgBootOpenBLT'              ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,   # Use negative value to enable UART checksum
+                                    <flash_base_address>           ,   # Put < 0 to use the default address 0x00000000 (or from callback)
+                                    <bootloader_size>              ,   # Put < 0 to use the default size    0x2000     (or from callback)
+                                    <user_prog_vector_table_size>  ,   # Put < 0 to use the default size    0x0000     (or from callback)
+                                    [key, ...]                         # Use "cb:<callback_function_name>" to use a user-defined
+                                  }                                    # callback function instead of fixed key value(s)
+
+                                  Example of a user-defined callback function for 'ProgBootOpenBLT':
+
+                                      function prog_cb(requestType, requestParam)
+                                          if ${requestType} == 1 : return 0x08000000 # 1 : REQ_FLASH_BASE_ADDR
+                                          if ${requestType} == 2 : return 0x2000     # 2 : REQ_BOOTLOADER_SIZE
+                                          if ${requestType} == 3 : return 0x010C     # 2 : REQ_UPROG_VTAB_SIZE
+                                          if ${requestType} == 9                     # 3 : REQ_KEY_FROM_SEED
+                                              local key := ${requestParam}<1>
+                                              dec   key
+                                              return ${key}
+                                          endif
+                                      endfunction
+
+    Backend ProgBootSAMBA       : { 'ProgBootSAMBA'                ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    <target_serial_device_name>    ,
+                                    <baudrate>                     ,
+                                    <magic_baudrate>                   # It is usually 1200
+                                  }
+
+    ##### !!! TODO !!! #####
+    Backend ProgBootUSBasp      : { 'ProgBootUSBasp'               ,
+    (<bend_spec> := '')             <configuration_json_string>    ,   # See '$mcu_prog_cfg_json()'
+                                    [vid]                          ,
+                                    [pid]                          ,
+                                    [manufacturer_string]          ,
+                                    [product_string]               ,
+                                    [serial_number]
+                                  }
+
+
+    Examples:
+
+        myProgramerSpecifier := 'ProgISP'   ${mcuConfigJSON} '' '500000'
+        myProgramerSpecifier := 'ProgPIC18' ${mcuConfigJSON} '' '8000000'
+        myProgramerSpecifier := 'ProgSWIM'  ${mcuConfigJSON} '' '0'
+
+    NOTE : The <target_serial_device_name> supports three types of strings:
+               # Plain serial device name, such as '/dev/ttyUSB0'
+               # JxMake USB-GPIO module descriptor:
+                     'jxm:<primary_serial_device>:<secondary_serial_device>'
+                 examples:
+                     'jxm:COM15:COM16'
+                     'jxm:/dev/ttyACM0:/dev/ttyACM1'
+                     'jxm:dev/cu.usbmodem141011:/dev/cu.usbmodemusbmodem14102'
+               # Serial-over-network device descriptor:
+                     'net:<hostNameOrIP>:<uploadPort>:[urlSetBaudrate_printfFormat]'
+                 examples:
+                     'net:esp-link.local:2323:console/baud?rate=%d'
+                     'net:10.0.0.111:2323:console/baud?rate=%d'
+                     'net:192.168.0.1:2323:'
+
+
+<mcu_sig>      : a set of numbers that specify the MCU signature.
+
+    Examples:
+
+        myMCUSignature := 0x1E 0x95 0x0F   # ATmega328P
+        myMCUSignature := 0x10 0x80        # PIC18F4520
+        myMCUSignature := -1               # STM8 does not support signature!
+
+    NOTE : ProgJTAG does not use this parameter; simply set it to -1.
+
+
+<cmds>         : a set of strings that specify the commands and their parameters.
+
+    Command 'no_operation'
+        Purpose    : Do nothing.
+        Parameters : NONE
+        Return     : NONE
+
+    Command 'chip_erase'
+        Purpose    : Perform chip erase.
+        Parameters : NONE
+        Return     : NONE
+
+    Command 'read_flash'
+        Purpose    : Read firmware from the flash.
+        Parameters : <start_address> <number_of_bytes>
+        Return     : The firmware bytes.
+
+    Command 'write_flash'
+        Purpose    : Write the firmware from '<fwc_handle>' to the flash.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is the same as 'write_flash_application_section' for ProgPDI!
+
+    Command 'write_flash_boot_section'
+        Purpose    : Write the firmware from '<fwc_handle>' to the flash (boot section).
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is currently ONLY AVAILABLE for ProgPDI!
+
+    Command 'write_flash_application_section'
+        Purpose    : Write the firmware from '<fwc_handle>' to the flash (application section).
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is currently ONLY AVAILABLE for ProgPDI!
+
+    Command 'verify_flash'
+        Purpose    : Compare the firmware from '<fwc_handle>' with the one in the flash.
+        Parameters : NONE
+        Return     : NONE
+
+    Command 'read_eeprom'
+        Purpose    : Read a value from the EEPROM.
+        Parameters : <address>
+        Return     : The byte value.
+
+    Command 'write_eeprom'
+        Purpose    : Write a value to the EEPROM.
+        Parameters : <address> <value>
+        Return     : NONE
+
+    Command 'write_embedded_eeprom'
+        Purpose    : Write the EEPROM bytes that are embedded in the firmware binary.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is currently ONLY AVAILABLE for ProgPIC*!
+
+    Command 'read_fuses'
+        Purpose    : Read the fuse byte(s).
+        Parameters : NONE
+        Return     : The fuse byte(s).
+        NOTE       : # Fuse bytes are MCU specific; please refer to the datasheet!
+
+    Command 'write_fuses'
+        Purpose    : Write the fuse byte(s).
+        Parameters : <byte>[,...]
+        Return     : NONE
+        NOTE       : # Fuse bytes are MCU specific; please refer to the datasheet!
+
+    Command 'write_embedded_fuses'
+        Purpose    : Write the fuse byte(s) that are embedded in the firmware binary.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # Fuse bytes are MCU specific; please refer to the datasheet!
+                     # It is currently ONLY AVAILABLE for ProgPIC*!
+
+    Command 'read_lockbits'
+        Purpose    : Read the lock bits.
+        Parameters : NONE
+        Return     : The lock bits.
+        NOTE       : # Lock bits are MCU specific; please refer to the datasheet!
+                     # It is NOT AVAILABLE for ProgPIC*!
+
+    Command 'write_lockbits'
+        Purpose    : Write the lock bits.
+        Parameters : <lock_bits>
+        Return     : NONE
+        NOTE       : # Lock bits are MCU specific; please refer to the datasheet!
+                     # It is NOT AVAILABLE for ProgPIC*!
+
+    Command 'pic_program_pe'
+        Purpose    : Program the programming executive using the firmware from '<fwc_handle>' and verify.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is ONLY AVAILABLE for ProgPIC*!
+
+    Command 'pic_set_eicsp_extra_speed'
+        Purpose    : Set the EICSP extra speed
+        Parameters : <pgc_freq_wr> <pgc_freq_rd>
+        Return     : NONE
+        NOTE       : # It is ONLY AVAILABLE for ProgPIC*!
+
+    Command 'pic16_recover'
+        Purpose    : Try to recover a PIC16 MCU of which nMCLR pin has been disabled.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is ONLY AVAILABLE for ProgPIC16!
+
+    Command 'pic16_unbrick'
+        Purpose    : Try to recover a PIC16 MCU of which nMCLR pin has been disabled and cannot
+                     be recovered by using 'pic16_recover'.
+        Parameters : NONE
+        Return     : NONE
+        NOTE       : # It is ONLY AVAILABLE for ProgPIC16!
+                     # Using this function may cause (some/all) MCU factory configuration data
+                       to be lost permanently! In this case, you will need to restore the factory
+                       configuration data manually.
+
+    Command 'play_svf'
+        Purpose    : Play the SVF file
+        Parameters : <svf_file_path>
+        Return     : NONE
+        NOTE       : # It is ONLY AVAILABLE for ProgJTAG!
+
+    Examples:
+
+        myCommands := 'chip_erase' 'write_flash'   'verify_flash'
+        myCommands := 'read_fuses' 'read_lockbits' 'verify_flash'
+
+        myCommands := 'chip_erase' 'write_flash'   'verify_flash' 'write_embedded_fuses' 'write_embedded_eeprom'
+        myCommands := 'read_fuses'                 'verify_flash'
+
+        myCommands := 'pic_set_eicsp_extra_speed' '2000000' '-2000000' 'write_flash' 'verify_flash'
+
+
+<fwc_handle>   : a firmware composer handle from '$fwc_load_*()' or other sources.
+
+    NOTE : # It is possible to use one of the special strings instead of a firmware
+             composer handle. Currently, these special strings are supported:
+
+                 'ProgPIC.stdPE_dsPIC30F'
+                 'ProgPIC.stdPE_dsPIC30F_SMPS'  ##### NOT VERIFIED #####
+
+                 'ProgPIC.stdPE_dsPIC33EP_GS25'
+                 'ProgPIC.stdPE_dsPIC33EV_GM01' ##### NOT VERIFIED #####
+
+                 // ##### ??? TODO : Add more special strings ??? #####
+
+           # ProgJTAG does not use this parameter; simply set it to ''.
+
+
+<empty_byte>   : a byte that specifies the flash & EEPROM memory empty value; it will be used as
+                 the null-byte when padding the firmware; it is highly recommended to pass -1 to
+                 this parameter to allow the system use the default padding byte (which may be
+                 different for different MCUs).
+
+    NOTE : ProgJTAG does not use this parameter; simply set it to -1.
+
+<output_value> : output values ​​for commands that produce output.
+
+
+----------------------------------------------------------------------------------------------------
+Alternative to Configuration JSON Strings ('<configuration_json_string>') for '$mcu_prog_exec()'
+----------------------------------------------------------------------------------------------------
+
+While JSON text is clear and structured, it can be cumbersome to write. As an alternative,
+an INI-like format can be used. This INI-like format is as follows:
+    1. Comments are prefixed with a semicolon (;) character. Anything following the semicolon is
+       ignored.
+    2. One and one only section identifier, which must contain the fully-qualified primary (root)
+       configuration class name, along with an optional version UID. A version UID can be specified
+       using the at (@) character. This identifier must enclosed within '[CLASS:' and ']'
+    3. Key-value pairs (undefined keys will retain the class' default values):
+           a. This pairs must only appear after the section (class) name.
+           b. Keys are the fully-qualified field names within the class:
+                  * Any text before the first equal sign (=) is treated as the key.
+                  * All whitespace is ignored, except when enclosed in double quotation marks ("").
+                  * Sub-fields are separated using a dot (.) character.
+           c. The values are similar to those in the JSON strings, but:
+                  * Any text after the first equal sign (=) is treated as the value.
+                  * All whitespace is ignored, except when enclosed in double quotation marks ("").
+                  * Each element in an array value is separated by a comma (,) character.
+                  * Number values can be specified in either decimal or hexadecimal format.
+                  * Boolean values can only contain true or false.
+                  * Enum values can only contain the string representation (name) of the Java enum
+                    types.
+                  * If the field supports it, special values such as 'null' are allowed.
+                  * Unlike JSON strings, where all values are interpreted literally, INI strings
+                    support the use of constant names and special functions:
+                        * Constant names (which are actually 'public static final' fields from
+                          the hosting class) can be used by preceding the value(s) with the fully
+                          qualified hosting class name, followed by ':::'. Constant names requiring
+                          translation must be prefixed with '$',  while those that do not require
+                          translation can be written normally.
+                        * To enhance this feature, special functions can also be used. A special
+                          function is invoked by specifying the value as '$<func_name>:<param>'.
+                        *  Please note that available constant names and special functions depend
+                           on which 'Prog*.Config' class is used.
+    4. Defining and using shortcuts:
+           a. A shortcut can be defined using the syntax '#define ::: <name> = <value>'. It follows
+              the same convention as a normal key-value pair.
+           b. A shortcut can be expanded or used by using the syntax '#{<name>}'.
+           c. Please use shortcuts responsibly and carefully, as they can be easily abused. Because
+              of this, the 'INIEncoderLite' class currently does not define or use shortcuts.
+    5. The backslash (\) character can be used for line continuation. This operation is performed
+       after comment removal and, therefore, cannot be used to merge multiple lines into a single
+       comment.
+    6. This INI-like format is case-sensitive.
+
+
+NOTE : # Currently, this format is designed to support INI strings from the '$mcu_prog_cfg_ini()'
+         built-in function only. Using it for other types of INI strings may or may not work.
+       # If key-value pairs for certain fields are missing when the INI string is read and parsed,
+         the system will use the their default values.
+       # Please refer to '$mcu_prog_cfg_ini()' for more details.
+
+
+An example of section (class) name:
+    [CLASS:jxm.ugc.ProgISP$Config]
+
+An example of section (class) name with a version UID:
+
+    [CLASS:jxm.ugc.ProgISP$Config@0x0000090900000001]
+
+
+An example of key-value pairs:
+
+    spiMode                                   = _0
+    ssMode                                    = ActiveLow
+    programmingEnable.instruction             = 0xAC, 0x53, 0x00, 0x00
+    programmingEnable.responseCheck           = -1  , -1  , 0x53, -1
+    programmingEnable.retryCount              = 32
+    readSignature.instruction                 = 0x30, 0x00, 0x00, 0x00, 0x30, 0x00, \
+                                                0x01, 0x00, 0x30, 0x00, 0x02, 0x00
+    readSignature.responseIndex               = 3, 7, 11
+    memoryFlash.paged                         = true
+    memoryFlash.totalSize                     = 32768
+    memoryFlash.pageSize                      = 128
+    memoryFlash.numPages                      = 256
+    memoryFlash.instruction_LoadExtAddrByte   = 0x4D, 0x00, -1  , 0x00
+    memoryFlash.a0idx_LoadExtAddrByte         = 2,
+    memoryFlash.instruction_ReadProgMemLB     = 0x20, -1  , -1  , 0x00
+    memoryFlash.instruction_ReadProgMemHB     = 0x28, -1  , -1  , 0x00
+    memoryFlash.a1idx_ReadProgMemXB           = 1
+    memoryFlash.a0idx_ReadProgMemXB           = 2
+    memoryFlash.responseIndex_ReadProgMemXB   = 3
+    memoryFlash.instruction_LoadProgMemLB     = 0x40, -1  , -1  , -1
+    memoryFlash.instruction_LoadProgMemHB     = 0x48, -1  , -1  , -1
+    memoryFlash.a1idx_LoadProgMemXB           = 1
+    memoryFlash.a0idx_LoadProgMemXB           = 2
+    memoryFlash.dtidx_LoadProgMemXB           = 3
+    memoryFlash.instruction_WriteProgMemPage  = 0x4C, -1  , -1  , 0x00
+    memoryFlash.a1idx_WriteProgMemPage        = 1
+    memoryFlash.a0idx_WriteProgMemPage        = 2
+    memoryFlash.waitDelay_MS_WriteProgMemPage = 5
+
+
+An example of key-value pair with partial translation:
+
+    baseProgSpec.cmdChipErase_Flash = jxm.ugc.ProgPIC16$CmdSeq ::: $CS_ResetAddress, $BulkEraseProgMem, $CS_DelayMS, 20
+
+The above key-value pair may be internally translated (depending on the program version) as:
+
+    baseProgSpec.cmdChipErase_Flash = 0x0000000000000064, 0x00000000000007DE, 0x0000000000000001, 0x0000000000000014
+
+
+An example of key-value pair with special functions:
+
+    baseProgSpec.cmdChipErase_Recover = jxm.ugc.ProgPIC16$CmdSeq :::                                                                                       \
+                                        $CS_Print2Chars, $TC:OS     , $CS_Print2Chars, $TC:CC     , $CS_Print2Chars, $TC:AL, $CS_Print2Chars, $TC:\u0020=, \
+                                        $CS_Print2Chars, $TC:\u00200, $CS_Print2Chars, $TC:x\u0000, $CS_PrintUHex04, $VI:0 , $CS_PrintNL
+
+The above key-value pair may actually be generated by a Java program statement such as:
+
+    baseProgSpec.cmdChipErase_Recover = CmdSeq.CS_PrintlnUHex04( "OSCCAL = 0x", CmdSeq.VI(0) );
+
+
+An example of how to define and use a shortcut:
+
+    #define ::: CST = jxm.ugc.ProgPIC16$CmdSeq :::
+
+    baseProgSpec.cmdChipErase_Flash     = #{CST} $CS_ResetAddress, $BulkEraseProgMem, $CS_DelayMS, 20
+    baseProgSpec.cmdLoadConfiguration   = #{CST} $CS_NotSupported
+    baseProgSpec.cmdIncrementAddress    = #{CST} $IncrementAddress
+
+
+NOTE : Currently, only the 'ProgPIC16.Config' class supports constant names and special functions.
+
+----------------------------------------------------------------------------------------------------
+
+The available constant names for the 'ProgPIC16.Config' class (used for PIC10, PIC12, and PIC16
+MCUs) are:
+
+    $_INVALID_
+
+    $CS_NotSupported
+
+    $CS_NOP
+    $CS_DelayMS
+
+    $CS_ResetAddress
+    $CS_SetAddress
+    $CS_IncAddress
+
+    $CS_BitwiseAND
+    $CS_BitwiseOR
+
+    $CS_ErrIfCmpEQ
+    $CS_ErrIfCmpNEQ
+
+    $CS_Print2Chars
+    $CS_PrintSDecNN
+    $CS_PrintSDec03
+    $CS_PrintSDec05
+    $CS_PrintUDecNN
+    $CS_PrintUDec03
+    $CS_PrintUDec05
+    $CS_PrintUHexNN
+    $CS_PrintUHex02
+    $CS_PrintUHex04
+    $CS_PrintNL
+
+    $LoadConfiguration
+    $LoadDataForProgMem
+    $LoadDataForDataMem
+    $IncrementAddress
+    $ResetAddress
+    $ReadDataFromProgMem
+    $ReadDataFromDataMem
+    $BeginErase
+    $BeginEraseProgCycle
+    $BeginProgOnlyCycle
+    $BeginIntTimedProg
+    $BeginExtTimedProg
+    $EndExtTimedProg
+    $RowEraseProgMem
+    $BulkEraseProgMem
+    $BulkEraseDataMem
+    $BulkEraseSetup1
+    $BulkEraseSetup2
+    $ChipErase
+    $BeginProgramming
+    $EndProgramming
+
+    $TogSelEvenRows1       ; Alias for $BulkEraseSetup1
+    $TogSelEvenRows2       ; Alias for $BulkEraseSetup2
+
+
+The available special functions for the 'ProgPIC16.Config' class (used for PIC10, PIC12, and PIC16
+MCUs) are:
+
+    $VI:<N>    ; Specify a variable index
+    $TC:<VV>   ; Specify a two-character sequence (each V can also be a Unicode escape code \uNNNN)
+
+Examples:
+
+    $VI:0
+    $VI:1
+
+    $TC:AB
+    $TC:A\u0020
+    $TC:\u0020B
+
+----------------------------------------------------------------------------------------------------
+
+When the 'JxMake USB-GPIO II' module is used together with the 'JxMake Versatile MCU Programmer II'
+module, the following environment variables can be used to configure the TWI clock frequency and
+address for the HLF8574/PCF8574/PCF8574A IC mounted on the PCB:
+
+    JXMAKE_PCF8574_FREQUENCY - if unset, defaults to 100000
+    JXMAKE_PCF8574_ADDRESS   - if unset, defaults to 0x27
+
+NOTE : When using the legacy 'JxMake Versatile MCU Programmer' module , set either of the above
+       environment variables to -1 to prevent the Java driver from using the aforementioned IC.
+
+====================================================================================================

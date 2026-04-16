@@ -1,0 +1,73 @@
+function testFor(b, e, s)
+    local i
+    for i := ${b} to ${e} step ${s}
+        if ${s} > 0
+            if ${i} > 10
+                echoln "CONTINUE"
+                continue
+            endif
+        else
+            if ${i} < -10
+                echoln "BREAK"
+                break
+            endif
+        endif
+        echoln ${i}
+       #$exit(7)
+       #-$mkdir('/root/test')
+    endfor
+endfunction
+
+echoln "for ... endfor (in function)"
+$call(testFor, -20,  20,  3)
+echoln
+
+echoln "for ... endfor (in function)"
+$call(testFor,  20, -20, -3)
+echoln
+
+echoln "for ... endfor (global)"
+for i := 1 to 3 step 1
+    for j := 7 to 8 step 1
+        echoln "${i}\-${j}"
+    endfor
+endfor
+echoln
+
+
+echoln
+echoln
+
+
+function testForEach(s)
+    foreach local i, v in ${s} skip 1 step 2
+        echoln "${i} = ${v}"
+    endforeach
+endfunction
+
+echoln "foreach ... endforeach (in function)"
+#      0 0 0 0 0 0 0 0 0 1
+#      1 2 3 4 5 6 7 8 9 0
+Set := a b c d e f g h i j
+$call(testForEach, ${Set})
+echoln
+
+echoln "foreach ... endforeach (in global)"
+foreach v in ${Set}
+    echoln ${v}
+endforeach
+echoln
+
+echoln "foreach ... endforeach (in global)"
+foreach i, v in ${Set} skip 5
+    echoln "${i} = ${v}"
+endforeach
+echoln
+
+echoln "foreach ... endforeach (in global)"
+foreach i, v in ${Set}
+    if ${i} < 3 : continue
+    if ${i} > 7 : break
+    echoln ${v}
+endforeach
+echoln

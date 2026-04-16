@@ -1,0 +1,109 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc           :=  $fwc_load_intel_hex('../src/1-TestData/PTest3X.Blink-PIC24FJ64GB002.c.hex')
+xwc           :=  $fwc_load_intel_hex( $cat_path( $uhd(), 'xsdk/pic/RIPE_01b_000033.hex' )  )
+
+mcuConfigJSON := [["
+{
+    "@class" : "jxm.ugc.ProgPIC24$Config",
+    "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+    "memoryPE" : {
+        "@class" : "jxm.ugc.ProgPIC_SIX_REGOUT$MemoryPE",
+        "address" : 0x00800000,
+        "totalSize" : 3072,
+        "pageSize" : 1536,
+        "numPages" : 2,
+        "saveWordOffset" : -1        ,
+        "saveWordCount" : 0
+    },
+    "cmdPE" : {
+        "@class" : "jxm.ugc.ProgPIC_EICSP$CmdPE",
+        "SCHECK" : 0x00,
+        "QVER" : 0x0B,
+        "ERASEP" : -1  ,
+        "READP" : 0x02,
+        "PROGP" : 0x05,
+        "ERASED" : -1  ,
+        "READD" : -1  ,
+        "PROGD" : -1
+    },
+    "baseProgSpec" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$BaseProgSpec",
+        "part" : "PIC24",
+        "subPart" : "FJ",
+        "mode" : "LVEntrySeqM0M32",
+        "entrySeq" : 0x4D434851
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryFlash",
+        "address" : 0x00000000,
+        "totalSize" : 66048,
+        "eraseBlockSize" : 192,
+        "writeBlockSize" : 192,
+        "eraseBlockSizeE" : -1,
+        "writeBlockSizeE" : -1,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryEEPROM",
+        "addressBeg" : -1        ,
+        "addressEnd" : -1        ,
+        "totalSize" : 0,
+        "writeBlockSizeE" : -1,
+        "addressMulFW" : 1,
+        "addressOfsFW" : 0x00000000
+    },
+    "memoryConfigBytes" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryConfigBytes",
+        "addressBeg" : 0x0000ABF0,
+        "addressEnd" : 0x0000AC00,
+        "address" : [ 0x0000ABFE, 0x0000ABFC, 0x0000ABFA, 0x0000ABF8 ],
+        "size" : [ 2       , 2       , 2       , 2        ],
+        "bitMask" : [ 0x00007BDF, 0x0000FFF7, 0x0000EF3F, 0x000000FF ],
+        "orgMask" : null,
+        "maxTotalSize" : 16,
+        "addressMulFW" : 2,
+        "addressOfsFW" : 0x00000000
+    }
+}
+"]]
+
+bendSpec      := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+bendSpec      := 'JXMAKE_USB_GPIO' ''             '0'            'true'
+progSpec      := 'ProgPIC24' ${mcuConfigJSON} '' '8000000'
+#progSpec     := 'ProgPIC24' ${mcuConfigJSON} '' '-90000'
+mcuSig        := 0x42 0x07
+
+#echoln $mcu_prog_cfg_json('PIC:PIC24FJ64GB00x')
+#echoln $mcu_prog_cfg_ini ('PIC:PIC24FJ64GB00x')
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, ${xwc}, -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'ProgPIC.stdPE_dsPIC24F', -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'jxm.ugc.ProgPIC.stdPE_dsPIC24F', -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'ProgPIC.stdPE_dsPIC30F', -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'jxm.ugc.ProgPIC.stdPE_dsPIC30F', -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'ProgPIC.stdPE_dsPIC33EP_GS25', -1)
+#$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_program_pe' }, 'jxm.ugc.ProgPIC.stdPE_dsPIC33EP_GS25', -1)
+echoln
+#*)
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_set_eicsp_extra_speed' '2000000' '-2000000' 'write_flash' 'verify_flash' }, ${fwc}, -1)
+echoln
+#*)
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'chip_erase' 'write_flash' 'verify_flash' 'write_embedded_fuses' }, ${fwc}, -1)
+echoln
+#*)
+
+#foreach I in $mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'pic_set_eicsp_extra_speed' '2000000' '-2000000' 'verify_flash' }, ${fwc}, -1)
+foreach I in $mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'read_fuses' 'verify_flash' }, ${fwc}, -1)
+    $printf("%04X\n", ${I})
+endforeach
+
+echoln
+
+$fwc_delete(${fwc})

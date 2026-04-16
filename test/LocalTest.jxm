@@ -1,0 +1,160 @@
+A                 := 'a'
+B                 := 'b'
+C                 := 'c'
+__include_paths__ := 'inc_a'
+
+function testABC()
+    $printf("Inside - Entry Point   : %-5s %-5s %-5s | %-15s %-15s\n", ${A}, ${B}, ${C}, __include_paths__, __class_paths__)
+    local A                  := '1'
+    local B                 +:= '2'
+    local C                 ?:= '3'
+    local __include_paths__ +:= 'inc_1'
+    local __class_paths__   +:= 'cls_1'
+    $printf("Inside - After Declare : %-5s %-5s %-5s | %-15s %-15s\n", ${A}, ${B}, ${C}, __include_paths__, __class_paths__)
+    A                  := 'x'
+    B                 +:= 'y'
+    C                 ?:= 'z'
+    __include_paths__ +:= 'inc_z'
+    __class_paths__   +:= 'cls_z'
+    $printf("Inside - After Change  : %-5s %-5s %-5s | %-15s %-15s\n", ${A}, ${B}, ${C}, __include_paths__, __class_paths__)
+endfunction
+
+    $printf("Outside (A, B, C)      : %-5s %-5s %-5s | %-15s %-15s\n", ${A}, ${B}, ${C}, __include_paths__, __class_paths__)
+    $call(testABC)
+    $printf("Outside (A, B, C)      : %-5s %-5s %-5s | %-15s %-15s\n", ${A}, ${B}, ${C}, __include_paths__, __class_paths__)
+
+echoln
+
+function testDEF()
+    $printf("Inside - Entry Point   : %-5s %-5s %-5s | %-15s %-15s\n", ${D}, ${E}, ${F}, __include_paths__, __class_paths__)
+    local D                  := '1'
+    local E                 +:= '2'
+    local F                 ?:= '3'
+    local __include_paths__ ?:= 'inc_1'
+    local __class_paths__   ?:= 'cls_1'
+    $printf("Inside - After Declare : %-5s %-5s %-5s | %-15s %-15s\n", ${D}, ${E}, ${F}, __include_paths__, __class_paths__)
+    D                  := 'x'
+    E                 +:= 'y'
+    F                 ?:= 'z'
+    __include_paths__ ?:= 'inc_z'
+    __class_paths__   ?:= 'cls_z'
+    $printf("Inside - After Change  : %-5s %-5s %-5s | %-15s %-15s\n", ${D}, ${E}, ${F}, __include_paths__, __class_paths__)
+endfunction
+
+    $printf("Outside (D, E, F)      : %-5s %-5s %-5s | %-15s %-15s\n", ${D}, ${E}, ${F}, __include_paths__, __class_paths__)
+    $call(testDEF)
+    $printf("Outside (D, E, F)      : %-5s %-5s %-5s | %-15s %-15s\n", ${D}, ${E}, ${F}, __include_paths__, __class_paths__)
+
+echoln
+
+G := 'g'
+H := 'h'
+I := 'i'
+
+function testGHI()
+    $printf("Inside - Entry Point   : %-5s %-5s %-5s | %-15s %-15s\n", ${G}, ${H}, ${I}, __include_paths__, __class_paths__)
+    local G
+    local H
+    local I
+    local __include_paths__
+    local __class_paths__
+    $printf("Inside - After Declare : %-5s %-5s %-5s | %-15s %-15s\n", ${G}, ${H}, ${I}, __include_paths__, __class_paths__)
+    G                  := 'x'
+    H                 +:= 'y'
+    I                 ?:= 'z'
+    __include_paths__ ?:= 'inc_z'
+    __class_paths__   ?:= 'cls_z'
+    $printf("Inside - After Change  : %-5s %-5s %-5s | %-15s %-15s\n", ${G}, ${H}, ${I}, __include_paths__, __class_paths__)
+endfunction
+
+    $printf("Outside (G, H, I)      : %-5s %-5s %-5s | %-15s %-15s\n", ${G}, ${H}, ${I}, __include_paths__, __class_paths__)
+    $call(testGHI)
+    $printf("Outside (G, H, I)      : %-5s %-5s %-5s | %-15s %-15s\n", ${G}, ${H}, ${I}, __include_paths__, __class_paths__)
+
+echoln
+
+
+
+function testFor()
+    for local i := 0 to 9 step 1
+        echoln "Inside  : i = ${i}"
+    endfor
+endfunction
+
+echoln "Outside : i = ${i}"
+$call(testFor)
+echoln "Outside : i = ${i}"
+
+echoln
+
+
+
+j = 9
+function testALO()
+    local add i, 10, 2
+    local dec j
+    local dec k
+    $printf("Inside  : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+endfunction
+
+    $printf("Outside : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+    $call(testALO)
+    $printf("Outside : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+
+echoln
+
+function testEval()
+    local eval i :=  10  + 2
+    local eval j := ${j} - 1
+    local eval k := ${k} - 1
+    $printf("Inside  : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+endfunction
+
+    $printf("Outside : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+    $call(testEval)
+    $printf("Outside : i = %2s | j = %2s | k = %2s\n", ${i}, ${j}, ${k})
+
+echoln
+
+
+
+(*
+Outside (A, B, C)      : a     b     c     | inc_a           .
+Inside - Entry Point   : a     b     c     | inc_a           .
+Inside - After Declare : 1     b2    c     | inc_ainc_1      .cls_1
+Inside - After Change  : x     b2y   c     | inc_ainc_1inc_z .cls_1cls_z
+Outside (A, B, C)      : a     b     c     | inc_a           .
+
+Outside (D, E, F)      :                   | inc_a           .
+Inside - Entry Point   :                   | inc_a           .
+Inside - After Declare : 1     2     3     | inc_a           .cls_1
+Inside - After Change  : x     2y    3     | inc_a           .cls_1
+Outside (D, E, F)      :                   | inc_a           .
+
+Outside (G, H, I)      : g     h     i     | inc_a           .
+Inside - Entry Point   : g     h     i     | inc_a           .
+Inside - After Declare : g     h     i     | inc_a           .
+Inside - After Change  : x     hy    i     | inc_a           .
+Outside (G, H, I)      : g     h     i     | inc_a           .
+
+Outside : i =
+Inside  : i = 0
+Inside  : i = 1
+Inside  : i = 2
+Inside  : i = 3
+Inside  : i = 4
+Inside  : i = 5
+Inside  : i = 6
+Inside  : i = 7
+Inside  : i = 8
+Inside  : i = 9
+Outside : i =
+
+Outside : i =    | j =  9 | k =
+Inside  : i = 12 | j =  8 | k = -1
+Outside : i =    | j =  9 | k =
+
+Outside : i =    | j =  9 | k =
+Inside  : i = 12 | j =  8 | k = -1
+Outside : i =    | j =  9 | k =
+*)

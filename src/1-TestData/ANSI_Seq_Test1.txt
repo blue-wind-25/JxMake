@@ -1,0 +1,115 @@
+Normal text
+[1mBold text[0m
+[1;97mBold text[0m
+[4mUnderlined text[0m   This is [5;7mblink[25;27m text
+[31mRed text[0m
+[42mGreen background[0m
+[1;34mBold Blue text[0m
+[10;10HCursor moved to row 10, col 10 ##[50GThis is col 50
+[11;10HCursor moved to row 11, col 10 测试 가한[50GThis is col 50
+[12;10HCursor moved to row 12, col 10 😀😀[50GThis is col 50
+[13;10HCursor moved to row 14, col 10 ##[50GThis is col 50
+[14;10HCursor moved to row 15, col 10 [5;97m测试 가한[0m[50GThis is col 50
+[15;10HCursor moved to row 16, col 10 [5;97m😀😀[0m[50GThis is col 50
+00000000011111111112222222222333333333344444444445555555555666666666677777777778
+12345678901234567890123456789012345678901234567890123456789012345678901234567890
+
+abcdef[3D
+abcdef[3D[0J
+abcdef[3D [1J
+abcdef[3D [2J
+abcdef[3D [3J
+
+
+abcdef[3D[0K
+abcdef[3D[1K
+abcdef[3D[2K
+
+
+script -q -c "ls" a.txt
+Script started on Tue 09 Dec 2025 04:43:47 AM WIB
+0-JxMake     com	       GTest2.java  JXM_Main.class  org		  PTest2X.java
+1-TestData   filelist.txt      jxm	    JXM_Main.java   PTest1B.java  PTest3X.java
+ATest1.java  filelist.txt.tmp  jxmake.bat   Makefile	    PTest1X.java  PTestF.java
+a.txt	     GTest1.java       jxmake.sh    manifest.txt    PTest2B.java  res
+
+
+
+Hebrew (RTL):
+שלום עולם
+In Hebrew we say שלום עולם which means "Hello world".
+
+Arabic (RTL):
+مرحبا بالعالم
+In Arabic we say مرحبا بالعالم which means "Hello world".
+
+
+Hebrew (RTL with RLM):
+‏שלום עולם
+In Hebrew we say ‏שלום עולם‏ which means "Hello world".
+
+Arabic (RTL with RLM):
+‏مرحبا بالعالم
+In Arabic we say ‏مرحبا بالعالم‏ which means "Hello world".
+
+
+Hebrew (RTL with RLE/PDF):
+‪שלום עולם‬
+In Hebrew we say ‪שלום עולם‬ which means "Hello world".
+
+Arabic (RTL with RLE/PDF):
+‪مرحبا بالعالم‬
+In Arabic we say ‪مرحبا بالعالم‬ which means "Hello world".
+
+
+Arabic Greeting 'mar‑ḥa‑bā'
+مَرحبا
+
+Arabic Greeting 'ma‑ra‑ḥa‑bā'
+مَرحَبًا
+
+
+Indic Greeting 'na‑ma‑ste'
+नमस्ते
+
+Indic (Devanagari) Greeting 'na‑mas‑kār'
+नमस्कार
+
+Gurmukhi Greeting 'sat srī a‑kāl'
+ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ
+
+Gujarati Greeting 'na‑mas‑kār'
+નમસ્કાર
+
+Oriya Greeting 'na‑mas‑kār'
+ନମସ୍କାର
+
+Telugu Greeting 'na‑mas‑kā‑ram'
+నమస్కారం
+
+Malayalam Greeting 'na‑mas‑kā‑ram'
+നമസ്കാരം
+
+
+Thai Greeting 'sa‑was‑dee'
+สวัสดี
+
+Thai Greeting 'sa‑was‑dee khrap'
+สวัสดีครับ
+
+Lao Greeting 'sa‑bai‑dee'
+ສະບາຍດີ
+
+
+Khmer Greeting 'chum reap suor'
+ជំរាបសួរ
+
+
+Myanmar (Burmese) Greeting 'min‑ga‑la‑ba'
+မင်္ဂလာပါ
+
+
+Tibetan Greeting 'ta‑shi de‑lek'
+བཀྲ་ཤིས་བདེ་ལེགས།
+
+

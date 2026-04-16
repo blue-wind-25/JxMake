@@ -1,0 +1,75 @@
+(****************************************************************************************************
+ ***** OpenOCD Helper Utility                                                                   *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### OpenOCD ports
+const __DEFAULT_OPENOCD_GDB_PORT__    := 3333
+const __DEFAULT_OPENOCD_TCL_PORT__    := 6666
+const __DEFAULT_OPENOCD_TELNET_PORT__ := 4444
+
+        OPENOCD_GDB_PORT    ?:= $getenv('OPENOCD_GDB_PORT'   , ${__DEFAULT_OPENOCD_GDB_PORT__}   )
+        OPENOCD_TCL_PORT    ?:= $getenv('OPENOCD_TCL_PORT'   , ${__DEFAULT_OPENOCD_TCL_PORT__}   )
+        OPENOCD_TELNET_PORT ?:= $getenv('OPENOCD_TELNET_PORT', ${__DEFAULT_OPENOCD_TELNET_PORT__})
+
+
+##### Function to print helper message about the OpenOCD ports for '__btlib_help__'
+function __openocd_btlib_help_print_ports__(bSpcCnt)
+    local BSpc := $repeat(' ', ${bSpcCnt})
+    echoln __c_green__ '    OPENOCD_GDB_PORT    ' ${BSpc} __c_white__ ': ' __c_cyan__ 'OpenOCD' __c_white__ ' GDB    port - the default is \'' __c_yellow__ ${OPENOCD_GDB_PORT} __c_white__ '\''
+    echoln __c_green__ '    OPENOCD_TCL_PORT    ' ${BSpc} __c_white__ ': ' __c_cyan__ 'OpenOCD' __c_white__ ' TCL    port - the default is \'' __c_yellow__ ${__DEFAULT_OPENOCD_TCL_PORT__} __c_white__ '\''
+    echoln __c_green__ '    OPENOCD_TELNET_PORT ' ${BSpc} __c_white__ ': ' __c_cyan__ 'OpenOCD' __c_white__ ' Telnet port - the default is \'' __c_yellow__ ${__DEFAULT_OPENOCD_TELNET_PORT__} __c_white__ '\''
+    echoln
+endfunction
+
+
+##### Function to print helper message about using OpenOCD
+function __openocd_print_udev_rules__(srcOOCDUDevRulePath)
+    if !__os_linux__                                     : return false
+    if $valid_path('/etc/udev/rules.d/60-openocd.rules') : return false
+    echoln
+    echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+    echoln
+    echoln __c_white__ 'Either the programming device is not connected or access is denied.' __c_reset__
+    echoln
+    echoln __c_white__ 'To fix access denied, please execute as \'root\' (or use \'sudo\'):' __c_reset__
+    echoln
+    echoln             "cp ${srcOOCDUDevRulePath} /etc/udev/rules.d"
+    echoln             'udevadm control --reload-rules && udevadm trigger'
+    echoln
+    echoln __c_white__ 'You may need to add your user to the \'plugdev\' group, please execute as \'root\' (or use \'sudo\'):' __c_reset__
+    echoln
+    echoln             'usermod -a -G plugdev <your_user_name>'
+    echoln
+    echoln __c_white__ 'You may also need to install \'hidapi\' from \'libusb\' using your operating system package manager.' __c_reset__
+    echoln
+    echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+    echoln
+    return true
+endfunction
+
+
+##### Function to execute generic command(s) using OpenOCD
+function __openocd_gen_command_exec__(ldLibraryPath, oocdProg, oocdScriptsDir, interface, transport, adapterSpeed, targetDev, commands, ?overrideCPUTapID)
+    # Prepare the arguments
+    if !$str_endwith(${interface}, '.cfg') ; interface        := -f :"${oocdScriptsDir}/interface/${interface}.cfg"
+    else                                   ; interface        := -f ${interface}
+    endif
+    if &${overrideCPUTapID}                ; overrideCPUTapID := -c :"set CPUTAPID ${overrideCPUTapID}"
+    else                                   ; overrideCPUTapID := ''
+    endif
+                                             transport        := -c :"transport select ${transport}"
+                                             adapterSpeed     := -c :"adapter speed ${adapterSpeed}"
+    if !$str_endwith(${targetDev}, '.cfg') ; targetDev        := -f :"${oocdScriptsDir}/target/${targetDev}.cfg"
+    else                                   ; targetDev        := -f ${targetDev}
+    endif
+                                             commands         := $interleave('-c', ${commands})
+    # Execute OpenOCD
+    if &${ldLibraryPath}
+        +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    endif
+        +@${oocdProg} ${interface} ${overrideCPUTapID} ${transport} ${adapterSpeed} ${targetDev} ${commands}
+endfunction

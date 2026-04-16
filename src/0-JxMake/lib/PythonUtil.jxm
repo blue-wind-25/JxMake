@@ -1,0 +1,275 @@
+(****************************************************************************************************
+ ***** Python Utility                                                                           *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### Python versions
+__Python2_Version__            := 0
+__Python2_Version_Num__        := 0
+
+__Python3_Version__            := 0
+__Python3_Version_Num__        := 0
+
+JXMAKELIB_PYTHON2_MAX_VERSION ?:= $getenv('JXMAKELIB_PYTHON2_MAX_VERSION', '')
+JXMAKELIB_PYTHON3_MAX_VERSION ?:= $getenv('JXMAKELIB_PYTHON3_MAX_VERSION', '')
+
+
+##### Function to get the Python version
+function __calc_python_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __calc_python_ver_text__(text)
+                    text  := $sfdots(${text/\s*(\d+?\.\d+?\.\d+?)\s*/$1/})
+              local major := $partn(${text}, 1)
+              local minor := $partn(${text}, 2)
+    if !&${minor} : minor := 99
+              local patch := $partn(${text}, 3)
+    if !&${patch} : patch := 99
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_python_ver_exec__(pythonBin)
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${pythonBin} --version
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_python_ver_impl__(pythonBin)
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec( __get_python_ver_exec__, ${pythonBin})
+        local text  := $partn( $erase_ifempty( $sflines( $stack($[stderr], $[stdout]) ) ), 1 )
+              text  := $sfdots(${text/.*?Python\s+(\d+?\.\d+?\.\d+?).*/$1/})
+        local major := $partn(${text}, 1)
+        local minor := $partn(${text}, 2)
+        local patch := $partn(${text}, 3)
+        result  := $call(__calc_python_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}"
+    endif
+    # Return the version
+    return ${result}
+endfunction
+
+
+##### Functions to find Python
+if &${JXMAKELIB_PYTHON2_MAX_VERSION} : JXMAKELIB_PYTHON2_MAX_VERSION := $call(__calc_python_ver_text__, ${JXMAKELIB_PYTHON2_MAX_VERSION})
+if &${JXMAKELIB_PYTHON3_MAX_VERSION} : JXMAKELIB_PYTHON3_MAX_VERSION := $call(__calc_python_ver_text__, ${JXMAKELIB_PYTHON3_MAX_VERSION})
+
+function __find_python_commands__()
+    return $call(find_available_commands, 'python', '^python(\d(\.\d+)?)?$')
+endfunction
+
+function __get_latest_python2__(cmd)
+    # Get the version number
+    local Res_P := $call(__get_python_ver_impl__, ${cmd})
+    local Res_N := ${Res_P}<1>
+    local Res_S := ${Res_P}<2>
+    # Check if it is Python 2
+    if !$re_match(${Res_S}, '2\.\d+\.\d+') : return
+    # Ignore versions of Python 2 that are newer than the specified maximum version
+    if ${JXMAKELIB_PYTHON2_MAX_VERSION}
+        if ${Res_N} > ${JXMAKELIB_PYTHON2_MAX_VERSION} : return
+    endif
+    # Compare the version and save the latest one
+    if ${Res_N} > ${__Python2_Version_Num__}
+          Python2               := ${cmd}
+        __Python2_Version__     := ${Res_S}
+        __Python2_Version_Num__ := ${Res_N}
+    endif
+endfunction
+
+function __get_latest_python3__(cmd)
+    # Get the version number
+    local Res_P := $call(__get_python_ver_impl__, ${cmd})
+    local Res_N := ${Res_P}<1>
+    local Res_S := ${Res_P}<2>
+    # Check if it is Python 3
+    if !$re_match(${Res_S}, '3\.\d+\.\d+') : return
+    # Ignore versions of Python 3 that are newer than the specified maximum version
+    if ${JXMAKELIB_PYTHON3_MAX_VERSION}
+        if ${Res_N} > ${JXMAKELIB_PYTHON3_MAX_VERSION} : return
+    endif
+    # Compare the version and save the latest one
+    if ${Res_N} > ${__Python3_Version_Num__}
+          Python3               := ${cmd}
+        __Python3_Version__     := ${Res_S}
+        __Python3_Version_Num__ := ${Res_N}
+    endif
+endfunction
+
+function find_python()
+    # Try to get from the cache file first
+    local LatestCmdCacheFilePath := $cat_path( $ptd(), 'LatestPythonCmd.cache' )
+    local LatestCmd
+    if $uptodate_path(${LatestCmdCacheFilePath})
+        LatestCmd := $get_file(${LatestCmdCacheFilePath})
+          Python2               := $partn(${LatestCmd}, 1)
+        __Python2_Version__     := $partn(${LatestCmd}, 2)
+        __Python2_Version_Num__ := $partn(${LatestCmd}, 3)
+          Python3               := $partn(${LatestCmd}, 4)
+        __Python3_Version__     := $partn(${LatestCmd}, 5)
+        __Python3_Version_Num__ := $partn(${LatestCmd}, 6)
+        return
+    endif
+    # Try to find all the available Python commands first
+    local Cmds := $call(__find_python_commands__)
+    if &${Cmds}
+        foreach local Cmd in ${Cmds}
+            $call(__get_latest_python2__, ${Cmd}) # Find Python 2.x.x
+            $call(__get_latest_python3__, ${Cmd}) # Find Python 3.x.x
+        endforeach
+    # Try to find from the standard commands
+    else
+        # Find Python 2.x.x
+        $call(__get_latest_python2__, 'python' )
+        $call(__get_latest_python2__, 'python2')
+        # Find Python 3.x.x
+        $call(__get_latest_python3__, 'python' )
+        $call(__get_latest_python3__, 'python3')
+    endif
+    # On Windows if an Arduino package is selected try to find the Python 3 executable from it
+    if __os_windows__
+        if &${__SelArduinoPackageDir__}
+            local APython := $cat_path(${__SelArduinoPackageDir__}, '../../../tools/python3')
+            if $valid_path(${APython})
+                APython := $lsdir(${APython})
+                if $valid_path(${APython})
+                    APython := $cat_path(${APython}, 'python3')
+                    if $valid_path(:"${APython}.exe")
+                        $call(__get_latest_python3__, ${APython})
+                    endif
+                endif
+            endif
+        endif
+    endif
+    # Save the results to the cache file
+    if !&${Python2} : Python2 := ''
+    if !&${Python3} : Python3 := ''
+    $put_file( ${LatestCmdCacheFilePath}, { \
+        ${Python2}                          \
+        ${__Python2_Version__}              \
+        ${__Python2_Version_Num__}          \
+        ${Python3}                          \
+        ${__Python3_Version__}              \
+        ${__Python3_Version_Num__}          \
+    } )
+endfunction
+
+
+##### Functions to check the Python version
+function python2_ver_min(major, minor, patch)
+    return $cmp( ${__Python2_Version_Num__}, '>=', $call(__calc_python_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function python2_ver_max(major, minor, patch)
+    return $cmp( ${__Python2_Version_Num__}, '<=', $call(__calc_python_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function python3_ver_min(major, minor, patch)
+    return $cmp( ${__Python3_Version_Num__}, '>=', $call(__calc_python_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function python3_ver_max(major, minor, patch)
+    return $cmp( ${__Python3_Version_Num__}, '<=', $call(__calc_python_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+
+##### Functions to check if Python is avaiable
+function python2_available()
+    local eval Chk := !!${__Python2_Version_Num__}
+    return ${Chk}
+endfunction
+
+function python3_available()
+    local eval Chk := !!${__Python3_Version_Num__}
+    return ${Chk}
+endfunction
+
+
+##### Functions to print error message and then exit the program if Python is unavailable
+function __exit_error_if_pythonN_is_unavailable__(N, ?msg)
+    # Perform checking only if the 'msg' parameter is not set
+    if !&${msg}
+        # Simply exit if Python is available
+        if $call(:"python${N}_available") : return
+        # Print error but do not exit
+        if !${N} : N := ''
+        $call(__exit_error_nup__, :"python${N}", true)
+    else
+        # Print error but do not exit
+        N := ${msg}
+        $call(__exit_error_nup__, :"python ${N}", true)
+    endif
+    # Print some information about how to get Python
+    if &${N} : N := "${N} "
+    echoln "Please use your operating system package manager to install Python ${N}or download and install Python ${N}from:"
+    echoln '   https://www.python.org/downloads'
+    echoln '   https://github.com/indygreg/python-build-standalone/releases'
+    echoln '   https://github.com/NulAsh/cpython/releases'
+    echoln '   https://portablepython.com'
+    echoln '   https://sourceforge.net/projects/portable-python/files'
+    echoln
+    echoln "Please ensure that Python ${N}is executable by adding it to the system-wide PATH."
+    echoln
+    # Exit program
+    $exit(-1)
+endfunction
+
+function exit_error_if_python2_is_unavailable()
+    $call(__exit_error_if_pythonN_is_unavailable__, 2)
+endfunction
+
+function exit_error_if_python3_is_unavailable()
+    $call(__exit_error_if_pythonN_is_unavailable__, 3)
+endfunction
+
+
+##### Functions to print error message and then exit the program if the Python version is less than the required version
+function __exit_error_if_pythonN_is_less_than_version__(N)
+    # Check the availability
+    $call(:"exit_error_if_python${N}_is_unavailable")
+    # Check the version
+    if !$call(:"python${N}_ver_min", ${major}, ${minor}, ${patch})
+        $call(__exit_error_if_pythonN_is_unavailable__, -1, :"≥ ${major}.${minor}.${patch}")
+    endif
+endfunction
+
+function exit_error_if_python2_is_less_than_version(major, minor, patch)
+    $call(__exit_error_if_pythonN_is_less_than_version__, 2)
+endfunction
+
+function exit_error_if_python3_is_less_than_version(major, minor, patch)
+    $call(__exit_error_if_pythonN_is_less_than_version__, 3)
+endfunction
+
+
+##### Functions to print error message and then exit the program if the Python version is greater than the required version
+function __exit_error_if_pythonN_is_greater_than_version__(N)
+    # Check the availability
+    $call(:"exit_error_if_python${N}_is_unavailable")
+    # Check the version
+    if !$call(:"python${N}_ver_max", ${major}, ${minor}, ${patch})
+        $call(__exit_error_if_pythonN_is_unavailable__, -1, :"≤ ${major}.${minor}.${patch}")
+    endif
+endfunction
+
+function exit_error_if_python2_is_greater_than_version(major, minor, patch)
+    $call(__exit_error_if_pythonN_is_greater_than_version__, 2)
+endfunction
+
+function exit_error_if_python3_is_greater_than_version(major, minor, patch)
+    $call(__exit_error_if_pythonN_is_greater_than_version__, 3)
+endfunction

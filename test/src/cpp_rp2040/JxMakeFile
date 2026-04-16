@@ -1,0 +1,182 @@
+:::include <C++XBuildTool_RP2040_Pico>
+
+
+if __os_windows__
+    (*
+     * The 'C++XBuildTool_RP2040_Pico' cannot use the embedded Python 3 executable from an Arduino package.
+     * If you would like to use it, please set the path manually before running this JxMake program; for example:
+     *     set PATH=C:\Users\<your_user_name>\AppData\Local\Arduino15\packages\esp8266\tools\python3\3.7.2-post1;%PATH%
+     *
+     * You might also need to enable long paths; please refer to this website for more details:
+     *     https://www.howtogeek.com/266621/how-to-make-windows-10-accept-file-paths-over-260-characters
+     *)
+    PICO_SDK_PATH       := 'Z:/xsdk/raspberry-pi-pico/pico-sdk'
+    PICO_TOOLCHAIN_PATH := 'Z:/xsdk/raspberry-pi-pico/gcc-arm-none-eabi-10.3-2021.10'
+else
+   #PICO_SDK_PATH       := $cat_path( $uhd(), 'xsdk/raspberry-pi-pico-2023-03-03-SDKv1.5.0/pico-sdk'  )
+    PICO_SDK_PATH       := $cat_path( $uhd(), 'xsdk/raspberry-pi-pico-2023-06-23-SDKv1.5.1/pico-sdk'  )
+    PICO_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/raspberry-pi-pico/gcc-arm-none-eabi-10.3-2021.10' )
+endif
+
+# script -q -c 'make x2040test' RP2040-Build-JxMake-1.5.1.txt
+# cat RP2040-Build-JxMake-1.5.1.txt | sed -e 's/\x1B\[[0-9;]*[JKmsu]//g' > NO_ANSI-J.txt
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+   #SPort := '\\\\.\\COM4'
+else
+    SPort := '/dev/ttyACM0'
+   #SPort := '/dev/ttyACM1'
+endif
+
+
+BuildSubdir := 'pio' 'gatt' 'ulib' 'bt' 'wifi'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+if !$contains($[cmdtargets], { btlib_help clean clean_all })
+    $call( print_devenv_config )
+    $call( init_pico_sdk, {                               \
+               hardware_adc                               \
+               cybt_shared_bus                            \
+               pico_btstack_ble                           \
+               pico_btstack_cyw43                         \
+               pico_cyw43_arch_lwip_threadsafe_background \
+               pico_multicore                             \
+         } ) # Pico W
+   #$call( init_pico_sdk, { hardware_adc pico_cyw43_arch_none pico_multicore                  } ) # Pico W
+   #$call( init_pico_sdk, { hardware_adc hardware_pio         pico_multicore pico_printf_pico } ) # Pico
+endif
+
+
+PROG_NAME := $call( exe_fpath, main                )
+PROG_OBJS := $call( obj_fpath, main.cpp            )
+PROG_PIOS := $call( pio_fpath, pio/blink.pio       )
+PROG_GATT := $call(gatt_fpath, gatt/dummy_temp.gatt)
+
+ULIB_NAME := $call(slib_fpath,   ulib                          )
+ULIB_OBJS := $call( obj_fpath, { ulib/src1.cpp  ulib/src2.cpp })
+
+BLIB_NAME := $call(slib_fpath,   bt       )
+BLIB_OBJS := $call( obj_fpath, { bt/bt.c })
+
+WLIB_NAME := $call(slib_fpath,   wifi                                )
+WLIB_OBJS := $call( obj_fpath, { wifi/dhcpserver.c wifi/dnsserver.c })
+
+__include_paths__ := 'wifi' 'bt'
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_rp2040 clean
+# jxmake -C ..\test\src\cpp_rp2040 run
+target run
+    #echoln $ftlines( $call(pico_list_uf2_devices) )
+    jxmake ${ULIB_NAME}
+    jxmake ${BLIB_NAME}
+    jxmake ${WLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(pico_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    jxmake pico_build_boot_stage2
+    jxmake pico_build_sdk_objects
+    local CppUsrStaticLib :+= ulib bt wifi
+    $call(pico_link_exe)
+endtarget
+
+target ${ULIB_NAME} : ${ULIB_OBJS}
+    $call(pico_link_slib)
+endtarget
+
+target ${BLIB_NAME} : ${BLIB_OBJS}
+    $call(pico_link_slib)
+endtarget
+
+target ${WLIB_NAME} : ${WLIB_OBJS}
+    $call(pico_link_slib)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    extradep bt.c.o          : !${PROG_GATT} # Ensure the GATT header file is generated
+    $call(pico_compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    extradep ulib/src2.cpp.o : !${PROG_PIOS} # Ensure the PIO  header file is generated
+    extradep main.cpp.o      : !${PROG_GATT} # Ensure the GATT header file is generated
+    $call(pico_compile_cpp)
+endtarget
+
+target $call(pio_target_glob) : %.pio
+    $call(pico_compile_pio)
+endtarget
+
+target $call(gatt_target_glob) : %.gatt
+    $call(pico_compile_gatt)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 uuf2
+# jxmake -C ..\test\src\cpp_rp2040 uuf2
+target uuf2
+    jxmake run
+    $call(pico_upload_uf2, ${PROG_NAME}, ?, ${SPort})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 sercon
+# jxmake -C ..\test\src\cpp_rp2040 sercon
+target sercon
+    echoln 'Opening serial console ...'
+    echoln $serial_console(${SPort}, 115200)
+    echoln 'The serial console has been closed'
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 rswd
+# jxmake -C ..\test\src\cpp_rp2040 rswd
+target rswd
+    $call(pico_reset_swd)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 uswd
+# jxmake -C ..\test\src\cpp_rp2040 uswd
+target uswd
+    jxmake run
+    $call(pico_upload_swd, ${PROG_NAME})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 dswd
+# jxmake -C ..\test\src\cpp_rp2040 dswd
+target dswd
+    jxmake run
+    $call(pico_debug_swd_start, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_rp2040 dgdb
+# jxmake -C ..\test\src\cpp_rp2040 dgdb
+target dgdb
+    jxmake run
+    $call(pico_debug_swd_gdb, ${PROG_NAME})
+endtarget

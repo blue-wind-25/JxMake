@@ -1,0 +1,34 @@
+{
+    "@class" : "jxm.ugc.ProgTPI$Config",
+    "memorySignature" : {
+        "@class" : "jxm.ugc.ProgTPI$Config$MemorySignature",
+        "address" : 0x3FC0,
+        "size" : 3
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgTPI$Config$MemoryFlash",
+        "address" : 0x4000,
+        "totalSize" : 1024,
+        "pageSize" : 16,
+        "numPages" : 64,
+        "numWordWrites" : 1,
+        "readDataBuff" : null
+    },
+    "memoryFuse" : {
+        "@class" : "jxm.ugc.ProgTPI$Config$MemoryFuse",
+        "address" : 0x3F40,
+        "size" : 1,
+        "bitMask" : 7
+    },
+    "memoryLockBits" : {
+        "@class" : "jxm.ugc.ProgTPI$Config$MemoryLockBits",
+        "address" : 0x3F00,
+        "size" : 1,
+        "bitMask" : 3
+    },
+    "memoryCalibrationByte" : {
+        "@class" : "jxm.ugc.ProgTPI$Config$MemoryCalibrationByte",
+        "address" : 0x3F80,
+        "size" : 1
+    }
+}

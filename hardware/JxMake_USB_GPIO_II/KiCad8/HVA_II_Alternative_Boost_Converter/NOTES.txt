@@ -1,0 +1,74 @@
+====================================================================================================
+Alternative Boost Converter for High Voltage Attachment II
+====================================================================================================
+
+The boost converter feedback path is connected to AIN0 through 10k resistor and a 5k variable
+resistor, which act as a voltage divider.
+
+By design:
+
+    # An external 2.7V ADC reference voltage (using a zener diode) is used.
+    # The maximum boosted voltage must be capped at 13.5V (for safety reason).
+
+Therefore, the voltage divider must divide the feedback voltage by at least 13.5 / 2.7 = 5.
+
+----------------------------------------------------------------------------------------------------
+
+VBoost ───┐
+          │
+        ┌─┴─┐
+        │10k│ Rf
+        └─┬─┘
+          │
+        ┌─┴─┐ Ra
+     Rv │5k ┣──────── PD.0 (AIN0)
+        └─┬─┘ Rb
+          │
+          │
+         ━┻━
+         GND
+
+For convenience, lets define so that 16.0V is read as 0xFFF (the ADC has 12-bit resolution).
+Hence, the voltage divider must divide the feedback voltage by 16 / 2.7 = 5.92593
+
+This means that the variable resistor must be adjusted to satisfy the following equation:
+    1 / 5.92593 = Rb / (Rf + Ra + Rb)
+             Rb =      (Rf + Ra + Rb) / 5.92593
+
+Because:
+    Rf      = 10000 ohms
+    Ra + Rb =  5000 ohms
+
+we can solve:
+    Ra = ~2466 ohms
+    Rb = ~2534 ohms
+
+For convenience, the following are the minimum and maximum values that the ADC may read when
+measuring possible VDD_AUX:
+
+    VDD_AUX   ADC Conversion Result
+    3.3V       845 (0x34D)
+    7.0V      1792 (0x700)
+
+In the design of the 'High Voltage Attachment II' module, VBoost is required to be 0.4V higher than
+the value specified by the 'SEL_*' signals. The following table shows the values that the ADC may
+read when measuring VBoost:
+
+    VBoost   ADC Conversion Result
+    13.4V    3430 (0xD66)
+    12.9V    3302 (0xCE6)
+    12.4V    3174 (0xC66)
+    11.9V    3046 (0xBE6)
+    11.4V    2918 (0xB66)
+    10.9V    2790 (0xAE6)
+    10.4V    2662 (0xA66)
+     9.9V    2534 (0x9E6)
+     9.4V    2406 (0x966)
+     8.9V    2278 (0x8E6)
+     8.4V    2150 (0x866)
+
+The zener diode must have a tolerance of no more than 5%. The firmware must be designed so that the
+PWM duty cycle does not exceed the level that would cause VBoost to rise above 16V + 10% = 17.6V,
+since the MOSFET in 'High Voltage Attachment II' module must not be exposed to more than 20V.
+
+====================================================================================================

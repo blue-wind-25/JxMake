@@ -1,0 +1,222 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Common Code for Generic Xtensa GCC Utility                              *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the native C/C++ build tool and other utilities
+__ForceGCC__ := 1
+
+:::include_once 'C++BuildTool.jxm'
+
+
+##### MSys may cause weird errors so exclude it from the supported build environment
+if __os_msys__
+    $call(__exit_error_ns_benv__, 'Xtensa GCC', 'MSys')
+endif
+
+
+##### Update the flags
+const __x_gcc__            := 1
+const __xtensa_gcc__       := 1
+
+      __BuildTool_Name__   := 'Xtensa GNU Compiler Collection (GCC)'
+      __BuildTool_Target__ := 'Xtensa'
+      __BuildTool_Title__  := 'Xtensa C/C++'
+
+
+##### Update the definitions of executables, paths, and option
+const __UNKNOWN_XTENSA_PREFIX__ := 'UNKNOWN-XTENSA-'
+
+CppAssembler   := :"${__UNKNOWN_XTENSA_PREFIX__}gcc"
+CppCcCompiler  := :"${__UNKNOWN_XTENSA_PREFIX__}gcc"
+CppCxxCompiler := :"${__UNKNOWN_XTENSA_PREFIX__}g++"
+
+function __xtensa_set_toolchain_properties__(tcPrefix)
+    CppAssembler                 := :"${tcPrefix}gcc"
+    CppCommonAssemblerFlags     +:= '-x' 'assembler-with-cpp'
+
+    CppCcCompiler                := :"${tcPrefix}gcc"
+
+    CppCxxCompiler               := :"${tcPrefix}g++"
+    CppMinimizeSizeCompileFlags +:= '-fno-use-cxa-atexit' '-fno-exceptions' '-fno-unwind-tables' '-fno-rtti'
+
+    CppLinker                    := :"${tcPrefix}gcc"
+
+    CppLD                        := :"${tcPrefix}ld"
+
+    __Def_SLibBuilder__          := :"${tcPrefix}ar"
+    SLibBuilder                  := ${__Def_SLibBuilder__}
+
+    XTENSAObjDump                := :"${tcPrefix}objdump"
+
+    XTENSAObjCopy                := :"${tcPrefix}objcopy"
+    XTENSAObjCopyE2BFlags        := '-O' 'binary'
+    XTENSAObjCopyE2HFlags        := '-O' 'ihex'
+
+    XTENSASize                   := :"${tcPrefix}size"
+    XTENSASizeDefFlags           := '--format=berkeley' '--radix=10'
+
+    XTENSAAddr2Line              := :"${tcPrefix}addr2line"
+
+    XTENSADebugger               := :"${tcPrefix}gdb"
+endfunction
+
+
+##### Fix the file extensions as needed
+if !__os_linux__
+    ExeFileExt  := elf
+    DLibFileExt := so
+endif
+
+
+##### Function to detect the toochain prefix
+function __xtensa_detect_toolchain_prefix__(tcRootPath)
+    # Resolve possible symbolic link(s)
+    tcRootPath := $symlink_resolve(${tcRootPath})
+    # Try to get the results from the cache file first
+    local TCPrefixCacheFilePath := $cat_path( $ptd(), 'XTENSATCPrefix.cache' )
+    if $uptodate_path(${TCPrefixCacheFilePath})
+        local Lines := $get_file(${TCPrefixCacheFilePath})
+        if ${Lines}<1> &== ${tcRootPath} : return ${Lines}<2>
+    endif
+    # Get the path
+    local tcBinPath    := :"${tcRootPath}/bin"
+    local tcBinPathLen := $strlen(${tcBinPath})
+    add   tcBinPathLen, ${tcBinPathLen}, 2
+    # Get the prefix
+    local RegExp := '(?i)(xtensa[^-]*)-(\\p{Alnum}+)-(\\p{Alnum}+).+'
+    local Files  := $substr( $lsdir(${tcBinPath}, 'f'), ${tcBinPathLen}, 0 )
+          Files  := $erase_ifnot(${Files}, ${RegExp}, true)
+    local Prefix := $unique( $re_replace(${Files}, ${RegExp}, '$1-$2-$3-') )
+    # Save the results to the cache file
+    $put_file( ${TCPrefixCacheFilePath}, { \
+        ${tcRootPath}                      \
+        ${Prefix}                          \
+    } )
+    # Return the prefix
+    return ${Prefix}
+endfunction
+
+
+##### Function to print the size of the given executable file
+function __xtensagcc_obj_size__(objSizeProg, objSizeFlag, progName, ldLibraryPath, dimColor)
+    return $call(__generic_xgcc_obj_size__, ${objSizeProg}, ${objSizeFlag}, ${progName}, ${ldLibraryPath}, ${dimColor})
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories) supersede
+    # Skip this block if 'XTENSA_TOOLCHAIN_PATH' contains the special string constant
+    if ${XTENSA_TOOLCHAIN_PATH} &!= ${__GTCP_NA__}
+        # Check the paths
+        if $or( $cmp(${XTENSA_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${XTENSA_TOOLCHAIN_PATH}) ) )
+            $call(__exit_error_nf__, 'Xtensa Toolchain (GCC Xtensa)', true)
+            $call(__xtensagcc_print_download_info__)
+            $exit(-1)
+        endif
+        # Detect the toolchain prefix
+        local Prefix := $call(__xtensa_detect_toolchain_prefix__, ${XTENSA_TOOLCHAIN_PATH})
+        if !&${Prefix} : Prefix := ${__UNKNOWN_XTENSA_PREFIX__}
+        # Set the toolchain properties
+        $call(__xtensa_set_toolchain_properties__, ${Prefix})
+        # Set the location of the C/C++ binaries
+        CppToolBinDir := $cat_path(${XTENSA_TOOLCHAIN_PATH}, 'bin')
+        # Set additional LD paths as needed
+        if !__os_windows__
+            LDLibraryPath +:= $cat_path(${XTENSA_TOOLCHAIN_PATH}, 'lib'  )
+            LDLibraryPath +:= $cat_path(${XTENSA_TOOLCHAIN_PATH}, 'lib64')
+        endif
+    endif
+    # Set extra configuration information text as needed
+    if !&${__BuildTool_ExtraInfoName__}
+        if &${CppToolBinDir}
+            __BuildTool_ExtraInfoName__  +:= 'Xtensa GCC Directory'
+            __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+        endif
+    endif
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to link executable files (in this case, also create the BIN file if requested)
+function link_exe(?extraOptions, ?createBIN) supersede
+    # Call the origin function
+    $call(__origin__, ${extraOptions})
+    # Convert ELF to BIN as needed
+    if ${createBIN}
+        $call( __bpt_bin__                                                                                                              )
+        $exec( __generic_xgcc_elf_to_xxx__, ${XTENSAObjCopy}, ${XTENSAObjCopyE2BFlags}, $[target], 'bin', $call(__get_LDLibraryPaths__) )
+        $call( __conditional_print_stdxxx_and_check_excode__                                                                            )
+    endif
+endfunction
+
+
+##### Function to run the given executable file (in this case, print the size and some information)
+function run_exe(progName, ?dimColor) supersede
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                 $call( __bpt_exe_size_linespace__                                                                                            )
+    local res := $call( __xtensagcc_obj_size__, ${XTENSASize}, ${XTENSASizeDefFlags}, ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call( __conditional_print_stdxxx_and_check_excode__                                                                         )
+endfunction
+
+
+##### Function to generate LST files
+function gen_lst(progName)
+    $call(__gen_lst__, ${progName}, ${XTENSAObjDump})
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some informational message about how to obtain Xtensa GCC
+function __xtensagcc_print_download_info__(?tcSimpleName, ?tcRootDirPathName, ?tcPathEnvVarName)
+    local tcSimpleName      ?:= 'Xtensa'
+    local tcRootDirPathName ?:= 'xtensa'
+    local tcPathEnvVarName  ?:= 'XTENSA_TOOLCHAIN_PATH'
+    echoln "Please use your operating system package manager to install the ${tcSimpleName} Toolchain (GCC Xtensa) or download and install it from:"
+    echoln '    https://github.com/earlephilhower/esp-quick-toolchain/releases/tag/3.2.0-gcc10.3'
+    echoln '    https://github.com/espressif/crosstool-NG/releases/tag/esp-12.2.0_20230208'
+    echoln
+    echoln 'Example (Linux):'
+    echoln "    mkdir ~/${tcRootDirPathName}"
+    echoln "    cd ~/${tcRootDirPathName}"
+    echoln '    wget -c https://github.com/earlephilhower/esp-quick-toolchain/releases/download/3.2.0-gcc10.3/x86_64-linux-gnu.xtensa-lx106-elf-c791b74.230224.tar.gz'
+    echoln '    tar -xzvpf x86_64-linux-gnu.xtensa-lx106-elf-c791b74.230224.tar.gz'
+    echoln '    cd ..'
+    echoln "Set '${tcPathEnvVarName}' to the ${tcSimpleName} Toolchain location."
+    echoln
+endfunction
+
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__(?NGInfo, ?xgfSpcCnt, ?hideComSel, ?noCpp20M, ?noSharedLib, ?noRunExe, ?userCompSel, ?userExtraFuncs) supersede
+    # Use the generic information text if it was not defined
+    if !&${NGInfo}
+        local NGText := __c_cyan__  "Generic Xtensa" __c_white__
+        local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    endif
+    # Call the original function
+    $call(__origin__, ${hideComSel}, ${noCpp20M}, ${noSharedLib}, ${noRunExe}, ${userCompSel}, ${userExtraFuncs})
+    # Print some information
+    local max xgfSpcCnt, ${xgfSpcCnt}, 1
+    local     XGFSpc := $repeat(' ', ${xgfSpcCnt})
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${NGInfo})
+    echoln __c_green__ '    __gcc__       ' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_gcc__     ' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __xtensa_gcc__' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_reset__
+endfunction

@@ -1,0 +1,1402 @@
+##### Extracted from the original boards.txt to be used for testing         #####
+##### https://github.com/stm32duino/Arduino_Core_STM32/blob/main/boards.txt #####
+
+menu.pnum=Board part number
+
+menu.xserial=U(S)ART support
+menu.usb=USB support (if available)
+menu.xusb=USB speed (if available)
+menu.virtio=Virtual serial support
+
+menu.opt=Optimize
+menu.dbg=Debug symbols and core logs
+menu.rtlib=C Runtime Library
+menu.upload_method=Upload method
+
+################################################################################
+# Nucleo 144 boards
+
+Nucleo_144.name=Nucleo-144
+Nucleo_144.build.core=arduino
+Nucleo_144.build.board=Nucleo_144
+Nucleo_144.build.variant_h=variant_{build.board}.h
+Nucleo_144.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+Nucleo_144.build.flash_offset=0x0
+Nucleo_144.upload.maximum_size=0
+Nucleo_144.upload.maximum_data_size=0
+
+# NUCLEO_F413ZH board
+Nucleo_144.menu.pnum.NUCLEO_F413ZH=Nucleo F413ZH
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.node=NODE_F413ZH
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.upload.maximum_size=1572864
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.upload.maximum_data_size=327680
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.mcu=cortex-m4
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.fpu=-mfpu=fpv4-sp-d16
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.float-abi=-mfloat-abi=hard
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.board=NUCLEO_F413ZH
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.series=STM32F4xx
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.product_line=STM32F413xx
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.variant=STM32F4xx/F413Z(G-H)(J-T)_F423ZH(J-T)
+Nucleo_144.menu.pnum.NUCLEO_F413ZH.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# NUCLEO_F429ZI board
+# Support: USB HID, Serial1 (USART1 on PG9, PG14) and Serial2 (USART2 on PD6, PD5)
+Nucleo_144.menu.pnum.NUCLEO_F429ZI=Nucleo F429ZI
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.node=NODE_F429ZI
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.upload.maximum_size=2097152
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.upload.maximum_data_size=196608
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.mcu=cortex-m4
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.fpu=-mfpu=fpv4-sp-d16
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.float-abi=-mfloat-abi=hard
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.board=NUCLEO_F429ZI
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.series=STM32F4xx
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.product_line=STM32F429xx
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.variant=STM32F4xx/F427Z(G-I)T_F429ZET_F429Z(G-I)(T-Y)_F437Z(G-I)T_F439Z(G-I)(T-Y)
+Nucleo_144.menu.pnum.NUCLEO_F429ZI.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# NUCLEO_F722ZE board
+Nucleo_144.menu.pnum.NUCLEO_F722ZE=Nucleo F722ZE
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.node=NODE_F722ZE
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.upload.maximum_size=524288
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.upload.maximum_data_size=196608
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.mcu=cortex-m7
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.flags.fp=-mfpu=fpv4-sp-d16 -mfloat-abi=hard
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.board=NUCLEO_F722ZE
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.series=STM32F7xx
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.product_line=STM32F722xx
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.variant=STM32F7xx/F722Z(C-E)T_F732ZET
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.variant_h=variant_NUCLEO_F722ZE.h
+Nucleo_144.menu.pnum.NUCLEO_F722ZE.build.cmsis_lib_gcc=arm_cortexM7lfsp_math
+
+# NUCLEO_H743ZI board
+Nucleo_144.menu.pnum.NUCLEO_H743ZI=Nucleo H743ZI
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.node=NODE_H743ZI
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.upload.maximum_size=2097152
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.upload.maximum_data_size=524288
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.mcu=cortex-m7
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.fpu=-mfpu=fpv4-sp-d16
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.float-abi=-mfloat-abi=hard
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.board=NUCLEO_H743ZI
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.series=STM32H7xx
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.product_line=STM32H743xx
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.variant=STM32H7xx/H742Z(G-I)T_H743Z(G-I)T_H747A(G-I)I_H747I(G-I)T_H750ZBT_H753ZIT_H757AII_H757IIT
+Nucleo_144.menu.pnum.NUCLEO_H743ZI.build.cmsis_lib_gcc=arm_cortexM7lfsp_math
+
+# NUCLEO_U575ZI_Q board
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q=Nucleo U575ZI-Q
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.node=NOD_U575ZI
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.upload.maximum_size=2097152
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.upload.maximum_data_size=786432
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.mcu=cortex-m33
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.fpu=-mfpu=fpv4-sp-d16
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.float-abi=-mfloat-abi=hard
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.board=NUCLEO_U575ZI_Q
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.series=STM32U5xx
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.product_line=STM32U575xx
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.variant=STM32U5xx/U575Z(G-I)TxQ_U585ZITxQ
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.cmsis_lib_gcc=arm_ARMv8MMLlfsp_math
+Nucleo_144.menu.pnum.NUCLEO_U575ZI_Q.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+
+# Upload menu
+Nucleo_144.menu.upload_method.MassStorage=Mass Storage
+Nucleo_144.menu.upload_method.MassStorage.upload.protocol=
+Nucleo_144.menu.upload_method.MassStorage.upload.tool=massStorageCopy
+
+Nucleo_144.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+Nucleo_144.menu.upload_method.swdMethod.upload.protocol=0
+Nucleo_144.menu.upload_method.swdMethod.upload.options=
+Nucleo_144.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+Nucleo_144.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+Nucleo_144.menu.upload_method.serialMethod.upload.protocol=1
+Nucleo_144.menu.upload_method.serialMethod.upload.options={serial.port.file}
+Nucleo_144.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+Nucleo_144.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+Nucleo_144.menu.upload_method.dfuMethod.upload.protocol=2
+Nucleo_144.menu.upload_method.dfuMethod.upload.options=
+Nucleo_144.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Discovery boards
+
+Disco.name=Discovery
+
+Disco.build.core=arduino
+Disco.build.board=Disco
+Disco.build.variant_h=variant_{build.board}.h
+Disco.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+Disco.build.flash_offset=0x0
+Disco.upload.maximum_size=0
+Disco.upload.maximum_data_size=0
+
+# B_G431B_ESC1 board
+Disco.menu.pnum.B_G431B_ESC1=B-G431B-ESC1
+Disco.menu.pnum.B_G431B_ESC1.node="NODE_G431CB,NOD_G431CB,DIS_G431CB"
+Disco.menu.pnum.B_G431B_ESC1.upload.maximum_size=131072
+Disco.menu.pnum.B_G431B_ESC1.upload.maximum_data_size=32768
+Disco.menu.pnum.B_G431B_ESC1.build.mcu=cortex-m4
+Disco.menu.pnum.B_G431B_ESC1.build.fpu=-mfpu=fpv4-sp-d16
+Disco.menu.pnum.B_G431B_ESC1.build.float-abi=-mfloat-abi=hard
+Disco.menu.pnum.B_G431B_ESC1.build.board=B_G431B_ESC1
+Disco.menu.pnum.B_G431B_ESC1.build.series=STM32G4xx
+Disco.menu.pnum.B_G431B_ESC1.build.product_line=STM32G431xx
+Disco.menu.pnum.B_G431B_ESC1.build.variant=STM32G4xx/G431C(6-8-B)U_G441CBU
+Disco.menu.pnum.B_G431B_ESC1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+Disco.menu.pnum.B_G431B_ESC1.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# B-L072Z-LRWAN1 board
+Disco.menu.pnum.B_L072Z_LRWAN1=B-L072Z-LRWAN1
+Disco.menu.pnum.B_L072Z_LRWAN1.node="DIS_L072Z,NODE_L072CZ"
+Disco.menu.pnum.B_L072Z_LRWAN1.upload.maximum_size=196608
+Disco.menu.pnum.B_L072Z_LRWAN1.upload.maximum_data_size=20480
+Disco.menu.pnum.B_L072Z_LRWAN1.build.mcu=cortex-m0plus
+Disco.menu.pnum.B_L072Z_LRWAN1.build.board=B_L072Z_LRWAN1
+Disco.menu.pnum.B_L072Z_LRWAN1.build.series=STM32L0xx
+Disco.menu.pnum.B_L072Z_LRWAN1.build.product_line=STM32L072xx
+Disco.menu.pnum.B_L072Z_LRWAN1.build.variant=STM32L0xx/L072CBY_L072CZ(E-Y)_L073CZY_L082CZY
+Disco.menu.pnum.B_L072Z_LRWAN1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+Disco.menu.pnum.B_L072Z_LRWAN1.build.cmsis_lib_gcc=arm_cortexM0l_math
+Disco.menu.pnum.B_L072Z_LRWAN1.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial} -D__CORTEX_SC=0
+
+# STM32C0316-DK board
+Disco.menu.pnum.STM32C0316_DK=STM32C0316-DK
+Disco.menu.pnum.STM32C0316_DK.node="No_mass_storage_for_this_board_Use_STLink_upload_method"
+Disco.menu.pnum.STM32C0316_DK.upload.maximum_size=32768
+Disco.menu.pnum.STM32C0316_DK.upload.maximum_data_size=12288
+Disco.menu.pnum.STM32C0316_DK.build.mcu=cortex-m0plus
+Disco.menu.pnum.STM32C0316_DK.build.board=STM32C0316_DK
+Disco.menu.pnum.STM32C0316_DK.build.series=STM32C0xx
+Disco.menu.pnum.STM32C0316_DK.build.product_line=STM32C031xx
+Disco.menu.pnum.STM32C0316_DK.build.variant=STM32C0xx/C031C(4-6)(T-U)
+Disco.menu.pnum.STM32C0316_DK.build.cmsis_lib_gcc=arm_cortexM0l_math
+Disco.menu.pnum.STM32C0316_DK.build.st_extra_flags=-D{build.product_line} {build.xSerial} -D__CORTEX_SC=0
+
+# STM32WB5MM-DK board
+Disco.menu.pnum.STM32WB5MM_DK=STM32WB5MM-DK
+Disco.menu.pnum.STM32WB5MM_DK.node="DIS_WB5MMG"
+Disco.menu.pnum.STM32WB5MM_DK.upload.maximum_size=827392
+Disco.menu.pnum.STM32WB5MM_DK.upload.maximum_data_size=196608
+Disco.menu.pnum.STM32WB5MM_DK.build.mcu=cortex-m4
+Disco.menu.pnum.STM32WB5MM_DK.build.fpu=-mfpu=fpv4-sp-d16
+Disco.menu.pnum.STM32WB5MM_DK.build.float-abi=-mfloat-abi=hard
+Disco.menu.pnum.STM32WB5MM_DK.build.board=STM32WB5MM_DK
+Disco.menu.pnum.STM32WB5MM_DK.build.series=STM32WBxx
+Disco.menu.pnum.STM32WB5MM_DK.build.product_line=STM32WB5Mxx
+Disco.menu.pnum.STM32WB5MM_DK.build.variant=STM32WBxx/WB5MMGH
+Disco.menu.pnum.STM32WB5MM_DK.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+Disco.menu.pnum.STM32WB5MM_DK.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# Upload menu
+Disco.menu.upload_method.MassStorage=Mass Storage
+Disco.menu.upload_method.MassStorage.upload.protocol=
+Disco.menu.upload_method.MassStorage.upload.tool=massStorageCopy
+
+Disco.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+Disco.menu.upload_method.swdMethod.upload.protocol=0
+Disco.menu.upload_method.swdMethod.upload.options=
+Disco.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+Disco.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+Disco.menu.upload_method.serialMethod.upload.protocol=1
+Disco.menu.upload_method.serialMethod.upload.options={serial.port.file}
+Disco.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+Disco.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+Disco.menu.upload_method.dfuMethod.upload.protocol=2
+Disco.menu.upload_method.dfuMethod.upload.options=
+Disco.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Eval boards
+
+Eval.name=Eval
+
+Eval.build.core=arduino
+Eval.build.board=Eval
+Eval.build.variant_h=variant_{build.board}.h
+Eval.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+Eval.build.flash_offset=0x0
+Eval.upload.maximum_size=0
+Eval.upload.maximum_data_size=0
+
+# STEVAL_MKSBOX1V1 board
+Eval.menu.pnum.STEVAL_MKSBOX1V1=SensorTile.box
+Eval.menu.pnum.STEVAL_MKSBOX1V1.upload.maximum_size=2097152
+Eval.menu.pnum.STEVAL_MKSBOX1V1.upload.maximum_data_size=655360
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.mcu=cortex-m4
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.fpu=-mfpu=fpv4-sp-d16
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.float-abi=-mfloat-abi=hard
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.board=STEVAL_MKSBOX1V1
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.series=STM32L4xx
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.product_line=STM32L4R9xx
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.variant=STM32L4xx/L4R9Z(G-I)J_L4S9ZIJ
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+Eval.menu.pnum.STEVAL_MKSBOX1V1.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# Upload menu
+Eval.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+Eval.menu.upload_method.swdMethod.upload.protocol=0
+Eval.menu.upload_method.swdMethod.upload.options=
+Eval.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+Eval.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+Eval.menu.upload_method.dfuMethod.upload.protocol=2
+Eval.menu.upload_method.dfuMethod.upload.options=
+Eval.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+###############################
+# Generic F0
+GenF0.name=Generic STM32F0 series
+
+GenF0.build.core=arduino
+GenF0.build.board=GenF0
+GenF0.build.mcu=cortex-m0
+GenF0.build.series=STM32F0xx
+GenF0.build.cmsis_lib_gcc=arm_cortexM0l_math
+GenF0.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+GenF0.build.flash_offset=0x0
+GenF0.upload.maximum_size=0
+GenF0.upload.maximum_data_size=0
+
+# DEMO_F030F4 board
+GenF0.menu.pnum.DEMO_F030F4=STM32F030F4 Demo board (HSE 8Mhz)
+GenF0.menu.pnum.DEMO_F030F4.upload.maximum_size=16384
+GenF0.menu.pnum.DEMO_F030F4.upload.maximum_data_size=4096
+GenF0.menu.pnum.DEMO_F030F4.build.board=DEMO_F030F4
+GenF0.menu.pnum.DEMO_F030F4.build.product_line=STM32F030x6
+GenF0.menu.pnum.DEMO_F030F4.build.variant=STM32F0xx/F030F4P
+GenF0.menu.pnum.DEMO_F030F4.build.variant_h=variant_{build.board}.h
+
+# DEMO_F030F4_16M board
+GenF0.menu.pnum.DEMO_F030F4_16M=STM32F030F4 Demo board (HSE 16Mhz)
+GenF0.menu.pnum.DEMO_F030F4_16M.upload.maximum_size=16384
+GenF0.menu.pnum.DEMO_F030F4_16M.upload.maximum_data_size=4096
+GenF0.menu.pnum.DEMO_F030F4_16M.build.board=DEMO_F030F4_16M
+GenF0.menu.pnum.DEMO_F030F4_16M.build.product_line=STM32F030x6
+GenF0.menu.pnum.DEMO_F030F4_16M.build.variant=STM32F0xx/F030F4P
+GenF0.menu.pnum.DEMO_F030F4_16M.build.variant_h=variant_DEMO_F030F4.h
+
+# DEMO_F030F4_HSI board
+GenF0.menu.pnum.DEMO_F030F4_HSI=STM32F030F4 Demo board (HSI internal RC oscillator)
+GenF0.menu.pnum.DEMO_F030F4_HSI.upload.maximum_size=16384
+GenF0.menu.pnum.DEMO_F030F4_HSI.upload.maximum_data_size=4096
+GenF0.menu.pnum.DEMO_F030F4_HSI.build.board=DEMO_F030F4_HSI
+GenF0.menu.pnum.DEMO_F030F4_HSI.build.product_line=STM32F030x6
+GenF0.menu.pnum.DEMO_F030F4_HSI.build.variant=STM32F0xx/F030F4P
+GenF0.menu.pnum.DEMO_F030F4_HSI.build.variant_h=variant_DEMO_F030F4.h
+
+# Upload menu
+GenF0.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+GenF0.menu.upload_method.swdMethod.upload.protocol=0
+GenF0.menu.upload_method.swdMethod.upload.options=
+GenF0.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+GenF0.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+GenF0.menu.upload_method.serialMethod.upload.protocol=1
+GenF0.menu.upload_method.serialMethod.upload.options={serial.port.file}
+GenF0.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+GenF0.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+GenF0.menu.upload_method.dfuMethod.upload.protocol=2
+GenF0.menu.upload_method.dfuMethod.upload.options=
+GenF0.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Generic F1
+GenF1.name=Generic STM32F1 series
+
+GenF1.build.core=arduino
+GenF1.build.board=GenF1
+GenF1.build.mcu=cortex-m3
+GenF1.build.series=STM32F1xx
+GenF1.build.cmsis_lib_gcc=arm_cortexM3l_math
+GenF1.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial} {build.bootloader_flags}
+GenF1.build.flash_offset=0x0
+GenF1.upload.maximum_size=0
+GenF1.upload.maximum_data_size=0
+
+# BLUEPILL_F103C6 board
+GenF1.menu.pnum.BLUEPILL_F103C6=BluePill F103C6 (32K)
+GenF1.menu.pnum.BLUEPILL_F103C6.upload.maximum_size=32768
+GenF1.menu.pnum.BLUEPILL_F103C6.upload.maximum_data_size=10240
+GenF1.menu.pnum.BLUEPILL_F103C6.build.board=BLUEPILL_F103C6
+GenF1.menu.pnum.BLUEPILL_F103C6.build.product_line=STM32F103x6
+GenF1.menu.pnum.BLUEPILL_F103C6.build.variant=STM32F1xx/F103C4T_F103C6(T-U)
+GenF1.menu.pnum.BLUEPILL_F103C6.build.variant_h=variant_{build.board}.h
+
+# BLUEPILL_F103C8 board
+GenF1.menu.pnum.BLUEPILL_F103C8=BluePill F103C8
+GenF1.menu.pnum.BLUEPILL_F103C8.upload.maximum_size=65536
+GenF1.menu.pnum.BLUEPILL_F103C8.upload.maximum_data_size=20480
+GenF1.menu.pnum.BLUEPILL_F103C8.build.board=BLUEPILL_F103C8
+GenF1.menu.pnum.BLUEPILL_F103C8.build.product_line=STM32F103xB
+GenF1.menu.pnum.BLUEPILL_F103C8.build.variant=STM32F1xx/F103C8T_F103CB(T-U)
+GenF1.menu.pnum.BLUEPILL_F103C8.build.variant_h=variant_PILL_F103Cx.h
+
+GenF1.menu.pnum.BLUEPILL_F103CB=BluePill F103CB (or C8 with 128k)
+GenF1.menu.pnum.BLUEPILL_F103CB.upload.maximum_size=131072
+GenF1.menu.pnum.BLUEPILL_F103CB.upload.maximum_data_size=20480
+GenF1.menu.pnum.BLUEPILL_F103CB.build.board=BLUEPILL_F103CB
+GenF1.menu.pnum.BLUEPILL_F103CB.build.product_line=STM32F103xB
+GenF1.menu.pnum.BLUEPILL_F103CB.build.variant_h=variant_PILL_F103Cx.h
+GenF1.menu.pnum.BLUEPILL_F103CB.build.variant=STM32F1xx/F103C8T_F103CB(T-U)
+
+# BLACKPILL_F103C8 board
+GenF1.menu.pnum.BLACKPILL_F103C8=BlackPill F103C8
+GenF1.menu.pnum.BLACKPILL_F103C8.upload.maximum_size=65536
+GenF1.menu.pnum.BLACKPILL_F103C8.upload.maximum_data_size=20480
+GenF1.menu.pnum.BLACKPILL_F103C8.build.board=BLACKPILL_F103C8
+GenF1.menu.pnum.BLACKPILL_F103C8.build.product_line=STM32F103xB
+GenF1.menu.pnum.BLACKPILL_F103C8.build.variant_h=variant_PILL_F103Cx.h
+GenF1.menu.pnum.BLACKPILL_F103C8.build.variant=STM32F1xx/F103C8T_F103CB(T-U)
+
+GenF1.menu.pnum.BLACKPILL_F103CB=BlackPill F103CB (or C8 with 128k)
+GenF1.menu.pnum.BLACKPILL_F103CB.upload.maximum_size=131072
+GenF1.menu.pnum.BLACKPILL_F103CB.upload.maximum_data_size=20480
+GenF1.menu.pnum.BLACKPILL_F103CB.build.board=BLACKPILL_F103CB
+GenF1.menu.pnum.BLACKPILL_F103CB.build.product_line=STM32F103xB
+GenF1.menu.pnum.BLACKPILL_F103CB.build.variant_h=variant_PILL_F103Cx.h
+GenF1.menu.pnum.BLACKPILL_F103CB.build.variant=STM32F1xx/F103C8T_F103CB(T-U)
+
+# Upload menu
+GenF1.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+GenF1.menu.upload_method.swdMethod.upload.protocol=0
+GenF1.menu.upload_method.swdMethod.upload.options=
+GenF1.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+GenF1.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+GenF1.menu.upload_method.serialMethod.upload.protocol=1
+GenF1.menu.upload_method.serialMethod.upload.options={serial.port.file}
+GenF1.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+GenF1.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+GenF1.menu.upload_method.dfuMethod.upload.protocol=2
+GenF1.menu.upload_method.dfuMethod.upload.options=
+GenF1.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+GenF1.menu.upload_method.bmpMethod=BMP (Black Magic Probe)
+GenF1.menu.upload_method.bmpMethod.upload.protocol=gdb_bmp
+GenF1.menu.upload_method.bmpMethod.upload.tool=bmp_upload
+
+GenF1.menu.upload_method.hidMethod=HID Bootloader 2.2
+GenF1.menu.upload_method.hidMethod.upload.protocol=hid22
+GenF1.menu.upload_method.hidMethod.upload.tool=hid_upload
+GenF1.menu.upload_method.hidMethod.build.flash_offset=0x800
+GenF1.menu.upload_method.hidMethod.build.bootloader_flags=-DBL_HID
+
+GenF1.menu.upload_method.dfu2Method=Maple DFU Bootloader 2.0
+GenF1.menu.upload_method.dfu2Method.upload.protocol=maple
+GenF1.menu.upload_method.dfu2Method.upload.tool=maple_upload
+GenF1.menu.upload_method.dfu2Method.upload.usbID=1EAF:0003
+GenF1.menu.upload_method.dfu2Method.upload.altID=2
+GenF1.menu.upload_method.dfu2Method.build.flash_offset=0x2000
+GenF1.menu.upload_method.dfu2Method.build.bootloader_flags=-DBL_LEGACY_LEAF
+
+GenF1.menu.upload_method.dfuoMethod=Maple DFU Bootloader original
+GenF1.menu.upload_method.dfuoMethod.upload.protocol=maple
+GenF1.menu.upload_method.dfuoMethod.upload.tool=maple_upload
+GenF1.menu.upload_method.dfuoMethod.upload.usbID=1EAF:0003
+GenF1.menu.upload_method.dfuoMethod.upload.altID=1
+GenF1.menu.upload_method.dfuoMethod.build.flash_offset=0x5000
+GenF1.menu.upload_method.dfuoMethod.build.bootloader_flags=-DBL_LEGACY_LEAF
+
+################################################################################
+# Generic F4
+
+GenF4.name=Generic STM32F4 series
+
+GenF4.build.core=arduino
+GenF4.build.board=GenF4
+GenF4.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial} {build.bootloader_flags}
+GenF4.build.mcu=cortex-m4
+GenF4.build.fpu=-mfpu=fpv4-sp-d16
+GenF4.build.float-abi=-mfloat-abi=hard
+GenF4.build.series=STM32F4xx
+GenF4.build.cmsis_lib_gcc=arm_cortexM4lf_math
+GenF4.build.flash_offset=0x0
+GenF4.upload.maximum_size=0
+GenF4.upload.maximum_data_size=0
+
+# BlackPill F401CE
+GenF4.menu.pnum.BLACKPILL_F401CE=BlackPill F401CE
+GenF4.menu.pnum.BLACKPILL_F401CE.upload.maximum_size=524288
+GenF4.menu.pnum.BLACKPILL_F401CE.upload.maximum_data_size=98304
+GenF4.menu.pnum.BLACKPILL_F401CE.build.board=BLACKPILL_F401CE
+GenF4.menu.pnum.BLACKPILL_F401CE.build.product_line=STM32F401xE
+GenF4.menu.pnum.BLACKPILL_F401CE.build.variant=STM32F4xx/F401CC(F-U-Y)_F401C(B-D-E)(U-Y)
+GenF4.menu.pnum.BLACKPILL_F401CE.build.variant_h=variant_BLACKPILL_F401Cx.h
+GenF4.menu.pnum.BLACKPILL_F401CE.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+
+# BlackPill F411CE
+# https://github.com/mcauser/WEACT_F411CEU6
+GenF4.menu.pnum.BLACKPILL_F411CE=BlackPill F411CE
+GenF4.menu.pnum.BLACKPILL_F411CE.upload.maximum_size=524288
+GenF4.menu.pnum.BLACKPILL_F411CE.upload.maximum_data_size=131072
+GenF4.menu.pnum.BLACKPILL_F411CE.build.board=BLACKPILL_F411CE
+GenF4.menu.pnum.BLACKPILL_F411CE.build.product_line=STM32F411xE
+GenF4.menu.pnum.BLACKPILL_F411CE.build.variant=STM32F4xx/F411C(C-E)(U-Y)
+GenF4.menu.pnum.BLACKPILL_F411CE.build.variant_h=variant_{build.board}.h
+GenF4.menu.pnum.BLACKPILL_F411CE.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+
+# VCCGND_F407ZGT6 board
+GenF4.menu.pnum.VCCGND_F407ZG_MINI=VCCGND F407ZGT6 Mini
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.upload.maximum_size=1048576
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.upload.maximum_data_size=131072
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.build.board=VCCGND_F407ZG_MINI
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.build.product_line=STM32F407xx
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.build.variant_h=variant_{build.board}.h
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.build.variant=STM32F4xx/F407Z(E-G)T_F417Z(E-G)T
+GenF4.menu.pnum.VCCGND_F407ZG_MINI.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+
+# Upload menu
+GenF4.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+GenF4.menu.upload_method.swdMethod.upload.protocol=0
+GenF4.menu.upload_method.swdMethod.upload.options=
+GenF4.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+GenF4.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+GenF4.menu.upload_method.serialMethod.upload.protocol=1
+GenF4.menu.upload_method.serialMethod.upload.options={serial.port.file}
+GenF4.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+GenF4.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+GenF4.menu.upload_method.dfuMethod.upload.protocol=2
+GenF4.menu.upload_method.dfuMethod.upload.options=
+GenF4.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+GenF4.menu.upload_method.bmpMethod=BMP (Black Magic Probe)
+GenF4.menu.upload_method.bmpMethod.upload.protocol=gdb_bmp
+GenF4.menu.upload_method.bmpMethod.upload.tool=bmp_upload
+
+GenF4.menu.upload_method.hidMethod=HID Bootloader 2.2
+GenF4.menu.upload_method.hidMethod.upload.protocol=hid22
+GenF4.menu.upload_method.hidMethod.upload.tool=hid_upload
+GenF4.menu.upload_method.hidMethod.build.flash_offset=0x4000
+GenF4.menu.upload_method.hidMethod.build.bootloader_flags=-DBL_HID
+
+################################################################################
+# Generic WB
+GenWB.name=Generic STM32WB series
+
+GenWB.build.core=arduino
+GenWB.build.board=GenWB
+GenWB.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+GenWB.build.mcu=cortex-m4
+GenWB.build.fpu=-mfpu=fpv4-sp-d16
+GenWB.build.float-abi=-mfloat-abi=hard
+GenWB.build.series=STM32WBxx
+GenWB.build.cmsis_lib_gcc=arm_cortexM4lf_math
+GenWB.build.flash_offset=0x0
+GenWB.upload.maximum_size=0
+GenWB.upload.maximum_data_size=0
+
+# Generic WB15CCUx
+GenWB.menu.pnum.GENERIC_WB15CCUX=Generic WB15CCUx
+GenWB.menu.pnum.GENERIC_WB15CCUX.upload.maximum_size=131072
+GenWB.menu.pnum.GENERIC_WB15CCUX.upload.maximum_data_size=12288
+GenWB.menu.pnum.GENERIC_WB15CCUX.build.board=GENERIC_WB15CCUX
+GenWB.menu.pnum.GENERIC_WB15CCUX.build.product_line=STM32WB15xx
+GenWB.menu.pnum.GENERIC_WB15CCUX.build.variant=STM32WBxx/WB15CCU
+
+# Generic WB55RGVx
+GenWB.menu.pnum.GENERIC_WB55RGVX=Generic WB55RGVx
+GenWB.menu.pnum.GENERIC_WB55RGVX.upload.maximum_size=524288
+GenWB.menu.pnum.GENERIC_WB55RGVX.upload.maximum_data_size=196608
+GenWB.menu.pnum.GENERIC_WB55RGVX.build.board=GENERIC_WB55RGVX
+GenWB.menu.pnum.GENERIC_WB55RGVX.build.product_line=STM32WB55xx
+GenWB.menu.pnum.GENERIC_WB55RGVX.build.variant=STM32WBxx/WB55R(C-E-G)V
+
+# Upload menu
+GenWB.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+GenWB.menu.upload_method.swdMethod.upload.protocol=0
+GenWB.menu.upload_method.swdMethod.upload.options=
+GenWB.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+GenWB.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+GenWB.menu.upload_method.serialMethod.upload.protocol=1
+GenWB.menu.upload_method.serialMethod.upload.options={serial.port.file}
+GenWB.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+GenWB.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+GenWB.menu.upload_method.dfuMethod.upload.protocol=2
+GenWB.menu.upload_method.dfuMethod.upload.options=
+GenWB.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Generic WL
+GenWL.name=Generic STM32WL series
+
+GenWL.build.core=arduino
+GenWL.build.board=GenWL
+GenWL.build.st_extra_flags=-D{build.product_line} -DUSE_CM4_STARTUP_FILE {build.xSerial}
+GenWL.build.mcu=cortex-m4
+#GenWL.build.fpu=-mfpu=fpv4-sp-d16
+#GenWL.build.float-abi=-mfloat-abi=hard
+GenWL.build.series=STM32WLxx
+GenWL.build.cmsis_lib_gcc=arm_cortexM4l_math
+GenWL.build.flash_offset=0x0
+GenWL.upload.maximum_size=0
+GenWL.upload.maximum_data_size=0
+
+# Generic WL54CCUx
+GenWL.menu.pnum.GENERIC_WL54CCUX=Generic WL54CCUx
+GenWL.menu.pnum.GENERIC_WL54CCUX.upload.maximum_size=262144
+GenWL.menu.pnum.GENERIC_WL54CCUX.upload.maximum_data_size=65536
+GenWL.menu.pnum.GENERIC_WL54CCUX.build.board=GENERIC_WL54CCUX
+GenWL.menu.pnum.GENERIC_WL54CCUX.build.product_line=STM32WL54xx
+GenWL.menu.pnum.GENERIC_WL54CCUX.build.variant=STM32WLxx/WL54CCU_WL55CCU_WLE4C(8-B-C)U_WLE5C(8-B-C)U
+
+# Generic WLE5JCIx
+GenWL.menu.pnum.GENERIC_WLE5JCIX=Generic WLE5JCIx
+GenWL.menu.pnum.GENERIC_WLE5JCIX.upload.maximum_size=262144
+GenWL.menu.pnum.GENERIC_WLE5JCIX.upload.maximum_data_size=65536
+GenWL.menu.pnum.GENERIC_WLE5JCIX.build.board=GENERIC_WLE5JCIX
+GenWL.menu.pnum.GENERIC_WLE5JCIX.build.product_line=STM32WLE5xx
+GenWL.menu.pnum.GENERIC_WLE5JCIX.build.variant=STM32WLxx/WL54JCI_WL55JCI_WLE4J(8-B-C)I_WLE5J(8-B-C)I
+
+# Upload menu
+GenWL.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+GenWL.menu.upload_method.swdMethod.upload.protocol=0
+GenWL.menu.upload_method.swdMethod.upload.options=
+GenWL.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+GenWL.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+GenWL.menu.upload_method.serialMethod.upload.protocol=1
+GenWL.menu.upload_method.serialMethod.upload.options={serial.port.file}
+GenWL.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+GenWL.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+GenWL.menu.upload_method.dfuMethod.upload.protocol=2
+GenWL.menu.upload_method.dfuMethod.upload.options=
+GenWL.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# 3D printer boards
+
+3dprinter.name=3D printer boards
+
+3dprinter.build.core=arduino
+3dprinter.build.board=3dprinter
+3dprinter.build.variant_h=variant_{build.board}.h
+3dprinter.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+3dprinter.build.flash_offset=0x0
+3dprinter.upload.maximum_size=0
+3dprinter.upload.maximum_data_size=0
+
+# ARMED_V1 board
+3dprinter.menu.pnum.ARMED_V1=Armed V1
+3dprinter.menu.pnum.ARMED_V1.upload.maximum_size=524288
+3dprinter.menu.pnum.ARMED_V1.upload.maximum_data_size=131072
+3dprinter.menu.pnum.ARMED_V1.build.mcu=cortex-m4
+3dprinter.menu.pnum.ARMED_V1.build.fpu=-mfpu=fpv4-sp-d16
+3dprinter.menu.pnum.ARMED_V1.build.float-abi=-mfloat-abi=hard
+3dprinter.menu.pnum.ARMED_V1.build.board=ARMED_V1
+3dprinter.menu.pnum.ARMED_V1.build.series=STM32F4xx
+3dprinter.menu.pnum.ARMED_V1.build.product_line=STM32F407xx
+3dprinter.menu.pnum.ARMED_V1.build.variant=STM32F4xx/F407V(E-G)T_F417V(E-G)T
+3dprinter.menu.pnum.ARMED_V1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+3dprinter.menu.pnum.ARMED_V1.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# PRNTR_V1 board
+3dprinter.menu.pnum.PRNTR_V1=PRNTR v1
+3dprinter.menu.pnum.PRNTR_V1.upload.maximum_size=524288
+3dprinter.menu.pnum.PRNTR_V1.upload.maximum_data_size=131072
+3dprinter.menu.pnum.PRNTR_V1.build.mcu=cortex-m4
+3dprinter.menu.pnum.PRNTR_V1.build.fpu=-mfpu=fpv4-sp-d16
+3dprinter.menu.pnum.PRNTR_V1.build.float-abi=-mfloat-abi=hard
+3dprinter.menu.pnum.PRNTR_V1.build.board=PRNTR_V1
+3dprinter.menu.pnum.PRNTR_V1.build.series=STM32F4xx
+3dprinter.menu.pnum.PRNTR_V1.build.product_line=STM32F407xx
+3dprinter.menu.pnum.PRNTR_V1.build.variant=STM32F4xx/F407V(E-G)T_F417V(E-G)T
+3dprinter.menu.pnum.PRNTR_V1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+3dprinter.menu.pnum.PRNTR_V1.build.cmsis_lib_gcc=arm_cortexM4lf_math
+
+# PRNTR_V2 board
+3dprinter.menu.pnum.PRNTR_V2=PRNTR v2
+3dprinter.menu.pnum.PRNTR_V2.upload.maximum_size=524288
+3dprinter.menu.pnum.PRNTR_V2.upload.maximum_data_size=131072
+3dprinter.menu.pnum.PRNTR_V2.build.mcu=cortex-m4
+3dprinter.menu.pnum.PRNTR_V2.build.fpu=-mfpu=fpv4-sp-d16
+3dprinter.menu.pnum.PRNTR_V2.build.float-abi=-mfloat-abi=hard
+3dprinter.menu.pnum.PRNTR_V2.build.board=PRNTR_V2
+3dprinter.menu.pnum.PRNTR_V2.build.series=STM32F4xx
+3dprinter.menu.pnum.PRNTR_V2.build.product_line=STM32F407xx
+3dprinter.menu.pnum.PRNTR_V2.build.variant=STM32F4xx/F407V(E-G)T_F417V(E-G)T
+3dprinter.menu.pnum.PRNTR_V2.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+3dprinter.menu.pnum.PRNTR_V2.build.cmsis_lib_gcc=arm_cortexM4lf_math
+3dprinter.menu.pnum.PRNTR_V2.build.flash_offset=0x8000
+3dprinter.menu.pnum.PRNTR_V2.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+
+# EEXTR_F030_V1 board
+3dprinter.menu.pnum.EEXTR_F030_V1=EExtruder F030 V1
+3dprinter.menu.pnum.EEXTR_F030_V1.upload.maximum_size=65536
+3dprinter.menu.pnum.EEXTR_F030_V1.upload.maximum_data_size=8192
+3dprinter.menu.pnum.EEXTR_F030_V1.build.mcu=cortex-m0
+3dprinter.menu.pnum.EEXTR_F030_V1.build.board=EEXTR_F030_V1
+3dprinter.menu.pnum.EEXTR_F030_V1.build.series=STM32F0xx
+3dprinter.menu.pnum.EEXTR_F030_V1.build.product_line=STM32F030x8
+3dprinter.menu.pnum.EEXTR_F030_V1.build.variant=STM32F0xx/F030C8T
+3dprinter.menu.pnum.EEXTR_F030_V1.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+3dprinter.menu.pnum.EEXTR_F030_V1.build.cmsis_lib_gcc=arm_cortexM0l_math
+
+# MALYANM200_F103CB board
+3dprinter.menu.pnum.MALYANM200_F103CB=Malyan M200 V1
+3dprinter.menu.pnum.MALYANM200_F103CB.upload.maximum_size=122880
+3dprinter.menu.pnum.MALYANM200_F103CB.upload.maximum_data_size=20480
+3dprinter.menu.pnum.MALYANM200_F103CB.build.mcu=cortex-m3
+3dprinter.menu.pnum.MALYANM200_F103CB.build.board=MALYANM200_F103CB
+3dprinter.menu.pnum.MALYANM200_F103CB.build.series=STM32F1xx
+3dprinter.menu.pnum.MALYANM200_F103CB.build.product_line=STM32F103xB
+3dprinter.menu.pnum.MALYANM200_F103CB.build.variant=STM32F1xx/F103C8T_F103CB(T-U)
+3dprinter.menu.pnum.MALYANM200_F103CB.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+3dprinter.menu.pnum.MALYANM200_F103CB.build.cmsis_lib_gcc=arm_cortexM3l_math
+3dprinter.menu.pnum.MALYANM200_F103CB.build.startup_file=-DCUSTOM_STARTUP_FILE
+3dprinter.menu.pnum.MALYANM200_F103CB.build.flash_offset=0x2000
+3dprinter.menu.pnum.MALYANM200_F103CB.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+
+# MALYANM200_F070CB board
+3dprinter.menu.pnum.MALYANM200_F070CB=Malyan M200 V2
+3dprinter.menu.pnum.MALYANM200_F070CB.upload.maximum_size=122880
+3dprinter.menu.pnum.MALYANM200_F070CB.upload.maximum_data_size=15168
+3dprinter.menu.pnum.MALYANM200_F070CB.build.mcu=cortex-m0
+3dprinter.menu.pnum.MALYANM200_F070CB.build.board=MALYANM200_F070CB
+3dprinter.menu.pnum.MALYANM200_F070CB.build.series=STM32F0xx
+3dprinter.menu.pnum.MALYANM200_F070CB.build.product_line=STM32F070xB
+3dprinter.menu.pnum.MALYANM200_F070CB.build.variant=STM32F0xx/F070CBT
+3dprinter.menu.pnum.MALYANM200_F070CB.build.variant_h=variant_MALYANMx00_F070CB.h
+3dprinter.menu.pnum.MALYANM200_F070CB.build.cmsis_lib_gcc=arm_cortexM0l_math
+3dprinter.menu.pnum.MALYANM200_F070CB.build.startup_file=-DCUSTOM_STARTUP_FILE
+3dprinter.menu.pnum.MALYANM200_F070CB.build.ldscript=MALYANMx00_F070CB.ld
+3dprinter.menu.pnum.MALYANM200_F070CB.build.flash_offset=0x2000
+3dprinter.menu.pnum.MALYANM200_F070CB.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+
+# MALYANM300_F070CB board
+3dprinter.menu.pnum.MALYANM300_F070CB=Malyan M300
+3dprinter.menu.pnum.MALYANM300_F070CB.upload.maximum_size=122880
+3dprinter.menu.pnum.MALYANM300_F070CB.upload.maximum_data_size=15168
+3dprinter.menu.pnum.MALYANM300_F070CB.build.mcu=cortex-m0
+3dprinter.menu.pnum.MALYANM300_F070CB.build.board=MALYANM300_F070CB
+3dprinter.menu.pnum.MALYANM300_F070CB.build.series=STM32F0xx
+3dprinter.menu.pnum.MALYANM300_F070CB.build.product_line=STM32F070xB
+3dprinter.menu.pnum.MALYANM300_F070CB.build.variant=STM32F0xx/F070CBT
+3dprinter.menu.pnum.MALYANM300_F070CB.build.variant_h=variant_MALYANMx00_F070CB.h
+3dprinter.menu.pnum.MALYANM300_F070CB.build.cmsis_lib_gcc=arm_cortexM0l_math
+3dprinter.menu.pnum.MALYANM300_F070CB.build.startup_file=-DCUSTOM_STARTUP_FILE
+3dprinter.menu.pnum.MALYANM200_F070CB.build.ldscript=MALYANMx00_F070CB.ld
+3dprinter.menu.pnum.MALYANM300_F070CB.build.flash_offset=0x2000
+3dprinter.menu.pnum.MALYANM300_F070CB.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+
+# Upload menu
+3dprinter.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+3dprinter.menu.upload_method.swdMethod.upload.protocol=0
+3dprinter.menu.upload_method.swdMethod.upload.options=
+3dprinter.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+3dprinter.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+3dprinter.menu.upload_method.serialMethod.upload.protocol=1
+3dprinter.menu.upload_method.serialMethod.upload.options={serial.port.file}
+3dprinter.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+3dprinter.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+3dprinter.menu.upload_method.dfuMethod.upload.protocol=2
+3dprinter.menu.upload_method.dfuMethod.upload.options=
+3dprinter.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Blues Wireless boards
+
+BluesW.name=Blues Wireless boards
+
+BluesW.build.core=arduino
+BluesW.build.board=BluesWireless
+BluesW.build.variant_h=variant_{build.board}.h
+BluesW.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+BluesW.build.flash_offset=0x0
+BluesW.upload.maximum_size=0
+BluesW.upload.maximum_data_size=0
+
+# Swan R5 board
+BluesW.menu.pnum.SWAN_R5=Swan R5
+BluesW.menu.pnum.SWAN_R5.upload.maximum_size=2097152
+BluesW.menu.pnum.SWAN_R5.upload.maximum_data_size=655360
+BluesW.menu.pnum.SWAN_R5.build.mcu=cortex-m4
+BluesW.menu.pnum.SWAN_R5.build.cmsis_lib_gcc=arm_cortexM4lf_math
+BluesW.menu.pnum.SWAN_R5.build.fpu=-mfpu=fpv4-sp-d16
+BluesW.menu.pnum.SWAN_R5.build.float-abi=-mfloat-abi=hard
+BluesW.menu.pnum.SWAN_R5.build.board=SWAN_R5
+BluesW.menu.pnum.SWAN_R5.build.series=STM32L4xx
+BluesW.menu.pnum.SWAN_R5.build.product_line=STM32L4R5xx
+BluesW.menu.pnum.SWAN_R5.build.variant=STM32L4xx/L4R5Z(G-I)Y_L4R9Z(G-I)Y_L4S5ZIY_L4S9ZIY
+BluesW.menu.pnum.SWAN_R5.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+
+# Upload menu
+BluesW.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+BluesW.menu.upload_method.swdMethod.upload.protocol=0
+BluesW.menu.upload_method.swdMethod.upload.options=
+BluesW.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+BluesW.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+BluesW.menu.upload_method.serialMethod.upload.protocol=1
+BluesW.menu.upload_method.serialMethod.upload.options={serial.port.file}
+BluesW.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+BluesW.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+BluesW.menu.upload_method.dfuMethod.upload.protocol=2
+BluesW.menu.upload_method.dfuMethod.upload.options=
+BluesW.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# LoRa boards
+
+LoRa.name=LoRa boards
+LoRa.build.core=arduino
+LoRa.build.board=LoRa
+LoRa.build.variant_h=variant_{build.board}.h
+LoRa.build.st_extra_flags=-D{build.product_line} {build.enable_usb} {build.xSerial}
+LoRa.build.flash_offset=0x0
+LoRa.upload.maximum_size=0
+LoRa.upload.maximum_data_size=0
+
+# Generic node SE by The Things Industries
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI=Generic Node SE (TTI)
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.upload.maximum_size=262144
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.upload.maximum_data_size=65536
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.mcu=cortex-m4
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.board=GENERIC_NODE_SE_TTI
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.series=STM32WLxx
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.product_line=STM32WL55xx
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.variant=STM32WLxx/WL54CCU_WL55CCU_WLE4C(8-B-C)U_WLE5C(8-B-C)U
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.variant_h=variant_GENERIC_NODE_SE_TTI.h
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.cmsis_lib_gcc=arm_cortexM4l_math
+LoRa.menu.pnum.GENERIC_NODE_SE_TTI.build.st_extra_flags=-D{build.product_line} -DUSE_CM4_STARTUP_FILE {build.xSerial}
+
+# ELEKTOR_F072CB
+LoRa.menu.pnum.ELEKTOR_F072CB=Elektor LoRa Node Core F072CB (128kB)
+LoRa.menu.pnum.ELEKTOR_F072CB.upload.maximum_data_size=16384
+LoRa.menu.pnum.ELEKTOR_F072CB.upload.maximum_size=131072
+LoRa.menu.pnum.ELEKTOR_F072CB.build.mcu=cortex-m0
+LoRa.menu.pnum.ELEKTOR_F072CB.build.board=ELEKTOR_F072CB
+LoRa.menu.pnum.ELEKTOR_F072CB.build.series=STM32F0xx
+LoRa.menu.pnum.ELEKTOR_F072CB.build.product_line=STM32F072xB
+LoRa.menu.pnum.ELEKTOR_F072CB.build.variant=STM32F0xx/F072C8(T-U)_F072CB(T-U-Y)
+LoRa.menu.pnum.ELEKTOR_F072CB.build.variant_h=variant_ELEKTOR_F072Cx.h
+LoRa.menu.pnum.ELEKTOR_F072CB.build.peripheral_pins=-DCUSTOM_PERIPHERAL_PINS
+LoRa.menu.pnum.ELEKTOR_F072CB.build.cmsis_lib_gcc=arm_cortexM0l_math
+LoRa.menu.pnum.ELEKTOR_F072CB.build.st_extra_flags=-D{build.product_line} {build.xSerial}
+
+# Upload menu
+LoRa.menu.upload_method.swdMethod=STM32CubeProgrammer (SWD)
+LoRa.menu.upload_method.swdMethod.upload.protocol=0
+LoRa.menu.upload_method.swdMethod.upload.options=
+LoRa.menu.upload_method.swdMethod.upload.tool=stm32CubeProg
+
+LoRa.menu.upload_method.serialMethod=STM32CubeProgrammer (Serial)
+LoRa.menu.upload_method.serialMethod.upload.protocol=1
+LoRa.menu.upload_method.serialMethod.upload.options={serial.port.file}
+LoRa.menu.upload_method.serialMethod.upload.tool=stm32CubeProg
+
+LoRa.menu.upload_method.dfuMethod=STM32CubeProgrammer (DFU)
+LoRa.menu.upload_method.dfuMethod.upload.protocol=2
+LoRa.menu.upload_method.dfuMethod.upload.options=
+LoRa.menu.upload_method.dfuMethod.upload.tool=stm32CubeProg
+
+################################################################################
+# Serialx activation
+Nucleo_144.menu.xserial.generic=Enabled (generic 'Serial')
+Nucleo_144.menu.xserial.none=Enabled (no generic 'Serial')
+Nucleo_144.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+Nucleo_144.menu.xserial.disabled=Disabled (No Serial support)
+Nucleo_144.menu.xserial.disabled.build.xSerial=
+
+Disco.menu.xserial.generic=Enabled (generic 'Serial')
+Disco.menu.xserial.none=Enabled (no generic 'Serial')
+Disco.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+Disco.menu.xserial.disabled=Disabled (no Serial support)
+Disco.menu.xserial.disabled.build.xSerial=
+
+Eval.menu.xserial.generic=Enabled (generic 'Serial')
+Eval.menu.xserial.none=Enabled (no generic 'Serial')
+Eval.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+Eval.menu.xserial.disabled=Disabled (no Serial support)
+Eval.menu.xserial.disabled.build.xSerial=
+
+GenF0.menu.xserial.generic=Enabled (generic 'Serial')
+GenF0.menu.xserial.none=Enabled (no generic 'Serial')
+GenF0.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+GenF0.menu.xserial.disabled=Disabled (no Serial support)
+GenF0.menu.xserial.disabled.build.xSerial=
+
+GenF1.menu.xserial.generic=Enabled (generic 'Serial')
+GenF1.menu.xserial.none=Enabled (no generic 'Serial')
+GenF1.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+GenF1.menu.xserial.disabled=Disabled (no Serial support)
+GenF1.menu.xserial.disabled.build.xSerial=
+
+GenF4.menu.xserial.generic=Enabled (generic 'Serial')
+GenF4.menu.xserial.none=Enabled (no generic 'Serial')
+GenF4.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+GenF4.menu.xserial.disabled=Disabled (no Serial support)
+GenF4.menu.xserial.disabled.build.xSerial=
+
+GenWB.menu.xserial.generic=Enabled (generic 'Serial')
+GenWB.menu.xserial.none=Enabled (no generic 'Serial')
+GenWB.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+GenWB.menu.xserial.disabled=Disabled (no Serial support)
+GenWB.menu.xserial.disabled.build.xSerial=
+
+GenWL.menu.xserial.generic=Enabled (generic 'Serial')
+GenWL.menu.xserial.none=Enabled (no generic 'Serial')
+GenWL.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+GenWL.menu.xserial.disabled=Disabled (no Serial support)
+GenWL.menu.xserial.disabled.build.xSerial=
+
+3dprinter.menu.xserial.generic=Enabled (generic 'Serial')
+3dprinter.menu.xserial.none=Enabled (no generic 'Serial')
+3dprinter.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+3dprinter.menu.xserial.disabled=Disabled (no Serial support)
+3dprinter.menu.xserial.disabled.build.xSerial=
+
+BluesW.menu.xserial.generic=Enabled (generic 'Serial')
+BluesW.menu.xserial.none=Enabled (no generic 'Serial')
+BluesW.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+BluesW.menu.xserial.disabled=Disabled (no Serial support)
+BluesW.menu.xserial.disabled.build.xSerial=
+
+LoRa.menu.xserial.generic=Enabled (generic 'Serial')
+LoRa.menu.xserial.none=Enabled (no generic 'Serial')
+LoRa.menu.xserial.none.build.xSerial=-DHAL_UART_MODULE_ENABLED -DHWSERIAL_NONE
+LoRa.menu.xserial.disabled=Disabled (no Serial support)
+LoRa.menu.xserial.disabled.build.xSerial=
+
+# USB connectivity
+Nucleo_144.menu.usb.none=None
+Nucleo_144.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+Nucleo_144.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+Nucleo_144.menu.usb.CDC=CDC (no generic 'Serial')
+Nucleo_144.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+Nucleo_144.menu.usb.HID=HID (keyboard and mouse)
+Nucleo_144.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+Nucleo_144.menu.xusb.FS=Low/Full Speed
+Nucleo_144.menu.xusb.HS=High Speed
+Nucleo_144.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+Nucleo_144.menu.xusb.HSFS=High Speed in Full Speed mode
+Nucleo_144.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+Disco.menu.usb.none=None
+Disco.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+Disco.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+Disco.menu.usb.CDC=CDC (no generic 'Serial')
+Disco.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+Disco.menu.usb.HID=HID (keyboard and mouse)
+Disco.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+Disco.menu.xusb.FS=Low/Full Speed
+Disco.menu.xusb.HS=High Speed
+Disco.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+Disco.menu.xusb.HSFS=High Speed in Full Speed mode
+Disco.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+Eval.menu.usb.none=None
+Eval.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+Eval.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+Eval.menu.usb.CDC=CDC (no generic 'Serial')
+Eval.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+Eval.menu.usb.HID=HID (keyboard and mouse)
+Eval.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+Eval.menu.xusb.FS=Low/Full Speed
+Eval.menu.xusb.HS=High Speed
+Eval.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+Eval.menu.xusb.HSFS=High Speed in Full Speed mode
+Eval.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+GenF0.menu.usb.none=None
+GenF0.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+GenF0.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+GenF0.menu.usb.CDC=CDC (no generic 'Serial')
+GenF0.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+GenF0.menu.usb.HID=HID (keyboard and mouse)
+GenF0.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+
+GenF1.menu.usb.none=None
+GenF1.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+GenF1.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+GenF1.menu.usb.CDC=CDC (no generic 'Serial')
+GenF1.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+GenF1.menu.usb.HID=HID (keyboard and mouse)
+GenF1.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+GenF1.menu.xusb.FS=Low/Full Speed
+GenF1.menu.xusb.HS=High Speed
+GenF1.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+GenF1.menu.xusb.HSFS=High Speed in Full Speed mode
+GenF1.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+GenF4.menu.usb.none=None
+GenF4.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+GenF4.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+GenF4.menu.usb.CDC=CDC (no generic 'Serial')
+GenF4.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+GenF4.menu.usb.HID=HID (keyboard and mouse)
+GenF4.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+GenF4.menu.xusb.FS=Low/Full Speed
+GenF4.menu.xusb.HS=High Speed
+GenF4.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+GenF4.menu.xusb.HSFS=High Speed in Full Speed mode
+GenF4.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+GenWB.menu.usb.none=None
+GenWB.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+GenWB.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+GenWB.menu.usb.CDC=CDC (no generic 'Serial')
+GenWB.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+GenWB.menu.usb.HID=HID (keyboard and mouse)
+GenWB.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+GenWB.menu.xusb.FS=Low/Full Speed
+GenWB.menu.xusb.HS=High Speed
+GenWB.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+GenWB.menu.xusb.HSFS=High Speed in Full Speed mode
+GenWB.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+3dprinter.menu.usb.none=None
+3dprinter.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+3dprinter.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+3dprinter.menu.usb.CDC=CDC (no generic 'Serial')
+3dprinter.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+3dprinter.menu.xusb.FS=Low/Full Speed
+3dprinter.menu.xusb.HS=High Speed
+3dprinter.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+3dprinter.menu.xusb.HSFS=High Speed in Full Speed mode
+3dprinter.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+BluesW.menu.usb.CDCgen=CDC (generic 'Serial' supersede U(S)ART)
+BluesW.menu.usb.CDCgen.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC
+BluesW.menu.usb.CDC=CDC (no generic 'Serial')
+BluesW.menu.usb.CDC.build.enable_usb={build.usb_flags} -DUSBD_USE_CDC -DDISABLE_GENERIC_SERIALUSB
+BluesW.menu.usb.HID=HID (keyboard and mouse)
+BluesW.menu.usb.HID.build.enable_usb={build.usb_flags} -DUSBD_USE_HID_COMPOSITE
+BluesW.menu.usb.none=None
+BluesW.menu.xusb.FS=Low/Full Speed
+BluesW.menu.xusb.HS=High Speed
+BluesW.menu.xusb.HS.build.usb_speed=-DUSE_USB_HS
+BluesW.menu.xusb.HSFS=High Speed in Full Speed mode
+BluesW.menu.xusb.HSFS.build.usb_speed=-DUSE_USB_HS -DUSE_USB_HS_IN_FS
+
+# Optimizations
+Nucleo_144.menu.opt.osstd=Smallest (-Os default)
+Nucleo_144.menu.opt.oslto=Smallest (-Os) with LTO
+Nucleo_144.menu.opt.oslto.build.flags.optimize=-Os -flto
+Nucleo_144.menu.opt.o1std=Fast (-O1)
+Nucleo_144.menu.opt.o1std.build.flags.optimize=-O1
+Nucleo_144.menu.opt.o1lto=Fast (-O1) with LTO
+Nucleo_144.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+Nucleo_144.menu.opt.o2std=Faster (-O2)
+Nucleo_144.menu.opt.o2std.build.flags.optimize=-O2
+Nucleo_144.menu.opt.o2lto=Faster (-O2) with LTO
+Nucleo_144.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+Nucleo_144.menu.opt.o3std=Fastest (-O3)
+Nucleo_144.menu.opt.o3std.build.flags.optimize=-O3
+Nucleo_144.menu.opt.o3lto=Fastest (-O3) with LTO
+Nucleo_144.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+Nucleo_144.menu.opt.ogstd=Debug (-Og)
+Nucleo_144.menu.opt.ogstd.build.flags.optimize=-Og
+Nucleo_144.menu.opt.o0std=No Optimization (-O0)
+Nucleo_144.menu.opt.o0std.build.flags.optimize=-O0
+
+Disco.menu.opt.osstd=Smallest (-Os default)
+Disco.menu.opt.oslto=Smallest (-Os) with LTO
+Disco.menu.opt.oslto.build.flags.optimize=-Os -flto
+Disco.menu.opt.o1std=Fast (-O1)
+Disco.menu.opt.o1std.build.flags.optimize=-O1
+Disco.menu.opt.o1lto=Fast (-O1) with LTO
+Disco.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+Disco.menu.opt.o2std=Faster (-O2)
+Disco.menu.opt.o2std.build.flags.optimize=-O2
+Disco.menu.opt.o2lto=Faster (-O2) with LTO
+Disco.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+Disco.menu.opt.o3std=Fastest (-O3)
+Disco.menu.opt.o3std.build.flags.optimize=-O3
+Disco.menu.opt.o3lto=Fastest (-O3) with LTO
+Disco.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+Disco.menu.opt.ogstd=Debug (-Og)
+Disco.menu.opt.ogstd.build.flags.optimize=-Og
+Disco.menu.opt.o0std=No Optimization (-O0)
+Disco.menu.opt.o0std.build.flags.optimize=-O0
+
+Eval.menu.opt.osstd=Smallest (-Os default)
+Eval.menu.opt.oslto=Smallest (-Os) with LTO
+Eval.menu.opt.oslto.build.flags.optimize=-Os -flto
+Eval.menu.opt.o1std=Fast (-O1)
+Eval.menu.opt.o1std.build.flags.optimize=-O1
+Eval.menu.opt.o1lto=Fast (-O1) with LTO
+Eval.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+Eval.menu.opt.o2std=Faster (-O2)
+Eval.menu.opt.o2std.build.flags.optimize=-O2
+Eval.menu.opt.o2lto=Faster (-O2) with LTO
+Eval.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+Eval.menu.opt.o3std=Fastest (-O3)
+Eval.menu.opt.o3std.build.flags.optimize=-O3
+Eval.menu.opt.o3lto=Fastest (-O3) with LTO
+Eval.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+Eval.menu.opt.ogstd=Debug (-Og)
+Eval.menu.opt.ogstd.build.flags.optimize=-Og
+Eval.menu.opt.o0std=No Optimization (-O0)
+Eval.menu.opt.o0std.build.flags.optimize=-O0
+
+GenF0.menu.opt.osstd=Smallest (-Os default)
+GenF0.menu.opt.oslto=Smallest (-Os) with LTO
+GenF0.menu.opt.oslto.build.flags.optimize=-Os -flto
+GenF0.menu.opt.o1std=Fast (-O1)
+GenF0.menu.opt.o1std.build.flags.optimize=-O1
+GenF0.menu.opt.o1lto=Fast (-O1) with LTO
+GenF0.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+GenF0.menu.opt.o2std=Faster (-O2)
+GenF0.menu.opt.o2std.build.flags.optimize=-O2
+GenF0.menu.opt.o2lto=Faster (-O2) with LTO
+GenF0.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+GenF0.menu.opt.o3std=Fastest (-O3)
+GenF0.menu.opt.o3std.build.flags.optimize=-O3
+GenF0.menu.opt.o3lto=Fastest (-O3) with LTO
+GenF0.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+GenF0.menu.opt.ogstd=Debug (-Og)
+GenF0.menu.opt.ogstd.build.flags.optimize=-Og
+GenF0.menu.opt.o0std=No Optimization (-O0)
+GenF0.menu.opt.o0std.build.flags.optimize=-O0
+
+GenF1.menu.opt.osstd=Smallest (-Os default)
+GenF1.menu.opt.oslto=Smallest (-Os) with LTO
+GenF1.menu.opt.oslto.build.flags.optimize=-Os -flto
+GenF1.menu.opt.o1std=Fast (-O1)
+GenF1.menu.opt.o1std.build.flags.optimize=-O1
+GenF1.menu.opt.o1lto=Fast (-O1) with LTO
+GenF1.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+GenF1.menu.opt.o2std=Faster (-O2)
+GenF1.menu.opt.o2std.build.flags.optimize=-O2
+GenF1.menu.opt.o2lto=Faster (-O2) with LTO
+GenF1.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+GenF1.menu.opt.o3std=Fastest (-O3)
+GenF1.menu.opt.o3std.build.flags.optimize=-O3
+GenF1.menu.opt.o3lto=Fastest (-O3) with LTO
+GenF1.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+GenF1.menu.opt.ogstd=Debug (-Og)
+GenF1.menu.opt.ogstd.build.flags.optimize=-Og
+GenF1.menu.opt.o0std=No Optimization (-O0)
+GenF1.menu.opt.o0std.build.flags.optimize=-O0
+
+GenF4.menu.opt.osstd=Smallest (-Os default)
+GenF4.menu.opt.oslto=Smallest (-Os) with LTO
+GenF4.menu.opt.oslto.build.flags.optimize=-Os -flto
+GenF4.menu.opt.o1std=Fast (-O1)
+GenF4.menu.opt.o1std.build.flags.optimize=-O1
+GenF4.menu.opt.o1lto=Fast (-O1) with LTO
+GenF4.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+GenF4.menu.opt.o2std=Faster (-O2)
+GenF4.menu.opt.o2std.build.flags.optimize=-O2
+GenF4.menu.opt.o2lto=Faster (-O2) with LTO
+GenF4.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+GenF4.menu.opt.o3std=Fastest (-O3)
+GenF4.menu.opt.o3std.build.flags.optimize=-O3
+GenF4.menu.opt.o3lto=Fastest (-O3) with LTO
+GenF4.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+GenF4.menu.opt.ogstd=Debug (-Og)
+GenF4.menu.opt.ogstd.build.flags.optimize=-Og
+GenF4.menu.opt.o0std=No Optimization (-O0)
+GenF4.menu.opt.o0std.build.flags.optimize=-O0
+
+GenWB.menu.opt.osstd=Smallest (-Os default)
+GenWB.menu.opt.oslto=Smallest (-Os) with LTO
+GenWB.menu.opt.oslto.build.flags.optimize=-Os -flto
+GenWB.menu.opt.o1std=Fast (-O1)
+GenWB.menu.opt.o1std.build.flags.optimize=-O1
+GenWB.menu.opt.o1lto=Fast (-O1) with LTO
+GenWB.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+GenWB.menu.opt.o2std=Faster (-O2)
+GenWB.menu.opt.o2std.build.flags.optimize=-O2
+GenWB.menu.opt.o2lto=Faster (-O2) with LTO
+GenWB.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+GenWB.menu.opt.o3std=Fastest (-O3)
+GenWB.menu.opt.o3std.build.flags.optimize=-O3
+GenWB.menu.opt.o3lto=Fastest (-O3) with LTO
+GenWB.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+GenWB.menu.opt.ogstd=Debug (-Og)
+GenWB.menu.opt.ogstd.build.flags.optimize=-Og
+GenWB.menu.opt.o0std=No Optimization (-O0)
+GenWB.menu.opt.o0std.build.flags.optimize=-O0
+
+GenWL.menu.opt.osstd=Smallest (-Os default)
+GenWL.menu.opt.oslto=Smallest (-Os) with LTO
+GenWL.menu.opt.oslto.build.flags.optimize=-Os -flto
+GenWL.menu.opt.o1std=Fast (-O1)
+GenWL.menu.opt.o1std.build.flags.optimize=-O1
+GenWL.menu.opt.o1lto=Fast (-O1) with LTO
+GenWL.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+GenWL.menu.opt.o2std=Faster (-O2)
+GenWL.menu.opt.o2std.build.flags.optimize=-O2
+GenWL.menu.opt.o2lto=Faster (-O2) with LTO
+GenWL.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+GenWL.menu.opt.o3std=Fastest (-O3)
+GenWL.menu.opt.o3std.build.flags.optimize=-O3
+GenWL.menu.opt.o3lto=Fastest (-O3) with LTO
+GenWL.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+GenWL.menu.opt.ogstd=Debug (-Og)
+GenWL.menu.opt.ogstd.build.flags.optimize=-Og
+GenWL.menu.opt.o0std=No Optimization (-O0)
+GenWL.menu.opt.o0std.build.flags.optimize=-O0
+
+3dprinter.menu.opt.osstd=Smallest (-Os default)
+3dprinter.menu.opt.oslto=Smallest (-Os) with LTO
+3dprinter.menu.opt.oslto.build.flags.optimize=-Os -flto
+3dprinter.menu.opt.o1std=Fast (-O1)
+3dprinter.menu.opt.o1std.build.flags.optimize=-O1
+3dprinter.menu.opt.o1lto=Fast (-O1) with LTO
+3dprinter.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+3dprinter.menu.opt.o2std=Faster (-O2)
+3dprinter.menu.opt.o2std.build.flags.optimize=-O2
+3dprinter.menu.opt.o2lto=Faster (-O2) with LTO
+3dprinter.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+3dprinter.menu.opt.o3std=Fastest (-O3)
+3dprinter.menu.opt.o3std.build.flags.optimize=-O3
+3dprinter.menu.opt.o3lto=Fastest (-O3) with LTO
+3dprinter.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+3dprinter.menu.opt.ogstd=Debug (-Og)
+3dprinter.menu.opt.ogstd.build.flags.optimize=-Og
+3dprinter.menu.opt.o0std=No Optimization (-O0)
+3dprinter.menu.opt.o0std.build.flags.optimize=-O0
+
+BluesW.menu.opt.osstd=Smallest (-Os default)
+BluesW.menu.opt.oslto=Smallest (-Os) with LTO
+BluesW.menu.opt.oslto.build.flags.optimize=-Os -flto
+BluesW.menu.opt.o1std=Fast (-O1)
+BluesW.menu.opt.o1std.build.flags.optimize=-O1
+BluesW.menu.opt.o1lto=Fast (-O1) with LTO
+BluesW.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+BluesW.menu.opt.o2std=Faster (-O2)
+BluesW.menu.opt.o2std.build.flags.optimize=-O2
+BluesW.menu.opt.o2lto=Faster (-O2) with LTO
+BluesW.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+BluesW.menu.opt.o3std=Fastest (-O3)
+BluesW.menu.opt.o3std.build.flags.optimize=-O3
+BluesW.menu.opt.o3lto=Fastest (-O3) with LTO
+BluesW.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+BluesW.menu.opt.ogstd=Debug (-Og)
+BluesW.menu.opt.ogstd.build.flags.optimize=-Og
+BluesW.menu.opt.o0std=No Optimization (-O0)
+BluesW.menu.opt.o0std.build.flags.optimize=-O0
+
+LoRa.menu.opt.osstd=Smallest (-Os default)
+LoRa.menu.opt.oslto=Smallest (-Os) with LTO
+LoRa.menu.opt.oslto.build.flags.optimize=-Os -flto
+LoRa.menu.opt.o1std=Fast (-O1)
+LoRa.menu.opt.o1std.build.flags.optimize=-O1
+LoRa.menu.opt.o1lto=Fast (-O1) with LTO
+LoRa.menu.opt.o1lto.build.flags.optimize=-O1 -flto
+LoRa.menu.opt.o2std=Faster (-O2)
+LoRa.menu.opt.o2std.build.flags.optimize=-O2
+LoRa.menu.opt.o2lto=Faster (-O2) with LTO
+LoRa.menu.opt.o2lto.build.flags.optimize=-O2 -flto
+LoRa.menu.opt.o3std=Fastest (-O3)
+LoRa.menu.opt.o3std.build.flags.optimize=-O3
+LoRa.menu.opt.o3lto=Fastest (-O3) with LTO
+LoRa.menu.opt.o3lto.build.flags.optimize=-O3 -flto
+LoRa.menu.opt.ogstd=Debug (-Og)
+LoRa.menu.opt.ogstd.build.flags.optimize=-Og
+LoRa.menu.opt.o0std=No Optimization (-O0)
+LoRa.menu.opt.o0std.build.flags.optimize=-O0
+
+# Debug information
+Nucleo_144.menu.dbg.none=None
+Nucleo_144.menu.dbg.enable_sym=Symbols Enabled (-g)
+Nucleo_144.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+Nucleo_144.menu.dbg.enable_log=Core logs Enabled
+Nucleo_144.menu.dbg.enable_log.build.flags.debug=
+Nucleo_144.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+Nucleo_144.menu.dbg.enable_all.build.flags.debug=-g
+
+Disco.menu.dbg.none=None
+Disco.menu.dbg.enable_sym=Symbols Enabled (-g)
+Disco.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+Disco.menu.dbg.enable_log=Core logs Enabled
+Disco.menu.dbg.enable_log.build.flags.debug=
+Disco.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+Disco.menu.dbg.enable_all.build.flags.debug=-g
+
+Eval.menu.dbg.none=None
+Eval.menu.dbg.enable_sym=Symbols Enabled (-g)
+Eval.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+Eval.menu.dbg.enable_log=Core logs Enabled
+Eval.menu.dbg.enable_log.build.flags.debug=
+Eval.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+Eval.menu.dbg.enable_all.build.flags.debug=-g
+
+GenF0.menu.dbg.none=None
+GenF0.menu.dbg.enable_sym=Symbols Enabled (-g)
+GenF0.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+GenF0.menu.dbg.enable_log=Core logs Enabled
+GenF0.menu.dbg.enable_log.build.flags.debug=
+GenF0.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+GenF0.menu.dbg.enable_all.build.flags.debug=-g
+
+GenF1.menu.dbg.none=None
+GenF1.menu.dbg.enable_sym=Symbols Enabled (-g)
+GenF1.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+GenF1.menu.dbg.enable_log=Core logs Enabled
+GenF1.menu.dbg.enable_log.build.flags.debug=
+GenF1.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+GenF1.menu.dbg.enable_all.build.flags.debug=-g
+
+GenF4.menu.dbg.none=None
+GenF4.menu.dbg.enable_sym=Symbols Enabled (-g)
+GenF4.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+GenF4.menu.dbg.enable_log=Core logs Enabled
+GenF4.menu.dbg.enable_log.build.flags.debug=
+GenF4.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+GenF4.menu.dbg.enable_all.build.flags.debug=-g
+
+GenWB.menu.dbg.none=None
+GenWB.menu.dbg.enable_sym=Symbols Enabled (-g)
+GenWB.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+GenWB.menu.dbg.enable_log=Core logs Enabled
+GenWB.menu.dbg.enable_log.build.flags.debug=
+GenWB.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+GenWB.menu.dbg.enable_all.build.flags.debug=-g
+
+GenWL.menu.dbg.none=None
+GenWL.menu.dbg.enable_sym=Symbols Enabled (-g)
+GenWL.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+GenWL.menu.dbg.enable_log=Core logs Enabled
+GenWL.menu.dbg.enable_log.build.flags.debug=
+GenWL.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+GenWL.menu.dbg.enable_all.build.flags.debug=-g
+
+3dprinter.menu.dbg.none=None
+3dprinter.menu.dbg.enable_sym=Symbols Enabled (-g)
+3dprinter.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+3dprinter.menu.dbg.enable_log=Core logs Enabled
+3dprinter.menu.dbg.enable_log.build.flags.debug=
+3dprinter.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+3dprinter.menu.dbg.enable_all.build.flags.debug=-g
+
+BluesW.menu.dbg.none=None
+BluesW.menu.dbg.enable_sym=Symbols Enabled (-g)
+BluesW.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+BluesW.menu.dbg.enable_log=Core logs Enabled
+BluesW.menu.dbg.enable_log.build.flags.debug=
+BluesW.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+BluesW.menu.dbg.enable_all.build.flags.debug=-g
+
+LoRa.menu.dbg.none=None
+LoRa.menu.dbg.enable_sym=Symbols Enabled (-g)
+LoRa.menu.dbg.enable_sym.build.flags.debug=-g -DNDEBUG
+LoRa.menu.dbg.enable_log=Core logs Enabled
+LoRa.menu.dbg.enable_log.build.flags.debug=
+LoRa.menu.dbg.enable_all=Core Logs and Symbols Enabled (-g)
+LoRa.menu.dbg.enable_all.build.flags.debug=-g
+
+# C Runtime Library
+Nucleo_144.menu.rtlib.nano=Newlib Nano (default)
+Nucleo_144.menu.rtlib.nanofp=Newlib Nano + Float Printf
+Nucleo_144.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+Nucleo_144.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+Nucleo_144.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+Nucleo_144.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+Nucleo_144.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+Nucleo_144.menu.rtlib.full=Newlib Standard
+Nucleo_144.menu.rtlib.full.build.flags.ldspecs=
+
+Disco.menu.rtlib.nano=Newlib Nano (default)
+Disco.menu.rtlib.nanofp=Newlib Nano + Float Printf
+Disco.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+Disco.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+Disco.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+Disco.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+Disco.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+Disco.menu.rtlib.full=Newlib Standard
+Disco.menu.rtlib.full.build.flags.ldspecs=
+
+Eval.menu.rtlib.nano=Newlib Nano (default)
+Eval.menu.rtlib.nanofp=Newlib Nano + Float Printf
+Eval.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+Eval.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+Eval.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+Eval.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+Eval.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+Eval.menu.rtlib.full=Newlib Standard
+Eval.menu.rtlib.full.build.flags.ldspecs=
+
+GenF0.menu.rtlib.nano=Newlib Nano (default)
+GenF0.menu.rtlib.nanofp=Newlib Nano + Float Printf
+GenF0.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+GenF0.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+GenF0.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+GenF0.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+GenF0.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+GenF0.menu.rtlib.full=Newlib Standard
+GenF0.menu.rtlib.full.build.flags.ldspecs=
+
+GenF1.menu.rtlib.nano=Newlib Nano (default)
+GenF1.menu.rtlib.nanofp=Newlib Nano + Float Printf
+GenF1.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+GenF1.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+GenF1.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+GenF1.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+GenF1.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+GenF1.menu.rtlib.full=Newlib Standard
+GenF1.menu.rtlib.full.build.flags.ldspecs=
+
+GenF4.menu.rtlib.nano=Newlib Nano (default)
+GenF4.menu.rtlib.nanofp=Newlib Nano + Float Printf
+GenF4.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+GenF4.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+GenF4.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+GenF4.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+GenF4.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+GenF4.menu.rtlib.full=Newlib Standard
+GenF4.menu.rtlib.full.build.flags.ldspecs=
+
+GenWB.menu.rtlib.nano=Newlib Nano (default)
+GenWB.menu.rtlib.nanofp=Newlib Nano + Float Printf
+GenWB.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+GenWB.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+GenWB.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+GenWB.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+GenWB.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+GenWB.menu.rtlib.full=Newlib Standard
+GenWB.menu.rtlib.full.build.flags.ldspecs=
+
+GenWL.menu.rtlib.nano=Newlib Nano (default)
+GenWL.menu.rtlib.nanofp=Newlib Nano + Float Printf
+GenWL.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+GenWL.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+GenWL.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+GenWL.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+GenWL.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+GenWL.menu.rtlib.full=Newlib Standard
+GenWL.menu.rtlib.full.build.flags.ldspecs=
+
+3dprinter.menu.rtlib.nano=Newlib Nano (default)
+3dprinter.menu.rtlib.nanofp=Newlib Nano + Float Printf
+3dprinter.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+3dprinter.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+3dprinter.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+3dprinter.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+3dprinter.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+3dprinter.menu.rtlib.full=Newlib Standard
+3dprinter.menu.rtlib.full.build.flags.ldspecs=
+
+BluesW.menu.rtlib.nano=Newlib Nano (default)
+BluesW.menu.rtlib.nanofp=Newlib Nano + Float Printf
+BluesW.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+BluesW.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+BluesW.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+BluesW.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+BluesW.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+BluesW.menu.rtlib.full=Newlib Standard
+BluesW.menu.rtlib.full.build.flags.ldspecs=
+
+LoRa.menu.rtlib.nano=Newlib Nano (default)
+LoRa.menu.rtlib.nanofp=Newlib Nano + Float Printf
+LoRa.menu.rtlib.nanofp.build.flags.ldspecs=--specs=nano.specs -u _printf_float
+LoRa.menu.rtlib.nanofs=Newlib Nano + Float Scanf
+LoRa.menu.rtlib.nanofs.build.flags.ldspecs=--specs=nano.specs -u _scanf_float
+LoRa.menu.rtlib.nanofps=Newlib Nano + Float Printf/Scanf
+LoRa.menu.rtlib.nanofps.build.flags.ldspecs=--specs=nano.specs -u _printf_float -u _scanf_float
+LoRa.menu.rtlib.full=Newlib Standard
+LoRa.menu.rtlib.full.build.flags.ldspecs=

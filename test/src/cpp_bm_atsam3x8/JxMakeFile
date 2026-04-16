@@ -1,0 +1,129 @@
+:::include <C++XBuildTool_BM_ATSAM3X>
+
+
+if __os_windows__
+    ARM_TOOLCHAIN_PATH := 'Z:/xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10'
+else
+    ARM_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10' )
+endif
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+   #SPort := '\\\\.\\COM4'
+else
+    SPort := '/dev/ttyACM0'
+   #SPort := '/dev/ttyACM1'
+endif
+
+
+JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG := 'v0.10.0-15'
+
+
+BuildSubdir := 'mdk'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main           )
+PROG_OBJS := $call( obj_fpath, main.cpp       )
+
+MLIB_NAME := $call(slib_fpath,  mdk           )
+MLIB_OBJS := $call( obj_fpath, 'mdk/startup.c')
+
+LD_SCRIPT := 'mdk/flash.ld'
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 clean
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 run
+target run
+    jxmake ${MLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    local CppUsrStaticLib +:= mdk
+    $call( s3xbm_link_exe, $call(use_ld, ${LD_SCRIPT}) )
+    $call( gen_lst       , ${PROG_NAME}                )
+endtarget
+
+target ${MLIB_NAME} : ${MLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_atsam3x8 usamba
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 usamba
+target usamba
+    jxmake run
+    $call(s3xbm_upload_samba, ${PROG_NAME}, ${SPort}, true)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_atsam3x8 rswd
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 rswd
+target rswd
+    $call(s3xbm_reset_swd                    )
+   #$call(s3xbm_reset_swd, 'jlink'    , 'swd')
+   #$call(s3xbm_reset_swd, 'cmsis-dap', 'swd') # In this case, the CMSIS-DAP device is Atmel-ICE
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_atsam3x8 uswd
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 uswd
+target uswd
+    ##### !!! TODO : SWD programming using Atmel-ICE does not work !!! #####
+    jxmake run
+    $call(s3xbm_upload_swd, ${PROG_NAME}                    )
+   #$call(s3xbm_upload_swd, ${PROG_NAME}, 'jlink'    , 'swd')
+   #$call(s3xbm_upload_swd, ${PROG_NAME}, 'cmsis-dap', 'swd') # In this case, the CMSIS-DAP device is Atmel-ICE
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_atsam3x8 dswd
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 dswd
+target dswd
+    jxmake run
+    $call(s3xbm_debug_swd_start, ${PROG_NAME}                    )
+   #$call(s3xbm_debug_swd_start, ${PROG_NAME}, 'jlink'    , 'swd')
+   #$call(s3xbm_debug_swd_start, ${PROG_NAME}, 'cmsis-dap', 'swd') # In this case, the CMSIS-DAP device is Atmel-ICE
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_bm_atsam3x8 dgdb
+# jxmake -C ..\test\src\cpp_bm_atsam3x8 dgdb
+target dgdb
+    jxmake run
+    $call(s3xbm_debug_swd_gdb, ${PROG_NAME})
+endtarget

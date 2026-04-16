@@ -1,0 +1,259 @@
+VOrg1 = 1
+VOrg2 = 2
+VOrg3 = 3
+
+VRef1  = VOrg1
+VRef2 := VOrg2
+VRef3  = VOrg3
+
+VRefX  = ${^VRef1} ${^VRef2} ${^VRef3}
+VRefY  = VRefX
+
+VRefU  = ${VRefY}
+VRefV := ${VRefY}
+
+echoln $sprintf('${ VRefX} = { %5s }', $ftspaces(${ VRefX}) )
+echoln $sprintf('${^VRefX} = { %5s }', $ftspaces(${^VRefX}) )
+
+echoln
+
+echoln $sprintf('${ VRefY} = { %5s }', $ftspaces(${ VRefY}) )
+echoln $sprintf('${^VRefY} = { %5s }', $ftspaces(${^VRefY}) )
+
+echoln
+
+echoln $sprintf('${ VRefU} = { %5s }', $ftspaces(${ VRefU}) )
+echoln $sprintf('${^VRefU} = { %5s }', $ftspaces(${^VRefU}) )
+
+echoln
+
+echoln $sprintf('${ VRefV} = { %5s }', $ftspaces(${ VRefV}) )
+echoln $sprintf('${^VRefV} = { %5s }', $ftspaces(${^VRefV}) )
+
+
+
+echoln
+echoln
+echoln
+
+
+
+^VRef1 = 7
+^VOrg2 = 8
+^VRef3 = 9
+
+echoln $sprintf('${ VRefY} = { %5s }', $ftspaces(${ VRefY}) )
+echoln $sprintf('${^VRefY} = { %5s }', $ftspaces(${^VRefY}) )
+
+echoln
+
+^VRef1 = 7
+ VOrg2 = 8
+^VRef3 = 9
+
+echoln $sprintf('${ VRefY} = { %5s }', $ftspaces(${ VRefY}) )
+echoln $sprintf('${^VRefY} = { %5s }', $ftspaces(${^VRefY}) )
+
+
+
+echoln
+echoln
+echoln
+
+
+
+function test_d(arg)
+    foreach I, V in ${arg}
+        echoln "[${I}] ${V}"
+    endforeach
+    echoln
+endfunction
+
+function test_r(arg)
+    foreach I, V in ${^arg}
+        echoln "[${I}] ${V}"
+    endforeach
+    echoln
+endfunction
+
+function test_l(arg)
+    local MyVar := d e f
+    foreach I, V in ${^arg}
+        echoln "[${I}] ${V}"
+    endforeach
+    echoln
+    local arg := g h i
+    foreach I, V in ${arg}
+        echoln "[${I}] ${V}"
+    endforeach
+    echoln
+endfunction
+
+MyVar := a b c
+MyRef := MyVar
+
+$call(test_d, ${^MyRef})
+$call(test_r, ${ MyRef})
+$call(test_l, ${ MyRef})
+
+foreach I, V in ${^MyRef}
+    echoln "[${I}] ${V}"
+endforeach
+
+
+
+echoln
+echoln
+echoln
+
+
+
+VOrg = 10
+RefA = VOrg
+RefB = ${RefA}
+echoln "'${ RefB}'"                          # It will print 'VOrg'
+echoln "'${^RefB}'"                          # It will print '10'
+
+^RefB = 20                                   # It will set the variable VOrg instead of the variable RefB
+echoln "'${^RefB}'"                          # It will print '20'
+
+.option warning push
+.option warning enable 'inv-ref-var'
+.option warning push
+.option warning enable 'var-not-exist'
+
+RefB = FooVar                                # It will set the variable RefB
+echoln "'${^RefB}'"                          # It will print ''
+
+^RefB = 30
+
+.option warning pop
+
+RefC = VOrg
+RefD = ${^RefC} ${RefC} RefC
+echoln {{ '\'', $ftspaces(${ RefD}), '\'' }} # It will print '20 VOrg RefC'
+echoln {{ '\'', $ftspaces(${^RefD}), '\'' }} # It will print ''
+
+.option warning pop
+
+
+
+echoln
+echoln
+echoln
+
+
+
+OVarA  = 10
+LRefA  = OVarA
+DRefA := OVarA
+echoln "${OVarA} ${^LRefA} ${^DRefA}"
+
+^LRefA := 11
+echoln "${OVarA} ${^LRefA} ${^DRefA}"
+
+^DRefA := 12
+echoln "${OVarA} ${^LRefA} ${^DRefA}"
+
+OVarA := 99
+echoln "${OVarA} ${^LRefA} ${^DRefA}"
+
+echoln
+
+OVarB  = 100
+OVarA  = ${OVarB}
+LRefA  = OVarA
+DRefA := OVarA
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+OVarB := 199
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+echoln
+
+OVarB  = 200
+OVarA  = ${OVarB}
+LRefA  = OVarA
+DRefA := OVarA
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+^LRefA := 211
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+^DRefA := 212
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+OVarA := 299
+echoln "${OVarB} | ${OVarA} ${^LRefA} ${^DRefA}"
+
+echoln
+
+.option warning push
+.option warning enable 'inv-ref-var'
+.option warning enable 'var-not-exist'
+
+OVarC  = 30
+LRefC  = OVarC
+DRefC := OVarC
+echoln "${OVarC} ${^LRefC} ${^DRefC}"
+
+unset LRefC
+^LRefC := 31
+^DRefC := 32
+echoln "${OVarC} ${^LRefC} ${^DRefC}"
+
+
+# This will cause 'syntax error'
+#unset ^DRefC
+
+unset OVarC
+echoln "${OVarC} ${^LRefC} ${^DRefC}"
+
+.option warning pop
+
+
+
+echoln
+echoln
+echoln
+
+
+.option warning push
+.option warning enable 'inv-ref-var'
+.option warning enable 'var-not-exist'
+
+#        1  2  3  4  5
+OVarA  = 10 20 30 40 50
+RefA1  = OVarA
+RefA2  = ${^RefA1}
+
+echoln $ftspaces( {{ ${^RefA1}<1>, ${^RefA1}<1,1>, ${^RefA1}<3:5> }} )
+echoln $ftspaces( {{ ${ RefA2}<1>, ${ RefA2}<1,1>, ${ RefA2}<3:5> }} )
+echoln $ftspaces( {{ ${^RefA2}<1>, ${^RefA2}<1,1>, ${^RefA2}<3:5> }} )
+
+echoln
+
+unset OVarA
+echoln $ftspaces( {{ ${^RefA1}<1>, ${^RefA1}<1,1>, ${^RefA1}<3:5> }} )
+echoln $ftspaces( {{ ${ RefA2}<1>, ${ RefA2}<1,1>, ${ RefA2}<3:5> }} )
+
+echoln
+
+#        1  2  3  4  5
+OVarA  = 11 21 31 41 51
+RefA1  = OVarA
+RefA2  = ${^RefA1}
+echoln $ftspaces( {{ ${^RefA1}<1>, ${^RefA1}<1,1>, ${^RefA1}<3:5> }} )
+echoln $ftspaces( {{ ${ RefA2}<1>, ${ RefA2}<1,1>, ${ RefA2}<3:5> }} )
+
+unset RefA1
+echoln $ftspaces( {{ ${^RefA1}<1>, ${^RefA1}<1,1>, ${^RefA1}<3:5> }} )
+
+RefA1 = OVarA
+unset RefA2
+echoln $ftspaces( {{ ${ RefA2}<1>, ${ RefA2}<1,1>, ${ RefA2}<3:5> }} )
+
+unset OVarA
+echoln $ftspaces( {{ ${^RefA1}<1>, ${^RefA1}<1,1>, ${^RefA1}<3:5> }} )
+
+.option warning pop

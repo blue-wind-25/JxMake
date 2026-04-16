@@ -1,0 +1,540 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - STM8 SDCC - Native STM8 SPL SDK                                         *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the SDCC C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_SDCC.jxm'
+:::include_once 'DownloadXPackOpenOCD.jxm'
+:::include_once 'OpenOCDHelper.jxm'
+
+
+##### Update the flags
+const __BuildTool_Name__   := 'STM8 Small Device C Compiler (SDCC)'
+const __BuildTool_Target__ := 'STM8'
+const __BuildTool_Title__  := 'STM8 C/C++'
+
+
+##### Update the definitions of executables, paths, and options
+const STM8_ProjectPackageDir    := '__package__'
+
+      CppAssembler              := 'sdasstm8'
+
+      CppCommonCcCompileFlags  :+= '-mstm8'
+      CppCommonCcCompileFlags   += ${__STM8_CINCDIR__} ${__STM8_DDEVICE__}
+
+      CppCommonCxxCompileFlags  += ${__STM8_CINCDIR__} ${__STM8_DDEVICE__}
+
+      CppCommonLinkFlags       :+= '-mstm8'
+
+
+##### Determine some settings
+STM8_SDK_PATH                    ?:= $getenv('STM8_SDK_PATH'      , '')
+STM8_TOOLCHAIN_PATH              ?:= $getenv('STM8_TOOLCHAIN_PATH', '')
+
+SDCC_MAP_FILE_ACC_SIZE_AREA_ATTR  := 'REL' 'CON'
+
+
+###################################################################################
+##### ==================== Generic/Common STM8 Functions ==================== #####
+###################################################################################
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Check the paths
+    local pathError := false
+    if $or( $cmp(${STM8_SDK_PATH}, '&==', ''), $not( $valid_path(${STM8_SDK_PATH}) ) )
+        $call(__exit_error_nf__, 'STM8 SDK', true)
+        echoln 'Please download and extract the appropriate STM8 SDK from:'
+        echoln '    https://www.st.com/en/embedded-software/stsw-stm8012.html'
+        echoln '    https://www.st.com/en/embedded-software/stsw-stm8016.html'
+        echoln '    https://www.st.com/en/embedded-software/stsw-stm8030.html'
+        echoln '    https://www.st.com/en/embedded-software/stsw-stm8069.html'
+        echoln
+        echoln 'Download and apply the SDCC patch for the STM8 SDK from:'
+        echoln '    https://github.com/gicking/STM8-SPL_SDCC_patch'
+        echoln
+        echoln 'Example (Linux):'
+        echoln '    mkdir ~/stm8'
+        echoln '    cd ~/stm8'
+        echoln '    mkdir stm8-sdk'
+        echoln '    cd stm8-sdk'
+        echoln '    unzip en.stsw-stm8069.zip'
+        echoln '    patch -p0 < STM8S_StdPeriph_Lib_V2.3.1_sdcc.patch'
+        echoln '    ...'
+        echoln '    ... # Extract and patch other STM8 SPL packages as needed'
+        echoln '    ...'
+        echoln '    cd ..'
+        echoln '    cd ..'
+        echoln 'Set \'STM8_SDK_PATH\' to the STM8 SDK location.'
+        echoln
+        echoln 'It is also possible to get (some of) the already patched STM8 SDK from GitHub:'
+        echoln '    https://github.com/roshbaby/stm8s-sdcc'
+        echoln '    https://github.com/onepixel0/stm8-sdcc-cmake/tree/master/StdPeriph'
+        echoln 'Clone and then rename/copy/move the STM8 SDK directories to match the original directory names.'
+        echoln
+        echoln 'The SDCC linker does not detect unused functions and constants in an object file. It always links'
+        echoln 'the whole file even if only a single symbol contained in the file is referenced. This will result'
+        echoln 'in a bloated binary. In this case, using the libraries produced using:'
+        echoln '    https://github.com/tenbaht/spl-splitter'
+        echoln 'would result in a more efficient build.'
+        echoln
+        pathError := true
+    endif
+    if $or( $cmp(${STM8_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${STM8_TOOLCHAIN_PATH}) ) )
+        $call(__exit_error_nf__, 'STM8 Toolchain (SDCC)', true)
+        echoln "Please use your operating system package manager to install the STM8 Toolchain (SDCC) or download and install it from:"
+        echoln '    https://sdcc.sourceforge.net'
+        echoln '    https://sourceforge.net/projects/sdcc/files'
+        echoln
+        echoln 'Example (Linux):'
+        echoln '    mkdir ~/stm8'
+        echoln '    cd ~/stm8'
+        echoln '    tar -xjvpf sdcc-4.2.0-amd64-unknown-linux2.5.tar.bz2'
+        echoln '    cd ..'
+        echoln 'Set \'STM8_TOOLCHAIN_PATH\' to the STM8 Toolchain location.'
+        echoln
+        pathError := true
+    endif
+    if ${pathError} : $exit(-1)
+    # Download (and install) the latest and OpenOCD from xPack
+    $call(download_latest_xpackopenocd_from_xpack, ${dlOnlyIfNotExist})
+    # Set the location of the C/C++ binaries
+    CppToolBinDir := $cat_path(${STM8_TOOLCHAIN_PATH}, 'bin')
+    # Set extra configuration information text
+    if &${STM8_SDK_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'STM8 SDK       Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${STM8_SDK_PATH}
+    endif
+    if &${STM8_TOOLCHAIN_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'STM8 Toolchain Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${STM8_TOOLCHAIN_PATH}
+    endif
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= 'STM8 SDCC      Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    # Call the origin function
+    $call(__origin__, { ${buildSubdirectories} ${STM8_ProjectPackageDir} })
+endfunction
+
+
+##### A helper macro for SWIM
+.macro __STM8SPL__EXEC_SWIM__
+    # Determine the the target configuration file
+    STM8_OPENOCD_TARGET_CONFIG_FILE ?:= $getenv('STM8_OPENOCD_TARGET_CONFIG_FILE', '')
+    if &${STM8_OPENOCD_TARGET_CONFIG_FILE} ; local targetDev := $lcase(${STM8_OPENOCD_TARGET_CONFIG_FILE})
+    else                                   ; local targetDev := $lcase(${STM8_DEVICE})
+    endif
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(                                                     \
+        __openocd_gen_command_exec__,                          \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        'swim'                                               , \
+        ${adapterSpeed}                                      , \
+        ${targetDev}                                         , \
+        ${Commands}                                            \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__stm8_check_swim_error_and_print_help__)
+.endmacro
+
+
+##### Functions to upload the given program via SWIM
+const STM8_SWIM_Default_Interface    := 'stlink-dap'
+const STM8_SWIM_Default_AdapterSpeed := 1000
+
+const STM8_FLASH_START               := '0x8000'
+
+function __stm8_check_swim_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__openocd_print_udev_rules__, ${XPackOOCD_udev_rule})
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function stm8_upload_swim(progName, ?interface, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${STM8_SWIM_Default_Interface}
+    adapterSpeed ?:= ${STM8_SWIM_Default_AdapterSpeed}
+    # Read and check the HEX file - based on 'https://srecord.sourceforge.net/man/man5/srec_intel.5.html'
+    local progName := ${progName/\.ihx/.hex/}
+    local line1    := $get_file_nel(${progName}, 1, 1)
+    local parts    := $re_split(${line1}, ${SDCC_IHEX_PARSE_LINE_REGEX})
+    local recLen   := ${parts}<1>
+    local loadOfs  := ${parts}<2>
+    local recType  := ${parts}<3>
+    local error    := $or( $not(${recLen}<1>), ${recType}<3> )
+    if ${error} : $call(__exit_error_build_process_fail_desc__, :"$[function]()", 'the HEX file contains invalid data')
+    # Ensure the load offset is correct
+    if !${loadOfs} ; loadOfs := ${STM8_FLASH_START} # Use a  load offset because the HEX file starts address is     zero
+    else           ; loadOfs := '0x0000'            # Use no load offset because The HEX file starts address is non-zero
+    endif
+    # Create the command - based on 'https://gist.github.com/fabiovila/cbcf073928c0eb8036d2d2da023629d0'
+    local Commands := 'init'                                                                    \
+                      'halt'                                                                    \
+                      'wait_halt'                                                               \
+                      :"load_image ${progName/\.ihx/.hex/} ${loadOfs} ihex ${STM8_FLASH_START}" \
+                      'sleep 10'                                                                \
+                      'reset run'                                                               \
+                      'sleep 10'                                                                \
+                      'shutdown'
+    # Execute
+    .$__STM8SPL__EXEC_SWIM__
+endfunction
+
+
+##### Functions to reset the STM8 via SWIM
+function stm8_reset_swim(?interface, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${STM8_SWIM_Default_Interface}
+    adapterSpeed ?:= ${STM8_SWIM_Default_AdapterSpeed}
+    # Create the command
+    local Commands := 'init' 'reset run' 'shutdown'
+    # Execute
+    .$__STM8SPL__EXEC_SWIM__
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __STM8SPL__EXEC_SWIM__
+
+
+###################################################################################
+##### ===================== Native STM8 Build Functions ===================== #####
+###################################################################################
+
+##### Function to select the part number
+function stm8spl_select_part(partNumber)
+    # Convert the part number to uppercase
+    partNumber := $ucase(${partNumber})
+    # Save the selected part number
+    STM8SPL_SelectedPartNumber := ${partNumber}
+    # Try to get the initialization data from the cache file first
+    local STM8SPLPartInitDataCacheFilePath := $cat_path( $ptd(), :"STM8SPLPartInitData.${STM8SPL_SelectedPartNumber}.cache" )
+    if $uptodate_path(${STM8SPLPartInitDataCacheFilePath})
+        # Get the path to the latest directories
+        local Lines := $get_file(${STM8SPLPartInitDataCacheFilePath})
+        # Get and split the lines
+        STM8SPL_SDKRootDir            := ${Lines}<1>
+        STM8SPL_SDKRootDir_NLenOffset := ${Lines}<2>
+        STM8SPL_SysIncDirs            := ${Lines}<3>
+        STM8SPL_SysSrcDirs            := ${Lines}<4>
+        STM8SPLRef_ProjectSubDir      := ${Lines}<5>
+        STM8_FAMILY                   := ${Lines}<6>
+        STM8_DEVICE                   := ${Lines}<7>
+        STM8_PART                     := ${Lines}<8>
+    # Determine the initialization data
+    else
+        # Decode the device part number
+        (*
+        STM8SPL_SelectedPartNumber := STM8S003F3P6
+        STM8SPL_SelectedPartNumber := STM8S103F3P6
+        STM8SPL_SelectedPartNumber := STM8L001J3T6
+        STM8SPL_SelectedPartNumber := STM8L151K4T6
+        STM8SPL_SelectedPartNumber := STM8L162M8T6
+        STM8SPL_SelectedPartNumber := STM8TL52F4P6
+        STM8SPL_SelectedPartNumber := STM8TL53C4P6
+        STM8SPL_SelectedPartNumber := STM8AF5286
+        STM8SPL_SelectedPartNumber := STM8AF528A
+        STM8SPL_SelectedPartNumber := STM8AF52A6
+        STM8SPL_SelectedPartNumber := STM8AF52AA
+        STM8SPL_SelectedPartNumber := STM8AF6223
+        STM8SPL_SelectedPartNumber := STM8AL3138
+        STM8SPL_SelectedPartNumber := STM8AL31E88
+        STM8SPL_SelectedPartNumber := STM8AL3189
+        STM8SPL_SelectedPartNumber := STM8AL318A
+        STM8SPL_SelectedPartNumber := STM8AL3L48
+        STM8SPL_SelectedPartNumber := STM8AL3LE88
+        *)
+        local PCs  := $sfpipes(${STM8SPL_SelectedPartNumber/STM8(?:(?:(S|L\d{2}|TL\d)(\d+)([A-Z]\d))|(?:(AF\d{2}[0-9A-Z]|AL3[1L]E?)([0-9A-Z]))).*/$1$4|$2|$3$5/})
+        local Type := ${PCs}<1>
+        local Line := ${PCs}<2>
+        local Pkg  := ${PCs}<3>
+        # Find the appropriate STM8 SPL SDK directory
+        local SDirs := $sort_descending( $lsdir(${STM8_SDK_PATH}, 'd') )
+              PDir  := $erase_ifnot(${SDirs}, :".*?STM8${Type}.*", true)
+        if !&${PDir}
+            ##### !!! TODO : Is these actually needed? !!! #####
+              if $str_begwith(${Type}, 'L') ; local ST := $str_rmfchr(${Type}) ; PDir := $erase_ifnot(${SDirs}, :".*?STM8L.*?${ST}.*", true)
+            elif $str_begwith(${Type}, 'T') ; local ST := ${Type/T(\d+)/TL$1/} ; PDir := $erase_ifnot(${SDirs}, :".*?STM8${ST}.*"    , true)
+            elif ${Type} &== 'AL31'         ;                                  ; PDir := $erase_ifnot(${SDirs}, :".*?STM8.*?AL31.*"  , true)
+            endif
+        endif
+        if !&${PDir} : $call(__exit_error_na_path__, 'a suitable STM8 SPL SDK for part number', ${STM8SPL_SelectedPartNumber}, ${STM8_SDK_PATH})
+        # Set the subdirectory paths
+        local __DriverDir__ := $lsdir(:"${PDir}/Libraries", 'd')
+        STM8SPL_SDKRootDir  :=   ${PDir}
+        STM8SPL_SysIncDirs  := :"${__DriverDir__}/inc"
+        STM8SPL_SysSrcDirs  := :"${__DriverDir__}/src"
+        # Calculate the offset value to remove the STM8 SPL SDK root directory name
+            STM8SPL_SDKRootDir_NLenOffset := $strlen(${STM8SPL_SDKRootDir})
+        add STM8SPL_SDKRootDir_NLenOffset, ${STM8SPL_SDKRootDir_NLenOffset}, 2
+        # Set the reference file paths
+        local ProjectDir := :"${PDir}/Project"
+        if !$valid_path(${ProjectDir}) : ProjectDir := :"${ProjectDir}s"
+        STM8SPLRef_ProjectSubDir := $erase_ifnot( $lsdir(${ProjectDir} , 'd'), '.+?Template.*', true )
+        # Set the chip specification data
+        STM8_FAMILY := :"STM8${Type}"
+        STM8_DEVICE := :"STM8${Type}${Line}"
+        STM8_PART   := :"${STM8_DEVICE}${Pkg}"
+        # Save the initialization data to the cache file
+        local Lines  := ${STM8SPL_SDKRootDir}
+              Lines +:= ${STM8SPL_SDKRootDir_NLenOffset}
+              Lines +:= ${STM8SPL_SysIncDirs}
+              Lines +:= ${STM8SPL_SysSrcDirs}
+              Lines +:= ${STM8SPLRef_ProjectSubDir}
+              Lines +:= ${STM8_FAMILY}
+              Lines +:= ${STM8_DEVICE}
+              Lines +:= ${STM8_PART}
+        $put_file(${STM8SPLPartInitDataCacheFilePath}, ${Lines})
+
+    endif
+    # Configure the build
+    $call(__stm8spl_config_build__)
+endfunction
+
+
+##### Function to configure the build
+function __stm8spl_config_build__()
+    # Set the project's package directory
+    STM8SPL_ProjectPackageDir := $cat_path( $cwd(), ${STM8_ProjectPackageDir} )
+    # Set the special definition variables
+    __STM8_CINCDIR__  := $series( '-I', $path_ndsep( $cwd() )                              )
+    __STM8_CINCDIR__ +:= $series( '-I', ~${STM8SPL_ProjectPackageDir}                      )
+    __STM8_CINCDIR__ +:= $series( '-I', ~${STM8SPL_SysIncDirs}                             )
+    __STM8_CINCDIR__ +:= $series( '-I', ~${STM8_TOOLCHAIN_PATH}, '/include'                )
+    __STM8_DDEVICE__  := $series( '-D', { '' '__' '__STM8_' }, ${STM8_DEVICE}, { '' '__' } )
+    __STM8_DDEVICE__ +:= $series( '-D', { '' '__' '__STM8_' }, ${STM8_PART}  , { '' '__' } )
+endfunction
+
+
+##### Function to copy files from template
+function stm8spl_copy_template_files(dstDir)
+    # Error if the project template for the selected part number is not available
+    if !&${STM8SPLRef_ProjectSubDir}
+        $call(__exit_error_na_path__, 'a suitable project template for part number', ${STM8SPL_SelectedPartNumber}, :"${STM8SPL_SDKRootDir}")
+    endif
+    # Create the destination directory in case it does not exist yet
+    dstDir := ~${dstDir}
+    $mkdir(${dstDir})
+    # Error if the destination directory is not empty
+    if &$lsdir(${dstDir}) : $call(__exit_error_build_process_cancel__, :"$[function]()", 'the destination directory is not empty')
+    # Create the destination package directory
+    local UPD := :"${dstDir}/${STM8_ProjectPackageDir}"
+    $mkdir(${UPD})
+    # Find the standard files
+    local LSF    := $lsdir(${STM8SPLRef_ProjectSubDir}, 'f')
+   #local FAM    := $lcase(${STM8_DEVICE/STM8(\p{Alpha}+)\d+/$1/})
+   #local conf_h := $erase_ifnot(${LSF}, :".+?stm8${FAM}.*?_conf\\.h", true)
+   #local it_h   := $erase_ifnot(${LSF}, :".+?stm8${FAM}.*?_it\\.h"  , true)
+   #local it_c   := $erase_ifnot(${LSF}, :".+?stm8${FAM}.*?_it\\.c"  , true)
+    local conf_h := $erase_ifnot(${LSF}, :".+?stm8.*?_conf\\.h", true)
+    local it_h   := $erase_ifnot(${LSF}, :".+?stm8.*?_it\\.h"  , true)
+    local it_c   := $erase_ifnot(${LSF}, :".+?stm8.*?_it\\.c"  , true)
+    # Error if the project template for the selected part number is not available
+    if $or( $cmp(${conf_h}, '&==', ''), $cmp(${it_h}, '&==', ''), $cmp(${it_c}, '&==', '') )
+        $call(__exit_error_na_path__, 'a suitable project template for part number', ${STM8SPL_SelectedPartNumber}, :"${STM8SPL_SDKRootDir}")
+    endif
+    # Copy the standard files
+    $cpfile( :"${STM8SPLRef_ProjectSubDir}/main.c", $cat_path( ${dstDir}, 'main.c'              ), true, true )
+    $cpfile( ${conf_h}                            , $cat_path( ${UPD}   , $file_name(${conf_h}) ), true, true )
+    $cpfile( ${it_h}                              , $cat_path( ${UPD}   , $file_name(${it_h}  ) ), true, true )
+    $cpfile( ${it_c}                              , $cat_path( ${UPD}   , $file_name(${it_c}  ) ), true, true )
+endfunction
+
+
+##### Functions to add (include) the STM8 SPL SDK source files to the build
+const   STM8SPL_SysLibBuildDir   := 'stm8lib'
+const   STM8SPL_SysSLibName      := 'STM8SPL'
+const   STM8SPL_SysSLibPath      := $call(slib_fpath, ${STM8SPL_SysSLibName})
+
+unset __STM8SPL_SysLibObjFileP__ # Package        object files
+unset __STM8SPL_SysLibObjFile1__ # System library object files - part 1
+unset __STM8SPL_SysLibObjFile2__ # System library object files - part 2
+      __STM8SPL_SysLibObjFileN__ := 0
+
+function __stm8spl_add_compile_target__(Obj, Src, isPkg)
+    # Add the target to build the object file
+    local Ext := $lcase( $file_ext(${Src}) )
+    $add_target(:"__stm8spl_compile_${Ext}__", ${Obj}, ${Src})
+    # Add the object file path to the list of package object files
+    if ${isPkg}
+        __STM8SPL_SysLibObjFileP__ +:= ${Obj}
+    # Add the object file path to one of the lists of system library object files
+    else
+        if !${__STM8SPL_SysLibObjFileN__}
+            __STM8SPL_SysLibObjFile1__ +:= ${Obj}
+            __STM8SPL_SysLibObjFileN__  := 1
+        else
+            __STM8SPL_SysLibObjFile2__ +:= ${Obj}
+            __STM8SPL_SysLibObjFileN__  := 0
+        endif
+    endif
+endfunction
+
+function stm8spl_add_pkg_src(srcFileName)
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM8SPL_ProjectPackageDir}, ${SFN})
+        # Determine the object file path
+        local Obj := $series( $cat_paths(~${CppBuildDir}, ${STM8_ProjectPackageDir}, ${SFN}), '.', ${ObjFileExt} )
+        # Add the compile target
+        $call(__stm8spl_add_compile_target__, ${Obj}, ${Src}, true)
+    endforeach
+endfunction
+
+function stm8spl_add_sys_src(srcFileName)
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM8SPL_SysSrcDirs}, ${SFN})
+        # Determine the object file path
+        local Obj := $substr(${Src}, ${STM8SPL_SDKRootDir_NLenOffset}, -1)
+              Obj := $series( $cat_paths(~${CppBuildDir}, ${STM8SPL_SysLibBuildDir}, ${Obj}), '.', ${ObjFileExt} )
+        # Make the output directory in case it does not exist yet
+        $mkdir( $dir_name(${Obj}) )
+        # Add the compile target
+        $call(__stm8spl_add_compile_target__, ${Obj}, ${Src}, false)
+    endforeach
+endfunction
+
+
+##### Function to add the necessary extra dependencies to the given target path
+function stm8spl_add_extradeps(targetPath)
+    $add_extradep(${targetPath}, ${__STM8SPL_SysLibObjFileP__}, true)
+endfunction
+
+
+##### Function to link executable files
+STM8SPL_SysSLibBuilt := false
+
+function stm8spl_link_exe(?extraOptions)
+    # Check the prerequisites
+    if !${STM8SPL_SysSLibBuilt} : $call(__exit_error_run_target_call_function_, 'stm8spl_build_system_library', :"$[function]()")
+    # Add the system library
+    local CppUsrStaticLib :+= ${STM8SPL_SysSLibName}
+    # Link the executable
+    CppExtraLinkObjects := ${__STM8SPL_SysLibObjFileP__} # Object files in this list must not be included in the system library
+    $call(link_exe, ${extraOptions})
+endfunction
+
+
+###################################################################################
+##### ====================== Native STM8 Build Targets ====================== #####
+###################################################################################
+
+##### Targets to build STM8 SPL library file
+__STM8SPL_SysLib_SLibTargetAdded__ := 0
+
+target __stm8spl_compile_s__
+    $call(compile_s)
+endtarget
+
+target __stm8spl_compile_c__
+    $call(compile_c)
+endtarget
+
+target __stm8spl_compile_cpp__
+    $call(compile_cpp)
+endtarget
+
+target __stm8spl_link_slib__
+    $call(link_slib)
+endtarget
+
+target stm8spl_build_system_library
+    # Reset flag
+    STM8SPL_SysSLibBuilt := false
+    # Add the target to build the library file if it has not been added
+    if !${__STM8SPL_SysLib_SLibTargetAdded__}
+        # Add the target to build the library file
+        $add_target( '__stm8spl_link_slib__', ${STM8SPL_SysSLibPath}, $stack(${__STM8SPL_SysLibObjFile1__}, ${__STM8SPL_SysLibObjFile2__}) )
+        # Set flag
+        __STM8SPL_SysLib_SLibTargetAdded__ := 1
+    endif
+    # Build the object and library files
+    __stdxxx_from_syslib__ := true
+   +jxmake ${__STM8SPL_SysLibObjFileP__}
+   +jxmake ${__STM8SPL_SysLibObjFile1__}
+   +jxmake ${__STM8SPL_SysLibObjFile2__}
+    jxwait
+    jxmake ${STM8SPL_SysSLibPath}
+    __stdxxx_from_syslib__ := false
+    # Set flag
+    STM8SPL_SysSLibBuilt := true
+endtarget
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText := __c_cyan__  "Native STM8" __c_white__
+    local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    local CGText := __c_cyan__  "Native STM8 SPL" __c_white__
+    local CGInfo := __c_white__ 'for ' ${CGText} ' '
+    $call(__origin__)
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${NGInfo})
+    echoln __c_green__ '    STM8_SDK_PATH        ' __c_white__ ': location of ' ${NGText} ' SDK'
+    echoln __c_green__ '    STM8_TOOLCHAIN_PATH  ' __c_white__ ': location of ' ${NGText} ' toolchain'
+    echoln
+   #$call(__btlib_help_print_title_functions__, 7, 25, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories,      ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist        ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    stm8_reset_swim      (?interface   ,             ' __c_white__ ': reset the attached ' __c_cyan__ 'STM8' __c_white__ ' via ' __c_cyan__ 'SWIM' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?adapterSpeed            ) ' __c_green__ '      interface   ' __c_white__ ' SWIM interface name - the default is \'' __c_yellow__ ${STM8_SWIM_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed       - the default is \'' __c_yellow__ ${STM8_SWIM_Default_AdapterSpeed} __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm8_upload_swim     (progName     , ?interface, ' __c_white__ ': upload program to the attached ' __c_cyan__ 'STM8' __c_white__ ' via ' __c_cyan__ 'SWIM' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?adapterSpeed            ) ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      interface   ' __c_white__ ' SWIM interface name - the default is \'' __c_yellow__ ${STM8_SWIM_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed       - the default is \'' __c_yellow__ ${STM8_SWIM_Default_AdapterSpeed} __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_functions__, 13, 13, 1, ${CGInfo})
+    $call(__btlib_help_print_title_functions__,  0,  0, 0, ${CGInfo})
+    echoln __c_green__ '    stm8spl_select_part        (partNumber   ) ' __c_white__ ': select the STM8 part number to use with the ' ${CGText} ' SDK; can only be called after calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                                               ' __c_green__ '      partNumber' __c_white__ ' STM8 part number - for example \'' __c_yellow__ 'STM8S103F3P6' __c_white__ '\''
+    echoln __c_green__ '                                               ' __c_white__ '  these are the global variables that are initialized by this function:'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8SPL_SDKRootDir'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8SPL_SysIncDirs'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8SPL_SysSrcDirs'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8SPLRef_ProjectSubDir'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8_FAMILY'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8_DEVICE'
+    echoln __c_green__ '                                               ' __c_green__ '      STM8_PART'
+    echoln __c_green__ '                                               ' __c_white__ '  in case \'' __c_green__ 'stm8spl_select_part' __c_white__ '\' does not support your part number, you can manually fill the above variables'
+    echoln __c_green__ '                                               ' __c_white__ '  and then call \'' __c_green__ '__stm8spl_config_build__' __c_white__ '\' to finalize the configuration process; use a supported part number'
+    echoln __c_green__ '                                               ' __c_white__ '  first (such as \'' __c_yellow__ 'STM8S103F3P6' __c_white__ '\') as a starting point for determining the values'
+    echoln
+    echoln __c_green__ '    stm8spl_copy_template_files(dstDir       ) ' __c_white__ ': copy project template files to the destination directory; can only be called after calling \'' __c_green__ 'stm8spl_select_part' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm8spl_add_pkg_src        (srcFileName  ) ' __c_white__ ': add ' ${CGText} ' SDK package source file; can only be called after calling \'' __c_green__ 'stm8spl_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm8spl_add_sys_src        (srcFileName  ) ' __c_white__ ': add ' ${CGText} ' SDK system  source file; can only be called after calling \'' __c_green__ 'stm8spl_select_part' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm8spl_add_extradeps      (targetPath   ) ' __c_white__ ': add the necessary extra dependencies to the given target path; call this after the last call to \'' __c_green__ 'stm8spl_add_*_src' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm8spl_link_exe           (?extraOptions) ' __c_white__ ': link a ' ${CGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_targets__, 19, ${CGInfo})
+    $call(__btlib_help_print_title_targets__,  0, ${CGInfo})
+    echoln __c_green__ '    stm8spl_build_system_library ' __c_white__ ': build the ' ${CGText} ' SDK SDK system library file'
+    echoln
+    $call(__btlib_help_print_note_auto_parallelize__, false)
+    echoln __c_reset__
+endfunction

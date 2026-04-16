@@ -1,0 +1,173 @@
+sdepload 'src/cpp/_non_existing_file.dep'
+depload 'src/cpp/main.dep'
+
+
+
+echoln
+
+A = 10
+B = -1
+eval C := +${A} + -${B}
+echoln ${C}
+echoln
+
+
+Var1  = 'abc'
+Var2 := $ucase('abc')
+$printf("%s %s\n", ${Var1}, ${Var2})
+
+N := 2
+$printf("%s %s\n", $[preq1], $[preq:N])
+
+
+
+function genNumMsgOther(Arg)
+    return "\${Arg} == other (${Arg})\n"
+endfunction
+
+function cmpNumber(Arg)
+    if ${Arg} == 1
+        echo "\${Arg} == 1\n"
+    else
+        if ${Arg} == 2
+            echo "\${Arg} == 2\n"
+        else
+            if ${Arg} == 3
+                echo "\${Arg} == 3\n"
+            else
+                local Msg := $call(genNumMsgOther, ${Arg})
+                echo ${Msg}
+                return 1
+            endif
+        endif
+    endif
+    return 0
+endfunction
+
+R1 := $call(cmpNumber, 0)
+R2 := $call(cmpNumber, 1)
+R3 := $call(cmpNumber, 2)
+R4 := $call(cmpNumber, 3)
+R5 := $call(cmpNumber, 4)
+R6 := $call(cmpNumber, 5)
+echoln "${R1} ${R2} ${R3} ${R4} ${R5} ${R6}"
+echoln
+
+
+
+function testFor(b, e, s)
+    local i
+    for i := ${b} to ${e} step ${s}
+        if ${s} > 0
+            if ${i} > 10
+                echoln "CONTINUE"
+                continue
+            endif
+        else
+            if ${i} < -10
+                echoln "BREAK"
+                break
+            endif
+        endif
+        echoln ${i}
+    endfor
+endfunction
+
+$call(testFor, -20,  20,  3)
+echoln
+
+$call(testFor,  20, -20, -3)
+echoln
+
+
+
+I = 5
+while ${I}
+    echoln ${I}
+    sub I, ${I}, 1
+endwhile
+
+echoln "EXIT: ${I}\n"
+
+function testCB_OL()
+    I = 0
+    loop
+        if 1 : inc I
+        if ${I} < 10 : continue
+        if ${I} > 15 : break
+        echoln ${I}
+    endloop
+endfunction
+
+I = 100
+$call(testCB_OL)
+echoln "EXIT: ${I}\n"
+
+
+
+target test : a.o b.o c.o
+    echoln $[target] : $[preq*]
+    jxmake dta dtb dtc
+   +jxmake dta dtb dtc
+    jxwait
+endtarget
+
+target %.o : %.cpp
+    echoln $[target] : $[preq*]
+endtarget
+
+target %.cpp
+    echoln $[target] : $[preq*]
+endtarget
+
+target dta
+    echoln $[target] : $[preq*]
+endtarget
+
+target dtb
+    echoln $[target] : $[preq*]
+endtarget
+
+target dtc
+    echoln $[target] : $[preq*]
+endtarget
+
+
+
+function cmdTest1(dir)
+
+    local path
+    if __os_windows__
+        path := "C:\\${dir}"
+        path := $flatten(${path})
+        -@dir ${path}
+    else
+        path := "/${dir}"
+        path := $flatten(${path})
+        -@ls ${path}
+    endif
+
+    if $[excode]
+        echoln $[excode]
+        echoln $[stderr]
+    else
+        echoln $[stdout]
+    endif
+
+
+    local se = $[lserr]
+    if &se
+        echoln ${se}
+    endif
+
+    echoln
+    echoln
+
+endfunction
+
+$exec(cmdTest1, ''     )
+$exec(cmdTest1, 'dummy')
+
+
+
+:::include 'IncTest_Main.jxm'

@@ -1,0 +1,186 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - C Language Family Frontend for LLVM (Clang)                             *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+(***** Only include this part of the script where necessary *****)
+if __os_posix__
+
+##### Set flags
+const __clang__                 := 1
+const __CppBuildTool_Defined__  := 1
+const __BuildTool_Name__        := 'C Language Family Frontend for LLVM (Clang)'
+      __BuildTool_Version__     := 0
+      __BuildTool_Version_Num__ := 0
+
+
+#####
+#####
+#####
+
+
+##### Define the module file extension
+ModFileExt := pcm
+
+
+##### Define the executables, paths, and options
+const __MWE__ := $getenv('JXMAKELIB_MAX_WARNINGS_AND_ERRORS', ${DEFAULT_JXMAKELIB_MAX_WARNINGS_AND_ERRORS})
+
+const __CommonCompileFlags__   := '-Wall' '-Wextra' :"-ferror-limit=${__MWE__}"
+
+      CppDiagnosticsColor      := '-fdiagnostics-color=always' # '-fdiagnostics-color=always' is available starting from Clang 5.0
+
+      CppAssembler             := 'clang++'
+      CppCommonAssemblerFlags  := ${__CommonCompileFlags__} ${CppDiagnosticsColor}
+
+      CppCcCompiler            := 'clang'
+      CppCommonCcCompileFlags  := ${__CommonCompileFlags__} '-Wno-unused-command-line-argument' ${CppDiagnosticsColor}
+
+      CppCxxCompiler           := 'clang++'
+      CppCommonCxxCompileFlags := ${__CommonCompileFlags__} '-Wno-unused-command-line-argument' ${CppDiagnosticsColor}
+      CppCxx20MCompileFlags    := '-std=c++20' '-fmodules'
+
+      CppLinker                := 'clang++'
+      CppCommonLinkFlags       := ''
+      CppDemangler             := 'llvm-cxxfilt'
+
+      CppSysHeaderDir          := ''
+
+      CppSysSharedLib          := ''
+      CppSysStaticLib          := ''
+      CppSysSharedLibDir       := ''
+      CppSysStaticLibDir       := ''
+
+      CppUsrSharedLib          := ''
+      CppUsrStaticLib          := ''
+      CppUsrSharedLibDir        = ${CppBuildDir}
+      CppUsrStaticLibDir        = ${CppBuildDir}
+
+      SLibBuilder              := 'llvm-ar'
+
+      ModCacheDirRoot          := 'pcm.cache'
+      ModCacheDirUsrHUnit      := 'pcm.cache/,usr'
+      ModCacheDirSysHUnit      := 'pcm.cache/,sys'
+
+
+##### Function to check for C++20 module support
+function __check_cpp20m_support__(functionName)
+    # https://clang.llvm.org/cxx_status.html#cxx20
+    if !$call(cpp_compiler_ver_min, 15, 00, 0, 0) : $call(__exit_error_ns_ver__, :"${functionName}()", ${__BuildTool_Name__})
+endfunction
+
+
+##### Function to compile C++20 system header units
+function __compile_sys_hunit__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    local U := $[target/(?:.+\/)?(.+?)\.sys\.unit/$1/]
+    local P := $series( $cat_paths(~${CppBuildDir}, ${ModCacheDirSysHUnit}, ${U}), '.', ${ModFileExt} )
+    $mkdir( $dir_name(${P}) )
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCxxCompileFlags} ${CppCxx20MCompileFlags} -Wno-pragma-system-header-outside-header -x c++-system-header --precompile -c ${U} -o ${P}
+    if $[excode] : return
+    $touch(~$[target])
+endfunction
+
+function compile_sys_hunit()
+    $call( __check_cpp20m_support__, $[function]                )
+    $call( __bpt_cxx20hu__                                      )
+    $exec( __compile_sys_hunit__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__        )
+endfunction
+
+
+##### Function to compile C++20 user header units
+function __compile_usr_hunit__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    local P := $series( $cat_paths(~${CppBuildDir}, ${ModCacheDirUsrHUnit}, -$[preq*]), '.', ${ModFileExt} )
+    $mkdir( $dir_name(${P}) )
+    .$__CLANG_GCC__IU_IS__
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCxxCompileFlags} ${IU} ${IS} ${CppCxx20MCompileFlags} -x c++-user-header --precompile  -c ~$[preq*] -o ${P}
+    if $[excode] : return
+    $touch(~$[target])
+    echoln
+endfunction
+
+function compile_usr_hunit()
+    $call( __check_cpp20m_support__, $[function]                )
+    $call( __bpt_cxx20hu__                                      )
+    $exec( __compile_usr_hunit__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__        )
+endfunction
+
+
+##### Function to compile C++ and C++20 source codes
+function __compile_cpp__(cpp20m, extraOptions, forSharedLibObj, ldLibraryPath)
+    if &${CppToolBinDir}   : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    if  ${forSharedLibObj} : local fPIC           := '-fPIC'
+    .$__CLANG_GCC__IU_IS__
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    if ${cpp20m}
+        (*
+         * https://releases.llvm.org/15.0.0/tools/clang/docs/UsersManual.html
+         * https://releases.llvm.org/15.0.0/tools/clang/docs/ClangCommandLineReference.html
+         * https://releases.llvm.org/15.0.0/tools/clang/docs/StandardCPlusPlusModules.html
+         *
+         * https://itnext.io/c-20-modules-complete-guide-ae741ddbae3d
+         *
+         * --precompile -x c++-module
+         * -Xclang -emit-module-interface -c
+         *)
+        local M := $srdir_rec(${CppBuildDir}, $series('(?:.(?!', $re_quote(${ModCacheDirRoot}), '))*') )
+              M := $series('-fprebuilt-module-path=', -${M})
+        local H
+        (*
+        # Clang (as of version 15.0.6) will almost always generate object files with duplicated symbols when using system header units
+        local S := $cat_path( ~${CppBuildDir}, ${ModCacheDirSysHUnit} )
+        if $valid_path(${S})
+            S  := $srfile_rec(${S}, __re_all__)
+            S  := $series('-fmodule-file=', -${S})
+            H +:= ${S}
+        endif
+        *)
+        local U := $cat_path( ~${CppBuildDir}, ${ModCacheDirUsrHUnit} )
+        if $valid_path(${U})
+            U  := $srfile_rec(${U}, __re_all__)
+            U  := $series('-fmodule-file=', -${U})
+            H +:= ${U}
+        endif
+        local P := $[target/(.+)\.cpp\.o/$1.pcm/]
+        local O := $stack(${CppCxxCompileFlags}, ${IU}, ${IS}, ${CppCxx20MCompileFlags}, ${M}, ${H}, ${extraOptions}, ${fPIC})
+            -@${CppCxxCompiler} ${O} --precompile -x c++-module ~$[preq*] -o ~${P}
+        if $[excode]
+             @${CppCxxCompiler} ${O} --precompile               ~$[preq*] -o ~${P}
+            if $[excode] : return
+        endif
+            +@${CppCxxCompiler} ${O}                         -c ~$[preq*] -o ~$[target]
+    else
+       +@${CppCxxCompiler} ${CppCxxCompileFlags} ${IU} ${IS} ${CppCxxLangStdFlags} ${extraOptions} ${fPIC} -c ~$[preq*] -o ~$[target]
+    endif
+endfunction
+
+function compile_cpp(?extraOptions, ?forSharedLibObj)
+    $call( __bpt_cxx__                                                                                )
+    $exec( __compile_cpp__, false, ${extraOptions}, ${forSharedLibObj}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                              )
+endfunction
+
+function compile_cpp20m(?extraOptions, ?forSharedLibObj)
+    $call( __check_cpp20m_support__, $[function]                                                      )
+    $call( __bpt_cxx20m__                                                                             )
+    $exec( __compile_cpp__, true , ${extraOptions}, ${forSharedLibObj}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                              )
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function __clean_project__()
+    (* This function does nothing because there are no platform-specific files to delete! *)
+endfunction
+
+
+(***** Only include this part of the script where necessary *****)
+endif

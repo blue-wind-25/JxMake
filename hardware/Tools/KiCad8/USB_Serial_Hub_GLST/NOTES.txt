@@ -1,0 +1,54 @@
+====================================================================================================
+USB Serial Hub - GL852G & STM32F103
+====================================================================================================
+
+WARNING: # DO NOT POWER FROM MULTIPLE SUPPLIES SIMULTANEOUSLY:
+               # J8 (USB-to-Serial Converter) - for the STM32F103
+               # J9 (Serial Wire Debug)       - for the STM32F103
+               # VBus or VExt (J5)            - for the STM32F103 and GL852G
+         # VExt (J5) must be powered only by a supply ranging from 5V to 5.5V.
+         # All GPIOs operate at 3.3V logic level and are not 5V tolerant.
+
+====================================================================================================
+
+First, ensure that the +5V power is correct before connecting the corresponding jumpers. Then,
+ensure that all +3.3V supplies are correct before connecting their corresponding jumpers.
+
+The GL852G can be powered by either the external regulator or the on-chip regulator. ONLY ONE
+source should be selected. If +5V is set to use the external regulator, then +3.3V must also be
+set to the external regulator. Likewise, if +5V is set to the on-chip regulator, then +3.3V must
+also be set to the on-chip regulator. DO NOT MIX sources.
+
+In summary:
+    # After checking that the components are properly soldered, ensure these jumpers are bridged:
+        # Det+5VE (SB7)
+        # +5VSel  (SB1)
+        # +5VSer  (SB4)
+        # +5VHub
+            # Using external regulator → Ext (SB2)
+            # Using on-chip  regulator → Int (SB8)
+          It is acceptable to bridge both Ext and Int at the same time (at the cost of higher power
+          waste), as long as the next jumper in line (SB3) is configured properly.
+    # After verifying that the external regulators output the correct voltage, ensure these
+      jumpers are bridged:
+        # +3V3Ser (SB9)
+        # +3V3Hub (SB3)
+            # Using external regulator
+                # Only SB2         is  bridged → all  3 pads (I pin,    middle pin, and E pin)
+                # Both SB2 and SB8 are bridged → only 2 pads (          middle pin  and E pin)
+            # Using on-chip  regulator         → only 2 pads (I pin and middle pin           )
+
+It is recommended to use the on-chip regulator, unless it proves to be unstable.
+
+----------------------------------------------------------------------------------------------------
+
+Programming via SWD is straightforward. However, if you prefer, you can also program the device
+using either the USB DFU or the USART1 ROM bootloader.
+
+Some original STM32F103C8T6 chips include a built-in USB DFU ROM bootloader. For devices that do
+not have a built‑in USB DFU ROM bootloader, you must first install a DFU bootloader on the chip.
+
+Alternatively, you can use a GD32F103C8T6 (GigaDevice), an APM32F103C8T6 (Geehy), or a CS32F103C8T6
+(China Key System), which may provide a built‑in USB DFU ROM bootloader.
+
+====================================================================================================

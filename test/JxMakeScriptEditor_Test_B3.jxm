@@ -1,0 +1,8 @@
+#
+# Only for syntax highlighting test.
+# Do not execute this JxMake file, it will produce error!
+#
+
+(*** B3 ***)
+
+:::include  'JxMakeScriptEditor_Test_X.jxm'

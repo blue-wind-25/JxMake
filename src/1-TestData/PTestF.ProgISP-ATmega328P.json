@@ -1,0 +1,110 @@
+{
+    "@class" : "jxm.ugc.ProgISP$Config",
+    "spiMode" : "_0",
+    "ssMode" : "ActiveLow",
+    "programmingEnable" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ProgrammingEnable",
+        "instruction" : [ 0xAC, 0x53, 0x00, 0x00 ],
+        "responseCheck" : [ -1  , -1  , 0x53, -1   ],
+        "retryCount" : 32
+    },
+    "readSignature" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ReadSignature",
+        "instruction" : [
+            0x30, 0x00, 0x00, 0x00, 0x30, 0x00, 0x01, 0x00, 0x30, 0x00, 0x02, 0x00
+        ],
+        "responseIndex" : [ 3, 7, 11 ]
+    },
+    "chipErase" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ChipErase",
+        "instruction" : [ 0xAC, 0x80, 0x00, 0x00 ],
+        "waitDelay_MS" : 10
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryFlash",
+        "paged" : true,
+        "totalSize" : 32768,
+        "pageSize" : 128,
+        "numPages" : 256,
+        "instruction_LoadExtAddrByte" : [ 0x4D, 0x00, -1  , 0x00 ],
+        "a0idx_LoadExtAddrByte" : 2,
+        "instruction_ReadProgMemLB" : [ 0x20, -1  , -1  , 0x00 ],
+        "instruction_ReadProgMemHB" : [ 0x28, -1  , -1  , 0x00 ],
+        "a1idx_ReadProgMemXB" : 1,
+        "a0idx_ReadProgMemXB" : 2,
+        "responseIndex_ReadProgMemXB" : 3,
+        "readDataBuff" : null,
+        "instruction_LoadProgMemLB" : [ 0x40, -1  , -1  , -1   ],
+        "instruction_LoadProgMemHB" : [ 0x48, -1  , -1  , -1   ],
+        "a1idx_LoadProgMemXB" : 1,
+        "a0idx_LoadProgMemXB" : 2,
+        "dtidx_LoadProgMemXB" : 3,
+        "instruction_WriteProgMemPage" : [ 0x4C, -1  , -1  , 0x00 ],
+        "a1idx_WriteProgMemPage" : 1,
+        "a0idx_WriteProgMemPage" : 2,
+        "waitDelay_MS_WriteProgMemPage" : 5,
+        "paged_direct" : false,
+        "pageSize_direct" : 0,
+        "numPages_direct" : 0,
+        "instruction_WritePageDirect" : null,
+        "a1idx_WritePageDirect" : 1,
+        "a0idx_WritePageDirect" : 2,
+        "waitDelay_MS_WritePageDirect" : 5,
+        "instruction_WriteProgMemLB" : null,
+        "instruction_WriteProgMemHB" : null,
+        "a1idx_WriteProgMemXB" : 1,
+        "a0idx_WriteProgMemXB" : 2,
+        "dtidx_WriteProgMemXB" : 3,
+        "waitDelay_MS_WriteProgMem" : 5
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryEEPROM",
+        "totalSize" : 1024,
+        "instruction_ReadEEPROMMem" : [ 0xA0, -1  , -1  , 0x00 ],
+        "a1idx_ReadEEPROMMem" : 1,
+        "a0idx_ReadEEPROMMem" : 2,
+        "responseIndex_ReadEEPROMMem" : 3,
+        "instruction_WriteEEPROMMem" : [ 0xC0, -1  , -1  , -1   ],
+        "a1idx_WriteEEPROMMem" : 1,
+        "a0idx_WriteEEPROMMem" : 2,
+        "dtidx_WriteEEPROMMem" : 3,
+        "waitDelay_MS_WriteEEPROMMem" : 4
+    },
+    "memoryLFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryLFuse",
+        "instruction_ReadLFuse" : [ 0x50, 0x00, 0x00, 0x00 ],
+        "responseIndex_ReadLFuse" : 3,
+        "instruction_WriteLFuse" : [ 0xAC, 0xA0, 0x00, -1   ],
+        "dtidx_WriteLFuse" : 3,
+        "waitDelay_MS_WriteLFuse" : 5
+    },
+    "memoryHFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryHFuse",
+        "instruction_ReadHFuse" : [ 0x58, 0x08, 0x00, 0x00 ],
+        "responseIndex_ReadHFuse" : 3,
+        "instruction_WriteHFuse" : [ 0xAC, 0xA8, 0x00, -1   ],
+        "dtidx_WriteHFuse" : 3,
+        "waitDelay_MS_WriteHFuse" : 5
+    },
+    "memoryEFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryEFuse",
+        "instruction_ReadEFuse" : [ 0x50, 0x08, 0x00, 0x00 ],
+        "responseIndex_ReadEFuse" : 3,
+        "instruction_WriteEFuse" : [ 0xAC, 0xA4, 0x00, -1   ],
+        "dtidx_WriteEFuse" : 3,
+        "waitDelay_MS_WriteEFuse" : 5
+    },
+    "memoryLockBits" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryLockBits",
+        "instruction_ReadLockBits" : [ 0x58, 0x00, 0x00, 0x00 ],
+        "responseIndex_ReadLockBits" : 3,
+        "instruction_WriteLockBits" : [ 0xAC, 0xE0, 0x00, -1   ],
+        "dtidx_WriteLockBits" : 3,
+        "waitDelay_MS_WriteLockBits" : 5
+    },
+    "memoryCalibrationByte" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryCalibrationByte",
+        "instruction_ReadCalibrationByte" : [ 0x38, 0x00, 0x00, 0x00 ],
+        "responseIndex_ReadCalibrationByte" : 3
+    }
+}

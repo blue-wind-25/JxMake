@@ -1,0 +1,1342 @@
+(****************************************************************************************************
+ ***** AVRDUDE Helper Utility                                                                   *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### Define some AVRDUDE-specific tools
+const __Def_AVRDUDE_Cmd__   := 'avrdude'
+        AVRDUDE_Cmd         := ${__Def_AVRDUDE_Cmd__}
+        AVRDUDE_CmdSafeMode := '-u' '-s'
+
+
+##### Functions to get the AVRDUDE version
+function __calc_avrdude_version_numeric__(major, minor, patch, ?patchDot)
+    # A patch number with a dot separator has a higher numerical comparison value than a patch number with a dash separator
+    patchDot ?:= 1                                     # If not specified, assume it has a dot separator
+    if ${patchDot} : eval patch := ${patch} + 99990000 # Use the year 9999 so that the value has a higher numerical comparison value
+    # Calculate and return the numeric version number
+    return $call(calc_ver_numeric_338, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_avrdude_version_exec__(progPath, ldLibraryPath)
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+    if __os_windows__ : $cmd_stdout_chk_on() # Workaround to prevent hung because AVRDUDE somehow has a non-standard stdout in case of error (on Windows only?)
+   -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   -@${progPath} -?
+    $nop($[excode]) # Ensure all pending commands are executed
+    if __os_windows__ : $cmd_stdout_chk_off()
+    $restore_sem()
+    return $cmp($[lserr], '&==', '') # Check and return if the command can actually be executed
+endfunction
+
+function __get_avrdude_version__(progPath, ldLibraryPath)
+    if !$exec(__get_avrdude_version_exec__, ${progPath}, ${ldLibraryPath}) : return 0
+    local text   := $erase_ifempty( $sflines( $stack($[stderr], $[stdout]) ) )
+          text   := $partn( ${text}, $part_count(${text}) )
+          text   := $sfpipes(${text/.*?(\d+)\.(\d+)([.-]?)(\d+)?.*/$1|$2|$3|$4/})
+    local psDash := $csel( $cmp(${text}<3>, '&==', '-'), 1, 0 )
+    local verStr := $ftdots(${text})
+    if ${psDash} : verStr := $str_replace(${verStr}, '.-.', '-')
+    return {{ $call( __calc_avrdude_version_numeric__, ${text}<1>, ${text}<2>, ${text}<4>, $not(${psDash}) ), ${verStr} }}
+endfunction
+
+function __get_avrdude_version_cached__(progPath, ldLibraryPath)
+    # Create a new map as needed
+    if !&${__AVRDUDE_Ver_MH__} : __AVRDUDE_Ver_MH__ := $map_new()
+    # Try to get the version from the map first
+    local Ver := $map_get(${__AVRDUDE_Ver_MH__}, ${progPath})
+    if &${Ver} : return ${Ver}
+    # Get the version from the executable
+    Ver := $call(__get_avrdude_version__, ${progPath}, ${ldLibraryPath})
+    # Save the version to the map
+    $map_put(${__AVRDUDE_Ver_MH__}, ${progPath}, ${Ver})
+    # Return the version
+    return ${Ver}
+endfunction
+
+
+##### Function to find the latest AVRDUDE from Arduino package(s)
+function __find_latest_arduino_avrdude_cmd_impl__()
+    # Try to get the path from the cache file first
+    local LatestCmdCacheFilePath := $cat_path( $ptd(), 'LatestAVRDUDECmd.cache' )
+    local LatestCmd
+    if $uptodate_path(${LatestCmdCacheFilePath})
+        LatestCmd := $get_file(${LatestCmdCacheFilePath})
+        return ${LatestCmd}
+    endif
+    # List directories
+    local SearchDirPath1
+    local SearchDirPath2
+    local SearchDirList
+    foreach local DirItem in ${ArduinoPackageDirs}
+        SearchDirPath1 := $cat_path(${DirItem}, 'packages/arduino/tools/avrdude')
+        SearchDirPath2 := $cat_path(${DirItem}, 'hardware/tools/avr'            )
+        if $valid_path(${SearchDirPath1}) : SearchDirList  := $lsdir(${SearchDirPath1}, 'd')
+        if $valid_path(${SearchDirPath2}) : SearchDirList +:= $lsdir(${SearchDirPath2}, 'd')
+    endforeach
+    # Try the default AVRDUDE first
+    local LatestVersion := 0
+    local CheckVersion  := $partn( $call(__get_avrdude_version__, ${__Def_AVRDUDE_Cmd__}, ''), 1 )
+    if ${CheckVersion}
+        LatestVersion := ${CheckVersion}
+        LatestCmd     := ${__Def_AVRDUDE_Cmd__}
+    endif
+    # Find the latest AVRDUDE version
+    local LDLibPaths := $call(__get_LDLibraryPaths__)
+    local ProgPath
+    local ConfPath
+    foreach local DirItem in ${SearchDirList}
+        # Get the AVRDUDE binary path
+        ProgPath := $cat_path(${DirItem}, 'bin'             )
+        ConfPath := $cat_path(${DirItem}, 'etc/avrdude.conf')
+        if !$valid_path(${ProgPath}) : continue
+        ProgPath := $cat_path(${ProgPath}, 'avrdude')
+        # Get the AVRDUDE version
+        CheckVersion := $partn( $call(__get_avrdude_version__, ${ProgPath}, ${LDLibPaths}), 1 )
+        # Compare the AVRDUDE versions
+        if ${CheckVersion} > ${LatestVersion}
+            LatestVersion := ${CheckVersion}
+            LatestCmd     := ${ProgPath}
+            if $valid_path(${ConfPath})
+                LatestCmd +:= '-C'
+                LatestCmd +:= ~${ConfPath}
+            endif
+        endif
+    endforeach
+    # Use the default AVRDUDE if nothing was found
+    if !&${LatestCmd} : LatestCmd := ${__Def_AVRDUDE_Cmd__}
+    # Save the path to the cache file
+    $put_file(${LatestCmdCacheFilePath}, ${LatestCmd})
+    # Return the path to the latest AVRDUDE
+    return ${LatestCmd}
+endfunction
+
+function __find_latest_arduino_avrdude_cmd__()
+    # Find the latest AVRDUDE only if the user has not changed it from its default value
+    if ${AVRDUDE_Cmd} &== ${__Def_AVRDUDE_Cmd__}
+        # Find the latest AVRDUDE only if the variable containing the Arduino package directories is not empty
+        if &${ArduinoPackageDirs}
+            AVRDUDE_Cmd := $call(__find_latest_arduino_avrdude_cmd_impl__)
+        endif
+    endif
+    # Check if the AVRDUDE command is executable
+    if __os_windows__ : $cmd_stdout_chk_on() # Workaround to prevent hung because AVRDUDE somehow has a non-standard stdout in case of error (on Windows only?)
+    if !$call(cmd_is_executable, '', ${AVRDUDE_Cmd}) : $call(__exit_error_nup__, ${__Def_AVRDUDE_Cmd__})
+    if __os_windows__ : $cmd_stdout_chk_off()
+    # Remove the 'safemode' command line arguments as needed
+    $call(__sel_avrdude_remove_safemode__)
+endfunction
+
+
+##### Function to remove the 'safemode' command line arguments from the selected AVRDUDE command as needed
+function __sel_avrdude_remove_safemode__()
+    # Check if it has been removed
+    if !&${AVRDUDE_CmdSafeMode} : return
+    # The 'safemode' feature has been removed in version 7.0
+    local VerC := $partn( $call( __get_avrdude_version_cached__, ${AVRDUDE_Cmd}<1>, $call(__get_LDLibraryPaths__) ), 1 )
+    local V70P := $cmp( ${VerC}, '>=', $call(__calc_avrdude_version_numeric__, 7, 0, 0) )
+    if ${V70P} : AVRDUDE_CmdSafeMode := ''
+endfunction
+
+
+##### Function to add the selected AVRDUDE command to the build tool extra information
+function __add_sel_avrdude_cmd_to_bt_extra_info__()
+    # Check if the AVRDUDE command is not defined
+    if !&${AVRDUDE_Cmd} : return
+    # Add the extra information
+        __BuildTool_ExtraInfoName__  +:= '-'
+        __BuildTool_ExtraInfoValue__ +:= '-'
+        __BuildTool_ExtraInfoName__  +:= 'AVRDUDE Program'
+        __BuildTool_ExtraInfoValue__ +:= ${AVRDUDE_Cmd}<1>
+    if $part_count(${AVRDUDE_Cmd}) == 3
+        __BuildTool_ExtraInfoName__  +:= 'AVRDUDE Configuration File'
+        __BuildTool_ExtraInfoValue__ +:= $abs_path(${AVRDUDE_Cmd}<3>)
+    endif
+        __BuildTool_ExtraInfoName__  +:= 'AVRDUDE Version'
+        __BuildTool_ExtraInfoValue__ +:= $partn( $call( __get_avrdude_version_cached__, ${AVRDUDE_Cmd}<1>, $call(__get_LDLibraryPaths__) ), 2 )
+    # Remove the 'safemode' command line arguments as needed
+    $call(__sel_avrdude_remove_safemode__)
+endfunction
+
+
+##### Function to translate AVR MCU name to AVRDUDE part name
+function __avr_mcu_to_avrdude_part__(mcu)
+    # Based on 'https://www.nongnu.org/avrdude/user-manual/avrdude_3.html'
+    local mcu := $lcase(${mcu})
+       if $re_match(${mcu}, 'atmega.+' ) ; mcu := ${mcu/atmega(.+)/m$1/}
+     elif $re_match(${mcu}, 'atxmega.+') ; mcu := ${mcu/atxmega(.+)/x$1/}   ; mcu := ${mcu/(.+?(?<!p))rev(.)$/$1$2/}
+     elif $re_match(${mcu}, 'attiny.+' ) ; mcu := ${mcu/attiny(.+)/t$1/}
+     elif $re_match(${mcu}, 'at90usb.+') ; mcu := ${mcu/at90usb(.+)/usb$1/}
+     elif $re_match(${mcu}, 'at90s.+'  ) ; mcu := ${mcu/at90s(.+)/$1/}
+     elif $re_match(${mcu}, 'at90pwm.+') ; mcu := ${mcu/at90pwm(.+)/pwm$1/}
+     elif $re_match(${mcu}, 'at90can.+') ; mcu := ${mcu/at90can(.+)/c$1/}
+     elif $re_match(${mcu}, 'at32uc3.+') ; mcu := ${mcu/at32uc3(.+)/uc3$1/}
+    endif
+    return ${mcu/(.+?(?<!p))a$/$1/} # Remove the 'a' suffix because older AVRDUDE does not recognize it
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to determine the appropriate serial baudrate from the given AVR CPU frequency when using AVRDUDE with UPDI programmers with serial connections
+function __avrdude_det_serialupdi_baudrate_for_avr__(fcpu)
+    # Assume that when a user selects a lower CPU frequency, it means that the user also selects a lower UPDI clock
+    # and possibly a longer programming cable
+      if ${fcpu} >= 8000000 ; return '115200' # The safe maximum baudrate that all USB to serial adapters should support
+    elif ${fcpu} >= 2000000 ; return  '57600'
+    elif ${fcpu} >=  500000 ; return  '28800'
+    elif ${fcpu} >=  125000 ; return  '14400'
+    elif                    ; return   '7200'
+    endif
+endfunction
+
+
+##### Function to get (determine) the safe bit clock from the given AVR CPU frequency when using AVRDUDE
+function __avrdude_get_safe_bit_clock_for_avr__(fcpu)
+      if ${fcpu} >= 16000000 ; return    '0.6'  # 1500000 Hz
+    elif ${fcpu} >=  8000000 ; return    '1.3'  #  750000 Hz
+    elif ${fcpu} >=  4000000 ; return    '2.6'  #  375000 Hz
+    elif ${fcpu} >=  2000000 ; return    '5.3'  #  187500 Hz
+    elif ${fcpu} >=  1000000 ; return   '10.6'  #   93750 Hz
+    elif ${fcpu} >    256000 ; return   '31.25' #  ~32000 Hz
+    elif ${fcpu} >    128000 ; return   '62.5'  #  ~16000 Hz
+    elif ${fcpu} >     64000 ; return  '125'    #  ~ 8000 Hz
+    elif ${fcpu} >     32000 ; return  '250'    #  ~ 4000 Hz
+    elif ${fcpu} >     16000 ; return  '500'    #  ~ 2000 Hz
+    elif ${fcpu} >      8000 ; return '1000'    #  ~ 1000 Hz
+    else                     ; return '2000'    #  ~  500 Hz
+    endif
+endfunction
+
+
+##### Function to get (determine) the safe bit clock from the given MCS51 CPU frequency when using AVRDUDE
+function __avrdude_get_safe_bit_clock_for_mcs51__(fcpu)
+    div fcpu, ${fcpu}, 64
+    return $call(__avrdude_get_safe_bit_clock_for_avr__, ${fcpu})
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to print help messages about supported bit clocks when using AVRDUDE with USBasp
+function __avrdude_print_usbasp_supported_bit_clock__(bSpcCnt)
+    local BSpc := $repeat(' ', ${bSpcCnt})
+    local MSpc := ${BSpc} '    '
+    echoln __c_white__   ${BSpc} 'Due to the ' __c_yellow__ '12MHz' __c_white__ ' crystal used by ' __c_cyan__ 'USBasp' __c_white__ ', supported bit clocks (SCK frequencies) are limited to:'
+    echoln __c_magenta__ ${MSpc} 'Hardware SPI          SCK Frequency   Bit Clock Period'
+    echoln __c_white__   ${MSpc} 'XTAL /   8            1500000 Hz      ~' __c_green__ ' 0.6 ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL /  16             750000 Hz      ~' __c_green__ ' 1.3 ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL /  32             375000 Hz      ~' __c_green__ ' 2.6 ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL /  64             187500 Hz      ~' __c_green__ ' 5.3 ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 128              93750 Hz      ~' __c_green__ '10.6 ' __c_white__ 'uS'
+    echoln __c_magenta__ ${MSpc} 'Software SPI          SCK Frequency   Bit Clock Period'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /   3 / 2   ~32000 Hz       ' __c_green__ '  31.25 ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /   6 / 2   ~16000 Hz       ' __c_green__ '  62.5  ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /  12 / 2   ~ 8000 Hz       ' __c_green__ ' 125    ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /  24 / 2   ~ 4000 Hz       ' __c_green__ ' 250    ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /  48 / 2   ~ 2000 Hz       ' __c_green__ ' 500    ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 /  96 / 2   ~ 1000 Hz       ' __c_green__ '1000    ' __c_white__ 'uS'
+    echoln __c_white__   ${MSpc} 'XTAL / 64 / 192 / 2   ~  500 Hz       ' __c_green__ '2000    ' __c_white__ 'uS'
+    echoln __c_white__   ${BSpc} 'Passing values other than those listed above to ' __c_green__ 'bitClock' __c_white__ ' will cause the nearest lower'
+    echoln __c_white__   ${BSpc} 'frequency to be selected.'
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to print help messages when using AVRDUDE with FT232*
+function __avrdude_ft232x_print_help__(chipName, modeName)
+    echoln __c_white__  '---------------------------------------------------------------------------------------------------------' __c_reset__
+    echoln
+    echoln __c_white__  "To use ${chipName} ${modeName}, you need to have libFTDI (and libusb) installed and AVRDUDE built" __c_reset__
+    echoln __c_white__  'to support it (most modern AVRDUDE binary releases should already be built to support libFTDI).' __c_reset__
+    echoln
+    echoln __c_white__  'Please refer to these URLs for more information:' __c_reset__
+    echoln              '    https://hackaday.com/2009/09/22/introduction-to-ftdi-bitbang-mode'
+    echoln
+    echoln              '    https://libusb.info'
+    echoln              '    https://github.com/libusb/libusb'
+    echoln              '    https://sourceforge.net/projects/libusb-win32/files'
+    echoln              '    https://ports.macports.org/port/libusb'
+    echoln
+    echoln              '    https://www.intra2net.com/en/developer/libftdi'
+    echoln              '    https://sourceforge.net/projects/picusb/files'
+    echoln              '    https://formulae.brew.sh/formula/libftdi'
+    echoln
+    echoln __c_white__  'On Windows, the FTDI Virtual Com Port (VCP) driver must be replaced with the WinUSB driver using Zadig' __c_reset__
+    echoln __c_white__  '(it can also be used to restore the original driver). Please download Zadig from \'https://zadig.akeo.ie\'.' __c_reset__
+    echoln
+    echoln __c_white__  'On MacOS, the FTDI Virtual Com Port (VCP) driver must be unloaded using the command:' __c_reset__
+    echoln              '    sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext'
+    echoln __c_white__  'It can be restored using the command:' __c_reset__
+    echoln              '    sudo kextload /System/Library/Extensions/FTDIUSBSerialDriver.kext'
+    echoln
+    echoln __c_white__  "On Linux, the process should be automatic. However, you may need to unplug and replug your ${chipName} module" __c_reset__
+    echoln __c_white__  'to restore its Virtual Com Port (VCP) capability.' __c_reset__
+    echoln
+    echoln __c_yellow__ "Please note that ${chipName} ${modeName} may not be compatible with some MCUs and configurations." __c_reset__
+    echoln
+    echoln __c_white__  '---------------------------------------------------------------------------------------------------------' __c_reset__
+    echoln
+endfunction
+
+
+##### Function to check for error and print help messages when using AVRDUDE with FT232R Synchronous Bit Banging
+function __avrdude_check_ft232r_error_and_print_help__(funcName)
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__exit_error_build_process_fail__, :"${funcName}()", true)
+    $call(__avrdude_ft232x_print_help__, 'FT232R', 'Synchronous Bit Banging')
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to check for error and print help messages when using AVRDUDE with FT232H MPSSE and Bit Banging
+function __avrdude_check_ft232h_error_and_print_help__(funcName)
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__exit_error_build_process_fail__, :"${funcName}()", true)
+    $call(__avrdude_ft232x_print_help__, 'FT232H', 'MPSSE and Bit Banging')
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to check for error and print help messages when using AVRDUDE with USBtinyISP
+function __avrdude_check_usbtinyisp_error_and_print_help__(funcName, ?mcs51)
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__exit_error_build_process_fail__, :"${funcName}()", true)
+    local SysSpecificMsgPrinted := false
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/99-usbtiny.rules')
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the programming device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/99-usbtiny.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+            echoln             'SUBSYSTEM!="usb", ACTION!="add", GOTO="usbtiny_end"'
+            echoln
+            echoln             '# Make various variations of \'USBtinyISP\' writable by all users'
+            echoln             'ATTRS{idVendor}=="0x1781", ATTRS{idProduct}=="0x0c9f", MODE="0666"'
+            echoln             'ATTRS{idVendor}=="0x2341", ATTRS{idProduct}=="0x0c9f", MODE="0666"'
+            echoln             'ATTRS{idVendor}=="0x2341", ATTRS{idProduct}=="0x0049", MODE="0666"'
+            echoln             'ATTRS{idVendor}=="0x2a03", ATTRS{idProduct}=="0x0049", MODE="0666"'
+            echoln             'ATTRS{idVendor}=="0x16d0", ATTRS{idProduct}=="0x0ba5", MODE="0666"'
+            echoln             'ATTRS{idVendor}=="0x1209", ATTRS{idProduct}=="0x6570", MODE="0666"'
+            echoln
+            echoln             'LABEL="usbtiny_end"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            SysSpecificMsgPrinted := true
+        endif
+    endif
+    # If the target is an MCS51 MCU, print some more helper information messages
+    if ${mcs51}
+        if !${SysSpecificMsgPrinted}
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+        endif
+        echoln __c_white__ 'It seems you are trying to program an MCS51 MCU using USBtinyISP. You may need to:' __c_reset__
+        echoln __c_white__ '    # update your USBtinyISP firmware so that the ISP reset signal is active high; or' __c_reset__
+        echoln __c_white__ '    # modify your MCS51 circuit so that the ISP reset signal is active low.' __c_reset__
+        echoln
+        echoln __c_white__ 'Additionally, unlike other MCS51 MCUs that require SPI mode 0, the \'AT89S8253\' MCU requires SPI mode 1,' __c_reset__
+        echoln __c_white__ 'you would definitely need to update your USBtinyISP firmware for this.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to check for error and print help messages when using AVRDUDE with USBasp
+function __avrdude_check_usbasp_error_and_print_help__(funcName, ?xmega, ?mcs51)
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__exit_error_build_process_fail__, :"${funcName}()", true)
+    local SysSpecificMsgPrinted := false
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/99-USBasp.rules')
+            # Based on 'https://fischl.de/usbasp/usbasp.2011-05-28.tar.gz'
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the programming device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/99-USBasp.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+           #echoln             '# USBasp - USB programmer for Atmel AVR controllers'
+           #echoln             'SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", SYSFS{idVendor}=="16c0", SYSFS{idProduct}=="05dc", MODE="0666"'
+            echoln             '# Make \'USBasp\' writable by all users'
+            echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="05dc", MODE="0666"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            SysSpecificMsgPrinted := true
+        endif
+    endif
+    if !${SysSpecificMsgPrinted}
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+    echoln __c_white__ 'If the programming fails and an error message about SCK period such as below appears:' __c_reset__
+    echoln             '    ...'
+    echoln             '    avrdude: warning: cannot set sck period. please check for USBasp firmware update.'
+    echoln             '    ...'
+    echoln __c_white__ 'you may need to use slower SCK frequency.' __c_reset__
+    echoln
+    echoln __c_white__ 'If your USBasp has a \'Slow SCK\' jumper, please set the jumper and try again, it might be possible to use' __c_reset__
+    echoln __c_white__ 'your USBasp without updating the firmware.' __c_reset__
+    echoln
+    echoln __c_white__ 'If programming still fails, please update your USBasp firmware from:' __c_reset__
+    echoln             '    https://fischl.de/usbasp'
+    echoln             '    https://fischl.de/usbasp/usbasp.2011-05-28.tar.gz'
+    echoln
+    echoln __c_white__ 'Please refer to these articles for more details:' __c_reset__
+    echoln             '    https://blog.podkalicki.com/how-to-update-avr-usbasp-firmware-to-latest-version'
+    echoln             '    https://octopuslabs.io/blog/how-to-update-usbasp-firmware-using-another-usbasp'
+    echoln             '    https://www.bitbanging.space/posts/usbasp-firmware-update'
+    echoln             '    https://www.electronics-lab.com/project/usbasp-firmware-update-guide'
+    echoln             '    https://www.instructables.com/How-to-Update-the-Firmware-on-a-Cheap-USBasp-Clone'
+    echoln             '    https://www.bestsoldering.com/usbasp-firmware-update'
+    echoln
+    echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+    echoln
+    # If the target is an ATxmega MCU, print some more helper information messages
+    if ${xmega}
+        echoln __c_white__ 'It seems you are trying to program an ATxmega MCU using USBasp. You may need to update your USBasp' __c_reset__
+        echoln __c_white__ 'firmware so that it can be used to program ATxmega MCUs, please refer to the following articles:' __c_reset__
+        echoln
+        echoln             'Playing with AtXmega16e5 breakout - Converting USBASP to support PDI'
+        echoln             'https://morf.lv/playing-with-atxmega16e5-breakout'
+        echoln
+        echoln             'ATxmega programmer for $0.50'
+        echoln             'https://szulat.blogspot.com/2012/08/atxmega-programmer-for-050.html'
+        echoln             '    USBASP Firmware supporting PDI'
+        echoln             '        https://www.fischl.de/usbasp/usbasp.2011-05-28.tar.gz'
+        echoln             '        http://sz.toyspring.com/usbasp-pdi-usbaspfirmware-20120816.diff'
+        echoln             '    AVRDUDE supporting USBASP with PDI (5.11svn)'
+        echoln             '        http://sz.toyspring.com/usbasp-pdi-avrdude2091-20120816.diff'
+        echoln             '        svn co svn://svn.sv.gnu.org/avrdude/trunk -r 1092'
+        echoln
+        echoln             'Как прошить XMEGA при помощи USBASP программатора'
+        echoln             'How to flash XMEGA using USBASP programmer'
+        echoln             'https://service4u.narod.ru/html/atxmega_avrdude.html'
+        echoln             'https://service4u.narod.ru/assets/xmega/usbasp_pdi_atmega8_20120816.hex'
+        echoln             'https://service4u.narod.ru/assets/xmega/avrdude-r1092-usbasp-pdi.zip'
+        echoln
+        echoln             'USBASP-PDI'
+        echoln             'Modified USBASP to work as a PDI Programmer'
+        echoln             'https://github.com/nieldk/USBASP-PDI'
+        echoln             'https://github.com/nieldk/USBASP-PDI/tree/master/bin/firmware'
+        echoln
+        echoln             'AVRDUDE 6.3 for USBASP-PDI'
+        echoln             'https://github.com/nieldk/avrdude'
+        echoln
+        echoln __c_white__ 'It is recommended to use AVRDUDE r1092 (5.11svn) instead of 6.3 because the patched \'avrdude.conf\' for' __c_reset__
+        echoln __c_white__ 'version 6.3 contains a bug for the \'.xmega\' common part definition (missing \'chip_erase_delay = 40000\').' __c_reset__
+        echoln
+        echoln __c_white__ 'It is possible to use AVRDUDE 6.3 with the \'avrdude.conf\' from r1092 (5.11svn), or, edit the file and add' __c_reset__
+        echoln __c_white__ 'the missing \'chip_erase_delay = 40000\' to the \'.xmega\' common part definition; without the chip erase' __c_reset__
+        echoln __c_white__ 'delay, programming will always fail.' __c_reset__
+        echoln
+        echoln __c_white__ 'There is also a bug in the USBasp patch that will cause programming using TPI to always fail. To fix it,' __c_reset__
+        echoln __c_white__ 'after applying the patch, edit \'firmware/main.c\' and add the following lines:' __c_reset__
+        echoln             '    } else if (data[1] == USBASP_FUNC_TPI_WRITEBLOCK) {'
+        echoln             '        prog_address = (data[3] << 8) | data[2];'
+        echoln             '        prog_nbytes = (data[7] << 8) | data[6];'
+        echoln             '        prog_state = PROG_STATE_TPI_WRITE;'
+        echoln             '        len = 0xff; /* multiple out */'
+        echoln __c_white__ 'before the line that contains:' __c_reset__
+        echoln             '        } else if (data[1] == USBASP_FUNC_GETCAPABILITIES) {'
+        echoln __c_white__ '(the patch removed those lines).' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+        echoln __c_cyan__  'The corrected USBasp patch as well as the updated AVRDUDE patch (for version 7.1, 7.2, 7.3, and 8.0)' __c_reset__
+        echoln __c_cyan__  'can be obtained from:' __c_reset__
+        echoln             '    https://github.com/blue-wind-25/PDI-Patch-for-USBasp-and-AVRDUDE'
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+    # If the target is an MCS51 MCU, print some more helper information messages
+    if ${mcs51}
+        echoln __c_white__ 'It seems you are trying to program an MCS51 MCU using USBasp. You may need to:' __c_reset__
+        echoln __c_white__ '    # update your USBasp firmware so that the ISP reset signal is active high; or' __c_reset__
+        echoln __c_white__ '    # modify your MCS51 circuit so that the ISP reset signal is active low.' __c_reset__
+        echoln
+        echoln __c_white__ 'Additionally, unlike other MCS51 MCUs that require SPI mode 0, the \'AT89S8253\' MCU requires SPI mode 1,' __c_reset__
+        echoln __c_white__ 'you would definitely need to update your USBasp firmware for this.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to check for error and print help messages when using AVRDUDE with advanced Atmel ISP programmer
+function __avrdude_check_advanced_atmel_isp_programmer_error_and_print_help__(funcName)
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__exit_error_build_process_fail__, :"${funcName}()", true)
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/60-avrisp.rules')
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the programming device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/60-avrisp.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+            echoln             'SUBSYSTEM!="usb", ACTION!="add", GOTO="avrisp_end"'
+            echoln
+            echoln             '# Make \'Atmel ICE\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2141", MODE="0666"'
+            echoln
+            echoln             '# Make \'Atmel JTAG ICE 3 v3.x\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2140", MODE="0666"'
+            echoln
+            echoln             '# Make \'Atmel JTAG ICE 3\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2110", MODE="0666"'
+            echoln
+            echoln             '# Make \'Atmel JTAG ICE mkII\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2103", MODE="0666"'
+            echoln
+            echoln             '# Make \'Atmel AVRISP mkII\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2104", MODE="0666"'
+            echoln
+            echoln             '# Make \'Atmel Dragon\' writable by all users'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2107", MODE="0666"'
+            echoln
+            echoln             'LABEL="avrisp_end"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+        endif
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to check if the selected AVRDUDE configuration file supports the given ID(s)
+function __chk_sel_avrdude_id_support_ext__(cfName, ids)
+    # Convert the IDs to lowercase
+    ids := $lcase(${ids})
+    # Get the program path
+    local ProgPath := ${AVRDUDE_Cmd}<1>
+   #local ProgPath := 'C:/avrdude-v7.1-windows-x64/avrdude'
+   #local ProgPath := '/opt/avrdude-7.1/bin/avrdude'
+    # Create the combined IDs string
+    local CombIDStr := $ftpipes(${ids})
+    # Try to get the result from the cache file first
+    local LatestIDCacheFilePath := $cat_path( $ptd(), :"LatestAVRDUDEID${cfName}Support.cache" )
+    if $uptodate_path(${LatestIDCacheFilePath})
+        Lines := $get_file(${LatestIDCacheFilePath})
+        if ${Lines}<1> &== ${ProgPath}
+            if ${Lines}<2> &== ${CombIDStr}
+                # Return the result from the cache file only and only if both the program path and IDs are the same
+                return {{ ${Lines}<3>, $sfpipes(${Lines}<4>) }}
+            endif
+        endif
+    endif
+    # Check the version
+    local VerC := $partn( $call( __get_avrdude_version_cached__, ${ProgPath}, $call(__get_LDLibraryPaths__) ), 1 )
+    local V70P := $cmp( ${VerC}, '>=', $call(__calc_avrdude_version_numeric__, 7, 0, 0) )
+    local V71P := $cmp( ${VerC}, '>=', $call(__calc_avrdude_version_numeric__, 7, 1, 0) )
+    # Get the configuration file(s)
+    local IsLocalBSD := $and( __os_bsd__, $str_begwith(${ProgPath}, '/usr/local') )
+    local CFiles     := ${AVRDUDE_Cmd}<3>
+    if !&${CFiles}
+        local CF
+        if $or(__os_windows__, ${V70P})
+            CF := $cat_path( $dir_name(${ProgPath}), 'avrdude.conf' )
+            if $valid_path(${CF}) : CFiles +:= ${CF}
+        endif
+        if !&${CFiles}
+            if ${IsLocalBSD}
+                CF := '/usr/local/etc/avrdude.conf'
+                if $valid_path(${CF}) : CFiles +:= ${CF}
+            elif __os_posix__
+                CF := '/etc/avrdude.conf'
+                if $valid_path(${CF}) : CFiles +:= ${CF}
+            endif
+        endif
+        if !&${CFiles}
+            if ${IsLocalBSD}
+                CF := '/usr/local/etc/avrdude/avrdude.conf'
+                if $valid_path(${CF}) : CFiles +:= ${CF}
+            elif __os_posix__
+                CF := '/etc/avrdude/avrdude.conf'
+                if $valid_path(${CF}) : CFiles +:= ${CF}
+            elif __os_windows__
+                CF := $cat_path( $dir_name(${ProgPath}), '../etc/avrdude.conf' )
+                if $valid_path(${CF}) : CFiles +:= ${CF}
+            endif
+        endif
+    endif
+    if __os_windows__
+        CF := $cat_path( $dir_name(${ProgPath}), 'avrdude.rc' )
+        if $valid_path(${CF}) : CFiles +:= ${CF}
+    else
+        local gotPerUserCF := false
+        if ${V71P}
+            CF := $cat_path( $uhd(), '.config/avrdude/avrdude.rc' )
+            if $valid_path(${CF})
+                CFiles       +:= ${CF}
+                gotPerUserCF  := true
+            endif
+        endif
+        if !${gotPerUserCF}
+            CF := $cat_path( $uhd(), '.avrduderc' )
+            if $valid_path(${CF}) : CFiles +:= ${CF}
+        endif
+    endif
+    # Check the configuration file(s)
+    local HasAllIDs := false
+    local WholeCheck
+    foreach local CFile in ${CFiles}
+        # Extract the IDs and convert them to lowercase
+        local ExIDs := $erase_ifnot( $get_file(${CFile}), `^\s*id\s*=\s*(?:"\S+"\s*,?\s*)*;\s*$`, true )
+              ExIDs := ${ExIDs/^\s*id\s*=\s*\s"(.+?)"\s*;\s*$/$1/}
+              ExIDs := $lcase( $erase_if( $re_split(${ExIDs}, `([^",\s]+)`), `^\..+`, true ) )
+        # Check if the IDs list contains the IDs
+        local Check := $contains(${ExIDs}, ${ids})
+        # Combine the check results
+        if !&${WholeCheck} ; WholeCheck :=                    ${Check}
+        else               ; WholeCheck := $or(${WholeCheck}, ${Check})
+        endif
+        # Check if the IDs list contains all the ids
+        if !$contains(${Check}, '0')
+            HasAllIDs := true
+            break
+        endif
+    endforeach
+    if !$contains(${WholeCheck}, '0') : HasAllIDs := true
+    # Save the results to the cache file
+    $put_file( ${LatestIDCacheFilePath}, {{ \
+                 ${ProgPath}   ,            \
+                 ${CombIDStr}  ,            \
+                 ${HasAllIDs}  ,            \
+        $ftpipes(${WholeCheck})             \
+    }} )
+    # Return the results
+    return { ${HasAllIDs} ${WholeCheck} }
+endfunction
+
+
+##### Function to check if the selected AVRDUDE configuration file supports the given programmer(s)
+function __chk_sel_avrdude_programmer_support_ext__(programmers)
+    return $call(__chk_sel_avrdude_id_support_ext__, 'Programmer', ${programmers})
+endfunction
+
+function __chk_sel_avrdude_programmer_support__(programmers)
+    return $partn( $call(__chk_sel_avrdude_programmer_support_ext__, ${programmers}), 1 )
+endfunction
+
+
+##### Function to check if the selected AVRDUDE configuration file supports the given part(s)
+function __chk_sel_avrdude_part_support_ext__(parts)
+    return $call(__chk_sel_avrdude_id_support_ext__, 'Part', ${parts})
+endfunction
+
+function __chk_sel_avrdude_part_support__(parts)
+    return $partn( $call(__chk_sel_avrdude_part_support_ext__, ${parts}), 1 )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to return the programmer definitions for a custom AVRDUDE configuration file
+function __get_custom_avrdude_config_programmers__()
+    # Determine the custom AVRDUDE configuration file content
+    local ProgText := [["
+#[>=00700300000000] #
+#[>=00700300000000] # AVRDUDE Configuration File
+#[>=00700300000000] #
+
+#[>=00700300000000] avrdude_conf_version = "#[{AVRDUDE_VERSION}]";
+
+                    #
+                    # PROGRAMMER DEFINITIONS
+                    #
+
+                    #
+                    # Based on:
+                    #     https://raw.githubusercontent.com/avrdudes/avrdude/main/NEWS
+                    #     https://raw.githubusercontent.com/avrdudes/avrdude/main/src/avrdude.conf.in
+                    #
+                    #     https://github.com/facchinm/avrdude/archive/refs/tags/5.11.0.tar.gz   [avrdude.conf.in]
+                    #     https://github.com/facchinm/avrdude/archive/refs/tags/6.*.*.tar.gz    [avrdude.conf.in]
+                    #
+                    #     https://download.savannah.gnu.org/releases/avrdude/avrdude-6.*.tar.gz [avrdude.conf.in]
+                    #
+                    #     https://github.com/avrdudes/avrdude/archive/refs/tags/v7.*.tar.gz     [avrdude.conf.in]
+                    #
+
+                    programmer
+                        id               = "stk500";
+                        desc             = "Atmel STK500; probes STK500v2 first then STK500v1";
+                        type             = "stk500generic";
+#[>=00700100000000]     prog_modes       = PM_ISP;
+#[>=00700200000000]     extra_features   = HAS_VTARG_READ | HAS_VTARG_ADJ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+                        connection_type  = serial;
+                    ;
+
+                    programmer
+                        id               = "stk500v1";
+                        desc             = "Atmel STK500 with Version 1.x Firmware";
+                        type             = "stk500";
+#[>=00700100000000]     prog_modes       = PM_ISP;
+#[>=00700200000000]     extra_features   = HAS_VTARG_READ | HAS_VTARG_ADJ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+                        connection_type  = serial;
+                    ;
+
+                    programmer
+                        id               = "stk500v2";
+                        desc             = "Atmel STK500 with Version 2.x Firmware";
+                        type             = "stk500v2";
+#[>=00700100000000]     prog_modes       = PM_ISP | PM_TPI;
+#[>=00700200000000]     extra_features   = HAS_VTARG_READ | HAS_VTARG_ADJ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+                        connection_type  = serial;
+                    ;
+
+                    programmer
+                        id               = "stk600";
+                        desc             = "Atmel STK600";
+                        type             = "stk600";
+#[>=00700100000000]     prog_modes       = PM_ISP | PM_TPI | PM_PDI;
+#[>=00700200000000]     extra_features   = HAS_VTARG_READ | HAS_VTARG_ADJ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+                        connection_type  = usb;
+                    ;
+
+                    programmer
+                        id               = "avrisp";
+                        desc             = "Atmel AVR ISP";
+                        type             = "stk500";
+#[>=00700100000000]     prog_modes       = PM_ISP;
+                        connection_type  = serial;
+                    ;
+
+                    programmer
+                        id               = "avrispv2";
+                        desc             = "Atmel AVR ISP V2";
+                        type             = "stk500v2";
+#[>=00700100000000]     prog_modes       = PM_ISP | PM_TPI;
+                        connection_type  = serial;
+                    ;
+
+                    programmer
+                        id               = "avrispmkII";
+                        desc             = "Atmel AVR ISP mkII";
+                        type             = "stk500v2";
+#[>=00700100000000]     prog_modes       = PM_ISP | PM_TPI | PM_PDI;
+#[>=00700200000000]     extra_features   = HAS_VTARG_READ;
+                        connection_type  = usb;
+                    ;
+
+                    programmer parent "avrispmkII"
+                        id               = "avrisp2";
+                    ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id               = "ft232r";
+#[>=00600000000000]     desc             = "FT232R Synchronous Bit Banging";
+#[>=00600000000000]     type             = "ftdi_syncbb";
+#[>=00700100000000]     prog_modes       = PM_TPI | PM_ISP;
+#[>=00600000000000]     connection_type  = usb;
+#[>=00700300000000]     is_serialadapter = yes;
+#[>=00600000000000]     usbvid           = 0x0403;
+#[>=00600000000000]     usbpid           = 0x6001;
+#[>=00600000000000]     reset            = 4; # DTR
+#[>=00600000000000]     sck              = 0; # TxD
+#[>=00600000000000]     mosi             = 2; # RTS
+#[>=00600000000000]     miso             = 1; # RxD
+#[>=00600000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id               = "ft232h";
+#[>=00600000000000]     desc             = "FT232H-Based Generic Programmer";
+#[>=00600000000000]     type             = "avrftdi";
+#[>=00700100000000]     prog_modes       = PM_TPI | PM_ISP;
+#[>=00600000000000]     connection_type  = usb;
+#[>=00700300000000]     is_serialadapter = yes;
+#[>=00600000000000]     usbvid           = 0x0403;
+#[>=00600000000000]     usbpid           = 0x6014;
+#[>=00600000000000]     usbdev           = "A";
+#[>=00600000000000]     reset            = 3; # AD3 (TMS)
+#[>=00600000000000]     sck              = 0; # AD0 (TCK)
+#[>=00600000000000]     mosi             = 1; # AD1 (TDI)
+#[>=00600000000000]     miso             = 2; # AD2 (TDO)
+#[>=00600000000000] ;
+
+#[>=00700300000000] programmer
+#[>=00700300000000]     id               = "ft232h_jtag";
+#[>=00700300000000]     desc             = "FT232H-Based Generic JTAG Programmer";
+#[>=00700300000000]     type             = "avrftdi_jtag";
+#[>=00700300000000]     prog_modes       = PM_JTAG;
+#[>=00700300000000]     connection_type  = usb;
+#[>=00700300000000]     usbvid           = 0x0403;
+#[>=00700300000000]     usbpid           = 0x6014;
+#[>=00700300000000]     usbdev           = "A";
+#[>=00700300000000]     tck              = 0; # AD0 (TCK)
+#[>=00700300000000]     tdi              = 1; # AD1 (TDI)
+#[>=00700300000000]     tdo              = 2; # AD2 (TDO)
+#[>=00700300000000]     tms              = 3; # AD3 (TMS)
+#[>=00700300000000] ;
+
+                    programmer
+                        id              = "usbtiny";
+                        desc            = "USBtiny Simple USB Programmer; https://learn.adafruit.com/usbtinyisp";
+                        type            = "usbtiny";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = usb;
+                        usbvid          = 0x1781;
+                        usbpid          = 0x0C9F;
+                    ;
+
+                    programmer
+                        id              = "arduinoisp";
+                        desc            = "Arduino ISP Programmer";
+                        type            = "usbtiny";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = usb;
+                        usbvid          = 0x2341;
+                        usbpid          = 0x0049;
+                    ;
+
+                    programmer
+                        id              = "arduinoisporg";
+                        desc            = "Arduino ISP Programmer";
+                        type            = "usbtiny";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = usb;
+                        usbvid          = 0x2A03;
+                        usbpid          = 0x0049;
+                    ;
+
+                    programmer
+                        id              = "usbasp";
+                        desc            = "USBasp; https://www.fischl.de/usbasp";
+                        type            = "usbasp";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = usb;
+                        usbvid          = 0x16C0; # VOTI
+                        usbpid          = 0x05DC; # Obdev's free shared PID
+                        usbvendor       = "www.fischl.de";
+                        usbproduct      = "USBasp";
+                    ;
+
+                    programmer
+                        id              = "usbasp-clone";
+                        desc            = "Any USBasp Clone with the Correct VID/PID";
+                        type            = "usbasp";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = usb;
+                        usbvid          = 0x16C0; # VOTI
+                        usbpid          = 0x05DC; # Obdev's free shared PID
+                    ;
+
+                    programmer
+                        id              = "jtag2";
+                        desc            = "Atmel JTAG ICE mkII in JTAG Mode";
+                        type            = "jtagmkii";
+#[>=00700100000000]     prog_modes      = PM_JTAG | PM_XMEGAJTAG | PM_AVR32JTAG;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+                        connection_type = usb;
+                        baudrate        = 115200;
+                    ;
+
+                    programmer
+                        id              = "jtag2isp";
+                        desc            = "Atmel JTAG ICE mkII in ISP Mode";
+                        type            = "jtagmkii_isp";
+#[>=00700100000000]     prog_modes      = PM_TPI | PM_ISP;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+                        connection_type = usb;
+                        baudrate        = 115200;
+                    ;
+
+                    programmer
+                        id              = "jtag2pdi";
+                        desc            = "Atmel JTAG ICE mkII in PDI Mode";
+                        type            = "jtagmkii_pdi";
+#[>=00700100000000]     prog_modes      = PM_PDI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+                        connection_type = usb;
+                        baudrate        = 115200;
+                    ;
+
+                    programmer
+                        id              = "jtag2updi";
+                        desc            = "JTAGv2 to UPDI Bridge";
+#[< 00700100000000]     type            = "jtagmkii_pdi";
+#[>=00700100000000]     type            = "jtagmkii_updi";
+#[>=00700100000000]     prog_modes      = PM_UPDI;
+                        connection_type = serial;
+                        baudrate        = 115200;
+#[>=00700100000000]     hvupdi_support  = 1;
+                    ;
+
+#[>=00700000000000] programmer
+#[>=00700000000000]     id              = "serialupdi";
+#[>=00700000000000]     desc            = "SerialUPDI";
+#[>=00700000000000]     type            = "serialupdi";
+#[>=00700100000000]     prog_modes      = PM_UPDI;
+#[>=00700000000000]     connection_type = serial;
+#[>=00700100000000]     hvupdi_support  = 1;
+#[>=00700000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "jtag3";
+#[>=00600000000000]     desc            = "Atmel AVR JTAGICE3 in JTAG Mode";
+#[>=00600000000000]     type            = "jtagice3";
+#[>=00700100000000]     prog_modes      = PM_JTAG | PM_XMEGAJTAG | PM_AVR32JTAG;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600100000000]     usbpid          = 0x2110, 0x2140;
+#[>=00600000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "jtag3isp";
+#[>=00600000000000]     desc            = "Atmel AVR JTAGICE3 in ISP Mode";
+#[>=00600000000000]     type            = "jtagice3_isp";
+#[>=00700100000000]     prog_modes      = PM_ISP;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600100000000]     usbpid          = 0x2110, 0x2140;
+#[>=00600000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "jtag3pdi";
+#[>=00600000000000]     desc            = "Atmel AVR JTAGICE3 in PDI Mode";
+#[>=00600000000000]     type            = "jtagice3_pdi";
+#[>=00700100000000]     prog_modes      = PM_PDI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600100000000]     usbpid          = 0x2110, 0x2140;
+#[>=00600000000000] ;
+
+#[>=00700000000000] programmer
+#[>=00700000000000]     id              = "jtag3updi";
+#[>=00700000000000]     desc            = "Atmel AVR JTAGICE3 in UPDI Mode";
+#[>=00700000000000]     type            = "jtagice3_updi";
+#[>=00700100000000]     prog_modes      = PM_UPDI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00700000000000]     connection_type = usb;
+#[>=00700000000000]     usbpid          = 0x2110, 0x2140;
+#[>=00700100000000]     hvupdi_support  = 1;
+#[>=00700000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "atmelice";
+#[>=00600000000000]     desc            = "Atmel-ICE (ARM/AVR) in JTAG Mode";
+#[>=00600000000000]     type            = "jtagice3";
+#[>=00700100000000]     prog_modes      = PM_JTAG | PM_XMEGAJTAG | PM_AVR32JTAG;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600000000000]     usbpid          = 0x2141;
+#[>=00600000000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "atmelice_isp";
+#[>=00600000000000]     desc            = "Atmel-ICE (ARM/AVR) in ISP Mode";
+#[>=00600000000000]     type            = "jtagice3_isp";
+#[>=00700100000000]     prog_modes      = PM_ISP;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600000000000]     usbpid          = 0x2141;
+#[>=00600000000000] ;
+
+#[>=00700100000000] programmer
+#[>=00700100000000]     id              = "atmelice_tpi";
+#[>=00700100000000]     desc            = "Atmel-ICE (ARM/AVR) in TPI Mode";
+#[>=00700100000000]     type            = "jtagice3_tpi";
+#[>=00700100000000]     prog_modes      = PM_TPI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00700100000000]     connection_type = usb;
+#[>=00700100000000]     usbpid          = 0x2141;
+#[>=00700100000000] ;
+
+#[>=00600000000000] programmer
+#[>=00600000000000]     id              = "atmelice_pdi";
+#[>=00600000000000]     desc            = "Atmel-ICE (ARM/AVR) in PDI Mode";
+#[>=00600000000000]     type            = "jtagice3_pdi";
+#[>=00700100000000]     prog_modes      = PM_PDI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00600000000000]     connection_type = usb;
+#[>=00600000000000]     usbpid          = 0x2141;
+#[>=00600000000000] ;
+
+#[>=00700000000000] programmer
+#[>=00700000000000]     id              = "atmelice_updi";
+#[>=00700000000000]     desc            = "Atmel-ICE (ARM/AVR) in UPDI Mode";
+#[>=00700000000000]     type            = "jtagice3_updi";
+#[>=00700100000000]     prog_modes      = PM_UPDI;
+#[>=00700200000000]     extra_features  = HAS_VTARG_READ;
+#[>=00700000000000]     connection_type = usb;
+#[>=00700000000000]     usbpid          = 0x2141;
+#[>=00700100000000]     hvupdi_support  = 1;
+#[>=00700000000000] ;
+
+                    programmer
+                        id              = "dasa";
+                        desc            = "Serial Port Bit Banging; reset=rts sck=dtr mosi=txd miso=cts";
+                        type            = "serbb";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = serial;
+                        reset           = 7;
+                        sck             = 4;
+                        mosi            = 3;
+                        miso            = 8;
+                    ;
+
+                    programmer
+                        id              = "dasa2";
+                        desc            = "Serial Port Bit Banging; reset=!txd sck=rts sdo=dtr sdi=cts";
+                        type            = "serbb";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = serial;
+                        reset           = ~3;
+                        sck             =  7;
+                        mosi            =  4;
+                        miso            =  8;
+                    ;
+
+                    programmer
+                        id              = "dasa3";
+                        desc            = "Serial Port Bit Banging; reset=!dtr sck=rts mosi=txd miso=cts";
+                        type            = "serbb";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = serial;
+                        reset           = ~4;
+                        sck             =  7;
+                        mosi            =  3;
+                        miso            =  8;
+                    ;
+
+                    programmer
+                        id              = "c2n232i";
+                        desc            = "Serial Port Bit Banging; reset=dtr sck=!rts sdo=!txd sdi=!cts";
+                        type            = "serbb";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = serial;
+                        reset           =  4;
+                        sck             = ~7;
+                        mosi            = ~3;
+                        miso            = ~8;
+                    ;
+
+                    programmer parent "dasa2"
+                        id              = "ponyser";
+                        desc            = "Design PonyProg Serial; reset=!txd sck=rts sdo=dtr sdi=cts";
+                    ;
+
+                    programmer parent "dasa2"
+                        id              = "siprog";
+                        desc            = "Lancos SI-Prog; https://www.lancos.com/siprogsch.html";
+                    ;
+
+                    programmer
+                        id              = "dapa";
+                        desc            = "Direct AVR Parallel Access Cable";
+                        type            = "par";
+#[>=00700100000000]     prog_modes      = PM_ISP | PM_TPI;
+                        connection_type = parallel;
+                        vcc             =  3;
+                        reset           = 16;
+                        sck             =  1;
+                        mosi            =  2;
+                        miso            = 11;
+                    ;
+"]]
+    # Return the custom AVRDUDE configuration file content
+    return ${ProgText}
+endfunction
+
+
+##### Function to return the part definitions for a custom AVRDUDE configuration file for MCS51 parts
+function __get_custom_avrdude_config_mcs51_parts__()
+    # Determine the custom AVRDUDE configuration file content
+    local PartText := [["
+                    #
+                    # PART DEFINITIONS
+                    #
+
+                    #
+                    # Based on:
+                    #     https://www.instructables.com/Programming-AT89s52-Using-USBasp-ISP-Programmer
+                    #     https://content.instructables.com/FJA/MVZN/J7UQXJDD/FJAMVZNJ7UQXJDD.conf
+                    #
+                    #     https://github.com/NiKiZe/EMT707CTL/blob/master/OriginalFirmware/avrdude-at89s52.conf
+                    #
+                    #     https://ww1.microchip.com/downloads/en/DeviceDoc/doc2487.pdf
+                    #     https://ww1.microchip.com/downloads/en/DeviceDoc/doc1919.pdf
+                    #     https://ww1.microchip.com/downloads/en/DeviceDoc/doc3286.pdf
+                    #
+
+                    #------------------------------------------------------------
+                    # AT89S5xxx
+                    #------------------------------------------------------------
+                    part
+                        id               = "89s5xxx";
+#[>=00700100000000]     prog_modes       = PM_ISP;
+                        chip_erase_delay = 250000;
+                        pgm_enable       = "1 0 1 0  1 1 0 0    0 1 0 1  0 0 1 1",
+                                           "x x x x  x x x x    x x x x  x x x x";
+                        chip_erase       = "1 0 1 0  1 1 0 0    1 0 0 x  x x x x",
+                                           "x x x x  x x x x    x x x x  x x x x";
+                        timeout          = 200;
+                        stabdelay        = 100;
+                        cmdexedelay      = 25;
+                        synchloops       = 32;
+                        bytedelay        = 0;
+                        pollindex        = 3;
+                        pollvalue        = 0x53;
+                        predelay         = 1;
+                        postdelay        = 1;
+                        pollmethod       = 0;
+
+                        memory "flash"
+                            paged           = no;
+                            min_write_delay = 4000;
+                            max_write_delay = 9000;
+                            readback_p1     = 0xff;
+                            readback_p2     = 0xff;
+                            mode            = 0x21;
+                            delay           = 12;
+                        ;
+                    ;
+
+                    #------------------------------------------------------------
+                    # AT89S51
+                    #------------------------------------------------------------
+                    part parent "89s5xxx"
+                        id               = "89s51";
+                        desc             = "AT89S51";
+#[>=00700100000000]     mcuid            = 372;
+                        stk500_devcode   = 0xE0;
+                        signature        = 0x1E 0x51 0x06;
+
+                        memory "flash"
+                            size            = 4096;
+                            read            = "  0   0   1   0    0   0   0   0",
+                                              "  x   x   x   x  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  o   o   o   o    o   o   o   o";
+
+                            write           = "  0   1   0   0    0   0   0   0",
+                                              "  x   x   x   x  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  i   i   i   i    i   i   i   i";
+                        ;
+
+                        memory "signature"
+                            size            = 3;
+                            read            = "0  0  1  0   1  0  0  0   x  x  x  x   0  0 a1 a0", # Nonstandard signature address
+                                              "0  x  x  x   x  x  x  0   o  o  o  o   o  o  o  o";
+                        ;
+                    ;
+
+                    #------------------------------------------------------------
+                    # AT89S52
+                    #------------------------------------------------------------
+                    part parent "89s5xxx"
+                        id               = "89s52";
+                        desc             = "AT89S52";
+#[>=00700100000000]     mcuid            = 373;
+                        stk500_devcode   = 0xE1;
+                        signature        = 0x1E 0x52 0x06;
+
+                        memory "flash"
+                            size            = 8192;
+                            read            = "  0   0   1   0    0   0   0   0",
+                                              "  x   x   x a12  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  o   o   o   o    o   o   o   o";
+
+                            write           = "  0   1   0   0    0   0   0   0",
+                                              "  x   x   x a12  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  i   i   i   i    i   i   i   i";
+                        ;
+
+                        memory "signature"
+                            size            = 3;
+                            read            = "0  0  1  0   1  0  0  0   x  x  x  0   0  0 a1 a0", # Nonstandard signature address
+                                              "0  x  x  x   x  x  x  0   o  o  o  o   o  o  o  o";
+                        ;
+                    ;
+
+                    #------------------------------------------------------------
+                    # AT89S8253
+                    #     * Unlike other MCS51 MCUs which require SPI mode 0, this MCU requires SPI mode 1
+                    #     * This MCU signature consists of only 2 bytes but AVRDUDE always expects 3 bytes
+                    #------------------------------------------------------------
+                    part parent "89s5xxx"
+                        id               = "89s8253";
+                        desc             = "AT89S8253";
+#[>=00700100000000]     mcuid            = 900;
+#                       signature        = 0x1E 0x73 0xFF; # The 3rd byte is a dummy byte
+                        signature        = 0x1E 0x73 0x1E; # The 3rd byte is a dummy byte
+
+                        memory "flash"
+                            size            = 12288;
+                            read            = "  0   0   1   0    0   0   0   0",
+                                              "  x   x a13 a12  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  o   o   o   o    o   o   o   o";
+
+                            write           = "  0   1   0   0    0   0   0   0",
+                                              "  x   x a13 a12  a11 a10  a9  a8",
+                                              " a7  a6  a5  a4   a3  a2  a1  a0",
+                                              "  i   i   i   i    i   i   i   i";
+                        ;
+
+                        memory "signature"
+                            size            = 3;
+#                           read            = "0  0  1  0   1  0  0  0   x  x  x  x   x  x  x  x",
+#                                             "x  x  1  1   0  0 a1 a0   o  o  o  o   o  o  o  o";
+                            readback_p1     = 0x1E;
+                            readback_p2     = 0x73;
+                            read            = "0  0  1  0   1  0  0  0   x  x  x  x   x  x  x  x",
+                                              "x  x  1  1   0  0  0 a0   o  o  o  o   o  o  o  o";
+                        ;
+                    ;
+"]]
+    # Return the custom AVRDUDE configuration file content
+    return ${PartText}
+endfunction
+
+
+##### Function to create a custom AVRDUDE configuration file
+function __create_custom_avrdude_config__(progPath, configOutPath, funcGetProgs, funcGetParts)
+    # Determine the custom AVRDUDE configuration file path
+    local FPath := $cat_path( $ptd(), ${configOutPath} )
+    # Check if the custom AVRDUDE configuration file already exists and is up to date
+    if $uptodate_path(${FPath}) : return ${FPath}
+    # Get the AVRDUDE version
+    local ChcVer := $call( __get_avrdude_version_cached__, ${progPath}, $call(__get_LDLibraryPaths__) )
+    local SelVer := ${ChcVer}<1>
+    local V71P   := $cmp( ${SelVer}, '>=', $call(__calc_avrdude_version_numeric__, 7, 1, 0) )
+    # Determine the custom AVRDUDE configuration file content
+    local FText  := $call(${funcGetProgs})
+          FText +:= "    \n"
+          FText +:= $call(${funcGetParts})
+    # Preprocess the custom AVRDUDE configuration file content
+    local ReqVerSpec
+    local RepText
+    local FinText
+    foreach local Line in $sflines(${FText})
+        # Process the conditional directives in the line
+        #     '#[< MMMNNNPPPPPPPP]'
+        #     '#[<=MMMNNNPPPPPPPP]'
+        #     '#[> MMMNNNPPPPPPPP]'
+        #     '#[>=MMMNNNPPPPPPPP]'
+        if $re_match(${Line}, `^#\[([<>][=\s])\d+\].+$`)
+            ReqVerSpec := $sfpipes(${Line/#\[([<>][=\s])(\d+)\].+/$1|$2/})
+            if $cmp( ${SelVer}, $strim(${ReqVerSpec}<1>), $re_replace(${ReqVerSpec}<2>, '0+(\d+)', '$1') )
+                RepText := ${Line/#\[[<>][=\s]\d+\]\s(.+)/$1/}
+            endif
+        else
+            RepText := ${Line/\s{20}(.*)/$1/}
+        endif
+        # Process all '#[{IDENTIFIER}]' value-replacement directives in the line
+        loop
+            # Exit the loop if there is no match
+            if !$re_match(${RepText}, `.*?#\[\S*?].*`) : break
+            # Process the directive
+            local RepDir := $strim( ${RepText/.*?(#\[\S*?]).*/$1/} )
+            if   ${RepDir} &== '#[{AVRDUDE}]'         ; RepText := $str_replace(${RepText}, '#[{AVRDUDE}]'        , 'AVRDUDE'   )
+            elif ${RepDir} &== '#[{AVRDUDE_VERSION}]' ; RepText := $str_replace(${RepText}, '#[{AVRDUDE_VERSION}]', ${ChcVer}<2>)
+            else
+                echoln
+                $call(__exit_error_build_process_fail__, :"$[function]()", true)
+                echoln __c_white__ 'Unknown value-replacement directive "' __c_red__  ${RepDir} __c_white__ '"!' __c_reset__
+                echoln
+                $exit(-1)
+            endif
+        endloop
+        # Check if the replacement text is empty
+        if !&$strim(${RepText})
+            if &$strim(${Line}) : continue
+        endif
+        # Replace 'mosi -> sdo' and 'miso -> sdi' as needed
+        if ${V71P}
+            RepText := ${RepText/(.+?)mosi(.+)/$1sdo $2/}
+            RepText := ${RepText/(.+?)miso(.+)/$1sdi $2/}
+        endif
+        # Combine the processed text
+        FinText +:= ${RepText}
+        # Clear the replacement text
+        RepText := ''
+    endforeach
+    # Create the custom AVRDUDE configuration file
+    $put_file(${FPath}, ${FinText})
+    # Return the custom AVRDUDE configuration file path
+    return ${FPath}
+endfunction
+
+
+##### Function to create a custom AVRDUDE configuration file for MCS51 parts
+function __create_custom_avrdude_config_mcs51_parts__(progPath)
+    # Determine the AVRDUDE executable
+    local ExePath := ${progPath}
+   #local ExePath := $cat_path( $uhd(), '.arduino15/packages/arduino/tools/avrdude/6.0.1-arduino5/bin/avrdude'  )
+   #local ExePath := $cat_path( $uhd(), '.arduino15/packages/arduino/tools/avrdude/6.3.0-arduino17/bin/avrdude' )
+   #local ExePath := '/opt/avrdude-7.1/bin/avrdude'
+    # Create the custom AVRDUDE configuration file and return its absolute path
+    return $call(__create_custom_avrdude_config__, ${ExePath}, 'mcs51_avrdude.conf', __get_custom_avrdude_config_programmers__, __get_custom_avrdude_config_mcs51_parts__)
+endfunction

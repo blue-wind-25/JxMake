@@ -1,0 +1,123 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Defining Strings
+----------------------------------------------------------------------------------------------------
+
+``   :   evaluation of variables and escape character sequences is not   performed at all
+''   :   evaluation of variables and escape character sequences is only  performed for '\\' and '\''
+""   :   evaluation of variables and escape character sequences is fully performed
+
+
+A raw-quoted string (``) does not support any escape sequences.
+
+
+A single-quoted string ('') supports a very limited set of escape sequences:
+    '\''     # Evaluates to '
+    '\\'     # Evaluates to \
+Other sequences are ignored and STORED AS IS, for example:
+    MyVar = '123\'456\\789\x\y\z000'     # MyVar now contains { 123'456\789\x\y\z000 ｝
+
+
+A double-quoted strings ("") support a wider range of escape sequences:
+    '\t'           # Evaluates to horizontal tab  (byte 0x09 in ASCII encoding)
+    '\v'           # Evaluates to vertical   tab  (byte 0x0B in ASCII encoding)
+    '\r'           # Evaluates to carriage return (byte 0x0D in ASCII encoding)
+    '\n'           # Evaluates to line feed       (byte 0x0A in ASCII encoding)
+    '\f'           # Evaluates to form feed       (byte 0x0C in ASCII encoding)
+    '\b'           # Evaluates to backspace       (byte 0x08 in ASCII encoding)
+    '\''           # Evaluates to '
+    '\"'           # Evaluates to "
+    '\\'           # Evaluates to \
+    '\$'           # Evaluates to $
+    '\~'           # Evaluates to ~
+    '\`'           # Evaluates to `
+    '\-'           # Evaluates to -
+    '\+'           # Evaluates to +
+    '\?'           # Evaluates to ?
+    '\oNNN'        # Evaluates to a character with an octal       value of NNN (000 to 255)
+    '\dNNN'        # Evaluates to a character with a  decimal     value of NNN (000 to 377)
+    '\xNN'         # Evaluates to a character with a  hexadecimal value of NN  (00  to FF )
+    '\uNNNN'       # Evaluates to a character with a  Unicode     value of U+NNNN
+    '\UNNNNNN'     # Evaluates to a character with a  Unicode     value of U+NNNNNN
+With the exception of '\oNNN', '\dNNN', '\xNN', '\uNNNN', and '\UNNNNNN' that can raise errors,
+all other invalid escape sequences are STRIPPED of its '\' (and thus only the 2nd character is
+stored), for example:
+    MyVar = "123\'456\\789\x\y\z000"     # MyVar now contains { 123'456\789xyz000 ｝
+
+
+Calling functions from within "" is not supported, please use temporary/'local' variables. Please
+note that there will be no compile error when calling functions from within "", those calls will
+simply be treated as plain text.
+
+
+A multiline double-quoted string can be defined by using [[" and "]], for example:
+
+    A = 123
+    R = [["
+    Line 1
+
+    Line 2 + ${A}
+    Line 3
+    "]]
+
+The opening token [[" must not be             followed by any other token.
+The closing token "]] must not be preceded or followed by any other token.
+
+All whitespaces inside multiline double-quoted strings are preserved.
+Not all statement support using multiline double-quoted strings.
+
+
+Evaluating a double-quoted string that contains variables will produce multiple set members, for
+example:
+
+     R = "${A} ${B} ${C}"
+
+is equivalent to:
+
+     R  = ${A}
+     R += ' '
+     R += ${B}
+     R += ' '
+     R += ${C}
+
+which produce a set with 5 members.
+
+
+Therefore, based on the expansion of the expression as shown above, some of the examples below may
+produce unexpected results:
+
+    Val := 10
+    echoln "There are ${Val} large rocks."  # It will print 'There are 10 large rocks.'
+
+    Val := 10
+    Res := "There are ${Val} large rocks."  # It will print 'There are 10 large rocks.'
+    echoln ${Res}
+    echoln $part_count(${Res})              # It will print '3'
+
+    Val := 10
+    Val := "There are ${Val} large rocks."  # It will print 'There are There are  large rocks.'
+    echoln ${Val}
+    echoln $part_count(${Val})              # It will print '3'
+
+    Val := 10
+    Val := ."There are ${Val} large rocks." # It will print 'There are 10 large rocks.'
+    echoln ${Val}
+    echoln $part_count(${Val})              # It will print '3'
+
+    Val := 10
+    Val := :"There are ${Val} large rocks." # It will print 'There are 10 large rocks.'
+    echoln ${Val}
+    echoln $part_count(${Val})              # It will print '1'
+
+
+Please note that due to infinite recursion when using lazy evaluation, the example below will even
+cause a crash with 'java.lang.StackOverflowError':
+
+    Val = 10
+    Val = "There are ${Val} large rocks."
+    echoln ${Val}                           # It will cause 'java.lang.StackOverflowError'
+
+====================================================================================================

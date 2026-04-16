@@ -1,0 +1,22 @@
+#
+# Only for syntax highlighting test.
+# Do not execute this JxMake file, it will produce error!
+#
+
+(*
+analyze
+analyse
+*)
+
+(*** Main ***)
+
+:::include  'MacroTest.jxm'
+
+:::include  'JxMakeScriptEditor_Test_A.jxm'
+:::include  'JxMakeScriptEditor_Test_B.jxm'
+:::include  'JxMakeScriptEditor_Test_C.jxm'
+
+Val := ."abc+~${myvar/a(.)c/x$1z/}123\\\"\n"
+Val := :"abc+~${myvar/a(.)c/x$1z/}123\\\"\n"
+
+:::sinclude 'NOT_EXISTENT_FILE.jxm'

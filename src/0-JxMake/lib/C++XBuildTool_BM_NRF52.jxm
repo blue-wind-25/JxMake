@@ -1,0 +1,363 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - ARM GCC - Bare-Metal nRF52 Series                                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+
+ ##### Include the ARM C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_ARM.jxm'
+:::include_once 'DownloadXPackOpenOCD.jxm'
+
+
+##### Update the flag
+__BuildTool_Target__  := 'ARM (nRF52 Series)'
+
+
+##### Update the definitions of executables, paths, and options
+(*
+ * https://infocenter.nordicsemi.com/index.jsp?topic=%2Fstruct_nrf52%2Fstruct%2Fnrf52.html
+ * https://infocenter.nordicsemi.com/index.jsp?topic=%2Fcom.nordic.infocenter.nrf52832.ps.v1.1%2Fmemory.html
+ * https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v17.0.2%2Flib_bootloader.html
+ *
+ * SoC                        nRF52805           nRF52810           nRF52811           nRF52820           nRF52832           nRF52833           nRF52840
+ * CPU                        Cortex-M4          Cortex-M4          Cortex-M4          Cortex-M4          Cortex-M4          Cortex-M4          Cortex-M4
+ * FPU                        No                 No                 No                 No                 Yes                Yes                Yes
+ * RAM                 (kB)   0x20000000 ( 24)   0x20000000 ( 24)   0x20000000 ( 24)   0x20000000 ( 32)   0x20000000 ( 64)   0x20000000 (128)   0x20000000 ( 256)
+ * Flash               (kB)   0x00000000 (192)   0x00000000 (192)   0x00000000 (192)   0x00000000 (256)   0x00000000 (512)   0x00000000 (512)   0x00000000 (1024)
+ *
+ * SoftDevice Version                            S112 v7.0.x                                              S132 v7.0.x        S140 v7.0.x        S140 v7.0.x
+ * MBR                 (kB)                      0x00000000 (  4)                                         0x00000000 (  4)   0x00000000 (  4)   0x00000000 (   4)
+ * SoftDevice          (kB)                      0x00001000 ( 96)                                         0x00001000 (148)   0x00001000 (148)   0x00001000 ( 152)
+ * Application         (kB)                      0x00019000 ( 60)                                         0x00026000 (328)   0x00026000 (328)   0x00027000 ( 836)
+ * Bootloader          (kB)                      0x00028000 ( 24)                                         0x00078000 ( 24)   0x00078000 ( 24)   0x000F8000 (  24)
+ * MBR Param Storage   (kB)                      0x0002E000 (  4)                                         0x0007E000 (  4)   0x0007E000 (  4)   0x000FE000 (   4)
+ * Bootloader Settings (kB)                      0x0002F000 (  4)                                         0x0007F000 (  4)   0x0007F000 (  4)   0x000FF000 (   4)
+ *
+ * NOTE : There is also an nRF52832 version with 32kB RAM and 256kB flash
+ *
+ * ##### !!! TODO : What about different SoCs? !!! #####
+ * '-mfpu=fpv4-sp-d16' '-mfloat-abi=hard'
+ *                     '-mfloat-abi=soft'
+ *)
+const NRF52_CommonCPUOptions     := '-mcpu=cortex-m4' '-mthumb' '-mfpu=fpv4-sp-d16' '-mfloat-abi=hard'
+const NRF52_CommonCompileOptions := '-ffunction-sections' '-fdata-sections' '-ffreestanding' '-fno-builtin'
+const NRF52_CommonCompileMDef    := '-D__NRF52_BARE_METAL__'
+
+CppCommonAssemblerFlags  +:= ${NRF52_CommonCPUOptions} ${NRF52_CommonCompileOptions} ${NRF52_CommonCompileMDef}
+
+CppCommonCcCompileFlags  +:= ${NRF52_CommonCPUOptions} ${NRF52_CommonCompileOptions} ${NRF52_CommonCompileMDef}
+
+CppCommonCxxCompileFlags +:= ${NRF52_CommonCPUOptions} ${NRF52_CommonCompileOptions}
+CppCommonCxxCompileFlags +:= ${CppMinimizeSizeCompileFlags}
+
+CppCommonLinkFlags       +:= ${NRF52_CommonCPUOptions} '-nostdlib' '-nostartfiles' '-Wl,--gc-sections'
+
+DebuggerProgram           := ${ARMDebugger}
+
+NRFUtilProgram            := 'adafruit-nrfutil'
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    (*
+    ##### !!! TODO : Enable this? !!! #####
+    # Find Python
+    $call(find_python)
+    # Error if Python ≥ 3.6.0 is not available
+    $call(exit_error_if_python3_is_less_than_version, 3, 6, 0)
+    ##### !!! TODO : Wrap the '${NRFUtilProgram}' if it is a plain Python script? !!! #####
+    #####
+    *)
+    # Check if the '${NRFUtilProgram}' program is executable
+    if !$call(cmd_is_executable, '', ${NRFUtilProgram}, '--help')
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        $call(__exit_error_nup__, ${NRFUtilProgram}, true)
+        echoln __c_white__ 'Automatic download of the ' __c_cyan__ ${NRFUtilProgram} __c_white__ ' program is not supported yet.'
+        echoln
+        echoln __c_white__ 'For Windows and MacOS, please download and install the program manually from:' __c_reset__
+        echoln             '    https://github.com/adafruit/Adafruit_nRF52_nrfutil/releases'
+        echoln
+        echoln __c_white__ 'For Linux, please install the program manually by first ensuring that Python 3 is installed and then' __c_reset__
+        echoln __c_white__ 'executing the command:' __c_reset__
+        echoln             '    pip3 install --user --ignore-installed adafruit-nrfutil'
+        echoln __c_white__ '(depending on your system, you may need to replace \'pip3\' with \'pip\').' __c_reset__
+        echoln
+        echoln __c_white__ 'After installing, please make sure the program is in your PATH.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+        $exit(-1)
+    endif
+    # Download (and install) the latest and OpenOCD from xPack
+    $call(download_latest_xpackopenocd_from_xpack, ${dlOnlyIfNotExist})
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to upload the given program via serial port (via Nordic Bootloader)
+##### !!! TODO : What about different SoCs? !!! #####
+const __Def_N52BM_DEFAULT_MBR_OFFSET__ := '0x00001000' # nRF52840 (S140 v7.0.x)
+const __Def_N52BM_DEFAULT_SDV_OFFSET__ := '0x00026000' # nRF52840 (S140 v7.0.x)
+const __Def_N52BM_SU_BAUDRATE__        := 115200
+
+function __n52bm_upload_nordic_exec__(progName, device, baudrate)
+    # Determine the path
+    local ZipFile := ~${progName/(.+)\.elf/$1.zip/}
+    # Perform upload
+    ##### ??? Use '${Python3}' to execute the script ??? #####
+   +@${NRFUtilProgram} --verbose dfu serial -p ${device} -b ${baudrate} -pkg ${ZipFile} --singlebank
+endfunction
+
+function n52bm_upload_nordic(progName, device, ?baudrate)
+    # Set the default value
+    baudrate ?:= ${__Def_N52BM_SU_BAUDRATE__}
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__n52bm_upload_nordic_exec__, ${progName}, ${device}, ${baudrate})
+    $cmd_streaming_off()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Define some default values for SWD
+                                    const N52BM_SWD_Default_Interface    := 'stlink'
+                                    const N52BM_SWD_Default_Transport    := 'hla_swd'
+                                    const N52BM_SWD_Default_AdapterSpeed := 2000
+
+                                                                                         ##### !!! TODO : What about different SoCs? !!! #####
+if !&${N52BM_SWD_Target_Device}   : const N52BM_SWD_Target_Device        := 'nrf52'      # nRF52840
+if !&${N52BM_SWD_Target_CPUTapID} : const N52BM_SWD_Target_CPUTapID      := '0x2ba01477' # nRF52840
+
+                                    const N52BM_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+                                    const N52BM_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+                                    const N52BM_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function __n52bm_check_swd_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__openocd_print_udev_rules__, ${XPackOOCD_udev_rule})
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function n52bm_reset_swd(?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${N52BM_SWD_Default_Interface}
+    transport    ?:= ${N52BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N52BM_SWD_Default_AdapterSpeed}
+    # Perform reset
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_reset_swd__                                 , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${N52BM_SWD_Target_Device}                             \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__n52bm_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to upload the given program via SWD
+N52BM_ENABLE_UPLOAD_SWD ?:= $getenv('N52BM_ENABLE_UPLOAD_SWD', 'false')
+
+function n52bm_upload_swd(progName, ?interface, ?transport, ?adapterSpeed, ?mbrOffset, ?sdvOffset)
+    # Set the default values
+    interface    ?:= ${N52BM_SWD_Default_Interface}
+    transport    ?:= ${N52BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N52BM_SWD_Default_AdapterSpeed}
+    mbrOffset    ?:= ${__Def_N52BM_DEFAULT_MBR_OFFSET__}
+    sdvOffset    ?:= ${__Def_N52BM_DEFAULT_SDV_OFFSET__}
+    # Accumulate the offsets
+    local add flashOffset, ${mbrOffset}, ${sdvOffset}
+              flashOffset := $sprintf("0x%08x", ${flashOffset})
+    # Error if 'N52BM_ENABLE_UPLOAD_SWD' is not set
+    if !${N52BM_ENABLE_UPLOAD_SWD}
+        echo   __c_white__ 'Uploading to an ' __c_cyan__ 'nRF52' __c_white__ ' SoC via ' __c_cyan__ 'SWD' __c_white__
+        echoln ' is ' __c_red__ 'not supported' __c_white__ ' by default because it might erase the ' __c_cyan__ 'UICR.REGOUT0' __c_white__ ' register'
+        echoln 'which would cause many less advanced programmers/debuggers to no longer work with the SoC.' __c_reset__
+        echoln
+        echo   __c_white__ 'If you still wish to upload via ' __c_cyan__ 'SWD' __c_white__ ', please set the global/environment variable '
+        echoln __c_green__ 'N52BM_ENABLE_UPLOAD_SWD' __c_white__ ' to \'' __c_yellow__ 'true' __c_white__ '\'.'__c_reset__
+        $call(__exit_error_ns__, :"$[function]()", ${__BuildTool_Name__})
+    # Continue if 'N52BM_ENABLE_UPLOAD_SWD' is set
+    else
+       ## This feature is not implemented yet!
+       #$call(__exit_error_ni__, :"$[function]()", ${__BuildTool_Name__})
+        ##### !!! TODO : Verify that SWD programming using J-Link actually works !!! #####
+        ##### !!! TODO : How to burn MBR, SoftDevice, user program, and bootloader at the same time? !!! #####
+        # Determine the path and commands
+                       local HexFile   := ~${progName/(.+)\.elf/$1.hex/}
+                       local Commands  := 'init' 'halt'
+        if !${flashOffset} : Commands +:= 'nrf5 mass_erase'
+                             Commands +:= :"program ${HexFile} verify reset exit ${flashOffset}"
+        # Perform upload
+        # NOTE : We cannot call '__armgcc_upload_swd_simple__' here because nRF52 requires custom commands
+        $cmd_streaming_on()
+        $call(                                                     \
+            __armgcc_user_cmd_swd__                              , \
+            $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+            ${XPackOOCD_openocd}                                 , \
+            ${XPackOOCD_scripts_dir}                             , \
+            ${interface}                                         , \
+            ${transport}                                         , \
+            ${adapterSpeed}                                      , \
+            ${N52BM_SWD_Target_Device}                           , \
+            ${Commands}                                          , \
+            ${N52BM_SWD_Target_CPUTapID}                           \
+        )
+        $cmd_streaming_off()
+        # Check for error
+        $call(__n52bm_check_swd_error_and_print_help__)
+    endif
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function n52bm_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd)
+    # Set the default values
+    interface    ?:= ${N52BM_SWD_Default_Interface}
+    transport    ?:= ${N52BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${N52BM_SWD_Default_AdapterSpeed}
+    # Print message about GDB as needed
+    $call(__armgcc_debug_swd_start_print_gdb_info__, 'n52bm_debug_swd_gdb', ${Pico_MCU}, ${progName}, ${DebuggerProgram}, ${noGDBExecCmd})
+    # Run OpenOCD in server mode
+    $cmd_streaming_on()
+    $exec(                                                      \
+        __armgcc_debug_swd_start_exec_openocd__,                \
+        $call(__ccat_LDLibraryPaths__, ${RP2040OOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                  , \
+        ${XPackOOCD_scripts_dir}                              , \
+        ${interface}                                          , \
+        ${transport}                                          , \
+        ${adapterSpeed}                                       , \
+        ${N52BM_SWD_Target_Device}                            , \
+        ${N52BM_SWD_GDBPort}                                  , \
+        ${N52BM_SWD_TCLPort}                                  , \
+        ${N52BM_SWD_TelnetPort}                                 \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__n52bm_check_swd_error_and_print_help__)
+endfunction
+
+function n52bm_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default values
+    autoConnect ?:= true
+    # Execute GDB
+    $sh_delay()
+    $cmd_streaming_on()
+    $exec(                             \
+        __armgcc_debug_swd_gdb_exec__, \
+        $call(__get_LDLibraryPaths__), \
+        ${DebuggerProgram}           , \
+        ${N52BM_SWD_GDBPort}         , \
+        ${progName}                  , \
+        ${autoConnect}                 \
+    )
+    $cmd_streaming_off()
+    $sh_restore()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to link executable files (in case of nRF52, also create the HEX and ZIP files)
+function __n52bm_hex_to_zip__(progName)
+    # Determine the path
+    local HexFile := ~${progName/(.+)\.elf/$1.hex/}
+    local ZipFile := ~${progName/(.+)\.elf/$1.zip/}
+    # Create ZIP from HEX
+    $rmfile(${ZipFile})
+    ##### ??? TODO : Use '${Python3}' to execute the script   ??? #####
+    ##### !!! TODO : Make '0x0052' and '0x0123' configurable? !!! #####
+   +@${NRFUtilProgram} dfu genpkg --dev-type 0x0052 --sd-req 0x0123 --application ${HexFile} ${ZipFile}
+endfunction
+
+function n52bm_link_exe(?extraOptions)
+    # Link and create the HEX file
+    $call(link_exe, ${extraOptions}, true, false)
+    # Create the ZIP file
+    $exec(__n52bm_hex_to_zip__, $[target]              )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+        local NGText                        := __c_cyan__  "Bare-Metal nRF52" __c_white__
+        local NGInfo                        := __c_white__ 'for ' ${NGText} ' '
+        local __CPP_BTLIB_HELP_EN_gen_lst__ := true
+        $call(__origin__, ${NGInfo}, 1, true, false, true, true)
+       #$call(__btlib_help_print_title_functions__, 7, 25, 1, ${NGInfo})
+        $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+        echoln __c_green__ '    init_project         (?buildSubdirectories,      ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+        echoln __c_green__ '                          ?dlOnlyIfNotExist        ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+        echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+        echoln
+        echoln __c_green__ "    n52bm_upload_nordic  (progName  , device       , " __c_white__ ': upload program to ' __c_cyan__ 'nRF52' __c_white__ ' via ' __c_cyan__ 'Nordic Bootloader serial port'
+        echoln __c_green__ '                                      ?baudrate    ) ' __c_green__ '      progName' __c_white__ ' program name;       use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      device  ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      baudrate' __c_white__ ' programming baudrate - the default is \'' __c_yellow__ ${__Def_N52BM_SU_BAUDRATE__} __c_white__ '\''
+        echoln
+        echoln __c_green__ "    n52bm_reset_swd      (            ?interface   , " __c_white__ ': reset the attached ' __c_cyan__ 'nRF52' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+        echoln __c_green__ '                          ?transport, ?adapterSpeed) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Interface} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport          - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Transport} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed      - the default is \'' __c_yellow__ ${N52BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+        echoln
+    if ${N52BM_ENABLE_UPLOAD_SWD}
+        echoln __c_green__ "    n52bm_upload_swd     (progName  , ?interface   , " __c_white__ ': upload program to the attached ' __c_cyan__ 'nRF52' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+        echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+        echoln __c_green__ '                          ?mbrOffset, ?sdvOffset   ) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                                     - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Interface} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                                              - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Transport} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                                          - the default is \'' __c_yellow__ ${N52BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      mbrOffset   ' __c_white__ ' set this to the correct size of the Nordic MBR         - the default is \'' __c_yellow__ ${__Def_N52BM_DEFAULT_MBR_OFFSET__} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      sdvOffset   ' __c_white__ ' set this to the correct size of the Nordic SoftDevices - the default is \'' __c_yellow__ ${__Def_N52BM_DEFAULT_SDV_OFFSET__} __c_white__ '\''
+        echoln
+    endif
+        echoln __c_green__ "    n52bm_debug_swd_start(progName  , ?interface   , " __c_white__ ': start a debug session for the attached ' __c_cyan__ 'nRF52' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+        echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_white__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+        echoln __c_green__ '                                      ?noGDBExecCmd) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                      - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Interface} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                               - the default is \'' __c_yellow__ ${N52BM_SWD_Default_Transport} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                           - the default is \'' __c_yellow__ ${N52BM_SWD_Default_AdapterSpeed} __c_white__ '\''
+        echoln __c_green__ '                                                     ' __c_green__ '      noGDBExecCmd' __c_white__ ' do not print the command to execute GDB - the default is \'' __c_yellow__ false __c_white__ '\''
+        echoln
+        echoln __c_green__ "    n52bm_debug_swd_gdb  (progName  , ?autoConnect ) " __c_white__ ': execute the GDB program for the attached ' __c_cyan__ 'nRF52' __c_white__ ' which can be used to connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session'
+        echoln
+        echoln __c_green__ "    n52bm_link_exe       (?extraOptions            ) " __c_white__ ': link a ' ${NGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+        echoln __c_reset__
+endfunction

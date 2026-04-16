@@ -1,0 +1,120 @@
+:::include <C++XBuildTool_AVR_Native>
+
+
+if !true
+    MCUType      := ATxmega32A4U
+    CPUFrequency := 32000000
+    DFPDirectory := 'xsdk/Microchip.XMEGAA_DFP.2.3.165'
+else
+    MCUType      := ATxmega16D4
+    CPUFrequency := 32000000
+    DFPDirectory := 'xsdk/Microchip.XMEGAD_DFP.2.4.154'
+endif
+
+if __os_windows__ ; DFPDirectory := :"Z:/${DFPDirectory}"
+else              ; DFPDirectory := $cat_path( $uhd(), ${DFPDirectory} )
+endif
+
+
+if __os_windows__
+    AVRDUDE_Cmd := 'C:/avrdude-6.3-usbasp-pdi/avrdude'        '-C' 'C:/avrdude-6.3-usbasp-pdi/avrdude.conf'
+else
+   #AVRDUDE_Cmd := '/opt/avrdude-1902-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-1902-usbasp-pdi/etc/avrdude.conf' # AVRDUDE 5.11svn
+   #AVRDUDE_Cmd := '/opt/avrdude-6.3-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-1902-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd := '/opt/avrdude-6.3-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-6.3-usbasp-pdi/etc/avrdude.conf'  # This 'avrdude.conf' was fixed by adding the missing 'chip_erase_delay = 40000' to the '.xmega' common part definition
+   #AVRDUDE_Cmd := '/opt/avrdude-7.1-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.1-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd := '/opt/avrdude-7.2-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.2-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd := '/opt/avrdude-7.3-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.3-usbasp-pdi/etc/avrdude.conf'
+    AVRDUDE_Cmd := '/opt/avrdude-8.0-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-8.0-usbasp-pdi/etc/avrdude.conf'
+endif
+
+
+JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
+
+
+$call(init_project                                         )
+$call(avr_select_part         , ${MCUType}, ${CPUFrequency})
+$call(treat_warnings_as_errors, 1                          )
+$call(enable_debug_info       , 0                          )
+$call(select_optimization     , size                       )
+$call(select_c_langstd        , c11                        )
+$call(select_cxx_langstd      , c++11                      )
+$call(set_device_pack_dir     , ${DFPDirectory}            )
+$call(print_devenv_config                                  )
+$call(silent_stdxxx_syslib    , true                       )
+$call(silent_stdxxx           , false                      )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main    )
+PROG_OBJS := $call( obj_fpath, main.cpp)
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_atxmega clean
+# jxmake -C ..\test\src\cpp_atxmega run
+target run
+    jxmake ${PROG_NAME}
+    $call(avr_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call(avr_link_exe)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(avr_compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega uusbasp
+# jxmake -C ..\test\src\cpp_atxmega uusbasp
+target uusbasp
+    jxmake run
+    $call(avr_upload_usbasp, ${PROG_NAME})
+   #$call(avr_upload_genextprog, ${PROG_NAME}, { usbasp '-B' '10.6' '-E' 'noreset' }, false)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega uavrispmkii
+# jxmake -C ..\test\src\cpp_atxmega uavrispmkii
+target uavrispmkii
+    jxmake run
+    $call(avr_upload_avrispmkii, ${PROG_NAME})
+   #$call(avr_upload_genextprog, ${PROG_NAME}, { avrispmkii '-B' '0.6' }, true)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega uatmelice
+# jxmake -C ..\test\src\cpp_atxmega uatmelice
+target uatmelice
+    jxmake run
+    $call(avr_upload_atmelice, ${PROG_NAME}, 'pdi')
+   #$call(avr_upload_genextprog, ${PROG_NAME}, { atmelice_pdi '-B' '0.6' '-V' }, true)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega csusbasp
+# jxmake -C ..\test\src\cpp_atxmega csusbasp
+target csusbasp
+    $call(avr_chksig_usbasp)
+   #$call(avr_chksig_genextprog, { usbasp '-B' '10.6' '-E' 'noreset' })
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega csavrispmkii
+# jxmake -C ..\test\src\cpp_atxmega csavrispmkii
+target csavrispmkii
+    $call(avr_chksig_avrispmkii)
+  #$call(avr_chksig_genextprog, { avrispmkii '-B' '0.6' })
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atxmega csatmelice
+# jxmake -C ..\test\src\cpp_atxmega csatmelice
+target csatmelice
+    $call(avr_chksig_atmelice, 'pdi')
+   #$call(avr_chksig_genextprog, { atmelice_pdi '-B' '0.6' })
+endtarget

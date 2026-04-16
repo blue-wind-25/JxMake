@@ -1,0 +1,232 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Defining Variables
+----------------------------------------------------------------------------------------------------
+
+Whitespaces outside quotes are ignored (because they are token/expression separators).
+
+Command line arguments are automatically converted to variables. All variables values
+
+All variable values that come from command line arguments are assumed to be constants.
+
+Lazy   assigment ( =) means the variables are evaluated when they are used.
+Direct assigment (:=) means the variables are evaluated when they are assigned.
+
+Concatenation assignments (+=) and (:+= or +:=)mean the new values are stacked to the variables.
+
+If-not-set assignments (?=) and (:?= or ?:=) mean the variables are only assigned if they are not
+yet defined.
+
+Not all statements support lazy variable assignment.
+
+A 'local' prefix can be used to define a variable for the current function or target only.
+
+A 'const' prefix can be used to define a constant (assign-once) variable. In this case only ':=' is
+supported.
+
+Variables are automatically converted between strings and integers as needed.
+
+The value of a variable is stored internally as a set of member strings. Most operations on
+variables are applied to each member of the set individually (not to the entire combined string).
+
+Evaluation of variables inside a double-quoted string may result in multiple set members. These
+members are not necessarily stored/combined into a single set if the string is used without being
+stored into a variable first. If a double-quoted string needs to be immediately evaluated into
+a single set, either use a temporary/'local' variable or use one of these special operators:
+
+    ."..."     the combining  operator
+    :"..."     the flattening operator (implies direct evaluation for the term)
+
+Variables can be deleted (unset) using the 'unset' statement.
+
+
+NOTE : # Lazy variable assigment using the result of a function call is not supported.
+       # The 'echo' and 'echoln' statements can be used to conveniently flatten and print the entire
+         arguments as a string.
+       # By convention, all non-existent variables evaluate to empty strings/zeroes.
+
+
+Examples:
+
+    MyVar1   = My Value 1             # Set MyVar1 to ｛ 'My', 'Value', '1'    ｝ (lazy   evaluation                        )
+    MyVar1   = 'My'   'Value'   '1'   # Set MyVar1 to ｛ 'My', 'Value', '1'    ｝ (lazy   evaluation                        )
+    MyVar1   = 'My Value 1'           # Set MyVar1 to ｛ 'My Value 1'          ｝ (lazy   evaluation                        )
+    MyVar1   = 'My '   'Value 1'      # Set MyVar1 to ｛ 'My ', 'Value 1'      ｝ (lazy   evaluation                        )
+    MyVar1   = 'My'   ' '   'Value 1' # Set MyVar1 to ｛ 'My', ' ', 'Value 1'  ｝ (lazy   evaluation                        )
+
+    MyVar1   = 123                    # Set MyVar1 to ｛ '123'                 ｝ (lazy   evaluation                        )
+    MyVar2   = 'Value is ${MyVar1}'   # Set MyVar2 to ｛ 'Value is ', '123'    ｝ (lazy   evaluation                        )
+    MyVar2   = "Value is ${MyVar1}"   # Set MyVar2 to ｛ 'Value is ', '123'    ｝ (lazy   evaluation                        )
+    MyVar2  := "Value is ${MyVar1}"   # Set MyVar2 to ｛ 'Value is ', '123'    ｝ (direct evaluation                        )
+    MyVar2  := :"Value is ${MyVar1}"  # Set MyVar2 to ｛ 'Value is 123'        ｝ (direct evaluation with flattening        )
+
+    MyVar1   = 'Abc'                  # Set MyVar1 to ｛ 'Abc'                 ｝ (lazy   evaluation                        )
+    MyVar1  += ' 123'                 # Set MyVar1 to ｛ 'Abc', ' 123'         ｝ (lazy   evaluation                        )
+    MyVar1 :+= ' 456'                 # Set MyVar1 to ｛ 'Abc', ' 123', ' 456' ｝ (direct evaluation                        )
+
+    MyVar1  ?= 123                    # Set MyVar1 to ｛ '123'                 ｝ (                   only if it was not set)
+    MyVar2  ?= "${MyVar1}"            # Set MyVar2 to ｛ '123'                 ｝ (lazy   evaluation; only if it was not set)
+    MyVar2 :?= "${MyVar1}"            # Set MyVar2 to ｛ '123'                 ｝ (direct evaluation; only if it was not set)
+
+
+Examples:
+
+    A = 'a'
+    B = 'b'
+    C = 'c'
+    I = ."${A}|${B}|${C}"
+    J = :"${A}|${B}|${C}"
+    echoln ${I}            # It will       print 'a|b|c'
+    echoln ${J}            # It will       print 'a|b|c'
+    A = 'A'
+    B = 'B'
+    C = 'C'
+    echoln ${I}            # It will       print 'A|B|C'
+    echoln ${J}            # It will       print 'a|b|c'
+
+    D = 'd'
+    E = 'e'
+    F = 'f'
+    X := ."${D}|${E}|${F}"
+    Y := :"${D}|${E}|${F}"
+    echoln ${X}            # It will       print 'd|e|f'
+    echoln ${Y}            # It will       print 'd|e|f'
+    D = 'D'
+    E = 'E'
+    F = 'F'
+    echoln ${X}            # It will       print 'd|e|f'
+    echoln ${Y}            # It will       print 'd|e|f'
+
+    echoln ${I}            # It will still print 'A|B|C'
+    echoln ${J}            # It will still print 'a|b|c'
+
+    R  = ."${A}|${B}|${C}"
+    R +=  '|'
+    R += :"${D}|${E}|${F}"
+    R +=  '|'
+    R += ."${A}|${B}|${C}"
+    echoln ${R}            # It will still print 'A|B|C|D|E|F|A|B|C
+
+    A = 'a'
+    B = 'b'
+    C = 'c'
+    D = 'd'
+    E = 'e'
+    F = 'f'
+    echoln ${R}            # It will still print 'a|b|c|D|E|F|a|b|c'
+
+
+Examples:
+
+    A = a
+    B = b
+    C = "${A} | ${B}"
+    $printf( "%s\n", $ucase(   ${C}         ) ) # OK
+    $printf( "%s\n", $ucase(  "${A} | ${B}" ) ) # Compile error
+    $printf( "%s\n", $ucase( ."${A} | ${B}" ) ) # OK
+    $printf( "%s\n", $ucase( :"${A} | ${B}" ) ) # OK
+
+
+Examples:
+
+    function PrintMyVar()
+        local hv := $has_var('MyVar')
+        $printf("%1s %s\n", ${hv}, ${MyVar})
+    endfunction
+
+    function MyFunction(MyVar)
+        local MyVar := 30
+                      $call(PrintMyVar) # It will print 'l 30'
+        unset MyVar ; $call(PrintMyVar) # It will print 'a 20'
+        unset MyVar ; $call(PrintMyVar) # It will print 'g 10'
+        unset MyVar ; $call(PrintMyVar) # It will print ''
+    endfunction
+
+    MyVar := 10
+
+    $call(MyFunction, 20)
+
+
+WARNING: It is possible to mark a variable as 'local' and populate it later, but there is a catch;
+         consider the example below:
+
+    function MyFunction()
+        ...
+        foreach ...
+            ...
+            local MyVar
+            foreach ...
+                if ... : MyVar +:= ...
+            endforeach
+            ...
+        endforeach
+        ...
+    endfunction
+
+In the inner 'foreach' loop, new values are continuously stacked to the 'MyVar' variable. This is
+because the 'local MyVar' statement only marks the 'MyVar' variable as 'local' and does not clear
+its previous value!
+
+
+----------------------------------------------------------------------------------------------------
+Reference (Indirect) Variables
+----------------------------------------------------------------------------------------------------
+
+To mark a variable as an indirect (reference) variable, use the ^ prefix.
+
+Please note that indirect (reference) variables can only be used in much more limited contexts than
+normal variables.
+
+
+Examples:
+
+    VOrg = 10
+    RefA = VOrg
+    RefB = ${RefA}
+    echoln "'${ RefB}'"                          # It will print 'VOrg'
+    echoln "'${^RefB}'"                          # It will print '10'
+
+    ^RefB = 20                                   # It will set the variable VOrg instead of the variable RefB
+    echoln "'${^RefB}'"                          # It will print '20'
+
+    RefB = FooVar                                # It will set the variable RefB
+    echoln "'${^RefB}'"                          # It will print ''
+
+    RefC = VOrg
+    RefD = ${^RefC} ${RefC} RefC
+    echoln {{ '\'', $ftspaces(${ RefD}), '\'' }} # It will print '20 VOrg RefC'
+    echoln {{ '\'', $ftspaces(${^RefD}), '\'' }} # It will print ''
+
+
+----------------------------------------------------------------------------------------------------
+Deprecating Variables
+----------------------------------------------------------------------------------------------------
+
+deprecate <variable_name> [by <replacement_name>]
+
+
+If this statement is used from within a function or target and there is a local variable with the
+same name in the current function or target, then it is the local variable that will be marked as
+deprecated.
+
+Variables that come from function call parameters cannot be deprecated.
+
+
+Examples:
+
+    const ABC := 'abc'
+          DEF := 'def'
+
+    echoln ${ABC}
+    echoln ${DEF}
+
+    deprecate ABC
+    deprecate DEF by DEF_new
+
+    echoln ${ABC}
+    echoln ${DEF}
+
+====================================================================================================

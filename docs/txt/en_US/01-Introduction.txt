@@ -1,0 +1,268 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+JxMake is case sensitive and using UTF-8 encoding.
+
+
+Empty lines are ignored.
+
+Character '\' at the end of a line can be used to combine the next line to the previous one.
+
+Character ';' can be used to force a new line; therefore, it can be used to put multiple statements
+on the same line.
+
+
+In almost all cases, each token/expression must be separated by at least one whitespace.
+
+
+Index on JxMake starts from 1 (not 0); zero is used to represent an invalid or a not found index.
+
+When evaluating conditions and boolean values, the words 'false' and 'true' will be internally
+translated to 0 and 1 respectively.
+
+
+JxMake uses POSIX directory separator. For maximum compatibility, do not use reserved characters
+such as <>:"/\|?* in file and directory names. While it is possible to escape the space character
+('\ '), it is also recommended not to use this character in file and directory names. Please do not
+start or end your file and directory names with a space character.
+
+
+----------------------------------------------------------------------------------------------------
+Displaying Help Messages and Deleting Cache Files
+----------------------------------------------------------------------------------------------------
+
+Help messages can be displayed using the command:
+    ./jxmake.sh -h
+
+
+If there are irregularities in the build process (for example: after updating JxMake libraries),
+please delete the compiled JxMake specification cache files using the command:
+
+    cd /<your_project_directory>
+    ./jxmake.sh --rm-jxm-cache
+
+or:
+
+    ./jxmake.sh -C <your_project_directory> --rm-jxm-cache
+
+You can also delete all the project's cache files using the command:
+
+    cd /<your_project_directory>
+    ./jxmake.sh --rm-prj-cache
+
+or:
+
+    ./jxmake.sh -C <your_project_directory> --rm-prj-cache
+
+
+On Windows, use 'jxmake.bat' instead of 'jxmake.sh'.
+
+
+----------------------------------------------------------------------------------------------------
+Comments
+----------------------------------------------------------------------------------------------------
+
+Single-line comments are prefixed by '#'.
+
+Multiline comments are enclosed by '(*' and '*)'.
+
+
+----------------------------------------------------------------------------------------------------
+Pragmas
+----------------------------------------------------------------------------------------------------
+
+:::pragma jxmake_compile_minimum_version <major>.<minor>.<patch>
+:::pragma jxmake_compile_maximum_version <major>.<minor>.<patch>
+
+Produce a compilation error if the version of JxMake used to compile the program does not meet the
+requirement.
+
+
+Examples:
+
+    :::pragma jxmake_compile_minimum_version 1.0.1
+    :::pragma jxmake_compile_maximum_version 1.0.9
+
+
+----------------------------------------------------------------------------------------------------
+Including Other JxMake Files
+----------------------------------------------------------------------------------------------------
+
+:::include  <LIBRARY_NAME>  :        include LIBRARY_NAME at the statement location
+:::sinclude <LIBRARY_NAME>  :   safe include LIBRARY_NAME at the statement location
+
+:::include  '<file_name>'   :        include 'file_name'  at the statement location
+:::sinclude '<file_name>'   :   safe include 'file_name'  at the statement location
+
+
+In case LIBRARY_NAME or 'file_name' is not found, ':::include' will raise error while ':::sinclude'
+will not.
+
+The file name must be a simple plain text, it cannot contains variable expansion. It is recommended
+to enclose the file name in single quotes.
+
+
+Alternative variations of the above statements which will only include once are also available:
+
+    :::include_once
+    :::sinclude_once
+
+These 'once' variations are executed independently from the normal variations. Please refer to the
+examples for more details.
+
+
+Library files will be searched in these directories (in order of priority):
+
+    POSIX:
+        $HOME/0-JxMake/lib
+        $HOME/.jxmake/0-JxMake/lib
+        $HOME/.share/0-JxMake/lib
+        $HOME/.share/jxmake/0-JxMake/lib
+        /usr/local/share/jxmake/0-JxMake/lib
+        /usr/share/jxmake/0-JxMake/lib
+        /var/lib/jxmake/0-JxMake/lib
+        /opt/jxmake/0-JxMake/lib
+        <the_directory_containing_the_class_or_jar_file>/0-JxMake/lib
+        <the_files_embedded_in_the JxMake_JAR_file>   (as a last resort)
+
+    Windows:
+        %HOMEDRIVE%%HOMEPATH%\0-JxMake\lib
+        %HOMEDRIVE%%HOMEPATH%\AppData\0-JxMake\lib
+        %HOMEDRIVE%%HOMEPATH%\AppData\Local\0-JxMake\lib
+        %HOMEDRIVE%%HOMEPATH%\AppData\Roaming\0-JxMake\lib
+        %HOMEDRIVE%%HOMEPATH%\Local Settings\ApplicationData\0-JxMake\lib
+        %HOMEDRIVE%%HOMEPATH%\.jxmake\0-JxMake\lib
+        %APPDATA%\0-JxMake\lib
+        %LOCALAPPDATA%\0-JxMake\lib
+        <the_directory_containing_the_class_or_jar_file>\0-JxMake\lib
+        <the_files_embedded_in_the JxMake_JAR_file>   (as a last resort)
+
+
+Examples:
+
+    :::include  <Null>
+    :::sinclude <INVALID_LIBRARY_NAME>
+
+    :::include  'MyIncludeFile.jxm'
+    :::sinclude 'NOT_EXISTENT_FILE.jxm'
+
+
+Examples:
+
+    :::include      'MyIncludeFile.jxm' # The file 'MyIncludeFile.jxm' will       be included
+    :::include_once 'MyIncludeFile.jxm' # The file 'MyIncludeFile.jxm' will STILL be included!
+    :::include_once 'MyIncludeFile.jxm' # The file 'MyIncludeFile.jxm' will not   be included
+
+
+Examples:
+
+    if <some_condition>
+        :::include_once 'MyIncludeFile.jxm' # The file 'MyIncludeFile.jxm' will       be included
+    else
+        :::include_once 'MyIncludeFile.jxm' # The file 'MyIncludeFile.jxm' will NEVER be included!
+    endif
+
+
+Examples:
+
+    $rmfile('MyIncludeFile.jxm')                   # Delete the file
+
+    :::sinclude_once 'MyIncludeFile.jxm'           # The file does not exist, ignore it
+
+    $put_file('MyIncludeFile.jxm', <file_content>) # The file now exists
+
+    :::sinclude_once 'MyIncludeFile.jxm'           # The file will     be included
+    :::sinclude_once 'MyIncludeFile.jxm'           # The file will not be included again
+
+
+NOTE : # If a precompiled library file ('*.jxm.bin') exists and it is newer than the source library
+         file ('*.jxm'), then the precompiled library file will be loaded. The exception is when
+         loading library files embedded in the JxMake JAR file (as a last resort); in this case,
+         only the source library files will ever be considered.
+       # The 'ArduinoBoardsTxt_Dec.RULES.txt' file will also be searched in the above directories
+         (in the same order of priority but without the 'lib' subdirectory). If nothing is found,
+         then the default rules embedded in the JxMake JAR file will be loaded.
+
+
+----------------------------------------------------------------------------------------------------
+Defining, Using, and Undefining Macros
+----------------------------------------------------------------------------------------------------
+
+.macro <macro_name>
+    ...
+    ...
+    ...
+.endmacro
+
+
+.$<macro_name>
+
+
+.undefmacro <macro_name>
+
+
+Macros have no parameters and behave similarly to the C/C++ '#define' directive.
+
+Macros are NOT SCOPED by conditional blocks and thus a program CANNOT HAVE MULTIPLE macros with the
+same name to be later selected based on certain conditions.
+
+Due to the possibility of complicated code pollution, it is highly recommended to only use macros
+sparingly and undefine them after use.
+
+
+NOTE : # Macro definitions will only be saved into JxMake specification precompiled binary files
+         when compiling to create a library using '--__compile__'.
+       # In cache files, all macro usages are stored after they are expanded.
+
+
+----------------------------------------------------------------------------------------------------
+Using Options
+----------------------------------------------------------------------------------------------------
+
+.option <type> <mode> [specification]
+
+    <type>          : warning
+
+    <mode>          : push
+                      pop
+                      disable
+                      enable
+
+    [specification] : for 'disable' and 'enable' : 'inv-ref-var'
+                                                   'var-not-exist'
+                                                   'cnv-integer'
+                                                   'cnv-boolean'
+
+Examples:
+
+        ...
+        ...
+        ...
+    .option warning push
+    .option warning disable 'var-not-exist'
+        ...
+        ...
+        ...
+    .option warning pop
+        ...
+        ...
+        ...
+
+
+Examples:
+
+        ...
+        ...
+        ...
+    .option warning push
+    .option warning enable 'var-not-exist"'
+        ...
+        ...
+        ...
+    .option warning pop
+        ...
+        ...
+        ...
+
+====================================================================================================

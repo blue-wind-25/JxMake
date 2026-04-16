@@ -1,0 +1,102 @@
+echoln
+
+
+
+function testLabel_a(I)
+    echoln 'ENTER FUNCTION \'testLabel_a()\''
+    label _1 :
+        echoln ${I}
+        dec I
+    if ${I} >= 0 : goto _1
+    echoln 'EXIT FUNCTION \'testLabel_a()\''
+    echoln
+endfunction
+
+function testLabel_b(I)
+        echoln 'ENTER FUNCTION \'testLabel_b()\''
+        label _1 :
+            echoln ${I}
+            dec I
+            if ${I} < 0 : goto _2
+        goto _1
+    label _2 :
+        echoln 'EXIT FUNCTION \'testLabel_b()\''
+        echoln
+endfunction
+
+$call(testLabel_a, 5)
+$call(testLabel_b, 5)
+
+
+
+function testComputedGoTo_a(I)
+    local strD := '_d'
+    if ${I} <= 0 : goto $lcase('_D')
+    if ${I} >  3 : goto ${strD}
+   #goto ."_${I}"
+    goto :"_${I}"
+        label _1 :
+            echoln 'a'
+            goto '_e'
+        label _2 :
+            echoln 'b'
+            goto _e
+        label _3 :
+            echoln 'c'
+            goto _e
+        label _d :
+            echoln '?'
+            goto _e
+    label _e :
+endfunction
+
+echoln 'BEGIN CALL \'testComputedGoTo_a()\''
+$call(testComputedGoTo_a, 0)
+$call(testComputedGoTo_a, 1)
+$call(testComputedGoTo_a, 2)
+$call(testComputedGoTo_a, 3)
+$call(testComputedGoTo_a, 4)
+$call(testComputedGoTo_a, 5)
+echoln 'END CALL \'testComputedGoTo_a()\''
+echoln
+
+function testComputedGoTo_b(I)
+    sgoto $ftt_stack('_', ${I})
+    goto 'the default'
+        label _1 :
+            echoln 'a'
+            goto _e
+        label _2 :
+            echoln 'b'
+            goto _e
+        label _3 :
+            echoln 'c'
+            goto _e
+        label 'the default' :
+            echoln '?'
+            goto _e
+    label _e :
+endfunction
+
+echoln 'BEGIN CALL \'testComputedGoTo_b()\''
+$call(testComputedGoTo_b, 0)
+$call(testComputedGoTo_b, 1)
+$call(testComputedGoTo_b, 2)
+$call(testComputedGoTo_b, 3)
+$call(testComputedGoTo_b, 4)
+$call(testComputedGoTo_b, 5)
+echoln 'END CALL \'testComputedGoTo_b()\''
+echoln
+
+
+
+target trg_goto
+    echoln 'ENTER TARGET \'trg_goto\''
+    local I := 5
+    label _1 :
+        echoln ${I}
+        dec I
+    if ${I} >= 0 : goto _1
+    echoln 'EXIT TARGET \'trg_goto\''
+    echoln
+endtarget

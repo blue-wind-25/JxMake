@@ -1,0 +1,469 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Common Code for All C++ Build Tool                                      *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Define build directory
+CppBuildDir := 'build'
+
+
+##### Define the combined options
+CppAssemblerFlags  = ${CppCommonAssemblerFlags}  ${CppArchFlags} ${CppWarningAsErrorFlags} ${AsmDebugFlags}
+CppCcCompileFlags  = ${CppCommonCcCompileFlags}  ${CppArchFlags} ${CppWarningAsErrorFlags} ${CppDebugFlags} ${CppOptimizationFlags}
+CppCxxCompileFlags = ${CppCommonCxxCompileFlags} ${CppArchFlags} ${CppWarningAsErrorFlags} ${CppDebugFlags} ${CppOptimizationFlags}
+
+
+##### Function to check if 'CppBuildDir' is a relative path
+function __check_CppBuildDir__()
+    $call(__exit_error_if_not_rel_path__, ${CppBuildDir}, 'CppBuildDir')
+endfunction
+
+
+##### Function to generate the correct dependency list file name from the given base name (without extension)
+function deplist_fname(baseName)
+    return $series(${baseName}, '.', ${DepListFileExt})
+   #return :"${baseName}.${DepListFileExt}"
+endfunction
+
+##### Function to generate the correct dependency list file path from the given base name (without extension)
+function deplist_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(deplist_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct linker script file name from the given base name (without extension)
+function ld_fname(baseName)
+    return $series(${baseName}, '.', ${LDFileExt})
+   #return :"${baseName}.${LDFileExt}"
+endfunction
+
+##### Function to generate the correct linker script file path from the given base name (without extension)
+function ld_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(ld_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct object file name from the given source file name (with extension)
+function obj_fname(srcFileName)
+    return $series(${srcFileName}, '.', ${ObjFileExt})
+   #return :"${srcFileName}.${ObjFileExt}"
+endfunction
+
+##### Function to generate the correct object file path from the given source file name (with extension)
+function obj_fpath(srcFileName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(obj_fname, ${srcFileName}) )
+endfunction
+
+
+##### Function to generate the correct assembly source file name from the given base name (without extension)
+function ssrc_fname(baseName)
+    return $series(${baseName}, '.', ${AsmFileExt})
+   #return :"${baseName}.${AsmFileExt}"
+endfunction
+
+##### Function to generate the correct assembly object file name from the given base name (without extension)
+function sobj_fname(baseName)
+    return $series(${baseName}, '.', ${AsmFileExt}, '.', ${ObjFileExt})
+   #return :"${baseName}.${AsmFileExt}.${ObjFileExt}"
+endfunction
+
+##### Function to generate the correct assembly object file path from the given base name (without extension)
+function sobj_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(sobj_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct glob prerequisite name to build assembly object file for shared library
+function sobj_preq_glob_dlib(objFiles)
+    $call(__check_CppBuildDir__)
+    return $re_replace(${objFiles}, :"(.+)\.${AsmFileExt}", :"$1.shared.${AsmFileExt}")
+endfunction
+
+##### Function to generate the correct glob prerequisite name to build C object file for shared library
+function cobj_preq_glob_dlib(objFiles)
+    $call(__check_CppBuildDir__)
+    return ${objFiles/(.+)\.c/$1.shared.c/}
+endfunction
+
+##### Function to generate the correct glob prerequisite name to build C++ object file for shared library
+function cppobj_preq_glob_dlib(objFiles)
+    $call(__check_CppBuildDir__)
+    return ${objFiles/(.+)\.cpp/$1.shared.cpp/}
+endfunction
+
+
+##### Function to generate the correct glob target name to build assembly object file
+function sobj_target_glob(?forSharedLibObj)
+    $call(__check_CppBuildDir__)
+    if ${forSharedLibObj} : return $series(${CppBuildDir}, '/%.shared.', ${AsmFileExt}, '.', ${ObjFileExt})
+                            return $series(${CppBuildDir}, '/%.'       , ${AsmFileExt}, '.', ${ObjFileExt})
+   #if ${forSharedLibObj} : return :"${CppBuildDir}/%.shared.${AsmFileExt}.${ObjFileExt}"
+   #                        return :"${CppBuildDir}/%.${AsmFileExt}.${ObjFileExt}"
+endfunction
+
+##### Function to generate the correct glob target name to build C object file
+function cobj_target_glob(?forSharedLibObj)
+    $call(__check_CppBuildDir__)
+    if ${forSharedLibObj} : return $series(${CppBuildDir}, '/%.shared.c.', ${ObjFileExt})
+                            return $series(${CppBuildDir}, '/%.c.'       , ${ObjFileExt})
+   #if ${forSharedLibObj} : return :"${CppBuildDir}/%.shared.c.${ObjFileExt}"
+   #                        return :"${CppBuildDir}/%.c.${ObjFileExt}"
+endfunction
+
+##### Function to generate the correct glob target name to build C++ object file
+function cppobj_target_glob(?forSharedLibObj)
+    $call(__check_CppBuildDir__)
+    if ${forSharedLibObj} : return $series(${CppBuildDir}, '/%.shared.cpp.', ${ObjFileExt})
+                            return $series(${CppBuildDir}, '/%.cpp.'       , ${ObjFileExt})
+   #if ${forSharedLibObj} : return :"${CppBuildDir}/%.shared.cpp.${ObjFileExt}"
+   #                        return :"${CppBuildDir}/%.cpp.${ObjFileExt}"
+endfunction
+
+
+##### Function to generate the correct glob target name to build C++20 system header unit
+function cpp20syshu_target_glob()
+    $call(__check_CppBuildDir__)
+    return :"${CppBuildDir}/%.sys.unit"
+endfunction
+
+##### Function to generate the correct glob target name to build C++20 user header unit
+function cpp20usrhu_target_glob()
+    $call(__check_CppBuildDir__)
+    return :"${CppBuildDir}/%.h.usr.unit"
+endfunction
+
+
+##### Function to generate the correct executable file name from the given base name (without extension)
+function exe_fname(baseName)
+    return $series(${baseName}, '.', ${ExeFileExt})
+   #return :"${baseName}.${ExeFileExt}"
+endfunction
+
+##### Function to generate the correct executable file path from the given base name (without extension)
+function exe_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(exe_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct shared library file name from the given base name (without extension)
+function dlib_fname(baseName)
+    return $series(${LibFilePrefix}, ${baseName}, '.', ${DLibFileExt})
+   #return :"${LibFilePrefix}${baseName}.${DLibFileExt}"
+endfunction
+
+##### Function to generate the correct shared library file path from the given base name (without extension)
+function dlib_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(dlib_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct static library file name from the given base name (without extension)
+function slib_fname(baseName)
+    return $series(${LibFilePrefix}, ${baseName}, '.', ${SLibFileExt})
+   #return :"${LibFilePrefix}${baseName}.${SLibFileExt}"
+endfunction
+
+##### Function to generate the correct static library file path from the given base name (without extension)
+function slib_fpath(baseName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(slib_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct link flag to use linker script from the given source file name (with extension)
+function use_ld(srcFileName)
+    return $series('-T', ~${srcFileName})
+endfunction
+
+
+##### Function to demangle C++ symbol string
+function cpp_demangle(symbolStr)
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+    local DemangleStr := $exec( __cpp_demangle__, ${symbolStr}, $call(__get_LDLibraryPaths__) ) # Call the platform-specific function implementation
+    $restore_sem()
+    return ${DemangleStr}
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to get the compiler version
+function __get_cpp_compiler_ver__(?doNotUseCache)
+    if $or( $not(${__BuildTool_Version_Num__}), ${doNotUseCache} )
+        local result  := $call(__get_cpp_compiler_ver_impl__)
+        local numeric := $partn(${result}, 1)
+        if ${numeric}
+            __BuildTool_Version__     := $partn(${result}, 2)
+            __BuildTool_Version_Num__ := ${numeric}
+            return ${__BuildTool_Version_Num__}
+        endif
+    endif
+    if ${doNotUseCache} : return 0
+    return ${__BuildTool_Version_Num__}
+endfunction
+
+
+##### Functions to ensure the executable are rebuilt if the linked libraries are updated
+const __Executable_DLib_SLib_Depend_FilePath__ :=  $cat_path( $ptd(), 'exe_slib_dlib.depend' )
+
+function __store_exe_dlib_slib_depend__()
+    # Load/create the map
+    if $valid_path(${__Executable_DLib_SLib_Depend_FilePath__}) ; local mh := $map_from_edata( $get_file(${__Executable_DLib_SLib_Depend_FilePath__}) )
+    else                                                        ; local mh := $map_new()
+    endif
+    # Add entries to the map
+    local dl := $call(dlib_fpath, ${CppUsrSharedLib})
+    local sl := $call(slib_fpath, ${CppUsrStaticLib})
+    $map_add( ${mh}, '__ExecutableList__', ~$[target]           )
+    $map_add( ${mh}, ~$[target]          , {{ ~${dl}, ~${sl} }} )
+    # Save the map
+    $put_file(${__Executable_DLib_SLib_Depend_FilePath__}, $map_to_edata(${mh}) )
+    # Delete the map
+    $map_delete(${mh})
+endfunction
+
+function __check_exe_dlib_slib_depend__()
+    # Exit if the file does not exist
+    if !$valid_path(${__Executable_DLib_SLib_Depend_FilePath__}) : return
+    # Load the map
+        local mh := $map_from_edata( $get_file(${__Executable_DLib_SLib_Depend_FilePath__}) )
+    # Delete the executables that depends on the library
+    foreach local exe in $map_get(${mh}, '__ExecutableList__')
+        if $contains( $map_get(${mh}, ${exe}), ~$[target]) : $rmfile(${exe})
+    endforeach
+    # Delete the map
+    $map_delete(${mh})
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories)
+    # Set additional LD paths as needed
+    if !__os_windows__
+        if &${CppToolBinDir}
+            if !&${LDLibraryPath}
+                LDLibraryPath +:= $cat_path(${CppToolBinDir}, '../lib'  )
+                LDLibraryPath +:= $cat_path(${CppToolBinDir}, '../lib64')
+            endif
+        endif
+    endif
+    # Get the compiler version
+    $call(__get_cpp_compiler_ver__)
+    if !${__BuildTool_Version_Num__} : $call(__exit_error_nup_ext__, ${CppCxxCompiler}, ${CppToolBinDir})
+    # Create the build directory
+    if &${buildSubdirectories}
+        $mkdir( $cat_path(~${CppBuildDir}, ${buildSubdirectories} ) )
+    else
+        $mkdir(~${CppBuildDir})
+    endif
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function clean_project()
+    $call         (__check_CppBuildDir__)
+    $call         (__clean_project__    )
+    $rmdir_rec    (~${CppBuildDir}      )
+    $clear_project(true                 )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__(?hideComSel, ?noCpp20M, ?noSharedLib, ?noRunExe, ?userCompSel, ?userExtraFuncs)
+            $call(__btlib_help_print_title_main__)
+            $call(__btlib_help_print_title_variables__)
+    if !${hideComSel}
+            echoln __c_green__ '    PreferClang               ' __c_white__ ': the default compiler in POSIX system is GCC, set this variable to a non-zero value to use Clang before \'' __c_green__ ':::include <C++BuildTool>' __c_white__ '\''
+            echoln
+            echoln __c_green__ '    __gcc__                   ' __c_white__ ': evaluate to the value ' __c_yellow__ '1' __c_white__ ' in case the C/C++ compiler is GCC'
+            echoln __c_green__ '    __clang__                 ' __c_white__ ': evaluate to the value ' __c_yellow__ '1' __c_white__ ' in case the C/C++ compiler is Clang'
+            echoln __c_green__ '    __msvc__                  ' __c_white__ ': evaluate to the value ' __c_yellow__ '1' __c_white__ ' in case the C/C++ compiler is MSVC'
+            echoln
+    endif
+    if &${userCompSel}
+            $call(${userCompSel})
+            echoln
+    endif
+            echoln __c_green__ '    __BuildTool_Name__        ' __c_white__ ': evaluate to the C/C++ compiler name'
+            echoln __c_green__ '    __BuildTool_Version__     ' __c_white__ ': evaluate to the C/C++ compiler version'
+            echoln __c_green__ '    __BuildTool_Version_Num__ ' __c_white__ ': evaluate to the C/C++ compiler version (in the form of combined numeric value)'
+            echoln __c_green__ '    __BuildTool_Target__      ' __c_white__ ': evaluate to the target architecture'
+            echoln
+            echoln __c_green__ '    LDLibraryPath             ' __c_white__ ': set additional paths which the linker should look in to when executing programs (POSIX only)'
+            echoln
+            echoln __c_green__ '    CppAssembler              ' __c_white__ ': executable file name for the C/C++ compatible assembler - the default value is platform-specific'
+            echoln __c_green__ '    CppCcCompiler             ' __c_white__ ': executable file name for the C     compiler             - the default value is platform-specific'
+            echoln __c_green__ '    CppCxxCompiler            ' __c_white__ ': executable file name for the C++   compiler             - the default value is platform-specific'
+            echoln __c_green__ '    SLibBuilder               ' __c_white__ ': executable file name for the static library builder     - the default value is platform-specific'
+            echoln
+            echoln __c_green__ '    CppBuildDir               ' __c_white__ ': set the build directory under the source tree                  - the default is \'' __c_yellow__ 'build' __c_white__ '\'; can only be changed before calling \'' __c_green__ 'init_project' __c_white__ '\''
+            echoln __c_green__ '    CppToolBinDir             ' __c_white__ ': set the location of the C/C++ binaries        (non MSVC  only) - the default is empty (use the system\'s default)'
+            echoln __c_green__ '    CppLDToolBin              ' __c_white__ ': set the location of the LD    binaries        (    Clang only) - the default is empty (use the system\'s default)'
+            echoln
+            echoln __c_green__ '    CppSysHeaderDir           ' __c_white__ ': set the system header file locations'
+            echoln
+    if !${noSharedLib}
+            echoln __c_green__ '    CppSysSharedLib           ' __c_white__ ': set the system shared library files'
+            echoln __c_green__ '    CppSysSharedLibDir        ' __c_white__ ': set the system shared library locations'
+    endif
+            echoln __c_green__ '    CppSysStaticLib           ' __c_white__ ': set the system static library files'
+            echoln __c_green__ '    CppSysStaticLibDir        ' __c_white__ ': set the system static library locations'
+            echoln
+    if !${noSharedLib}
+            echoln __c_green__ '    CppUsrSharedLib           ' __c_white__ ': set the user shared library files'
+            echoln __c_green__ '    CppUsrSharedLibDir        ' __c_white__ ': set the user shared library locations'
+    endif
+            echoln __c_green__ '    CppUsrStaticLib           ' __c_white__ ': set the user system static library files'
+            echoln __c_green__ '    CppUsrStaticLibDir        ' __c_white__ ': set the user static library locations'
+            echoln
+    if !${noSharedLib}
+            local lenf := 31
+            local spc1 := '     '
+            local spc2 := ' '
+    else
+            local lenf := 26
+            local spc1 := ''
+            local spc2 := ''
+    endif
+            $call(__btlib_help_print_title_functions__, 10, ${lenf}, 1)
+            echoln __c_green__ '    init_project            (?buildSubdirectories      ' ${spc1} ') ' __c_white__ ': initialize the project build; ' __c_red__ 'must be called first and as early as possible' __c_white__ ' (after changing the global values of the'
+            echoln __c_green__ '                                                       ' ${spc1} '  ' __c_white__ '  above variables, if necessary)'
+            echoln __c_green__ '    clean_project           (                          ' ${spc1} ') ' __c_white__ ': clean the project build (delete all the generated files)'
+            echoln __c_green__ '    print_devenv_config     (                          ' ${spc1} ') ' __c_white__ ': print the development environment configuration summary; must only be called after \'' __c_green__ 'init_project' __c_white__ '\''
+            echoln
+            echoln __c_green__ '    silent_stdxxx           (?silent                   ' ${spc1} ') ' __c_white__ ': silent/unsilent all    stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'false' __c_white__ '\''
+            echoln __c_green__ '    silent_stdxxx_syslib    (?silent                   ' ${spc1} ') ' __c_white__ ': silent/unsilent system stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'true' __c_white__ '\''
+            echoln
+    if !$or(${__x_gcc__}, ${__x_clang__})
+            echoln __c_green__ '    cpp_compiler_ver_min    (mj, mn , pl, ?dummyIgnored' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at least ' __c_yellow__ '<major>.<minor >.<patch >         ' __c_white__ ' (for non MSVC)'
+            echoln __c_green__ '    cpp_compiler_ver_max    (mj, mn , pl, ?dummyIgnored' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at most  ' __c_yellow__ '<major>.<minor >.<patch >         ' __c_white__ ' (for non MSVC)'
+            echoln
+            echoln __c_green__ '    cpp_compiler_ver_min    (mj, mn1, mn2, ?mn3        ' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at least ' __c_yellow__ '<major>.<minor1>.<minor2>.<minor3>' __c_white__ ' (for     MSVC)'
+            echoln __c_green__ '    cpp_compiler_ver_max    (mj, mn1, mn2, ?mn3        ' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at most  ' __c_yellow__ '<major>.<minor1>.<minor2>.<minor3>' __c_white__ ' (for     MSVC)'
+    else
+            echoln __c_green__ '    cpp_compiler_ver_min    (mj, mn , pl, ?dummyIgnored' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at least ' __c_yellow__ '<major>.<minor>.<patch>'
+            echoln __c_green__ '    cpp_compiler_ver_max    (mj, mn , pl, ?dummyIgnored' ${spc1} ') ' __c_white__ ': check if the C/C++ compiler version is at most  ' __c_yellow__ '<major>.<minor>.<patch>'
+    endif
+            echoln
+            echoln __c_green__ '    deplist_fname           (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct          dependency list file name from the given base   name (without extension)'
+            echoln __c_green__ '    deplist_fpath           (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct          dependency list file path from the given base   name (without extension)'
+            echoln
+            echoln __c_green__ '    ld_fname                (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct output   linker script   file name from the given base   name (without extension) (for GCC & Clang only)'
+            echoln __c_green__ '    ld_fpath                (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct output   linker script   file path from the given base   name (without extension) (for GCC & Clang only)'
+            echoln
+            echoln __c_green__ '    obj_fname               (srcFileName               ' ${spc1} ') ' __c_white__ ': generate the correct          object          file name from the given source name (with    extension)'
+            echoln __c_green__ '    obj_fpath               (srcFileName               ' ${spc1} ') ' __c_white__ ': generate the correct          object          file path from the given source name (with    extension)'
+            echoln
+            echoln __c_green__ '    ssrc_fname              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct assembly source          file name from the given base   name (without extension)'
+            echoln __c_green__ '    sobj_fname              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct assembly object          file name from the given base   name (without extension)'
+            echoln __c_green__ '    sobj_fpath              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct assembly object          file path from the given base   name (without extension)'
+            echoln
+            echoln __c_green__ '    exe_fname               (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct          executable      file name from the given base   name (without extension)'
+            echoln __c_green__ '    exe_fpath               (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct          executable      file path from the given base   name (without extension)'
+            echoln
+    if !${noSharedLib}
+            echoln __c_green__ '    dlib_fname              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct shared   library         file name from the given base   name (without extension)'
+            echoln __c_green__ '    dlib_fpath              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct shared   library         file path from the given base   name (without extension)'
+            echoln
+    endif
+            echoln __c_green__ '    slib_fname              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct static   library         file name from the given base   name (without extension)'
+            echoln __c_green__ '    slib_fpath              (baseName                  ' ${spc1} ') ' __c_white__ ': generate the correct static   library         file path from the given base   name (without extension)'
+            echoln
+            echoln __c_green__ '    cobj_preq_glob_dlib     (objFiles                  ' ${spc1} ') ' __c_white__ ': generate the correct glob prerequisite name to build C   object file for shared library - ' __c_yellow__ '${objFiles/(.+)\.c/$1.shared.c/}'
+            echoln __c_green__ '    cppobj_preq_glob_dlib   (objFiles                  ' ${spc1} ') ' __c_white__ ': generate the correct glob prerequisite name to build C++ object file for shared library - ' __c_yellow__ '${objFiles/(.+)\.cpp/$1.shared.cpp/}'
+            echoln
+    if !${noSharedLib}
+            echoln __c_green__ '    sobj_target_glob        (?forSharedLibObj          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build ASM   object file [' __c_green__ 'false' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.S.${ObjFileExt}'
+            echoln __c_green__ '                                                       ' ${spc1} '  ' __c_white__ '                                                                   [' __c_green__ 'true ' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.shared.S.${ObjFileExt}'
+            echoln __c_green__ '    cobj_target_glob        (?forSharedLibObj          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C     object file [' __c_green__ 'false' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.c.${ObjFileExt}'
+            echoln __c_green__ '                                                       ' ${spc1} '  ' __c_white__ '                                                                   [' __c_green__ 'true ' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.shared.c.${ObjFileExt}'
+            echoln __c_green__ '    cppobj_target_glob      (?forSharedLibObj          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C++   object file [' __c_green__ 'false' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.cpp.${ObjFileExt}'
+            echoln __c_green__ '                                                       ' ${spc1} '  ' __c_white__ '                                                                   [' __c_green__ 'true ' __c_white__ '] - ' __c_yellow__ '${CppBuildDir}/%.shared.cpp.${ObjFileExt}'
+    else
+            echoln __c_green__ '    sobj_target_glob        (                          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build ASM   object file       ' ${spc2} ' - '                     __c_yellow__ '${CppBuildDir}/%.S.${ObjFileExt}'
+            echoln __c_green__ '    cobj_target_glob        (                          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C     object file       ' ${spc2} ' - '                     __c_yellow__ '${CppBuildDir}/%.c.${ObjFileExt}'
+            echoln __c_green__ '    cppobj_target_glob      (                          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C++   object file       ' ${spc2} ' - '                     __c_yellow__ '${CppBuildDir}/%.cpp.${ObjFileExt}'
+    endif
+    if !${noCpp20M}
+            echoln __c_green__ '    cpp20syshu_target_glob  (                          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C++20 system header unit' ${spc2} ' - '                     __c_yellow__ '${CppBuildDir}/%.sys.unit'
+            echoln __c_green__ '    cpp20usrhu_target_glob  (                          ' ${spc1} ') ' __c_white__ ': generate the correct glob target name to build C++20 user   header unit' ${spc2} ' - '                     __c_yellow__ '${CppBuildDir}/%.h.usr.unit'
+            echoln
+    endif
+            echoln __c_green__ '    def_macro               (name, ?value              ' ${spc1} ') ' __c_white__ ': define a macro from the command line'
+            echoln
+            echoln __c_green__ '    treat_warnings_as_errors(enabled                   ' ${spc1} ') ' __c_white__ ': enable/disable treat all warnings as errors - the default is disabled'
+            echoln __c_green__ '    enable_debug_info       (enabled                   ' ${spc1} ') ' __c_white__ ': enable/disable debugging information        - the default is disabled'
+            echoln
+            echoln __c_green__ '    select_optimization     (level                     ' ${spc1} ') ' __c_white__ ': select the optimization level (' __c_yellow__ 'none' __c_white__ '/' __c_yellow__ 'size' __c_white__ '/' __c_yellow__ 'speed' __c_white__ ')'
+            echoln
+            echoln __c_green__ '    select_c_langstd        (langstd, ?gnu             ' ${spc1} ') ' __c_white__ ': select the C   language standard (for non MSVC) (' __c_yellow__ 'c89' __c_white__ '/' __c_yellow__ 'c90' __c_white__ '/' __c_yellow__ 'c95' __c_white__ '/' __c_yellow__ 'c99' __c_white__ '/' __c_yellow__ 'c11' __c_white__ '/' __c_yellow__ 'c17' __c_white__ '/' __c_yellow__ 'c23' __c_white__ ')               - the default is platform-specific'
+            echoln __c_green__ '    select_cxx_langstd      (langstd, ?gnu             ' ${spc1} ') ' __c_white__ ': select the C++ language standard (for non MSVC) (' __c_yellow__ 'c++98' __c_white__ '/' __c_yellow__ 'c++03' __c_white__ '/' __c_yellow__ 'c++11' __c_white__ '/' __c_yellow__ 'c++14' __c_white__ '/' __c_yellow__ 'c++17' __c_white__ '/' __c_yellow__ 'c++20' __c_white__ '/' __c_yellow__ 'c++23' __c_white__ ') - the default is platform-specific'
+            echoln
+            echoln __c_green__ '    select_c_langstd        (langstd, ?dummyIgnored    ' ${spc1} ') ' __c_white__ ': select the C   language standard (for     MSVC) (' __c_yellow__ 'c89' __c_white__ '/' __c_yellow__ 'c90' __c_white__ '/' __c_yellow__ 'c95' __c_white__ '/' __c_yellow__ 'c99' __c_white__ '/' __c_yellow__ 'c11' __c_white__ '/' __c_yellow__ 'c17' __c_white__ '/' __c_yellow__ 'c23' __c_white__ ')               - the default is platform-specific'
+            echoln __c_green__ '    select_cxx_langstd      (langstd, ?dummyIgnored    ' ${spc1} ') ' __c_white__ ': select the C++ language standard (for     MSVC) (' __c_yellow__ 'c++98' __c_white__ '/' __c_yellow__ 'c++03' __c_white__ '/' __c_yellow__ 'c++11' __c_white__ '/' __c_yellow__ 'c++14' __c_white__ '/' __c_yellow__ 'c++17' __c_white__ '/' __c_yellow__ 'c++20' __c_white__ '/' __c_yellow__ 'c++23' __c_white__ ') - the default is platform-specific'
+            echoln
+            echoln __c_green__ '    compile_ld              (?extraOptions             ' ${spc1} ') ' __c_white__ ': compile a  linker script source code (for GCC & Clang only)'
+            echoln __c_green__ '    compile_s               (?extraOptions             ' ${spc1} ') ' __c_white__ ': compile an assembly      source code'
+    if !${noSharedLib}
+            echoln __c_green__ '    compile_c               (?extraOptions, ?forSharedLibObj) '       __c_white__ ': compile a  C             source code'
+            echoln __c_green__ '    compile_cpp             (?extraOptions, ?forSharedLibObj) '       __c_white__ ': compile a  C++           source code'
+        if !${noCpp20M}
+            echoln __c_green__ '    compile_cpp20m          (?extraOptions, ?forSharedLibObj) '       __c_white__ ': compile a  C++20 module  source code'
+        endif
+    else
+            echoln __c_green__ '    compile_c               (?extraOptions             ' ${spc1} ') ' __c_white__ ': compile a  C             source code'
+            echoln __c_green__ '    compile_cpp             (?extraOptions             ' ${spc1} ') ' __c_white__ ': compile a  C++           source code'
+        if !${noCpp20M}
+            echoln __c_green__ '    compile_cpp20m          (?extraOptions             ' ${spc1} ') ' __c_white__ ': compile a  C++20 module  source code'
+        endif
+    endif
+    if !${noCpp20M}
+            echoln __c_green__ '    compile_sys_hunit       (                          ' ${spc1} ') ' __c_white__ ': compile a  C++20         system header unit'
+            echoln __c_green__ '    compile_usr_hunit       (                          ' ${spc1} ') ' __c_white__ ': compile a  C++20         user   header unit'
+    endif
+            echoln
+            echoln __c_green__ '    use_ld                  (srcFileName               ' ${spc1} ') ' __c_white__ ': generate the correct link flag to use linker script from the given source file name (with extension) (for GCC & Clang only)'
+            echoln
+            echoln __c_green__ '    link_exe                (?extraOptions             ' ${spc1} ') ' __c_white__ ': link an executable'
+    if !${noSharedLib}
+            echoln __c_green__ '    link_dlib               (?extraOptions             ' ${spc1} ') ' __c_white__ ': link a shared library'
+    endif
+            echoln __c_green__ '    link_slib               (                          ' ${spc1} ') ' __c_white__ ': link a static library'
+    if !${noRunExe}
+            echoln __c_green__ '    run_exe                 (progName                  ' ${spc1} ') ' __c_white__ ': run the given executable file'
+    endif
+    if ${__CPP_BTLIB_HELP_EN_gen_lst__}
+            echoln
+            echoln __c_green__ '    gen_lst                 (progName                  ' ${spc1} ') ' __c_white__ ': generate a listing file from the given executable file'
+    endif
+    if &${userExtraFuncs} : $call(${userExtraFuncs})
+            echoln
+            echoln __c_green__ '    cpp_demangle            (symbolStr                 ' ${spc1} ') ' __c_white__ ': demangle the given C++ symbol string'
+            echoln
+            $call(__btlib_help_print_title_targets__, 1)
+            $call(__btlib_help_print_note_clean_build_after_path_conf_change__)
+            echoln __c_reset__
+endfunction

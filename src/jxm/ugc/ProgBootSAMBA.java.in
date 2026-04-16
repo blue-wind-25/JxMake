@@ -1,0 +1,1292 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.Serializable;
+
+import java.lang.reflect.Constructor;
+
+import java.nio.charset.StandardCharsets;
+
+import java.util.Arrays;
+import java.util.function.IntConsumer;
+import java.util.stream.LongStream;
+
+import com.fazecast.jSerialComm.*;
+
+import jxm.*;
+import jxm.xb.*;
+
+import static jxm.ugc.ARMCortexMThumb.CPU;
+import static jxm.ugc.ARMCortexMThumb.Reg;
+
+
+/*
+ * Simple implementation of the SAM-BA protocol for programming MCUs with compatible bootloaders.
+ * (e.g., 'at91sam3x8e'). Limitations:
+ *     1. Does not support setting the security bit and lock regions.
+ *     2. Does not support setting custom option bits (default option bits are always selected).
+ *     3. Does not support setting calibration bits, etc.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * This class is written mostly based on the algorithms and information found from:
+ *
+ *     BOSSA
+ *     https://github.com/shumatech/BOSSA/tree/master
+ *     Copyright (C) 2011-2018, ShumaTech
+ *     BSD 3-Clause License
+ *
+ *     Carioca
+ *     https://pypi.org/project/carioca
+ *     Copyright (C) 2016-2024 eGauge Systems LLC
+ *     MIT License
+ *
+ *     The SAM-BA Protocol
+ *     https://sourceforge.net/p/lejos/wiki-nxt/SAM-BA%20Protocol
+ *
+ *     SAM-BA User Guide
+ *     https://support.garz-fricke.com/products/Neso/Linux/Documentation/sam-ba%20user%20guide.pdf
+ *
+ *     SAM Boot Assistant (SAM-BA) User Guide
+ *     https://www.keelog.com/files/SambaUserGuide.pdf
+ */
+public class ProgBootSAMBA extends ProgBootSerial {
+
+    private static final String ProgClassName    = "ProgBootSAMBA";
+
+    public  static final int    DefMagicBaudrate = 1200;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootSerial.Config {
+
+        public static class MCUInfo implements Serializable {
+            public long[] chipID    = null; // Optional
+            public long[] extChipID = null; // ---
+            public long[] deviceID  = null; // ---
+        }
+
+        public static class AppletInfo implements Serializable {
+            public String  flashDriver      = null;
+            public long    flashBase        = -1;
+            public int     flashNumPlanes   = -1;
+            public int     flashNumLockRegs = -1;
+
+            public long    flashBLStart     = -1; // Optional; only required for MCUs with the SAM-BA bootloader
+            public int     flashBLSize      = -1; // in flash rather than ROM. It is typically 4kB if only USB or
+                                                  // UART is enabled, and 8kB when both interfaces are enabled.
+                                                  // Custom SAM-BA bootloaders may have larger size.
+
+            public long    sramAppletStart  = -1;
+            public long    sramAppletStack  = -1;
+
+            public long    regBase          = -1;
+            public long    regReset         = -1;
+            public long    regResetCommand  = -1;
+
+
+            public boolean canBrownout      = false; // Typically 'true' for most MCUs; however, some MCUs with
+                                                     // EEFC may require this to be 'false'.
+
+            public boolean canBootFlash     = false; // Typically 'false' for MCUs with NVMCTRL; 'true' for MCUs
+                                                     // with EFC and EEFC, though certain MCUs with EFC may require
+                                                     // this to be 'false'.
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public final MCUInfo    mcuInfo    = new MCUInfo   ();
+        public final AppletInfo appletInfo = new AppletInfo();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        #include "config.inc/BootSAMBA.java.inc"
+
+    } // class Config
+
+    public Config.MemoryFlash _configMemoryFlash()
+    { return ( (Config) super._config ).memoryFlash; }
+
+    public Config.MCUInfo _configMCUInfo()
+    { return ( (Config) super._config ).mcuInfo; }
+
+    public Config.AppletInfo _configAppletInfo()
+    { return ( (Config) super._config ).appletInfo; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public static abstract class FlashOper {
+
+        protected final ProgBootSAMBA _samba;
+
+        protected final long          _flashBase;
+        protected final int           _flashPages;
+        protected final int           _flashPageSize;
+        protected final int           _flashPlanes;
+        protected final int           _flashLockRegions;
+
+        protected final long          _appletStart;
+        protected final long          _appletStack;
+
+        protected final long          _regBase;
+
+        protected final boolean       _canBrownout;
+        protected final boolean       _canBootFlash;
+
+        protected       boolean       _pageBufferASel;
+        protected final long          _pageBufferA;
+        protected final long          _pageBufferB;
+
+        protected FlashOper(
+            final ProgBootSAMBA instProgBootSAMBA,
+            final long          flashBaseAddress,
+            final int           flashNumberOfPages,
+            final int           flashBytePageSize,
+            final int           flashNumberOfPlanes,
+            final int           flashNumberOfLockRegions,
+            final long          sramAppletStartAddress,
+            final long          sramAppletStackAddress,
+            final long          regBase,
+            final boolean       canBrownout,
+            final boolean       canBootFlash
+        )
+        {
+            _samba            = instProgBootSAMBA;
+
+            _flashBase        = flashBaseAddress;
+            _flashPages       = flashNumberOfPages;
+            _flashPageSize    = flashBytePageSize;
+            _flashPlanes      = flashNumberOfPlanes;
+            _flashLockRegions = flashNumberOfLockRegions;
+
+            _appletStart      = sramAppletStartAddress;
+            _appletStack      = sramAppletStackAddress;
+
+            _regBase          = regBase;
+
+            _canBrownout      = canBrownout;
+            _canBootFlash     = canBootFlash;
+
+            _pageBufferASel   = true;
+            _pageBufferA      = ( ( _appletStart + WordCopyARM.size() + 3 ) / 4 ) * 4; // Align to 32-bit
+            _pageBufferB      = _pageBufferA + _flashPageSize;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // ##### !!! TODO : Add more features (security bit, custom option bits, lock regions, etc.) !!! #####
+
+        public boolean loadBuffer(final int[] buffer, final int length)
+        { return _samba._writeBuff(_pageBufferASel ? _pageBufferA : _pageBufferB, buffer, length); }
+
+        public boolean loadBuffer(final int[] buffer)
+        { return loadBuffer(buffer, buffer.length); }
+
+        public abstract boolean eraseAll(final long startOffset);
+        public abstract boolean writePage(final int pageNum, final boolean eraseBeforeWrite);
+        public abstract boolean readPage(final int pageNum, final int[] buffer);
+
+        public abstract boolean writeOptions();
+
+    } // abstract class FlashOper
+
+    #include "ProgBootSAMBA_FlashD2X.java.inc"
+    #include "ProgBootSAMBA_FlashD5X.java.inc"
+    #include "ProgBootSAMBA_FlashEFC.java.inc"
+    #include "ProgBootSAMBA_FlashEEFC.java.inc"
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    #include "ProgBootSAMBA_WordCopyARM.java.inc"
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : Some SAM-BA implementations may return LF+CR instead of the expected CR+LF
+
+    private static final byte[] _crlf = new byte[] { '\r', '\n' };
+    private static final byte[] _lfcr = new byte[] { '\n', '\r' };
+
+    private boolean _sambaRx(final int[] buff, final int size)
+    { return _serialRxUntil(buff, size, _crlf, _lfcr); }
+
+    private int[] _sambaRx(final int size)
+    {
+        final int[] buff = new int[size];
+
+        if( !_sambaRx(buff, size) ) return null;
+
+        return buff;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _smbSwitchToInteractiveMode()
+    {
+        /*
+         * Command                    : T#
+         * Response (    Interactive) : CRLF + CRLF + prompt
+         *          (Non-interactive) : CRLF + prompt
+         */
+
+         // Send the command
+        _pbs_wrBuff_32I[0] = 'T';
+        _pbs_wrBuff_32I[1] = '#';
+
+        _serialTx(_pbs_wrBuff_32I, 2);
+
+        // Check for one CRLF and at least one more character (the prompt)
+        if( !_sambaRx(_pbs_wrBuff_32I, 1) ) return false;
+
+        // Done
+        _serialDrain();
+        return true;
+    }
+
+    private boolean _smbSwitchToNonInteractiveMode()
+    {
+        // NOTE : This function assumes the bootloader is currently in interactive mode
+
+        /*
+         * Command                    : N#
+         * Response (    Interactive) : CRLF
+         *          (Non-interactive) : <nothing>
+         */
+
+         // Send the command
+        _pbs_wrBuff_32I[0] = 'N';
+        _pbs_wrBuff_32I[1] = '#';
+
+        _serialTx(_pbs_wrBuff_32I, 2);
+
+        // Check for one CRLF only
+        return _sambaRx(_pbs_wrBuff_32I, 0);
+    }
+
+    private boolean _smbConnect()
+    {
+        // Send the auto-baud sequence (it may be required by some implementations)
+        _pbs_wrBuff_32I[0] = 0x80;
+        _pbs_wrBuff_32I[1] = 0x80;
+        _pbs_wrBuff_32I[2] = '#';
+
+        _serialTx(_pbs_wrBuff_32I, 3);
+        _serialDrain();
+
+        /*
+         * Attempt to switch to non-interactive (binary) mode
+         *
+         * NOTE : Some SAM-BA implementations do not support one or both of these commands
+         */
+         if(true) {
+            // Prevent error messages from being printed to the console
+            USB2GPIO.redirectNotifyErrorToString(true);
+            // Perform the switch
+            boolean error = false;
+            if( _smbSwitchToInteractiveMode() ) {
+                // If the above command is supported, this one should be as well; execute it
+                // and verify the result
+                error = !_smbSwitchToNonInteractiveMode();
+            }
+            else {
+                // If the above command is not supported, this one might still be required or
+                // might also be unsupported; execute it regardless and ignore the result.
+                _setSerialRxTimeout_MS_minimum();
+                _smbSwitchToNonInteractiveMode();
+                _setSerialRxTimeout_MS_default();
+            }
+            // Allow error messages to be printed to the console
+            USB2GPIO.redirectNotifyErrorToString(false);
+            // Check for error
+            if(error) return false;
+        }
+
+        // Get the version number
+        _pbs_wrBuff_32I[0] = 'V';
+        _pbs_wrBuff_32I[1] = '#';
+
+        _serialTx(_pbs_wrBuff_32I, 2);
+
+        final int[] verBytes = _sambaRx(256);
+
+        if(verBytes == null) return false;
+
+        final String raw = new String( USB2GPIO.ia2ba(verBytes), StandardCharsets.US_ASCII );
+        final String ver = raw.substring( 0, raw.indexOf('\0') );
+
+        SysUtil.stdDbg().printf("\n[SAM-BA] %s\n", ver);
+
+        // Determine if the SAM-BA will use XMODEM for 'R' and 'S' command
+        if(true) {
+            // Prevent error messages from being printed to the console
+            USB2GPIO.redirectNotifyErrorToString(true);
+            // Send an 'R' request and heuristically evaluate if the response resembles an XMODEM frame
+            final byte[] cmdR8 = String.format( "R%08X,%08X#C", _configAppletInfo().sramAppletStart, 8 ).getBytes(StandardCharsets.US_ASCII);
+            if( _serialTx(cmdR8) ) {
+                // Receive (128 + 5) bytes (the size of XMODEM frame)
+                final int[] recv = _serialRx(128 + 5);
+                // Check if (128 + 5) bytes are received
+                if(recv != null) {
+                    // Send ACK, delay, and send ACK again
+                    _serialTx( new byte[] { 0x06 } );
+                    SysUtil.sleepMS(10);
+                    _serialTx( new byte[] { 0x06 } );
+                    // Check the first 3 bytes
+                    if( recv[0] == 0x01 && recv[1] == ( (~recv[2]) & 0xFF ) ) {
+                        // Instantiate the XModem helper class
+                        _xmodem = new XModem(_ttyPort);
+                        SysUtil.stdDbg().printf("[SAM-BA] [XMODEM]\n\n");
+                    }
+                }
+                // Clear the serial port buffers
+                _serialFlush();
+                _serialDrain();
+            }
+            // Allow error messages to be printed to the console
+            USB2GPIO.redirectNotifyErrorToString(false);
+        }
+
+        if(_xmodem == null)  SysUtil.stdDbg().println();
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+     * All SAMD-based Arduino and Adafruit boards have a bootloader bug where reading 64 bytes or
+     * more over USB results in data corruption.
+     */
+    static final int MaxBulkReadSize = 63;
+
+    private static int _putUxxHex_impl(final int[] buffer, final int ofs, final long value, final int digits)
+    {
+        for(int i = 0; i < digits; ++i) {
+            final int nibble = (int) ( ( value >> ( (digits - 1 - i) * 4) ) & 0x0F );
+            buffer[ofs + i] = ( (nibble < 10) ? ('0' + nibble) : ('A' + nibble - 10) );
+        }
+
+        return ofs + digits;
+    }
+
+    private static int _putU08Hex(final int[] buffer, final int ofs, final long value)
+    { return _putUxxHex_impl(buffer, ofs, value, 2); }
+
+    private static int _putU16Hex(final int[] buffer, final int ofs, final long value)
+    { return _putUxxHex_impl(buffer, ofs, value, 4); }
+
+    private static int _putU32Hex(final int[] buffer, final int ofs, final long value)
+    { return _putUxxHex_impl(buffer, ofs, value, 8); }
+
+    public int _readU08(final long address)
+    {
+        /*
+         * Command                    : o<8 hex digits>,1#
+         * Response (Non-interactive) : <1 byte>
+         */
+
+        // Send the command
+        int idx = 0;
+
+        _pbs_wrBuff_32I[idx++] = 'o';
+
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+                          _pbs_wrBuff_32I[idx++] = '1'   ;
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Read and return the response
+        final Integer res = _serialRxUInt8();
+
+        return (res != null) ? res : -1;
+    }
+
+    public void _writeU08(final long address, final int value)
+    {
+        /*
+         * Command                    : O<8 hex digits>,<2 hex digits>#
+         * Response (Non-interactive) : <nothing>
+         */
+
+        // Send the command
+        int idx = 0;
+
+                          _pbs_wrBuff_32I[idx++] = 'O'   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+        idx = _putU08Hex( _pbs_wrBuff_32I, idx, value   );
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Done
+        _serialFlush();
+    }
+
+    public int _readU16(final long address)
+    {
+        /*
+         * Command                    : h<8 hex digits>,2#
+         * Response (Non-interactive) : <4 bytes LE>
+         */
+
+        // Send the command
+        int idx = 0;
+
+        _pbs_wrBuff_32I[idx++] = 'h';
+
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+                          _pbs_wrBuff_32I[idx++] = '2'   ;
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Read and return the response
+        final Integer res = _serialRxUInt16LE();
+
+        return (res != null) ? res : -1;
+    }
+
+    public void _writeU16(final long address, final long value)
+    {
+        /*
+         * Command                    : H<8 hex digits>,<4 hex digits>#
+         * Response (Non-interactive) : <nothing>
+         */
+
+        // Send the command
+        int idx = 0;
+
+                          _pbs_wrBuff_32I[idx++] = 'H'   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+        idx = _putU16Hex( _pbs_wrBuff_32I, idx, value   );
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Done
+        _serialFlush();
+    }
+
+    public long _readU32(final long address)
+    {
+        /*
+         * Command                    : w<8 hex digits>,4#
+         * Response (Non-interactive) : <4 bytes LE>
+         */
+
+        // Send the command
+        int idx = 0;
+
+        _pbs_wrBuff_32I[idx++] = 'w';
+
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+                          _pbs_wrBuff_32I[idx++] = '4'   ;
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Read and return the response
+        final Long res = _serialRxUInt32LE();
+
+        return (res != null) ? res : -1;
+    }
+
+    public void _writeU32(final long address, final long value)
+    {
+        /*
+         * Command                    : W<8 hex digits>,<8 hex digits>#
+         * Response (Non-interactive) : <nothing>
+         */
+
+        // Send the command
+        int idx = 0;
+
+                          _pbs_wrBuff_32I[idx++] = 'W'   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, value   );
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Done
+        _serialFlush();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public boolean _writeBuff(final long address, final int[] buffer, final int length)
+    {
+        /*
+         * Command                    : S<8 hex digits>,<8 hex digits>#
+         * Response (Non-interactive) : <nothing>
+         */
+
+        // Send the command
+        int idx = 0;
+
+                          _pbs_wrBuff_32I[idx++] = 'S'   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = ','   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, length  );
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+        _serialFlush();
+
+        // Send the data
+        if(_xmodem != null) {
+            if( !_xmodem.transmit(buffer, length) ) return false;
+        }
+        else {
+            _serialTx(buffer, length);
+        }
+        _serialFlush();
+
+        // Done
+        return true;
+    }
+
+    public boolean _writeBuff(final long address, final int[] buffer)
+    { return _writeBuff(address, buffer, buffer.length); }
+
+    public boolean _readBuff(final long address, final int[] buffer, final int length)
+    {
+        /*
+         * Command                    : R<8 hex digits>,<8 hex digits>#
+         * Response (Non-interactive) : <1 byte>, ...
+         */
+
+        /*
+         * The SAM firmware has a known issue when reading power-of-two lengths greater than 32 bytes via USB.
+         * If this condition applies, read the first byte separately, then read the remaining (length - 1) bytes afterward.
+         */
+        long adr = address;
+        int  len = length;
+        int  pos = 0;
+
+        if( len > 32 && XCom.isPowerOfTwo(len) ) {
+            final int b1 = _readU08(adr);
+            if(b1 < 0) return false;
+            buffer[pos++] = b1;
+            ++adr;
+            --len;
+        }
+
+        // Read the remining bytes
+        int[] cbytes = null;
+
+        while(len > 0) {
+
+            // Prepare the buffer
+            final int ChunkSize = Math.min(MaxBulkReadSize, len);
+
+            if(cbytes == null || cbytes.length != ChunkSize) cbytes = new int[ChunkSize];
+
+            // Send the command
+            int idx = 0;
+
+                              _pbs_wrBuff_32I[idx++] = 'R'     ;
+            idx = _putU32Hex( _pbs_wrBuff_32I, idx, adr       );
+                              _pbs_wrBuff_32I[idx++] = ','     ;
+            idx = _putU32Hex( _pbs_wrBuff_32I, idx, ChunkSize );
+                              _pbs_wrBuff_32I[idx++] = '#'     ;
+
+            _serialTx(_pbs_wrBuff_32I, idx);
+            _serialFlush();
+
+            // Receive the data
+            if(_xmodem != null) {
+                if( !_xmodem.receive(cbytes, ChunkSize) ) return false;
+            }
+            else {
+                if( !_serialRx(cbytes, ChunkSize) ) return false;
+            }
+
+            // Copy the data
+            for(final int bn : cbytes) buffer[pos++] = bn;
+
+            // Update the variables
+            adr += ChunkSize;
+            len -= ChunkSize;
+
+        } // while
+
+        // Done
+        return true;
+    }
+
+    public boolean _readBuff(final long address, final int[] buffer)
+    { return _readBuff(address, buffer, buffer.length); }
+
+    public void _go(final long address)
+    {
+        /*
+         * Command                    : G<8 hex digits>#
+         * Response (Non-interactive) : <nothing>
+         */
+
+        // Send the command
+        int idx = 0;
+
+                          _pbs_wrBuff_32I[idx++] = 'G'   ;
+        idx = _putU32Hex( _pbs_wrBuff_32I, idx, address );
+                          _pbs_wrBuff_32I[idx++] = '#'   ;
+
+        _serialTx(_pbs_wrBuff_32I, idx);
+
+        // Done
+        _serialFlush();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static long SMB_MASK_CHIP_ID  = 0x7FFFFFE0L; // 01111111 11111111 11111111 11100000 (chip   ID mask to exclude the EXT     and VERSION bits )
+    private static long SMB_MASK_ECHIP_ID = 0xFFFFFFFFL; // 11111111 11111111 11111111 11111111
+    private static long SMB_MASK_DEV_ID   = 0xFFFF00FFL; // 11111111 11111111 00000000 11111111 (device ID mask to exclude the DIE     and REVISION bits)
+    private static long SMB_MASK_CPU_ID   = 0xFF0FFFF0L; // 11111111 00001111 11111111 11110000 (CPU    ID mask to exclude the VARIANT and REVISION bits)
+
+    private long _smb_chipID  = -1;
+    private long _smb_echipID = -1;
+    private long _smb_cpuID   = -1;
+    private long _smb_devID   = -1;
+
+    private boolean _smbReadExtChipID()
+    {
+        // NOTE : This function was adapted from the BOSSA source code
+
+        _smb_chipID = _readU32(0x400E0740L);
+        if(_smb_chipID != 0) {
+            if(_smb_chipID < 0) return false;
+            _smb_echipID = _readU32(0x400E0744L);
+            return true;
+        }
+
+        _smb_chipID = _readU32(0x400E0940L);
+        if(_smb_chipID != 0) {
+            if(_smb_chipID < 0) return false;
+            _smb_echipID = _readU32(0x400E0944L);
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean _smbReadIDs()
+    {
+        // NOTE : This function was adapted from the BOSSA source code
+
+        /*
+         * Read instruction at reset vector (0x0) and check if it is an unconditional ARM branch (opcode 0xEAxxxxxx).
+         * If so, treat the device as ARM7TDMI (ARMv4T) and probe Atmel SAM7/9 with CHIPID at 0xFFFFF240.
+         */
+        final long opcode0 = _readU32(0x00000000L);
+
+        if(opcode0 < 0) return false;
+
+        if( (opcode0 & 0xFF000000L) == 0xEA000000L ) {
+            _smb_chipID = _readU32(0xFFFFF240L);
+            if(_smb_chipID < 0) return false;
+        }
+
+        // Otherwise, check the ARM CPUID register, as it is supported by all Cortex-M MCUs
+        else {
+            // Read the CPUID
+            _smb_cpuID = _readU32(0xE000ED00L);
+            if(_smb_cpuID < 0) return false;
+            // Mask the CPUID to retain only the PARTNO bits
+            final long _masked_smb_cpuID = _smb_cpuID & 0x0000FFF0L;
+            // Check for Cortex-M0+
+            if(_masked_smb_cpuID == 0x0000C600L) {
+                _smb_devID = _readU32(0x41002018L);
+                if(_smb_devID < 0) return false;
+            }
+            // Check for Cortex-M4
+            else if(_masked_smb_cpuID == 0x0000C240L) {
+                // Read the reset vector at 0x4 and check if it points to the SAM-BA ROM (for SAM4 MCU)
+                final long opcode4 = _readU32(0x00000004L);
+                if(opcode4 < 0) return false;
+                if( (opcode4 & 0xFFF00000L) == 0x00800000L ) {
+                    // Read the SAM chip ID registers
+                    if( !_smbReadExtChipID() ) return false;
+                }
+                else {
+                    // Read the SAMx device ID register
+                    _smb_devID = _readU32(0x41002018L);
+                    if(_smb_devID < 0) return false;
+                }
+            }
+            // Other Cortex MCUs
+            else {
+                // Read the Atmel chip ID registers
+                if( !_smbReadExtChipID() ) return false;
+            }
+        }
+
+        // Mask the IDs
+        _smb_chipID  = (_smb_chipID  < 0) ? 0 : (_smb_chipID  & SMB_MASK_CHIP_ID );
+        _smb_echipID = (_smb_echipID < 0) ? 0 : (_smb_echipID & SMB_MASK_ECHIP_ID);
+        _smb_devID   = (_smb_devID   < 0) ? 0 : (_smb_devID   & SMB_MASK_DEV_ID  );
+        _smb_cpuID   = (_smb_cpuID   < 0) ? 0 : (_smb_cpuID   & SMB_MASK_CPU_ID  );
+
+        // Use one of the IDs as the signature
+        if(_mcuSignature == null &&  _configMCUInfo().chipID != null && _smb_chipID > 0) {
+            _mcuSignature = new int[] {
+                (int) ( (_smb_chipID >> 24) & 0xFF ),
+                (int) ( (_smb_chipID >> 16) & 0xFF ),
+                (int) ( (_smb_chipID >>  8) & 0xFF ),
+                (int) ( (_smb_chipID >>  0) & 0xFF )
+            };
+        }
+
+        if(_mcuSignature == null &&  _configMCUInfo().deviceID != null && _smb_devID > 0) {
+            _mcuSignature = new int[] {
+                (int) ( (_smb_devID >> 24) & 0xFF ),
+                (int) ( (_smb_devID >> 16) & 0xFF ),
+                (int) ( (_smb_devID >>  8) & 0xFF ),
+                (int) ( (_smb_devID >>  0) & 0xFF )
+            };
+        }
+
+        if(_mcuSignature == null && _smb_cpuID > 0) {
+            _mcuSignature = new int[] {
+                (int) ( (_smb_cpuID >> 24) & 0xFF ),
+                (int) ( (_smb_cpuID >> 16) & 0xFF ),
+                (int) ( (_smb_cpuID >>  8) & 0xFF ),
+                (int) ( (_smb_cpuID >>  0) & 0xFF )
+            };
+        }
+
+        // Done
+        return true;
+    }
+
+    private boolean _smbIdentify()
+    {
+        // NOTE : This function was adapted from the BOSSA source code
+
+        // Read the ID(s)
+        if( !_smbReadIDs() ) return false;
+
+        // Check the ID(s)
+        if( _configMCUInfo().chipID != null && !LongStream.of( _configMCUInfo().chipID ).anyMatch( x -> x == _smb_chipID ) ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAUnsupMCU, ProgClassName, "CHIP_ID", _smb_chipID);
+        }
+
+        if( _configMCUInfo().extChipID != null && !LongStream.of( _configMCUInfo().extChipID ).anyMatch( x -> x == _smb_echipID ) ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAUnsupMCU, ProgClassName, "EXT_CHIP_ID", _smb_echipID);
+        }
+
+        if( _configMCUInfo().deviceID != null && !LongStream.of( _configMCUInfo().deviceID ).anyMatch( x -> x == _smb_devID ) ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAUnsupMCU, ProgClassName, "DEVICE_ID", _smb_devID);
+        }
+
+        // Done
+        return true;
+    }
+
+    private void _smbResetChip()
+    {
+        if( _configAppletInfo().regReset        == 0 ||
+            _configAppletInfo().regResetCommand == 0 ) return; // Resetting the chip via SAM-BA is not supported
+
+        _writeU32( _configAppletInfo().regReset, _configAppletInfo().regResetCommand );
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public boolean _applet_setCode(final long[] opcode)
+    {
+        // Convert to bytes
+        final int[] bytes = new int[opcode.length * 4];
+              int   idx   = 0;
+
+        for(final long l : opcode) {
+            bytes[idx++] = (int) ( (l >>  0) & 0xFF );
+            bytes[idx++] = (int) ( (l >>  8) & 0xFF );
+            bytes[idx++] = (int) ( (l >> 16) & 0xFF );
+            bytes[idx++] = (int) ( (l >> 24) & 0xFF );
+        }
+
+        // Write the bytes
+        return _writeBuff( _configAppletInfo().sramAppletStart, bytes );
+    }
+
+    public boolean _applet_setStack(final long stack)
+    {
+        _writeU32( _configAppletInfo().sramAppletStart + WordCopyARM.stack(), stack );
+        return true;
+    }
+
+    public boolean _applet_setDstAddr(final long dstAddr)
+    {
+        _writeU32( _configAppletInfo().sramAppletStart + WordCopyARM.dst_addr(), dstAddr );
+        return true;
+    }
+
+    public boolean _applet_setSrcAddr(final long srcAddr)
+    {
+        _writeU32( _configAppletInfo().sramAppletStart + WordCopyARM.src_addr(), srcAddr );
+        return true;
+    }
+
+    public boolean _applet_setWords(final long words)
+    {
+        _writeU32( _configAppletInfo().sramAppletStart + WordCopyARM.words(), words );
+        return true;
+    }
+
+    public boolean _applet_runT1() // Thumb-1 devices
+    {
+        _go( _configAppletInfo().sramAppletStart + WordCopyARM.start() + 1 );
+        return true;
+    }
+
+    public boolean _applet_runT2() // Thumb-2 devices
+    {
+
+        _writeU32( _configAppletInfo().sramAppletStart + WordCopyARM.reset(), _configAppletInfo().sramAppletStart + WordCopyARM.start() + 1 );
+        _go( _configAppletInfo().sramAppletStart + WordCopyARM.stack() );
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean   _inProgMode = false;
+    private boolean   _chipErased = false;
+
+    private XModem    _xmodem     = null;
+    private FlashOper _flashOper  = null;
+
+    @SuppressWarnings("this-escape")
+    public ProgBootSAMBA(final ProgBootSAMBA.Config config) throws Exception
+    {
+        // Process the superclass
+        super(ProgClassName, config);
+
+        // Check the configuration values
+        if(_config.memoryEEPROM.totalSize > 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMETotSize, ProgClassName);
+
+        if( _configAppletInfo().flashDriver != null ) {
+             final String trimmed = _configAppletInfo().flashDriver.trim();
+             _configAppletInfo().flashDriver = trimmed.isEmpty() ? null : trimmed;
+        }
+
+        if( _configAppletInfo().flashDriver      == null ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIFlDriver, ProgClassName);
+        if( _configAppletInfo().flashBase        <  0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIFlBase  , ProgClassName);
+        if( _configAppletInfo().flashNumPlanes   <= 0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIFlNPlane, ProgClassName);
+        if( _configAppletInfo().flashNumLockRegs <= 0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIFlNLcReg, ProgClassName);
+
+        if( _configAppletInfo().sramAppletStart  <= 0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAISApStart, ProgClassName);
+        if( _configAppletInfo().sramAppletStack  <= 0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAISApStack, ProgClassName);
+
+        if( _configAppletInfo().regBase          <  0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIRegBase , ProgClassName);
+        if( _configAppletInfo().regReset         <  0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIRegRst  , ProgClassName);
+        if( _configAppletInfo().regResetCommand  <  0    ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvAIRegRstCm, ProgClassName);
+    }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return USB2GPIO.alignWriteSize(numBytes, _config.memoryFlash.pageSize); }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    private boolean _begin_impl(final String serialDevice, final int baudrate, final int magicBaudrateToResetToBootloaderMode)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Try to reset the MCU attached to the serial port to bootloader mode by using the magic baudrate
+        //*
+        if(magicBaudrateToResetToBootloaderMode > 0) {
+            try {
+                SerialPortUtil.tryResetMCUToBootloader_usingMagicBaudrate(serialDevice, magicBaudrateToResetToBootloaderMode);
+            }
+            catch(final Exception e) {
+                // Print the stack trace if requested
+                if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+                // Notify error
+                return false;
+            }
+        }
+
+        // Open the serial port
+        if( !_openSerialPort(serialDevice, baudrate, null) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSerDev, ProgClassName);
+
+        // Clear the serial port buffers
+        _serialFlush();
+        _serialDrain();
+        //*/
+
+        /*
+        // Open the serial port
+        // WARNING : # Using this code to initiate an erase or reset to bootloader will fail because the
+        //             serial device will not re-enumerate.
+        //           # On SAM devices with UART-based SAM-BA, communication is handled via a USB-to-serial
+        //             converter, so USB re-enumeration does not occur.
+        if( !_openSerialPort(serialDevice, baudrate, new Function<ProgBootSerial, Integer>() {
+            @Override
+            public Integer apply(final ProgBootSerial pbs)
+            {
+                // There is no need to go further if the user does not supply the magic baudrate
+                if(magicBaudrateToResetToBootloaderMode <= 0) return 0;
+                // Check if we can get the version number
+                _pbs_wrBuff_32I[0] = 'V';
+                _pbs_wrBuff_32I[1] = '#';
+                _serialTx(_pbs_wrBuff_32I, 2);
+                final int[] verBytes = _sambaRx(256);
+                _serialFlush();
+                // Return the magic baudrate as needed
+                return (verBytes != null) ? 0 : magicBaudrateToResetToBootloaderMode;
+            }
+        } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSerDev, ProgClassName);
+        //*/
+
+        // Build the applet (multiple calls are safe - it guards against reinitialization)
+        if( !WordCopyARM.build(false) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAAplBuild, ProgClassName);
+
+        // Instantiate the flash operation class - must be done after 'WordCopyARM.build()'
+        try {
+            // Get the class name
+            String clazzName = _configAppletInfo().flashDriver;
+            if( !clazzName.contains(".") ) clazzName = "jxm.ugc.ProgBootSAMBA$Flash" + clazzName;
+            // Get the class and constructor
+            final Class<?>       clazz       = Class.forName(clazzName);
+            final Constructor<?> constructor = clazz.getConstructor(ProgBootSAMBA.class, long.class, int.class, int.class, int.class, int.class, long.class, long.class, long.class, boolean.class, boolean.class);
+            // Instantiate the class
+            _flashOper = (FlashOper) constructor.newInstance(
+                this,
+                _configAppletInfo().flashBase,
+                _config.memoryFlash.numPages,
+                _config.memoryFlash.pageSize,
+                _configAppletInfo().flashNumPlanes,
+                _configAppletInfo().flashNumLockRegs,
+                _configAppletInfo().sramAppletStart,
+                _configAppletInfo().sramAppletStack,
+                _configAppletInfo().regBase,
+                _configAppletInfo().canBrownout,
+                _configAppletInfo().canBootFlash
+            );
+        }
+        catch(final Exception e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            // Notify error
+            return false;
+        }
+
+        // Initialize the programmer
+        if( !_smbConnect () ) return false;
+        if( !_smbIdentify() ) return false;
+
+        // Initialize the applet
+        if( !_applet_setCode ( WordCopyARM.opcode()          ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAAplInit, ProgClassName);
+        if( !_applet_setStack( _flashOper._appletStack       ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAAplInit, ProgClassName);
+        if( !_applet_setWords( _flashOper._flashPageSize / 4 ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSAMBAAplInit, ProgClassName);
+
+        // Print the IDs
+        SysUtil.stdDbg().printf("[SAM-BA] CHIPID.CIDR  [MASK: 0x%08X] = 0x%08X\n", SMB_MASK_CHIP_ID , _smb_chipID );
+        SysUtil.stdDbg().printf("[SAM-BA] CHIPID.EXID  [MASK: 0x%08X] = 0x%08X\n", SMB_MASK_ECHIP_ID, _smb_echipID);
+        SysUtil.stdDbg().printf("[SAM-BA] DSU   .DID   [MASK: 0x%08X] = 0x%08X\n", SMB_MASK_DEV_ID  , _smb_devID  );
+        SysUtil.stdDbg().printf("[SAM-BA] SCB   .CPUID [MASK: 0x%08X] = 0x%08X\n", SMB_MASK_CPU_ID  , _smb_cpuID  );
+        SysUtil.stdDbg().println();
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    public boolean begin(final String serialDevice, final int baudrate, final int magicBaudrateToResetToBootloaderMode)
+    {
+        if( _begin_impl(serialDevice, baudrate, magicBaudrateToResetToBootloaderMode) ) return true;
+
+        _closeSerialPort();
+
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+    }
+
+    public boolean begin(final String serialDevice, final int baudrate)
+    { return begin(serialDevice, baudrate, DefMagicBaudrate); }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Write options
+        // ##### !!! TODO : Only write options if no previous error has occurred? !!! #####
+        if( !_flashOper.writeOptions() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+
+        // Attempts chip reset; may fail on certain MCUs or board designs
+        _smbResetChip();
+
+        // Close the serial port
+        _closeSerialPort();
+
+        // Reset all data
+        _smb_chipID  = -1;
+        _smb_echipID = -1;
+        _smb_cpuID   = -1;
+        _smb_devID   = -1;
+
+        _xmodem      = null;
+        _flashOper   = null;
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // NOTE : The MCU signature was read during 'begin()'
+
+        // Done
+        return _mcuSignature != null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : Under the SAM-BA protocol, this function is expected to erase only flash memory
+    @Override
+    public boolean chipErase()
+    {
+        /*
+         * ##### !!! WARNING !!! #####
+         *
+         * If the SAM-BA bootloader resides in flash rather than ROM, ensure that:
+         *     Config.appletInfo.flashBLStart
+         *     Config.appletInfo.flashBLSize
+         * contain the correct values to prevent SAM-BA from accidentally erasing itself.
+         */
+
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Erase all
+        if( !_flashOper.eraseAll(0) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _verifyReadFlash_impl(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int  nb  = (numBytes < 0) ? _config.memoryFlash.totalSize : numBytes;
+        final long la  = ( (long) startAddress & 0xFFFFFFFFL );
+              int  sa  = ( la >= _configAppletInfo().flashBase ) ? ( (int) (la - _configAppletInfo().flashBase) ) : startAddress;
+              int  ns  = sa % _config.memoryFlash.pageSize;
+                   sa -= ns;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(sa, nb, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Determine the number of pages
+        final boolean notAligned = (numBytes % _config.memoryFlash.pageSize) != 0;
+        final int     numPages   = (numBytes / _config.memoryFlash.pageSize) + (notAligned ? 1 : 0);
+        final int     ofsPage    = sa / _config.memoryFlash.pageSize;
+
+        // Read the bytes (and compare them if requested)
+        final int[] cbytes = new int[_config.memoryFlash.pageSize];
+
+              int   rdbIdx = 0;
+              int   verIdx = 0;
+
+        for(int c = 0; c < numPages; ++c) {
+
+            // Read in chunk
+            final int numReads = Math.min(_config.memoryFlash.pageSize, numBytes - rdbIdx);
+
+            if( !_flashOper.readPage(ofsPage + c, cbytes) ) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                return -1;
+            }
+
+            // Process the chunk bytes
+            for(int b = 0; b < numReads; b += 2) {
+
+                if(ns != 0) {
+                    ns -= 2;
+                    continue;
+                }
+
+                // Store the bytes to the result buffer
+                _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b    ];
+                _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b + 1];
+
+                // Compare the bytes as needed
+                if(refData != null && verIdx < refData.length) {
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                }
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+            } // for b
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return numBytes;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash_impl(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    private boolean _writeFlashPage_impl(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize(sa, nb, _config.memoryFlash.pageSize, ProgClassName) ) return false;
+
+        // Get the number of pages to be written and the current page address
+        final int numPages = nb / _config.memoryFlash.pageSize;
+        final int ofsPage  = sa / _config.memoryFlash.pageSize;
+              int cpgAddr  = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Save and clear flag
+        final boolean eraseBeforeWrite = !_chipErased;
+
+        _chipErased = false;
+
+        // Write the pages
+        int datIdx = 0;
+
+        for(int p = 0; p < numPages; ++p) {
+
+            // ##### !!! TODO : Skip writing the page if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the page
+            if( !_flashOper.loadBuffer( USB2GPIO.ba2ia(data, datIdx, _config.memoryFlash.pageSize) ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+
+            if( !_flashOper.writePage(ofsPage + p, eraseBeforeWrite) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, _config.memoryFlash.pageSize / 2);
+
+            // Increment the counters
+            cpgAddr += _config.memoryFlash.pageSize;
+            datIdx  += _config.memoryFlash.pageSize;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+        final int  nb = (numBytes < 0) ? _config.memoryFlash.totalSize : numBytes;
+        final long la = ( (long) startAddress & 0xFFFFFFFFL );
+        final int  sa = ( la >= _configAppletInfo().flashBase ) ? ( (int) (la - _configAppletInfo().flashBase) ) : startAddress;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        if(anbr == null) return false;
+
+        // Write flash
+        if( !_writeFlashPage_impl(anbr.buff, sa, anbr.nb, progressCallback) ) return false;
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash_impl(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : All SAM MCUs does not have embedded EEPROM!
+
+    @Override
+    public int readEEPROM(final int address)
+    { return -1; }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    { return false; }
+
+} // class ProgBootSAMBA

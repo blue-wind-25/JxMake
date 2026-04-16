@@ -1,0 +1,471 @@
+====================================================================================================
+JxMake Loadable Libraries
+====================================================================================================
+
+As has been explained in the introduction chapter, JxMake loadable libraries can be loaded using:
+    :::include  <LIBRARY_NAME>
+    :::sinclude <LIBRARY_NAME>
+
+There are three types of libraries:
+    1. Simple utility libraries.
+    2. Higher function libraries.
+    3. Internal libraries that are only meant to be loaded by the two types of libraries above.
+
+Some libraries read and use global and/or environment variables for configuration values. Some other
+libraries have built-in targets to show help about their features.
+
+The JxMake user data  directory is currently located at '$HOME/0-JxMake/data'.
+The JxMake user tools directory is currently located at '$HOME/0-JxMake/tools'.
+
+For build systems that support limiting the number of warning and/or error messages before the build
+process terminates, the environment variable 'JXMAKELIB_MAX_WARNINGS_AND_ERRORS' is used. If this
+environment variable is not defined, the default value is 5.
+
+----------------------------------------------------------------------------------------------------
+
+Please note that because for now the JxMake development process is more concentrated on adding and
+improving features in the core build system ('jxm.jar'), these loadable libraries may not be updated
+as frequently and thus may not support newer build tools (such as compilers & linkers), newer SDKs,
+some MCU variants, etc.
+
+
+----------------------------------------------------------------------------------------------------
+List of User Loadable Libraries
+----------------------------------------------------------------------------------------------------
+
+Null
+    An empty library. This library can be used for library loading tests.
+
+
+BasicPlatformUtil
+    A basic platform utility library. Despite this library can be loaded and used by users directly,
+    it is still primarily intended to be included from the other libraries listed below.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_CHK_INTERVAL_SECONDS' environment variable.
+    If the environment variable is not defined, the default value of 432000 seconds (5 days) will
+    be used. This value is also used by all other libraries that perform program, tool, and utility
+    downloads (please also read the description of the macros 'JXMAKELIB_DOWNLOAD_*' below).
+
+
+GitHubTool
+    GitHub REST API tools library.
+
+    This library reads and uses the 'GITHUB_TOKEN' environment variable.
+
+
+SourceForgeTool
+    A library of SourceForge related tools.
+
+
+OpenSSLUtil
+    This library provides the means to find and check the availability of OpenSSL commands and their
+    versions.
+
+
+PythonUtil
+    This library provides the means to find and check the availability of Python commands and their
+    versions.
+
+    This library reads and uses the 'JXMAKELIB_PYTHON2_MAX_VERSION' and
+    'JXMAKELIB_PYTHON3_MAX_VERSION' global/environment variables.
+
+
+----------------------------------------------------------------------------------------------------
+
+
+DownloadIntelHex
+    This library provides a means to download the Python IntelHex  library. All the downloaded files
+    are stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_INTELHEX_FORCE_TAG' global/environment
+    variable if the '?dlExactTag' function argument is not specified.
+
+
+DownloadPySerial
+    This library provides a means to download the Python pySerial library. All the downloaded files
+    are stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_PYSERIAL_FORCE_TAG' global/environment
+    variable if the '?dlExactTag' function argument is not specified.
+
+
+DownloadESPTool
+    This library provides a means to download the official ESP32 flashing utility (ESPTool) which
+    is written in C and is available as a no-dependency static binary. All the downloaded files are
+    stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ESPTOOL_FORCE_TAG' global/environment
+    variable if the '?dlExactVersion' function argument is not specified.
+
+
+DownloadESPUtil
+    This library provides a means to download an alternative ESP32 flashing utility (ESPUtil) which
+    is written in C and is available as a no-dependency static binary. All the downloaded files are
+    stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ESPUTIL_FORCE_TAG' global/environment
+    variable if the '?dlExactVersion' function argument is not specified.
+
+
+DownloadBOSSA
+    This library provides a means to download BOSSA program. All the downloaded files are stored
+    in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_BOSSA_FORCE_TAG' global/environment
+    variable if the '?dlExactVersion' function argument is not specified.
+
+
+DownloadDFUProgrammer
+    This library provides a means to download DFU-Programmer. All the downloaded files are stored
+    in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG' global/environment
+    variable if the '?dlExactVersion' function argument is not specified.
+
+
+DownloadDFUUtil
+    This library provides a means to download DFU-Util programs. All the downloaded files are stored
+    in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_DFU_UTIL_FORCE_VERSION' global/environment
+    variable if the '?dlExactVersion' function argument is not specified.
+
+
+DownloadRP2040Tools
+    This library provides a means to download other RP2040 related tools. All the downloaded files
+    are stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_RP2040_TOOLS_FORCE_TAG' global/environment
+    variable if the '?dlExactTagRP2040' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_UF2CONV_FORCE_TAG' global/environment
+    variable if the '?dlExactTagUF2Conv' function argument is not specified.
+
+    This library uses the 'DownloadPySerial' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+DownloadRP2040OpenOCD
+    This library provides a means to download the RP2040 OpenOCD program. All the downloaded files
+    are stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_RP2040_OPENOCD_FORCE_TAG' global/environment
+    variable if the '?dlExactTag' function argument is not specified.
+
+
+DownloadXPackOpenOCD
+    This library provides the means to download the xPack OpenOCD program. All the downloaded files
+    are stored in the JxMake user data directory.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' global/environment
+    variable if the '?onlyIfNotExist' function argument is not specified.
+
+    This library reads and uses the 'JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG' global/environment
+    variable if the '?dlExactTag' function argument is not specified.
+
+
+----------------------------------------------------------------------------------------------------
+
+
+JavaBuildTool
+    The primary Java build tool library. This library supports building Java programs.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+
+C++BuildTool
+    The primary C/C++ build tool library. This library supports building C/C++ programs using GCC
+    Clang, and MSVC.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+
+ArduinoXBuildTool
+    The primary Arduino build tool library. This library supports building Arduino programs using
+    'arduino-cli'.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library reads and uses the 'ARDUINO_CLI_PATH' global/environment variables.
+
+
+C++XBuildTool_ArduinoUtil
+    Arduino-related tools library. Despite this library can be loaded and used by users directly,
+    it is still primarily intended to be included from some of the other libraries listed below.
+
+
+C++XBuildTool_GCC_ARM
+    The generic and basic C/C++ build tool library for building C/C++ programs using ARM GCC.
+
+    Instead of including this library, you may want to include the more target-specific libraries if
+    they are available.
+
+    When loaded and used by users directly, this library reads and uses the 'ARM_TOOLCHAIN_PATH'
+    global variable.
+
+
+C++XBuildTool_GCC_RISCV
+    The generic and basic C/C++ build tool library for building C/C++ programs using RISC-V GCC.
+
+    Instead of including this library, you may want to include the more target-specific libraries if
+    they are available.
+
+    When loaded and used by users directly, this library reads and uses the 'RISCV_TOOLCHAIN_PATH'
+    global variable.
+
+
+C++XBuildTool_GCC_Xtensa
+    The generic and basic C/C++ build tool library for building C/C++ programs using Xtensa GCC.
+
+    Instead of including this library, you may want to include the more target-specific libraries if
+    they are available.
+
+    When loaded and used by users directly, this library reads and uses the 'XTENSA_TOOLCHAIN_PATH'
+    global variable.
+
+
+C++XBuildTool_BM_ESP8266
+    Cross-platform C/C++ build tool library for bare-metal ESP8266. This library supports using
+    Xtensa GCC from native system installation and Arduino installation (although the path must be
+    specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadESPTool' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_BM_ESP32
+    Cross-platform C/C++ build tool library for bare-metal ESP32. This library supports using
+    Xtensa GCC from native system installation and Arduino installation (although the path must be
+    specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadESPTool' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_BM_ESP32C3
+    Cross-platform C/C++ build tool library for bare-metal ESP32-C3. This library supports using
+    RISC-V GCC from native system installation and Arduino installation (although the path must be
+    specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadESPUtil' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_BM_ATSAMD21
+    Cross-platform C/C++ build tool library for bare-metal ATSAMD21 series. This library supports
+    using ARM GCC from native system installation and Arduino installation (although the path must
+    be specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadBOSSA' and 'DownloadXPackOpenOCD' libraries; therefore, it also
+    reads and uses the global/environment variables used by the aforementioned libraries.
+
+
+C++XBuildTool_BM_ATSAM3X
+    Cross-platform C/C++ build tool library for bare-metal ATSAM3X series. This library supports
+    using ARM GCC from native system installation and Arduino installation (although the path must
+    be specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadBOSSA' and 'DownloadXPackOpenOCD' libraries; therefore, it also
+    reads and uses the global/environment variables used by the aforementioned libraries.
+
+
+C++XBuildTool_BM_NRF51
+    Cross-platform C/C++ build tool library for bare-metal nRF51 series. This library supports using
+    ARM GCC from native system installation and Arduino installation (although the path must be
+    specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadXPackOpenOCD' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_BM_NRF52
+    Cross-platform C/C++ build tool library for bare-metal nRF52 series. This library supports using
+    ARM GCC from native system installation and Arduino installation (although the path must be
+    specified manually).
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library uses the 'DownloadXPackOpenOCD' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_AVR_Native
+    Cross-platform C/C++ build tool library for AVR. This library supports using AVR GCC from native
+    system installation and Arduino installation. This library currently only supports building AVR
+    C/C++ programs using the native AVR GCC SDK (no support for using Arduino SDK and libraries).
+
+    This library reads and uses the 'JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS' global/environment
+    variables.
+
+    On Windows, this library also reads and uses the 'ProgramFiles' environment variable.
+
+    This library will also try to use the AVRDUDE that comes with the Arduino package installation.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library uses the 'DownloadDFUProgrammer' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_ESP8266_Arduino
+    Cross-platform C/C++ build tool library for ESP8266. This library supports using Xtensa LX106
+    GCC from native system installation and Arduino installation. This library currently only
+    supports building ESP8266 C/C++ programs using the Arduino SDK and libraries (no support for
+    using native ESP8266 SDK and libraries).
+
+    This library reads and uses the 'JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS' global/environment
+    variables.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+
+C++XBuildTool_RP2040_Pico
+    Cross-platform C/C++ build tool library for Raspberry Pi Pico RP2040. This library supports
+    using ARM GCC from native system installation only (no support for using ARM GCC from Arduino).
+    This library currently only supports building RP2040 C/C++ programs using the native SDK (no
+    support for using Arduino SDK and libraries).
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library reads and uses the 'PICO_SDK_PATH' and 'PICO_TOOLCHAIN_PATH' global/environment
+    variables.
+
+    This library reads and uses the 'OPENOCD_GDB_PORT', 'OPENOCD_TCL_PORT', and 'OPENOCD_TELNET_PORT'
+    global/environment variables.
+
+    This library uses the 'DownloadRP2040OpenOCD' and 'DownloadRP2040Tools' libraries; therefore,
+    it also reads and uses the global/environment variables used by the aforementioned libraries.
+
+
+C++XBuildTool_STM32_Cube
+    Cross-platform C/C++ build tool library for STM32. This library supports using ARM GCC from
+    native system installation only (no support for using ARM GCC from Arduino). This library
+    currently only supports building STM32 C/C++ programs using the native STM32Cube SDK (no support
+    for using Arduino SDK and libraries).
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library reads and uses the 'STM32_SDK_PATH' and 'STM32_TOOLCHAIN_PATH' global/environment
+    variables.
+
+    This library reads and uses the 'OPENOCD_GDB_PORT', 'OPENOCD_TCL_PORT', and 'OPENOCD_TELNET_PORT'
+    global/environment variables.
+
+    This library uses the 'DownloadDFUUtil' and 'DownloadXPackOpenOCD' libraries; therefore, it also
+    reads and uses the global/environment variables used by the aforementioned libraries.
+
+
+C++XBuildTool_STM8_SPL
+    Cross-platform C/C++ build tool library for STM8. This library supports using SDCC from native
+    system installation only (no support for using SDCC from Arduino). This library currently only
+    supports building STM8 C/C++ programs using the native STM8 SPL SDK (no support for using
+    Arduino SDK and libraries).
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library adds one optional parameter ('?dlOnlyIfNotExist') to the 'init_project' function
+    which will be passed to the '?onlyIfNotExist' parameters of the 'download_latest_*' functions
+    which are called by the 'init_project' function.
+
+    This library reads and uses the 'STM8_SDK_PATH' and 'STM8_TOOLCHAIN_PATH' global/environment
+    variables.
+
+    This library uses the 'DownloadXPackOpenOCD' library; therefore, it also reads and uses the
+    global/environment variables used by the aforementioned library.
+
+
+C++XBuildTool_MCS51_Native
+    Cross-platform C/C++ build tool library for MCS51. This library supports using SDCC from native
+    system installation only (no support for using SDCC from Arduino). This library currently only
+    supports building MCS51 C/C++ programs using the native MCS51 SDCC SDK (no support for using
+    Arduino SDK and libraries).
+
+    On Windows, this library reads and uses the 'ProgramFiles' environment variable.
+
+    This library will also try to use the AVRDUDE that comes with the Arduino package installation.
+
+    This library supports a built-in target 'btlib_help' which will show some information about the
+    library features.
+
+    This library reads and uses the 'MCS51_TOOLCHAIN_PATH' global/environment variables.
+
+
+----------------------------------------------------------------------------------------------------
+
+
+XMLFrame
+    The primary XML-based simple GUI library.
+
+    This library supports a built-in target 'xflib_help' which will show some information about the
+    library features.
+
+====================================================================================================

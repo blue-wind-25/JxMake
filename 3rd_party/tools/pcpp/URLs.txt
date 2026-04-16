@@ -1,0 +1,31 @@
+====================================================================================================
+PCPP - A C99 Preprocessor Written in Pure Python
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+PCPP is not part of the JxMake program and is not covered by JxMake licenses.
+----------------------------------------------------------------------------------------------------
+
+The PCPP script files in this directory and its subdirectories were downloaded from the GitHub
+repositories:
+
+    https://github.com/ned14/pcpp
+    https://github.com/ned14/pcpp/archive/refs/heads/master.zip
+
+    https://github.com/ned14/ply/tree/fbc7a3cbc6e57d18462453dc65ba2c985fd6ac21
+    https://github.com/ned14/ply/archive/fbc7a3cbc6e57d18462453dc65ba2c985fd6ac21.zip
+
+Some files and directories that are not strictly required for the use of the program are not
+included here to save space.
+
+The function:
+    preprocessor.py/macro_expand_args()
+has been modified to remove whitespaces after the token pasting operator (##).
+
+~~~ Last accessed & checked on 2024-07-05 ~~~
+
+----------------------------------------------------------------------------------------------------
+Please refer to 'LICENSE.txt' and 'ply/README.md' file for the license details.
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================

@@ -1,0 +1,88 @@
+Text1  := '1.1   1.2   1.3   1.4   1.5'
+Text1 +:= '2.1   2.2   2.3   2.4   2.5'
+Text1 +:= '3.1   3.2   3.3   3.4   3.5'
+Text1 +:= '4.1   4.2   4.3   4.4   4.5'
+Text1 +:= '5.1   5.2   5.3   5.4   5.5'
+
+File1 := $put_file('test.txt', ${Text1})
+File2 := ${File1/(.+)\.txt/$1.data.txt/}
+
+echoln ${File1}
+echoln
+echoln ${File2}
+echoln
+
+$rmfile(${File2})
+$mvfile(${File1}, ${File2})
+
+
+
+Text2 := $get_file(${File2})
+
+for I := 1 to $part_count(${Text2}) step 1
+
+    Line := $partn(${Text2}, ${I})
+    Part := $explode(${Line})
+
+    for J := 1 to $part_count(${Part}) step 1
+        Col := $partn(${Part}, ${J})
+        echo ${Col/(\d+)\.(\d+)/$1-$2 /}
+    endfor
+    echoln
+
+endfor
+
+
+
+$rmfile(${File2})
+
+echoln
+echoln
+
+
+
+DiffTest1  := "Index: my_dir/myfile1.txt\n"
+DiffTest1 +:= "===================================================================\n"
+DiffTest1 +:= "--- my_dir/myfile1.txt    (revision 1000)\n"
+DiffTest1 +:= "+++ my_dir/myfile1.txt    (working copy)\n"
+DiffTest1 +:= "@@ -1,6 +1,5 @@\n"
+DiffTest1 +:= " Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
+DiffTest1 +:= " \n"
+DiffTest1 +:= "-Maecenas ligula nisi, aliquet ac nisl gravida, semper commodo leo.\n"
+DiffTest1 +:= "+Pellentesque a elit tincidunt, egestas mauris id, efficitur ligula.\n"
+DiffTest1 +:= " \n"
+DiffTest1 +:= " Quisque ac metus placerat, lacinia ante nec, hendrerit eros.\n"
+
+echoln $color_udiff(${DiffTest1})
+echoln
+
+echoln
+echoln
+
+DiffTest2  := "index fabadb8..cc95eb0 4866510\n"
+DiffTest2 +:= "--- my_dir/myfile1.txt\n"
+DiffTest2 +:= "+++ my_dir/myfile1.txt\n"
+DiffTest2 +:= "@@ -1,6 +1,5 @@\n"
+DiffTest2 +:= " Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
+DiffTest2 +:= " \n"
+DiffTest2 +:= "-Maecenas ligula nisi, aliquet ac nisl gravida, semper commodo leo.\n"
+DiffTest2 +:= "+Pellentesque a elit tincidunt, egestas mauris id, efficitur ligula.\n"
+DiffTest2 +:= " \n"
+DiffTest2 +:= " Quisque ac metus placerat, lacinia ante nec, hendrerit eros.\n"
+
+echoln $color_udiff(${DiffTest2})
+echoln
+
+echoln
+echoln
+
+function svn_diff()
+   -@svn diff ..
+    if  &$[lserr]  : return
+    if !&$[stdout] : return
+   #echoln $color_udiff( $sflines($[stdout]) )
+    echoln $color_udiff($[stdout])
+    echoln
+endfunction
+
+$exec(svn_diff)

@@ -1,0 +1,989 @@
+====================================================================================================
+JxMake USB-GPIO Module - Protocol Manual Version 1 and 2
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+!!! NOTE : Always synchronize with the firmware implementation and Java driver implementation !!!
+----------------------------------------------------------------------------------------------------
+
+Incompatibilities between version 1 and 2 of the protocol:
+    1. A few non-critical and not very flexible features have been removed from version 2 of the
+       protocol.
+    2. Some new features are only supported in version 2 of the protocol.
+    3. Some features behave slightly differently in version 2 of the protocol.
+
+Protocol version 1 is used by the older 'JxMake USB GPIO'    module.
+Protocol version 2 is used by the newer 'JxMake USB GPIO II' module.
+
+These incompatibilities are due to hardware design limitations and choices.
+
+Please pay attention to the notes, which state something like:
+    In the [v1] protocol, ...
+    In the [v2] protocol, ...
+    [v1]
+    [v2]
+    [!!! v1 Protocol ONLY !!!]
+    [!!! v2 Protocol ONLY !!!]
+
+----------------------------------------------------------------------------------------------------
+
+##### ??? TODO : VERIFY THIS ??? #####
+
+The 'JxMake USB-GPIO' and 'JxMake USB-GPIO II' modules enumerate as low-power devices (100mA) to
+improve compatibility and ensure easier USB enumeration, even if users may actually draw more than
+100mA when connecting their own devices to the modules.
+
+This approach should be acceptable because classic USB hosts must provide VBUS with at least 500mA
+(USB 2.0) or 900mA (USB 3.0) to downstream ports, meaning no host actively enforces the 100mA limit.
+For a Type-C host, the device (or legacy cable assembly) must include a 5.1k pull-down resistor to
+enable VBUS.
+
+Should a special firmware protocol be implemented to store configuration data in EEPROM, allowing
+the modules to enumerate as either 100mA or 500mA devices based on user preference? If configured
+for 500mA but then repeatedly failing to enumerate, the modules will automatically revert to 100mA.
+
+----------------------------------------------------------------------------------------------------
+
+All commands must be prefixed with a PREFIX character 0xAA.
+
+There are two types of response:
+
+    Acknowledged     (ACK) : 0xF0      <optional_response_data_bytes>
+
+    Not acknowledged (NAK) : 0xFF 0xNN <optional_error_message_bytes>
+                                  └→ the number of error message bytes
+
+In the next section 0xNN will be used as a generic placeholder for a byte.
+
+UART is the acronym for 'Universal Asynchronous Receiver-Transmitter' (asynchronous serial port).
+USRT is the acronym for 'Universal  Synchronous Receiver-Transmitter' ( synchronous serial port).
+UXRT is a generic acronym that refers to both UART and USRT.
+
+In the [v1] protocol, PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE is 255 bytes.
+In the [v2] protocol, PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE is 512 bytes.
+
+
+----------------------------------------------------------------------------------------------------
+System Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_DETECT
+    Send    : PREFIX 0x0D 0x68 0x45 0x4C 0x4C 0x6F 0x0A
+                     │    ┄    ┄    ┄    ┄    ┄    │
+                     └─────────────────────────────┴→ "\rhELLo\n"
+    Receive : ACK 0x4A 0x78 0x4D 0x61 0x6B 0x65 0x20 0x55 0x53 0x42 0x2D 0x47 0x50 0x49 0x4F 0x20 0x4D 0x6F 0x64 0x75 0x6C 0x65 0x0A
+                  │    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    ┄    │
+                  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┴→ "JxMake USB-GPIO Module\n"
+                  0xNN 0xNN 0xNN 0xNN 0xNN 0xNN 0xNN 0xNN 0xNN
+                  │    ┄    ┄    ┄    ┄    ┄    ┄    ┄    │
+                  └───────────────────────────────────────┴→ current system ID (it might change after every reset)
+              NAK 0x00
+
+    NOTE :
+        # Upon receiving an ACK, sending any byte to the secondary interface without first enabling
+          the UART or USRT via CMD_HW_UART_ENABLE or CMD_HW_USRT_ENABLE will cause the secondary
+          interface to send the same current system ID.
+        # Using this algorithm, it is possible to auto-detect if a pair of serial ports belongs to
+          a JxMake USB-GPIO Module.
+
+CMD_PING
+    Send    : PREFIX 0x00
+    Receive : ACK
+
+CMD_GET_PROTOCOL_VERSION
+    Send    : PREFIX 0x01
+    Receive : ACK 0xNN 0xNN 0xNN 0xNN
+                  │    │    │    └→ debug message support
+                  │    │    └→ revision
+                  │    └→ minor
+                  └→ major
+
+    Debug message support : 0 -> not compiled in
+                            1 ->     compiled in (output to the second virtual serial port        ) [!!! v1 Protocol ONLY !!!]
+                            2 ->     compiled in (output to the activity LED pin via software UART) [!!! v1 Protocol ONLY !!!]
+                            3 ->     compiled in (output to the activity LED pin via hardware UART) [!!! v2 Protocol ONLY !!!]
+
+    NOTE : The performance of the 'JxMake USB GPIO' module can be significantly slower when the
+           debug-message-support is compiled in, whereas the performance of the 'JxMake USB GPIO II'
+           module is almost unaffected.
+
+CMD_GET_FIRMWARE_VERSION
+    Send    : PREFIX 0x02
+    Receive : ACK 0xNN 0xNN 0xNN 0xNN
+                  │    │    │    └→ debug message support (see CMD_GET_PROTOCOL_VERSION)
+                  │    │    └→ revision
+                  │    └→ minor
+                  └→ major
+
+CMD_ENABLE_DEBUG_MESSAGE
+    Send    : PREFIX 0x05 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : ....INWE
+        I : enable/disable information message
+        N : enable/disable notice      message
+        W : enable/disable warning     message
+        E : enable/disable error       message
+
+    Please note that this command will do nothing if the firmware has not been compiled with the
+    debugging message enabled (via '-DENABLE_DEBUG_STREAM=1'). Enabling debugging message will cause
+    performance degradation!
+
+    If the firmware has not been compiled using '-DDEBUG_STREAM_USE_AVR_TINY_UART=1', the debugging
+    messages will be sent to the second virtual serial port. Therefore, it is highly recommended not
+    to enable debugging messages unless it is really necessary.
+
+    If the firmware has been compiled using '-DDEBUG_STREAM_USE_AVR_TINY_UART=1', the debugging
+    messages will be sent via software UART (using the activity LED pin). In this case, there are
+    special debugging messages that may always be sent even if CMD_ENABLE_DEBUG_MESSAGE does not
+    enable any type of debugging messages.
+
+CMD_RESET
+    Send    : PREFIX 0x08
+    Receive : ACK
+
+CMD_RESET_TO_BOOTLOADER
+    Send    : PREFIX 0x09
+    Receive : ACK
+
+
+----------------------------------------------------------------------------------------------------
+Hardware GPIO Commands
+----------------------------------------------------------------------------------------------------
+
+GPIO Number   PWM Channel   ADC Channel   ATmega32U4 Pin        ATxmega128A4U Pin
+              [v1]   [v2]   [v1]   [v2]   [v1]                  [v2]
+0             0      0      0      0      PB.6 (ADC13) (OC4B)   PA.0 (ADC0) & PC.0 (OC0A)
+1             1      1      N/A    1      PC.6         (OC4A)   PA.1 (ADC1) & PC.1 (OC0B)
+2             N/A    2      2      2      PD.4 (ADC08)          PA.2 (ADC2) & PC.2 (OC0C)
+3             N/A    3      N/A    3      PE.6                  PA.3 (ADC3) & PC.3 (OC0D)
+4             N/A    N/A    4      4      PF.4 (ADC04)          PA.4 (ADC4)
+5             N/A    N/A    5      5      PF.5 (ADC05)          PA.5 (ADC5)
+6             N/A    N/A    6      6      PF.6 (ADC06)          PA.6 (ADC6)
+7             N/A    N/A    7      7      PF.7 (ADC07)          PA.7 (ADC7)
+
+NOTE : In the [v2] protocol, depending on the installed bootloader, GPIO #3 (PC.3) will also
+       function as the bootloader trigger button.
+
+CMD_HW_GPIO_SET_MODE
+    Send    : PREFIX 0x20 0xNN 0xNN 0xNN
+                          │    │    └→ initial value bits (only meaningful for GPIOs in output mode)
+                          └────┴→ mode bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Mode bits   : 76543210 76543210
+    GPIO number : 77665544 33221100
+        0b00 -> Input
+        0b01 -> Input with pull-up
+        0b10 -> Output
+        0b11 -> No change
+
+    Initial value bits : 76543210
+    GPIO number        : 76543210
+
+CMD_HW_GPIO_SET_VALUES
+    Send    : PREFIX 0x21 0xNN 0xNN
+                          │    └→ value bits (only meaningful for GPIOs in output mode)
+                          └→ mask bits (only meaningful for GPIOs in output mode)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Mask  bits  : 76543210 (set the corresponding bit to 1 to change the GPIO value)
+    Value bits  : 76543210
+    GPIO number : 76543210
+
+CMD_HW_GPIO_GET_VALUES
+    Send    : PREFIX 0x22
+    Receive : ACK 0xNN
+                  └→ value bits (only meaningful for GPIOs in input mode)
+              NAK 0xNN <optional_error_message_bytes>
+
+    Value bits  : 76543210
+    GPIO number : 76543210
+
+CMD_HW_GPIO_SET_PWM
+    Send    : PREFIX 0x23 0xNN 0xNN
+                          │    └→ 8-bit value
+                          └→ GPIO number
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_GPIO_GET_ADC
+    Send    : PREFIX 0x24 0xNN
+                          └→ GPIO number
+    Receive : ACK 0xNN 0xNN
+                  └────┴→ 10-bit value (0b000000NNNNNNNNNN) (MSB first)
+              NAK 0xNN <optional_error_message_bytes>
+
+    NOTE :
+        # In the [v1] protocol, the voltage reference is AVCC with external capacitor on AREF pin.
+        # In the [v2] protocol, the voltage reference is 10/11 of bandgap (1.0V).
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_GPIO_GET_VREAD
+    Send    : PREFIX 0x25
+    Receive : ACK 0xNN 0xNN
+                  └────┴→ 10-bit value (0b000000NNNNNNNNNN) (MSB first)
+              NAK 0xNN <optional_error_message_bytes>
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_GPIO_CALIBRATE_VREAD
+    Send    : PREFIX 0x26 0xNN 0xNN
+                          └────┴→ 10-bit value (0b000000NNNNNNNNNN) (MSB first)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+
+----------------------------------------------------------------------------------------------------
+Hardware SPI Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_HW_SPI_ENABLE
+    Send    : PREFIX 0x40 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : .MMSBDDD
+        MM   : 0b00   ( 0) -> CPOL=0 CPHA=0  (SPI mode 0)
+               0b01   ( 1) -> CPOL=0 CPHA=1  (SPI mode 1)
+               0b10   ( 2) -> CPOL=1 CPHA=0  (SPI mode 2)
+               0b11   ( 3) -> CPOL=1 CPHA=1  (SPI mode 3)
+        S    : 0b0    ( 0) -> SS active low
+               0b1    ( 1) -> SS active high
+                                    [v1]             [v2]
+        BDDD : 0b0000 ( 0) -> SCK     8MHz ± 0.01%    16MHz ± 0.01%   (hardware SPI)
+               0b0001 ( 1) -> SCK     8MHz ± 0.01%    16MHz ± 0.01%   (hardware SPI)
+               0b0010 ( 2) -> SCK     4MHz ± 0.01%     8MHz ± 0.01%   (hardware SPI)
+               0b0011 ( 3) -> SCK     2MHz ± 0.01%     4MHz ± 0.01%   (hardware SPI)
+               0b0100 ( 4) -> SCK     1MHz ± 0.01%     2MHz ± 0.01%   (hardware SPI)
+               0b0101 ( 5) -> SCK   500kHz ± 0.01%     1MHz ± 0.01%   (hardware SPI)
+               0b0110 ( 6) -> SCK   250kHz ± 0.01%   500kHz ± 0.01%   (hardware SPI)
+               0b0111 ( 7) -> SCK   125kHz ± 0.01%   250kHz ± 0.01%   (hardware SPI)
+               0b1000 ( 8) -> SCK    32kHz ±   ~2%    64kHz ±   ~2%   (hardware-assisted bit-banging SPI)
+               0b1001 ( 9) -> SCK    16kHz ±   ~2%    32kHz ±   ~2%   (hardware-assisted bit-banging SPI)
+               0b1010 (10) -> SCK     8kHz ±   ~1%    16kHz ±   ~2%   (hardware-assisted bit-banging SPI)
+               0b1011 (11) -> SCK     4kHz ±   ~1%     8kHz ±   ~1%   (hardware-assisted bit-banging SPI)
+               0b1100 (12) -> SCK     2kHz ±   ~1%     4kHz ±   ~1%   (hardware-assisted bit-banging SPI)
+               0b1101 (13) -> SCK     1kHz ±   ~1%     2kHz ±   ~1%   (hardware-assisted bit-banging SPI)
+               0b1110 (14) -> SCK    500Hz ±   ~1%     1kHz ±   ~1%   (hardware-assisted bit-banging SPI)
+               0b1111 (15) -> SCK    250Hz ±   ~1%    500Hz ±   ~1%   (hardware-assisted bit-banging SPI)
+
+CMD_HW_SPI_DISABLE
+    Send    : PREFIX 0x41
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_SPI_SELECT_SLAVE
+    Send    : PREFIX 0x42
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_SPI_DESELECT_SLAVE
+    Send    : PREFIX 0x43
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_SPI_TRANSFER
+    Send    : PREFIX 0x44 0xNN 0xNN...
+                          │    └→ the data bytes to be transferred
+                          └→ the number of data bytes to be transferred (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+    NOTE :
+        # Hardware SPI mode will always bring the MOSI (SDO) pin to its inactive (idle) state after
+          the transfer is complete.
+        # Hardware-assisted bit-banging SPI will always keep the MOSI (SDO) pin at the value of the
+          last transmitted bit.
+
+CMD_HW_SPI_TRANSFER_W16ND_R16DN
+    Send    : PREFIX 0x50 0xNN 0xNN 0xNN 0xNN 0xNN 0xNN...
+                          │    │    │    │    │    └→ the data bytes to be written
+                          │    │    │    │    └→ dummy value for the SPI bus when reading
+                          │    │    │    └→ the number of data bytes to be read (must be even and <= PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          │    │    └→ configuration bits for read
+                          │    └→ the number of data bytes to be written (must be even and <= PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ configuration bits for write
+    Receive : ACK 0xNN...
+                  └→ the read data bytes (only if the number of data bytes to be read is not zero)
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits for write : 76543210
+    Functions                    : DDDD..MM
+        DDDD : The amount of delay after sending all the data bytes to be written (in multiple of 25 uS)
+        MM   : SPI mode (see CMD_HW_SPI_ENABLE)
+
+    Configuration bits for read  : 76543210
+    Functions                    : DDDD..MM
+        DDDD : The amount of delay between reading 2 bytes (in multiple of 10 uS)
+        MM   : SPI mode (see CMD_HW_SPI_ENABLE)
+
+    Please refer to CMD_HW_SPI_TRANSFER for more details.
+
+CMD_HW_SPI_SET_SCK_FREQUENCY
+    Send    : PREFIX 0x45 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions #1       : .000BDDD (see CMD_HW_SPI_ENABLE)
+    Functions #2       : .110CCCC
+                                           [v1]           [v2]
+        110CCCC : 0b1100101 (101) -> SCK   160kHz ± ~5%   280kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1100110 (102) -> SCK   125kHz ± ~5%   220kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1100111 (103) -> SCK   100kHz ± ~5%   170kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1101000 (104) -> SCK    90kHz ± ~3%   150kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1101001 (105) -> SCK    80kHz ± ~3%   130kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1101010 (106) -> SCK    70kHz ± ~3%   120kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1101011 (107) -> SCK    60kHz ± ~3%   100kHz ± ~5%   (hardware-assisted bit-banging SPI)
+                  0b1101100 (108) -> SCK    55kHz ± ~3%    90kHz ± ~3%   (hardware-assisted bit-banging SPI)
+                  0b1101101 (109) -> SCK    50kHz ± ~3%    85kHz ± ~3%   (hardware-assisted bit-banging SPI)
+                  0b1101110 (110) -> SCK    45kHz ± ~3%    80kHz ± ~3%   (hardware-assisted bit-banging SPI)
+                  0b1101111 (111) -> SCK    40kHz ± ~3%    75kHz ± ~3%   (hardware-assisted bit-banging SPI)
+                  0b1110000 (112) -> SCK    N/A            70kHz ± ~3%   (hardware-assisted bit-banging SPI)
+
+CMD_HW_SPI_SET_SPI_MODE
+    Send    : PREFIX 0x46 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : ......MM (see CMD_HW_SPI_ENABLE)
+
+CMD_HW_SPI_SET_CLR_BREAK
+    Send    : PREFIX 0x48 0xNN
+                          └→ break state
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Break state : 76543210
+    Functions   : B.....OC
+        B : 0b0 (0) -> clear break
+            0b1 (1) -> set   break
+        O : 0b0 (0) -> MOSI (SDO) logic 0 (ignored if B != 1)
+            0b1 (1) -> MOSI (SDO) logic 1 (ignored if B != 1)
+        C : 0b0 (0) -> SCK        logic 0 (ignored if B != 1)
+            0b1 (1) -> SCK        logic 1 (ignored if B != 1)
+
+    NOTE :
+        # It is possible to send multiple set break commands and use them for bit-banging the the
+          MOSI and SCK pins (obviously, at a very slow speed).
+        # Only one break command is required even if multiple set break commands have been sent.
+
+CMD_HW_SPI_SET_CLR_BREAK_EXT
+    Send    : PREFIX 0x49 0xNN
+                          └→ break state
+    Receive : ACK 0xNN
+                  └→ the state of MISO (SDI) pin after sending the break; always 0 if B != 1
+              NAK 0xNN <optional_error_message_bytes>
+
+    Please refer to CMD_HW_SPI_SET_CLR_BREAK for more details.
+
+CMD_HW_SPI_XB_TRANSFER
+    Send    : PREFIX 0x4A 0xNN 0xNN 0xNN 0xNN 0xNN...
+                          │    │    │    └────┴→ pairs of configuration values and data bytes to be transferred
+                          │    │    └→ the number of pairs to be transferred (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE / 2)
+                          └────┴→ configuration bits
+    Receive : ACK 0xNN...
+                  └→ the received pairs and data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210 76543210
+    Functions          : IIIIEEEE VVVVVVVV
+                         OOCCOOCC
+        IIII.OO  : 0b00       (0) -> the initial value of MOSI (SDO) is do not care (keep the value ​​from the previous transmission)
+                   0b10       (2) -> the initial value of MOSI (SDO) is logic 0
+                   0b11       (3) -> the initial value of MOSI (SDO) is logic 1
+        IIII.CC  : 0b00       (0) -> the initial value of SCK        is do not care (keep the value ​​from the previous transmission)
+                   0b10       (2) -> the initial value of SCK        is inactive    (the actual logic value depends on the CPOL   )
+                   0b11       (3) -> the initial value of SCK        is active      (the actual logic value depends on the CPOL   )
+        EEEE.OO  : 0b00       (0) -> the ending  value of MOSI (SDO) is do not care (keep the value ​​from the last bit transmission)
+                   0b10       (2) -> the ending  value of MOSI (SDO) is logic 0
+                   0b11       (3) -> the ending  value of MOSI (SDO) is logic 1
+        EEEE.CC  : 0b00       (0) -> the ending  value of SCK        is do not care (keep the value ​​from the last bit transmission)
+                   0b10       (2) -> the ending  value of SCK        is inactive    (the actual logic value depends on the CPOL   )
+                   0b11       (3) -> the ending  value of SCK        is active      (the actual logic value depends on the CPOL   )
+        VVVVVVVV : 0b00000000 (0) -> no delay (process further as fast as possible)
+                   0bVVVVVVVV (*) -> delay ~0bVVVVVVVV mS  after outputting the initial values above
+
+    Pairs of configuration values and data bytes:
+        0xNN 0xNN
+        │    └→ the data byte
+        └→ data byte configuration
+
+        Data byte configuration : 76543210
+        Functions               : .....BBB
+        BBB  : 0b000 (0) -> the number of bits in the following byte of data is 1
+               ...
+               0b111 (7) -> the number of bits in the following byte of data is 8
+
+    NOTE :
+        # This command is implemented using bit-banging SPI and ignore the SCK frequency selected
+          via CMD_HW_SPI_ENABLE/CMD_HW_SPI_SET_SCK_FREQUENCY. However, the implementation is designed
+          so that the SCK frequency of the SPI bit-banging will always be:
+              # In the [v1] protocol, less than ~200kHz.
+              # In the [v2] protocol, less than ~350kHz.
+          In both protocols, the low and high time is at least 1uS (the duty cycle is not 50%).
+        # This command can only be executed in break mode (see CMD_HW_SPI_SET_CLR_BREAK).
+        # Setting EEEE.CC to other than 0b00 may remove the last bit's SCK final edge.
+
+
+CMD_HW_SPI_XB_SPECIAL
+    Send    : PREFIX 0x4C 0xNN
+                          └→ type of the special bit sequence to be sent
+    Receive : ACK 0xNN
+                  └→ status of the SS line after executing the command
+                     0 -> slave is not selected
+                     1 -> slave is     selected
+              NAK 0xNN <optional_error_message_bytes>
+
+    Type      : 76543210
+    Functions : TTTTTTTT
+        1      ->         dsPIC30 HV    ICSP entry sequence (nMCLR->Vpp pulse & 2 NOP instructions)
+        2      -> part of dsPIC33 LV (E)ICSP entry sequence (only the nMCLR pulse before the key  )
+        others -> unsupported (error)
+
+
+----------------------------------------------------------------------------------------------------
+Hardware TWI Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_HW_TWI_ENABLE
+    Send    : PREFIX 0x60 0xNN 0xNN 0xNN 0xNN
+                          │    │    │    └→ configuration bits
+                          └────┴────┴→ scl frequency (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : TTTT...P
+        TTTT : 0bNNNN (1-15) -> timeout period within which the slave must respond (in ~mS);
+                                the recommended timeout is 10mS
+        P    : 0b0    (0   ) -> external pull-up resistors disabled [!!! v1 Protocol ONLY !!!]
+               0b1    (1   ) -> external pull-up resistors enabled  [!!! v1 Protocol ONLY !!!]
+
+    NOTE :
+        # The timeout ranges from a minimum of 1 mS to a maximum of 15 mS, with a default value
+          of 10 mS.
+        # In the [v2] protocol, the external pull-up configuration bit is IGNORED!
+
+CMD_HW_TWI_DISABLE
+    Send    : PREFIX 0x61
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_TWI_WRITE
+    Send    : PREFIX 0x62 0xNN 0xNN 0xNN...
+                          │    │    └→ the data bytes to be written
+                          │    └→ the number of data bytes to be written (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ slave address (0 - 127)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_TWI_WRITE_NO_STOP
+    Send    : PREFIX 0x63 0xNN 0xNN 0xNN...
+                          │    │    └→ the data bytes to be written
+                          │    └→ the number of data bytes to be written (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ slave address (0 - 127)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_TWI_READ
+    Send    : PREFIX 0x64 0xNN 0xNN
+                          │    └→ the number of data bytes to be read (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ slave address (0 - 127)
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_TWI_READ_NO_STOP
+    Send    : PREFIX 0x65 0xNN 0xNN
+                          │    └→ the number of data bytes to be read (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ slave address (0 - 127)
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_TWI_IS_ENABLED
+    Send    : PREFIX 0x69
+    Receive : ACK 0xNN
+                  └→ the enabled state
+              NAK 0xNN <optional_error_message_bytes>
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_TWI_SCAN
+    Send    : PREFIX 0x6A
+    Receive : ACK 0xNN...
+                  └→ the received 127 data bytes
+                     (0 if no device was found at that address; 1 if found)
+              NAK 0xNN <optional_error_message_bytes>
+
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    NOTE : Scan the bus for TWI devices using the clock frequency and timeout specified in
+           CMD_HW_TWI_ENABLE command.
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_TWI_WRITE_ONE_CF
+    Send    : PREFIX 0x6C 0xNN 0xNN 0xNN 0xNN 0xNN
+                          │    │    │    │    └→ the data byte to be written
+                          │    │    │    └→ slave address (0 - 127)
+                          └────┴────┴→ scl frequency (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    NOTE : The clock frequency will be modified as needed and restored to its original value
+           afterward.
+
+[!!! v2 Protocol ONLY !!!]
+CMD_HW_TWI_READ_ONE_CF
+    Send    : PREFIX 0x6D 0xNN 0xNN 0xNN 0xNN
+                          │    │    │    │
+                          │    │    │    └→ slave address (0 - 127)
+                          └────┴────┴→ scl frequency (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+    Receive : ACK 0xNN
+                  └→ the received data byte
+              NAK 0xNN <optional_error_message_bytes>
+
+    NOTE : The clock frequency will be modified as needed and restored to its original value
+           afterward.
+
+
+----------------------------------------------------------------------------------------------------
+Hardware UART Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_HW_UART_ENABLE
+    Send    : PREFIX 0x80
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_UART_DISABLE
+    Send    : PREFIX 0x81
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_UART_ENABLE_TX
+    Send    : PREFIX 0x84
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_UART_DISABLE_TX
+    Send    : PREFIX 0x85
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_UART_DISABLE_TX_AFTER
+    Send    : PREFIX 0x86 0xNN
+                          └→ the number of bytes that will be fully transmitted before disabling the Tx
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+
+----------------------------------------------------------------------------------------------------
+Hardware USRT Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_HW_USRT_ENABLE 0xNN
+                    └→ initialization flag bits
+    Send    : PREFIX 0xA0
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Initialization flag bits : 76543210
+    Functions                : X......M
+        X   : 0b0 (0) -> normal mode
+              0b1 (1) -> use ATxmega PDI mode
+        M   : 0b0 (0) -> SS active low
+              0b1 (1) -> SS active high
+
+CMD_HW_USRT_DISABLE
+    Send    : PREFIX 0xA1
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_USRT_SELECT_SLAVE
+    Send    : PREFIX 0xA2
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+    # Optional; does not have to be used before data transfer can take place.
+
+CMD_HW_USRT_DESELECT_SLAVE
+    Send    : PREFIX 0xA3
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_USRT_ENABLE_TX
+    Send    : PREFIX 0xA4
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_USRT_DISABLE_TX
+    Send    : PREFIX 0xA5
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_HW_USRT_DISABLE_TX_AFTER
+    Send    : PREFIX 0xA6 0xNN
+                          └→ the number of bytes that will be fully transmitted before disabling the Tx
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+
+----------------------------------------------------------------------------------------------------
+Bit Banging USRT Commands
+----------------------------------------------------------------------------------------------------
+
+CMD_BB_USRT_ENABLE
+    Send    : PREFIX 0xB0 0xNN 0xNN 0xNN 0xNN
+                          │    │    │    └→ configuration bits
+                          └────┴────┴→ baudrate (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : ..PPS..M
+        MM  : 0b00 (0) -> parity none
+              0b10 (2) -> parity even
+              0b11 (3) -> parity odd
+        S   : 0b0  (0) -> one stop bit
+              0b1  (1) -> two stop bits
+        M   : 0b0  (0) -> SS active low
+              0b1  (1) -> SS active high
+
+    NOTE : # It currently only supports an 8-bit character size.
+           # Although its baudrate is not very accurate (expect a 5% to 15% error, depending on the
+             selected baudrate), the inaccuracy should not be an issue because it is a synchronous
+             serial communication.
+
+CMD_BB_USRT_DISABLE
+    Send    : PREFIX 0xB1
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_USRT_SELECT_SLAVE
+    Send    : PREFIX 0xB2
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+    # Required; must be used before data transfer can take place.
+
+CMD_BB_USRT_DESELECT_SLAVE
+    Send    : PREFIX 0xB3
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_USRT_PULSE_XCK
+    Send    : PREFIX 0xB4 0xNN 0xNN
+                          │    └→ TXD state when pulsing (0 or 1)
+                          └→ the number of pulses
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_USRT_TX
+    Send    : PREFIX 0xB5 0xNN 0xNN...
+                          │    └→ the data bytes to be sent
+                          └→ the number of data bytes to be sent (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_USRT_RX
+    Send    : PREFIX 0xB6 0xNN
+                          └→ the number of data bytes to be received (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+
+----------------------------------------------------------------------------------------------------
+Bit Banging SWIM Commands (Partially Hardware-Assisted by the Hardware SPI Module)
+----------------------------------------------------------------------------------------------------
+
+CMD_BB_SWIM_ENABLE
+    Send    : PREFIX 0xD0
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_SWIM_DISABLE
+    Send    : PREFIX 0xD1
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_SWIM_LINE_RESET
+    Send    : PREFIX 0xD2
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+[!!! v1 Protocol ONLY !!!]
+CMD_BB_SWIM_TRANSFER
+    Send    : PREFIX 0xD3 0xNN 0xNN 0xNN...
+                          │    │    └→ the 'half/quarter-bits' to be transferred
+                          │    └→ the number of 'bits' to be transferred as 'quarter-bits' (0 to < the previous 0xNN)
+                          └→ the number of 'half/quarter-bits' to be transferred (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+
+    Receive : ACK 0xNN...
+                  └→ the received 'half/quarter-bits'
+              NAK 0xNN <optional_error_message_bytes>
+
+    ##### !!! TODO : Remove CMD_BB_SWIM_TRANSFER from the v1 protocol when it is no longer needed !!! #####
+
+CMD_BB_SWIM_SRST
+    Send    : PREFIX 0xD4
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_SWIM_ROTF
+    Send    : PREFIX 0xD5 0xNN 0xNN 0xNN 0xNN
+                          │    └────┴────┴→ 24-bit address (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+                          └→ the number of data bytes to be sent (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_BB_SWIM_WOTF
+    Send    : PREFIX 0xD6 0xNN 0xNN 0xNN 0xNN 0xNN...
+                          │    │    │    │    └→ the data bytes to be sent
+                          │    └────┴────┴→ 24-bit address (0bNNNNNNNNNNNNNNNNNNNNNNNN) (MSB first)
+                          └→ the number of data bytes to be sent (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+
+----------------------------------------------------------------------------------------------------
+JTAG Commands (Utilizing the Resources of the SPI and USRT Modules)
+----------------------------------------------------------------------------------------------------
+
+[!!! v2 Protocol ONLY !!!]
+
+NOTE : # All JTAG TMS transfers are implemented using bit-banging USRT and SPI.
+       # All JTAG TDI and TDO transfers are implemented using a combination of hardware and
+         bit-banging SPI. When using bit-banging SPI, the TCK frequency selected via CMD_JTAG_ENABLE
+         or CMD_JTAG_SET_FREQUENCY command will be ignored (please refer to CMD_HW_SPI_XB_TRANSFER
+         for more details on the timing).
+
+CMD_JTAG_ENABLE
+    Send    : PREFIX 0xF0 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions #1       : .000BDDD (see CMD_HW_SPI_ENABLE           )
+    Functions #2       : .110CCCC (see CMD_HW_SPI_SET_SCK_FREQUENCY)
+
+    NOTE : Upon enabling JTAG, the SPI and USRT modules will be claimed and initialized.
+        # The SPI module will be initialized in SPI mode 0 with the following pin assigment:
+              # MOSI ->  TDI
+              # MISO ->  TDO
+              # SCK  ->  TCK
+              # nSS  -> nRST
+        # The USRT module will be initialized with the following pin assigment:
+              # XCK  -> nTRST
+              # TXD  ->  TMS
+
+CMD_JTAG_DISABLE
+    Send    : PREFIX 0xF1
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_JTAG_SET_FREQUENCY
+    Send    : PREFIX 0xF2 0xNN
+                          └→ configuration bits (see CMD_JTAG_ENABLE)
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+CMD_JTAG_SET_RESET
+    Send    : PREFIX 0xF3 0xNN
+                          └→ configuration bits
+    Receive : ACK
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : RTI.....
+        R   : 0b0 (0) -> set nRST  to 0 (  active)
+              0b1 (1) -> set nRST  to 1 (inactive)
+        T   : 0b0 (0) -> set nTRST to 0 (  active)
+              0b1 (1) -> set nTRST to 1 (inactive)
+        I   : 0b0 (0) -> set TDI   to 0
+              0b1 (1) -> set TDI   to 1 (if in doubt, use this one)
+
+    NOTE : Depending on the condition, the module may actually ignore the value of 'I'.
+
+CMD_JTAG_TMS
+    Send    : PREFIX 0xF5 0xNN 0xNN
+                          │    └→ the TMS bits to be sent
+                          └→ configuration bits
+    Receive : ACK 0xNN...
+                  └→ the read data bytes (only if the number of data bytes to be read is not zero)
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : RTI..NNN
+        R   : 0b0   (0) -> set nRST  to 0
+              0b1   (1) -> set nRST  to 1 (if in doubt, use this one)
+        T   : 0b0   (0) -> set nTRST to 0
+              0b1   (1) -> set nTRST to 1 (if in doubt, use this one)
+        I   : 0b0   (0) -> set TDI   to 0
+              0b1   (1) -> set TDI   to 1 (if in doubt, use this one)
+        NNN : 0b000 (0) -> the number of TMS bits is 1
+              ...
+              0b111 (7) -> the number of TMS bits is 8
+
+CMD_JTAG_TRANSFER
+    Send    : PREFIX 0xF7 0xNN 0xNN 0xNN...
+                          │    │    └→ the data bytes to be transmitted (all except the last byte are assumed to be 8 bits)
+                          │    └→ the number of data bytes to be transmitted (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE)
+                          └→ configuration bits
+    Receive : ACK 0xNN...
+                  └→ the received data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : UDI..NNN
+        U   : 0b0   (0) -> after transmitting, keep it in the DRSHIFT/IRSHIFT state
+              0b1   (1) -> when and after transmitting, proceed to DREXIT1/IREXIT1 -> DRUPDATE/IRUPDATE -> IDLE state
+        D   : 0b0   (0) -> when transmitting, keep it in the DRSHIFT state
+              0b1   (1) -> before and when transmitting, proceed to DRSELECT -> DRCAPTURE -> DRSHIFT state
+        I   : 0b0   (0) -> when transmitting, keep it in the IRSHIFT state
+              0b1   (1) -> before and when transmitting, proceed to IRSELECT -> IRCAPTURE -> IRSHIFT state
+        NNN : 0b000 (0) -> the number of bits in the last byte is 1
+              ...
+              0b111 (7) -> the number of bits in the last byte is 8
+
+    NOTE : # The configuration bits D and I are mutually exclusive when set.
+           # Before issuing this command, if the D or I bit is set, ensure that the JTAG is in the IDLE state.
+           # Before issuing this command, if the U          is set, ensure that the JTAG is in the DRSHIFT/IRSHIFT state.
+
+CMD_JTAG_XB_TRANSFER
+    Send    : PREFIX 0xF8 0xNN 0xNN 0xNN 0xNN...
+                          │    │    └────┴→ pairs of configuration values and data bytes to be transferred
+                          │    └→ the number of pairs to be transferred (1 to PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE / 2)
+                          └→ configuration bits
+    Receive : ACK 0xNN...
+                  └→ the received pairs and data bytes
+              NAK 0xNN <optional_error_message_bytes>
+
+    Configuration bits : 76543210
+    Functions          : UDI..... (see CMD_JTAG_TRANSFER)
+
+    Pairs of configuration values and data bytes:
+        0xNN 0xNN
+        │    └→ the data byte
+        └→ data byte configuration
+
+        Data byte configuration : 76543210
+        Functions               : .....BBB
+        BBB  : 0b000 (0) -> the number of bits in the following byte of data is 1
+               ...
+               0b111 (7) -> the number of bits in the following byte of data is 8
+
+    ##### ??? TODO : Remove CMD_JTAG_XB_TRANSFER because it does not seem to be needed ??? #####
+
+
+----------------------------------------------------------------------------------------------------
+Special Command for the High-Voltage-Attachment Module (AVR-UPDI Section)
+----------------------------------------------------------------------------------------------------
+
+High-Voltage UPDI can be triggered by:
+    1. Manually pressing the trigger switch on the module.
+    2. Long enough low signal on the UPDI line (from UPDI_PHY_BREAK).
+    3. Sending { 0x48, 0x56, 0x2D, 0x55, 0x50, 0x44, 0x49, 0x3A, 0x?? } (the string "HV-UPDI:?")
+       via PGD and PGC; the clock must be slow enough (<= 8kHz) for reliable operation.
+
+             ┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌                                    ┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐
+PGC          ╿│╿│╿│╿│╿│╿│╿│╿│╿ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ ╿│╿│╿│╿│╿│╿│╿│╿│╿│
+    ───┈┈┈───┘└┘└┘└┘└┘└┘└┘└┘└┘                                    ┘└┘└┘└┘└┘└┘└┘└┘└┘└──┈┈┈───
+             ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆
+            ┌─┬─┬─┬─┬─┬─┬─┬─┬─┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈─┬─┬─┬─┬─┬─┬─┬─┬─┐
+PGD ───┈┈┈──┤0│1│0│0│1│0│0│0│N ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ N│?│?│?│?│?│?│?│?├──┈┈┈───
+            └─┴─┴─┴─┴─┴─┴─┴─┴─┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈─┴─┴─┴─┴─┴─┴─┴─┴─┘
+             7 6 5 4 3 2 1 0 7 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 0 7 6 5 4 3 2 1 0
+
+                          0x48 0x56 0x2D 0x55 0x50 0x44 0x49 0x3A 0x??
+                           H    V    -    U    P    D    I    :    ?
+
+                          KEY_NVMPROG    : 0xNN = 0x4E ('N')
+                          KEY_CHIP_ERASE : 0xNN = 0x45 ('E')
+
+NOTE : # Trigger from the nTRIGGER button     will always send                KEY_CHIP_ERASE.
+       # Trigger from the upstream programmer will always send KEY_NVMPROG.
+       # Trigger from the PGC and PGD signals can  either send KEY_NVMPROG or KEY_CHIP_ERASE.
+
+NOTE : # Currently, the design of the High-Voltage-Attachment module uses BAT85/SS14 diodes for
+         the AVR-UPDI section.
+       # Due to the high capacitance of the SS14 diodes (~100pF), the maximum UPDI baudrate, when
+         this module is attached, is limited to between 7200 and 19200.
+       # Using BAT54/BAT85/BAT42/BAT46/BAT41 diodes should increase the maximum UPDI baudrate to
+         at least 115200. It would also make the communication line more stable.
+
+
+It seems that if the chip is unlocked, KEY_CHIP_ERASE will not directly erase it. A power cycle
+between issuing KEY_CHIP_ERASE and the subsequent process may cancel the chip erase operation.
+
+######################################### !!! WARNING !!! #########################################
+!!!!!!!!! Ensure that the selected high voltage (Vpp) matches the one required by the MCU !!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!! OVER-VOLTAGE WILL PERMANENTLY DAMAGE YOUR MCU !!!!!!!!!!!!!!!!!!!!!!!!!!
+######################################### !!! WARNING !!! #########################################
+
+tinyAVR 0/1/2-Series : HV-UPDI on UPDI pin                - already supported
+AVR-DD/DU and AVR-Ex : HV-UPDI on nRST pin                - ##### !!! TODO !!! #####
+AVR-Sx               : HV-UPDI on nRST pin with handshake - ##### !!! TODO !!! #####
+
+HV-UPDI on nRST pin:
+    1. HV pulse is least 10uS.
+    2. Timeout for KEY is 64mS.
+
+HV-UPDI on nRST pin with handshake:
+    1. Drive the UPDI line low.
+    2. Drive the RESET line low (or HV) for the minimum reset pulse (10uS) width and then drive
+       it back high.
+    3. Wait for at least 40mS so the device can reach an initial state.
+    4. Drive the UPDI line high.
+    5. Drive the UPDI line low for 100uS to 1mS and then drive it back high.
+    6. Send a KEY_CHIP_ERASE to unlock the device and poll for successful completion.
+    7. Power cycle the device and re-enable UPDI normally.
+Steps 4 to 6 must be completed within the 64mS time window.
+
+NOTE :
+    1. The 'nTRIGGER' button cannot be used at this time because it defaults to the more commonly
+       supported MCUs that require 'HV-UPDI on UPDI pin'. Therefore:
+           a. 'HV-UPDI on nRST pin'                -> use the nRST pin or the 'HV-UPDI:R' command.
+           b. 'HV-UPDI on nRST pin with handshake' -> use the             the 'HV-UPDI:H' command.
+       They all will send KEY_CHIP_ERASE.
+    2. Ensure that high voltage is not accidentally sent to the wrong pin!
+
+----------------------------------------------------------------------------------------------------
+
+#################################### Current Hardware Solution ####################################
+
+For convenience, in the next part of the text:
+    1. The 'JxMake Versatile MCU Programmer II' module will be referred to as VMP II.
+    2. The 'JxMake High Voltage Attachment II'  module will be referred to as HVA II.
+    3. The 'JxMake UPDI Connector Converter'    module will be referred to as UCC.
+
+Connection details:
+    1. VMP II 'ISP-10'          connector to the HVA II 'AVR ISP/TPI In' connector.
+    2. VMP II 'UPDI-6'          connector to the UCC    'VMP-UPDI-6'     connector.
+    3. HVA II 'AVR ISP/TPI Out' connector to the UCC    'HVA-ISP-10'     connector.
+
+With the above connection:
+    1. The 'HV-UPDI on nRST pin' (or 'HV-UPDI on nRST pin with handshake') signal will be available
+       on the UCC 'HVUPDI-6 OUT' and 'HVUPDI-4 OUT' connectors.
+    2. The 'HV-UPDI on UPDI pin' signal will never reach the target board.
+
+Depending on how the HVA II firmware will be improved later, it may be necessary to monitor the UPDI
+signal (e.g., for timeout detection). Therefore, it may be necessary to use a UPDI ribbon cable with
+3 IDC sockets on it, so the VMP II 'UPDI-6' connector can be connected to both the UCC 'VMP-UPDI-6'
+and the HVA II 'AVR UPDI In' connectors.
+
+====================================================================================================

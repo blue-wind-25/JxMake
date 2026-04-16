@@ -1,0 +1,24 @@
+sh := $stk_new()
+echoln ${sh}
+
+$stk_push( ${sh},   'Value 1'               ) ; echoln $stk_num_elems(${sh})
+$stk_push( ${sh}, { 'Value 2a' 'Value 2b' } ) ; echoln $stk_num_elems(${sh})
+$stk_push( ${sh},   'Value 3'               ) ; echoln $stk_num_elems(${sh})
+
+edata := $stk_to_edata(${sh})
+
+$stk_clear (${sh}) ; echoln $stk_num_elems(${sh})
+$stk_delete(${sh}) ; echoln $stk_num_elems(${sh})
+
+echoln
+
+sh := $stk_from_edata(${edata})
+echoln ${sh}
+
+echoln $implode( $stk_peek(${sh} ), '|' ) ; echoln $stk_num_elems(${sh})
+echoln $implode( $stk_pop (${sh} ), '|' ) ; echoln $stk_num_elems(${sh})
+echoln $implode( $stk_pop (${sh} ), '|' ) ; echoln $stk_num_elems(${sh})
+echoln $implode( $stk_pop (${sh} ), '|' ) ; echoln $stk_num_elems(${sh})
+echoln $implode( $stk_pop (${sh} ), '|' ) ; echoln $stk_num_elems(${sh})
+
+$stk_delete(${sh})

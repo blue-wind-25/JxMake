@@ -1,0 +1,850 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.Serializable;
+
+import java.util.Arrays;
+import java.util.function.IntConsumer;
+
+import jxm.*;
+import jxm.annotation.*;
+import jxm.tool.*;
+import jxm.xb.*;
+
+
+/*
+ * This class is written partially based on information found from various ATtiny MCU datasheets.
+ */
+public class ProgTPI implements IProgCommon {
+
+    /*
+     * Transfer speed:
+     *     # Using USB_ISS            : up to  ~80           bytes per second
+     *     # Using JxMake DASA        : up to ~260           bytes per second
+     *     # Using JxMake USB-GPIO    : up to  ~20 ... ~2330 bytes per second (depending on the baudrate)
+     *     # Using JxMake USB-GPIO II : similar to 'JxMake USB-GPIO'          (depending on the baudrate)
+     *
+     * WARNING : TPI programming will only work with a 5V supply voltage!
+     */
+
+    private static final String ProgClassName = "ProgTPI";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final byte FlashMemory_EmptyValue = (byte) 0xFF;
+
+    @SuppressWarnings("serial")
+    public static class Config extends SerializableDeepClone<Config> {
+
+        // JxMake use a special field name for serial version UID
+        @DataFormat.Hex16 public static final long __0_JxMake_SerialVersionUID__ = SysUtil.extSerialVersionUID(0x00000001);
+
+        // NOTE : The default values below are for (almost all?) AVR MCUs that can be programmed using TPI
+
+        public static class MemorySignature implements Serializable {
+            @DataFormat.Hex04 public int address = 0x3FC0;
+                              public int size    = 3;
+        }
+
+        public static class MemoryFlash implements Serializable {
+            @DataFormat.Hex04 public int   address       = 0x4000;
+                              public int   totalSize     = 0;
+                              public int   pageSize      = 0;
+                              public int   numPages      = 0;
+
+                              public int   numWordWrites = 0;
+
+                              public int[] readDataBuff  = null;
+        }
+
+        public static class MemoryFuse implements Serializable {
+            @DataFormat.Hex04 public int address = 0x3F40;
+                              public int size    = 1;
+                              public int bitMask = 0x07;
+        }
+
+        public static class MemoryLockBits implements Serializable {
+            @DataFormat.Hex04 public int address = 0x3F00;
+                              public int size    = 1;
+                              public int bitMask = 0x03;
+        }
+
+        public static class MemoryCalibrationByte implements Serializable {
+            @DataFormat.Hex04 public int address = 0x3F80;
+                              public int size    = 1;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public final MemorySignature       memorySignature       = new MemorySignature      ();
+        public final MemoryFlash           memoryFlash           = new MemoryFlash          ();
+        public final MemoryFuse            memoryFuse            = new MemoryFuse           ();
+        public final MemoryLockBits        memoryLockBits        = new MemoryLockBits       ();
+        public final MemoryCalibrationByte memoryCalibrationByte = new MemoryCalibrationByte();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        #include "config.inc/TPI.ATtiny.java.inc"
+
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // TPI instructions
+    private static int TPI_CMD_SLD    (           ) { return 0x20; }
+    private static int TPI_CMD_SLD_INC(           ) { return 0x24; }
+    private static int TPI_CMD_SST    (           ) { return 0x60; }
+    private static int TPI_CMD_SST_INC(           ) { return 0x64; }
+    private static int TPI_CMD_SSTPR  (final int a) { return 0x68 | a; }
+    private static int TPI_CMD_SIN    (final int a) { return 0x10 | ( (a << 1) & 0x60 ) | (a & 0x0F) ; }
+    private static int TPI_CMD_SOUT   (final int a) { return 0x90 | ( (a << 1) & 0x60 ) | (a & 0x0F) ; }
+    private static int TPI_CMD_SLDCS  (final int a) { return 0x80 | (a & 0x0F); }
+    private static int TPI_CMD_SSTCS  (final int a) { return 0xC0 | (a & 0x0F); }
+    private static int TPI_CMD_SKEY   (           ) { return 0xE0; }
+
+    // TPI control and status registers
+    private static final int TPIIR  = 0x0F;
+    private static final int TPIPCR = 0x02;
+    private static final int TPISR  = 0x00;
+
+    // TPIPCR bits
+    private static final int TPIPCR_GT_2    = 0x04;
+    private static final int TPIPCR_GT_1    = 0x02;
+    private static final int TPIPCR_GT_0    = 0x01;
+    private static final int TPIPCR_GT_MASK = TPIPCR_GT_2 | TPIPCR_GT_1 | TPIPCR_GT_0;
+    private static final int TPIPCR_GT_128B = 0x00;
+    private static final int TPIPCR_GT_064B = 0x01;
+    private static final int TPIPCR_GT_032B = 0x02;
+    private static final int TPIPCR_GT_016B = 0x03;
+    private static final int TPIPCR_GT_008B = 0x04;
+    private static final int TPIPCR_GT_004B = 0x05;
+    private static final int TPIPCR_GT_002B = 0x06;
+    private static final int TPIPCR_GT_000B = 0x07;
+
+    // TPISR bits
+    private static final int TPISR_NVMEN = 0x02;
+
+    // NVM registers
+    private static final int NVMCSR = 0x32;
+    private static final int NVMCMD = 0x33;
+
+    // NVMCSR bits
+    private static final int NVMCSR_BSY = 0x80;
+
+    // NVMCMD values
+    private static final int NVMCMD_NOP           = 0x00;
+    private static final int NVMCMD_CHIP_ERASE    = 0x10;
+    private static final int NVMCMD_SECTION_ERASE = 0x14;
+    private static final int NVMCMD_WORD_WRITE    = 0x1D;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private final USB2GPIO _usb2gpio;
+    private final Config   _config;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int TPI_WAIT_NVM_ACCESS_TIMEOUT_MS = 1000;
+    private static final int TPI_WAIT_CHIP_ERASE_TIMEOUT_MS = 1000;
+    private static final int TPI_WAIT_SECT_ERASE_TIMEOUT_MS = 1000;
+    private static final int TPI_WAIT_WORD_WRITE_TIMEOUT_MS = 1000;
+
+    private boolean _inProgMode = false;
+    private boolean _chipErased = false;
+
+    public ProgTPI(final USB2GPIO usb2gpio, final Config config) throws Exception
+    {
+        // Store the objects
+        _usb2gpio = usb2gpio;
+        _config   = config.deepClone();
+
+        // Check the configuration values
+        if(_config.memorySignature.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigAddr , ProgClassName);
+        if(_config.memorySignature.size    <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigSize , ProgClassName);
+
+        if(_config.memoryFlash.address   <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFAddress , ProgClassName);
+        if(_config.memoryFlash.totalSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFTotSize , ProgClassName);
+        if(_config.memoryFlash.pageSize  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSize, ProgClassName);
+        if(_config.memoryFlash.numPages  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFNumPages, ProgClassName);
+
+        if(_config.memoryFlash.numWordWrites != 1 && _config.memoryFlash.numWordWrites != 2 && _config.memoryFlash.numWordWrites != 4) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFNumWrWrs, ProgClassName);
+
+        if(_config.memoryFlash.pageSize * _config.memoryFlash.numPages != _config.memoryFlash.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSpec, ProgClassName);
+
+        if(_config.memoryFuse.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMCFAddress, ProgClassName);
+        if(_config.memoryFuse.size    != 1) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMCFSize   , ProgClassName);
+        if(_config.memoryFuse.bitMask <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMCFBitMask, ProgClassName);
+
+        if(_config.memoryLockBits.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMLBAddress, ProgClassName);
+        if(_config.memoryLockBits.size    != 1) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMLBSize   , ProgClassName);
+        if(_config.memoryLockBits.bitMask <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMLBBitMask, ProgClassName);
+
+        if(_config.memoryCalibrationByte.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMCBAddress, ProgClassName);
+        if(_config.memoryCalibrationByte.size    != 1) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMCBSize   , ProgClassName);
+    }
+
+    public Config config()
+    { return _config; }
+
+    public boolean begin(final int baudrate)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Enable mode
+        if(_usb2gpio instanceof USB_GPIO) {
+            if( !( (USB_GPIO) _usb2gpio ).pcf8574Enable_TPI() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPCF8574, ProgClassName);
+        }
+
+        // Initialize the USRT using the requested baudrate
+        for(int i = 0; i < 2; ++i) {
+            // Use bit banging USRT mode because the programmer needs to manually pulse the Xck line
+            if( _usb2gpio.usrtSetImplMode(USB2GPIO.ImplMode.BitBang) ) {
+                // Check if the USRT implementation does support manually pulsing the Xck line on request
+                if( !_usb2gpio.usrtIsPulsingXckSupported() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_MPsXckNS, ProgClassName);
+                // Initialize the USRT
+                if( _usb2gpio.usrtBegin(USB2GPIO.UXRTMode._8E2, USB2GPIO.SSMode.ActiveLow, baudrate) ) {
+                    break;
+                }
+                // Error initializing the USRT
+                else {
+                    // Exit if this is the 2nd initialization attempt
+                    if(i > 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitUSRT, ProgClassName);
+                }
+            }
+            // Error selecting bit banging USRT mode
+            else {
+                // Exit if this is the 2nd initialization attempt
+                if(i > 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailSelBBUSRT, ProgClassName);
+            }
+            // Uninitialize the USRT and try again
+            _usb2gpio.usrtEnd();
+        }
+
+        // Select the device (activate the reset pin) and wait for a while
+        if( !_usb2gpio.usrtSelectSlave() ) {
+            _usb2gpio.usrtEnd();
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSelSlave, ProgClassName);
+        }
+
+        SysUtil.sleepMS(250);
+
+        // Enable programming mode by puling the clock signal 32x
+        if( !_usb2gpio.usrtPulseXck(32, true) ) {
+            _usb2gpio.usrtDeselectSlave();
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailPulseSS, ProgClassName);
+        }
+
+        /*
+        SysUtil.stdDbg().println("### TEST ###");
+        if(true) {
+            for(int i = 0; i < 100000; ++i) {
+                _usb2gpio.usrtSelectSlave();
+                _usb2gpio.usrtDeselectSlave();
+            }
+            return false;
+        }
+        //*/
+
+        /*
+        SysUtil.stdDbg().println("### TEST ###");
+        if(true) {
+          //for(int i = 0; i < 100000; ++i) _usb2gpio.usrtTx( new int[] { 0xAA } );
+            for(int i = 0; i < 100000; ++i) {
+                _usb2gpio.usrtTx( new int[] { 0xAA } );
+                SysUtil.sleepMS(500);
+            }
+            return false;
+        }
+        //*/
+
+        // Intialize
+        try {
+
+            // Set and verify the guard time
+            if(true) {
+                // Set the guard time
+                final int guardTime = TPIPCR_GT_002B;
+                if( !_usb2gpio.usrtTx( new int[] { TPI_CMD_SSTCS(TPIPCR), guardTime } ) ) USB2GPIO.TansmitError.throwTansmitError_usrtTx(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+                // Check if it has been successfully modified
+                final int[] buff = new int[] { TPI_CMD_SLDCS(TPIPCR) };
+                if( !_usb2gpio.usrtTx(buff) ) USB2GPIO.TansmitError.throwTansmitError_usrtTx(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+                if( !_usb2gpio.usrtRx(buff) ) USB2GPIO.TansmitError.throwTansmitError_usrtRx(Texts.ProgXXX_FailTPI_Rx, ProgClassName);
+                if( (buff[0] & TPIPCR_GT_MASK) != guardTime ) USB2GPIO.TansmitError.throwTansmitError_readInvalidValue(Texts.ProgXXX_FailTPI_RInvVal, ProgClassName);
+            }
+
+            // Read and  the TPI identification code
+            if(true) {
+                final int[] buff = new int[] { TPI_CMD_SLDCS(TPIIR) };
+                if( !_usb2gpio.usrtTx(buff) ) USB2GPIO.TansmitError.throwTansmitError_usrtTx(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+                if( !_usb2gpio.usrtRx(buff) ) USB2GPIO.TansmitError.throwTansmitError_usrtRx(Texts.ProgXXX_FailTPI_Rx, ProgClassName);
+                if(buff[0] != 0x80) USB2GPIO.TansmitError.throwTansmitError_readInvalidValue(Texts.ProgXXX_FailTPI_RInvVal, ProgClassName);
+            }
+
+            // Enable access to NVM
+            if(true) {
+                // Send the KEY
+                _usb2gpio.usrtTx( new int[] { TPI_CMD_SKEY(), 0xFF, 0x88, 0xD8, 0xCD, 0x45, 0xAB, 0x89, 0x12 } );
+                // Wait until it is enabled
+                final XCom.TimeoutMS tms = new XCom.TimeoutMS(TPI_WAIT_NVM_ACCESS_TIMEOUT_MS);
+                while(true) {
+                    if( !_usb2gpio.usrtTx( new int[] { TPI_CMD_SLDCS(TPISR) } ) ) USB2GPIO.TansmitError.throwTansmitError_usrtTx(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+                    if( !_usb2gpio.usrtRx(_oneByte_rdBuff)                      ) USB2GPIO.TansmitError.throwTansmitError_usrtRx(Texts.ProgXXX_FailTPI_Rx, ProgClassName);
+                    if( (_oneByte_rdBuff[0] & TPISR_NVMEN) != 0 ) break;
+                    if( tms.timeout() ) USB2GPIO.TansmitError.throwTansmitError_readTimeout(Texts.ProgXXX_FailTPI_EnProg, ProgClassName);
+                }
+            }
+
+        } // try
+        catch(final USB2GPIO.TansmitError e) {
+            // Deselect the device
+            _usb2gpio.usrtDeselectSlave();
+            // Uninitialize the USRT
+            _usb2gpio.usrtEnd();
+            // Notify error
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Init, ProgClassName);
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Disable access to NVM
+        boolean resDisableNVM = false;
+        if(true) {
+            // Clear the enable bit
+            _usb2gpio.usrtTx( new int[] { TPI_CMD_SSTCS(TPISR), 0x00 } );
+            // Wait until it is disabled
+            final XCom.TimeoutMS tms = new XCom.TimeoutMS(TPI_WAIT_NVM_ACCESS_TIMEOUT_MS);
+            while(true) {
+                _usb2gpio.usrtTx( new int[] { TPI_CMD_SLDCS(TPISR) } );
+                _usb2gpio.usrtRx(_oneByte_rdBuff);
+                if( (_oneByte_rdBuff[0] & TPISR_NVMEN) == 0 ) {
+                    resDisableNVM = true;
+                    break;
+                }
+                if( tms.timeout() ) break;
+            }
+        }
+
+        // Deselect the device (deactivate the reset pin) and uninitialize the USRT
+        final boolean resDeselectSlave = _usb2gpio.usrtDeselectSlave();
+        final boolean resUSRTEnd       = _usb2gpio.usrtEnd();
+
+        // Disable mode
+        boolean resDisMode = true;
+
+        if(_usb2gpio instanceof USB_GPIO) {
+            resDisMode = ( (USB_GPIO) _usb2gpio ).pcf8574Disable();
+        }
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resDisableNVM || !resDeselectSlave || !resUSRTEnd || !resDisMode) {
+            if(!resDisableNVM   ) USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_DisProg  , ProgClassName);
+            if(!resDeselectSlave) USB2GPIO.notifyError(Texts.ProgXXX_FailDselSlave    , ProgClassName);
+            if(!resUSRTEnd      ) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitUSRT   , ProgClassName);
+            if(!resDisMode      ) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPCF8574, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private final int[] _oneByte_rdBuff = new int[1];
+
+    private boolean _tpiReadBytes_begin(final int address)
+    {
+        /*
+        return _usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SOUT (NVMCMD), NVMCMD_NOP           ,
+            TPI_CMD_SSTPR(0     ),  address       & 0xFF,
+            TPI_CMD_SSTPR(1     ), (address >> 8) & 0xFF
+        } );
+        */
+
+        return _usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SSTPR(0),  address       & 0xFF,
+            TPI_CMD_SSTPR(1), (address >> 8) & 0xFF
+        } );
+    }
+
+    private int _tpiReadBytes_getOneByte()
+    {
+        if( !_usb2gpio.usrtTx( new int[] { TPI_CMD_SLD_INC() } ) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+            return -1;
+        }
+
+        if( !_usb2gpio.usrtRx(_oneByte_rdBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Rx, ProgClassName);
+            return -1;
+        }
+
+        return _oneByte_rdBuff[0];
+    }
+
+    private int[] _tpiReadBytes(final int address, final int size)
+    {
+        if( !_tpiReadBytes_begin(address) ) return null; // Error message notification will be handled by the calling function
+
+        final int[] rbuf = new int[size];
+
+        for(int i = 0; i < size; ++i) {
+            final int v = _tpiReadBytes_getOneByte();
+            if(v < 0) return null; // Error message notification will be handled by the calling function
+            rbuf[i] = v;
+        }
+
+        return rbuf;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int[] _mcuSignature = null;
+
+    @Override
+    public boolean supportSignature()
+    { return true; }
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Read the signature
+        _mcuSignature = _tpiReadBytes(_config.memorySignature.address, _config.memorySignature.size);
+
+        // Done
+        return _mcuSignature != null;
+    }
+
+    @Override
+    public boolean verifySignature(final int[] signatureBytes)
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Compare the signature
+        return Arrays.equals(_mcuSignature, signatureBytes);
+    }
+
+    @Override
+    public int[] mcuSignature()
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return null;
+        }
+
+        // Return the signature
+        return _mcuSignature;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public boolean _nvmWaitBusy(final long timeoutMS)
+    {
+        final XCom.TimeoutMS tms = new XCom.TimeoutMS(timeoutMS);
+
+        while(true) {
+            if( !_usb2gpio.usrtTx( new int[] { TPI_CMD_SIN(NVMCSR) } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+            if( !_usb2gpio.usrtRx(_oneByte_rdBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Rx, ProgClassName);
+            if( (_oneByte_rdBuff[0] & NVMCSR_BSY) == 0 ) break;
+            if( tms.timeout() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMRTOut, ProgClassName);
+        }
+
+        return true;
+    }
+
+    // NOTE : This function erases flash and lock bits
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Send the command
+        final int address = _config.memoryFlash.address + 1;
+
+        if( !_usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SSTPR  (0     ),  address       & 0xFF,
+            TPI_CMD_SSTPR  (1     ), (address >> 8) & 0xFF,
+            TPI_CMD_SOUT   (NVMCMD), NVMCMD_CHIP_ERASE    ,
+            TPI_CMD_SST_INC(      ), 0x00
+        } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+
+        // Wait until the operation is complete
+        if( !_nvmWaitBusy(TPI_WAIT_CHIP_ERASE_TIMEOUT_MS) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMOTOut, ProgClassName);
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public int _flashMemoryTotalSize()
+    { return _config.memoryFlash.totalSize; }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return USB2GPIO.alignWriteSize(numBytes, _config.memoryFlash.pageSize); }
+
+    @Override
+    public int _eepromMemoryTotalSize()
+    { return 0; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int[] _readDataBuff()
+    { return _config.memoryFlash.readDataBuff; }
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(sa, nb, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        // Begin read bytes
+        if( !_tpiReadBytes_begin(_config.memoryFlash.address + sa) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+            return -1;
+        }
+
+        int rdbIdx = 0;
+        int verIdx = 0;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Read the bytes (and compare them if requested)
+        for(int addr = sa; addr < (sa + nb); addr += 2) {
+
+            // Process in word
+            final int v0 = _tpiReadBytes_getOneByte();
+            if(v0 < 0) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+                return -1;
+            }
+
+            final int v1 = _tpiReadBytes_getOneByte();
+            if(v1 < 0) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+                return -1;
+            }
+
+            // Store the bytes to the result buffer
+            _config.memoryFlash.readDataBuff[rdbIdx++] = v0;
+            _config.memoryFlash.readDataBuff[rdbIdx++] = v1;
+
+            // Compare the bytes as needed
+            if(refData != null && verIdx < refData.length) {
+                if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                ++verIdx;
+                if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                ++verIdx;
+            }
+
+            // Call the progress callback function for the current value
+            pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+        } // for addr
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return numBytes;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    private boolean _writeFlashPage(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize(sa, nb, _config.memoryFlash.pageSize, ProgClassName) ) return false;
+
+        // Determine the chunk size
+        final int ChunkSize = _config.memoryFlash.numWordWrites * 2;
+
+        // Get the number of chunks to be written and the current chunk address
+        final int numChunks = nb / ChunkSize;
+              int cchAddr   = _config.memoryFlash.address + sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Write the chunks
+        int datIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the bytes
+            for(int addr = cchAddr; addr < (cchAddr + ChunkSize); addr += 2) {
+
+                // Begin write
+                if( !_usb2gpio.usrtTx( new int[] {
+                    TPI_CMD_SSTPR(0     ),  addr       & 0xFF,
+                    TPI_CMD_SSTPR(1     ), (addr >> 8) & 0xFF,
+                    TPI_CMD_SOUT (NVMCMD), NVMCMD_WORD_WRITE
+                } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+
+                // Send the bytes
+                for(int b = 0; b < ChunkSize; ++b) {
+                    //
+                    if( !_usb2gpio.usrtTx( new int[] {
+                        TPI_CMD_SST_INC(), data[datIdx++] & 0xFF
+                    } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+                }
+
+                // Wait until the operation is complete
+                if( !_nvmWaitBusy(TPI_WAIT_WORD_WRITE_TIMEOUT_MS) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMOTOut, ProgClassName);
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+            } // for addr
+
+            // Increment the current chunk address
+            cchAddr += ChunkSize;
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        if(anbr == null) return false;
+
+        // Write flash
+        return _writeFlashPage(anbr.buff, sa, anbr.nb, progressCallback);
+    }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : All AVR MCUs that can be programmed using TPI does not have EEPROM!
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+        return -1;
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int readFuse()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Read the fuse
+        final int[] value = _tpiReadBytes(_config.memoryFuse.address, _config.memoryFuse.size);
+
+        if(value == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return value[0] & _config.memoryFuse.bitMask;
+    }
+
+    public boolean writeFuse(final byte value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Erase the fuse first
+        final int address = _config.memoryFuse.address + 1;
+
+        if( !_usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SSTPR  (0     ),  address       & 0xFF,
+            TPI_CMD_SSTPR  (1     ), (address >> 8) & 0xFF,
+            TPI_CMD_SOUT   (NVMCMD), NVMCMD_SECTION_ERASE ,
+            TPI_CMD_SST_INC(      ), 0xFF
+        } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+
+        // Wait until the operation is complete
+        if( !_nvmWaitBusy(TPI_WAIT_SECT_ERASE_TIMEOUT_MS) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMOTOut, ProgClassName);
+
+        // Write the fuse
+        if( !_usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SSTPR  (0     ),  _config.memoryFuse.address       & 0xFF,
+            TPI_CMD_SSTPR  (1     ), (_config.memoryFuse.address >> 8) & 0xFF,
+            TPI_CMD_SOUT   (NVMCMD), NVMCMD_WORD_WRITE                       ,
+            TPI_CMD_SST_INC(      ), value & _config.memoryFuse.bitMask      ,
+            TPI_CMD_SST_INC(      ), 0xFF // Dummy byte
+        } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+
+        // Wait until the operation is complete
+        if( !_nvmWaitBusy(TPI_WAIT_WORD_WRITE_TIMEOUT_MS) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMOTOut, ProgClassName);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public long readLockBits()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Read the lock bits
+        final int[] value = _tpiReadBytes(_config.memoryLockBits.address, _config.memoryLockBits.size);
+
+        if(value == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return value[0] & _config.memoryLockBits.bitMask;
+    }
+
+    @Override
+    public boolean writeLockBits(final long value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Write the lock bits
+        if( !_usb2gpio.usrtTx( new int[] {
+            TPI_CMD_SSTPR  (0     ),  _config.memoryLockBits.address       & 0xFF  ,
+            TPI_CMD_SSTPR  (1     ), (_config.memoryLockBits.address >> 8) & 0xFF  ,
+            TPI_CMD_SOUT   (NVMCMD), NVMCMD_WORD_WRITE                             ,
+            TPI_CMD_SST_INC(      ), (int) (value & _config.memoryLockBits.bitMask),
+            TPI_CMD_SST_INC(      ), 0xFF // Dummy byte
+        } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_Tx, ProgClassName);
+
+        // Wait until the operation is complete
+        if( !_nvmWaitBusy(TPI_WAIT_WORD_WRITE_TIMEOUT_MS) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_NVMOTOut, ProgClassName);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int readCalibrationByte()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Read the calibration value
+        final int[] value = _tpiReadBytes(_config.memoryCalibrationByte.address, _config.memoryCalibrationByte.size);
+
+        if(value == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailTPI_RdByte, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return value[0];
+    }
+
+} // class ProgTPI

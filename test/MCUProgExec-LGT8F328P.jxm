@@ -1,0 +1,32 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc           :=  $fwc_load_intel_hex('../src/1-TestData/PTest1X.Blink-LGT8F328P.ino.hex')
+
+mcuConfigJSON := [["
+{
+    "@class" : "jxm.ugc.ProgLGT8$Config",
+    "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgLGT8$Config$MemoryFlash",
+        "totalSize" : 32768,
+        "pageSize" : 128,
+        "numPages" : 256,
+        "readDataBuff" : null
+    }
+}
+"]]
+
+bendSpec      := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+progSpec      := 'ProgLGT8' ${mcuConfigJSON} '' '0'
+mcuSig        := 0xA2 0x50 0xE9
+
+#echoln $mcu_prog_cfg_json('LGT8:LGT8F328P')
+#echoln $mcu_prog_cfg_ini ('LGT8:LGT8F328P')
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'chip_erase' 'write_flash' 'verify_flash' }, ${fwc}, -1)
+echoln
+#*)
+
+$fwc_delete(${fwc})

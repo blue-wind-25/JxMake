@@ -1,0 +1,55 @@
+(****************************************************************************************************
+ ***** SourceForge Tool                                                                         *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### Function to check the SourceForge HTTP request result
+function __sf_check_http_request__(result)
+    if ${result}<1> != 200
+        local Msg  := ${result}<3>
+              Ret  := ''
+              Ret +:= ${result}<1:2>
+              Ret +:= $tcase(${Msg/.*?"message"\s*:\s*"(.*?)".*/$1/})
+        return ${Ret}
+    endif
+    return ${result}<3>
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to get the release file URLs from the specified project
+function sf_get_project_release_file_urls(projectName)
+    # Prepare the URL
+    local url := :"https://${projectName}.sourceforge.net/releases/"
+    echoln "<<< GET ${url}\n>>>"
+    # Get the HTTP data
+    local Res := $call( __sf_check_http_request__, $http_get(${url}) )
+    if !&${Res}<1> : return ${Res}
+    # Extract and return the archive files
+    return $series(                                          \
+               ${url},                                       \
+                   $erase_ifnot(                             \
+                   $explode(                                 \
+                       $re_split(                            \
+                           ${Res},                           \
+                           '(?:.+?)(?:href=")(.+?")(?:.+?)'  \
+                       ),                                    \
+                       '"'                                   \
+                   ),                                        \
+                   '(.+?)\.(zip|tar\.xz|tar\.bz2|tar\.gz)$', \
+                   true                                      \
+               )                                             \
+           )
+endfunction
+

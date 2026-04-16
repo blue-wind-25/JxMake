@@ -1,0 +1,114 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - RISC-V GCC - Bare-Metal ESP32-C3                                        *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the RISC-V C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_RISCV.jxm'
+:::include_once 'DownloadESPUtil.jxm'
+
+
+##### Update the flags
+const C3BM_CommonCPUOptions     := '-march=rv32imc' '-mabi=ilp32'
+const C3BM_CommonCompileOptions := '-ffunction-sections' '-fdata-sections' '-fno-common'
+const C3BM_CommonCompileMDef    := '-D__ESP32C3_BARE_METAL__'
+
+CppCommonAssemblerFlags  +:= ${C3BM_CommonCPUOptions} ${C3BM_CommonCompileOptions} ${C3BM_CommonCompileMDef}
+
+CppCommonCcCompileFlags  +:= ${C3BM_CommonCPUOptions} ${C3BM_CommonCompileOptions} ${C3BM_CommonCompileMDef}
+
+CppCommonCxxCompileFlags +:= ${C3BM_CommonCPUOptions} ${C3BM_CommonCompileOptions}
+CppCommonCxxCompileFlags +:= ${CppMinimizeSizeCompileFlags}
+
+CppCommonLinkFlags       +:= ${C3BM_CommonCPUOptions} '-nostdlib' '-nostartfiles' '-Wl,--gc-sections'
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Download (and install) the latest ESPUtil
+    $call(download_latest_esputil, ${dlOnlyIfNotExist})
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to upload the given program via serial port using ESPUtil
+const __Def_C3BM_SU_BAUDRATE__ := 230400
+
+function __c3bm_upload_esputil_exec__(progName, device, baudrate, extraOptions)
+    # Determine the path
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    # Perform upload
+   +@${ESPUtil_executable} ${extraOptions} -b ${baudrate} -p ${device} flash 0x0000 ${BinFile}
+endfunction
+
+function c3bm_upload_esputil(progName, device, ?baudrate, ?extraOptions)
+    # Set the default value
+    baudrate ?:= ${__Def_C3BM_SU_BAUDRATE__}
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__c3bm_upload_esputil_exec__, ${progName}, ${device}, ${baudrate}, ${extraOptions})
+    $cmd_streaming_off()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to link executable files (in case of ESP32-C3, also create the BIN file)
+function __c3bm_elf_to_bin__(progName)
+    # Determine the path
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    # Convert ELF to BIN
+    $rmfile(${BinFile})
+   +@${ESPUtil_executable} mkbin ~${progName} ${BinFile}
+endfunction
+
+function c3bm_link_exe(?extraOptions)
+    # Call the generic function
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to BIN
+    $call(__bpt_bin__                                  )
+    $exec(__c3bm_elf_to_bin__, $[target]               )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText                        := __c_cyan__  "Bare-Metal ESP32-C3" __c_white__
+    local NGInfo                        := __c_white__ 'for ' ${NGText} ' '
+    local __CPP_BTLIB_HELP_EN_gen_lst__ := true
+    $call(__origin__, ${NGInfo}, 1, true, false, true, true)
+   #$call(__btlib_help_print_title_functions__, 5, 24, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project       (?buildSubdirectories,     ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                        ?dlOnlyIfNotExist       ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                  ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    c3bm_upload_esputil(progName , device       , ' __c_white__ ': upload program to ' __c_cyan__ 'ESP32-C3' __c_white__ ' via ' __c_cyan__ 'serial port' __c_white__ ' using ' __c_cyan__ 'ESPUtil'
+    echoln __c_green__ '                        ?baudrate, ?extraOptions) ' __c_green__ '      progName    ' __c_white__ ' program name;       use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__ '      device      ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__ '      baudrate    ' __c_white__ ' programming baudrate   - the default is \'' __c_yellow__ ${__Def_C3BM_SU_BAUDRATE__} __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__ '      extraOptions' __c_white__ ' optional extra options - the default value is none'
+    echoln
+    echoln __c_green__ '    c3bm_link_exe      (?extraOptions           ) ' __c_white__ ': link a ' ${NGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_reset__
+endfunction

@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<java version="1.8.0" class="java.beans.XMLDecoder">
+    <object id="#MainWindow" class="jxm.XMLFrame">
+        <void property="size">
+            <object class="java.awt.Dimension">
+                <int>600</int>
+                <int>300</int>
+            </object>
+        </void>
+        <void property="title">
+            <string>This is a test!</string>
+        </void>
+        <void property="defaultCloseOperation">
+            <int>2</int>
+        </void>
+        <void method="addWindowListener">
+            <object class="java.beans.EventHandler" method="create">
+                <class>java.awt.event.WindowListener</class>
+                <object class="jxm.XMLFrame$WindowListener">
+                    <object idref="#MainWindow"/>
+                    <string>#MainWindow</string>
+                </object>
+                <string>handle</string>
+            </object>
+        </void>
+        <void method="addWindowFocusListener">
+            <object class="java.beans.EventHandler" method="create">
+                <class>java.awt.event.WindowFocusListener</class>
+                <object class="jxm.XMLFrame$WindowFocusListener">
+                    <object idref="#MainWindow"/>
+                    <string>#MainWindow</string>
+                </object>
+                <string>handle</string>
+            </object>
+        </void>
+        <void property="resizable">
+            <boolean>true</boolean>
+        </void>
+        <void property="contentPane">
+            <!-- #################################################################################################### -->
+            <void property="border">
+                <object class="javax.swing.border.EmptyBorder">
+                    <int>8</int>
+                    <int>8</int>
+                    <int>8</int>
+                    <int>8</int>
+                </object>
+            </void>
+            <void property="layout">
+                <object class="java.awt.BorderLayout">
+                    <int>8</int>
+                    <int>8</int>
+                </object>
+            </void>
+            <void method="add">
+                <!-- #################################################################################################### -->
+                <object class="javax.swing.JPanel">
+                    <void property="layout">
+                        <object class="java.awt.GridLayout">
+                            <int>1</int>
+                            <int>4</int>
+                            <int>8</int>
+                            <int>8</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <object class="jxm.XMLFrame" method="getImageIcon">
+                                <string>icon/information.png</string>
+                            </object>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <object class="jxm.XMLFrame" method="getImageIcon">
+                                <string>icon/warning.png</string>
+                            </object>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <object class="jxm.XMLFrame" method="getImageIcon">
+                                <string>icon/error.png</string>
+                            </object>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <object class="jxm.XMLFrame" method="getImageIcon">
+                                <string>icon/question.png</string>
+                            </object>
+                        </object>
+                    </void>
+                </object>
+                <string>North</string>
+            </void>
+            <void method="add">
+                <!-- #################################################################################################### -->
+                <object class="javax.swing.JPanel">
+                    <void property="layout">
+                        <object class="java.awt.GridLayout">
+                            <int>1</int>
+                            <int>1</int>
+                            <int>8</int>
+                            <int>8</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JScrollPane">
+                            <object class="javax.swing.JList">
+                                <array class="java.lang.String" length="3">
+                                    <void index="0"> <string>List Item 1</string> </void>
+                                    <void index="1"> <string>List Item 2</string> </void>
+                                    <void index="2"> <string>List Item 3</string> </void>
+                                </array>
+                                <void property="selectedIndex">
+                                    <int>1</int>
+                                </void>
+                                <void property="layoutOrientation">
+                                    <int>0</int>
+                                </void>
+                                <void property="fixedCellWidth">
+                                    <int>150</int>
+                                </void>
+                            </object>
+                            <int>22</int>
+                            <int>32</int>
+                        </object>
+                    </void>
+                </object>
+                <string>West</string>
+            </void>
+            <void method="add">
+                <!-- #################################################################################################### -->
+                <object class="javax.swing.JPanel">
+                    <void property="layout">
+                        <object class="java.awt.GridLayout">
+                            <int>8</int>
+                            <int>2</int>
+                            <int>0</int>
+                            <int>0</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Name</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JTextField">
+                            <string>Default Name</string>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Type</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object id="rdoType1" class="javax.swing.JRadioButton">
+                            <string>Standard</string>
+                            <boolean>true</boolean>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Type</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object id="rdoType2" class="javax.swing.JRadioButton">
+                            <string>Extended</string>
+                            <boolean>false</boolean>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Flags</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JCheckBox">
+                            <string>Read-Only</string>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel"/>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JCheckBox">
+                            <string>Executable</string>
+                            <boolean>true</boolean>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Mode</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JComboBox">
+                            <array class="java.lang.String" length="3">
+                                <void index="0"> <string>One</string> </void>
+                                <void index="1"> <string>Two</string> </void>
+                                <void index="2"> <string>Three</string> </void>
+                            </array>
+                            <void property="selectedIndex">
+                                <int>2</int>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Level</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JSlider">
+                            <int>0</int>
+                            <int>10</int>
+                            <int>20</int>
+                            <int>15</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JLabel">
+                            <void property="text">
+                                <string>Strength</string>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JSpinner">
+                            <object class="javax.swing.SpinnerNumberModel">
+                                <int>5</int>
+                                <int>0</int>
+                                <int>10</int>
+                                <int>1</int>
+                            </object>
+                        </object>
+                    </void>
+                </object>
+                <string>Center</string>
+            </void>
+            <void method="add">
+                <!-- #################################################################################################### -->
+                <object class="javax.swing.JPanel">
+                    <void property="layout">
+                        <object class="java.awt.GridLayout">
+                            <int>1</int>
+                            <int>1</int>
+                            <int>8</int>
+                            <int>8</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JScrollPane">
+                            <object class="javax.swing.JTextArea">
+                                <string>Line 1&#10;Line 2</string>
+                                <void property="columns">
+                                    <int>15</int>
+                                </void>
+                                <void property="rows">
+                                    <int>15</int>
+                                </void>
+                            </object>
+                            <int>22</int>
+                            <int>32</int>
+                        </object>
+                    </void>
+                </object>
+                <string>East</string>
+            </void>
+            <void method="add">
+                <!-- #################################################################################################### -->
+                <object class="javax.swing.JPanel">
+                    <void property="layout">
+                        <object class="java.awt.GridLayout">
+                            <int>1</int>
+                            <int>2</int>
+                            <int>8</int>
+                            <int>8</int>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JButton">
+                            <string>OK</string>
+                            <void method="addActionListener">
+                                <object class="java.beans.EventHandler" method="create">
+                                    <class>java.awt.event.ActionListener</class>
+                                    <object class="jxm.XMLFrame$ButtonAcceptListener">
+                                        <object idref="#MainWindow"/>
+                                        <string>btnOK</string>
+                                    </object>
+                                    <string>handle</string>
+                                </object>
+                            </void>
+                        </object>
+                    </void>
+                    <void method="add">
+                        <object class="javax.swing.JButton">
+                            <string>Cancel</string>
+                            <void method="addActionListener">
+                                <object class="java.beans.EventHandler" method="create">
+                                    <class>java.awt.event.ActionListener</class>
+                                    <object class="jxm.XMLFrame$ButtonAcceptListener">
+                                        <object idref="#MainWindow"/>
+                                        <string>btnCancel</string>
+                                    </object>
+                                    <string>handle</string>
+                                </object>
+                            </void>
+                        </object>
+                    </void>
+                </object>
+                <string>South</string>
+            </void>
+        </void>
+    </object>
+    <!-- #################################################################################################### -->
+    <object idref="#MainWindow">
+        <void method="enSCut_keyEnter_closeWindow">
+            <object class="jxm.XMLFrame$ButtonAcceptListener">
+                <object idref="#MainWindow"/>
+                <string>#Key_Enter</string>
+            </object>
+        </void>
+    </object>
+    <object idref="#MainWindow">
+        <void method="enSCut_keyEscape_closeWindow">
+            <boolean>true</boolean>
+        </void>
+    </object>
+    <!-- #################################################################################################### -->
+    <object class="javax.swing.ButtonGroup">
+        <void method="add"> <object idref="rdoType1"/> </void>
+        <void method="add"> <object idref="rdoType2"/> </void>
+    </object>
+</java>

@@ -1,0 +1,1386 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - STM32 GCC - Native STM32 Cube SDK                                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the ARM C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_ARM.jxm'
+:::include_once 'DownloadDFUUtil.jxm'
+:::include_once 'DownloadXPackOpenOCD.jxm'
+
+
+##### Update the flags
+const __BuildTool_Name__   := 'ARM None EABI (STM32) GNU Compiler Collection (GCC)'
+const __BuildTool_Target__ := 'ARM None EABI (STM32)'
+const __BuildTool_Title__  := 'ARM None EABI (STM32) C/C++'
+
+
+##### Determine some settings
+STM32_SDK_PATH       ?:= $getenv('STM32_SDK_PATH'      , '')
+STM32_TOOLCHAIN_PATH ?:= $getenv('STM32_TOOLCHAIN_PATH', '')
+
+
+##### Update the definitions of executables, paths, and options
+const STM32_ProjectPackageDir    := '__package__'
+
+const __Def_STM32_FLASH_OFFSET__ :=        0
+const __Def_STM32_HSE_VALUE__    := 25000000
+const __Def_STM32_LSE_VALUE__    :=    32768
+
+      STM32_CommonCPUOptions      = ${__STM32_CPU__} '-mlittle-endian' '-mthumb' ${__STM32_FPU__}  ${__STM32_FLOAT_ABI__}
+      STM32_CommonCompileOptions  = '-ffunction-sections' '-fdata-sections' '--param' 'max-inline-insns-single=500'
+      STM32_CommonCompileMDef     = ${__STM32_CMDEF_DEVICE__} ${__STM32_CMDEF_FAMILY__} ${__STM32_CMDEF_HSE_VALUE__} ${__STM32_CMDEF_LSE_VALUE__}
+      STM32_CommonCompileMDef    += ${__STM32_USBDRIVER__} '-DUSE_HAL_DRIVER'
+      #-fsingle-precision-constant
+
+      CppCommonAssemblerFlags    += ${__STM32_CINCDIR__} ${STM32_CommonCPUOptions} ${STM32_CommonCompileOptions}
+
+      CppCommonCcCompileFlags    += ${__STM32_CINCDIR__} ${STM32_CommonCPUOptions} ${STM32_CommonCompileOptions} ${STM32_CommonCompileMDef}
+
+      CppCommonCxxCompileFlags   += ${__STM32_CINCDIR__} ${STM32_CommonCPUOptions} ${STM32_CommonCompileOptions} ${STM32_CommonCompileMDef}
+      CppCommonCxxCompileFlags  :+= ${CppMinimizeSizeCompileFlags} '-fno-threadsafe-statics'
+
+      CppCommonLinkFlags         += ${__STM32_CLIBDIR__} ${STM32_CommonCPUOptions}
+      CppCommonLinkFlags         += ${__STM32_WLSYM_FLASH_OFFSET__} ${__STM32_WLSYM_MAX_SIZE__} ${__STM32_WLSYM_MAX_DATA_SIZE__}
+      CppCommonLinkFlags        :+= '-Wl,--check-sections' '-Wl,--gc-sections'
+      CppCommonLinkFlags        :+= '-Wl,--unresolved-symbols=report-all' '-Wl,--warn-common'
+      CppCommonLinkFlags        :+= '-Wl,--entry=Reset_Handler' :"-Wl,-T${STM32_ProjectPackageDir}/ldscript.ld"
+      CppCommonLinkFlags        :+= '-specs=nosys.specs'
+
+      DebuggerProgram            := ${ARMDebugger}
+
+
+##### Define some STM32-specific tools
+STM32ObjCopy         := ${ARMObjCopy}
+STM32ObjCopyE2BFlags := ${ARMObjCopyE2BFlags}
+STM32ObjCopyE2HFlags := ${ARMObjCopyE2HFlags}
+
+STM32Size            := ${ARMSize}
+STM32SizeFlags       := ${ARMSizeDefFlags}
+
+
+###################################################################################
+##### =================== Native STM32 Detection Functions ================== #####
+###################################################################################
+
+##### Functions to decode STM32 part numbers
+function __stm32_get_chip_spec_fse__(id)
+    # Include the chip specification list
+    :::include_once 'C++XBuildTool_STM32_Cube_CS.jxm'
+    # Search the specification list
+    foreach local I, V in ${STM32DecData} step ${STM32DecDataUnit}
+        # Get the the reference ID
+        local RefID := $partn(${STM32DecData}, ${I}, 0)
+        # Check if the IDs match
+        if ${RefID} &== ${id}
+            local FlashSize  := $partn(${STM32DecData}, ${I}, 1)
+            local SRAMSize   := $partn(${STM32DecData}, ${I}, 2)
+            local EEPROMSize := $partn(${STM32DecData}, ${I}, 3)
+            return { ${FlashSize} ${SRAMSize} ${EEPROMSize} }
+        endif
+    endforeach
+    # The ID was not found in the list
+    return { 0 0 0 }
+endfunction
+
+function __stm32_decode_flash_code_to_size__(code, ?inKB)
+    local FZ := 0
+      if ${code} &== '3' ; FZ :=    8
+    elif ${code} &== '4' ; FZ :=   16
+    elif ${code} &== '6' ; FZ :=   32
+    elif ${code} &== '8' ; FZ :=   64
+    elif ${code} &== 'B' ; FZ :=  128
+    elif ${code} &== 'Z' ; FZ :=  192
+    elif ${code} &== 'C' ; FZ :=  256
+    elif ${code} &== 'D' ; FZ :=  384
+    elif ${code} &== 'E' ; FZ :=  512
+    elif ${code} &== 'F' ; FZ :=  768
+    elif ${code} &== 'G' ; FZ := 1024
+    elif ${code} &== 'H' ; FZ := 1536
+    elif ${code} &== 'I' ; FZ := 2048
+    endif
+    if !${inKB} : mul FZ, ${FZ}, 1024
+    return ${FZ}
+endfunction
+
+function __stm32_decode_device_family_number__(familyNumber)
+    # Extract the parts
+    #     https://en.m.wikipedia.org/wiki/STM32#Part_number_decoding
+    #     https://stm32-base.org/cheatsheets/device-name-mapping.html
+    #     https://www.digikey.com/en/maker/blogs/2020/understanding-stm32-naming-conventions
+    local Part  := $ucase(${familyNumber})
+          Part  := ${Part/(?:STM32)([CFGHLU]|MP|W(?:BA?|L)?)(\d)((?<=L4)[PQRS])?([0-9A-F]+)(?:[A-Z])?([3468B-IZ])(?:-([A-Z]))?(?:.*)/$1$3$6|$2|$4|$5/}
+          Part  := $sfpipes(${Part})
+    local Type  := ${Part}<1>
+    local Core  := ${Part}<2>
+    local Line  := ${Part}<3>
+    local Flash := ${Part}<4>
+    # Return the results
+    return { ${Type} ${Core} ${Line} ${Flash} }
+endfunction
+
+function __stm32_decode_device_part_number__(partNumber)
+    local Part := ${partNumber}
+    if !$str_begwith(${Part}, 'STM32MP')
+          # Extract the parts
+          #     https://en.m.wikipedia.org/wiki/STM32#Part_number_decoding
+          #     https://stm32-base.org/cheatsheets/device-name-mapping.html
+          #     https://www.digikey.com/en/maker/blogs/2020/understanding-stm32-naming-conventions
+          Part   := ${Part/(?:STM32)([CFGHLU]|W(?:BA?|L)?)(\d)((?<=L4)[PQRS])?([0-9A-F][0-9]?)([A-CF-KMNQRT-VZ])([3468B-IZ])([PHUTY])?([67])?(?:-([A-Z]))?(?:.*)/$1$3$9|$2|$4|$5|$6|$7|$8/}
+    else
+          # The MP1 series does not have internal flash
+          #     https://www.st.com/en/microcontrollers-microprocessors/stm32mp1-series/products.html
+          Part   := ${Part/(?:STM32)(MP)(\d)([0-9A-F][0-9]?)([ACDF])(?:A([A-G]))?([137])?(?:.*)/$1|$2|$3|$5|-1|$5|$6|$4/}
+    endif
+          Part   := $sfpipes(${Part})
+    local Type   := ${Part}<1>
+    local Core   := ${Part}<2>
+    local Line   := ${Part}<3>
+    local PinCnt := ${Part}<4>
+    local Flash  := ${Part}<5>
+   #local PType  := ${Part}<6>
+   #local TRange := ${Part}<7>
+   #local SecOpt := ${Part}<8>
+    # Get the specification
+    local Spec  := $call( __stm32_get_chip_spec_fse__, $flatten( { ${Type} ${Core} ${Line} ${Flash} } ) )
+    # Convert flash-size code to flash size
+    local FlashSize := -1
+    if ${Flash} &!= -1 : FlashSize := $call(__stm32_decode_flash_code_to_size__, ${Flash})
+    # Check the result (error if the flash size is zero or does not match the one in the specification list)
+    if !${FlashSize}               : $call(__exit_error_ns_desc__, 'decoding chip specification for part number', ${partNumber})
+    if  ${FlashSize} != ${Spec}<1> : $call(__exit_error_ni_desc__, 'decoding chip specification for part number', ${partNumber})
+    # Return the results
+    return {{                           \
+        ${Type}     ,                   \
+        ${Core}     ,                   \
+        ${Line}     ,                   \
+        ${Flash}    , (* Flash  Code *) \
+        ${FlashSize}, (* Flash  Size *) \
+        ${Spec}<2>  , (* SRAM   Size *) \
+        ${Spec}<3>  , (* EEPROM Size *) \
+        ${PinCnt}                       \
+    }}
+endfunction
+
+function __stm32_tccode_to_cpu__(tccode)
+    local CPU := ''
+      if ${tccode} &== 'C0'  ; CPU := 'cortex-m0plus'
+    elif ${tccode} &== 'F0'  ; CPU := 'cortex-m0'
+    elif ${tccode} &== 'F1'  ; CPU := 'cortex-m3'
+    elif ${tccode} &== 'F2'  ; CPU := 'cortex-m3'
+    elif ${tccode} &== 'F3'  ; CPU := 'cortex-m4'
+    elif ${tccode} &== 'F4'  ; CPU := 'cortex-m4'
+    elif ${tccode} &== 'F7'  ; CPU := 'cortex-m7'
+    elif ${tccode} &== 'G0'  ; CPU := 'cortex-m0plus'
+    elif ${tccode} &== 'G4'  ; CPU := 'cortex-m4'
+    elif ${tccode} &== 'H5'  ; CPU := 'cortex-m33'
+    elif ${tccode} &== 'H7'  ; CPU := 'cortex-m7'
+    elif ${tccode} &== 'L0'  ; CPU := 'cortex-m0plus'
+    elif ${tccode} &== 'L1'  ; CPU := 'cortex-m3'
+    elif ${tccode} &== 'L4'  ; CPU := 'cortex-m4'
+    elif ${tccode} &== 'L5'  ; CPU := 'cortex-m33'
+    elif ${tccode} &== 'MP1' ; CPU := 'cortex-a7'
+    elif ${tccode} &== 'U5'  ; CPU := 'cortex-m33'
+    elif ${tccode} &== 'WB'  ; CPU := 'cortex-m4'
+    elif ${tccode} &== 'WBA' ; CPU := 'cortex-m33'
+    elif ${tccode} &== 'WL'  ; CPU := 'cortex-m4'
+    endif
+    return ${CPU}
+endfunction
+
+function __stm32_tccode_to_co_cpu__(tccode, ?line)
+    local CPU   := ''
+          line ?:= ''
+      if ${tccode} &== 'H7'  ; CPU :=                                    'cortex-m4'
+    elif ${tccode} &== 'MP1' ; CPU := $csel( $str_begwith(${line}, '5'), 'cortex-m4'    , '' ) # The coprocessor is only available in the MP15x line.
+    elif ${tccode} &== 'WB'  ; CPU :=                                    'cortex-m0plus'
+    elif ${tccode} &== 'WL'  ; CPU :=                                    'cortex-m0plus'
+    endif
+    return ${CPU}
+endfunction
+
+function __stm32_tccode_to_fpu__(tccode)
+    local FPU := ''
+      if ${tccode} &== 'F3'  ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'F4'  ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'F7'  ; FPU := 'fpv5-sp-d16'
+    elif ${tccode} &== 'G4'  ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'H5'  ; FPU := 'fpv5-sp-d16'
+    elif ${tccode} &== 'H7'  ; FPU := 'fpv5-sp-d16'
+    elif ${tccode} &== 'L4'  ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'L5'  ; FPU := 'fpv5-sp-d16'
+    elif ${tccode} &== 'MP1' ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'U5'  ; FPU := 'fpv5-sp-d16'
+    elif ${tccode} &== 'WB'  ; FPU := 'fpv4-sp-d16'
+    elif ${tccode} &== 'WBA' ; FPU := 'fpv5-sp-d16'
+    endif
+    return ${FPU}
+endfunction
+
+
+##### Function to get the appropriate linker script URL from Arduino GitHUb for the given STM32 part number
+function __stm32_get_chip_linker_script_url__(type, core, line, flash, pinCnt)
+    # Include the linker script list
+    :::include_once 'C++XBuildTool_STM32_Cube_LS.jxm'
+    # Check for L4+ series
+    local L4Plus   := $re_match(${type}, 'L[PQRS]')
+    local TypeMain := $csel(${L4Plus}, 'L'                            , ${type})
+    local CoreExt  := $csel(${L4Plus}, :"${core}${type/L([PQRS])/$1/}", ${core})
+    # Filter by the type, core, line, and package pin count
+    local FilterP := "${TypeMain}${CoreExt}${line}${pinCnt}"
+    local FilterD := :".+?STM32${TypeMain}${core}xx/.*?${FilterP}.+?"
+    local FList   := $erase_ifnot(${STM32LinkScripts}, ${FilterD}, true)
+    # Filter by the flash-size code if there is more than one result
+    local FLCount := $part_count(${FList})
+    local FResult := ''
+    if ${FLCount} > 1
+        # Process the items
+        local SIdx
+        foreach local FItem in ${FList}
+            # Process the parts
+                FSIdx := $str_lidx(${FItem}, '/')
+            inc FSIdx
+           #echoln "    ${FItem}"
+            foreach local FPart in $explode( $substr(${FItem}, ${FSIdx}, -1), '_' )
+                # Check in case the flash-size code is attached directly to the part
+                if $re_match(${FPart}, :"${FilterP}${flash}.*")
+                    FResult := ${FItem}
+                    break
+                # Check in case the flash-size code is attached as alternatives to the part
+                elif $str_fidx(${FPart}, '(') > 0
+                    if $re_match(${FPart}, :"${FilterP}.*")
+                        # Process flash-size codes
+                        foreach local FC in $explode( ${FPart/.+?\((.+?)\).*/$1/}, '-' )
+                            if ${FC} &== ${flash}
+                                FResult := ${FItem}
+                                break
+                            endif
+                        endforeach
+                        # Break if a result has been found
+                        if &${FResult} : break
+                    endif
+                endif
+            endforeach
+            # Break if a result has been found
+            if &${FResult} : break
+        endforeach
+    # Otherwise, simply store the result
+    elif ${FLCount}
+        FResult := ${FList}
+    endif
+    # If nothing was found, use the default one
+    if !&${FResult} : FResult := 'system'
+    # Return the URL
+    return :"https://raw.githubusercontent.com/stm32duino/Arduino_Core_STM32/main/${FResult}/ldscript.ld"
+endfunction
+
+
+###################################################################################
+##### ==================== Native STM32 Utility Functions =================== #####
+###################################################################################
+
+##### Function to download the appropriate linker script from Arduino GitHUb for the given STM32 part number
+const STM32_LDScripts_DirPath     := $cat_path( $jdd(), 'stm32ldscripts' )
+const STM32_LDScripts_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+function __stm32_download_chip_linker_script_by_url__(URL, ?onlyIfNotExist)
+    # Determine the cache file path
+    local OutName     := ${URL/:/__/}
+          OutName     := ${OutName/\//_/}
+    local OutPath     := $cat_path(${STM32_LDScripts_DirPath}, ${OutName})
+    local OutPathETAG := :"${OutPath}.ETAG"
+    local OutPathLCHK := :"${OutPath}.LAST_CHECKED"
+    # Check if the linker script already exist
+    local AlreadyExist := true
+    if !$valid_path(${OutPath}    ) : AlreadyExist := false
+    if !$valid_path(${OutPathETAG}) : AlreadyExist := false
+    if !$valid_path(${OutPathLCHK}) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return ${OutPath}
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${OutPathLCHK})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${STM32_LDScripts_ChkInterval}
+        if ${InR} : return ${OutPath}
+    endif
+    # Get the ETAG
+    local Head := $lcase( $http_head(${URL}) )
+   #$put_file( $cat_path( $ptd(), 'stm32.download.cls.head' ), ${Head} )
+   #local Head := $get_file( $cat_path( $ptd(), 'stm32.download.cls.head' ) )
+    local ETAG := $erase_ifnot(${Head}, '^etag=.+', true)
+          ETAG := ${ETAG/(?:etag=")(.+)(?:")/$1/}
+    # If the the linker script already exist, check if the ETAG matches
+    if ${AlreadyExist}
+        if ${ETAG} &== $get_file(${OutPathETAG})
+            # Update the last checked time and exit
+            $put_file( ${OutPathLCHK}, $call(get_timestamp) )
+            return ${OutPath}
+        endif
+    endif
+    # Make the directory in case it does not exist yet
+    $mkdir(${STM32_LDScripts_DirPath})
+    # Download and put the file
+    $http_download(${URL}, ${STM32_LDScripts_DirPath}, ${OutName})
+    # Put the ETAG
+    $put_file(${OutPathETAG}, ${ETAG})
+    # Put the last checked time
+    $put_file( ${OutPathLCHK}, $call(get_timestamp) )
+    # Return the linker script file path
+    return ${OutPath}
+endfunction
+
+function __stm32_download_chip_linker_script_by_cs__(type, core, line, flash, pinCnt, ?onlyIfNotExist)
+    # Get the URL
+    local URL := $call(__stm32_get_chip_linker_script_url__, ${type}, ${core}, ${line}, ${flash}, ${pinCnt})
+    # Download the linker script
+    return $call(__stm32_download_chip_linker_script_by_url__, ${URL})
+endfunction
+
+(*
+function __stm32_test_lds_impl__(partNumber)
+    local Res := $call(__stm32_decode_device_part_number__, ${partNumber})
+    echo   "${partNumber}\n"
+    echoln $ftlines( $series('    ', $call(__stm32_get_chip_linker_script_url__       , ${Res}<1>, ${Res}<2>, ${Res}<3>, ${Res}<4>, ${Res}<8>) ) )
+    echoln $ftlines( $series('    ', $call(__stm32_download_chip_linker_script_by_cs__, ${Res}<1>, ${Res}<2>, ${Res}<3>, ${Res}<4>, ${Res}<8>) ) )
+    $sleep(1000)
+endfunction
+
+function __stm32_test_lds__()
+    $call(__stm32_test_lds_impl__, STM32F103C4T7)
+    $call(__stm32_test_lds_impl__, STM32F103C6T7)
+    $call(__stm32_test_lds_impl__, STM32F103R4H6)
+    $call(__stm32_test_lds_impl__, STM32F103V8H6)
+    $call(__stm32_test_lds_impl__, STM32F205VBT7)
+    $call(__stm32_test_lds_impl__, STM32F215VGT7)
+    $call(__stm32_test_lds_impl__, STM32F103C8T6)
+    $call(__stm32_test_lds_impl__, STM32F411CEU6)
+    $call(__stm32_test_lds_impl__, STM32F378CCT6)
+    $call(__stm32_test_lds_impl__, STM32F378VC  )
+   #$call(__stm32_test_lds_impl__, STM32MP153A  )
+endfunction
+#*)
+
+
+###################################################################################
+##### ==================== Generic/Common STM32 Functions =================== #####
+###################################################################################
+
+##### Function to generate the correct glob target name to build assembly object file
+function sobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C object file
+function cobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C++ object file
+function cppobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Check the paths
+    local pathError := false
+    if $or( $cmp(${STM32_SDK_PATH}, '&==', ''), $not( $valid_path(${STM32_SDK_PATH}) ) )
+        $call(__exit_error_nf__, 'STM32Cube SDK', true)
+        echoln 'Please download and install the STM32Cube SDK from:'
+        echoln '    https://www.st.com/en/development-tools/stm32cubemx.html#tools-software'
+        echoln
+        echoln 'Example (Linux):'
+        echoln '    mkdir ~/stm32'
+        echoln '    cd ~/stm32'
+        echoln '    mkdir stm32-sdk'
+        echoln '    cd stm32-sdk'
+        echoln '    unzip en.stm32cubef4_v1-27-0.zip'
+        echoln '    unzip en.patch-cubef4_v1-27-1.zip'
+        echoln '    ...'
+        echoln '    ... # Extract other STM32Cube packages as needed'
+        echoln '    ...'
+        echoln '    cd ..'
+        echoln '    cd ..'
+        echoln 'Set \'STM32_SDK_PATH\' to the STM32Cube SDK location.'
+        echoln
+        echoln 'It is also possible to get (some of) the STM32Cube SDK from GitHub:'
+        echoln '    https://github.com/STM32-base/STM32-base-STM32Cube'
+        echoln 'for example (Linux):'
+        echoln '    mkdir ~/stm32'
+        echoln '    cd ~/stm32'
+        echoln '    mkdir stm32-sdk'
+        echoln '    cd stm32-sdk'
+        echoln '    git clone -b v1.27.1 https://github.com/STMicroelectronics/STM32CubeF4.git'
+        echoln '    ...'
+        echoln '    ... # Clone other STM32Cube SDK repository as needed'
+        echoln '    ...'
+        echoln '    cd ..'
+        echoln '    cd ..'
+        echoln
+        pathError := true
+    endif
+    if $or( $cmp(${STM32_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${STM32_TOOLCHAIN_PATH}) ) )
+        $call(__exit_error_nf__, 'STM32 Toolchain (GCC ARM None EABI)', true)
+        $call(__armgcc_print_download_info__, 'STM32', 'stm32', 'STM32_TOOLCHAIN_PATH')
+        pathError := true
+    endif
+    if ${pathError} : $exit(-1)
+    # Download (and install) the latest and DFU-Util from SourceForge
+    $call(download_latest_dfuutil, ${dlOnlyIfNotExist})
+    # Download (and install) the latest and OpenOCD from xPack
+    $call(download_latest_xpackopenocd_from_xpack, ${dlOnlyIfNotExist})
+    # Set the location of the C/C++ binaries
+    CppToolBinDir := $cat_path(${STM32_TOOLCHAIN_PATH}, 'bin')
+    # Set additional LD paths as needed
+    if !__os_windows__
+        LDLibraryPath +:= $cat_path(${STM32_TOOLCHAIN_PATH}, 'lib'  )
+        LDLibraryPath +:= $cat_path(${STM32_TOOLCHAIN_PATH}, 'lib64')
+    endif
+    # Set extra configuration information text
+    if &${STM32_SDK_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'STM32 SDK       Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${STM32_SDK_PATH}
+    endif
+    if &${STM32_TOOLCHAIN_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'STM32 Toolchain Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${STM32_TOOLCHAIN_PATH}
+    endif
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= 'STM32 GCC       Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    # Call the origin function
+    ARM_TOOLCHAIN_PATH := ${__GTCP_NA__} # Inform the origin function that 'ARM_TOOLCHAIN_PATH' should not be used
+    $call(__origin__, { ${buildSubdirectories} ${STM32_ProjectPackageDir} })
+endfunction
+
+
+##### Function to upload the given program via DFU
+const __Def_STM32_VID__ := '0483'
+const __Def_STM32_PID__ := 'df11'
+const __Def_STM32_FAD__ := '0x08000000'
+const __Def_STM32_MOD__ := 'leave'
+
+function __stm32_upload_dfu_exec__(progName, vid, pid, flashAddress, modifiers, ldLibraryPath)
+    # Prefer the statically linked DFU-Util if it is available
+    local DFUUtil_util_static       := :"${DFUUtil_util}-static"
+    local DFUUtil_util_static_found := $valid_path(${DFUUtil_util_static})
+    local DFUUtil_prog              := $csel(${DFUUtil_util_static_found} , ${DFUUtil_util_static}, ${DFUUtil_util})
+    # Determine the file paths
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    local UplFile := ~${progName/(.+)\.elf/$1.raw/}
+    local AddrCmd := $implode( $stack(${flashAddress}, ${modifiers}), ':' )
+    # Copy the BIN file so we can add suffix later
+    $cpfile(${BinFile}, ${UplFile}, true)
+    # Perform upload
+    if $and( $not(${DFUUtil_util_static_found}), $cmp(${ldLibraryPath}, '&!=', '') )
+        +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    endif
+        +@${DFUUtil_suffix} -v ${vid} -p ${pid} -a ~${UplFile}
+        +@${DFUUtil_prog} -i 0 -a 0 -s ${AddrCmd} -D ~${UplFile}
+    $nop($[excode]) # Ensure all pending commands are executed
+endfunction
+
+function stm32_upload_dfu(progName, ?vid, ?pid, ?flashAddress, ?modifiers)
+    # Set the default values
+    vid          ?:= ${__Def_STM32_VID__}
+    pid          ?:= ${__Def_STM32_PID__}
+    flashAddress ?:= ${__Def_STM32_FAD__}
+    modifiers    ?:= ${__Def_STM32_MOD__}
+    # Perform upload
+    $cmd_streaming_on()
+    $exec( __stm32_upload_dfu_exec__, ${progName}, ${vid}, ${pid}, ${flashAddress}, ${modifiers}, $call(__ccat_LDLibraryPaths__, ${DFUUtil_dlib_dir}) )
+    $cmd_streaming_off()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/40-dfuse.rules')
+            # Based on 'https://github.com/wiieva/dfu-util/blob/master/doc/40-dfuse.rules'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the target device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/40-dfuse.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+           #echoln             '# Makes \'STM32 DfuSe\' device writeable for the \'plugdev\' group'
+           #echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="0664", GROUP="plugdev", TAG+="uaccess"'
+            echoln             '# Makes \'STM32 DfuSe\' device writeable by all users'
+            echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="0666", TAG+="uaccess"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+        endif
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Define some default values for SWD
+const STM32_SWD_Default_Interface    := 'stlink'
+const STM32_SWD_Default_Transport    := 'hla_swd'
+const STM32_SWD_Default_AdapterSpeed := 2000
+
+const STM32_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+const STM32_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+const STM32_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function __stm32_check_swd_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__openocd_print_udev_rules__, ${XPackOOCD_udev_rule})
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function stm32_reset_swd(?interface, ?transport, ?adapterSpeed, ?ignoreCPUID)
+    # Set the default values
+    interface    ?:= ${STM32_SWD_Default_Interface}
+    transport    ?:= ${STM32_SWD_Default_Transport}
+    adapterSpeed ?:= ${STM32_SWD_Default_AdapterSpeed}
+    # Perform reset
+    if ${ignoreCPUID} : local overrideCPUTapID := '0'
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_reset_swd__                                 , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${STM32_BASE_FNAME}                                  , \
+        ${overrideCPUTapID}                                    \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__stm32_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to upload the given program via SWD
+function stm32_upload_swd(progName, ?interface, ?transport, ?adapterSpeed, ?ignoreCPUID)
+    # Set the default values
+    interface    ?:= ${STM32_SWD_Default_Interface}
+    transport    ?:= ${STM32_SWD_Default_Transport}
+    adapterSpeed ?:= ${STM32_SWD_Default_AdapterSpeed}
+    # Perform upload
+    if ${ignoreCPUID} : local overrideCPUTapID := '0'
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_upload_swd_simple__                         , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${STM32_BASE_FNAME}                                  , \
+        ${progName}                                          , \
+        ${overrideCPUTapID}                                    \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__stm32_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function stm32_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd, ?ignoreCPUID)
+    # Set the default values
+    interface    ?:= ${STM32_SWD_Default_Interface}
+    transport    ?:= ${STM32_SWD_Default_Transport}
+    adapterSpeed ?:= ${STM32_SWD_Default_AdapterSpeed}
+    # Print message about GDB as needed
+    $call(__armgcc_debug_swd_start_print_gdb_info__, 'stm32_debug_swd_gdb', 'STM32', ${progName}, ${DebuggerProgram}, ${noGDBExecCmd})
+    # Run OpenOCD in server mode
+    if ${ignoreCPUID} : local overrideCPUTapID := '0'
+    $cmd_streaming_on()
+    $exec(                                                     \
+        __armgcc_debug_swd_start_exec_openocd__,               \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${STM32_BASE_FNAME}                                  , \
+        ${STM32_SWD_GDBPort}                                 , \
+        ${STM32_SWD_TCLPort}                                 , \
+        ${STM32_SWD_TelnetPort}                              , \
+        ${overrideCPUTapID}                                    \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__stm32_check_swd_error_and_print_help__)
+endfunction
+
+function stm32_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default values
+    autoConnect ?:= true
+    # Execute GDB
+    $sh_delay()
+    $cmd_streaming_on()
+    $exec(                             \
+        __armgcc_debug_swd_gdb_exec__, \
+        $call(__get_LDLibraryPaths__), \
+        ${DebuggerProgram}           , \
+        ${STM32_SWD_GDBPort}         , \
+        ${progName}                  , \
+        ${autoConnect}                 \
+    )
+    $cmd_streaming_off()
+    $sh_restore()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+###################################################################################
+##### ===================== Native STM32 Build Functions ==================== #####
+###################################################################################
+
+##### Function to select the part number
+function stm32cube_select_part(partNumber, ?usbDriver)
+    # Convert the part number to uppercase
+    partNumber := $ucase(${partNumber})
+    # Save the selected part number
+    STM32Cube_SelectedPartNumber := ${partNumber}
+    # Try to get the initialization data from the cache file first
+    local STM32CubePartInitDataCacheFilePath := $cat_path( $ptd(), :"STM32CubePartInitData.${STM32Cube_SelectedPartNumber}.cache" )
+    if $uptodate_path(${STM32CubePartInitDataCacheFilePath})
+        # Get the path to the latest directories
+        local Lines := $get_file(${STM32CubePartInitDataCacheFilePath})
+        # Get and split the lines
+        STM32Cube_SDKRootDir              :=          ${Lines}< 1>
+        STM32Cube_SDKRootDir_NLenOffset   :=          ${Lines}< 2>
+        STM32Cube_SysLibDirs              := $sfpipes(${Lines}< 3>)
+        STM32Cube_SysIncDirs              := $sfpipes(${Lines}< 4>)
+        STM32Cube_SysSrcDir_CoreHAL       :=          ${Lines}< 5>
+        STM32Cube_SysSrcDir_CoreHALLegacy :=          ${Lines}< 6>
+        STM32Cube_SysSrcDir_USBCore       := $strim(  ${Lines}< 7>)
+        STM32Cube_SysSrcDir_USBClass      := $strim(  ${Lines}< 8>)
+        STM32CubeRef_PackageLicenseHTML   :=          ${Lines}< 9>
+        STM32CubeRef_PackageLicenseMD     :=          ${Lines}<10>
+        STM32CubeRef_LDScriptURL          :=          ${Lines}<11>
+        STM32CubeRef_SysSrc_CMSISStartup  :=          ${Lines}<12>
+        STM32CubeRef_SysSrc_CMSISSystem   :=          ${Lines}<13>
+        STM32CubeRef_ProjectSubDir        :=          ${Lines}<14>
+        STM32_CPU                         :=          ${Lines}<15>
+        STM32_FPU                         :=          ${Lines}<16>
+        STM32_FLOAT_ABI                   :=          ${Lines}<17>
+        STM32_FLASH_OFFSET                :=          ${Lines}<18>
+        STM32_FLASH_SIZE                  :=          ${Lines}<19>
+        STM32_SRAM_SIZE                   :=          ${Lines}<20>
+        STM32_DEVICE                      :=          ${Lines}<21>
+        STM32_FAMILY                      :=          ${Lines}<22>
+        STM32_FAMILY_XX                   :=          ${Lines}<23>
+        STM32_HSE_VALUE                   :=          ${Lines}<24>
+        STM32_LSE_VALUE                   :=          ${Lines}<25>
+        STM32_BASE_FNAME                  :=          ${Lines}<26>
+    # Determine the initialization data
+    else
+        # Decode the device part number
+        local Res        := $call(__stm32_decode_device_part_number__, ${STM32Cube_SelectedPartNumber})
+        local Type       := ${Res}<1>
+        local Core       := ${Res}<2>
+        local Line       := ${Res}<3>
+        local FlashCode  := ${Res}<4>
+        local FlashSize  := ${Res}<5>
+        local SRAMSize   := ${Res}<6>
+        local EEPROMSize := ${Res}<7>
+        local PinCnt     := ${Res}<8>
+        # Check for L4+ series
+        local L4Plus   := $re_match(${Type}, 'L[PQRS]')
+        local TypeMain := $csel(${L4Plus}, 'L'                            , ${Type})
+        local CoreExt  := $csel(${L4Plus}, :"${Core}${Type/L([PQRS])/$1/}", ${Core})
+        # Set the derivative values
+        local TypeCore   := :"${Type}${Core}"
+        local LType      := $lcase(${Type}     )
+        local LTypeMain  := $lcase(${TypeMain} )
+        local LCore      := $lcase(${Core}     )
+        local LCoreExt   := $lcase(${CoreExt}  )
+        local LLine      := $lcase(${Line}     )
+        local LFlashCode := $lcase(${FlashCode})
+        # Find the appropriate STM32Cube SDK directory
+        local SDirs := $lsdir(${STM32_SDK_PATH}, 'd')
+              SDirs := $sort_descending( $erase_ifnot(${SDirs}, :".*?STM32Cube(?:_FW_)?${TypeMain}${Core}.*", true) )
+        local PVer  := 0
+        local PDir
+        foreach local SDir in ${SDirs}
+            # Extract the version numbers
+            local Parts := $get_file(:"${SDir}/package.xml")
+                  Parts := $erase_ifnot(${Parts}, '.*?PackDescription\s+Release="[^"]+"(?:\s+Patch="[^"]+")?.*', true)
+                  Parts := $sfdots(${Parts/.*?PackDescription\s+Release=".+?\..+?\.(\d+?)\.(\d+?)\.(\d+?)"(?:\s+Patch=".+?\..+?\.(\d+?)\.(\d+?)\.(\d+?)+")?.*/$1.$2.$3.$4.$5.$6/})
+            # Calculate the numerical version numbers
+            local Ver1 := $call(calc_ver_numeric_222, ${Parts}<1>, ${Parts}<2>, ${Parts}<3>)
+            local Ver2 := $call(calc_ver_numeric_222, ${Parts}<4>, ${Parts}<5>, ${Parts}<6>)
+            local max VerN, ${Ver1}, ${Ver2}
+            # Compare the version numbers to get the latest SDK
+            if ${VerN} > ${PVer}
+                PVer := ${VerN}
+                PDir := ${SDir}
+            endif
+        endforeach
+        if !&${PDir} : $call(__exit_error_na_path__, 'a suitable STM32Cube SDK for part number', ${STM32Cube_SelectedPartNumber}, ${STM32_SDK_PATH})
+        # Determine the USB driver to be used
+        ##### !!! TODO : How about the other middlewares? !!! #####
+        if &${usbDriver}
+            local __MiddlewaresUSBDriverRoot__
+            local __MiddlewaresUSBDriverCore__
+            local __MiddlewaresUSBDriverClass__
+            local USBDriver := $sfpipes(${usbDriver}   )
+            local USBMode   := $lcase  (${USBDriver}<1>)
+            local USBClass  := $ucase  (${USBDriver}<2>)
+              if ${USBMode} &== 'device' ; __MiddlewaresUSBDriverRoot__ := :"${PDir}/Middlewares/ST/STM32_USB_Device_Library"
+            elif ${USBMode} &== 'host'   ; __MiddlewaresUSBDriverRoot__ := :"${PDir}/Middlewares/ST/STM32_USB_Host_Library"
+            endif
+            __MiddlewaresUSBDriverCore__  := :"${__MiddlewaresUSBDriverRoot__}/Core"
+            __MiddlewaresUSBDriverClass__ := :"${__MiddlewaresUSBDriverRoot__}/Class/${USBClass}"
+            if !$valid_path(${__MiddlewaresUSBDriverCore__} ) : __MiddlewaresUSBDriverRoot__ := ''
+            if !$valid_path(${__MiddlewaresUSBDriverClass__}) : __MiddlewaresUSBDriverRoot__ := ''
+            if !&${__MiddlewaresUSBDriverRoot__} : $call(__exit_error_ns_desc__, 'USB driver', ${usbDriver})
+        endif
+        # Define the subdirectory shortcuts
+        local __Drivers__                := :"${PDir}/Drivers"
+        local __DriversCMSIS__           := :"${__Drivers__}/CMSIS"
+        local __DriversCMSISTemplate__   := :"${__DriversCMSIS__}/Device/ST/STM32${TypeMain}${Core}xx/Source/Templates"
+        local __DriversCoreHAL__         := :"${__Drivers__}/STM32${TypeMain}${Core}xx_HAL_Driver"
+        # Set the subdirectory paths
+        STM32Cube_SDKRootDir              :=   ${PDir}
+        STM32Cube_SysLibDirs              := :"${__DriversCMSIS__}/Lib/GCC"
+        STM32Cube_SysIncDirs              := :"${__DriversCMSIS__}/Include"                                     \
+                                             :"${__DriversCMSIS__}/Device/ST/STM32${TypeMain}${Core}xx/Include" \
+                                             :"${__DriversCoreHAL__}/Inc"                                       \
+                                             :"${__DriversCoreHAL__}/Inc/Legacy"
+        STM32Cube_SysSrcDir_CoreHAL       := :"${__DriversCoreHAL__}/Src"
+        STM32Cube_SysSrcDir_CoreHALLegacy := :"${__DriversCoreHAL__}/Src/Legacy"
+        # Set the USB drive subdirectory paths as needed
+        if &${__MiddlewaresUSBDriverRoot__}
+            STM32Cube_SysIncDirs         +:= :"${__MiddlewaresUSBDriverCore__}/Inc"  \
+                                             :"${__MiddlewaresUSBDriverClass__}/Inc"
+            STM32Cube_SysSrcDir_USBCore   := :"${__MiddlewaresUSBDriverCore__}/Src"
+            STM32Cube_SysSrcDir_USBClass  := :"${__MiddlewaresUSBDriverClass__}/Src"
+        else
+            STM32Cube_SysSrcDir_USBCore   := ''
+            STM32Cube_SysSrcDir_USBClass  := ''
+        endif
+        # Calculate the offset value to remove the STM32Cube SDK root directory name
+            STM32Cube_SDKRootDir_NLenOffset := $strlen(${STM32Cube_SDKRootDir})
+        add STM32Cube_SDKRootDir_NLenOffset, ${STM32Cube_SDKRootDir_NLenOffset}, 2
+        # Set the reference file paths
+        local CMSISStartup0  := :"${__DriversCMSISTemplate__}/gcc/startup_stm32${LTypeMain}${LCoreExt}${LLine}xx.s"
+        local CMSISStartup1  := :"${__DriversCMSISTemplate__}/gcc/startup_stm32${LTypeMain}${LCoreExt}${LLine}x${LFlashCode}.s"
+        local ProjectSubDirs := $erase_ifnot( $lsdir(:"${STM32Cube_SDKRootDir}/Projects", 'd'), :".+?/Projects/.*?${TypeMain}${CoreExt}.*", true)
+        STM32CubeRef_PackageLicenseHTML  := :"${STM32Cube_SDKRootDir}/Package_license.html"
+        STM32CubeRef_PackageLicenseMD    := :"${STM32Cube_SDKRootDir}/Package_license.md"
+        STM32CubeRef_LDScriptURL         := $call(__stm32_get_chip_linker_script_url__, ${Type}, ${Core}, ${Line}, ${FlashCode}, ${PinCnt})
+        STM32CubeRef_SysSrc_CMSISStartup := $csel( $valid_path(${CMSISStartup1}), ${CMSISStartup1}, ${CMSISStartup0} )
+        STM32CubeRef_SysSrc_CMSISSystem  := :"${__DriversCMSISTemplate__}/system_stm32${LTypeMain}${LCore}xx.c"
+        if $part_count(${ProjectSubDirs}) > 1
+            # Refine by the line
+            ProjectSubDirs := $erase_ifnot(${ProjectSubDirs}, :".+?/Projects/.*?${TypeMain}${CoreExt}${Line}.*", true)
+            if $part_count(${ProjectSubDirs}) > 1
+                # Refine by the flash-size code
+                        local PSD := $erase_ifnot(${ProjectSubDirs}, :".+?/Projects/.*?${TypeMain}${CoreExt}${Line}${FlashCode}.*", true)
+                if !&${PSD} : PSD := $erase_ifnot(${ProjectSubDirs}, :".+?/Projects/.*?${TypeMain}${CoreExt}${Line}.${FlashCode}.*", true)
+                STM32CubeRef_ProjectSubDir := $partn( $sort_ascending(${PSD}), 1 )
+            else
+                STM32CubeRef_ProjectSubDir = ${ProjectSubDirs}
+            endif
+        else
+            STM32CubeRef_ProjectSubDir = ${ProjectSubDirs}
+        endif
+        # Set the chip specification data
+        local __STM32_TC_CODE__   := :"${Type}${Core}"
+              STM32_CPU          ?:= $call(__stm32_tccode_to_cpu__, ${__STM32_TC_CODE__})
+              STM32_FPU          ?:= $call(__stm32_tccode_to_fpu__, ${__STM32_TC_CODE__})
+              STM32_FLOAT_ABI    ?:= $csel( $cmp(${STM32_FPU}, '&!=', ''), 'hard', 'soft' )
+              STM32_FLASH_OFFSET ?:= ${__Def_STM32_FLASH_OFFSET__}
+              STM32_FLASH_SIZE   ?:= ${FlashSize}
+              STM32_SRAM_SIZE    ?:= ${SRAMSize}
+              STM32_DEVICE       ?:= :"STM32${TypeMain}${CoreExt}${Line}${PinCnt}${FlashCode}"
+              STM32_FAMILY       ?:= :"STM32${TypeMain}${CoreExt}${Line}x${FlashCode}"
+              STM32_FAMILY_XX    ?:= :"STM32${TypeMain}${CoreExt}${Line}xx"
+              STM32_HSE_VALUE    ?:= ${__Def_STM32_HSE_VALUE__}
+              STM32_LSE_VALUE    ?:= ${__Def_STM32_LSE_VALUE__}
+              STM32_BASE_FNAME   ?:= :"stm32${LTypeMain}${LCore}x"
+        # Save the initialization data to the cache file
+        local Lines  :=          ${STM32Cube_SDKRootDir}
+              Lines +:=          ${STM32Cube_SDKRootDir_NLenOffset}
+              Lines +:= $ftpipes(${STM32Cube_SysLibDirs})
+              Lines +:= $ftpipes(${STM32Cube_SysIncDirs})
+              Lines +:=          ${STM32Cube_SysSrcDir_CoreHAL}
+              Lines +:=          ${STM32Cube_SysSrcDir_CoreHALLegacy}
+              Lines +:=          ${STM32Cube_SysSrcDir_USBCore}
+              Lines +:=          ${STM32Cube_SysSrcDir_USBClass}
+              Lines +:=          ${STM32CubeRef_PackageLicenseHTML}
+              Lines +:=          ${STM32CubeRef_PackageLicenseMD}
+              Lines +:=          ${STM32CubeRef_LDScriptURL}
+              Lines +:=          ${STM32CubeRef_SysSrc_CMSISStartup}
+              Lines +:=          ${STM32CubeRef_SysSrc_CMSISSystem}
+              Lines +:=          ${STM32CubeRef_ProjectSubDir}
+              Lines +:=          ${STM32_CPU}
+              Lines +:=          ${STM32_FPU}
+              Lines +:=          ${STM32_FLOAT_ABI}
+              Lines +:=          ${STM32_FLASH_OFFSET}
+              Lines +:=          ${STM32_FLASH_SIZE}
+              Lines +:=          ${STM32_SRAM_SIZE}
+              Lines +:=          ${STM32_DEVICE}
+              Lines +:=          ${STM32_FAMILY}
+              Lines +:=          ${STM32_FAMILY_XX}
+              Lines +:=          ${STM32_HSE_VALUE}
+              Lines +:=          ${STM32_LSE_VALUE}
+              Lines +:=          ${STM32_BASE_FNAME}
+        $put_file(${STM32CubePartInitDataCacheFilePath}, ${Lines})
+    endif
+    # Configure the build
+    $call(__stm32cube_config_build__)
+endfunction
+
+
+##### Function to configure the build
+function __stm32cube_config_build__()
+    # Set the project's package directory
+    STM32Cube_ProjectPackageDir := $cat_path( $cwd(), ${STM32_ProjectPackageDir} )
+    # Set the special definition variables
+                       __STM32_CPU__                  := :"-mcpu=${STM32_CPU}"
+    if &${STM32_FPU} : __STM32_FPU__                  := :"-mfpu=${STM32_FPU}"
+                       __STM32_FLOAT_ABI__            := :"-mfloat-abi=${STM32_FLOAT_ABI}"
+                       __STM32_CMDEF_DEVICE__         := $series('-D', { '' '__' '__STM32_' }, ${STM32_DEVICE}, { '' '__' })
+                       __STM32_CMDEF_FAMILY__         := :"-D${STM32_FAMILY}" :"-D${STM32_FAMILY_XX}"
+                       __STM32_CMDEF_HSE_VALUE__      := :"-DHSE_VALUE=${STM32_HSE_VALUE}U"
+                       __STM32_CMDEF_LSE_VALUE__      := :"-DLSE_VALUE=${STM32_LSE_VALUE}U"
+                       __STM32_WLSYM_FLASH_OFFSET__   := :"-Wl,--defsym=LD_FLASH_OFFSET=${STM32_FLASH_OFFSET}"
+                       __STM32_WLSYM_MAX_SIZE__       := :"-Wl,--defsym=LD_MAX_SIZE=${STM32_FLASH_SIZE}"
+                       __STM32_WLSYM_MAX_DATA_SIZE__  := :"-Wl,--defsym=LD_MAX_DATA_SIZE=${STM32_SRAM_SIZE}"
+                       __STM32_CINCDIR__              := $series( '-I'      , $path_ndsep( $cwd() )           )
+                       __STM32_CINCDIR__             +:= $series( '-I'      , ~${STM32Cube_ProjectPackageDir} )
+                       __STM32_CINCDIR__             +:= $series( '-isystem', ~${STM32Cube_SysIncDirs}        )
+                       __STM32_CLIBDIR__             +:= $series( '-L'      , ~${STM32Cube_SysLibDirs}        )
+    if &${STM32Cube_SysSrcDir_USBCore}
+        local USBClass := ${STM32Cube_SysSrcDir_USBClass/.+?Class\/(.+?)\/.+/$1/}
+        if $str_lidx( $lcase(${STM32Cube_SysSrcDir_USBCore}), 'host' ) > 0
+            __STM32_USBDRIVER__ := '-DSTM32_ENABLE_USB' '-DSTM32_ENABLE_USB_HOST'   :"-DSTM32_ENABLE_USB_HOST_${USBClass}"
+        else
+            __STM32_USBDRIVER__ := '-DSTM32_ENABLE_USB' '-DSTM32_ENABLE_USB_DEVICE' :"-DSTM32_ENABLE_USB_DEVICE_${USBClass}"
+        endif
+    endif
+    # Determine the LL-USB HAL source file name
+    __STM32Cube_HAL_SRC_LL_USB_NAME__ := :"${STM32_BASE_FNAME}x_ll_usb.c"
+    (*
+    # Unconditionally remove '-Wextra' to prevent printing a lot of warnings from the SDK source files
+    $call(__unconditionally_remove_wextra__)
+    #*)
+endfunction
+
+
+##### Function to list all source files (except the template files)
+function __stm32cube_list_srcs__(srcRootDir)
+    local PrefLen  := $strlen(${srcRootDir})
+    add   PrefLen, ${PrefLen}, 2
+    return $erase_if( $substr( $lsdir_rec(${srcRootDir}, 'f'), ${PrefLen}, 0 ), '.+template.+', true )
+endfunction
+
+
+##### Function to list all template source files
+function __stm32cube_list_template_srcs__(srcRootDir)
+    return $erase_ifnot( $lsdir_rec(${srcRootDir}, 'f'), '.+template.+', true )
+endfunction
+
+
+##### Function to copy all template source files
+function __stm32cube_copy_template_srcs__(srcRootDir, dstPackageDir)
+    foreach local MF in $call(__stm32cube_list_template_srcs__, ${srcRootDir})
+        local DF := $file_name(${MF/_template//})
+        if &${DF} : $cpfile( ${MF} , $cat_path(${dstPackageDir}, ${DF}), true, true )
+    endforeach
+endfunction
+
+
+##### Function to copy files from template
+function stm32cube_copy_template_files(dstDir)
+    # Error if the project template for the selected part number is not available
+    if !&${STM32CubeRef_ProjectSubDir}
+        $call(__exit_error_na_path__, 'a suitable project template for part number', ${STM32Cube_SelectedPartNumber}, :"${STM32Cube_SDKRootDir}/Projects")
+    endif
+    # Create the destination directory in case it does not exist yet
+    dstDir := ~${dstDir}
+    $mkdir(${dstDir})
+    # Error if the destination directory is not empty
+    if &$lsdir(${dstDir}) : $call(__exit_error_build_process_cancel__, :"$[function]()", 'the destination directory is not empty')
+    # Download the linker script
+    local STM32CubeRef_LDScriptFileSrcPath := $call(__stm32_download_chip_linker_script_by_url__, ${STM32CubeRef_LDScriptURL})
+    # Create the destination package directory
+    local UPD := :"${dstDir}/${STM32_ProjectPackageDir}"
+    $mkdir(${UPD})
+    # Copy the standard files
+    foreach local File in $stack(                                                     \
+                              $lsdir(:"${STM32CubeRef_ProjectSubDir}/Templates/Inc"), \
+                              $lsdir(:"${STM32CubeRef_ProjectSubDir}/Templates/Src")  \
+                          )
+        if $re_match(${File}, '.+/main.+')
+            $cpfile( ${File} , $cat_path( ${dstDir}, $file_name(${File}) ), true, true )
+        else
+            $cpfile( ${File} , $cat_path( ${UPD}   , $file_name(${File}) ), true, true )
+        endif
+    endforeach
+    $cpfile( ${STM32CubeRef_PackageLicenseHTML} , $cat_path( ${UPD}, $file_name(${STM32CubeRef_PackageLicenseHTML} ) ), true, true )
+    $cpfile( ${STM32CubeRef_PackageLicenseMD}   , $cat_path( ${UPD}, $file_name(${STM32CubeRef_PackageLicenseMD}   ) ), true, true )
+    $cpfile( ${STM32CubeRef_LDScriptFileSrcPath}, $cat_path( ${UPD}, 'ldscript.ld'                                   ), true, true )
+    $cpfile( ${STM32CubeRef_SysSrc_CMSISStartup}, $cat_path( ${UPD}, $file_name(${STM32CubeRef_SysSrc_CMSISStartup}) ), true, true )
+    $cpfile( ${STM32CubeRef_SysSrc_CMSISSystem} , $cat_path( ${UPD}, $file_name(${STM32CubeRef_SysSrc_CMSISSystem} ) ), true, true )
+    $call(__stm32cube_copy_template_srcs__, ${STM32Cube_SysSrcDir_CoreHAL}, ${UPD})
+    # Copy the USB driver files
+    if &${STM32Cube_SysSrcDir_USBCore}
+        $call(__stm32cube_copy_template_srcs__,   ${STM32Cube_SysSrcDir_USBCore}          , ${UPD})
+        $call(__stm32cube_copy_template_srcs__, :"${STM32Cube_SysSrcDir_USBCore}/../Inc"  , ${UPD})
+    endif
+    if &${STM32Cube_SysSrcDir_USBClass}
+        $call(__stm32cube_copy_template_srcs__,   ${STM32Cube_SysSrcDir_USBClass}         , ${UPD})
+        $call(__stm32cube_copy_template_srcs__, :"${STM32Cube_SysSrcDir_USBClass}/../Inc" , ${UPD})
+    endif
+endfunction
+
+
+##### Functions to add (include) the STM32Cube SDK source files to the build
+const   STM32Cube_SysLibBuildDir   := 'stm32lib'
+const   STM32Cube_SysSLibName      := 'STM32Cube'
+const   STM32Cube_SysSLibPath      := $call(slib_fpath, ${STM32Cube_SysSLibName})
+
+unset __STM32Cube_SysLibObjFileP__ # Package        object files
+unset __STM32Cube_SysLibObjFile1__ # System library object files - part 1
+unset __STM32Cube_SysLibObjFile2__ # System library object files - part 2
+      __STM32Cube_SysLibObjFileN__ := 0
+
+function __stm32cube_add_compile_target__(Obj, Src, isPkg)
+    # Add the target to build the object file
+    local Ext := $lcase( $file_ext(${Src}) )
+    $add_target(:"__stm32cube_compile_${Ext}__", ${Obj}, ${Src})
+    # Add the object file path to the list of package object files
+    if ${isPkg}
+        __STM32Cube_SysLibObjFileP__ +:= ${Obj}
+    # Add the object file path to one of the lists of system library object files
+    else
+        if !${__STM32Cube_SysLibObjFileN__}
+            __STM32Cube_SysLibObjFile1__ +:= ${Obj}
+            __STM32Cube_SysLibObjFileN__  := 1
+        else
+            __STM32Cube_SysLibObjFile2__ +:= ${Obj}
+            __STM32Cube_SysLibObjFileN__  := 0
+        endif
+    endif
+endfunction
+
+function stm32cube_add_pkg_src(srcFileName)
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM32Cube_ProjectPackageDir}, ${SFN})
+        # Determine the object file path
+        local Obj := $series( $cat_paths(~${CppBuildDir}, ${STM32_ProjectPackageDir}, ${SFN}), '.', ${ObjFileExt} )
+        # Add the compile target
+        $call(__stm32cube_add_compile_target__, ${Obj}, ${Src}, true)
+    endforeach
+endfunction
+
+function stm32cube_add_hal_src(srcFileName)
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM32Cube_SysSrcDir_CoreHAL}, ${SFN})
+        # Determine the object file path
+        local Obj := $substr(${Src}, ${STM32Cube_SDKRootDir_NLenOffset}, -1)
+              Obj := $series( $cat_paths(~${CppBuildDir}, ${STM32Cube_SysLibBuildDir}, ${Obj}), '.', ${ObjFileExt} )
+        # Make the output directory in case it does not exist yet
+        $mkdir( $dir_name(${Obj}) )
+        # Add the compile target
+        $call(__stm32cube_add_compile_target__, ${Obj}, ${Src}, false)
+    endforeach
+endfunction
+
+function stm32cube_add_usbdrv_core_src(srcFileName)
+    # Add the USB core driver source file
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM32Cube_SysSrcDir_USBCore}, ${SFN})
+        # Determine the object file path
+        local Obj := $substr(${Src}, ${STM32Cube_SDKRootDir_NLenOffset}, -1)
+              Obj := $series( $cat_paths(~${CppBuildDir}, ${STM32Cube_SysLibBuildDir}, ${Obj}), '.', ${ObjFileExt} )
+        # Make the output directory in case it does not exist yet
+        $mkdir( $dir_name(${Obj}) )
+        # Add the compile target
+        $call(__stm32cube_add_compile_target__, ${Obj}, ${Src}, false)
+    endforeach
+    # Add the LL-USB HAL source file once and only once
+    if &${__STM32Cube_HAL_SRC_LL_USB_NAME__}
+        $call(stm32cube_add_hal_src, ${__STM32Cube_HAL_SRC_LL_USB_NAME__})
+        unset __STM32Cube_HAL_SRC_LL_USB_NAME__
+    endif
+endfunction
+
+function stm32cube_add_usbdrv_class_src(srcFileName)
+    foreach local SFN in ${srcFileName}
+        # Determine the source file path
+        local Src := $cat_path(${STM32Cube_SysSrcDir_USBClass}, ${SFN})
+        # Determine the object file path
+        local Obj := $substr(${Src}, ${STM32Cube_SDKRootDir_NLenOffset}, -1)
+              Obj := $series( $cat_paths(~${CppBuildDir}, ${STM32Cube_SysLibBuildDir}, ${Obj}), '.', ${ObjFileExt} )
+        # Make the output directory in case it does not exist yet
+        $mkdir( $dir_name(${Obj}) )
+        # Add the compile target
+        $call(__stm32cube_add_compile_target__, ${Obj}, ${Src}, false)
+    endforeach
+endfunction
+
+function stm32cube_auto_add_pkg_srcs()
+    # Try to get the list content from the cache file first
+    local STM32CubePkgSrcListCacheFilePath := $cat_path( $ptd(), :"STM32CubePkgSrcList.${STM32Cube_SelectedPartNumber}.cache" )
+    if $uptodate_path(${STM32CubePkgSrcListCacheFilePath})
+        # Get the list content
+        local PkgSrcs := $get_file(${STM32CubePkgSrcListCacheFilePath})
+    # Determine the list content
+    else
+        # Generate a list of package source files to be included
+        local PkgSrcs := $erase_ifnot( $file_name( $lsdir(${STM32Cube_ProjectPackageDir}, 'f') ), '.+\.[sc]', true )
+              PkgSrcs := $sort_ascending(${PkgSrcs})
+        (*
+        # Remove USB driver source files if USB is not enabled
+        if !&${STM32Cube_SysSrcDir_USBCore} : PkgSrcs := $erase_if(${PkgSrcs}, 'usbd_.*', true)
+        #*)
+        # Save the list content to the cache file
+        $put_file(${STM32CubePkgSrcListCacheFilePath}, ${PkgSrcs})
+    endif
+    # Add the package source files
+    $call(stm32cube_add_pkg_src, ${PkgSrcs})
+endfunction
+
+function stm32cube_auto_add_hal_srcs()
+    # Determine the HAL configuration header file name
+    local HALConfHPath := :"${STM32_ProjectPackageDir}/${STM32_BASE_FNAME}x_hal_conf.h"
+    # Try to get the list content from the cache file first
+    local STM32CubeHALModSrcListCacheFilePath := $cat_path( $ptd(), :"STM32CubeHALModSrcList.${STM32Cube_SelectedPartNumber}.cache" )
+    if $and( $uptodate_path(${STM32CubeHALModSrcListCacheFilePath}), $newer_path(${STM32CubeHALModSrcListCacheFilePath}, ${HALConfHPath}) )
+        # Get the list content
+        local ModSrcs := $get_file(${STM32CubeHALModSrcListCacheFilePath})
+    # Determine the list content
+    else
+        # Read the HAL configuration header file and remove all comments
+        local METext := $get_file(${HALConfHPath}, true)
+              METext := ${METext/(?s)\/\*.+?\*\///}
+              METext := ${METext/\p{Blank}*\/\/.*//}
+        # Get the list of enabled '#define' from the HAL configuration header file
+        local MEList := $erase_ifnot( $sflines(${METext}), '^\\s*#define\\s+HAL_.+?_MODULE_ENABLED\\s*$', true )
+              MEList := $lcase( ${MEList/.+HAL_(.+?)_MODULE.+/$1/} )
+        # Generate a list of enabled HAL modules using the above list
+        local MNList
+        foreach local ME in ${MEList}
+            if $str_endwith(${ME}, '_legacy') ; MNList +:= :"Legacy/${STM32_BASE_FNAME}x_hal_${ME/_legacy//}"
+            else                              ; MNList +:= :"${STM32_BASE_FNAME}x_hal_${ME}"
+            endif
+        endforeach
+        # List all available HAL module source files (except the template files)
+        local ModFiles := $call(__stm32cube_list_srcs__, ${STM32Cube_SysSrcDir_CoreHAL})
+        # Generate a list of HAL module source files to be included
+        local ModSrcs := :"${STM32_BASE_FNAME}x_hal.c"
+        foreach local MN in ${MNList}
+            ModSrcs +:= $erase_ifempty( $csel( $str_begwith(${ModFiles}, ${MN}), ${ModFiles}, '' ) )
+        endforeach
+        ModSrcs := $sort_ascending(${ModSrcs})
+        # Save the list content to the cache file
+        $put_file(${STM32CubeHALModSrcListCacheFilePath}, ${ModSrcs})
+    endif
+    # Add the HAL module source files
+    $call(stm32cube_add_hal_src, ${ModSrcs})
+endfunction
+
+function stm32cube_auto_add_usbdrv_srcs()
+    # Add all available USB driver source files (except the template files)
+    $call( stm32cube_add_usbdrv_core_src , $call(__stm32cube_list_srcs__, ${STM32Cube_SysSrcDir_USBCore} ) )
+    $call( stm32cube_add_usbdrv_class_src, $call(__stm32cube_list_srcs__, ${STM32Cube_SysSrcDir_USBClass}) )
+endfunction
+
+
+##### Function to add the necessary extra dependencies to the given target path
+function stm32cube_add_extradeps(targetPath)
+    $add_extradep(${targetPath}, ${__STM32Cube_SysLibObjFileP__}, true)
+endfunction
+
+
+##### Function to compile assembly source codes
+function stm32cube_compile_s(?extraOptions)
+    $call(compile_s, ${extraOptions})
+endfunction
+
+
+##### Function to compile C++ and C++20 source codes
+function stm32cube_compile_c(?extraOptions)
+    return $call(compile_c, ${extraOptions}, false) # Disable shared library support
+endfunction
+
+function stm32cube_compile_cpp(?extraOptions)
+    return $call(compile_cpp, ${extraOptions}, false) # Disable shared library support
+endfunction
+
+function compile_cpp20m(?extraOptions) supersede
+    return $call(__origin__, ${extraOptions}, false) # Disable shared library support
+endfunction
+
+
+##### Function to link executable files (in case of STM32, also create the BIN and HEX files)
+STM32Cube_SysSLibBuilt := false
+
+function __elf_to_bin__(ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local STM32ObjCopy := $cat_path(${CppToolBinDir}, ${STM32ObjCopy})
+    local BinFile := ~$[target/(.+)\.elf/$1.bin/]
+    # Convert ELF to BIN
+    $rmfile(${BinFile})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${STM32ObjCopy} ${STM32ObjCopyE2BFlags} ~$[target] ${BinFile}
+endfunction
+
+function __elf_to_hex__(ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local STM32ObjCopy := $cat_path(${CppToolBinDir}, ${STM32ObjCopy})
+    local HexFile := ~$[target/(.+)\.elf/$1.hex/]
+    # Convert ELF to HEX
+    $rmfile(${HexFile})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${STM32ObjCopy} ${STM32ObjCopyE2HFlags} ~$[target] ${HexFile}
+endfunction
+
+function stm32cube_link_exe(?extraOptions)
+    # Check the prerequisites
+    if !${STM32Cube_SysSLibBuilt} : $call(__exit_error_run_target_call_function_, 'stm32cube_build_system_library', :"$[function]()")
+    # Add the system library
+    local CppUsrStaticLib :+= ${STM32Cube_SysSLibName}
+    # Link the executable
+    CppExtraLinkObjects := ${__STM32Cube_SysLibObjFileP__} # Object files in this list must not be included in the system library
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to BIN
+    $call( __bpt_bin__                                   )
+    $exec( __elf_to_bin__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__ )
+    # Convert ELF to HEX
+    $call( __bpt_hex__                                   )
+    $exec( __elf_to_hex__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__ )
+endfunction
+
+
+##### Function to create static libraries
+function stm32cube_link_slib()
+    $call(link_slib)
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to run the given executable file (in case of STM32, print the size)
+function stm32cube_run_exe(progName, ?dimColor)
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                 $call( __bpt_exe_size_linespace__                                                                                    )
+    local res := $call( __armgcc_obj_size__, ${STM32Size}, ${STM32SizeFlags}, ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call( __conditional_print_stdxxx_and_check_excode__                                                                 )
+endfunction
+
+
+###################################################################################
+##### ====================== Native STM32 Build Targets ===================== #####
+###################################################################################
+
+##### Disable warnings from the SDK
+const __STM32Cube_SysLib_DisableWarnings__ := '-Wno-unused-function' '-Wno-unused-parameter' '-Wno-unused-variable' '-Wno-sign-compare' '-Wno-missing-field-initializers'
+
+
+##### Targets to build STM32Cube library file
+__STM32Cube_SysLib_SLibTargetAdded__ := 0
+
+target __stm32cube_compile_s__
+    $call(compile_s, ${__STM32Cube_SysLib_DisableWarnings__})
+endtarget
+
+target __stm32cube_compile_c__
+    $call(compile_c, ${__STM32Cube_SysLib_DisableWarnings__})
+endtarget
+
+target __stm32cube_compile_cpp__
+    $call(compile_cpp, ${__STM32Cube_SysLib_DisableWarnings__})
+endtarget
+
+target __stm32cube_link_slib__
+    $call(link_slib)
+endtarget
+
+target stm32cube_build_system_library
+    # Reset flag
+    STM32Cube_SysSLibBuilt := false
+    # Add the target to build the library file if it has not been added
+    if !${__STM32Cube_SysLib_SLibTargetAdded__}
+        (*
+        # Erase empty entries from the lists of object files
+        __STM32Cube_SysLibObjFileP__ := $erase_ifempty( ${__STM32Cube_SysLibObjFileP__} )
+        __STM32Cube_SysLibObjFile1__ := $erase_ifempty( ${__STM32Cube_SysLibObjFile1__} )
+        __STM32Cube_SysLibObjFile2__ := $erase_ifempty( ${__STM32Cube_SysLibObjFile2__} )
+        #*)
+        # Add the target to build the library file
+        $add_target( '__stm32cube_link_slib__', ${STM32Cube_SysSLibPath}, $stack(${__STM32Cube_SysLibObjFile1__}, ${__STM32Cube_SysLibObjFile2__}) )
+        # Set flag
+        __STM32Cube_SysLib_SLibTargetAdded__ := 1
+    endif
+    # Build the object and library files
+    __stdxxx_from_syslib__ := true
+   +jxmake ${__STM32Cube_SysLibObjFileP__}
+   +jxmake ${__STM32Cube_SysLibObjFile1__}
+   +jxmake ${__STM32Cube_SysLibObjFile2__}
+    jxwait
+    jxmake ${STM32Cube_SysSLibPath}
+    __stdxxx_from_syslib__ := false
+    # Set flag
+    STM32Cube_SysSLibBuilt := true
+endtarget
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText := __c_cyan__  "Native STM32" __c_white__
+    local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    local CGText := __c_cyan__  "Native STM32Cube" __c_white__
+    local CGInfo := __c_white__ 'for ' ${CGText} ' '
+    $call(__origin__, ${NGInfo}, 3, true, false, true, true)
+    echoln __c_green__ '    STM32_SDK_PATH          ' __c_white__ ': location of ' ${NGText} ' SDK'
+    echoln __c_green__ '    STM32_TOOLCHAIN_PATH    ' __c_white__ ': location of ' ${NGText} ' toolchain'
+    echoln
+    echoln __c_green__ '    STM32_CommonCompileMDef ' __c_white__ ': common compilation preprocessor defines (custom values can be added)'
+    echoln
+    $call(__openocd_btlib_help_print_ports__, 4)
+   #$call(__btlib_help_print_title_functions__, 7, 27, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories,        ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist          ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                       ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    stm32_upload_dfu     (progName     , ?vid, ?pid,   ' __c_white__ ': upload program to the attached ' __c_cyan__ 'STM32' __c_white__ ' via ' __c_cyan__ 'DFU' __c_white__ ' using ' __c_cyan__ 'DFU-Util' __c_white__ '; ' __c_red__ 'this feature may only be supported by some chips'
+    echoln __c_green__ '                          ?flashAddress, ?modifiers  ) ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      vid         ' __c_white__ ' device VID                          - the default is \'' __c_yellow__ ${__Def_STM32_VID__} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      pid         ' __c_white__ ' device PID                          - the default is \'' __c_yellow__ ${__Def_STM32_PID__} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      flashAddress' __c_white__ ' target address (flash memory start) - the default is \'' __c_yellow__ ${__Def_STM32_FAD__} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      modifiers   ' __c_white__ ' target modifiers                    - the default is \'' __c_yellow__ ${__Def_STM32_MOD__} __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm32_reset_swd      (              ?interface   , ' __c_white__ ': reset the attached ' __c_cyan__ 'STM32' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport  , ?adapterSpeed, ' __c_green__ '      interface   ' __c_white__ ' SWD interface name    - the default is \'' __c_yellow__ ${STM32_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                          ?ignoreCPUID               ) ' __c_green__ '      transport   ' __c_white__ ' transport             - the default is \'' __c_yellow__ ${STM32_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed         - the default is \'' __c_yellow__ ${STM32_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      ignoreCPUID ' __c_white__ ' ignore the CPU tap ID - the default is \'' __c_yellow__ 'false' __c_white__ '\' (set this to \'' __c_yellow__ 'true' __c_white__ '\' for clone chips)'
+    echoln
+    echoln __c_green__ '    stm32_upload_swd     (progName    , ?interface   , ' __c_white__ ': upload program to the attached ' __c_cyan__ 'STM32' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport  , ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?ignoreCPUID               ) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name    - the default is \'' __c_yellow__ ${STM32_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      transport   ' __c_white__ ' transport             - the default is \'' __c_yellow__ ${STM32_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed         - the default is \'' __c_yellow__ ${STM32_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      ignoreCPUID ' __c_white__ ' ignore the CPU tap ID - the default is \'' __c_yellow__ 'false' __c_white__ '\' (set this to \'' __c_yellow__ 'true' __c_white__ '\' for clone chips)'
+    echoln
+    echoln __c_green__ '    stm32_debug_swd_start(progName    , ?interface   , ' __c_white__ ': start a debug session for the attached ' __c_cyan__ 'STM32' __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport  , ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?ignoreCPUID, ?noGDBExecCmd) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                      - the default is \'' __c_yellow__ ${STM32_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      transport   ' __c_white__ ' transport                               - the default is \'' __c_yellow__ ${STM32_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                           - the default is \'' __c_yellow__ ${STM32_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      noGDBExecCmd' __c_white__ ' do not print the command to execute GDB - the default is \'' __c_yellow__ false __c_white__ '\''
+    echoln __c_green__ '                                                       ' __c_green__ '      ignoreCPUID ' __c_white__ ' ignore the CPU tap ID                   - the default is \'' __c_yellow__ 'false' __c_white__ '\' (set this to \'' __c_yellow__ 'true' __c_white__ '\' for clone chips)'
+    echoln
+    echoln __c_green__ '    stm32_debug_swd_gdb  (progName    , ?autoConnect)  ' __c_white__ ': execute the GDB program for the attached ' __c_cyan__ 'STM32' __c_white__ ' which can be used to connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session'
+    echoln __c_green__ '                                                       ' __c_green__ '      autoConnect' __c_white__ ' automatically connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session - the default is \'' __c_yellow__ 'true' __c_white__ '\''
+   #$call(__btlib_help_print_title_functions__, 16, 19, 1, ${CGInfo})
+    $call(__btlib_help_print_title_functions__,  0,  0, 0, ${CGInfo})
+    echoln __c_green__ '    stm32cube_select_part         (partNumber,          ' __c_white__ ': select the STM32 part number to use with the ' ${CGText} ' SDK; can only be called after calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                                   ?usbDriver         ) ' __c_green__ '      partNumber' __c_white__ ' STM32 part number        - for exmple \'' __c_yellow__ 'STM32F411CEU6' __c_white__ '\''
+    echoln __c_green__ '                                                        ' __c_green__ '      usbDriver ' __c_white__ ' USB driver to be enabled - for exmple \'' __c_yellow__ 'device|cdc' __c_white__ '\'; the default is none (USB support is disabled)'
+    echoln __c_green__ '                                                        ' __c_white__ '  these are the global variables that are initialized by this function:'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SDKRootDir'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SDKRootDir_NLenOffset'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysLibDirs'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysIncDirs'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysSrcDir_CoreHAL'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysSrcDir_CoreHALLegacy'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysSrcDir_USBCore'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32Cube_SysSrcDir_USBClass'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_PackageLicenseHTML'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_PackageLicenseMD'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_LDScriptURL'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_SysSrc_CMSISStartup'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_SysSrc_CMSISSystem'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32CubeRef_ProjectSubDir'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_CPU' __c_white__ '                         - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FPU' __c_white__ '                         - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FLOAT_ABI' __c_white__ '                   - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FLASH_OFFSET' __c_white__ '                - the default value is \'' __c_yellow__ ${__Def_STM32_FLASH_OFFSET__} __c_white__ '\'           (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FLASH_SIZE' __c_white__ '                  - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_SRAM_SIZE' __c_white__ '                   - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_DEVICE' __c_white__ '                      - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FAMILY' __c_white__ '                      - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_FAMILY_XX' __c_white__ '                   - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_HSE_VALUE' __c_white__ '                   - the default value is \'' __c_yellow__ ${__Def_STM32_HSE_VALUE__} __c_white__ '\'    (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_LSE_VALUE' __c_white__ '                   - the default value is \'' __c_yellow__ ${__Def_STM32_LSE_VALUE__} __c_white__ '\'       (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_green__ '      STM32_BASE_FNAME' __c_white__ '                  - the default value is chip specific (can be pre-filled)'
+    echoln __c_green__ '                                                        ' __c_white__ '  in case \'' __c_green__ 'stm32cube_select_part' __c_white__ '\' does not support your chip\'s part number, you can either:'
+    echoln __c_green__ '                                                        ' __c_white__ '      1. manually pre-fill some of the above variables before calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\'; or'
+    echoln __c_green__ '                                                        ' __c_white__ '      2. manually fill all the above variables and then call \'' __c_green__ '__stm32cube_config_build__' __c_white__ '\' to finalize the configuration'
+    echoln __c_green__ '                                                        ' __c_white__ '         process - use a supported part number first (such as \'' __c_yellow__ 'STM32F411CEU6' __c_white__ '\') as a starting point for determining the'
+    echoln __c_green__ '                                                        ' __c_white__ '         appropriate values.'
+    echoln
+    echoln __c_green__ '    stm32cube_copy_template_files (dstDir             ) ' __c_white__ ': copy project template files to the destination directory  ; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\';'
+    echoln __c_green__ '                                                        ' __c_red__   '  this feature is only supported for some chips!'
+    echoln
+    echoln __c_green__ '    stm32cube_add_pkg_src         (srcFileName        ) ' __c_white__ ': add     ' ${CGText} ' SDK package          source file ; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_add_hal_src         (srcFileName        ) ' __c_white__ ': add     ' ${CGText} ' SDK HAL              source file ; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_add_usbdrv_core_src (srcFileName        ) ' __c_white__ ': add     ' ${CGText} ' SDK USB core  driver source file ; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_add_usbdrv_class_src(srcFileName        ) ' __c_white__ ': add     ' ${CGText} ' SDK USB class driver source file ; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm32cube_auto_add_pkg_srcs   (                   ) ' __c_white__ ': add all ' ${CGText} ' SDK package          source files; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_auto_add_hal_srcs   (                   ) ' __c_white__ ': add all ' ${CGText} ' SDK HAL              source files; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_auto_add_usbdrv_srcs(                   ) ' __c_white__ ': add all ' ${CGText} ' SDK USB driver       source files; can only be called after calling \'' __c_green__ 'stm32cube_select_part' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm32cube_add_extradeps       (targetPath         ) ' __c_white__ ': add the necessary extra dependencies to the given target path; call this after the last call to \'' __c_green__ 'stm32cube_add_*_src' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm32cube_compile_s           (?extraOptions      ) ' __c_white__ ': compile a ' ${CGText} ' assembly   source code; please use this instead of \'' __c_green__ 'compile_s' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_compile_c           (?extraOptions      ) ' __c_white__ ': compile a ' ${CGText} ' C          source code; please use this instead of \'' __c_green__ 'compile_c' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_compile_cpp         (?extraOptions      ) ' __c_white__ ': compile a ' ${CGText} ' C++        source code; please use this instead of \'' __c_green__ 'compile_cpp' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    stm32cube_link_exe            (?extraOptions      ) ' __c_white__ ': link              a ' ${CGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_link_slib           (                   ) ' __c_white__ ': link              a ' ${CGText} ' static library; please use this instead of \'' __c_green__ 'link_slib' __c_white__ '\''
+    echoln __c_green__ '    stm32cube_run_exe             (progName, ?dimColor) ' __c_white__ ': print the size of a ' ${CGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln
+    echoln __c_white__ '    Using the \'' __c_green__ 'stm32cube_auto_add_*_srcs' __c_white__ '\' functions is easy and fast, but may result in a less efficient build and (sometimes) compile/link errors.'
+    echoln
+   #$call(__btlib_help_print_title_targets__, 21, ${CGInfo})
+    $call(__btlib_help_print_title_targets__,  0, ${CGInfo})
+    echoln __c_green__ '    stm32cube_build_system_library ' __c_white__ ': build the ' ${CGText} ' SDK system library file'
+    echoln
+    $call(__btlib_help_print_note_auto_parallelize__, false)
+    echoln __c_reset__
+endfunction
+

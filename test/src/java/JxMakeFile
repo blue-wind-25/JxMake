@@ -1,0 +1,125 @@
+:::include <JavaBuildTool>
+
+
+#(*
+if ${__java__}
+    if !__os_windows__
+        JavaToolBinDir := '/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64/bin'
+        JavaToolBinDir := '/usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64/bin'
+        JavaToolBinDir := '/usr/java/jdk-11.0.16.1/bin'
+        JavaToolBinDir := '/usr/java/jdk-17.0.5/bin'
+        JavaToolBinDir := '/opt/openjdk-19.0.2/bin'
+        JavaToolBinDir := '/opt/openjdk-20.0.0/bin'
+        JavaToolBinDir := '/opt/openjdk-21_linux-x64_bin/jdk-21/bin'
+    endif
+endif
+#*)
+
+
+$call(init_project                   )
+$call(treat_warnings_as_errors, 1    )
+$call(enable_debug_info       , 1    )
+$call(select_java_langstd     , 8    )
+$call(print_devenv_config            )
+$call(silent_stdxxx           , false)
+$call(silent_stdxxx_syslib    , true )
+
+$call(silent_stdxxx, true ) ; $cmd_echo_off()
+$call(silent_stdxxx, false) ; $cmd_echo_on ()
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+DLST_INAME  := $call(deplist_fpath, main.imp )
+
+PROG_NAME   := $call(    jar_fpath, main     )
+PROG_CLASS  := $call(  class_fpath, { \
+    main                              \
+    l1                                \
+    l2                                \
+    l2a                               \
+    l2b                               \
+    l2c                               \
+    lib/lib                           \
+    lib/lib1a                         \
+    lib/lib1b                         \
+    lib/lib2                          \
+    lib/jsp_test                      \
+    sys/sys1                          \
+    sys/sys2                          \
+    sys/sys2a                         \
+    sys/sys2b                         \
+} )
+
+PP_JAVA_SCF := lib/jsp_test
+PP_JAVA_SCF := $series(${PP_JAVA_SCF}, '.java')
+
+
+target clean
+    $call(clean_project)
+    $rmfile(~${PP_JAVA_SCF}) # Delete all generated Java source code files
+endtarget
+
+
+sdepload ${DLST_INAME}
+
+target depend
+    local __class_paths__ := sys
+    $gdl_java_import(~${DLST_INAME}, '.', -${JavaBuildDir})
+endtarget
+
+
+# ./jxmake.bat -C ../test/src/java clean
+# ./jxmake.bat -C ../test/src/java run
+# jxmake -C ..\test\src\java clean
+# jxmake -C ..\test\src\java run
+target run
+    # Generate (preprocess) the Java source code files
+    jxmake ${PP_JAVA_SCF}
+    (*
+    # touch ~/Projects/JxMake/test/src/java/lib/lib.java
+    # Create the dependency list file as needed
+    local DLIValid := $valid_path(${DLST_INAME})
+    if !${DLIValid}
+        echoln
+        echoln __c_red__ 'The dependency list file does not exist, creating it now ...' __c_reset__
+        jxmake depend
+        echoln __c_green__ 'The dependency list file have been created, please run the build process again.' __c_reset__
+        echoln
+        $exit(0)
+    endif
+    #*)
+    # Build the program
+    jxmake ${PROG_NAME}
+    # Run the program
+    $call(run_jar, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_CLASS}
+    local extraFiles := $lsdir_rec('extra_files')
+    $call(build_jar, main, ${extraFiles})
+endtarget
+
+target $call(class_target_glob) : %.java
+    $call(compile_java)
+endtarget
+
+target pp_java_scf
+    # Generate the conditional flag set
+    local cflags := '__VALUE1__' '__VALUE2__'
+    # Generate the substitution map
+    local svals := $map_new()
+    $map_add(${svals}, 'REV_VAL_1', '"abc"')
+    $map_add(${svals}, 'REV_VAL_2', '"def"')
+    # Preprocess the source file
+    ##### !!! TODO : How to ensure this target is re-executed if the set and/or map above are changed? !!! #####
+    $call(preprocess_java, $[preq1], $[target], ${cflags}, ${svals})
+    # Delete the substitution map
+    $map_delete(${svals})
+endtarget
+
+foreach SCF in ${PP_JAVA_SCF}
+    $add_target(pp_java_scf, ${SCF}, ${SCF/(.+)/$1.in/})
+endforeach
+

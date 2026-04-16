@@ -1,0 +1,133 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - ARM GCC - Bare-Metal ATSAMD21 Series                                    *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Set the CPU options and predefined macros
+const ATSAM_CommonCPUOptions  := '-mcpu=cortex-m0plus' '-mthumb'
+const ATSAM_CommonCompileMDef := '-D__ATSAMD21_BARE_METAL__'
+
+
+##### Include the common code for bare-metal SAM microcontrollers
+:::include_once 'C++XBuildTool_BM_ATSAM_Common.jxm'
+
+
+##### Update the flag
+__BuildTool_Target__  := 'ARM (ATSAMD21 Series)'
+
+
+#####
+#####
+#####
+
+
+##### Function to upload the given program via SAM-BA
+const __Def_D21BM_DEFAULT_SAMBA_OFFSET__ := '0x2000'
+
+function d21bm_upload_samba(progName, device, ?sambaOffset)
+    # Set the default value
+    sambaOffset ?:= ${__Def_D21BM_DEFAULT_SAMBA_OFFSET__}
+    # Perform upload
+    $call(atsam_upload_samba, ${progName}, ${device}, false, ${sambaOffset}, false, true)
+endfunction
+
+
+##### A helper macro for SWD
+.macro __d21bm_swd_set_common_default_values__
+    interface    ?:= ${D21BM_SWD_Default_Interface}
+    transport    ?:= ${D21BM_SWD_Default_Transport}
+    adapterSpeed ?:= ${D21BM_SWD_Default_AdapterSpeed}
+.endmacro
+
+
+##### Define some default values for SWD
+                                    const D21BM_SWD_Default_Interface    := 'stlink'
+                                    const D21BM_SWD_Default_Transport    := 'hla_swd'
+                                    const D21BM_SWD_Default_AdapterSpeed := 2000
+
+                                                                                         ##### !!! TODO : What about different SoCs? !!! #####
+if !&${D21BM_SWD_Target_Device}   : const D21BM_SWD_Target_Device        := 'at91samdXX' # ATSAMD21G18A
+if !&${D21BM_SWD_Target_CPUTapID} : const D21BM_SWD_Target_CPUTapID      := '0x0bc11477' # ATSAMD21G18A
+
+                                    const D21BM_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+                                    const D21BM_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+                                    const D21BM_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function d21bm_reset_swd(?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    .$__d21bm_swd_set_common_default_values__
+    # Perform reset
+    $call(atsam_reset_swd, ${interface}, ${transport}, ${adapterSpeed}, ${D21BM_SWD_Target_Device}, ${D21BM_SWD_Target_CPUTapID})
+endfunction
+
+
+##### Function to upload the given program via SWD
+function d21bm_upload_swd(progName, ?interface, ?transport, ?adapterSpeed, ?sambaOffset)
+    # Set the default values
+    .$__d21bm_swd_set_common_default_values__
+    sambaOffset ?:= ${__Def_D21BM_DEFAULT_SAMBA_OFFSET__}
+    # Perform upload
+    $call(atsam_upload_swd, ${progName}, ${interface}, ${transport}, ${adapterSpeed}, ${D21BM_SWD_Target_Device}, ${D21BM_SWD_Target_CPUTapID}, ${sambaOffset})
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function d21bm_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd)
+    # Set the default values
+    .$__d21bm_swd_set_common_default_values__
+    # Run OpenOCD in server mode
+    $call(                                      \
+        atsam_debug_swd_start                 , \
+        ${progName}                           , \
+        ${interface}                          , \
+        ${transport}                          , \
+        ${adapterSpeed}                       , \
+        ${D21BM_SWD_Target_Device}            , \
+        ${D21BM_SWD_Target_CPUTapID}          , \
+        'd21bm_debug_swd_gdb'                 , \
+        'ATSAMD21'                            , \
+        ${D21BM_SWD_GDBPort}                  , \
+        ${D21BM_SWD_TCLPort}                  , \
+        ${D21BM_SWD_TelnetPort}               , \
+        ${DebuggerProgram}                    , \
+        ${noGDBExecCmd}                         \
+    )
+endfunction
+
+function d21bm_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default value
+    autoConnect ?:= true
+    # Execute GDB
+    $call(atsam_debug_swd_gdb, ${progName}, ${D21BM_SWD_GDBPort}, ${DebuggerProgram}, ${autoConnect})
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __d21bm_swd_set_common_default_values__
+
+
+##### Function to link executable files (in case of ATSAMD21, also create the BIN file)
+function d21bm_link_exe(?extraOptions)
+    $call(link_exe, ${extraOptions}, false, true)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local __ATSAM_BTLIB_HELP_MCU_Info_Name__            := 'ATSAMD21'
+    local __ATSAM_BTLIB_HELP_MCU_Func_Prefix_Name__     := 'd21bm'
+    local __ATSAM_BTLIB_HELP_Default_SAMBA_Offset__     := ${__Def_D21BM_DEFAULT_SAMBA_OFFSET__}
+    local __ATSAM_BTLIB_HELP_SWD_Default_Interface__    := ${D21BM_SWD_Default_Interface}
+    local __ATSAM_BTLIB_HELP_SWD_Default_Transport__    := ${D21BM_SWD_Default_Transport}
+    local __ATSAM_BTLIB_HELP_SWD_Default_AdapterSpeed__ := ${D21BM_SWD_Default_AdapterSpeed}
+    $call(__origin__)
+endfunction

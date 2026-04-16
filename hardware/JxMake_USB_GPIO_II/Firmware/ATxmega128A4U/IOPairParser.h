@@ -1,0 +1,90 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+#ifndef __IO_PAIR_PARSER_H__
+#define __IO_PAIR_PARSER_H__
+
+
+#define __IO_PORT_0__(REG)           (PORT ## REG)
+#define __IO_PORT_1__(REG)           __IO_PORT_0__(REG)
+#define __IO_PORT_2__(REG)           __IO_PORT_1__(REG)
+#define IO_PORT(REG)                 __IO_PORT_2__(REG)
+
+#define IO_PAIR_PORT_DIRGET(REG,BIT) (     IO_PORT(REG).DIR    & _BV(BIT) )
+#define IO_PAIR_PORT_DIRSET(REG,BIT) (     IO_PORT(REG).DIRSET = _BV(BIT) )
+#define IO_PAIR_PORT_DIRCLR(REG,BIT) (     IO_PORT(REG).DIRCLR = _BV(BIT) )
+#define IO_PAIR_PORT_DIRTGL(REG,BIT) (     IO_PORT(REG).DIRTGL = _BV(BIT) )
+
+#define IO_PAIR_PORT_OUTGET(REG,BIT) (     IO_PORT(REG).OUT    & _BV(BIT) )
+#define IO_PAIR_PORT_OUTSET(REG,BIT) (     IO_PORT(REG).OUTSET = _BV(BIT) )
+#define IO_PAIR_PORT_OUTCLR(REG,BIT) (     IO_PORT(REG).OUTCLR = _BV(BIT) )
+#define IO_PAIR_PORT_OUTTGL(REG,BIT) (     IO_PORT(REG).OUTTGL = _BV(BIT) )
+
+#define IO_PAIR_PORT_INPGET(REG,BIT) (     IO_PORT(REG).IN     & _BV(BIT) )
+
+#define IO_PAIR_PORT_INTCTL(REG,BIT) (     IO_PORT(REG).INTCTRL           )
+#define IO_PAIR_PORT_I0MASK(REG,BIT) (     IO_PORT(REG).INT0MASK          )
+#define IO_PAIR_PORT_I1MASK(REG,BIT) (     IO_PORT(REG).INT1MASK          )
+#define IO_PAIR_PORT_INTFLG(REG,BIT) (     IO_PORT(REG).INTFLAGS          )
+#define IO_PAIR_PORT_PREMAP(REG,BIT) (     IO_PORT(REG).REMAP             )
+
+#define IO_PAIR_PORT_PINCTL(REG,BIT) ( *( &IO_PORT(REG).PIN0CTRL + BIT )  )
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define IO_PAIR_CHKMODE_INP(REG_BIT) ( IO_PAIR_PORT_DIRGET(REG_BIT) == 0 )
+#define IO_PAIR_CHKMODE_OUT(REG_BIT) ( IO_PAIR_PORT_DIRGET(REG_BIT) == 1 )
+#define IO_PAIR_SETMODE_INP(REG_BIT) IO_PAIR_PORT_DIRCLR(REG_BIT)
+#define IO_PAIR_SETMODE_OUT(REG_BIT) IO_PAIR_PORT_DIRSET(REG_BIT)
+#define IO_PAIR_INVERIO_ENA(REG_BIT) IO_PAIR_PORT_PINCTL(REG_BIT) |=  PORT_INVEN_bm
+#define IO_PAIR_INVERIO_DIS(REG_BIT) IO_PAIR_PORT_PINCTL(REG_BIT) &= ~PORT_INVEN_bm
+#define IO_PAIR_IPULLUP_ENA(REG_BIT) IO_PAIR_PORT_PINCTL(REG_BIT)  = ( IO_PAIR_PORT_PINCTL(REG_BIT) & ~PORT_OPC_gm ) | PORT_OPC_PULLUP_gc
+#define IO_PAIR_IPULLDN_ENA(REG_BIT) IO_PAIR_PORT_PINCTL(REG_BIT)  = ( IO_PAIR_PORT_PINCTL(REG_BIT) & ~PORT_OPC_gm ) | PORT_OPC_PULLDOWN_gc
+#define IO_PAIR_IPULLXX_DIS(REG_BIT) IO_PAIR_PORT_PINCTL(REG_BIT) &= ~PORT_OPC_gm
+
+#define IO_PAIR_SET_VALUE_0(REG_BIT) IO_PAIR_PORT_OUTCLR(REG_BIT)
+#define IO_PAIR_SET_VALUE_1(REG_BIT) IO_PAIR_PORT_OUTSET(REG_BIT)
+#define IO_PAIR_SET_VALUE_T(REG_BIT) IO_PAIR_PORT_OUTTGL(REG_BIT)
+#define IO_PAIR_GET_VALUE_X(REG_BIT) IO_PAIR_PORT_INPGET(REG_BIT)
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define IO_CHKMODE_INP(REG,BIT) ( IO_PAIR_PORT_DIRGET(REG,BIT) == 0 )
+#define IO_CHKMODE_OUT(REG,BIT) ( IO_PAIR_PORT_DIRGET(REG,BIT) == 1 )
+#define IO_SETMODE_INP(REG,BIT) IO_PAIR_PORT_DIRCLR(REG,BIT)
+#define IO_SETMODE_OUT(REG,BIT) IO_PAIR_PORT_DIRSET(REG,BIT)
+#define IO_INVERIO_ENA(REG,BIT) IO_PAIR_PORT_PINCTL(REG,BIT) |=  PORT_INVEN_bm
+#define IO_INVERIO_DIS(REG,BIT) IO_PAIR_PORT_PINCTL(REG,BIT) &= ~PORT_INVEN_bm
+#define IO_IPULLUP_ENA(REG,BIT) IO_PAIR_PORT_PINCTL(REG,BIT)  = ( IO_PAIR_PORT_PINCTL(REG,BIT) & ~PORT_OPC_gm ) | PORT_OPC_PULLUP_gc
+#define IO_IPULLDN_ENA(REG,BIT) IO_PAIR_PORT_PINCTL(REG,BIT)  = ( IO_PAIR_PORT_PINCTL(REG,BIT) & ~PORT_OPC_gm ) | PORT_OPC_PULLDOWN_gc
+#define IO_IPULLXX_DIS(REG,BIT) IO_PAIR_PORT_PINCTL(REG,BIT) &= ~PORT_OPC_gm
+
+#define IO_SET_VALUE_0(REG,BIT) IO_PAIR_PORT_OUTCLR(REG,BIT)
+#define IO_SET_VALUE_1(REG,BIT) IO_PAIR_PORT_OUTSET(REG,BIT)
+#define IO_SET_VALUE_T(REG,BIT) IO_PAIR_PORT_OUTTGL(REG,BIT)
+#define IO_GET_VALUE_X(REG,BIT) IO_PAIR_PORT_INPGET(REG,BIT)
+
+
+#define IO_MODINP_NPXX(REG,BIT) do { IO_SETMODE_INP(REG, BIT); IO_IPULLXX_DIS(REG, BIT); } while(0)
+
+#define IO_SET_PDNVAL0(REG,BIT) do { IO_IPULLDN_ENA(REG, BIT); IO_SET_VALUE_0(REG, BIT); } while(0)
+#define IO_SET_PUPVAL1(REG,BIT) do { IO_IPULLUP_ENA(REG, BIT); IO_SET_VALUE_1(REG, BIT); } while(0)
+
+
+// NOTE : The 'IO_*_LLT(...)' macros also configure the 'Logic Level Translator' module
+#define __LLT_ENA__(LLT_EF)                lltEna_ ## LLT_EF()
+#define __LLT_DIS__(LLT_DF)                lltDis_ ## LLT_DF()
+
+#define IO_SETMODE_OUT_LLT(REG,BIT,LLT_EF) do { __LLT_ENA__(LLT_EF); IO_SETMODE_OUT(REG, BIT);                      } while(0)
+#define IO_MODINP_NPXX_LLT(REG,BIT,LLT_DF) do {                      IO_MODINP_NPXX(REG, BIT); __LLT_DIS__(LLT_DF); } while(0)
+
+
+#endif // __IO_PAIR_PARSER_H__

@@ -1,0 +1,336 @@
+FMT1F = "%02d = %s%02d\n"
+FMT1B = "%02d = %s%02d%s\n"
+FMT2I = "%02d =  %02d %-2s %02d\n"
+FMT2F = "%02d =  %s(%02d, %02d)\n"
+
+R = 7
+echoln ${R}
+inc R
+echoln ${R}
+dec R
+echoln ${R}
+
+echoln
+
+A = 11
+B =  2
+
+add R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '+', ${B})
+
+sub R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '-', ${B})
+
+mul R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '*', ${B})
+
+div R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '/', ${B})
+
+mod R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '%', ${B})
+
+echoln
+
+A = -7
+
+abs R, ${A}
+
+$printf(${FMT1B}, ${R}, '|', ${A}, '|')
+
+A = 7
+
+neg R, ${A}
+
+$printf(${FMT1F}, ${R}, '-', ${A})
+
+echoln
+
+A = 4
+B = 2
+
+min R, ${A}, ${B}
+$printf(${FMT2F}, ${R}, 'min', ${A}, ${B})
+
+max R, ${A}, ${B}
+$printf(${FMT2F}, ${R}, 'max', ${A}, ${B})
+
+echoln
+
+shl R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '<<', ${B})
+
+shr R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '>>', ${B})
+
+echoln
+
+A = 0
+
+not R, ${A}
+$printf(${FMT1F}, ${R}, '~', ${A})
+
+echoln
+
+A = 3
+B = 1
+
+and R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '&', ${B})
+
+A = 2
+B = 1
+
+or  R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '|', ${B})
+
+A = 5
+B = 3
+
+xor R, ${A}, ${B}
+$printf(${FMT2I}, ${R}, ${A}, '^', ${B})
+
+echoln
+
+A = -1
+eval C :=  +${A}     # -1
+echoln ${C}
+
+eval C :=  -${A}     #  1
+echoln ${C}
+
+echoln
+
+eval C :=  @${A}     #  1
+echoln ${C}
+
+eval C := +@${A}     #  1
+echoln ${C}
+
+eval C := -@${A}     # -1
+echoln ${C}
+
+echoln
+
+eval C :=  ~${A}     #  0
+echoln ${C}
+
+eval C :=  !${A}     #  0
+echoln ${C}
+
+eval C := !~${A}     #  1
+echoln ${C}
+
+echoln
+
+eval C := -2 ** 2     #  4
+echoln ${C}
+
+eval C := -2 ** 3     # -8
+echoln ${C}
+
+echoln
+
+eval C := 10 - 3     #  7
+echoln ${C}
+
+eval C := 10 / 3     #  3
+echoln ${C}
+
+eval C := 10 % 3     #  1
+echoln ${C}
+
+eval C := 10 + 3     # 13
+echoln ${C}
+
+eval C := 10 - 3     #  7
+echoln ${C}
+
+echoln
+
+eval C := 11 << 3     #  88
+echoln ${C}
+
+eval C := 88 >> 3     #  11
+echoln ${C}
+
+echoln
+
+eval C := 1 <=> 1       #   0
+echoln ${C}
+
+eval C := 1 <=> 3       #  -1
+echoln ${C}
+
+eval C := 3 <=> 1       #   1
+echoln ${C}
+
+eval C := sgn[ -7 ]     #  -1
+echoln ${C}
+
+eval C := sgn[  0 ]     #   0
+echoln ${C}
+
+eval C := sgn[  7 ]     #   1
+echoln ${C}
+
+echoln
+
+eval C := 1 <  3     #   1
+echoln ${C}
+
+eval C := 1 <= 3     #   1
+echoln ${C}
+
+eval C := 1 >  3     #   0
+echoln ${C}
+
+eval C := 1 >= 3     #   0
+echoln ${C}
+
+eval C := 1 == 3     #   0
+echoln ${C}
+
+eval C := 1 != 3     #   1
+echoln ${C}
+
+echoln
+
+eval C := 11 & 17     #   1
+echoln ${C}
+
+eval C := 11 ^ 17     #  26
+echoln ${C}
+
+eval C := 11 | 17     #  27
+echoln ${C}
+
+echoln
+
+eval C := 1 && 1     #   1
+echoln ${C}
+
+eval C := 0 && 1     #   0
+echoln ${C}
+
+eval C := 1 || 1     #   1
+echoln ${C}
+
+eval C := 0 || 1     #   1
+echoln ${C}
+
+echoln
+
+A = 1
+B = 5
+eval C := +${A} + -${B}        # -4
+echoln ${C}
+
+eval C := (2 - 1) * 6 / 2      #  3
+echoln ${C}
+
+eval C := ~10 & 15             #  5
+echoln ${C}
+
+eval C := 11 ^ 15 | 3          #  7
+echoln ${C}
+
+eval C := 11 | 15 ^ 3          # 15
+echoln ${C}
+
+eval C := -(-${A} + -${B})     #  6
+echoln ${C}
+
+echoln
+
+A = 1
+B = 5
+eval C := min[ -${A}, -${B} ]       # -5
+echoln ${C}
+
+eval C := max[ -${A}, -${B} ]       # -1
+echoln ${C}
+
+eval C := -max[ -${A}, -${B} ]      #  1
+echoln ${C}
+
+eval C := --max[ -${A}, -${B} ]     # -1
+echoln ${C}
+
+echoln
+
+A = 1
+B = 5
+D = 2
+eval C := max[ ${A}, min[ ${B}, ${D} ] ]                            #   2
+echoln ${C}
+
+eval C := max[ ${A}, min[ ${B}, (${D} + 1) * 2 ] ]                  #   5
+echoln ${C}
+
+eval C := 1 + max[ ${A}, min[ ${B}, ${D} ] ]                        #   3
+echoln ${C}
+
+eval C := ( 1 + max[ ${A}, min[ ${B}, ${D} ] ] ) * 2                #   6
+echoln ${C}
+
+eval C := -( 1 + max[ ${A}, min[ ${B}, (${D} + 1) * 2 ] ] ) * 2     # -12
+echoln ${C}
+
+echoln
+
+T := true
+F := false
+
+eval C := ${T} && false
+echoln ${C}
+
+eval C := ${T} && !${F}
+echoln ${C}
+
+eval C := true && ${T}
+echoln ${C}
+
+echoln
+
+A := 100
+B := 200
+C :=  10
+eval R := (${C} >= 10) ? ${A} : ${B}     # 100
+echoln ${R}
+eval R := (${C} <  10) ? ${A} : ${B}     # 200
+echoln ${R}
+
+A := -100
+B := -200
+eval R := true  ? min[ ${A}, ${B} ] : max[ ${A}, ${B} ]     # -200
+echoln ${R}
+eval R := false ? min[ ${A}, ${B} ] : max[ ${A}, ${B} ]     # -100
+echoln ${R}
+
+A := 100
+B := 200
+C := true
+eval R := min[ ${C} ? ${A} : -${A}, ${C} ? ${B} : -${B} ]     #  100
+echoln ${R}
+C := false
+eval R := min[ ${C} ? ${A} : -${A}, ${C} ? ${B} : -${B} ]     # -200
+echoln ${R}
+
+echoln
+
+function terf(P)
+    local eval R :=   (${P} == 1) ? (${P} * 10) \
+                    : (${P} == 2) ? (${P} * 20) \
+                    : (${P} == 3) ? (${P} * 30) \
+                    : (${P} == 4) ? (${P} * 40) \
+                    : (${P} == 5) ? (${P} * 50) \
+                    :               (-1       )
+    return ${R}
+endfunction
+echoln $call(terf, 1)     #  10
+echoln $call(terf, 2)     #  40
+echoln $call(terf, 3)     #  90
+echoln $call(terf, 4)     # 160
+echoln $call(terf, 5)     # 250
+echoln $call(terf, 6)     #  -1

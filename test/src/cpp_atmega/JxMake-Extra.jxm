@@ -1,0 +1,121 @@
+# ./jxmake.sh -C ../test/src/cpp_atmega udeflil
+# jxmake -C ..\test\src\cpp_atmega udeflil
+target udeflil
+    # Restore to the default test firmware for Arduino LilyPad 8MHz (ATmega328p)
+    # You may need to press the physical reset button first if the running firmware does not support reset-from-USB
+    local FirmwareFile     := 'ATmega328P_Default.elf'
+    local AVR_MCUType      := atmega328p
+    local AVR_CPUFrequency := 8000000
+    local UPort            := $csel(__os_windows__, '\\\\.\\COM1', '/dev/ttyUSB0')
+    local UBaudrate        := 57600
+    local UProtocol        := arduino
+    local UResetBL         := 0
+    # The firmware is built from 'https://sourceforge.net/p/ecxx/code/HEAD/tree/trunk/src/Test/AVR/AnalogAndUART.cpp'
+   #$call(avr_upload_usbasp , ${FirmwareFile}                                                                )
+    $call(avr_upload_serial , ${FirmwareFile}, ${UPort}             , ${UBaudrate}, ${UProtocol}, ${UResetBL})
+   #$call(avr_upload_ecxx   , ${FirmwareFile}, 'esp01au.local', 2323, ${UBaudrate}, ${UProtocol}             ) # Using eCxx firmware
+   #$call(avr_upload_ecxx   , ${FirmwareFile}, '192.168.0.100', 2323, ${UBaudrate}, ${UProtocol}             ) # Using eCxx firmware (no mDNS)
+   #$call(avr_upload_esplink, ${FirmwareFile}, '192.168.4.1'  , 2323, ${UBaudrate}, ${UProtocol}             ) # Using ESP-LINK firmware
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega udefleo
+# jxmake -C ..\test\src\cpp_atmega udefleo
+target udefleo
+    # Restore to the default test firmware for Arduino Leonardo (ATmega32U4)
+    # You may need to press the physical reset button first if the running firmware does not support reset-from-USB
+    local AVR_MCUType      := atmega32u4
+    local AVR_CPUFrequency := 16000000
+    local UPort            := $csel(__os_windows__, '\\\\.\\COM3', '/dev/ttyACM0')
+    local UBaudrate        := 57600
+    local UProtocol        := avr109
+    local UResetBL         := 1
+    # The firmware is built from 'https://sourceforge.net/p/ecxx/code/HEAD/tree/trunk/src/Test/AVR/AVRC/VUARTLoopback.cpp'
+    $call(avr_upload_serial, 'ATmega32U4_Default.elf', ${UPort}, ${UBaudrate}, ${UProtocol}, ${UResetBL})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega udefthi
+# jxmake -C ..\test\src\cpp_atmega udefthi
+target udefthi
+    # Restore to the default test firmware for Thinary ATmega4808 using eCxx firmware 'JTAG2UPDI_WORKAROUND_MAGIC'
+    local AVR_MCUType      := atmega4808
+    local AVR_CPUFrequency := 16000000
+    local UPort            := $csel(__os_windows__, '\\\\.\\COM1', '/dev/ttyUSB0')
+    local UBaudrate        := 115200
+    local UProtocol        := jtag2updi
+    local UResetBL         := 1
+    local ResetByteSeq     := 0x00 0x00 0x55 0x00 0x00 0x55
+    # The firmware is built from 'https://sourceforge.net/p/ecxx/code/HEAD/tree/trunk/src/Test/AVR/AnalogAndUART.cpp'
+    $call(avr_upload_serial, 'ATmega4808_Default.elf', ${UPort}, ${UBaudrate}, ${UProtocol}, ${UResetBL}, ${ResetByteSeq})
+endtarget
+
+
+#####
+#####
+#####
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega bootlil
+# jxmake -C ..\test\src\cpp_atmega bootlil
+target bootlil
+    # Burn the bootloader for Arduino LilyPad 8MHz (ATmega328p)
+    local AVR_MCUType      := atmega328p
+    local AVR_CPUFrequency := 8000000
+    $call(avr_upload_usbasp, 'ArduinoBootloaders/ATmegaBOOT_168_atmega328_pro_8MHz.elf')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega boot162dfu
+# jxmake -C ..\test\src\cpp_atmega boot162dfu
+target boot162dfu
+    # Burn the DFU bootloader for AT90USB162 8MHz
+    # Pull down PD7/HWB to force bootloader execution after reset
+    # avrdude -c usbasp -p at90usb162 -U flash:w:LUFA/LUFA-210130_BootloaderDFU_AT90USB162_8MHz.hex:i -U lfuse:w:0xFF:m -U hfuse:w:0xD9:m -U efuse:w:0xF4:m
+    local AVR_MCUType      := at90usb162
+    local AVR_CPUFrequency := 8000000
+    $call(avr_upload_usbasp, 'LUFA/LUFA-210130_BootloaderDFU_AT90USB162_8MHz.elf')
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega boot162hid
+# jxmake -C ..\test\src\cpp_atmega boot162hid
+target boot162hid
+    # Burn the HID bootloader for AT90USB162 8MHz
+    # Pull down PD7/HWB to force bootloader execution after reset
+    # avrdude -c usbasp -p at90usb162 -U flash:w:LUFA/LUFA-210130_BootloaderHID_AT90USB162_8MHz.hex:i -U lfuse:w:0xFF:m -U hfuse:w:0xD9:m -U efuse:w:0xF4:m
+    local AVR_MCUType      := at90usb162
+    local AVR_CPUFrequency := 8000000
+    $call(avr_upload_usbasp, 'LUFA/LUFA-210130_BootloaderHID_AT90USB162_8MHz.elf')
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega boot162lpt
+# jxmake -C ..\test\src\cpp_atmega boot162lpt
+target boot162lpt
+    # Burn the Printer bootloader for AT90USB162 8MHz
+    # Pull down PD7/HWB to force bootloader execution after reset
+    # avrdude -c usbasp -p at90usb162 -U flash:w:LUFA/LUFA-210130_BootloaderLPT_AT90USB162_8MHz.hex:i -U lfuse:w:0xFF:m -U hfuse:w:0xD9:m -U efuse:w:0xF4:m
+    local AVR_MCUType      := at90usb162
+    local AVR_CPUFrequency := 8000000
+    $call(avr_upload_usbasp, 'LUFA/LUFA-210130_BootloaderLPT_AT90USB162_8MHz.elf')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega boot1286c
+# jxmake -C ..\test\src\cpp_atmega boot1286c
+target boot1286c
+    # Burn the Caterina (CDC-ACM) bootloader for AT90USB1286 16MHz
+    local AVR_MCUType      := at90usb1286
+    local AVR_CPUFrequency := 16000000
+    $call(avr_upload_usbasp, 'LUFA/LUFA-111009_BootloaderCaterina_AT90USB1286_16MHz.elf')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega boot32a
+# jxmake -C ..\test\src\cpp_atmega boot32a
+target boot32a
+    # Burn the bootloader for ATmega32A 4MHz
+    local AVR_MCUType      := atmega32a
+    local AVR_CPUFrequency := 4000000
+   #$call(avr_upload_usbasp  , 'MightyCoreBootloaders/optiboot_flash_atmega32_UART0_19200_4000000L_B0.elf'        )
+    $call(avr_upload_atmelice, 'MightyCoreBootloaders/optiboot_flash_atmega32_UART0_19200_4000000L_B0.elf', 'jtag')
+endtarget

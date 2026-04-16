@@ -1,0 +1,77 @@
+:::include <C++XBuildTool_STM32_Cube>
+
+
+# Read the list file and replace some words
+Text := $get_file('STM32ChipSpecList.txt')
+Text := ${Text/Maps to:/MapsTo:/}
+Text := ${Text/Backup Registers/BACKUP_REG/}
+Text := ${Text/Backup/BACKUP/}
+
+
+# Process the lines
+IdxFLASH  := 0
+IdxSRAM   := 0
+IdxEEPROM := 0
+IdxCCM    := 0
+IdxITCM   := 0
+IdxDTCM   := 0
+IdxBACKUP := 0
+
+foreach Line in $erase_ifempty( $sflines(${Text}) )
+
+    # Skip comments
+    if $str_begwith( $strim(${Line}), '#' ) : continue
+
+    # Tokenize by whitespaces and remove empty entries
+    Cols := $erase_ifempty( $sfspaces(${Line}) )
+
+    # Check for title line
+    if ${Cols}<1> &== 'Device:'
+        IdxFLASH   := $part_fidx(${Cols}, 'FLASH'     )
+        IdxSRAM    := $part_fidx(${Cols}, 'SRAM'      )
+        IdxEEPROM  := $part_fidx(${Cols}, 'EEPROM'    )
+        IdxCCM     := $part_fidx(${Cols}, 'CCM'       )
+        IdxITCM    := $part_fidx(${Cols}, 'ITCM'      )
+        IdxDTCM    := $part_fidx(${Cols}, 'DTCM'      )
+        IdxBACKUP  := $part_fidx(${Cols}, 'BACKUP'    )
+        IdxBCK_REG := $part_fidx(${Cols}, 'BACKUP_REG')
+        if ${IdxBCK_REG} ; IdxBCK_REG := '[R]'
+        else             ; IdxBCK_REG := ''
+        endif
+        #$printf("%-6s %-6s %-6s %-6s %-6s %-6s %-6s %s\n", 'FLASH', 'SRAM', 'EEPROM', 'CCM', 'ITCM', 'DTCM', 'BACKUP', ${IdxBCK_REG})
+        #$printf("%-6d %-6d %-6d %-6d %-6d %-6d %-6d\n"   , ${IdxFLASH}, ${IdxSRAM}, ${IdxEEPROM}, ${IdxCCM}, ${IdxITCM}, ${IdxDTCM}, ${IdxBACKUP})
+        continue
+    endif
+
+    # Decode the chip part number
+    DName := $flatten( $call(__stm32_decode_device_family_number__, ${Cols}<1>) )
+
+    # Extract and process the parts
+                      Flash  := ${Cols}<IdxFLASH >
+                      SRAM   := ${Cols}<IdxSRAM  >
+    if ${IdxEEPROM} ; EEPROM := ${Cols}<IdxEEPROM>
+    else            ; EEPROM := 0
+    endif
+                                       mul Flash , ${Flash} , 1024
+                                       mul SRAM  , ${SRAM}  , 1024
+    if !$str_endwith(${EEPROM}, 'B') ; mul EEPROM, ${EEPROM}, 1024
+    else                             ;     EEPROM := $str_rmlchr(${EEPROM})
+    endif
+
+    # Format and store the result
+    DecLine +:= $sprintf("       %-6s   %7s   %7s   %5s       \\", ${DName}, ${Flash}, ${SRAM}, ${EEPROM})
+
+endforeach
+
+
+# Sort and print the results
+DecLine := $unique( $sort_ascending(${DecLine}) )
+
+Prefix  := 'local const STM32DecDataUnit := 4'
+Prefix +:= ' '
+Prefix +:= 'local const STM32DecData     :=                 \\'
+Prefix +:= '(***   DName    Flash     SRAM      EEPROM ***) \\'
+
+Text    := $ftlines( $stack(${Prefix}, ${DecLine}) )
+
+echoln ${Text/(.+?)(?:\\$)/$1/}

@@ -1,0 +1,744 @@
+##### Extracted from the original boards.txt to be used for testing     #####
+##### https://github.com/espressif/arduino-esp32/blob/master/boards.txt #####
+
+# Official Espressif options
+menu.UploadSpeed=Upload Speed
+menu.USBMode=USB Mode
+menu.CDCOnBoot=USB CDC On Boot
+menu.MSCOnBoot=USB Firmware MSC On Boot
+menu.DFUOnBoot=USB DFU On Boot
+menu.UploadMode=Upload Mode
+menu.CPUFreq=CPU Frequency
+menu.FlashFreq=Flash Frequency
+menu.FlashMode=Flash Mode
+menu.FlashSize=Flash Size
+menu.PartitionScheme=Partition Scheme
+menu.DebugLevel=Core Debug Level
+menu.PSRAM=PSRAM
+menu.LoopCore=Arduino Runs On
+menu.EventsCore=Events Run On
+menu.MemoryType=Memory Type
+menu.EraseFlash=Erase All Flash Before Sketch Upload
+menu.JTAGAdapter=JTAG Adapter
+
+# Custom options
+menu.Revision=Board Revision
+menu.LORAWAN_REGION=LoRaWan Region
+menu.LoRaWanDebugLevel=LoRaWan Debug Level
+menu.LORAWAN_DEVEUI=LoRaWan DevEUI
+menu.LORAWAN_PREAMBLE_LENGTH=LoRaWan Preamble Length
+
+##############################################################
+
+esp32s3.name=ESP32S3 Dev Module
+esp32s3.vid.0=0x303a
+esp32s3.pid.0=0x1001
+
+esp32s3.bootloader.tool=esptool_py
+esp32s3.bootloader.tool.default=esptool_py
+
+esp32s3.upload.tool=esptool_py
+esp32s3.upload.tool.default=esptool_py
+esp32s3.upload.tool.network=esp_ota
+
+esp32s3.upload.maximum_size=1310720
+esp32s3.upload.maximum_data_size=327680
+esp32s3.upload.flags=
+esp32s3.upload.extra_flags=
+esp32s3.upload.use_1200bps_touch=false
+esp32s3.upload.wait_for_upload_port=false
+
+esp32s3.serial.disableDTR=false
+esp32s3.serial.disableRTS=false
+
+esp32s3.build.tarch=xtensa
+esp32s3.build.bootloader_addr=0x0
+esp32s3.build.target=esp32s3
+esp32s3.build.mcu=esp32s3
+esp32s3.build.core=esp32
+esp32s3.build.variant=esp32s3
+esp32s3.build.board=ESP32S3_DEV
+
+esp32s3.build.usb_mode=1
+esp32s3.build.cdc_on_boot=0
+esp32s3.build.msc_on_boot=0
+esp32s3.build.dfu_on_boot=0
+esp32s3.build.f_cpu=240000000L
+esp32s3.build.flash_size=4MB
+esp32s3.build.flash_freq=80m
+esp32s3.build.flash_mode=dio
+esp32s3.build.boot=qio
+esp32s3.build.boot_freq=80m
+esp32s3.build.partitions=default
+esp32s3.build.defines=
+esp32s3.build.loop_core=
+esp32s3.build.event_core=
+esp32s3.build.psram_type=qspi
+esp32s3.build.memory_type={build.boot}_{build.psram_type}
+
+## IDE 2.0 Seems to not update the value
+esp32s3.menu.JTAGAdapter.default=Disabled
+esp32s3.menu.JTAGAdapter.default.build.copy_jtag_files=0
+esp32s3.menu.JTAGAdapter.builtin=Integrated USB JTAG
+esp32s3.menu.JTAGAdapter.builtin.build.openocdscript=esp32s3-builtin.cfg
+esp32s3.menu.JTAGAdapter.builtin.build.copy_jtag_files=1
+esp32s3.menu.JTAGAdapter.external=FTDI Adapter
+esp32s3.menu.JTAGAdapter.external.build.openocdscript=esp32s3-ftdi.cfg
+esp32s3.menu.JTAGAdapter.external.build.copy_jtag_files=1
+esp32s3.menu.JTAGAdapter.bridge=ESP USB Bridge
+esp32s3.menu.JTAGAdapter.bridge.build.openocdscript=esp32s3-bridge.cfg
+esp32s3.menu.JTAGAdapter.bridge.build.copy_jtag_files=1
+
+esp32s3.menu.PSRAM.disabled=Disabled
+esp32s3.menu.PSRAM.disabled.build.defines=
+esp32s3.menu.PSRAM.disabled.build.psram_type=qspi
+esp32s3.menu.PSRAM.enabled=QSPI PSRAM
+esp32s3.menu.PSRAM.enabled.build.defines=-DBOARD_HAS_PSRAM
+esp32s3.menu.PSRAM.enabled.build.psram_type=qspi
+esp32s3.menu.PSRAM.opi=OPI PSRAM
+esp32s3.menu.PSRAM.opi.build.defines=-DBOARD_HAS_PSRAM
+esp32s3.menu.PSRAM.opi.build.psram_type=opi
+
+esp32s3.menu.FlashMode.qio=QIO 80MHz
+esp32s3.menu.FlashMode.qio.build.flash_mode=dio
+esp32s3.menu.FlashMode.qio.build.boot=qio
+esp32s3.menu.FlashMode.qio.build.boot_freq=80m
+esp32s3.menu.FlashMode.qio.build.flash_freq=80m
+esp32s3.menu.FlashMode.qio120=QIO 120MHz
+esp32s3.menu.FlashMode.qio120.build.flash_mode=dio
+esp32s3.menu.FlashMode.qio120.build.boot=qio
+esp32s3.menu.FlashMode.qio120.build.boot_freq=120m
+esp32s3.menu.FlashMode.qio120.build.flash_freq=80m
+esp32s3.menu.FlashMode.dio=DIO 80MHz
+esp32s3.menu.FlashMode.dio.build.flash_mode=dio
+esp32s3.menu.FlashMode.dio.build.boot=dio
+esp32s3.menu.FlashMode.dio.build.boot_freq=80m
+esp32s3.menu.FlashMode.dio.build.flash_freq=80m
+esp32s3.menu.FlashMode.opi=OPI 80MHz
+esp32s3.menu.FlashMode.opi.build.flash_mode=dout
+esp32s3.menu.FlashMode.opi.build.boot=opi
+esp32s3.menu.FlashMode.opi.build.boot_freq=80m
+esp32s3.menu.FlashMode.opi.build.flash_freq=80m
+
+esp32s3.menu.FlashSize.4M=4MB (32Mb)
+esp32s3.menu.FlashSize.4M.build.flash_size=4MB
+esp32s3.menu.FlashSize.8M=8MB (64Mb)
+esp32s3.menu.FlashSize.8M.build.flash_size=8MB
+esp32s3.menu.FlashSize.8M.build.partitions=default_8MB
+esp32s3.menu.FlashSize.16M=16MB (128Mb)
+esp32s3.menu.FlashSize.16M.build.flash_size=16MB
+#esp32s3.menu.FlashSize.32M=32MB (256Mb)
+#esp32s3.menu.FlashSize.32M.build.flash_size=32MB
+
+esp32s3.menu.LoopCore.1=Core 1
+esp32s3.menu.LoopCore.1.build.loop_core=-DARDUINO_RUNNING_CORE=1
+esp32s3.menu.LoopCore.0=Core 0
+esp32s3.menu.LoopCore.0.build.loop_core=-DARDUINO_RUNNING_CORE=0
+
+esp32s3.menu.EventsCore.1=Core 1
+esp32s3.menu.EventsCore.1.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=1
+esp32s3.menu.EventsCore.0=Core 0
+esp32s3.menu.EventsCore.0.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=0
+
+esp32s3.menu.USBMode.hwcdc=Hardware CDC and JTAG
+esp32s3.menu.USBMode.hwcdc.build.usb_mode=1
+esp32s3.menu.USBMode.default=USB-OTG (TinyUSB)
+esp32s3.menu.USBMode.default.build.usb_mode=0
+
+esp32s3.menu.CDCOnBoot.default=Disabled
+esp32s3.menu.CDCOnBoot.default.build.cdc_on_boot=0
+esp32s3.menu.CDCOnBoot.cdc=Enabled
+esp32s3.menu.CDCOnBoot.cdc.build.cdc_on_boot=1
+
+esp32s3.menu.MSCOnBoot.default=Disabled
+esp32s3.menu.MSCOnBoot.default.build.msc_on_boot=0
+esp32s3.menu.MSCOnBoot.msc=Enabled (Requires USB-OTG Mode)
+esp32s3.menu.MSCOnBoot.msc.build.msc_on_boot=1
+
+esp32s3.menu.DFUOnBoot.default=Disabled
+esp32s3.menu.DFUOnBoot.default.build.dfu_on_boot=0
+esp32s3.menu.DFUOnBoot.dfu=Enabled (Requires USB-OTG Mode)
+esp32s3.menu.DFUOnBoot.dfu.build.dfu_on_boot=1
+
+esp32s3.menu.UploadMode.default=UART0 / Hardware CDC
+esp32s3.menu.UploadMode.default.upload.use_1200bps_touch=false
+esp32s3.menu.UploadMode.default.upload.wait_for_upload_port=false
+esp32s3.menu.UploadMode.cdc=USB-OTG CDC (TinyUSB)
+esp32s3.menu.UploadMode.cdc.upload.use_1200bps_touch=true
+esp32s3.menu.UploadMode.cdc.upload.wait_for_upload_port=true
+
+esp32s3.menu.PartitionScheme.default=Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)
+esp32s3.menu.PartitionScheme.default.build.partitions=default
+esp32s3.menu.PartitionScheme.defaultffat=Default 4MB with ffat (1.2MB APP/1.5MB FATFS)
+esp32s3.menu.PartitionScheme.defaultffat.build.partitions=default_ffat
+esp32s3.menu.PartitionScheme.default_8MB=8M with spiffs (3MB APP/1.5MB SPIFFS)
+esp32s3.menu.PartitionScheme.default_8MB.build.partitions=default_8MB
+esp32s3.menu.PartitionScheme.default_8MB.upload.maximum_size=3342336
+esp32s3.menu.PartitionScheme.minimal=Minimal (1.3MB APP/700KB SPIFFS)
+esp32s3.menu.PartitionScheme.minimal.build.partitions=minimal
+esp32s3.menu.PartitionScheme.no_ota=No OTA (2MB APP/2MB SPIFFS)
+esp32s3.menu.PartitionScheme.no_ota.build.partitions=no_ota
+esp32s3.menu.PartitionScheme.no_ota.upload.maximum_size=2097152
+esp32s3.menu.PartitionScheme.noota_3g=No OTA (1MB APP/3MB SPIFFS)
+esp32s3.menu.PartitionScheme.noota_3g.build.partitions=noota_3g
+esp32s3.menu.PartitionScheme.noota_3g.upload.maximum_size=1048576
+esp32s3.menu.PartitionScheme.noota_ffat=No OTA (2MB APP/2MB FATFS)
+esp32s3.menu.PartitionScheme.noota_ffat.build.partitions=noota_ffat
+esp32s3.menu.PartitionScheme.noota_ffat.upload.maximum_size=2097152
+esp32s3.menu.PartitionScheme.noota_3gffat=No OTA (1MB APP/3MB FATFS)
+esp32s3.menu.PartitionScheme.noota_3gffat.build.partitions=noota_3gffat
+esp32s3.menu.PartitionScheme.noota_3gffat.upload.maximum_size=1048576
+esp32s3.menu.PartitionScheme.huge_app=Huge APP (3MB No OTA/1MB SPIFFS)
+esp32s3.menu.PartitionScheme.huge_app.build.partitions=huge_app
+esp32s3.menu.PartitionScheme.huge_app.upload.maximum_size=3145728
+esp32s3.menu.PartitionScheme.min_spiffs=Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)
+esp32s3.menu.PartitionScheme.min_spiffs.build.partitions=min_spiffs
+esp32s3.menu.PartitionScheme.min_spiffs.upload.maximum_size=1966080
+esp32s3.menu.PartitionScheme.fatflash=16M Flash (2MB APP/12.5MB FATFS)
+esp32s3.menu.PartitionScheme.fatflash.build.partitions=ffat
+esp32s3.menu.PartitionScheme.fatflash.upload.maximum_size=2097152
+esp32s3.menu.PartitionScheme.app3M_fat9M_16MB=16M Flash (3MB APP/9.9MB FATFS)
+esp32s3.menu.PartitionScheme.app3M_fat9M_16MB.build.partitions=app3M_fat9M_16MB
+esp32s3.menu.PartitionScheme.app3M_fat9M_16MB.upload.maximum_size=3145728
+esp32s3.menu.PartitionScheme.rainmaker=RainMaker
+esp32s3.menu.PartitionScheme.rainmaker.build.partitions=rainmaker
+esp32s3.menu.PartitionScheme.rainmaker.upload.maximum_size=3145728
+
+esp32s3.menu.CPUFreq.240=240MHz (WiFi)
+esp32s3.menu.CPUFreq.240.build.f_cpu=240000000L
+esp32s3.menu.CPUFreq.160=160MHz (WiFi)
+esp32s3.menu.CPUFreq.160.build.f_cpu=160000000L
+esp32s3.menu.CPUFreq.80=80MHz (WiFi)
+esp32s3.menu.CPUFreq.80.build.f_cpu=80000000L
+esp32s3.menu.CPUFreq.40=40MHz
+esp32s3.menu.CPUFreq.40.build.f_cpu=40000000L
+esp32s3.menu.CPUFreq.20=20MHz
+esp32s3.menu.CPUFreq.20.build.f_cpu=20000000L
+esp32s3.menu.CPUFreq.10=10MHz
+esp32s3.menu.CPUFreq.10.build.f_cpu=10000000L
+
+esp32s3.menu.UploadSpeed.921600=921600
+esp32s3.menu.UploadSpeed.921600.upload.speed=921600
+esp32s3.menu.UploadSpeed.115200=115200
+esp32s3.menu.UploadSpeed.115200.upload.speed=115200
+esp32s3.menu.UploadSpeed.256000.windows=256000
+esp32s3.menu.UploadSpeed.256000.upload.speed=256000
+esp32s3.menu.UploadSpeed.230400.windows.upload.speed=256000
+esp32s3.menu.UploadSpeed.230400=230400
+esp32s3.menu.UploadSpeed.230400.upload.speed=230400
+esp32s3.menu.UploadSpeed.460800.linux=460800
+esp32s3.menu.UploadSpeed.460800.macosx=460800
+esp32s3.menu.UploadSpeed.460800.upload.speed=460800
+esp32s3.menu.UploadSpeed.512000.windows=512000
+esp32s3.menu.UploadSpeed.512000.upload.speed=512000
+
+esp32s3.menu.DebugLevel.none=None
+esp32s3.menu.DebugLevel.none.build.code_debug=0
+esp32s3.menu.DebugLevel.error=Error
+esp32s3.menu.DebugLevel.error.build.code_debug=1
+esp32s3.menu.DebugLevel.warn=Warn
+esp32s3.menu.DebugLevel.warn.build.code_debug=2
+esp32s3.menu.DebugLevel.info=Info
+esp32s3.menu.DebugLevel.info.build.code_debug=3
+esp32s3.menu.DebugLevel.debug=Debug
+esp32s3.menu.DebugLevel.debug.build.code_debug=4
+esp32s3.menu.DebugLevel.verbose=Verbose
+esp32s3.menu.DebugLevel.verbose.build.code_debug=5
+
+esp32s3.menu.EraseFlash.none=Disabled
+esp32s3.menu.EraseFlash.none.upload.erase_cmd=
+esp32s3.menu.EraseFlash.all=Enabled
+esp32s3.menu.EraseFlash.all.upload.erase_cmd=-e
+
+##############################################################
+
+esp32c3.name=ESP32C3 Dev Module
+esp32c3.vid.0=0x303a
+esp32c3.pid.0=0x1001
+
+esp32c3.bootloader.tool=esptool_py
+esp32c3.bootloader.tool.default=esptool_py
+
+esp32c3.upload.tool=esptool_py
+esp32c3.upload.tool.default=esptool_py
+esp32c3.upload.tool.network=esp_ota
+
+esp32c3.upload.maximum_size=1310720
+esp32c3.upload.maximum_data_size=327680
+esp32c3.upload.flags=
+esp32c3.upload.extra_flags=
+esp32c3.upload.use_1200bps_touch=false
+esp32c3.upload.wait_for_upload_port=false
+
+esp32c3.serial.disableDTR=false
+esp32c3.serial.disableRTS=false
+
+esp32c3.build.tarch=riscv32
+esp32c3.build.target=esp
+esp32c3.build.mcu=esp32c3
+esp32c3.build.core=esp32
+esp32c3.build.variant=esp32c3
+esp32c3.build.board=ESP32C3_DEV
+esp32c3.build.bootloader_addr=0x0
+
+esp32c3.build.cdc_on_boot=0
+esp32c3.build.f_cpu=160000000L
+esp32c3.build.flash_size=4MB
+esp32c3.build.flash_freq=80m
+esp32c3.build.flash_mode=qio
+esp32c3.build.boot=qio
+esp32c3.build.partitions=default
+esp32c3.build.defines=
+
+## IDE 2.0 Seems to not update the value
+esp32c3.menu.JTAGAdapter.default=Disabled
+esp32c3.menu.JTAGAdapter.default.build.copy_jtag_files=0
+esp32c3.menu.JTAGAdapter.builtin=Integrated USB JTAG
+esp32c3.menu.JTAGAdapter.builtin.build.openocdscript=esp32c3-builtin.cfg
+esp32c3.menu.JTAGAdapter.builtin.build.copy_jtag_files=1
+esp32c3.menu.JTAGAdapter.external=FTDI Adapter
+esp32c3.menu.JTAGAdapter.external.build.openocdscript=esp32c3-ftdi.cfg
+esp32c3.menu.JTAGAdapter.external.build.copy_jtag_files=1
+esp32c3.menu.JTAGAdapter.bridge=ESP USB Bridge
+esp32c3.menu.JTAGAdapter.bridge.build.openocdscript=esp32c3-bridge.cfg
+esp32c3.menu.JTAGAdapter.bridge.build.copy_jtag_files=1
+
+esp32c3.menu.CDCOnBoot.default=Disabled
+esp32c3.menu.CDCOnBoot.default.build.cdc_on_boot=0
+esp32c3.menu.CDCOnBoot.cdc=Enabled
+esp32c3.menu.CDCOnBoot.cdc.build.cdc_on_boot=1
+
+esp32c3.menu.PartitionScheme.default=Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)
+esp32c3.menu.PartitionScheme.default.build.partitions=default
+esp32c3.menu.PartitionScheme.defaultffat=Default 4MB with ffat (1.2MB APP/1.5MB FATFS)
+esp32c3.menu.PartitionScheme.defaultffat.build.partitions=default_ffat
+esp32c3.menu.PartitionScheme.default_8MB=8M with spiffs (3MB APP/1.5MB SPIFFS)
+esp32c3.menu.PartitionScheme.default_8MB.build.partitions=default_8MB
+esp32c3.menu.PartitionScheme.default_8MB.upload.maximum_size=3342336
+esp32c3.menu.PartitionScheme.minimal=Minimal (1.3MB APP/700KB SPIFFS)
+esp32c3.menu.PartitionScheme.minimal.build.partitions=minimal
+esp32c3.menu.PartitionScheme.no_ota=No OTA (2MB APP/2MB SPIFFS)
+esp32c3.menu.PartitionScheme.no_ota.build.partitions=no_ota
+esp32c3.menu.PartitionScheme.no_ota.upload.maximum_size=2097152
+esp32c3.menu.PartitionScheme.noota_3g=No OTA (1MB APP/3MB SPIFFS)
+esp32c3.menu.PartitionScheme.noota_3g.build.partitions=noota_3g
+esp32c3.menu.PartitionScheme.noota_3g.upload.maximum_size=1048576
+esp32c3.menu.PartitionScheme.noota_ffat=No OTA (2MB APP/2MB FATFS)
+esp32c3.menu.PartitionScheme.noota_ffat.build.partitions=noota_ffat
+esp32c3.menu.PartitionScheme.noota_ffat.upload.maximum_size=2097152
+esp32c3.menu.PartitionScheme.noota_3gffat=No OTA (1MB APP/3MB FATFS)
+esp32c3.menu.PartitionScheme.noota_3gffat.build.partitions=noota_3gffat
+esp32c3.menu.PartitionScheme.noota_3gffat.upload.maximum_size=1048576
+esp32c3.menu.PartitionScheme.huge_app=Huge APP (3MB No OTA/1MB SPIFFS)
+esp32c3.menu.PartitionScheme.huge_app.build.partitions=huge_app
+esp32c3.menu.PartitionScheme.huge_app.upload.maximum_size=3145728
+esp32c3.menu.PartitionScheme.min_spiffs=Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)
+esp32c3.menu.PartitionScheme.min_spiffs.build.partitions=min_spiffs
+esp32c3.menu.PartitionScheme.min_spiffs.upload.maximum_size=1966080
+esp32c3.menu.PartitionScheme.fatflash=16M Flash (2MB APP/12.5MB FATFS)
+esp32c3.menu.PartitionScheme.fatflash.build.partitions=ffat
+esp32c3.menu.PartitionScheme.fatflash.upload.maximum_size=2097152
+esp32c3.menu.PartitionScheme.app3M_fat9M_16MB=16M Flash (3MB APP/9.9MB FATFS)
+esp32c3.menu.PartitionScheme.app3M_fat9M_16MB.build.partitions=app3M_fat9M_16MB
+esp32c3.menu.PartitionScheme.app3M_fat9M_16MB.upload.maximum_size=3145728
+esp32c3.menu.PartitionScheme.rainmaker=RainMaker
+esp32c3.menu.PartitionScheme.rainmaker.build.partitions=rainmaker
+esp32c3.menu.PartitionScheme.rainmaker.upload.maximum_size=3145728
+
+esp32c3.menu.CPUFreq.160=160MHz (WiFi)
+esp32c3.menu.CPUFreq.160.build.f_cpu=160000000L
+esp32c3.menu.CPUFreq.80=80MHz (WiFi)
+esp32c3.menu.CPUFreq.80.build.f_cpu=80000000L
+esp32c3.menu.CPUFreq.40=40MHz
+esp32c3.menu.CPUFreq.40.build.f_cpu=40000000L
+esp32c3.menu.CPUFreq.20=20MHz
+esp32c3.menu.CPUFreq.20.build.f_cpu=20000000L
+esp32c3.menu.CPUFreq.10=10MHz
+esp32c3.menu.CPUFreq.10.build.f_cpu=10000000L
+
+esp32c3.menu.FlashMode.qio=QIO
+esp32c3.menu.FlashMode.qio.build.flash_mode=dio
+esp32c3.menu.FlashMode.qio.build.boot=qio
+esp32c3.menu.FlashMode.dio=DIO
+esp32c3.menu.FlashMode.dio.build.flash_mode=dio
+esp32c3.menu.FlashMode.dio.build.boot=dio
+esp32c3.menu.FlashMode.qout=QOUT
+esp32c3.menu.FlashMode.qout.build.flash_mode=dout
+esp32c3.menu.FlashMode.qout.build.boot=qout
+esp32c3.menu.FlashMode.dout=DOUT
+esp32c3.menu.FlashMode.dout.build.flash_mode=dout
+esp32c3.menu.FlashMode.dout.build.boot=dout
+
+esp32c3.menu.FlashFreq.80=80MHz
+esp32c3.menu.FlashFreq.80.build.flash_freq=80m
+esp32c3.menu.FlashFreq.40=40MHz
+esp32c3.menu.FlashFreq.40.build.flash_freq=40m
+
+esp32c3.menu.FlashSize.4M=4MB (32Mb)
+esp32c3.menu.FlashSize.4M.build.flash_size=4MB
+esp32c3.menu.FlashSize.8M=8MB (64Mb)
+esp32c3.menu.FlashSize.8M.build.flash_size=8MB
+esp32c3.menu.FlashSize.8M.build.partitions=default_8MB
+esp32c3.menu.FlashSize.2M=2MB (16Mb)
+esp32c3.menu.FlashSize.2M.build.flash_size=2MB
+esp32c3.menu.FlashSize.2M.build.partitions=minimal
+esp32c3.menu.FlashSize.16M=16MB (128Mb)
+esp32c3.menu.FlashSize.16M.build.flash_size=16MB
+
+esp32c3.menu.UploadSpeed.921600=921600
+esp32c3.menu.UploadSpeed.921600.upload.speed=921600
+esp32c3.menu.UploadSpeed.115200=115200
+esp32c3.menu.UploadSpeed.115200.upload.speed=115200
+esp32c3.menu.UploadSpeed.256000.windows=256000
+esp32c3.menu.UploadSpeed.256000.upload.speed=256000
+esp32c3.menu.UploadSpeed.230400.windows.upload.speed=256000
+esp32c3.menu.UploadSpeed.230400=230400
+esp32c3.menu.UploadSpeed.230400.upload.speed=230400
+esp32c3.menu.UploadSpeed.460800.linux=460800
+esp32c3.menu.UploadSpeed.460800.macosx=460800
+esp32c3.menu.UploadSpeed.460800.upload.speed=460800
+esp32c3.menu.UploadSpeed.512000.windows=512000
+esp32c3.menu.UploadSpeed.512000.upload.speed=512000
+
+esp32c3.menu.DebugLevel.none=None
+esp32c3.menu.DebugLevel.none.build.code_debug=0
+esp32c3.menu.DebugLevel.error=Error
+esp32c3.menu.DebugLevel.error.build.code_debug=1
+esp32c3.menu.DebugLevel.warn=Warn
+esp32c3.menu.DebugLevel.warn.build.code_debug=2
+esp32c3.menu.DebugLevel.info=Info
+esp32c3.menu.DebugLevel.info.build.code_debug=3
+esp32c3.menu.DebugLevel.debug=Debug
+esp32c3.menu.DebugLevel.debug.build.code_debug=4
+esp32c3.menu.DebugLevel.verbose=Verbose
+esp32c3.menu.DebugLevel.verbose.build.code_debug=5
+
+esp32c3.menu.EraseFlash.none=Disabled
+esp32c3.menu.EraseFlash.none.upload.erase_cmd=
+esp32c3.menu.EraseFlash.all=Enabled
+esp32c3.menu.EraseFlash.all.upload.erase_cmd=-e
+
+##############################################################
+
+esp32.name=ESP32 Dev Module
+
+esp32.bootloader.tool=esptool_py
+esp32.bootloader.tool.default=esptool_py
+
+esp32.upload.tool=esptool_py
+esp32.upload.tool.default=esptool_py
+esp32.upload.tool.network=esp_ota
+
+esp32.upload.maximum_size=1310720
+esp32.upload.maximum_data_size=327680
+esp32.upload.flags=
+esp32.upload.extra_flags=
+
+esp32.serial.disableDTR=true
+esp32.serial.disableRTS=true
+
+esp32.build.tarch=xtensa
+esp32.build.bootloader_addr=0x1000
+esp32.build.target=esp32
+esp32.build.mcu=esp32
+esp32.build.core=esp32
+esp32.build.variant=esp32
+esp32.build.board=ESP32_DEV
+
+esp32.build.f_cpu=240000000L
+esp32.build.flash_size=4MB
+esp32.build.flash_freq=40m
+esp32.build.flash_mode=dio
+esp32.build.boot=dio
+esp32.build.partitions=default
+esp32.build.defines=
+esp32.build.loop_core=
+esp32.build.event_core=
+
+## IDE 2.0 Seems to not update the value
+esp32.menu.JTAGAdapter.default=Disabled
+esp32.menu.JTAGAdapter.default.build.copy_jtag_files=0
+esp32.menu.JTAGAdapter.external=FTDI Adapter
+esp32.menu.JTAGAdapter.external.build.openocdscript=esp32-wrover-kit-3.3v.cfg
+esp32.menu.JTAGAdapter.external.build.copy_jtag_files=1
+esp32.menu.JTAGAdapter.bridge=ESP USB Bridge
+esp32.menu.JTAGAdapter.bridge.build.openocdscript=esp32-bridge.cfg
+esp32.menu.JTAGAdapter.bridge.build.copy_jtag_files=1
+
+esp32.menu.PSRAM.disabled=Disabled
+esp32.menu.PSRAM.disabled.build.defines=
+esp32.menu.PSRAM.disabled.build.extra_libs=
+esp32.menu.PSRAM.enabled=Enabled
+esp32.menu.PSRAM.enabled.build.defines=-DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -mfix-esp32-psram-cache-strategy=memw
+esp32.menu.PSRAM.enabled.build.extra_libs=
+
+esp32.menu.PartitionScheme.default=Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)
+esp32.menu.PartitionScheme.default.build.partitions=default
+esp32.menu.PartitionScheme.defaultffat=Default 4MB with ffat (1.2MB APP/1.5MB FATFS)
+esp32.menu.PartitionScheme.defaultffat.build.partitions=default_ffat
+esp32.menu.PartitionScheme.default_8MB=8M with spiffs (3MB APP/1.5MB SPIFFS)
+esp32.menu.PartitionScheme.default_8MB.build.partitions=default_8MB
+esp32.menu.PartitionScheme.default_8MB.upload.maximum_size=3342336
+esp32.menu.PartitionScheme.minimal=Minimal (1.3MB APP/700KB SPIFFS)
+esp32.menu.PartitionScheme.minimal.build.partitions=minimal
+esp32.menu.PartitionScheme.no_ota=No OTA (2MB APP/2MB SPIFFS)
+esp32.menu.PartitionScheme.no_ota.build.partitions=no_ota
+esp32.menu.PartitionScheme.no_ota.upload.maximum_size=2097152
+esp32.menu.PartitionScheme.noota_3g=No OTA (1MB APP/3MB SPIFFS)
+esp32.menu.PartitionScheme.noota_3g.build.partitions=noota_3g
+esp32.menu.PartitionScheme.noota_3g.upload.maximum_size=1048576
+esp32.menu.PartitionScheme.noota_ffat=No OTA (2MB APP/2MB FATFS)
+esp32.menu.PartitionScheme.noota_ffat.build.partitions=noota_ffat
+esp32.menu.PartitionScheme.noota_ffat.upload.maximum_size=2097152
+esp32.menu.PartitionScheme.noota_3gffat=No OTA (1MB APP/3MB FATFS)
+esp32.menu.PartitionScheme.noota_3gffat.build.partitions=noota_3gffat
+esp32.menu.PartitionScheme.noota_3gffat.upload.maximum_size=1048576
+esp32.menu.PartitionScheme.huge_app=Huge APP (3MB No OTA/1MB SPIFFS)
+esp32.menu.PartitionScheme.huge_app.build.partitions=huge_app
+esp32.menu.PartitionScheme.huge_app.upload.maximum_size=3145728
+esp32.menu.PartitionScheme.min_spiffs=Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)
+esp32.menu.PartitionScheme.min_spiffs.build.partitions=min_spiffs
+esp32.menu.PartitionScheme.min_spiffs.upload.maximum_size=1966080
+esp32.menu.PartitionScheme.fatflash=16M Flash (2MB APP/12.5MB FATFS)
+esp32.menu.PartitionScheme.fatflash.build.partitions=ffat
+esp32.menu.PartitionScheme.fatflash.upload.maximum_size=2097152
+esp32.menu.PartitionScheme.app3M_fat9M_16MB=16M Flash (3MB APP/9.9MB FATFS)
+esp32.menu.PartitionScheme.app3M_fat9M_16MB.build.partitions=app3M_fat9M_16MB
+esp32.menu.PartitionScheme.app3M_fat9M_16MB.upload.maximum_size=3145728
+esp32.menu.PartitionScheme.rainmaker=RainMaker
+esp32.menu.PartitionScheme.rainmaker.build.partitions=rainmaker
+esp32.menu.PartitionScheme.rainmaker.upload.maximum_size=3145728
+
+esp32.menu.CPUFreq.240=240MHz (WiFi/BT)
+esp32.menu.CPUFreq.240.build.f_cpu=240000000L
+esp32.menu.CPUFreq.160=160MHz (WiFi/BT)
+esp32.menu.CPUFreq.160.build.f_cpu=160000000L
+esp32.menu.CPUFreq.80=80MHz (WiFi/BT)
+esp32.menu.CPUFreq.80.build.f_cpu=80000000L
+esp32.menu.CPUFreq.40=40MHz (40MHz XTAL)
+esp32.menu.CPUFreq.40.build.f_cpu=40000000L
+esp32.menu.CPUFreq.26=26MHz (26MHz XTAL)
+esp32.menu.CPUFreq.26.build.f_cpu=26000000L
+esp32.menu.CPUFreq.20=20MHz (40MHz XTAL)
+esp32.menu.CPUFreq.20.build.f_cpu=20000000L
+esp32.menu.CPUFreq.13=13MHz (26MHz XTAL)
+esp32.menu.CPUFreq.13.build.f_cpu=13000000L
+esp32.menu.CPUFreq.10=10MHz (40MHz XTAL)
+esp32.menu.CPUFreq.10.build.f_cpu=10000000L
+
+esp32.menu.FlashMode.qio=QIO
+esp32.menu.FlashMode.qio.build.flash_mode=dio
+esp32.menu.FlashMode.qio.build.boot=qio
+esp32.menu.FlashMode.dio=DIO
+esp32.menu.FlashMode.dio.build.flash_mode=dio
+esp32.menu.FlashMode.dio.build.boot=dio
+esp32.menu.FlashMode.qout=QOUT
+esp32.menu.FlashMode.qout.build.flash_mode=dout
+esp32.menu.FlashMode.qout.build.boot=qout
+esp32.menu.FlashMode.dout=DOUT
+esp32.menu.FlashMode.dout.build.flash_mode=dout
+esp32.menu.FlashMode.dout.build.boot=dout
+
+esp32.menu.FlashFreq.80=80MHz
+esp32.menu.FlashFreq.80.build.flash_freq=80m
+esp32.menu.FlashFreq.40=40MHz
+esp32.menu.FlashFreq.40.build.flash_freq=40m
+
+esp32.menu.FlashSize.4M=4MB (32Mb)
+esp32.menu.FlashSize.4M.build.flash_size=4MB
+esp32.menu.FlashSize.8M=8MB (64Mb)
+esp32.menu.FlashSize.8M.build.flash_size=8MB
+esp32.menu.FlashSize.8M.build.partitions=default_8MB
+esp32.menu.FlashSize.2M=2MB (16Mb)
+esp32.menu.FlashSize.2M.build.flash_size=2MB
+esp32.menu.FlashSize.2M.build.partitions=minimal
+esp32.menu.FlashSize.16M=16MB (128Mb)
+esp32.menu.FlashSize.16M.build.flash_size=16MB
+
+esp32.menu.UploadSpeed.921600=921600
+esp32.menu.UploadSpeed.921600.upload.speed=921600
+esp32.menu.UploadSpeed.115200=115200
+esp32.menu.UploadSpeed.115200.upload.speed=115200
+esp32.menu.UploadSpeed.256000.windows=256000
+esp32.menu.UploadSpeed.256000.upload.speed=256000
+esp32.menu.UploadSpeed.230400.windows.upload.speed=256000
+esp32.menu.UploadSpeed.230400=230400
+esp32.menu.UploadSpeed.230400.upload.speed=230400
+esp32.menu.UploadSpeed.460800.linux=460800
+esp32.menu.UploadSpeed.460800.macosx=460800
+esp32.menu.UploadSpeed.460800.upload.speed=460800
+esp32.menu.UploadSpeed.512000.windows=512000
+esp32.menu.UploadSpeed.512000.upload.speed=512000
+
+esp32.menu.LoopCore.1=Core 1
+esp32.menu.LoopCore.1.build.loop_core=-DARDUINO_RUNNING_CORE=1
+esp32.menu.LoopCore.0=Core 0
+esp32.menu.LoopCore.0.build.loop_core=-DARDUINO_RUNNING_CORE=0
+
+esp32.menu.EventsCore.1=Core 1
+esp32.menu.EventsCore.1.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=1
+esp32.menu.EventsCore.0=Core 0
+esp32.menu.EventsCore.0.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=0
+
+esp32.menu.DebugLevel.none=None
+esp32.menu.DebugLevel.none.build.code_debug=0
+esp32.menu.DebugLevel.error=Error
+esp32.menu.DebugLevel.error.build.code_debug=1
+esp32.menu.DebugLevel.warn=Warn
+esp32.menu.DebugLevel.warn.build.code_debug=2
+esp32.menu.DebugLevel.info=Info
+esp32.menu.DebugLevel.info.build.code_debug=3
+esp32.menu.DebugLevel.debug=Debug
+esp32.menu.DebugLevel.debug.build.code_debug=4
+esp32.menu.DebugLevel.verbose=Verbose
+esp32.menu.DebugLevel.verbose.build.code_debug=5
+
+esp32.menu.EraseFlash.none=Disabled
+esp32.menu.EraseFlash.none.upload.erase_cmd=
+esp32.menu.EraseFlash.all=Enabled
+esp32.menu.EraseFlash.all.upload.erase_cmd=-e
+
+##############################################################
+
+heltec_wifi_lora_32_V3.name=Heltec WiFi LoRa 32(V3) / Wireless shell(V3) / Wireless stick lite (V3)
+heltec_wifi_lora_32_V3.vid.0=0x303a
+heltec_wifi_lora_32_V3.pid.0=0x1001
+
+heltec_wifi_lora_32_V3.bootloader.tool=esptool_py
+heltec_wifi_lora_32_V3.bootloader.tool.default=esptool_py
+
+heltec_wifi_lora_32_V3.upload.tool=esptool_py
+heltec_wifi_lora_32_V3.upload.tool.default=esptool_py
+heltec_wifi_lora_32_V3.upload.tool.network=esp_ota
+
+heltec_wifi_lora_32_V3.upload.maximum_size=3342336
+heltec_wifi_lora_32_V3.upload.maximum_data_size=327680
+heltec_wifi_lora_32_V3.upload.flags=
+heltec_wifi_lora_32_V3.upload.extra_flags=
+heltec_wifi_lora_32_V3.upload.use_1200bps_touch=false
+heltec_wifi_lora_32_V3.upload.wait_for_upload_port=false
+
+heltec_wifi_lora_32_V3.serial.disableDTR=false
+heltec_wifi_lora_32_V3.serial.disableRTS=false
+
+heltec_wifi_lora_32_V3.build.tarch=xtensa
+heltec_wifi_lora_32_V3.build.bootloader_addr=0x0
+heltec_wifi_lora_32_V3.build.target=esp32s3
+heltec_wifi_lora_32_V3.build.mcu=esp32s3
+heltec_wifi_lora_32_V3.build.core=esp32
+heltec_wifi_lora_32_V3.build.variant=heltec_wifi_lora_32_V3
+heltec_wifi_lora_32_V3.build.board=heltec_wifi_32_lora_V3
+
+heltec_wifi_lora_32_V3.build.usb_mode=1
+heltec_wifi_lora_32_V3.build.cdc_on_boot=0
+heltec_wifi_lora_32_V3.build.msc_on_boot=0
+heltec_wifi_lora_32_V3.build.dfu_on_boot=0
+heltec_wifi_lora_32_V3.build.f_cpu=240000000L
+heltec_wifi_lora_32_V3.build.flash_size=8MB
+heltec_wifi_lora_32_V3.build.flash_freq=80m
+heltec_wifi_lora_32_V3.build.flash_mode=dio
+heltec_wifi_lora_32_V3.build.boot=qio
+heltec_wifi_lora_32_V3.build.boot_freq=80m
+heltec_wifi_lora_32_V3.build.partitions=default_8MB
+heltec_wifi_lora_32_V3.build.loop_core=
+heltec_wifi_lora_32_V3.build.event_core=
+heltec_wifi_lora_32_V3.build.psram_type=qspi
+heltec_wifi_lora_32_V3.build.memory_type={build.boot}_{build.psram_type}
+
+heltec_wifi_lora_32_V3.menu.LoopCore.1=Core 1
+heltec_wifi_lora_32_V3.menu.LoopCore.1.build.loop_core=-DARDUINO_RUNNING_CORE=1
+heltec_wifi_lora_32_V3.menu.LoopCore.0=Core 0
+heltec_wifi_lora_32_V3.menu.LoopCore.0.build.loop_core=-DARDUINO_RUNNING_CORE=0
+
+heltec_wifi_lora_32_V3.menu.EventsCore.1=Core 1
+heltec_wifi_lora_32_V3.menu.EventsCore.1.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=1
+heltec_wifi_lora_32_V3.menu.EventsCore.0=Core 0
+heltec_wifi_lora_32_V3.menu.EventsCore.0.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=0
+
+heltec_wifi_lora_32_V3.menu.CPUFreq.240=240MHz (WiFi)
+heltec_wifi_lora_32_V3.menu.CPUFreq.240.build.f_cpu=240000000L
+heltec_wifi_lora_32_V3.menu.CPUFreq.160=160MHz (WiFi)
+heltec_wifi_lora_32_V3.menu.CPUFreq.160.build.f_cpu=160000000L
+heltec_wifi_lora_32_V3.menu.CPUFreq.80=80MHz (WiFi)
+heltec_wifi_lora_32_V3.menu.CPUFreq.80.build.f_cpu=80000000L
+heltec_wifi_lora_32_V3.menu.CPUFreq.40=40MHz
+heltec_wifi_lora_32_V3.menu.CPUFreq.40.build.f_cpu=40000000L
+heltec_wifi_lora_32_V3.menu.CPUFreq.20=20MHz
+heltec_wifi_lora_32_V3.menu.CPUFreq.20.build.f_cpu=20000000L
+heltec_wifi_lora_32_V3.menu.CPUFreq.10=10MHz
+heltec_wifi_lora_32_V3.menu.CPUFreq.10.build.f_cpu=10000000L
+
+heltec_wifi_lora_32_V3.menu.UploadSpeed.921600=921600
+heltec_wifi_lora_32_V3.menu.UploadSpeed.921600.upload.speed=921600
+heltec_wifi_lora_32_V3.menu.UploadSpeed.115200=115200
+heltec_wifi_lora_32_V3.menu.UploadSpeed.115200.upload.speed=115200
+heltec_wifi_lora_32_V3.menu.UploadSpeed.256000.windows=256000
+heltec_wifi_lora_32_V3.menu.UploadSpeed.256000.upload.speed=256000
+heltec_wifi_lora_32_V3.menu.UploadSpeed.230400.windows.upload.speed=256000
+heltec_wifi_lora_32_V3.menu.UploadSpeed.230400=230400
+heltec_wifi_lora_32_V3.menu.UploadSpeed.230400.upload.speed=230400
+heltec_wifi_lora_32_V3.menu.UploadSpeed.460800.linux=460800
+heltec_wifi_lora_32_V3.menu.UploadSpeed.460800.macosx=460800
+heltec_wifi_lora_32_V3.menu.UploadSpeed.460800.upload.speed=460800
+heltec_wifi_lora_32_V3.menu.UploadSpeed.512000.windows=512000
+heltec_wifi_lora_32_V3.menu.UploadSpeed.512000.upload.speed=512000
+
+heltec_wifi_lora_32_V3.menu.DebugLevel.none=None
+heltec_wifi_lora_32_V3.menu.DebugLevel.none.build.code_debug=0
+heltec_wifi_lora_32_V3.menu.DebugLevel.error=Error
+heltec_wifi_lora_32_V3.menu.DebugLevel.error.build.code_debug=1
+heltec_wifi_lora_32_V3.menu.DebugLevel.warn=Warn
+heltec_wifi_lora_32_V3.menu.DebugLevel.warn.build.code_debug=2
+heltec_wifi_lora_32_V3.menu.DebugLevel.info=Info
+heltec_wifi_lora_32_V3.menu.DebugLevel.info.build.code_debug=3
+heltec_wifi_lora_32_V3.menu.DebugLevel.debug=Debug
+heltec_wifi_lora_32_V3.menu.DebugLevel.debug.build.code_debug=4
+heltec_wifi_lora_32_V3.menu.DebugLevel.verbose=Verbose
+heltec_wifi_lora_32_V3.menu.DebugLevel.verbose.build.code_debug=5
+
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.0=REGION_EU868
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.0.build.band=REGION_EU868
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.1=REGION_EU433
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.1.build.band=REGION_EU433
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.2=REGION_CN470
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.2.build.band=REGION_CN470
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.3=REGION_US915
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.3.build.band=REGION_US915
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.4=REGION_AU915
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.4.build.band=REGION_AU915
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.5=REGION_CN779
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.5.build.band=REGION_CN779
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.6=REGION_AS923
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.6.build.band=REGION_AS923
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.7=REGION_KR920
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.7.build.band=REGION_KR920
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.8=REGION_IN865
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.8.build.band=REGION_IN865
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.9=REGION_US915_HYBRID
+heltec_wifi_lora_32_V3.menu.LORAWAN_REGION.9.build.band=REGION_US915_HYBRID
+
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.0=None
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.0.build.LoRaWanDebugLevel=0
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.1=Freq
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.1.build.LoRaWanDebugLevel=1
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.2=Freq && DIO
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.2.build.LoRaWanDebugLevel=2
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.3=Freq && DIO && PW
+heltec_wifi_lora_32_V3.menu.LoRaWanDebugLevel.3.build.LoRaWanDebugLevel=3
+
+heltec_wifi_lora_32_V3.menu.LORAWAN_DEVEUI.0=CUSTOM
+heltec_wifi_lora_32_V3.menu.LORAWAN_DEVEUI.0.build.LORAWAN_DEVEUI_AUTO=0
+heltec_wifi_lora_32_V3.menu.LORAWAN_DEVEUI.1=Generate By ChipID
+heltec_wifi_lora_32_V3.menu.LORAWAN_DEVEUI.1.build.LORAWAN_DEVEUI_AUTO=1
+
+heltec_wifi_lora_32_V3.menu.LORAWAN_PREAMBLE_LENGTH.0=8(default)
+heltec_wifi_lora_32_V3.menu.LORAWAN_PREAMBLE_LENGTH.0.build.LORAWAN_PREAMBLE_LENGTH=8
+heltec_wifi_lora_32_V3.menu.LORAWAN_PREAMBLE_LENGTH.1=16(For M00 and M00L)
+heltec_wifi_lora_32_V3.menu.LORAWAN_PREAMBLE_LENGTH.1.build.LORAWAN_PREAMBLE_LENGTH=16
+
+heltec_wifi_lora_32_V3.build.defines=-D{build.band} -DLoRaWAN_DEBUG_LEVEL={build.LoRaWanDebugLevel} -DACTIVE_REGION=LORAMAC_{build.band} -DLORAWAN_PREAMBLE_LENGTH={build.LORAWAN_PREAMBLE_LENGTH} -DLORAWAN_DEVEUI_AUTO={build.LORAWAN_DEVEUI_AUTO} -D{build.board}
+
+heltec_wifi_lora_32_V3.menu.EraseFlash.none=Disabled
+heltec_wifi_lora_32_V3.menu.EraseFlash.none.upload.erase_cmd=
+heltec_wifi_lora_32_V3.menu.EraseFlash.all=Enabled
+heltec_wifi_lora_32_V3.menu.EraseFlash.all.upload.erase_cmd=-e

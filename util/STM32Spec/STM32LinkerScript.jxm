@@ -1,0 +1,62 @@
+# This repository tree is cloned from from:
+#      https://github.com/stm32duino/Arduino_Core_STM32.git
+# ~~~ Last accessed on 2023-10-30 ~~~
+PathRoot := $symlink_resolve( $cat_path( $uhd(), 'Projects/0/RefRepo/Arduino_Core_STM32' ) )
+
+
+# Get the string lengths of the paths
+LenSys := $strlen(:"${PathRoot}/system/"  ) ; inc LenSys
+LenVar := $strlen(:"${PathRoot}/variants/") ; inc LenVar
+
+
+# Process the linker script files
+URLRoot := 'https://raw.githubusercontent.com/stm32duino/Arduino_Core_STM32/main/'
+OutDir  := 'ldscripts'
+
+foreach File in $srfile_rec(${PathRoot}, '.+\\.ld$')
+
+    # Ignore linker script files in this directory
+    if $re_match(${File}, '.*?/(?:Drivers|freertos|generic|Middlewares)/.*') : continue
+
+    # Get the URL
+      if $re_match(${File}, '.+system.+'  ) ; URL := :"${URLRoot}system/"   ; URL +:= $substr(${File}, ${LenSys}, -1)
+    elif $re_match(${File}, '.+variants.+') ; URL := :"${URLRoot}variants/" ; URL +:= $substr(${File}, ${LenVar}, -1)
+    else
+        echoln "### ERROR : '${File}' ###"
+        $exit(-1)
+    endif
+
+    FlattenURL := $flatten(${URL});
+    if $str_endwith(${FlattenURL}, '/ldscript.ld') : URLList +:= $flatten(${FlattenURL})
+
+    # Copy the file (with the whole parent directory)
+    if !true
+        Dst := :"${OutDir}/${URL/(?:.+?)(?:system|variants)\/(.*)/$1/}"
+        $mkdir ( $path_rm_last_part(${Dst}) )
+        $cpfile( ${File}, ${Dst}, true      )
+    endif
+
+    # Copy the file (without the whole parent directory)
+    if !true
+        Dst := :"${URL/(?:.+?)(system|variants)\/(.*)/$1\/$2/}"
+        $mkdir(${OutDir})
+        $cpfile(${File}, :"${OutDir}/${Dst/\//_/}", true)
+    endif
+
+endforeach
+
+
+# Sort and print the results
+URLList := $sort_ascending(${URLList})
+
+foreach URL in $series('\'', ${URLList}, '\'')
+    URL        := $str_replace(${URL}, ${URLRoot}    , '')
+    URL        := $str_replace(${URL}, '/ldscript.ld', '')
+    UPathList +:= $sprintf("    %-100s \\", ${URL})
+endforeach
+
+Prefix := $sprintf("%-100s     \\", 'local const STM32LinkScripts :=')
+Text   := $ftlines( $stack(${Prefix}, ${UPathList}) )
+
+#echoln $ftlines(${URLList})
+echoln ${Text/(.+?)(?:\\$)/$1/}

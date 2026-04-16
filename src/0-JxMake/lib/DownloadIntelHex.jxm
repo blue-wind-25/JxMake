@@ -1,0 +1,131 @@
+(****************************************************************************************************
+ ***** Download Python IntelHex Library                                                         *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the GitHub tool
+:::include_once 'GitHubTool.jxm'
+
+
+##### Path to the IntelHex
+const IntelHex_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+const IntelHex_Path        := $cat_path( $jtd()          , 'intelhex'     )
+
+const IntelHex_VerFileName := $cat_path( ${IntelHex_Path}, 'VERSION'      )
+const IntelHex_LChFileName := $cat_path( ${IntelHex_Path}, 'LAST_CHECKED' )
+
+
+##### Function to delete the downloaded IntelHex
+function delete_intelhex()
+    if $valid_path(${IntelHex_Path}) : $rmdir_rec(${IntelHex_Path})
+endfunction
+
+
+##### Function to download (and install) the latest IntelHex from IntelHex GitHub
+function download_latest_intelhex(?onlyIfNotExist, ?dlExactTag)
+    # Read environment variables
+    JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST  ?:= $getenv('JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' , '0')
+    JXMAKELIB_DOWNLOAD_INTELHEX_FORCE_TAG ?:= $getenv('JXMAKELIB_DOWNLOAD_INTELHEX_FORCE_TAG', '' )
+    # Set the default values
+    onlyIfNotExist ?:= ${JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST}
+    dlExactTag     ?:= ${JXMAKELIB_DOWNLOAD_INTELHEX_FORCE_TAG}
+    # Check if IntelHex already exist
+    local AlreadyExist := true
+    if !$valid_path(${IntelHex_VerFileName}) : AlreadyExist := false
+    if !$valid_path(${IntelHex_LChFileName}) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${IntelHex_LChFileName})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${IntelHex_ChkInterval}
+        if ${InR} : return
+    endif
+    # Get the assets from the latest release
+    echoln
+    if &${dlExactTag}
+        local mh := $call(gh_get_assets_from_release_by_tag_name, 'python-intelhex', 'intelhex', ${dlExactTag})
+    else
+        local mh := $call(gh_get_assets_from_latest_release     , 'python-intelhex', 'intelhex'               )
+    endif
+   #$put_file( $cat_path( $ptd(), 'intelhex.assets.edata' ), $map_to_edata(${mh}) )
+   #local mh := $map_from_edata( $get_file( $cat_path( $ptd(), 'intelhex.assets.edata' ) ) )
+    # Check for error
+    $call(gh_check_rest_api_mh, ${mh})
+    # Dump the map
+    $call(dump_map_object, ${mh})
+    echoln
+    # Extract the parts
+    local id      := $partn( $map_get(${mh}, '__ids__'           ), 1 )
+    local version := $partn( $map_get(${mh}, :"${id}:tag_name"   ), 1 )
+    local zburl   :=         $map_get(${mh}, :"${id}:zipball_url")
+    # Check if no suitable download URL was found
+    if !&${zburl} : $call(__exit_error_na_osna__, 'IntelHex', ${dlExactTag})
+    # If IntelHex already exist, check if the version matches
+    if ${AlreadyExist}
+        if ${version} &== $get_file(${IntelHex_VerFileName})
+            # Update the last checked time and exit
+            $put_file( ${IntelHex_LChFileName}, $call(get_timestamp) )
+            return
+        endif
+    endif
+    # Download the archive
+    local DLFile := $http_download( ${zburl}, $ptd() )
+    if !&${DLFile} : $call(__exit_error_download_fail__, ${zburl})
+    echoln
+    # Extract the archive to a temporary directory
+    local ExPath := $cat_path( $ptd(), 'intelhex' )
+    $unzip_rec (${DLFile}, ${ExPath})
+    if !$valid_path(${ExPath}) : $call(__exit_error_archive_extract_fail__, ${url})
+    # Adjust the temporary directory path as needed
+    local ExPathSD := $lsdir(${ExPath})
+    if $part_count(${ExPathSD}) != 1 : ExPathSD := ${ExPath}
+    # Remove existing destination directory (if any)
+    $call(delete_intelhex)
+    # Copy the extracted files from temporary directory to their suitable directory
+    local ExFiles := $srfile_rec(${ExPathSD}, __re_all__)
+    local RPLen   := $strlen(${ExPathSD})
+    add RPLen, ${RPLen}, 2
+    foreach local Path in ${ExFiles}
+        # Determine the destination path
+        local Dst := $cat_path( ${IntelHex_Path}, $substr(${Path}, ${RPLen}, -1) )
+        # Create the destination subdirectory (in case it does not exist yet)
+        $mkdir( $path_rm_last_part(${Dst}) )
+        # Copy the file and check
+        $cpfile(${Path}, ${Dst}, true)
+        if !$valid_path(${Dst}) : $call(__exit_error_cpfile_fail__, ${Dst})
+        (*
+        echoln "<<< ${Path}"
+        echoln ">>> ${Dst}"
+        echoln
+        *)
+        echoln ${Dst}
+    endforeach
+    echoln
+    # Put the version number
+    $put_file(${IntelHex_VerFileName}, ${version})
+    # Put the last checked time
+    $put_file( ${IntelHex_LChFileName}, $call(get_timestamp) )
+    # Remove the temporary directory and the downloaded archive file
+    $rmdir_rec(${ExPath})
+    $rmfile   (${DLFile})
+endfunction
+
+
+##### Function to copy the downloaded IntelHex to the specified path
+function copy_downloaded_intelhex(dstPath)
+    # Check if IntelHex has not been downloaded
+    if !$valid_path(${IntelHex_Path}) : return
+    # Sanitize the destination directory path
+    if !$str_endwith(${dstPath}, 'intelhex') : dstPath := $cat_path(${dstPath}, 'intelhex')
+    # Delete the destination directory if it exists
+    if $valid_path(${dstPath}) : $rmdir_rec(${dstPath})
+    # Copy the IntelHex directory recursively
+    $cpdir_rec(${IntelHex_Path}, ${dstPath}, true)
+endfunction
+

@@ -1,0 +1,13 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc      :=  $fwc_load_intel_hex('../src/1-TestData/PTest2B.Blink-AT90USB162.cpp.hex')
+progSpec := 'ProgBootLUFAPrinter' 'LUFA_BootloaderLPT'
+
+if !true
+    $mcu_prog_exec('', ${progSpec}, -1, 'write_flash', ${fwc}, -1)
+endif
+
+echoln
+
+$fwc_delete(${fwc})

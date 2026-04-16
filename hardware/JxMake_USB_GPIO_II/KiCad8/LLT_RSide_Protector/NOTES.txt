@@ -1,0 +1,26 @@
+====================================================================================================
+LLT RSide Protector
+====================================================================================================
+
+The choice of diode is between BAT41 and BAT85, or their equivalents.
+
+The parasitic capacitance (Cd) of the BAT41 is less than 2pF at 1MHz for both 3.3V and 5V. Its
+forward voltage (Vf) is approximately 0.8V at ~30mA and 25°C
+
+The parasitic capacitance (Cd) of the BAT85 is less than 5pF at 1MHz for both 3.3V and 5V. Its
+forward voltage (Vf) is approximately 0.4V at ~30mA and 25°C
+
+Since the higher-level design utilizing the 'Logic Level Translator' and 'LLT RSide Protector'
+modules typically includes series resistors on each I/O, the BAT41 diode is used by default. This
+design assumes the series resistors are sufficiently large to limit the current to the 74LVC2T45
+(or 74AXP2T45) pins.
+
+For those who prioritize better protection over maximum frequency, the BAT85 diode is the better
+choice.
+
+----------------------------------------------------------------------------------------------------
+
+If BAT41 and BAT85 are unavailable, one should select other diodes with (ultra) low Vf and low Cd,
+such as RB501SM-30 or RB511SM-40.
+
+====================================================================================================

@@ -1,0 +1,47 @@
+====================================================================================================
+USB GPIO Module --- VRead (ADC8)
+====================================================================================================
+
+VRD ───┐
+       │
+     ┌─┴─┐
+     │4k7│
+     └─┬─┘
+       │
+       ┣──────── PB.0 (ADC8)
+       │
+     ┌─┴─┐
+     │1k │
+     └─┬─┘
+       │
+       │
+      ━┻━
+      GND
+
+(1 + 4.7) * 100 * 256 = 145920 ---> The calibration value (C) ; in real world, it should be
+                                    within ±10%
+
+
+
+ATxmega128A4U ADC is 12-bit, hence when using the internal 1.0V reference:
+
+    Voltage = { ( <ADC8_Value> * C      ) + (256 * 4096 / 2) } / (256 * 4096)
+            = { ( <ADC8_Value> * 145920 ) +  524288          } >> 20
+
+Examples:
+
+       0 --->   0 (0.00V)
+    1293 ---> 180 (1.80V)
+    1796 ---> 250 (2.50V)
+    2371 ---> 330 (3.30V)
+    3592 ---> 500 (5.00V)
+    4095 ---> 570 (5.70V)
+
+The largest computational value is 598066688, so using 'uint32_t' will be enough.
+0.04639
+
+NOTE : # According to the datasheet, the value read by the ADC is offset by a ΔV of 190 LSB
+         (approximately 0.04639 V when using the internal 1.0V reference)
+       # Therefore, before processing, it must be subtracted by 190.
+
+====================================================================================================

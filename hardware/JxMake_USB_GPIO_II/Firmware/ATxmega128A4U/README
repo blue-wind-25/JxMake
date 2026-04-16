@@ -1,0 +1,31 @@
+====================================================================================================
+JxMake USB-GPIO Module II
+====================================================================================================
+
+This firmware is written for ATxmega128A4U.
+
+----------------------------------------------------------------------------------------------------
+
+The hardware SPI       implementation uses the standard ATxmega128A4U SPI   pins.
+The hardware TWI       implementation uses the standard ATxmega128A4U TWI   pins.
+The hardware UART/USRT implementation uses the standard ATxmega128A4U USART pins.
+
+The software USRT      implementation uses the standard ATxmega128A4U SPI pins
+                       (TXD=MOSI; RXD=MISO; XCK=SCK; [n]CS=[n]SS)
+
+The software JTAG      implementation uses the standard ATxmega128A4U SPI and USART pins
+                       (TDI=MOSI; TDO=MISO; TCK=SCK; nRST=nSS, nTRST=XCK, TMS=TXD)
+
+Unlike the previous 'JxMake USB-GPIO Module' module, this 'JxMake USB-GPIO Module II' does not
+control the TWI external pull-up resistors.
+
+----------------------------------------------------------------------------------------------------
+
+When connected, this module will enumerate as two Virtual Serial Port:
+    1. The first port is the primary port for performing most operations.
+    2. The second port is the UART/USRT passthrough port. Its baudrate and data format can be
+       configured using your operating system and programming language features, just like a typical
+       serial port (but without the support for control signals such as RTS, CTS, and others). Note
+       that the passthrough must be enabled (and disabled) via commands from the primary port.
+
+====================================================================================================

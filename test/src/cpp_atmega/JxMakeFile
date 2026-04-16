@@ -1,0 +1,480 @@
+:::include <C++XBuildTool_AVR_Native>
+
+
+(*
+Cannot use:
+
+$alt_glibc_for('/opt/avr-gcc-15.2.0-x64-linux/bin/avr-gcc', '/opt/glibc-2.41/lib', '/opt/glibc-2.41/lib/ld-linux-x86-64.so.2')
+$alt_glibc_for('/opt/avr-gcc-15.2.0-x64-linux/bin/avr-g++', '/opt/glibc-2.41/lib', '/opt/glibc-2.41/lib/ld-linux-x86-64.so.2')
+
+must use:
+
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/bin/avr-gcc
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/bin/avr-g++
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/libexec/gcc/avr/15.2.0/cc1
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/libexec/gcc/avr/15.2.0/cc1plus
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/libexec/gcc/avr/15.2.0/collect2
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/avr/bin/as
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/avr/bin/ar
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/avr/bin/ld
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/bin/avr-ar
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/bin/avr-objcopy
+patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 /opt/avr-gcc-15.2.0-x64-linux/bin/avr-objdump
+
+find /opt/avr-gcc-15.2.0-x64-linux/ -type f -exec file {} \; | grep -E 'ELF.*executable' > file_list.txt
+cat file_list.txt \
+    | cut -d: -f1 \
+    | while read -r elf_file; do
+          echo "Patching: $elf_file";
+          patchelf --set-interpreter /opt/glibc-2.41/lib/ld-linux-x86-64.so.2 "$elf_file";
+      done
+rm file_list.txt
+*)
+
+#(*
+EXCLUDE_AVR_GCC_CUSTOM_DIRS_ALL := $ftpseps( { \
+    '/opt/avr-gcc-11.1.0-x64-linux'            \
+    '/opt/avr-gcc-12.1.0-x64-linux'            \
+    '/opt/avr-gcc-14.1.0-x64-linux'            \
+    '/opt/avr-gcc-15.2.0-x64-linux'            \
+} )
+
+EXCLUDE_AVR_GCC_CUSTOM_DIRS_DU := $ftpseps( {  \
+    '/opt/avr-gcc-11.1.0-x64-linux'            \
+    '/opt/avr-gcc-14.1.0-x64-linux'            \
+    '/opt/avr-gcc-15.2.0-x64-linux'            \
+} )
+
+EXCLUDE_AVR_GCC_CUSTOM_DIRS_SX := $ftpseps( {  \
+    '/opt/avr-gcc-11.1.0-x64-linux'            \
+    '/opt/avr-gcc-12.1.0-x64-linux'            \
+    '/opt/avr-gcc-14.1.0-x64-linux'            \
+} )
+#*)
+
+
+const BoardName     := 'Arduino LilyPad'                  (* 1 *) \
+                       'Arduino Pro Mini 3.3V ATmega328P' (* 2 *) \
+                       'Arduino Mega 2560'                (* 3 *) \
+                       'Arduino Leonardo'                 (* 4 *) \
+                       'Arduino Nano Every'               (* 5 *) \
+                       'Thinary Nano Every'               (* 6 *) \
+                       'DT-AVR AT90USB162 CPU Module'     (* 7 *) \
+                       'DT-AVR Inoduino'                  (* 8 *)
+
+const BoardAICEMode := 'isp'  (* 1 *) \
+                       'isp'  (* 2 *) \
+                       'isp'  (* 3 *) \
+                       'isp'  (* 4 *) \
+                       'updi' (* 5 *) \
+                       'updi' (* 6 *) \
+                       'isp'  (* 7 *) \
+                       'isp'  (* 8 *)
+
+(*
+ * ####################################################################################################
+ * ############################################### NOTE ###############################################
+ * ####################################################################################################
+ *
+ * Building for the AVR SD series using AVR GCC requires a modified DFP directory structure
+ * along with patched 'specs-avr*sd*' files. For example, to build for the AVR32SD28:
+ *
+ *     cd       Microchip.AVR-Sx_DFP.1.1.17
+ *     mkdir -p gcc/dev/avr32sd28/{avrxmega3,device-specs}
+ *     cd       gcc/dev/avr32sd28/avrxmega3
+ *     cp       ../../../../xc8/avr/lib/avrxmega3/{crtavr32sd28.o,libavr32sd28.a} .
+ *     cd       ../device-specs
+ *     cp       ../../../../xc8/avr/device-specs/specs-avr32sd28 .
+ *     cd       ../../../../..
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * Edit the newly copied 'specs-avr32sd28' and make the following changes:
+ *
+ * Replace:
+ *     *avrlibc_startfile:
+ *         %{mno-interrupts|mcvt:crtavr32sd28.cvt.o; :crtavr32sd28.o}%s
+ *     ...
+ *     *link_data_start:
+ *         -Tdata 0x807000
+ *     ...
+ *     *self_spec:
+ *         %<mmcu=* -mmcu=avrxmega3 -mdevice=avr32sd28 %<mshort-calls -msafety-device-features %<msp8
+ *     ...
+ * With:
+ *     *avrlibc_startfile:
+ *         crtavr32sd28.o%s
+ *     ...
+ *     *link_data_start:
+ *         %{!Tdata:-Tdata 0x807000}
+ *     ...
+ *     *self_spec:
+ *         %<mmcu=* -mmcu=avrxmega3 %<mshort-calls %<msp8
+ *     ...
+ *
+ * Then insert:
+ *     *asm_gccisr:
+ *         %{!mno-gas-isr-prologues: -mgcc-isr}
+ * Between:
+ *     *asm_rmw:
+ * And:
+ *     *asm_errata_skip:
+ *
+ * Finally, delete:
+ *   *link_fuse_action_define_appdata:
+ *       %{!mno-fuse-action:%{!mno-fuse-action=define-appdata:--fuse-action=define-appdata --fuse-action-param=define-appdata-codesize:0x7:0xFF:0x0 --fuse-action-param=define-appdata-bootsize:0x8:0xFF:0x0 --fuse-action-param=define-appdata-scalefactor:0x100}}
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * NOTE : # The modified DFP above is not compatible with '-mcvt'.
+ *        # If you need to use '-mcvt', you must use AVR-LibC version 2.3 or later:
+ *              https://github.com/avrdudes/avr-libc
+ *        # Certain code constructs or execution flows may be incompatible with specific compiler or linker options.
+ *)
+ 
+# Tested Status        —  —  ✓     ~    …    …    ✓    ✓    …    ✓
+#                      1  2  3     4    5    6    7    8    9    10
+const SelBoardN     := 6 -32 da128 da32 db32 dd32 du32 ea32 eb32 sd32
+const SelBoardX     := ${SelBoardN}<7>
+(*
+make xmavrtest && diff 1-TestData/PTest1X.Blink-ATmega4808.cpp.hex ../test/src/cpp_atmega/build/main.hex
+make xmavrtest && diff 1-TestData/PTest1X.Blink-ATmega32A.cpp.hex  ../test/src/cpp_atmega/build/main.hex
+make xmavrtest && diff 1-TestData/PTest1X.Blink-AVR128DA.cpp.hex   ../test/src/cpp_atmega/build/main.hex
+make xmavrtest && diff 1-TestData/PTest1X.Blink-AVR32DU.cpp.hex    ../test/src/cpp_atmega/build/main.hex
+make xmavrtest && diff 1-TestData/PTest1X.Blink-AVR32EA.cpp.hex    ../test/src/cpp_atmega/build/main.hex
+make xmavrtest && diff 1-TestData/PTest1X.Blink-AVR32SD.cpp.hex    ../test/src/cpp_atmega/build/main.hex
+*)
+
+JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS := ${EXCLUDE_AVR_GCC_CUSTOM_DIRS_ALL}
+
+# https://packs.download.microchip.com
+if ${SelBoardX} >= 1
+    const AVRConfig    := $call(avrcfg_from_arduino, ${BoardName}<SelBoardX>)
+    const AtmelICEMode := ${BoardAICEMode}<SelBoardX>
+    const DFPDirectory := 'xsdk/Microchip.ATmega_DFP.3.1.264'
+else
+    if ${SelBoardX} == -32
+        const AVRConfig    := 'atmega32a' 4000000 'arduino' '19200' 0 0
+        const AtmelICEMode := $csel(1, 'jtag', 'isp')
+        const DFPDirectory := 'xsdk/Microchip.ATmega_DFP.3.1.264'
+    else
+        const AtmelICEMode := 'updi'
+        const AVRMCU       := :"avr${SelBoardX/([\D]+)(\d+)/$2$1/}28"
+        if $re_match(${SelBoardX}, '^d.\d+$'          ) : const DFPDirectory   := 'xsdk/Microchip.AVR-Dx_DFP.2.7.321'
+        if $re_match(${SelBoardX}, '^e.\d+$'          ) : const DFPDirectory   := 'xsdk/Microchip.AVR-Ex_DFP.2.11.221'
+        if $re_match(${SelBoardX}, '^s.\d+$'          )
+                                                          const DFPDirectory   := 'xsdk/Microchip.AVR-Sx_DFP.1.1.17_AVR-GCC_minimum'
+                                                          JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS := ${EXCLUDE_AVR_GCC_CUSTOM_DIRS_SX}
+        endif
+        if $re_match(${SelBoardX}, '^du\d+$'          )
+                                                          JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS := ${EXCLUDE_AVR_GCC_CUSTOM_DIRS_DU}
+                                                          ENABLE_AVR_DU_USB                     := true
+        endif
+        if $re_match(${SelBoardX}, '^d[abdu]\d+$'     ) : const AVRConfig      := ${AVRMCU} 24000000 '' '' 0 0
+        if $re_match(${SelBoardX}, '^(?:e[ab]|sd)\d+$') : const AVRConfig      := ${AVRMCU} 20000000 '' '' 0 0
+        if $re_match(${SelBoardX}, '^(?:sd)\d+$'      ) : const SerialUPDIBaud := 19200
+
+    endif
+endif
+
+#echoln $ftlines(${AVRConfig})
+
+MCUType      := $partn(${AVRConfig}, 1)
+CPUFrequency := $partn(${AVRConfig}, 2)
+UProtocol    := $partn(${AVRConfig}, 3)
+UBaudrate    := $partn(${AVRConfig}, 4)
+UResetBL     := $partn(${AVRConfig}, 5)
+UPortType    := $partn(${AVRConfig}, 6)
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    UPort  := $csel(${UPortType}, '\\\\.\\COM3' , '\\\\.\\COM1' )
+    CPort1 := $csel(${UPortType}, '\\\\.\\COM3' , '\\\\.\\COM1' )
+    CPort2 := $csel(${UPortType}, '\\\\.\\COM4' , '\\\\.\\COM2' )
+    PPort  := 'COM1'
+else
+    UPort  := $csel(${UPortType}, '/dev/ttyACM0', '/dev/ttyUSB0')
+    CPort1 := $csel(${UPortType}, '/dev/ttyACM0', '/dev/ttyUSB0')
+    CPort2 := $csel(${UPortType}, '/dev/ttyACM1', '/dev/ttyUSB1')
+    PPort  := '/dev/ttyUSB0'
+endif
+
+if __os_windows__ ; const DFPPath := :"Z:/${DFPDirectory}"
+else              ; const DFPPath := $cat_path( $uhd(), ${DFPDirectory} )
+endif
+
+
+if __os_windows__
+    #AVRDUDE_Cmd := 'C:/avrdude-v7.1-windows-x64/avrdude'     '-C' 'C:/avrdude-v7.1-windows-x64/avrdude.conf'
+else
+    #AVRDUDE_Cmd := '/opt/avrdude-7.1/bin/avrdude'            '-C' '/opt/avrdude-7.1/etc/avrdude.conf'
+    #AVRDUDE_Cmd := '/opt/avrdude-7.1-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.1-usbasp-pdi/etc/avrdude.conf'
+    #AVRDUDE_Cmd := '/opt/avrdude-7.2-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.2-usbasp-pdi/etc/avrdude.conf'
+     AVRDUDE_Cmd := '/opt/avrdude-7.3-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.3-usbasp-pdi/etc/avrdude.conf'
+     AVRDUDE_Cmd := '/opt/avrdude-8.0-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-8.0-usbasp-pdi/etc/avrdude.conf'
+     AVRDUDE_Cmd := '/opt/avrdude-8.1/bin/avrdude'            '-C' '/opt/avrdude-8.1/etc/avrdude.conf'
+endif
+
+
+JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
+
+
+if ${ENABLE_AVR_DU_USB}
+    ULIB_BDIRS := MCC_AVRDU/system/src                  \
+                  MCC_AVRDU/usb/src                     \
+                  MCC_AVRDU/usb/usb_cdc/circular_buffer \
+                  MCC_AVRDU/usb/usb_common              \
+                  MCC_AVRDU/usb/usb_peripheral
+    ULIB_HDIRS := MCC_AVRDU/system                      \
+                  MCC_AVRDU/usb                         \
+                  MCC_AVRDU/usb/usb_cdc                 \
+                  MCC_AVRDU/usb/usb_cdc/circular_buffer \
+                  MCC_AVRDU/usb/usb_common              \
+                  MCC_AVRDU/usb/usb_peripheral
+endif
+
+$call(init_project            , ${ULIB_BDIRS}              )
+$call(avr_select_part         , ${MCUType}, ${CPUFrequency})
+$call(treat_warnings_as_errors, 1                          )
+$call(enable_debug_info       , 0                          )
+$call(select_optimization     , size                       )
+$call(select_c_langstd        , c11                        )
+$call(select_cxx_langstd      , c++11                      )
+$call(set_device_pack_dir     , ${DFPPath}                 )
+$call(print_devenv_config                                  )
+$call(silent_stdxxx           , false                      )
+$call(silent_stdxxx_syslib    , true                       )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main    )
+PROG_OBJS := $call( obj_fpath, main.cpp)
+
+SLIB_NAME := $call(slib_fpath,   stest     )
+SLIB_OBJS := $call(sobj_fpath, { halt nop })
+
+ULIB_NAME := $call(slib_fpath,   avrdu     )
+ULIB_OBJS := $call( obj_fpath, {                             \
+    MCC_AVRDU/system/src/protected_io.S                      \
+    MCC_AVRDU/system/src/syscfg.c                            \
+    MCC_AVRDU/usb/usb_descriptors.c                          \
+    MCC_AVRDU/usb/usb_device.c                               \
+    MCC_AVRDU/usb/src/usb0.c                                 \
+    MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.c  \
+    MCC_AVRDU/usb/usb_cdc/usb_cdc.c                          \
+    MCC_AVRDU/usb/usb_cdc/usb_cdc_virtual_serial_port.c      \
+    MCC_AVRDU/usb/usb_common/usb_core.c                      \
+    MCC_AVRDU/usb/usb_common/usb_core_descriptors.c          \
+    MCC_AVRDU/usb/usb_common/usb_core_events.c               \
+    MCC_AVRDU/usb/usb_common/usb_core_requests.c             \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_device.c      \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_endpoint.c    \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_interface.c   \
+    MCC_AVRDU/usb/usb_common/usb_core_transfer.c             \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral.c            \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_endpoint.c   \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_read_write.c \
+})
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_atmega clean
+# jxmake -C ..\test\src\cpp_atmega run
+target run
+    if ${ENABLE_AVR_DU_USB} : local __include_paths__ +:= ${ULIB_HDIRS}
+                              jxmake ${SLIB_NAME}
+    if ${ENABLE_AVR_DU_USB} : jxmake ${ULIB_NAME}
+                              jxmake ${PROG_NAME}
+    $call(avr_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+                        local CppUsrStaticLib
+                              CppUsrStaticLib :+= stest
+    if ${ENABLE_AVR_DU_USB} : CppUsrStaticLib :+= avrdu
+    $call(avr_link_exe)
+endtarget
+
+target ${SLIB_NAME} : ${SLIB_OBJS}
+    $call(avr_link_slib)
+endtarget
+
+target ${ULIB_NAME} : ${ULIB_OBJS}
+    $call(avr_link_slib)
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(avr_compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(avr_compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(avr_compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uft232r
+# jxmake -C ..\test\src\cpp_atmega uft232r
+target uft232r
+    jxmake run
+    $call(avr_upload_ft232r, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uusbtinyisp
+# jxmake -C ..\test\src\cpp_atmega uusbtinyisp
+target uusbtinyisp
+    jxmake run
+    $call(avr_upload_usbtinyisp, ${PROG_NAME}                 )
+   #$call(avr_upload_usbtinyisp, ${PROG_NAME}, 'arduinoisp'   )
+   #$call(avr_upload_usbtinyisp, ${PROG_NAME}, 'arduinoisporg')
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uusbasp
+# jxmake -C ..\test\src\cpp_atmega uusbasp
+target uusbasp
+    jxmake run
+    $call(avr_upload_usbasp, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uavrispmkii
+# jxmake -C ..\test\src\cpp_atmega uavrispmkii
+target uavrispmkii
+    jxmake run
+    $call(avr_upload_avrispmkii, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uatmelice
+# jxmake -C ..\test\src\cpp_atmega uatmelice
+target uatmelice
+    jxmake run
+    $call(avr_upload_atmelice, ${PROG_NAME}, ${AtmelICEMode})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega userialupdi
+# jxmake -C ..\test\src\cpp_atmega userialupdi
+target userialupdi
+    jxmake run
+    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , ${SerialUPDIBaud})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega ugenextprog
+# jxmake -C ..\test\src\cpp_atmega ugenextprog
+target ugenextprog
+    $call(avr_upload_genextprog, ${PROG_NAME}, { 'JTAG2UPDI' '-P' ${PPort} '-b' '115200' })
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega udfu
+# jxmake -C ..\test\src\cpp_atmega udfu
+target udfu
+    jxmake run
+    $call(avr_upload_dfu, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega uhid
+# jxmake -C ..\test\src\cpp_atmega uhid
+target uhid
+    jxmake run
+    $call(avr_upload_hid, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega ulpt
+# jxmake -C ..\test\src\cpp_atmega ulpt
+target ulpt
+    jxmake run
+   #$call(avr_upload_lpt, ${PROG_NAME}, '/dev/usb/lp0')
+    $call(avr_upload_lpt, ${PROG_NAME}, 'LUFA_BootloaderLPT')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega userial
+# jxmake -C ..\test\src\cpp_atmega userial
+target userial
+    jxmake run
+    if $str_fidx(${BoardName}, 'Thinary')
+        # Workaround for Thinary ATmega4808 board where JTAG2UPDI will stop working when UART0 is opened;
+        # it will only work when using eCxx library (https://sourceforge.net/projects/ecxx)
+        local UResetBS := 0x00 0x00 0x55 0x00 0x00 0x55
+    endif
+    $call(avr_upload_serial, ${PROG_NAME}, ${UPort}, ${UBaudrate}, ${UProtocol}, ${UResetBL}, ${UResetBS})
+endtarget
+# echoln $ftlines( $ls_serial_ports() )
+
+# ./jxmake.sh -C ../test/src/cpp_atmega utcpsbecxx
+# jxmake -C ..\test\src\cpp_atmega utcpsbecxx
+target utcpsbecxx
+    jxmake run
+    $call(avr_upload_ecxx, ${PROG_NAME}, 'esp01au.local', 2323, ${UBaudrate}, ${UProtocol} )  # Using eCxx firmware
+   #$call(avr_upload_ecxx, ${PROG_NAME}, '192.168.0.100', 2323, ${UBaudrate}, ${UProtocol} )  # Using eCxx firmware (no mDNS)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega utcpsbesplink
+# jxmake -C ..\test\src\cpp_atmega utcpsbesplink
+target utcpsbesplink
+    jxmake run
+    $call(avr_upload_esplink, ${PROG_NAME}, '192.168.4.1', 2323, ${UBaudrate}, ${UProtocol} ) # Using ESP-LINK firmware
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csft232r
+# jxmake -C ..\test\src\cpp_atmega csft232r
+target csft232r
+    $call(avr_chksig_ft232r)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csusbtinyisp
+# jxmake -C ..\test\src\cpp_atmega csusbtinyisp
+target csusbtinyisp
+    $call(avr_chksig_usbtinyisp)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csusbasp
+# jxmake -C ..\test\src\cpp_atmega csusbasp
+target csusbasp
+    $call(avr_chksig_usbasp)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csavrispmkii
+# jxmake -C ..\test\src\cpp_atmega csavrispmkii
+target csavrispmkii
+    $call(avr_chksig_avrispmkii)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csatmelice
+# jxmake -C ..\test\src\cpp_atmega csatmelice
+target csatmelice
+    $call(avr_chksig_atmelice, ${AtmelICEMode})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csserialupdi
+# jxmake -C ..\test\src\cpp_atmega csserialupdi
+target csserialupdi
+    $call(avr_chksig_serialupdi, ${PPort}, ? , ${SerialUPDIBaud})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega csgenextprog
+# jxmake -C ..\test\src\cpp_atmega csgenextprog
+target csgenextprog
+    $call(avr_chksig_genextprog, { 'JTAG2UPDI' '-P' ${PPort} '-b' '115200' })
+endtarget
+
+
+:::include 'JxMake-Console.jxm'
+:::include 'JxMake-Extra.jxm'
+
+#$mcu_reset(${UPort}, 9600)
+#stty -F /dev/ttyACM0

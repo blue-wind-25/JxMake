@@ -1,0 +1,526 @@
+(*************************************************
+ ********** This is a multiline comment **********
+ *************************************************)
+
+
+(*
+:::pragma jxmake_compile_minimum_version 0.9.9
+:::pragma jxmake_compile_maximum_version 0.9.9
+#*)
+
+
+
+#:::include <Null>
+
+(*
+:::include_once <Null>
+:::include_once <Null>
+#*)
+
+
+
+(*
+    (*
+        echoln 123 (* xxx *) 456
+    #*)
+
+    (*
+        echoln abc (* xxx *) def
+    #*)
+#*)
+
+
+
+(*
+echoln
+echoln {{ '$cwd() = ', $cwd() }}
+echoln {{ '$ptd() = ', $ptd() }}
+echoln {{ '$uhd() = ', $uhd() }}
+echoln
+echoln {{ '$jdd() = ', $jdd() }}
+echoln {{ '$jtd() = ', $jtd() }}
+echoln {{ '$jxd() = ', $jxd() }}
+echoln
+#*)
+
+
+
+(*
+:::include <BasicPlatformUtil>
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-version.json"   ) ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-versions.json"  ) ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-rate_limit.json") ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-tags.json"      ) ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-releases.json"  ) ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-latest.json"    ) ), true ) ; echoln
+$call( dump_nmap_object, $nmap_from_json( $get_file("../0_excluded_directory/temporary/GitHubAPI-ExampleResults/GitHub-commits.json"   ) ), true ) ; echoln
+#*)
+
+
+
+(*
+:::include <GitHubTool>
+echoln $call(gh_get_api_versions)
+echoln $call( dump_map_object, $call(gh_get_rate_limit), true )
+echoln $call(gh_get_latest_commit_date_by_path, 'earlephilhower', 'arduino-pico', 'tools/uf2conv.py')
+echoln $call(gh_get_tag_object_type_and_hash_by_tag_name, 'earlephilhower', 'arduino-pico', '1.0.1')
+#*)
+
+
+
+(*
+$untgz_rec('../0_excluded_directory/temporary/Z_DOUBLY.tar.gz'   , 'Z_DOUBLY_1')
+$untgz_rec('../0_excluded_directory/temporary/Z_DOUBLY.tar.gz.gz', 'Z_DOUBLY_2')
+#*)
+
+
+
+(*
+:::include <DownloadESPTool>
+#$call(delete_esptool)
+$call(download_latest_esptool)
+#$call(download_latest_esptool, ?, 'v3.0')
+#$call(download_latest_esptool, true)
+#*)
+
+
+
+(*
+:::include <DownloadBOSSA>
+#$call(delete_bossa)
+$call(download_latest_bossa)
+#$call(download_latest_bossa, ?, '1.9.1-seeeduino')
+#$call(download_latest_bossa, true)
+#*)
+
+
+
+(*
+:::include <DownloadDFUUtil>
+#$call(delete_dfuutil)
+$call(download_latest_dfuutil)
+#$call(download_latest_dfuutil, ?, '0.8')
+#$call(download_latest_dfuutil, true)
+#*)
+
+
+
+(*
+:::include <DownloadDFUProgrammer>
+#$call(delete_dfuprog)
+#$call(download_latest_dfuprog)
+$call(download_latest_dfuprog, ?, 'v0.9.0')
+#$call(download_latest_dfuprog, true)
+#*)
+
+
+
+(*
+:::include <DownloadPySerial>
+#$call(delete_pyserial)
+$call(download_latest_pyserial)
+#$call(download_latest_pyserial, ?, 'v3.5b0')
+#$call(download_latest_pyserial, true)
+#*)
+
+
+
+(*
+:::include <DownloadRP2040OpenOCD>
+#$call(delete_rp2040openocd)
+$call(download_latest_rp2040openocd_from_arduino)
+#$call(download_latest_rp2040openocd_from_arduino, ?, '1.3.2-a')
+#$call(download_latest_rp2040openocd_from_arduino, true)
+echoln ${RP2040OOCD_dlib_dir}
+echoln ${RP2040OOCD_scripts_dir}
+echoln ${RP2040OOCD_udev_rule}
+#*)
+
+
+
+(*
+:::include <DownloadRP2040Tools>
+#$call(delete_rp2040tools)
+$call(download_latest_rp2040tools_from_arduino)
+#$call(download_latest_rp2040tools_from_arduino, ?, '1.0.1', '2.7.1')
+#$call(download_latest_rp2040tools_from_arduino, true)
+#*)
+
+
+
+(*
+:::include <DownloadXPackOpenOCD>
+#$call(delete_xpackopenocd)
+#$call(download_latest_xpackopenocd_from_xpack)
+$call(download_latest_xpackopenocd_from_xpack, ?, 'v0.10.0-15')
+#$call(download_latest_xpackopenocd_from_xpack, true)
+echoln ${XPackOOCD_dlib_dir}
+echoln ${XPackOOCD_scripts_dir}
+echoln ${XPackOOCD_udev_rule}
+#*)
+
+
+
+(*
+A = 123
+R = [["
+Line 1
+
+Line 2 + ${A}
+Line 3
+"]]
+echoln "###"
+echoln ${R}
+echoln "###"
+echoln $part_count(${R})
+echoln "###"
+
+echoln
+
+A = 456
+R = :[["
+Line 1
+
+Line 2 + ${A}
+Line 3
+"]]
+echoln "###"
+echoln ${R}
+echoln "###"
+echoln $part_count(${R})
+echoln "###"
+#*)
+
+
+
+(*
+
+function flush()
+    if &$[stderr] : echoln $[stderr]
+    if &$[stdout] : echoln $[stdout]
+    if  $[excode] : $exit ($[excode])
+    echoln
+endfunction
+
+function fsl()
+    $cmd_streaming_on()
+    echoln "$[cmdecho] $[cmdstreaming]"
+    @sl
+    echoln $[excode]
+    $cmd_streaming_off()
+    echoln "$[cmdecho] $[cmdstreaming]"
+endfunction
+
+function fml()
+    $cmd_streaming_on()
+    echoln "$[cmdecho] $[cmdstreaming]"
+    @ml
+    echoln $[excode]
+    $cmd_streaming_off()
+    echoln "$[cmdecho] $[cmdstreaming]"
+endfunction
+
+echoln ; $exec(fsl) ; $call(flush) ; echoln
+
+echoln ; $exec(fml) ; $call(flush) ; echoln
+
+#*)
+
+
+
+(*
+
+A := 1 2 3
+I := 3
+echoln $partn(${A}, 1)
+echoln ${A}<2>
+echoln ${A}<I>
+
+echoln $[preq*]<I>
+
+echoln $stack( 'The value is ', ${A}<I>     )
+echoln $stack( 'The value is ', $[preq*]<I> )
+
+#*)
+
+
+
+(*
+
+function PrintMyVar()
+    local hv := $has_var('MyVar')
+    $printf("%1s %s\n", ${hv}, ${MyVar})
+endfunction
+
+function MyFunction(MyVar)
+    local MyVar := 30
+                  $call(PrintMyVar) # It will print 'l 30'
+    unset MyVar ; $call(PrintMyVar) # It will print 'a 20'
+    unset MyVar ; $call(PrintMyVar) # It will print 'g 10'
+    unset MyVar ; $call(PrintMyVar) # It will print ''
+endfunction
+
+MyVar := 10
+
+$call(MyFunction, 20)
+
+#*)
+
+
+
+(*
+:::include <BasicPlatformUtil>
+
+function f(?n)
+    n ?:= 0
+    if ${n} > 3 : return
+    local Val := ${n}
+    $call(print_indented_messages, ${n}, :"[B] f(${n}): ${Val}")
+    inc n
+    $call(f, ${n})
+    dec n
+    $call(print_indented_messages, ${n}, :"[A] f(${n}): ${Val}")
+endfunction
+
+$call(f)
+#*)
+
+
+
+(*
+R := 'A'
+R := ${R} 'B'
+R := ${R} 'C'
+echoln $ftspaces(${R})
+
+
+R := 'A'
+R := 'B' ${R}
+R := 'C' ${R}
+echoln $ftspaces(${R})
+#*)
+
+
+
+(*
+function a(?p)
+    p ?:= 9
+    echoln ${p}
+endfunction
+
+function b(?p)
+    $call(a, ${p})
+endfunction
+
+function c(?q)
+    $call(a, ${q})
+endfunction
+
+$call(b   )
+$call(b, 3)
+
+$call(c   )
+$call(c, 7)
+#*)
+
+
+
+(*
+Dir := $cat_path( $uhd(), 'Projects/z/xpack-openocd-0.12.0-1' )
+Exe := :"${Dir}/bin/openocd"
+Lib := :"${Dir}/libexec"
+
+# Note : It does not work, so we must use the Python script directly!
+Exe := $cat_path( $uhd(), 'Projects/z/esptool-v3.1-linux-amd64/esptool' )
+
+function run()
+   +@setenv 'LD_LIBRARY_PATH' ${Lib}
+  #+@${Exe} -v
+    echoln $[stderr]
+    echoln $[stdout]
+    echoln $[excode]
+    echoln
+   +@ls
+    echoln $[stderr]
+    echoln $[stdout]
+    echoln $[excode]
+    echoln
+endfunction
+
+#$alt_glibc_for(${Exe}, '/opt/glibc-2.27/lib', '/opt/glibc-2.27/lib/ld-linux-x86-64.so.2')
+ $alt_glibc_for(${Exe}, '/opt/glibc-2.33/lib', '/opt/glibc-2.33/lib/ld-linux-x86-64.so.2')
+
+ $exec(run)
+#*)
+
+
+
+(*
+function run()
+    if __os_windows__
+        # List directory
+        local ListCmd := 'cmd' '/C' 'dir'     'C:\\'
+        local FindCmd := 'cmd' '/C' 'findstr'
+    else
+        local ListCmd := 'ls'   '-l' '/opt'
+        local FindCmd := 'grep' '-i'
+    endif
+    # List directory
+    echoln
+   +@${ListCmd}
+    local Res := $stack($[stderr], $[stdout])
+    echoln
+    # Match for 'gcc' using emulated pipe
+    @sstdin ${Res}
+   +@${FindCmd} 'gcc'
+    echoln $stack($[stderr], $[stdout], $[excode], "\n")
+    # Match for 'avr' using emulated pipe
+    @sstdin ${Res}
+   +@${FindCmd} 'avr'
+    echoln $stack($[stderr], $[stdout], $[excode], "\n")
+    # Match for 'INVALID' using emulated pipe
+    @sstdin ${Res}
+   +@${FindCmd} 'INVALID'
+    echoln $stack($[stderr], $[stdout], $[excode], "\n")
+endfunction
+
+$exec(run)
+#*)
+
+
+
+(*
+const __LDLibraryPath_OriVal__ := $explode( $getenv('LD_LIBRARY_PATH', ''), __os_psep_char__ )
+LDLibraryPath := 'LDPath'
+
+function __get_LDLibraryPaths__()
+    local Value := $unique( $stack(~${LDLibraryPath}, ${__LDLibraryPath_OriVal__}) )
+    return $implode(${Value}, __os_psep_char__)
+endfunction
+
+
+function __generic_xgcc_elf_to_xxx__(file, path)
+    echoln ${file}
+    echoln ${path}
+endfunction
+
+function link_exe()
+    local Target := 'build/main.elf'
+    $exec( __generic_xgcc_elf_to_xxx__, ~${Target}, $call(__get_LDLibraryPaths__) )
+    echoln
+    $exec( __generic_xgcc_elf_to_xxx__, $path_ndsep( $cat_path( $cwd(), ${Target} ) ), $call(__get_LDLibraryPaths__) )
+endfunction
+
+$call(link_exe)
+#*)
+
+
+
+(*
+File := 'ABC'
+echoln
+echoln  ~${File}
+echoln "~${File}"
+echoln '~${File}'
+echoln `~${File}`
+echoln
+echoln  ^${File}
+echoln "^${File}"
+echoln '^${File}'
+echoln `^${File}`
+echoln
+echoln  -${File}
+echoln "-${File}"
+echoln '-${File}'
+echoln `-${File}`
+echoln
+
+echoln
+echoln
+
+VOrg = 10
+RefA = VOrg
+RefB = ${RefA}
+echoln "'${ RefB}'"                          # It will print 'VOrg'
+echoln "'${^RefB}'"                          # It will print '10'
+echoln `'${^RefB}'`
+
+echoln
+
+echoln "'^${^RefB}'"
+echoln ^${^RefB}
+echoln `'^${^RefB}'`
+
+echoln
+
+^RefB = 20                                   # It will set the variable VOrg instead of the variable RefB
+echoln "'${^RefB}'"                          # It will print '20'
+
+echoln
+
+RefC = VOrg
+RefD = ${^RefC} ${RefC} RefC
+echoln {{ '\'', $ftspaces(${ RefD}), '\'' }} # It will print '20 VOrg RefC'
+#*)
+
+
+
+(*
+function printVals(vals)
+    echoln ${vals}
+endfunction
+$call(printVals, { a b c d e } )
+$call(printVals, {{ a, b, c, d, e }} )
+
+echoln
+
+function getVals()
+    return { a b c d e }
+endfunction
+
+foreach I, V in $call(getVals) skip 1 step 2
+    echoln "${I} = ${V}"
+endforeach
+
+echoln
+
+foreach I, V in { a b c d e } skip 1 step 2
+    echoln "${I} = ${V}"
+endforeach
+
+echoln
+
+foreach I, V in {{ a, b, c, d, e }} skip 1 step 2
+    echoln "${I} = ${V}"
+endforeach
+#*)
+
+
+
+(*
+IP     := 'localhost'
+DA_URL := 'digest_default_md5'
+
+echoln "$http_clr_auth()\n"
+$http_clr_auth()
+
+echoln "GET 'https://${IP}/${DA_URL}.php'"
+echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
+echoln
+
+echoln "$http_set_auth('guest', 'guest')\n"
+$http_set_auth('guest', 'guest')
+
+echoln "GET 'https://${IP}/${DA_URL}.php'"
+echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
+echoln
+
+echoln "$http_clr_auth()\n"
+$http_clr_auth()
+
+echoln "$http_set_auth('admin', 'mypass')\n"
+$http_set_auth('admin', 'mypass')
+
+echoln "GET 'https://${IP}/${DA_URL}.php'"
+echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
+#*)

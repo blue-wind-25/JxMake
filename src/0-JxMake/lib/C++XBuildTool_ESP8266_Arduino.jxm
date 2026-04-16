@@ -1,0 +1,1340 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Xtensa LX106 GCC (ESP8266) - Arduino ESP8266 SDK                        *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the native C/C++ build tool and other utilities
+__ForceGCC__ := 1
+
+:::include_once 'C++BuildTool.jxm'
+:::include_once 'C++XBuildTool_ArduinoUtil.jxm'
+:::include_once 'OpenSSLUtil.jxm'
+:::include_once 'PythonUtil.jxm'
+
+
+##### MSys may cause weird errors so exclude it from the supported build environment
+if __os_msys__
+    $call(__exit_error_ns_benv__, 'Xtensa LX106 (ESP8266) GCC', 'MSys')
+endif
+
+
+##### Update the flags
+const __x_gcc__                := 1
+const __xtensa_gcc__           := 1
+const __xtensa_lx106_elf_gcc__ := 1
+
+const __BuildTool_Name__       := 'Xtensa LX106 (ESP8266) GNU Compiler Collection (GCC)'
+const __BuildTool_Target__     := 'Xtensa LX106 (ESP8266)'
+const __BuildTool_Title__      := 'Xtensa LX106 (ESP8266) C/C++'
+
+
+##### Fix the file extensions as needed
+if !__os_linux__
+    ExeFileExt  := elf
+    DLibFileExt := so
+endif
+
+
+##### Update the definitions of executables, paths, and options
+        CppAssembler              := 'xtensa-lx106-elf-gcc'
+        CppCommonAssemblerFlags  +:= '-x' 'assembler-with-cpp' '-mlongcalls'
+
+        CppCcCompiler             := 'xtensa-lx106-elf-gcc'
+        CppCommonCcCompileFlags  +:= '-mlongcalls' '-mtext-section-literals'
+        CppCommonCcCompileFlags  +:= '-fdata-sections' '-ffunction-sections' '-falign-functions=4'
+        CppCommonCcCompileFlags  +:= '-free' '-fipa-pta'
+
+        CppCxxCompiler            := 'xtensa-lx106-elf-g++'
+        CppCommonCxxCompileFlags +:= '-mlongcalls' '-mtext-section-literals'
+        CppCommonCxxCompileFlags +:= '-fdata-sections' '-ffunction-sections' '-falign-functions=4'
+        CppCommonCxxCompileFlags +:= '-free' '-fipa-pta' '-fno-rtti'
+
+        CppLinker                 := 'xtensa-lx106-elf-gcc'
+        CppCommonLinkFlags       +:= '-Wl,-EL' '-Wl,--no-check-sections' '-Wl,--gc-sections'
+
+const __Def_SLibBuilder__         := 'xtensa-lx106-elf-ar'
+        SLibBuilder               := ${__Def_SLibBuilder__}
+
+
+##### Define some Xtensa-specific tools
+XtensaSize      := 'xtensa-lx106-elf-size'
+XtensaFlags     := '--format=berkeley' '--radix=10'
+
+XtensaAddr2Line := 'xtensa-lx106-elf-addr2line'
+
+
+###################################################################################
+##### ============= Arduino & Native ESP8266 Detection Functions ============ #####
+###################################################################################
+
+##### Function to find the latest Xtensa GCC from Arduino package(s) and other directories
+function __find_latest_xtensa_gcc_dir_impl__(searchDirList)
+    # Find the latest Xtensa GCC version
+    local LatestVersion := 0
+    local LatestPath    := ''
+    local CppToolBinDir
+    local LDLibraryPath
+    foreach local DirItem in ${searchDirList}
+        # Get the GCC binary path
+        local HolderPathR := ${DirItem}                                          # Binary directory location if from a standalone Xtensa GCC installation
+        local HolderPathA := $cat_path(${DirItem}, 'tools/xtensa-lx106-elf-gcc') # Parent directory location if from Arduino package installation
+        if $valid_path(${HolderPathA})
+              HolderPathR := $lsdir(${HolderPathA}, 'd')                         # Binary directory location if from Arduino package installation
+        endif
+        foreach local BinDir in ${HolderPathR}
+            .$__lb_cmp_gcc_ver_and_get_the_newer_path_and_ver__
+        endforeach
+    endforeach
+    # Return the latest Xtensa GCC version and path
+    return { ${LatestVersion} ${LatestPath} }
+endfunction
+
+function __find_latest_arduino_xtensa_gcc_dir__()
+    # Determine the possible search directories
+    local SearchDirPath
+    local SearchDirList
+    foreach local DirItem in ${ArduinoPackageDirs}
+        # Search for the 'packages' directory
+        SearchDirPath := $cat_path(${DirItem}, 'packages')
+        if $valid_path(${SearchDirPath})
+            local SDPLen := $strlen(${SearchDirPath})
+            add   SDPLen, ${SDPLen}, 2
+            foreach local Dir in $lsdir(${SearchDirPath}, 'd')
+                if $re_match( $substr(${Dir}, ${SDPLen}, -1), 'esp8266.*') : SearchDirList +:= ${Dir}
+            endforeach
+        # If it was not found, perhaps the user has set the path to the specific package directory
+        else
+            loop
+                # Search for the 'hardware' directory
+                SearchDirPath := $cat_path(${DirItem}, 'hardware')
+                if $valid_path(${SearchDirPath})
+                    SearchDirList +:= ${DirItem}
+                    break
+                endif
+                # Remove the last part from the path
+                local DirRedux := $path_rm_last_part(${DirItem})
+                if ${DirRedux} &== ${DirItem} : break
+                DirItem := ${DirRedux}
+            endloop
+        endif
+    endforeach
+    # Sort in descending order so that newer packages have higher priority; this method is not perfect, but it is better than nothing
+    SearchDirList := $sort_descending(${SearchDirList})
+    # Get the latest Xtensa GCC version and path
+    local Ret := $call(__find_latest_xtensa_gcc_dir_impl__, ${SearchDirList})
+    # Get the selected Arduino package directory
+    if ${Ret}<1>
+        __SelArduinoPackageDir__ := ${Ret}<2>
+        __SelArduinoPackageDir__ := $substr( ${__SelArduinoPackageDir__}, 1, $str_fidx(${__SelArduinoPackageDir__}, '/tools') )
+        __SelArduinoPackageDir__ := $lsdir( $cat_path(${__SelArduinoPackageDir__}, 'hardware/esp8266'), 'd' )
+    endif
+    # Return the latest Xtensa GCC version and path
+    return ${Ret}
+endfunction
+
+function __find_latest_custdir_xtensa_gcc_dir__()
+    # Determine the directories that will be excluded from the search
+    __JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS__ ?:= $sfpseps( $getenv('JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS', ${JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS}) )
+    # Determine the possible search directories
+    local SearchDirList
+    foreach local Dir in $lsdir('/opt', 'd')
+        if $contains(${__JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS__}, ${Dir}) : continue
+        if $re_match( $substr(${Dir}, 6, -1), '^(.+.)?xtensa-lx106-elf.*')
+            local Sub := $cat_path(${Dir}, 'xtensa-lx106-elf'        )
+            local Bin := $cat_path(${Sub}, 'bin/xtensa-lx106-elf-gcc')
+            SearchDirList +:= $csel( $valid_path(${Bin}), ${Sub}, ${Dir} )
+        endif
+    endforeach
+    # Sort in descending order so that newer packages have higher priority; this method is not perfect, but it is better than nothing
+    # NOTE : Use regular expression to remove 'GGGGGGG' when sorting from something like 'x86_64-linux-gnu.xtensa-lx106-elf-GGGGGGG.YYYYMM/xtensa-lx106-elf'
+    SearchDirList := $sort_descending(${SearchDirList}, '(.+?-elf-)(?:[0-9a-fA-F]{6,8})(\\.\\d{6,8}\\/.+)', '$1$2')
+    # Return the latest Xtensa GCC version and path
+    return $call(__find_latest_xtensa_gcc_dir_impl__, ${SearchDirList})
+endfunction
+
+function __find_latest_xtensa_gcc_dir__()
+    return $call(find_latest_cross_gcc_dir_arduino_custdir, 'LatestXtensaGCCPath.cache', __find_latest_arduino_xtensa_gcc_dir__, __find_latest_custdir_xtensa_gcc_dir__)
+endfunction
+
+
+##### Undefine the helper macro from 'C++XBuildTool_ArduinoUtil.jxm' here to prevent duplicated name later on
+.undefmacro __lb_cmp_gcc_ver_and_get_the_newer_path_and_ver__
+
+
+##### Function to get the latest Xtensa header, source, and library directories from the selected Arduino package directory
+function __get_latest_arduino_xtensa_hsl_dir__()
+    # Try to get the path from the cache file first
+    local ArduinoHLDirsCacheFilePath := $cat_path( $ptd(), 'LatestArduinoXtensaHLDirs.cache' )
+    if $uptodate_path(${ArduinoHLDirsCacheFilePath})
+        # Get the path to the latest directories
+        local Lines := $get_file(${ArduinoHLDirsCacheFilePath})
+        # Get and split the lines
+        __SelArduinoPackageDir__   := $sfpipes       (${Lines}< 1>)
+        ArduinoESP8266LDSourceDir  := $sfpipes       (${Lines}< 2>)
+        ArduinoESP8266NonOSSDKDir  := $sfpipes       (${Lines}< 3>)
+        ArduinoESP8266NonOSSDKDirs := $sfpipes       (${Lines}< 4>)
+        ArduinoESP8266IncludeDir   := $sfpipes       (${Lines}< 5>)
+        ArduinoESP8266LibraryDir   := $sfpipes       (${Lines}< 6>)
+        ArduinoESP8266CoreSrcDir   := $sfpipes       (${Lines}< 7>)
+        ArduinoESP8266LibRootDir   := $sfpipes       (${Lines}< 8>)
+        ArduinoESP8266LibSrcDirs   := $sfpipes       (${Lines}< 9>)
+        ArduinoESP8266LibList      := $sfpipes       (${Lines}<10>)
+        ArduinoESP8266LibMH        := $map_from_edata(${Lines}<11>)
+        ArduinoGenericLibSrcDirs   := $sfpipes       (${Lines}<12>)
+        ArduinoGenericLibList      := $sfpipes       (${Lines}<13>)
+        ArduinoGenericLibMH        := $map_from_edata(${Lines}<14>)
+        ArduinoESP8266ESPToolsDir  := $sfpipes       (${Lines}<15>)
+        ArduinoESP8266LittleFSBin  := $sfpipes       (${Lines}<16>)
+        ArduinoESP8266SPIFFSBin    := $sfpipes       (${Lines}<17>)
+    # Determine the paths
+    elif &${__SelArduinoPackageDir__}
+        # Set the common Arduino package source, include, and library directories
+        local mklittlefs := $cat_path(${__SelArduinoPackageDir__}, '../../../tools/mklittlefs')
+        local mkspiffs   := $cat_path(${__SelArduinoPackageDir__}, '../../../tools/mkspiffs'  )
+        if $valid_path(${mklittlefs}) : mklittlefs := $ftt_stack( $lsdir(${mklittlefs}, 'd'), '/mklittlefs' )
+        if $valid_path(${mkspiffs}  ) : mkspiffs   := $ftt_stack( $lsdir(${mkspiffs}  , 'd'), '/mkspiffs'   )
+        ArduinoESP8266CoreSrcDir   :=         $cat_path(${__SelArduinoPackageDir__}, 'cores/esp8266'            )
+        ArduinoESP8266LibRootDir   :=         $cat_path(${__SelArduinoPackageDir__}, 'libraries'                )
+        ArduinoESP8266IncludeDir   :=         $cat_path(${__SelArduinoPackageDir__}, 'bootloaders'              )
+        ArduinoESP8266IncludeDir  +:=         $cat_path(${__SelArduinoPackageDir__}, 'tools/sdk/include'        )
+        ArduinoESP8266IncludeDir  +:=         $cat_path(${__SelArduinoPackageDir__}, 'tools/sdk/lwip2/include'  )
+        ArduinoESP8266IncludeDir  +:= ${ArduinoESP8266CoreSrcDir}
+        ArduinoESP8266IncludeDir  +:=         $cat_path(${__SelArduinoPackageDir__}, 'cores/esp8266/umm_malloc' )
+        ArduinoESP8266IncludeDir  +:=         $cat_path(${__SelArduinoPackageDir__}, 'cores/esp8266/spiffs'     )
+        ArduinoESP8266IncludeDir  +:=         $cat_path(${__SelArduinoPackageDir__}, 'cores/esp8266/libb64'     )
+        ArduinoESP8266LibraryDir   :=         $cat_path(${__SelArduinoPackageDir__}, 'tools/sdk/lib'            )
+        ArduinoESP8266LDSourceDir  :=         $cat_path(${__SelArduinoPackageDir__}, 'tools/sdk/ld'             )
+        ArduinoESP8266NonOSSDKDir  :=         $cat_path(${__SelArduinoPackageDir__}, 'tools/sdk/lib'            )
+        ArduinoESP8266ESPToolsDir  :=         $cat_path(${__SelArduinoPackageDir__}, 'tools'                    )
+        ArduinoESP8266LittleFSBin  := ${mklittlefs}
+        ArduinoESP8266SPIFFSBin    := ${mkspiffs}
+        # Set the Arduino Non-OS SDK library directories
+        local NonOSSDKDirPrefixLen := $strlen(${ArduinoESP8266NonOSSDKDir})
+        add   NonOSSDKDirPrefixLen, ${NonOSSDKDirPrefixLen}, 2
+        foreach local NSD in $lsdir(${ArduinoESP8266NonOSSDKDir}, 'd')
+            if $re_match( $substr( ${NSD}, ${NonOSSDKDirPrefixLen}, $strlen(${NSD} ) ), '^NONOSDK\d{2}.+' ) : ArduinoESP8266NonOSSDKDirs +:= ${NSD}
+        endforeach
+        # Get the ESP8266 Arduino library list
+        ArduinoESP8266LibMH := $call(list_arduino_library, ${ArduinoESP8266LibRootDir}, 'esp8266')
+        foreach local SName in $map_get(${ArduinoESP8266LibMH}, '__LRDirNames__')
+            ArduinoESP8266LibSrcDirs +:= $map_get(${ArduinoESP8266LibMH}, :"{${SName}}:path")
+            ArduinoESP8266LibList    +:= ${SName}
+        endforeach
+       #$call(dump_map_object_and_exit, ${ArduinoESP8266LibMH})
+        # Get the generic (non platform-spesific) Arduino library list
+        ArduinoGenericLibMH := $call(list_arduino_library, ${ArduinoLibraryDirs}, 'esp8266')
+        foreach local SName in $map_get(${ArduinoGenericLibMH}, '__LRDirNames__')
+            ArduinoGenericLibSrcDirs +:= $map_get(${ArduinoGenericLibMH}, :"{${SName}}:path")
+            ArduinoGenericLibList    +:= ${SName}
+        endforeach
+       #$call(dump_map_object_and_exit, ${ArduinoGenericLibMH})
+        # Sort the header, source, and package library directories
+        ArduinoESP8266LibSrcDirs   := $sort_ascending(${ArduinoESP8266LibSrcDirs}  )
+        ArduinoESP8266LibList      := $sort_ascending(${ArduinoESP8266LibList}     )
+        ArduinoESP8266NonOSSDKDirs := $sort_ascending(${ArduinoESP8266NonOSSDKDirs})
+        ArduinoGenericLibSrcDirs   := $sort_ascending(${ArduinoGenericLibSrcDirs}  )
+        ArduinoGenericLibList      := $sort_ascending(${ArduinoGenericLibList}     )
+        # Combine and save the lines
+        local Lines  := $ftpipes     (${__SelArduinoPackageDir__}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266LDSourceDir} )
+              Lines +:= $ftpipes     (${ArduinoESP8266NonOSSDKDir} )
+              Lines +:= $ftpipes     (${ArduinoESP8266NonOSSDKDirs})
+              Lines +:= $ftpipes     (${ArduinoESP8266IncludeDir}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266LibraryDir}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266CoreSrcDir}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266LibRootDir}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266LibSrcDirs}  )
+              Lines +:= $ftpipes     (${ArduinoESP8266LibList}     )
+              Lines +:= $map_to_edata(${ArduinoESP8266LibMH}       )
+              Lines +:= $ftpipes     (${ArduinoGenericLibSrcDirs}  )
+              Lines +:= $ftpipes     (${ArduinoGenericLibList}     )
+              Lines +:= $map_to_edata(${ArduinoGenericLibMH}       )
+              Lines +:= $ftpipes     (${ArduinoESP8266ESPToolsDir} )
+              Lines +:= $ftpipes     (${ArduinoESP8266LittleFSBin} )
+              Lines +:= $ftpipes     (${ArduinoESP8266SPIFFSBin}   )
+        $put_file(${ArduinoHLDirsCacheFilePath}, ${Lines})
+    endif
+endfunction
+
+
+##### Function to check for Xtensa tools
+function __check_xtensa_tools__()
+    # Try to get the results from the cache file first
+    local XtensaCheckToolsCacheFilePath := $cat_path( $ptd(), 'XtensaCheckTools.cache' )
+    local XtensaCheckTools
+    if $uptodate_path(${XtensaCheckToolsCacheFilePath})
+        XtensaCheckTools := $get_file(${XtensaCheckToolsCacheFilePath})
+        __has_xtensa_gcc_ar__ := $partn(${XtensaCheckTools}, 1)
+        return
+    endif
+    # Check if the tools are available for use
+    __has_xtensa_gcc_ar__ := $call(cmd_executed_successfully, ${CppToolBinDir}, 'xtensa-lx106-elf-gcc-ar' , '-V')
+    # Save the results to the cache file
+    $put_file( ${XtensaCheckToolsCacheFilePath}, { \
+        ${__has_xtensa_gcc_ar__}                   \
+        __dummy__                                  \
+    } )
+endfunction
+
+
+###################################################################################
+##### =================== Generic/Common ESP8266 Functions ================== #####
+###################################################################################
+
+##### Function to generate the correct glob target name to build assembly object file
+function sobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C object file
+function cobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C++ object file
+function cppobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories) supersede
+    (*
+     * Install ESP8266 community package from Arduino IDE 'Tools/Board/Boards Manager...' by adding:
+     *     http://arduino.esp8266.com/stable/package_esp8266com_index.json
+     * to 'File/Preferences/Additional Boards Manager URLs'
+     *)
+    # Find the Arduino package directories only if the user has not has not manually set the variable
+    if !&${ArduinoPackageDirs}
+        ArduinoPackageDirs := $call(find_arduino_package_dirs)
+    endif
+    # Find the Arduino library directories only if the user has not manually set the variable
+    if !&${ArduinoLibraryDirs}
+        ArduinoLibraryDirs := $call(find_arduino_library_dirs, ${ArduinoPackageDirs})
+    endif
+    # Find the latest Xtensa GCC directory
+    if !&${CppToolBinDir}
+        # Find the latest Xtensa GCC
+        CppToolBinDir := $call(__find_latest_xtensa_gcc_dir__)
+        if !${__BuildTool_Version_Num__} : $call(__exit_error_nup__, ${CppCxxCompiler})
+    else
+        # Find the latest Arduino Xtensa GCC but do not assign it to the variable because the user has manually set the variable
+        $call(__find_latest_arduino_xtensa_gcc_dir__)
+        # Ensure the Xtensa GCC directory given by the user is valid
+        if !$call(__get_cpp_compiler_ver__, true) : $call(__exit_error_nup_ext__, ${CppCxxCompiler}, ${CppToolBinDir})
+    endif
+    # Get the latest Xtensa header, source, and library directories from the selected Arduino package directory
+    $call(__get_latest_arduino_xtensa_hsl_dir__)
+    # Set the Xtensa GCC include and library directories as needed
+    if &${CppToolBinDir}
+        XtensaGCCIncludeDir  :=         $cat_path(${CppToolBinDir}, '../include'                 )
+        XtensaGCCIncludeDir +:=         $cat_path(${CppToolBinDir}, '../xtensa-lx106-elf/include')
+        XtensaGCCLibraryDir  :=         $cat_path(${CppToolBinDir}, '../xtensa-lx106-elf/lib'    )
+        XtensaGCCLibraryDir +:= $lsdir( $cat_path(${CppToolBinDir}, '../lib/gcc/xtensa-lx106-elf'), 'd' )
+    endif
+    # Check the Xtensa tools
+    $call(__check_xtensa_tools__)
+    if ${SLibBuilder} &== ${__Def_SLibBuilder__} # Proceed only if the user has not changed it from its default value
+        if ${__has_xtensa_gcc_ar__} : SLibBuilder := 'xtensa-lx106-elf-gcc-ar'
+    endif
+    # Select LittleFS or SPIFFS as needed
+    if &${ArduinoESP8266LittleFSBin}
+        $call(arduino_use_littlefs)
+    else
+        $call(arduino_use_spiffs)
+    endif
+    # Find OpenSSL and Python
+    $call(find_openssl)
+    $call(find_python)
+    # Error if Python ≥ 3.7.0 is not available
+    $call(exit_error_if_python3_is_less_than_version, 3, 7, 0)
+    # Set extra configuration information text
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= 'Xtensa LX106 GCC Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    if &${ArduinoESP8266CoreSrcDir}
+        __BuildTool_ExtraInfoName__  +:= 'Arduino Package  Directory'
+        __BuildTool_ExtraInfoValue__ +:= $cat_path(${ArduinoESP8266CoreSrcDir}, '../..')
+    endif
+    if &${ArduinoLibraryDirs}
+        __BuildTool_ExtraInfoName__  +:= 'Arduino Library  Directory'
+        __BuildTool_ExtraInfoValue__ +:= $implode(${ArduinoLibraryDirs}, __os_psep_char__)
+    endif
+    if $call(python3_available)
+        __BuildTool_ExtraInfoName__  +:= '-'
+        __BuildTool_ExtraInfoValue__ +:= '-'
+        __BuildTool_ExtraInfoName__  +:= 'Python 3 Command'
+        __BuildTool_ExtraInfoValue__ +:= ${Python3}
+        __BuildTool_ExtraInfoName__  +:= 'Python 3 Version'
+        __BuildTool_ExtraInfoValue__ +:= ${__Python3_Version__}
+    endif
+    if $call(openssl_available)
+        __BuildTool_ExtraInfoName__  +:= '-'
+        __BuildTool_ExtraInfoValue__ +:= '-'
+        __BuildTool_ExtraInfoName__  +:= 'OpenSSL Command'
+        __BuildTool_ExtraInfoValue__ +:= ${OpenSSL}
+        __BuildTool_ExtraInfoName__  +:= 'OpenSSL Version'
+        __BuildTool_ExtraInfoValue__ +:= ${__OpenSSL_Version__}
+    endif
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function clean_project() supersede
+    # Delete the cache file for the used extra library names
+    $rmfile( $call(__arduino_esp8266_extra_slib_cache_file__) )
+    # Call the origin function
+    $call(__origin__)
+endfunction
+
+
+###################################################################################
+##### =================== Arduino ESP8266 Build Functions =================== #####
+###################################################################################
+
+##### Constants for building using Arduino ESP8266 tool
+const ArduinoESP8266LDOutDir   := 'ld'
+const ArduinoESP8266CoreOutDir := 'core'
+const ArduinoESP8266ELibOutDir := 'elib'
+
+const ArduinoESP8266SLibName   := 'ArduinoESP8266'
+const ArduinoESP8266SLibPath   := $call(slib_fpath, ${ArduinoESP8266SLibName})
+
+
+##### Function to select and configure a board using Arduino ESP8266 'boards.txt'
+function arduino_board_selector(?alwaysSelect)
+    # Simply return if the Arduino ESP8266 core directory is not found
+    if !&${ArduinoESP8266CoreSrcDir} : return
+    # Ensure the directory for the board selector's cache and saved files exists
+    local ArduinoESP8266BoardSelCacheDir ?:= $ptd()
+    if ${ArduinoESP8266BoardSelCacheDir} &!= $ptd() : $mkdir(${ArduinoESP8266BoardSelCacheDir})
+    # Get the encoded representation data
+    local BoardsTxtSourcePath             := $cat_path(${ArduinoESP8266CoreSrcDir}, '../../boards.txt')
+    local BoardsTxtEDataCacheFilePath     := $cat_path(${ArduinoESP8266BoardSelCacheDir}, 'ArduinoESP8266BoardsTxtEData.cache')
+    local BoardsTxtEData
+    if $newer_path(${BoardsTxtEDataCacheFilePath}, ${BoardsTxtSourcePath})
+        # Read the encoded representation data
+        BoardsTxtEData := $get_file(${BoardsTxtEDataCacheFilePath})
+    else
+        # Parse the file and save the encoded representation data
+        BoardsTxtEData := $aboard_from_file(${BoardsTxtSourcePath})
+        $put_file(${BoardsTxtEDataCacheFilePath}, ${BoardsTxtEData})
+    endif
+    # Select and configure the board
+    local SelBoardCacheFilePath := $cat_path(${ArduinoESP8266BoardSelCacheDir}, 'ArduinoESP8266SelBoard.cache')
+    local MapHandle
+    if !${alwaysSelect}
+        if $valid_path(${SelBoardCacheFilePath})
+            # Create a new map object of configuration data from the saved file
+            MapHandle := $map_from_edata( $get_file(${SelBoardCacheFilePath}) )
+        endif
+    endif
+    if !&${MapHandle}
+        # Show the board selector and configuration GUI
+        BoardsTxtEData := $aboard_selector(${BoardsTxtEData})
+        if !&${BoardsTxtEData}
+            $call(__exit_error_build_process_cancel__, :"$[function]()")
+        endif
+        # Save the updated encoded representation data
+        $put_file(${BoardsTxtEDataCacheFilePath}, ${BoardsTxtEData})
+        # Create a new map object of configuration data for the selected board and save it
+        MapHandle := $aboard_getselconf(${BoardsTxtEData})
+        $put_file( ${SelBoardCacheFilePath}, $map_to_edata(${MapHandle}) )
+    endif
+    # Extract the map data and delete the map
+    if &${MapHandle}
+        # Extract the data
+            __ArduinoESP8266_SB__CompileFlag__     := $map_get(${MapHandle}, '#CompileFlag'          )
+            __ArduinoESP8266_SB__CompileFlag__    +:= $map_get(${MapHandle}, '#CompileMDef'          )
+            #                                                         Ignore '#IncludeDir'
+            __ArduinoESP8266_SB__LibraryDir__      := $map_get(${MapHandle}, '#LibraryDir'           )
+            __ArduinoESP8266_SB__LinkFlag__        := $map_get(${MapHandle}, '#LinkFlag'             )
+            __ArduinoESP8266_SB__LinkSLib__        := $map_get(${MapHandle}, '#LinkSLib'             )
+            __ArduinoESP8266_SB_FlashLD__          := $map_get(${MapHandle}, 'build:flash_ld'        )
+            __ArduinoESP8266_SB_FSStart__          := $map_get(${MapHandle}, 'build:spiffs_start'    )
+            __ArduinoESP8266_SB_FSEnd__            := $map_get(${MapHandle}, 'build:spiffs_end'      )
+            __ArduinoESP8266_SB_FSPageSize__       := $map_get(${MapHandle}, 'build:spiffs_pagesize' )
+            __ArduinoESP8266_SB_FSBlockSize__      := $map_get(${MapHandle}, 'build:spiffs_blocksize')
+            __ArduinoESP8266_SB_Variant__          := $map_get(${MapHandle}, 'build:variant'         )
+            __ArduinoESP8266_SB_EraseCmd__         := $map_get(${MapHandle}, 'upload:erase_cmd'      )
+            __ArduinoESP8266_SB_ResetMethod__      := $map_get(${MapHandle}, 'upload:resetmethod'    )
+            __ArduinoESP8266_SB_UploadSpeed__      := $map_get(${MapHandle}, 'upload:speed'          )
+        # Complete the data
+        local const NonOSSDK := 'NONOSDK\d{2}(?:\\d|x_\\d{6})'
+        if !$re_match( $ftpipes(${__ArduinoESP8266_SB__LibraryDir__}), ${NonOSSDK} )
+                __ArduinoESP8266_SB__CompileFlag__ +:= '-DNONOSDK22x_190703'
+                __ArduinoESP8266_SB__LibraryDir__  +:=   'NONOSDK22x_190703'
+        endif
+        local SelNonOSSDK
+        foreach local Item in ${__ArduinoESP8266_SB__LibraryDir__}
+            if !$re_match(${Item}, ${NonOSSDK}) : continue
+                __ArduinoESP8266_SB__LibraryDir__   := $erase_if(${__ArduinoESP8266_SB__LibraryDir__}, ${Item})
+                __ArduinoESP8266_SB__LibraryDir__  +:= $ftt_stack( '-L', $cat_path(${ArduinoESP8266NonOSSDKDir}, ${Item}) )
+            SelNonOSSDK := ${Item}
+            break
+        endforeach
+        if $contains(${__ArduinoESP8266_SB__CompileFlag__}, '-fno-exceptions')
+                __ArduinoESP8266_SB__CompileFlag__ +:= '-fno-unwind-tables'
+        endif
+        local const LDFilePath := $cat_path(${ArduinoESP8266LDSourceDir}, ${__ArduinoESP8266_SB_FlashLD__})
+        local const EBootFile  := $cat_path(${__SelArduinoPackageDir__} , 'bootloaders/eboot/eboot.elf'   )
+                __ArduinoESP8266_SB__CompileFlag__ +:= '-D__ets__' '-U__STRICT_ANSI__' '-D_GNU_SOURCE' '-DARDUINO=200' '-DESP8266' '-DICACHE_FLASH'
+                __ArduinoESP8266_SB__CompileFlag__ +:= $ftt_stack( '-isystem', ~${ArduinoESP8266LDSourceDir} )
+                __ArduinoESP8266_SB__CompileFlag__ +:= $ftt_stack( '-isystem', $cat_paths(~${ArduinoESP8266CoreSrcDir}, '../../variants', ${__ArduinoESP8266_SB_Variant__}) )
+                __ArduinoESP8266_SB__LinkFlag__    +:= '-u' 'app_entry' '-u' '_printf_float' '-u' '_scanf_float'
+                __ArduinoESP8266_SB__LinkFlag__    +:= '-Wl,-wrap,system_restart_local' '-Wl,-wrap,spi_flash_read' '-nostdlib'
+                __ArduinoESP8266_SB__LinkFlag__    +:= :"-T${LDFilePath}"
+                __ArduinoESP8266_SB__LinkFlag__    +:= $ftt_stack( '-L', ${ArduinoESP8266LDSourceDir} )
+                __ArduinoESP8266_SB__LinkFlag__    +:= $ftt_stack( '-L', ${ArduinoESP8266LibraryDir} )
+                __ArduinoESP8266_SB__LinkFlag__    +:= $ftt_stack( '-L', $cat_path(${ArduinoESP8266LibraryDir}, ${SelNonOSSDK} ) )
+        eval    __ArduinoESP8266_SB_FSImageSize__   :=  ${__ArduinoESP8266_SB_FSEnd__} - ${__ArduinoESP8266_SB_FSStart__}
+                __ArduinoESP8266_SB_LinkSLibs__     :=  ${ArduinoESP8266SLibName}
+                __ArduinoESP8266_SB_LinkSLibs__    +:= 'airkiss' 'crypto' 'espnow' 'main' 'net80211' 'phy' 'pp' 'smartconfig' 'wpa' 'wpa2' 'wps'
+                __ArduinoESP8266_SB_LinkSLibs__    +:= 'bearssl' 'hal' ${__ArduinoESP8266_SB__LinkSLib__/-l(.+)/$1/} 'm' 'c' 'gcc'
+                __ArduinoESP8266_SB_Elf2BinFlags__  := '--eboot' ~${EBootFile}
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= '--path' ~${CppToolBinDir}
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= '--flash_freq'
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= $map_get(${MapHandle}, 'build:flash_freq')
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= '--flash_size'
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= $map_get(${MapHandle}, 'build:flash_size')
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= '--flash_mode'
+                __ArduinoESP8266_SB_Elf2BinFlags__ +:= $map_get(${MapHandle}, 'build:flash_mode')
+       #$call(dump_map_object_and_exit, ${MapHandle})
+        # Delete the map
+        $map_delete(${MapHandle})
+    endif
+    # Set the C standard version
+    $call(select_c_langstd, 'c11')
+    # Set the C++ standard version according to the selected Arduino ESP8266 package version
+    local CppCxxLangStd := 'c++11'
+    if ${__SelArduinoPackageDir__/.+?esp8266\/(\d+)\.\d+\.\d+/$1/} >= 3 : CppCxxLangStd := 'c++17'
+    $call(select_cxx_langstd, ${CppCxxLangStd})
+    # Create extra build subdirectories
+    local extraBuildSubdirectories  := ${ArduinoESP8266LDOutDir} ${ArduinoESP8266CoreOutDir}
+          buildSubdirectories      +:= extraBuildSubdirectories
+    $mkdir( $cat_path(~${CppBuildDir}, ${extraBuildSubdirectories} ) )
+endfunction
+
+
+##### Functions to select the Arduino ESP8266 file system to be used
+const __ArduinoESP8266_UseSPIFFFS__  := '-DARDUINO_SPIFFS'   '-DARDUINO_FS=SPIFFS'   '-DESP8266_SPIFFS'   '-DESP8266_FS=SPIFFS'   '-DUSE_SPIFFS'
+const __ArduinoESP8266_UseLittleFS__ := '-DARDUINO_LITTLEFS' '-DARDUINO_FS=LITTLEFS' '-DESP8266_LITTLEFS' '-DESP8266_FS=LITTLEFS' '-DUSE_LITTLEFS'
+
+function arduino_use_spiffs()
+    __ArduinoESP8266_UseFSMacro__ := ${__ArduinoESP8266_UseSPIFFS__}
+    __ArduinoESP8266_MakeFSBin__   = ${ArduinoESP8266SPIFFSBin}
+endfunction
+
+function arduino_use_littlefs()
+    __ArduinoESP8266_UseFSMacro__ := ${__ArduinoESP8266_UseLittleFS__}
+    __ArduinoESP8266_MakeFSBin__   = ${ArduinoESP8266LittleFSBin}
+endfunction
+
+
+##### Function to set Arduino ESP8266 the signing keys
+__ArduinoESP8266_PrivateKey__ := ''
+
+function __arduino_create_updater_signing_h__(publicKeyPath)
+    local Signing := $cat_path(${ArduinoESP8266ESPToolsDir}, 'signing.py')
+    local OutFile := :"${CppBuildDir}/core/Updater_Signing.h"
+    if !$newer_path(${OutFile}, ${publicKeyPath})
+       +@setenv PYTHONDONTWRITEBYTECODE 1
+       +@${Python3} ${Signing} --mode header --publickey ~${publicKeyPath} --out ~${OutFile}
+    else
+        $cmd_clear_state()
+    endif
+endfunction
+
+function arduino_set_signing_key(publicKeyPath, privateKeyPath)
+    # Error if OpenSSL is not available
+    $call(exit_error_if_openssl_is_unavailable)
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'signing.py')
+    # Create 'Updater_Signing.h'
+    $exec(__arduino_create_updater_signing_h__, ${publicKeyPath})
+    $call(__conditional_print_stdxxx_and_check_excode__         )
+    # Save the private key path
+    __ArduinoESP8266_PrivateKey__ := ${privateKeyPath}
+    # Add include path to 'Updater_Signing.h'
+    __include_paths__ +:= :"~${CppBuildDir}/core"
+endfunction
+
+
+##### A helper macro to define extra compile options
+.macro __arduino_esp8266_extra_compile_options__
+    # Create a list of extra library include paths as needed
+    if !&${__ArduinoESP8266_ExtraSLibSrcDirs__}
+        local CFN := $call(__arduino_esp8266_extra_slib_cache_file__)
+        if $valid_path(${CFN})
+            foreach local UL in $get_file(${CFN})
+                if $str_fidx(${UL}, '$') == 1
+                    UL := $str_rmfchr(${UL})
+                    local S := $map_get(${ArduinoESP8266LibMH}, :"{${UL}}:path")
+                else
+                    local S := $map_get(${ArduinoGenericLibMH}, :"{${UL}}:path")
+                endif
+                __ArduinoESP8266_ExtraSLibSrcDirs__ +:= $series('-I', ~${S})
+            endforeach
+        endif
+    endif
+    # Define extra compile options
+    local extraIncludeDirs  := $series( '-I'      , ~${XtensaGCCIncludeDir}      )
+          extraIncludeDirs +:= $series( '-isystem', ~${ArduinoESP8266IncludeDir} )
+          extraIncludeDirs +:= ${__ArduinoESP8266_ExtraSLibSrcDirs__}
+          extraIncludeDirs +:= ${__ArduinoESP8266_BuildSLib_ExtraIncludeDirs__}
+    local extraOptions     +:= $stack(${extraIncludeDirs}, ${__ArduinoESP8266_SB__CompileFlag__}, ${__ArduinoESP8266_UseFSMacro__})
+    if &${__ArduinoESP8266_PrivateKey__} : local __include_paths__ := :"${CppBuildDir}/core" __include_paths__
+.endmacro
+
+
+##### Function to compile Arduino ESP8266 user source code files
+function arduino_compile_c(?extraOptions)
+    .$__arduino_esp8266_extra_compile_options__
+    $call(compile_c, ${extraOptions})
+endfunction
+
+function arduino_compile_cpp(?extraOptions)
+    .$__arduino_esp8266_extra_compile_options__
+    $call(compile_cpp, ${extraOptions})
+endfunction
+
+
+##### Function to link Arduino ESP8266 executable files (also create the BIN file)
+Arduino_ESP8266LDCompiled     := false
+Arduino_ESP8266CoreSLibBuilt  := false
+Arduino_ESP8266ExtraSLibBuilt := false
+
+function __elf_to_bin__()
+    # Determine the paths
+    local Elf2Bin := $cat_path(${ArduinoESP8266ESPToolsDir}, 'elf2bin.py')
+    local BinFile := $[target/(.+)\.elf/$1.bin/]
+    # Convert ELF to BIN
+    $rmfile(~${BinFile})
+   +@setenv PYTHONDONTWRITEBYTECODE 1
+   +@${Python3} ${Elf2Bin} ${__ArduinoESP8266_SB_Elf2BinFlags__} --app ~$[target] --out ~${BinFile}
+    # Return the BIN file path
+    return ${BinFile}
+endfunction
+
+function arduino_link_exe(?extraOptions)
+    # Check the prerequisites
+    if !${Arduino_ESP8266LDCompiled}     : $call(__exit_error_run_target_call_function_, 'arduino_esp8266_compile_ld'      , :"$[function]()")
+    if !${Arduino_ESP8266CoreSLibBuilt}  : $call(__exit_error_run_target_call_function_, 'arduino_esp8266_build_core_slib' , :"$[function]()")
+    if !${Arduino_ESP8266ExtraSLibBuilt} : $call(__exit_error_run_target_call_function_, 'arduino_esp8266_build_extra_slib', :"$[function]()")
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'elf2bin.py')
+    # Link the executable
+    local CppSysStaticLib +:= ${__ArduinoESP8266_ExtraSLib__/^\$(.+)$/$1/} ${__ArduinoESP8266_SB_LinkSLibs__}
+    local extraLibDirs     := $series( '-L', $cat_path(${CppBuildDir}, ${ArduinoESP8266LDOutDir}) )
+    local extraOptions     := $stack(${extraLibDirs}, ${__ArduinoESP8266_SB__LinkFlag__}, ${extraOptions})
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to BIN
+    $call(__bpt_bin__                                  )
+    $exec(__elf_to_bin__                               )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to create Arduino ESP8266 static libraries
+function arduino_link_slib()
+    $call(link_slib)
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to run the given Arduino ESP8266 executable file (in this case, print the size)
+function __obj_size_py__(progName, dimColor)
+    # Get the tool
+    local Sizes := $cat_path(${ArduinoESP8266ESPToolsDir}, 'sizes.py')
+    local MMU   := $ftspaces( $erase_ifempty(${__ArduinoESP8266_SB__CompileFlag__/^((?!-DMMU.+).)*$//}) )
+    if !$valid_path(${Sizes}) : return -1
+    # Get the size
+    @setenv PYTHONDONTWRITEBYTECODE 1
+    @${Python3} ${Sizes} --elf ~${progName} --path ~${CppToolBinDir} --mmu ${MMU}
+    if $[excode] : return 0
+    # Print the size
+    local Color := __c_dgray__
+    if !${dimColor}
+        echoln __c_cyan__ -${progName} __c_reset__
+        Color := __c_green__
+    endif
+    foreach local I, Line in $sflines( $stack($[stderr], $[stdout]) )
+        # Filter the line number
+        if ${I} ==  2 : continue
+        if ${I} ==  7 : continue
+        if ${I} == 11 : continue
+        # Filter the line string
+        Line := ${Line/^\. //}
+        Line := ${Line/[\r\n]*//}
+        # Skip the line if it is empty
+        if !&${Line} : continue
+        # Print the line
+        if __os_windows__
+            Line := ${Line/\\u2560/╠/}
+            Line := ${Line/\\u255a/╚/}
+            Line := ${Line/\\u2550/═/}
+        endif
+        echoln ${Color} '    ' ${Line} __c_reset__
+    endforeach
+    # Done
+    return 1
+endfunction
+
+function __obj_size_exec__(progName, ldLibraryPath)
+    # Modify the binary path as needed
+    if &${CppToolBinDir} : local XtensaSize := $cat_path(${CppToolBinDir}, ${XtensaSize})
+    # Get the size
+    @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    @${XtensaSize} ${XtensaFlags} ~${progName}
+endfunction
+
+function __obj_size__(progName, ldLibraryPath, dimColor)
+    # Get the size text
+    $exec(__obj_size_exec__, ${progName}, ${ldLibraryPath})
+    # Format and print the size text
+    local text  := $partn( $call(__format_section_size_text__, $[stdout]), 1 )
+    local Color := __c_dgray__
+    if !${dimColor}
+        echoln __c_cyan__ -${progName} __c_reset__
+        Color := __c_green__
+    endif
+    echoln ${Color} ${text} __c_reset__
+    # Done
+    return 1
+endfunction
+
+function arduino_run_exe(progName, ?dimColor)
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                            $call( __bpt_exe_size_linespace__                                               )
+               local res := $exec( __obj_size_py__, ${progName}                               , ${dimColor} )
+    if  ${res} < 0 : res := $call( __obj_size__   , ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call(__print_stdxxx_and_check_excode__)
+    echoln
+endfunction
+
+
+##### Function to create Arduino ESP8266 file system image
+function __arduino_fsimage_path__()
+    return :"${CppBuildDir}/filesystem.img"
+endfunction
+
+function __arduino_mkfs__(outFile)
+   +@${__ArduinoESP8266_MakeFSBin__} -p ${__ArduinoESP8266_SB_FSPageSize__} -b ${__ArduinoESP8266_SB_FSBlockSize__} -s ${__ArduinoESP8266_SB_FSImageSize__} -c ~${fsRootDir} ${outFile}
+   +@${__ArduinoESP8266_MakeFSBin__} -p ${__ArduinoESP8266_SB_FSPageSize__} -b ${__ArduinoESP8266_SB_FSBlockSize__} -s ${__ArduinoESP8266_SB_FSImageSize__} -l               ${outFile}
+endfunction
+
+function arduino_make_fsimage(fsRootDir)
+    if !&${__ArduinoESP8266_MakeFSBin__} : return
+    $exec( __arduino_mkfs__, $call(__arduino_fsimage_path__) )
+    $call( __conditional_print_stdxxx_and_check_excode__     )
+endfunction
+
+
+##### Function to decode ESP8266 stack trace
+function arduino_stdec(progName, stContent)
+    if &${CppToolBinDir} : local XtensaAddr2Line := $cat_path(${CppToolBinDir}, ${XtensaAddr2Line})
+    return $esp_st_decoder(${XtensaAddr2Line}, ${progName}, ${stContent})
+endfunction
+
+
+##### A helper macro and a helper function to compress and sign the Arduino ESP8266 binary
+.macro __arduino_esp8266_compress_and_sign_bin__
+    # Determine the base binary file name
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    # Remove all signed files
+    $rmfile(:"${BinFile}.signed"       )
+    $rmfile(:"${BinFile}.legacy_sig"   )
+    $rmfile(:"${BinFile}.gz.signed"    )
+    $rmfile(:"${BinFile}.gz.legacy_sig")
+    # Check if it is a file system upload
+    if -${BinFile} &== $call(__arduino_fsimage_path__) : local FSUpload := 1
+    # Compress the binary as needed
+    if $str_lidx($[function], 'ota') > 0
+        if !${FSUpload}
+            local GZBinFile := :"${BinFile}.gz"
+            $gzip(${BinFile}, ${GZBinFile})
+            BinFile := ${GZBinFile}
+        else
+            ##### !!! TODO : ATOMIC_FS_UPDATE !!! #####
+        endif
+    endif
+    # Sign the binary as needed (never sign the binary if it is a file system upload)
+    if !${FSUpload}
+        if &${__ArduinoESP8266_PrivateKey__} : signed := 1
+        if ${signed}
+            $exec(__arduino_upload_sign__                      )
+            $call(__conditional_print_stdxxx_and_check_excode__)
+        endif
+    endif
+.endmacro
+
+function __arduino_upload_sign__()
+    local Signing := $cat_path(${ArduinoESP8266ESPToolsDir}, 'signing.py')
+    +@setenv PYTHONDONTWRITEBYTECODE 1
+    +@${Python3} ${Signing} --mode sign --privatekey ~${__ArduinoESP8266_PrivateKey__} --bin ~${BinFile} --out :"~${BinFile}.signed" --legacy :"~${BinFile}.legacy_sig"
+endfunction
+
+
+##### Function to upload the given program via serial port using Arduino ESP8266 tools
+#const __Arduino_DefSerialUploadResetMethod__ := '--before' 'no_reset'      '--after' 'soft_reset' # ESP-01 Black
+ const __Arduino_DefSerialUploadResetMethod__ := '--before' 'default_reset' '--after' 'hard_reset' # NodeMCU
+ const __Arduino_DefSerialUploadBaudrate__    := 921600
+
+function __arduino_upload_serial_exec__(startAddress)
+    # Determine the paths
+    local Upload := $cat_path(${ArduinoESP8266ESPToolsDir}, 'upload.py')
+    # Adjust the binary file name as needed
+    if ${signed} : BinFile := :"${BinFile}.signed"
+    # Perform upload
+   +@setenv PYTHONDONTWRITEBYTECODE 1
+   +@${Python3} ${Upload} --chip esp8266 --port ${device} --baud ${baudrate} ${eraseCmd} ${resetMethod} write_flash ${startAddress} ~${BinFile}
+endfunction
+
+function arduino_upload_serial(progName, device, ?baudrate, ?eraseCmd, ?resetMethod, ?signed)
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'upload.py')
+    # Set the default values
+    local eraseCmd    ?:=                                                                           ${__ArduinoESP8266_SB_EraseCmd__}
+    local resetMethod ?:= $csel( $cmp( $flatten(${__ArduinoESP8266_SB_ResetMethod__}), '&!=', '' ), ${__ArduinoESP8266_SB_ResetMethod__}, ${__Arduino_DefSerialUploadResetMethod__})
+    local baudrate    ?:= $csel( $cmp( $flatten(${__ArduinoESP8266_SB_UploadSpeed__}), '&!=', '' ), ${__ArduinoESP8266_SB_UploadSpeed__}, ${__Arduino_DefSerialUploadBaudrate__}   )
+    # compress and sign the binary
+    .$__arduino_esp8266_compress_and_sign_bin__
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__arduino_upload_serial_exec__, 0x00         )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_streaming_off()
+endfunction
+
+
+##### Function to upload the given program via OTA using Arduino ESP8266 tools
+const __Arduino_DefOTAPort__ := 8266
+
+function __arduino_upload_ota_exec__(?extraParams)
+    # Determine the paths
+    local Upload := $cat_path(${ArduinoESP8266ESPToolsDir}, 'espota.py')
+    # Adjust the binary file name as needed
+    if ${signed} : BinFile := :"${BinFile}.signed"
+    # Perform upload
+    if &${otaPassword} : otaPassword := :"--auth=${otaPassword}"
+   +@setenv PYTHONDONTWRITEBYTECODE 1
+   +@${Python3} ${Upload} -r -i ${hostNameOrIP} -p ${progPort} -P ${progPort} ${otaPassword} ${extraParams} -f ~${BinFile}
+endfunction
+
+function arduino_upload_ota(progName, hostNameOrIP, ?progPort, ?otaPassword, ?signed)
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'espota.py')
+    # Set the default value
+    local progPort ?:= 8266
+    # compress and sign the binary
+    .$__arduino_esp8266_compress_and_sign_bin__
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__arduino_upload_ota_exec__                  )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_streaming_off()
+endfunction
+
+
+##### Function to upload the file system image using Arduino ESP8266 tools
+function arduino_uploadfs_serial(device, ?baudrate, ?resetMethod, ?signed)
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'upload.py')
+    # Set the default values
+    local progName     := $call(__arduino_fsimage_path__)
+    local eraseCmd    ?:= ''
+    local resetMethod ?:= $csel( $cmp( $flatten(${__ArduinoESP8266_SB_ResetMethod__}), '&!=', '' ), ${__ArduinoESP8266_SB_ResetMethod__}, ${__Arduino_DefSerialUploadResetMethod__})
+    local baudrate    ?:= $csel( $cmp( $flatten(${__ArduinoESP8266_SB_UploadSpeed__}), '&!=', '' ), ${__ArduinoESP8266_SB_UploadSpeed__}, ${__Arduino_DefSerialUploadBaudrate__}   )
+    # compress and sign the binary
+    .$__arduino_esp8266_compress_and_sign_bin__
+    # Show message
+    echoln __c_white__ "\nThe file system image verification process may take a while, please be patient.\n" __c_reset__
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__arduino_upload_serial_exec__, ${__ArduinoESP8266_SB_FSStart__})
+    $call(__conditional_print_stdxxx_and_check_excode__                   )
+    $cmd_streaming_off()
+endfunction
+
+
+##### Function to upload the file system image via OTA using Arduino ESP8266 tools
+function arduino_uploadfs_ota(hostNameOrIP, ?progPort, ?otaPassword, ?signed)
+    # Check if the needed Arduino tool is available
+    if !&${ArduinoESP8266ESPToolsDir} : $call(__exit_error_nut__, 'espota.py')
+    # Set the default value
+    local progName  := $call(__arduino_fsimage_path__)
+    local progPort ?:= 8266
+    # compress and sign the binary
+    .$__arduino_esp8266_compress_and_sign_bin__
+    # Show message as needed
+    if &${__ArduinoESP8266_PrivateKey__}
+        ##### ??? TODO : Wait for the Arduino ESP8266 team to fix with this issue ??? #####
+        echoln __c_white__
+        echoln 'Binary signing verification for OTA programming is enabled.'
+        echoln 'The file system image uploading process might stall or report an error even if the actual process was successful.'
+        echoln __c_reset__
+    endif
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__arduino_upload_ota_exec__, '-s'            )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_streaming_off()
+endfunction
+
+
+###################################################################################
+##### ==================== Arduino ESP8266 Build Targets ==================== #####
+###################################################################################
+
+##### Target to compile Arduino ESP8266 linker script
+target __arduino_esp8266_compile_ld__
+    __stdxxx_from_syslib__ := true
+    $call(compile_ld, ${__ArduinoESP8266_SB__CompileFlag__})
+    __stdxxx_from_syslib__ := false
+endtarget
+
+target arduino_esp8266_compile_ld
+    # Reset flag
+    Arduino_ESP8266LDCompiled := false
+    # Compile the linker script
+    local Src := $cat_path(${ArduinoESP8266LDSourceDir}, 'eagle.app.v6.common.ld.h')
+    local Out := $call(ld_fpath, :"${ArduinoESP8266LDOutDir}/local.eagle.app.v6.common")
+    $add_target('__arduino_esp8266_compile_ld__', ${Out}, ${Src})
+    jxmake ${Out}
+    # Set flag
+    Arduino_ESP8266LDCompiled := true
+endtarget
+
+
+##### Disable warnings from the SDK
+const __ArduinoESP8266_SysLib_DisableWarnings__ := '-Wno-unused-parameter' '-Wno-unused-variable' '-Wno-sign-compare'
+
+
+##### Target to build Arduino ESP8266 core library file
+target __arduino_esp8266_compile_s__
+    if ${__stdxxx_from_syslib__} : extraOptions +:= ${__ArduinoESP8266_SysLib_DisableWarnings__}
+                                   extraOptions +:= $series( '-isystem', ~${XtensaGCCIncludeDir})
+    $call(compile_s, ${extraOptions})
+endtarget
+
+target __arduino_esp8266_compile_c__
+    .$__arduino_esp8266_extra_compile_options__
+    if ${__stdxxx_from_syslib__} : extraOptions +:= ${__ArduinoESP8266_SysLib_DisableWarnings__}
+                                   extraOptions +:= '-fno-inline-functions'
+    $call(compile_c, ${extraOptions})
+endtarget
+
+target __arduino_esp8266_compile_cpp__
+    .$__arduino_esp8266_extra_compile_options__
+    if ${__stdxxx_from_syslib__} : extraOptions +:= ${__ArduinoESP8266_SysLib_DisableWarnings__}
+    $call(compile_cpp, ${extraOptions})
+endtarget
+
+target __arduino_esp8266_link_slib__
+    $call(link_slib)
+endtarget
+
+target arduino_esp8266_build_core_slib
+    # Reset flag
+    Arduino_ESP8266CoreSLibBuilt := false
+    # List the source directories
+    local SrcD   := $srdir_rec (${ArduinoESP8266CoreSrcDir}, __re_all__ )
+    local SrcS   := $srfile_rec(${ArduinoESP8266CoreSrcDir}, '.+?\\.S'  )
+    local SrcC   := $srfile_rec(${ArduinoESP8266CoreSrcDir}, '.+?\\.c'  )
+    local SrcCpp := $srfile_rec(${ArduinoESP8266CoreSrcDir}, '.+?\\.cpp')
+    # Prepare the output directory name and string offset
+    local OutDir := $cat_path(${CppBuildDir}, ${ArduinoESP8266CoreOutDir})
+    local Offset := $strlen(${ArduinoESP8266CoreSrcDir})
+    add   Offset, ${Offset}, 2
+    # Make the output directories
+    foreach local Src in ${SrcD}
+        $mkdir( $cat_path( ${OutDir}, $substr(${Src}, ${Offset}, -1) ) )
+    endforeach
+    # Create target for '*.S' source files
+    local OutS
+    foreach local Src in ${SrcS}
+        local Out := $ftt_stack( $cat_path( ${OutDir}, $substr(${Src}, ${Offset}, -1) ), '.', ${ObjFileExt} )
+        $add_target('__arduino_esp8266_compile_s__', ${Out}, ${Src})
+        OutS +:= ${Out}
+    endforeach
+    # Create target for '*.c' source files
+    local OutC
+    foreach local Src in ${SrcC}
+        local Out := $ftt_stack( $cat_path( ${OutDir}, $substr(${Src}, ${Offset}, -1) ), '.', ${ObjFileExt} )
+        $add_target('__arduino_esp8266_compile_c__', ${Out}, ${Src})
+        OutC +:= ${Out}
+    endforeach
+    # Create target for '*.cpp' source files
+    local OutCpp
+    foreach local Src in ${SrcCpp}
+        local Out := $ftt_stack( $cat_path( ${OutDir}, $substr(${Src}, ${Offset}, -1) ), '.', ${ObjFileExt} )
+        $add_target('__arduino_esp8266_compile_cpp__', ${Out}, ${Src})
+        OutCpp +:= ${Out}
+    endforeach
+    # Split the target for '*.cpp' source files
+    local OutCpp1
+    local OutCpp2
+    local OutIdx := 1
+    while ${OutIdx} <= $part_count(${OutCpp})
+        local Out1 := $partn(${OutCpp}, ${OutIdx}) ; inc OutIdx
+        local Out2 := $partn(${OutCpp}, ${OutIdx}) ; inc OutIdx
+        if &${Out1} : OutCpp1 +:= ${Out1}
+        if &${Out2} : OutCpp2 +:= ${Out2}
+    endwhile
+    # Create target for the static library file
+    local Src := $stack(${OutS}, ${OutC}, ${OutCpp})
+    $add_target('__arduino_esp8266_link_slib__', ${ArduinoESP8266SLibPath}, ${Src})
+    # Build the object and library files
+    __stdxxx_from_syslib__ := true
+   +jxmake ${OutS}
+   +jxmake ${OutC}
+   +jxmake ${OutCpp1}
+   +jxmake ${OutCpp2}
+    jxwait
+    jxmake ${ArduinoESP8266SLibPath}
+    __stdxxx_from_syslib__ := false
+    # Set flag
+    Arduino_ESP8266CoreSLibBuilt := true
+endtarget
+
+
+##### Target to build Arduino ESP8266 extra static library files
+__ArduinoESP8266_ExtraSLib__ := ''
+
+function __arduino_esp8266_extra_slib_cache_file__()
+    # Ensure the directory for the board selector's cache and saved files exists
+    local ArduinoESP8266BoardSelCacheDir ?:= $ptd()
+    if ${ArduinoESP8266BoardSelCacheDir} &!= $ptd() : $mkdir(${ArduinoESP8266BoardSelCacheDir})
+    # Return the cache file path
+    return $cat_path(${ArduinoESP8266BoardSelCacheDir}, 'ArduinoESP8266ExtraSLib.cache')
+endfunction
+
+target arduino_esp8266_build_extra_slib
+    # Reset flag
+    Arduino_ESP8266ExtraSLibBuilt := false
+    # Load the used extra library names from the cache file
+    local CFN := $call(__arduino_esp8266_extra_slib_cache_file__)
+    if $valid_path(${CFN}) : __ArduinoESP8266_ExtraSLib__ := $get_file(${CFN})
+    # Process the libraries in the list
+    local AllOutC
+    local AllOutCpp
+    local AllOutSLib
+    foreach local UL in $erase_ifempty(${__ArduinoESP8266_ExtraSLib__})
+        # List the source directories
+        if $str_fidx(${UL}, '$') == 1
+            UL := $str_rmfchr(${UL})
+            local SrcDir := $map_get(${ArduinoESP8266LibMH}, :"{${UL}}:path")
+        else
+            local SrcDir := $map_get(${ArduinoGenericLibMH}, :"{${UL}}:path")
+        endif
+       #local SrcDir := $cat_path(${ArduinoESP8266LibRootDir}, ${UL})
+        local SrcC   := $srfile_rec(${SrcDir}, '.+?\\.c'  )
+        local SrcCpp := $srfile_rec(${SrcDir}, '.+?\\.cpp')
+        # Exclude the examples
+        SrcC   := $erase_if(${SrcC}  , '.+?examples.+', true)
+        SrcCpp := $erase_if(${SrcCpp}, '.+?examples.+', true)
+        # Prepare the output directory
+        local OutDir := $cat_paths(${CppBuildDir}, ${ArduinoESP8266ELibOutDir}, ${UL})
+        $mkdir(${OutDir})
+        # Prepare the output subdirectories
+        local SrcSubDir := $srdir_rec(${SrcDir}, __re_all__)
+        if &${SrcSubDir}
+            local SrcDirLen := $strlen(${SrcDir})
+            add   SrcDirLen, ${SrcDirLen}, 2
+            foreach local SSD in ${SrcSubDir}
+                if $str_lidx   (${SSD}, '/docs'    ) : continue
+                if $str_lidx   (${SSD}, '/examples') : continue
+                if $str_endwith(${SSD}, '/src'     ) : continue
+                local OutSubDir := $substr(${SSD}, ${SrcDirLen}, -1)
+                if $str_begwith(${OutSubDir}, 'src/') : OutSubDir := $substr(${OutSubDir}, 5, -1)
+                OutSubDir := $cat_path(${OutDir}, ${OutSubDir})
+                $mkdir(${OutSubDir})
+                __ArduinoESP8266_BuildSLib_ExtraIncludeDirs__ +:= $series('-isystem', ~${SSD})
+                #echoln ${SSD}
+                #echoln ${OutSubDir}
+            endforeach
+            #if $str_lidx(${SrcSubDir}, 'WebServer') > 0 : $exit(10)
+        endif
+        # Prepare the string offset
+        local Offset := $strlen(${SrcDir})
+        add   Offset, ${Offset}, 2
+        # Create target for '*.c' source files
+        local OutC
+        foreach local Src in ${SrcC}
+            local Dir := $substr(${Src}, ${Offset}, -1)
+           #local Out := $ftt_stack( $cat_path(${OutDir}, ${Dir/(^src[\\\/])(.+)/$2/}), '.', ${ObjFileExt} )
+            local Out := $ftt_stack( $cat_path(${OutDir}, ${Dir/(^src\/)(.+)/$2/}), '.', ${ObjFileExt} )
+            $add_target('__arduino_esp8266_compile_c__', ${Out}, ${Src})
+            OutC    +:= ${Out}
+            AllOutC +:= ${Out}
+        endforeach
+        # Create target for '*.cpp' source files
+        local OutCpp
+        foreach local Src in ${SrcCpp}
+            local Dir := $substr(${Src}, ${Offset}, -1)
+           #local Out := $ftt_stack( $cat_path(${OutDir}, ${Dir/(^src[\\\/])(.+)/$2/}), '.', ${ObjFileExt} )
+            local Out := $ftt_stack( $cat_path(${OutDir}, ${Dir/(^src\/)(.+)/$2/}), '.', ${ObjFileExt} )
+            $add_target('__arduino_esp8266_compile_cpp__', ${Out}, ${Src})
+            OutCpp    +:= ${Out}
+            AllOutCpp +:= ${Out}
+        endforeach
+        # Create target for the static library file
+        local Src := $stack(${OutC}, ${OutCpp})
+        local Out := $call(slib_fpath, ${UL})
+        $add_target('__arduino_esp8266_link_slib__', ${Out}, ${Src})
+        # Add to the list of extra static libraries to build
+        AllOutSLib +:= ${Out}
+    endforeach
+    AllOutSLib := $erase_ifempty(${AllOutSLib})
+    # Split the target for '*.cpp' source files
+    local AllOutCpp1
+    local AllOutCpp2
+    local AllOutIdx := 1
+    while ${OutIdx} <= $part_count(${AllOutCpp})
+        local Out1 := $partn(${AllOutCpp}, ${OutIdx}) ; inc OutIdx
+        local Out2 := $partn(${AllOutCpp}, ${OutIdx}) ; inc OutIdx
+        if &${Out1} : AllOutCpp1 +:= ${Out1}
+        if &${Out2} : AllOutCpp2 +:= ${Out2}
+    endwhile
+    # Build the object and library files
+    __stdxxx_from_syslib__ := true
+   +jxmake ${AllOutC}
+   +jxmake ${AllOutCpp1}
+   +jxmake ${AllOutCpp2}
+    jxwait
+    jxmake ${AllOutSLib}
+    __stdxxx_from_syslib__ := false
+    # Set flag
+    Arduino_ESP8266ExtraSLibBuilt := true
+endtarget
+
+
+##### Target to compile Arduino ESP8266 user source code files
+function __get_used_lib_names__(text)
+    # Get the include files
+    local Include := $erase_ifempty(${text/^((?!^\s*#include\s*<\s*.+\s*>).)*$//})
+    # Process the include files
+    local FoundLibNames
+    foreach local I in ${Include/.+?<(.+\.h)>.*/$1/}
+        # Search from the ESP8266 library list first
+        local found := false
+        foreach local SName in $map_get(${ArduinoESP8266LibMH}, '__LRDirNames__')
+            local LInc := $map_get(${ArduinoESP8266LibMH}, :"{${SName}}:includes")
+            if $contains(${LInc}, ${I})
+                FoundLibNames +:= :"\$${SName}"
+                found         := true
+                break
+            endif
+        endforeach
+        if ${found} : continue
+        # Search from the generic library list if it was not found
+        foreach local SName in $map_get(${ArduinoGenericLibMH}, '__LRDirNames__')
+            local LInc := $map_get(${ArduinoGenericLibMH}, :"{${SName}}:includes")
+            if $contains(${LInc}, ${I})
+                FoundLibNames +:= ${SName}
+                break
+            endif
+        endforeach
+    endforeach
+    # Return the found library names
+    return ${FoundLibNames}
+endfunction
+
+target :"${CppBuildDir}/%.ino.cpp.${ObjFileExt}" : :"${CppBuildDir}/%.ino.cpp"
+    .$__arduino_esp8266_extra_compile_options__
+    $call(compile_cpp, ${extraOptions})
+endtarget
+
+function __get_used_lib_recursive__(CheckLibNames)
+    foreach local UL in ${CheckLibNames}
+        # Check if the library has been checked
+        if $contains(${__ArduinoESP8266_DetectExtraSLib_CheckedList__}, ${UL}) : continue
+        __ArduinoESP8266_DetectExtraSLib_CheckedList__ +:= ${UL}
+        # Get the source file path and library name
+        if $str_fidx(${UL}, '$') == 1
+            UL := $str_rmfchr(${UL})
+            local Inc := $srfile_rec( $map_get(${ArduinoESP8266LibMH}, :"{${UL}}:path"   ), '.+?\\.h(pp)?' )
+            local Src := $srfile_rec( $map_get(${ArduinoESP8266LibMH}, :"{${UL}}:path"   ), '.+?\\.c(pp)?' )
+            local Dep :=              $map_get(${ArduinoESP8266LibMH}, :"{${UL}}:depends")
+        else
+            local Inc := $srfile_rec( $map_get(${ArduinoGenericLibMH}, :"{${UL}}:path"   ), '.+?\\.h(pp)?' )
+            local Src := $srfile_rec( $map_get(${ArduinoGenericLibMH}, :"{${UL}}:path"   ), '.+?\\.c(pp)?' )
+            local Dep :=              $map_get(${ArduinoGenericLibMH}, :"{${UL}}:depends")
+        endif
+        # Exclude the examples
+        Inc := $erase_if(${Inc}, '.+?examples.+', true)
+        Src := $erase_if(${Src}, '.+?examples.+', true)
+        # Get the used extra library names
+        local ULib  := $call( __get_used_lib_names__, $get_file_nel(~${Inc} ) )
+        local ULib +:= $call( __get_used_lib_names__, $get_file_nel(~${Src} ) )
+        # Accumulate the used extra library names
+        local FoundLibNames := $erase_if(${ULib}, ${__ArduinoESP8266_DetectExtraSLib__})
+        local FoundDepNames := $erase_if(${Dep} , ${__ArduinoESP8266_DetectExtraSLib__})
+        # Accumulate the used extra library names
+        if &${FoundLibNames} : __ArduinoESP8266_DetectExtraSLib__ +:= ${FoundLibNames}
+        if &${FoundDepNames} : __ArduinoESP8266_DetectExtraSLib__ +:= ${FoundDepNames}
+        # Recursively check the extra library names for more extra library names
+        $call(__get_used_lib_recursive__, ${FoundLibNames})
+        $call(__get_used_lib_recursive__, ${FoundDepNames})
+    endforeach
+endfunction
+
+target :"${CppBuildDir}/%.ino.cpp" : %.ino
+    # Get the '*.ino' file content
+    local InoContent := $get_file(~$[preq*])
+    # Find the used extra library names
+    unset __ArduinoESP8266_DetectExtraSLib__
+    unset __ArduinoESP8266_DetectExtraSLib_CheckedList__
+    __ArduinoESP8266_DetectExtraSLib__ := $call(__get_used_lib_names__, ${InoContent})
+    # Recursively check the extra library names for more extra library names
+   #echoln $ftlines(${__ArduinoESP8266_DetectExtraSLib__}) ; echoln
+    $call(__get_used_lib_recursive__, ${__ArduinoESP8266_DetectExtraSLib__})
+    __ArduinoESP8266_DetectExtraSLib__ := $unique(${__ArduinoESP8266_DetectExtraSLib__})
+   #echoln $ftlines(${__ArduinoESP8266_DetectExtraSLib__})
+   #$exit(100)
+    # Save the used extra library names to the cache file
+    $put_file( $call(__arduino_esp8266_extra_slib_cache_file__), ${__ArduinoESP8266_DetectExtraSLib__} )
+    # Delete the global variables used for the detection
+    unset __ArduinoESP8266_DetectExtraSLib__
+    unset __ArduinoESP8266_DetectExtraSLib_CheckedList__
+    # Generate a '*.cpp' file from the '*.ino' file
+    local Code  := "#include <Arduino.h>"
+          Code +:= ${InoContent}
+    $put_file(~$[target], ${Code})
+endtarget
+
+
+##### Undefine the helper macros here to prevent duplicated name later on
+.undefmacro __arduino_esp8266_extra_compile_options__
+.undefmacro __arduino_esp8266_compress_and_sign_bin__
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local XGText := __c_cyan__  'Xtensa GCC' __c_white__
+    local AGText := __c_cyan__  'Arduino Generic' __c_white__
+    local CGText := __c_cyan__  'Arduino ESP8266 SDK' __c_white__
+    local CGInfo := __c_white__ 'for ' ${CGText} ' '
+    local VRange := $call(__btlib_help_build_string_tested_version_range__, ${CGText}, '3.x.x', true)
+    $call(__origin__, true, false, true, true)
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${CGInfo})
+    echoln __c_green__ '    __gcc__                                  ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_gcc__                                ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __xtensa_gcc__                           ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __xtensa_lx106_elf_gcc__                 ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln
+    echoln __c_green__ '    JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS ' __c_white__ ': exclude the custom directories specified here when searching for the latest ' ${XGText} ';'
+    echoln __c_green__ '                                             ' __c_white__ '  paths are separated using \'' __c_green__ '__os_psep_char__' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    XtensaGCCIncludeDir                      ' __c_white__ ': locations of ' ${XGText} ' common header  files'
+    echoln __c_green__ '    XtensaGCCLibraryDir                      ' __c_white__ ': locations of ' ${XGText} ' common library files'
+    echoln
+    echoln __c_green__ '    ArduinoPackageDirs                       ' __c_white__ ': locations of ' __c_cyan__ 'Arduino' __c_white__ ' package directories; ' ${VRange}
+    echoln __c_green__ '    ArduinoLibraryDirs                       ' __c_white__ ': locations of ' __c_cyan__ 'Arduino' __c_white__ ' library directories'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266LDSourceDir                ' __c_white__ ': locations of ' ${CGText} ' linker     script  files'
+    echoln __c_green__ '    ArduinoESP8266NonOSSDKDir                ' __c_white__ ': locations of ' ${CGText} ' Non-OS SDK library directories'
+    echoln __c_green__ '    ArduinoESP8266NonOSSDKDirs               ' __c_white__ ': locations of ' ${CGText} ' Non-OS SDK library files'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266IncludeDir                 ' __c_white__ ': locations of ' ${CGText} ' common     system header  files'
+    echoln __c_green__ '    ArduinoESP8266LibraryDir                 ' __c_white__ ': locations of ' ${CGText} ' common     system library files'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266CoreSrcDir                 ' __c_white__ ': locations of ' ${CGText} ' core       source files'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266LibRootDir                 ' __c_white__ ': locations of ' ${CGText} ' library    source root directory'
+    echoln __c_green__ '    ArduinoESP8266LibSrcDirs                 ' __c_white__ ': locations of ' ${CGText} ' library    source directories'
+    echoln __c_green__ '    ArduinoESP8266LibList                    ' __c_white__ ': list         ' ${CGText} ' library    source names'
+    echoln
+    echoln __c_green__ '    ArduinoGenericLibSrcDirs                 ' __c_white__ ': locations of ' ${AGText} '     library    source directories that are compatible with this target architecture'
+    echoln __c_green__ '    ArduinoGenericLibList                    ' __c_white__ ': list         ' ${AGText} '     library    source names       that are compatible with this target architecture'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266ESPToolsDir                ' __c_white__ ': locations of ' ${CGText} ' Python     tools   files'
+    echoln
+    echoln __c_green__ '    ArduinoESP8266BoardSelCacheDir           ' __c_white__ ': location  of \'' __c_green__ 'arduino_board_selector' __c_white__ '\' cache and saved files - the default is \'' __c_green__ '$ptd()' __c_white__ '\';'
+    echoln __c_green__ '                                             ' __c_white__ '  you can change it so that the files are not deleted when you call \'' __c_green__ 'clean_project' __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_functions__, 9, 23, 1, ${CGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${CGInfo})
+    echoln __c_green__ '    arduino_board_selector (?alwaysSelect          ) ' __c_white__ ': select and configure a board using ' ${AGText} ' \'' __c_yellow__ 'boards.txt' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      alwaysSelect' __c_white__ ' by default, the system will save the user\'s selection;'
+    echoln __c_green__ '                                                     ' __c_green__ '                  ' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to always allow (re)selection'
+    echoln
+    echoln __c_green__ '    arduino_use_spiffs     (                       ) ' __c_white__ ': use \'' __c_yellow__ 'SPIFFS' __c_white__ '\'   as the file system'
+    echoln __c_green__ '    arduino_use_littlefs   (                       ) ' __c_white__ ': use \'' __c_yellow__ 'LittleFS' __c_white__ '\' as the file system (the default if the required tool exists)'
+    echoln
+    echoln __c_green__ '    arduino_set_signing_key(publicKeyPath ,        ) ' __c_white__ ': set the signing public and private keys'
+    echoln __c_green__ '                            privateKeyPath         ) '
+    echoln
+    echoln __c_green__ '    arduino_compile_c      (?extraOptions          ) ' __c_white__ ': compile           an ' ${AGText} ' C   source code; please use this instead of \'' __c_green__ 'compile_c' __c_white__ '\''
+    echoln __c_green__ '    arduino_compile_cpp    (?extraOptions          ) ' __c_white__ ': compile           an ' ${AGText} ' C++ source code; please use this instead of \'' __c_green__ 'compile_cpp' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    arduino_link_exe       (?extraOptions          ) ' __c_white__ ': link              an ' ${AGText} ' executable     ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_green__ '    arduino_link_slib      (                       ) ' __c_white__ ': link              an ' ${AGText} ' static library ; please use this instead of \'' __c_green__ 'link_slib' __c_white__ '\''
+    echoln __c_green__ '    arduino_run_exe        (progName, ?dimColor    ) ' __c_white__ ': print the size of an ' ${AGText} ' executable     ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    arduino_make_fsimage   (fsRootDir              ) ' __c_white__ ': create a file system image file using the selected file system format'
+    echoln
+    echoln __c_green__ '    arduino_stdec          (progName, stContent    ) ' __c_white__ ': run ESP stack decoder using the given ' ${AGText} ' executable and stack trace content'
+    echoln
+    local DefASerialResetMethod := $ftspaces(${__Arduino_DefSerialUploadResetMethod__})
+    echoln __c_green__ '    arduino_upload_serial  (progName    , device     ' __c_white__ ': upload program to ' __c_cyan__ 'ESP8266' __c_white__ ' via ' __c_cyan__ 'serial port' __c_white__ ' using ' __c_cyan__ 'Arduino' __c_white__ ' tool'
+    echoln __c_green__ '                            ?baudrate   , ?eraseCmd, ' __c_green__ '      progName   ' __c_white__ ' program name      ; use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                            ?resetMethod, ?signed  ) ' __c_green__ '      device     ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      baudrate   ' __c_white__ ' set this to the correct baudrate      - the default is \'' __c_yellow__ ${__Arduino_DefSerialUploadBaudrate__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or the value from \'' __c_green__ 'arduino_board_selector' __c_white__ '\')'
+    echoln __c_green__ '                                                     ' __c_green__ '      eraseCmd   ' __c_white__ ' set this to the correct erase command - the default is not set'
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or the value from \'' __c_green__ 'arduino_board_selector' __c_white__ '\')'
+    echoln __c_green__ '                                                     ' __c_green__ '      resetMethod' __c_white__ ' set this to the correct reset method  - the default is \'' __c_yellow__ ${DefASerialResetMethod} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or the value from \'' __c_green__ 'arduino_board_selector' __c_white__ '\')'
+    echoln __c_green__ '                                                     ' __c_green__ '      signed     ' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to use signed upload    - the default is not signed'
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or signed if keys are set via \'' __c_green__ 'arduino_set_signing_key' __c_white__ '\')'
+    echoln __c_green__ '    arduino_upload_ota     (progName , hostNameOrIP, ' __c_white__ ': upload program to ' __c_cyan__ 'ESP8266' __c_white__ ' via ' __c_cyan__ 'OTA (Over-the-Air)' __c_white__ ' using ' __c_cyan__ 'Arduino' __c_white__ ' tool'
+    echoln __c_green__ '                            ?progPort, ?otaPassword, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                            ?signed                ) ' __c_green__ '      hostNameOrIP' __c_white__ ' hostname or IP   of the target'
+    echoln __c_green__ '                                                     ' __c_green__ '      progPort    ' __c_white__ ' programming port of the target     - the default is \'' __c_yellow__ ${__Arduino_DefOTAPort__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      otaPassword ' __c_white__ ' OTA password                       - the default is no password'
+    echoln __c_green__ '                                                     ' __c_green__ '      signed      ' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to use signed upload - the default is not signed'
+    echoln __c_green__ '                                                     ' __c_green__ '                  ' __c_white__ '                                      (or signed if keys are set via \'' __c_green__ 'arduino_set_signing_key' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    arduino_uploadfs_serial(device      , ?baudrate, ' __c_white__ ': upload file system image created using \'' __c_green__ 'arduino_make_fsimage' __c_white__ '\' to ESP8266 via ' __c_cyan__ 'serial port' __c_white__ ' using ' __c_cyan__ 'Arduino' __c_white__ ' tool'
+    echoln __c_green__ '                            ?resetMethod, ?signed  ) ' __c_green__ '      device     ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      baudrate   ' __c_white__ ' set this to the correct baudrate      - the default is \'' __c_yellow__ ${__Arduino_DefSerialUploadBaudrate__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or the value from \'' __c_green__ 'arduino_board_selector' __c_white__ '\')'
+    echoln __c_green__ '                                                     ' __c_green__ '      resetMethod' __c_white__ ' set this to the correct reset method  - the default is \'' __c_yellow__ ${DefASerialResetMethod} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or the value from \'' __c_green__ 'arduino_board_selector' __c_white__ '\')'
+    echoln __c_green__ '                                                     ' __c_green__ '      signed     ' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to use signed upload    - the default is not signed'
+    echoln __c_green__ '                                                     ' __c_green__ '                 ' __c_white__ '                                         (or signed if keys are set via \'' __c_green__ 'arduino_set_signing_key' __c_white__ '\')'
+    echoln __c_green__ '    arduino_uploadfs_ota   (hostNameOrIP, ?progPort, ' __c_white__ ': upload file system image created using \'' __c_green__ 'arduino_make_fsimage' __c_white__ '\' to ESP8266 via ' __c_cyan__ 'OTA (Over-the-Air)' __c_white__ ' using ' __c_cyan__ 'Arduino' __c_white__ ' tool'
+    echoln __c_green__ '                            ?otaPassword, ?signed  ) ' __c_green__ '      hostNameOrIP' __c_white__ ' hostname or IP   of the target'
+    echoln __c_green__ '                                                     ' __c_green__ '      progPort    ' __c_white__ ' programming port of the target     - the default is \'' __c_yellow__ ${__Arduino_DefOTAPort__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      otaPassword ' __c_white__ ' OTA password                       - the default is no password'
+    echoln __c_green__ '                                                     ' __c_green__ '      signed      ' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to use signed upload - the default is not signed'
+    echoln __c_green__ '                                                     ' __c_green__ '                  ' __c_white__ '                                      (or signed if keys are set via \'' __c_green__ 'arduino_set_signing_key' __c_white__ '\')'
+    echoln
+   #$call(__btlib_help_print_title_targets__, 23, ${CGInfo})
+    $call(__btlib_help_print_title_targets__,  0, ${CGInfo})
+    echoln __c_green__ '    arduino_esp8266_compile_ld       ' __c_white__ ': compile the linker script              for the board that has been selected using \'' __c_green__ 'arduino_board_selector' __c_white__ '\''
+    echoln __c_green__ '    arduino_esp8266_build_core_slib  ' __c_white__ ': build   the core  static library file  for the board that has been selected using \'' __c_green__ 'arduino_board_selector' __c_white__ '\''
+    echoln __c_green__ '    arduino_esp8266_build_extra_slib ' __c_white__ ': build   the extra static library files for the board that has been selected using \'' __c_green__ 'arduino_board_selector' __c_white__ '\''
+    echoln
+    $call(__btlib_help_print_note_arduino_environment__)
+    echoln __c_reset__
+endfunction

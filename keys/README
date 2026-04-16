@@ -1,0 +1,24 @@
+====================================================================================================
+ESP8266 Signed OTA Updates
+====================================================================================================
+
+--------------------------------
+Generate private and public keys
+--------------------------------
+openssl genrsa -out private.key 2048
+openssl rsa -in private.key -outform PEM -pubout -out public.key
+
+
+----------------------------------------
+Extracting public key into a header file
+----------------------------------------
+signing.py --mode header --publickey public.key --out _public_key.h
+
+
+--------------
+Signing binary
+--------------
+signing.py --mode sign --privatekey private.key --bin program.bin --out program.bin.signed
+signing.py --mode sign --privatekey private.key --bin program.bin --out program.bin.signed --legacy program.bin.legacy_sig
+
+====================================================================================================

@@ -1,0 +1,23 @@
+====================================================================================================
+Electronic Component Tolerance
+====================================================================================================
+
+Worst-case scenario protection calculations are not always perfect and may be incomplete. Thus,
+using components with the smallest possible tolerance is recommended for optimal reliability.
+
+Solder only 1% or better tolerance resistors, except for non-critical applications where 5%
+tolerance is acceptable, such as:
+    1. Simple pull-up and pull-down resistors.
+    2. Current limiters for LEDs.
+    3. Current limiters or ringing suppressors for MOSFET gates.
+    4. Resistors in snubber circuits.
+    5. Current sinks for high-voltage absorption (usually paired with diodes).
+    6. Very high-value resistors (e.g., ≥ 4M7), where obtaining 1% tolerance might be difficult.
+
+Solder 10% or better tolerance capacitors and inductors, except when achieving such tolerance
+might be difficult (e.g., large-valued MLCCs with 20% tolerance are acceptable).
+
+Solder 5% or better tolerance Zener diodes, as 10% Zeners might push conditions to the worst-case
+scenario limit.
+
+====================================================================================================

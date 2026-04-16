@@ -1,0 +1,130 @@
+:::include <C++XBuildTool_BM_ESP32>
+
+
+  if __os_windows__  ; APDir := $cat_path( $uhd(), 'AppData/Local/Arduino15/packages' )
+elif __os_mac__      ; APDir := $cat_path( $uhd(), 'Library/Arduino15/packages'       )
+elif __os_linux__    ; APDir := $cat_path( $uhd(), '.arduino15/packages'              )
+endif
+
+ XTENSA_TOOLCHAIN_PATH   := $cat_path( ${APDir}, 'esp32/tools/xtensa-esp32-elf-gcc/esp-2021r2-patch5-8.4.0' )
+#ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd()  , 'Projects/z/esptool-v3.0-src/esptool.py'                   )
+#ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd()  , 'Projects/z/esptool-v3.1-src/esptool.py'                   )
+ ESPTOOL_EXECUTABLE_PATH := $cat_path( $uhd()  , 'Projects/z/esptool-v4.6.2-src/esptool.py'                 )
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+   #SPort := '\\\\.\\COM4'
+else
+    SPort := '/dev/ttyACM0'
+   #SPort := '/dev/ttyACM1'
+endif
+
+
+$call(init_project                   )
+$call(treat_warnings_as_errors, 1    )
+$call(enable_debug_info       , 1    )
+$call(select_optimization     , size )
+$call(print_devenv_config            )
+$call(silent_stdxxx           , false)
+$call(silent_stdxxx_syslib    , true )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main                       )
+PROG_OBJS := $call( obj_fpath, { boot.c util.c main.cpp } )
+
+LD_SCRIPT := 'link.ld'
+
+
+######################################
+##### These are the SDK settings #####
+######################################
+
+##### !!! TODO : Add support for custom compilation flags per source file? !!! #####
+
+##### 0 = use raw flash ; 1 = use bootloader and partition table
+const UseBootloaderAndPartitionTable := 1
+
+    ESP_IDF_WarningFlags  := '-Wno-unused-parameter'
+    ESP_IDF_CompileMDefs  := '-Dtypeof=__typeof__'
+
+if ${UseBootloaderAndPartitionTable}
+    # NOTE : CPU cache access does not work when not using bootloader!
+    ESP_IDF_CompileMDefs +:= '-DENABLE_CACHE_ACCESS'
+endif
+
+if ${UseBootloaderAndPartitionTable}
+    E32BM_FLASH_MODE          := 'dio' # NOTE : Use 'dio' because the bootloader starts in 'dio' mode!
+    E32BM_APP_FLASH_START     := '0x10000'
+    ESP_IDF_CompileMDefs     +:= '-DFLASH_MODE_QIO'
+    ESP_IDF_UPLOAD_WF_PARAMS  := '-fm' ${E32BM_FLASH_MODE}                                 \
+                                  '0x1000' 'arduino/bin/bootloader_qio_80m.elf-0x1000.bin' \
+                                  '0x8000' 'arduino/bin/partitions-0x8000.bin'             \
+                                  '0xe000' 'arduino/bin/boot_app0-0xe000.bin'
+else
+    E32BM_FLASH_MODE          := 'dio'
+    E32BM_APP_FLASH_START     := '0x1000'
+    ESP_IDF_CompileMDefs     +:= '-DFLASH_MODE_DIO' '-DNO_BOOTLOADER'
+    ESP_IDF_UPLOAD_WF_PARAMS  := '-fm' ${E32BM_FLASH_MODE}
+endif
+
+CppCommonCcCompileFlags  +:= ${ESP_IDF_CompileMDefs} ${ESP_IDF_WarningFlags}
+CppCommonCxxCompileFlags +:= ${ESP_IDF_CompileMDefs} ${ESP_IDF_WarningFlags}
+
+__include_paths__        +:= $series('arduino/esp-idf/include/', { '' 'esp_common' 'esp_hw_support' })
+
+######################################
+######################################
+######################################
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_bm_esp32 clean
+# jxmake -C ..\test\src\cpp_bm_esp32 run
+target run
+    jxmake ${MLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call( e32bm_link_exe, $call(use_ld, ${LD_SCRIPT}) )
+    $call( gen_lst       , ${PROG_NAME}                )
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_esp32 userial
+# jxmake -C ..\test\src\cpp_bm_esp32 userial
+target userial
+    jxmake run
+    $call(e32bm_upload_esptool, ${PROG_NAME}, ${SPort}, ?, ?, ${ESP_IDF_UPLOAD_WF_PARAMS})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_esp32 sercon
+# jxmake -C ..\test\src\cpp_bm_esp32 sercon
+target sercon
+    echoln 'Opening serial console ...'
+    echoln $serial_console(${SPort}, 115200)
+    echoln 'The serial console has been closed'
+endtarget

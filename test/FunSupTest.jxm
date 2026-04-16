@@ -1,0 +1,62 @@
+function function1()
+    echoln "function1"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede1"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede2"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede3"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede4"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede5"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede6"
+endfunction
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede7"
+endfunction
+
+
+
+function function2(a, b, c)
+    echoln "function2 : ${a} ${b} ${c}"
+endfunction
+
+function function2(a, b) supersede
+    $call(__origin__, 'x', ${a}, ${b})
+    echoln "function2 - supersede1"
+endfunction
+
+function function2(a) supersede
+    $call(__origin__, 'y', ${a})
+    echoln "function2 - supersede2"
+endfunction
+
+
+
+$call(function1)
+echoln
+
+$call(function2, 'z')
+echoln

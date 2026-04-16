@@ -1,0 +1,71 @@
+====================================================================================================
+USB Serial Hub - FE1.1S & FT232RL
+====================================================================================================
+
+WARNING : # DO NOT POWER FROM BOTH J3 (USB-to-Serial converter) and other sources simultaneously. By
+            default, this module is powered either by VBus from the upstream USB port (J1) or by an
+            external 5.3V power supply via J4, which serves as the primary supply. When an external
+            power supply is connected, the P-MOSFETs will automatically disconnect VBus.
+          # J4 can only be powered by a supply ranging from 5V to 5.5V. Using a 5.3V power supply is
+            recommended due to the presence of Schottky diode D1.
+          # If a different voltage is required for the USB-to-Serial converter, unbridge SB3 and
+            bridge SB1. In this mode, Vcc at J3 can be powered by either a 3.3V or 5V supply. This
+            supply is used exclusively for the USB-to-Serial converter's I/O voltage; therefore,
+            a primary power supply must still be connected.
+
+====================================================================================================
+
+There are two major versions of the FE1.1S USB 2.0 high speed 4-port hub controller - revision A and
+revision B. However, there might be intermediate undocumented versions as well.
+
+Technically, revision B should be a drop-in replacement for revision A. However, inconsistencies
+exist across different versions of the datasheets.
+
+There seems to be no easy way to determine whether the IC is revision A or B simply by looking at
+its markings.
+
+----------------------------------------------------------------------------------------------------
+
+JP1 (PU-Sel)
+
+    By default, this jumper is unbridged. If the IC's PWRJ pin is a push-pull output, leave the
+    jumper unbridged. However, for revision B, the PWRJ pin should be open-drain. In this case,
+    bridge the jumper to 3V3 (preferred) or 5V.
+
+    Note that if LED D3 turns on sharply and turns off gradually when the hub is reset, then the
+    PWRJ pin is very likely open-drain. When performing this test, J5 must be left unconnected;
+    otherwise, the downstream device will always be powered, and LED D3 will always remain on.
+
+JP2 (1V8), C2, and C5
+
+    In revision A, pin 12 (VD18_O) serves as the 1.8V power output from the integrated regulator,
+    while pin 28 (VD18) functions as the 1.8V power input. They should be connected together, and
+    a 10uF decoupling capacitor is required.
+
+    In revision B, pins 12 and 28 are backward compatible. However, it is strongly recommended to
+    leave them as No-Connection in new designs. If one is using the revision B IC and wants to
+    strictly follow the datasheet's recommendations, JP2 should be unbridged, with C2 and C5
+    remaining unsoldered.
+
+C3 and C1
+
+    In revision A, pin 21 (VD33_O) serves as the 3.3V power output from the integrated regulator,
+    while pin 13 (VD33) functions as the 3.3V power input. They should be connected together, and
+    a 10uF decoupling capacitor is required.
+
+    In revision B, pin 21 (VD33F) is used to attach a 3.3V output filter capacitor to the integrated
+    regulator, whereas pin 13 is designated as No-Connection. However, the datasheet specifies that
+    pin 13 can be kept connected to pin 21 for full backward compatibility; therefore, a jumper is
+    not included in the design for this pin, and C3 and C1 must always be soldered.
+
+----------------------------------------------------------------------------------------------------
+
+Datasheets from various revisions state:
+    "automatic re-enumeration when hub switches from self-powered mode to bus-powered mode"
+However, they do not specify the reverse. This could imply that transitioning back to self-powered
+mode is also automatic, or that the hub requires a reset to complete the re-enumeration. The hub
+can be reset by pressing SW1.
+
+Additionally, the USB-to-serial converter can be reset by pressing SW2.
+
+====================================================================================================

@@ -1,0 +1,193 @@
+(****************************************************************************************************
+ ***** Download xPack OpenOCD                                                                   *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the GitHub tool
+:::include_once 'GitHubTool.jxm'
+
+
+##### Path to the xPack OpenOCD
+    const XPackOOCD_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+    const XPackOOCD_Path        := $cat_path( $jtd()           , 'xpackopenocd'    )
+
+    const XPackOOCD_VerFileName := $cat_path( ${XPackOOCD_Path}, 'VERSION'         )
+    const XPackOOCD_LChFileName := $cat_path( ${XPackOOCD_Path}, 'LAST_CHECKED'    )
+
+if __os_windows__
+    const XPackOOCD_openocd     := $cat_path( ${XPackOOCD_Path}, 'bin/openocd.exe' )
+else
+    const XPackOOCD_openocd     := $cat_path( ${XPackOOCD_Path}, 'bin/openocd'     )
+endif
+
+
+##### Function to delete the downloaded xPack OpenOCD
+function delete_xpackopenocd()
+    if $valid_path(${XPackOOCD_Path}) : $rmdir_rec(${XPackOOCD_Path})
+endfunction
+
+
+##### A helper macro to determine the suitable archive names
+.macro __xpackopenocd_determine_suitable_archive_names__
+    # Build the search term
+    local ST_32 := 'invalid'
+    local ST_64 := 'invalid'
+                      ST_32 := :"https://github\\.com/.+?xpack-openocd-.+?\-${ST_OSName}\-${ST_OSArch32}\\.(?:tar\\.\\p{Alnum}{2,3}|zip)$"
+    if __os_64bit__ : ST_64 := :"https://github\\.com/.+?xpack-openocd-.+?\-${ST_OSName}\-${ST_OSArch64}\\.(?:tar\\.\\p{Alnum}{2,3}|zip)$"
+    # Determine the suitable archive names
+    local arcv32
+    local arcv64
+    foreach local url in ${bdlurls}
+        local chk := $lcase(${url})
+          if $re_match(${chk}, ${ST_64}) ; arcv64 := ${url}
+        elif $re_match(${chk}, ${ST_32}) ; arcv32 := ${url}
+        endif
+    endforeach
+    # If the operating system is 64-bit and no 64-bit archive was found, use the 32-bit one
+    if __os_64bit__
+        if !&${arcv64}
+            if &${arcv32} : arcv64 := ${arcv32}
+        endif
+    endif
+.endmacro
+
+
+##### Function to download (and install) the latest XPackOOCDs from xPack GitHub
+function __xpackopenocd_determine_paths__()
+    if !$valid_path(${XPackOOCD_Path}) : return
+    XPackOOCD_dlib_dir    := $unique( $path_rm_last_part( $srfile_rec(${XPackOOCD_Path}, '.+?\\.so.*$'           ) ) )
+    XPackOOCD_scripts_dir :=          $path_rm_last_part( $srdir_rec (${XPackOOCD_Path}, '.*?scripts/interface$' ) )
+    XPackOOCD_udev_rule   :=                              $srfile_rec(${XPackOOCD_Path}, '.+?60-openocd\\.rules$')
+endfunction
+
+function download_latest_xpackopenocd_from_xpack(?onlyIfNotExist, ?dlExactTag)
+    # Read environment variables
+    JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST       ?:= $getenv('JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST'      , '0')
+    JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG ?:= $getenv('JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG', '' )
+    # Set the default values
+    onlyIfNotExist ?:= ${JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST}
+    dlExactTag     ?:= ${JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG}
+    # Determine paths
+    $call(__xpackopenocd_determine_paths__)
+    # Check if the OpenOCD already exist
+    local AlreadyExist := true
+    if !$valid_path(${XPackOOCD_VerFileName}) : AlreadyExist := false
+    if !$valid_path(${XPackOOCD_LChFileName}) : AlreadyExist := false
+    if !$valid_path(${XPackOOCD_openocd}    ) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${XPackOOCD_LChFileName})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${XPackOOCD_ChkInterval}
+        eval X := @( ${CCh} - ${LCh} )
+        if ${InR} : return
+    endif
+    # Get the assets from the latest release
+    echoln
+    if &${dlExactTag}
+        local mh := $call(gh_get_assets_from_release_by_tag_name, 'xpack-dev-tools', 'openocd-xpack', ${dlExactTag})
+    else
+        local mh := $call(gh_get_assets_from_latest_release     , 'xpack-dev-tools', 'openocd-xpack'               )
+    endif
+   #$put_file( $cat_path( $ptd(), 'xpackopenocd.assets.edata' ), $map_to_edata(${mh}) )
+   #local mh := $map_from_edata( $get_file( $cat_path( $ptd(), 'xpackopenocd.assets.edata' ) ) )
+    # Check for error
+    $call(gh_check_rest_api_mh, ${mh})
+    # Dump the map
+    $call(dump_map_object, ${mh})
+    echoln
+    # Extract the parts
+    local id      := $partn( $map_get(${mh}, '__ids__'                    ), 1 )
+    local version := $partn( $map_get(${mh}, :"${id}:tag_name"            ), 1 )
+    local bdlurls :=         $map_get(${mh}, :"${id}:browser_download_url")
+    # If the OpenOCD already exist, check if the version matches
+    if ${AlreadyExist}
+        if ${version} &== $get_file(${XPackOOCD_VerFileName})
+            # Update the last checked time and exit
+            $put_file( ${XPackOOCD_LChFileName}, $call(get_timestamp) )
+            return
+        endif
+    endif
+    # Determine the search terms for '<cpu_arch>-<os_name>-<abi>.openocd-<hash>.<date>.<file_ext>
+    local ST_OSName   := 'invalid'
+    local ST_OSArch32 := 'invalid'
+    local ST_OSArch64 := 'invalid'
+      if __os_windows__             ; ST_OSName   := 'win32'
+    elif __os_mac__                 ; ST_OSName   := 'darwin'
+    elif __os_linux__               ; ST_OSName   := 'linux'
+    endif
+      if __os_arch__ &== 'x86_32'   ; ST_OSArch32 := 'x32'
+    elif __os_arch__ &== 'x86_64'   ; ST_OSArch32 := 'x32' ; ST_OSArch64 := 'x64'
+    elif __os_arch__ &== 'arm_32'   ; ST_OSArch32 := 'arm'
+    elif __os_arch__ &== 'aarch_64' ; ST_OSArch32 := 'aarm' ; ST_OSArch64 := 'arm64'
+    endif
+    # Determine the suitable archive names
+    .$__xpackopenocd_determine_suitable_archive_names__
+    if __os_mac__
+        # If the operating system is an ARM based MacOS and suitable archive was found, try to use the one for x86
+          if __os_arch__ &== 'arm_32'   ; ST_OSArch32 := 'x32'
+        elif __os_arch__ &== 'aarch_64' ; ST_OSArch32 := 'x32' ; ST_OSArch64 := 'x64'
+        endif
+        .$__xpackopenocd_determine_suitable_archive_names__
+        # Set flag
+        local CheckRosetta := true
+    endif
+    # Determine the suitable download URL
+    if __os_32bit__ : url := ${arcv32}
+    if __os_64bit__ : url := ${arcv64}
+    # Check if no suitable download URL was found
+    if !&${url} : $call(__exit_error_na_osna__, 'XPack OpenOCD')
+    # Install Apple Rosetta 2 if needed
+    if ${CheckRosetta} : $call(__install_apple_rosetta__)
+    # Download the archive
+    local DLFile := $http_download( ${url}, $ptd() )
+    if !&${DLFile} : $call(__exit_error_download_fail__, ${url})
+    echoln
+    # Extract the archive to a temporary directory
+    local ExPath := $cat_path( $ptd(), 'xpackopenocd' )
+    $call(extract_archive_to, ${DLFile}, ${ExPath}, ${url})
+    # Adjust the temporary directory path as needed
+    local ExPathSD := $lsdir(${ExPath})
+    if $part_count(${ExPathSD}) != 1 : ExPathSD := ${ExPath}
+    # Remove existing destination directory (if any)
+    $call(delete_xpackopenocd)
+    # Copy the extracted files from temporary directory to their suitable directory
+    local ExFiles   := $srfile_rec(${ExPathSD}, __re_all__)
+    local PrefixLen := $strlen(${ExPathSD})
+    add PrefixLen, ${PrefixLen}, 2
+    foreach local Path in ${ExFiles}
+        # Determine the destination path
+        local Dst := $cat_path( ${XPackOOCD_Path}, $substr(${Path}, ${PrefixLen}, -1) )
+        # Create the destination subdirectory (in case it does not exist yet)
+        $mkdir( $path_rm_last_part(${Dst}) )
+        # Copy the file and check
+        $cpfile(${Path}, ${Dst}, true)
+        if !$valid_path(${Dst}) : $call(__exit_error_cpfile_fail__, ${Dst})
+        (*
+        echoln "<<< ${Path}"
+        echoln ">>> ${Dst}"
+        echoln
+        *)
+        echoln ${Dst}
+    endforeach
+    echoln
+    # Put the version number
+    $put_file(${XPackOOCD_VerFileName}, ${version})
+    # Put the last checked time
+    $put_file( ${XPackOOCD_LChFileName}, $call(get_timestamp) )
+    # Remove the temporary directory and the downloaded archive file
+    $rmdir_rec(${ExPath})
+    $rmfile   (${DLFile})
+    # Determine paths
+    $call(__xpackopenocd_determine_paths__)
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __xpackopenocd_determine_suitable_archive_names__

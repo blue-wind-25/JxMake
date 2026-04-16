@@ -1,0 +1,42 @@
+====================================================================================================
+JxMake USB-GPIO Module
+====================================================================================================
+
+This firmware is written for ATmega32U4.
+
+If you are using Arduino Leonardo or SparkFun Pro Micro, you will need to bring out the SS (PB.0)
+and XCK (PD.5) pins manually.
+
+If you are using Arduino Micro, you will need to bring out the XCK (PD.5) pin manually.
+
+----------------------------------------------------------------------------------------------------
+
+The hardware SPI       implementation uses the standard ATmega32U4 SPI   pins.
+The hardware TWI       implementation uses the standard ATmega32U4 TWI   pins.
+The hardware UART/USRT implementation uses the standard ATmega32U4 USART pins.
+
+The software USRT      implementation uses the standard ATmega32U4 SPI pins
+                       (TXD=MOSI; RXD=MISO; XCK=SCK; [n]CS=[n]SS)
+
+Except for PB.4 and PB.5 which are used to control the TWI external pull-up resistors, the remaining
+pins can be used as GPIOs.
+
+----------------------------------------------------------------------------------------------------
+
+When connected, this module will enumerate as two Virtual Serial Port:
+    1. The first port is the primary port for performing most operations.
+    2. The second port is the UART/USRT passthrough port. Its baudrate and data format can be
+       configured using your operating system and programming language features, just like a typical
+       serial port (but without the support for control signals such as RTS, CTS, and others). Note
+       that the passthrough must be enabled (and disabled) via commands from the primary port.
+
+----------------------------------------------------------------------------------------------------
+
+Please replace the default Caterina bootloader with the one from this directory:
+
+    avrdude -c usbasp -p m32u4 -e -D -U flash:w:LUFA-111009_BootloaderCaterina_ATmega32U4_16MHz.hex:i
+
+Please note that the command above might only work properly if the ISP signals from USBasp are
+connected directly to the ISP signals of the MCU module using jumper cables.
+
+====================================================================================================

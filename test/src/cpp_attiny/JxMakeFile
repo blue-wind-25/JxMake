@@ -1,0 +1,206 @@
+:::include <C++XBuildTool_AVR_Native>
+
+
+const MCUTypes := (*  ISP *) 'ATtiny13'   (* 1 *) \
+                  (*  ISP *) 'ATtiny13'   (* 2 *) \
+                  (*  TPI *) 'ATtiny10'   (* 3 *) \
+                  (* UPDI *) 'ATtiny3226' (* 4 *)
+
+const CPUFreqs :=  1000000 \
+                   9600000 \
+                   1000000 \
+                  20000000
+
+const AICEMode := 'isp'  (* 1 *) \
+                  'isp'  (* 2 *) \
+                  'tpi'  (* 3 *) \
+                  'updi' (* 4 *)
+
+const SelTypeN := 2
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    PPortU := 'COM1'
+    PPortA := 'COM3'
+else
+    PPortU := '/dev/ttyUSB0'
+    PPortA := '/dev/ttyACM0'
+endif
+
+
+# Set this to non-zero to use 'JTAG2UPDI' instead of the default 'SerialUPDI' when uploading to tinyAVR 0/1/2-series
+USE_JTAG2UPDI := 0
+
+
+DFPDirectory := 'xsdk/Microchip.ATtiny_DFP.3.1.260'
+
+if __os_windows__ ; DFPDirectory := :"Z:/${DFPDirectory}"
+else              ; DFPDirectory := $cat_path( $uhd(), ${DFPDirectory} )
+endif
+
+
+(*
+ * Download prebuilt AVR GCC 12.1.0 for Windows and Linux from:
+ *     https://blog.zakkemble.net/avr-gcc-builds
+ *     https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x86-windows.zip
+ *     https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-windows.zip
+ *     https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-linux.tar.bz2
+ *
+ * On Linux with GLIBC < 2.27 you will need to:
+ *     1. Build an install a newer GLIBC to '/opt'
+ *     2. Rename '/opt/avr-gcc-12.1.0-x64-linux/avr/bin/ld' to '/opt/avr-gcc-12.1.0-x64-linux/avr/bin/_ld'
+ *     3. Create a script '/opt/avr-gcc-12.1.0-x64-linux/avr/bin/ld' that contains something like:
+ *            #!/bin/bash
+ *            LD_LIBRARY_PATH=/opt/glibc-2.27/lib /opt/glibc-2.27/lib/ld-linux-x86-64.so.2 $(dirname $0)/_ld "$@"
+ *        and make it executable.
+ *)
+if __os_windows__
+    CppToolBinDir := 'C:/avr-gcc-12.1.0-x64-windows/bin'
+   #AVRDUDE_Cmd   := 'C:/avrdude-v7.1-windows-x64/avrdude'     '-C' 'C:/avrdude-v7.1-windows-x64/avrdude.conf'
+else
+   #CppToolBinDir := '/opt/avr-gcc-10.1.0-x64-linux/bin'
+    CppToolBinDir := '/opt/avr-gcc-11.1.0-x64-linux/bin'
+   #CppToolBinDir := '/opt/avr-gcc-12.1.0-x64-linux/bin'
+   #AVRDUDE_Cmd   := '/opt/avrdude-7.1/bin/avrdude'            '-C' '/opt/avrdude-7.1/etc/avrdude.conf'
+   #AVRDUDE_Cmd   := '/opt/avrdude-7.1-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.1-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd   := '/opt/avrdude-7.2-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.2-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd   := '/opt/avrdude-7.3-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-7.3-usbasp-pdi/etc/avrdude.conf'
+    AVRDUDE_Cmd   := '/opt/avrdude-8.0-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-8.0-usbasp-pdi/etc/avrdude.conf'
+endif
+
+#if ${SelTypeN} == 4 : CppToolBinDir := $call(find_latest_arduino_avr_gcc_dir)
+
+
+JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
+
+
+$call(init_project                                                          )
+$call(avr_select_part         , ${MCUTypes}<SelTypeN>, ${CPUFreqs}<SelTypeN>)
+$call(treat_warnings_as_errors, 1                                           )
+$call(enable_debug_info       , 0                                           )
+$call(select_optimization     , size                                        )
+$call(select_c_langstd        , c11                                         )
+$call(select_cxx_langstd      , c++11                                       )
+$call(set_device_pack_dir     , ${DFPDirectory}                             )
+$call(print_devenv_config                                                   )
+$call(silent_stdxxx           , false                                       )
+$call(silent_stdxxx_syslib    , true                                        )
+
+if ${SelTypeN} == 2 : ExtraCompileOptions := $call(def_macro, MINIMAL)
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main    )
+PROG_OBJS := $call( obj_fpath, main.cpp)
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_attiny clean
+# jxmake -C ..\test\src\cpp_attiny run
+target run
+    jxmake ${PROG_NAME}
+    $call(avr_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call(avr_link_exe)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(avr_compile_cpp, ${ExtraCompileOptions})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_attiny uft232r
+# jxmake -C ..\test\src\cpp_attiny uft232r
+target uft232r
+    jxmake run
+    $call(avr_upload_ft232r, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny uusbtinyisp
+# jxmake -C ..\test\src\cpp_attiny uusbtinyisp
+target uusbtinyisp
+    jxmake run
+    $call(avr_upload_usbtinyisp, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny uusbasp
+# jxmake -C ..\test\src\cpp_attiny uusbasp
+target uusbasp
+    jxmake run
+    $call(avr_upload_usbasp, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny uavrispmkii
+# jxmake -C ..\test\src\cpp_attiny uavrispmkii
+target uavrispmkii
+    jxmake run
+    $call(avr_upload_avrispmkii, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny uatmelice
+# jxmake -C ..\test\src\cpp_attiny uatmelice
+target uatmelice
+    jxmake run
+    $call(avr_upload_atmelice, ${PROG_NAME}, ${AICEMode}<SelTypeN>)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny userialupdi
+# jxmake -C ..\test\src\cpp_attiny userialupdi
+target userialupdi
+    jxmake run
+    if !${USE_JTAG2UPDI} ; $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPortU}             )
+    else                 ; $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPortA}, 'JTAG2UPDI')
+    endif
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csft232r
+# jxmake -C ..\test\src\cpp_attiny csft232r
+target csft232r
+    $call(avr_chksig_ft232r)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csusbtinyisp
+# jxmake -C ..\test\src\cpp_attiny csusbtinyisp
+target csusbtinyisp
+    $call(avr_chksig_usbtinyisp)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csusbasp
+# jxmake -C ..\test\src\cpp_attiny csusbasp
+target csusbasp
+    $call(avr_chksig_usbasp)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csavrispmkii
+# jxmake -C ..\test\src\cpp_attiny csavrispmkii
+target csavrispmkii
+    $call(avr_chksig_avrispmkii)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csatmelice
+# jxmake -C ..\test\src\cpp_attiny csatmelice
+target csatmelice
+    $call(avr_chksig_atmelice, ${AICEMode}<SelTypeN>)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_attiny csserialupdi
+# jxmake -C ..\test\src\cpp_attiny csserialupdi
+target csserialupdi
+    if !${USE_JTAG2UPDI} ; $call(avr_chksig_serialupdi, ${PPortU}             )
+    else                 ; $call(avr_chksig_serialupdi, ${PPortA}, 'JTAG2UPDI')
+    endif
+endtarget

@@ -1,0 +1,526 @@
+====================================================================================================
+Fuses and Lock Bits
+====================================================================================================
+
+Fuses and lock bits are emulated by ProgSWD because ARM MCUs have many variations on how exactly
+configuration bits and/or security bits are implemented and applied.
+
+Fuses are configuration bits and/or security bits that are NOT related to the overall/full read
+and/or write protection of the MCUs' memories via SWD.
+
+Lock bits are configuration bits and/or security bits that are ONLY related to the overall/full
+read and/or write protection of the MCUs' memories via SWD.
+
+ProgSWD will make the fuses into uniform 8-bit or 32-bit values ​​(depending on the MCU), however,
+lock bits should always be made into an 8-bit value.
+
+----------------------------------------------------------------------------------------------------
+
+In most cases, the programming session needs to be ended and the MCU needs to be reset so that the
+new configuration bits and/or security bits (and therefore, the fuses and lock bits) can be loaded;
+therefore, ProgSWD will only actually write the new configuration bits and/or security bits to the
+MCU at the end of the programming session. It should be noted that on some MCUs, a full power-cycle
+(power-on reset) is even required for the new bits to be loaded.
+
+Some ARM MCUs may have only partial/minimal support for configuration bits and/or security bits;
+some of them may not even support configuration bits and/or security bits at all.
+
+
+----------------------------------------------------------------------------------------------------
+STM32F0x - STM32F1x - STM32F3x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]   [23:16]   [15:08]   [07:00]
+0x1FFFF800       nUSER     USER      nRDP      RDP
+0x1FFFF804       nData1    Data1     nData0    Data0
+0x1FFFF808       nWRP1     WRP1      nWRP0     WRP0
+0x1FFFF80C       nWRP3     WRP3      nWRP2     WRP2
+
+Lock Bits :     RDP  [7:0] - FLASH_OBR  { RDPRT[2] or RDPRT[1]                     } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] USER [7:0] - FLASH_OBR  { ... nRST_STDBY[1] nRST_STOP[1] WDG_SW[1] } - please refer to the part-specific datasheet for more details
+            [1] Data0[7:0] - FLASH_OBR  { Data0[8]                                 }
+            [2] Data1[7:0] - FLASH_OBR  { Data1[8]                                 }
+            [3] WRP0 [7:0] - FLASH_WRPR { WRP[07:00]                               }
+            [4] WRP1 [7:0] - FLASH_WRPR { WRP[15:08]                               }
+            [5] WRP2 [7:0] - FLASH_WRPR { WRP[23:16]                               }
+            [6] WRP3 [7:0] - FLASH_WRPR { WRP[31:24]                               }
+
+Read protection (RDP) levels:
+    0 -> no read protection                       : write            0xA5 (STM32F1x) or 0xAA      (others) to lock bits
+    1 -> memory read protection                   : write other than 0xA5 (STM32F1x) or 0xAA/0xCC (others) to lock bits
+    2 -> chip read protection (also disable SWD!) : write                                    0xCC (others) to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32F2x - STM32F4x - STM32F7x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]     [23:16]     [15:08]     [07:00]
+0x40023C14       <various>   <various>   RDP         <various>
+0x40023C18       <various>   <various>   <various>   <various>
+0x40023C1C       <various>   <various>   <various>   <various>
+
+Lock Bits :     RDP [7:0] - FLASH_OPTCR  { RDP[8]          } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various> - FLASH_OPTCR  { ... ... 000 ... } - please refer to the part-specific datasheet for more details
+            [1] <various> - FLASH_OPTCR1 { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [2] <various> - FLASH_OPTCR2 { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32L0x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+0x1FF80000       n<various>   nRDP         <various>    RDP
+0x1FF80004       -----n<various>-----      -----<various>------
+0x1FF80008       -----nWRPROT1_L-----      -----WRPROT1_L------
+0x1FF8000C       -----nWRPROT1_H-----      -----WRPROT1_H------
+0x1FF80010       -----nWRPROT2_L-----      -----WRPROT2_L------
+
+Lock Bits :     RDP      [07:00] - FLASH_OPTR   [07:00] { RDPROT[7]     } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various>[15:00] - FLASH_OPTR   [15:08] { ... 000       } - please refer to the part-specific datasheet for more details
+            [1] <various>[15:00] - FLASH_OPTR   [31:16] { ... ...       } - please refer to the part-specific datasheet for more details
+            [2] WRPROT1  [15:00] - FLASH_WRPROT1[15:00] { WRPROT1_L[16] }
+            [3] WRPROT1  [31:16] - FLASH_WRPROT1[31:16] { WRPROT1_H[16] }
+            [4] WRPROT2  [15:00] - FLASH_WRPROT1[15:00] { WRPROT2_L[16] }
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32L1x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]   [23:16]    [15:08]   [07:00]
+0x1FF80000       nSPRMOD   nRDP       SPRMOD    RDP
+0x1FF80004       0xFF      nUSER      0x00      USER
+0x1FF80008       -----nWRP1_L-----    -----WRP1_L-----
+0x1FF8000C       -----nWRP1_H-----    -----WRP1_H-----
+0x1FF80010       -----nWRP2_L-----    -----WRP2_L-----
+0x1FF80014       -----nWRP2_H-----    -----WRP2_H-----
+0x1FF80018       -----nWRP3_L-----    -----WRP3_L-----
+0x1FF8001C       -----nWRP3_H-----    -----WRP3_H-----
+0x1FF80080       -----nWRP4_L-----    -----WRP4_L-----
+0x1FF80084       -----nWRP4_H-----    -----WRP4_H-----
+
+Lock Bits :     RDP   [07:00] - FLASH_OBR  [07:00] { RDPRT[7]   } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] SPRMOD[07:00] - FLASH_OBR  [15:08] { ... 000    } - please refer to the part-specific datasheet for more details
+            [1] USER  [07:00] - FLASH_OBR  [31:16] { 000 ...    } - please refer to the part-specific datasheet for more details
+            [2] WRP1  [15:00] - FLASH_WRPR1[15:00] { WRP1_L[16] }
+            [3] WRP1  [31:16] - FLASH_WRPR1[31:16] { WRP1_H[16] }
+            [4] WRP2  [15:00] - FLASH_WRPR2[15:00] { WRP2_L[16] } - available in category 3, 4, 5, 6 devices only
+            [5] WRP2  [31:16] - FLASH_WRPR2[31:16] { WRP2_H[16] } - available in category 3, 4, 5, 6 devices only
+            [6] WRP3  [15:00] - FLASH_WRPR3[15:00] { WRP3_L[16] } - available in category    4, 5, 6 devices only
+            [7] WRP3  [31:16] - FLASH_WRPR3[31:16] { WRP3_H[16] } - available in category    4, 5, 6 devices only
+            [8] WRP4  [15:00] - FLASH_WRPR4[15:00] { WRP4_L[16] } - available in category       5    devices only
+            [9] WRP4  [31:16] - FLASH_WRPR4[31:16] { WRP4_H[16] } - available in category       5    devices only
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32L4x
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTR       ------------<various>------------      RDP
+FLASH_*          ------------------<various>-------------------
+...              ...
+
+Lock Bits :     RDP      [07:00] - OPTR          [07:00] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various>[31:00] - FLASH_OPTR    [31:08] { ... ... ... 000 } - please refer to the part-specific datasheet for more details
+            [1] <various>[31:00] - FLASH_PCROP1SR[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [2] <various>[31:00] - FLASH_PCROP1ER[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [3] <various>[31:00] - FLASH_WRP1AR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [4] <various>[31:00] - FLASH_WRP1BR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32L5x
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTR       ------------<various>------------      RDP
+FLASH_*          ------------------<various>-------------------
+...              ...
+
+Lock Bits :      RDP      [07:00] - OPTR              [07:00] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] <various>[31:00] - FLASH_OPTR        [31:08] { ... ... ... 000 } - please refer to the part-specific datasheet for more details
+   Secure   [ 1] <various>[31:00] - FLASH_NSBOOTADD0R [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 2] <various>[31:00] - FLASH_NSBOOTADD1R [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 3] <various>[31:00] - FLASH_SECBOOTADD0R[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 4] <various>[31:00] - FLASH_SECWM1R1    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 5] <various>[31:00] - FLASH_SECWM1R2    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 6] <various>[31:00] - FLASH_WRP1AR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 7] <various>[31:00] - FLASH_WRP1BR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 8] <various>[31:00] - FLASH_SECWM2R1    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 9] <various>[31:00] - FLASH_SECWM2R2    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [10] <various>[31:00] - FLASH_WRP2AR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [11] <various>[31:00] - FLASH_WRP2BR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [12] <various>[31:00] - FLASH_SECBB1R1    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [13] <various>[31:00] - FLASH_SECBB1R2    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [14] <various>[31:00] - FLASH_SECBB1R3    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [15] <various>[31:00] - FLASH_SECBB1R4    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [16] <various>[31:00] - FLASH_SECBB2R1    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [17] <various>[31:00] - FLASH_SECBB2R2    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [18] <various>[31:00] - FLASH_SECBB2R3    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [19] <various>[31:00] - FLASH_SECBB2R4    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [20] <various>[31:00] - FLASH_SECHDPCR    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [21] <various>[31:00] - FLASH_PRIVCFGR    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] <various>[31:00] - FLASH_OPTR        [31:08] { ... ... ... 000 } - please refer to the part-specific datasheet for more details
+   Non-     [ 1] <various>[31:00] - FLASH_NSBOOTADD0R [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   Secure   [ 2] <various>[31:00] - FLASH_NSBOOTADD1R [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 3] <various>[31:00] - FLASH_WRP1AR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 4] <various>[31:00] - FLASH_WRP1BR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 5] <various>[31:00] - FLASH_WRP2AR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 6] <various>[31:00] - FLASH_WRP2BR      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 7] <various>[31:00] - FLASH_PRIVCFGR    [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32G0x
+----------------------------------------------------------------------------------------------------
+
+##### !!! TODO !!! #####
+
+
+----------------------------------------------------------------------------------------------------
+STM32G4x
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTR       ------------<various>------------      RDP
+FLASH_*          ------------------<various>-------------------
+...              ...
+
+Lock Bits :      RDP      [07:00] - OPTR          [07:00] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] <various>[31:00] - FLASH_OPTR    [31:08] { ... ... ... 000 } - please refer to the part-specific datasheet for more details
+   Cat-2    [ 1] <various>[31:00] - FLASH_PCROP1SR[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   Device   [ 2] <various>[31:00] - FLASH_PCROP1ER[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 3] <various>[31:00] - FLASH_WRP1AR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 4] <various>[31:00] - FLASH_WRP1BR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 5] <various>[31:00] - FLASH_PCROP2SR[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 6] <various>[31:00] - FLASH_PCROP2ER[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 7] <various>[31:00] - FLASH_WRP2AR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 8] <various>[31:00] - FLASH_WRP2BR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 9] <various>[31:00] - FLASH_SEC1R   [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [10] <various>[31:00] - FLASH_SEC2R   [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] <various>[31:00] - FLASH_OPTR    [31:08] { ... ... ... 000 } - please refer to the part-specific datasheet for more details
+   Cat-3    [ 1] <various>[31:00] - FLASH_PCROP1SR[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   Device   [ 2] <various>[31:00] - FLASH_PCROP1ER[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   &        [ 3] <various>[31:00] - FLASH_WRP1AR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   Cat-4    [ 4] <various>[31:00] - FLASH_WRP1BR  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+   Device   [ 9] <various>[31:00] - FLASH_SEC1R   [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32H72x - STM32H73x
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTSR      -----<various>------      RDP          <various>
+FLASH_*          ------------------<various>-------------------
+...              ...
+
+Lock Bits :     RDP      [07:00] - OPTSR      [15:08] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various>[31:00] - FLASH_OPTSR[31:08] { ... ... 000 ... } - please refer to the part-specific datasheet for more details
+            [1] <various>[31:00] - FLASH_BOOT [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [2] <various>[31:00] - FLASH_PRAR [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [3] <various>[31:00] - FLASH_SCAR [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [4] <various>[31:00] - FLASH_WPSN [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32H74x - STM32H75x
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTSRn     -----<various>------      RDP          <various>
+FLASH_*n         ------------------<various>-------------------
+...              ...
+
+Lock Bits :     RDP      [07:00] - OPTSRn          [15:08] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various>[31:00] - FLASH_OPTSRn    [31:08] { ... ... 000 ... } - please refer to the part-specific datasheet for more details
+            [1] <various>[31:00] - FLASH_BOOT/BOOT7[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [2] <various>[31:00] - FLASH_BOOT4     [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [3] <various>[31:00] - FLASH_PRARn     [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [4] <various>[31:00] - FLASH_SCARn     [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [5] <various>[31:00] - FLASH_WPSNn     [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+
+----------------------------------------------------------------------------------------------------
+STM32H7Ax - STM32H7Bx
+----------------------------------------------------------------------------------------------------
+
+Flash Register   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+FLASH_OPTSRn     -----<various>------      RDP          <various>
+FLASH_*n         ------------------<various>-------------------
+...              ...
+
+Lock Bits :     RDP      [07:00] - OPTSRn      [15:08] { RDPROT[7]       } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [0] <various>[31:00] - FLASH_OPTSRn[31:08] { ... ... 000 ... } - please refer to the part-specific datasheet for more details
+            [1] <various>[31:00] - FLASH_BOOT  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [2] <various>[31:00] - FLASH_OTPBL [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [3] <various>[31:00] - FLASH_PRARn [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [4] <various>[31:00] - FLASH_SCARn [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [5] <various>[31:00] - FLASH_WPSGNn[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+Read protection (RDP) levels:
+    0 -> no read protection                  : write            0xAA      to lock bits
+    1 -> memory read protection              : write other than 0xAA/0xCC to lock bits
+    2 -> chip read protection (disable SWD!) : write                 0xCC to lock bits
+
+Since RDP level 2 is an irreversible operation, ProgSWD intentionally prevents this level from being
+enabled.
+
+The OTP BLOCK LOCKING operation (setting any bit in FLASH_OTPBL) is IRREVERSIBLE!
+
+
+----------------------------------------------------------------------------------------------------
+STM32WLEx
+----------------------------------------------------------------------------------------------------
+
+##### !!! TODO !!! #####
+
+
+----------------------------------------------------------------------------------------------------
+NRF51x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]   [23:16]   [15:08]   [07:00]
+0x10001000       ---------------CLENR0----------------
+0x10001004       0xFF      0xFF      PALL      PR0
+0x10001008       0xFF      0xFF      0xFF      XTALFREQ
+0x10001010       0xFF      0xFF      ------FWID-------
+0x10001014       -----------BOOTLOADERADDR------------
+0x10001080       ------------CUSTOMER[00]-------------
+...              ...
+0x100010FC       ------------CUSTOMER[31]-------------
+
+Lock Bits :      RBPCONF       [15:00] - { PALL[1] PR0[1]     } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] CLENR0        [31:00] - { CLENR0[32]         } - please refer to the part-specific datasheet for more details
+            [ 1] XTALFREQ      [07:00] - { XTALFREQ[8]        } - please refer to the part-specific datasheet for more details
+            [ 2] FWID          [15:00] - { FWID[16]           } - please refer to the part-specific datasheet for more details
+            [ 3] BOOTLOADERADDR[31:00] - { BOOTLOADERADDR[32] } - please refer to the part-specific datasheet for more details
+            [ 4] CUSTOMER00    [31:00] - { CUSTOMER00[32]     }
+            ...
+            [35] CUSTOMER31    [31:00] - { CUSTOMER00[31]     }
+
+WARNING : On NRF51x, UICR can only be erased by ERASEALL (full chip erase)!
+
+Read protection:
+    no read protection : write 0x03 to lock bits
+    protect region 0   : write 0x02 to lock bits
+    protect all        : write 0x00 to lock bits
+
+
+----------------------------------------------------------------------------------------------------
+NRF52x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]      [23:16]      [15:08]      [07:00]
+0x10001200       0bC1111111   0xFF         0xFF         0b11BAAAAA
+0x10001204       0bC1111111   0xFF         0xFF         0b11BAAAAA
+0x10001208       0xFF         0xFF         0xFF         PALL
+0x1000120C       0xFF         0xFF         0xFF         PROTECT  (0b1111111A)
+0x10001210       0xFF         0xFF         CPUFPBEN     CPUNIDEN
+0x10001304       0xFF         0xFF         0xFF         VOUT     (0b11111AAA)
+0x10001080       -----------------CUSTOMER[00]-----------------
+...              ...
+0x100010FC       -----------------CUSTOMER[31]-----------------
+
+Lock Bits :      APPROTECT     [07:00] - { PALL[8]                 } - please refer to the part-specific datasheet for more details
+
+Fuse[]    : [ 0] PSELRESET0    [31:00] - { PSELRESET0[32]          } - please refer to the part-specific datasheet for more details
+            [ 1] PSELRESET1    [31:00] - { PSELRESET1[32]          } - please refer to the part-specific datasheet for more details
+            [ 2] NFCPINS       [00:00] - { PROTECT[1]              } - please refer to the part-specific datasheet for more details
+            [ 3] DEBUGCTRL     [15:00] - { CPUFPBEN[8] CPUNIDEN[0] } - please refer to the part-specific datasheet for more details
+            [ 4] REGOUT0       [02:00] - { VOUT[3]                 } - please refer to the part-specific datasheet for more details
+            [ 5] CUSTOMER00    [31:00] - { CUSTOMER00[32]          }
+            ...
+            [36] CUSTOMER31    [31:00] - { CUSTOMER00[31]          }
+
+WARNING : APPROTECT.PALL can only be erased by using the CTRL-AP!
+
+Read protection:
+    no read protection              : write non zero to lock bits
+    protect all (also disable SWD!) : write zero     to lock bits
+
+Since read protection can only be disabled using the CTRL-AP, for now, ProgSWD intentionally
+prevents this from being enabled.
+
+
+----------------------------------------------------------------------------------------------------
+ATSAMDx
+----------------------------------------------------------------------------------------------------
+
+NVM User Row Mapping
+    [63:48] LOCK
+    [47:42] --- RESERVED ---
+    [   41] --- RESERVED ---
+    [   40] BOD33 Hysteresis
+    [   39] WDT WEN
+    [38:35] WDT EWOFFSET
+    [34:31] WDT Window
+    [30:27] WDT Period
+    [   26] WDT Always-On
+    [   25] WDT Enable
+    [24:17] --- RESERVED ---
+    [16:15] BOD33 Action
+    [   14] BOD33 Enable
+    [13:08] BOD33 Level
+    [   07] --- RESERVED ---
+    [06:04] EEPROM Emulation-Size
+    [   03] --- RESERVED ---
+    [02:00] BOOTPROT
+
+Location     Assignment of Bits
+             [63:56]      [55:48]      [47:40]      [39:32]      [31:24]      [23:16]      [15:08]      [07:00]
+0x00804000   0bLLLLLLLLLLLLLLLL        0b.......B   0bWWWWWWWWWWWWWWW.        0b.......B   0bBBBBBBBB   0b.EEE.PPP
+
+Lock Bits :      NOT SUPPORTED (always 0x00)
+
+Fuse[]    : [ 0] LOCK      [15:00] - { LOCK[16]                                                      } - NVM region lock bits
+            [ 1] WDT   ... [14:00] - { WEN[1] EWOFFSET[4] Window[4] Period[4] Always-On[1] Enable[1] } - WDT   ...
+            [ 2] BOD33 ... [09:00] - { Hysteresis[1] Action[2] Enable[1] Level[6]                    } - BOD33 ...
+            [ 3] EEPROM    [02:00] - { Emulation-Size[3]                                             } - EEPROM emulation size
+            [ 4] BOOTPROT  [02:00] - { BOOTPROT[3]                                                   } - bootloader size
+
+
+----------------------------------------------------------------------------------------------------
+ATSAM3x
+----------------------------------------------------------------------------------------------------
+
+Location           Assignment of Bits
+                   [31:24]   [23:16]   [15:08]   [07:00]
+       GPNVM       0x00      0x00      0x00      0b00000BBS    EEFC_CMD_[S|C|G]GPB
+Bank 0 Lock Bits   0x00      0x00      SECTOR_PROTECT_15_00    EEFC_CMD_[S|C|G]LB
+Bank 1 Lock Bits   0x00      0x00      SECTOR_PROTECT_15_00    EEFC_CMD_[S|C|G]LB
+
+Lock Bits :      GPNVM            [00:00] - { SECURITY_BIT[1] } - disable access to flash via SWD!
+
+Fuse[]    : [ 0] GPNVM            [02:01] - { GPNVM[2]        } - boot selection
+            [ 1] Bank 0 Lock Bits [15:00] - { LOCK_BIT[16]    } - flash bank 0 sector 15 ... 0 protection
+            [ 2] Bank 1 Lock Bits [15:00] - { LOCK_BIT[16]    } - flash bank 1 sector 15 ... 0 protection
+
+WARNING : # SECURITY_BIT can only be erased by asserting the ERASE pin to high!
+          # Once the SECURITY_BIT is set, the SWD connection will be lost!
+
+
+----------------------------------------------------------------------------------------------------
+R7xA4M1x
+----------------------------------------------------------------------------------------------------
+
+Memory Address   Assignment of Bits
+                 [31:24]   [23:16]    [15:08]   [07:00]
+0x00000400       ------------------<various>-------------------
+...              ...
+0x00000438       ------------------<various>-------------------
+
+Lock Bits :      NOT SUPPORTED (always 0x00)
+
+Fuse[]    : [ 0] <various>[31:00] - OFS0      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 1] <various>[31:00] - OFS1      [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 2] <various>[31:00] - SECMPUPCS0[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 3] <various>[31:00] - SECMPUPCE0[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 4] <various>[31:00] - SECMPUPCS1[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 5] <various>[31:00] - SECMPUPCE1[31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 6] <various>[31:00] - SECMPUS0  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 7] <various>[31:00] - SECMPUE0  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 8] <various>[31:00] - SECMPUS1  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [ 9] <various>[31:00] - SECMPUE1  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [10] <various>[31:00] - SECMPUS2  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [11] <various>[31:00] - SECMPUE2  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [12] <various>[31:00] - SECMPUS3  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [13] <various>[31:00] - SECMPUE3  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+            [14] <various>[31:00] - SECMPUAC  [31:00] { ... ... ... ... } - please refer to the part-specific datasheet for more details
+
+====================================================================================================

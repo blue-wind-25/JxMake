@@ -1,0 +1,213 @@
+====================================================================================================
+Appendix A : AVR and SAM Programming Header
+====================================================================================================
+
+This pin diagram is drawn based on the function for the target's header.
+
+In the case of asymmetrical pin functions, please adjust the pin diagram for the programmer's header
+as required.
+
+
+----------------------------------------------------------------------------------------------------
+ISP (AVR Only)
+----------------------------------------------------------------------------------------------------
+
+     10 Pin - Microchip/Atmel Standard                6 Pin - Microchip/Atmel Standard
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓                 ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃MOSI┃VTG ┃          ┃GND ┃MISO┃                ▶┃MISO┃VTG ┃          ┃GND ┃RST#┃
+     ┣━━━━╋━━━━┫          ┣━━━━╋━━━━┫                 ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┃NC  ┃GND*┃          ┃GND*┃SCK ┃                 ┊SCK ┃MOSI┃          ┃MOSI┃SCK ┊
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩                 ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┊RST#┃GND*┃          ┃GND*┃RST#┊                 ┃RST#┃GND ┃          ┃VTG ┃MISO┃◀
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪                 ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+     ┃SCK ┃GND*┃          ┃GND*┃NC  ┃
+     ┣━━━━╋━━━━┫          ┣━━━━╋━━━━┫
+     ┃MISO┃GND ┃          ┃VTG ┃MOSI┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+Some of the marked GND* pins may not be connected at all in some programmers. Those pins may also be
+used for other purposes such as serial communication; while there should be a safety feature on the
+programmer (just in case the target's header always connects those pins to GND), please always check
+it first with your programmer's datasheet.
+
+
+----------------------------------------------------------------------------------------------------
+TPI (AVR Only)
+----------------------------------------------------------------------------------------------------
+
+     6 Pin - Microchip/Atmel Standard
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃DATA┃VTG ┃          ┃GND ┃RST#┃
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┊CLK ┃NC  ┃          ┃NC  ┃CLK ┊
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┃RST#┃GND ┃          ┃VTG ┃DATA┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+     10 Pin - USBasp                                  6 Pin - USBasp Using 10 to 6 Pin Adapter Board
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓                 ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃DATA┃VTG ┃          ┃GND ┃NC  ┃                ▶┃NC  ┃VTG ┃          ┃GND ┃RST#┃
+     ┣━━━━╋━━━━┫          ┣━━━━╋━━━━┫                 ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┃NC  ┃GND*┃          ┃GND*┃CLK ┃                 ┊CLK ┃DATA┃          ┃DATA┃CLK ┊
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩                 ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┊RST#┃GND*┃          ┃GND*┃RST#┊                 ┃RST#┃GND ┃          ┃VTG ┃NC  ┃◀
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪                 ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+     ┃CLK ┃GND*┃          ┃GND*┃NC  ┃
+     ┣━━━━╋━━━━┫          ┣━━━━╋━━━━┫
+     ┃NC  ┃GND ┃          ┃VTG ┃DATA┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+Some of the marked GND* pins may not be connected at all in some programmers. Those pins may also be
+used for other purposes such as serial communication; while there should be a safety feature on the
+programmer (just in case the target's header always connects those pins to GND), please always check
+it first with your programmer's datasheet.
+
+In some programmers, the NC pins may be used for other purposes such as serial communication.
+
+According to ATtiny datasheets, programming using the TPI interface will only work with a 5V supply
+voltage.
+
+
+----------------------------------------------------------------------------------------------------
+PDI (AVR Only)
+----------------------------------------------------------------------------------------------------
+
+     6 Pin - Microchip/Atmel Standard
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃DATA┃VTG ┃          ┃GND ┃CLK ┃
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┊NC  ┃NC  ┃          ┃NC  ┃NC  ┊
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┃CLK ┃GND ┃          ┃VTG ┃DATA┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+In some programmers, the NC pins may be used for other purposes such as serial communication.
+
+Please note that the maximum supply voltage for ATxmega is 3.3V.
+
+
+----------------------------------------------------------------------------------------------------
+UPDI (AVR Only)
+----------------------------------------------------------------------------------------------------
+
+      6 Pin - Microchip/Atmel Standard
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃DATA┃VTG ┃          ┃GND ┃NC  ┃
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┊NC  ┃NC  ┃          ┃NC  ┃NC  ┊
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┃NC  ┃GND ┃          ┃VTG ┃DATA┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+In some programmers, the NC pins may be used for other purposes such as serial communication.
+
+
+----------------------------------------------------------------------------------------------------
+AWIRE (AVR Only)
+----------------------------------------------------------------------------------------------------
+
+      6 Pin - Microchip/Atmel Standard
+     ┏━━━━┳━━━━┓          ┏━━━━┳━━━━┓
+    ▶┃DATA┃VTG ┃          ┃GND ┃NC  ┃
+     ┡━━━━╋━━━━┫          ┣━━━━╋━━━━┩
+     ┊NC  ┃NC  ┃          ┃NC  ┃NC  ┊
+     ┢━━━━╋━━━━┫          ┣━━━━╋━━━━┪
+     ┃NC  ┃GND ┃          ┃VTG ┃DATA┃◀
+     ┗━━━━┻━━━━┛          ┗━━━━┻━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+In some programmers, the NC pins may be used for other purposes such as serial communication.
+
+Please note that the maximum supply voltage for AVR32 is 1.8V and 3.3V (core and peripheral).
+
+
+----------------------------------------------------------------------------------------------------
+JTAG (AVR and SAM)
+----------------------------------------------------------------------------------------------------
+
+     10 Pin - Microchip/Atmel Standard (AVR)
+     ┏━━━━━┳━━━━━┓          ┏━━━━━┳━━━━━┓
+    ▶┃TCK  ┃GND* ┃          ┃GND  ┃TDI  ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃TDO  ┃VTG  ┃          ┃TRST#┃NC*  ┃
+     ┡━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┩
+     ┊TMS  ┃SRST#┃          ┃SRST#┃TMS  ┊
+     ┢━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┪
+     ┃NC*  ┃TRST#┃          ┃VTG  ┃TDO  ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃TDI  ┃GND  ┃          ┃GND* ┃TCK  ┃◀
+     ┗━━━━━┻━━━━━┛          ┗━━━━━┻━━━━━┛
+
+     10 Pin - Microchip/Atmel Standard (SAM)
+     ┏━━━━━┳━━━━━┓          ┏━━━━━┳━━━━━┓
+    ▶┃VTG  ┃TMS  ┃          ┃TMS  ┃GND  ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃GND* ┃TCK  ┃          ┃TDI  ┃NC*  ┃
+     ┡━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┩
+     ┊GND* ┃TDO  ┃          ┃TDO  ┃GND* ┊
+     ┢━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┪
+     ┃NC*  ┃TDI  ┃          ┃TCK  ┃GND* ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃GND  ┃SRST#┃          ┃TMS  ┃VTG  ┃◀
+     ┗━━━━━┻━━━━━┛          ┗━━━━━┻━━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+In some programmers, the marked* pins may be used for other purposes.
+
+NOTE : # Atmel-ICE seems to be the best JTAG adapter that works with (almost?) all AVR and SAM MCUs;
+         depending on the firmware version currently installed, it may be possible to use Atmel-ICE
+         as a CMSIS-DAP device to program other ARM MCUs via JTAG.
+       # J-Link seems to be the best JTAG adapter that works with (almost?) all SAM MCUs.
+
+
+----------------------------------------------------------------------------------------------------
+SWD (SAM Only)
+----------------------------------------------------------------------------------------------------
+
+     10 Pin - Microchip/Atmel Standard
+     ┏━━━━━┳━━━━━┓          ┏━━━━━┳━━━━━┓
+    ▶┃VTG  ┃SWDIO┃          ┃RST# ┃GND  ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃GND* ┃SWCLK┃          ┃NC*  ┃NC*  ┃
+     ┡━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┩
+     ┊GND* ┃SWO  ┃          ┃SWO  ┃GND* ┊
+     ┢━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┪
+     ┃NC*  ┃NC*  ┃          ┃SWCLK┃GND* ┃
+     ┣━━━━━╋━━━━━┫          ┣━━━━━╋━━━━━┫
+     ┃GND  ┃RST# ┃          ┃SWDIO┃VTG  ┃◀
+     ┗━━━━━┻━━━━━┛          ┗━━━━━┻━━━━━┛
+
+VTG is usually used by programmers to sense the target's operating voltage; however some programmers
+may be able to power the target through this pin (there may be a jumper on it to enable/disable this
+feature).
+
+In some programmers, the marked* pins may be used for other purposes.
+
+NOTE : # ST-Link V2 clones seem to be the best SWD adapters that work with (almost?) all ARM MCUs.
+       # Atmel-ICE seems to be the best SWD adapter that works with (almost?) all SAM MCUs;
+         depending on the firmware version currently installed, it may be possible to use Atmel-ICE
+         as a CMSIS-DAP device to program other ARM MCUs via SWD.
+
+====================================================================================================

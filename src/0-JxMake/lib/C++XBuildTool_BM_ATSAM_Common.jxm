@@ -1,0 +1,251 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - ARM GCC - Common Code for Bare-Metal ATSAM Series                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the ARM C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_ARM.jxm'
+:::include_once 'DownloadBOSSA.jxm'
+:::include_once 'DownloadXPackOpenOCD.jxm'
+
+
+##### Update the definitions of executables, paths, and options
+const ATSAM_CommonCompileOptions := '-ffunction-sections' '-fdata-sections' '-ffreestanding'
+
+CppCommonAssemblerFlags  +:= ${ATSAM_CommonCPUOptions} ${ATSAM_CommonCompileOptions} ${ATSAM_CommonCompileMDef}
+
+CppCommonCcCompileFlags  +:= ${ATSAM_CommonCPUOptions} ${ATSAM_CommonCompileOptions} ${ATSAM_CommonCompileMDef}
+
+CppCommonCxxCompileFlags +:= ${ATSAM_CommonCPUOptions} ${ATSAM_CommonCompileOptions}
+CppCommonCxxCompileFlags +:= ${CppMinimizeSizeCompileFlags}
+
+CppCommonLinkFlags       +:= ${ATSAM_CommonCPUOptions} '-nostdlib' '-nostartfiles' '-Wl,--gc-sections'
+
+DebuggerProgram           := ${ARMDebugger}
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Download (and install) the latest command-line BOSSA
+    $call(download_latest_bossa, ${dlOnlyIfNotExist})
+    # Download (and install) the latest and OpenOCD from xPack
+    $call(download_latest_xpackopenocd_from_xpack, ${dlOnlyIfNotExist})
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to upload the given program via SAM-BA
+function __atsam_upload_samba_exec__(progName, device, arduinoErase, sambaOffset, unlockFlash, eraseFlash)
+    # Determine the path
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    # Perform erase and reset via Arduino 1200 baud hack as needed
+    if ${arduinoErase}
+        +@${BOSSA_executable} :"--port=${device}" -a
+        eraseFlash := false
+    endif
+    # Perform upload
+    local Opts := :"--port=${device}" :"--offset=${sambaOffset}" -i
+    if ${unlockFlash} : Opts +:= '-u'
+    if ${eraseFlash}  : Opts +:= '-e'
+                        Opts +:= '-w' '-v' ${BinFile} '-b' '-R'
+   +@${BOSSA_executable} ${Opts}
+endfunction
+
+function atsam_upload_samba(progName, device, arduinoErase, sambaOffset, unlockFlash, eraseFlash)
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__atsam_upload_samba_exec__, ${progName}, ${device}, ${arduinoErase}, ${sambaOffset}, ${unlockFlash}, ${eraseFlash})
+    $cmd_streaming_off()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to execute user command(s) via SWD
+function __atsam_check_swd_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    $call(__openocd_print_udev_rules__, ${XPackOOCD_udev_rule})
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function atsam_user_cmd_swd(interface, transport, adapterSpeed, targetDevice, cpuTapID, commands)
+    # Execute user command(s)
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_user_cmd_swd__                              , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${targetDevice}                                      , \
+        ${commands}                                          , \
+        ${cpuTapID}                                            \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__atsam_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to reset the MCU via SWD
+function atsam_reset_swd(interface, transport, adapterSpeed, targetDevice, cpuTapID)
+    # Perform reset
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_reset_swd__                                 , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${targetDevice}                                      , \
+        ${cpuTapID}                                            \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__atsam_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to upload the given program via SWD
+function atsam_upload_swd(progName, interface, transport, adapterSpeed, targetDevice, cpuTapID, sambaOffset)
+    # Determine the path
+    local BinFile := ~${progName/(.+)\.elf/$1.bin/}
+    # Perform upload
+    $cmd_streaming_on()
+    $call(                                                     \
+        __armgcc_upload_swd_simple__                         , \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${targetDevice}                                      , \
+        ${BinFile}                                           , \
+        ${cpuTapID}                                          , \
+        ${sambaOffset}                                         \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__atsam_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function atsam_debug_swd_start(progName, interface, transport, adapterSpeed, targetDevice, cpuTapID, runGDBLibFuncName, mcuInfoName, gdbPort, tclPort, telnetPort, debuggerProgram, noGDBExecCmd)
+    # Print message about GDB as needed
+    $call(__armgcc_debug_swd_start_print_gdb_info__, ${runGDBLibFuncName}, ${mcuInfoName}, ${progName}, ${debuggerProgram}, ${noGDBExecCmd})
+    # Run OpenOCD in server mode
+    $cmd_streaming_on()
+    $exec(                                                     \
+        __armgcc_debug_swd_start_exec_openocd__,               \
+        $call(__ccat_LDLibraryPaths__, ${XPackOOCD_dlib_dir}), \
+        ${XPackOOCD_openocd}                                 , \
+        ${XPackOOCD_scripts_dir}                             , \
+        ${interface}                                         , \
+        ${transport}                                         , \
+        ${adapterSpeed}                                      , \
+        ${targetDevice}                                      , \
+        ${gdbPort}                                           , \
+        ${tclPort}                                           , \
+        ${telnetPort}                                        , \
+        ${cpuTapID}                                            \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__atsam_check_swd_error_and_print_help__)
+endfunction
+
+function atsam_debug_swd_gdb(progName, gdbPort, debuggerProgram, autoConnect)
+    # Execute GDB
+    $sh_delay()
+    $cmd_streaming_on()
+    $exec(                             \
+        __armgcc_debug_swd_gdb_exec__, \
+        $call(__get_LDLibraryPaths__), \
+        ${debuggerProgram}           , \
+        ${gdbPort}                   , \
+        ${progName}                  , \
+        ${autoConnect}                 \
+    )
+    $cmd_streaming_off()
+    $sh_restore()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText                        := __c_cyan__  "Bare-Metal ${__ATSAM_BTLIB_HELP_MCU_Info_Name__}" __c_white__
+    local NGInfo                        := __c_white__ 'for ' ${NGText} ' '
+    local __CPP_BTLIB_HELP_EN_gen_lst__ := true
+    local MI                            := ${__ATSAM_BTLIB_HELP_MCU_Info_Name__}
+    local FP                            := ${__ATSAM_BTLIB_HELP_MCU_Func_Prefix_Name__}
+    $call(__origin__, ${NGInfo}, 1, true, false, true, true)
+   #$call(__btlib_help_print_title_functions__, 7, 25, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories,      ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist        ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ "    ${FP}_upload_samba   (progName  , device       , " __c_white__ ': upload program to ' __c_cyan__ ${MI} __c_white__ ' via ' __c_cyan__ 'SAM-BA serial port'
+    echoln __c_green__ '                                      ?sambaOffset ) ' __c_green__ '      progName   ' __c_white__ ' program name;       use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      device     ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      sambaOffset' __c_white__ ' set this to the correct size of the SAM-BA bootloader - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_Default_SAMBA_Offset__} __c_white__ '\''
+    echoln
+    echoln __c_green__ "    ${FP}_reset_swd      (            ?interface   , " __c_white__ ': reset the attached ' __c_cyan__ ${MI} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name    - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Interface__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport             - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Transport__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed         - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_AdapterSpeed__} __c_white__ '\''
+    echoln
+    echoln __c_green__ "    ${FP}_upload_swd     (progName  , ?interface   , " __c_white__ ': upload program to the attached ' __c_cyan__ ${MI} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                      ?sambaOffset ) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                                    - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Interface__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                                             - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Transport__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                                         - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_AdapterSpeed__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      sambaOffset ' __c_white__ ' set this to the correct size of the SAM-BA bootloader - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_Default_SAMBA_Offset__} __c_white__ '\''
+    echoln
+    echoln __c_green__ "    ${FP}_debug_swd_start(progName  , ?interface   , " __c_white__ ': start a debug session for the attached ' __c_cyan__ ${MI} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_white__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                      ?noGDBExecCmd) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                      - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Interface__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                               - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_Transport__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                           - the default is \'' __c_yellow__ ${__ATSAM_BTLIB_HELP_SWD_Default_AdapterSpeed__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      noGDBExecCmd' __c_white__ ' do not print the command to execute GDB - the default is \'' __c_yellow__ false __c_white__ '\''
+    echoln
+    echoln __c_green__ "    ${FP}_debug_swd_gdb  (progName  , ?autoConnect ) " __c_white__ ': execute the GDB program for the attached ' __c_cyan__ ${MI} __c_white__ ' which can be used to connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session'
+    echoln
+    echoln __c_green__ "    ${FP}_link_exe       (?extraOptions            ) " __c_white__ ': link a ' ${NGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_reset__
+endfunction

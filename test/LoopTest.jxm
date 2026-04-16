@@ -1,0 +1,102 @@
+echoln "while ... endwhile (global)"
+
+I = 5
+while ${I}
+    echoln ${I}
+    sub I, ${I}, 1
+endwhile
+
+echoln "EXIT: ${I}\n"
+
+
+
+function testCB()
+    local I = 0
+    while 1
+        inc I
+        if ${I} < 10
+            continue
+        elif ${I} > 15
+           #$exit(7)
+           #-$mkdir('/root/test')
+            break
+        else
+            echoln ${I}
+        endif
+    endwhile
+endfunction
+
+echoln "while ... endwhile (in function)"
+$call(testCB)
+echoln "EXIT: ${I}\n"
+
+
+
+function testCB_OL()
+    local I = 0
+    while true
+        if 1 : add I, ${I}, 1
+        if ${I} < 10 : continue
+        if ${I} > 15 : break
+        echoln ${I}
+    endwhile
+endfunction
+
+echoln "while ... endwhile (in function)"
+$call(testCB_OL)
+echoln "EXIT: ${I}\n"
+
+
+
+echoln "do ... whilst (global)"
+
+I = 5
+do
+    echoln ${I}
+    sub I, ${I}, 1
+whilst ${I} >= 0
+
+echoln "EXIT: ${I}\n"
+
+
+
+echoln "repeat ... until (global)"
+
+I = 5
+repeat
+    echoln ${I}
+    sub I, ${I}, 1
+until ${I} < 0
+
+echoln "EXIT: ${I}\n"
+
+
+
+echoln "loop ... endloop (global)"
+
+I = 5
+loop
+    echoln ${I}
+    sub I, ${I}, 1
+    if ${I} < 0 : break
+endloop
+
+echoln "EXIT: ${I}\n"
+
+
+
+echoln "loop ... loop ... endloop ... endloop (global)"
+
+I = 3
+loop
+    J = 0
+    loop
+        echoln "${I} ${J}"
+        add J, ${J}, 1
+        if ${J} > 3 : break
+    endloop
+    sub I, ${I}, 1
+    if ${I} < 0 : break
+endloop
+
+echoln "EXIT: ${I} ${J}\n"

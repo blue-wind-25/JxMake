@@ -1,0 +1,164 @@
+====================================================================================================
+System Configuration
+====================================================================================================
+
+On Windows, if the JxMake documentation does not display properly, please consider downloading and
+installing the 'FreeMono' font from:
+    https://fontmeme.com/fonts/freemono-font
+    https://github.com/wheybags/freeablo/tree/master/resources/fonts/FreeMono
+
+The 'Source Code Pro' and 'Fira Code' fonts should also work (although they are not as complete as
+the 'FreeMono' font); they can be downloaded from:
+    https://fonts.google.com/specimen/Source+Code+Pro
+    https://fonts.google.com/specimen/Fira+Code
+
+
+----------------------------------------------------------------------------------------------------
+Configurable Environment Variables
+----------------------------------------------------------------------------------------------------
+
+JXMAKE_COUNTRY             - if set, it will override the country  defined by the system locale
+JXMAKE_LANGUAGE            - if set, it will override the language defined by the system locale
+
+JXMAKE_I18N_CAPTURE_FILE   - if set, a translation file (.po) will be created at the specified path
+
+
+JXMAKE_DBROWSER_FONT_NAME  - if not set, the default value is autodetected
+JXMAKE_DBROWSER_FONT_SIZE  - if not set, the default value is autodetected
+
+JXMAKE_SEDITOR_FONT_NAME   - if not set, the default value is autodetected
+JXMAKE_SEDITOR_FONT_SIZE   - if not set, the default value is autodetected
+
+JXMAKE_MAGIC_BAUDRATE      - if not set, the default value is 1200
+JXMAKE_LOWEST_BAUDRATE     - if not set, the default value is 2400
+JXMAKE_LOWEST_BAUDRATE_ALT - if not set, the default value is  600
+JXMAKE_RESET_PULSE_TIME_MS - if not set, the default value is  250
+
+
+----------------------------------------------------------------------------------------------------
+Serial Port Access in MacOS
+----------------------------------------------------------------------------------------------------
+
+In MacOS the 'root' user needs to be enabled first; for more details, please refer to:
+
+    https://support.apple.com/en-us/HT204012
+
+To give you full access to serial ports, as \'root\' (or use \'sudo\'), execute:
+
+    dseditgroup -o edit -a <your_user_name> -t user admin
+    dseditgroup -o edit -a <your_user_name> -t user wheel
+
+and restart your Mac.
+
+
+----------------------------------------------------------------------------------------------------
+Serial Port Access in Linux
+----------------------------------------------------------------------------------------------------
+
+From 'https://wiki.debian.org/SystemGroups':
+
+    dialout : Full and direct access to serial ports. Members of this group can reconfigure the
+              modem, dial anywhere, etc.
+
+    plugdev : Allows members to mount (only with the options nodev and nosuid, for security
+              reasons) and umount removable devices through pmount.
+
+    tty     : TTY devices are owned by this group. This is used by write and wall to enable them to
+              write to other people's TTYs, but it is not intended to be used directly.
+
+    uucp    : The uucp user and group is used by the UUCP subsystem. It owns spool and configuration
+              files. Users in the uucp group may run uucico.
+
+Adding your user to the 'dialout' group is usually enough to give you full access to serial ports;
+in this case as \'root\' (or use \'sudo\'), execute:
+
+    groupadd dialout
+    usermod -a -G dialout <your_user_name>
+
+Note that executing 'groupadd' is only necessary if the group somehow does not exist yet.
+
+In some distributions, it may also be necessary to add your user to one or more of the other groups
+mentioned above.
+
+
+----------------------------------------------------------------------------------------------------
+Raspberry Pi Pico (RP2040) UF2 Access in Linux
+----------------------------------------------------------------------------------------------------
+
+When a Raspberry Pi Pico is attached in UF2 mode, the correct USB vendor and device ID on Linux will
+be something like:
+
+    lsusb
+        ...
+        Bus 003 Device 015: ID 2e8a:0003
+        ...
+
+the correct block device tree will be something like:
+
+    lsblk
+        ...
+        sdc      8:32   1   128M  0 disk
+        └─sdc1   8:33   1   128M  0 part
+        ...
+
+finally, the correct device name by identity will be something like:
+
+    ls /dev/disk/by-id/usb-RPI_RP2*-part1
+        ...
+        /dev/disk/by-id/usb-RPI_RP2_E0C9125B0D9B-0:0-part1
+        ...
+
+
+It is possible that 'multipathd' will incorrectly detect the Pi as a multipath device and thus the
+block device tree will become something like:
+
+    lsblk
+        ...
+        sdc           8:32   1   128M  0 disk
+        └─mpatha    253:0    0   128M  0 mpath
+          └─mpatha1 253:1    0   128M  0 part
+        ...
+
+
+The temporary fix (as 'root' or use 'sudo') will be to execute something like:
+
+     systemctl stop multipathd
+     partprobe /dev/sdc
+
+Please be very careful when executing the above commands because you may actually have a multipath
+device currently attached to your system.
+
+
+The permanent fix (as 'root' or use 'sudo') will be something like:
+
+    edit '/etc/multipath.conf' and add:
+
+        blacklist {
+            devnode "^sdc"
+        }
+
+    or:
+
+        blacklist {
+            wwid RPI_RP2_E0C9125B0D9B-0:0
+        }
+
+    then execute:
+
+        systemctl restart multipathd
+
+Please refer to the output of 'dmesg' to adjust 'sdc' to match the correct device name in your
+system.
+
+Please use 'lsscsi' (as 'root' or use 'sudo') to find the WWID such as:
+
+    lsscsi --scsi_id
+        ...
+        [32:0:0:0]   disk    RPI      RP2              3     /dev/sdc   RPI_RP2_E0C9125B0D9B-0:0
+        ...
+
+
+It is also possible to remove all '/RPI_RP2_*' entries from '/etc/multipath/wwids', but 'multipath'
+and 'multipathd' will probably create the entries again later.
+
+====================================================================================================

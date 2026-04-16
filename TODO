@@ -1,0 +1,267 @@
+====================================================================================================
+To-Do List (Tentative - Somewhat Sorted by Importance)
+====================================================================================================
+
+# Complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system:
+      # A Raspberry Pi 3/4/5 or CM5 as the remote USB host will connect to:
+            # the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
+            # the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module; and
+            # the embedded USB-to-serial converter integrated into the hub above.
+        The remote USB host will run 5 servers:
+            # Two 'Serial over WiFi Bridge Servers' on ports 2520 and 2521 for
+              the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
+            # One 'Serial over WiFi Bridge Server' on port 2522 for
+              the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module;
+            # One 'Console Server' on port 2525; and
+            # One 'Serial Device Monitoring Server' on port 2500.
+      # One Raspberry Pi Pico W board as a PC USB dongle will:
+            # enumerate as a dual-CDC device;
+            # connect CDC0 and CDC1 to the remote USB host ports 2520 and 2521; and
+            # optionally connect to the remote USB host port 2500 for monitoring data.
+      # One Raspberry Pi Pico W board as a PC USB dongle will:
+            # enumerate as a dual-CDC device;
+            # connect CDC2 to the remote USB host port 2522;
+            # connect CDC3 to the console server on port 2525; and
+            # optionally connect to the remote USB host port 2500 for monitoring data.
+
+# Further verify and improve the firmwares for these modules:
+      'JxMake USB Serial Hub GLST'
+      'JxMake Power Supply Control'
+
+# Further improve ProgUPDI to support more MCUs:
+      # Verify ProgUPDI for MCUs with NVMCTL v5 (AVR EB series?).
+      # Test using the 'JxMake Versatile MCU Programmer' and 'JxMake Versatile MCU Programmer II'
+        as well, not just the 'JxMake DASA'.
+      # Implement support for 'HV-UPDI on nRST pin' and 'HV-UPDI on nRST pin with handshake':
+            # Improve the 'JxMake High Voltage Attachment II' module firmware and Java driver to
+              support this new feature (NOTE - the legacy 'JxMake High Voltage Attachment' module
+              two firmwares appear to be incompatible with this feature and cannot be upgraded to
+              support it).
+            # Further verify and improve the converter board that merges ISP and UPDI v1 connectors
+              into a UPDI v1 connector with HV-RST and a UPDI v2 connector (also with HV-RST).
+
+# Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
+  module.
+
+# Further complete, verify, and improve the implementation of the built-in script editor for
+  JxMakeFiles with syntax highlighting, code folding, and console support (including direct script
+  execution).
+
+# Further complete, verify, and improve the explanation of the parameters for the built-in functions
+  '$fwc_load_elf_bin()', '$mcu_prog_cfg_json()', '$mcu_prog_cfg_ini()', and '$mcu_prog_exec()' in
+  the documentation!
+
+# Further replace all 'TreeSet<>' with 'HashSet<>' if ordering is unnecessary.
+# Further replace all 'TreeMap<>' with 'HashMap<>' if ordering is unnecessary.
+
+# Further verify and improve the ProgPDI     reliability and speed as much as possible.
+# Further verify and improve the ProgBootTSB reliability and speed as much as possible.
+
+----------------------------------------------------------------------------------------------------
+
+# Release the non-default language ZIP dictionary files for the built-in script editor separately
+  and individually.
+
+# Make the types of JXMException thrown by functions more consistent.
+# Improve the clarity of error messages generated during JxMake script parsing and execution.
+# Improve and add more stack trace dumping locations (enabled via '--en-all-exception-st').
+
+# Further verify and improve the callback integration for JxMake User-Defined Function invoked from
+  Java code.
+
+# Implement a method to install local INF files via 'PowerShell' and 'PnPUtil', invoked through
+  'ProcessBuilder'.
+
+# Add timeout to all 'SWDExecInstBuilder.rdBusLoopWhileCmp*()' and 'SWDExecInstBuilder.rdlBits*()'
+  and others (including in the assembly programs).
+# Add better support for special (MCU-specific) commands in the ProgSWD and ProgExec classes and
+  the related JxMake built-in function.
+# Add more tests for '$mcu_prog_exec()'.
+
+# Further verify and improve the SerialDevice_JxMakeUSBGPIO class and its integration.
+# Further verify and improve the SerialDevice_Network       class and its integration.
+
+# Further verify and improve the ProgExec class and its related JxMake built-in function.
+# Further verify and improve the FWComposer implementation; test it in a real-world scenario
+  (maybe for combining user program with other precompiled program for nRF52?).
+
+# Further improve the SWIM module reliability and speed for the original 'JxMake USB-GPIO' module as
+  much as possible!
+
+# Further complete, verify, and improve the PIC16BitEPC assembler class as far as possible.
+# Further complete, verify, and improve the ARMCortexMThumb assembler class.
+
+# Implement JxMake's own PE (programming executive) for PIC24FJxxxG[AB][01]xx MCUs?
+
+# Further verify and improve the documentations.
+
+----------------------------------------------------------------------------------------------------
+
+# Further improve the AVR32DU28 test firmware by implementing a simpler USB CDC‑ACM stack, replacing
+  the one generated by MCC (MPLAB(R) Code Configurator).
+
+# Write the l10n translation files for usage help and UI texts.
+
+# Implement support for AVR network-based bootloaders, such as:
+      https://github.com/folny/SEM-Bootloader
+      https://github.com/per1234/Ariadne-Bootloader
+      etc.
+
+# Move all texts in the JxMake loadable libraries to a single file to be included by others?
+
+# Create a module that expands the DTR/nRST signal to nRST, RST, nBOOT, BOOT, etc. signals. So that
+  a single control signal will be sufficient to program MCUs requiring multiple control signals to
+  enter bootloader mode.
+
+# Further verify and improve the USB_ISS, JxMake DASA, JxMake USB_GPIO, ProgISP, ProgTPI, ProgUPDI,
+  ProgPDI, ProgLGT8, ProgSWIM, ProgSWD, ProgPIC*, ProgJTAG, ProgBootAVR109, ProgBootSTK500,
+  ProgBootSTK500v2, ProgBootChip45B2, ProgBootChip45B3, ProgBootTSB, ProgBootURCLOCK,
+  ProgBootSTM32Serial, ProgBootSTM32DFU, ProgBootLUFAHID, ProgBootLUFAPrinter, ProgBootAVRDFU,
+  ProgBootOpenBLT, ProgBootSAMBA, and ProgBootUSBasp classes as well as their related helper
+  classes.
+
+# Further verify that JxMake works properly at least on moderately modern Linux, Windows, and MacOS.
+# Further verify that JxMake works properly to build C/C++ and Java programs.
+# Further verify that the parallel execution mode ('+jxmake' and 'jxwait') really works reliably.
+
+# Further test with Java 11 (it is an LTS version).
+# Further test with Java 17 (it is an LTS version).
+# Further test with Java 21 (it is an LTS version).
+# Further test with Java 25 (it is an LTS version).
+
+# Further verify and improve the 'JxMake USB-GPIO II' module firmware and Java driver.
+# Further verify and improve the 'JxMake Versatile MCU Programmer II' module Java driver.
+# Further verify and improve the 'JxMake High Voltage Attachment II' module and its firmware.
+# Further verify and improve the 'JxMake High Voltage Attachment' module and its two firmwares.
+# Further verify and improve the 'JxMake Analog Switch Variant' module.
+
+# Further verify and improve the INIEncoderLite, INIDecoder, JSONEncoderLite, JSONDecoder, JSONUtil,
+  and GitHubUtil classes.
+# Further verify and improve the simple Java source code preprocessor class implementation (JavaSP).
+
+# Perform check and cleanup on all the JxMake loadable libraries to ensure that the function and
+  target names are consistent!
+# Integrate the JxMake built-in functions related to the ProgExec class into the loadable library?
+# Add the commonly used compile and link targets to the JxMake loadable libraries?
+# Further verify and improve the 'avr_upload_lpt' and 'avr_upload_hid' functions located in the
+  'C++XBuildTool_AVR_Native' library implementation (they may not always work for all platforms).
+# Implement the support for 'avrftdi' and 'avrftdi_jtag' programmers (such as 'FT232H') for AVRDUDE?
+
+# Implement the support for more ARM MCUs in ProgSWD (whenever possible).
+# Implement the support for more PIC MCUs in ProgPIC (whenever possible).
+
+----------------------------------------------------------------------------------------------------
+
+# Update the Java SDK requirement to Java SDK 11 or later.
+# Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Add support for cloning GIT repository and its submodules (using JGit 6.x or later)?
+
+# Add more built-in functions as needed.
+
+# Implement a library to download and install Python from:
+      https://github.com/indygreg/python-build-standalone/releases
+  with user-selectable version?
+# How to handle:
+      https://adamj.eu/tech/2022/11/04/why-does-python-deprecationwarning-invalid-escape-sequence
+  how about:
+      https://github.com/asottile/pyupgrade
+
+# Create a 'JxMake USB-GPIO III' module using the STM32H7xx, compatible with the same
+  'Logic Level Translator' module used in the 'JxMake USB-GPIO II' module.
+
+----------------------------------------------------------------------------------------------------
+
+# Update the Java SDK requirement to Java SDK 17 or later.
+# Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Improve the support for cloning GIT repository and its submodules (using JGit 7.x or later)?
+
+# Replace 'com.j256.simplemagic' with JxMake's own derivative library (adds support for more MIME
+  types and extra information).
+# Replace 'com.intellectualsites.http' with JxMake's own derivative library (implemented using the
+  more modern 'java.net.http.HttpClient', if possible).
+# Replace 'org.kamranzafar.jtar' with JxMake's own derivative library (adds support for archiving
+  symbolic links).
+# Replace 'org.itadaki.bzip2' with JxMake's own derivative library.
+# Replace 'org.tukaani.xz' with JxMake's own derivative library.
+
+# Further verify and improve the implementation of these classes:
+      ArduinoBoardsTxt
+      HTTPDownloader
+      TarGen
+      DocBrowser
+      XMLFrame
+      JDrawChart
+      SerialConsole
+
+# Implement syntax highlighting scripts or rules for other editors?
+
+----------------------------------------------------------------------------------------------------
+
+# Update the Java SDK requirement to Java SDK 25 or later.
+# Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Fully integrate 'https://github.com/manuelbl/JavaDoesUSB' to provide native access to raw USB
+  devices, enabling JxMake to support DFU, HID, and other USB bootloaders without external tooling.
+
+# Replace all 3rd-party Java Native Interface (JNI) usage with the Java Foreign Function & Memory
+  (FFM) API - using either the updated external libraries or JxMake's own libraries.
+
+# Replace all 'Makefile' with 'JxMakeFile' to make JxMake truly self-hosting.
+
+# Create another repository for the 'hid_bootloader_cli' source code and for distributing the
+  compiled binaries?
+
+----------------------------------------------------------------------------------------------------
+
+# Implement an automatic garbage collector so that the '$*_delete' built-in functions do not need to
+  be called manually?
+
+# Add more dedicated/specialized functions for external AVR programmers in the JxMake library.
+
+# Further verify and improve the implementation of these libraries:
+      ArduinoXBuildTool
+      C++XBuildTool_GCC_ARM
+      C++XBuildTool_GCC_RISCV
+      C++XBuildTool_GCC_Xtensa
+      C++XBuildTool_BM_ESP8266
+      C++XBuildTool_BM_ESP32
+      C++XBuildTool_BM_ESP32C3
+      C++XBuildTool_BM_ATSAMD21
+      C++XBuildTool_BM_ATSAM3X
+      C++XBuildTool_BM_NRF51
+      C++XBuildTool_BM_NRF52
+      C++XBuildTool_AVR_Native      (Native  AVR GCC    SDK)
+      C++XBuildTool_ESP8266_Arduino (Arduino ESP8266    SDK)
+      C++XBuildTool_RP2040_Pico     (Native  Pico       SDK)
+      C++XBuildTool_STM32_Cube      (Native  STM32 Cube SDK)
+      C++XBuildTool_STM8_SPL        (Native  STM8 SPL   SDK)
+      C++XBuildTool_MCS51_Native    (Native  SDCC       SDK)
+      ...<other_libraries>...
+
+# Implement new loadable libraries ('C++XBuildTool_BM_ESP32S2/S3') and their tests?
+# Implement new loadable libraries ('C++XBuildTool_BM_ESP32C2/C5/C6/H2/P4') and their tests?
+# Implement new loadable libraries ('C++XBuildTool_RP235X_Pico.jxm') for the new Raspberry Pi Pico
+  MCUs (RP2350A, RP2350B, RP2354A, and RP2354B) and their tests?
+
+# Try to find a smaller stub version of 'android.jar' to replace the one used by jSerialComm in the
+  directory 'src/com/fazecast/jSerialComm/external' (if possible).
+
+----------------------------------------------------------------------------------------------------
+
+# Implement the support for AVR build system using Arduino SDK; LOW PRIORITY.
+
+# Implement the support for ESP8266 build system using native (non-Arduino) SDK; VERY LOW PRIORITY
+  because the Arduino SDK currently seems to work better than the native (non-Arduino) SDK.
+
+# Implement the support for RP2040 build system using Arduino SDK; VERY LOW PRIORITY because the
+  Arduino SDK seems to be quite complicated.
+
+# Implement the support for STM32 build system using Arduino SDK; VERY LOW PRIORITY because the
+  Arduino SDK seems to be quite complicated.
+
+# Implement the support for STM8 build system using Arduino SDK; VERY LOW PRIORITY because the
+  Arduino SDK seems to be unmaintained.
+
+====================================================================================================

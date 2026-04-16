@@ -1,0 +1,56 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Regular Expression for Variable Content Modifications
+----------------------------------------------------------------------------------------------------
+
+<dst_var_name> = ${<src_var_name>/<regexp_string>/[replacement_string]/}
+<dst_var_name> = $[<src_var_name>/<regexp_string>/[replacement_string]/]
+
+
+Please note that the <regexp_string> and [replacement_string] must be written using Java's regular
+expression rules as explained in:
+
+    https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
+
+
+Examples:
+
+    MyVar2 = ${MyVar1/(.*).cpp$/$1.cpp.o/}
+    MyVar2 = ${MyVar1/(.*).cpp$//}
+
+    MyVar2 = $[target/(.*).cpp$/$1.cpp.o/]
+    MyVar2 = $[target/(.*).cpp$//]
+
+
+When performing string replacements, it is usually better to use '(.+)' instead of '(.*)' because
+'(.*)' can produce unwanted effects:
+
+    Val  = a.o
+    Val += b.o
+    echoln $implode( ${Val/(.*).o/$1.cpp/} ) # It will print 'a.cpp b.cpp'
+
+    Val  = a
+    Val += b
+    echoln $implode( ${Val/(.*)/$1.cpp/}   ) # It will print 'a.cpp.cpp b.cpp.cpp'
+    echoln $implode( ${Val/(.+)/$1.cpp/}   ) # It will print 'a.cpp b.cpp'
+
+
+It is possible to refer to regular variable names from within the replacement string by escaping the
+term '${...}' with '\', for example:
+
+    CWD := $cwd()
+    LPS := $rel_path($[preq*])
+    echoln $implode( ${LPS/(.+)/-C \${CWD} $1/}, "\n" )
+
+Only plain variable names are allowed. Using a regular expression from inside the term '\${...}' is
+not supported. Using special variable names is also not supported.
+
+
+NOTE : # The above syntax is intended for in-variable string replacement using regular expressions.
+       # For other or more complex operations using regular expressions, please use the '$re_*'
+         functions.
+
+====================================================================================================

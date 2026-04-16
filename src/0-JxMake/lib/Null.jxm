@@ -1,0 +1,31 @@
+(*
+echoln __jxm_ver_major__
+echoln __jxm_ver_minor__
+echoln __jxm_ver_patch__
+echoln __jxm_ver_value__
+echoln __jxm_ver_devel__
+
+echoln
+
+echoln __os_name__
+echoln __os_name_actual__
+echoln __os_arch__
+echoln __os_bit_count__
+
+echoln
+
+if __os_windows__      : echoln '__os_windows__'
+
+if __os_posix__        : echoln '__os_posix__'
+if __os_linux__        : echoln '__os_linux__'
+if __os_bsd__          : echoln '__os_bsd__'
+if __os_mac__          : echoln '__os_mac__'
+
+if __os_cygwin__       : echoln '__os_cygwin__'
+if __os_mingw__        : echoln '__os_mingw__'
+if __os_msys__         : echoln '__os_msys__'
+if __os_posix_compat__ : echoln '__os_posix_compat__'
+
+if __os_32bit__        : echoln '__os_32bit__'
+if __os_64bit__        : echoln '__os_64bit__'
+#*)

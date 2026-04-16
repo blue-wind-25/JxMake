@@ -1,0 +1,938 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import jxm.*;
+
+
+/***** PCPP_BEG *****/
+
+/*
+ * NOTE : Use PCPP and GNU sed to generate (preprocess) the implementation code for assembly instructions
+ *        with conditional execution (please refer to the '../../../README' file for more details).
+ *
+ * The parenthesize-removal macros are written based on:
+ *     http://coliru.stacked-crooked.com/a/3578969a94bb175a
+ */
+#define __NONE__
+
+#define __STRI__(V     ) #V
+#define __XSTR__(V     ) __STRI__(V)
+
+#define __UNPI__(...   ) __UNPI__ __VA_ARGS__
+#define __DONE__UNPI__
+
+#define __CAT1__(D, ...) D ## __VA_ARGS__
+#define __CAT2__(D, ...) __CAT1__( D, __VA_ARGS__ )
+#define __UNPX__(   ...) __CAT2__( __DONE, __UNPI__ __VA_ARGS__  )
+#define __UNPR__(   ...) __UNPX__( __UNPX__(__VA_ARGS__) )
+
+#define __GEN_CODE_IMPL_NPR__(NAME, FIMPL, FBASE)                                        \
+    public ARMCortexMThumb $_##FIMPL##_impl( final Cond cond ) throws JXMAsmError __NL__ \
+    { return __itcd__( __XSTR__(NAME), cond, ()->{ return FBASE(); } ); }         __NL__ \
+    __NL__
+
+#define __GEN_CODE_IMPL_ONE__(NAME, FIMPL, PARAM, FBASE, CARG)                                                   \
+    public ARMCortexMThumb $_##FIMPL##_impl( final Cond cond, __UNPR__(PARAM) ) throws JXMAsmError        __NL__ \
+    { return __itcd__( __XSTR__(NAME), cond, ()->{ return FBASE( __UNPR__(CARG) ); }, __UNPR__(CARG) ); } __NL__ \
+    __NL__
+
+#define __GEN_CODE_IMPL_OBJ__(NAME, FIMPL, PARAM, FBASE, CARG)                                                              \
+    public ARMCortexMThumb $_##FIMPL##_impl( final Cond cond, __UNPR__(PARAM) ) throws JXMAsmError                   __NL__ \
+    { return __itcd__( __XSTR__(NAME), cond, ()->{ return FBASE( __UNPR__(CARG) ); }, (Object[]) __UNPR__(CARG) ); } __NL__ \
+    __NL__
+
+#define __GEN_CODE_IMPL_ALT__(NAME, FIMPL, PARAM, FSCODE, FBASE1, FBASE0, CARG)                                                                         \
+    public ARMCortexMThumb $_##FIMPL##_impl( final Cond cond, __UNPR__(PARAM) ) throws JXMAsmError                                               __NL__ \
+    { return __itcd__( __XSTR__(NAME), cond, ()->{ return (FSCODE) ? FBASE1( __UNPR__(CARG) ) : FBASE0( __UNPR__(CARG) ); }, __UNPR__(CARG) ); } __NL__ \
+    __NL__
+
+#define __GEN_CODE_CXIS_NPR__(NAME, SUFFIX, FIMPL)                                                                 \
+    public ARMCortexMThumb $##NAME##eq##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.EQ ); } __NL__ \
+    public ARMCortexMThumb $##NAME##zr##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.EQ ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ne##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.NE ); } __NL__ \
+    public ARMCortexMThumb $##NAME##nz##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.NE ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hi##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.HI ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hs##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.HS ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lo##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.LO ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ls##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.LS ); } __NL__ \
+    public ARMCortexMThumb $##NAME##gt##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.GT ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ge##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.GE ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lt##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.LT ); } __NL__ \
+    public ARMCortexMThumb $##NAME##le##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.LE ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cs##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.CS ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cc##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.CC ); } __NL__ \
+    public ARMCortexMThumb $##NAME##mi##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.MI ); } __NL__ \
+    public ARMCortexMThumb $##NAME##pl##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.PL ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vs##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.VS ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vc##SUFFIX() throws JXMAsmError { return $_##FIMPL##_impl( Cond.VC ); }
+
+#define __GEN_CODE_CXIS_STD__(NAME, SUFFIX, PARAM, FIMPL, CARG)                                                                                     \
+    public ARMCortexMThumb $##NAME##eq##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.EQ, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##zr##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.EQ, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ne##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.NE, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##nz##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.NE, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hi##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.HI, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.HS, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lo##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.LO, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ls##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.LS, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##gt##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.GT, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ge##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.GE, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lt##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.LT, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##le##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.LE, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.CS, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cc##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.CC, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##mi##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.MI, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##pl##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.PL, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.VS, __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vc##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return $_##FIMPL##_impl( Cond.VC, __UNPR__(CARG) ); }
+
+#define __GEN_CODE_CXIS_SUP__(NAME, SUFFIX, PARAM, FIMPL1, BASEPREFIX0, BASESUFFIX0, CARG)                                                                                                                                      \
+    public ARMCortexMThumb $##NAME##eq##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.EQ, __UNPR__(CARG) ) : super.##BASEPREFIX0##eq##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##zr##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.EQ, __UNPR__(CARG) ) : super.##BASEPREFIX0##eq##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ne##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.NE, __UNPR__(CARG) ) : super.##BASEPREFIX0##ne##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##nz##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.NE, __UNPR__(CARG) ) : super.##BASEPREFIX0##ne##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hi##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.HI, __UNPR__(CARG) ) : super.##BASEPREFIX0##hi##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##hs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.HS, __UNPR__(CARG) ) : super.##BASEPREFIX0##hs##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lo##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.LO, __UNPR__(CARG) ) : super.##BASEPREFIX0##lo##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ls##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.LS, __UNPR__(CARG) ) : super.##BASEPREFIX0##ls##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##gt##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.GT, __UNPR__(CARG) ) : super.##BASEPREFIX0##gt##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##ge##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.GE, __UNPR__(CARG) ) : super.##BASEPREFIX0##ge##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##lt##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.LT, __UNPR__(CARG) ) : super.##BASEPREFIX0##lt##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##le##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.LE, __UNPR__(CARG) ) : super.##BASEPREFIX0##le##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.CS, __UNPR__(CARG) ) : super.##BASEPREFIX0##cs##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##cc##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.CC, __UNPR__(CARG) ) : super.##BASEPREFIX0##cc##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##mi##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.MI, __UNPR__(CARG) ) : super.##BASEPREFIX0##mi##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##pl##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.PL, __UNPR__(CARG) ) : super.##BASEPREFIX0##pl##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vs##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.VS, __UNPR__(CARG) ) : super.##BASEPREFIX0##vs##BASESUFFIX0( __UNPR__(CARG) ); } __NL__ \
+    public ARMCortexMThumb $##NAME##vc##SUFFIX( __UNPR__(PARAM) ) throws JXMAsmError { return insideITBlock() ? $_##FIMPL1##_impl( Cond.VC, __UNPR__(CARG) ) : super.##BASEPREFIX0##vc##BASESUFFIX0( __UNPR__(CARG) ); }
+
+#define __GEN_CXI_NPR_NPR__(NAME, SUFFIX, FIMPL, FBASE) \
+    __GEN_CODE_IMPL_NPR__(NAME,         FIMPL, FBASE)   \
+    __GEN_CODE_CXIS_NPR__(NAME, SUFFIX, FIMPL       )
+
+#define __GEN_CXI_ONE_STD__(NAME, SUFFIX, PARAM, FIMPL, FBASE, CARG) \
+    __GEN_CODE_IMPL_ONE__(NAME,         FIMPL, PARAM, FBASE, CARG)   \
+    __GEN_CODE_CXIS_STD__(NAME, SUFFIX, PARAM, FIMPL, CARG)
+
+#define __GEN_CXI_OBJ_STD__(NAME, SUFFIX, PARAM, FIMPL, FBASE, CARG) \
+    __GEN_CODE_IMPL_OBJ__(NAME,         FIMPL, PARAM, FBASE, CARG)   \
+    __GEN_CODE_CXIS_STD__(NAME, SUFFIX, PARAM, FIMPL, CARG)
+
+#define __GEN_CXI_ALT_STD__(NAME, SUFFIX, PARAM, FIMPL, FSCODE, FBASE1, FBASE0, CARG) \
+    __GEN_CODE_IMPL_ALT__(NAME,         FIMPL, PARAM, FSCODE, FBASE1, FBASE0, CARG)   \
+    __GEN_CODE_CXIS_STD__(NAME, SUFFIX, PARAM, FIMPL, CARG)
+
+#define __GEN_CXI_ONE_SUP__(NAME, SUFFIX, PARAM, FIMPL1, FBASE1, FBASEPREFIX0, FBASESUFFIX0, CARG) \
+    __GEN_CODE_IMPL_ONE__(NAME,         FIMPL1, PARAM , FBASE1      ,                        CARG) \
+    __GEN_CODE_CXIS_SUP__(NAME, SUFFIX, PARAM , FIMPL1, FBASEPREFIX0, FBASESUFFIX0, CARG)                                                                                                                       \
+
+/***** PCPP_END *****/
+
+
+/*
+ * Please refer to the comment block before the 'ARMCortexMThumb' class definition in the 'ARMCortexMThumb.java' file for more details and information.
+ */
+public class ARMCortexMThumbC extends ARMCortexMThumb {
+
+    public ARMCortexMThumbC(final CPU cpu) throws JXMAsmError
+    { super(cpu); }
+
+    public ARMCortexMThumbC() throws JXMAsmError
+    { super(); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // ##### !!! TODO : Recheck all and prefer to use the 16-bit instructions whenever possible? !!! #####
+
+    // [T1] ADCS <Rdn>, <Rm>
+    /*
+    public ARMCortexMThumb $_adc_c_impl( final Cond cond, final Reg Rdn, final Reg Rm ) throws JXMAsmError
+    { return __itcd__( "adc_c", cond, ()->{ return $adcs( Rdn, Rm ); }, Rdn, Rm ); }
+
+    public ARMCortexMThumb $adceq( final Reg Rdn, final Reg Rm ) throws JXMAsmError { return $_adc_c_impl( Cond.EQ, Rdn, Rm ); }
+    ...
+    public ARMCortexMThumb $adcvc( final Reg Rdn, final Reg Rm ) throws JXMAsmError { return $_adc_c_impl( Cond.VC, Rdn, Rm ); }
+    //*/
+    __GEN_CXI_ONE_STD__( adc, __NONE__, ((final Reg Rdn, final Reg Rm)), adc_c, $adcs, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] ADDS <Rd>, <Rn>, #<imm3>
+    // [T1] ADD  <Rd>,  SP , #<imm8>
+    // [T2] ADD   SP ,  SP , #<imm7>
+    __GEN_CXI_ALT_STD__( add, __NONE__, ((final Reg Rd, final Reg Rn, final int imm3_imm7_imm8)), add_c, Rd.regNum == Reg.SP.regNum || Rn.regNum == Reg.SP.regNum, $add, $adds, ((Rd, Rn, imm3_imm7_imm8)) )
+
+    // [T2] ADDS <Rdn>, #<imm8>
+    __GEN_CXI_ONE_STD__( add, __NONE__, ((final Reg Rdn, final int imm8)), add_c, $adds, ((Rdn, imm8)) )
+
+    // [T1] ADDS <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( add, __NONE__, ((final Reg Rd, final Reg Rn, final Reg Rm)), add_c, $adds, ((Rd , Rn, Rm)) )
+
+    // [T2] ADD <Rdn>, <Rm>
+    // [T1] ADD <Rdm>,  SP , <Rdm>
+    // [T2] ADD  SP  , <Rm>
+    __GEN_CXI_ONE_STD__( add, __NONE__, ((final Reg Rdn, final Reg Rm)), add_c, $add , ((Rdn, Rm)) )
+
+    // [PI] ADD SP, SP, #<imm7>
+    __GEN_CXI_ONE_STD__( add, _sp, ((final int imm7)), add_sp_c, $add_sp, ((imm7)) )
+
+    // [T4] ADDW <Rd>, <Rn>, #<imm12>
+    __GEN_CXI_ONE_STD__( addw, __NONE__, ((final Reg Rd, final Reg Rn, final int imm12)), addw_c, $addw, ((Rd, Rn, imm12)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] ADR <Rd>, #<imm8>
+    // [T1] ADR <Rd>, <label>
+    __GEN_CXI_ONE_STD__( adr, __NONE__, ((final Reg Rd, final String label)), adr_c, $adr, ((Rd, label)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] AND<C> <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( and, __NONE__, ((final Reg Rdn, final Reg Rm)), and_c, $ands, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$asrs_w_impl_f(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$asrs_w_impl(false, Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$asrs_w_impl_t(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$asrs_w_impl(true , Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$asrs_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$asrs_w_impl(false, Rd , Rn , Rm  ); }
+
+    private ARMCortexMThumb _$asrs_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$asrs_w_impl(true , Rd , Rn , Rm  ); }
+
+    private ARMCortexMThumb _$asrs_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$asrs_w_impl(false, Rdn, Rdn, Rm  ); }
+
+    private ARMCortexMThumb _$asrs_w_impl_t(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$asrs_w_impl(true , Rdn, Rdn, Rm)  ; }
+
+    // [T2] ASR.W  <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( asr , __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), asr_c , _$asrs_w_impl_f, ((Rd , Rm, imm5)) )
+
+    // [T2] ASRS.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( asrs, __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), asrs_c, _$asrs_w_impl_t, ((Rd , Rm, imm5)) )
+
+    // [T2] ASR.W  <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( asr , __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), asr_c , _$asrs_w_impl_f, ((Rd , Rn, Rm  )) )
+
+    // [T2] ASRS.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( asrs, __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), asrs_c, _$asrs_w_impl_t, ((Rd , Rn, Rm  )) )
+
+    // [T2] ASR.W  <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( asr , __NONE__, ((final Reg Rdn,               final Reg Rm  )), asr_c , _$asrs_w_impl_f, ((Rdn, Rm      )) )
+
+    // [T2] ASRS.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( asrs, __NONE__, ((final Reg Rdn,               final Reg Rm  )), asrs_c, _$asrs_w_impl_t, ((Rdn, Rm      )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T2] B <label>
+    __GEN_CXI_ONE_SUP__( b, __NONE__, ((final String label)), b_c, $b, $b, __NONE__, ((label)) )
+
+    // [T4] B.W <label>
+    __GEN_CXI_ONE_SUP__( b, _w, ((final String label)), b_w_c, $b_w, $b, _w, ((label)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] BICS <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( bic, __NONE__, ((final Reg Rdn, final Reg Rm)), bic_c, $bics, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] BL <label>
+    __GEN_CXI_ONE_STD__( bl, __NONE__, ((final String label)), bl_c, $bl, ((label)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] BLX <Rm>
+    __GEN_CXI_ONE_STD__( blx, __NONE__, ((final Reg Rm)), blx_c, $blx, ((Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] BX <Rm>
+    __GEN_CXI_ONE_STD__( bx, __NONE__, ((final Reg Rm)), bx_c, $bx, ((Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] CLREX
+    __GEN_CXI_NPR_NPR__( clrex, __NONE__, clrex_c, $clrex )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] CMN <Rn>, #<const>
+    __GEN_CXI_ONE_STD__( cmn, __NONE__, ((final Reg Rn, final long const_)), cmn_c, $cmn, ((Rn, const_)) )
+
+    // [T1] CMN <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( cmn, __NONE__, ((final Reg Rn, final Reg Rm)), cmn_c, $cmn, ((Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] CMP   <Rn>, #<imm8>
+    // [T2] CMP.W <Rn>, #<const>
+    __GEN_CXI_ONE_STD__( cmp, __NONE__, ((final Reg Rn, final long imm8_const)), cmp_c, $cmp, ((Rn, imm8_const)) )
+
+    // [T1] CMP <Rn>, <Rm>
+    // [T2] CMP <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( cmp, __NONE__, ((final Reg Rn, final Reg Rm)), cmp_c, $cmp, ((Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [PI] MOV <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( cpy, __NONE__, ((final Reg Rd, final Reg Rm)), cpy_c, $cpy, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [PI] DEC1S <Rdn>
+    __GEN_CXI_ONE_STD__( dec1, __NONE__, ((final Reg Rdn)), dec1_c, $dec1s, ((Rdn)) )
+
+    // [PI] DEC2S <Rdn>
+    __GEN_CXI_ONE_STD__( dec2, __NONE__, ((final Reg Rdn)), dec2_c, $dec2s, ((Rdn)) )
+
+    // [PI] DEC4S <Rdn>
+    __GEN_CXI_ONE_STD__( dec4, __NONE__, ((final Reg Rdn)), dec4_c, $dec4s, ((Rdn)) )
+
+    // [PI] DEC8S <Rdn>
+    __GEN_CXI_ONE_STD__( dec8, __NONE__, ((final Reg Rdn)), dec8_c, $dec8s, ((Rdn)) )
+
+    // [PI] DEC16S <Rdn>
+    __GEN_CXI_ONE_STD__( dec16, __NONE__, ((final Reg Rdn)), dec16_c, $dec16s, ((Rdn)) )
+
+    // [PI] DEC1W <Rdn>
+    __GEN_CXI_ONE_STD__( dec1w, __NONE__, ((final Reg Rdn)), dec1w_c, $dec1w, ((Rdn)) )
+
+    // [PI] DEC2W <Rdn>
+    __GEN_CXI_ONE_STD__( dec2w, __NONE__, ((final Reg Rdn)), dec2w_c, $dec2w, ((Rdn)) )
+
+    // [PI] DEC4W <Rdn>
+    __GEN_CXI_ONE_STD__( dec4w, __NONE__, ((final Reg Rdn)), dec4w_c, $dec4w, ((Rdn)) )
+
+    // [PI] DEC8W <Rdn>
+    __GEN_CXI_ONE_STD__( dec8w, __NONE__, ((final Reg Rdn)), dec8w_c, $dec8w, ((Rdn)) )
+
+    // [PI] DEC16W <Rdn>
+    __GEN_CXI_ONE_STD__( dec16w, __NONE__, ((final Reg Rdn)), dec16w_c, $dec16w, ((Rdn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] DMB sy
+    __GEN_CXI_NPR_NPR__( dmb, _sy, dmb_sy_c, $dmb_sy )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] DSB sy
+    __GEN_CXI_NPR_NPR__( dsb, _sy, dsb_sy_c, $dsb_sy )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] EORS <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( eor, __NONE__, ((final Reg Rdn, final Reg Rm)), eor_c, $eors, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [PI] INC1S <Rdn>
+    __GEN_CXI_ONE_STD__( inc1, __NONE__, ((final Reg Rdn)), inc1_c, $inc1s, ((Rdn)) )
+
+    // [PI] INC2S <Rdn>
+    __GEN_CXI_ONE_STD__( inc2, __NONE__, ((final Reg Rdn)), inc2_c, $inc2s, ((Rdn)) )
+
+    // [PI] INC4S <Rdn>
+    __GEN_CXI_ONE_STD__( inc4, __NONE__, ((final Reg Rdn)), inc4_c, $inc4s, ((Rdn)) )
+
+    // [PI] INC8S <Rdn>
+    __GEN_CXI_ONE_STD__( inc8, __NONE__, ((final Reg Rdn)), inc8_c, $inc8s, ((Rdn)) )
+
+    // [PI] INC16S <Rdn>
+    __GEN_CXI_ONE_STD__( inc16, __NONE__, ((final Reg Rdn)), inc16_c, $inc16s, ((Rdn)) )
+
+    // [PI] INC1W <Rdn>
+    __GEN_CXI_ONE_STD__( inc1w, __NONE__, ((final Reg Rdn)), inc1w_c, $inc1w, ((Rdn)) )
+
+    // [PI] INC2W <Rdn>
+    __GEN_CXI_ONE_STD__( inc2w, __NONE__, ((final Reg Rdn)), inc2w_c, $inc2w, ((Rdn)) )
+
+    // [PI] INC4W <Rdn>
+    __GEN_CXI_ONE_STD__( inc4w, __NONE__, ((final Reg Rdn)), inc4w_c, $inc4w, ((Rdn)) )
+
+    // [PI] INC8W <Rdn>
+    __GEN_CXI_ONE_STD__( inc8w, __NONE__, ((final Reg Rdn)), inc8w_c, $inc8w, ((Rdn)) )
+
+    // [PI] INC16W <Rdn>
+    __GEN_CXI_ONE_STD__( inc16w, __NONE__, ((final Reg Rdn)), inc16w_c, $inc16w, ((Rdn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] ISB sy
+    __GEN_CXI_NPR_NPR__( isb, _sy, isb_sy_c, $isb_sy )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [1] LDMIA <Rn>{!}, <registers>
+    __GEN_CXI_ONE_STD__( ldmia, __NONE__, ((final RegGen Rn, final Reg... Regs)), ldmia_c, $ldmia, ((Rn, Regs)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T4] LDR.W <Rt>, [<Rn>], ±#<imm8>
+    __GEN_CXI_ONE_STD__( ldr, _pst, ((final Reg Rt, final Reg Rn, final int imm8)), ldr_pst_c, $ldr_pst, ((Rt, Rn, imm8)) )
+
+    // [T1] LDR <Rt>, [<Rn>, #<imm5> ]
+    // [T2] LDR <Rt>, [ SP , #<imm8> ]
+    __GEN_CXI_ONE_STD__( ldr, __NONE__, ((final Reg Rt, final RegGen Rn, final int imm5_imm8_imm12)), ldr_c, $ldr, ((Rt, Rn, imm5_imm8_imm12)) )
+
+    // [T1] LDR <Rt>, [<Rn>]
+    // [T2] LDR <Rt>, [ SP ]
+    __GEN_CXI_ONE_STD__( ldr, __NONE__, ((final Reg Rt, final Reg Rn)), ldr_c, $ldr, ((Rt, Rn)) )
+
+    // [T1] LDR <Rt>, <label>
+    __GEN_CXI_ONE_STD__( ldr, __NONE__, ((final Reg Rt, final String label)), ldr_c, $ldr, ((Rt, label)) )
+
+    // [T2] LDR.W <Rt>, <label>
+    __GEN_CXI_ONE_STD__( ldr, _w, ((final Reg Rt, final String label)), ldr_w_c, $ldr_w, ((Rt, label)) )
+
+    // [T1] LDR <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( ldr, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), ldr_c, $ldr, ((Rt, Rn, Rm)) )
+
+    // [PI] LDR <Rt>, =#<imm32>
+    __GEN_CXI_ONE_STD__( ldr, __NONE__, ((final Reg Rt, final long imm32)), ldr_c, $ldr, ((Rt, imm32)) )
+
+    /*
+     * [PI] ldri <Rd>, #<imm32>
+     *
+     * It will be converted to one of these instructions:
+     *     [T2] MOV  <Rd>,  #<const>
+     *     [T1] MOVS <Rd>,  #<imm8>
+     *     [T2] MOVS <Rd>,  #<const>
+     *     [PI] LDR  <Rt>, =#<imm32>
+     */
+    __GEN_CXI_ONE_STD__( ldri, __NONE__, ((final Reg Rd, final long imm32)), ldri_c, $ldri, ((Rd, imm32)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] LDRB <Rt>, [<Rn>, #<imm5>]
+    __GEN_CXI_ONE_STD__( ldrb, __NONE__, ((final Reg Rt, final Reg Rn, final int imm5)), ldrb_c, $ldrb, ((Rt, Rn, imm5)) )
+
+    // [T1] LDRB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldrb, __NONE__, ((final Reg Rt, final Reg Rn)), ldrb_c, $ldrb, ((Rt, Rn)) )
+
+    // [T1] LDRB <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( ldrb, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), ldrb_c, $ldrb, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] LDRH <Rt>, [<Rn>, #<imm5>]
+    __GEN_CXI_ONE_STD__( ldrh, __NONE__, ((final Reg Rt, final Reg Rn, final int imm5)), ldrh_c, $ldrh, ((Rt, Rn, imm5)) )
+
+    // [T1] LDRH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldrh, __NONE__, ((final Reg Rt, final Reg Rn)), ldrh_c, $ldrh, ((Rt, Rn)) )
+
+    // [T1] LDRH <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( ldrh, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), ldrh_c, $ldrh, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] LDRSB <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( ldrsb, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), ldrsb_c, $ldrsb, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] LDRSH <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( ldrsh, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), ldrsh_c, $ldrsh, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] LDA <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( lda, __NONE__, ((final Reg Rt, final Reg Rn)), lda_c, $lda, ((Rt, Rn)) )
+
+    // [T1] LDAB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldab, __NONE__, ((final Reg Rt, final Reg Rn)), ldab_c, $ldab, ((Rt, Rn)) )
+
+    // [T1] LDAH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldah, __NONE__, ((final Reg Rt, final Reg Rn)), ldah_c, $ldah, ((Rt, Rn)) )
+
+    // [T1] LDAEX <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldaex, __NONE__, ((final Reg Rt, final Reg Rn)), ldaex_c, $ldaex, ((Rt, Rn)) )
+
+    // [T1] LDAEXB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldaexb, __NONE__, ((final Reg Rt, final Reg Rn)), ldaexb_c, $ldaexb, ((Rt, Rn)) )
+
+    // [T1] LDAEXH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldaexh, __NONE__, ((final Reg Rt, final Reg Rn)), ldaexh_c, $ldaexh, ((Rt, Rn)) )
+
+    // [T1] LDREX <Rt>, [<Rn>, #<imm8>]
+    __GEN_CXI_ONE_STD__( ldrex, __NONE__, ((final Reg Rt, final Reg Rn, final int imm8)), ldrex_c, $ldrex, ((Rt, Rn, imm8)) )
+
+    // [T1] LDREX <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldrex, __NONE__, ((final Reg Rt, final Reg Rn)), ldrex_c, $ldrex, ((Rt, Rn)) )
+
+    // [T1] LDREXB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldrexb, __NONE__, ((final Reg Rt, final Reg Rn)), ldrexb_c, $ldrexb, ((Rt, Rn)) )
+
+    // [T1] LDREXH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( ldrexh, __NONE__, ((final Reg Rt, final Reg Rn)), ldrexh_c, $ldrexh, ((Rt, Rn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$lsls_w_impl_f(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$lsls_w_impl(false, Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$lsls_w_impl_t(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$lsls_w_impl(true , Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$lsls_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$lsls_w_impl(false, Rd , Rm , Rm  ); }
+
+    private ARMCortexMThumb _$lsls_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$lsls_w_impl(true , Rd , Rm , Rm  ); }
+
+    private ARMCortexMThumb _$lsls_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$lsls_w_impl(false, Rdn, Rdn, Rm  ); }
+
+    private ARMCortexMThumb _$lsls_w_impl_t(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$lsls_w_impl(true , Rdn, Rdn, Rm  ); }
+
+    // [T2] LSL.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( lsl , __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), lsl_c , _$lsls_w_impl_f, ((Rd , Rm, imm5)) )
+
+    // [T2] LSLS.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( lsls, __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), lsls_c, _$lsls_w_impl_t, ((Rd , Rm, imm5)) )
+
+    // [T2] LSL.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsl , __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), lsl_c , _$lsls_w_impl_f, ((Rd , Rn, Rm  )) )
+
+    // [T2] LSLS.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsls, __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), lsls_c, _$lsls_w_impl_t, ((Rd , Rn, Rm  )) )
+
+    // [T2] LSL.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsl , __NONE__, ((final Reg Rdn,               final Reg Rm  )), lsl_c , _$lsls_w_impl_f, ((Rdn,     Rm  )) )
+
+    // [T2] LSLS.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsls, __NONE__, ((final Reg Rdn,               final Reg Rm  )), lsls_c, _$lsls_w_impl_t, ((Rdn,     Rm  )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$lsrs_w_impl_f(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$lsrs_w_impl(false, Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$lsrs_w_impl_t(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return _$lsrs_w_impl(true , Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$lsrs_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$lsrs_w_impl(false, Rd , Rm , Rm  ); }
+
+    private ARMCortexMThumb _$lsrs_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return _$lsrs_w_impl(true , Rd , Rm , Rm  ); }
+
+    private ARMCortexMThumb _$lsrs_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$lsrs_w_impl(false, Rdn, Rdn, Rm  ); }
+
+    private ARMCortexMThumb _$lsrs_w_impl_t(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return _$lsrs_w_impl(true , Rdn, Rdn, Rm  ); }
+
+    // [T2] LSR.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( lsr , __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), lsr_c , _$lsrs_w_impl_f, ((Rd , Rm, imm5)) )
+
+    // [T2] LSRS.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( lsrs, __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), lsrs_c, _$lsrs_w_impl_t, ((Rd , Rm, imm5)) )
+
+    // [T2] LSR.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsr , __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), lsr_c , _$lsrs_w_impl_f, ((Rd , Rn, Rm  )) )
+
+    // [T2] LSRS.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsrs, __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), lsrs_c, _$lsrs_w_impl_t, ((Rd , Rn, Rm  )) )
+
+    // [T2] LSR.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsr , __NONE__, ((final Reg Rdn,               final Reg Rm  )), lsr_c , _$lsrs_w_impl_f, ((Rdn,     Rm  )) )
+
+    // [T2] LSRS.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( lsrs, __NONE__, ((final Reg Rdn,               final Reg Rm  )), lsrs_c, _$lsrs_w_impl_t, ((Rdn,     Rm  )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$movx_w_impl_f(final Reg Rd, final long const_) throws JXMAsmError
+    { return _$movx_w_impl(false, Rd, const_); }
+
+    private ARMCortexMThumb _$movx_w_impl_t(final Reg Rd, final long const_) throws JXMAsmError
+    { return _$movx_w_impl(true , Rd, const_); }
+
+    // [T2] MOV.W <Rd>, #<const>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rd , final long const_)), mov_c , _$movx_w_impl_f, ((Rd, const_)) )
+
+    // [T2] MOVS.W <Rd>, #<const>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rd , final long const_)), movs_c, _$movx_w_impl_t, ((Rd, const_)) )
+
+    // [T3] MOV.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rd , final Reg Rm)), mov_c , $mov_w , ((Rd, Rm)) )
+
+    // [T3] MOVS.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rd , final Reg Rm)), movs_c, $movs_w, ((Rd, Rm)) )
+
+    // [T3] MOVW <Rd>, #<imm16>
+    __GEN_CXI_ONE_STD__( movw, __NONE__, ((final Reg Rd, final int imm16)), movw_c, $movw, ((Rd, imm16)) )
+
+    // [PI] MOV <Rd>, <Rm>, <shift_operand> #<imm5>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift, final int imm5)), mov_c , $mov , ((Rd , Rm , shift, imm5)) )
+
+    // [PI] MOVS <Rd>, <Rm>, <shift_operand> #<imm5>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift, final int imm5)), movs_c, $movs, ((Rd , Rm , shift, imm5)) )
+
+    // [PI] MOV <Rd>, <Rm>, <shift_operand>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift                )), mov_c , $mov , ((Rd , Rm , shift      )) )
+
+    // [PI] MOVS <Rd>, <Rm>, <shift_operand>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift                )), movs_c, $movs, ((Rd , Rm , shift      )) )
+
+    // [PI] MOV <Rd>, <Rm>, <shift_operand> <Rs>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift, final Reg Rs  )), mov_c , $mov , ((Rd , Rm , shift, Rs  )) )
+
+    // [PI] MOVS <Rd>, <Rm>, <shift_operand> <Rs>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rd , final Reg Rm, final Shift shift, final Reg Rs  )), movs_c, $movs, ((Rd , Rm , shift, Rs  )) )
+
+    // [PI] MOV <Rdm>, <shift_operand> <Rs>
+    __GEN_CXI_ONE_STD__( mov , __NONE__, ((final Reg Rdm,               final Shift shift, final Reg Rs  )), mov_c , $mov , ((Rdm, Rdm, shift, Rs  )) )
+
+    // [PI] MOVS <Rdm>, <shift_operand> <Rs>
+    __GEN_CXI_ONE_STD__( movs, __NONE__, ((final Reg Rdm,               final Shift shift, final Reg Rs  )), movs_c, $movs, ((Rdm, Rdm, shift, Rs  )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] MOVT <Rd>, <imm16>
+    __GEN_CXI_ONE_STD__( movt, __NONE__, ((final Reg Rd, final int imm16)), movt_c, $movt, ((Rd, imm16)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] MRS <Rd>, <SYSm>
+    __GEN_CXI_ONE_STD__( mrs, __NONE__, ((final Reg Rd, final SYSm sysm)), mrs_c, $mrs, ((Rd, sysm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] MSR <SYSm>, <Rn>
+    __GEN_CXI_ONE_STD__( msr, __NONE__, ((final SYSm sysm, final Reg Rn)), msr_c, $msr, ((sysm, Rn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] MULS <Rdm>, <Rn>, <Rdm>
+    __GEN_CXI_ONE_STD__( mul, __NONE__, ((final Reg Rdm, final Reg Rn)), mul_c, $muls, ((Rdm, Rn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$mvnx_w_impl_f(final Reg Rd, final long const_) throws JXMAsmError
+    { return _$mvnx_w_impl(false, Rd, const_); }
+
+    private ARMCortexMThumb _$mvnx_w_impl_t(final Reg Rd, final long const_) throws JXMAsmError
+    { return _$mvnx_w_impl(true , Rd, const_); }
+
+    // [T1] MVN.W <Rd>, #<const>
+    __GEN_CXI_ONE_STD__( mvn , __NONE__, ((final Reg Rd, final long const_)), mvn_c , _$mvnx_w_impl_f, ((Rd, const_)) )
+
+    // [T1] MVNS.W <Rd>, #<const>
+    __GEN_CXI_ONE_STD__( mvns, __NONE__, ((final Reg Rd, final long const_)), mvns_c, _$mvnx_w_impl_t, ((Rd, const_)) )
+
+    private ARMCortexMThumb _$mvnx_w_shift_impl_f(final Reg Rd, final Reg Rm, final Shift shift, final int imm5) throws JXMAsmError
+    { return _$mvnx_w_shift_impl(false, Rd, Rm, shift, imm5); }
+
+    private ARMCortexMThumb _$mvnx_w_shift_impl_t(final Reg Rd, final Reg Rm, final Shift shift, final int imm5) throws JXMAsmError
+    { return _$mvnx_w_shift_impl(true , Rd, Rm, shift, imm5); }
+
+    // [T2] MVN.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( mvn , __NONE__, ((final Reg Rd, final Reg Rm                                   )), mvn_c , _$mvnx_w_shift_impl_f, ((Rd , Rm, Shift.LSL, 0   )) )
+
+    // [T2] MVNS.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( mvns, __NONE__, ((final Reg Rd, final Reg Rm                                   )), mvns_c, _$mvnx_w_shift_impl_t, ((Rd , Rm, Shift.LSL, 0   )) )
+
+    // [T2] MVN.W <Rd>, <Rm>, <shift_operand> #<imm5>
+    __GEN_CXI_ONE_STD__( mvn , __NONE__, ((final Reg Rd, final Reg Rm, final Shift shift, final int imm5)), mvn_c , _$mvnx_w_shift_impl_f, ((Rd , Rm, shift, imm5)) )
+
+    // [T2] MVNS.W <Rd>, <Rm>, <shift_operand> #<imm5>
+    __GEN_CXI_ONE_STD__( mvns, __NONE__, ((final Reg Rd, final Reg Rm, final Shift shift, final int imm5)), mvns_c, _$mvnx_w_shift_impl_t, ((Rd , Rm, shift, imm5)) )
+
+    // [T2] MVN.W <Rd>, <Rm>, <shift_operand>
+    __GEN_CXI_ONE_STD__( mvn , __NONE__, ((final Reg Rd, final Reg Rm, final Shift shift                )), mvn_c , _$mvnx_w_shift_impl_f, ((Rd , Rm, shift, -1  )) )
+
+    // [T2] MVNS.W <Rd>, <Rm>, <shift_operand>
+    __GEN_CXI_ONE_STD__( mvns, __NONE__, ((final Reg Rd, final Reg Rm, final Shift shift                )), mvns_c, _$mvnx_w_shift_impl_t, ((Rd , Rm, shift, -1  )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [PI] RSBS <Rd>, <Rm>, #0
+    __GEN_CXI_ONE_STD__( neg, __NONE__, ((final Reg Rd, final Reg Rm)), neg_c, $negs, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] ORRS <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( orr, __NONE__, ((final Reg Rdn, final Reg Rm)), orr_c, $orrs, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] POP   <registers>
+    // [T2] POP.W <registers>
+    // [T3] POP.W <Rt>
+    __GEN_CXI_OBJ_STD__( pop, __NONE__, ((final Reg... Regs)), pop_c, $pop, ((Regs)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] PUSH   <registers>
+    // [T2] PUSH.W <registers>
+    // [T3] PUSH.W <Rt>
+    __GEN_CXI_OBJ_STD__( push, __NONE__, ((final Reg... Regs)), push_c, $push, ((Regs)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] REV <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( rev, __NONE__, ((final Reg Rd, final Reg Rm)), rev_c, $rev, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] REV16 <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( rev16, __NONE__, ((final Reg Rd, final Reg Rm)), rev16_c, $rev16, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] REVSH <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( revsh, __NONE__, ((final Reg Rd, final Reg Rm)), revsh_c, $revsh, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$rors_w_impl_f(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return  _$rors_w_impl(false, Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$rors_w_impl_t(final Reg Rd , final Reg Rm, final int imm5) throws JXMAsmError
+    { return  _$rors_w_impl(true , Rd , Rm , imm5); }
+
+    private ARMCortexMThumb _$rors_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return  _$rors_w_impl(false, Rd , Rn , Rm  ); }
+
+    private ARMCortexMThumb _$rors_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    { return  _$rors_w_impl(true , Rd , Rn , Rm  ); }
+
+    private ARMCortexMThumb _$rors_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return  _$rors_w_impl(false, Rdn, Rdn, Rm  ); }
+
+    private ARMCortexMThumb _$rors_w_impl_t(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
+    { return  _$rors_w_impl(true , Rdn, Rdn, Rm  ); }
+
+    // [T2] ROR.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( ror , __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), ror_c , _$rors_w_impl_f, ((Rd , Rm, imm5)) )
+
+    // [T2] RORS.W <Rd>, <Rm>, #<imm5>
+    __GEN_CXI_ONE_STD__( rors, __NONE__, ((final Reg Rd , final Reg Rm, final int imm5)), rors_c, _$rors_w_impl_t, ((Rd , Rm, imm5)) )
+
+    // [T2] ROR.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( ror , __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), ror_c , _$rors_w_impl_f, ((Rd , Rn, Rm  )) )
+
+    // [T2] RORS.W <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( rors, __NONE__, ((final Reg Rd , final Reg Rn, final Reg Rm  )), rors_c, _$rors_w_impl_t, ((Rd , Rn, Rm  )) )
+
+    // [T2] ROR.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( ror , __NONE__, ((final Reg Rdn,               final Reg Rm  )), ror_c , _$rors_w_impl_f, ((Rdn,     Rm  )) )
+
+    // [T2] RORS.W <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( rors, __NONE__, ((final Reg Rdn,               final Reg Rm  )), rors_c, _$rors_w_impl_t, ((Rdn,     Rm  )) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private ARMCortexMThumb _$rrxs_w_impl_f(final Reg Rd , final Reg Rm) throws JXMAsmError
+    { return _$rrxs_w_impl(false, Rd , Rm); }
+
+    private ARMCortexMThumb _$rrxs_w_impl_t(final Reg Rd , final Reg Rm) throws JXMAsmError
+    { return _$rrxs_w_impl(true , Rd , Rm); }
+
+    // [T1] RRX.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( rrx , __NONE__, ((final Reg Rd , final Reg Rm)), rrx_c , _$rrxs_w_impl_f, ((Rd , Rm)) )
+
+    // [T1] RRXS.W <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( rrxs, __NONE__, ((final Reg Rd , final Reg Rm)), rrxs_c, _$rrxs_w_impl_t, ((Rd , Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] RSBS <Rd>, <Rm>, #<imm12>
+    __GEN_CXI_ONE_STD__( rsb, __NONE__, ((final Reg Rd, final Reg Rn, final int imm12)), rsbs_c, $rsbs, ((Rd, Rn, imm12)) )
+
+    // [T1] RSBS <Rd>, <Rm>, #0
+    __GEN_CXI_ONE_STD__( rsb0, __NONE__, ((final Reg Rd, final Reg Rn)), rsbs0_c, $rsbs0, ((Rd, Rn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SBCS <Rdn>, <Rm>
+    __GEN_CXI_ONE_STD__( sbc, __NONE__, ((final Reg Rdn, final Reg Rm)), sbc_c, $sbcs, ((Rdn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SDIV <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( sdiv, __NONE__, ((final Reg Rd, final Reg Rn, final Reg Rm)), sdiv_c, $sdiv, ((Rd, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SEV
+    __GEN_CXI_NPR_NPR__( sev, __NONE__, sev_c, $sev )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] STMIA <Rn>!, <registers>
+    __GEN_CXI_ONE_STD__( stmia, __NONE__, ((final RegWB Rn, final Reg... Regs)), stmia_c, $stmia, ((Rn, Regs)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T4] STR.W <Rt>, [<Rn>], ±#<imm8>
+    __GEN_CXI_ONE_STD__( str, _pst, ((final Reg Rt, final Reg Rn, final int imm8)), str_pst_c, $str_pst, ((Rt, Rn, imm8)) )
+
+    // [T1] STR <Rt>, [<Rn>, #<imm5>]
+    // [T2] STR <Rt>, [ SP , #<imm8>]
+    __GEN_CXI_ONE_STD__( str, __NONE__, ((final Reg Rt, final RegGen Rn, final int imm5_imm8_imm12)), str_c, $str, ((Rt, Rn, imm5_imm8_imm12)) )
+
+    // [T1] STR <Rt>, [<Rn>]
+    // [T2] STR <Rt>, [ SP ]
+    __GEN_CXI_ONE_STD__( str, __NONE__, ((final Reg Rt, final Reg Rn)), str_c, $str, ((Rt, Rn)) )
+
+    // [T1] STR <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( str, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), str_c, $str, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] STRB <Rt>, [<Rn>, #<imm5>]
+    __GEN_CXI_ONE_STD__( strb, __NONE__, ((final Reg Rt, final Reg Rn, final int imm5)), strb_c, $strb, ((Rt, Rn, imm5)) )
+
+    // [T1] STRB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( strb, __NONE__, ((final Reg Rt, final Reg Rn)), strb_c, $strb, ((Rt, Rn)) )
+
+    // [T1] STRB <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( strb, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), strb_c, $strb, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] STRH <Rt>, [<Rn>, #<imm5>]
+    __GEN_CXI_ONE_STD__( strh, __NONE__, ((final Reg Rt, final Reg Rn, final int imm5)), strh_c, $strh, ((Rt, Rn, imm5)) )
+
+    // [T1] STRH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( strh, __NONE__, ((final Reg Rt, final Reg Rn)), strh_c, $strh, ((Rt, Rn)) )
+
+    // [T1] STRH <Rt>, [<Rn>, <Rm>]
+    __GEN_CXI_ONE_STD__( strh, __NONE__, ((final Reg Rt, final Reg Rn, final Reg Rm)), strh_c, $strh, ((Rt, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] STL <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stl, __NONE__, ((final Reg Rt, final Reg Rn)), stl_c, $stl, ((Rt, Rn)) )
+
+    // [T1] STLB <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stlb, __NONE__, ((final Reg Rt, final Reg Rn)), stlb_c, $stlb, ((Rt, Rn)) )
+
+    // [T1] STLH <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stlh, __NONE__, ((final Reg Rt, final Reg Rn)), stlh_c, $stlh, ((Rt, Rn)) )
+
+    // [T1] STLEX <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stlex, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), stlex_c, $stlex, ((Rd, Rt, Rn)) )
+
+    // [T1] STLEXB <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stlexb, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), stlexb_c, $stlexb, ((Rd, Rt, Rn)) )
+
+    // [T1] STLEXH <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( stlexh, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), stlexh_c, $stlexh, ((Rd, Rt, Rn)) )
+
+    // [T1] STREX <Rd>, <Rt>, [<Rn>, #<imm8>]
+    __GEN_CXI_ONE_STD__( strex, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn, final int imm8)), strex_c, $strex, ((Rd, Rt, Rn, imm8)) )
+
+    // [T1] STREX <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( strex, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), strex_c, $strex, ((Rd, Rt, Rn)) )
+
+    // [T1] STREXB <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( strexb, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), strexb_c, $strexb, ((Rd, Rt, Rn)) )
+
+    // [T1] STREXH <Rd>, <Rt>, [<Rn>]
+    __GEN_CXI_ONE_STD__( strexh, __NONE__, ((final Reg Rd, final Reg Rt, final Reg Rn)), strexh_c, $strexh, ((Rd, Rt, Rn)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SUBS <Rd>, <Rn>, #<imm3>
+    // [T1] SUB   SP ,  SP , #<imm7>
+    __GEN_CXI_ALT_STD__( sub, __NONE__, ((final Reg Rd, final Reg Rn, final int imm3_imm7)), sub_c, Rd.regNum == Reg.SP.regNum || Rn.regNum == Reg.SP.regNum, $sub, $subs, ((Rd, Rn, imm3_imm7)) )
+
+    // [T2] SUBS <Rdn>, #<imm8>
+    __GEN_CXI_ONE_STD__( sub, __NONE__, ((final Reg Rdn, final int imm8)), sub_c, $subs, ((Rdn, imm8)) )
+
+    // [T1] SUBS <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( sub, __NONE__, ((final Reg Rd, final Reg Rn, final Reg Rm)), sub_c, $subs, ((Rd, Rn, Rm)) )
+
+    // [PI] SUB SP, SP, #<imm7>
+    __GEN_CXI_ONE_STD__( sub, _sp, ((final int imm7)), sub_sp_c, $sub_sp, ((imm7)) )
+
+    // [T4] SUBW <Rd>, <Rn>, #<imm12>
+    __GEN_CXI_ONE_STD__( subw, __NONE__, ((final Reg Rd, final Reg Rn, final int imm12)), subw_c, $subw, ((Rd, Rn, imm12)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SVC #<imm8>
+    __GEN_CXI_ONE_STD__( svc, __NONE__, ((final int imm8)), svc_c, $svc, ((imm8)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SXTB <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( sxtb, __NONE__, ((final Reg Rd, final Reg Rm)), sxtb_c, $sxtb, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] SXTH <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( sxth, __NONE__, ((final Reg Rd, final Reg Rm)), sxth_c, $sxth, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] TST <Rn>, #<const>
+    __GEN_CXI_ONE_STD__( tst, __NONE__, ((final Reg Rn, final long const_)), tst_c, $tst, ((Rn, const_)) )
+
+    // [T1] TST   <Rn>, <Rm>
+    // [T2] TST.W <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( tst, __NONE__, ((final Reg Rn, final Reg Rm)), tst_c, $tst, ((Rn, Rm)) )
+
+    // [T2] TST.W <Rn>, <Rm>, <shift_operand> {#<imm5>}
+    __GEN_CXI_ONE_STD__( tst, __NONE__, ((final Reg Rn, final Reg Rm, final Shift shift, final int imm5)), tst_c, $tst, ((Rn, Rm, shift, imm5)) )
+
+    // [T2] TST.W <Rn>, <Rm>, <shift_operand>
+    __GEN_CXI_ONE_STD__( tst, __NONE__, ((final Reg Rn, final Reg Rm, final Shift shift)), tst_c, $tst, ((Rn, Rm, shift)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] UDF #<imm8>
+    __GEN_CXI_ONE_STD__( udf, __NONE__, ((final int imm8)), udf_c, $udf, ((imm8)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] UDIV <Rd>, <Rn>, <Rm>
+    __GEN_CXI_ONE_STD__( udiv, __NONE__, ((final Reg Rd, final Reg Rn, final Reg Rm)), udiv_c, $udiv, ((Rd, Rn, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] UXTB <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( uxtb, __NONE__, ((final Reg Rd, final Reg Rm)), uxtb_c, $uxtb, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] UXTH <Rd>, <Rm>
+    __GEN_CXI_ONE_STD__( uxth, __NONE__, ((final Reg Rd, final Reg Rm)), uxth_c, $uxth, ((Rd, Rm)) )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] WFE
+    __GEN_CXI_NPR_NPR__( wfe, __NONE__, wfe_c, $wfe )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] WFI
+    __GEN_CXI_NPR_NPR__( wfi, __NONE__, wfi_c, $wfi )
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // [T1] YIELD
+    __GEN_CXI_NPR_NPR__( yield, __NONE__, yield_c, $yield )
+
+} // class ARMCortexMThumbC

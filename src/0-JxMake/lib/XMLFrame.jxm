@@ -1,0 +1,943 @@
+(****************************************************************************************************
+ ***** XML Frame Utility                                                                        *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Constants
+const XMLFrame_BuiltInIconWidth        :=  32
+const XMLFrame_BuiltInIconHeight       :=  32
+
+const XMLFrame_TextBoxBorderSize       :=   2
+
+const XMLFrame_DefaultPadding          :=   8
+const XMLFrame_DefaultBorderSize       :=   4
+
+const XMLFrame_DefaultMsgBoxWidth      := 480
+const XMLFrame_DefaultMsgBoxHeight     := 150
+
+const XMLFrame_DefaultLstBoxWidth      := 480
+const XMLFrame_DefaultLstBoxHeight     := 300
+
+const XMLFrame_DefaultTxfBoxWidth      := 480
+const XMLFrame_DefaultTxfBoxHeight     := 180
+
+const XMLFrame_DefaultTxaBoxWidth      := 480
+const XMLFrame_DefaultTxaBoxHeight     := 320
+
+const XMLFrame_DefaultChkBoxWidth      := 480
+const XMLFrame_DefaultChkBoxHeight     := 300
+
+const XMLFrame_Button_OK               := 'OK'
+const XMLFrame_Button_OKCancel         := 'OK'    'Cancel'
+const XMLFrame_Button_YesNo            := 'Yes'   'No'
+const XMLFrame_Button_YesNoCancel      := 'Yes'   'No'     'Cancel'
+const XMLFrame_Button_AbortRetry       := 'Abort' 'Retry'
+const XMLFrame_Button_AbortRetryIgnore := 'Abort' 'Retry'  'Ignore'
+
+
+##### A helper macro to determine the alignments
+.macro __xml_frame_det_alignments___
+    # Horizontal alignment
+      if ${halign} &== 'l' ; halign := 2
+    elif ${halign} &== 'r' ; halign := 4
+    elif ${halign} &== 'c' ; halign := 0
+    else                   ; halign := ''
+    endif
+    if &${halign} : local alignStr +:= "<void property=\"horizontalAlignment\"> <int>${halign}</int> </void>\n"
+    # Vertical alignment
+      if ${valign} &== 't' ; valign := 1
+    elif ${valign} &== 'b' ; valign := 3
+    elif ${valign} &== 'm' ; valign := 0
+    else                   ; valign := ''
+    endif
+    if &${valign} : local alignStr +:= "<void property=\"verticalAlignment\"> <int>${valign}</int> </void>"
+.endmacro
+
+
+##### A helper macro to sanitize the 'selected' value
+.macro __xml_frame_sanitize_selected_value__
+    if ${selected} ; selected := 'true'
+    else           ; selected := 'false'
+    endif
+.endmacro
+
+
+##### A helper macro to define the array items, size, and selected index
+.macro __xml_frame_define_array_items__
+    local     selectedIndex ?:= 1
+    local     ArraySize      := $part_count(${values})
+    local     ArrayItems
+    local sub ArraySelIndex, ${selectedIndex}, 1
+    foreach local I, V in ${values}
+        local sub N, ${I}, 1
+        V := $xml_escape(${V})
+        ArrayItems +:= "                                    <void index=\"${N}\"> <string>${V}</string> </void>\n"
+    endforeach
+.endmacro
+
+
+##### Functions to begin and end an XML frame (with border layout)
+function xmlframe_begin(title, width, height, ?padding, ?fixedWindowSize)
+    # Set the default value
+    local padding ?:= ${XMLFrame_DefaultPadding}
+    # Determine if the window shall be resizable
+    if ${fixedWindowSize} ; local resizable := 'false'
+    else                  ; local resizable := 'true'
+    endif
+    # Escape the value
+    title := $xml_escape(${title})
+    # Create and return the begin XML frame code
+    return :"\n\
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+        <java version=\"1.8.0\" class=\"java.beans.XMLDecoder\">\n\
+            <object id=\"#MainWindow\" class=\"jxm.XMLFrame\">\n\
+                <void property=\"size\">\n\
+                    <object class=\"java.awt.Dimension\">\n\
+                        <int>${width}</int>\n\
+                        <int>${height}</int>\n\
+                    </object>\n\
+                </void>\n\
+                <void property=\"title\">\n\
+                    <string>${title}</string>\n\
+                </void>\n\
+                <void property=\"defaultCloseOperation\">\n\
+                    <int>2</int>\n\
+                </void>\n\
+                <void method=\"addWindowListener\">\n\
+                    <object class=\"java.beans.EventHandler\" method=\"create\">\n\
+                        <class>java.awt.event.WindowListener</class>\n\
+                        <object class=\"jxm.XMLFrame$WindowListener\">\n\
+                            <object idref=\"#MainWindow\"/>\n\
+                            <string>#MainWindow</string>\n\
+                        </object>\n\
+                        <string>handle</string>\n\
+                    </object>\n\
+                </void>\n\
+                <void method=\"addWindowFocusListener\">\n\
+                    <object class=\"java.beans.EventHandler\" method=\"create\">\n\
+                        <class>java.awt.event.WindowFocusListener</class>\n\
+                        <object class=\"jxm.XMLFrame$WindowFocusListener\">\n\
+                            <object idref=\"#MainWindow\"/>\n\
+                            <string>#MainWindow</string>\n\
+                        </object>\n\
+                        <string>handle</string>\n\
+                    </object>\n\
+                </void>\n\
+                <void property=\"resizable\">\n\
+                    <boolean>${resizable}</boolean>\n\
+                </void>\n\
+                <void property=\"contentPane\">\n\
+                    <void property=\"border\">\n\
+                        <object class=\"javax.swing.border.EmptyBorder\">\n\
+                            <int>${padding}</int>\n\
+                            <int>${padding}</int>\n\
+                            <int>${padding}</int>\n\
+                            <int>${padding}</int>\n\
+                        </object>\n\
+                    </void>\n\
+                    <void property=\"layout\">\n\
+                        <object class=\"java.awt.BorderLayout\">\n\
+                            <int>${padding}</int>\n\
+                            <int>${padding}</int>\n\
+                        </object>\n\
+                    </void>\n\
+    "
+endfunction
+
+function xmlframe_end(?extraDefs)
+    # Create and return the end XML frame code
+    return :"\n\
+                </void>\n\
+            </object>\n\
+            ${extraDefs}\n\
+        </java>\n\
+    "
+endfunction
+
+
+##### Functions to add (begin and end) XML panels (with grid layout) to an XML frame
+function xmlframe_panel_begin(cols, rows, ?padding)
+    # Set the default value
+    local padding ?:= ${XMLFrame_DefaultPadding}
+    # Create and return the begin XML panel code
+    return :"\n\
+                    <void method=\"add\">\n\
+                        <object class=\"javax.swing.JPanel\">\n\
+                            <void property=\"layout\">\n\
+                                <object class=\"java.awt.GridLayout\">\n\
+                                    <int>${rows}</int>\n\
+                                    <int>${cols}</int>\n\
+                                    <int>${padding}</int>\n\
+                                    <int>${padding}</int>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_end(position)
+    # Check the position
+      if ${position} &== 'n' ; position := 'North'
+    elif ${position} &== 'w' ; position := 'West'
+    elif ${position} &== 'c' ; position := 'Center'
+    elif ${position} &== 'e' ; position := 'East'
+    elif ${position} &== 's' ; position := 'South'
+    else
+        echoln "xmlframe_panel_end(): invalid position '${position}'"
+        return
+    endif
+    # Create and return the end XML panel code
+    return :"\n\
+                        </object>\n\
+                        <string>${position}</string>\n\
+                    </void>\n\
+    "
+endfunction
+
+
+##### Functions to add packed (begin and end) XML panels (with grid layout) to an XML panel
+function xmlframe_panel_begin_packed(?cols, ?rows, ?padding, ?borderPixel)
+    # Set the default values
+    local cols    ?:= 1
+    local rows    ?:= 1
+    local padding ?:= ${XMLFrame_DefaultPadding}
+    # Generate the border XML code as needed
+    if &${borderPixel}
+        if ${borderPixel} <= 0 : borderPixel := ${XMLFrame_DefaultBorderSize}
+        local borderStr := "\n\
+                                        <void property=\"border\">\n\
+                                            <object class=\"javax.swing.border.CompoundBorder\">\n\
+                                                <object class=\"javax.swing.border.EtchedBorder\">\n\
+                                                    <int>1</int>\n\
+                                                </object>\n\
+                                                <object class=\"javax.swing.border.EmptyBorder\">\n\
+                                                    <int>${borderPixel}</int>\n\
+                                                    <int>${borderPixel}</int>\n\
+                                                    <int>${borderPixel}</int>\n\
+                                                    <int>${borderPixel}</int>\n\
+                                                </object>\n\
+                                            </object>\n\
+                                        </void>\n\
+                           "
+    endif
+    # Create and return the begin XML panel code
+    return :"\n\
+                        <void method=\"add\">\n\
+                            <object class=\"javax.swing.JPanel\">\n\
+                                <void property=\"layout\">\n\
+                                    <object class=\"java.awt.BorderLayout\"/>\n\
+                                </void>\n\
+                                <void method=\"add\">\n\
+                                    <object class=\"javax.swing.JPanel\">\n\
+                                        <void property=\"layout\">\n\
+                                            <object class=\"java.awt.GridLayout\">\n\
+                                                <int>${rows}</int>\n\
+                                                <int>${cols}</int>\n\
+                                                <int>${padding}</int>\n\
+                                                <int>${padding}</int>\n\
+                                            </object>\n\
+                                        </void>\n\
+                                        ${borderStr}\n\
+    "
+endfunction
+
+function xmlframe_panel_end_packed()
+    return :"\n\
+                                    </object>\n\
+                                    <string>North</string>\n\
+                                </void>\n\
+                            </object>\n\
+                        </void>\n\
+    "
+endfunction
+
+
+##### Functions to add XML controls to an XML panel
+function xmlframe_panel_add_label(text, ?halign, ?valign)
+    # Determine the alignments
+    .$__xml_frame_det_alignments___
+    # Escape the value
+    text := $xml_escape(${text})
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JLabel\">\n\
+                                    <void property=\"text\">\n\
+                                        <string>${text}</string>\n\
+                                    </void>\n\
+                                    ${alignStr}\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_icon(path, ?halign, ?valign)
+    # Determine the alignments
+    .$__xml_frame_det_alignments___
+    # Escape the value
+    path := $xml_escape(${path})
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JLabel\">\n\
+                                    <object class=\"jxm.XMLFrame\" method=\"getImageIcon\">\n\
+                                        <string>${path}</string>\n\
+                                    </object>\n\
+                                    ${alignStr}\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function __xmlframe_panel_add_xxxbutton__(id, text, listener)
+    # Escape the values
+    id   := $xml_escape(${id}  )
+    text := $xml_escape(${text})
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JButton\">\n\
+                                    <string>${text}</string>\n\
+                                    <void method=\"addActionListener\">\n\
+                                        <object class=\"java.beans.EventHandler\" method=\"create\">\n\
+                                            <class>java.awt.event.ActionListener</class>\n\
+                                            <object class=\"jxm.XMLFrame$${listener}\">\n\
+                                                <object idref=\"#MainWindow\"/>\n\
+                                                <string>${id}</string>\n\
+                                            </object>\n\
+                                            <string>handle</string>\n\
+                                        </object>\n\
+                                    </void>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_exitbutton(id, text)
+    return $call(__xmlframe_panel_add_xxxbutton__, ${id}, ${text}, 'ButtonExitListener')
+endfunction
+
+function xmlframe_panel_add_acceptbutton(id, text)
+    return $call(__xmlframe_panel_add_xxxbutton__, ${id}, ${text}, 'ButtonAcceptListener')
+endfunction
+
+function xmlframe_panel_add_checkbox(text, ?selected)
+    # Sanitize the 'selected' value
+    .$__xml_frame_sanitize_selected_value__
+    # Escape the value
+    text := $xml_escape(${text})
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JCheckBox\">\n\
+                                    <string>${text}</string>\n\
+                                    <boolean>${selected}</boolean>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_radiobutton(id, text, ?selected)
+    # Sanitize the 'selected' value
+    .$__xml_frame_sanitize_selected_value__
+    # Escape the value
+    text := $xml_escape(${text})
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object id=\"${id}\" class=\"javax.swing.JRadioButton\">\n\
+                                    <string>${text}</string>\n\
+                                    <boolean>${selected}</boolean>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_combobox(values, ?selectedIndex)
+    # Define the array items
+    .$__xml_frame_define_array_items__
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JComboBox\">\n\
+                                    <array class=\"java.lang.String\" length=\"${ArraySize}\">\n${ArrayItems}\
+                                    </array>\n\
+                                    <void property=\"selectedIndex\">\n\
+                                        <int>${ArraySelIndex}</int>\n\
+                                    </void>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_listbox(values, ?selectedIndex, ?cellWidthPixel)
+    # Set the default value
+    local cellWidthPixel ?:= -1
+    # Define the array items
+    .$__xml_frame_define_array_items__
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JScrollPane\">\n\
+                                    <object class=\"javax.swing.JList\">\n\
+                                        <array class=\"java.lang.String\" length=\"${ArraySize}\">\n${ArrayItems}\
+                                        </array>\n\
+                                        <void property=\"selectedIndex\">\n\
+                                            <int>${ArraySelIndex}</int>\n\
+                                        </void>\n\
+                                        <void property=\"layoutOrientation\">\n\
+                                            <int>0</int>\n\
+                                        </void>\n\
+                                        <void property=\"fixedCellWidth\">\n\
+                                            <int>${cellWidthPixel}</int>\n\
+                                        </void>\n\
+                                    </object>\n\
+                                    <int>22</int>\n\
+                                    <int>32</int>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_hslider(vmin, vmax, vcur)
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JSlider\">\n\
+                                    <int>0</int>\n\
+                                    <int>${vmin}</int>\n\
+                                    <int>${vmax}</int>\n\
+                                    <int>${vcur}</int>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_numberspinner(vmin, vmax, vcur, ?vstp)
+    # Set the default value
+    local vstp ?:= 1
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JSpinner\">\n\
+                                    <object class=\"javax.swing.SpinnerNumberModel\">\n\
+                                        <int>${vcur}</int>\n\
+                                        <int>${vmin}</int>\n\
+                                        <int>${vmax}</int>\n\
+                                        <int>${vstp}</int>\n\
+                                    </object>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_textfield(text, ?heightPixel)
+    # Escape the value
+    text := $xml_escape(${text})
+    # Generate the height XML code as needed
+    if &${heightPixel}
+        if ${heightPixel} <= 0 : heightPixel := ${XMLFrame_BuiltInIconHeight}
+        local heightStr := "\n\
+                                    <void property=\"preferredSize\">\n\
+                                        <object class=\"java.awt.Dimension\">\n\
+                                            <int>0</int>\n\
+                                            <int>${heightPixel}</int>\n\
+                                        </object>\n\
+                                    </void>\n\
+                           "
+    endif
+    # Increment the ID counter (this is a global variable)
+    inc __XMLFrame_TextField_IDCnt__
+    # Create the ID string
+    local id := :"#JTextField${__XMLFrame_TextField_IDCnt__}"
+    # Create and return the XML control code
+    return :"\n\
+                            <void method=\"add\">\n\
+                                <object class=\"javax.swing.JTextField\">\n\
+                                    <string>${text}</string>\n\
+                                    ${heightStr}\n\
+                                    <void id=\"${id}\" property=\"border\"/>\n\
+                                    <void property=\"border\">\n\
+                                        <object class=\"javax.swing.border.CompoundBorder\">\n\
+                                            <object idref=\"${id}\"/>\n\
+                                            <object class=\"javax.swing.border.EmptyBorder\">\n\
+                                                <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                                <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                                <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                                <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                            </object>\n\
+                                        </object>\n\
+                                    </void>\n\
+                                </object>\n\
+                            </void>\n\
+    "
+endfunction
+
+function xmlframe_panel_add_textarea(text, ?cols, ?rows)
+    # Set the default values
+    local cols ?:= 0
+    local rows ?:= 0
+    # Escape the value
+    text := $xml_escape(${text})
+    # Create and return the XML control code
+    return :"\n\
+                        <void method=\"add\">\n\
+                            <object class=\"javax.swing.JScrollPane\">\n\
+                                <object class=\"javax.swing.JTextArea\">\n\
+                                    <string>${text}</string>\n\
+                                    <void property=\"columns\">\n\
+                                        <int>${cols}</int>\n\
+                                    </void>\n\
+                                    <void property=\"rows\">\n\
+                                        <int>${rows}</int>\n\
+                                    </void>\n\
+                                    <void property=\"border\">\n\
+                                        <object class=\"javax.swing.border.EmptyBorder\">\n\
+                                            <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                            <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                            <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                            <int>${XMLFrame_TextBoxBorderSize}</int>\n\
+                                        </object>\n\
+                                    </void>\n\
+                                </object>\n\
+                                <int>22</int>\n\
+                                <int>32</int>\n\
+                            </object>\n\
+                        </void>\n\
+    "
+endfunction
+
+
+##### Functions to enable shortcuts (added to 'extraDefs')
+function xmlframe_xdef_en_key_enter_close_window(?listener)
+    # Set the default value
+    listener :?= 'ButtonAcceptListener'
+    # Create and return the end XML shortcut activation code
+    return :"\n\
+            <object idref=\"#MainWindow\">\n\
+                <void method=\"enSCut_keyEnter_closeWindow\">\n\
+                    <object class=\"jxm.XMLFrame$${listener}\">\n\
+                        <object idref=\"#MainWindow\"/>\n\
+                        <string>#Key_Enter</string>\n\
+                    </object>\n\
+                </void>\n\
+            </object>\n\
+    "
+endfunction
+
+function xmlframe_xdef_en_key_escape_close_window()
+    # Create and return the end XML shortcut activation code
+    return :"\n\
+            <object idref=\"#MainWindow\">\n\
+                <void method=\"enSCut_keyEscape_closeWindow\">\n\
+                    <boolean>true</boolean>\n\
+                </void>\n\
+            </object>\n\
+    "
+endfunction
+
+
+##### Function to define radio button groups (added to 'extraDefs')
+function xmlframe_xdef_radiobutton_group(radioButtonIDs)
+    # Define the group items
+    local Group
+    foreach local id in ${radioButtonIDs}
+        Group +:= "                <void method=\"add\"> <object idref=\"${id}\"/> </void>\n"
+    endforeach
+    # Create and return the XML button group code
+    return :"\n\
+            <object class=\"javax.swing.ButtonGroup\">\n${Group}\
+            </object>\n\
+    "
+endfunction
+
+
+##### Undefine the helper macros here to prevent duplicated name later on
+.undefmacro __xml_frame_det_alignments___
+.undefmacro __xml_frame_sanitize_selected_value__
+.undefmacro __xml_frame_define_array_items__
+
+
+##### A helper macro to determine the icon type
+.macro __xmlf_determine_icon_type__
+    local iconPath
+      if ${iconType} &== 'i' ; iconPath := 'icon/information.png'
+    elif ${iconType} &== 'w' ; iconPath := 'icon/warning.png'
+    elif ${iconType} &== 'e' ; iconPath := 'icon/error.png'
+    elif ${iconType} &== 'q' ; iconPath := 'icon/question.png'
+    endif
+.endmacro
+
+
+##### Functions to show message dialog boxes
+function __xmlf_msgbox_xxx__(title, message, iconType, width, height, buttons)
+    # Set the default values
+    local width  ?:= ${XMLFrame_DefaultMsgBoxWidth}
+    local height ?:= ${XMLFrame_DefaultMsgBoxHeight}
+    # Determine the icon type
+    .$__xmlf_determine_icon_type__
+    # Create the dialog box
+        local XMLFrame
+        local XDefs
+        XMLFrame  := $call(xmlframe_begin                          , ${title}, ${width}, ${height}, ?, true)
+    if &${iconPath}
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_icon                 , ${iconPath}                           )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'w'                                   )
+    endif
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_label                , ${message}                            )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'c'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , $part_count(${buttons}), 1            )
+    foreach local Btn in ${buttons}
+        XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , :"btn${Btn}", ${Btn}                  )
+    endforeach
+        XMLFrame +:= $call(xmlframe_panel_end                      , 's'                                   )
+        XDefs     := $call(xmlframe_xdef_en_key_escape_close_window                                        )
+        XMLFrame +:= $call(xmlframe_end                            , ${XDefs}                              )
+    # Execute the dialog box
+    local Res := $xmlframe_string(${XMLFrame})
+    # Return the result
+    if !&${Res} : return 0
+    Res := $partn(${Res}, 2)
+    foreach local I, Btn in ${buttons}
+        if ${Res} &== :"btn${Btn}" : return ${I}
+    endforeach
+    return 0
+endfunction
+
+function xmlf_msgbox_ok(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OK})
+endfunction
+
+function xmlf_msgbox_ok_cancel(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OKCancel})
+endfunction
+
+function xmlf_msgbox_yes_no(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_YesNo})
+endfunction
+
+function xmlf_msgbox_yes_no_cancel(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_YesNoCancel})
+endfunction
+
+function xmlf_msgbox_yes_abort_retry(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_AbortRetry})
+endfunction
+
+function xmlf_msgbox_yes_abort_retry_ignore(title, message, ?iconType, ?width, ?height)
+    return $call(__xmlf_msgbox_xxx__, ${title}, ${message}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_AbortRetryIgnore})
+endfunction
+
+
+##### Functions to list message dialog boxes
+function __xmlf_lstbox_xxx__(title, message, listItems, iconType, width, height, buttons)
+    # Set the default values
+    local width  ?:= ${XMLFrame_DefaultLstBoxWidth}
+    local height ?:= ${XMLFrame_DefaultLstBoxHeight}
+    # Determine the icon type
+    .$__xmlf_determine_icon_type__
+    # Create the dialog box
+        local XMLFrame
+        local XDefs
+        XMLFrame  := $call(xmlframe_begin                          , ${title}, ${width}, ${height}, ?, true)
+    if &${iconPath}
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_icon                 , ${iconPath}, ?, 't'                   )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'w'                                   )
+    endif
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_label                , ${message}                            )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'n'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_listbox              , ${listItems}                          )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'c'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , $part_count(${buttons}), 1            )
+    foreach local Btn in ${buttons}
+        XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , :"btn${Btn}", ${Btn}                  )
+    endforeach
+        XMLFrame +:= $call(xmlframe_panel_end                      , 's'                                   )
+        XDefs     := $call(xmlframe_xdef_en_key_escape_close_window                                        )
+        XMLFrame +:= $call(xmlframe_end                            , ${XDefs}                              )
+    # Execute the dialog box
+    local Res := $xmlframe_string(${XMLFrame})
+    # Return the result
+    if !&${Res} : return 0
+    local SelBtn := $partn(${Res}, 2)
+    local SelIdx := $partn(${Res}, 4)
+    foreach local I, Btn in ${buttons}
+        if ${SelBtn} &== :"btn${Btn}"
+            local SelItm := $partn(${listItems}, ${SelIdx})
+            return "${I}${SelIdx}${SelItm}"
+        endif
+    endforeach
+    return 0
+endfunction
+
+function xmlf_lstbox_ok(title, message, listItems, ?iconType, ?width, ?height)
+    return $call(__xmlf_lstbox_xxx__, ${title}, ${message}, ${listItems}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OK})
+endfunction
+
+function xmlf_lstbox_ok_cancel(title, message, listItems, ?iconType, ?width, ?height)
+    return $call(__xmlf_lstbox_xxx__, ${title}, ${message}, ${listItems}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OKCancel})
+endfunction
+
+
+##### Functions to text field and area message dialog boxes
+function __xmlf_txtbox_xxx__(title, message, defaultText, iconType, width, height, buttons, textArea)
+    # Set the default values
+    if ${textArea}
+        local width  ?:= ${XMLFrame_DefaultTxaBoxWidth}
+        local height ?:= ${XMLFrame_DefaultTxaBoxHeight}
+    else
+        local width  ?:= ${XMLFrame_DefaultTxfBoxWidth}
+        local height ?:= ${XMLFrame_DefaultTxfBoxHeight}
+    endif
+    # Determine the icon type
+    .$__xmlf_determine_icon_type__
+    # Create the dialog box
+        local XMLFrame
+        local XDefs
+        XMLFrame  := $call(xmlframe_begin                          , ${title}, ${width}, ${height}, ?, true)
+    if &${iconPath}
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_icon                 , ${iconPath}, ?, 't'                   )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'w'                                   )
+    endif
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_label                , ${message}                            )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'n'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+    if ${textArea}
+        XMLFrame +:= $call(xmlframe_panel_add_textarea             , ${defaultText}                        )
+    else
+        XMLFrame +:= $call(xmlframe_panel_begin_packed             , ?, ?, 0                               )
+        XMLFrame +:= $call(xmlframe_panel_add_textfield            , ${defaultText}, -1                    )
+        XMLFrame +:= $call(xmlframe_panel_end_packed                                                       )
+    endif
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'c'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , $part_count(${buttons}), 1            )
+    foreach local Btn in ${buttons}
+        XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , :"btn${Btn}", ${Btn}                  )
+    endforeach
+        XMLFrame +:= $call(xmlframe_panel_end                      , 's'                                   )
+        XDefs     := $call(xmlframe_xdef_en_key_escape_close_window                                        )
+        XMLFrame +:= $call(xmlframe_end                            , ${XDefs}                              )
+    # Execute the dialog box
+    local Res := $xmlframe_string(${XMLFrame})
+    # Return the result
+    if !&${Res} : return 0
+    local SelBtn := $partn(${Res}, 2)
+    local Text   := $partn(${Res}, 4)
+    foreach local I, Btn in ${buttons}
+        if ${SelBtn} &== :"btn${Btn}"
+            return "${I}${Text}"
+        endif
+    endforeach
+    return 0
+endfunction
+
+function xmlf_txfbox_ok(title, message, defaultText, ?iconType, ?width, ?height)
+    return $call(__xmlf_txtbox_xxx__, ${title}, ${message}, ${defaultText}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OK}, false)
+endfunction
+
+function xmlf_txfbox_ok_cancel(title, message, defaultText, ?iconType, ?width, ?height)
+    return $call(__xmlf_txtbox_xxx__, ${title}, ${message}, ${defaultText}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OKCancel}, false)
+endfunction
+
+function xmlf_txabox_ok(title, message, defaultText, ?iconType, ?width, ?height)
+    return $call(__xmlf_txtbox_xxx__, ${title}, ${message}, ${defaultText}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OK}, true)
+endfunction
+
+function xmlf_txabox_ok_cancel(title, message, defaultText, ?iconType, ?width, ?height)
+    return $call(__xmlf_txtbox_xxx__, ${title}, ${message}, ${defaultText}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OKCancel}, true)
+endfunction
+
+
+##### Functions to check box message dialog boxes
+function __xmlf_chkbox_xxx__(title, message, chkItems, iconType, width, height, buttons, cols)
+    # Set the default values
+                      local width  ?:= ${XMLFrame_DefaultChkBoxWidth}
+                      local height ?:= ${XMLFrame_DefaultChkBoxHeight}
+                      local cols   ?:= 1
+                      local rows    := $part_count(${chkItems})
+    if ${cols} != 1 : eval  rows    := ( ${rows} + (${cols} + 1) / 2 ) / ${cols}
+    # Determine the icon type
+    .$__xmlf_determine_icon_type__
+    # Create the dialog box
+        local XMLFrame
+        local XDefs
+        XMLFrame  := $call(xmlframe_begin                          , ${title}, ${width}, ${height}, ?, true)
+    if &${iconPath}
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_icon                 , ${iconPath}, ?, 't'                   )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'w'                                   )
+    endif
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_add_label                , ${message}                            )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'n'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1                                  )
+        XMLFrame +:= $call(xmlframe_panel_begin_packed             , ${cols}, ${rows}, 0, -1               )
+    foreach local chkStr in ${chkItems}
+        XMLFrame +:= $call(xmlframe_panel_add_checkbox             , ${chkStr}                             )
+    endforeach
+        XMLFrame +:= $call(xmlframe_panel_end_packed                                                       )
+        XMLFrame +:= $call(xmlframe_panel_end                      , 'c'                                   )
+        XMLFrame +:= $call(xmlframe_panel_begin                    , $part_count(${buttons}), 1            )
+    foreach local Btn in ${buttons}
+        XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , :"btn${Btn}", ${Btn}                  )
+    endforeach
+        XMLFrame +:= $call(xmlframe_panel_end                      , 's'                                   )
+        XDefs     := $call(xmlframe_xdef_en_key_escape_close_window                                        )
+        XMLFrame +:= $call(xmlframe_end                            , ${XDefs}                              )
+    # Execute the dialog box
+    local Res := $xmlframe_string(${XMLFrame})
+    # Return the result
+    if !&${Res} : return 0
+    local SelBtn := $partn(${Res}, 2)
+    foreach local I, Btn in ${buttons}
+        if ${SelBtn} &== :"btn${Btn}"
+            local Ret := "${I}"
+            foreach local S in ${Res} skip 3 step 2
+                Ret +:= ${S}
+            endforeach
+            return ${Ret}
+        endif
+    endforeach
+    return 0
+endfunction
+
+function xmlf_chkbox_ok(title, message, chkItems, ?iconType, ?width, ?height, ?cols)
+    return $call(__xmlf_chkbox_xxx__, ${title}, ${message}, ${chkItems}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OK}, ${cols})
+endfunction
+
+function xmlf_chkbox_ok_cancel(title, message, chkItems, ?iconType, ?width, ?height, ?cols)
+    return $call(__xmlf_chkbox_xxx__, ${title}, ${message}, ${chkItems}, ${iconType}, ${width}, ${height}, ${XMLFrame_Button_OKCancel}, ${cols})
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __xmlf_determine_icon_type__
+
+
+##### Function to convert multiline text to simple HTML
+function mltext_to_html(text)
+    text := $ftlines(${text})
+    text := ${text/\n/<br>/}
+    return :"<html>${text}</html>"
+endfunction
+
+
+##### A target and helper functions to show the XML frame library help
+target xflib_help
+    echoln __c_magenta__ '========== XML Frame Library =========='
+    echoln __c_cyan__  'Functions ' __c_white__ '(Call Using \'' __c_green__ '$call(...)' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    xmlframe_begin(title, width, height, ?padding, ?fixedWindowSize)    ' __c_white__ ': begin XML frame (the main window) with border layout'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'padding' __c_white__ '\'         is \'' __c_yellow__ ${XMLFrame_DefaultPadding}  __c_white__ '\''
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'fixedWindowSize' __c_white__ '\' is \'' __c_yellow__ 'false' __c_white__ '\''
+    echoln __c_green__ '    xmlframe_end(?extraDefs)                                            ' __c_white__ ': end XML frame (the main window)'
+    echoln
+    echoln __c_green__ '    xmlframe_panel_begin(cols, rows, ?padding)                          ' __c_white__ ': begin XML panel with grid layout'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'padding' __c_white__ '\' is \'' __c_yellow__ ${XMLFrame_DefaultPadding}  __c_white__ '\''
+    echoln __c_green__ '    xmlframe_panel_end(position)                                        ' __c_white__ ': end XML panel and add it to the main window'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - valid \'' __c_green__ 'position' __c_white__ '\' is \'' __c_yellow__ 'n' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'c' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', or \'' __c_yellow__ 's' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    xmlframe_panel_begin_packed(?cols, ?rows, ?padding, ?borderPixel)   ' __c_white__ ': begin packed XML panel with grid layout'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'cols'        __c_white__ '\'        is \'' __c_yellow__ '1' __c_white__ '\''
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'rows'        __c_white__ '\'        is \'' __c_yellow__ '1' __c_white__ '\''
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'padding'     __c_white__    '\'     is \'' __c_yellow__ ${XMLFrame_DefaultPadding}  __c_white__ '\''
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'borderPixel' __c_white__        '\' is not specified or \'' __c_yellow__ ${XMLFrame_DefaultBorderSize}  __c_white__ '\' it is set to \'' __c_yellow__ '<= 0' __c_white__ '\''
+    echoln __c_green__ '    xmlframe_panel_end_packed()                                         ' __c_white__ ': end packed XML panel and add it to the panel created using \'' __c_green__ 'xmlframe_panel_begin' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    xmlframe_panel_add_label(text, ?halign, ?valign)                    ' __c_white__ ': add XML control - label'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - valid \'' __c_green__ 'halign' __c_white__ '\' is \'' __c_yellow__ 'l' __c_white__ '\', \'' __c_yellow__ 'r' __c_white__ '\', \'' __c_yellow__ 'c' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - valid \'' __c_green__ 'valign' __c_white__ '\' is \'' __c_yellow__ 't' __c_white__ '\', \'' __c_yellow__ 'b' __c_white__ '\', \'' __c_yellow__ 'm' __c_white__ '\', or not specified'
+    echoln __c_green__ '    xmlframe_panel_add_icon(path, ?halign, ?valign)                     ' __c_white__ ': add XML control - icon'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - built-in \'' __c_green__ 'path' __c_white__ '\' is \'' __c_yellow__ 'icon/(information|warning|error|question).png' __c_white__ '\''
+    echoln __c_green__ '                                                                        ' __c_white__ '      - built-in icons size is \'' __c_yellow__ ${XMLFrame_BuiltInIconWidth} __c_white__ 'x' __c_yellow__ ${XMLFrame_BuiltInIconHeight} __c_white__ '\' pixels'
+    echoln __c_green__ '    xmlframe_panel_add_exitbutton(id, text)                             ' __c_white__ ': add XML control - exit       button (returns no results when clicked)'
+    echoln __c_green__ '    xmlframe_panel_add_acceptbutton(id, text)                           ' __c_white__ ': add XML control - accept     button (returns    results when clicked)'
+    echoln __c_green__ '    xmlframe_panel_add_checkbox(text, ?selected)                        ' __c_white__ ': add XML control - check      box'
+    echoln __c_green__ '    xmlframe_panel_add_radiobutton(id, text, ?selected)                 ' __c_white__ ': add XML control - radio      button'
+    echoln __c_green__ '    xmlframe_panel_add_combobox(values, ?selectedIndex)                 ' __c_white__ ': add XML control - combo      box'
+    echoln __c_green__ '    xmlframe_panel_add_listbox(values, ?selectedIndex, ?cellWidthPixel) ' __c_white__ ': add XML control - list       box'
+    echoln __c_green__ '    xmlframe_panel_add_hslider(vmin, vmax, vcur)                        ' __c_white__ ': add XML control - horizontal slider'
+    echoln __c_green__ '    xmlframe_panel_add_numberspinner(vmin, vmax, vcur, ?vstp)           ' __c_white__ ': add XML control - number     spinner'
+    echoln __c_green__ '    xmlframe_panel_add_textfield(text, ?heightPixel)                    ' __c_white__ ': add XML control - text       field'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'heightPixel' __c_white__ '\' is not specified or \'' __c_yellow__ ${XMLFrame_BuiltInIconHeight}  __c_white__ '\' it is set to \'' __c_yellow__ '<= 0' __c_white__ '\''
+    echoln __c_green__ '    xmlframe_panel_add_textarea(text, ?cols, ?rows)                     ' __c_white__ ': add XML control - text       area'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'cols' __c_white__ '\' is \'' __c_yellow__ '0' __c_white__ '\' (automatic)'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - the default \'' __c_green__ 'rows' __c_white__ '\' is \'' __c_yellow__ '0' __c_white__ '\' (automatic)'
+    echoln
+    echoln __c_green__ '    xmlframe_xdef_en_key_enter_close_window(?listener)                  ' __c_white__ ': enable shortcut to close the main window by pressing the ' __c_cyan__ 'Enter ' __c_white__ ' key (added as \'' __c_green__ 'extraDefs' __c_white__ '\')'
+    echoln __c_green__ '                                                                        ' __c_white__ '      - valid \'' __c_green__ 'listener' __c_white__ '\' is \'' __c_yellow__ 'ButtonAcceptListener' __c_white__ '\' (the default) or \'' __c_yellow__ 'ButtonExitListener' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    xmlframe_xdef_en_key_escape_close_window()                          ' __c_white__ ': enable shortcut to close the main window by pressing the ' __c_cyan__ 'Escape' __c_white__ ' key (added as \'' __c_green__ 'extraDefs' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    xmlframe_xdef_radiobutton_group(radioButtonIDs)                     ' __c_white__ ': group the radio button with the given IDs                           (added as \'' __c_green__ 'extraDefs' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    mltext_to_html(text)                                                ' __c_white__ ': Convert \'' __c_yellow__ '\\n' __c_white__ '\' to \'' __c_yellow__ '<br>' __c_white__ '\' and wrap the whole text in \'' __c_yellow__ '<html>' __c_white__ '\' and \'' __c_yellow__ '</html>' __c_white__ '\' tags'
+    echoln
+    echoln __c_white__ '    Built-in dialog boxes:'
+    echoln
+    echoln __c_green__ '        xmlf_msgbox_ok(title, message, ?iconType, ?width, ?height)                     ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'OK'    __c_white__ '\''                                                                '                     button'
+    echoln __c_green__ '        xmlf_msgbox_ok_cancel(title, message, ?iconType, ?width, ?height)              ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'OK'    __c_white__ '\'    \'' __c_cyan__ 'Cancel' __c_white__                                    '\'         buttons'
+    echoln __c_green__ '        xmlf_msgbox_yes_no(title, message, ?iconType, ?width, ?height)                 ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'Yes'   __c_white__ '\'   \''  __c_cyan__ 'No'     __c_white__                                '\'             buttons'
+    echoln __c_green__ '        xmlf_msgbox_yes_no_cancel(title, message, ?iconType, ?width, ?height)          ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'Yes'   __c_white__ '\'   \''  __c_cyan__ 'No'     __c_white__ '\'    \'' __c_cyan__ 'Cancel' __c_white__ '\' buttons'
+    echoln __c_green__ '        xmlf_msgbox_yes_abort_retry(title, message, ?iconType, ?width, ?height)        ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'Abort' __c_white__ '\' \''    __c_cyan__ 'Retry'  __c_white__                                   '\'          buttons'
+    echoln __c_green__ '        xmlf_msgbox_yes_abort_retry_ignore(title, message, ?iconType, ?width, ?height) ' __c_white__ ': show message dialog box with \'' __c_cyan__ 'Abort' __c_white__ '\' \''    __c_cyan__ 'Retry'  __c_white__ '\' \''    __c_cyan__ 'Ignore' __c_white__ '\' buttons'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - valid       \'' __c_green__ 'iconType' __c_white__    '\' is \'' __c_yellow__ 'i' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', \'' __c_yellow__ 'q' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'width'    __c_white__ '\'    is \'' __c_yellow__ ${XMLFrame_DefaultMsgBoxWidth}  __c_white__ '\''
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'height'   __c_white__  '\'   is \'' __c_yellow__ ${XMLFrame_DefaultMsgBoxHeight} __c_white__ '\''
+    echoln
+    echoln __c_green__ '        xmlf_lstbox_ok(title, message, listItems, ?iconType, ?width, ?height)          ' __c_white__ ': show list box dialog box with \'' __c_cyan__ 'OK' __c_white__ '\''                                     '          button'
+    echoln __c_green__ '        xmlf_lstbox_ok_cancel(title, message, listItems, ?iconType, ?width, ?height)   ' __c_white__ ': show list box dialog box with \'' __c_cyan__ 'OK' __c_white__ '\' \'' __c_cyan__ 'Cancel' __c_white__         '\' buttons'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - valid       \'' __c_green__ 'iconType' __c_white__    '\' is \'' __c_yellow__ 'i' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', \'' __c_yellow__ 'q' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'width'    __c_white__ '\'    is \'' __c_yellow__ ${XMLFrame_DefaultLstBoxWidth}  __c_white__ '\''
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'height'   __c_white__  '\'   is \'' __c_yellow__ ${XMLFrame_DefaultLstBoxHeight} __c_white__ '\''
+    echoln
+    echoln __c_green__ '        xmlf_txfbox_ok(title, message, defaultText, ?iconType, ?width, ?height)        ' __c_white__ ': show text field dialog box with \'' __c_cyan__ 'OK' __c_white__ '\''                                    '          button'
+    echoln __c_green__ '        xmlf_txfbox_ok_cancel(title, message, defaultText, ?iconType, ?width, ?height) ' __c_white__ ': show text field dialog box with \'' __c_cyan__ 'OK' __c_white__ '\' \'' __c_cyan__ 'Cancel' __c_white__        '\' buttons'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - valid       \'' __c_green__ 'iconType' __c_white__    '\' is \'' __c_yellow__ 'i' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', \'' __c_yellow__ 'q' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'width'    __c_white__ '\'    is \'' __c_yellow__ ${XMLFrame_DefaultTxfBoxWidth}  __c_white__ '\''
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'height'   __c_white__  '\'   is \'' __c_yellow__ ${XMLFrame_DefaultTxfBoxHeight} __c_white__ '\''
+    echoln
+    echoln __c_green__ '        xmlf_txabox_ok(title, message, defaultText, ?iconType, ?width, ?height)        ' __c_white__ ': show text area dialog box with \'' __c_cyan__ 'OK' __c_white__ '\''                                    '          button'
+    echoln __c_green__ '        xmlf_txabox_ok_cancel(title, message, defaultText, ?iconType, ?width, ?height) ' __c_white__ ': show text area dialog box with \'' __c_cyan__ 'OK' __c_white__ '\' \'' __c_cyan__ 'Cancel' __c_white__        '\' buttons'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - valid       \'' __c_green__ 'iconType' __c_white__    '\' is \'' __c_yellow__ 'i' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', \'' __c_yellow__ 'q' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'width'    __c_white__ '\'    is \'' __c_yellow__ ${XMLFrame_DefaultTxaBoxWidth}  __c_white__ '\''
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'height'   __c_white__  '\'   is \'' __c_yellow__ ${XMLFrame_DefaultTxaBoxHeight} __c_white__ '\''
+    echoln
+    echoln __c_green__ '        xmlf_chkbox_ok(title, message, chkItems, ?iconType, ?width, ?height)           ' __c_white__ ': show check box dialog box with \'' __c_cyan__ 'OK' __c_white__ '\''                                    '          button'
+    echoln __c_green__ '        xmlf_chkbox_ok_cancel(title, message, chkItems, ?iconType, ?width, ?height)    ' __c_white__ ': show check box dialog box with \'' __c_cyan__ 'OK' __c_white__ '\' \'' __c_cyan__ 'Cancel' __c_white__        '\' buttons'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - valid       \'' __c_green__ 'iconType' __c_white__    '\' is \'' __c_yellow__ 'i' __c_white__ '\', \'' __c_yellow__ 'w' __c_white__ '\', \'' __c_yellow__ 'e' __c_white__ '\', \'' __c_yellow__ 'q' __c_white__ '\', or not specified'
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'width'    __c_white__ '\'    is \'' __c_yellow__ ${XMLFrame_DefaultChkBoxWidth}  __c_white__ '\''
+    echoln __c_green__ '                                                                                       ' __c_white__ '      - the default \'' __c_green__ 'height'   __c_white__  '\'   is \'' __c_yellow__ ${XMLFrame_DefaultChkBoxHeight} __c_white__ '\''
+    echoln
+    echoln __c_white__ '    Example code flow to create and execute an XML GUI:'
+    echoln
+    echoln __c_green__ '        local XMLFrame  := $call(xmlframe_begin                          , ...     )'
+    echoln
+    echoln __c_green__ '              XMLFrame +:= $call(xmlframe_panel_begin                    , ...     )'
+    echoln __c_green__ '              XMLFrame +:= $call(xmlframe_panel_add_*                    , ...     )'
+    echoln __c_cyan__  '                           ... repeat adding more controls as needed ...'
+    echoln __c_green__ '              XMLFrame +:= $call(xmlframe_panel_end                      , ...     )'
+    echoln __c_cyan__  '              ... repeat adding more panels as needed ...'
+    echoln
+    echoln __c_green__ '        local XDefs     := $call(xmlframe_xdef_en_key_escape_close_window          )'
+    echoln __c_green__ '              XDefs    +:= $call(xmlframe_xdef_radiobutton_group         , ...     )'
+    echoln __c_cyan__  '              ... repeat adding more groups as needed ...'
+    echoln
+    echoln __c_green__ '              XMLFrame +:= $call(xmlframe_end                            , ${XDefs})'
+    echoln
+    echoln __c_green__ '        local Results   := $xmlframe_string(${XMLFrame})'
+    echoln
+    echoln __c_cyan__  'Targets'
+    echoln
+    echoln __c_green__ '    xflib_help' __c_white__ ': show this help information'
+    echoln __c_reset__
+endtarget

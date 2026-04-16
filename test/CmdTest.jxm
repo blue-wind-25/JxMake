@@ -1,0 +1,55 @@
+function cmdTest1(dir)
+
+    local path
+    if __os_windows__
+        path := "C:\\${dir}"
+        path := $flatten(${path})
+       -@cmd /C dir ${path}
+    else
+        path := "/${dir}"
+        path := $flatten(${path})
+       -@ls ${path}
+    endif
+
+    if $[excode]
+        echoln $[excode]
+        echoln $[stderr]
+    else
+        echoln $[stdout]
+    endif
+
+    local se = $[lserr]
+    if &se
+        echoln ${se}
+    endif
+
+    echoln
+    echoln
+
+endfunction
+
+function cmdTest2(file)
+
+    if __c_use_dark__  : local CT := '--lct'
+    if __c_use_light__ : local CT := '--dct'
+
+   +@jxmake ${CT} -f ${file}
+
+    if &$[stderr] : echoln $[stderr]
+    if &$[stdout] : echoln $[stdout]
+    if  $[excode] : $exit ($[excode])
+
+    echoln
+    echoln
+
+endfunction
+
+echoln __c_green__ "==================================================\n" __c_white__
+
+$exec(cmdTest1, ''     )
+$exec(cmdTest1, 'dummy')
+
+$exec(cmdTest2, 'EmptyTest.jxm'   )
+$exec(cmdTest2, 'IncTest_Main.jxm')
+
+echoln __c_green__ '==================================================' __c_reset__

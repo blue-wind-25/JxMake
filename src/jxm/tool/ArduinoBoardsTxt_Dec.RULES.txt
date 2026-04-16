@@ -1,0 +1,126 @@
+build.board                   = CompileMDef          -DARDUINO_%                           null      -1   , \
+                                CompileMDef          -DARDUINO_BOARD=%                     null      -1   , \
+                                Board                %                                     null       1
+build.core                    = Core                 %                                     null      -1
+build.series                  = Series               %                                     null      -1
+build.variant                 = Variant              %                                     null      -1
+build.variant_h               = VariantH             %                                     null      -1
+build.mcu                     = MCU                  %                                     null      -1
+build.f_cpu                   = CompileMDef          -DF_CPU=%                             ULong     -1
+build.vid                     = USBVID               %                                     null      -1
+build.pid                     = USBPID               %                                     null      -1
+build.usb_manufacturer        = USBManufacturer      %                                     StrDesc   -1
+build.usb_product             = USBProduct           %                                     StrDesc   -1
+build.usb_flags               = CompileMDef          -DUSB_VID={USBVID}                    null      -1   , \
+                                CompileMDef          -DUSB_PID={USBPID}                    null      -1   , \
+                                CompileMDef          -DUSB_MANUFACTURER={USBManufacturer}  null      -1   , \
+                                CompileMDef          -DUSB_PRODUCT={USBProduct}            null      -1   , \
+                                USBFlags             %                                     null       0
+build.led                     = CompileMDef          %                                     null      -1
+build.vtable_flags            = CompileFlag          %                                     null      -1
+build.exception_flags         = CompileFlag          %                                     null      -1
+build.stacksmash_flags        = CompileFlag          %                                     null      -1
+build.stdcpp_lib              = LinkSLib             %                                     null      -1
+build.mmuflags                = CompileMDef          %                                     null      -1
+build.sslflags                = CompileMDef          %                                     null      -1
+build.non32xferflags          = CompileMDef          %                                     null      -1
+build.flash_freq              = FlashFreq            %                                     null      -1
+build.flash_mode              = FlashMode            %                                     null      -1
+build.flash_size              = FlashSize            %                                     null       1
+build.flash_offset            = FlashOffset          %                                     null       1
+build.flash_ld                = FlashLD              %                                     null      -1
+build.flash_flags             = CompileMDef          %                                     null      -1
+build.rfcal_addr              = RFCalAddress         %                                     null       1
+build.spiffs_start            = SPIFFSStart          %                                     null      -1
+build.spiffs_end              = SPIFFSEnd            %                                     null      -1
+build.spiffs_pagesize         = SPIFFSPageSize       %                                     null      -1
+build.spiffs_blocksize        = SPIFFSBlockSize      %                                     null      -1
+build.loop_core               = CompileMDef          %                                     null      -1
+build.event_core              = CompileMDef          %                                     null      -1
+build.boot                    = Boot                 %                                     null       1
+build.boot_freq               = BootFreq             %                                     null      -1
+build.bootloader_flags        = CompileMDef          %                                     null       1
+build.memory_type             = MemoryType           %                                     null      -1
+build.psram_type              = PSRAMType            %                                     null       1
+build.partitions              = CompileMDef          -DARDUINO_PARTITION_%                 null      -1   , \
+                                Partition            %                                     null      -1
+build.band                    = CompileMDef          -D%                                   null      -1   , \
+                                CompileMDef          -DACTIVE_REGION=LORAMAC_%             null      -1   , \
+                                Band                 %                                     null       1
+build.LORAWAN_PREAMBLE_LENGTH = CompileMDef          -DLORAWAN_PREAMBLE_LENGTH=%           null      -1   , \
+                                LoRaWanPreambleLen   %                                     null       1
+build.LORAWAN_DEVEUI_AUTO     = CompileMDef          -DLORAWAN_DEVEUI_AUTO=%               null      -1   , \
+                                LoRaWanDevEUI        %                                     null       1
+build.LoRaWanDebugLevel       = CompileMDef          -DLoRaWAN_DEBUG_LEVEL=%               null      -1   , \
+                                LoRaWanDebugLevel    %                                     null       1
+build.openocdscript           = JTAGAdapter          %                                     null      -1
+build.usb_mode                = CompileMDef          -DARDUINO_USB_MODE=%                  null      -1
+build.cdc_on_boot             = CompileMDef          -DARDUINO_USB_CDC_ON_BOOT=%           null      -1
+build.msc_on_boot             = CompileMDef          -DARDUINO_USB_MSC_ON_BOOT=%           null      -1
+build.dfu_on_boot             = CompileMDef          -DARDUINO_USB_DFU_ON_BOOT=%           null      -1
+build.sdk                     = CompileMDef          -D%                                   null      -1   , \
+                                LibraryDir           -%                                    null      -1
+build.lwip_include            = IncludeDir           %                                     null      -1
+build.lwip_lib                = LinkSLib             %                                     null      -1
+build.lwip_flags              = CompileMDef          %                                     null      -1
+build.debug_port              = CompileMDef          %                                     null      -1
+build.debug_level             = CompileMDef          %                                     null      -1
+build.code_debug              = CompileMDef          -DCORE_DEBUG_LEVEL=%                  null      -1
+build.defines                 = CompileMDef          %                                     null      -1
+build.extra_flags             = CompileMDef          %                                     null      -1
+
+####################################################################################################
+
+@transform_key : build.flags.optimize     -> build.flags_optimize
+@transform_key : build.flags.rtti         -> build.flags_rtti
+@transform_key : build.flags.stackprotect -> build.flags_stackprotect
+@transform_key : build.flags.exceptions   -> build.flags_exceptions
+@transform_key : build.flags.libstdcpp    -> build.flags_libstdcpp
+
+build.boot2                   = Boot2                %                                     null      -1
+build.wificc                  = CompileFlag          %                                     null      -1
+build.libpicow                = LinkFlag             %                                     SLibFlag  -1
+build.libpicowdefs            = CompileFlag          %                                     null      -1
+build.usbstack_flags          = CompileFlag          %                                     null      -1
+build.picodebugflags          = CompileFlag          %                                     null      -1
+build.debugscript             = DebugScript          %                                     null      -1
+
+build.flags_optimize          = CompileFlag          %                                     null      -1
+build.flags_rtti              = CompileFlag          %                                     null      -1
+build.flags_stackprotect      = CompileFlag          %                                     null      -1
+build.flags_exceptions        = CompileFlag          %                                     null      -1
+build.flags_libstdcpp         = LinkFlag             %                                     null      -1
+
+####################################################################################################
+
+@transform_key : build.flags.debug        -> build.flags_debug
+@transform_key : build.flags.ldspecs      -> build.flags_ldspecs
+
+build.fpu                     = FPU                  %                                     null      -1
+build.float-abi               = FloatABI             %                                     null      -1
+build.st_extra_flags          = @STExtraFlags        %                                     null      -1
+build.cmsis_lib_gcc           = LinkFlag             -l%                                   null      -1
+
+build.xSerial                 = CompileMDef          %                                     null      -1   , \
+                                @XSerial             %                                     null       2
+build.enable_usb              = CompileMDef          %                                     null      -1   , \
+                                EnableUSB            %                                     null       2
+build.usb_speed               = CompileMDef          %                                     null       1   , \
+                                USBSpeed             %                                     null       2
+build.flags_debug             = CompileMDef          %                                     null      -1
+build.flags_ldspecs           = CompileFlag          %                                     null      -1
+
+####################################################################################################
+
+upload.tool                   = UploadTool           %                                     null      -1
+upload.protocol               = UploadProtocol       %                                     null      -1
+upload.speed                  = UploadSpeed          %                                     null      -1
+upload.options                = UploadOptions        %                                     null      -1
+
+upload.maximum_size           = UploadMaxSize        %                                     null       1
+upload.maximum_data_size      = UploadMaxDataSize    %                                     null       1
+
+upload.resetmethod            = ResetMethod          %                                     null      -1
+upload.erase_cmd              = EraseCmd             %                                     null      -1
+upload.use_1200bps_touch      = Use1200BPSTouch      %                                     null      -1
+upload.wait_for_upload_port   = __NotImplemented__   %                                     null      -1

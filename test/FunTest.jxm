@@ -1,0 +1,715 @@
+function concat(a, b)
+    local c  = ${a}
+          c += ${b}
+          c := $flatten(${c})
+   #$exit(7)
+   #-$mkdir('/root/test')
+   #$printf("%s\n", ${c})
+    return ${c}
+endfunction
+
+function concatPrint(a, b, ?opt)
+    local c    := $call(concat, ${a}, ${b})
+    local opt ?:= 'default'
+
+    $printf("%s %s\n", ${c}, ${opt})
+endfunction
+
+
+
+$printf("===== 1 =====\n")
+
+Val1 = 'abc'
+Val2 = '123'
+
+$printf("===== 2 =====\n")
+
+$call(concatPrint, ${Val1}, ${Val2}          )
+$call(concatPrint, ${Val1}, ${Val2}, 'custom')
+$printf("===== 3 =====\n")
+
+
+
+echoln
+echoln
+
+A = 'a'
+B = 'b'
+C = 'c'
+echoln
+        echoln $implode(."${A} ${B} ${C}", '[]')
+if  1 : echoln $implode(."${A} ${B} ${C}", '[]')
+        echoln $implode(:"${A} ${B} ${C}", '[]')
+if !0 : echoln $implode(:"${A} ${B} ${C}", '[]')
+echoln
+
+D = '+5'
+S = '-20'
+X = 'a'
+Z = 'bc'
+$printf(:"#%${D}d '%${S}s'\n", 123, :"${X}${Z}")
+echoln
+
+E = "#%${D}d '%${S}s'" " === " :"#%${D}d '%${S}s'"
+echoln ${E}
+D = '-7'
+S = '+10'
+echoln ${E}
+echoln
+
+
+
+echoln
+echoln
+
+Val1 = 'abc' 'def'
+Val2 := $implode( $ucase ( ${Val1} ), $repeat('|', 3) )
+
+echoln $part_count(${Val1})
+echoln $part_count(${Val2})
+echoln $part_count( $implode( $ucase(${Val1}) , $repeat('|', 3) ) )
+
+echoln ${Val2}
+echoln $sprintf( '### %s ###', $implode( $ucase(${Val1}), $repeat('|', 3) ) )
+echoln
+
+
+
+echoln
+echoln
+
+Val1 = 'a' 'b' 'c'
+Val2 = '|'
+Val3 = '1' '2' '3' '4' '5'
+ValR := $stack( ${Val1}, '#', ${Val2}, ${Val3}, "\?" )
+
+echoln $part_count(${ValR})
+echoln
+echoln $implode( ${ValR}, "\n" )
+echoln
+
+
+
+echoln
+echoln
+
+ValR := $series( $ucase(${Val1}), ${Val2}, ${Val3}, ${Val2}, $lcase( $ucase(${Val1}) ) )
+
+echoln $part_count(${ValR})
+echoln
+echoln $implode( ${ValR}, "\n" )
+echoln
+
+
+
+echoln
+echoln
+
+Val1 = 1
+Val2 = a
+Val3 = b
+ValX = ${Val1} ${Val2} ${Val3}
+
+echoln $sprintf("%s %s %s", ${Val1}, ${Val2}, ${Val3})
+echoln $vsprintf( $repeat( '%s ', $part_count(${ValX}) ), ${ValX} )
+
+
+
+echoln
+echoln
+
+#        123   12345   123456
+ValX := 'abc' '12345' 'xyz890'
+echoln $vsprintf( $repeat( '%d ', $part_count(${ValX}) ), $strlen(${ValX}) )
+
+ValB := 2 1 3
+ValE := 2 3 5
+echoln $implode( $substr(${ValX}, ${ValB}, ${ValE} ) )
+
+
+
+echoln
+echoln
+
+#        000000000111   00000
+#        123456789012   12345
+ValS := 'abcdefxyzdef' '12345'
+ValC := 'def' '3'
+
+ValB := 1 1
+echoln $implode( $str_fidx(${ValS}, ${ValC}, ${ValB}), ' ' ) #  4 3
+
+ValB := 6 3
+echoln $implode( $str_fidx(${ValS}, ${ValC}, ${ValB}), ' ' ) # 10 3
+
+ValB := 12 6
+echoln $implode( $str_lidx(${ValS}, ${ValC}         ), ' ' ) # 10 3
+echoln $implode( $str_lidx(${ValS}, ${ValC}, ${ValB}), ' ' ) # 10 3
+
+ValB := 21 11
+echoln $implode( $str_fidx(${ValS}, ${ValC}, ${ValB}), ' ' ) #  0 0
+
+ValB := 1 1
+echoln $implode( $str_lidx(${ValS}, ${ValC}, ${ValB}), ' ' ) #  0 0
+
+echoln
+
+ValB := 4 3
+ValE := 6 3
+echoln $implode( $substr(${ValS}, ${ValB}, ${ValE} ), ' ' ) # def 3
+
+ValB := 10 3
+ValE := 12 3
+echoln $implode( $substr(${ValS}, ${ValB}, ${ValE} ), ' ' ) # def 3
+
+
+
+echoln
+echoln
+
+#      1     2     3     4     5
+Set := 'abc' '123' 'abc' 'def' '456'
+Ref := 'abc' '456'
+
+Beg := 1 1
+echoln $implode( $part_fidx(${Set}, ${Ref}, ${Beg}), ' ' ) #  1 5
+
+Beg := 2 2
+echoln $implode( $part_fidx(${Set}, ${Ref}, ${Beg}), ' ' ) #  3 5
+
+Beg := 4 7
+echoln $implode( $part_fidx(${Set}, ${Ref}, ${Beg}), ' ' ) #  0 0
+
+Beg := 5 5
+echoln $implode( $part_lidx(${Set}, ${Ref}        ), ' ' ) #  3 5
+echoln $implode( $part_lidx(${Set}, ${Ref}, ${Beg}), ' ' ) #  3 5
+
+Beg := 2 2
+echoln $implode( $part_lidx(${Set}, ${Ref}, ${Beg}), ' ' ) #  1 0
+
+
+
+echoln
+echoln
+
+ValT := 'abc' 'def'
+ValF := '123' '456' '789'
+
+SelC := 1 1 1
+echoln $ftlines( $csel(${SelC}, ${ValT}, ${ValF}) )
+
+SelC := 0 0 0
+echoln $ftlines( $csel(${SelC}, ${ValT}, ${ValF}) )
+
+
+
+echoln
+echoln
+
+ValX := 'abcdef'
+ValX := $explode(${ValX}, '')
+echoln $part_count(${ValX})
+echoln $implode(${ValX}, '|')
+
+
+
+echoln
+echoln
+
+A := '456'
+B := 'abc123'
+echoln ${B}
+echoln ${B/(.*)123/$1\${A}/}
+
+
+
+echoln
+echoln
+
+A := '1' '2' ' ' '3' '' '4' '5'
+B := '2' '5' '7'
+echoln $implode( ${A}                      , '|' )
+echoln $implode( ${B}                      , '|' )
+echoln $implode( $contains     (${A}, ${B}), '|' )
+echoln $implode( $erase_if     (${A}, ${B}), '|' )
+echoln $implode( $erase_ifnot  (${A}, ${B}), '|' )
+echoln $implode( $erase_ifempty(${A}      ), '|' )
+
+
+
+echoln
+echoln
+
+Key := 'A' 'B' 'C' 'D' 'E'
+Val := '1' '2' '3' '4' '5'
+echoln $lookup('E', ${Key}, ${Val})
+echoln $lookup('B', ${Key}, ${Val})
+echoln $lookup('Z', ${Key}, ${Val})
+
+Val := '1' '2' '2' '3' '4' '5' '5'
+echoln $ftspaces(         ${Val}  )
+echoln $ftspaces( $unique(${Val}) )
+
+
+
+echoln
+echoln
+
+echoln "123 \o077 \d063 \x3F \u263A \U01F60A 456"
+
+echoln
+
+echoln $datetime()
+echoln $datetime('yyyyMMdd-HHmmss')
+
+echoln
+
+S := $micros()
+echoln $datetime()
+E := $micros()
+sub D, ${E}, ${S}
+echoln "${E}\n${S}\n${D}"
+
+echoln
+
+S := $millis()
+echoln $datetime()
+E := $millis()
+sub D, ${E}, ${S}
+echoln "${E}\n${S}\n${D}"
+
+echoln
+
+Start := $micros()
+loop
+    Current := $micros()
+    sub Delta, ${Current}, ${Start}
+    if ${Delta} > 500000 : break
+endloop
+echoln 'Done waiting 500000 uS'
+
+Start := $millis()
+loop
+    Current := $millis()
+    sub Delta, ${Current}, ${Start}
+    if ${Delta} > 500 : break
+endloop
+echoln 'Done waiting 500 mS'
+
+
+
+echoln
+echoln
+
+ValE := 'SHELL' 'LD_LIBRARY_PATH' 'JAVA_HOME'
+echoln $implode( $getenv(${ValE}), "\n" )
+
+echoln
+
+echoln $implode( $explode( $getenv('PATH'), __os_psep_char__ ), "\n" )
+
+
+
+echoln
+echoln
+
+
+
+ValR := $srfile_rec('..', '(.+)\.cpp')
+echoln $implode(${ValR}, "\n")
+
+echoln
+
+ValR := $srfile_rec( '..', $re_from_glob('%.cpp') )
+echoln $implode(${ValR}, "\n")
+
+echoln
+
+ValR := $srdir_rec('..', '^\.svn$')
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+SrcDir = '1-tarinpdir'
+DstDir = '1-tarinpdir_copy'
+$rmdir_rec(${DstDir})
+$cpdir_rec(${SrcDir}, ${DstDir}, true)
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+DateTime := $datetime('yyyyMMdd-HHmm')
+
+TarFile  := :"${SrcDir}\-${DateTime}.tar.xz"
+DstDir   := '1-taroutdir_untxz'
+
+echoln ${TarFile}
+echoln
+
+$rmdir_rec (            ${DstDir}           )
+$txzdir_rec(${TarFile}, ${SrcDir}, 'wrapper')
+$untxz_rec (${TarFile}, ${DstDir}           )
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+TarFile := :"${SrcDir}\-${DateTime}.tar.bz2"
+DstDir  := '1-taroutdir_untbz2'
+
+echoln ${TarFile}
+echoln
+
+$rmdir_rec  (            ${DstDir}           )
+$tbz2dir_rec(${TarFile}, ${SrcDir}, 'wrapper')
+$untbz2_rec (${TarFile}, ${DstDir}           )
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+TarFile := :"${SrcDir}\-${DateTime}.tar.gz"
+DstDir  := '1-taroutdir_untgz'
+
+echoln ${TarFile}
+echoln
+
+$rmdir_rec (            ${DstDir}           )
+$tgzdir_rec(${TarFile}, ${SrcDir}, 'wrapper')
+$untgz_rec (${TarFile}, ${DstDir}           )
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+TarFile := :"${SrcDir}\-${DateTime}.tar.zip"
+DstDir  := '1-taroutdir_untzip'
+
+echoln ${TarFile}
+echoln
+
+$rmdir_rec  (            ${DstDir}           )
+$tzipdir_rec(${TarFile}, ${SrcDir}, 'wrapper')
+$untzip_rec (${TarFile}, ${DstDir}           )
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+echoln
+
+ValR := $lsdir(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+ZipFile := '1-test.zip'
+DstDir  := '1-zipoutdir'
+function createZip()
+    $rmfile(${ZipFile})
+   +@zip -r ${ZipFile} ${SrcDir}
+    echoln
+endfunction
+
+$exec     (createZip            )
+$unzip_rec(${ZipFile}, ${DstDir})
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+TarFile   := :"2\-${SrcDir}\-${DateTime}.tar"
+TarXzFile := :"${TarFile}.xz"
+TarBzFile := :"${TarFile}.bz2"
+TarGzFile := :"${TarFile}.gz"
+TarZiFile := :"${SrcDir}\-${DateTime}.tar.zip"
+
+echoln ${TarFile  }
+echoln ${TarXzFile}
+echoln ${TarBzFile}
+echoln ${TarGzFile}
+echoln
+
+$rmdir_rec (              ${DstDir}           )
+$tgzdir_rec(${TarGzFile}, ${SrcDir}, 'wrapper')
+$gunzip    (${TarGzFile}, ${TarFile}          )
+$rmfile    (${TarGzFile}                      )
+
+$xz     (${TarFile}, ${TarXzFile})
+$bzip2  (${TarFile}, ${TarBzFile})
+$gzip   (${TarFile}, ${TarGzFile})
+
+$unxz   (${TarXzFile}, ${TarFile/\.tar/-xz.tar/})
+$bunzip2(${TarBzFile}, ${TarFile/\.tar/-bz.tar/})
+$gunzip (${TarGzFile}, ${TarFile/\.tar/-gz.tar/})
+
+DstDirXz := '2-1-taroutdir_untxz'
+DstDirBz := '2-1-taroutdir_untbz'
+DstDirGz := '2-1-taroutdir_untgz'
+$untar_rec(${TarFile/\.tar/-xz.tar/}, ${DstDirXz})
+$untar_rec(${TarFile/\.tar/-bz.tar/}, ${DstDirBz})
+$untar_rec(${TarFile/\.tar/-gz.tar/}, ${DstDirGz})
+
+
+
+echoln
+echoln
+
+echoln $tgzdir_rec('/INVALID_DST_PATH.tar.gz2', '/INVALID_SRC_PATH', ''       , false) ; echoln
+echoln $tgzdir_rec('/INVALID_DST_PATH.tar.gz2', '/INVALID_SRC_PATH', 'wrapper', false) ; echoln
+echoln $untgz_rec (${TarGzFile}               , '/INVALID_DST_PATH'           , false) ; echoln
+echoln $untgz_rec (${TarBzFile}               , ${DstDirBz}                   , false) ; echoln
+echoln $untar_rec (${TarBzFile}               , ${DstDirBz}                   , false) ; echoln
+echoln $gzip      (${TarFile}                 , '/INVALID_DST_PATH'           , false) ; echoln
+echoln $gunzip    (${TarGzFile}               , '/INVALID_DST_PATH'           , false) ; echoln
+echoln $gunzip    (${TarBzFile}               , ${TarFile/\.tar/-bz.tar/}     , false) ; echoln
+
+echoln
+echoln {{ '.tar.xz  = ', $file_mime_type(${TarXzFile} ) }}
+echoln {{ '.tar.bz2 = ', $file_mime_type(${TarBzFile} ) }}
+echoln {{ '.tar.gz  = ', $file_mime_type(${TarGzFile} ) }}
+echoln {{ '.tar.zip = ', $file_mime_type(${TarZiFile} ) }}
+echoln {{ '.tar     = ', $file_mime_type(${TarFile}   ) }}
+echoln {{ '.zip     = ', $file_mime_type(${ZipFile}   ) }}
+
+#$exit(100)
+
+
+
+echoln
+echoln
+
+File = 1.cpp 2.cpp
+echoln $implode(  ~${File} , "\n")
+echoln $implode(."~${File}", "\n")
+echoln
+echoln $implode(  ^${File} , "\n")
+echoln $implode(."^${File}", "\n")
+echoln
+echoln $implode(  -${File} , "\n")
+echoln $implode(."-${File}", "\n")
+
+
+
+echoln
+echoln
+
+File := 'FunTest.jxm'
+File := ~${File}
+echoln
+echoln $dir_name (${File})
+echoln $file_name(${File})
+echoln $file_ext (${File})
+
+
+
+echoln
+echoln
+
+echo __c_green__ 'Enter a line of text: ' __c_reset__
+Line := $read_line()
+echoln 'You have entered \'' ${Line} '\''
+echoln
+
+echo __c_red__ 'Enter a line of password: ' __c_reset__
+Line := $read_pswd()
+echoln 'You have entered \'' ${Line} '\''
+echoln
+
+
+
+echoln
+echoln
+
+Content := "--------------- CUT HERE FOR EXCEPTION DECODER ---------------\n"
+Content +:=  "\n"
+Content +:= "Exception (29):\n"
+Content +:= "epc1=0x4020620d epc2=0x00000000 epc3=0x00000000 excvaddr=0x00000000 depc=0x00000000\n"
+Content +:= "\n"
+Content +:= "ctx: cont\n"
+Content +:= "sp: 3ffffde0 end: 3fffffd0 offset: 0150\n"
+Content +:= "\n"
+Content +:= ">>>stack>>>\n"
+Content +:= "3fffff30 : 3fffdad0 3fff05bc 3fff054c 4020de99  \n"
+Content +:= "3fffff40 : 00000000 00000000 3fff0564 40211018  \n"
+Content +:= "3fffff50 : 00000000 0000214e 00000000 00000001  \n"
+Content +:= "3fffff60 : 3fff01ec 00000000 3fffff80 3ffeff24  \n"
+Content +:= "3fffff70 : 3fffdad0 3fff0598 3fff054c 4020f6d4  \n"
+Content +:= "3fffff80 : 40218980 00000000 00001388 3ffeff24  \n"
+Content +:= "3fffff90 : 3fffdad0 00000000 3fff2054 00000000  \n"
+Content +:= "3fffffa0 : feefeffe 00000000 3ffeff60 3ffeff24  \n"
+Content +:= "3fffffb0 : 3fffdad0 00000000 3ffeff60 40207757  \n"
+Content +:= "3fffffc0 : feefeffe feefeffe 3fffdab0 40100bd1  \n"
+Content +:= "<<<stack<<<\n"
+Content +:= "\n"
+Content +:= "\n"
+Content +:= "--------------- CUT HERE FOR EXCEPTION DECODER ---------------\n";
+
+echoln $esp_st_decoder( \
+    $cat_path( $uhd(), '.arduino15/packages/esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec/bin/xtensa-lx106-elf-addr2line' ), \
+    $cat_path( $uhd(), 'Projects/Shadow/WebServerCrash.elf'                                                                          ), \
+    ${Content} \
+)
+
+
+
+#(*
+
+echoln
+echoln
+
+H_KVP  := 'Accept'
+H_KVP +:= 'application/vnd.github+json'
+H_KVP +:= 'X-GitHub-Api-Version'
+H_KVP +:= '2022-11-28'
+
+echoln "HEAD 'https://httpbin.org/get'"
+echoln $implode( $http_head('https://httpbin.org/get', '', 30), "\n" )
+echoln
+
+echoln "GET 'https://httpbin.org/get'"
+echoln $implode( $http_get('https://httpbin.org/get', '', 30), "\n" )
+echoln
+
+echoln "GET 'https://httpbin.org/get'"
+echoln $implode( $http_get('https://httpbin.org/get', ${H_KVP}, 30), "\n" )
+echoln
+
+echoln "POST 'https://httpbin.org/post'"
+echoln $implode( $http_post('https://httpbin.org/post', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', ${H_KVP}, 30), "\n" )
+echoln
+
+IP := '10.0.2.2'
+IP := 'localhost'
+
+echoln "$ssl_trust_all(true)\n"
+$ssl_trust_all(true)
+
+echoln "GET 'https://localhost'"
+echoln $implode( $http_get('https://localhost'), "\n" )
+echoln
+
+echoln "GET 'https://${IP}'"
+echoln $implode( $http_get(:"https://${IP}"), "\n" )
+echoln
+
+echoln "$ssl_trust_all(false)\n"
+$ssl_trust_all(false)
+
+echoln "GET 'https://localhost'"
+echoln $implode( $http_get('https://localhost'), "\n" )
+echoln
+
+echoln "GET 'https://${IP}'"
+echoln $implode( $http_get(:"https://${IP}"), "\n" )
+echoln
+
+echoln "GET 'http://${IP}/basic.php'"
+echoln $implode( $http_get(:"http://${IP}/basic.php"), "\n" )
+echoln
+
+echoln "$http_set_auth('abc', '123')\n"
+$http_set_auth('abc', '123')
+
+echoln "GET 'http://${IP}/basic.php'"
+echoln $implode( $http_get(:"http://${IP}/basic.php"), "\n" )
+echoln
+
+DA_URL := 'digest_default_md5'
+#DA_URL := 'digest_sha1'
+#DA_URL := 'digest_sha256'
+
+echoln "$http_clr_auth()\n"
+$http_clr_auth()
+
+echoln "GET 'http://${IP}/${DA_URL}.php'"
+echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
+echoln
+
+echoln "$http_set_auth('guest', 'guest')\n"
+$http_set_auth('guest', 'guest')
+
+echoln "GET 'http://${IP}/${DA_URL}.php'"
+echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
+echoln
+
+echoln "$http_clr_auth()\n"
+$http_clr_auth()
+
+echoln "GET 'http://192.168.000.100:80/console/baud?rate=9600'"
+echoln $implode( $http_get('http://192.168.000.100:80/console/baud?rate=9600'         ), "\n" )
+echoln
+
+echoln "GET 'http://192.168.000.100:80/console/baud?rate=115200'"
+echoln $implode( $http_get('http://192.168.000.100:80/console/baud?rate=115200', '', 2), "\n" )
+echoln
+
+#*)
+
+
+
+echoln
+echoln
+
+echoln "$ssl_trust_all(true)\n"
+$ssl_trust_all(true)
+
+echoln "$http_set_auth('invalid', 'invalid')\n"
+$http_set_auth('invalid', 'invalid')
+
+#echoln "DOWNLOAD 'https://localhost/download.php'"
+#echoln $http_download('https://localhost/download.php', '/tmp')
+#echoln
+
+echoln "$http_set_auth('admin', 'mypass')\n"
+$http_set_auth('admin', 'mypass')
+
+echoln "DOWNLOAD 'https://localhost/download.php'"
+OutFile := $http_download('https://localhost/download.php', '/tmp')
+echoln "Done downloading '${OutFile}'"
+echoln
+echoln {{ 'MD2      = ', $md2_sum_file    (${OutFile}) }}
+echoln {{ 'MD5      = ', $md5_sum_file    (${OutFile}) }}
+echoln {{ 'SHA1     = ', $sha1_sum_file   (${OutFile}) }}
+echoln {{ 'SHA2-224 = ', $sha2_224sum_file(${OutFile}) }}
+echoln {{ 'SHA2-256 = ', $sha2_256sum_file(${OutFile}) }}
+echoln {{ 'SHA2-384 = ', $sha2_384sum_file(${OutFile}) }}
+echoln {{ 'SHA2-512 = ', $sha2_512sum_file(${OutFile}) }}
+echoln {{ 'SHA3-224 = ', $sha3_224sum_file(${OutFile}) }}
+echoln {{ 'SHA3-256 = ', $sha3_256sum_file(${OutFile}) }}
+echoln {{ 'SHA3-384 = ', $sha3_384sum_file(${OutFile}) }}
+echoln {{ 'SHA3-512 = ', $sha3_512sum_file(${OutFile}) }}
+if $valid_path(${OutFile}) : $rmfile(${OutFile})
+echoln
+
+echoln "$ssl_trust_all(false)\n"
+$ssl_trust_all(false)
+
+#echoln "DOWNLOAD 'https://localhost/download.php'"
+#echoln $http_download('https://localhost/download.php', '/tmp')
+#echoln

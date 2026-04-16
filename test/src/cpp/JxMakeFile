@@ -1,0 +1,154 @@
+PreferClang := 1 # 0 or 1
+
+:::include <C++BuildTool>
+
+
+#(*
+if ${__gcc__}
+    if !$or(__os_cygwin__, __os_mingw__, __os_msys__)
+        LDLibraryPath := '/opt/isl-0.16.1/lib:/opt/gcc-12.2.0/lib:/opt/gcc-12.2.0/lib64'
+        CppToolBinDir := '/opt/gcc-12.2.0/bin'
+    endif
+endif
+#*)
+
+#(*
+if ${__clang__}
+        LDLibraryPath := '/opt/clang-15.0.6/lib:/opt/clang-15.0.6/lib64'
+        CppToolBinDir := '/opt/clang-15.0.6/bin'
+        CppLDToolBin  := 'ld.lld'
+endif
+#*)
+
+
+CppSysHeaderDir := 'dummy'
+BuildSubdir     := 'cstaticlib'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(select_c_langstd        , c11           )
+$call(select_cxx_langstd      , c++11         )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+$call(silent_stdxxx, true ) ; $cmd_echo_off() ; $call(print_build_process_titles, true )
+$call(silent_stdxxx, false) ; $cmd_echo_on () ; $call(print_build_process_titles, false)
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+(*
+if ${__msvc__}
+    DMN := $call(cpp_demangle, '?myfunc_i@myclass@@SAHH@Z')
+else
+    DMN := $call(cpp_demangle, '_ZN7myclass8myfunc_iEi'   )
+endif
+echoln "'${DMN}'"
+#*)
+
+
+    DLST_INAME   := $call(deplist_fpath,   main.inc                         )
+
+    PROG_NAME    := $call(    exe_fpath,   main                             )
+    PROG_OBJS    := $call(    obj_fpath, { main.cpp      main_int.cpp      })
+
+    DLIB_NAME    := $call(   dlib_fpath,   dtest                            )
+    DLIB_OBJS    := $call(    obj_fpath, { sharedlib.cpp sharedlib_int.cpp })
+if !__os_windows__
+    DLIB_OBJS_S +:= $call(   sobj_fpath,   atest                            )
+else
+    ##### ??? TODO : How to write '.asm' file directly for DLL ??? #####
+    DLIB_OBJS_S  := ''
+endif
+
+    SLIB_NAME    := $call(   slib_fpath,   stest                                                    )
+    SLIB_OBJS    := $call(    obj_fpath, { staticlib.cpp staticlib_int.cpp cstaticlib/cstaticlib.c })
+if __os_windows__
+    SLIB_OBJS   +:= $call(   sobj_fpath,   atest                                                    )
+endif
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+sdepload ${DLST_INAME}
+
+target depend
+    local __include_paths__ := sys
+    $gdl_cpp_include(~${DLST_INAME}, '.', ${ObjFileExt}, -${CppBuildDir})
+endtarget
+
+
+# ./jxmake.bat -C ../test/src/cpp clean
+# ./jxmake.bat -C ../test/src/cpp run
+# jxmake -C ..\test\src\cpp clean
+# jxmake -C ..\test\src\cpp run
+# jxmake -C ..\test\src\cpp clean && jxmake -C ..\test\src\cpp run
+target run
+    # touch ~/Projects/JxMake/test/src/cpp/cstaticlib/cstaticlib.h
+    (*
+    # Create the dependency list file as needed
+    local DLIValid := $valid_path(${DLST_INAME})
+    if !${DLIValid}
+        echoln
+        echoln __c_red__ 'The dependency list file does not exist, creating it now ...' __c_reset__
+        jxmake depend
+        echoln __c_green__ 'The dependency list file have been created, please run the build process again.' __c_reset__
+        echoln
+        $exit(0)
+    endif
+    #*)
+    # Build the shared and static library parallelly
+   +jxmake ${DLIB_NAME}
+   +jxmake ${SLIB_NAME}
+    jxwait
+    # Build the executable program
+    jxmake ${PROG_NAME}
+    # Run the executable program
+    local LDLibraryPath :+= ${CppBuildDir}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    extradep __dummy_1__ __dummy_2__
+    local CppUsrSharedLib :+= dtest
+    local CppUsrStaticLib :+= stest
+    $call(link_exe)
+endtarget
+
+target ${SLIB_NAME} : ${SLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target ${DLIB_NAME} : $stack( $call(cppobj_preq_glob_dlib, ${DLIB_OBJS}), $call(sobj_preq_glob_dlib, ${DLIB_OBJS_S}) )
+    $call(link_dlib)
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    local __include_paths__ := sys
+    local CMDef             := $call(def_macro, "__MyMacro__", '"ABC \\\\ \\\\n DEF \\" \\\\\\" XYZ!"')
+    $call(compile_cpp, ${CMDef})
+endtarget
+
+target $call(sobj_target_glob, true) : $call(ssrc_fname, '%')
+    $call(compile_s (*, true*) )
+endtarget
+
+target $call(cppobj_target_glob, true) : %.cpp
+    local __include_paths__ := sys
+    $call( compile_cpp, $call(def_macro, 'USERLIB_EXPORTS'), true )
+endtarget

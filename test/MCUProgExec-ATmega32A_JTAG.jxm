@@ -1,0 +1,9 @@
+svf :=  '../src/1-TestData/PTest1X.Blink-ATmega32A.sig.svf'
+
+bendSpec := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+progSpec := 'ProgJTAG' '' '' '1000000'
+
+#(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, -1, { 'play_svf' ${svf} }, '', -1)
+echoln
+#*)

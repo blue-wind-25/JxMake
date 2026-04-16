@@ -1,0 +1,162 @@
+====================================================================================================
+4-Digit Voltmeter II
+====================================================================================================
+
+WARNING : # DO NOT POWER FROM BOTH J1 (Input) and J2 (AVR-ISP6) simultaneously. Supply power to the
+            module from only one of them.
+          # J1 (Input   ) can      be powered by both 3.3V and 5V supply.
+          # J2 (AVR-ISP6) can only be powered by      3.3V        supply.
+
+====================================================================================================
+
+This '4-Digit Voltmeter II' module is designed to operate without a bootloader. Therefore, upload the
+firmware (sketch) using the 'Upload Using Programmer' menu. Select either 'USBasp', 'USBtinyISP',
+'Arduino as ISP', or another programmer based on your preference (ensure it operates at 3.3V).
+
+It is possible to burn a bootloader onto the module and upload the firmware (sketch) via the serial
+port. In this case, please ensure that the USB-to-serial module also operates at 3.3V. The module
+must never be powered from both the USB-to-serial module and J1 or J2 simultaneously.
+
+----------------------------------------------------------------------------------------------------
+
+This module is designed to measure voltages up to ±25V and utilizes the internal 1.1V reference of
+the ATmega328P on the Arduino Pro Mini board. This implies that the input voltage must be divided
+by a factor of:
+
+    25V / 1.1V ≈ 22.72727
+
+R1, R2, RV1, and R3 form a high-impedance voltage divider. The divided voltage (Vdiv) is obtained
+from the middle pin of RV1 and stabilized by the capacitor C1.
+
+RV2 is used to divide the Vdd (+3.3V) by three to obtain +1.1V, which is stabilized by the capacitor
+C3. This voltage (Vadd) is subsequently buffered by an op-amp.
+
+The final voltage (Vsum) is obtained by combining the two voltages via R4 and R5. It is subsequently
+buffered by an op-amp and then fed to the ADC. In this case:
+
+    Vsum = (Vdiv + Vadd) / 2
+
+To begin the calibration process, use a multimeter and adjust RV1 such that the upper part connected
+to R2 measures approximately 12.64k, while the lower part connected to R3 measures approximately
+37.36k. In this state with R1 at 4M7, R2 at 10k, and and R3 at 180k, it will divide the voltage by:
+
+    div_factor = (RV1_lower + R3  ) / (R1  + R2  + RV1_upper + RV1_lower + R3  )
+               = (37.36k    + 180k) / (4M7 + 10k + 12.64k    + 37.36k    + 180k)
+               =  217.36k           /  4940k
+               =  0.044
+               ≈  1 / 22.72727
+
+Next, apply +5V power to J1 and adjust RV2 while monitoring Vadd with a multimeter until it measures
+approximately 1.1V. Then, upload the firmware and short the middle pin of J1 (VRead) to ground. The
+display should show 0V; fine-tune RV2 if it does not.
+
+Finally, apply a known positive voltage to the middle pin of J1 (VRead) and adjust RV1 until the
+displayed voltage aligns with the expected value as closely as possible. When a negative voltage
+is applied, it should also be displayed properly.
+
+NOTE    : # Due to the loading effects of the components and the limitations of the operational
+            amplifier, the effective measurement range may be restricted to approximately -20V and
+            slightly below than +25V.
+          # Theoretically, by bridging JP2 and omitting the soldering of all components within the
+            blue dash-dot area, the module will function like the original 'JxMake 4-Digit Voltmeter'
+            module, allowing the same firmware from the older module to be utilized. However, in
+            this scenario, the middle pin of J1 (VRead) must not be exposed to negative voltage
+            under any circumstances. Please note that the original 'JxMake 4-Digit Voltmeter' is
+            designed to use a 128x32 OLED module, while this one is designed to use a 128x64 OLED
+            module. Ensure that the correct module is attached when using firmware from the older
+            module.
+
+WARNING : # A properly calibrated module is generally more resistant to overvoltage (> +25V) than
+            undervoltage (< -25V). The middle pin of J1 (VRead) should be able to withstand voltages
+            ranging from approximately -30V to +125V; however, the actual performance may vary. It
+            is STRONGLY RECOMMENDED NOT TO APPLY more than ±25V to the pin, as this may result in
+            PERMANENT DAMAGE to the module.
+
+----------------------------------------------------------------------------------------------------
+
+The impedance of the circuit used to generate the final voltage (Vsum) is inherently unbalanced;
+therefore, the summed voltage does not strictly follow:
+    Vsum = (Vdiv + Vadd) / 2
+
+To address this, the firmware must compensate by subtracting a constant from the final calculated
+voltage before displaying it. The constant (Vsub) can be determined using the following calculation:
+
+    Ratt = (R1 + R2 + RV1_upper) ∥ (RV1_lower + R3)
+
+    Vofs = (Ratt + R4) / (Ratt + R4 + R5) * 1.1V - OpAmp_Vos
+
+    Vsub = Vofs / 0.044 * 2 - 25V
+
+Using the above values:
+
+    Ratt = (4M7 + 10k + 12.64k) ∥ (37.36k + 180k)
+         =  4722.64k            ∥  217.36k
+         =   207.79616k
+
+    Vofs = (207.79616k + 10M) / (207.79616k + 10M + 10M) * 1.1V - 0.0001V
+         =  10207.79616k      /  20207.79616k            * 1.1V - 0.0001V
+         ≈ 0.55556V
+
+    Vsub = 0.55556V / 0.044 * 2 - 25V
+         ≈ 0.25273V
+
+Because the firmware displays two decimal digits, the value must be subtracted by:
+    0.25273 * 100 ≈ 25
+after the final calculation.
+
+If R4 and R5 are replaced with 22M, then:
+
+    Vofs = (207.79616k + 22M) / (207.79616k + 22M + 22M) * 1.1V - 0.0001V
+         =  22207.79616k      /  44207.79616k            * 1.1V - 0.0001V
+         ≈ 0.55249V
+
+    Vsub = 0.55249V / 0.044 * 2 - 25V
+         ≈ 0.11297V
+         ⇒ 11 in two decimal digits
+
+If R4 and R5 are replaced with 100M then:
+
+    Vofs = (207.79616k + 100M) / (207.79616k + 100M + 100M) * 1.1V - 0.0001V
+         =  100207.79616k      /  200207.79616k             * 1.1V - 0.0001V
+         ≈ 0.55047V
+
+    Vsub = 0.55047V / 0.044 * 2 - 25V
+         ≈ 0.02136V
+         ⇒ 2 in two decimal digits (it becomes negligible due to noise)
+
+A 100M 0805 SMD resistor is very difficult to procure; however, 22M and 10M resistors should still
+be widely available. The schematic specifies 22M for both R4 and R5 and 0R for Rb1; however, the
+firmware
+source code has some '#define' to select the proper Vsub based on the soldered resistors.
+
+A 100M 0805 SMD resistor is very difficult to procure; however, 22M and 10M resistors should still
+be widely available. The schematic specifies 22M for both R4 and R5, and 0R for Rb1. However, the
+firmware source code includes some '#define' directives to select the proper Vsub based on the
+soldered resistors (please edit the Makefile to match your setup).
+
+NOTE    : # Due to component tolerance, the above Vsub constants are only approximations
+          # The circuit impedance could be made more balanced by soldering a ~200k resistor to Rb1.
+            Theoretically, this would bring Vsub ≈ 0. Currently, this is the default setting in the
+            Makefile.
+
+WARNING : # The larger R4 and R5 are, the greater the thermal noise.
+
+----------------------------------------------------------------------------------------------------
+
+By default, the op-amp in the module operates in single-supply mode. It can also be configured to
+run in negative-supply compensation mode. Theoretically, the latter mode enhances the module's
+effective measurement range, extending slightly above -25V and slightly below +25V.
+
+Theoretically, a negative supply of approximately -0.2V is sufficient. Therefore, the module
+utilizes a simple charge pump to generate the negative voltage. Please refer to the schematic for
+more details.
+
+----------------------------------------------------------------------------------------------------
+
+You can also use a custom build of an Arduino Pro Mini board that uses the ATmega168P, ATmega168PB,
+or ATmega328PB. Before building the firmware, change the MCU type and settings by either editing the
+existing entry in the 'boards.txt' file or adding new ones. There is no need to modify the existing
+'pins_arduino.h' file or create new ones, as the firmware does not utilize any additional features
+of the PB version. Technically, the ATmega88P, ATmega88PA, and ATmega88PB can also be used.
+
+====================================================================================================

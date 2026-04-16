@@ -1,0 +1,96 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Loop
+----------------------------------------------------------------------------------------------------
+
+for [local] <index_var_name> := <start_value> to <end_value> step <step_value>
+    ...
+endfor
+
+    The 'local' prefix can be used to restrict the variable for the current function/target only.
+
+    The control values are only evaluated *once* just before the loop body is executed.
+
+
+foreach [local] [<index_var_name>,] <value_var_name> in <set_var_name> [skip <skip_value>] [step <step_value>]
+    ...
+endforeach
+
+    The 'local' prefix can be used to restrict the variables for the current function/target only.
+
+    The subject and control values are only evaluated *once* just before the loop body is executed.
+
+
+while <condition>
+    ...
+endwhile
+
+    The <condition> has the same specifications as the 'if' statement defined in the previous
+    section.
+
+    If the condition contains function calls, those function calls will only be evaluated *once*
+    just before the loop body is executed.
+
+
+do
+    ...
+whilst <condition>
+
+    The <condition> has the same specifications as the 'if' statement defined in the previous
+    section.
+
+    Unlike the 'while' loop, if the condition contains function calls, those function calls will
+    be evaluated for each loop.
+
+
+repeat
+    ...
+until <condition>
+
+    The <condition> has the same specifications as the 'if' statement defined in the previous
+    section.
+
+    Unlike the 'while' loop, if the condition contains function calls, those function calls will
+    be evaluated for each loop.
+
+
+loop
+    ...
+endloop
+
+    This loop will continue forever until a 'break' statement is executed.
+
+
+NOTE : # A loop can be controlled by 'continue' and 'break' statements from within the loop block.
+       # When evaluating conditions, the words 'false' and 'true' will be internally translated to
+         0 and 1 respectively.
+
+
+Examples:
+
+    # Incorrect method to compare elapsed time against a timeout - because of the possibility of
+    # numerical overflow
+    Start := $micros()
+    add End, ${Start}, 1000000
+    while true
+        Current := $micros()
+        if $micros() >= ${End} : break
+        ...
+        ...
+        ...
+    endwhile
+
+    # Correct method to compare elapsed time against a timeout
+    Start := $micros()
+    while true
+        Current := $micros()
+        sub Delta, ${Current}, ${Start}
+        if ${Delta} > 1000000 : break
+        ...
+        ...
+    endwhile
+
+====================================================================================================

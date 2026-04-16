@@ -1,0 +1,400 @@
+(****************************************************************************************************
+ ***** Java Build Tool                                                                          *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### Set flags
+const __java__                  := 1
+const __JavaBuildTool_Defined__ := 1
+const __BuildTool_Title__       := 'Java'
+      __BuildTool_Name__        := 'JDK'
+      __BuildTool_Version__     := 0
+      __BuildTool_Version_Num__ := 0
+      __BuildTool_SupRelMin__   := 0
+      __BuildTool_SupRelMax__   := 0
+
+
+##### Define build directory
+JavaBuildDir := 'build'
+
+
+##### Get the compiler version
+function __calc_java_compiler_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_java_compiler_ver_exec__()
+    if &${JavaToolBinDir} : local JavaCompiler := $cat_path(${JavaToolBinDir}, ${JavaCompiler})
+    if &${JavaToolBinDir} : local JavaJVM      := $cat_path(${JavaToolBinDir}, ${JavaJVM}     )
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${JavaJVM} -version
+    $nop($[excode]) # Ensure all pending commands are executed
+    if !&$[lserr]
+        # If the command turns out to be executable, use the result from the command
+        local OpenJDK := $str_fidx( $lcase( $stack($[stderr], $[stdout]) ), 'openjdk' )
+        if ${OpenJDK} : __BuildTool_Name__ := :"Open${__BuildTool_Name__}"
+    endif
+   -@${JavaCompiler} -version -help
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_java_compiler_ver_impl__()
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec(__get_java_compiler_ver_exec__)
+        # Get and extract the lines
+        local lines   := $strim( $lcase( $sflines( $stack($[stderr], $[stdout]) ) ) )
+        local lineVer := $erase_ifnot(${lines}, 'javac .+', true)
+        local lineRel := $erase_ifnot(${lines}, 'compile for.+', true)
+        # Get and store the version
+              lineVer := $sfdots(${lineVer/(?:.+\s)(\d+)(?:\.)?(\d+)?(?:\.)?(\d+)?(?:_(\d+))?/$1.$2.$3.$4/})
+        local main    := $partn(${lineVer}, 1)
+        local part1   := $partn(${lineVer}, 2)
+        local part2   := $partn(${lineVer}, 3)
+        local part3   := $partn(${lineVer}, 4)
+        if ${main} <= 1
+            local major := ${part1}
+            local minor := ${part2}
+            local patch := ${part3}
+        else
+            local major := ${main}
+            local minor := ${part1}
+            local patch := ${part2}
+        endif
+        if !&${minor} : minor := 0
+        if !&${patch} : patch := 0
+        result  := $call(__calc_java_compiler_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}"
+        # Get and store the supported releases
+        if &${lineRel}
+                  lineRel := $strim( $erase_ifempty( $explode( $sfdots(${lineRel/(?:.+?:)(.+)/$1/}), ',' ) ) )
+            local minRel  := ${lineRel}< 1>
+            local maxRel  := ${lineRel}<-1>
+            result +:= ${minRel}
+            result +:= ${maxRel}
+        else
+            result +:= 0 0
+        endif
+    endif
+    # Return the result
+    return ${result}
+endfunction
+
+function __get_java_compiler_ver__()
+    local result  := $call(__get_java_compiler_ver_impl__)
+    local numeric := ${result}<1>
+    if ${numeric}
+        __BuildTool_Version__     := ${result}<2>
+        __BuildTool_Version_Num__ := ${numeric}
+        __BuildTool_SupRelMin__   := ${result}<3>
+        __BuildTool_SupRelMax__   := ${result}<4>
+    endif
+    return ${numeric}
+endfunction
+
+
+##### Check if the compiler version is at least/most
+function java_compiler_ver_min(major, minor, patch)
+    return $cmp( ${__BuildTool_Version_Num__}, '>=', $call(__calc_java_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function java_compiler_ver_max(major, minor, patch)
+    return $cmp( ${__BuildTool_Version_Num__}, '<=', $call(__calc_java_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+
+##### Define the file extensions
+DepListFileExt := dep
+
+ClsFileExt     := class
+JarFileExt     := jar
+
+
+##### Define the executables, paths, and options
+const __MWE__ := $getenv('JXMAKELIB_MAX_WARNINGS_AND_ERRORS', ${DEFAULT_JXMAKELIB_MAX_WARNINGS_AND_ERRORS})
+
+JavaToolBinDir         := ''
+
+JavaCompiler           := 'javac'
+if __os_windows__
+JavaJVM                := 'javaw'
+else
+JavaJVM                := 'java'
+endif
+
+JavaCommonCompileFlags := '-Xlint:all' '-Xlint:-options' '-Xmaxerrs' ${__MWE__} '-Xmaxwarns' ${__MWE__}
+
+JarBuilder             := 'jar'
+
+
+##### Function to check if 'JavaBuildDir' is a relative path
+function __check_JavaBuildDir__()
+    $call(__exit_error_if_not_rel_path__, ${JavaBuildDir}, 'JavaBuildDir')
+endfunction
+
+
+##### Function to get classpaths
+function __classpaths__()
+    local CP := $abs_path(__class_paths__)
+    local BD := $abs_path(${JavaBuildDir})
+    if !$contains(${CP}, ${BD}) : CP +:= ${BD}
+    return $implode( $path_ndsep(${CP}), __os_psep_char__ )
+endfunction
+
+
+##### Function to generate the correct dependency list file name from the given base name (without extension)
+function deplist_fname(baseName)
+    return $series(${baseName}, '.', ${DepListFileExt})
+   #return :"${baseName}.${DepListFileExt}"
+endfunction
+
+##### Function to generate the correct dependency list file path from the given base name (without extension)
+function deplist_fpath(baseName)
+    $call(__check_JavaBuildDir__)
+    return $cat_path( ${JavaBuildDir}, $call(deplist_fname, ${baseName}) )
+endfunction
+
+
+##### Function to generate the correct class file name from the given base name (without extension)
+function class_fname(baseName)
+    return $series(${baseName}, '.', ${ClsFileExt})
+   #return :"${baseName}.${ClsFileExt}"
+endfunction
+
+##### Function to generate the correct class file path from the given base name (without extension)
+function class_fpath(baseName)
+    $call(__check_JavaBuildDir__)
+    return $cat_path( ${JavaBuildDir}, $call(class_fname, ${baseName}) )
+endfunction
+
+##### Function to generate the correct glob target name to build class file
+function class_target_glob()
+    $call(__check_JavaBuildDir__)
+    return :"${JavaBuildDir}/%.${ClsFileExt}"
+endfunction
+
+
+##### Function to generate the correct JAR file name from the given base name (without extension)
+function jar_fname(baseName)
+    return $series(${baseName}, '.', ${JarFileExt})
+   #return :"${baseName}.${JarFileExt}"
+endfunction
+
+##### Function to generate the correct JAR file path from the given base name (without extension)
+function jar_fpath(baseName)
+    $call(__check_JavaBuildDir__)
+    return $cat_path( ${JavaBuildDir}, $call(jar_fname, ${baseName}) )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to select whether to treat warnings as errors
+JavaWarningAsErrorFlags := ''
+
+function treat_warnings_as_errors(enabled)
+    if ${enabled} ; JavaWarningAsErrorFlags := '-Werror'
+    else          ; JavaWarningAsErrorFlags := ''
+    endif
+endfunction
+
+
+##### Function to enable/disable debugging
+JavaBuildType  := 'Release'
+JavaDebugFlags := '-g:none'
+
+function enable_debug_info(enabled)
+    if ${enabled}
+        JavaBuildType  := 'Debug'
+        JavaDebugFlags := '-g'
+    else
+        JavaBuildType  := 'Release'
+        JavaDebugFlags := '-g:none'
+    endif
+endfunction
+
+
+##### Function to select language standard
+JavaLangStdFlags := ''
+
+function select_java_langstd(langstd)
+    # Exit if the compiler does not support the '--release N' option
+    if !${__BuildTool_SupRelMin__} : return
+    if !${__BuildTool_SupRelMax__} : return
+    # Check if the language version is empty
+    langstd := $strim(${langstd})
+    if !&${langstd}
+        JavaLangStdFlags := ''
+        return
+    endif
+    # Ensure that the language version is within the supported range
+    if ${langstd} < ${__BuildTool_SupRelMin__} : langstd := ${__BuildTool_SupRelMin__}
+    if ${langstd} > ${__BuildTool_SupRelMax__} : langstd := ${__BuildTool_SupRelMax__}
+    # Set the version
+    JavaLangStdFlags := '--release' ${langstd}
+endfunction
+
+
+##### Function to preprocess Java source codes
+function preprocess_java(srcPath, dstPath, condFlags, svalmapHandle)
+    $call       (__bpt_javapp__                                        )
+    $rmfile     (${dstPath}                                            )
+    $pp_java_scf(${srcPath}, ${dstPath}, ${condFlags}, ${svalmapHandle})
+endfunction
+
+
+##### Function to compile Java source codes
+function __compile_java__(extraOptions, classpaths)
+    if &${JavaToolBinDir} : local JavaCompiler := $cat_path(${JavaToolBinDir}, ${JavaCompiler})
+   +@${JavaCompiler} ${JavaCommonCompileFlags} ${JavaWarningAsErrorFlags} ${JavaDebugFlags} ${JavaLangStdFlags} ${extraOptions} -cp ${classpaths} -d ${JavaBuildDir} ~$[preq*/(.+)\.class/$1.java/]
+endfunction
+
+function compile_java(?extraOptions)
+    $call( __bpt_javac__                                            )
+    $exec( __compile_java__, ${extraOptions}, $call(__classpaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__            )
+endfunction
+
+
+##### Function to build Java JAR files
+function __build_jar__(mainClassName, extraFiles)
+    # Create the manifest file
+    local MainClassSpec := :"Main-Class: ${mainClassName}"
+    local ManifestFile  := $cat_path(${JavaBuildDir}, 'manifest.txt')
+    $put_file( ~${ManifestFile}, ${MainClassSpec} )
+    # Prepare the class file paths
+    local CWD         := $cwd()
+    local BDirNameLen := $strlen(${JavaBuildDir})
+      add BDirNameLen, ${BDirNameLen}, 2
+    local ClassFiles := $interleave( '-C', $cat_path(${CWD}, ${JavaBuildDir}), $substr(-$[preq*], ${BDirNameLen}, -1) )
+    # Prepare the extra file paths
+    local ExtraFiles
+    foreach local EF in ~${extraFiles}
+        if $str_begwith(${EF}, ${CWD}) ; ExtraFiles :+= '-C' ${CWD} -${EF}
+        else                           ; ExtraFiles :+=              ${EF}
+        endif
+    endforeach
+    # Create the JAR file
+    if &${JavaToolBinDir} : local JarBuilder := $cat_path(${JavaToolBinDir}, ${JarBuilder})
+   +@${JarBuilder} cfmv ~$[target] ~${ManifestFile} ${ClassFiles} ${ExtraFiles}
+    if $[excode] : return
+    # Delete the manifest file
+    $rmfile(~${ManifestFile})
+endfunction
+
+function build_jar(mainClassName, ?extraFiles)
+    $call(__bpt_jar__                                   )
+    $exec(__build_jar__, ${mainClassName}, ${extraFiles})
+    $call(__conditional_print_stdxxx_and_check_excode__ )
+endfunction
+
+
+##### Function to run the given JAR file
+function __run_jar__(progName)
+    if &${JavaToolBinDir} : local JavaJVM := $cat_path(${JavaToolBinDir}, ${JavaJVM})
+   +@${JavaJVM} -jar ~${progName}
+endfunction
+
+function run_jar(progName)
+    $exec(__run_jar__, ${progName}                     )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories)
+    # Get the compiler version
+    $call(__get_java_compiler_ver__)
+    # Ensure the Java binary is executable
+    if !${__BuildTool_Version_Num__} : $call(__exit_error_nup_ext__, ${JavaCompiler}, ${JavaToolBinDir})
+    # Create the build directory
+    if &${buildSubdirectories}
+        $mkdir( $cat_path(~${JavaBuildDir}, ${buildSubdirectories} ) )
+    else
+        $mkdir(~${JavaBuildDir})
+    endif
+endfunction
+
+##### Function to clean the project build (delete all the generated files)
+function clean_project()
+    $call         (__check_JavaBuildDir__)
+    $rmdir_rec    (~${JavaBuildDir}      )
+    $clear_project(true                  )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__()
+    $call(__btlib_help_print_title_main__)
+    $call(__btlib_help_print_title_variables__)
+    echoln __c_green__ '    __java__                  ' __c_white__ ': evaluate to the value ' __c_yellow__ '1' __c_white__ ' for both Oracle(R) JDK and OpenJDK'
+    echoln
+    echoln __c_green__ '    __BuildTool_Name__        ' __c_white__ ': evaluate to the Java compiler name'
+    echoln __c_green__ '    __BuildTool_Version__     ' __c_white__ ': evaluate to the Java compiler version'
+    echoln __c_green__ '    __BuildTool_Version_Num__ ' __c_white__ ': evaluate to the Java compiler version (in the form of combined numeric value)'
+    echoln
+    echoln __c_green__ '    JavaBuildDir              ' __c_white__ ': set the build directory under the source tree - the default is \'' __c_yellow__ 'build' __c_white__ '\'; can only be changed before calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '    JavaToolBinDir            ' __c_white__ ': set the location of the Java binaries         - the default is empty (use the system\'s default)'
+    echoln
+    $call(__btlib_help_print_title_functions__, 10, 20, 1)
+    echoln __c_green__ '    init_project            (?buildSubdirectories) ' __c_white__ ': initialize the project build; ' __c_red__ 'must be called first and as early as possible' __c_white__ ' (after changing the '
+    echoln __c_green__ '                                                   ' __c_white__ '  global values of the variables above, if necessary)'
+    echoln __c_green__ '    clean_project           (                    ) ' __c_white__ ': clean the project build (delete all the generated files)'
+    echoln __c_green__ '    print_devenv_config     (                    ) ' __c_white__ ': print the development environment configuration summary; must only be called after \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    silent_stdxxx           (?silent             ) ' __c_white__ ': silent/unsilent all    stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'false' __c_white__ '\''
+    echoln __c_green__ '    silent_stdxxx_syslib    (?silent             ) ' __c_white__ ': silent/unsilent system stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'true' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    java_compiler_ver_min   (mj, mn , pl         ) ' __c_white__ ': check if the Java compiler version is at least ' __c_yellow__ '<major>.<minor>.<patch>'
+    echoln __c_green__ '    java_compiler_ver_max   (mj, mn , pl         ) ' __c_white__ ': check if the Java compiler version is at most  ' __c_yellow__ '<major>.<minor>.<patch>'
+    echoln
+    echoln __c_green__ '    deplist_fname           (baseName            ) ' __c_white__ ': generate the correct dependency list file name from the given base name (without extension)'
+    echoln __c_green__ '    deplist_fpath           (baseName            ) ' __c_white__ ': generate the correct dependency list file path from the given base name (without extension)'
+    echoln __c_green__ '    class_fname             (baseName            ) ' __c_white__ ': generate the correct class           file name from the given base name (without extension)'
+    echoln __c_green__ '    class_fpath             (baseName            ) ' __c_white__ ': generate the correct class           file path from the given base name (without extension)'
+    echoln __c_green__ '    jar_fname               (baseName            ) ' __c_white__ ': generate the correct JAR             file name from the given base name (without extension)'
+    echoln __c_green__ '    jar_fpath               (baseName            ) ' __c_white__ ': generate the correct JAR             file path from the given base name (without extension)'
+    echoln
+    echoln __c_green__ '    class_target_glob       (                    ) ' __c_white__ ': generate the correct glob target name to build class file - ' __c_yellow__ '${JavaBuildDir}/%.${ClsFileExt}'
+    echoln
+    echoln __c_green__ '    treat_warnings_as_errors(enabled             ) ' __c_white__ ': enable/disable treat all warnings as errors - the default is disabled'
+    echoln __c_green__ '    enable_debug_info       (enabled             ) ' __c_white__ ': enable/disable debugging information        - the default is disabled'
+    echoln
+    echoln __c_green__ '    select_java_langstd     (langstd             ) ' __c_white__ ': select the Java language standard (' __c_yellow__ ${__BuildTool_SupRelMin__} __c_white__ ' to ' __c_yellow__ ${__BuildTool_SupRelMax__} __c_white__ ' for the currently used JDK) - the default is not specified'
+    echoln
+    echoln __c_green__ '    compile_java            (?extraOptions       ) ' __c_white__ ': compile a Java source code'
+    echoln
+    echoln __c_green__ '    build_jar               (mainClassName,        ' __c_white__ ': build a Java JAR file'
+    echoln __c_green__ '                             ?extraFiles         ) '
+    echoln
+    echoln __c_green__ '    run_jar                 (progName            ) ' __c_white__ ': run the given JAR file'
+    echoln
+    $call(__btlib_help_print_title_targets__, 1)
+    $call(__btlib_help_print_note_clean_build_after_path_conf_change__)
+    echoln __c_reset__
+endfunction

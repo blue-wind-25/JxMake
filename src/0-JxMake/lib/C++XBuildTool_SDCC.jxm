@@ -1,0 +1,550 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Small Device C Compiler (SDCC)                                          *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+##### Include the common C++ build tool
+:::include_once 'C++BuildTool_0_CommonAll.jxm'
+
+
+##### Set flags
+const __sdcc__                  := 1
+const __x_sdcc__                := 1
+const __CppBuildTool_Defined__  := 1
+      __BuildTool_Name__        := 'Small Device C Compiler (SDCC)'
+      __BuildTool_Version__     := 0
+      __BuildTool_Version_Num__ := 0
+
+
+#####
+#####
+#####
+
+
+##### Function to define macros
+function def_macro(name, ?value)
+    value ?:= 1
+    return :"-D${name}=${value}"
+endfunction
+
+
+##### Function to select whether to treat warnings as errors
+CppWarningAsErrorFlags := ''
+
+function treat_warnings_as_errors(enabled)
+    if ${enabled} ; CppWarningAsErrorFlags := '--Werror'
+    else          ; CppWarningAsErrorFlags := ''
+    endif
+endfunction
+
+
+##### Function to enable/disable debugging
+CppBuildType  := 'Release'
+
+AsmDebugFlags := '-DNDEBUG'
+CppDebugFlags := '-DNDEBUG'
+
+function enable_debug_info(enabled)
+    if ${enabled}
+        CppBuildType  := 'Debug'
+        AsmDebugFlags := '-y'
+        CppDebugFlags := '--debug' '-DDEBUG'
+    else
+        CppBuildType  := 'Release'
+        AsmDebugFlags :=           '-DNDEBUG'
+        CppDebugFlags :=           '-DNDEBUG'
+    endif
+endfunction
+
+
+##### Function to select optimization level
+CppOptimizationFlags := ''
+
+function select_optimization(level)
+    if ${level} &== 'none'
+        CppOptimizationFlags := ''
+    elif ${level} &== 'size'
+        CppOptimizationFlags := '--opt-code-size'
+    elif ${level} &== 'speed'
+        CppOptimizationFlags := '--opt-code-speed'
+    else
+        CppOptimizationFlags := ${level}
+    endif
+endfunction
+
+
+##### Function to select language standard
+CppCcLangStdFlags  := '--std-c99'
+CppCxxLangStdFlags := '-std=c99'
+
+function select_c_langstd(langstd, ?sdcc)
+          sdcc ?:= 0
+    local sp    := $csel(${sdcc}, 'sdcc', 'c')
+    if ${langstd} &== 'c89'
+        CppCcLangStdFlags := :"--std\-${sp}89"
+    elif ${langstd} &== 'c90'
+        CppCcLangStdFlags := :"--std\-${sp}95"
+    elif ${langstd} &== 'c95'
+        CppCcLangStdFlags := :"--std\-${sp}95"
+    elif ${langstd} &== 'c99'
+        CppCcLangStdFlags := :"--std\-${sp}99"
+    elif ${langstd} &== 'c11'
+        CppCcLangStdFlags := :"--std\-${sp}11"
+    elif ${langstd} &== 'c17'
+        CppCcLangStdFlags := :"--std\-${sp}17"
+    elif ${langstd} &== 'c23'
+        CppCcLangStdFlags := :"--std\-${sp}2x"
+    else
+        CppCcLangStdFlags := ${langstd}
+    endif
+endfunction
+
+function select_cxx_langstd(langstd, ?dummyIgnored)
+    if ${langstd} &== 'c++98'
+        CppCxxLangStdFlags := '-std=c99'
+    elif ${langstd} &== 'c++03'
+        CppCxxLangStdFlags := '-std=c99'
+    elif ${langstd} &== 'c++11'
+        CppCxxLangStdFlags := '-std=c11'
+    elif ${langstd} &== 'c++14'
+        CppCxxLangStdFlags := '-std=c11'
+    elif ${langstd} &== 'c++17'
+        CppCxxLangStdFlags := '-std=c11'
+    elif ${langstd} &== 'c++20'
+        CppCxxLangStdFlags := '-std=c11'
+    elif ${langstd} &== 'c++23'
+        CppCxxLangStdFlags := '-std=c11'
+    else
+        CppCxxLangStdFlags := ${langstd}
+    endif
+endfunction
+
+
+##### Function to get the compiler version
+function __calc_cpp_compiler_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_cpp_compiler_ver_exec__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCcCompiler := $cat_path(${CppToolBinDir}, ${CppCcCompiler})
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   -@${CppCcCompiler} -v
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_cpp_compiler_ver_impl__()
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec( __get_cpp_compiler_ver_exec__, $call(__get_LDLibraryPaths__) )
+        local text  := $partn( $erase_ifempty( $sflines($[stdout]) ), 1 )
+              text  := $sfdots(${text/(?:.*?)(\d+?\.\d+?\.\d+?)(?:.*)/$1/})
+        local major := $partn(${text}, 1)
+        local minor := $partn(${text}, 2)
+        local patch := $partn(${text}, 3)
+        result  := $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}"
+    endif
+    # Return the version
+    return ${result}
+endfunction
+
+
+##### Check if the compiler version is at least/most
+function cpp_compiler_ver_min(major, minor, patch, ?dummyIgnored)
+    return $cmp( ${__BuildTool_Version_Num__}, '>=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function cpp_compiler_ver_max(major, minor, patch, ?dummyIgnored)
+    return $cmp( ${__BuildTool_Version_Num__}, '<=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+
+##### Define the dependency list file extension
+DepListFileExt := dep
+
+##### Define the object, executable, and library file extensions
+AsmFileExt  := S
+ObjFileExt  := rel
+ExeFileExt  := ihx
+SLibFileExt := lib
+DLibFileExt := ''
+
+##### Define the library file name prefix
+LibFilePrefix := ''
+
+
+##### Define the executables, paths, and options
+CppToolBinDir             := ''
+CppLDToolBin              := ''
+
+CppAssembler              := 'sdas' # It needs to be replaced with the correct processor-specific assembler by the derived libraries that use this library
+CppCommonAssemblerFlags   := '-los'
+
+CppCcCompiler             := 'sdcc'
+CppCommonCcCompileFlags   := '--verbose'
+CppCommonCcCompileFlags  :+= '--disable-warning' '190' # Disable 'warning 190: ISO C forbids an empty source file'
+
+CppCxxCompiler            := 'sdcpp'
+CppCommonCxxCompileFlags  := '-Wall' '-Wcomment' '-Wdeprecated' '-Wendif-labels' '-Wtrigraphs' '-Wundef'
+CppCommonCxxCompileFlags  += ${__SDCC_CPP_DEFINES__}
+CppCxx20MCompileFlags     := ''
+
+CppLinker                 := 'sdcc'
+CppCommonLinkFlags        := '--verbose' '--out-fmt-ihx'
+CppDemangler              := ''
+
+CppSysHeaderDir           := ''
+
+CppSysSharedLib           := ''
+CppSysStaticLib           := ''
+CppSysSharedLibDir        := ''
+CppSysStaticLibDir        := ''
+
+CppUsrSharedLib           := ''
+CppUsrStaticLib           := ''
+CppUsrSharedLibDir         = ${CppBuildDir}
+CppUsrStaticLibDir         = ${CppBuildDir}
+
+SLibBuilder               := 'sdar'
+SLibBuilderCommonFlags    := '-rc'
+
+PackIHX                   := 'packihx'
+
+
+##### A helper macro for constructing command line option for include paths
+.macro __SDCC__IU_IS__
+        local IU := $path_ndsep( $abs_path(__include_paths__) )
+              IU := ${IU/(.+)/-I$1/}
+    if &${CppSysHeaderDir}
+        local IS := $path_ndsep( $abs_path(${CppSysHeaderDir}) )
+              IS := ${IS/(.+)/-I$1/}
+    endif
+.endmacro
+
+
+##### These functions are not supported by SDCC
+function ld_fname(baseName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function ld_fpath(baseName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function use_ld(srcFileName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function compile_ld(?extraOptions)
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to compile assembly source codes
+function __compile_s__(extraOptions, ldLibraryPath)
+    if &${CppToolBinDir} : local CppAssembler := $cat_path(${CppToolBinDir}, ${CppAssembler})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppAssembler} ${CppCommonAssemblerFlags} ${AsmDebugFlags} ~$[target] ~$[preq*]
+endfunction
+
+function compile_s(?extraOptions)
+    $call( __bpt_s__                                                     )
+    $exec( __compile_s__, ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                 )
+endfunction
+
+
+##### Function to compile C++20 system header units
+function compile_sys_hunit()
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to compile C++20 user header units
+function compile_usr_hunit()
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to compile C source codes
+function __compile_c_impl__(srcPath, dstPath, extraOptions, ldLibraryPath)
+    if &${CppToolBinDir}   : local CppCcCompiler := $cat_path(${CppToolBinDir}, ${CppCcCompiler})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCcCompiler} ${CppCcCompileFlags} ${IU} ${IS} ${CppCcLangStdFlags} ${extraOptions} -c ${srcPath} -o ${dstPath}
+endfunction
+
+
+function __compile_c__(extraOptions, ldLibraryPath)
+    $call(__bpt_cc__                                                                  )
+    $exec(__compile_c_impl__, ~$[preq*], ~$[target], ${extraOptions}, ${ldLibraryPath})
+endfunction
+
+function compile_c(?extraOptions)
+    .$__SDCC__IU_IS__
+    $call( __compile_c__, ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                 )
+endfunction
+
+
+##### Function to compile C++ source codes
+function __compile_cpp__(extraOptions, ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    local GenFile := :"~${CppBuildDir}/-$[preq*/(.+).cpp/$1.gen.c/]"
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCommonCxxCompileFlags} ${IU} ${IS} ${CppCxxLangStdFlags} ${extraOptions} ~$[preq*] -o ${GenFile}
+    return ${GenFile}
+endfunction
+
+function compile_cpp(?extraOptions)
+    .$__SDCC__IU_IS__
+    local GF := $exec( __compile_cpp__   ,             ${extraOptions}, $call(__get_LDLibraryPaths__) )
+                $call( __conditional_print_stdxxx_and_check_excode__                                  )
+    $call( __bpt_cxx__                                                                           )
+    $exec( __compile_c_impl__, ${GF}, ~$[target], ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                         )
+endfunction
+
+function compile_cpp20m(?extraOptions)
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __SDCC__IU_IS__
+
+
+##### Function to link executable and shared library files
+function __link_exe__(extraOptions, ldLibraryPath)
+    if &${CppToolBinDir} : local CppLinker := $cat_path(${CppToolBinDir}, ${CppLinker})
+    if &${StaticLib}
+        local SLibDir   := ~${StaticLibDir}
+              SLibDir   := ${SLibDir/(.+)/-L$1/}
+              StaticLib := ${StaticLib/(.+)/$1.\${SLibFileExt}/}
+    endif
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppLinker} ${CppCommonLinkFlags} ${extraOptions} ${SLibDir} ${StaticLib} ~$[preq*] ~${CppExtraLinkObjects} -o ~$[target]
+endfunction
+
+function __pack_ihx__(ldLibraryPath)
+    if &${CppToolBinDir} : PackIHX := $cat_path(${CppToolBinDir}, ${PackIHX}  )
+    if __os_windows__ : $cmd_stderr_chk_on() # Workaround to prevent hung because ${PackIHX} somehow has a non-standard stderr (on Windows only?)
+   +@${PackIHX} ~$[target]
+    $nop($[excode]) # Ensure all pending commands are executed
+    if __os_windows__ : $cmd_stderr_chk_off()
+endfunction
+
+function link_exe(?extraOptions)
+    # Link the executable
+    local StaticLib    := $stack(${CppSysStaticLib}   , ${CppUsrStaticLib}   )
+    local StaticLibDir := $stack(${CppSysStaticLibDir}, ${CppUsrStaticLibDir})
+    $call( __bpt_link_exe__                                             )
+    $exec( __link_exe__, ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    if $[excode] : $rmfile(~$[target]) # SDCC linker may still generate the IHX file even if an error occurs
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $call(__store_exe_dlib_slib_depend__               )
+    # Convert IHX to HEX
+    local HexFile := ~$[target/\.ihx/.hex/]
+    $rmfile(${HexFile})
+                   $call( __bpt_hex__                                   )
+                   $exec( __pack_ihx__,  $call(__get_LDLibraryPaths__)  )
+    if $[excode] ; $call( __conditional_print_stdxxx_and_check_excode__ )
+    else         ; $put_file(${HexFile}, $[stdout]) ; echoln
+    endif
+endfunction
+
+function link_dlib(?extraOptions)
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to create static libraries
+function __link_slib__()
+    if &${CppToolBinDir} : local SLibBuilder := $cat_path(${CppToolBinDir}, ${SLibBuilder})
+   +@${SLibBuilder} ${SLibBuilderCommonFlags} ~$[target] ~$[preq*]
+endfunction
+
+function link_slib()
+    $call(__bpt_link_slib__                            )
+    $exec(__link_slib__                                )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $call(__check_exe_dlib_slib_depend__               )
+endfunction
+
+
+##### Function to run the given executable file (in case of SDCC, print the size)
+const SDCC_IHEX_PARSE_LINE_REGEX := '(?:\\:)([0-9A-F]{2})([0-9A-F]{4})([0-9A-F]{2})(?:.+)'
+
+function __obj_size_map__(progName)
+    # Read and parse the MAP file to calculate the size
+    local progName := ${progName/\.ihx/.map/}
+    local maxLen   := 0
+    local totSize  := 0
+    local partf
+    local part1
+    local part2
+    foreach local Line in $unique( $erase_ifnot( $get_file_nel(${progName}), '^.+?=\\s+\\d+.+?bytes.+\\(.+?\\)$', true ) )
+        # Extract the parts
+                  Line := $sfpipes(${Line/(.+?)\s+[0-9A-Z]+\s+[0-9A-Z]+\s+=\s+(\d+).+\((.+)\)/$1|$2|$3/})
+        local     Area :=          ${Line}<1>
+                  Area := $lcase  (${Area/[\s\.]//})
+        local     Size :=          ${Line}<2>
+        local     Attr := $ucase  (${Line}<3>)
+        local     LenA := $strlen (${Area})
+        local     LenS := $strlen (${Size})
+        local max LenP, ${LenA}, ${LenS}
+        # Store the largest string length, area name, and size
+        partf +:= ${LenP}
+        part1 +:= ${Area}
+        part2 +:= ${Size}
+        # Accumulate the total size as needed
+        local ExcludeArea := false
+        if &${SDCC_MAP_FILE_ACC_SIZE_AREA_ATTR} : ExcludeArea := $contains( $str_fidx(${Attr}, ${SDCC_MAP_FILE_ACC_SIZE_AREA_ATTR}), '0' )
+        if !${ExcludeArea}                      : add totSize, ${totSize}, ${Size}
+    endforeach
+    # Store the total size in decimal
+        Size := ${totSize}
+        LenS := $strlen(${Size})
+    max LenP, 3, ${LenS}
+    partf +:= ${LenP}
+    part1 +:= 'dec'
+    part2 +:= ${Size}
+    # Store the total size in hexadecimal
+        Size := $sprintf("%x", ${totSize})
+        LenS := $strlen(${Size})
+    max LenP, 3, ${LenS}
+    partf +:= ${LenP}
+    part1 +:= 'hex'
+    part2 +:= ${Size}
+    # Generate the final text
+    local fmt
+    local text := '    ║ '
+    foreach local i, part in ${part1}
+        text +:= $sprintf({{ '%', ${partf}<i>, 's   ' }}, ${part})
+    endforeach
+    text +:= "\n    ║ "
+    foreach local i, part in ${part2}
+        text +:= $sprintf({{ '%', ${partf}<i>, 's   ' }}, ${part})
+    endforeach
+    text +:= "\n"
+    # Return the final text
+    return ${text}
+endfunction
+
+function __obj_size_hex__(progName)
+    # Read and parse the HEX file to calculate the size
+    local progName := ${progName/\.ihx/.hex/}
+    local totalLen := 0
+    local addrMin  :=  2147483647
+    local addrMax  := -2147483648
+    foreach Line in $get_file_nel(${progName})
+        # Parse the parts - based on 'https://srecord.sourceforge.net/man/man5/srec_intel.5.html'
+        (*
+         * Example:
+         *     $1 $2   $3
+         *     LL AAAA TT DATA---------------------------- SS
+         *     04 8000 00 82008007 73
+         *     10 8007 00 AE00002707724F00005A26F9AE000027 7E
+         *     0D 8017 00 09D68023D700005A26F7CC8004 3C
+         *     03 8004 00 CC8024 09
+         *     02 8024 00 5F81 7A
+         *     00 0000 01 FF
+         *)
+        local parts := $re_split(${Line}, ${SDCC_IHEX_PARSE_LINE_REGEX})
+        # Check for end of file record
+        if ${parts}<3> == '01' : break
+        # Parse the record length
+        local recLen  := $series('0x', ${parts}<1>)
+        add   recLen, ${recLen}, 0
+        # Parse the load offset
+        local loadOfs := $series('0x', ${parts}<2>)
+        add   loadOfs, ${loadOfs}, 0
+        # Calculate the maximum load address
+        local add loadMax, ${loadOfs}, ${recLen}
+        # Find the smallest and largest address
+        if ${loadOfs} < ${addrMin} : addrMin := ${loadOfs}
+        if ${loadMax} > ${addrMax} : addrMax := ${loadMax}
+        # Accumulate the record length
+        add totalLen, ${totalLen}, ${recLen}
+    endforeach
+    # Determine the program size
+    local sub  addrDif, ${addrMax}, ${addrMin}
+    local eval progSize := (${addrDif} > ${totalLen}) ? ${addrDif} : ${totalLen}
+    # Generate and return the text
+    return "    ║ Flash Usage : ${progSize} bytes"
+endfunction
+
+function run_exe(progName, ?dimColor)
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Get the size
+    local text  := $call(__obj_size_map__, ${progName})
+          text +:= "\n"
+          text +:= $call(__obj_size_hex__, ${progName})
+    # Print the size
+    $call(__bpt_exe_size_linespace__)
+    local Color := __c_dgray__
+    if !${dimColor}
+        echoln __c_cyan__ -${progName} __c_reset__
+        Color := __c_green__
+    endif
+    echoln ${Color} ${text} __c_reset__
+    echoln
+endfunction
+
+
+##### Function to initialize the project build
+function __sdcc_add_cpp_std_defs__()
+    local Vers := $sfdots(${__BuildTool_Version__})
+    local VerM := ${Vers}<1>
+    local VerN := ${Vers}<2>
+    local VerP := ${Vers}<3>
+    __SDCC_CPP_DEFINES__ :=  '-D__SDCC'                       \
+                            :"-D__SDCC_VERSION_MAJOR=${VerM}" \
+                            :"-D__SDCC_VERSION_MINOR=${VerN}" \
+                            :"-D__SDCC_VERSION_PATCH=${VerP}"
+endfunction
+
+function init_project(?buildSubdirectories) supersede
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+    # Add the standard defines when compiling C++ source codes
+    $call(__sdcc_add_cpp_std_defs__)
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function __clean_project__()
+    (* This function does nothing because there are no platform-specific files to delete! *)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __sdcc_userCompSel__()
+    echoln __c_green__ '    __sdcc__                  ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_sdcc__                ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+endfunction
+
+function __sdcc_userExtraFuncs__()
+    echoln __c_green__ '    run_exe                 (progName, ?dimColor       ) ' __c_white__ ': print the size of an SDCC executable'
+endfunction
+
+function __btlib_help__() supersede
+    $call(__origin__, true, true, true, true, __sdcc_userCompSel__, __sdcc_userExtraFuncs__)
+endfunction

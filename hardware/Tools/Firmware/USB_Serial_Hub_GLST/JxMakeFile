@@ -1,0 +1,132 @@
+#####
+##### Copyright (C) 2022-2026 Aloysius Indrayanto
+#####
+##### This file is part of the JxMake program, see LICENSE file for the license details.
+#####
+
+
+:::include <C++XBuildTool_STM32_Cube>
+
+
+if __os_windows__
+    STM32_SDK_PATH       := 'Z:/xsdk/stm32/stm32-sdk'
+    STM32_TOOLCHAIN_PATH := 'Z:/xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10'
+else
+    STM32_SDK_PATH       := $cat_path( $uhd(), 'xsdk/stm32/stm32-sdk'                      )
+    STM32_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10' )
+endif
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+else
+    SPort := '/dev/ttyACM0'
+endif
+
+
+JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG := 'v0.10.0-15'
+
+
+# Using 'STM32F103C8T6' with an external 8MHz crystal
+STM32_FLASH_SIZE := 65536
+STM32_HSE_VALUE  := 8000000
+USBDriver        := 'device|cdc'
+
+$call(init_project                                         )
+$call(stm32cube_select_part   , STM32F103CBT6, ${USBDriver}) # An 'STM32F103C8T6' is basically an 'STM32F103CBT6' with half the flash size
+$call(treat_warnings_as_errors, 1                          )
+$call(enable_debug_info       , 1                          )
+$call(select_optimization     , size                       )
+$call(select_c_langstd        , c11                        )
+$call(select_cxx_langstd      , c++11                      )
+$call(print_devenv_config                                  )
+$call(silent_stdxxx           , false                      )
+$call(silent_stdxxx_syslib    , true                       )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call(exe_fpath, main    )
+PROG_OBJS := $call(obj_fpath, main.cpp)
+
+if true
+        $call(stm32cube_auto_add_pkg_srcs   )
+        $call(stm32cube_auto_add_hal_srcs   )
+    if &${USBDriver}
+        $call(stm32cube_auto_add_usbdrv_srcs)
+    endif
+else
+    $call(stm32cube_add_pkg_src, { \
+        stm32f1xx_hal_msp.c        \
+        stm32f1xx_it.c             \
+        system_stm32f1xx.c         \
+        startup_stm32f103xb.s      \
+        usbd_if.c                  \
+        usbd_conf.c                \
+        usbd_desc.c                \
+    } )
+    $call(stm32cube_add_hal_src, { \
+        stm32f1xx_hal.c            \
+        stm32f1xx_hal_cortex.c     \
+        stm32f1xx_hal_crc.c        \
+        stm32f1xx_hal_exti.c       \
+        stm32f1xx_hal_flash.c      \
+        stm32f1xx_hal_gpio.c       \
+        stm32f1xx_hal_pcd.c        \
+        stm32f1xx_hal_pcd_ex.c     \
+        stm32f1xx_hal_pwr.c        \
+        stm32f1xx_hal_rcc.c        \
+        stm32f1xx_hal_rcc_ex.c     \
+    } )
+    if &${USBDriver}
+        $call(stm32cube_add_usbdrv_core_src , { \
+            usbd_ctlreq.c                       \
+            usbd_core.c                         \
+            usbd_ioreq.c                        \
+        } )
+        $call(stm32cube_add_usbdrv_class_src, { \
+            usbd_cdc.c                          \
+        } )
+    endif
+endif
+
+$call(stm32cube_add_extradeps, ${PROG_NAME})
+
+
+target build : .PHONY
+    jxmake ${PROG_NAME}
+    $call(stm32cube_run_exe, ${PROG_NAME})
+    $cpfile(${PROG_NAME}, '../Firmware-JxMakeGLST_USBSerial.elf', true, true)
+endtarget
+
+target .PHONY
+endtarget
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    jxmake stm32cube_build_system_library
+    $call(stm32cube_link_exe)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(stm32cube_compile_cpp)
+endtarget
+
+
+target rswd
+    $call(stm32_reset_swd, ?, ?, ?, true) # Set 'ignoreCPUID' to 'true' because there are many clone chips
+endtarget
+
+
+target uswd
+    jxmake build
+    $call(stm32_upload_swd, ${PROG_NAME}, ?, ?, ?, true) # Set 'ignoreCPUID' to 'true' because there are many clone chips
+endtarget

@@ -1,0 +1,153 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - ARM GCC - Bare-Metal ATSAM3X Series                                     *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Set the CPU options and predefined macros
+const ATSAM_CommonCPUOptions  := '-mcpu=cortex-m3' '-mthumb'
+const ATSAM_CommonCompileMDef := '-D__ATSAM3X_BARE_METAL__'
+
+
+##### Include the common code for bare-metal SAM microcontrollers
+:::include_once 'C++XBuildTool_BM_ATSAM_Common.jxm'
+
+
+##### Update the flag
+__BuildTool_Target__  := 'ARM (ATSAM3X Series)'
+
+
+#####
+#####
+#####
+
+
+##### Function to upload the given program via SAM-BA
+const __Def_S3XBM_DEFAULT_SAMBA_OFFSET__ := '0x0000'
+
+function s3xbm_upload_samba(progName, device, ?arduinoErase, ?sambaOffset)
+    # Set the default value
+    arduinoErase ?:= false
+    sambaOffset  ?:= ${__Def_S3XBM_DEFAULT_SAMBA_OFFSET__}
+    # Perform upload
+    $call(atsam_upload_samba, ${progName}, ${device}, ${arduinoErase}, ${sambaOffset}, true, true)
+endfunction
+
+
+##### A helper macro for SWD
+.macro __s3xbm_swd_set_common_default_values__
+    interface    ?:= ${S3XBM_SWD_Default_Interface}
+    transport    ?:= ${S3XBM_SWD_Default_Transport}
+    adapterSpeed ?:= ${S3XBM_SWD_Default_AdapterSpeed}
+.endmacro
+
+
+##### Define some default values for SWD
+(*
+ *    MCU       Flash
+ *
+ *    SAM3A4C   2 x 128kB (bank address at 0x00080000 and 0x000A0000)
+ *    SAM3A8C   2 x 256kB (bank address at 0x00080000 and 0x000C0000)
+ *
+ *    SAM3X4C   2 x 128kB (bank address at 0x00080000 and 0x000A0000)
+ *    SAM3X4E   2 x 128kB (bank address at 0x00080000 and 0x000A0000)
+ *
+ *    SAM3X8C   2 x 256kB (bank address at 0x00080000 and 0x000C0000)
+ *    SAM3X8E   2 x 256kB (bank address at 0x00080000 and 0x000C0000)
+ *)
+                                      const S3XBM_SWD_Default_Interface    := 'stlink'
+                                      const S3XBM_SWD_Default_Transport    := 'hla_swd'
+                                      const S3XBM_SWD_Default_AdapterSpeed := 2000
+
+                                                                                              ##### !!! TODO : What about different SoCs? !!! #####
+if !&${S3XBM_SWD_Target_Device}     : const S3XBM_SWD_Target_Device        := 'at91sam3ax_8x' # ATSAM3X8E
+if !&${S3XBM_SWD_Target_CPUTapID}   : const S3XBM_SWD_Target_CPUTapID      := '0x2ba01477'    # ATSAM3X8E
+if !&${S3XBM_SWD_Target_FlashStart} : const S3XBM_SWD_Target_FlashStart    := '0x00080000'    # ATSAM3X8E
+
+                                      const S3XBM_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+                                      const S3XBM_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+                                      const S3XBM_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function s3xbm_reset_swd(?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    .$__s3xbm_swd_set_common_default_values__
+    # Perform reset
+    $call(atsam_reset_swd, ${interface}, ${transport}, ${adapterSpeed}, ${S3XBM_SWD_Target_Device}, ${S3XBM_SWD_Target_CPUTapID})
+endfunction
+
+
+##### Function to upload the given program via SWD
+function s3xbm_upload_swd(progName, ?interface, ?transport, ?adapterSpeed, ?sambaOffset)
+    # Set the default values
+    .$__s3xbm_swd_set_common_default_values__
+    sambaOffset ?:= ${__Def_S3XBM_DEFAULT_SAMBA_OFFSET__}
+    # Adjust the offset by the start address of the flash
+    add sambaOffset, ${S3XBM_SWD_Target_FlashStart}, ${sambaOffset}
+        sambaOffset := $sprintf("0x%08x", ${sambaOffset})
+    # Perform upload
+    $call(atsam_upload_swd, ${progName}, ${interface}, ${transport}, ${adapterSpeed}, ${S3XBM_SWD_Target_Device}, ${S3XBM_SWD_Target_CPUTapID}, ${sambaOffset})
+    # Set GPNVM bit 1 so the MCU will boot from flash
+    local commands := 'init' 'halt' 'at91sam3 gpnvm set 1' 'reset run' 'shutdown'
+    $call(atsam_user_cmd_swd, ${interface}, ${transport}, ${adapterSpeed}, ${S3XBM_SWD_Target_Device}, ${S3XBM_SWD_Target_CPUTapID}, ${commands})
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function s3xbm_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd)
+    # Set the default values
+    .$__s3xbm_swd_set_common_default_values__
+    # Run OpenOCD in server mode
+    $call(                                      \
+        atsam_debug_swd_start                 , \
+        ${progName}                           , \
+        ${interface}                          , \
+        ${transport}                          , \
+        ${adapterSpeed}                       , \
+        ${S3XBM_SWD_Target_Device}            , \
+        ${S3XBM_SWD_Target_CPUTapID}          , \
+        's3xbm_debug_swd_gdb'                 , \
+        'ATSAM3X'                             , \
+        ${S3XBM_SWD_GDBPort}                  , \
+        ${S3XBM_SWD_TCLPort}                  , \
+        ${S3XBM_SWD_TelnetPort}               , \
+        ${DebuggerProgram}                    , \
+        ${noGDBExecCmd}                         \
+    )
+endfunction
+
+function s3xbm_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default value
+    autoConnect ?:= true
+    # Execute GDB
+    $call(atsam_debug_swd_gdb, ${progName}, ${S3XBM_SWD_GDBPort}, ${DebuggerProgram}, ${autoConnect})
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __s3xbm_swd_set_common_default_values__
+
+
+##### Function to link executable files (in case of ATSAM3X, also create the BIN file)
+function s3xbm_link_exe(?extraOptions)
+    $call(link_exe, ${extraOptions}, false, true)
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local __ATSAM_BTLIB_HELP_MCU_Info_Name__            := 'ATSAM3X'
+    local __ATSAM_BTLIB_HELP_MCU_Func_Prefix_Name__     := 's3xbm'
+    local __ATSAM_BTLIB_HELP_Default_SAMBA_Offset__     := ${__Def_S3XBM_DEFAULT_SAMBA_OFFSET__}
+    local __ATSAM_BTLIB_HELP_SWD_Default_Interface__    := ${S3XBM_SWD_Default_Interface}
+    local __ATSAM_BTLIB_HELP_SWD_Default_Transport__    := ${S3XBM_SWD_Default_Transport}
+    local __ATSAM_BTLIB_HELP_SWD_Default_AdapterSpeed__ := ${S3XBM_SWD_Default_AdapterSpeed}
+    $call(__origin__)
+endfunction

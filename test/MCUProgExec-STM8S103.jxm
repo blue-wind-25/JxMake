@@ -1,0 +1,76 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc           :=  $fwc_load_intel_hex('../src/1-TestData/PTest2X.Blink-STM8S103F3P6.cpp.hex')
+
+mcuConfigJSON := [["
+{
+    "@class" : "jxm.ugc.ProgSWIM$ConfigSTM8S",
+    "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+    "regSTM8" : {
+        "@class" : "jxm.ugc.ProgSWIM$Config$RegSTM8",
+        "SWIM_CCR" : 0x50CD,
+        "CLK_CKDIVR" : 0x50C6,
+        "FLASH_PUKR" : 0x5062,
+        "FLASH_DUKR" : 0x5064,
+        "FLASH_IAPSR" : 0x505F,
+        "FLASH_CR1" : 0x505A,
+        "FLASH_CR2" : 0x505B,
+        "FLASH_NCR2" : 0x505C,
+        "FLASH_FPR" : 0x505D,
+        "FLASH_NFPR" : 0x505E
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgSWIM$Config$MemoryFlash",
+        "address" : 0x8000,
+        "totalSize" : 8192,
+        "pageSize" : 64,
+        "numPages" : 128,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgSWIM$Config$MemoryEEPROM",
+        "address" : 0x4000,
+        "totalSize" : 640,
+        "pageSize" : 64,
+        "numPages" : 10
+    },
+    "memoryOptionBytes" : {
+        "@class" : "jxm.ugc.ProgSWIM$Config$MemoryOptionBytes",
+        "address" : 0x4800,
+        "totalSize" : 11,
+        "pageSize" : -1,
+        "defaultValues" : [
+            0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF
+        ],
+        "idx_ROP" : 0
+    }
+}
+"]]
+
+bendSpec      := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+progSpec      := 'ProgSWIM' ${mcuConfigJSON} '' '0'
+mcuSig        := -1 # NOTE : STM8 does not have signature bytes!
+
+(*
+echoln $mcu_prog_cfg_json('SWIM'      )
+echoln $mcu_prog_cfg_json('SWIM-STM8S')
+echoln $mcu_prog_cfg_json('SWIM-STM8L')
+#*)
+
+(*
+echoln $mcu_prog_cfg_ini('SWIM'      )
+echoln $mcu_prog_cfg_ini('SWIM-STM8S')
+echoln $mcu_prog_cfg_ini('SWIM-STM8L')
+#*)
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'chip_erase' 'write_flash' 'verify_flash' }, ${fwc}, -1)
+echoln
+#*)
+
+foreach I in $mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'read_fuses' 'read_lockbits' 'verify_flash' }, ${fwc}, -1)
+    $printf("%02X\n", ${I})
+endforeach
+
+$fwc_delete(${fwc})

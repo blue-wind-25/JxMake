@@ -1,0 +1,930 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Built-In Functions
+----------------------------------------------------------------------------------------------------
+
+<result_var> = $function_name( [argument...] )
+
+
+Available built-in functions:
+
+    <output_value> $call              ( <user_function_name>, [argument...] )                      # Call a user-defined function
+    <output_value> $exec              ( <user_function_name>, [argument...] )                      # Call a user-defined function that can execute shell/operating system commands
+
+                   $add_target        ( <ref_name>, <new_name>, [<prerequisites], [extra_deps] )   # Add a new target programmatically with the specified new name, prerequisites,
+                                                                                                   # and extra dependencies but using the body of the reference target <ref_name>;
+                                                                                                   # the <ref_name> must not contains pattern rules (glob)
+
+                   $add_extradep      ( <trg_name>, <extra_deps>, [global_fb] )                    # Add extra dependencies to the target <trg_name>:
+                                                                                                   #     The <trg_name> must not contains pattern rules (glob)
+                                                                                                   #     The default [global_fb] value is 'false';
+                                                                                                   #         if it is set to 'false' and <trg_name> is not found, the function will throw error
+                                                                                                   #         if it is set to 'true'  and <trg_name> is not found, the function will behave as if it were a 'depload' statement
+
+    <output_value> $has_var           ( <var_name> )                                               # Check if a regular variable with the given name exists;
+                                                                                                   # possible results are 'l', 'a', 'g', and ''
+
+                   $nop               ( [argument...] )                                            # Simply evaluate the argument(s) and then does nothing with them
+
+                   $alt_glibc_for     ( <abs_program_path>, <abs_lib_path>, <abs_ld_path> )        # Set a directive to run the given program using alternative glibc (Linux only);
+                                                                                                   # set <abs_lib_path> or <abs_ld_path> to empty string to remove the previously set directive
+
+                   $sh_delay          ( )                                                          # Delay   the JVM shutdown process as long as possible
+                   $sh_restore        ( )                                                          # Restore the JVM shutdown process
+
+                   $cmd_echo_off      ( )                                                          # Disable echo for '+@' and '-+@' and '?@'
+                   $cmd_echo_on       ( )                                                          # Enable  echo for '+@' and '-+@' and '?@' (the default)
+
+                   $cmd_streaming_off ( )                                                          # Disable streaming for '@' (the default; stderr and stdout will     be captured to variables)
+                   $cmd_streaming_on  ( )                                                          # Enable  streaming for '@' (             stderr and stdout will not be captured to variables);
+                                                                                                   # if streaming for '@' is enabled, '$cmd_stderr_chk_off' and '$cmd_stdout_chk_off' will have no
+                                                                                                   # effect
+
+                   $cmd_stderr_chk_off( )                                                          # Disable checking of stderr before reading it for '@' (the default)
+                   $cmd_stderr_chk_on ( )                                                          # Enable  checking of stderr before reading it for '@' (workaround to prevent hung when some
+                                                                                                   # program somehow have non-standard stderr); please note that enabling this check would cause
+                                                                                                   # significant performance degradation, therefore, enable it only when absolutely necessary and
+                                                                                                   # then disable it immediately as soon as it is no longer needed!
+
+                   $cmd_stdout_chk_off( )                                                          # Disable checking of stdout before reading it for '@' (the default)
+                   $cmd_stdout_chk_on ( )                                                          # Enable  checking of stdout before reading it for '@' (workaround to prevent hung when some
+                                                                                                   # program somehow have non-standard stdout); please note that enabling this check would cause
+                                                                                                   # significant performance degradation, therefore, enable it only when absolutely necessary and
+                                                                                                   # then disable it immediately as soon as it is no longer needed!
+
+                   $cmd_clear_state   ( )                                                          # Clear '$[excode]', '$[stderr]' and '$[stdout]'
+
+                   $silent_sem        ( )                                                          # Silence all suppressed error messages (has no effect if '-s' is one of the command line arguments)
+                   $restore_sem       ( )                                                          # Restore all suppressed error messages
+
+    <output_value> $micros            ( )                                                          # Get the current running time of the JVM in microseconds
+    <output_value> $millis            ( )                                                          # Get the current time in milliseconds
+    <output_value> $datetime          ( [format_string] )                                          # Get the current date and time; the default format is 'yyyy/MM/dd HH:mm:ss'
+
+                   $sleep             ( <milli_seconds> )                                          # Sleep/delay for the given milliseconds
+
+    <output_value> $getenv            ( <env_var_name>, [default_value] )                          # Get the value of the specified environment variable;
+                                                                                                   # the default [default_value] value is 'null'
+
+                   $clear_project     ( [print_message_flag] )                                     # Clear the project cache directory
+
+                   $exit              ( <exit_value> )                                             # Exit program with the given exit code
+
+    <cwd_path>     $cwd               ( )                                                          # Get the current working    directory
+    <ptd_path>     $ptd               ( )                                                          # Get the project temporary  directory
+    <uhd_path>     $uhd               ( )                                                          # Get the user    home       directory
+    <jdd_path>     $jdd               ( )                                                          # Get the JxMake  user data  directory
+    <jtd_path>     $jtd               ( )                                                          # Get the JxMake  user tools directory
+    <jxd_path>     $jxd               ( )                                                          # Get the JxMake  executable directory
+
+                   $set_rwx3          ( <path>, <rwxrwxrwx> )                                      # Sets POSIX file permissions
+
+    <path>         $cat_path          ( <path1>, <path2>      )                                    # Concatenate the given paths
+    <path>         $cat_paths         ( <path1>, <path2>, ... )                                    # Concatenate the given paths
+
+    <abs_path>     $abs_path          ( <path> )                                                   # Get the absolute path from the given path (relative to the current working directory)
+    <rel_path>     $rel_path          ( <path> )                                                   # Get the relative path from the given path (relative to the current working directory)
+
+    <0> or <1>     $valid_path        ( <path> )                                                   # Check if the given path is valid                (check if it exists)
+    <0> or <1>     $uptodate_path     ( <path> )                                                   # Check if the given path is valid and up to date (check if it exists and up to date in relation to the JxMake program)
+
+    <0> or <1>     $newer_path        ( <path_chk>, <path_ref> )                                   # Check if <path_chk> is more recent than <path_ref>
+    <0> or <1>     $same_path         ( <path_chk>, <path_ref> )                                   # Check if <path_chk> and <path_ref> point to the same location
+
+    <0> or <1>     $path_is_abs       ( <path> )                                                   # Check if the given path is absolute
+    <0> or <1>     $path_is_rel       ( <path> )                                                   # Check if the given path is relative
+
+    <0> or <1>     $path_is_file      ( <path> )                                                   # Check if the given path is points to a file
+    <0> or <1>     $path_is_directory ( <path> )                                                   # Check if the given path is points to a directory
+    <0> or <1>     $path_is_symlink   ( <path> )                                                   # Check if the given path is a symbolic link
+
+    <0> or <1>     $path_is_readable  ( <path> )                                                   # Check if the given path is readable
+    <0> or <1>     $path_is_writable  ( <path> )                                                   # Check if the given path is writable
+    <0> or <1>     $path_is_executable( <path> )                                                   # Check if the given path is executable
+
+    <out_part>     $path_last_part    ( <path> )                                                   # Get    the last part of the given path
+    <out_part>     $path_rm_last_part ( <path> )                                                   # Remove the last part of the given path
+
+    <out_path>     $path_ndsep        ( <path> )                                                   # Convert to the operating system's native directory separators
+
+    <abs_path>     $symlink_target    ( <path> )                                                   # Get the target             of the given symbolic link
+    <abs_path>     $symlink_real_apath( <path> )                                                   # Get the real absolute path of the given symbolic link
+
+    <abs_path>     $symlink_resolve   ( <path> )                                                   # Get the real path of the given path that may contain symbolic link(s)
+
+    <dir_path>     $dir_name          ( <path>           )                                         # Get the directory name      from the given path
+    <filename>     $file_name         ( <path>, [no_ext] )                                         # Get the file      name      from the given path
+    <fileext>      $file_ext          ( <path>           )                                         # Get the file      extension from the given path
+
+    <mime_type>    $file_mime_type    ( <path> )                                                   # Determine the MIME type of the given path
+
+                   $touch             ( <path    >                                             )   # Update the modification time to the current time  (or create a new empty file)
+                   $rmfile            ( <path    >                                             )   # Remove file
+                   $rmfiles           ( <path_dir>,             <regexp_value    >             )   # Remove files             using regular expression (USE WITH CAUTION!)
+                   $rmfiles_rec       ( <path_dir>,             <regexp_value    >             )   # Recursively remove files using regular expression (USE WITH CAUTION!)
+                   $cpfile            ( <path_src>, <path_dst>, [replace_existing], [norm_pfp] )   # Copy file:
+                                                                                                   #     The default [replace_existing] value is 'false'
+                                                                                                   #     The default [norm_pfp        ] value is 'false'
+                                                                                                   # If [norm_pfp] is set to 'true' the POSIX permissions will be normalized using the file mode creation mask (umask)
+                   $mvfile            ( <path_src>, <path_dst>, [replace_existing]             )   # Move/rename file; the default [replace_existing] value is 'false'
+
+                   $mkdir             ( <path_dir>                                 )               # Make directory
+                   $rmdir             ( <path_dir>                                 )               # Remove directory
+                   $rmdir_rec         ( <path_dir>                                 )               # Recursively remove the whole directory tree (USE WITH CAUTION!)
+                   $cpdir_rec         ( <path_src>, <path_dst>, <replace_existing> )               # Recursively copy   the whole directory tree (USE WITH CAUTION!)
+    <output_value> $lsdir             ( <path_dir>, [type]                         )               # List               the       directory tree; [type] is one of 'a' (the default), 'f', and 'd'
+    <output_value> $lsdir_rec         ( <path_dir>, [type]    , [max_depth]        )               # Recursively list   the whole directory tree; [type] is one of 'a' (the default), 'f', and 'd';
+                                                                                                   #                                              the default [max_depth] is 2147483647
+
+    <output_value> $srfile_rec        ( <path_dir>, <regexp_value>, [max_depth]    )               # Recursively search for files       using regular expression; the default [max_depth] is 2147483647
+    <output_value> $srdir_rec         ( <path_dir>, <regexp_value>, [max_depth]    )               # Recursively search for directories using regular expression; the default [max_depth] is 2147483647
+
+    <error_msg>    $txzdir_rec        ( < tarxz_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.xz' file ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $untxz_rec         ( < tarxz_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.xz' file to the given path                ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $tbz2dir_rec       ( <tarbz2_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.bz2' file; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $untbz2_rec        ( <tarbz2_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.bz2' file to the given path               ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $tgzdir_rec        ( < targz_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.gz' file ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $untgz_rec         ( < targz_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.gz' file to the given path                ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $tzipdir_rec       ( <tarzip_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.zip' file; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $untzip_rec        ( <tarzip_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.zip' file to the given path               ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $untar_rec         ( <   tar_file_name>, <dst_path>                , [xerr] )   # Extract the     '.tar' file to the given path (creating a plain   '.tar' file is not supported) ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $unzip_rec         ( <   zip_file_name>, <dst_path>                , [xerr] )   # Extract the     '.zip' file to the given path (creating a regular '.zip' file is not supported) ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $xz                ( < input_file_name>, <output_file_name>        , [xerr] )   # Compress   the <input_file_name> to <output_file_name> using XZ    format ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $unxz              ( < input_file_name>, <output_file_name>        , [xerr] )   # Uncompress the <input_file_name> to <output_file_name> using XZ    format ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $bzip2             ( < input_file_name>, <output_file_name>        , [xerr] )   # Compress   the <input_file_name> to <output_file_name> using BZIP2 format ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $bunzip2           ( < input_file_name>, <output_file_name>        , [xerr] )   # Uncompress the <input_file_name> to <output_file_name> using BZIP2 format ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $gzip              ( < input_file_name>, <output_file_name>        , [xerr] )   # Compress   the <input_file_name> to <output_file_name> using GZIP  format ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $gunzip            ( < input_file_name>, <output_file_name>        , [xerr] )   # Uncompress the <input_file_name> to <output_file_name> using GZIP  format ; the default [xerr] is 'true' (exit on error)
+
+    <actual_path>  $put_file          ( <path>, <input_value> )                                    # Write to text file; in this case, each set member results
+                                                                                                   # in one line (the system may change the output path; therefore,
+                                                                                                   # always check the returned value)
+
+    <output_value> $get_file          ( <path>, [whole_text ] )                                    # Read from text file and output a set of strings:
+                                                                                                   #     If [whole_text] is 'false' (the default), each line results in one set member
+                                                                                                   #     If [whole_text] is 'true'               , the entire text is combined into one set member
+
+    <output_value> $get_file_nel      ( <path>, [beg_index], [end_index] )                         # Read from text file and output a set of strings, excluding the effectively empty lines:
+                                                                                                   #     Specify the begin line index using [beg_index]; the default is 1
+                                                                                                   #     Specify the end   line index using [end_index]; the default is 2147483647
+
+    <output_value> $md2_sum_file      ( <path> )                                                   # Compute the MD2      message digest of the given file
+    <output_value> $md5_sum_file      ( <path> )                                                   # Compute the MD5      message digest of the given file
+    <output_value> $sha1_sum_file     ( <path> )                                                   # Compute the SHA1     message digest of the given file
+    <output_value> $sha2_224sum_file  ( <path> )                                                   # Compute the SHA2-224 message digest of the given file
+    <output_value> $sha2_256sum_file  ( <path> )                                                   # Compute the SHA2-256 message digest of the given file
+    <output_value> $sha2_384sum_file  ( <path> )                                                   # Compute the SHA2-384 message digest of the given file
+    <output_value> $sha2_512sum_file  ( <path> )                                                   # Compute the SHA2-512 message digest of the given file
+    <output_value> $sha3_224sum_file  ( <path> )                                                   # Compute the SHA3-224 message digest of the given file (only available from Java 9 and above)
+    <output_value> $sha3_256sum_file  ( <path> )                                                   # Compute the SHA3-256 message digest of the given file (only available from Java 9 and above)
+    <output_value> $sha3_384sum_file  ( <path> )                                                   # Compute the SHA3-384 message digest of the given file (only available from Java 9 and above)
+    <output_value> $sha3_512sum_file  ( <path> )                                                   # Compute the SHA3-512 message digest of the given file (only available from Java 9 and above)
+
+    <output_value> $to_cp             ( <input_value> )                                            # Convert character to codepoint (each set member must only contains one character)
+    <output_value> $to_ch             ( <input_value> )                                            # Convert codepoint to character
+
+    <output_value> $ucase             ( <input_value> )                                            # Convert to uppercase
+    <output_value> $lcase             ( <input_value> )                                            # Convert to lowercase
+    <output_value> $tcase             ( <input_value> )                                            # Convert to titlecase
+
+    <output_value> $ltrim             ( <input_value> )                                            # Trim whitespace on the left side
+    <output_value> $rtrim             ( <input_value> )                                            # Trim whitespace on the right side
+    <output_value> $strim             ( <input_value> )                                            # Trim whitespace on both sides
+
+    <output_value> $strlen            ( <input_value>                                      )       # Get the length of the string
+    <output_value> $substr            ( <input_value>, <beg_index   >, <end_index>         )       # Get the substring                                       (index starts from 1)
+    <output_value> $str_replace       ( <input_value>, <search_value>, <replacement_value> )       # Replace all occurrences in the string
+    <output_value> $str_fidx          ( <input_value>, <search_value>, [from_index]        )       # Get the index of the first occurrence from [from_index] (index starts from 1)
+    <output_value> $str_lidx          ( <input_value>, <search_value>, [from_index]        )       # Get the index of the last  occurrence from [from_index] (index starts from 1)
+    <output_value> $str_begwith       ( <input_value>, <check_value >                      )       # Check if <input_value> begins with <check_value>
+    <output_value> $str_endwith       ( <input_value>, <check_value >                      )       # Check if <input_value> ends   with <check_value>
+
+    <output_value> $str_rmfchr        ( <input_value> )                                            # Remove the 1st  characters from the string
+    <output_value> $str_rmlchr        ( <input_value> )                                            # Remove the last characters from the string
+
+    <output_value> $re_from_glob      ( <input_value>                                      )       # Convert '?' to '([^.]?)' and '%' to '([^.]+)' while escaping other special characters
+    <0> or <1>     $re_match          ( <input_value>, <regexp_value>                      )       # Match   string using regular expression
+    <output_value> $re_split          ( <input_value>, <regexp_value>                      )       # Split   string using regular expression
+    <output_value> $re_replace        ( <input_value>, <regexp_value>, <replacement_value> )       # Replace string using regular expression (all occurrences)
+    <output_value> $re_quote          ( <input_value>                                      )       # Get the literal pattern string for <input_value>
+    <output_value> $re_quote_repval   (                                <replacement_value> )       # Get the literal pattern string for <replacement_value>
+
+    <output_value> $color_udiff       ( <input_value> )                                            # Colorize the given diff text (must be in the unified format);
+                                                                                                   # if there is only one set member, this function will try to split
+                                                                                                   # the given text by new line
+
+    <output_value> $explode           ( <input_value>, [ input_separator] )                        # Extract set member(s) from one string; the default [ input_separator] is ' '
+    <output_value> $sfchars           ( <input_value>                     )                        # Shortcut for $explode( <input_value>, ''               )
+    <output_value> $sfspaces          ( <input_value>                     )                        # Shortcut for $explode( <input_value>, ' '              )
+    <output_value> $sfdots            ( <input_value>                     )                        # Shortcut for $explode( <input_value>, '.'              )
+    <output_value> $sfpipes           ( <input_value>                     )                        # Shortcut for $explode( <input_value>, '|'              )
+    <output_value> $sflines           ( <input_value>                     )                        # Shortcut for $explode( <input_value>, "\n"             )
+    <output_value> $sfdseps           ( <input_value>                     )                        # Shortcut for $explode( <input_value>, __os_dsep_char__ )
+    <output_value> $sfpseps           ( <input_value>                     )                        # Shortcut for $explode( <input_value>, __os_psep_char__ )
+
+    <output_value> $implode           ( <input_value>, [output_separator] )                        # Flatten set member(s) into one string; the default [output_separator] is ' '
+    <output_value> $flatten           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, ''               )
+    <output_value> $ftchars           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, ''               )
+    <output_value> $ftspaces          ( <input_value>                     )                        # Shortcut for $implode( <input_value>, ' '              )
+    <output_value> $ftdots            ( <input_value>                     )                        # Shortcut for $implode( <input_value>, '.'              )
+    <output_value> $ftpipes           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, '|'              )
+    <output_value> $ftlines           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, "\n"             )
+    <output_value> $ftdseps           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, __os_dsep_char__ )
+    <output_value> $ftpseps           ( <input_value>                     )                        # Shortcut for $implode( <input_value>, __os_psep_char__ )
+
+    <output_value> $part_count        ( <input_value>                            )                 # Get the number of set member(s)
+    <output_value> $partn             ( <input_value>, <part_index>, [offset   ] )                 # Get set member  #( <part_index> + [offset] )         (index starts from 1);
+    <output_value> $partnm            ( <input_value>, <beg_index >, <end_index> )                 # Get set members #( <beg_index> ) to #( <end_index> ) (index starts from 1)
+
+    <output_value> $part_fidx         ( <input_value>, <search_value>, [from_index] )              # Get the index of the first occurrence from [from_index] (index starts from 1)
+    <output_value> $part_lidx         ( <input_value>, <search_value>, [from_index] )              # Get the index of the last  occurrence from [from_index] (index starts from 1)
+
+    <output_value> $part_remove       ( <input_value>, <part_index>                   )            # Remove  the set member at #<part_index> (index starts from 1)
+    <output_value> $part_insert       ( <input_value>, <part_index>, <inserted_value> )            # Insert  a   set member at #<part_index> (index starts from 1); use a negative
+                                                                                                   # <part_index> to remove the set member at the position before inserting
+
+    <output_value> $part_replace      ( <input_value>, <part_index>, <replacement_value> )         # Replace the set member at #<part_index> (index starts from 1)
+
+    <0> or <1>     $contains          ( <input_value>, <search_value>                )             # Check if <input_value> contains <search_value>
+    <output_value> $lookup            ( <search_key >, <input_key   >, <input_value> )             # Get the <input_value> for <input_key> that mactches <search_key>
+    <output_value> $unique            ( <input_value>                                )             # Get only unique members from <input_value>
+
+    <output_value> $erase_if          ( <input_value>, <search_value>, [is_regexp] )               # Erase               from <input_value> that matches        <search_value>; the default [is_regexp] value is 'false'
+    <output_value> $erase_ifnot       ( <input_value>, <search_value>, [is_regexp] )               # Erase               from <input_value> that does not match <search_value>; the default [is_regexp] value is 'false'
+    <output_value> $erase_ifempty     ( <input_value>                              )               # Erase EMPTY members from <input_value> (remove empty strings and whitespace-only strings)
+
+    <output_value> $repeat            ( <input_value >, <rep_count   >      )                      # Repeat and concatenate each set member into itself
+    <output_value> $stack             ( <input_value1>, <input_value2>, ... )                      # Stack      the NON-EMPTY set members one after the other
+    <output_value> $series            ( <input_value1>, <input_value2>, ... )                      # Series     the NON-EMPTY set members one after the other
+    <output_value> $interleave        ( <input_value1>, <input_value2>, ... )                      # Interleave the NON-EMPTY set members one after the other
+
+    <output_value> $ftt_stack         ( <input_value1>, <input_value2>, ... )                      # A shortcut for $flatten( $stack(...) )
+
+    <output_value> $sort_ascending    ( <input_value >, [presort_regexp], [presort_replacement] )  # Sort ascending
+    <output_value> $sort_descending   ( <input_value >, [presort_regexp], [presort_replacement] )  # Sort descending
+
+    <map_handle  > $map_new           (                                                     )      # Create a new map object
+    <map_handle  > $map_new_from      ( <map_handles>, [delete_originals]        , [unique] )      # Create a new map object by combining the contents of the given map(s):
+                                                                                                   #     The default [delete_originals] value is 'false'
+                                                                                                   #     The default [unique          ] value is 'true'
+                   $map_delete        ( <map_handle >                                       )      # Delete the given map object
+                   $map_clear         ( <map_handle >                                       )      # Clear the contents of the given map object
+                   $map_put           ( <map_handle >, <input_key>, <input_value>, [unique] )      # Put (and replace) the given key-value pair; the default [unique] value is 'true'
+                   $map_add           ( <map_handle >, <input_key>, <input_value>, [unique] )      # Add (and stack  ) the given key-value pair; the default [unique] value is 'true'
+                   $map_remove        ( <map_handle >, <input_key>                          )      # Remove the given key
+    <output_value> $map_get           ( <map_handle >, <input_key>                          )      # Get the value from the given key
+    <output_keys > $map_keys          ( <map_handle >                                       )      # Get all the keys
+    <output_value> $map_num_keys      ( <map_handle >                                       )      # Get the number of keys
+    <output_value> $map_num_vals      ( <map_handle >, <input_key>                          )      # Get the number of values from the given key
+    <output_edata> $map_to_edata      ( <map_handle >                                       )      # Create an encoded representation data from the given map object
+    <map_handle  > $map_from_edata    ( <input_edata>                                       )      # Create a new map object from the given encoded representation data
+    <0> or <1>     $map_valid_handle  ( <map_handle >                                       )      # Check if the given handle is a valid map object handle
+
+    <map_handle  > $nmap_from_json    ( <json_string> )                                            # Create a new nested map object using the given JSON string
+                   $nmap_delete       ( <map_handle > )                                            # Delete the given nested map object
+
+    <stack_handle> $stk_new           (                               )                            # Create a new stack object
+                   $stk_delete        ( <stack_handle>                )                            # Delete the given stack object
+                   $stk_clear         ( <stack_handle>                )                            # Clear the contents of the given stack object
+                   $stk_push          ( <stack_handle>, <input_value> )                            # Push stack
+    <output_value> $stk_peek          ( <stack_handle>                )                            # Peek stack
+    <output_value> $stk_pop           ( <stack_handle>                )                            # Pop stack
+    <output_value> $stk_num_elems     ( <stack_handle>                )                            # Get the number of elements
+    <output_edata> $stk_to_edata      ( <stack_handle>                )                            # Create an encoded representation data from the given stack object
+    <stack_handle> $stk_from_edata    ( <input_edata >                )                            # Create a new stack object from the given encoded representation data
+    <0> or <1>     $stk_valid_handle  ( <stack_handle>                )                            # Check if the given handle is a valid stack object handle
+
+    <bse_handle>   $bse_new           (                                                   )        # Create a new byte-stream-editor object
+                   $bse_delete        ( <bse_handle>                                      )        # Delete the given byte-stream-editor object
+    <output_value> $bse_size          ( <bse_handle>                                      )        # Get the contents size of the given byte-stream-editor object
+    <output_value> $bse_cursor        ( <bse_handle>                                      )        # Get the current cursor position of the given byte-stream-editor object
+                   $bse_seek_abs      ( <bse_handle>, <cursor>                            )        # Seek the given byte-stream-editor object (the cursor position starts from 1  )
+                   $bse_seek_beg      ( <bse_handle>, <offset>                            )        # Seek the given byte-stream-editor object (from the beginning                 )
+                   $bse_seek_end      ( <bse_handle>, <offset>                            )        # Seek the given byte-stream-editor object (from the end                       )
+                   $bse_seek_cur      ( <bse_handle>, <offset>                            )        # Seek the given byte-stream-editor object (from the current cursor position   )
+                   $bse_truncate      ( <bse_handle>                                      )        # Truncate contents the given byte-stream-editor object to before the current cursor position
+                   $bse_save_file     ( <bse_handle>, <path>                              )        # Save   the contents of the given byte-stream-editor object to file
+                   $bse_load_file     ( <bse_handle>, <path>                              )        # Load   the file          and append the contents to the given byte-stream-editor object
+    <output_value> $bse_save_base64str( <bse_handle>,                                     )        # Encode the contents of the given byte-stream-editor object to Base64 string
+                   $bse_load_base64str( <bse_handle>, <input_value>                       )        # Decode the Base64 string and append the contents to the given byte-stream-editor object
+                   $bse_set_be        ( <bse_handle>                                      )        # Set the endianness mode to big-endian
+                   $bse_set_le        ( <bse_handle>                                      )        # Set the endianness mode to little-endian
+                   $bse_wr_byte       ( <bse_handle>, <input_value>                       )        # Write byte
+    <output_value> $bse_rd_byte       ( <bse_handle>                                      )        # Read  byte
+                   $bse_wr_uint08     ( <bse_handle>, <input_value>                       )        # Write unsigned  8-bit integer
+                   $bse_wr_sint08     ( <bse_handle>, <input_value>                       )        # Write   signed  8-bit integer
+    <output_value> $bse_rd_uint08     ( <bse_handle>                                      )        # Read  unsigned  8-bit integer
+    <output_value> $bse_rd_sint08     ( <bse_handle>                                      )        # Read    signed  8-bit integer
+                   $bse_wr_uint16     ( <bse_handle>, <input_value>                       )        # Write unsigned 16-bit integer        (affected by the endianness mode)
+                   $bse_wr_sint16     ( <bse_handle>, <input_value>                       )        # Write   signed 16-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_uint16     ( <bse_handle>                                      )        # Read  unsigned 16-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_sint16     ( <bse_handle>                                      )        # Read    signed 16-bit integer        (affected by the endianness mode)
+                   $bse_wr_uint32     ( <bse_handle>, <input_value>                       )        # Write unsigned 32-bit integer        (affected by the endianness mode)
+                   $bse_wr_sint32     ( <bse_handle>, <input_value>                       )        # Write   signed 32-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_uint32     ( <bse_handle>                                      )        # Read  unsigned 32-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_sint32     ( <bse_handle>                                      )        # Read    signed 32-bit integer        (affected by the endianness mode)
+                   $bse_wr_uint64     ( <bse_handle>, <input_value>                       )        # Write unsigned 64-bit integer        (affected by the endianness mode)
+                   $bse_wr_sint64     ( <bse_handle>, <input_value>                       )        # Write   signed 64-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_uint64     ( <bse_handle>                                      )        # Read  unsigned 64-bit integer        (affected by the endianness mode)
+    <output_value> $bse_rd_sint64     ( <bse_handle>                                      )        # Read    signed 64-bit integer        (affected by the endianness mode)
+                   $bse_wr_flt32      ( <bse_handle>, <input_value>                       )        # Write   signed 32-bit floating-point (affected by the endianness mode)
+    <output_value> $bse_rd_flt32      ( <bse_handle>                                      )        # Read    signed 32-bit floating-point (affected by the endianness mode)
+                   $bse_wr_dbl64      ( <bse_handle>, <input_value>                       )        # Write   signed 64-bit floating-point (affected by the endianness mode)
+    <output_value> $bse_rd_dbl64      ( <bse_handle>                                      )        # Read    signed 64-bit floating-point (affected by the endianness mode)
+                   $bse_wr_utf8       ( <bse_handle>, <input_value>   , [null_terminated] )        # Write string in UTF-8  byte sequence
+    <output_value> $bse_rd_utf8       ( <bse_handle>,                   [null_terminated] )        # Read  string in UTF-8  byte sequence
+                   $bse_wr_utf16      ( <bse_handle>, <input_value>   , [null_terminated] )        # Write string in UTF-16 byte sequence (affected by the endianness mode)
+    <output_value> $bse_rd_utf16      ( <bse_handle>,                   [null_terminated] )        # Read  string in UTF-16 byte sequence (affected by the endianness mode)
+                   $bse_wr_utf32      ( <bse_handle>, <input_value>   , [null_terminated] )        # Write string in UTF-16 byte sequence (affected by the endianness mode)
+    <output_value> $bse_rd_utf32      ( <bse_handle>,                   [null_terminated] )        # Read  string in UTF-16 byte sequence (affected by the endianness mode)
+                   $bse_range_clr     ( <bse_handle>, <length>                            )        # Clear     from current cursor position
+    <bse_handle>   $bse_range_cpy     ( <bse_handle>, <length>                            )        # Copy      from current cursor position (return a new object handle that must be deleted manually)
+    <bse_handle>   $bse_range_cut     ( <bse_handle>, <length>                            )        # Cut       from current cursor position (return a new object handle that must be deleted manually)
+                   $bse_range_pst     ( <bse_handle>, <src_bse_handle>                    )        # Paste     at   current cursor position
+                   $bse_range_ovr     ( <bse_handle>, <src_bse_handle>                    )        # Overwrite at   current cursor position
+    <0> or <1>     $bse_valid_handle  ( <bse_handle>                                      )        # Check if the given handle is a valid byte-stream-editor object handle
+    <fwc_handle>   $fwc_new           (                                                   )        # Create a new empty firmware-composer object
+                   $fwc_delete        ( <fwc_handle>                                      )        # Delete the given firmware-composer object
+    <fwc_handle>   $fwc_load_raw_bin  ( <path>, [start_addr_ofs]                          )        # Load from a  Raw Binary        file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_elf_bin  ( <path>, [start_addr_ofs], [is_rule], [es_rule]    )        # Load from an ELF Binary        file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+                                                                                                   #                                                                                                 the default [is_rule       ] value is ''
+                                                                                                   #                                                                                                 the default [es_rule       ] value is 'DEFAULT'
+    <fwc_handle>   $fwc_load_intel_hex( <path>, [start_addr_ofs]                          )        # Load from an Intel Hex         file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_moto_srec( <path>, [start_addr_ofs]                          )        # Load from a  Motorola S-Record file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_tektx_hex( <path>, [start_addr_ofs]                          )        # Load from a  Tektronix Hex     file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_mos_tech ( <path>, [start_addr_ofs]                          )        # Load from a  MOS Technology    file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_titxt_hex( <path>, [start_addr_ofs]                          )        # Load from a  TI-TXT Hex        file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_ascii_hex( <path>, [start_addr_ofs]                          )        # Load from an ASCII Hex         file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+    <fwc_handle>   $fwc_load_vl_vmem  ( <path>, [start_addr_ofs]                          )        # Load from    Verilog VMem      file (return a new object handle that must be deleted manually); the default [start_addr_ofs] value is '0'
+                   $fwc_save_raw_bin  ( <fwc_handle>, <path>, [null_byte]                 )        # Save to a  Raw Binary        file; the default [null_byte] value is '0'
+                   $fwc_save_intel_hex( <fwc_handle>, <path>                              )        # Save to an Intel Hex         file
+                   $fwc_save_moto_srec( <fwc_handle>, <path>                              )        # Save to a  Motorola S-Record file
+                   $fwc_save_tektx_hex( <fwc_handle>, <path>                              )        # Save to a  Tektronix Hex     file
+                   $fwc_save_mos_tech ( <fwc_handle>, <path>                              )        # Save to a  MOS Technology    file
+                   $fwc_save_titxt_hex( <fwc_handle>, <path>                              )        # Save to a  TI-TXT Hex        file
+                   $fwc_clear         ( <fwc_handle>                                      )        # Clear the contents of the given firmware-composer object
+    <output_value> $fwc_min_start_addr( <fwc_handle>                                      )        # Get the minimum start address
+    <output_value> $fwc_max_final_addr( <fwc_handle>                                      )        # Get the maximum final address
+    <0> or <1>     $fwc_equals        ( <fwc_handle_1  >, <fwc_handle_2  >, [flattened   ])        # Check if contents of the given firmware-composer objects are the same; the default [flattened] value is 'false'
+    <0> or <1>     $fwc_compose       ( <fwc_handle_dst>, <fwc_handle_src>, [addr_ofs_src])        # Compose the source firmware-composer object to the destination firmware-composer object; the default [addr_ofs_src] value is '0'
+
+    <output_value> $cmp               ( <input_value1>, <cmp>, <input_value2> )                    # Perform comparison on all the set members:
+                                                                                                   #     String         comparison : &==   &!=
+                                                                                                   #     Signed integer comparison :  ==    !=   <   <=   >   >=
+
+    <output_value> $not               ( <input_value>      )                                       # Perform logical NOT on each of the NON-EMPTY set   members
+    <0> or <1>     $and               ( <input_value>, ... )                                       # Perform logical AND on all     the NON-EMPTY se(s) members (the result is a set with one member)
+    <0> or <1>     $or                ( <input_value>, ... )                                       # Perform logical OR  on all     the NON-EMPTY se(s) members (the result is a set with one member)
+
+    <output_value> $csel              ( <selector>, <input_value1>, <input_value2>)                # Conditional select:
+                                                                                                   #     If <selector> evaluates to 1 select from <input_value1>
+                                                                                                   #     If <selector> evaluates to 0 select from <input_value2>
+
+                   $printf            ( <format_string>, [argument...] )                           # Print to console         using the given format string and argument(s)
+    <output_value> $sprintf           ( <format_string>, [argument...] )                           # Print to output variable using the given format string and argument(s)
+
+                   $vprintf           ( <format_string>, <argument_set> )                          # Print to console         using the given format string and argument set
+    <output_value> $vsprintf          ( <format_string>, <argument_set> )                          # Print to output variable using the given format string and argument set
+
+    <output_value> $read_line         ( )                                                          # Read a single line of text from the console
+    <output_value> $read_pswd         ( )                                                          # Read a single line of text from the console with echoing disabled
+
+    <output_value> $resolve_ip        ( <hostname> )                                               # Resolve the IP of the given <hostname>
+
+    <output_value> $http_head         ( <url_string>,                [h_kvp], [timout_seconds] )   # Perform HTTP HEAD request; the default [timout_seconds] is 5 seconds
+    <output_value> $http_get          ( <url_string>,                [h_kvp], [timout_seconds] )   # Perform HTTP GET  request; the default [timout_seconds] is 5 seconds
+    <output_value> $http_post         ( <url_string>, <body_string>, [h_kvp], [timout_seconds] )   # Perform HTTP POST request; the default [timout_seconds] is 5 seconds
+    <output_value> $http_download     ( <url_string>, [out_path], [out_name], [rc_ce], [rc_mt] )   # Perform HTTP download:
+                                                                                                   #     The default [out_path] is '$cwd'
+                                                                                                   #     The default [out_name] is automatically determined
+                                                                                                   #     The default [rc_ce   ] is 3     (number of retries in case of consecutive errors)
+                                                                                                   #     The default [rc_mt   ] is 65536 (maximum number of total retries)
+
+                   $http_set_auth     ( <username>, <password> )                                   # Set   the username and password for basic and digest authentication
+                   $http_clr_auth     (                        )                                   # Clear the username and password for basic and digest authentication; please note that this will not logout any previous successful logins
+                   $ssl_trust_all     ( <enabled >             )                                   # Enable/disable SSL trust all hosts and certificate (USE WITH CAUTION!)
+
+    <map_handle  > $gh_get_tags       ( <json_string> )                                            # Get all the tags   from the given JSON string that was obtained from GitHub REST API call;
+                                                                                                   # returned in the form of a new map object (which must be deleted manually)
+    <map_handle  > $gh_get_assets     ( <json_string> )                                            # Get all the assets from the given JSON string that was obtained from GitHub REST API call;
+                                                                                                   # returned in the form of a new map object (which must be deleted manually)
+
+    <output_value> $ls_serial_ports   ( )                                                          # List all serial ports
+
+                   $mcu_reset         ( <serial_device_path>, [baudrate_after] )                   # Try to reset the MCU attached to the serial port and optionally set the baudrate
+                   $mcu_bootloader    ( <serial_device_path>, [byte_sequence ] )                   # Try to reset the MCU attached to the serial port to enter the bootloader mode using:
+                                                                                                   #     The magic baudrate of 1200 bps if [byte_sequence] is not specified
+                                                                                                   #     The special byte sequence      if [byte_sequence] is     specified
+
+    <json_string > $mcu_prog_cfg_json ( <config_name> )                                            # Get the basic JSON string for the specified programmer configuration
+    <ini_string  > $mcu_prog_cfg_ini  ( <config_name> )                                            # Get the basic INI  string for the specified programmer configuration
+
+    <output_value> $mcu_prog_exec     ( <bend_spec >, <prg_spec  >, <mcu_sig>, <cmds>,             # Execute programming commands using the specified specifications
+                                        <fwc_handle>, <empty_byte>                               )
+
+    <output_text > $serial_console    ( <serial_device_path>, <baudrate>, [nl_mode], [c_hist_fp] ) # Open normal serial console GUI
+    <output_text > $tcp_serial_console( <hostname_or_ip    >, <port    >, [nl_mode], [c_hist_fp] ) # Open TCP    serial console GUI:
+                                                                                                   #     [nl_mode]   is one of : none, lf, cr, crlf, lfcr, native
+                                                                                                   #     [c_hist_fp] command history file path; the default is the same as 'https://sourceforge.net/p/ecxx/code/HEAD/tree/trunk/tools/src/SerialConsole.java'
+                                                                                                   # Use '$http_get' to set the baudrate of the 'TCP <-> Serial Bridge' device
+
+                   $serial_plotter    ( <serial_device_path>, <baudrate>, [nl_mode], [c_hist_fp] ) # Open normal serial plotter GUI
+                   $tcp_serial_plotter( <hostname_or_ip    >, <port    >, [nl_mode], [c_hist_fp] ) # Open TCP    serial plotter GUI:
+                                                                                                   #     [nl_mode]   is one of : none, lf, cr, crlf, lfcr, native
+                                                                                                   #     [c_hist_fp] command history file path; the default is the same as 'https://sourceforge.net/p/ecxx/code/HEAD/tree/trunk/tools/src/SerialConsole.java'
+                                                                                                   # Use '$http_get' to set the baudrate of the 'TCP <-> Serial Bridge' device
+
+    <output_value> $xmlframe_file     ( <xml_file_path> )                                          # Execute XML frame GUI from file
+    <output_value> $xmlframe_string   ( <xml_string   > )                                          # Execute XML frame GUI from string
+    <output_value> $xml_escape        ( <input_value  > )                                          # Escape the given string so that it can be safely included inside XML
+
+    <output_edata> $aboard_from_file  ( <boards_txt_file_path>                 )                   # Parse the given Arduino 'boards.txt' file path and return the encoded representation data
+    <output_edata> $aboard_selector   ( <input_edata         >, [window_title] )                   # Show a board selector and configuration GUI using the encoded representation data
+    <map_handle  > $aboard_getselconf ( <input_edata         >                 )                   # Create a new map object of configuration data for the selected board
+
+    <output_value> $esp_st_decoder    ( <addr2line_executable>, <elf_file>, <content> )            # ESP stack trace decoder; similar to the output of '$get_file', each line
+                                                                                                   # results in one set member, but in this case, with an additional '\n'
+
+                   $gdl_cpp_include   ( <dep_file_name>, <path_src>, <obj_file_ext>, <build_dir> ) # Generate depedency list file for C/C++ include (affected by '__include_paths__')
+                   $gdl_cpp_module    ( <dep_file_name>, <path_src>, <obj_file_ext>              ) # Generate depedency list file for C++20 module
+                   $gdl_java_import   ( <dep_file_name>, <path_src>                , <build_dir> ) # Generate depedency list file for Java  import  (affected by '__class_paths__'  )
+
+                   $pp_java_scf       ( <path_inp>, <path_out>, <cond_flags>, <sval_map_handle>  ) # Preprocess the given Java source code file
+
+NOTE : # Each function call must be in its own statement; please use temporary/'local' variables
+         if necessary.
+       # Some functions may raise error. It is possible to ignore the error by adding the prefix
+         character '-' to the function call; in this case, the error message will be printed to
+         stderr. Please note that the functions '$call' and '$exec' cannot be prefixed with '-'.
+       # Please refer to 'Appendix X' for further explanation of the more complicated functions.
+
+
+# Some functions will internally flatten the set members into one string before using them as call
+  argument(s). Those functions and their argument names are:
+
+      $call               : <user_function_name>
+      $exec               : <user_function_name>
+      $add_target         : <ref_name>             and <new_name>
+      $add_extradep       : <trg_name>             and [global_fb]
+      $datetime           : [format_string]
+      $sleep              : <milli_seconds>
+      $clear_project      : [print_message_flag]
+      $exit               : <exit_value>
+      $cpfile             : [replace_existing]     and [norm_pfp]
+      $mvfile             : [replace_existing]
+      $txzdir_rec         : < tarxz_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
+      $untxz_rec          : < tarxz_file_name>     and <dst_path>                                  and [xerr]
+      $tbz2dir_rec        : <tarbz2_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
+      $untbz2_rec         : <tarbz2_file_name>     and <dst_path>                                  and [xerr]
+      $tgzdir_rec         : < targz_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
+      $untgz_rec          : < targz_file_name>     and <dst_path>                                  and [xerr]
+      $tzipdir_rec        : <tarzip_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
+      $untzip_rec         : <tarzip_file_name>     and <dst_path>                                  and [xerr]
+      $untar_rec          : <   tar_file_name>     and <dst_path>                                  and [xerr]
+      $unzip_rec          : <   zip_file_name>     and <dst_path>                                  and [xerr]
+      $[un]xz             :                                                                            [xerr]
+      $b[un]zip2          :                                                                            [xerr]
+      $g[un]zip           :                                                                            [xerr]
+      $get_file           : [whole_text]
+      $get_file_nel       : [beg_index]            and [end_index]
+      $explode            : [ input_separator]
+      $implode            : [output_separator]
+      $partn              : <part_index>           and [offset]
+      $partnm             : <beg_index >           and <end_index>
+      $part_insert        : <part_index>
+      $lookup             : <search_key>
+      $erase_if           : [is_regexp]
+      $erase_ifnot        : [is_regexp]
+      $sort_ascending     : [presort_regexp]       and [presort_replacement]
+      $sort_descending    : [presort_regexp]       and [presort_replacement]
+      $map_new_from       : [delete_originals]                               and [unique]
+      $map_delete         : <map_handle >
+      $map_clear          : <map_handle >
+      $map_put            : <map_handle >          and <input_key>           and [unique]
+      $map_add            : <map_handle >          and <input_key>           and [unique]
+      $map_remove         : <map_handle >          and <input_key>
+      $map_get            : <map_handle >          and <input_key>
+      $map_keys           : <map_handle >
+      $map_num_keys       : <map_handle >
+      $map_num_vals       : <map_handle >          and <input_key>
+      $map_to_edata       : <map_handle >
+      $map_from_edata     : <input_edata>
+      $map_valid_handle   : <map_handle >
+      $nmap_from_json     : <json_string>
+      $nmap_delete        : <map_handle >
+      $stk_delete         : <stack_handle>
+      $stk_clear          : <stack_handle>
+      $stk_push           : <stack_handle>
+      $stk_peek           : <stack_handle>
+      $stk_pop            : <stack_handle>
+      $stk_num_elems      : <stack_handle>
+      $stk_to_edata       : <stack_handle>
+      $stk_from_edata     : <input_edata >
+      $stk_valid_handle   : <stack_handle>
+      $bse_delete         : <bse_handle>
+      $bse_size           : <bse_handle>
+      $bse_cursor         : <bse_handle>
+      $bse_seek_abs       : <bse_handle>           and <cursor>
+      $bse_seek_beg       : <bse_handle>           and <offset>
+      $bse_seek_end       : <bse_handle>           and <offset>
+      $bse_seek_cur       : <bse_handle>           and <offset>
+      $bse_truncate       : <bse_handle>
+      $bse_save_file      : <bse_handle>
+      $bse_load_file      : <bse_handle>
+      $bse_save_base64str : <bse_handle>
+      $bse_load_base64str : <bse_handle>
+      $bse_set_be         : <bse_handle>
+      $bse_set_le         : <bse_handle>
+      $bse_wr_byte        : <bse_handle>
+      $bse_rd_byte        : <bse_handle>
+      $bse_wr_uint08      : <bse_handle>
+      $bse_wr_sint08      : <bse_handle>
+      $bse_rd_uint08      : <bse_handle>
+      $bse_rd_sint08      : <bse_handle>
+      $bse_wr_uint16      : <bse_handle>
+      $bse_wr_sint16      : <bse_handle>
+      $bse_rd_uint16      : <bse_handle>
+      $bse_rd_sint16      : <bse_handle>
+      $bse_wr_uint32      : <bse_handle>
+      $bse_wr_sint32      : <bse_handle>
+      $bse_rd_uint32      : <bse_handle>
+      $bse_rd_sint32      : <bse_handle>
+      $bse_wr_uint64      : <bse_handle>
+      $bse_wr_sint64      : <bse_handle>
+      $bse_rd_uint64      : <bse_handle>
+      $bse_rd_sint64      : <bse_handle>
+      $bse_wr_flt32       : <bse_handle>
+      $bse_rd_flt32       : <bse_handle>
+      $bse_wr_dbl64       : <bse_handle>
+      $bse_rd_dbl64       : <bse_handle>
+      $bse_wr_utf8        : <bse_handle>           and [null_terminated]
+      $bse_rd_utf8        : <bse_handle>           and [null_terminated]
+      $bse_wr_utf16       : <bse_handle>           and [null_terminated]
+      $bse_rd_utf16       : <bse_handle>           and [null_terminated]
+      $bse_wr_utf32       : <bse_handle>           and [null_terminated]
+      $bse_rd_utf32       : <bse_handle>           and [null_terminated]
+      $bse_range_clr      : <bse_handle>           and <length>
+      $bse_range_cpy      : <bse_handle>           and <length>
+      $bse_range_cut      : <bse_handle>           and <length>
+      $bse_range_pst      : <bse_handle>           and <src_bse_handle>
+      $bse_range_ovr      : <bse_handle>           and <src_bse_handle>
+      $bse_valid_handle   : <bse_handle>
+      $fwc_delete         : <fwc_handle>
+      $fwc_load_raw_bin   : <path>                 and [start_addr_ofs]
+      $fwc_load_elf_bin   : <path>                 and [start_addr_ofs]      and [is_rule]         and [es_rule]
+      $fwc_load_intel_hex : <path>                 and [start_addr_ofs]
+      $fwc_load_moto_srec : <path>                 and [start_addr_ofs]
+      $fwc_load_tektx_hex : <path>                 and [start_addr_ofs]
+      $fwc_load_mos_tech  : <path>                 and [start_addr_ofs]
+      $fwc_load_titxt_hex : <path>                 and [start_addr_ofs]
+      $fwc_load_ascii_hex : <path>                 and [start_addr_ofs]
+      $fwc_load_vl_vmem   : <path>                 and [start_addr_ofs]
+      $fwc_save_raw_bin   : <fwc_handle>           and <path>                and [null_byte]
+      $fwc_save_intel_hex : <fwc_handle>           and <path>
+      $fwc_save_moto_srec : <fwc_handle>           and <path>
+      $fwc_save_tektx_hex : <fwc_handle>           and <path>
+      $fwc_save_mos_tech  : <fwc_handle>           and <path>
+      $fwc_save_titxt_hex : <fwc_handle>           and <path>
+      $fwc_clear          : <fwc_handle>
+      $fwc_min_start_addr : <fwc_handle>
+      $fwc_max_final_addr : <fwc_handle>
+      $fwc_equals         : <fwc_handle_1  >       and <fwc_handle_2  >      and [flattened   ]
+      $fwc_compose        : <fwc_handle_dst>       and <fwc_handle_src>      and [addr_ofs_src]
+      $[v][s]printf       : <format_string>
+      $[s]printf          : [argument]
+      $http_head          : <url_string>                                     and [h_kvp]           and [timout_seconds]
+      $http_get           : <url_string>                                     and [h_kvp]           and [timout_seconds]
+      $http_post          : <url_string>           and <body_string>         and [h_kvp]           and [timout_seconds]
+      $http_download      : <url_string>           and [out_path]            and [out_name]        and [rc_ce]           and [rc_mt]
+      $http_set_auth      : <username>             and <password>
+      $ssl_trust_all      : <enabled>
+      $gh_get_tags        : <json_string>
+      $gh_get_assets      : <json_string>
+      $mcu_bootloader     : [byte_sequence]
+      $mcu_prog_cfg_json  : config_name>
+      $mcu_prog_cfg_ini   : config_name>
+      $mcu_prog_exec      : <mcu_sig>              and <fwc_handle>          and <empty_byte>
+      $serial_console     : <serial_device_path>   and <baudrate>            and [nl_mode]         and [c_hist_fp]
+      $tcp_serial_console : <hostname_or_ip>       and <port>                and [nl_mode]         and [c_hist_fp]
+      $serial_plotter     : <serial_device_path>   and <baudrate>            and [nl_mode]         and [c_hist_fp]
+      $tcp_serial_plotter : <hostname_or_ip>       and <port>                and [nl_mode]         and [c_hist_fp]
+      $xmlframe_file      : <xml_file_path>
+      $xmlframe_string    : <xml_string>
+      $aboard_from_file   : <boards_txt_file_path>
+      $aboard_selector    : <input_edata>          and [window_title]
+      $aboard_getselconf  : <input_edata>
+      $esp_st_decoder     : <addr2line_executable> and <elf_file>            and <content>
+      $gdl_cpp_include    : <obj_file_ext>         and <build_dir>
+      $gdl_cpp_module     : <obj_file_ext>
+      $gdl_java_import    : <build_dir>
+      $pp_java_scf        : <path_inp>             and <path_out>            and <sval_map_handle>
+
+# For some functions that expect boolean (0 or 1), the words 'false' and 'true' will be internally
+  translated to 0 and 1 respectively. Those functions and their argument names are:
+
+      $add_extradep  : [global_fb]
+      $clear_project : [print_message_flag]
+      $file_name     : [no_ext]
+      $cpfile        : [replace_existing] and [norm_pfp]
+      $mvfile        : [replace_existing]
+      $cpdir_rec     : <replace_existing>
+      $txzdir_rec    : [xerr]
+      $untxz_rec     : [xerr]
+      $tbz2dir_rec   : [xerr]
+      $untbz2_rec    : [xerr]
+      $tgzdir_rec    : [xerr]
+      $untgz_rec     : [xerr]
+      $tzipdir_rec   : [xerr]
+      $untzip_rec    : [xerr]
+      $untar_rec     : [xerr]
+      $unzip_rec     : [xerr]
+      $[un]xz        : [xerr]
+      $b[un]zip2     : [xerr]
+      $g[un]zip      : [xerr]
+      $get_file      : [whole_text]
+      $erase_if      : [is_regexp]
+      $erase_ifnot   : [is_regexp]
+      $map_new_from  : [delete_originals] and [unique]
+      $map_put       : [unique]
+      $map_add       : [unique]
+      $bse_wr_utf8   : [null_terminated]
+      $bse_rd_utf8   : [null_terminated]
+      $bse_wr_utf16  : [null_terminated]
+      $bse_rd_utf16  : [null_terminated]
+      $bse_wr_utf32  : [null_terminated]
+      $bse_rd_utf32  : [null_terminated]
+      $not           : <input_value>
+      $and           : <input_value>
+      $or            : <input_value>
+      $csel          : <selector>
+      $[v][s]printf  : [argument]         (for "%b" format only")
+      $ssl_trust_all : <enabled >
+
+
+# Compared to the other functions, the '$bse_wr_*' functions are more stringent about checking and
+  reporting errors for their '<input_value>' arguments.
+# The HTTP functions does not support cookies.
+# Using '$ssl_trust_all' to connect to devices with invalid/self-signed certificates (especially
+  devices you did not build yourself) will make you vulnerable to man-in-the-middle (MIM) attacks,
+  connections to wrong sites, and other vulnerabilities. If possible, it is recommended to export
+  the certificates from your browser and import them to your JVM truststore using 'keytool':
+      https://stackoverflow.com/a/2893932
+      https://docs.oracle.com/javase/8/docs/technotes/tools/windows/keytool.html
+      https://docs.oracle.com/en/java/javase/11/tools/keytool.html
+      https://docs.oracle.com/en/java/javase/17/docs/specs/man/keytool.html
+
+
+Function call shortcuts for path manipulations are available:
+
+    ~${<var_name>} : expand to '$path_ndsep( $cat_path( $cwd(), ${<var_name>} ) )' (via automatically generated temporary variables)
+    ~$[<var_name>] : expand to '$path_ndsep( $cat_path( $cwd(), $[<var_name>] ) )' (via automatically generated temporary variables)
+
+    ^${<var_name>} : expand to '$path_ndsep( $cat_path( $ptd(), ${<var_name>} ) )' (via automatically generated temporary variables)
+    ^$[<var_name>] : expand to '$path_ndsep( $cat_path( $ptd(), $[<var_name>] ) )' (via automatically generated temporary variables)
+
+    -${<var_name>} : expand to '$path_ndsep( $rel_path(         ${<var_name>} ) )' (via automatically generated temporary variables)
+    -$[<var_name>] : expand to '$path_ndsep( $rel_path(         $[<var_name>] ) )' (via automatically generated temporary variables)
+
+Those function call shortcuts above have some limitations:
+
+    # The automatically generated temporary variables used when evaluating those shortcuts can later
+      be used by other parts of the program and thus their contents will be overwritten; therefore,
+      if you want to store their results in user variables (instead of directly using the results),
+      please use direct variable assignments (never use lazy variable assignments).
+    # Unlike calling functions from within double-quoted strings which is not supported, using those
+      shortcuts from inside double-quoted strings is actually supported and evaluated. Please always
+      remember to use direct variable assignments (never use lazy variable assignments) when storing
+      the results in user variables.
+
+
+Function call shortcuts for '$partn' and '$partnm' are available:
+
+    ${<var_name>}<index                > : expand to '$partn ( ${<var_name>}, <index>                         )'
+    ${<var_name>}<var_index            > : expand to '$partn ( ${<var_name>}, ${<var_index>}                  )'
+
+    $[<var_name>]<index                > : expand to '$partn ( $[<var_name>], <index>                         )'
+    $[<var_name>]<var_index            > : expand to '$partn ( $[<var_name>], ${<var_index>}                  )'
+
+    ${<var_name>}<index    , offset    > : expand to '$partn ( ${<var_name>}, <index>       , <offset>        )'
+    ${<var_name>}<var_index, var_offset> : expand to '$partn ( ${<var_name>}, ${<var_index>}, ${<var_offset>} )'
+
+    $[<var_name>]<index    , offset    > : expand to '$partn ( $[<var_name>], <index>       , <offset>        )'
+    $[<var_name>]<var_index, var_offset> : expand to '$partn ( $[<var_name>], ${<var_index>}, ${<var_offset>} )'
+
+    ${<var_name>}<beg_index: end_index > : expand to '$partnm( ${<var_name>}, <beg_index>   , <end_index>     )'
+    ${<var_name>}<var_begix: var_endix > : expand to '$partnm( ${<var_name>}, ${<var_begix>}, ${<var_endix >} )'
+
+    $[<var_name>]<beg_index: end_index > : expand to '$partnm( $[<var_name>], <beg_index>   , <end_index>     )'
+    $[<var_name>]<var_begix: var_endix > : expand to '$partnm( $[<var_name>], ${<var_begix>}, ${<var_endix >} )'
+
+Unlike the previous shortcut group (the one for path manipulations), these '$partn' and $partnm'
+shortcut groups do not generate or use temporary variables. Therefore, the shortcuts basically
+expand to normal function calls and are thus limited by how function call statements are allowed
+by the language design. It also means that these shortcuts will not be evaluated when placed inside
+double-quoted strings.
+
+
+A function call shortcut for '$stack' is available:
+
+    {{ <value>, ... }} : expand to $stack( <value>, ... )
+
+Just like the previous shortcuts, this shortcut also does not generate or use temporary variables.
+
+The whitespaces between {{ and }} are mandatory.
+
+
+A simpler variation of the above shortcut is available; it is called the set creation operator:
+    { <value> ... }
+which expands to:
+    <tmp_var> := <value> ...
+and then:
+    ${<tmp_var>}
+
+This operator is not actually a function call shortcut and thus DO NOT separate the terms within
+it using ','. The whitespaces between { and } are mandatory.
+
+Please note that this operator can only be used in certain contexts, namely as an operand for:
+    # the return statement,
+    # the extradep statement,
+    # the prerequisite names of a target definition statement,
+    # the input set of a foreach statement,
+    # the arguments of built-in and user-defined function calls.
+Attempting to use this set creation operator in other contexts may cause unexpected results and
+even compile-time errors.
+
+
+Examples:
+
+    A   = 'abc'
+    B   = 'xyz'
+
+    # Not supported (the function call will not be evaluated)
+    R  := "123 $ucase(${A}) ${B}"
+
+    # Not supported (compile error)
+    R  := '123' $ucase(${A}) ${B}
+
+    # Supported
+    R   = '123'
+    R :+= $ucase(${A})
+    R  += ${B}
+
+    # Not supported (compile error)
+    R  := $lcase("${A} ${B}")
+
+    # Supported
+    C   = "${A} ${B}"
+    R  := $lcase(${C})
+
+    # Supported
+    R  := $lcase(."${A} ${B}")
+    R  := $lcase(:"${A} ${B}")
+
+    # Suppress error
+    -$rmdir('mydir')
+
+    # Not supported (compile error)
+    echoln 'The value is ' ${A}<I>
+    echoln 'The value is ' $[preq*]<I>
+
+    # Supported
+    echoln $stack( 'The value is ', ${A}<I>     )
+    echoln $stack( 'The value is ', $[preq*]<I> )
+
+    # In this context, the pair of { and } is not a set creation operator
+    Val := { A 1 2 }
+    echoln $part_count(${Val}) # It will print '5' instead of '3'
+
+    echoln { A 1 2 }
+
+    # In this context, the pair of { and } is a set creation operator
+    echoln $lcase({ A 1 2 })
+
+    return { A 1 2 }
+
+    # The pair of {{ and }} is a function call shortcut for '$stack'
+    Val := {{ A, 1, 2 }}
+    echoln $part_count(${Val}) # It will print '3'
+
+    echoln {{ A, 1, 2 }}
+
+    return {{ A, 1, 2 }}
+
+    # Inside string definitions, the pair of { and } or {{ and }} are not shortcuts
+    echoln "{ abc 123 }"
+    echoln "{{ abc, 123 }}"
+
+
+Because double-quoted strings can evaluate to multiple set members that are not necessarily
+stored/combined into a single set if immediately used as function call arguments, you will
+need to:
+    # use temporary/'local' variables; or
+    # use the combining  operator ."..."; or
+    # use the flattening operator :"..." (implies direct evaluation for the term)
+when defining the string; for example:
+
+    D = '+5'
+    S = '-20'
+    X = 'a'
+    Z = 'bc'
+
+    # These will work
+    $printf( ."#%${D}d '%${S}s'\n", 123, ."${X}${Z}" )
+    $printf( :"#%${D}d '%${S}s'\n", 123, :"${X}${Z}" )
+
+    # This will produce compile error
+    $printf(  "#%${D}d '%${S}s'\n", 123,  "${X}${Z}" )
+
+    # These will also work
+    A = 'a'
+    B = 'b'
+    C = 'c'
+    echoln $implode( ."${A}${B}${C}", '[]' )  # This will print 'a[]b[]c'
+    echoln $implode( :"${A}${B}${C}", '[]' )  # This will print 'abc'
+
+
+----------------------------------------------------------------------------------------------------
+Using the Simple Java Source Code Preprocessor ($pp_java_scf)
+----------------------------------------------------------------------------------------------------
+
+#if [!]<condition_flag>
+    ...
+#endif
+
+#if [!]<condition_flag>
+    ...
+#else
+    ...
+#endif
+
+... #subst{<substitution_id>} ...
+
+    The <condition_flag> must be one of:
+        true
+        false
+        <number>
+        <symbol_name>
+
+    The <substitution_id> must be a <symbol_name>.
+
+
+NOTE : # It is allowed to add a single-line comment at the end of the directive line.
+       # Using multiline comments with directive lines is not supported. If you would like to use
+         the block (multiline) comment syntax, the comments must not cross/intersect the directive
+         lines and the comments must also be contained entirely on one line.
+       # Using character '\' at the end of a line to combine the next line with the previous one
+         is not supported.
+
+
+Example Java code:
+
+    public class MyClass {
+
+        #if __MY_CONDITION_1__
+            public static String MyVariable1 = "true";
+            public static String MyVariable2 = #subst{MY_SUBST_ID_1};
+        #endif
+
+        #if !__MY_CONDITION_1__
+            public static String MyVariable1 = "false";
+            public static String MyVariable2 = #subst{MY_SUBST_ID_2};
+        #endif
+
+            public static String MyVariable3a =
+                #if __MY_CONDITION_2__
+                    "MyVariable3a : true"
+                #else
+                    "MyVariable3a : false"
+                #endif
+            ;
+
+            public static String MyVariable3b =
+                #if !__MY_CONDITION_2__
+                    "MyVariable3b : false"
+                #else
+                    "MyVariable3b : true"
+                #endif
+            ;
+
+    } // MyClass
+
+Example JxMake program for the above Java code:
+
+    local cflags := __MY_CONDITION_1__ __MY_CONDITION_2__
+    local svals  := $map_new()
+    $map_add(${svals}, 'MY_SUBST_ID_1', '"abc"')
+    $map_add(${svals}, 'MY_SUBST_ID_2', '"def"')
+    $pp_java_scf('MyClass.java.in', 'MyClass.java', ${cflags}, ${svals})
+    $map_delete(${svals})
+
+====================================================================================================

@@ -1,0 +1,1972 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - AVR GCC - Native AVR GCC SDK                                            *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the native C/C++ build tool and other utilities
+__ForceGCC__ := 1
+
+:::include_once 'AVRDUDEHelper.jxm'
+:::include_once 'C++BuildTool.jxm'
+:::include_once 'C++XBuildTool_ArduinoUtil.jxm'
+:::include_once 'DownloadDFUProgrammer.jxm'
+
+
+##### MSys may cause weird errors so exclude it from the supported build environment
+if __os_msys__
+    $call(__exit_error_ns_benv__, 'AVR GCC', 'MSys')
+endif
+
+
+##### Update the flags
+const __x_gcc__            := 1
+const __avr_gcc__          := 1
+const __BuildTool_Name__   := 'AVR GNU Compiler Collection (GCC)'
+      __BuildTool_Target__  = "AVR (${AVR_MCUType_TCase} - ${AVR_CPUFrequency} Hz)"
+const __BuildTool_Title__  := 'AVR C/C++'
+
+
+##### Fix the file extensions as needed
+if !__os_linux__
+    ExeFileExt  := elf
+    DLibFileExt := so
+endif
+
+
+##### Update the definitions of executables, paths, and options
+##### !!! TODO : Which of the following is more suitable for this use case? !!! #####
+if true
+        CppAssembler              := 'avr-gcc'
+        CppCommonAssemblerFlags  +:= '-x' 'assembler-with-cpp'
+
+        CppCcCompiler             := 'avr-gcc'
+        CppCommonCcCompileFlags  +:= '-fmerge-constants' '-fmerge-all-constants' '-fdata-sections' '-ffunction-sections'
+        CppCommonCcCompileFlags  +:=                           '-fno-exceptions' '-fno-unwind-tables'
+
+        CppCxxCompiler            := 'avr-g++'
+        CppCommonCxxCompileFlags +:= '-fmerge-constants' '-fmerge-all-constants' '-fdata-sections' '-ffunction-sections'
+        CppCommonCxxCompileFlags +:= '-fno-threadsafe-statics' '-fno-exceptions' '-fno-unwind-tables' '-fno-rtti'
+
+        CppLinker                 := 'avr-gcc'
+        CppCommonLinkFlags       +:= '-Wl,--relax' '-Wl,--gc-sections'
+else
+        CppAssembler              := 'avr-gcc'
+        CppCommonAssemblerFlags  +:= '-mrelax'
+        CppCommonAssemblerFlags  +:= '-x' 'assembler-with-cpp'
+
+        CppCcCompiler             := 'avr-gcc'
+        CppCommonCcCompileFlags  +:= '-mrelax'
+        CppCommonCcCompileFlags  +:= '-fmerge-constants' '-fmerge-all-constants' '-fdata-sections' '-ffunction-sections'
+        CppCommonCcCompileFlags  +:=                           '-fno-exceptions' '-fno-unwind-tables'
+
+        CppCxxCompiler            := 'avr-g++'
+        CppCommonCxxCompileFlags +:= '-mrelax'
+        CppCommonCxxCompileFlags +:= '-fmerge-constants' '-fmerge-all-constants' '-fdata-sections' '-ffunction-sections'
+        CppCommonCxxCompileFlags +:= '-fno-threadsafe-statics' '-fno-exceptions' '-fno-unwind-tables' '-fno-rtti'
+
+        CppLinker                 := 'avr-gcc'
+        CppCommonLinkFlags       +:= '-mrelax'
+        CppCommonLinkFlags       +:= '-Wl,--gc-sections'
+endif
+
+const __Def_SLibBuilder__         := 'avr-ar'
+        SLibBuilder               := ${__Def_SLibBuilder__}
+
+
+##### Define some AVR-specific tools
+AVRObjCopy         := 'avr-objcopy'
+AVRObjCopyFlagsBIN := '-R' '.eeprom' '-O' 'binary'
+AVRObjCopyFlagsHEX := '-R' '.eeprom' '-O' 'ihex'
+
+AVRObjDump         := 'avr-objdump'
+AVRObjDumpFlagsLST := '-S' '-d' '-z'
+
+
+##### Define some AVR-specific options
+const AVR_Default_MCUType := atmega328p
+const AVR_Default_CPUFreq := 16000000
+
+      AVR_MCUType      := ${AVR_Default_MCUType}
+      AVR_CPUFrequency := ${AVR_Default_CPUFreq}
+
+
+###################################################################################
+##### =============== Arduino & Native AVR Detection Functions ============== #####
+###################################################################################
+
+##### Function to find the latest AVR GCC from Arduino package(s) and other directories
+function __dummy__find_latest_avr_gcc_dir__()
+    return { 0 '' }
+endfunction
+
+function __find_latest_avr_gcc_dir_impl__(searchDirList)
+    # Find the latest AVR GCC version
+    local LatestVersion := 0
+    local LatestPath    := ''
+    local CppToolBinDir
+    local LDLibraryPath
+    foreach local BinDir in ${searchDirList}
+        .$__lb_cmp_gcc_ver_and_get_the_newer_path_and_ver__
+    endforeach
+    # Return the latest AVR GCC version and path
+    return { ${LatestVersion} ${LatestPath} }
+endfunction
+
+function __find_latest_arduino_avr_gcc_dir__()
+    # Determine the possible search directories
+    local SearchDirPath1
+    local SearchDirPath2
+    local SearchDirList
+    foreach local DirItem in ${ArduinoPackageDirs}
+        # Check the standard paths first
+        SearchDirPath1 := $cat_path(${DirItem}, 'packages/arduino/tools/avr-gcc')
+        SearchDirPath2 := $cat_path(${DirItem}, 'tools'                         )
+          if $valid_path(${SearchDirPath1}) ; SearchDirList  := $lsdir(${SearchDirPath1}, 'd') ;
+        elif $valid_path(${SearchDirPath2}) ; SearchDirList +:= $lsdir(${SearchDirPath2}, 'd') ;
+        # If both the above paths are not valid, perhaps the user has set the path to the specific package directory
+        else
+            loop
+                # Search for the 'avr' directory
+                SearchDirPath := $cat_path(${DirItem}, 'avr')
+                if $valid_path(${SearchDirPath})
+                    SearchDirList +:= ${DirItem}
+                    break
+                endif
+                # Remove the last part from the path
+                local DirRedux := $path_rm_last_part(${DirItem})
+                if ${DirRedux} &== ${DirItem} : break
+                DirItem := ${DirRedux}
+            endloop
+        endif
+    endforeach
+    # Sort in descending order so that newer packages have higher priority; this method is not perfect, but it is better than nothing
+    SearchDirList := $sort_descending(${SearchDirList})
+    # Get the latest AVR GCC version and path
+    local Ret := $call(__find_latest_avr_gcc_dir_impl__, ${SearchDirList})
+    # Get the selected Arduino package directory
+    __SelArduinoPackageDir__ := ${Ret}<2>
+    # Return the latest AVR GCC version and path
+    return ${Ret}
+endfunction
+
+function __find_latest_custdir_avr_gcc_dir__()
+    # Determine the directories that will be excluded from the search
+    __JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS__ ?:= $sfpseps( $getenv('JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS', ${JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS}) )
+    # Determine the possible search directories
+    local SearchDirList
+    foreach local Dir in $lsdir('/opt', 'd')
+        if $contains(${__JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS__}, ${Dir}) : continue
+        if $re_match( $substr( ${Dir}, 6, $strlen(${Dir}) ), '^(.+.)?avr-gcc.*') : SearchDirList +:= ${Dir}
+    endforeach
+    # Return the latest AVR GCC version and path
+    return $call(__find_latest_avr_gcc_dir_impl__, ${SearchDirList})
+endfunction
+
+function __find_latest_avr_gcc_dir__()
+    return $call(find_latest_cross_gcc_dir_arduino_custdir, 'LatestAVRGCCPath.cache', __find_latest_arduino_avr_gcc_dir__, __find_latest_custdir_avr_gcc_dir__)
+endfunction
+
+function find_latest_arduino_avr_gcc_dir()
+    if !&${ArduinoPackageDirs} : ArduinoPackageDirs := $call(find_arduino_package_dirs)
+    local CppToolBinDirSaved  := ${CppToolBinDir}
+    unset CppToolBinDir
+    local CppToolBinDirResult := $call(find_latest_cross_gcc_dir_arduino_custdir, 'LatestArduinoAVRGCCPath.cache', __find_latest_arduino_avr_gcc_dir__, __dummy__find_latest_avr_gcc_dir__)
+          CppToolBinDir       := ${CppToolBinDirSaved}
+    return ${CppToolBinDirResult}
+endfunction
+
+function find_latest_custdir_avr_gcc_dir()
+    local CppToolBinDirSaved  := ${CppToolBinDir}
+    unset CppToolBinDir
+    local CppToolBinDirResult := $call(find_latest_cross_gcc_dir_arduino_custdir, 'LatestCustDirAVRGCCPath.cache', __dummy__find_latest_avr_gcc_dir__, __find_latest_custdir_avr_gcc_dir__)
+          CppToolBinDir       := ${CppToolBinDirSaved}
+    return ${CppToolBinDirResult}
+endfunction
+
+function find_latest_avr_gcc_dir()
+    return $call(__find_latest_avr_gcc_dir__)
+endfunction
+
+
+##### Undefine the helper macro from 'C++XBuildTool_ArduinoUtil.jxm' here to prevent duplicated name later on
+.undefmacro __lb_cmp_gcc_ver_and_get_the_newer_path_and_ver__
+
+
+##### Function to check for AVR tools
+function __check_avrsize_output_style_avr__(ldLibraryPath)
+                     local AVRSize := 'avr-size'
+    if &${CppToolBinDir} : AVRSize := $cat_path(${CppToolBinDir}, ${AVRSize})
+   @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   @${AVRSize} -h
+    return $re_match($[stderr], '(?s).+?--format=\\{.+?avr.*?\\}.+')
+endfunction
+
+function __check_avrsize__()
+    if !$call( cmd_executed_successfully         , ${CppToolBinDir}, 'avr-size', '-v' ) : return false
+    if !$exec( __check_avrsize_output_style_avr__,  $call(__get_LDLibraryPaths__)     ) : return false
+    return true
+endfunction
+
+function __check_avr_tools__()
+    # Try to get the results from the cache file first
+    local AVRCheckToolsCacheFilePath := $cat_path( $ptd(), 'AVRCheckTools.cache' )
+    local AVRCheckTools
+    $call(__check_avrsize__)
+    if $uptodate_path(${AVRCheckToolsCacheFilePath})
+        AVRCheckTools := $get_file(${AVRCheckToolsCacheFilePath})
+        __has_avr_gcc_ar__  := $partn(${AVRCheckTools}, 1)
+        __has_avr_size__    := $partn(${AVRCheckTools}, 2)
+        __has_avr_objdump__ := $partn(${AVRCheckTools}, 3)
+        return
+    endif
+    # Check if the tools are available for use
+    __has_avr_gcc_ar__  := $call(cmd_executed_successfully, ${CppToolBinDir}, 'avr-gcc-ar' , '-V')
+    __has_avr_size__    := $call(__check_avrsize__                                               )
+    __has_avr_objdump__ := $call(cmd_executed_successfully, ${CppToolBinDir}, 'avr-objdump', '-v')
+    # Save the results to the cache file
+    $put_file( ${AVRCheckToolsCacheFilePath}, { \
+        ${__has_avr_gcc_ar__}                   \
+        ${__has_avr_size__}                     \
+        ${__has_avr_objdump__}                  \
+    } )
+endfunction
+
+
+##### Function to detect AVR GCC features
+function __avr_isa_supported__(isa, ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    $nop($[lserr] ) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   -@${CppCxxCompiler} :"-mmcu=${isa}"
+    $nop($[excode]) # Ensure all pending commands are executed
+    $restore_sem()
+    return $cmp( $str_fidx($[stderr], ${isa}), '==', 0 )
+endfunction
+
+function __detect_avr_gcc_features__()
+    # Try to get the results from the cache file first
+    local AVRGCCFeaturesCacheFilePath := $cat_path( $ptd(), 'AVRGCCFeatures.cache' )
+    local AVRGCCFeatures
+    if $uptodate_path(${AVRGCCFeaturesCacheFilePath})
+        AVRGCCFeatures := $get_file(${AVRGCCFeaturesCacheFilePath})
+        __avr_gcc_version_            := $partn(${AVRGCCFeatures},  1)
+        __avr_gcc_support_dfp__       := $partn(${AVRGCCFeatures},  2)
+        __avr_gcc_support_avr1__      := $partn(${AVRGCCFeatures},  3)
+        __avr_gcc_support_avr2__      := $partn(${AVRGCCFeatures},  4)
+        __avr_gcc_support_avr25__     := $partn(${AVRGCCFeatures},  5)
+        __avr_gcc_support_avr3__      := $partn(${AVRGCCFeatures},  6)
+        __avr_gcc_support_avr31__     := $partn(${AVRGCCFeatures},  7)
+        __avr_gcc_support_avr35__     := $partn(${AVRGCCFeatures},  8)
+        __avr_gcc_support_avr4__      := $partn(${AVRGCCFeatures},  9)
+        __avr_gcc_support_avr5__      := $partn(${AVRGCCFeatures}, 10)
+        __avr_gcc_support_avr51__     := $partn(${AVRGCCFeatures}, 11)
+        __avr_gcc_support_avr6__      := $partn(${AVRGCCFeatures}, 12)
+        __avr_gcc_support_avrxmega2__ := $partn(${AVRGCCFeatures}, 13)
+        __avr_gcc_support_avrxmega3__ := $partn(${AVRGCCFeatures}, 14)
+        __avr_gcc_support_avrxmega4__ := $partn(${AVRGCCFeatures}, 15)
+        __avr_gcc_support_avrxmega5__ := $partn(${AVRGCCFeatures}, 16)
+        __avr_gcc_support_avrxmega6__ := $partn(${AVRGCCFeatures}, 17)
+        __avr_gcc_support_avrxmega7__ := $partn(${AVRGCCFeatures}, 18)
+        __avr_gcc_support_avrtiny__   := $partn(${AVRGCCFeatures}, 19)
+        return
+    endif
+    # Detect the features
+    local LDLibPaths := $call(__get_LDLibraryPaths__)
+    __avr_gcc_version_            := ${__BuildTool_Version_Num__}
+    __avr_gcc_support_dfp__       := $call( cpp_compiler_ver_min , 5, 0, 0                  ) # https://gcc.gnu.org/wiki/avr-gcc#Using_avr-gcc
+    __avr_gcc_support_avr1__      := $exec( __avr_isa_supported__, avr1     , ${LDLibPaths} ) # https://gcc.gnu.org/onlinedocs/gcc/AVR-Options.html
+    __avr_gcc_support_avr2__      := $exec( __avr_isa_supported__, avr2     , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr25__     := $exec( __avr_isa_supported__, avr25    , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr3__      := $exec( __avr_isa_supported__, avr3     , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr31__     := $exec( __avr_isa_supported__, avr31    , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr35__     := $exec( __avr_isa_supported__, avr35    , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr4__      := $exec( __avr_isa_supported__, avr4     , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr5__      := $exec( __avr_isa_supported__, avr5     , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr51__     := $exec( __avr_isa_supported__, avr51    , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avr6__      := $exec( __avr_isa_supported__, avr6     , ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega2__ := $exec( __avr_isa_supported__, avrxmega2, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega3__ := $exec( __avr_isa_supported__, avrxmega3, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega4__ := $exec( __avr_isa_supported__, avrxmega4, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega5__ := $exec( __avr_isa_supported__, avrxmega5, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega6__ := $exec( __avr_isa_supported__, avrxmega6, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrxmega7__ := $exec( __avr_isa_supported__, avrxmega7, ${LDLibPaths} ) # ---
+    __avr_gcc_support_avrtiny__   := $exec( __avr_isa_supported__, avrtiny  , ${LDLibPaths} ) # ---
+    # Save the results to the cache file
+    $put_file( ${AVRGCCFeaturesCacheFilePath}, { \
+        ${__avr_gcc_version_}                    \
+        ${__avr_gcc_support_dfp__}               \
+        ${__avr_gcc_support_avr1__}              \
+        ${__avr_gcc_support_avr2__}              \
+        ${__avr_gcc_support_avr25__}             \
+        ${__avr_gcc_support_avr3__}              \
+        ${__avr_gcc_support_avr31__}             \
+        ${__avr_gcc_support_avr35__}             \
+        ${__avr_gcc_support_avr4__}              \
+        ${__avr_gcc_support_avr5__}              \
+        ${__avr_gcc_support_avr51__}             \
+        ${__avr_gcc_support_avr6__}              \
+        ${__avr_gcc_support_avrxmega2__}         \
+        ${__avr_gcc_support_avrxmega3__}         \
+        ${__avr_gcc_support_avrxmega4__}         \
+        ${__avr_gcc_support_avrxmega5__}         \
+        ${__avr_gcc_support_avrxmega6__}         \
+        ${__avr_gcc_support_avrxmega7__}         \
+        ${__avr_gcc_support_avrtiny__}           \
+    } )
+endfunction
+
+
+###################################################################################
+##### ===================== Generic/Common AVR Functions ==================== #####
+###################################################################################
+
+##### Function to generate the correct glob target name to build assembly object file
+function sobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C object file
+function cobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C++ object file
+function cppobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Find the Arduino package directories only if the user has not manually set the variable
+    if !&${ArduinoPackageDirs}
+        ArduinoPackageDirs := $call(find_arduino_package_dirs)
+    endif
+    # Find the Arduino library directories only if the user has not manually set the variable
+    if !&${ArduinoLibraryDirs}
+        ArduinoLibraryDirs := $call(find_arduino_library_dirs, ${ArduinoPackageDirs})
+    endif
+    # Find the latest AVR GCC directory
+    if !&${CppToolBinDir}
+        # Find the latest AVR GCC
+        CppToolBinDir := $call(__find_latest_avr_gcc_dir__)
+        if !${__BuildTool_Version_Num__} : $call(__exit_error_nup__, ${CppCxxCompiler})
+    else
+        # Find the latest Arduino AVR GCC but do not assign it to the variable because the user has manually set the variable
+        $call(__find_latest_arduino_avr_gcc_dir__)
+        # Ensure the AVR GCC directory given by the user is valid
+        if !$call(__get_cpp_compiler_ver__, true) : $call(__exit_error_nup_ext__, ${CppCxxCompiler}, ${CppToolBinDir})
+    endif
+    # Workaround for "warning: array subscript 0 is outside array bounds of 'volatile uint8_t [0]'"
+    if $call(cpp_compiler_ver_min, 12, 0, 0)
+        CppCommonCcCompileFlags  +:= '--param=min-pagesize=0'
+        CppCommonCxxCompileFlags +:= '--param=min-pagesize=0'
+    endif
+    # Find the latest AVRDUDE from Arduino package(s)
+    $call(__find_latest_arduino_avrdude_cmd__)
+    # Detect the AVR GCC features
+    $call(__detect_avr_gcc_features__)
+    # Check the AVR tools
+    $call(__check_avr_tools__)
+    if ${SLibBuilder} &== ${__Def_SLibBuilder__} # Proceed only if the user has not changed it from its default value
+        if ${__has_avr_gcc_ar__} : SLibBuilder := 'avr-gcc-ar'
+    endif
+    if ${__has_avr_size__}
+        AVRSize      := 'avr-size'
+        AVRSizeFlags := '--format=avr'
+    endif
+    if ${__has_avr_objdump__}
+        AVRObjDump      := 'avr-objdump'
+        AVRObjDumpFlags := '-Pmem-usage'
+    endif
+    # Check the programmers supported by AVRDUDE
+    local ChkProg := ft232r ft232h usbtiny usbasp avrispmkii atmelice serialupdi jtag2updi
+    local ChkRes  := $call(__chk_sel_avrdude_programmer_support_ext__, ${ChkProg})
+    __AVRDUDE_SupportAVRProgs__ := $erase_ifempty( $csel(${ChkRes}<2:0>, ${ChkProg}, '' ) )
+    # Download (and install) the latest and DFU programmer from GitHub, unless instructed not to.
+    if !${__JXMAKELIB_AVR_DO_NOT_DOWNLOAD_DFU_PROG__}
+        $call(download_latest_dfuprog, ${dlOnlyIfNotExist})
+    endif
+    # Set extra configuration information text
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= 'AVR GCC         Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    if &${__SelArduinoPackageDir__}
+        __BuildTool_ExtraInfoName__  +:= 'Arduino Package Directory'
+        __BuildTool_ExtraInfoValue__ +:= $cat_path(${__SelArduinoPackageDir__}, '..')
+    endif
+    if &${ArduinoLibraryDirs}
+        __BuildTool_ExtraInfoName__  +:= 'Arduino Library Directory'
+        __BuildTool_ExtraInfoValue__ +:= $implode(${ArduinoLibraryDirs}, __os_psep_char__)
+    endif
+    $call(__add_sel_avrdude_cmd_to_bt_extra_info__)
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to initialize the project build
+AVR_DFPSpec := ''
+
+function set_device_pack_dir(dfpRootDir)
+    # Check if the AVR GCC does not support device pack
+    if !${__avr_gcc_support_dfp__} : return
+    # Check if the specified directory is valid
+    if !$valid_path(${dfpRootDir}) : dfpRootDir := ''
+    # Check if the specified directory is empty
+    if !&${dfpRootDir}
+        AVR_DFP := ''
+        return
+    endif
+    # Get the paths
+    local AVR_DFP_RootDir    := $abs_path (${dfpRootDir}                                   )
+    local AVR_DFP_DevSpecDir := $cat_paths(${AVR_DFP_RootDir}   , 'gcc/dev', ${AVR_MCUType})
+    local AVR_DFP_HeaderDir  := $cat_paths(${AVR_DFP_RootDir}   , 'include'                )
+    local AVR_DFP_LibraryDir := $srdir_rec(${AVR_DFP_DevSpecDir}, 'avr.+?'                 )
+    # Generate the specification
+    AVR_DFPSpec  := :"-B~${AVR_DFP_DevSpecDir}"
+    AVR_DFPSpec +:= :"-isystem~${AVR_DFP_HeaderDir}"
+    AVR_DFPSpec +:= :"-L~${AVR_DFP_LibraryDir}"
+endfunction
+
+
+###################################################################################
+##### ===================== Upload-Related AVR Functions ==================== #####
+###################################################################################
+
+##### Function to check if the selected AVRDUDE support the given programmer
+function __avr_chk_avrdude_prog_support__(programmer, ?descProgName)
+    descProgName ?:= ${programmer}
+    if !$contains( ${__AVRDUDE_SupportAVRProgs__}, $lcase(${programmer/[\s-]//}) ) : $call(__exit_error_ns_sprog__, ${descProgName}, 'AVRDUDE')
+endfunction
+
+
+##### Function to check signature and upload via FT232R
+const AVR_Default_FT232RVariant := 'FT232R'
+
+.macro __avr_ft232r_common_entry_code__
+    # Set the default values
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_avr__, ${AVR_CPUFrequency})
+    variant  ?:= ${AVR_Default_FT232RVariant}
+    variant   := $lcase(${variant})
+    # Check if AVRDUDE support the default programmer variant; NOTE : other variants are not checked!
+    if ${variant} &== $lcase(${AVR_Default_FT232RVariant})
+        $call(__avr_chk_avrdude_prog_support__, 'ft232r', 'FT232R')
+    endif
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_ft232r_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_ft232r_error_and_print_help__, $[function])
+.endmacro
+
+function __avr_chksig_ft232r_exec__(bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_ft232r(?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_ft232r_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_ft232r_exec__, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_ft232r_common_leave_code__
+endfunction
+
+function __avr_upload_ft232r_exec__(progName, bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_ft232r(progName, ?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_ft232r_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_ft232r_exec__, ${progName}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_ft232r_common_leave_code__
+endfunction
+
+.undefmacro __avr_ft232r_common_entry_code__
+.undefmacro __avr_ft232r_common_leave_code__
+
+
+##### Function to check signature and upload via USBtinyISP
+const AVR_Default_USBtinyISPVariant := 'USBtiny'
+const AVR_ReducedCoreTinys          := t4 t5 t9 t10 t20 t40 t102 t104
+
+.macro __avr_usbtinyisp_common_entry_code__
+    # Set the default values
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_avr__, ${AVR_CPUFrequency})
+    variant  ?:= ${AVR_Default_USBtinyISPVariant}
+    variant   := $lcase(${variant})
+    # Check if AVRDUDE support the default programmer variant; NOTE : other variants are not checked!
+    if ${variant} &== $lcase(${AVR_Default_USBtinyISPVariant})
+        $call(__avr_chk_avrdude_prog_support__, 'usbtiny', 'USBtinyISP')
+    endif
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_usbtinyisp_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_usbtinyisp_error_and_print_help__, $[function])
+    # Check if the part is a reduced core tinys
+    if $contains(${AVR_ReducedCoreTinys}, ${part})
+        (*
+        echoln __c_white__ 'It seems your are trying to program a Reduced Core Tiny AVR MCU using USBtinyISP. You may need to' __c_reset__
+        echoln __c_white__ 'power cycle the programmer manually to bring your target out of the reset state.' __c_reset__
+        echoln
+        *)
+        $exec( __avr_outrst_usbtinyisp_exec__,  ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    endif
+.endmacro
+
+function __avr_outrst_usbtinyisp_exec__(bitClock, variant, ldLibraryPath)
+    # Workaround to bring a Reduced Core Tiny AVR MCU out of the reset state
+    @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    @${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p m8
+endfunction
+
+function __avr_chksig_usbtinyisp_exec__(bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_usbtinyisp(?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_usbtinyisp_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_usbtinyisp_exec__, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_usbtinyisp_common_leave_code__
+endfunction
+
+function __avr_upload_usbtinyisp_exec__(progName, bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_usbtinyisp(progName, ?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_usbtinyisp_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_usbtinyisp_exec__, ${progName}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_usbtinyisp_common_leave_code__
+endfunction
+
+.undefmacro __avr_usbtinyisp_common_entry_code__
+.undefmacro __avr_usbtinyisp_common_leave_code__
+
+
+##### Function to check signature and upload via USBasp
+const AVR_Default_USBaspVariant := 'USBasp'
+
+.macro __avr_usbasp_common_entry_code__
+    # Set the default values
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_avr__, ${AVR_CPUFrequency})
+    variant  ?:= ${AVR_Default_USBaspVariant}
+    variant   := $lcase(${variant})
+    # Check if AVRDUDE support the default programmer variant; NOTE : other variants are not checked!
+    if ${variant} &== $lcase(${AVR_Default_USBaspVariant})
+        $call(__avr_chk_avrdude_prog_support__, 'usbasp', 'USBasp')
+    endif
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Check if the target is an ATxmega MCU
+    local xmega := $str_begwith(${part}, 'x')
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_usbasp_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_usbasp_error_and_print_help__, $[function], ${xmega})
+.endmacro
+
+function __avr_chksig_usbasp_exec__(xmega, bitClock, variant, ldLibraryPath)
+        +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    if ${xmega}
+        # NOTE : For some unknown reason, AVRDUDE seems to work better using this bit clock period
+        #        when programming an ATxmega MCU using USBasp ???
+        +@${AVRDUDE_Cmd} -c ${variant} -B 10.6        -p ${part} -D -U signature:r:-:h -E noreset
+    else
+        +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -D -U signature:r:-:h
+    endif
+endfunction
+
+function avr_chksig_usbasp(?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_usbasp_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_usbasp_exec__, ${xmega}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_usbasp_common_leave_code__
+endfunction
+
+function __avr_upload_usbasp_exec__(xmega, progName, bitClock, variant, ldLibraryPath)
+        +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    if ${xmega}
+        # NOTE : For some unknown reason, AVRDUDE seems to work better using this bit clock period
+        #        when programming an ATxmega MCU using USBasp ???
+        +@${AVRDUDE_Cmd} -c ${variant} -B 10.6        -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i" -E noreset
+    else
+        +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+    endif
+endfunction
+
+function avr_upload_usbasp(progName, ?bitClock, ?variant)
+    # Execute the common entry code
+    .$__avr_usbasp_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_usbasp_exec__, ${xmega}, ${progName}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_usbasp_common_leave_code__
+endfunction
+
+.undefmacro __avr_usbasp_common_entry_code__
+.undefmacro __avr_usbasp_common_leave_code__
+
+(*
+avrdude -c usbasp -B 1 -p m8 -e -V -U flash:w:www.fischl.de_pdi_usbasp.atmega8.2011-05-28.hex:i
+
+export madbin=/opt/avrdude-7.1-usbasp-pdi/bin/avrdude
+export madcnf=/opt/avrdude-7.1-usbasp-pdi/etc/avrdude.conf
+
+$madbin -C $madcnf -c usbasp -p x16d4  -B 10.6 -D -U signature:r:-:h
+$madbin -C $madcnf -c usbasp -p x32a4u -B 10.6 -D -U signature:r:-:h
+
+$madbin -C $madcnf -c usbasp -p x16d4  -B 10.6 -D -U fuse1:r:-:b -U fuse2:r:-:b -U fuse4:r:-:b -U fuse5:r:-:b
+*)
+
+
+##### Function to check signature and upload via AVRISP mkII
+.macro __avr_avrispmkii_common_entry_code__
+    # Check if AVRDUDE support the programmer
+    $call(__avr_chk_avrdude_prog_support__, 'AVRISP mkII')
+    # Set the default value
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_avr__, ${AVR_CPUFrequency})
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Check if the target is an ATxmega MCU
+    local xmega := $str_begwith(${part}, 'x')
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_avrispmkii_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_advanced_atmel_isp_programmer_error_and_print_help__, $[function])
+.endmacro
+
+function __avr_chksig_avrispmkii_exec__(bitClock, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c avrispmkii -B ${bitClock} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_avrispmkii(?bitClock)
+    # Execute the common entry code
+    .$__avr_avrispmkii_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_avrispmkii_exec__, ${bitClock}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_avrispmkii_common_leave_code__
+endfunction
+
+function __avr_upload_avrispmkii_exec__(xmega, progName, bitClock, ldLibraryPath)
+    # NOTE : For some unknown reason, programming an ATxmega MCU using AVRISP mkII will most likely fail if automatic verification check is disabled
+    if !${xmega} : local Verify := '-V'
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c avrispmkii -B ${bitClock} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D ${Verify} -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_avrispmkii(progName, ?bitClock)
+    # Execute the common entry code
+    .$__avr_avrispmkii_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_avrispmkii_exec__, ${xmega}, ${progName}, ${bitClock}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_avrispmkii_common_leave_code__
+endfunction
+
+.undefmacro __avr_avrispmkii_common_entry_code__
+.undefmacro __avr_avrispmkii_common_leave_code__
+
+(*
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "t13"        "-D" "-U" "signature:r:-:h"     -v -v
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "t13"   "-e" "-D" "-U" "flash:w:t13.hex:i"   -v -v
+
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "t10"        "-D" "-U" "signature:r:-:h"     -v -v
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "t10"   "-e" "-D" "-U" "flash:w:t10.hex:i"   -v -v
+
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "x16d4"      "-D" "-U" "signature:r:-:h"     -v -v
+/opt/avrdude-7.1/bin/avrdude -C /opt/avrdude-7.1/etc/avrdude.conf "-c" "avrispmkii" "-B" "10" "-p" "x16d4" "-e" "-D" "-U" "flash:w:x16d4.hex:i" -v -v
+*)
+
+
+##### Function to check signature and upload via Atmel-ICE
+.macro __avr_atmelice_common_entry_code__
+    # Check if AVRDUDE support the programmer
+    $call(__avr_chk_avrdude_prog_support__, 'Atmel-ICE')
+    # Set the operational mode
+    if !&${operMode} ; operMode := 'jtag'
+    else             ; operMode := $lcase(${operMode})
+    endif
+    if ${operMode} &== 'jtag' ; operMode := ''
+    else                      ; operMode := :"_${operMode}"
+    endif
+    # Set the default value
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_avr__, ${AVR_CPUFrequency})
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_atmelice_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_advanced_atmel_isp_programmer_error_and_print_help__, $[function])
+.endmacro
+
+function __avr_chksig_atmelice_exec__(operMode, bitClock, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c :"atmelice${operMode}" -B ${bitClock} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_atmelice(?operMode, ?bitClock)
+    # Execute the common entry code
+    .$__avr_atmelice_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_atmelice_exec__, ${operMode}, ${bitClock}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_atmelice_common_leave_code__
+endfunction
+
+function __avr_upload_atmelice_exec__(progName, operMode, bitClock, ldLibraryPath)
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c :"atmelice${operMode}" -B ${bitClock} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_atmelice(progName, ?operMode, ?bitClock)
+    # Execute the common entry code
+    .$__avr_atmelice_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_atmelice_exec__, ${progName}, ${operMode}, ${bitClock}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_atmelice_common_leave_code__
+endfunction
+
+.undefmacro __avr_atmelice_common_entry_code__
+.undefmacro __avr_atmelice_common_leave_code__
+
+
+##### Function to check signature and upload via UPDI programmers with serial connections
+const AVR_Default_SerialUPDIVariant := 'SerialUPDI'
+const AVR_Reserve_SerialUPDIVariant := 'JTAG2UPDI'
+
+.macro __avr_serialupdi_common_entry_code__
+    # Set the default values
+    variant  ?:= ${AVR_Default_SerialUPDIVariant}
+    variant   := $lcase(${variant})
+    baudrate ?:= $call(__avrdude_det_serialupdi_baudrate_for_avr__, ${AVR_CPUFrequency})
+    # Check if AVRDUDE support the programmer variant
+    $call(__avr_chk_avrdude_prog_support__, ${variant})
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_serialupdi_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    if $[excode]
+        $call(__exit_error_build_process_fail__, :"$[function]()", true)
+        $exit($[excode])
+    endif
+.endmacro
+
+function __avr_chksig_serialupdi_exec__(device, variant, baudrate, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -P ${device} -b ${baudrate} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_serialupdi(device, ?variant, ?baudrate)
+    # Execute the common entry code
+    .$__avr_serialupdi_common_entry_code__
+    # Perform upload
+    $exec( __avr_chksig_serialupdi_exec__, ${device}, ${variant}, ${baudrate}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_serialupdi_common_leave_code__
+endfunction
+
+function __avr_upload_serialupdi_exec__(progName, device, variant, baudrate, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -P ${device} -b ${baudrate} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_serialupdi(progName, device, ?variant, ?baudrate)
+    # Execute the common entry code
+    .$__avr_serialupdi_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_serialupdi_exec__, ${progName}, ${device}, ${variant}, ${baudrate}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_serialupdi_common_leave_code__
+endfunction
+
+.undefmacro __avr_serialupdi_common_entry_code__
+.undefmacro __avr_serialupdi_common_leave_code__
+
+
+##### Function to check signature and upload via generic external programmer
+.macro __avr_genextprog_common_entry_code__
+    # NOTE : For generic external programmers, we do not check whether AVRDUDE supports the selected programmer!
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __avr_genextprog_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    if $[excode]
+        $call(__exit_error_build_process_fail__, :"$[function]()", true)
+        $exit($[excode])
+    endif
+.endmacro
+
+function __avr_chksig_genextprog_exec__(programmer, configSet, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${programmer} ${configSet} -p ${part} -D -U signature:r:-:h
+endfunction
+
+function avr_chksig_genextprog(configSet)
+    # Execute the common entry code
+    .$__avr_genextprog_common_entry_code__
+    # Perform signature check
+    $exec( __avr_chksig_genextprog_exec__, $lcase(${configSet}<1>), ${configSet}<2:0>, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_genextprog_common_leave_code__
+endfunction
+
+function __avr_upload_genextprog_exec__(progName, programmer, configSet, verify, ldLibraryPath)
+    if !${verify} : local Verify := '-V'
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c ${programmer} ${configSet} -p ${part} -e ${AVRDUDE_CmdSafeMode} -D ${Verify} -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function avr_upload_genextprog(progName, configSet, ?verify)
+    # Execute the common entry code
+    .$__avr_genextprog_common_entry_code__
+    # Perform upload
+    $exec( __avr_upload_genextprog_exec__, ${progName}, $lcase(${configSet}<1>), ${configSet}<2:0>, ${verify}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__avr_genextprog_common_leave_code__
+endfunction
+
+.undefmacro __avr_genextprog_common_entry_code__
+.undefmacro __avr_genextprog_common_leave_code__
+
+
+#####
+#####
+#####
+
+
+##### Function to upload the given program via DFU
+function __avr_upload_dfu_exec__(progName, ldLibraryPath)
+    ##### Erase flash
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+  -+@${DFUProg_executable} ${AVR_MCUType} erase
+    if $[excode] # Ensure all pending commands are executed
+        if $[excode] != 5 : return # Exit here if the error code is not the one indicating flash is not blank
+    endif
+    ##### Upload flash
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${DFUProg_executable} ${AVR_MCUType} flash ~${progName/(.+)\.elf/$1.hex/}
+   +@${DFUProg_executable} ${AVR_MCUType} launch
+    $nop($[excode]) # Ensure all pending commands are executed
+endfunction
+
+function avr_upload_dfu(progName)
+    # Perform upload
+    $cmd_streaming_on()
+    $exec( __avr_upload_dfu_exec__, ${progName}, $call(__get_LDLibraryPaths__) )
+    $cmd_streaming_off()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/99-dfu-programmer.rules')
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the target device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/99-dfu-programmer.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+            echoln             'SUBSYSTEM!="usb", ACTION!="add", GOTO="dfu_programmer_rules_end"'
+            echoln
+            echoln             '# ATxmega32A4U DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2fe4", MODE="666"'
+            echoln
+            echoln             '# ATmega8U2 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2fee", MODE="666"'
+            echoln
+            echoln             '# ATmega16U2 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2fef", MODE="666"'
+            echoln
+            echoln             '# ATmega32U2 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ff0", MODE="666"'
+            echoln
+            echoln             '# ATmega16U4 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ff3", MODE="666"'
+            echoln
+            echoln             '# ATmega32U4 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ff4", MODE="666"'
+            echoln
+            echoln             '# AT90USB82 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ff7", MODE="666"'
+            echoln
+            echoln             '# AT90USB646/647 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ff9", MODE="666"'
+            echoln
+            echoln             '# AT90USB162 DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ffa", MODE="666"'
+            echoln
+            echoln             '# AT90USB AVR DFU bootloader'
+            echoln             'ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2ffb", MODE="666"'
+            echoln
+            echoln             'LABEL="dfu_programmer_rules_end"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+        endif
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to upload the given program via HID
+if __os_windows__
+    const HIDBootloaderCLI := 'hid_bootloader_cli.exe'
+else
+    const HIDBootloaderCLI := 'hid_bootloader_cli'
+endif
+
+function __avr_upload_hid_exec__(progName, ldLibraryPath)
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${HIDBootloaderCLI} :"-mmcu=${AVR_MCUType}" ~${progName/(.+)\.elf/$1.hex/}
+endfunction
+
+function avr_upload_hid(progName)
+    # Check if the '${HIDBootloaderCLI}' program is executable
+    if !$call(cmd_is_executable, '', ${HIDBootloaderCLI})
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        $call(__exit_error_nup__, ${HIDBootloaderCLI}, true)
+        echoln __c_white__ 'Automatic download of the ' __c_cyan__ ${HIDBootloaderCLI} __c_white__ ' program is not supported yet.'
+        echoln
+        echoln __c_white__ 'Please download LUFA and compile the program manually:' __c_reset__
+        echoln             '    https://github.com/abcminiuser/lufa/tree/master/Bootloaders/HID/HostLoaderApp'
+        echoln
+        echoln __c_white__ 'After installing, please make sure the program is in your PATH.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+        $exit(-1)
+    endif
+    # Perform upload
+    $cmd_streaming_on()
+    $exec( __avr_upload_hid_exec__, ${progName}, $call(__get_LDLibraryPaths__) )
+    $cmd_streaming_off()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    if __os_linux__
+        if !$valid_path('/etc/udev/rules.d/99-hidbootloader.rules')
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+            echoln __c_white__ 'Either the target device is not connected or access is denied.' __c_reset__
+            echoln
+            echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/99-hidbootloader.rules\' as \'root\'' __c_reset__
+            echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+            echoln
+            echoln             '# LUFA HID bootloader'
+           #echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="03eb", ATTR{idProduct}=="2067", SYMLINK+="hidbl-%k", OWNER:="root", GROUP:="users", MODE:="0660"'
+            echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="03eb", ATTR{idProduct}=="2067", MODE="666"'
+            echoln
+            echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+            echoln
+            echoln             'udevadm control --reload-rules && udevadm trigger'
+            echoln
+            echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+            echoln
+        endif
+    endif
+    # Exit program
+    $exit($[excode])
+endfunction
+
+
+##### Function to upload the given program via LPT
+function __avr_upload_lpt_exec__(progName, device, directWrite, ldLibraryPath)
+    # Determine the HEX file name
+    local HexFile := ~${progName/(.+)\.elf/$1.hex/}
+    # If the 'directWrite' flag is set, simply write the HEX file to the device
+    if ${directWrite}
+        # Check if the device path is not writable
+        if !$path_is_writable(${device}) : return -1
+        # Read and then write the HEX file
+        local Lines := $get_file(${HexFile})
+        echoln "Sending '${HexFile}' to '${device}' ..."
+        $put_file(${device}, ${Lines})
+        # Done
+        return 0
+    endif
+    ##### Upload using LPR
+    if __os_posix__
+        # Check if the device is available
+        ##### !!! TODO : Is this enough to force command line commands to display all the messages in English? !!! #####
+       +@setenv LANG     C
+       +@setenv SOFTWARE ''
+       +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+       +@lpstat -p ${device}
+        if !$re_match($[stdout], '(?s).+?idle.+') : return -1
+        # Perform upload
+        $cmd_streaming_on()
+       +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+       +@lpr -l -P ${device} ${HexFile}
+        local excode := $[excode]
+        $cmd_streaming_off()
+        # Return the exit code
+        return ${excode}
+    ##### Upload using Windows printjob - Please refer to 'https://ss64.com/nt/wmic.html' for more details
+    else
+        # Check the devices
+        ##### !!! TODO : Are all the result messages always in English? !!! #####
+       +@wmic printer get Name,ShareName,SystemName /format:textvaluelist
+        if $[excode] : return $[excode] # Check for error
+        local PCnt  := 0
+        local Found := false
+        local Lines := $erase_ifempty( $sflines($[stdout]) )
+        local Name
+        local ShareName
+        local SystemName
+        foreach local Line in ${Lines}
+            # Extract the parts
+            local Parts := $erase_ifempty( $explode(${Line}, '=') )
+            if $part_count(${Parts}) != 2 : continue
+            # Extract the values
+            local Key   := ${Parts}<1>
+            local Value := ${Parts}<2>
+              if ${Key} &== 'Name'       ; Name       := ${Value} ; inc PCnt
+            elif ${Key} &== 'ShareName'  ; ShareName  := ${Value} ; inc PCnt
+            elif ${Key} &== 'SystemName' ; SystemName := ${Value} ; inc PCnt
+            endif
+            # Check the values
+            if ${PCnt} >= 3
+                if ${ShareName} &== ${device}
+                    Found := true
+                    break
+                else
+                    PCnt := 0
+                endif
+            endif
+        endforeach
+        if !${Found} : return -1
+        # Check if there is a pending printjob for the device
+       +@wmic printjob get Name
+        if $[excode] : return $[excode] # Check for error
+        foreach local Line in $erase_ifempty( $sflines($[stdout]) )
+            if $partn( $explode(${Line}, ','), 1 ) &== ${Name}
+                echoln
+                echoln 'It seems there is at least one pending printjob for the device!'
+                echoln 'Is the target connected and ready?'
+                echoln
+                echoln 'Please delete the printjob(s) and restart the upload.'
+                return -1
+            endif
+        endforeach
+        # Perform upload (create a printjob)
+        $cmd_streaming_on()
+       +@cmd /C copy /B ${HexFile} :"\\\\${SystemName}\\${ShareName}"
+        local excode := $[excode]
+        $cmd_streaming_off()
+        if ${excode} : return ${excode} # Check for error
+        # Wait until the printjob is completed
+        local WaitCnt := 0
+        loop
+            # Check if the printjob still exists
+            local Wait := false
+            @wmic printjob get Name
+            if $[excode] : return $[excode] # Check for error
+            foreach local Line in $erase_ifempty( $sflines($[stdout]) )
+                if $partn( $explode(${Line}, ','), 1 ) &== ${Name}
+                    Wait := true
+                    break
+                endif
+            endforeach
+            # The printjob is completed, break here
+            if !${Wait}
+                break
+            # The printjob is not completed yet, wait for a while
+            else
+                inc WaitCnt
+                if ${WaitCnt} > 10
+                    echoln
+                    echoln 'It seems that the printjob for the device cannot be completed!'
+                    echoln 'Is the target connected and ready?'
+                    return -1
+                endif
+                $sleep(1000)
+            endif
+        endloop
+        # Done
+        return 0
+    endif
+    ##### Unknown error
+    return -1
+endfunction
+
+function avr_upload_lpt(progName, device)
+    # Perform upload
+    local Direct := $and( __os_linux__, $str_begwith(${device}, '/dev/') )
+    local Res    := $exec( __avr_upload_lpt_exec__, ${progName}, ${device}, ${Direct}, $call(__get_LDLibraryPaths__) )
+    # Simply exit if there was no error
+    if !${Res} : return
+    # Print some helper information messages
+    if $and( ${Direct}, $not( $valid_path('/etc/udev/rules.d/99-lpt-programmer.rules') ) )
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+        echoln __c_white__ 'Either the target device is not connected or access is denied.' __c_reset__
+        echoln
+        echoln __c_white__ 'To fix access denied, please create a new \'udev\' rule in \'/etc/udev/rules.d/99-lpt-programmer.rules\' as \'root\'' __c_reset__
+        echoln __c_white__ '(or use \'sudo\') which contains:' __c_reset__
+        echoln
+        echoln             '# LUFA LPT (Printer) bootloader'
+        echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="03eb", ATTR{idProduct}=="206b", MODE="666"'
+        echoln
+        echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+        echoln
+        echoln             'udevadm control --reload-rules && udevadm trigger'
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    else
+        $call(__exit_error_na_dev__, ${device}, true)
+    endif
+    # Exit program
+    $exit(${Res})
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### A helper macro to determine the default values for uploading
+.macro __avr_upload_serial_def_vals__
+    local baudrate ?:= $csel( $cmp(${AVR_CPUFrequency}, '>=', 16000000), 115200, 57600 )
+    local protocol ?:= 'arduino'
+.endmacro
+
+
+##### Function to upload the given program via serial port
+function __avr_upload_serial_exec__()
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c ${protocol} -P ${device} -b ${baudrate} -p ${part} ${erase} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function __avr_upload_serial__(progName, device, baudrate, protocol, resetToBootloader, resetByteSeq, ldLibraryPath)
+    # Determine the part name
+    local part := $call(__avr_mcu_to_avrdude_part__, ${AVR_MCUType})
+    # If the protocol contains 'updi' add the '-e' option
+    local erase
+    if $str_lidx(${protocol}, 'updi') : erase := '-e'
+    # Reset to bootloader as needed
+    if $and( ${resetToBootloader}, $valid_path(${device}) )
+        if !&${resetByteSeq}
+            $mcu_bootloader(${device}                 ) # Reset using the magic baudrate
+        else
+            $mcu_bootloader(${device}, ${resetByteSeq}) # Reset using the special byte sequence
+        endif
+    endif
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__avr_upload_serial_exec__                   )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_streaming_off()
+endfunction
+
+function avr_upload_serial(progName, device, ?baudrate, ?protocol, ?resetToBootloader, ?resetByteSeq)
+    # Set the default values
+    .$__avr_upload_serial_def_vals__
+    # Perform upload
+    $call( __avr_upload_serial__, ${progName}, ${device}, ${baudrate}, ${protocol}, ${resetToBootloader}, ${resetByteSeq}, $call(__get_LDLibraryPaths__) )
+endfunction
+
+
+##### Functions to upload the given program via a 'TCP <-> Serial Bridge' device
+function __avr_upload_tcp_serial_bridge__(progName, urlSetBaudrate, ?baudrate, ?protocol)
+    # Set baudrate
+    local url := :"http://${urlSetBaudrate}"
+    local res := $http_get(${url})
+    if $partn(${res}, 1) != 200
+        echoln ${url}
+        echoln $ftlines(${res})
+        return
+    endif
+    # Perform upload
+    $call(avr_upload_serial, ${progName}, :"net:${hostNameOrIP}:${progPort}", ${baudrate}, ${protocol})
+endfunction
+
+function avr_upload_esplink(progName, hostNameOrIP, progPort, ?baudrate, ?protocol) # Use ESP-LINK firmware
+    # Set the default values
+    .$__avr_upload_serial_def_vals__
+    # Perform upload
+    $call(__avr_upload_tcp_serial_bridge__, ${progName}, :"${hostNameOrIP}/console/baud?rate=${baudrate}", ${baudrate}, ${protocol})
+endfunction
+
+function avr_upload_ecxx(progName, hostNameOrIP, progPort, ?baudrate, ?protocol) # Use eCxx firmware
+    # Set the default values
+    .$__avr_upload_serial_def_vals__
+    # Perform upload
+    $call(__avr_upload_tcp_serial_bridge__, ${progName}, :"${hostNameOrIP}/upload/baud?rate=${baudrate}", ${baudrate}, ${protocol})
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __avr_upload_serial_def_vals__
+
+
+##### Functions to set the baudrate of a 'TCP <-> Serial Bridge' device
+function set_tsb_scb(hostNameOrIP, baudrate)
+    local url := :"http://${hostNameOrIP}/console/baud?rate=${baudrate}"
+    local res := $http_get(${url})
+    if $partn(${res}, 1) != 200
+        echoln ${url}
+        echoln $ftlines(${res})
+        return 0
+    endif
+    return 1
+endfunction
+
+
+###################################################################################
+##### ====================== Native AVR Build Functions ===================== #####
+###################################################################################
+
+##### Function to select the part number
+function avr_select_part(partNumber, ?cpuFreq)
+    # Set the default value
+    cpuFreq ?:= ${AVR_Default_CPUFreq}
+    # Save the part number and CPU frequency
+    AVR_MCUType       := $lcase(${partNumber})
+    AVR_CPUFrequency  :=        ${cpuFreq}
+    # Generate a proper title case name for the part number
+    if $re_match( $lcase(${partNumber}), '^avr\d+\D+\d+')
+        AVR_MCUType_TCase := $ucase(${partNumber})
+    else
+              partNumber  := $ucase(${partNumber})
+        local frontPart   := $lcase(${partNumber/AT(X?MEGA|TINY).+/$1/})
+        local backPart    :=        ${partNumber/AT(?:X?MEGA|TINY)(.+)/$1/}
+        AVR_MCUType_TCase := :"AT${frontPart}${backPart}"
+    endif
+endfunction
+
+
+##### A helper macro to forward function calls for compile and link
+.macro __avr_compile_and_link__
+    local extraOptions := $stack( :"-mmcu=${AVR_MCUType}", :"-DF_CPU=${AVR_CPUFrequency}UL", ${AVR_DFPSpec}, ${extraOptions} )
+.endmacro
+
+
+##### Function to compile assembly source codes
+function avr_compile_s(?extraOptions)
+    .$__avr_compile_and_link__
+    $call(compile_s, ${extraOptions})
+endfunction
+
+
+##### Function to compile C++ and C++20 source codes
+function avr_compile_c(?extraOptions)
+    .$__avr_compile_and_link__
+    $call(compile_c, ${extraOptions})
+endfunction
+
+function avr_compile_cpp(?extraOptions)
+    .$__avr_compile_and_link__
+    $call(compile_cpp, ${extraOptions})
+endfunction
+
+function avr_compile_cpp20m(?extraOptions)
+    .$__avr_compile_and_link__
+    $call(compile_cpp20m, ${extraOptions})
+endfunction
+
+
+##### Function to create AVR static libraries
+function avr_link_slib()
+    $call(link_slib)
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to link executable files (in case of AVR, also create the BIN and HEX files)
+function __is_tiny_avr_012_series__(part)
+    (*
+     * This regular expression is constructed based on the information from:
+     *     https://ww1.microchip.com/downloads/en/AppNotes/Getting-Started-with-tinyAVR0-series-DS00002712.pdf
+     *     https://ww1.microchip.com/downloads/en/Appnotes/Getting-Started-with-tinyAVR1-series-00002503B.pdf
+     *     https://ww1.microchip.com/downloads/en/Appnotes/AN3456-Getting-Started-with-tinyAVR-2-Family-DS00003456A.pdf
+     *)
+    #                                        0-Series                            1-Series                                     2-Series
+    return $re_match(${part}, '(?i)attiny(?:(?:20[24]|40[246]|80[467]|160[467])|(?:21[24]|41[2467]|81[467]|161[467]|321[67])|(?:(?:[48]|16|32)2[467]))')
+endfunction
+
+function __get_fixed_avrxmega3_xn__()
+    (*
+     * When building for tinyAVR 0/1/2-series because currently newer versions of GCC will cause link errors like:
+     *     /opt/avr-gcc-10.1.0-x64-linux/avr/bin/ld: address 0x803401 of main.elf section `.bss' is not within region `data'
+     *     /opt/avr-gcc-11.1.0-x64-linux/avr/bin/ld: address 0x803401 of main.elf section `.bss' is not within region `data'
+     *     /opt/avr-gcc-12.1.0-x64-linux/avr/bin/ld: address 0x803401 of main.elf section `.bss' is not within region `data'
+     *
+     * ----------------------------------------------------------------------------------------------------
+     *
+     * From:
+     *     https://www.avrfreaks.net/s/topic/a5C3l000000UaSiEAK/t153954?comment=P-1378381
+     *     https://www.avrfreaks.net/s/topic/a5C3l000000UaSiEAK/t153954?comment=P-1378383
+     *
+     * The cause of the error is from the file '<avr_gcc_dir>/avr/lib/ldscripts/avrxmega3.xn'.
+     *
+     * ----------------------------------------------------------------------------------------------------
+     *
+     * Adding a new line:
+     *     __DATA_REGION_ORIGIN__ = DEFINED(__DATA_REGION_ORIGIN__) ? __DATA_REGION_ORIGIN__ : 0x802000;
+     * after the line:
+     *     __RODATA_PM_OFFSET__ = DEFINED(__RODATA_PM_OFFSET__) ? __RODATA_PM_OFFSET__ : 0x8000;
+     *
+     * and then replacing the line:
+     *     data   (rw!x) : ORIGIN = 0x802000, LENGTH = __DATA_REGION_LENGTH__
+     * with the line:
+     *     data   (rw!x) : ORIGIN = __DATA_REGION_ORIGIN__, LENGTH = __DATA_REGION_LENGTH__
+     *
+     * should fix the problem.
+     *)
+    # Determine the original (default) linker script file path and the fixed linker script file path
+    local OrgLDS := $cat_path( ${CppToolBinDir}, '../avr/lib/ldscripts/avrxmega3.xn' )
+    local FixLDS := $cat_path( $ptd()          , 'avrxmega3.xn'                      )
+    # Try to get the flag from the cache file first
+    local FixedAVRXMega3XNCacheFilePath := $cat_path( $ptd(), 'FixedAVRXMega3XN.cache' )
+    if $uptodate_path(${FixedAVRXMega3XNCacheFilePath})
+        # Return the fixed linker script file path if the file does exist
+        if $get_file(${FixedAVRXMega3XNCacheFilePath})
+            if $valid_path(${FixLDS}) : return ${FixLDS}
+        # Return an empty string
+        else
+            return ''
+        endif
+    else
+        # Delete the fixed linker script file (if it exists)
+        $rmfile(${FixLDS})
+    endif
+    # Check if the fixed linker script file already exists and up to date
+    if $newer_path(${FixLDS}, ${OrgLDS})
+        # Save the flag to the cache file
+        $put_file(${FixedAVRXMega3XNCacheFilePath}, '1')
+        # Return the fixed linker script file path
+        return ${FixLDS}
+    endif
+    # Read the contents of the default linker script file
+    local Lines  := $get_file(${OrgLDS})
+    # Check if the linker script file already contains the correct script
+    local Re1a := '\\s*__DATA_REGION_ORIGIN__\\s*=\\s*DEFINED\\s*\\(\\s*__DATA_REGION_ORIGIN__\\s*\\)\\s*\\?\\s*__DATA_REGION_ORIGIN__\\s*:\\s*0x802000\\s*;\\s*'
+    local Re1b := '\\s*data\\s*\\(\\s*rw!x\\s*\\)\\s*:\\s*ORIGIN\\s*=\\s*__DATA_REGION_ORIGIN__\\s*,\\s*LENGTH\\s*=\\s*__DATA_REGION_LENGTH__\\s*'
+    if $or( $re_match(${Lines}, ${Re1a} ), $re_match(${Lines}, ${Re1b} ) )
+        # Save the flag to the cache file
+        $put_file(${FixedAVRXMega3XNCacheFilePath}, '0')
+        # Return an empty string
+        return ''
+    endif
+    # Generate and save the contents of the fixed linker script file
+    local Re2a := '\\s*__RODATA_PM_OFFSET__\\s*=\\s*DEFINED\\s*\\(\\s*__RODATA_PM_OFFSET__\\s*\\)\\s*\\?\\s*__RODATA_PM_OFFSET__\\s*:\\s*0x8000\\s*;\\s*'
+    local Re2b := '\\s*data\\s*\\(\\s*rw!x\\s*\\)\\s*:\\s*ORIGIN\\s*=\\s*0x802000\\s*,\\s*LENGTH\\s*=\\s*__DATA_REGION_LENGTH__\\s*'
+    local FixL
+    foreach local Line in ${Lines}
+        if $re_match(${Line}, ${Re2a})
+            FixL +:= ${Line}
+            FixL +:= '__DATA_REGION_ORIGIN__ = DEFINED(__DATA_REGION_ORIGIN__) ? __DATA_REGION_ORIGIN__ : 0x802000;'
+        elif $re_match(${Line}, ${Re2b})
+            FixL +:= '  data   (rw!x) : ORIGIN = __DATA_REGION_ORIGIN__, LENGTH = __DATA_REGION_LENGTH__'
+        else
+            FixL +:= ${Line}
+        endif
+    endforeach
+    $put_file(${FixLDS}, ${FixL})
+    # Save the flag to the cache file
+    $put_file(${FixedAVRXMega3XNCacheFilePath}, '1')
+    # Return the fixed linker script file path
+    return ${FixLDS}
+endfunction
+
+function __get_fixed_avrxmega3_xn_for_tiny_avr_012_series__(extraOptions)
+    # Get the fixed linker script only if the user is not currently using a custom linker script
+    if !$or( $re_match( $stack(${CppCommonLinkFlags}, ${extraOptions}), '-T.*' ) )
+        if $call(__is_tiny_avr_012_series__, ${AVR_MCUType})
+            local FixLDS := $call(__get_fixed_avrxmega3_xn__)
+            if &${FixLDS}
+                # Return the modified extra options
+                extraOptions +:= $series('-T',  ${FixLDS})
+                return ${extraOptions}
+            endif
+        endif
+    endif
+    # Return the original extra options
+    return ${extraOptions}
+endfunction
+
+function __elf_to_bin_hex__(ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local AVRObjCopy := $cat_path(${CppToolBinDir}, ${AVRObjCopy})
+    if &${CppToolBinDir} : local AVRObjDump := $cat_path(${CppToolBinDir}, ${AVRObjDump})
+    local BinFile := ~$[target/(.+)\.elf/$1.bin/]
+    local HexFile := ~$[target/(.+)\.elf/$1.hex/]
+    local LstFile := ~$[target/(.+)\.elf/$1.lst/]
+    # Remove the HEX, BIN, and LST files
+    $rmfile(${BinFile})
+    $rmfile(${HexFile})
+    $rmfile(${LstFile})
+    # Create the LST file
+    $cmd_stderr_chk_on() # Workaround to prevent hung because ${AVRObjDump} may have a non-standard stderr
+    $cmd_stdout_chk_on() # Workaround to prevent hung because ${AVRObjDump} may have a non-standard stdout
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRObjDump} ${AVRObjDumpFlagsLST} ~$[target]
+    $nop($[excode]) # Ensure all pending commands are executed
+    $cmd_stderr_chk_off()
+    $cmd_stdout_chk_off()
+    if $[excode] : return
+    $put_file( ${LstFile}, $stack($[stderr], $[stdout]) )
+    # Convert ELF to BIN and HEX
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRObjCopy} ${AVRObjCopyFlagsBIN} ~$[target] ${BinFile}
+   +@${AVRObjCopy} ${AVRObjCopyFlagsHEX} ~$[target] ${HexFile}
+endfunction
+
+function avr_link_exe(?extraOptions)
+    # Use the fixed linker script file as needed
+    extraOptions := $call(__get_fixed_avrxmega3_xn_for_tiny_avr_012_series__, ${extraOptions})
+    # Link the executable
+    .$__avr_compile_and_link__
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to BIN and HEX
+    $call( __bpt_bin_hex__                                   )
+    $exec( __elf_to_bin_hex__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__     )
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __avr_compile_and_link__
+
+
+##### Function to run the given executable file (in case of AVR, print the size)
+function __obj_size__(progName, ldLibraryPath, dimColor)
+    # Modify the binary path(s) as needed
+    if &${CppToolBinDir} : local AVRSize    := $cat_path(${CppToolBinDir}, ${AVRSize}   )
+    if &${CppToolBinDir} : local AVRObjDump := $cat_path(${CppToolBinDir}, ${AVRObjDump})
+    # Get the size using 'avr-size'
+    local stdout
+    if ${__has_avr_size__}
+       @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+       @${AVRSize} ${AVRSizeFlags} :"--mcu=${AVR_MCUType}" ~${progName}
+        if $[excode] : return 0
+        if !$re_match( $[stdout], '[\S\s]*Device:\s+Unknown\s*[\r\n]{1,2}[\S\s]*') : stdout := $[stdout]
+    endif
+    # Get the size using 'avr-objdump'
+    if !&${stdout}
+        if ${__has_avr_objdump__}
+           @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+           @${AVRObjDump} ${AVRObjDumpFlags} ~${progName}
+            if $[excode] : return 0
+            stdout := $[stdout]
+        endif
+    endif
+    # Print the size
+    local Color := __c_dgray__
+    if !${dimColor}
+        echoln __c_cyan__ -${progName} __c_reset__
+        Color := __c_green__
+    endif
+    foreach local line in $sflines(${stdout})
+        if $re_match(${line}, '^Device:.+')
+            echoln ${Color} '    Device  : ' ${line/Device:\s+(.+)/$1/} __c_reset__
+        elif $re_match( ${line}, '^(?:Program|Data):.+')
+                  line := $sfpipes(${line/(Program|Data):\s+(\d+) bytes(?:\s\((\d+\.\d+)%\s.+?\))?/$1|$2|$3/})
+            local type := $partn(${line}, 1)
+            local byte := $partn(${line}, 2)
+            local urat := $partn(${line}, 3)
+            echo ${Color}
+            $printf('    %-7s : %6s bytes (%5s%% Full)', ${type}, ${byte}, ${urat})
+            echoln __c_reset__
+        endif
+    endforeach
+    # Done
+    return 1
+endfunction
+
+function avr_run_exe(progName, ?dimColor)
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                 $call( __bpt_exe_size_linespace__                                            )
+    local res := $exec( __obj_size__, ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call( __print_stdxxx_and_check_excode__                                     )
+endfunction
+
+
+###################################################################################
+##### ===================== Arduino AVR Helper Functions ==================== #####
+###################################################################################
+
+##### Function to get the MCU, frequency, upload protocol, and upload speed from the given Arduino board name
+function __avrcfg_from_arduino_get_subval__(valSet, selStr)
+    # Simply return the whole set if the selector string is empty
+    if !&${selStr} : return ${valSet}
+    # Extract the part(s) and simply return the whole set if there is only one part
+    local Parts := $explode(${valSet})
+    if $part_count(${Parts}) == 1 : return ${valSet}
+    # Search the parts
+    foreach local Part in ${Parts}
+        local Pair := $explode(${Part}, ':')
+        if $partn(${Pair}, 1) &== ${selStr} : return $partn(${Pair}, 2)
+    endforeach
+    # No match
+    return ''
+endfunction
+
+.macro __avr_config_extract__
+    local MCU       := $partn(${AVRArduinoConfigData}, ${I}, 2)
+    local CPUFreq   := $partn(${AVRArduinoConfigData}, ${I}, 3)
+    local UProtocol := $partn(${AVRArduinoConfigData}, ${I}, 4)
+    local UBaudrate := $partn(${AVRArduinoConfigData}, ${I}, 5)
+    local UResetBL  := $partn(${AVRArduinoConfigData}, ${I}, 6)
+    local UPortType := $partn(${AVRArduinoConfigData}, ${I}, 7)
+.endmacro
+
+.macro __avr_config_format_and_store__
+    if !$str_fidx(${MCU}, 'at') : MCU := $ftt_stack('atmega', ${MCU})
+    CD  := ${MCU}
+    CD +:= $flatten( $stack(                        ${CPUFreq}  , '000000') )
+    CD +:= $csel   ( $cmp(${UProtocol}, '&!=', ''), ${UProtocol}, 'arduino' )
+    CD +:= $flatten( $stack(                        ${UBaudrate}, '00'    ) )
+    CD +:= ${UResetBL}
+    CD +:= ${UPortType}
+.endmacro
+
+function avrcfg_from_arduino(boardName)
+    (* The configuration data is made based on the data obtained from:
+     *     https://github.com/arduino/ArduinoCore-avr/blob/master/boards.txt
+     *     https://github.com/arduino/ArduinoCore-megaavr/blob/master/boards.txt
+     *     https://github.com/Thinary/ThinaryArduino/blob/master/Thinary-megaavr/boards.txt
+     *)
+    local const AVRArduinoConfigDataUnit  := 8
+    local const AVRArduinoConfigData      :=                                                                                                                                  \
+     (***   Type   Match String                                  MCU             MHz            Upload Protocol       Upload Speed (÷100)   Reset-BL   Default U̅S̅B̅/ACM   ***) \
+             1     '^uno(?:mini|wifi)?$'                         '328p'          '16'           ''                    '1152'                0          0                      \
+             0     'unowifirev2'                                 '4809'          '16'           'xplainedmini_updi'   '1152'                1          1                      \
+            10     '^nano.+?(328p|168)$'                         ''              '16'           ''                    '328p:1152 168:192'   0          0                      \
+             1     '^mega(1280)?.*?c[hp]\d+.*$'                  '1280'          '16'           ''                    '576'                 0          0                      \
+             1     '^mega(?:2560|adk).*?c[hp]\d+.*$'             '2560'          '16'           'wiring'              '1152'                0          0                      \
+             1     '^mega(1280)?(?:atmega\d{1,2}u\d)?$'          '1280'          '16'           ''                    '576'                 0          1                      \
+             1     '^mega(?:2560|adk)(?:atmega\d{1,2}u\d)?$'     '2560'          '16'           'wiring'              '1152'                0          1                      \
+             1     '^(?:pro|mini)mega(1280)?$'                   '1280'          '16'           ''                    '576'                 0          0                      \
+             1     '^(?:pro|mini)mega(?:2560|adk)$'              '2560'          '16'           'wiring'              '1152'                0          0                      \
+             1     '^mega(?:pro|mini)(1280)?$'                   '1280'          '16'           ''                    '576'                 0          0                      \
+             1     '^mega(?:pro|mini)(?:2560|adk)$'              '2560'          '16'           'wiring'              '1152'                0          0                      \
+             1     '^leonardo(?:eth)?|esplora$'                  '32u4'          '16'           'avr109'              '576'                 1          1                      \
+             1     '^(?:sparkfun)?(?:pro)?micro$'                '32u4'          '16'           'avr109'              '576'                 1          1                      \
+            10     '^pro(?:mini)?.+?(328p|168).*?(5|3\.3)v.*$'   ''              '5:16 3.3:8'   ''                    '328p:576  168:192'   0          0                      \
+            20     '^pro(?:mini)?.+?(5|3\.3)v.+?(328p|168)$'     ''              '5:16 3.3:8'   ''                    '328p:576  168:192'   0          0                      \
+            10     '^mini.+?(328p|168).*$'                       ''              '16'           ''                    '328p:1152 168:192'   0          0                      \
+             0     'ethernet'                                    '328p'          '16'           ''                    '1152'                0          0                      \
+            10     '^(?:duemilanove|diecimila).+?(328p|168)$'    ''              '16'           ''                    '328p:576  168:192'   0          0                      \
+             0     'fio'                                         '328p'          '8'            ''                    '576'                 0          0                      \
+            10     '^bt.+?(328p|168)$'                           ''              '16'           ''                    '192'                 0          0                      \
+             0     'lilypad'                                     '328p'          '8'            ''                    '576'                 0          0                      \
+            10     '^lilypad.+?(328p|168)$'                      ''              '8'            ''                    '328p:576  168:192'   0          0                      \
+             1     '^lilypadusb(?:.*?32u4)?$'                    '32u4'          '8'            ''                    '576'                 1          1                      \
+             1     '^ng(?:240|rev[.-]?c)?$'                      '168'           '16'           ''                    '192'                 0          0                      \
+            10     '^ng.+?(168|8)$'                              ''              '16'           ''                    '192'                 0          0                      \
+             1     '^robot(?:control|motor)$'                    '32u4'          '16'           'avr109'              '576'                 1          1                      \
+             1     '^adafruitcircuitplayground.*$'               '32u4'          '8'            'avr109'              '576'                 1          1                      \
+             0     'nanoevery'                                   '4809'          '16'           'jtag2updi'           '1152'                1          1                      \
+             1     '^thinarynanoevery(?:.*?4808)?$'              '4808'          '16'           'jtag2updi'           '1152'                1          0                      \
+             1     '^dt-?avrat90usb162cpumodule$'                'at90usb162'    '8'            'avr109'              '576'                 1          1                      \
+             1     '^(?:dt-?avr)?inoduino$'                      'at90usb1286'   '16'           'avr109'              '576'                 1          1
+    # Convert the board name to lowercase, remove all 'arduino' words, and remove all whitespaces
+    local BN := $lcase(${boardName})
+          BN := ${BN/arduino|\s//}
+    # Search the configuration data
+    local CD
+    foreach local I, V in ${AVRArduinoConfigData} step ${AVRArduinoConfigDataUnit}
+        # Get the 'use regular expression' flag and the reference name
+        local UseRegExp := ${V}
+        local RefName   := $partn(${AVRArduinoConfigData}, ${I}, 1)
+        # Compare using regular expression
+        if ${UseRegExp}
+            if $re_match( ${BN}, ${RefName} )
+                .$__avr_config_extract__
+                local Part := $re_split( ${BN}, ${RefName} )
+                if ${UseRegExp} == 10
+                    local IM := 1
+                    local IV := 2
+                elif ${UseRegExp} == 20
+                    local IM := 2
+                    local IV := 1
+                endif
+                if ${IM}
+                    MCU       := $ftt_stack(                                     ${MCU}      , $partn(${Part}, ${IM}) )
+                    CPUFreq   := $call     ( __avrcfg_from_arduino_get_subval__, ${CPUFreq}  , $partn(${Part}, ${IV}) )
+                    UBaudrate := $call     ( __avrcfg_from_arduino_get_subval__, ${UBaudrate}, $partn(${Part}, ${IM}) )
+                endif
+                .$__avr_config_format_and_store__
+                break
+            endif
+        # Compare using exact plain text
+        elif ${RefName} &== ${BN}
+            .$__avr_config_extract__
+            .$__avr_config_format_and_store__
+            break
+        endif
+    endforeach
+    # Error if no valid result was found
+    if !&${CD} : $call(__exit_error_ns_desc__, 'decoding board specification for board', ${boardName})
+    # Return the result
+    return ${CD}
+endfunction
+
+.undefmacro __avr_config_extract__
+.undefmacro __avr_config_format_and_store__
+
+(*
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Uno'                            ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Uno Mini'                       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Uno WiFi'                       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Uno WiFi Rev2'                  ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Duemilanove w/ ATmega168'       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Duemilanove w/ ATmega328P'      ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Diecimila w/ ATmega168'         ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Diecimila w/ ATmega328P'        ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Nano w/ ATmega168'              ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Nano w/ ATmega328P'             ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega'                           ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 1280'                      ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 2560'                      ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega ADK'                       ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega ATmega16U2'                ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 1280 ATmega16U2'           ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 2560 ATmega16U2'           ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega CH340'                     ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 1280 CH340'                ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega 2560 CH340'                ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mega'                       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mega 1280'                  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mega 2560'                  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mega ADK'                   ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega Mini'                      ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega Mini 1280'                 ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega Mini 2560'                 ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mega Mini ADK'                  ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Leonardo'                       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Leonardo ETH'                   ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Esplora'                        ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Micro'                          ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Micro'                      ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Sparkfun Pro Micro'                     ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mini w/ ATmega328P'             ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Mini w/ ATmega168'              ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro w/ ATmega328P (5V, 16 MHz)' ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro w/ ATmega328P (3.3V, 8 MHz)') )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro (5V, 16 MHz) w/ ATmega328P' ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro (3.3V, 8 MHz) w/ ATmega328P') )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro w/ ATmega168 (5V, 16 MHz)'  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro w/ ATmega168 (3.3V, 8 MHz)' ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro (5V, 16 MHz) w/ ATmega168'  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro (3.3V, 8 MHz) w/ ATmega168' ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mini with ATmega168 5V'     ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mini with ATmega168 3.3V'   ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mini 5V with ATmega168'     ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Pro Mini 3.3V with ATmega168'   ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Ethernet'                       ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Fio'                            ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino BT /w ATmega328P'               ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino BT /w ATmega168'                ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'LilyPad Arduino USB'                    ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'LilyPad Arduino USB ATmega32U4'         ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'LilyPad'                                ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'LilyPad Arduino w/ ATmega328P'          ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'LilyPad Arduino w/ ATmega168'           ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino NG w/ ATmega168'                ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino NG w/ ATmega8'                  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino NG'                             ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino NG 240'                         ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino NG Rev.C'                       ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Robot Control'                  ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Robot Motor'                    ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Adafruit Circuit Playground'            ) )
+echoln
+echoln $ftspaces( $call(avrcfg_from_arduino, 'DT-AVR Inoduino'                        ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'DT AVR Inoduino'                        ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Inoduino'                               ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Arduino Nano Every'                     ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Thinary Nano Every'                     ) )
+echoln $ftspaces( $call(avrcfg_from_arduino, 'Thinary Nano Every ATmega4808'          ) )
+$exit(0)
+#*)
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local AGText := __c_cyan__  'AVR GCC' __c_white__
+    local NGText := __c_cyan__  "Native AVR" __c_white__
+    local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    $call(__origin__, true, false, true, true)
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${NGInfo})
+    echoln __c_green__ '    __gcc__                               ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_gcc__                             ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __avr_gcc__                           ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln
+    echoln __c_green__ '    JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS ' __c_white__ ': exclude the custom directories specified here when searching for the latest ' ${AGText} ';'
+    echoln __c_green__ '                                          ' __c_white__ '  paths are separated using \'' __c_green__ '__os_psep_char__' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    ArduinoPackageDirs                    ' __c_white__ ': locations of ' __c_cyan__ 'Arduino' __c_white__ ' package directories'
+    echoln __c_green__ '    ArduinoLibraryDirs                    ' __c_white__ ': locations of ' __c_cyan__ 'Arduino' __c_white__ ' library directories'
+    echoln
+    echoln __c_green__ '    AVRObjCopy                            ' __c_white__ ': executable file name for the program to convert create a HEX file from an ELF file'
+    echoln __c_green__ '    AVRDUDE_Cmd                           ' __c_white__ ': executable file name and optional argument(s) for ' __c_cyan__ 'AVRDUDE'
+    echoln
+    echoln __c_green__ '    AVR_MCUType                           ' __c_white__ ': specify the ' __c_cyan__ 'AVR' __c_white__ ' instruction set architectures (ISA) or MCU type (in lowercase) - the default value is \'' __c_yellow__ ${AVR_Default_MCUType} __c_white__ '\''
+    echoln __c_green__ '    AVR_CPUFrequency                      ' __c_white__ ': specify the ' __c_cyan__ 'AVR' __c_white__ ' CPU frequency (without the suffix \'UL\')                        - the default value is \'' __c_yellow__ ${AVR_Default_CPUFreq} __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_functions__, 7, 33, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories,              ' __c_white__  ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist                ) ' __c_green__  '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                             ' __c_green__  '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    avr_select_part      (partNumber         , ?cpuFreq    ) ' __c_white__  ': select the ' __c_cyan__ 'AVR' __c_white__ ' part number to use with the ' ${CGText} ' SDK; can only be called after calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      partNumber ' __c_cyan__ 'AVR' __c_white__ ' part number   - for example    \'' __c_yellow__ ${AVR_Default_MCUType} __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      cpuFreq    ' __c_cyan__ 'AVR' __c_white__ ' CPU frequency - the default is \'' __c_yellow__ ${AVR_Default_CPUFreq} __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '  these are the global variables that are initialized by this function:'
+    echoln __c_green__ '                                                             ' __c_green__  '      AVR_MCUType'
+    echoln __c_green__ '                                                             ' __c_green__  '      AVR_CPUFrequency'
+    echoln
+    echoln __c_green__ '    set_device_pack_dir  (dfpRootDir                       ) ' __c_white__  ': set the device pack directory; please download the necessary device pack from:'
+    echoln __c_green__ '                                                             ' __c_yellow__ '      https://packs.download.microchip.com'
+    echoln __c_green__ '                                                             ' __c_yellow__ '      http://packs.download.atmel.com'
+    echoln __c_green__ '                                                             ' __c_white__  '  and extract (unzip) it to a directory with a name like:'
+    echoln __c_green__ '                                                             ' __c_yellow__ '      Microchip.ATmega_DFP.x.x.xxx'
+    echoln __c_green__ '                                                             ' __c_yellow__ '      Atmel.ATmega_DFP.x.x.xxx'
+    echoln __c_green__ '                                                             ' __c_white__  '  can only be called after calling \'' __c_green__ 'avr_select_part' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_compile_s        (?extraOptions                    ) ' __c_white__  ': compile a ' ${NGText} ' assembly   source code; please use this instead of \'' __c_green__ 'compile_s' __c_white__ '\''
+    echoln __c_green__ '    avr_compile_c        (?extraOptions                    ) ' __c_white__  ': compile a ' ${NGText} ' C          source code; please use this instead of \'' __c_green__ 'compile_c' __c_white__ '\''
+    echoln __c_green__ '    avr_compile_cpp      (?extraOptions                    ) ' __c_white__  ': compile a ' ${NGText} ' C++        source code; please use this instead of \'' __c_green__ 'compile_cpp' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_link_exe         (?extraOptions                    ) ' __c_white__  ': link              a ' ${NGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_green__ '    avr_link_slib        (                                 ) ' __c_white__  ': link              a ' ${NGText} ' static library; please use this instead of \'' __c_green__ 'link_slib' __c_white__ '\''
+    echoln __c_green__ '    avr_run_exe          (progName           , ?dimColor   ) ' __c_white__  ': print the size of a ' ${NGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_ft232r    (                     ?bitClock   , ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'FT232R Synchronous Bit Banging'
+    echoln __c_green__ '                          ?variant                         ) '
+    echoln __c_green__ '    avr_upload_ft232r    (progName           , ?bitClock   , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'FT232R Synchronous Bit Banging'
+    echoln __c_green__ '                          ?variant                         ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name       - possible values are:'
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ ${AVR_Default_USBFT232RVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                             ' __c_white__  '                   other programmers from \'' __c_yellow__ 'avrdude.conf' __c_white__ '\' with \'' __c_yellow__ 'type = "ftdi_syncbb"' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_usbtinyisp(                     ?bitClock   , ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'USBtinyISP'
+    echoln __c_green__ '                          ?variant                         ) '
+    echoln __c_green__ '    avr_upload_usbtinyisp(progName           , ?bitClock   , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'USBtinyISP'
+    echoln __c_green__ '                          ?variant                         ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name       - possible values are:'
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ ${AVR_Default_USBtinyISPVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                             ' __c_white__  '                   other programmers from \'' __c_yellow__ 'avrdude.conf' __c_white__ '\' with \'' __c_yellow__ 'type = "usbtiny"' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_usbasp    (                     ?bitClock   , ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'USBasp'
+    echoln __c_green__ '                          ?variant                         ) '
+    echoln __c_green__ '    avr_upload_usbasp    (progName           , ?bitClock   , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'USBasp'
+    echoln __c_green__ '                          ?variant                         ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name       - possible values are:'
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ ${AVR_Default_USBaspVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                             ' __c_white__  '                   other programmers from \'' __c_yellow__ 'avrdude.conf' __c_white__ '\' with \'' __c_yellow__ 'type = "usbasp"' __c_white__ '\''
+    echoln
+    $call(__avrdude_print_usbasp_supported_bit_clock__, 67)
+    echoln
+    echoln __c_green__ '    avr_chksig_avrispmkii(                     ?bitClock   ) ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'AVRISP mkII'
+    echoln __c_green__ '    avr_upload_avrispmkii(progName           , ?bitClock   ) ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'AVRISP mkII'
+    echoln __c_green__ '                                                             ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_atmelice  (          ?operMode, ?bitClock   ) ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'Atmel-ICE'
+    echoln __c_green__ '    avr_upload_atmelice  (progName, ?operMode, ?bitClock   ) ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'Atmel-ICE'
+    echoln __c_green__ '                                                             ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      operMode' __c_white__ ' set this to the correct operation mode        - possible values are:'
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ 'isp'  __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ 'tpi'  __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ 'pdi'  __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ 'updi' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ 'jtag' __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                             ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_serialupdi(                    device       , ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'UPDI' __c_white__ ' programmers with serial connections'
+    echoln __c_green__ '                          ?variant          , ?baudrate    ) '
+    echoln __c_green__ '    avr_upload_serialupdi(progName          , device       , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'UPDI' __c_white__ ' programmers with serial connections'
+    echoln __c_green__ '                          ?variant          , ?baudrate    ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      device  ' __c_white__ ' UPDI programmer serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name - possible values are:'
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ ${AVR_Reserve_SerialUPDIVariant} __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_white__  '                   \'' __c_yellow__ ${AVR_Default_SerialUPDIVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                             ' __c_green__  '      baudrate' __c_white__ ' set this to the correct baudrate        - the default depends on \'' __c_green__ 'AVR_CPUFrequency' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_chksig_genextprog(                    configSet    ) ' __c_white__  ': check the ' __c_cyan__ 'AVR' __c_white__ ' signature code via ' __c_cyan__ 'generic external programmer'
+    echoln __c_green__ '    avr_upload_genextprog(progName          , configSet    , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'generic external programmer'
+    echoln __c_green__ '                          ?verify                          ) ' __c_green__  '      progName ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      configSet' __c_white__ ' set this to the correct configuration set \'' __c_yellow__ '{ ProgrammerName[, Option]... }' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      verify   ' __c_white__ ' set this to \'' __c_yellow__ 'true' __c_white__ '\' to enable automatic verification check - the default value is \'' __c_yellow__ 'false' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_upload_dfu       (progName                         ) ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'LUFA DFU Bootloader' __c_white__ ' using ' __c_cyan__ 'DFU-Programmer'
+    echoln __c_green__ '                                                             ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_upload_hid       (progName                         ) ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'LUFA HID Bootloader' __c_white__ ' using LUFA\'s \'' __c_cyan__ 'hid_bootloader_cli' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    avr_upload_lpt       (progName          , device       ) ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'LUFA LPT (Printer) Bootloader'
+    echoln __c_green__ '                                                             ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      device  ' __c_white__ ' USB device path or printer device name - for example \'' __c_yellow__ '/dev/usb/lp0' __c_white__ '\', \'' __c_yellow__ 'LUFA_BootloaderLPT' __c_white__ '\', etc.'
+    echoln
+    echoln __c_white__ '                                                             '              '      On Linux, \'' __c_green__ 'device' __c_white__ '\' is the USB device path or the name of the printer.'
+    echoln
+    echoln __c_white__ '                                                             '              '      On MacOS, \'' __c_green__ 'device' __c_white__ '\' is the name of the printer.'
+    echoln
+    echoln __c_white__ '                                                             '              '      On Windows, \'' __c_green__ 'device' __c_white__ '\' is the share name of the printer:'
+    echoln __c_white__ '                                                             '              '          1. Open \'Devices and Printers\''
+    echoln __c_white__ '                                                             '              '          2. Right click on the printer and select \'Printer properties\''
+    echoln __c_white__ '                                                             '              '          3. Go to the \'Sharing\' tab'
+    echoln __c_white__ '                                                             '              '          4. Check \'Share this printer\' and fill-in the \'Share name\''
+    echoln __c_white__ '                                                             '              '          5. Click \'OK\''
+    echoln
+    echoln __c_green__ '    avr_upload_serial    (progName          , device       , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via ' __c_cyan__ 'serial port'
+    echoln __c_green__ '                          ?baudrate         , ?protocol    , ' __c_green__  '      progName         ' __c_white__ ' program name;       use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?resetToBootloader, ?resetByteSeq) ' __c_green__  '      device           ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      baudrate         ' __c_white__ ' set this to the correct programming baudrate - the default is \'' __c_yellow__ '115200' __c_white__ '/' __c_yellow__ '57600' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      protocol         ' __c_white__ ' set this to the correct programming protocol - the default is \'' __c_yellow__ 'arduino' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      resetToBootloader' __c_white__ ' set this to ' __c_yellow__ '1' __c_white__ ' to reset the MCU using \'' __c_green__ '$mcu_bootloader()' __c_white__ '\' before uploading'
+    echoln __c_green__ '                                                             ' __c_green__  '      resetByteSeq     ' __c_white__ ' set this argument to reset the MCU using the special byte sequence instead'
+    echoln __c_green__ '                                                             ' __c_white__  '                       ' __c_white__ ' of the magic baudrate'
+    echoln
+    echoln __c_white__ '                                                             '              '      The target ' __c_cyan__ 'AVR' __c_white__ ' must have been burned (uploaded) with a compatible bootloader.'
+    echoln
+    echoln __c_green__ '    avr_upload_esplink   (progName          ,              , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via a ' __c_cyan__ 'TCP <-> Serial Bridge' __c_white__ ' device that uses ' __c_cyan__ 'ESP-LINK' __c_white__ ' firmware'
+    echoln __c_green__ '                          hostNameOrIP      , progPort     , ' __c_green__  '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?baudrate         , ?protocol    ) ' __c_green__  '      hostNameOrIP' __c_white__ ' hostname or IP   of the bridge device        - it is usually port \'' __c_yellow__ '192.168.4.1' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      progPort    ' __c_white__ ' programming port of the bridge device        - it is usually port \'' __c_yellow__ '23' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      baudrate    ' __c_white__ ' set this to the correct programming baudrate - the default is \'' __c_yellow__ '115200' __c_white__ '/' __c_yellow__ '57600' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      protocol    ' __c_white__ ' set this to the correct programming protocol - the default is \'' __c_yellow__ 'arduino' __c_white__ '\''
+    echoln
+    echoln __c_white__ '                                                             '              '      The target ' __c_cyan__ 'AVR' __c_white__ ' must have been burned (uploaded) with a compatible bootloader.'
+    echoln
+    echoln __c_green__ '    avr_upload_ecxx      (progName          ,              , ' __c_white__  ': upload program to ' __c_cyan__ 'AVR' __c_white__ ' via a ' __c_cyan__ 'TCP <-> Serial Bridge' __c_white__ ' device that uses ' __c_cyan__ 'eCxx' __c_white__ ' firmware'
+    echoln __c_green__ '                          hostNameOrIP      , progPort     , ' __c_green__  '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                          ?baudrate         , ?protocol    ) ' __c_green__  '      hostNameOrIP' __c_white__ ' hostname or IP   of the bridge device        - it is usually port \'' __c_yellow__ '192.168.0.100' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      progPort    ' __c_white__ ' programming port of the bridge device        - it is usually port \'' __c_yellow__ '23' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      baudrate    ' __c_white__ ' set this to the correct programming baudrate - the default is \'' __c_yellow__ '115200' __c_white__ '/' __c_yellow__ '57600' __c_white__ '\''
+    echoln __c_green__ '                                                             ' __c_green__  '      protocol    ' __c_white__ ' set this to the correct programming protocol - the default is \'' __c_yellow__ 'arduino' __c_white__ '\''
+    echoln
+    echoln __c_white__ '                                                             '              '      The target ' __c_cyan__ 'AVR' __c_white__ ' must have been burned (uploaded) with a compatible bootloader.'
+    echoln
+    echoln __c_green__ '    set_tsb_scbsp        (hostNameOrIP      , baudrate     ) ' __c_white__  ': set the serial console baudrate of a ' __c_cyan__ 'TCP <-> Serial Bridge' __c_white__ ' device that uses'
+    echoln __c_green__ '                                                             ' __c_white__  '  ' __c_cyan__ 'ESP-LINK' __c_white__ ' or ' __c_cyan__ 'eCxx' __c_white__ ' firmware'
+    echoln
+    echoln __c_green__ '    avrcfg_from_arduino  (boardName                        ) ' __c_white__  ': get the ' __c_cyan__ 'AVR' __c_white__ ' configuration values from the given ' __c_cyan__ 'Arduino' __c_white__ ' board name; returned members:'
+    echoln __c_green__ '                                                             ' __c_cyan__   '          #1       #2            #3              #4              #5             #6'
+    echoln __c_green__ '                                                             ' __c_white__  '      \'' __c_yellow__ '{{ MCUType, CPUFrequency, UploadProtocol, UploadBaudrate, UploadResetBL, UploadPortType }}' __c_white__ '\''
+    echoln
+    echoln __c_white__ 'The \'' __c_green__ 'avr_chksig_*' __c_white__ '\' functions would reset the MCU after reading and checking the signature code, therefore, they can be used to reset the MCU intentionally by'
+    echoln __c_white__ 'using an external programmer.'
+    echoln
+    echoln __c_cyan__  'Extra Utility Functions ' __c_white__ '(Call Using \'' __c_green__ '$call(...)' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    find_latest_arduino_avr_gcc_dir()' __c_white__  ' : find the latest ' ${AGText} ' installation directory from \'' __c_green__ 'ArduinoPackageDirs' __c_white__ '\''
+    echoln __c_green__ '    find_latest_custdir_avr_gcc_dir()' __c_white__  ' : find the latest ' ${AGText} ' installation directory from \'' __c_green__ '/opt/*' __c_white__ '\' (POSIX only)'
+    echoln __c_green__ '    find_latest_avr_gcc_dir        ()' __c_white__  ' : find the latest ' ${AGText} ' installation directory from the two above locations'
+    echoln
+    $call(__btlib_help_print_note_arduino_environment__)
+    echoln __c_reset__
+endfunction

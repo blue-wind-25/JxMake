@@ -1,0 +1,140 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+User-Defined Function
+----------------------------------------------------------------------------------------------------
+
+function <function_name>( [parameter[,...]] ) [supersede] [deprecated [by <replacement_function_name>]]
+    ...
+    ...
+    ...
+    return <return_value>
+endfunction
+
+
+<result_var> := $call( <function_name>, [argument...] )
+<result_var> := $exec( <function_name>, [argument...] )
+
+
+NOTE : # Optional parameters can be specified by adding the prefix '?' before the parameter names.
+       # All parameters after the first optional parameter must also be optionals.
+       # In case it is required to pass partial optional arguments, use '?' (without the quotes)
+         to specify the optional arguments.
+
+
+The previous function in the superseding chain can be called from the superseding function by
+specifying the keyword '__origin__' as the function name. A superseding function can have different
+parameter specifications.
+
+A user-defined function called using 'call' can recursively call other functions but cannot execute
+shell/operating system commands.
+
+A user-defined function called using 'exec' contains commands to be executed by the shell/operating
+system and cannot call other functions. When using 'exec':
+
+    # Passing function calls in commands is not supported, please use temporary/'local' variables.
+    # Although the system will change the child process' directory to the script program's current
+      working directory before executing the commands, it is recommended to always use absolute
+      paths in command arguments whenever possible.
+
+    # All shell/operating system commands must be prefixed by '@'; otherwise, they will be executed
+      as JxMake statements instead of shell/operating system commands.
+    # All text after '@' will be considered as part of the command (and arguments) until the end of
+      the line or the comment prefix character '#' is encountered.
+    # All consecutive commands prefixed by '@' will be combined into an internal script buffer as
+      much as possible before then being executed sequentially. It means all the commands' outputs
+      will be concatenated together.
+
+    # Runtime execution errors of shell/operating system commands can be suppressed by using the
+      prefix '-@'; in this case, the error message will be printed to stderr (except when JxMake
+      is run in silent mode).
+    # A simple example of a runtime execution error is trying to execute a non-existent command.
+    # Please note that non-zero exit code will stop the command sequence execution at that point
+      but will not cause runtime execution error in most cases.
+
+    # The last exit code, combined stderr, and combined stdout will be accessible using the special
+      variables '$[excode]', '$[stderr]' and '$[stdout]'. If command output streaming is enabled by
+      calling '$cmd streaming on', then only '$[excode]' will contain a valid value.
+    # Command output streaming is disabled by default, therefore JxMake will not automatically print
+      the stderr and stdout; print them manually if needed. If command output streaming is enabled
+      by calling '$cmd streaming on', then stderr and stdout will be printed directly as the command
+      executes.
+    # It is highly recommended to always check '$[excode]' to check for the exit code and to ensure
+      all the commands are executed before the function exits.
+
+    # Use '+@' or '-+@' to make the system prints the commands and arguments to stdout before the
+      actual execution; affected by '$cmd_echo_off' and '$cmd_echo_on'.
+    # Use '?@' to make the system only prints the commands and arguments to stdout, without actually
+      executing them; affected by '$cmd_echo_off' and '$cmd_echo_on'.
+
+Priority when reading variables and parameters:
+    # Function parameters               take precedence over global variables    with the same name.
+    # Upon declaration, local variables take precedence over global variables    with the same name.
+    # Upon declaration, local variables take precedence over function parameters with the same name.
+
+Parameters and local variables inheritance rules:
+    # The caller's parameters are implicitly inherited by the callee as extra by-value arguments,
+      unless the callee has required and/or optional parameters with the same names.
+    # The caller's local variables are implicitly inherited by the callee as extra by-value local
+      variables, unless the callee has required and/or optional parameters with the same names.
+
+
+Examples:
+
+    function my_function(par1, par2, ?opt1, ?opt2, ?opt3)
+        local opt1 :?= 'opt1'
+        local opt2 :?= 'opt2'
+        local opt3 :?= 'opt3'
+        $printf("'%-6s %-6s %-6s %-6s %-6s'\n", ${par1}, ${par2}, ${opt1}, ${opt2}, ${opt3})
+    endfunction
+
+    $call(my_function, 'arg1', 'arg2'                        ) # It will print 'arg1   arg2   opt1   opt2   opt3  '
+    $call(my_function, 'arg1', 'arg2', 'arg3', 'arg4'        ) # It will print 'arg1   arg2   arg3   arg4   opt3  '
+    $call(my_function, 'arg1', 'arg2', 'arg3', 'arg4', 'arg5') # It will print 'arg1   arg2   arg3   arg4   arg5  '
+    $call(my_function, 'arg1', 'arg2', ?     ,  ?    , 'arg5') # It will print 'arg1   arg2   opt1   opt2   arg5  '
+    $call(my_function, 'arg1', 'arg2', ???   , '?'   , 'arg5') # It will print 'arg1   arg2   ???    ?      arg5  '
+
+
+----------------------------------------------------------------------------------------------------
+Special Shell/Operating System Commands
+----------------------------------------------------------------------------------------------------
+
+These are special commands that can be used to modify the environment variables when executing
+shell/operating system commands:
+
+    @clrenv
+    @delenv <env_var_name>
+    @setenv <env_var_name> <value>
+    @addenv <env_var_name> <value>
+
+    @sstdin <value>
+
+    @jxmake <argument>, ...
+
+Since the modifications will only affect the internal script buffer once, you will need to reapply
+them for the next separate group of executions (when the subsequent block of shell/operating system
+commands is not considered consecutive).
+
+All shell/operating system commands are considered consecutive and will will be combined into the
+same internal script buffer as long as these conditions are met:
+
+    # The function where the commands are placed is still running (not yet exited); therefore, all
+      pending commands (if any) will be executed just before the function exits.
+    # The program does not access '$[excode]', '$[stderr]' and '$[stdout]'. Accessing any of those
+      variables will execute all pending commands.
+
+
+NOTE : # Unlike running other targets using the keywords 'jxmake', '+jxmake', and 'jxwait' that
+         uses the same thread or multithreding, the special shell/operating system command '@jxmake'
+         will create a new process.
+       # Of all the original argument(s) from the primary JxMake program execution, only '--dct' and
+         '--lct' will be automatically passed to '@jxmake' command (you can override it if needed).
+       # While '@sstdin' can be used to emulate a pipe, it may not work as expected in some cases.
+         This method will also not work if streaming for '@' is enabled using the built-in function
+         '$cmd_streaming_on'; in this case, the JxMake program may throw error or hung. Please note
+         that the value set by '@sstdin' will only be sent to the next one command; it means you
+         must call '@sstdin' multiple times if you want to pipe the same value to multiple commands.
+
+====================================================================================================

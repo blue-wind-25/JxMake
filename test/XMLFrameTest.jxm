@@ -1,0 +1,104 @@
+:::include <XMLFrame>
+
+
+function printResult(Res)
+    local Pos := 0
+    foreach R in ${Res}
+        not Pos, ${Pos}
+        if ${Pos} ; $printf( "%-14s : ", ${R}            )
+        else      ; $printf( "'%s'\n", $xml_escape(${R}) )
+        endif
+    endforeach
+endfunction
+
+
+target run
+    local XMLFrame
+    local XDefs
+
+    XMLFrame  := $call(xmlframe_begin                          , 'This is a test!', 600, 350, 8)
+
+    XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1, 0                       )
+    XMLFrame +:= $call(xmlframe_panel_add_exitbutton           , 'btnExit', 'Exit'             )
+    XMLFrame +:= $call(xmlframe_panel_end                      , 'n'                           )
+
+    lstVals   := 'List Item 1' 'List Item 2' 'List Item 3'
+    XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1, 0                       )
+    XMLFrame +:= $call(xmlframe_panel_add_listbox              , ${lstVals}, 2, 150            )
+    XMLFrame +:= $call(xmlframe_panel_end                      , 'w'                           )
+
+    rdoIDs1   := 'rdoType1' 'rdoType2'
+    rdoIDs2   := 'rdoStep1' 'rdoStep2'
+    cboVals   := 'One'      'Two'      'Three'
+    XMLFrame +:= $call(xmlframe_panel_begin                    , 2, 10, 0                      )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Name'                        )
+    XMLFrame +:= $call(xmlframe_panel_add_textfield            , 'Default Name'                )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Type'                        )
+    XMLFrame +:= $call(xmlframe_panel_add_radiobutton          , 'rdoType1', 'Standard', 1     )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , ''                            )
+    XMLFrame +:= $call(xmlframe_panel_add_radiobutton          , 'rdoType2', 'Extended', 0     )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Type'                        )
+    XMLFrame +:= $call(xmlframe_panel_add_radiobutton          , 'rdoStep1', 'Small'   , 0     )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , ''                            )
+    XMLFrame +:= $call(xmlframe_panel_add_radiobutton          , 'rdoStep2', 'Large'   , 1     )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Flags'                       )
+    XMLFrame +:= $call(xmlframe_panel_add_checkbox             , 'Read-Only', false            )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , ''                            )
+    XMLFrame +:= $call(xmlframe_panel_add_checkbox             , 'Executable', true            )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Mode'                        )
+    XMLFrame +:= $call(xmlframe_panel_add_combobox             , ${cboVals}, 3                 )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Level'                       )
+    XMLFrame +:= $call(xmlframe_panel_add_hslider              , 10, 20, 15                    )
+    XMLFrame +:= $call(xmlframe_panel_add_label                , 'Strength'                    )
+    XMLFrame +:= $call(xmlframe_panel_add_numberspinner        , 0, 10, 5, 1                   )
+    XMLFrame +:= $call(xmlframe_panel_end                      , 'c'                           )
+
+    txaValue  := "This is line 1\nThis is line 2\n"
+    XMLFrame +:= $call(xmlframe_panel_begin                    , 1, 1, 0                       )
+    XMLFrame +:= $call(xmlframe_panel_add_textarea             , ${txaValue}, 15, 0            )
+    XMLFrame +:= $call(xmlframe_panel_end                      , 'e'                           )
+
+    XMLFrame +:= $call(xmlframe_panel_begin                    , 2, 1, 8                       )
+    XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , 'btnOK', 'OK'                 )
+    XMLFrame +:= $call(xmlframe_panel_add_acceptbutton         , 'btnCancel', 'Cancel'         )
+    XMLFrame +:= $call(xmlframe_panel_end                      , 's'                           )
+
+    XDefs     := $call(xmlframe_xdef_en_key_enter_close_window                                 )
+    XDefs    +:= $call(xmlframe_xdef_en_key_escape_close_window                                )
+    XDefs    +:= $call(xmlframe_xdef_radiobutton_group         , ${rdoIDs1}                    )
+    XDefs    +:= $call(xmlframe_xdef_radiobutton_group         , ${rdoIDs2}                    )
+
+    XMLFrame +:= $call(xmlframe_end                            , ${XDefs}                      )
+
+    local msgBoxText := $call(mltext_to_html, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\nDonec justo nisl, facilisis eu nibh et, suscipit placerat nisi.\nNulla a ligula egestas, semper sem eget, tincidunt nisi.")
+    local listItems  := 'List Item 1' 'List Item 2' 'List Item 3' 'List Item 4' 'List Item 5'
+
+    #(*
+    echoln
+    $call( printResult, $xmlframe_file('../src/Test.GUI.xml') )
+
+    echoln
+   #echoln ${XMLFrame}
+    $call( printResult, $xmlframe_string(${XMLFrame}) )
+
+    echoln
+    echoln $ftlines(              $call(xmlf_msgbox_ok                    , 'Message Box'   , ${msgBoxText}                               )   )
+    echoln $ftlines(              $call(xmlf_msgbox_ok_cancel             , 'Message Box'   , ${msgBoxText},                  'x'         )   )
+    echoln $ftlines(              $call(xmlf_msgbox_yes_no                , 'Message Box'   , ${msgBoxText},                  'i'         )   )
+    echoln $ftlines(              $call(xmlf_msgbox_yes_no_cancel         , 'Message Box'   , ${msgBoxText},                  'w'         )   )
+    echoln $ftlines(              $call(xmlf_msgbox_yes_abort_retry       , 'Message Box'   , ${msgBoxText},                  'e'         )   )
+    echoln $ftlines(              $call(xmlf_msgbox_yes_abort_retry_ignore, 'Message Box'   , ${msgBoxText},                  'q'         )   ) ; echoln
+    echoln
+    echoln $ftlines(              $call(xmlf_lstbox_ok                    , 'List Box'      , ${msgBoxText}, ${listItems}                 )   ) ; echoln
+    echoln $ftlines(              $call(xmlf_lstbox_ok_cancel             , 'List Box'      , ${msgBoxText}, ${listItems}   , 'q'         )   ) ; echoln
+    echoln
+    echoln $ftlines(              $call(xmlf_txfbox_ok                    , 'Text Field Box', ${msgBoxText}, 'Default Value'              )   ) ; echoln
+    echoln $ftlines(              $call(xmlf_txfbox_ok_cancel             , 'Text Field Box', ${msgBoxText}, 'Default Value', 'q'         )   ) ; echoln
+    echoln
+    echoln $ftlines( $xml_escape( $call(xmlf_txabox_ok                    , 'Text Field Box', ${msgBoxText}, 'Default Value'              ) ) ) ; echoln
+    echoln $ftlines( $xml_escape( $call(xmlf_txabox_ok_cancel             , 'Text Field Box', ${msgBoxText}, 'Default Value', 'q'         ) ) ) ; echoln
+    echoln
+    echoln $ftlines(              $call(xmlf_chkbox_ok                    , 'Check Box'     , ${msgBoxText}, ${listItems}                 )   ) ; echoln
+    echoln $ftlines(              $call(xmlf_chkbox_ok_cancel             , 'Check Box'     , ${msgBoxText}, ${listItems}   , 'q', ?, ?, 2)   ) ; echoln
+    #*)
+endtarget

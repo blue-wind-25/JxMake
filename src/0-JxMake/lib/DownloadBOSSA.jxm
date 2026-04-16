@@ -1,0 +1,159 @@
+(****************************************************************************************************
+ ***** Download Command-Line BOSSA (Basic Open Source SAM-BA Application)                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the GitHub tool
+:::include_once 'GitHubTool.jxm'
+
+
+##### Path to the BOSSA
+    const BOSSA_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+    const BOSSA_Path        := $cat_path( $jtd()       , 'bossac'      )
+
+    const BOSSA_VerFileName := $cat_path( ${BOSSA_Path}, 'VERSION'     )
+    const BOSSA_LChFileName := $cat_path( ${BOSSA_Path}, 'LAST_CHECKED')
+
+if __os_windows__
+    const BOSSA_executable  := $cat_path( ${BOSSA_Path}, 'bossac.exe'  )
+else
+    const BOSSA_executable  := $cat_path( ${BOSSA_Path}, 'bossac'      )
+endif
+
+
+##### Function to delete the downloaded BOSSA
+function delete_bossa()
+    if $valid_path(${BOSSA_Path}) : $rmdir_rec(${BOSSA_Path})
+endfunction
+
+
+##### Function to download (and install) the latest BOSSA from GitHub
+function download_latest_bossa(?onlyIfNotExist, ?dlExactTagBOSSA)
+    # Read environment variables
+    JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST ?:= $getenv('JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' , '0')
+    JXMAKELIB_DOWNLOAD_BOSSA_FORCE_TAG   ?:= $getenv('JXMAKELIB_DOWNLOAD_BOSSA_FORCE_TAG'   , '' )
+    # Set the default values
+    onlyIfNotExist  ?:= ${JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST}
+    dlExactTagBOSSA ?:= ${JXMAKELIB_DOWNLOAD_BOSSA_FORCE_TAG}
+    # Create the tools directory
+    $mkdir(${BOSSA_Path})
+    # Check if the tools already exist
+    local AlreadyExist := true
+    if !$valid_path(${BOSSA_VerFileName}) : AlreadyExist := false
+    if !$valid_path(${BOSSA_LChFileName}) : AlreadyExist := false
+    if !$valid_path(${BOSSA_executable} ) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${BOSSA_LChFileName})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${BOSSA_ChkInterval}
+        eval X := @( ${CCh} - ${LCh} )
+        if ${InR} : return
+    endif
+    # Get the assets from the latest release
+    echoln
+    if &${dlExactTagBOSSA}
+        local mh := $call(gh_get_assets_from_release_by_tag_name, 'Seeed-Studio', 'BOSSA', ${dlExactTagBOSSA})
+    else
+        local mh := $call(gh_get_assets_from_latest_release     , 'Seeed-Studio', 'BOSSA'                    )
+    endif
+   #$put_file( $cat_path( $ptd(), 'bossa.assets.edata' ), $map_to_edata(${mh}) )
+   #local mh := $map_from_edata( $get_file( $cat_path( $ptd(), 'bossa.assets.edata' ) ) )
+    # Check for error
+    $call(gh_check_rest_api_mh, ${mh})
+    # Dump the map
+    $call(dump_map_object, ${mh})
+    echoln
+    # Extract the parts
+    local id      := $partn( $map_get(${mh}, '__ids__'                    ), 1 )
+    local version := $partn( $map_get(${mh}, :"${id}:tag_name"            ), 1 )
+    local bdlurls :=         $map_get(${mh}, :"${id}:browser_download_url")
+    # If the tools already exist, check if the version/date matches
+    local DownloadBOSSA := true
+    if ${AlreadyExist}
+        # Check the BOSSA version
+        if ${version} &== $get_file(${BOSSA_VerFileName}) : DownloadBOSSA := false
+    endif
+    # If there is nothing new to download, update the last check time and exit
+    if !${DownloadBOSSA}
+        $put_file( ${BOSSA_LChFileName}, $call(get_timestamp) )
+        return
+    endif
+    # Determine the suitable archive names
+    local url
+      if __os_windows__ ; url := $erase_ifnot(${bdlurls}, '.+-windows.+'        , true)
+    elif __os_mac__     ; url := $erase_ifnot(${bdlurls}, '.+-(darwin|drawin).+', true)
+    elif __os_linux__   ; url := $erase_ifnot(${bdlurls}, '.+-linux.+'          , true)
+    endif
+    if $part_count(${url}) > 1 : url := ''
+    # Fallback to the alternative URLs as needed
+    if !&${url}
+        (*
+         * Possible other download URLs:
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-windows.tar.gz
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-osx.tar.gz
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-linux32.tar.gz
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-linux64.tar.gz
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-linuxarm.tar.gz
+         *     https://files.seeedstudio.com/arduino/tools/res/bossac/1.7.0-arduino3/bossac-1.7.0-arduino3-linuxaarch64.tar.gz
+         *)
+        if __os_windows__
+                                              url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-windows.tar.gz'
+        elif __os_mac__
+                                              url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-osx.tar.gz'
+        elif __os_linux__
+              if __os_arch__ &== 'x86_32'   ; url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-linux32.tar.gz'
+            elif __os_arch__ &== 'x86_64'   ; url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-linux64.tar.gz'
+            elif __os_arch__ &== 'arm_32'   ; url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-linuxarm.tar.gz'
+            elif __os_arch__ &== 'aarch_64' ; url := 'http://downloads.arduino.cc/tools/bossac-1.9.1-arduino2-linuxaarch64.tar.gz'
+            endif
+        endif
+    endif
+    # Check if no suitable download URL was found
+    if !&${url} : $call(__exit_error_na_osna__, 'BOSSA')
+    # Always install Apple Rosetta 2 because for now the MacOS program seems to be only available for x86_64
+    if __os_mac__ : $call(__install_apple_rosetta__)
+    # Download the archive
+    local DLFile := $http_download( ${url}, $ptd() )
+   #local DLFile := '/tmp/__jxmake__/34bd07336e61798201e8c677443c2176f064e44765c99c7e0d27cb4420cb1860cd4e77575cefd635908ab052d764da15606ca2c539b04e8078a8d3de3d7288af/bossac-1.9.1-seeeduino-linux.tar.gz'
+    if !&${DLFile} : $call(__exit_error_download_fail__, ${url})
+    echoln
+    # Extract the archive to a temporary directory
+    local ExPath := $cat_path( $ptd(), 'bossa' )
+    $call(extract_archive_to, ${DLFile}, ${ExPath}, ${url})
+    if !$valid_path(${ExPath}) : $call(__exit_error_archive_extract_fail__, ${url})
+    # Get the root directory
+    local RootPath := $lsdir(${ExPath}, 'd')
+    if $part_count(${RootPath}) == 1 : ExPath := ${RootPath}
+    # Copy the extracted files from temporary directory to their suitable directory
+    local ExFiles := $srfile_rec(${ExPath}, __re_all__)
+    foreach local Path in ${ExFiles}
+        # Determine the destination path
+        local Dst := $cat_path( ${BOSSA_Path}, $file_name(${Path}) )
+        # Remove existing destination file (if any)
+        $rmfile(${Dst})
+        # Copy the file and check
+        $cpfile(${Path}, ${Dst}, true)
+        if !$valid_path(${Dst}) : $call(__exit_error_cpfile_fail__, ${Dst})
+        (*
+        echoln "<<< ${Path}"
+        echoln ">>> ${Dst}"
+        echoln
+        *)
+        echoln ${Dst}
+    endforeach
+    echoln
+    # Remove the temporary directory and the downloaded archive file
+    $rmdir_rec(${ExPath})
+    $rmfile   (${DLFile})
+    # Put the version number
+    $put_file(${BOSSA_VerFileName}, ${version})
+    # Put the last checked time
+    $put_file( ${BOSSA_LChFileName}, $call(get_timestamp) )
+endfunction

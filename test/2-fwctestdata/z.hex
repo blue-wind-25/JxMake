@@ -1,0 +1,11 @@
+:020000040001F9
+:10000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00
+:10001000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0
+:10010000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+:10011000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEF
+:00000001FF
+
+;objcopy --input-target=ihex --output-target=binary z.hex z.bin
+;hexdump -v -e '"[%08.8_ax] "' -e'4/1 "%02x " "  " 4/1 "%02x " "  " 4/1 "%02x " "  " 4/1 "%02x " "\n"' z.bin
+
+;https://www.fischl.de/hex_checksum_calculator

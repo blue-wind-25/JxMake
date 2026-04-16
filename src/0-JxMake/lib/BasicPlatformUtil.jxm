@@ -1,0 +1,1027 @@
+(****************************************************************************************************
+ ***** Basic Platform Utility                                                                   *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Default maximum number of warning and/or error messages before the build process terminates
+##### (only for build systems that support it)
+DEFAULT_JXMAKELIB_MAX_WARNINGS_AND_ERRORS := 5
+
+
+##### A target and helper functions to show the build tool library help
+target btlib_help
+    $call(__btlib_help__)
+endtarget
+
+function __btlib_help_print_title_main__()
+    echoln __c_magenta__ '========== Build Tool Library for ' __c_cyan__ ${__BuildTool_Title__} __c_magenta__ ' Target =========='
+    echoln
+endfunction
+
+function __btlib_help_print_title_cross__()
+    echoln __c_magenta__ '========== Cross-Compiler Specific Features and Options =========='
+    echoln
+endfunction
+
+function __btlib_help_print_title_variables__(?addText)
+    echoln __c_cyan__  'Variables ' ${addText} __c_white__ '(Evaluate Using \'' __c_green__ '${...}' __c_white__ '\')'
+    echoln
+endfunction
+
+function __btlib_help_print_title_functions__(bSpcCnt, mSpcCnt, eSpcCnt, ?addText)
+    echoln __c_cyan__  'Functions ' ${addText} __c_white__ '(Call Using \'' __c_green__ '$call(...)' __c_white__ '\')'
+    echoln
+    if $and(${bSpcCnt}, ${mSpcCnt}, ${eSpcCnt})
+        local BSpc := $repeat(' ', ${bSpcCnt})
+        local MSpc := $repeat(' ', ${mSpcCnt})
+        local ESpc := $repeat(' ', ${eSpcCnt})
+        echoln __c_green__ '    __btlib_help__' ${BSpc} '(' ${MSpc} ')' ${ESpc} __c_white__ ': show this help information'
+        echoln
+    endif
+endfunction
+
+function __btlib_help_print_title_targets__(eSpcCnt, ?addText)
+    local ESpc := $repeat(' ', ${eSpcCnt})
+    echoln __c_cyan__  'Targets ' ${addText}
+    echoln
+    if ${eSpcCnt}
+        echoln __c_green__ '    btlib_help' ${ESpc} __c_white__ ': show this help information by executing \'' __c_green__ '$call(__btlib_help__)' __c_white__ '\''
+        echoln
+    endif
+endfunction
+
+function __btlib_help_print_title_note__(?addText)
+    if &${addText} : addText := ." for ${addText}"
+    echoln __c_cyan__ 'Note' ${addText}
+    echoln
+endfunction
+
+function __btlib_help_print_note_auto_parallelize__(plural)
+    plural := $csel(${plural}, 's', '')
+    echoln __c_white__ '    The JxMake library ' __c_red__ 'will parallelize the build automatically' __c_white__ "; therefore, please run the above target${plural} using \'" __c_cyan__ 'jxmake' __c_white__ '\' (instead of \'' __c_cyan__ '+jxmake' __c_white__ '\').'
+    echoln
+endfunction
+
+function __btlib_help_print_note_clean_build_after_path_conf_change__()
+    $call(__btlib_help_print_title_note__, 'Path and Configuration Changes')
+    echoln __c_white__ '    If you change the SDK path, toolchain path, or other configurations, you must clean and restart the entire project build process'
+    echoln             '    to ensure that subsequent builds are performed correctly.'
+    echoln
+    echoln             '    This can be done by creating a target in your JxMake specification file that executes \'' __c_green__ '$call(clean_project)' __c_white__ '\' and run the target.'
+    echoln             '    In some cases, you may also need to clear the whole project cache by running the build process (the JxMake specification file)'
+    echoln             '    with the command line option \'' __c_yellow__ '--rm-prj-cache' __c_white__ '\' or at least \'' __c_yellow__ '--rm-jxm-cache' __c_white__ '\'.'
+    echoln
+endfunction
+
+function __btlib_help_build_string_tested_version_range__(descStr, verListRange, ?forcePlural)
+    # Get the number of version specifiers
+    local verCnt := $part_count(${verListRange})
+    if !${verCnt} : return ''
+    # Determine whether to use plural form or not
+    local plural := $csel( $or( ${forcePlural}, $cmp(${verCnt}, '>', 1) ), 's', '' )
+    # Add color to the description string
+    local descStr := __c_cyan__ ${descStr} __c_white__
+    # Build the version specification string
+    local sub verCntM1, ${verCnt}, 1
+    local     verSpecStr
+    foreach local I, V in ${verListRange}
+        verSpecStr +:= __c_cyan__ ${V} __c_white__
+        if ${I} == ${verCnt} : break
+        if ${I} == ${verCntM1}
+            if ${verCnt} > 2 ; verSpecStr +:= ', '
+            else             ; verSpecStr +:= ' '
+            endif
+            verSpecStr +:= 'and '
+        else
+            verSpecStr +:= ', '
+        endif
+    endforeach
+    # Process the range marker(s) as needed
+    local const RangeMarker := '\\-'
+    if !${forcePlural}
+        if $str_fidx(${verSpecStr}, ${RangeMarker}) : plural := 's'
+    endif
+    verSpecStr := $str_replace( ${verSpecStr}, ${RangeMarker}, $flatten( { __c_white__ '-' __c_cyan__ } ) )
+    # Build and return the final string
+    return __c_white__ "this JxMake library should support ${descStr} version${plural} ${verSpecStr}" __c_reset__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Functions to silent '$[stderr]' and '$[stdout]' outputs (except in case of non-zero exit code);
+##### affect '__conditional_print_stdxxx_and_check_excode__'
+__silent_stdxxx_allsrc_except_on_error__ := false
+__silent_stdxxx_syslib_except_on_error__ := true
+
+__stdxxx_from_syslib__                   := false
+
+function silent_stdxxx(?silent)
+    silent ?:= false
+    __silent_stdxxx_allsrc_except_on_error__ := ${silent}
+endfunction
+
+function silent_stdxxx_syslib(?silent)
+    silent ?:= true
+    __silent_stdxxx_syslib_except_on_error__ := ${silent}
+endfunction
+
+function is_all_stdxxx_silent()
+    return ${__silent_stdxxx_allsrc_except_on_error__}
+endfunction
+
+function is_sys_stdxxx_silent()
+    return $or(${__silent_stdxxx_allsrc_except_on_error__}, ${__silent_stdxxx_syslib_except_on_error__})
+endfunction
+
+
+##### Function to conditionally print '$[stderr]' and '$[stdout]' as well as exit the program if '$[excode]' is not zero
+function __conditional_print_stdxxx_and_check_excode__()
+    if $or( ${__silent_stdxxx_allsrc_except_on_error__}, $and(${__silent_stdxxx_syslib_except_on_error__}, ${__stdxxx_from_syslib__}) )
+        if !$[excode]
+            if $[cmdecho] : echoln
+            return
+        endif
+    endif
+    $call(__print_stderr_stdxxx__)
+    if $[excode]  : $exit($[excode])
+    if $[cmdecho] : echoln
+endfunction
+
+
+##### Function to unconditionally print '$[stderr]' and '$[stdout]' as well as exit the program if '$[excode]' is not zero
+function __print_stdxxx_and_check_excode__()
+    $call(__print_stderr_stdxxx__)
+    if $[excode] : $exit($[excode])
+    echoln
+endfunction
+
+
+##### Function to unconditionally print '$[stderr]' and '$[stdout]'
+const __FilterOut_libstdcpp_NVIA__ := '.+?libstdc\\+\\+.+?no version information available.*?[\\n\\r]+'
+
+function __print_stderr_stdxxx__()
+    if !__os_linux__
+        if &$[stderr] : echoln $[stderr]
+        if &$[stdout] : echoln $[stdout]
+    else
+        local err := $re_replace($[stderr], ${__FilterOut_libstdcpp_NVIA__}, '')
+        local out := $re_replace($[stdout], ${__FilterOut_libstdcpp_NVIA__}, '')
+        if &${err} : echoln ${err}
+        if &${out} : echoln ${out}
+    endif
+endfunction
+
+
+##### Functions to print error message and then exit the program
+function __format_exit_error_multi_whats__(whats)
+    return $implode(${whats}, {{ __c_white__, '/', __c_green__ }})
+endfunction
+
+function __exit_error_nd__(what, where)
+    echoln __c_white__ "\nSorry, '" __c_green__ ${what} __c_white__ '\' is ' __c_red__ 'is not defined' \
+           __c_white__ ' in \'' __c_green__ ${where} __c_white__ "'!\n" __c_reset__
+    $exit(-1)
+endfunction
+
+function __exit_error_nd_cmake_list__(what, where)
+    local what := $flatten( {{ 'CMake:', __c_cyan__, ' list ', __c_yellow__, ${what} }} )
+    $call(__exit_error_nd__, ${what}, :"${where}/CMakeLists.txt")
+endfunction
+
+
+function __exit_error_xx_bsjx__(what, where, whycolor, why, ?desc, ?bsver, ?bsname)
+    if  &${desc}   : desc   := "${desc} "
+    if !&${bsname} : bsname := 'build system/host'
+    if &${where}
+        if    ${bsver} ; bsver := '\' version \'' __c_cyan__ ${__BuildTool_Version__} __c_white__
+        elif &${bsver} ; bsver := '\' version \'' __c_cyan__ ${bsver} __c_white__
+        endif
+        if $str_begwith(${bsname}, '-')
+            bsname := $str_rmfchr(${bsname})
+            echo   __c_white__ "\nSorry, ${desc}'" __c_green__ ${what} __c_white__ ${bsver} __c_white__ '\' is ' ${whycolor} ${why}
+            echoln __c_white__ " on ${bsname} '" __c_green__ ${where} __c_white__ "!\n" __c_reset__
+        elif ${bsname} &== '[SPROG]'
+            echo   __c_white__ "\nSorry, ${desc}'" __c_green__ ${what} __c_white__ ${bsver} __c_white__ '\' is ' ${whycolor} ${why}
+            echoln __c_white__ " by the selected '" __c_green__ ${where} __c_white__ " program!\n" __c_reset__
+        else
+            echo   __c_white__ "\nSorry, ${desc}'" __c_green__ ${what} __c_white__ '\' is ' ${whycolor} ${why}
+            echoln __c_white__ ' for \'' __c_green__ ${where} __c_white__ "${bsver}' ${bsname}!\n" __c_reset__
+        endif
+    else
+        if ${bsver} : bsver := ' \'' __c_cyan__ __jxm_ver_major__ . __jxm_ver_minor__ . __jxm_ver_patch__ - __jxm_ver_devel__ __c_white__ '\''
+        echo   __c_white__ "\nSorry, ${desc}'" __c_green__ ${what} __c_white__ '\' is ' ${whycolor} ${why}
+        echoln __c_white__ " in JxMake${bsver} loadable script libraries!\n" __c_reset__
+    endif
+    $exit(-1)
+endfunction
+
+function __exit_error_ni__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet implemented')
+endfunction
+
+function __exit_error_ni_ver__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet implemented', ?, true)
+endfunction
+
+function __exit_error_ni_desc__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet implemented', ${desc})
+endfunction
+
+function __exit_error_ni_desc_ver__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet implemented', ${desc}, true)
+endfunction
+
+function __exit_error_ni_cmake_eval__(what)
+    local what := $flatten( {{ 'CMake:', __c_cyan__, ' evaluating ', __c_green__, ${what} }} )
+    $call(__exit_error_xx_bsjx__, ${what}, '', __c_yellow__, 'not yet implemented', ?, true)
+endfunction
+
+function __exit_error_na__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet available')
+endfunction
+
+function __exit_error_na_ver__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet available', ?, true)
+endfunction
+
+function __exit_error_na_desc__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet available', ${desc})
+endfunction
+
+function __exit_error_na_desc_ver__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_yellow__, 'not yet available', ${desc}, true)
+endfunction
+
+function __exit_error_na_osna__(what, ?desc)
+    local OSNameArch := __os_name__ '-' __os_arch__
+    if &${desc} : what +:= ' ' ${desc}
+    $call(__exit_error_na__, ${what}, ${OSNameArch})
+endfunction
+
+function __exit_error_na_path__(desc, what, where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not available', ${desc}, ?, '-path')
+endfunction
+
+function __exit_error_na_path_ver__(desc, what, where, ?ver)
+    ver ?:= true
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not available', ${desc}, ${ver}, '-path')
+endfunction
+
+function __exit_error_na_dev__(what, ?noExit)
+    echoln __c_white__ "\nSorry, the '" __c_green__ ${what} __c_white__ '\' device was ' __c_red__ 'not available' __c_white__ "!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_ns__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported')
+endfunction
+
+function __exit_error_ns_ver__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported', ?, true)
+endfunction
+
+function __exit_error_ns_desc__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported', ${desc})
+endfunction
+
+function __exit_error_ns_desc_ver__(desc, what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported', ${desc}, true)
+endfunction
+
+function __exit_error_ns_benv__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported', ?, ?, 'build environment')
+endfunction
+
+function __exit_error_ns_sprog__(what, ?where)
+    $call(__exit_error_xx_bsjx__, ${what}, ${where}, __c_red__, 'not supported', ?, ?, '[SPROG]')
+endfunction
+
+
+function __exit_error_nf__(what, ?noExit)
+    echoln __c_white__ "\nSorry, the '" __c_green__ ${what} __c_white__ '\' was ' __c_red__ 'not found' __c_white__ "!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+function __exit_error_nxx_str__(what)
+    echo __c_white__ "\nSorry, " __c_red__ 'no usable ' __c_white__ '\'' __c_green__ ${what} __c_white__
+endfunction
+
+function __exit_error_nup__(what, ?noExit)
+    $call(__exit_error_nxx_str__, ${what})
+    echoln "' program was found!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_nup_ext__(what, where, ?noExit)
+    if !&${where}
+        $call(__exit_error_nup__, ${what}, ${noExit})
+        return
+    endif
+    $call(__exit_error_nxx_str__, ${what})
+    echoln "' program was found in '" __c_green__ ${where} __c_white__  "'!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_nut__(what, ?noExit)
+    $call(__exit_error_nxx_str__, ${what})
+    echoln "' tool was found!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_nut_ext__(what, where, ?noExit)
+    if !&${where}
+        $call(__exit_error_nut__, ${what}, ${noExit})
+        return
+    endif
+    $call(__exit_error_nxx_str__, ${what})
+    echoln "' tool was found in '" __c_green__ ${where} __c_white__  "'\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+function __exit_error_if_not_rel_path__(path, where, ?noExit)
+    if $path_is_rel(${path}) : return
+    echoln __c_white__ "\nThe path specified in '" __c_green__ ${where} __c_white__ '\' must be ' __c_yellow__ 'a relative' __c_white__ " path!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_if_not_abs_path__(path, where, ?noExit)
+    if $path_is_abs(${path}) : return
+    echoln __c_white__ "\nThe path specified in '" __c_green__ ${where} __c_white__ '\' must be ' __c_yellow__ 'an absolute' __c_white__ " path!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+function __exit_error_xxx_fail__(desc, what, ?noExit)
+    echoln __c_white__ "\n${desc} " __c_red__ 'failed' __c_white__ ' for \'' __c_green__ ${what} __c_white__ "'!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_rest_api_fail__(?noExit)
+    $call(__exit_error_xxx_fail__, 'HTTP request', 'REST API', ${noExit})
+endfunction
+
+function __exit_error_download_fail__(what, ?noExit)
+    $call(__exit_error_xxx_fail__, 'Download', ${what}, ${noExit})
+endfunction
+
+function __exit_error_archive_extract_fail__(what, ?noExit)
+    $call(__exit_error_xxx_fail__, 'Archive extraction', ${what}, ${noExit})
+endfunction
+
+function __exit_error_cpfile_fail__(what, ?noExit)
+    $call(__exit_error_xxx_fail__, 'Copy file', ${what}, ${noExit})
+endfunction
+
+function __exit_error_build_process_fail__(what, ?noExit)
+    $call(__exit_error_xxx_fail__, 'Build process', ${what}, ${noExit})
+endfunction
+
+function __exit_error_build_process_fail_ext__(what, where, ?noExit)
+    if !&${where}
+        $call(__exit_error_build_process_fail__, ${what}, ${noExit})
+        return
+    endif
+    echoln __c_white__ "\nBuild process " __c_red__ 'failed' __c_white__ ' for \'' __c_green__ ${what} __c_white__ "' in '" __c_green__ ${where} __c_white__  "'!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_build_process_fail_desc__(what, desc, ?noExit)
+    if !&${desc}
+        $call(__exit_error_build_process_fail__, ${what}, ${noExit})
+        return
+    endif
+    echoln __c_white__ "\nBuild process " __c_red__ 'failed' __c_white__ ' for \'' __c_green__ ${what} __c_white__ "' (${desc})!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+function __exit_error_build_process_cancel__(what, ?why, ?noExit)
+    if &${why} : why := :" because ${why}"
+    echoln __c_white__ "\nBuild process " __c_yellow__ 'canceled' __c_white__ ' for \'' __c_green__ ${what} __c_white__ "'${why}!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+function __exit_error_build_process_cancel_ext__(what, where, ?why, ?noExit)
+    if !&${where}
+        $call(__exit_error_build_process_cancel__, ${what}, ${noExit})
+        return
+    endif
+    if &${why} : why := :" because ${why}"
+    echoln __c_white__ "\nBuild process " __c_yellow__ 'canceled' __c_white__ ' for \'' __c_green__ ${what} __c_white__ "' in '" __c_green__ ${where} __c_white__  "'${why}!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+function __exit_error_run_target_call_function_(targetName, funcName, ?noExit)
+    echoln __c_white__ "\nPlease run the target '" __c_green__ ${targetName} __c_white__ "' before calling '" __c_green__ ${funcName} __c_white__ "'!\n" __c_reset__
+    if !${noExit} : $exit(-1)
+endfunction
+
+
+##### Macro to exit the program by printing an error message stating that the function is not supported
+.macro __exit_error_function_ns__
+    $call(__exit_error_ns__, :"$[function]()", ${__BuildTool_Name__})
+.endmacro
+
+
+#####
+#####
+#####
+
+
+##### A function to print indent
+function print_indent(level)
+    local i := 0
+    while ${i} < ${level}
+        inc i
+        echo '    '
+    endwhile
+endfunction
+
+
+##### A function to print indented messages
+function print_indented_messages(level, ?msg)
+    if !&${msg}
+        $call(print_indent, ${level})
+    endif
+    foreach local m in ${msg}
+        $call(print_indent, ${level})
+        echoln ${m}
+    endforeach
+endfunction
+
+
+##### Functions to dump a map object
+function dump_map_object(mapHandle, ?deleteAfterDump)
+    # Dump the object
+    foreach local K in $map_keys(${mapHandle})
+        $printf("[%s]\n", ${K})
+        foreach local V in $map_get(${mapHandle}, ${K})
+            $printf("    %s\n", ${V})
+        endforeach
+    endforeach
+    # Delete the object as needed
+    if ${deleteAfterDump} : $map_delete(${mapHandle})
+endfunction
+
+function dump_map_object_and_exit(mapHandle, ?exitCode)
+    exitCode ?:= -1
+    $call(dump_map_object, ${mapHandle}, true)
+    $exit(${exitCode})
+endfunction
+
+
+##### Functions to dump map objects
+function dump_map_objects(mapHandles, ?deleteAfterDump)
+    foreach local mapHandle in ${mapHandles}
+        $call(dump_map_object, ${mapHandle}, ${deleteAfterDump})
+        echoln
+    endforeach
+endfunction
+
+function dump_map_objects_and_exit(mapHandles, ?exitCode)
+    exitCode ?:= -1
+    $call(dump_map_objects, ${mapHandles}, true)
+    $exit(${exitCode})
+endfunction
+
+
+##### Functions to dump a nested map object
+function __dump_nmap_object__(level, mapHandle)
+    # Dump the object
+    local nextLevel
+    local isUA
+    local isMH
+    local valArray
+    local valCount
+    local valIndex
+    local valMHStr
+    local keyPrint
+    foreach local K in $map_keys(${mapHandle})
+        add nextLevel, ${level}, 1
+            isUA     := $cmp(${K}, '&==', '__Array__')
+            valArray := $map_get(${mapHandle}, ${K})
+            valCount := $part_count(${valArray})
+            valIndex := 0
+            keyPrint := 0
+        foreach local val in ${valArray}
+                         isMH     := $map_valid_handle(${val})
+            if ${isMH} : valMHStr := ${val/(?:\000\000)(.+?)(?:\000)/──$1─/}
+            if !${keyPrint}
+                if $and( $not(${isUA}), ${isMH}) ; $call( print_indented_messages, ${level}, $sprintf( "[%s:%s]", ${K}, ${valMHStr} ) )
+                else                             ; $call( print_indented_messages, ${level}, $sprintf( "[%s]"   , ${K}              ) )
+                endif
+                keyPrint := 1
+            endif
+            if   $and(${isUA}, ${isMH}) ; $call( print_indented_messages, ${nextLevel}, $sprintf( "#%d:%s", ${valIndex}, ${valMHStr} ) ) ; inc valIndex
+            elif ${valCount} > 1        ; $call( print_indented_messages, ${nextLevel}, $sprintf( "#%d"   , ${valIndex}              ) ) ; inc valIndex
+            endif
+            if ${isMH} ; $call( __dump_nmap_object__   , ${nextLevel}, ${val} )
+            else       ; $call( print_indented_messages, ${nextLevel}, ${val} )
+            endif
+        endforeach
+    endforeach
+    # Delete the object as needed
+    if ${deleteAfterDump} : $map_delete(${mapHandle})
+endfunction
+
+function dump_nmap_object(mapHandle, ?deleteAfterDump)
+    $call(__dump_nmap_object__, 0, ${mapHandle})
+    if ${deleteAfterDump} : $map_delete(${mapHandle})
+endfunction
+
+function dump_nmap_object_and_exit(mapHandle, ?exitCode)
+    exitCode ?:= -1
+    $call(dump_nmap_object, ${mapHandle}, true)
+    $exit(${exitCode})
+endfunction
+
+
+##### Functions to dump a BSE object
+function dump_bse_object(bseHandle, ?deleteAfterDump)
+    # Dump the object
+    local Cursor := $bse_cursor(${bseHandle})
+    local Size   := $bse_size  (${bseHandle})
+    $printf("[C=%d] [N=%d]\n",${Cursor}, ${Size})
+    $bse_seek_beg(${bseHandle}, 0)
+    for local I := 1 to ${Size} step 1
+        $printf( "%02X ", $bse_rd_uint08(${bseHandle}) )
+    endfor
+    if  !${Size} ; echoln '<empty>'
+    else         ; echoln
+    endif
+    echoln
+    # Delete the object as needed
+    if ${deleteAfterDump} ; $bse_delete  (${bseHandle}           )
+    else                  ; $bse_seek_abs(${bseHandle}, ${Cursor})
+    endif
+endfunction
+
+function dump_bse_object_and_exit(bseHandle, ?exitCode)
+    exitCode ?:= -1
+    $call(dump_bse_object, ${bseHandle}, true)
+    $exit(${exitCode})
+endfunction
+
+function dump_bse_object_ext(bseHandle, ?extraMsg, ?deleteAfterDump)
+    # Print the extra message as needed
+    if &${extraMsg} : echoln ${extraMsg}
+    # Dump the object
+    local Cursor := $bse_cursor(${bseHandle})
+    local Size   := $bse_size  (${bseHandle})
+    $printf("[%s] [C=%d] [N=%d]\n",${bseHandle}, ${Cursor}, ${Size})
+    if !${Size}
+        echoln '<empty>'
+    else
+        # Print the indexes
+        echo '# '
+        for local I := 1 to ${Size} step 1
+            $printf("%02X ", ${I})
+        endfor
+        echoln
+        # Print the values
+        $bse_seek_beg(${bseHandle}, 0)
+        echo '= '
+        for local I := 1 to ${Size} step 1
+            $printf( "%02X ", $bse_rd_uint08(${bseHandle}) )
+        endfor
+        echoln
+        # Print the cursor
+        local eval Padding := ${Cursor} - 1
+        echo '  '
+        for local I := 1 to ${Padding} step 1
+            echo '   '
+        endfor
+        echoln '^^ '
+    endif
+    echoln
+    # Delete the object or restore the cursor position
+    if ${deleteAfterDump} ; $bse_delete  (${bseHandle}           )
+    else                  ; $bse_seek_abs(${bseHandle}, ${Cursor})
+    endif
+endfunction
+
+function dump_bse_object_ext_and_exit(bseHandle, ?extraMsg, ?exitCode)
+    exitCode ?:= -1
+    $call(dump_bse_object_ext, ${bseHandle}, ${extraMsg}, true)
+    $exit(${exitCode})
+endfunction
+
+
+##### A function to print the development environment configuration summary
+function print_devenv_config()
+      if __os_64bit__ ; local __BuildTool_Target__ ?:= 'Native (64-Bit)'
+    elif __os_32bit__ ; local __BuildTool_Target__ ?:= 'Native (32-Bit)'
+    else              ; local __BuildTool_Target__ ?:= 'Native'
+    endif
+    echoln
+    echoln    __c_white__  '========================================================================================='
+    echoln    __c_white__  '=================== Summary of Development Environment Configurations ==================='
+    echoln    __c_white__  '========================================================================================='
+    echoln    __c_green__  'Host CPU Architecture        = ' __c_cyan__ __os_arch__
+    echoln    __c_green__  'Host CPU Bit Count           = ' __c_cyan__ __os_bit_count__
+    echoln    __c_green__  'Host Operating System        = ' __c_cyan__ __os_name_actual__
+    echoln    __c_white__  '-----------------------------------------------------------------------------------------'
+    echoln {{ __c_green__, 'Current Working    Directory = ', __c_cyan__, $cwd() }}
+    echoln {{ __c_green__, 'Project Temporary  Directory = ', __c_cyan__, $ptd() }}
+    echoln {{ __c_green__, 'User    Home       Directory = ', __c_cyan__, $uhd() }}
+    echoln {{ __c_green__, 'JxMake  Executable Directory = ', __c_cyan__, $jxd() }}
+    echoln    __c_white__  '-----------------------------------------------------------------------------------------'
+    echoln    __c_green__  'Target Architecture          = ' __c_cyan__ ${__BuildTool_Target__}
+    echoln    __c_green__  'Compiler Name                = ' __c_cyan__ ${__BuildTool_Name__}
+    echoln    __c_green__  'Compiler Version             = ' __c_cyan__ ${__BuildTool_Version__} ' (' ${__BuildTool_Version_Num__} ')'
+    if &${__BuildTool_ExtraInfoName__}
+        echoln    __c_white__  '-----------------------------------------------------------------------------------------'
+        foreach local I, N in ${__BuildTool_ExtraInfoName__}
+            if ${N} &== '-'
+                echoln __c_white__ '-----------------------------------------------------------------------------------------'
+            else
+                local V := $partn(${__BuildTool_ExtraInfoValue__}, ${I})
+                      N := $sprintf("%-28s", ${N})
+                echoln __c_green__ "${N} = " __c_cyan__ ${V}
+            endif
+        endforeach
+    endif
+    echoln __c_white__ '========================================================================================='
+    echoln __c_reset__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Functions to print build process titles
+__print_build_process_titles__ := false
+
+function print_build_process_titles(?printBPT)
+    printBPT ?:= false
+    __print_build_process_titles__ := ${printBPT}
+endfunction
+
+
+function __bpt_arduino_build__(?ardTrg)
+    ardTrg ?:= $[target]
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[A-BUILD] ' __c_white__ -${ardTrg} __c_reset__
+endfunction
+
+function __bpt_arduino_upload_std__(?ardTrg)
+    ardTrg ?:= $[target]
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[A-U-STD] ' __c_white__ -${ardTrg} __c_reset__
+endfunction
+
+function __bpt_arduino_upload_prg__(?ardTrg)
+    ardTrg ?:= $[target]
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[A-U-PRG] ' __c_white__ -${ardTrg} __c_reset__
+endfunction
+
+function __bpt_arduino_upload_net__(?ardTrg)
+    ardTrg ?:= $[target]
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[A-U-NET] ' __c_white__ -${ardTrg} __c_reset__
+endfunction
+
+
+function __bpt_gatt__()
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[GATT   ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_s__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[ASM    ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cc__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CC     ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cxx__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CXX    ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cc_ld__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CC-LD  ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cxx_ld__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CXX-LD ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cxx20m__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CXX20-M] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_cxx20hu__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[CXX20-H] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_link_slib__()
+    if ${__print_build_process_titles__} : echoln __c_yellow__  '[S-LIB  ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_link_dlib__()
+    if ${__print_build_process_titles__} : echoln __c_yellow__  '[D-LIB  ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_link_exe__()
+    if ${__print_build_process_titles__} : echoln __c_red__     '[EXE    ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_bin__()
+    if ${__print_build_process_titles__} : echoln __c_magenta__ '[BIN    ] ' __c_white__ -$[target/(.+)\.elf/$1.bin/] __c_reset__
+endfunction
+
+function __bpt_hex__()
+    if ${__print_build_process_titles__} : echoln __c_magenta__ '[HEX    ] ' __c_white__ -$[target/(.+)\.elf/$1.hex/] __c_reset__
+endfunction
+
+function __bpt_bin_hex__()
+    if ${__print_build_process_titles__} : echoln __c_magenta__ '[BIN-HEX] ' __c_white__ -$[target/(.+)\.elf/$1.{bin,hex}/] __c_reset__
+endfunction
+
+function __bpt_exe_size_linespace__()
+    if ${__print_build_process_titles__} : echoln
+endfunction
+
+
+function __bpt_javapp__()
+    if ${__print_build_process_titles__} : echoln __c_cyan__    '[JAVA-PP] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_javac__()
+    if ${__print_build_process_titles__} : echoln __c_green__   '[JAVAC  ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+function __bpt_jar__()
+    if ${__print_build_process_titles__} : echoln __c_red__     '[JAR    ] ' __c_white__ -$[target] __c_reset__
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Functions to calculate numerical version numbers
+function calc_ver_numeric_222(a, b, c)
+    local eval numeric := ${a} * 10000  + ${b} * 100 + ${c} # AA.BB.CC
+    return ${numeric}
+endfunction
+
+function calc_ver_numeric_333(a, b, c)
+    local eval numeric := ${a} * 1000000 + ${b} * 1000 + ${c} # AAA.BBB.CCC
+    return ${numeric}
+endfunction
+
+function calc_ver_numeric_338(a, b, c)
+    local eval numeric := ${major} * 100000000000 + ${minor} * 100000000 + ${patch} # AAA.BBB.CCCCCCCC
+    return ${numeric}
+endfunction
+
+function calc_ver_numeric_2252(a, b, c, d)
+    local eval numeric := ${a} * 1000000000 + ${b} * 10000000 + ${c} * 100  + ${d} # AA.BB.CCCCC.DD
+    return ${numeric}
+endfunction
+
+function calc_ver_numeric_3363(a, b, c, d)
+    local eval numeric := ${a} * 1000000000000 + ${b} * 1000000000 + ${c} * 1000 + ${d} # AAA.BBB.CCCCCC.DDD
+    return ${numeric}
+endfunction
+
+
+##### A function to get the current numerical timestamp
+function get_timestamp()
+    local ms := $millis()
+    div   ms, ${ms}, 1000
+    return ${ms}
+endfunction
+
+
+##### Function to format the text of section sizes and total size
+function __format_section_size_text__(text)
+    # Extract the lines and parts
+    local lines := $strim( $sflines(${text}) )
+          lines := ${lines/\s+/ /}
+    local partf
+    local part1 := $sfspaces(${lines}<1>)
+    local part2 := $sfspaces(${lines}<2>)
+    local partn := $part_count(${part1})
+    dec   partn
+          part1 := ${part1}<1:partn>
+          part2 := ${part2}<1:partn>
+    local slen1
+    local slen2
+    foreach local p in ${part1}
+        slen1 +:= $strlen(${p})
+    endforeach
+    foreach local p in ${part2}
+        slen2 +:= $strlen(${p})
+    endforeach
+    for local i := 1 to ${partn} step 1
+        local     l1 := ${slen1}<i>
+        local     l2 := ${slen2}<i>
+        local max lm, ${l1}, ${l2}
+        partf +:= ${lm}
+    endfor
+    # Generate the final text
+    local fmt
+    local text := '    ║ '
+    foreach local i, part in ${part1}
+        text +:= $sprintf({{ '%', ${partf}<i>, 's   ' }}, ${part})
+    endforeach
+    text +:= "\n    ║ "
+    foreach local i, part in ${part2}
+        text +:= $sprintf({{ '%', ${partf}<i>, 's   ' }}, ${part})
+    endforeach
+    text +:= "\n"
+    # Return the final text and the text and data sizes
+    return {{ $flatten(${text}), ${part2}<1:2> }}
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to check if the given command is executable
+function __cmd_is_executable__(optBinDir, chkCmd, params)
+    # Append the optional directory as needed
+    if &${optBinDir} : chkCmd := $cat_path(${optBinDir}, ${chkCmd})
+    # Execute the command and get the exit code
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${chkCmd} ${params}
+    $nop($[excode]) # Ensure all pending commands are executed
+    $restore_sem()
+    # Check and return if the command can actually be executed
+    return $cmp($[lserr], '&==', '')
+endfunction
+
+function cmd_is_executable(optBinDir, chkCmd, ?params)
+    return $exec(__cmd_is_executable__, ${optBinDir}, ${chkCmd}, ${params})
+endfunction
+
+
+##### Function to check if the given command can be executed successfully
+function cmd_executed_successfully(optBinDir, chkCmd, ?params)
+    # Check if the given command is executable
+    if !$exec(__cmd_is_executable__, ${optBinDir}, ${chkCmd}, ${params}) : return 0
+    # Check if the exit code is zero
+    return $cmp($[excode], '==', 0)
+endfunction
+
+
+##### Function to find available commands
+function __find_available_commands__(basicName, regexp)
+    # Simply exit if the OS is not POSIX
+    if !__os_posix__ : return
+    # Use 'compgen' to get the available commands
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@bash -c :"compgen -c ${basicName}"
+    $nop($[excode]) # Ensure all pending commands are executed
+    $restore_sem()
+    # Check for error
+    if $[lserr] : return
+    # Process the results
+              local Lines := $sflines($[stdout])
+    if &${regexp} : Lines := $unique( $erase_ifnot(${Lines}, ${regexp}, true) )
+    (*
+              local CSelV := 1
+    if &${regexp} : CSelV := $re_match(${Lines}, ${regexp})
+                    Lines := $unique( $erase_ifempty( $csel(${CSelV}, ${Lines}, '') ) )
+    *)
+    # Return the results
+    return ${Lines}
+endfunction
+
+function find_available_commands(basicName, ?regexp)
+    return $exec(__find_available_commands__, ${basicName}, ${regexp})
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to wait for the specified serial port to (re-)appear
+const __WaitForSerialPort_DelayMS__ := 500
+
+function __wait_for_serial_port_to_appear__(device, timeout_seconds)
+    # Sanitize the timeout
+    if ${timeout_seconds} <= 0 : timeout_seconds := 1
+    # Get the start time
+    local start := $millis()
+    local now
+    local delta
+    # Loop until the port has appeared or timeout
+    loop
+        # Wait for a while and check if the port has appeared
+        $sleep(${__WaitForSerialPort_DelayMS__})
+        if $contains( $ls_serial_ports(), ${device} ) : return true
+        # Check for timeout
+             now   := $millis()
+        eval delta := ( ${now} - ${start} + 500 ) / 1000
+        if ${delta} > ${timeout_seconds} : return false
+    endloop
+endfunction
+
+
+##### Function to check if the specified serial port exists
+function __check_if_serial_port_exists__(device, ?waitDelayMS)
+    # Wait for a while
+    waitDelayMS ?:= ${__WaitForSerialPort_DelayMS__}
+    $sleep(${waitDelayMS})
+    # Check if the port does not exist
+    if !$contains( $ls_serial_ports(), ${device} ) : return false
+    # Wait for a while
+    $sleep(${waitDelayMS})
+    # Check if the port exists
+    return $contains( $ls_serial_ports(), ${device} )
+endfunction
+
+
+#####
+#####
+#####
+
+##### A special string constant to indicate that the variable for the generic toolchain path should not be used
+const __GTCP_NA__ := 'Generic_Toolchain_Path_is_Not_Applicable'
+
+
+##### The default check interval for downloading the latest files in seconds
+const JxMake_Download_ChkIntervalS := $getenv('JXMAKELIB_DOWNLOAD_CHK_INTERVAL_SECONDS', 432000) # The default is 5 days (5 * 24 * 3600 = 432000)
+
+
+##### Function to extract the given file to the specified path
+function extract_archive_to(filePath, dstPath, errDetail)
+    local errMsg
+      if $str_lidx(${filePath}, '.tar.xz' ) > 0 ; errMsg := $untxz_rec (${filePath}, ${dstPath}, false)
+    elif $str_lidx(${filePath}, '.tar.bz2') > 0 ; errMsg := $untbz2_rec(${filePath}, ${dstPath}, false)
+    elif $str_lidx(${filePath}, '.tar.gz' ) > 0 ; errMsg := $untgz_rec (${filePath}, ${dstPath}, false)
+    elif $str_lidx(${filePath}, '.tar.zip') > 0 ; errMsg := $untzip_rec(${filePath}, ${dstPath}, false)
+    elif $str_lidx(${filePath}, '.tar'    ) > 0 ; errMsg := $untar_rec (${filePath}, ${dstPath}, false)
+    elif $str_lidx(${filePath}, '.zip'    ) > 0 ; errMsg := $unzip_rec (${filePath}, ${dstPath}, false)
+    else                                        ; $call(__exit_error_ns_desc__, 'extracting', ${errDetail})
+    endif
+    if &${errMsg}
+        $call(__exit_error_archive_extract_fail__, ${errDetail}, true)
+        echoln ${errMsg}
+        echoln
+        $exit(-1)
+    endif
+    if !$valid_path(${dstPath}) : $call(__exit_error_archive_extract_fail__, ${errDetail})
+endfunction
+
+
+##### Functions to install Apple Rosetta 2
+function __install_apple_rosetta_exec__()
+    +@/usr/sbin/softwareupdate --install-rosetta
+endfunction
+
+function __install_apple_rosetta__()
+    if !$valid_path('/Library/Apple/usr/share/rosetta') : $exec(__install_apple_rosetta_exec__)
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Constant to determine whether to use LD_LIBRARY_PATH or DYLD_FALLBACK_LIBRARY_PATH for 'LDLibraryPaths'
+  if __os_mac__          ; const __Real_LDLibraryPath__   := 'DYLD_FALLBACK_LIBRARY_PATH'
+elif __os_posix__        ; const __Real_LDLibraryPath__   := 'LD_LIBRARY_PATH'
+elif __os_posix_compat__ ; const __Real_LDLibraryPath__   := 'LD_LIBRARY_PATH'
+else                     ; const __Real_LDLibraryPath__   := '__DUMMY_UNUSED_LD_LIBRARY_PATH__'
+endif
+
+
+##### Constant to save the original 'LDLibraryPaths' value
+const __LDLibraryPath_OriVal__ := $explode( $getenv(${__Real_LDLibraryPath__}, ''), __os_psep_char__ )
+
+
+##### Function to get 'LDLibraryPaths' value
+function __get_LDLibraryPaths__()
+    local Value := $unique( $stack(~${LDLibraryPath}, ${__LDLibraryPath_OriVal__}) )
+    return $implode(${Value}, __os_psep_char__)
+endfunction
+
+
+##### Function to conditionally return either an empty string or the concatenated 'LDLibraryPaths' value
+function __ccat_LDLibraryPaths__(extraPaths)
+    if !&${extraPaths} : return ''
+    local Value := $unique( $stack(${extraPaths}, ~${LDLibraryPath}, ${__LDLibraryPath_OriVal__}) )
+    return $implode(${Value}, __os_psep_char__)
+endfunction
+

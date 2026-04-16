@@ -1,0 +1,317 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - MCS51 SDCC - Native MCS51 SDCC SDK                                      *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the SDCC C/C++ build tool and other utilities
+:::include_once 'AVRDUDEHelper.jxm'
+:::include_once 'C++XBuildTool_SDCC.jxm'
+:::include_once 'C++XBuildTool_ArduinoUtil.jxm'
+
+
+##### Update the flags
+const __BuildTool_Name__   := 'MCS51 Small Device C Compiler (SDCC)'
+      __BuildTool_Target__  = "MCS51 (${MCS51_MCUType} - ${MCS51_CPUFrequency} Hz)"
+const __BuildTool_Title__  := 'MCS51 C/C++'
+
+
+##### Update the definitions of executables, paths, and options
+CppAssembler              := 'sdas8051'
+
+CppCommonCcCompileFlags  :+= '-mmcs51'
+CppCommonCcCompileFlags   += ${__MCS51_CINCDIR__} ${__MCS51_DDEVICE__} ${__MCS51_DFCPU__}
+
+CppCommonCxxCompileFlags  += ${__MCS51_CINCDIR__} ${__MCS51_DDEVICE__} ${__MCS51_DFCPU__}
+
+CppCommonLinkFlags       :+= '-mmcs51'
+
+
+##### Determine some settings
+MCS51_TOOLCHAIN_PATH             ?:= $getenv('MCS51_TOOLCHAIN_PATH', '')
+
+SDCC_MAP_FILE_ACC_SIZE_AREA_ATTR  := 'REL' 'CODE'
+
+
+###################################################################################
+##### ==================== Generic/Common MCS51 Functions =================== #####
+###################################################################################
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories) supersede
+    # Check the paths
+    local pathError := false
+    if $or( $cmp(${MCS51_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${MCS51_TOOLCHAIN_PATH}) ) )
+        $call(__exit_error_nf__, 'MCS51 Toolchain (SDCC)', true)
+        echoln "Please use your operating system package manager to install the MCS51 Toolchain (SDCC) or download and install it from:"
+        echoln '    https://sdcc.sourceforge.net'
+        echoln '    https://sourceforge.net/projects/sdcc/files'
+        echoln
+        echoln 'Example (Linux):'
+        echoln '    mkdir ~/mcs51'
+        echoln '    cd ~/mcs51'
+        echoln '    tar -xjvpf sdcc-4.2.0-amd64-unknown-linux2.5.tar.bz2'
+        echoln '    cd ..'
+        echoln 'Set \'MCS51_TOOLCHAIN_PATH\' to the MCS51 Toolchain location.'
+        echoln
+        pathError := true
+    endif
+    if ${pathError} : $exit(-1)
+    # Set the location of the C/C++ binaries
+    CppToolBinDir := $cat_path(${MCS51_TOOLCHAIN_PATH}, 'bin')
+    # Find the Arduino package directories only if the user has not manually set the variable
+    if !&${ArduinoPackageDirs}
+        ArduinoPackageDirs := $call(find_arduino_package_dirs)
+    endif
+    # Find the latest AVRDUDE from Arduino package(s)
+    $call(__find_latest_arduino_avrdude_cmd__)
+    # Check if the AVRDUDE support the MCS51 parts and update its configuration file as needed
+    if !$call(__chk_sel_avrdude_part_support__, { at89s51 at89s52 at89s8253 })
+        local CCF := $call(__create_custom_avrdude_config_mcs51_parts__, ${AVRDUDE_Cmd}<1>)
+        if $part_count(${AVRDUDE_Cmd}) == 3
+            AVRDUDE_Cmd := {{ ${AVRDUDE_Cmd}<1:2>, ${CCF} }}
+        else
+            AVRDUDE_Cmd +:= '-C' ${CCF}
+        endif
+    endif
+    # Check the programmers supported by AVRDUDE
+    local ChkProg := usbtiny usbasp
+    local ChkRes  := $call(__chk_sel_avrdude_programmer_support_ext__, ${ChkProg})
+    __AVRDUDE_SupportMCS51Progs__ := $erase_ifempty( $csel(${ChkRes}<2:0>, ${ChkProg}, '' ) )
+    # Set extra configuration information text
+    if &${MCS51_SDK_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'MCS51 SDK       Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${MCS51_SDK_PATH}
+    endif
+    if &${MCS51_TOOLCHAIN_PATH}
+        __BuildTool_ExtraInfoName__  +:= 'MCS51 Toolchain Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${MCS51_TOOLCHAIN_PATH}
+    endif
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= 'MCS51 SDCC      Directory'
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    $call(__add_sel_avrdude_cmd_to_bt_extra_info__)
+    # Call the origin function
+    __JXMAKELIB_AVR_DO_NOT_DOWNLOAD_DFU_PROG__ := true # MCS51 does not need DFU programmer
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to check if the selected AVRDUDE support the given programmer
+function __mcs51_chk_avrdude_prog_support__(programmer, ?descProgName)
+    descProgName ?:= ${programmer}
+    if !$contains( ${__AVRDUDE_SupportMCS51Progs__}, $lcase(${programmer/\s//}) ) : $call(__exit_error_ns_sprog__, ${descProgName}, 'AVRDUDE')
+endfunction
+
+
+##### Function to check signature and upload via USBtinyISP
+const MCS51_Default_USBtinyISPVariant := 'USBtiny'
+
+.macro __mcs51_usbtinyisp_common_entry_code__
+    (*
+    # NOTE : USBtinyISP and MCS51 does not work well and needs workaround that currently does not work on Windows!
+    if __os_windows__
+        $call(__exit_error_ns_benv__, 'USBtinyISP', 'MCS51/AVRDUDE/Windows')
+    endif
+    *)
+    # Set the default values
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_mcs51__, ${MCS51_CPUFrequency})
+    variant  ?:= ${MCS51_Default_USBtinyISPVariant}
+    variant   := $lcase(${variant})
+    # Check if AVRDUDE support the default programmer variant; NOTE : other variants are not checked!
+    if ${variant} &== $lcase(${MCS51_Default_USBtinyISPVariant})
+        $call(__mcs51_chk_avrdude_prog_support__, 'usbtiny', 'USBtinyISP')
+    endif
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __mcs51_usbtinyisp_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_usbtinyisp_error_and_print_help__, $[function], true)
+.endmacro
+
+function __mcs51_chksig_usbtinyisp_exec__(bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__} -D -U signature:r:-:h
+endfunction
+
+function mcs51_chksig_usbtinyisp(?bitClock, ?variant)
+    # Execute the common entry code
+    .$__mcs51_usbtinyisp_common_entry_code__
+    # Perform signature check
+    $exec( __mcs51_chksig_usbtinyisp_exec__, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__mcs51_usbtinyisp_common_leave_code__
+endfunction
+
+function __mcs51_upload_usbtinyisp_exec__(progName, bitClock, variant, ldLibraryPath)
+    (*
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@bash -c :"${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__} -e ${AVRDUDE_CmdSafeMode} ; exit 0"
+              +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__}    ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+    *)
+    # Erase flash
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__} -e ${AVRDUDE_CmdSafeMode}
+    $nop($[excode]) # Ensure all pending commands are executed and ignore the exit code because '-e' with MCS51 and USBtinyISP always produce non zero exit code
+    # Program flash
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__}    ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+    $nop($[excode])
+endfunction
+
+function mcs51_upload_usbtinyisp(progName, ?bitClock, ?variant)
+    # Execute the common entry code
+    .$__mcs51_usbtinyisp_common_entry_code__
+    # Perform upload
+    $exec( __mcs51_upload_usbtinyisp_exec__, ${progName}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__mcs51_usbtinyisp_common_leave_code__
+endfunction
+
+.undefmacro __mcs51_usbtinyisp_common_entry_code__
+.undefmacro __mcs51_usbtinyisp_common_leave_code__
+
+
+##### Function to check signature and upload via USBasp
+const MCS51_Default_USBaspVariant := 'USBasp'
+
+.macro __mcs51_usbasp_common_entry_code__
+    # Set the default values
+    bitClock ?:= $call(__avrdude_get_safe_bit_clock_for_mcs51__, ${MCS51_CPUFrequency})
+    variant  ?:= ${MCS51_Default_USBaspVariant}
+    variant   := $lcase(${variant})
+    # Check if AVRDUDE support the default programmer variant; NOTE : other variants are not checked!
+    if ${variant} &== $lcase(${MCS51_Default_USBaspVariant})
+        $call(__mcs51_chk_avrdude_prog_support__, 'usbasp', 'USBasp')
+    endif
+    # Enable streaming for '@'
+    $cmd_streaming_on()
+.endmacro
+
+.macro __mcs51_usbasp_common_leave_code__
+    # Disable streaming for '@'
+    $cmd_streaming_off()
+    # Check for error
+    $call(__avrdude_check_usbasp_error_and_print_help__, $[function], false, true)
+.endmacro
+
+function __mcs51_chksig_usbasp_exec__(bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__} -D -U signature:r:-:h
+endfunction
+
+function mcs51_chksig_usbasp(?bitClock, ?variant)
+    # Execute the common entry code
+    .$__mcs51_usbasp_common_entry_code__
+    # Perform upload
+    $exec( __mcs51_chksig_usbasp_exec__, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__mcs51_usbasp_common_leave_code__
+endfunction
+
+function __mcs51_upload_usbasp_exec__(progName, bitClock, variant, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@${AVRDUDE_Cmd} -c ${variant} -B ${bitClock} -p ${__MCS51_AVRDUDE__} -e ${AVRDUDE_CmdSafeMode} -D -V -U :"flash:w:~${progName/(.+)\.elf/$1.hex/}:i"
+endfunction
+
+function mcs51_upload_usbasp(progName, ?bitClock, ?variant)
+    # Execute the common entry code
+    .$__mcs51_usbasp_common_entry_code__
+    # Perform upload
+    $exec( __mcs51_upload_usbasp_exec__, ${progName}, ${bitClock}, ${variant}, $call(__get_LDLibraryPaths__) )
+    # Execute the common leave code
+    .$__mcs51_usbasp_common_leave_code__
+endfunction
+
+.undefmacro __mcs51_usbasp_common_entry_code__
+.undefmacro __mcs51_usbasp_common_leave_code__
+
+(*
+export madbin=~/.arduino15/packages/arduino/tools/avrdude/6.3.0-arduino17/bin/avrdude
+export madcnf=/tmp/__jxmake__/0d08b90009f302b71db31d2b94ee674662cfc4cfef8dfd1c15e87966f4bfb2d588f95ed7b4acd319fa630c8c93fe58a4c73c1989e56efece7577d5db9359a0f7/mcs51_avrdude.conf
+
+$madbin -C $madcnf -c usbasp -p 89s52 -B 31.25 -U signature:r:-:h
+
+
+~/.arduino15/packages/arduino/tools/avrdude/6.3.0-arduino17/bin/avrdude -C /tmp/__jxmake__/0d08b90009f302b71db31d2b94ee674662cfc4cfef8dfd1c15e87966f4bfb2d588f95ed7b4acd319fa630c8c93fe58a4c73c1989e56efece7577d5db9359a0f7/mcs51_avrdude.conf -c usbtiny -B 31.25 -p 89s52 -e -u -s -D -V -U flash:w:`echo ~/Projects/JxMake/test/src/cpp_at89s52/build/main.ihx`:i
+*)
+
+
+###################################################################################
+##### ===================== Native MCS51 Build Functions ==================== #####
+###################################################################################
+
+##### Function to select the part number
+const MCS51_Default_CPUFreq := 11059200
+
+function mcs51_select_part(partNumber, ?cpuFreq)
+    # Set the default value
+    cpuFreq ?:= ${MCS51_Default_CPUFreq}
+    # Convert the part number to uppercase
+    partNumber := $ucase(${partNumber})
+    # Save the part number and CPU frequency
+    MCS51_MCUType      := ${partNumber}
+    MCS51_CPUFrequency := ${cpuFreq}
+    # Determine the include paths
+    local PathPrefix := 'share/sdcc/'
+    if !$valid_path(:"${MCS51_TOOLCHAIN_PATH}/${PathPrefix}") : PathPrefix := ''
+    local IncPathRoot    := $cat_path(${MCS51_TOOLCHAIN_PATH}, :"${PathPrefix}include")
+    local IncPathRootSub := $cat_path(${IncPathRoot}         , 'mcs51'                )
+    # Set the special definition variables
+    __MCS51_CINCDIR__ := $series    ( '-I', {{ ~${IncPathRoot}, ~${IncPathRootSub} }}          )
+    __MCS51_DDEVICE__ := $series    ( '-D', { '' '__' '__MCS51_' }, ${partNumber}, { '' '__' } )
+    __MCS51_DFCPU__   := $series    ( '-DF_CPU=', ${MCS51_CPUFrequency}, 'UL'                  )
+    __MCS51_AVRDUDE__ := $re_replace( $lcase(${partNumber}), 'at89s(\d+)', '89s$1'             )
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText := __c_cyan__  "Native MCS51" __c_white__
+    local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    $call(__origin__)
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${NGInfo})
+    echoln __c_green__ '    MCS51_TOOLCHAIN_PATH  ' __c_white__ ': location of ' ${NGText} ' toolchain'
+    echoln
+   #$call(__btlib_help_print_title_functions__, 9, 20, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    mcs51_select_part      (partNumber, ?cpuFreq) ' __c_white__ ': select the ' __c_cyan__ 'MCS51' __c_white__ ' part number to use with the ' ${CGText} ' SDK; can only be called after calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__ '      partNumber' __c_white__ ' MCS51 part number   - for example    \'' __c_yellow__ 'AT89S52' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__ '      cpuFreq   ' __c_white__ ' MCS51 CPU frequency - the default is \'' __c_yellow__ ${MCS51_Default_CPUFreq} __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_white__ '  these are the global variables that are initialized by this function:'
+    echoln __c_green__ '                                                  ' __c_green__ '      MCS51_MCUType'
+    echoln __c_green__ '                                                  ' __c_green__ '      MCS51_CPUFrequency'
+    echoln
+    echoln __c_green__ '    mcs51_chksig_usbtinyisp(           ?bitClock, ' __c_white__  ': check the ' __c_cyan__ 'MCS51' __c_white__ ' signature code via ' __c_cyan__ 'USBtinyISP'
+    echoln __c_green__ '                            ?variant            ) '
+    echoln __c_green__ '    mcs51_upload_usbtinyisp(progName , ?bitClock, ' __c_white__  ': upload program to ' __c_cyan__ 'MCS51' __c_white__ ' via ' __c_cyan__ 'USBtinyISP'
+    echoln __c_green__ '                            ?variant            ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'MCS51_CPUFrequency' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name       - possible values are:'
+    echoln __c_green__ '                                                  ' __c_white__  '                   \'' __c_yellow__ ${MCS51_Default_USBtinyISPVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                  ' __c_white__  '                   other programmers from \'' __c_yellow__ 'avrdude.conf' __c_white__ '\' with \'' __c_yellow__ 'type = "usbtiny"' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    mcs51_chksig_usbasp    (           ?bitClock, ' __c_white__  ': check the ' __c_cyan__ 'MCS51' __c_white__ ' signature code via ' __c_cyan__ 'USBasp'
+    echoln __c_green__ '                            ?variant            ) '
+    echoln __c_green__ '    mcs51_upload_usbasp    (progName , ?bitClock, ' __c_white__  ': upload program to ' __c_cyan__ 'MCS51' __c_white__ ' via ' __c_cyan__ 'USBasp'
+    echoln __c_green__ '                            ?variant            ) ' __c_green__  '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__  '      bitClock' __c_white__ ' set this to the correct programming bit clock - the default depends on \'' __c_green__ 'MCS51_CPUFrequency' __c_white__ '\''
+    echoln __c_green__ '                                                  ' __c_green__  '      variant ' __c_white__ ' set this to the correct programmer name       - possible values are:'
+    echoln __c_green__ '                                                  ' __c_white__  '                   \'' __c_yellow__ ${MCS51_Default_USBaspVariant} __c_white__ '\' (the default)'
+    echoln __c_green__ '                                                  ' __c_white__  '                   other programmers from \'' __c_yellow__ 'avrdude.conf' __c_white__ '\' with \'' __c_yellow__ 'type = "usbasp"' __c_white__ '\''
+    echoln
+    $call(__avrdude_print_usbasp_supported_bit_clock__, 55)
+    echoln __c_reset__
+endfunction

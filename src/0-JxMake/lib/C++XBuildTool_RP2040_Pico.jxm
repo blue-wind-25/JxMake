@@ -1,0 +1,2226 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Raspberry Pi Pico GCC (RP2040) - Native Pico SDK                        *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the ARM C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_ARM.jxm'
+:::include_once 'C++XBuildTool_RP2040_Pico_TS.jxm'
+:::include_once 'DownloadRP2040Tools.jxm'
+:::include_once 'DownloadRP2040OpenOCD.jxm'
+:::include_once 'PythonUtil.jxm'
+
+
+##### Set the Pico MCU
+const Pico_MCU              := 'RP2040'
+const Pico_MCU_LC           := $lcase(${Pico_MCU})
+
+
+##### Update the flags
+const __BuildTool_Name__   := 'ARM None EABI (RPi Pico) GNU Compiler Collection (GCC)'
+const __BuildTool_Target__ := 'ARM None EABI (RPi Pico)'
+const __BuildTool_Title__  := 'ARM None EABI (RPi Pico) C/C++'
+
+
+##### Determine some settings
+      PICO_SDK_PATH                   ?:= $getenv('PICO_SDK_PATH'      , '')
+      PICO_TOOLCHAIN_PATH             ?:= $getenv('PICO_TOOLCHAIN_PATH', '')
+
+const __Def_PICO_BOARD__               := 'pico_w'
+      PICO_BOARD                      ?:= ${__Def_PICO_BOARD__}
+
+const __Def_PICO_TARGET_BINARY_TYPE__  := 'default'
+      PICO_TARGET_BINARY_TYPE         ?:= ${__Def_PICO_TARGET_BINARY_TYPE__}
+
+const __Def_PICO_MBEDTLS_CONFIG_FILE   := 'mbedtls_config.h'
+      PICO_MBEDTLS_CONFIG_FILE        ?:= ${__Def_PICO_MBEDTLS_CONFIG_FILE}
+
+const PICO_BS2_DEFAULT_FILE_NAME       := :"bs2_default.elf"
+
+
+##### Update the definitions of executables, paths, and options
+const Pico_ProjectName           := :"__JxMake_${Pico_MCU}__"
+const Pico_ProjectDesc           := :"JxMake ${Pico_MCU} Project"
+const Pico_ProjectURL            := 'N/A'
+const Pico_ProjectVer            := $ftdots( { __jxm_ver_major__ __jxm_ver_minor__ __jxm_ver_patch__ } )
+
+const Pico_BuildGenDir           := 'generated'
+
+const Pico_MainProg_Include      := :"${Pico_ProjectName}:include"
+const Pico_MainProg_CompileMDef  := :"${Pico_ProjectName}:#CompileMDef"
+const Pico_MainProg_LinkOption   := :"${Pico_ProjectName}:link_option"
+const Pico_MainProg_SDKObject    := :"${Pico_ProjectName}:sdk_object"
+
+const Pico_CommonCPUOptions      := '-mcpu=cortex-m0plus' '-mthumb'
+const Pico_CommonCompileOptions  := '-fdata-sections' '-ffunction-sections'
+const Pico_CommonCompileMDef     := ${Pico_CMDefTargetName}
+
+      CppCommonAssemblerFlags   +:= ${Pico_CommonCPUOptions} ${Pico_CommonCompileOptions} ${Pico_CommonCompileMDef}
+
+      CppCommonCcCompileFlags   +:= ${Pico_CommonCPUOptions} ${Pico_CommonCompileOptions} ${Pico_CommonCompileMDef}
+
+      CppCommonCxxCompileFlags  +:= ${Pico_CommonCPUOptions} ${Pico_CommonCompileOptions} ${Pico_CommonCompileMDef}
+      CppCommonCxxCompileFlags  +:= ${CppMinimizeSizeCompileFlags}
+
+      CppCommonLinkFlags        +:= ${Pico_CommonCPUOptions} '-Wl,--build-id=none'
+
+      DebuggerProgram            := ${ARMDebugger}
+
+
+##### Define some RPi-Pico-specific tools
+PicoObjCopy   := ${ARMObjCopy}
+
+PicoSize      := ${ARMSize}
+PicoSizeFlags := ${ARMSizeDefFlags}
+
+PicoAddr2Line := ${ARMAddr2Line}
+
+
+###################################################################################
+##### ================= Native RPi Pico Detection Functions ================= #####
+###################################################################################
+
+#### SDK related cache file paths
+const Pico_LibSpecsCacheFilePath := $cat_path( $ptd(), 'PicoLibSpecs.cache' )
+const Pico_InitSDKCacheFilePath  := $cat_path( $ptd(), 'PicoInitSDK.cache'  )
+
+
+##### SDK related variables
+Pico_SDKVersion      := '0' '0'
+Pico_LibSpecMH       :=  0
+
+Pico_BinutilsVersion := '0' '0'
+
+
+##### Function to get binutils version
+function __pico_get_binutils_version_exec__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppLD := $cat_path(${CppToolBinDir}, ${CppLD})
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   -@${CppLD} -v
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function pico_get_binutils_version()
+    # Check if the version number is already obtained
+    if ${Pico_BinutilsVersion}<1> : return ${Pico_BinutilsVersion}
+    # Get the version
+    if !$exec( __pico_get_binutils_version_exec__, $call(__get_LDLibraryPaths__) )
+        local text  := $partn( $erase_ifempty( $sflines($[stdout]) ), 1 )
+              text  := $sfdots(${text/.+?(\d+\.\d+\.\d+).*/$1/})
+        local major := $partn(${text}, 1)
+        local minor := $partn(${text}, 2)
+        local patch := $partn(${text}, 3)
+        # Save the version number
+        Pico_BinutilsVersion  := $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+        Pico_BinutilsVersion +:= :"${major}.${minor}.${patch}"
+    endif
+    # Return the version number
+    return ${Pico_BinutilsVersion}
+endfunction
+
+
+##### Check if the binutils version is at least/most
+function pico_ld_ver_min(major, minor, revision)
+    return $cmp( ${Pico_BinutilsVersion}, '>=', $call(calc_ver_numeric_222, ${major}, ${minor}, ${revision}) )
+endfunction
+
+function pico_ld_ver_max(major, minor, revision)
+    return $cmp( ${Pico_BinutilsVersion}, '<=', $call(calc_ver_numeric_222, ${major}, ${minor}, ${revision}) )
+endfunction
+
+
+##### Functions to get SDK version
+function pico_get_sdk_version()
+    # Check if the version number is already obtained
+    if ${Pico_SDKVersion}<1> : return ${Pico_SDKVersion}
+    # Read the file
+    local Lines := $get_file(:"${PICO_SDK_PATH}/pico_sdk_version.cmake")
+          Lines := $ftlines(${Lines/(.*?)#.*/$1/}) # Remove comments from the lines and flatten
+    # Get the version number
+    local VMajor  := 0
+    local VMinor  := 0
+    local VRev    := 0
+    local ProcRes := $re_split(${Lines}, '(?m)\bset\\s*\\(\\s*([^()]+)\\s*\\)')
+    foreach local Entry in ${ProcRes}
+        Entry := $sfspaces(${Entry})
+          if ${Entry}<1> &== 'PICO_SDK_VERSION_MAJOR'    ; VMajor := ${Entry}<2>
+        elif ${Entry}<1> &== 'PICO_SDK_VERSION_MINOR'    ; VMinor := ${Entry}<2>
+        elif ${Entry}<1> &== 'PICO_SDK_VERSION_REVISION' ; VRev   := ${Entry}<2>
+        endif
+    endforeach
+    # Save the version number
+    Pico_SDKVersion  := $call(calc_ver_numeric_222, ${VMajor}, ${VMinor}, ${VRev})
+    Pico_SDKVersion +:= :"${VMajor}.${VMinor}.${VRev}"
+    # Return the version number
+    return ${Pico_SDKVersion}
+endfunction
+
+
+##### Check if the SDK version is at least/most
+function pico_sdk_ver_min(major, minor, revision)
+    return $cmp( ${Pico_SDKVersion}, '>=', $call(calc_ver_numeric_222, ${major}, ${minor}, ${revision}) )
+endfunction
+
+function pico_sdk_ver_max(major, minor, revision)
+    return $cmp( ${Pico_SDKVersion}, '<=', $call(calc_ver_numeric_222, ${major}, ${minor}, ${revision}) )
+endfunction
+
+
+##### Functions to get library specifications
+const Pico_AVal_Prefix    := '`'
+const Pico_AVal_Separator := '|'
+
+const Pico_DefaultIType   := 'INTERFACE'
+const Pico_ComIgnList     := '_LINK_DEPENDS' 'PICO_SDK_POST_LIST_FILES' 'PICO_RP2040_CONFIG_HEADER_FILES'
+
+const Pico_CCmdKeywords   := 'APPEND' 'BYPRODUCTS' 'COMMAND' 'COMMAND_EXPAND_LISTS' 'COMMENT' 'DEPENDS' 'DEPFILE' 'IMPLICIT_DEPENDS' 'JOB_POOL' 'MAIN_DEPENDENCY' 'OUTPUT' 'USES_TERMINAL' 'VERBATIM' 'WORKING_DIRECTORY'
+
+.macro __pico_cmlc__set__default_libname_itype__
+    # Set the default library name and inheritance type
+    Name  := ${cmlc}<1>
+    Type  := ${Pico_DefaultIType}
+    USelf := false
+    UUser := true
+.endmacro
+
+.macro __pico_cmlc__extract_parts__common_prefix_code__
+    # Get the enclosing function name for this entry
+    FName := $call(__pico_get_lib_spec_get_function_name_for_entry__, ${Content}, ${Entry})
+    # Get the parts
+    unset Parts
+    local Parts
+    foreach local Line in $sflines(${Entry})
+        Parts +:= $sfspaces(${Line})
+    endforeach
+.endmacro
+
+.macro __pico_cmlc__extract_parts__ctname_depname__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Check if the second term is 'DEPENDS'
+    if ${Parts}<2> &!= 'DEPENDS' : $call( __exit_error_ni_cmake_eval__, $flatten( {{ 'list(... ', ${Parts}<2>, ' ...)' }} ) )
+    # Extract the target name
+    Name := ${Parts}<1>
+    # Evaluate variables in the name
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+.endmacro
+
+.macro __pico_cmlc__extract_parts__ccmd_ctname__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Extract the target name
+    Name := ${Parts}<2>
+    # Evaluate variables in the name
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+.endmacro
+
+.macro __pico_cmlc__extract_parts__libname__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Extract the library name
+    Name := ${Parts}<1>
+    # Evaluate variables in the name
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+.endmacro
+
+.macro __pico_cmlc__extract_parts__libname__default_itype__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Extract the library name and set the default inheritance type
+    Name := ${Parts}<1>
+    Type := ${Pico_DefaultIType}
+    # Evaluate variables in the name
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+    # Set the default the inheritance type
+    USelf := false
+    UUser := true
+.endmacro
+
+.macro __pico_cmlc__extract_parts__libname_itype__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Extract the library name and inheritance type
+    Name := ${Parts}<1>
+    Type := ${Parts}<2>
+    # Evaluate variables in the name
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+    # Evaluate the inheritance type
+      if ${Type} &== 'PUBLIC'    ; USelf := true  ; UUser := true  ; Skip := 2
+    elif ${Type} &== 'PRIVATE'   ; USelf := true  ; UUser := false ; Skip := 2
+    elif ${Type} &== 'INTERFACE' ; USelf := false ; UUser := true  ; Skip := 2
+    else                         ; USelf := true  ; UUser := false ; Skip := 1 # Assume 'PRIVATE' if not specified
+    endif
+.endmacro
+
+.macro __pico_cmlc__extract_parts__libname__store__set__
+    # Include the common code
+    .$__pico_cmlc__extract_parts__common_prefix_code__
+    # Extract the name and evaluate variables in the name
+    Name := ${Parts}<1>
+    Name := $call(__pico_cmlv_eval_parts__, ${Name}, ${mhSetVal}, ${FName}, ${Path})
+    # Store the name and values
+    $map_put( ${mhSetVal}, :"\${${Name}}", $erase_ifempty( $partnm(${Parts}, 2, -1) ) )
+.endmacro
+
+.macro __pico_cmlc__store__libname_incpath__
+    # Store the library name
+    $map_add(${mhLibSpc}, '__LibraryNames__', ${Name})
+    # Store the include path if it exist
+    if &${IncDir} : $call( __pico_map_add_include__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, $cat_path(${Path}, 'include') )
+.endmacro
+
+function __pico_get_cmlc__(name, path, ?cmf)
+    # Set the default value
+    cmf ?:= 'CMakeLists.txt'
+    # Check if the CMake specification file exist
+    local CMLPath := $cat_path(${path}, ${cmf})
+    if !$valid_path(${CMLPath}) : return
+    # Read the file
+    local Lines := $get_file(${CMLPath})
+          Lines := $ftlines(${Lines/(.*?)#.*/$1/}) # Remove comments from the lines and flatten
+    # Return the result
+    return {{ ${name}, ${path}, ${Lines} }}
+endfunction
+
+function __pico_get_cmlc__src_common__(name)
+    local path := $cat_paths(${PICO_SDK_PATH}, 'src/common', ${name})
+    return $call(__pico_get_cmlc__, ${name}, ${path})
+endfunction
+
+function __pico_get_cmlc__src_rp2_common__(name)
+    local path := $cat_paths(${PICO_SDK_PATH}, 'src/rp2_common', ${name})
+    return $call(__pico_get_cmlc__, ${name}, ${path})
+endfunction
+
+function __pico_get_cmlc__src_rp2040__(name)
+    local path := $cat_paths(${PICO_SDK_PATH}, 'src/rp2040', ${name})
+    return $call(__pico_get_cmlc__, ${name}, ${path})
+endfunction
+
+function __pico_get_cmlc__lib_xxx__(name, subdir, ?cmf)
+    local path := $cat_paths(${PICO_SDK_PATH}, 'lib', ${name}, ${subdir})
+    return $call(__pico_get_cmlc__, ${name}, ${path}, ${cmf})
+endfunction
+
+function __pico_get_cmlc__lib_tinyusb__()
+    return $call(__pico_get_cmlc__lib_xxx__, 'tinyusb', :"hw/bsp/${Pico_MCU_LC}", 'family.cmake')
+endfunction
+
+__disable__pico_cmlv_eval_remove_dqs_ts__ := false
+
+function __pico_cmlv_eval_remove_dqs_ts__(part)
+    # Simply return the part if it this function is disabled
+    if ${__disable__pico_cmlv_eval_remove_dqs_ts__} : return ${part}
+    # Remove quotes and trailing '/'
+    part := ${part/"(.+?)"/$1/}
+    part := ${part/\/$//}
+    return ${part}
+endfunction
+
+function __pico_cmlv_eval_part_std__(part, mhSetVal, curFName, curProcDirPath)
+    # Perform replacements - simple strings
+    part := $re_replace(${part}, '\\$\\{name\\}'                                      , :"${Pico_ProjectName}"                          )
+    part := $re_replace(${part}, '\\$\\{description\\}'                               , :"${Pico_ProjectDesc}"                          )
+    part := $re_replace(${part}, '\\$\\{url\\}'                                       , :"${Pico_ProjectURL}"                           )
+    part := $re_replace(${part}, '\\$\\{version\\}'                                   , :"${Pico_ProjectVer}"                           )
+    part := $re_replace(${part}, '\\$\\{PICO_BOARD\\}'                                , :"${PICO_BOARD}"                                )
+    part := $re_replace(${part}, '\\$\\{CMAKE_BUILD_TYPE\\}'                          , '\\${#CppBuildType}'                            )
+    # Perform replacements - directories and paths
+    local _CppBuildDir    := $cat_path( $cwd(), ${CppBuildDir}    )
+    local _CurProcDirPath := $cat_path( $cwd(), ${curProcDirPath} )
+    part := $re_replace(${part}, '\\$\\{CMAKE_BINARY_DIR\\}.*'                        , ${_CppBuildDir}                                 )
+    part := $re_replace(${part}, '\\$\\{CMAKE_CURRENT_BINARY_DIR\\}.*'                , ${_CppBuildDir}                                 )
+    part := $re_replace(${part}, '\\$\\{CMAKE_CURRENT_LIST_DIR\\}'                    , ${_CurProcDirPath}                              )
+    part := $re_replace(${part}, '\\$\\{CMAKE_COMMAND\\}'                             , '\\${#CMake}'                                   )
+    part := $re_replace(${part}, '\\$\\{CMAKE_OBJCOPY\\}'                             , '\\${PicoObjCopy}'                              )
+    part := $re_replace(${part}, '\\$\\{Python3_EXECUTABLE\\}'                        , '\\${Python3}'                                  )
+    part := $re_replace(${part}, '\\$\\{PICO_SDK_PATH\\}'                             , ${PICO_SDK_PATH}                                )
+    part := $re_replace(${part}, '\\$\\{PICO_BOOT_STAGE2_DIR\\}'                      , :"${PICO_SDK_PATH}/src/rp2_common/boot_stage2"  )
+    part := $re_replace(${part}, '\\$\\{PICO_CYW43_DRIVER_PATH\\}'                    , :"${PICO_SDK_PATH}/lib/cyw43-driver"            )
+    part := $re_replace(${part}, '\\$\\{PICO_BTSTACK_PATH\\}'                         , :"${PICO_SDK_PATH}/lib/btstack"                 )
+    part := $re_replace(${part}, '\\$\\{PICO_LWIP_PATH\\}'                            , :"${PICO_SDK_PATH}/lib/lwip"                    )
+    part := $re_replace(${part}, '\\$\\{PICO_LWIP_CONTRIB_PATH\\}'                    , :"${PICO_SDK_PATH}/lib/lwip/contrib"            )
+    # Perform replacements - Mbed-TLS
+    part := $re_replace(${part}, '\\$\\{PICO_MBEDTLS_PATH\\}'                         , :"${PICO_SDK_PATH}/lib/mbedtls"                 )
+    part := $re_replace(${part}, '\\$\\{PICO_MBEDTLS_CONFIG_FILE\\}'                  , ${PICO_MBEDTLS_CONFIG_FILE}                     )
+    # Perform replacements - special cases
+    if $str_endwith(${curProcDirPath}, 'rp2_common/boot_stage2')
+        part := $re_replace(${part}, '\\$\\{PICO_DEFAULT_BOOT_STAGE2_FILE\\}'         , ${PICO_DEFAULT_BOOT_STAGE2_FILE}                )
+    elif $str_endwith(${curProcDirPath}, 'lib/tinyusb/hw/bsp/rp2040')
+        part := $re_replace(${part}, '\\$\\{TARGET\\}'                                , :"${Pico_MCU_LC}_tinyusb"                       )
+        part := $re_replace(${part}, '\\$\\{LOG\\}'                                   , '0'                                             )
+    endif
+    if ${curFName} &== 'pico_define_boot_stage2'
+        part := $re_replace(${part}, '\\$\\{NAME\\}'                                  , 'bs2_default'                                   )
+        part := $re_replace(${part}, '\\$\\{BOOT_STAGE2_BI_NAME\\}'                   , 'boot2_w25q080'                                 )
+    elif ${curFName} &== 'pico_btstack_make_gatt_header'
+        part := $re_replace(${part}, '\\$\\{TARGET_LIB\\}'                            , :"${Pico_ProjectName}_gatt"                     )
+        part := $re_replace(${part}, '\\$\\{GATT_NAME\\}'                             , :"${Pico_ProjectName}_gatt"                     )
+        part := $re_replace(${part}, '\\$\\{GATT_FILE\\}'                             , :"${_CppBuildDir}/${Pico_ProjectName}_gatt.gatt")
+        part := $re_replace(${part}, '\\$\\{GATT_PATH\\}'                             , :"${_CppBuildDir}"                              )
+    elif $or( $cmp( ${curFName}                                     , '&==', 'pico_add_platform_library' ), \
+              $cmp( $str_lidx(${curProcDirPath}, 'pico_binary_info'), '>'  , '0'                         )  \
+            )
+        part := $re_replace(${part}, '\\$\\{TARGET\\}'                                , ${Pico_ProjectName}                             )
+    elif $cmp( $str_lidx(${curProcDirPath}, 'pico_stdio_usb'), '>', '0' )
+        # NOTE : From Pico SDK 1.5.1 - JxMake always sets this to the default value of zero!
+        part := $re_replace(${part}, '\\$\\{PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS\\}', '0'                                             )
+    else
+        local wfn := $re_split(${curFName}, 'wrap_([a-z]+)_functions')
+        if &${wfn}
+            wfn  := :"${Pico_AVal_Prefix}pico_${wfn}_(none${Pico_AVal_Separator}pico)"
+            part := $re_replace(${part}, '\\$\\{TARGET\\}'                            ,     ${wfn}                                      )
+        endif
+    endif
+    # Perform replacements - set values
+    local repVal := $map_get(${mhSetVal}, ${part})
+    if &${repVal} : part := ${repVal}
+    # Return the result
+    return $call(__pico_cmlv_eval_remove_dqs_ts__, ${part}) # Remove quotes and trailing '/'
+endfunction
+
+function __pico_cmlv_eval_part_gen__(part, curFName)
+    # Simple values
+    part := $re_replace( ${part}, '\s*(?<name>.*?PICO_NO_FLASH)=.*'       , :"\${name}=${PICO_NO_FLASH}"        )
+    part := $re_replace( ${part}, '\s*(?<name>.*?PICO_USE_BLOCKED_RAM)=.*', :"\${name}=${PICO_USE_BLOCKED_RAM}" )
+    part := $re_replace( ${part}, '\s*(?<name>.*?PICO_COPY_TO_RAM)=.*'    , :"\${name}=${PICO_COPY_TO_RAM}"     )
+    # Target properties
+    if $str_fidx(${part}, 'TARGET_PROPERTY') > 0
+        # Declare a local variable for storing the replacement value
+        local repl
+        # Link the default 'pico_(bit_ops|divider|double|float|int64_ops|mem_ops|printf)'
+        repl := $lcase( $re_replace(${part}, '.*?PICO_TARGET_([_A-Z0-9]+?)_IMPL.*?PICO_TARGET_\\1_IMPL.*?PICO_DEFAULT_\\1_IMPL.*', 'pico_$1_default') )
+        if ${repl} &!= $lcase(${part}) : part := ${repl}
+        # Link 'pico_stdio_uart' if 'PICO_TARGET_STDIO_UART' is 1
+        repl := $re_replace( ${part}, '.*?(PICO_TARGET_STDIO_UART).*?\\1.*?(pico_stdio_uart).*', $csel(${PICO_TARGET_STDIO_UART}, '$2', '') )
+        if ${repl} &!= ${part} : part := ${repl}
+        # Link 'pico_stdio_usb' if 'PICO_TARGET_STDIO_USB' is 1
+        repl := $re_replace( ${part}, '.*?(PICO_TARGET_STDIO_USB).*?\\1.*?(pico_stdio_usb).*', $csel(${PICO_TARGET_STDIO_USB}, '$2', '') )
+        if ${repl} &!= ${part} : part := ${repl}
+        # Link 'pico_stdio_semihosting' if 'PICO_TARGET_STDIO_SEMIHOSTING' is 1
+        repl := $re_replace( ${part}, '.*?(PICO_TARGET_STDIO_SEMIHOSTING).*?\\1.*?(pico_stdio_semihosting).*', $csel(${PICO_TARGET_STDIO_SEMIHOSTING}, '$2', '') )
+        if ${repl} &!= ${part} : part := ${repl}
+        # Link 'bs2_default_library' if 'PICO_NO_FLASH' is 0
+        repl := $re_replace( ${part}, '.*?(PICO_TARGET_BINARY_TYPE).*?\\1.*(PICO_TARGET_BOOT_STAGE2).*?\\2.*', $csel(${PICO_NO_FLASH}, '', 'bs2_default_library') )
+        if ${repl} &!= ${part} : part := ${repl}
+        # Add link option '-nostartfiles' if 'PICO_NO_FLASH' is 1
+        local pnsf := $csel(${PICO_NO_FLASH}, '-nostartfiles', '')
+        repl := $re_replace( ${part}, '.*?(PICO_TARGET_BINARY_TYPE).*?\\1.*?-nostartfiles.*', ${pnsf} )
+        if ${repl} &!= ${part} : part := ${repl}
+        # Set the linker script
+        repl := $re_replace( ${part}, '.*?(LINKER:--script)=.*?(PICO_TARGET_LINKER_SCRIPT).*?\\2.*', :"\$1=\\${PICO_TARGET_LINKER_SCRIPT}" )
+        if ${repl} &!= ${part} : part := ${repl}
+    # Special cases
+    elif ${curFName} &== 'pico_define_boot_stage2'
+        repl := $str_replace(${part}, '$<TARGET_FILE:${NAME}>', ${PICO_BS2_DEFAULT_FILE_NAME})
+        if ${repl} &!= ${part} : part := ${repl}
+    endif
+    # Return the result
+    return $call(__pico_cmlv_eval_remove_dqs_ts__, ${part}) # Remove quotes and trailing '/'
+endfunction
+
+function __pico_cmlv_eval_part__(part, mhSetVal, curFName, curProcDirPath)
+    # Check for generator expressions ('$<')
+    if $str_fidx(${part}, '$<') > 0 : return {{ 0, $call(__pico_cmlv_eval_part_gen__, ${part}, ${curFName}) }}
+    # Check if the part does contain a variable
+    local f := $str_fidx(${part}, '${')
+    # If the part does not contain a variable, simply remove quotes and trailing '/'
+    if ${f} <= 0 : return {{ 0, $call(__pico_cmlv_eval_remove_dqs_ts__, ${part}) }}
+    # Get the other indexes
+    local l := $str_lidx(${part}, '${')
+    local e := $str_lidx(${part}, '}' )
+    local z := $strlen  (${part}      )
+    # Check if it is a simple variable evaluation
+    local eval m := (${f} == ${l}) && (${e} == ${z})
+    # It is a simple variable evaluation
+    if ${m}
+        part := $call(__pico_cmlv_eval_part_std__, ${part}, ${mhSetVal}, ${curFName}, ${curProcDirPath})
+    # It is not a simple variable evaluation
+    else
+        local subparts := $re_split(${part}, '\\$\\{(.+?)\\}')
+        foreach local sp in ${subparts}
+            local spn := :"\${${sp}}"
+            local res := $call(__pico_cmlv_eval_part_std__, ${spn}, ${mhSetVal}, ${curFName}, ${curProcDirPath})
+            part := $str_replace(${part}, ${spn}, ${res})
+        endforeach
+    endif
+    # Return the evaluated result
+    return { 1 ${part} }
+endfunction
+
+function __pico_cmlv_eval_parts__(parts, mhSetVal, curFName, curProcDirPath)
+    # Evaluate the parts several times
+    local loopCount := 0
+    loop
+        # A flag that indicates if anything was evaluated
+        local anyEvaled := false
+        # Process the parts
+        unset evaledParts
+        local evaledParts
+        foreach local part in ${parts}
+            local res := $call(__pico_cmlv_eval_part__, ${part}, ${mhSetVal}, ${curFName}, ${curProcDirPath})
+            if ${res}<1> : anyEvaled := true
+            evaledParts +:= $partnm(${res}, 2, -1)
+        endforeach
+        # Copy the evaluated result (without the empty entries)
+        parts := $erase_ifempty(${evaledParts})
+        # Break if nothing was evaluated
+        if !${anyEvaled} : break
+        # Break if the loop counter has exceeded the limit
+        inc loopCount
+        if ${loopCount} >= 10 : break
+    endloop
+    # Return the final evaluated result
+    return ${parts}
+endfunction
+
+function __pico_cmlv_eval_parts__exclude_1__(parts, mhSetVal, curFName, curProcDirPath)
+    # Exclude the name and type
+    parts := $partnm(${parts}, 2, -1)
+    # Evaluate variables
+    return $call(__pico_cmlv_eval_parts__, ${parts}, ${mhSetVal}, ${curFName}, ${curProcDirPath})
+endfunction
+
+function __pico_cmlv_eval_parts__exclude_2__(parts, mhSetVal, curFName, curProcDirPath)
+    # Exclude the name and type
+    parts := $partnm(${parts}, 3, -1)
+    # Evaluate variables
+    return $call(__pico_cmlv_eval_parts__, ${parts}, ${mhSetVal}, ${curFName}, ${curProcDirPath})
+endfunction
+
+function __pico_kn_dependency__       (name) ; return :"{${name}}:dependency"        ; endfunction
+function __pico_kn_custom_target__    (name) ; return :"{${name}}:custom_target"     ; endfunction
+function __pico_kn_custom_command__   (name) ; return :"{${name}}:custom_command"    ; endfunction
+function __pico_kn_include_self__     (name) ; return :"{${name}}:include:self"      ; endfunction
+function __pico_kn_include_user__     (name) ; return :"{${name}}:include:user"      ; endfunction
+function __pico_kn_source_self__      (name) ; return :"{${name}}:source:self"       ; endfunction
+function __pico_kn_source_user__      (name) ; return :"{${name}}:source:user"       ; endfunction
+function __pico_kn_compile_def_self__ (name) ; return :"{${name}}:#CompileMDef:self" ; endfunction
+function __pico_kn_compile_def_user__ (name) ; return :"{${name}}:#CompileMDef:user" ; endfunction
+function __pico_kn_link_option_self__ (name) ; return :"{${name}}:link_option:self"  ; endfunction
+function __pico_kn_link_option_user__ (name) ; return :"{${name}}:link_option:user"  ; endfunction
+function __pico_kn_link_library_self__(name) ; return :"{${name}}:link_library:self" ; endfunction
+function __pico_kn_link_library_user__(name) ; return :"{${name}}:link_library:user" ; endfunction
+
+function __pico_map_resolve_rel_path__(value)
+    local resolved
+    foreach local cp in ${value}
+        if $and( $not( $str_begwith(${cp}, '$') ), $path_is_rel(${cp}) ) : cp := $cat_path(${Path}, ${cp})
+        resolved +:= ${cp}
+    endforeach
+    return ${resolved}
+endfunction
+
+function __pico_map_add_dependency__(mh, name, value)
+     $map_add( ${mh}, $call(__pico_kn_dependency__   , ${name}), ${value} )
+endfunction
+
+function __pico_map_add_custom_target__(mh, name, value)
+     $map_add( ${mh}, $call(__pico_kn_custom_target__, ${name}), ${value} )
+endfunction
+
+function __pico_map_add_custom_command_get_part_midx__(value, idx, cnt)
+    loop
+        # Get the value
+        local val := ${value}<idx>
+        # Break if the value is one of CMake 'add_custom_command' sub-keywords
+        if $contains(${Pico_CCmdKeywords}, ${val}) : break
+        # Increment the index and break if the index has reached the maximum value
+        inc idx
+        if ${idx} > ${cnt} : break
+    endloop
+    return ${idx}
+endfunction
+
+function __pico_map_add_custom_command__(mh, name, value)
+    # Variables for storing the extracted parts
+    local depends
+    local command
+    # Extract the parts
+    local idx := 1
+    local cnt := $part_count(${value})
+    local skw
+    local end
+    local lst
+    while ${idx} <= ${cnt}
+        # Get the CMake 'add_custom_command' sub-keyword and increment the index
+        skw := ${value}<idx>
+        inc idx
+        # Gather the arguments
+        end := $call(__pico_map_add_custom_command_get_part_midx__, ${value}, ${idx}, ${cnt})
+        # Store the arguments to the appropriate variables
+        sub lst, ${end}, 1
+          if ${skw} &== 'DEPENDS'           ; depends := ${value}<idx:lst>
+        elif ${skw} &== 'MAIN_DEPENDENCY'   ; depends := ${value}<idx:lst>
+        elif ${skw} &== 'COMMAND'           ; command := ${value}<idx:lst>
+        elif ${skw} &== 'WORKING_DIRECTORY' ; # Ignore this sub-keyword
+        elif ${skw} &== 'VERBATIM'          ; # Ignore this sub-keyword
+        else                                ; $call(__exit_error_ni_cmake_eval__, :"add_custom_command(... ${skw} ...)")
+        endif
+        # Update the index
+        idx := ${end}
+    endwhile
+    # Store the dependency as needed
+    if $part_count(${depends}) : $call(__pico_map_add_dependency__, ${mh}, ${name}, ${depends})
+    # Store the command as needed
+    if $part_count(${command}) : $map_put( ${mh}, $call(__pico_kn_custom_command__, ${name}), ${command}, false )
+endfunction
+
+function __pico_map_add_include__(mh, name, self, user, value)
+    value := $call(__pico_map_resolve_rel_path__, ${value})
+    if ${self} : $map_add( ${mh}, $call(__pico_kn_include_self__, ${name}), ${value} )
+    if ${user} : $map_add( ${mh}, $call(__pico_kn_include_user__, ${name}), ${value} )
+endfunction
+
+function __pico_map_add_source__(mh, name, self, user, value)
+    value := $call(__pico_map_resolve_rel_path__, ${value})
+    if ${self} : $map_add( ${mh}, $call(__pico_kn_source_self__ , ${name}), ${value} )
+    if ${user} : $map_add( ${mh}, $call(__pico_kn_source_user__ , ${name}), ${value} )
+endfunction
+
+function __pico_map_add_compile_def__(mh, name, self, user, value)
+    if ${value} &== '-DPICO_CXX_ENABLE_EXCEPTIONS=1' : return # NOTE : JxMake always disables exception!
+    if ${value} &== '-DCYW43_USE_HEX_BTFW=1'         : return # NOTE : JxMake always disables this test feature!
+    if ${self} : $map_add( ${mh}, $call(__pico_kn_compile_def_self__ , ${name}), ${value} )
+    if ${user} : $map_add( ${mh}, $call(__pico_kn_compile_def_user__ , ${name}), ${value} )
+endfunction
+
+function __pico_map_add_link_option__(mh, name, self, user, value)
+    if ${self} : $map_add( ${mh}, $call(__pico_kn_link_option_self__ , ${name}), ${value} )
+    if ${user} : $map_add( ${mh}, $call(__pico_kn_link_option_user__ , ${name}), ${value} )
+endfunction
+
+function __pico_map_add_link_library__(mh, name, self, user, value)
+    if ${self} : $map_add( ${mh}, $call(__pico_kn_link_library_self__, ${name}), ${value} )
+    if ${user} : $map_add( ${mh}, $call(__pico_kn_link_library_user__, ${name}), ${value} )
+endfunction
+
+function __pico_get_lib_spec_get_function_name_for_entry__(content, entry)
+    # Get part of the content that contains the entry
+    content := $substr  ( ${content}, 1                                   , $str_fidx(${content}, ${entry}) )
+    content := $substr  ( ${content}, $str_lidx(${content}, 'endfunction'), -1                              )
+    # Find and extract the function declaration
+    content := $re_split( ${content}, '(?m)\bfunction\\s*\\(\\s*([^()]+)\\s*\\)*?' )
+    content := $sfspaces( ${content}<-1>                                           )
+    # Return the function name
+    return ${content}<1>
+endfunction
+
+function __pico_get_lib_spec_evaluate_function_declaration_extract_parameters__(ignVals, entry)
+    local Parts := $sfspaces(${entry})
+    local Name  := ${Parts}<1>
+    return {{ $series( ${Name}, '$', $partnm(${Parts}, 2, -1) ), ${ignVals} }}
+endfunction
+
+function __pico_get_lib_spec_evaluate_list_directive__(mh, curFName, ignVals, entry, path)
+    # Extract the arguments
+    local Parts   := $sfspaces(${entry})
+    local Oper    := ${Parts}<1>
+    local SetName := ${Parts}<2>
+    local Action  := ${Parts}<3>
+    local RepStr  := $flatten( $partnm(${Parts}, 4, -1) )
+    # Simply exit if the set name on the common ignore list
+    if $contains(${Pico_ComIgnList}, ${SetName}) : return
+    # Simply exit if the set name on the given ignore list
+    if &${curFName}
+        if $contains(${ignVals}, :"${curFName}\$${SetName}") : return
+    else
+        if $contains(${ignVals},                ${SetName} ) : return
+    endif
+    # Get the set values
+    SetName := :"\${${SetName}}"
+    if !$map_num_vals(${mh}, ${SetName}) : $call(__exit_error_nd_cmake_list__, ${SetName}, ${path})
+    local Values := $map_get(${mh}, ${SetName})
+    # Process the set values
+    if ${Oper} &== 'TRANSFORM'
+          if ${Action} &== 'APPEND'  ; Values := $series(${Values}, ${RepStr})
+        elif ${Action} &== 'PREPEND' ; Values := $series(${RepStr}, ${Values})
+        else                         ; $call(__exit_error_ni_cmake_eval__, :"list(${Oper} ... ${Action} ...)")
+        endif
+    else
+        $call(__exit_error_ni_cmake_eval__, :"list(${Oper} ...)")
+    endif
+    # Put the updated set values
+    $map_put(${mh}, ${SetName}, ${Values})
+endfunction
+
+(*
+function __pico_get_lib_spec_resolve_empty_source__(mh, type)
+    ##### If a library has an empty ':source:type' try to fill it with the values from from the
+    ##### referenced ':link_library:type' and remove the matching entries from the ':link_library:type'
+    local LibNames := $map_get(${mh}, '__LibraryNames__')
+    loop
+        # Loop through the library names
+        foreach local LibName in ${LibNames}
+            # Skip if it as a non-empty ':source:type'
+            if $map_num_vals( ${mh}, $call(:"__pico_kn_source_${type}__", ${LibName}) ) : continue
+            # Loop through the referenced ':link_library:type'
+            local LinkLibs  := $map_get( ${mh}, $call(:"__pico_kn_link_library_${type}__", ${LibName}) )
+            local EraseLibs := ''
+            foreach local LinkLib in ${LinkLibs}
+                # Skip if the referenced library name is not inside the same map
+                if !$contains(${LibNames}, ${LinkLib}) : continue
+                # Get the ':source:type' from the referenced library and skip if it is empty
+                local Srcs := $map_get( ${mh}, $call(:"__pico_kn_source_${type}__", ${LinkLib}) )
+                if !$part_count(${Srcs}) : continue
+                # Put the ':source:type' from the referenced library
+                $map_add( ${mh}, $call(:"__pico_kn_source_${type}__", ${LibName} ), ${Srcs} )
+                # Add the referenced library name to the removal list
+                EraseLibs +:= ${LinkLib}
+            endforeach
+            # Remove entries for ':link_library:type'
+            LinkLibs := $erase_if(${LinkLibs}, ${EraseLibs})
+            # Update or remove the ':link_library:type'
+            if $part_count(${LinkLibs}) ; $map_put   ( ${mh}, $call(:"__pico_kn_link_library_${type}__", ${LibName}), ${LinkLibs} )
+            else                        ; $map_remove( ${mh}, $call(:"__pico_kn_link_library_${type}__", ${LibName})              )
+            endif
+        endforeach
+        # Check if there are more empty ':source:type'
+        local Done := true
+        foreach local LibName in ${LibNames}
+            # Skip if it as a non-empty ':source:type'
+            if $map_num_vals( ${mh}, $call(:"__pico_kn_source_${type}__", ${LibName} ) ) : continue
+            # Get the referenced ':link_library:type'
+            local LinkLibs := $map_get( ${mh}, $call(:"__pico_kn_link_library_${type}__", ${LibName}) )
+            # Check if they are inside the same map
+            local RmdrLibs := $erase_ifnot(${LinkLibs}, ${LibNames})
+            if $part_count(${RmdrLibs})
+                local AllEmpty := true
+                foreach local RmdrLib in ${RmdrLibs}
+                    if $map_num_vals( ${mh}, $call(:"__pico_kn_source_${type}__", ${RmdrLib} ) )
+                        AllEmpty := false
+                        break
+                    endif
+                endforeach
+                Done := ${AllEmpty}
+                break
+            endif
+        endforeach
+        if ${Done} : break
+    endloop
+endfunction
+#*)
+
+function __pico_get_lib_spec_impl__(cmlc)
+    # Extract the data
+    local Name    := ${cmlc}<1>
+    local Path    := ${cmlc}<2>
+    local Content := ${cmlc}<3>
+    local Type
+    local Skip
+    local USelf
+    local UUser
+    local IgnVals
+    local ProcRes
+    local FName
+    local LinkOpt
+    # Create a new map for storing the set values and the library specifications
+    local mhSetVal := $map_new()
+    local mhLibSpc := $map_new()
+    # Store the name and path
+    $map_add(${mhLibSpc}, '__Name__', ${Name})
+    $map_add(${mhLibSpc}, '__Path__', ${Path})
+    # Get the common (root) include directory
+    local IncDir := $cat_path(${Path}, 'include')
+    if !$valid_path(${IncDir}) : unset IncDir
+    # Process function declarations
+    ProcRes := $re_split(${Content}, '(?m)\bfunction\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        IgnVals := $call(__pico_get_lib_spec_evaluate_function_declaration_extract_parameters__, ${IgnVals}, ${Entry})
+    endforeach
+    # Process set directives
+    ProcRes := $re_split(${Content}, '(?m)\bset\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the set values
+        .$__pico_cmlc__extract_parts__libname__store__set__
+    endforeach
+    # Process list directives
+    ProcRes := $re_split(${Content}, '(?m)\blist\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Get the enclosing function name for this entry
+        FName := $call(__pico_get_lib_spec_get_function_name_for_entry__, ${Content}, ${Entry})
+        # Evaluate the directive
+        $call( __pico_get_lib_spec_evaluate_list_directive__, ${mhSetVal}, ${FName}, ${IgnVals}, ${Entry}, ${Path} )
+    endforeach
+    # Process an add subdirectory directive
+    ProcRes := $re_split(${Content}, '(?m)\b(?:pico_)?add_subdirectory\\s*\\(\\s*([^()]+)\\s*\\)')
+    if &${ProcRes}
+        $map_add(${mhLibSpc}, '__Subdirectories__', $partn( $sfspaces(${ProcRes}), 1 ) )
+    endif
+    # Process a simple header-only hardware target directive
+    ProcRes := $re_split(${Content}, '(?m)\bpico_simple_hardware_headers_only_target\\s*\\(\\s*([^()]+)\\s*\\)')
+    if &${ProcRes}
+        # Store the library name and include path
+        .$__pico_cmlc__set__default_libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+    endif
+    # Process a simple hardware target directive
+    ProcRes := $re_split(${Content}, '(?m)\bpico_simple_hardware_target\\s*\\(\\s*([^()]+)\\s*\\)')
+    if &${ProcRes}
+        # Store the library name and include path
+        .$__pico_cmlc__set__default_libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the source file
+        local SrcFile := $cat_path( ${Path}, :"${ProcRes}.c" )
+        if $valid_path(${SrcFile}) : $call(__pico_map_add_source__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, ${SrcFile})
+    endif
+    # Process add custom target directives
+    ProcRes := $re_split(${Content}, '(?m)\badd_custom_target\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts
+        .$__pico_cmlc__extract_parts__ctname_depname__
+        # Store the directive
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_custom_target__, ${mhLibSpc}, ${Name}, $call(__pico_cmlv_eval_parts__exclude_2__, ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Process add custom command directives
+    ProcRes := $re_split(${Content}, '(?m)\badd_custom_command\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts
+        .$__pico_cmlc__extract_parts__ccmd_ctname__
+        # Store the directive
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_custom_command__, ${mhLibSpc}, ${Name}, $call(__pico_cmlv_eval_parts__exclude_2__, ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Process add dependencies directives
+    ProcRes := $re_split(${Content}, '(?m)\badd_dependencies\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the dependencies
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_dependency__, ${mhLibSpc}, ${Name}, $call(__pico_cmlv_eval_parts__exclude_1__, ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Process add library directives
+    ProcRes := $re_split(${Content}, '(?m)\badd_library\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+    endforeach
+    # Get the include files
+    ProcRes := $re_split(${Content}, '(?m)\btarget_include_directories\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the include files
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        if ${FName} &== 'pico_btstack_make_gatt_header'
+            if ${Type} &== '${TARGET_TYPE}' : continue
+        endif
+        $call( __pico_map_add_include__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, $call(:"__pico_cmlv_eval_parts__exclude_${Skip}__", ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Get the source files
+    ProcRes := $re_split(${Content}, '(?m)\btarget_sources\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the source files
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_source__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, $call(:"__pico_cmlv_eval_parts__exclude_${Skip}__", ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Process define boot-stage-2 directives and add the contents as source files
+    ProcRes := $re_split(${Content}, '(?m)\bpico_define_boot_stage2\\s*\\(\\s*([^()]+)\\s*\\)')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts
+        .$__pico_cmlc__extract_parts__libname__
+        # Skip if the name is a variable
+        if $str_begwith(${Name}, '$') : continue
+        # Store the directive
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_source__, ${mhLibSpc}, ${Name}, true, false, $call(__pico_cmlv_eval_parts__exclude_1__, ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Get the compile definitions
+    ProcRes := $re_split(${Content}, '(?m)\btarget_compile_definitions\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the compile definitions
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        __disable__pico_cmlv_eval_remove_dqs_ts__ := true
+        foreach CDef in $call(:"__pico_cmlv_eval_parts__exclude_${Skip}__", ${Parts}, ${mhSetVal}, ${FName}, ${Path})
+            if $str_fidx(${CDef}, '-D') <= 0 : CDef := :"-D${CDef}"
+            $call(__pico_map_add_compile_def__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, ${CDef})
+        endforeach
+        __disable__pico_cmlv_eval_remove_dqs_ts__ := false
+    endforeach
+    # Get the linked libraries
+    ProcRes := $re_split(${Content}, '(?m)\b(?:pico_mirrored_)?target_link_libraries\\s*\\(\\s*([^()]+)\\s*\\)*?')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the linked libraries
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        $call( __pico_map_add_link_library__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, $call(:"__pico_cmlv_eval_parts__exclude_${Skip}__", ${Parts}, ${mhSetVal}, ${FName}, ${Path}) )
+    endforeach
+    # Get the link options via the standard method
+    ProcRes := $re_split(${Content}, '(?m)\btarget_link_options\\s*\\(\\s*([^()]+)\\s*\\)')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the link options
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        LinkOpt := $call(:"__pico_cmlv_eval_parts__exclude_${Skip}__", ${Parts}, ${mhSetVal}, ${FName}, ${Path})
+       #LinkOpt := $erase_ifempty( ${LinkOpt/LINKER:(.*)/$1/} )
+       #LinkOpt := $erase_if     ( $series('LINKER:', ${LinkOpt}), 'LINKER:' )
+        $call(__pico_map_add_link_option__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, ${LinkOpt})
+    endforeach
+    # Get the link options via 'pico_wrap_function'
+    ProcRes := $re_split(${Content}, '(?m)\bpico_wrap_function\\s*\\(\\s*([^()]+)\\s*\\)')
+    foreach local Entry in ${ProcRes}
+        # Extract the parts then store the library name and include path
+        .$__pico_cmlc__extract_parts__libname__default_itype__
+        .$__pico_cmlc__store__libname_incpath__
+        # Store the link options
+        # NOTE : The enclosing function name for this entry has already been obtained by the '__pico_cmlc__extract_parts__*__' above
+        LinkOpt := $call(__pico_cmlv_eval_parts__exclude_1__, ${Parts}, ${mhSetVal}, ${FName}, ${Path})
+        LinkOpt := $series('LINKER:--wrap=', ${LinkOpt})
+        $call(__pico_map_add_link_option__, ${mhLibSpc}, ${Name}, ${USelf}, ${UUser}, ${LinkOpt})
+    endforeach
+    (*
+    ##### If a library has an empty ':source:self|user' try to fill it with the values from from the
+    ##### referenced ':link_library:self|user' and remove the matching entries from the ':link_library:self|user'
+    ##### !!! TODO : These two lines are not actually needed and will even cause errors !!! #####
+    $call(__pico_get_lib_spec_resolve_empty_source__, ${mhLibSpc}, 'self')
+    $call(__pico_get_lib_spec_resolve_empty_source__, ${mhLibSpc}, 'user')
+    #*)
+    # Delete the map for storing the set values
+    $map_delete(${mhSetVal})
+    # Return the map handle for the library specifications
+    return ${mhLibSpc}
+endfunction
+
+function __pico_get_lib_spec__(cmlc)
+    # Check for empty content
+    if !&${cmlc} : return
+    # Get the library specifications
+    local mhLibSpc := $call(__pico_get_lib_spec_impl__, ${cmlc})
+    # Get the name, path, and subdirectories
+    local Name    := $map_get(${mhLibSpc}, '__Name__'          )
+    local Path    := $map_get(${mhLibSpc}, '__Path__'          )
+    local SubDirs := $map_get(${mhLibSpc}, '__Subdirectories__')
+    # Remove the name, path, and subdirectories
+    $map_remove(${mhLibSpc}, '__Name__'          )
+    $map_remove(${mhLibSpc}, '__Path__'          )
+    $map_remove(${mhLibSpc}, '__Subdirectories__')
+    # Process the subdirectories
+    foreach local SubDir in ${SubDirs}
+        local SName := :"${Name}/${SubDir}"
+        local SPath := :"${Path}/${SubDir}"
+        mhLibSpc := $map_new_from( {{ ${mhLibSpc}, $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__, ${SName}, ${SPath}) ) }}, true, false )
+    endforeach
+    # Process merged-key-names
+    local AllKeys := $map_keys(${mhLibSpc})
+    local RemKeys
+    foreach local Key in ${AllKeys}
+        # Skip if this key has no merged-key-name at all
+        if $str_fidx(${Key}, ${Pico_AVal_Prefix}   ) <= 0 : continue
+        if $str_fidx(${Key}, ${Pico_AVal_Separator}) <= 0 : continue
+        # Get the pattern, subkeys, and values
+        local PKeyPat := $re_replace(${Key}, :"(.+?)\\${Pico_AVal_Prefix}(.+?)\\((?:.+?)\\)(.+)", '$1$2\\$\{\\}$3')
+        local SubKeys := $explode(${Key/.+?\((.+?)\).+/$1/}, ${Pico_AVal_Separator})
+        local Values  := $map_get(${mhLibSpc}, ${Key})
+        # Add the subkeys
+        foreach local SubKey in ${SubKeys}
+            $map_add( ${mhLibSpc}, $re_replace(${PKeyPat}, '\\$\\{\\}', ${SubKey}), ${Values} )
+        endforeach
+        # Remove the original merged-key-name
+        $map_remove(${mhLibSpc}, ${Key})
+        # Add the key to the list of keys to be removed
+        RemKeys +:= ${Key/(?:.*?)\{(.+)\}(?:.+)/$1/}
+    endforeach
+    #(there is no need to remove this key from  as well)
+    $map_put( ${mhLibSpc}, '__LibraryNames__', $erase_if( $map_get(${mhLibSpc}, '__LibraryNames__'), $unique(${RemKeys}) ) )
+    # Return the map handle
+    return ${mhLibSpc}
+endfunction
+
+.undefmacro __pico_cmlc__set__default_libname_itype__
+.undefmacro __pico_cmlc__extract_parts__common_prefix_code__
+.undefmacro __pico_cmlc__extract_parts__ctname_depname__
+.undefmacro __pico_cmlc__extract_parts__ccmd_ctname__
+.undefmacro __pico_cmlc__extract_parts__libname__
+.undefmacro __pico_cmlc__extract_parts__libname__default_itype__
+.undefmacro __pico_cmlc__extract_parts__libname_itype__
+.undefmacro __pico_cmlc__extract_parts__libname__store__set__
+.undefmacro __pico_cmlc__store__libname_incpath__
+
+function __pico_get_lib_specs__(rootPath)
+    # Create a new map for storing the combined library specifications
+    local mhLibSpc
+    # Process the subdirectories
+    foreach local SubDir in $lsdir( $cat_paths(${PICO_SDK_PATH}, ${rootPath}), 'd' )
+        # Get the library specifications
+        local lh := $call( __pico_get_lib_spec__, $call( :"__pico_get_cmlc__${rootPath/\//_/}__", $path_last_part(${SubDir}) ) )
+        # Combine the maps
+        mhLibSpc := $map_new_from({{ ${mhLibSpc}, ${lh} }}, true, false)
+    endforeach
+    # Return the map handle
+    return ${mhLibSpc}
+endfunction
+
+function __pico_get_lib_specx__(cmlcGetFunc)
+    return $call( __pico_get_lib_spec__, $call(:"__pico_get_cmlc__${cmlcGetFunc}__") )
+endfunction
+
+function pico_get_lib_specs()
+    # A map handle for the specifications
+    local mhLibSpc
+    # Try to get the specifications from the cache file first
+    (*
+     * #####
+     * ??? TODO : Which one is better to use: ???
+     *                $uptodate_path(${Pico_LibSpecsCacheFilePath})
+     *                $newer_path(${Pico_LibSpecsCacheFilePath}, ${PICO_SDK_PATH})
+     * #####
+     *)
+   #$rmfile(${Pico_LibSpecsCacheFilePath})
+   #if $uptodate_path(${Pico_LibSpecsCacheFilePath})
+    if $newer_path(${Pico_LibSpecsCacheFilePath}, ${PICO_SDK_PATH})
+        # Read the specifications
+        mhLibSpc := $map_from_edata( $get_file(${Pico_LibSpecsCacheFilePath}) )
+    # Parse the specifications
+    else
+        # Parse the specifications
+        mhLibSpc := $map_new_from( {{ ${mhLibSpc}, $call(__pico_get_lib_specs__, 'src/common'    ) }}, true, false )
+        mhLibSpc := $map_new_from( {{ ${mhLibSpc}, $call(__pico_get_lib_specs__, 'src/rp2_common') }}, true, false )
+        mhLibSpc := $map_new_from( {{ ${mhLibSpc}, $call(__pico_get_lib_specs__, 'src/rp2040'    ) }}, true, false )
+        mhLibSpc := $map_new_from( {{ ${mhLibSpc}, $call(__pico_get_lib_specx__, lib_tinyusb     ) }}, true, false )
+        # Save the specifications to the cache file
+        $put_file( ${Pico_LibSpecsCacheFilePath}, $map_to_edata(${mhLibSpc}) )
+    endif
+    # Return the map handle
+    return ${mhLibSpc}
+endfunction
+
+
+###################################################################################
+##### ================== Generic/Common RPi Pico Functions ================== #####
+###################################################################################
+
+##### Function to generate the correct glob target name to build assembly object file
+function sobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C object file
+function cobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+##### Function to generate the correct glob target name to build C++ object file
+function cppobj_target_glob() supersede
+    return $call(__origin__, false) # Disable shared library support
+endfunction
+
+
+##### Function to generate the correct PIO header file name from the given PIO source file name
+function pio_fname(srcFileName)
+    return $series(${srcFileName}, '.h')
+endfunction
+
+##### Function to generate the correct PIO header file path from the given PIO source file name
+function pio_fpath(srcFileName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(pio_fname, ${srcFileName}) )
+endfunction
+
+##### Function to generate the correct glob target name to build PIO header file
+function pio_target_glob()
+    $call(__check_CppBuildDir__)
+    return $series(${CppBuildDir}, '/%.pio.h')
+endfunction
+
+
+##### Function to generate the correct GATT header file name from the given GATT source file name
+function gatt_fname(srcFileName)
+    return $series(${srcFileName}, '.h')
+endfunction
+
+##### Function to generate the correct GATT header file path from the given GATT source file name
+function gatt_fpath(srcFileName)
+    $call(__check_CppBuildDir__)
+    return $cat_path( ${CppBuildDir}, $call(gatt_fname, ${srcFileName}) )
+endfunction
+
+##### Function to generate the correct glob target name to build GATT header file
+function gatt_target_glob()
+    $call(__check_CppBuildDir__)
+    return $series(${CppBuildDir}, '/%.gatt.h')
+endfunction
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Check the paths
+    local pathError := false
+    if $or( $cmp(${PICO_SDK_PATH}, '&==', ''), $not( $valid_path(${PICO_SDK_PATH}) ) )
+        $call(__exit_error_nf__, 'Pico SDK', true)
+        echoln 'Please download and install the Pico SDK from:'
+        echoln '    https://github.com/raspberrypi/pico-sdk.git'
+        echoln
+        echoln 'Example (Linux):'
+        echoln '    mkdir ~/raspberry-pi-pico'
+        echoln '    cd ~/raspberry-pi-pico'
+        echoln '    git clone -b master https://github.com/raspberrypi/pico-sdk.git'
+        echoln '    cd pico-sdk'
+        echoln '    git submodule update --init'
+        echoln '    cd ..'
+        echoln 'Set \'PICO_SDK_PATH\' to the Pico SDK location.'
+        echoln
+        echoln 'It is also possible to clone a specific Pico SDK version, for example (Linux):'
+        echoln '    git clone -b 1.5.1 --single-branch https://github.com/raspberrypi/pico-sdk.git'
+        echoln
+        echoln 'In the future, to update your Pico SDK to the latest version, please use the following commands (Linux):'
+        echoln '    cd pico-sdk'
+        echoln '    git pull'
+        echoln '    git submodule update'
+        echoln '    cd ..'
+        pathError := true
+    endif
+    if $or( $cmp(${PICO_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${PICO_TOOLCHAIN_PATH}) ) )
+        $call(__exit_error_nf__, 'Pico Toolchain (GCC ARM None EABI)', true)
+        $call(__armgcc_print_download_info__, 'Pico', 'raspberry-pi-pico', 'PICO_TOOLCHAIN_PATH')
+        pathError := true
+    endif
+    if ${pathError} : $exit(-1)
+    # Find Python
+    $call(find_python)
+    # Error if Python ≥ 3.6.0 is not available
+    $call(exit_error_if_python3_is_less_than_version, 3, 6, 0)
+    # Download (and install) the latest RP2040 tools and OpenOCD from Arduino
+    $call(download_latest_rp2040tools_from_arduino  , ${dlOnlyIfNotExist})
+    $call(download_latest_rp2040openocd_from_arduino, ${dlOnlyIfNotExist})
+    # Set the location of the C/C++ binaries
+    CppToolBinDir := $cat_path(${PICO_TOOLCHAIN_PATH}, 'bin')
+    # Set additional LD paths as needed
+    if !__os_windows__
+        LDLibraryPath +:= $cat_path(${PICO_TOOLCHAIN_PATH}, 'lib'  )
+        LDLibraryPath +:= $cat_path(${PICO_TOOLCHAIN_PATH}, 'lib64')
+    endif
+    # Get the binutils version
+    $call(pico_get_binutils_version)
+    # Determine the build configurations
+    PICO_NO_FLASH                  := $csel( $cmp(${PICO_TARGET_BINARY_TYPE}, '&==', 'no_flash'   ), 1, 0 )
+    PICO_USE_BLOCKED_RAM           := $csel( $cmp(${PICO_TARGET_BINARY_TYPE}, '&==', 'blocked_ram'), 1, 0 )
+    PICO_COPY_TO_RAM               := $csel( $cmp(${PICO_TARGET_BINARY_TYPE}, '&==', 'copy_to_ram'), 1, 0 )
+    PICO_TARGET_STDIO_UART        ?:= 0
+    PICO_TARGET_STDIO_USB         ?:= 1
+    PICO_TARGET_STDIO_SEMIHOSTING ?:= 0
+    PICO_TARGET_LINKER_SCRIPT     ?:= $cat_path(                                                 \
+                                          :"${PICO_SDK_PATH}/src/rp2_common/pico_standard_link", \
+                                          $csel(                                                 \
+                                              $cmp(${PICO_TARGET_BINARY_TYPE}, '&!=', ''),       \
+                                              :"memmap_${PICO_TARGET_BINARY_TYPE}.ld",           \
+                                              'memmap_default.ld'                                \
+                                          )                                                      \
+                                      )
+    PICO_DEFAULT_BOOT_STAGE2_FILE ?:= :"${PICO_SDK_PATH}/src/rp2_common/boot_stage2/compile_time_choice.S"
+    # Get and check the SDK version
+    $call(pico_get_sdk_version)
+    if !$call(pico_sdk_ver_min, 1, 5, 0)
+        $call( __exit_error_ns_desc__, $flatten( {{ __c_cyan__, 'Pico SDK', __c_white__, ' less than version' }} ), '1.5.0' )
+    endif
+    if !$call(pico_sdk_ver_max, 1, 5, 1)
+        $call( __exit_error_ns_desc__, $flatten( {{ __c_cyan__, 'Pico SDK', __c_white__, ' greater than version' }} ), '1.5.1' )
+    endif
+    # Get the map object for the SDK library specifications
+    Pico_LibSpecMH := $call(pico_get_lib_specs)
+    # Set the C and C++ standard versions
+    $call(select_c_langstd  , 'c11'  , true )
+    $call(select_cxx_langstd, 'c++17', false)
+(*
+    ##### home/aloysius/raspberry-pi-pico/pico-sdk/src
+    ##### https://leimao.github.io/blog/CMake-Public-Private-Interface
+    ##### 'src/common' #####
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__, 'boot_picoboot') )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__, 'pico_base'    ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__, 'pico_divider' ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__, 'pico_sync'    ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__, 'pico_util'    ) )
+    ##### 'src/rp2_common' #####
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'boot_stage2'       ) )
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'hardware_adc'      ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'hardware_base'     ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'hardware_divider'  ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_async_context') )
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_btstack'      ) )
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_bit_ops'      ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_cmsis'        ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_cyw43_arch'   ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_int64_ops'    ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_fix'          ) )
+     mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_float'        ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_mbedtls'      ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_printf'       ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_standard_link') )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'tinyusb'           ) )
+    ##### 'src/rp2040' #####
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2040__, 'hardware_regs'   ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2040__, 'hardware_structs') )
+    #make r20test
+    #$call(dump_map_objects_and_exit, ${mhs})
+    ##### 'src/rp2040' #####
+    unset mhs
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_common__    , 'pico_base'        ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'boot_stage2'      ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_btstack'     ) )
+    #mhs +:= $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_cyw43_driver') )
+    #$call(dump_map_objects_and_exit, ${mhs})
+    ##### 'lib/*' #####
+    mhs := $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__lib_tinyusb__) )
+    mhs := $call( __pico_get_lib_spec__, $call(__pico_get_cmlc__src_rp2_common__, 'pico_stdlib') )
+    $call(dump_map_objects_and_exit, ${mhs})
+    #make r20test > 1.log.txt
+    #diff -u ../0_excluded_directory/temporary/RaspberryPiPico/__JxMakePicoLibs__.txt 1.log.txt
+#*)
+(*
+    echoln $ftlines(${Pico_SDKVersion})
+    $call(dump_map_objects, ${Pico_LibSpecMH})
+#*)
+    # Set extra configuration information text
+    if &${Pico_SDKVersion}
+        __BuildTool_ExtraInfoName__  +:= :"${Pico_MCU} SDK       Version"
+        __BuildTool_ExtraInfoValue__ +:= $ftdots(${Pico_SDKVersion})
+    endif
+    if &${PICO_SDK_PATH}
+        __BuildTool_ExtraInfoName__  +:= :"${Pico_MCU} SDK       Directory"
+        __BuildTool_ExtraInfoValue__ +:= ${PICO_SDK_PATH}
+    endif
+    if &${PICO_TOOLCHAIN_PATH}
+        __BuildTool_ExtraInfoName__  +:= :"${Pico_MCU} Toolchain Directory"
+        __BuildTool_ExtraInfoValue__ +:= ${PICO_TOOLCHAIN_PATH}
+    endif
+    if &${CppToolBinDir}
+        __BuildTool_ExtraInfoName__  +:= :"${Pico_MCU} GCC       Directory"
+        __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+    endif
+    if $call(python3_available)
+        __BuildTool_ExtraInfoName__  +:= '-'
+        __BuildTool_ExtraInfoValue__ +:= '-'
+        __BuildTool_ExtraInfoName__  +:= 'Python 3 Command'
+        __BuildTool_ExtraInfoValue__ +:= ${Python3}
+        __BuildTool_ExtraInfoName__  +:= 'Python 3 Version'
+        __BuildTool_ExtraInfoValue__ +:= ${__Python3_Version__}
+    endif
+    # Call the origin function
+    ARM_TOOLCHAIN_PATH := ${__GTCP_NA__} # Inform the origin function that 'ARM_TOOLCHAIN_PATH' should not be used
+    $call(__origin__, ${buildSubdirectories})
+    (*
+    # Unconditionally remove '-Wextra' to prevent printing a lot of warnings from the SDK source files
+    $call(__unconditionally_remove_wextra__)
+    #*)
+endfunction
+
+
+##### Function to list connected UF2 devices
+function __pico_list_uf2_devices_exec__()
+    $silent_sem()
+   -@${Python3} ${RP2040Tool_uf2conv_py} '-l'
+    local excode := $[excode]
+    $restore_sem()
+    if $[excode] : return ''
+    return $erase_ifempty( $sflines( $[stdout] ) )
+endfunction
+
+function pico_list_uf2_devices()
+    return $exec(__pico_list_uf2_devices_exec__)
+endfunction
+
+
+##### Function to upload the given program via UF2
+const Pico_UF2_FixBaudrate_Value          := 115200
+const Pico_UF2_WaitForSerialPort_TimeoutS :=    420 # 420 / 60 = 7 minutes
+
+function __pico_upload_uf2_exec__(progName, device, serial)
+    if &${device} : device := '-d' ${device}
+    if &${serial} : serial := '-s' ${serial}
+   +@${Python3} ${RP2040Tool_uf2conv_py} ${serial} ${device} -D ~${progName/(.+)\.elf/$1.uf2/}
+    $nop($[excode]) # Ensure all pending commands are executed
+endfunction
+
+function __pico_upload_uf2_fix_baudrate_exec_stty__(serial)
+    $nop($[lserr] ) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+  -+@stty -F ${serial} ${Pico_UF2_FixBaudrate_Value}
+    $nop($[excode]) # Ensure all pending commands are executed
+    $restore_sem()
+    $nop($[lserr] ) # Ensure the last suppressed error message is cleared
+endfunction
+
+function __pico_upload_uf2_fix_baudrate_exec_picotool__()
+   +@${RP2040Tool_picotool} reboot
+    $nop($[excode]) # Ensure all pending commands are executed
+endfunction
+
+function __pico_upload_uf2_fix_baudrate_impl__(serial)
+    # Set the default baudrate
+    $exec(__pico_upload_uf2_fix_baudrate_exec_stty__, ${serial})
+    # Return 'true' if the serial port still exists after the above command is executed so this process will not be repeated again
+    if $call(__check_if_serial_port_exists__, ${serial}, 1000) : return true
+    # Use 'picotool' to reboot the into application mode
+    $sleep(1000)
+    $exec(__pico_upload_uf2_fix_baudrate_exec_picotool__)
+    if $[excode]
+        # Print the output
+        $call(__print_stderr_stdxxx__)
+        # Print some helper information messages
+        if __os_linux__
+            if !$valid_path('/etc/udev/rules.d/99-pico.rules')
+                # Based on 'https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93'
+                echoln
+                echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+                echoln
+                echoln __c_white__ 'Please create a new \'udev\' rule in \'/etc/udev/rules.d/99-pico.rules\' as \'root\' (or use \'sudo\')' __c_reset__
+                echoln __c_white__ 'which contains:' __c_reset__
+                echoln
+               #echoln             '# Make an RP2040 in BOOTSEL mode writable by all users, so you can \'picotool\' without \'sudo\''
+               #echoln             'SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0003", MODE="0666"'
+                echoln             '# Make \'RP2040\' in BOOTSEL mode writable by all users, so you can \'picotool\' without \'sudo\''
+                echoln             'SUBSYSTEM=="usb", ACTION=="add", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0003", MODE="0666"'
+                echoln
+               #echoln             '# Symlink an RP2040 running MicroPython from \'/dev/pico\' so you can \'mpr connect $(realpath /dev/pico)\''
+               #echoln             'SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0005", SYMLINK+="pico"'
+                echoln             '# Symlink \'RP2040\' running MicroPython from \'/dev/pico\' so you can \'mpr connect $(realpath /dev/pico)\''
+                echoln             'SUBSYSTEM=="tty", ACTION=="add", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0005", SYMLINK+="pico"'
+                echoln
+                echoln __c_white__ 'and then still as \'root\' (or use \'sudo\'), execute:' __c_reset__
+                echoln
+                echoln             'udevadm control --reload-rules && udevadm trigger'
+                echoln
+                echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+                echoln
+            endif
+        endif
+        # Exit program
+        $exit($[excode])
+    endif
+    # Wait for the serial port to reappear
+    $call(__wait_for_serial_port_to_appear__, ${serial}, ${Pico_UF2_WaitForSerialPort_TimeoutS})
+    # Return 'false' for now so this process will be repeated again
+    return false
+endfunction
+
+function __pico_upload_uf2_fix_baudrate__(serial)
+    loop
+        if $call(__pico_upload_uf2_fix_baudrate_impl__, ${serial}) : return
+    endloop
+endfunction
+
+function pico_upload_uf2(progName, ?device, ?serial)
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__pico_upload_uf2_exec__, ${progName}, ${device}, ${serial})
+    $call(__conditional_print_stdxxx_and_check_excode__              )
+    $cmd_streaming_off()
+    # If a serial port to reset is specified, wait for it to reappear
+    if !&${serial} : return
+    echoln "Waiting for '${serial}' to reappear ..."
+    $call(__wait_for_serial_port_to_appear__, ${serial}, ${Pico_UF2_WaitForSerialPort_TimeoutS})
+    # If it is a Linux system, remove the magic baudrate that has been set when uploading
+    if !__os_linux__ : return
+    echoln "Removing the magic baudrate from '${serial}' ..."
+    $call(__pico_upload_uf2_fix_baudrate__, ${serial})
+endfunction
+
+
+##### Define some default values for SWD
+const Pico_SWD_Default_Interface    := 'cmsis-dap'
+const Pico_SWD_Default_Transport    := 'swd'
+const Pico_SWD_Default_AdapterSpeed := 5000
+
+const Pico_SWD_Target_Device        := 'rp2040'
+
+const Pico_SWD_GDBPort              := ${OPENOCD_GDB_PORT}
+const Pico_SWD_TCLPort              := ${OPENOCD_TCL_PORT}
+const Pico_SWD_TelnetPort           := ${OPENOCD_TELNET_PORT}
+
+
+##### Function to reset the MCU via SWD
+function __pico_check_swd_error_and_print_help__()
+    # Simply exit if there was no error
+    if !$[excode] : return
+    # Print some helper information messages
+    if !$call(__openocd_print_udev_rules__, ${RP2040OOCD_udev_rule})
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+        echoln __c_white__ 'If required, the firmware for Picoprobe can be downloaded from:' __c_reset__
+        echoln             '    https://github.com/raspberrypi/picoprobe/releases/latest/download/picoprobe.uf2'
+        echoln
+        echoln __c_white__ 'Picoprobe signals connection:' __c_reset__
+        echoln             '    RPi Pico Picoprobe Pin   Target SWD Pin      J-Link Eqivalent Pin' __c_reset__
+        echoln             '    VSYS         (   39)     5V                  -                      (Optional)'
+        echoln             '    GND          (3, 38)     GND                 GND'
+        echoln             '    -                        3V3_OUT      (36)   VTref ( 1)'
+        echoln             '    -                        RUN          (30)   RESET (15)'
+        echoln             '    GP2          (4    )     SWCLK               SWCLK ( 9)'
+        echoln             '    GP3          (5    )     SWDIO               SWDIO ( 7)'
+        echoln             '    GP4/UART1_TX (6    )     GP1/UART0_RX ( 2)   -                      (Optional)'
+        echoln             '    GP5/UART1_RX (7    )     GP0/UART0_TX ( 1)   -                      (Optional)'
+        echoln
+        echoln __c_white__ 'Picoprobe requires Windows 10 or later. However, it might be possible to make it work on Windows 7 and 8'
+        echoln             'by using the WinUSB driver. Please download Zadig from \'https://zadig.akeo.ie\' and run it to install the'
+        echoln             'driver for the attached Picoprobe interface #2; for more details, please refer to:' __c_reset__
+        echoln             '    https://www.visualmicro.com/page/Creating-a-PicoProbe-Debug-Probe.aspx'
+        echoln __c_white__ 'for more details.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    # Exit program
+    $exit($[excode])
+endfunction
+
+function pico_reset_swd(?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${Pico_SWD_Default_Interface}
+    transport    ?:= ${Pico_SWD_Default_Transport}
+    adapterSpeed ?:= ${Pico_SWD_Default_AdapterSpeed}
+    # Perform upload
+    $cmd_streaming_on()
+    $call(                                                      \
+        __armgcc_reset_swd__                                  , \
+        $call(__ccat_LDLibraryPaths__, ${RP2040OOCD_dlib_dir}), \
+        ${RP2040OOCD_openocd}                                 , \
+        ${RP2040OOCD_scripts_dir}                             , \
+        ${interface}                                          , \
+        ${transport}                                          , \
+        ${adapterSpeed}                                       , \
+        ${Pico_SWD_Target_Device}                               \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__pico_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Function to upload the given program via SWD
+function pico_upload_swd(progName, ?interface, ?transport, ?adapterSpeed)
+    # Set the default values
+    interface    ?:= ${Pico_SWD_Default_Interface}
+    transport    ?:= ${Pico_SWD_Default_Transport}
+    adapterSpeed ?:= ${Pico_SWD_Default_AdapterSpeed}
+    # Perform upload
+    $cmd_streaming_on()
+    $call(                                                      \
+        __armgcc_upload_swd_simple__                          , \
+        $call(__ccat_LDLibraryPaths__, ${RP2040OOCD_dlib_dir}), \
+        ${RP2040OOCD_openocd}                                 , \
+        ${RP2040OOCD_scripts_dir}                             , \
+        ${interface}                                          , \
+        ${transport}                                          , \
+        ${adapterSpeed}                                       , \
+        ${Pico_SWD_Target_Device}                             , \
+        ${progName}                                             \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__pico_check_swd_error_and_print_help__)
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function pico_debug_swd_start(progName, ?interface, ?transport, ?adapterSpeed, ?noGDBExecCmd)
+    # Set the default values
+    interface    ?:= ${Pico_SWD_Default_Interface}
+    transport    ?:= ${Pico_SWD_Default_Transport}
+    adapterSpeed ?:= ${Pico_SWD_Default_AdapterSpeed}
+    # Print message about GDB as needed
+    $call(__armgcc_debug_swd_start_print_gdb_info__, 'pico_debug_swd_gdb', ${Pico_MCU}, ${progName}, ${DebuggerProgram}, ${noGDBExecCmd})
+    # Run OpenOCD in server mode
+    $cmd_streaming_on()
+    $exec(                                                      \
+        __armgcc_debug_swd_start_exec_openocd__,                \
+        $call(__ccat_LDLibraryPaths__, ${RP2040OOCD_dlib_dir}), \
+        ${RP2040OOCD_openocd}                                 , \
+        ${RP2040OOCD_scripts_dir}                             , \
+        ${interface}                                          , \
+        ${transport}                                          , \
+        ${adapterSpeed}                                       , \
+        ${Pico_SWD_Target_Device}                             , \
+        ${Pico_SWD_GDBPort}                                   , \
+        ${Pico_SWD_TCLPort}                                   , \
+        ${Pico_SWD_TelnetPort}                                  \
+    )
+    $cmd_streaming_off()
+    # Check for error
+    $call(__pico_check_swd_error_and_print_help__)
+endfunction
+
+function pico_debug_swd_gdb(progName, ?autoConnect)
+    # Set the default values
+    autoConnect ?:= true
+    # Execute GDB
+    $sh_delay()
+    $cmd_streaming_on()
+    $exec(                             \
+        __armgcc_debug_swd_gdb_exec__, \
+        $call(__get_LDLibraryPaths__), \
+        ${DebuggerProgram}           , \
+        ${Pico_SWD_GDBPort}          , \
+        ${progName}                  , \
+        ${autoConnect}                 \
+    )
+    $cmd_streaming_off()
+    $sh_restore()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+###################################################################################
+##### =================== Native RPi Pico Build Functions =================== #####
+###################################################################################
+
+##### Function to initialize the SDK
+const   Pico_Debug_IPSDK      := 0
+
+      __Pico_ProgSubdirs__    := ''
+      __Pico_ProgBElfs__      := 0
+      __Pico_ProgBProps__     := 0
+      __Pico_ProgDoneLibs__   := ''
+
+      __Pico_ISource__        := ''
+      __Pico_ISourceStack__   := 0
+      __Pico_AInclude__       := ''
+      __Pico_IInclude__       := ''
+      __Pico_IIncludeStack__  := 0
+      __Pico_ACompMDef__      := ''
+      __Pico_ICompMDef__      := ''
+      __Pico_ICompMDefStack__ := 0
+
+      __Pico_SDKObject_S__    := ''
+      __Pico_SDKObject_C1__   := ''
+      __Pico_SDKObject_C2__   := ''
+      __Pico_SDKObject_Cpp__  := ''
+
+function __ipsdk_process_lib__(progName, parentName, procName, ?type, ?level)
+    # Check whether the process with the given name ('procName') has been processed
+    if $contains(${__Pico_ProgDoneLibs__}, ${procName}) : return
+    __Pico_ProgDoneLibs__ +:= ${procName}
+    # Store the program name if this is the root function call
+    if !&${parentName} : $map_add(${__Pico_ProgBElfs__}, '__ProgramNames__', ${progName})
+    # Set the default values
+    type  ?:= 'l'
+    level ?:= 0
+    # Print debugging information as needed
+    if ${Pico_Debug_IPSDK}
+        if !${level} ; $call(print_indented_messages, ${level}, $sprintf("### %s"         , ${procName}                ) )
+        else         ; $call(print_indented_messages, ${level}, $sprintf("    ### [%s] %s", ${parentName}, ${procName} ) )
+        endif
+        inc level
+    endif
+    # Get the processed name with '_headers' suffix
+    local procName_headers := $ftt_stack(${procName}, '_headers')
+    # Get the data
+    local CustomCommand    := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_custom_command__   , ${procName}        ) )
+    local CustomTarget     := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_custom_target__    , ${procName}        ) )
+    local Dependency       := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_dependency__       , ${procName}        ) )
+    local LinkLibrarySelf  := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_library_self__, ${procName}        ) )
+          LinkLibrarySelf +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_library_self__, ${procName_headers}) )
+    local LinkLibraryUser  := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_library_user__, ${procName}        ) )
+          LinkLibraryUser +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_library_user__, ${procName_headers}) )
+    local LinkOptionSelf   := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_option_self__ , ${procName}        ) )
+    local LinkOptionUser   := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_link_option_user__ , ${procName}        ) )
+    local SourceSelf       := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_source_self__      , ${procName}        ) )
+    local SourceUser       := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_source_user__      , ${procName}        ) )
+    local IncludeSelf      := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_include_self__     , ${procName}        ) )
+          IncludeSelf     +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_include_self__     , ${procName_headers}) )
+    local IncludeUser      := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_include_user__     , ${procName}        ) )
+          IncludeUser     +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_include_user__     , ${procName_headers}) )
+    local CompileDefSelf   := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_compile_def_self__ , ${procName}        ) )
+          CompileDefSelf  +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_compile_def_self__ , ${procName_headers}) )
+    local CompileDefUser   := $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_compile_def_user__ , ${procName}        ) )
+          CompileDefUser  +:= $map_get( ${Pico_LibSpecMH}, $call(__pico_kn_compile_def_user__ , ${procName_headers}) )
+    # Remove '-DPICO_BUILD_BOOT_STAGE2_NAME=.*' as needed
+    if $str_endwith(${PICO_DEFAULT_BOOT_STAGE2_FILE}, 'compile_time_choice.S')
+        CompileDefUser := $erase_if(${CompileDefUser}, '-DPICO_BUILD_BOOT_STAGE2_NAME=.*', true)
+    endif
+    # Set the build type
+    CompileDefSelf := ${CompileDefSelf/\$\{#CppBuildType\}/\${CppBuildType}/}
+    CompileDefUser := ${CompileDefUser/\$\{#CppBuildType\}/\${CppBuildType}/}
+    # Accumulate the reverse-inherited values
+    local ThisIsALibrary := $cmp(${type}, '&==', 'l')
+    if ${ThisIsALibrary}
+        CompileDefUser +:= $series( '-DLIB_', $ucase(${procName}), '=1' )
+        if $part_count(${SourceUser}    ) ; __Pico_ISource__   +:= ${SourceUser}                                                ; endif
+        if $part_count(${IncludeUser}   ) ; __Pico_AInclude__  +:= ${IncludeUser}    ; __Pico_IInclude__  +:= ${IncludeUser}    ; endif
+        if $part_count(${CompileDefUser}) ; __Pico_ACompMDef__ +:= ${CompileDefUser} ; __Pico_ICompMDef__ +:= ${CompileDefUser} ; endif
+        if ${parentName} &== ${progName}
+            if $part_count(${IncludeSelf}   ) ; __Pico_AInclude__  +:= ${IncludeSelf}    ; __Pico_IInclude__  +:= ${IncludeSelf}    ; endif
+            if $part_count(${CompileDefSelf}) ; __Pico_ACompMDef__ +:= ${CompileDefSelf} ; __Pico_ICompMDef__ +:= ${CompileDefSelf} ; endif
+        endif
+    endif
+    # An offset value to remove '${PICO_SDK_PATH}/src/'
+    local DirPrefixOfs := $strlen(${PICO_SDK_PATH})
+    add   DirPrefixOfs, ${DirPrefixOfs}, 6
+    # Process the ':custom_target' recursively
+    foreach local Entry in ${CustomTarget}
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[TRG-A] >>> ${Entry}")
+        # Recursively process the custom targets
+        $call(__ipsdk_process_lib__, ${progName}, ${procName}, ${Entry}, 't', ${level})
+        # Store the properties
+        $map_put(${__Pico_ProgBProps__}, :"${procName}:prerequisite", ${Entry})
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[TRG-B] >>> ${Entry}")
+    endforeach
+    # Process the ':dependency' recursively
+    foreach local Entry in ${Dependency}
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[DEP-A] >>> ${Entry}")
+        # Recursively process the depedencies
+        $call(__ipsdk_process_lib__, ${progName}, ${procName}, ${Entry}, 'd', ${level})
+        # Store the properties
+        $map_put(${__Pico_ProgBProps__}, :"${procName}:prerequisite", ${Entry})
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[DEP-B] >>> ${Entry}")
+    endforeach
+    # Push (save) the reverse-inherited values
+    $stk_push(${__Pico_ISourceStack__}  , ${__Pico_ISource__}  )
+    $stk_push(${__Pico_IIncludeStack__} , ${__Pico_IInclude__} )
+    $stk_push(${__Pico_ICompMDefStack__}, ${__Pico_ICompMDef__})
+    # Process the ':link_library:user' and ':link_library:self' recursively
+    local ThisLinkLibrary := ${LinkLibraryUser}
+    if ${ThisIsALibrary} : ThisLinkLibrary := $stack(${ThisLinkLibrary}, ${LinkLibrarySelf})
+    foreach local Entry in ${ThisLinkLibrary}
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[LLU-A] >>> ${Entry}")
+        # Recursively process the libraries
+        $call(__ipsdk_process_lib__, ${progName}, ${procName}, ${Entry}, 'l', ${level})
+        # Print debugging information as needed
+        if ${Pico_Debug_IPSDK} : $call(print_indented_messages, ${level}, :"[LLU-B] >>> ${Entry}")
+    endforeach
+    # Get the reverse-inherited values for this part of the process
+    local ThisPartSource   := $erase_ifempty(${__Pico_ISource__}  )
+    local ThisPartInclude  := $erase_ifempty(${__Pico_IInclude__} )
+    local ThisPartCompMDef := $erase_ifempty(${__Pico_ICompMDef__})
+    # Pop (restore) the reverse-inherited values
+    __Pico_ISource__   := $stk_pop(${__Pico_ISourceStack__}  )
+    __Pico_IInclude__  := $stk_pop(${__Pico_IIncludeStack__} )
+    __Pico_ICompMDef__ := $stk_pop(${__Pico_ICompMDefStack__})
+    # Process the ':link_option:user'
+    if &${LinkOptionUser}
+        # Convert 'LINKER:-z,defs' to '-Wl,-z,defs' (GCC) or '-Xlinker -z -Xlinker defs' (Clang)
+        LinkOptionUser := ${LinkOptionUser/LINKER:/-Wl,/}
+        # The option '--no-warn-rwx-segments' is supported as of binutils 2.39
+        if !$call(pico_ld_ver_min, 2, 39, 0) : LinkOptionUser := $erase_if(${LinkOptionUser}, '.+?--no-warn-rwx-segments', true)
+        # Store the link options
+        $map_add(${__Pico_ProgBElfs__}, :"${progName}:link_option", ${LinkOptionUser})
+    endif
+    # Process the ':link_option:self'
+    if $and( ${ThisIsALibrary}, $part_count(${LinkOptionSelf}) )
+        # Convert 'LINKER:-z,defs' to '-Wl,-z,defs' (GCC) or '-Xlinker -z -Xlinker defs' (Clang)
+        LinkOptionSelf := ${LinkOptionSelf/LINKER:/-Wl,/}
+        # The option '--no-warn-rwx-segments' is supported as of binutils 2.39
+        if !$call(pico_ld_ver_min, 2, 39, 0) : LinkOptionSelf := $erase_if(${LinkOptionSelf}, '.+?--no-warn-rwx-segments', true)
+        # Store the link options
+        $map_add(${__Pico_ProgBElfs__}, :"${progName}:link_option", ${LinkOptionSelf})
+    endif
+    # Process the 'ThisPartSource' and ':source:self'
+    if ${ThisIsALibrary} : ThisPartSource := $stack(${ThisPartSource}, ${SourceSelf})
+    foreach local Src in ${ThisPartSource}
+        # Skip 'cybt_firmware_43439.c' and remove '-DCYW43_USE_HEX_BTFW=1'
+        if $str_endwith(${Src}, 'cybt_firmware_43439.c') : continue
+        ThisPartCompMDef := $erase_if(${ThisPartCompMDef}, '-DCYW43_USE_HEX_BTFW=1')
+        # Get the output object file and directory names
+        local Obj := $ftt_stack( $cat_path( ${CppBuildDir}, $substr(${Src}, ${DirPrefixOfs}, -1) ), '.', ${ObjFileExt} )
+        local Dir := $path_rm_last_part(${Obj})
+        # Store the directory name
+        if !$contains(${__Pico_ProgSubdirs__}, ${Dir}) : __Pico_ProgSubdirs__ +:= :"${Dir}"
+        # Store the object file name
+        $map_add(${__Pico_ProgBElfs__}, :"${progName}:sdk_object", ${Obj})
+        # Store the properties
+                                              $map_put( ${__Pico_ProgBProps__}, :"${Obj}:source"      ,                      ${Src}               )
+        ##### ??? TODO : These four lines are not actually needed, shall we simply keep them here to make the map more complete ??? #####
+        if $part_count(${IncludeSelf}     ) : $map_put( ${__Pico_ProgBProps__}, :"${Obj}:include"     , $series('-isystem', ~${IncludeSelf}     ) )
+        if $part_count(${CompileDefSelf}  ) : $map_put( ${__Pico_ProgBProps__}, :"${Obj}:#CompileMDef",                      ${CompileDefSelf}    )
+        if $part_count(${ThisPartInclude} ) : $map_put( ${__Pico_ProgBProps__}, :"${Obj}:include"     , $series('-isystem', ~${ThisPartInclude} ) )
+        if $part_count(${ThisPartCompMDef}) : $map_put( ${__Pico_ProgBProps__}, :"${Obj}:#CompileMDef",                      ${ThisPartCompMDef}  )
+    endforeach
+    # Print debugging information as needed
+    if ${Pico_Debug_IPSDK}
+        dec level
+        if !${level} : echoln
+    endif
+endfunction
+
+function __ipsdk_process_prog__(progName, picoLibList)
+    # Reset the per program variables
+    __Pico_ProgDoneLibs__ := ''
+    __Pico_ISource__      := ''
+    __Pico_AInclude__     := ''
+    __Pico_IInclude__     := ''
+    __Pico_ACompMDef__    := ''
+    __Pico_ICompMDef__    := ''
+    $stk_clear(${__Pico_ISourceStack__}  )
+    $stk_clear(${__Pico_IIncludeStack__} )
+    $stk_clear(${__Pico_ICompMDefStack__})
+    # Add the program name as a library entry
+    $call(__pico_map_add_link_library__, ${Pico_LibSpecMH}, ${progName}, false, true, ${picoLibList})
+    # Process the program as if it were a library
+    $call(__ipsdk_process_lib__, ${progName}, '', ${progName})
+    # Delete the program name from the library
+    $map_remove( ${Pico_LibSpecMH}, $call(__pico_kn_link_library_user__, ${progName}) )
+    # Store all the includes and compile-macro-definitions for the program
+    $map_add( ${__Pico_ProgBElfs__}, :"${progName}:include"     , $series( '-isystem', $sort_ascending( $path_ndsep( $unique( $erase_ifempty(${__Pico_AInclude__} ) ) ) ) ) )
+    $map_add( ${__Pico_ProgBElfs__}, :"${progName}:#CompileMDef",                      $sort_ascending(              $unique( $erase_ifempty(${__Pico_ACompMDef__}) )   )   )
+endfunction
+
+function init_pico_sdk(?picoLibList)
+    # Sanitize the library list
+    picoLibList := $unique( $sort_ascending( $erase_ifempty(${picoLibList}) ) )
+    # Add the required libraries
+    ##### ??? TODO : # Use 'PICO_BOARD' to determine the absolutely required libraries that must be linked ??? #####
+    ##### ???        # See 'https://vanhunteradams.com/Pico/Setup/SDKArchitecture.html'                    ??? #####
+    picoLibList := $stack('pico_stdlib', ${picoLibList})
+    # Check if the initialization data cache file is up to date
+    local GetFromCache                      := false
+    local Pico_InitSDKCacheFilePath_LibList := ${Pico_InitSDKCacheFilePath/(.+)(\.cache)/$1.liblist$2/}
+    local CheckLibList                      := ${PICO_SDK_PATH}             ${PICO_TOOLCHAIN_PATH}                                            \
+                                               ${PICO_BOARD}                ${PICO_TARGET_BINARY_TYPE}       ${PICO_MBEDTLS_CONFIG_FILE}      \
+                                               ${PICO_TARGET_STDIO_UART}    ${PICO_TARGET_STDIO_USB}         ${PICO_TARGET_STDIO_SEMIHOSTING} \
+                                               ${PICO_TARGET_LINKER_SCRIPT} ${PICO_DEFAULT_BOOT_STAGE2_FILE}                                  \
+                                               ${CppBuildType}              ${CppOptimizationFlags}          ${picoLibList}
+    if $and(                                                                              \
+           $valid_path   ( ${Pico_InitSDKCacheFilePath_LibList}                        ), \
+           $newer_path   ( ${Pico_InitSDKCacheFilePath}, ${Pico_LibSpecsCacheFilePath} ), \
+           $uptodate_path( ${Pico_InitSDKCacheFilePath}                                )  \
+       )
+        if ${CheckLibList} &== $get_file(${Pico_InitSDKCacheFilePath_LibList}) : GetFromCache := true
+    endif
+    # Get the initialization data from the cache file
+    if ${GetFromCache}
+        # Read the data
+        local Lines := $get_file(${Pico_InitSDKCacheFilePath})
+        # Extract the data
+        __Pico_ProgSubdirs__ := $sfpipes       (${Lines}<1>)
+        __Pico_ProgBElfs__   := $map_from_edata(${Lines}<2>)
+        __Pico_ProgBProps__  := $map_from_edata(${Lines}<3>)
+    # Determine the initialization data
+    else
+        # Prepare the varibles
+        __Pico_ProgSubdirs__    := ''
+        __Pico_ProgBElfs__      := $map_new()
+        __Pico_ProgBProps__     := $map_new()
+        __Pico_ISourceStack__   := $stk_new()
+        __Pico_IIncludeStack__  := $stk_new()
+        __Pico_ICompMDefStack__ := $stk_new()
+        # Process the boot stage 2 program
+        $call(__ipsdk_process_prog__, 'BOOT_STAGE2', { 'bs2_default' 'bs2_default_bin' 'pico_base_headers' } )
+        # Process the main program
+        $call(__ipsdk_process_prog__, ${Pico_ProjectName}, ${picoLibList})
+        # Delete the now unused varibles
+        $stk_delete(${__Pico_ISourceStack__}  )
+        $stk_delete(${__Pico_IIncludeStack__} )
+        $stk_delete(${__Pico_ICompMDefStack__})
+        # Erase empty entry from the subdirectory list and make them absolute path
+        __Pico_ProgSubdirs__ := $abs_path( $erase_ifempty(${__Pico_ProgSubdirs__} ) )
+        # Add the directories for the generated files
+        foreach local GIDir in $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_Include})
+        local AbsCppBuildDir := ~${CppBuildDir}
+            if $str_begwith(${GIDir}, ${AbsCppBuildDir}) : __Pico_ProgSubdirs__ +:= ${GIDir}
+        endforeach
+        # Save the initialization data to the cache file
+        local Lines  := $ftpipes     (${__Pico_ProgSubdirs__})
+              Lines +:= $map_to_edata(${__Pico_ProgBElfs__}  )
+              Lines +:= $map_to_edata(${__Pico_ProgBProps__} )
+        $put_file(${Pico_InitSDKCacheFilePath}        , ${Lines}       )
+        $put_file(${Pico_InitSDKCacheFilePath_LibList}, ${CheckLibList})
+    endif
+    # Add some configuration macros as needed
+    if &${PICO_FLASH_SPI_CLKDIV}
+        local CMDef := :"-DPICO_FLASH_SPI_CLKDIV=${PICO_FLASH_SPI_CLKDIV}"                           # 2 or 4
+        $map_add(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef'  , ${CMDef})
+        $map_add(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}, ${CMDef})
+    endif
+    if &${PICO_FLASH_SIZE_BYTES}
+        local CMDef := :"-DPICO_FLASH_SIZE_BYTES=${PICO_FLASH_SIZE_BYTES}"                           # 2097152U, 4194304U, 8388608U or 16777216U
+        $map_add(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef'  , ${CMDef})
+        $map_add(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}, ${CMDef})
+    endif
+    if &${PICO_XOSC_STARTUP_DELAY_MULTIPLIER}
+        local CMDef := :"-DPICO_XOSC_STARTUP_DELAY_MULTIPLIER=${PICO_XOSC_STARTUP_DELAY_MULTIPLIER}" # 1 or 64
+        $map_add(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef'  , ${CMDef})
+        $map_add(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}, ${CMDef})
+    endif
+    # Enable resetting into BOOTSEL mode if the host sets the baudrate to a magic value
+   #$map_add(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef'  , '-DPICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=1')
+   #$map_add(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef'  , '-DPICO_STDIO_USB_RESET_MAGIC_BAUD_RATE=1200'  )
+    $map_add(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}, '-DPICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=1')
+    $map_add(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}, '-DPICO_STDIO_USB_RESET_MAGIC_BAUD_RATE=1200'  )
+    ####################################
+    ##### DUMP DUMP DUMP DUMP DUMP #####
+    ####################################
+    (*
+    echoln $ftlines(${__Pico_ProgSubdirs__})
+    $exit(0)
+    echoln
+    $call(dump_map_object, ${__Pico_ProgBElfs__})
+    echoln
+    $call(dump_map_object, ${__Pico_ProgBProps__})
+    echoln
+    $exit(0)
+    #*)
+    ####################################
+    ####################################
+    ####################################
+    # Make the project subdirectories
+    $mkdir(${__Pico_ProgSubdirs__})
+    # Add extra include paths
+    Pico_ExtraIncludePaths  := :"-I~${CppBuildDir}/${Pico_BuildGenDir}"
+    Pico_ExtraIncludePaths +:= :"-I~${CppBuildDir}"
+    # Generate '${CppBuildDir}/${Pico_BuildGenDir}/pico_base/pico/version.h' as needed
+    local GenFilePath
+    GenFilePath := :"~${CppBuildDir}/${Pico_BuildGenDir}/pico_base/pico/version.h"
+    if !$call(__pico_gen_file_path_exists__, ${GenFilePath})
+        $put_file( ${GenFilePath}, $call(__pico_eval_ts__pico_version_h) )
+    endif
+    # Generate '${CppBuildDir}/${Pico_BuildGenDir}/pico_base/pico/config_autogen.h' as needed
+    GenFilePath := :"~${CppBuildDir}/${Pico_BuildGenDir}/pico_base/pico/config_autogen.h"
+    if !$call(__pico_gen_file_path_exists__, ${GenFilePath})
+        $put_file( ${GenFilePath}, $call(__pico_eval_ts__pico_config_autogen_h) )
+    endif
+    # Generate '${CppBuildDir}/${Pico_BuildGenDir}/cyw43_bus_pio_spi.pio.h' as needed
+    GenFilePath := :"~${CppBuildDir}/${Pico_BuildGenDir}/cyw43_bus_pio_spi.pio.h"
+    if !$call(__pico_gen_file_path_exists__, ${GenFilePath})
+        $call(__pico_pioasm__, :"${PICO_SDK_PATH}/src/rp2_common/pico_cyw43_driver/cyw43_bus_pio_spi.pio", ${GenFilePath})
+    endif
+    # Create targets for building boot stage 2
+    local BS2Objs := $map_get(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:sdk_object')
+    foreach local Obj in ${BS2Objs}
+        local Src := $map_get(${__Pico_ProgBProps__}, :"${Obj}:source")
+          if $str_endwith(${Src}, '.S'  ) ; $add_target('__pico_bs2_compile_s__'  , ${Obj}, ${Src})
+        elif $str_endwith(${Src}, '.c'  ) ; $add_target('__pico_bs2_compile_c__'  , ${Obj}, ${Src})
+        elif $str_endwith(${Src}, '.cpp') ; $add_target('__pico_bs2_compile_cpp__', ${Obj}, ${Src})
+        else                              ; $call(__exit_error_ns__, ${Src}, '')
+        endif
+    endforeach
+    $add_target('__pico_bs2_link_exe__', :"~${CppBuildDir}/${PICO_BS2_DEFAULT_FILE_NAME}", ${BS2Objs})
+    # Create targets for building the SDK library object files
+    local __Pico_SDKObject_C__
+    local SDKObjs              := $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_SDKObject})
+    foreach local Obj in ${SDKObjs}
+        local Src := $map_get(${__Pico_ProgBProps__}, :"${Obj}:source")
+          if $str_endwith(${Src}, '.S'  ) ; $add_target('__pico_sdk_compile_s__'  , ${Obj}, ${Src}) ; __Pico_SDKObject_S__   +:= ${Obj}
+        elif $str_endwith(${Src}, '.c'  ) ; $add_target('__pico_sdk_compile_c__'  , ${Obj}, ${Src}) ; __Pico_SDKObject_C__   +:= ${Obj}
+        elif $str_endwith(${Src}, '.cpp') ; $add_target('__pico_sdk_compile_cpp__', ${Obj}, ${Src}) ; __Pico_SDKObject_Cpp__ +:= ${Obj}
+        else                              ; $call(__exit_error_ns__, ${Src}, '')
+        endif
+    endforeach
+    # Split the target for '*.c' source files
+    local OutIdx := 1
+    while ${OutIdx} <= $part_count(${__Pico_SDKObject_C__})
+        local Out1 := $partn(${__Pico_SDKObject_C__}, ${OutIdx}) ; inc OutIdx
+        local Out2 := $partn(${__Pico_SDKObject_C__}, ${OutIdx}) ; inc OutIdx
+        if &${Out1} : __Pico_SDKObject_C1__ +:= ${Out1}
+        if &${Out2} : __Pico_SDKObject_C2__ +:= ${Out2}
+    endwhile
+endfunction
+
+
+##### Functions to execute pioasm
+function __pico_pioasm_exec__()
+    @${RP2040Tool_pioasm} -o c-sdk ${src} ${dst}
+endfunction
+
+function __pico_pioasm__(src, dst)
+    $exec(__pico_pioasm_exec__                         )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to convert ELF to UF2
+function __pico_elf_to_uf2__()
+    # Determine the path
+    local UF2File := $[target/(.+)\.elf/$1.uf2/]
+    # Convert ELF to UF2
+    $rmfile(~${UF2File})
+   +@${RP2040Tool_elf2uf2} ~$[target] ~${UF2File}
+    # Return the UF2 file path
+    return ${UF2File}
+endfunction
+
+
+##### Function to convert ELF to HEX
+function __pico_elf_to_hex__(ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local PicoObjCopy := $cat_path(${CppToolBinDir}, ${PicoObjCopy})
+                           local HexFile     := $[target/(.+)\.elf/$1.hex/]
+    # Convert ELF to HEX
+    $rmfile(~${HexFile})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${PicoObjCopy} ${ARMObjCopyE2HFlags} ~$[target] ~${HexFile}
+    # Return the BIN file path
+    return ${HexFile}
+endfunction
+
+
+##### Function to convert ELF to BIN
+function __pico_elf_to_bin__(ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local PicoObjCopy := $cat_path(${CppToolBinDir}, ${PicoObjCopy})
+                           local BinFile     := $[target/(.+)\.elf/$1.bin/]
+    # Convert ELF to BIN
+    $rmfile(~${BinFile})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${PicoObjCopy} ${ARMObjCopyE2BFlags} ~$[target] ~${BinFile}
+    # Return the BIN file path
+    return ${BinFile}
+endfunction
+
+
+##### Function to convert BIN to padded S
+function __pico_bin_to_padded_s__(inputBinFilePath, outputSFilePath)
+    # Determine the path
+    local Bin2PdS := $cat_path(${PICO_SDK_PATH}, 'src/rp2_common/boot_stage2/pad_checksum')
+    # Convert BIN to padded S
+    $rmfile(${outputSFilePath})
+   +@setenv PYTHONDONTWRITEBYTECODE 1
+   +@${Python3} ${Bin2PdS} -s 0xFFFFFFFF ${inputBinFilePath} ${outputSFilePath}
+endfunction
+
+
+##### Function to compile assembly source codes
+function __pico_compile_s__(?extraOptions)
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}) # :"$[target]:#CompileMDef"
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_Include}    )
+    $call(compile_s, ${extraOptions})
+endfunction
+
+function pico_compile_s(?extraOptions)
+    $call(__pico_compile_s__, ${extraOptions})
+endfunction
+
+
+##### Function to compile C source codes
+function __pico_compile_c__(?extraOptions)
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}) # :"$[target]:#CompileMDef"
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_Include}    )
+    extraOptions +:= ${Pico_ExtraIncludePaths}
+    $call(compile_c, ${extraOptions})
+endfunction
+
+function pico_compile_c(?extraOptions)
+    $call(__pico_compile_c__, ${extraOptions})
+endfunction
+
+
+##### Function to compile C++ source codes
+function __pico_compile_cpp__(?extraOptions)
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_CompileMDef}) # :"$[target]:#CompileMDef"
+    extraOptions +:= $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_Include}    )
+    extraOptions +:= ${Pico_ExtraIncludePaths}
+    $call(compile_cpp, ${extraOptions})
+endfunction
+
+function pico_compile_cpp(?extraOptions)
+    $call(__pico_compile_cpp__, ${extraOptions})
+endfunction
+
+
+##### Function to compile PIO header source codes
+function __pico_compile_pio__()
+    +@${RP2040Tool_pioasm} -o c-sdk ~$[preq*] ~$[target]
+endfunction
+
+function pico_compile_pio()
+    $exec(__pico_compile_pio__                         )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to compile GATT header source codes
+function __pico_compile_gatt__()
+    +@${Python3} :"${PICO_SDK_PATH}/lib/btstack/tool/compile_gatt.py" ~$[preq*] ~$[target]
+endfunction
+
+function pico_compile_gatt()
+    $call(__bpt_gatt__                                 )
+    $exec(__pico_compile_gatt__                        )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to link executable files (also create the extra files)
+Pico_BS2DefaultPaddedChecksummedPath := ''
+Pico_SDKObjectFilesCompiled          := false
+
+function pico_link_exe(?extraOptions)
+    # Check the prerequisites
+    if !&${Pico_BS2DefaultPaddedChecksummedPath} : $call(__exit_error_run_target_call_function_, 'pico_build_boot_stage2', :"$[function]()")
+    if  !${Pico_SDKObjectFilesCompiled}          : $call(__exit_error_run_target_call_function_, 'pico_build_sdk_objects', :"$[function]()")
+    # Link the executable
+    local extraOptions         := $stack( $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_LinkOption}), ${extraOptions} )
+    local CppExtraLinkObjects  :=         $map_get(${__Pico_ProgBElfs__}, ${Pico_MainProg_SDKObject} )
+          CppExtraLinkObjects +:= ${Pico_BS2DefaultPaddedChecksummedPath}
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to HEX
+    $exec( __pico_elf_to_hex__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__      )
+    # Convert ELF to UF2
+    $exec( __pico_elf_to_uf2__                                )
+    $call( __conditional_print_stdxxx_and_check_excode__      )
+endfunction
+
+
+##### Function to create static libraries
+function pico_link_slib()
+    $call(link_slib)
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to run the given executable file (in this case, print the size and some information)
+function __pico_get_info_exec__(progName, tdval, ?dimColor)
+    # Get some information
+    @${RP2040Tool_picotool} info -a ~${progName}
+    if $[excode] : return 0
+    # Extract the information
+    local text
+    local features
+    local binaryStart
+    local binaryEnd
+    local sdkVersion
+    local picoBoard
+    local boot2Name
+    foreach local line in $erase_ifempty( $strim( $sflines($[stdout]) ) )
+        modf := ${line/(?:\s*?features.+?\s+)(.+)/$1/}     ; if ${modf} &!= ${line} : features    := ${modf}
+        modf := ${line/(?:\s*?binary start.+?\s+)(.+)/$1/} ; if ${modf} &!= ${line} : binaryStart := ${modf}
+        modf := ${line/(?:\s*?binary end.+?\s+)(.+)/$1/}   ; if ${modf} &!= ${line} : binaryEnd   := ${modf}
+        modf := ${line/(?:\s*?sdk version.+?\s+)(.+)/$1/}  ; if ${modf} &!= ${line} : sdkVersion  := ${modf}
+        modf := ${line/(?:\s*?pico_board.+?\s+)(.+)/$1/}   ; if ${modf} &!= ${line} : picoBoard   := ${modf}
+        modf := ${line/(?:\s*?boot2_name.+?\s+)(.+)/$1/}   ; if ${modf} &!= ${line} : boot2Name   := ${modf}
+    endforeach
+    if !${binaryEnd}
+        local textSize  := ${tdval}<1>
+        local dataSize  := ${tdval}<2>
+        eval  binaryEnd := ${binaryStart} + ${textSize} + ${dataSize}
+              binaryEnd := $sprintf('%010x', ${binaryEnd})
+    endif
+    if &${features}  : text +:= :"Features         : ${features}"
+                       text +:= :"Binary Start/End : ${binaryStart}/${binaryEnd}"
+                       text +:= :"SDK Version      : ${sdkVersion}"
+                       text +:= :"Pico Board       : ${picoBoard}"
+    if &${boot2Name} : text +:= :"Boot Stage 2     : ${boot2Name}"
+    # Combine the text
+    text := $ftlines( {{ $series('    ║ ', ${text}), ' ' }} )
+    # Print the information
+    if ${dimColor} ; echoln __c_dgray__ ${text} __c_reset__
+    else           ; echoln __c_green__ ${text} __c_reset__
+    endif
+    # Done
+    return 1
+endfunction
+
+function pico_run_exe(progName, ?dimColor)
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                 $call( __bpt_exe_size_linespace__                                                                                  )
+    local res := $call( __armgcc_obj_size__, ${PicoSize}, ${PicoSizeFlags}, ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call( __conditional_print_stdxxx_and_check_excode__                                                               )
+    # Exit here if the binary type is 'copy_to_ram'
+    if ${PICO_TARGET_BINARY_TYPE} &== 'copy_to_ram' : return
+    # Get and print some information
+          res := $exec(__pico_get_info_exec__, ${progName}, ${res}, ${dimColor})
+    if !${res} : $call(__conditional_print_stdxxx_and_check_excode__           )
+endfunction
+
+
+###################################################################################
+##### ==================== Native RPi Pico Build Targets ==================== #####
+###################################################################################
+
+##### Disable warnings from the SDK
+const __Pico_SDKObject_DisableWarnings__ := '-Wno-unused-function' '-Wno-unused-parameter' '-Wno-unused-variable' '-Wno-sign-compare'
+
+
+##### Targets to build boot stage 2
+target __pico_bs2_compile_s__
+    local extraOptions  := $map_get(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:#CompileMDef') # :"$[target]:#CompileMDef"
+          extraOptions +:= $map_get(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:include'     )
+          extraOprions +:= ${__Pico_SDKObject_DisableWarnings__}
+    $call(compile_s, ${extraOptions})
+endtarget
+
+target __pico_bs2_compile_c__
+    $call(__exit_error_ni__, :"[$[target]]", ${__BuildTool_Name__})
+endtarget
+
+target __pico_bs2_compile_cpp__
+    $call(__exit_error_ni__, :"[$[target]]", ${__BuildTool_Name__})
+endtarget
+
+target __pico_bs2_link_exe__
+    # Link the executable
+    local extraOptions  := $map_get(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:link_option')
+    $call(link_exe, ${extraOptions})
+    # Convert ELF to BIN
+    local BinFile := $exec( __pico_elf_to_bin__, $call(__get_LDLibraryPaths__) )
+                     $call( __conditional_print_stdxxx_and_check_excode__      )
+    # Convert BIN to S
+    $exec(__pico_bin_to_padded_s__, ${BinFile}, ${SFile})
+    $call(__conditional_print_stdxxx_and_check_excode__ )
+endtarget
+
+target pico_build_boot_stage2
+    # Get the object files and output file
+    local Objs  := $map_get(${__Pico_ProgBElfs__}, 'BOOT_STAGE2:sdk_object')
+    local SFile := :"~${CppBuildDir}/bs2_default_padded_checksummed.S"
+    # Reset variable
+    Pico_BS2DefaultPaddedChecksummedPath := ''
+    # Build the boot stage 2
+    __stdxxx_from_syslib__ := true
+    jxmake ${Objs}
+    jxmake :"~${CppBuildDir}/bs2_default.elf"
+    __stdxxx_from_syslib__ := false
+    # Set variable
+    Pico_BS2DefaultPaddedChecksummedPath := ${SFile}
+endtarget
+
+
+##### Target to build the SDK object files
+target __pico_sdk_compile_s__
+    $call(__pico_compile_s__, ${__Pico_SDKObject_DisableWarnings__})
+endtarget
+
+target __pico_sdk_compile_c__
+    $call(__pico_compile_c__, ${__Pico_SDKObject_DisableWarnings__})
+endtarget
+
+target __pico_sdk_compile_cpp__
+    $call(__pico_compile_cpp__, ${__Pico_SDKObject_DisableWarnings__})
+endtarget
+
+target pico_build_sdk_objects
+    # Reset flag
+    Pico_SDKObjectFilesCompiled := false
+    # Build the object files
+    __stdxxx_from_syslib__ := true
+   +jxmake ${__Pico_SDKObject_S__}
+   +jxmake ${__Pico_SDKObject_C1__}
+   +jxmake ${__Pico_SDKObject_C2__}
+   +jxmake ${__Pico_SDKObject_Cpp__}
+    jxwait
+    __stdxxx_from_syslib__ := false
+    # Set flag
+    Pico_SDKObjectFilesCompiled := true
+endtarget
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText := __c_cyan__  "Native RPi Pico" __c_white__
+    local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    local CGText := __c_cyan__  "Native RPi Pico SDK" __c_white__
+    local CGInfo := __c_white__ 'for ' ${CGText} ' '
+    local VRange := $call(__btlib_help_build_string_tested_version_range__, { ${NGText} __c_white__ ' SDK' }, { '1.5.0\\-1.5.1' })
+    $call(__origin__, ${NGInfo}, 9, true, false, true, true)
+    echoln __c_green__ '    PICO_SDK_PATH                 ' __c_white__ ': location of ' ${NGText} ' SDK; ' ${VRange}
+    echoln __c_green__ '    PICO_TOOLCHAIN_PATH           ' __c_white__ ': location of ' ${NGText} ' toolchain'
+    echoln
+    echoln __c_green__ '    PICO_BOARD                    ' __c_white__ ': ' ${NGText} ' board  type                                            - the default is \'' __c_yellow__ ${__Def_PICO_BOARD__} __c_white__ '\''
+    echoln __c_green__ '    PICO_TARGET_BINARY_TYPE       ' __c_white__ ': ' ${NGText} ' binary type (' __c_yellow__ 'default' __c_white__ '/' __c_yellow__ 'no_flash' __c_white__ '/' __c_yellow__ 'copy_to_ram' __c_white__ '/' __c_yellow__ 'blocked_ram' __c_white__ ') - the default is \'' __c_yellow__ ${__Def_PICO_TARGET_BINARY_TYPE__} __c_white__ '\''
+    echoln __c_green__ '    PICO_MBEDTLS_CONFIG_FILE      ' __c_white__ ': ' ${NGText} ' Mbed-TLS configuration file                            - the default is \'' __c_yellow__ ${__Def_PICO_MBEDTLS_CONFIG_FILE} __c_white__ '\''
+    echoln
+    echoln __c_green__ '    PICO_TARGET_STDIO_UART        ' __c_white__ ': ' ${NGText} ' globally enable stdio UART                             - the default is \'' __c_yellow__ '0' __c_white__ '\''
+    echoln __c_green__ '    PICO_TARGET_STDIO_USB         ' __c_white__ ': ' ${NGText} ' globally enable stdio USB                              - the default is \'' __c_yellow__ '1' __c_white__ '\''
+    echoln __c_green__ '    PICO_TARGET_STDIO_SEMIHOSTING ' __c_white__ ': ' ${NGText} ' globally enable stdio semihosting                      - the default is \'' __c_yellow__ '0' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    PICO_TARGET_LINKER_SCRIPT     ' __c_white__ ': ' ${NGText} ' linker script                                          - the default is determined automatically'
+    echoln __c_green__ '    PICO_DEFAULT_BOOT_STAGE2_FILE ' __c_white__ ': ' ${NGText} ' boot stage 2 file                                      - the default is determined automatically'
+    echoln
+    echoln __c_white__ '    If necessary, please set/modify the ' __c_green__ 'PICO_*' __c_white__ ' variables above before calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln
+    $call(__openocd_btlib_help_print_ports__, 10)
+   #$call(__btlib_help_print_title_functions__, 7, 25, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project         (?buildSubdirectories     , ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                          ?dlOnlyIfNotExist        ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    pico_upload_uf2      (progName  , ?device      , ' __c_white__ ': upload program to ' __c_cyan__ ${Pico_MCU} __c_white__ ' via ' __c_cyan__ 'UF2' __c_white__ ' using ' __c_cyan__ 'UF2' __c_white__ ' tool'
+    echoln __c_green__ '                          ?serial                  ) ' __c_green__ '      progName' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                        ' __c_green__ '      device  ' __c_white__ ' UF2 evice path to flash            - the default is auto-detected'
+    echoln __c_green__ '                                                        ' __c_green__ '      serial  ' __c_white__ ' serial port to reset before upload - the default is no reset'
+    echoln
+    echoln __c_green__ '    pico_reset_swd       (            ?interface   , ' __c_white__ ': reset the attached ' __c_cyan__ ${Pico_MCU} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name    - the default is \'' __c_yellow__ ${Pico_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport             - the default is \'' __c_yellow__ ${Pico_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed         - the default is \'' __c_yellow__ ${Pico_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln
+    echoln __c_green__ '    pico_upload_swd      (progName  , ?interface   , ' __c_white__ ': upload program to ' __c_cyan__ ${Pico_MCU} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed) ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      interface   ' __c_white__ ' SWD interface name - the default is \'' __c_yellow__ ${Pico_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport          - the default is \'' __c_yellow__ ${Pico_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed      - the default is \'' __c_yellow__ ${Pico_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln
+    echoln __c_green__ '    pico_debug_swd_start (progName  , ?interface   , ' __c_white__ ': start a debug session for ' __c_cyan__ ${Pico_MCU} __c_white__ ' via ' __c_cyan__ 'SWD' __c_white__ ' using ' __c_cyan__ 'OpenOCD' __c_white__ ' tool'
+    echoln __c_green__ '                          ?transport, ?adapterSpeed, ' __c_green__ '      progName    ' __c_white__ ' program name; use the value returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                                      ?noGDBExecCmd) ' __c_green__ '      interface   ' __c_white__ ' SWD interface name                      - the default is \'' __c_yellow__ ${Pico_SWD_Default_Interface} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      transport   ' __c_white__ ' transport                               - the default is \'' __c_yellow__ ${Pico_SWD_Default_Transport} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      adapterSpeed' __c_white__ ' adapter speed                           - the default is \'' __c_yellow__ ${Pico_SWD_Default_AdapterSpeed} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      noGDBExecCmd' __c_white__ ' do not print the command to execute GDB - the default is \'' __c_yellow__ false __c_white__ '\''
+    echoln
+    echoln __c_green__ '    pico_debug_swd_gdb   (progName  , ?autoConnect ) ' __c_white__ ': execute the GDB program for ' __c_cyan__ ${Pico_MCU} __c_white__ ' which can be used to connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session'
+    echoln __c_green__ '                                                     ' __c_green__ '      autoConnect' __c_white__ ' automatically connect to the ' __c_cyan__ 'OpenOCD' __c_white__ ' debug session - the default is \'' __c_yellow__ 'true' __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_functions__, 7, 19, 1, ${CGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${CGInfo})
+    echoln __c_green__ '    init_pico_sdk        (?picoLibList       ) ' __c_white__ ': initialize the ' ${NGText} ' SDK; can only be called after calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    pio_fname            (srcFileName        ) ' __c_white__ ': generate the correct PIO header file name from the given source name'
+    echoln __c_green__ '    pio_fpath            (srcFileName        ) ' __c_white__ ': generate the correct PIO header file path from the given source name'
+    echoln
+    echoln __c_green__ '    pio_target_glob      (                   ) ' __c_white__ ': generate the correct glob prerequisite name to build PIO header file - ' __c_yellow__ '${CppBuildDir}/%.pio.h'
+    echoln
+    echoln __c_green__ '    gatt_fname           (srcFileName        ) ' __c_white__ ': generate the correct GATT header file name from the given source name'
+    echoln __c_green__ '    gatt_fpath           (srcFileName        ) ' __c_white__ ': generate the correct GATT header file path from the given source name'
+    echoln
+    echoln __c_green__ '    gatt_target_glob     (                   ) ' __c_white__ ': generate the correct glob prerequisite name to build GATT header file - ' __c_yellow__ '${CppBuildDir}/%.gatt.h'
+    echoln
+    echoln __c_green__ '    pico_compile_s       (?extraOptions      ) ' __c_white__ ': compile a ' ${NGText} ' assembly    source code; please use this instead of \'' __c_green__ 'compile_s' __c_white__ '\''
+    echoln __c_green__ '    pico_compile_c       (?extraOptions      ) ' __c_white__ ': compile a ' ${NGText} ' C           source code; please use this instead of \'' __c_green__ 'compile_c' __c_white__ '\''
+    echoln __c_green__ '    pico_compile_cpp     (?extraOptions      ) ' __c_white__ ': compile a ' ${NGText} ' C++         source code; please use this instead of \'' __c_green__ 'compile_cpp' __c_white__ '\''
+    echoln __c_green__ '    pico_compile_pio     (                   ) ' __c_white__ ': compile a ' ${NGText} ' PIO  header source code'
+    echoln __c_green__ '    pico_compile_gatt    (                   ) ' __c_white__ ': compile a ' ${NGText} ' GATT header source code'
+    echoln
+    echoln __c_green__ '    pico_link_exe        (?extraOptions      ) ' __c_white__ ': link              a ' ${NGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_green__ '    pico_link_slib       (                   ) ' __c_white__ ': link              a ' ${NGText} ' static library; please use this instead of \'' __c_green__ 'link_slib' __c_white__ '\''
+    echoln __c_green__ '    pico_run_exe         (progName, ?dimColor) ' __c_white__ ': print the size of a ' ${NGText} ' executable    ; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    pico_list_uf2_devices(                   ) ' __c_white__ ': list connected UF2 devices'
+    echoln
+   #$call(__btlib_help_print_title_targets__, 13, ${CGInfo})
+    $call(__btlib_help_print_title_targets__,  0, ${CGInfo})
+    echoln __c_green__ '    pico_build_boot_stage2 ' __c_white__ ': build the boot stage 2 files'
+    echoln __c_green__ '    pico_build_sdk_objects ' __c_white__ ': build the SDK object   files'
+    echoln
+    $call(__btlib_help_print_note_auto_parallelize__, true)
+    echoln __c_reset__
+endfunction

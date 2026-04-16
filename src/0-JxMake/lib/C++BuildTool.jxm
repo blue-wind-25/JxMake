@@ -1,0 +1,47 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Primary Library                                                         *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### Set flags
+__BuildTool_Title__ := 'Native C/C++'
+
+
+##### !!! TODO : On MacOS, shall 'PreferClang' be set to 'true' automatically? !!! #####
+##### !!! TODO : How about XBuild (cross-compilation) using Clang? !!! #####
+
+
+##### Include the implementation details
+if ${PreferClang}
+    if __os_windows__  : PreferClang := false
+    if ${__ForceGCC__} : PreferClang := false
+endif
+
+if  ${PreferClang}  : const __include__cbt_clang__     := true
+if !${PreferClang}  : const __include__cbt_gcc__       := true
+if !${__ForceGCC__} : const __include__cbt_msvc__      := true
+                      const __include__cbt_clang_gcc__ := $or(${__include__cbt_clang__}, ${__include__cbt_gcc__})
+
+                                   :::include_once 'C++BuildTool_0_CommonAll.jxm'
+if ${__include__cbt_clang_gcc__} ; :::include_once 'C++BuildTool_0_CommonClangGCC.jxm' ; endif
+if ${__include__cbt_clang__}     ; :::include_once 'C++BuildTool_Clang.jxm'            ; endif
+if ${__include__cbt_gcc__}       ; :::include_once 'C++BuildTool_GCC.jxm'              ; endif
+if ${__include__cbt_msvc__}      ; :::include_once 'C++BuildTool_MSVC.jxm'             ; endif
+
+
+##### Undefine the helper macro from 'C++BuildTool_0_Commmon_ClangGCC.jxm' here to prevent duplicated name later on
+.undefmacro __CLANG_GCC__IU_IS__
+
+
+##### Check if the OS is not supported
+if !${__CppBuildTool_Defined__}
+    echoln __c_red__ "\nSorry, this operating system " __c_yellow__ (__os_name__) __c_red__ " is not supported!\n\n" __c_reset__
+    $exit(-1)
+endif

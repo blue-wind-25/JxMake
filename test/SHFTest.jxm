@@ -1,0 +1,172 @@
+(*************************************************
+ ********** This is a multiline comment **********
+ *************************************************)
+
+#
+# Only for syntax highlighting test.
+# Do not execute this JxMake file, it will produce error!
+#
+
+# kate -n test/SHFTest.jxm
+
+:::include  'abc/def/file1.jxm'
+:::sinclude 'abc/def/file2.jxm'
+
+A = '10 $[preq23] ABC'
+A = "10 \$[preq23] ABC"
+A = "10 $[preq23] ABC"
+
+A   = $ucase( abc, ${A} )
+A   = $call(abc)
+A   = $call(abc, qwe, ${A} )
+A   = $call( abc, 'A', qwe, ${A} )
+A   = $exec( abc, qwe, ${A} )
+A   = $lcase( abc, ${A} )
+
+A   = $exec(name)
+A   = $exec(name, arg, arg1, 123, 'arg2')
+A   = $ucase(../asd/sdw)
+A   = $ucase(C:\..\asd\sdw)
+
+A   = 'ABC \t \v \r \n \f \b \\ \' \"123\" DEF'
+A   = "ABC \t \v \r \n \f \b \\ \' \"123\" DEF"
+
+A   = ABC DEF
+A   = 'ABC' # This is also a comment
+A  := 'ABC'
+
+A  += 'ABC'
+A :+= 'ABC'
+
+A  ?= 'ABC'
+A :?= 'ABC'
+
+A = ABC 10
+A = ABC
+A = ${ABC}
+A = '10 ${C}'
+A = "10 ${C}"
+
+A = $ucase()
+A = $ucase('1', A, 1)
+A = $ucase(${ABC})
+A = $ucase('1', ${ABC}, "${ABC} 123")
+
+A = "10 $[target]"
+A = "10 $[preq^]"
+A = "10 $[preq*]"
+A = "10 $[preq?]"
+A = "10 $[preq1]"
+A = "10 $[preq10]"
+A = "10 $[preq23]"
+
+A = 'abc123'
+A = $ucase( ${A} )
+A = $ucase( ${A/(.*).cpp$//} )
+
+A = ${ABC/(.*).cpp$/$1.cpp.o/}
+A = ${ABC/(.*).cpp$//}
+
+A = ${ABC/(.*).c\/p\/p$/\/\/\//}
+
+A = $[target/(.*).cpp$/$1.cpp.o/]
+A = $[target/(.*).cpp$//]
+
+$printf('%s\n', ${A})
+
+function compile_cpp(source, output)
+    if ${source} >  10
+    endif
+    if ${source} <= 10
+    endif
+    if ${source} >  10
+    endif
+    if ${source} >= 10
+    endif
+    if ${source} == 10
+    endif
+    if ${source} != 10
+    endif
+    return 1
+endfunction
+
+function compile_cpp(source, output)
+    local Q = 10
+    @<command_1>
+    @<command_2>
+    if __os_windows__
+        @<command_3_windows> 1 '1' ${ABC} "${ABC}" '${ABC}' xyz $[target]
+    elif __os_linux__
+        @<command_3_linux> 1 '1' ${ABC} "${ABC}" \
+        '${ABC}' xyz $[target] xyz xyz xyz
+    elif __os_mac__
+        @<command_3_mac>
+    else
+        return $[stderr]
+    endif
+    if  0 : echo 123
+    if !0 : echo 123
+    @<command_4>
+    @<command_5>
+    return 1
+endfunction
+
+target my_target : my_source.cpp
+    local Q            = 10
+    local osIsNotLinux = 0
+    not osIsNotLinux, __os_linux__
+    if osIsNotLinux
+        $exit(-1)
+    endif
+    if !__os_linux__
+        $exit(-1)
+    endif
+    if &${A}
+        $exit(-1)
+    endif
+    if !&${A}
+        $exit(-1)
+    endif
+    src = $lcase( $[target] )
+    dst = $lcase( $[target] )
+    $exec( compile_cpp, ${src}, ${dst} )
+endtarget
+
+target %.cpp.o : %.cpp
+endtarget
+
+
+target build/mylib.a : build/mylib/%.cpp.o
+endtarget
+
+A = $ucase( ${A/(.*).cpp$/$1.o/} )
+
+A = '10 $[preq23] ABC'
+A = "10 \$[preq23] ABC"
+A = "10 $[preq23] ABC"
+
+A = "10 \$[preq23/(.*).cpp$/$1.o/] ABC"
+A = "10 $[preq23/(.*).cpp$/$1.o/] ABC"
+
+A = "10 \${ABC/(.*).c\/p\/p$/\/\/\//} ABC"
+A = "10 ${ABC/(.*).c\/p\/p$/\/\/\//} ABC"
+
+A = '10 \${ABC/(.*).c\/p\/p$/\/\/\//} ABC
+A = "10 \${ABC/(.*).c\/p\/p$/\/\/\//} ABC
+
+
+for I = 1 to $[preq^] step 1
+    R = $partn( $[preq*], ${I} )
+endfor
+
+while ${A} > 0
+
+    if ${Error}
+        break
+    endif
+
+    if ${Skip}
+        continue
+    endif
+
+endwhile

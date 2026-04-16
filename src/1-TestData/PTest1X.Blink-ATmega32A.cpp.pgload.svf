@@ -1,0 +1,102 @@
+// avrsvf0 v0.2.1 (C) 2009-2021 A. Schweizer
+// This file was made: Sat Feb 22 07:59:47 2025
+// with this cmd: avrsvf0 -datmega32 -s -e -mp -ifPTest1X.Blink-ATmega32A.cpp.hex -pf -vf -ovPTest1X.Blink-ATmega32A.cpp.pgload.svf 
+TRST ABSENT;
+ENDIR IDLE;
+ENDDR IDLE;
+HIR 0;
+HDR 0;
+TIR 0;
+TDR 0;
+STATE RESET;
+STATE IDLE;
+SIR 4 TDI(c);
+SDR 1 TDI(1);
+SIR 4 TDI(4);
+SDR 16 TDI(a370);
+SIR 4 TDI(5);
+SDR 15 TDI(2380);
+SDR 15 TDI(3180);
+SDR 15 TDI(3380);
+SDR 15 TDI(3380);
+RUNTEST 13E-3 SEC;
+SIR 4 TDI(5);
+SDR 15 TDI(2308);
+SDR 15 TDI(0300);
+SDR 15 TDI(3200);
+SDR 15 TDI(3300) TDO(001e) MASK(00ff);
+SDR 15 TDI(0301);
+SDR 15 TDI(3200);
+SDR 15 TDI(3300) TDO(0095) MASK(00ff);
+SDR 15 TDI(0302);
+SDR 15 TDI(3200);
+SDR 15 TDI(3300) TDO(0002) MASK(00ff);
+SIR 4 TDI(5);
+SDR 15 TDI(2310);
+SDR 15 TDI(0700);
+SDR 15 TDI(0300);
+SIR 4 TDI(6);
+SDR 1024 TDI(900f920fcfc2c042d031f7d907b136a2920d9005c002e0f1e0e2e0b0e6a0e010bfcdbfdee0d8e5cfbe1f24110000c0140000c0160000c0180000c01a0000c01c0000c01e0000c0200000c0220000c0240000c0260000c0280000c02a0000c02c0000c02e0000c0300000c03200
+00c0340000c0360000c0380000c03a0000c029);
+SIR 4 TDI(5);
+SDR 15 TDI(3700);
+SDR 15 TDI(3500);
+SDR 15 TDI(3700);
+SDR 15 TDI(3700);
+RUNTEST 7E-3 SEC;
+SDR 15 TDI(0700);
+SDR 15 TDI(0340);
+SIR 4 TDI(6);
+SDR 1024 TDI(94f8cff9dfc39a979896dfc698979a96006093802789e091006091809a93988b9a8f9a8edfd0cfd55f2fcfe0e08a9508cffe9b83006093802789e091006091800000c000f7e1408040205091e081e328e79fc01499830000c000f7f19701e297e08ff4bc07591748e090e382c0
+1f1181006091800b550c002e022f42e0209508);
+SIR 4 TDI(5);
+SDR 15 TDI(3700);
+SDR 15 TDI(3500);
+SDR 15 TDI(3700);
+SDR 15 TDI(3700);
+RUNTEST 7E-3 SEC;
+SDR 15 TDI(0700);
+SDR 15 TDI(0380);
+SIR 4 TDI(6);
+SDR 1024 TDI(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffff0001cfff);
+SIR 4 TDI(5);
+SDR 15 TDI(3700);
+SDR 15 TDI(3500);
+SDR 15 TDI(3700);
+SDR 15 TDI(3700);
+RUNTEST 7E-3 SEC;
+SIR 4 TDI(5);
+SDR 15 TDI(2302);
+SDR 15 TDI(0700);
+SDR 15 TDI(0300);
+SIR 4 TDI(7);
+SDR 1032 TDI(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffff) TDO(900f920fcfc2c042d031f7d907b136a2920d9005c002e0f1e0e2e0b0e6a0e010bfcdbfdee0d8e5cfbe1f24110000c0140000c0160000c0180000c01a0000c01c0000c01e0000c0200000c0220000c0240000c0260000c0280000c02a
+0000c02c0000c02e0000c0300000c0320000c0340000c0360000c0380000c03a0000c029ff) MASK(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00);
+SIR 4 TDI(5);
+SDR 15 TDI(0700);
+SDR 15 TDI(0340);
+SIR 4 TDI(7);
+SDR 1032 TDI(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffff) TDO(94f8cff9dfc39a979896dfc698979a96006093802789e091006091809a93988b9a8f9a8edfd0cfd55f2fcfe0e08a9508cffe9b83006093802789e091006091800000c000f7e1408040205091e081e328e79fc01499830000c000f7f1
+9701e297e08ff4bc07591748e090e382c01f1181006091800b550c002e022f42e0209508ff) MASK(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00);
+SIR 4 TDI(5);
+SDR 15 TDI(0700);
+SDR 15 TDI(0380);
+SIR 4 TDI(7);
+SDR 1032 TDI(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffff) TDO(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0001cfffff) MASK(ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00);
+SIR 4 TDI(5);
+SIR 4 TDI(5);
+SDR 15 TDI(2300);
+SDR 15 TDI(3300);
+SIR 4 TDI(4);
+SDR 16 TDI(0000);
+SIR 4 TDI(c);
+SDR 1 TDI(0);
+STATE RESET;

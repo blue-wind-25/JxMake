@@ -1,0 +1,15 @@
+{
+    "@class" : "jxm.ugc.ProgBootSerial$Config",
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgBootSerial$Config$MemoryFlash",
+        "paged" : true,
+        "totalSize" : 32768,
+        "pageSize" : 128,
+        "numPages" : 256,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgBootSerial$Config$MemoryEEPROM",
+        "totalSize" : 1024
+    }
+}

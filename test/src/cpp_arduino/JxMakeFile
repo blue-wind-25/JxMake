@@ -1,0 +1,100 @@
+:::include <ArduinoXBuildTool>
+
+
+# export ARDUINO_CLI_PATH=/opt/arduino-cli_1.4.1_Linux_64bit
+#     ${ARDUINO_CLI_PATH}/arduino-cli board listall
+#     ${ARDUINO_CLI_PATH}/arduino-cli board details --fqbn arduino:avr:mega
+#     ${ARDUINO_CLI_PATH}/arduino-cli board details --fqbn arduino:avr:lilypad
+#     ${ARDUINO_CLI_PATH}/arduino-cli board details --fqbn esp8266:esp8266:nodemcuv2
+const FQBN := 'arduino:avr:mega'          (* 1 *) \
+              'arduino:avr:lilypad'       (* 2 *) \
+              'esp8266:esp8266:nodemcuv2' (* 3 *)
+
+const BOpt := ''                          (* 1 *) \
+              ''                          (* 2 *) \
+              'baud=921600,ip=lm6f'       (* 3 *)
+
+const BPrt := 'build.mcu=atmega2560'                              \
+              'build.extra_flags=\'-DDUMMY_MACRO="Dummy Value"\''
+
+            # U̅S̅B̅/ACM
+const UPty := 1                           (* 1 *) \
+              0                           (* 2 *) \
+              0                           (* 3 *)
+
+const SDir := 'Blink'                     (* 1 *) \
+              'Blink'                     (* 2 *) \
+              'OTA'                       (* 3 *)
+
+
+const N    := 3
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    UPort := $csel(${UPty}<N>, '\\\\.\\COM3' , '\\\\.\\COM1' )
+else
+    UPort := $csel(${UPty}<N>, '/dev/ttyACM0', '/dev/ttyUSB0')
+endif
+
+
+if __os_windows__
+    ARDUINO_CLI_PATH := 'Z:/xsdk/arduino-cli_1.4.1_Windows_64bit'
+elif __os_mac__
+    ARDUINO_CLI_PATH := '/usr/local/opt/arduino-cli_1.4.1_macOS_ARM64'
+else
+    ARDUINO_CLI_PATH := '/opt/arduino-cli_1.4.1_Linux_64bit'
+endif
+
+
+$call( init_project                                           )
+$call( ac_set_sketch_dir      , ${SDir}<N>                    )
+$call( ac_set_fqbn            , ${FQBN}<N>                    )
+$call( ac_set_board_options   , ${BOpt}<N>                    )
+$call( ac_set_build_properties, ${BPrt}                       )
+$call( ac_set_keychain_dir    , $cat_path( $cwd(), '0_Keys' ) )
+$call( enable_debug_info      , 1                             )
+$call( print_devenv_config                                    )
+$call( silent_stdxxx          , false                         )
+$call( silent_stdxxx_syslib   , true                          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+target run
+    $call(ac_build_sketch)
+   #$call(ac_list_all_cores                            )
+   #$call(ac_list_all_boards                           )
+   #$call(ac_list_all_boards    , 'avr'                )
+   #$call(ac_list_boards_details                       )
+   #$call(ac_list_boards_details, 'arduino:avr:lilypad')
+endtarget
+
+
+target upload
+    jxmake run
+    $call(ac_upload_sketch, ${UPort})
+endtarget
+
+target upload_prg
+    jxmake run
+    $call(ac_prg_upload_sketch, 'USBasp'     )
+   #$call(ac_prg_upload_sketch, 'AVRISP mkII')
+endtarget
+
+target upload_net
+    jxmake run
+   #$call(ac_net_upload_sketch, '192.168.1.111') # WiFi Station      Mode - using IP
+   #$call(ac_net_upload_sketch, '192.168.0.100') # WiFi Access Point Mode - using IP
+    $call(ac_net_upload_sketch, 'nodemcu.local') # WiFi Access Point Mode - using hostname will only work if mDNS is enabled on the target and supported by the host PC
+endtarget
+

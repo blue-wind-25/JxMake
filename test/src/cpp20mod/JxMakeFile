@@ -1,0 +1,125 @@
+PreferClang := 0 # 0 or 1
+
+:::include <C++BuildTool>
+
+
+#(*
+if ${__gcc__}
+    if !$or(__os_cygwin__, __os_mingw__, __os_msys__)
+        LDLibraryPath := '/opt/isl-0.16.1/lib:/opt/gcc-12.2.0/lib:/opt/gcc-12.2.0/lib64'
+        CppToolBinDir := '/opt/gcc-12.2.0/bin'
+    endif
+endif
+#*)
+
+#(*
+if ${__clang__}
+        LDLibraryPath := '/opt/clang-15.0.6/lib:/opt/clang-15.0.6/lib64'
+        CppToolBinDir := '/opt/clang-15.0.6/bin'
+        CppLDToolBin  := 'ld.lld'
+endif
+#*)
+
+
+CppSysHeaderDir := 'dummy'
+BuildSubdir     := 'sys'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(select_c_langstd        , c11           )
+$call(select_cxx_langstd      , c++20         )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+$call(silent_stdxxx, true ) ; $cmd_echo_off() ; $call(print_build_process_titles, true )
+$call(silent_stdxxx, false) ; $cmd_echo_on () ; $call(print_build_process_titles, false)
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+# Clang (as of version 15.0.6) does not currently support a separated module implementation unit that do not export a module partition
+                   DLST_MNAME := $call(deplist_fpath, main.mod             )
+                   DLST_INAME := $call(deplist_fpath, main.inc             )
+
+                   PROG_NAME  := $call(    exe_fpath, main                 )
+                   PROG_OBJS  := $call(    obj_fpath, main.cpp             )
+                   PROG_OBJS :+= $call(    obj_fpath, userlib.cpp          )
+if !${__clang__} : PROG_OBJS :+= $call(    obj_fpath, userlib_impl.cpp     )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib1.cpp      )
+if !${__clang__} : PROG_OBJS :+= $call(    obj_fpath, sys/syslib1_impl1.cpp)
+if !${__clang__} : PROG_OBJS :+= $call(    obj_fpath, sys/syslib1_impl2.cpp)
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib2.cpp      )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib2-one.cpp  )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib2-two.cpp  )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib2-three.cpp)
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib3.cpp      )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib3-zero.cpp )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib3-one.cpp  )
+                   PROG_OBJS :+= $call(    obj_fpath, sys/syslib3-two.cpp  )
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+sdepload ${DLST_MNAME}
+echoln
+sdepload ${DLST_INAME}
+
+target depend
+    local __include_paths__ := sys
+    $gdl_cpp_module (~${DLST_MNAME}, '.', ${ObjFileExt}                 )
+    $gdl_cpp_include(~${DLST_INAME}, '.', ${ObjFileExt}, -${CppBuildDir})
+endtarget
+
+
+# ./jxmake.bat -C ../test/src/cpp20 clean
+# ./jxmake.bat -C ../test/src/cpp20 run
+# jxmake -C ..\test\src\cpp20 clean
+# jxmake -C ..\test\src\cpp20 run
+target run
+    # touch ~/Projects/JxMake/test/src/cpp20mod/sys/sys_header.h
+    # Create the dependency list file as needed
+    local      DLIValid := $valid_path(${DLST_INAME})
+    local      DLMValid := $valid_path(${DLST_MNAME})
+    local eval DLValid  := ${DLIValid} && ${DLMValid}
+    if !${DLValid}
+        echoln
+        echoln __c_red__ 'The dependency list files do not exist, creating them now ...' __c_reset__
+        jxmake depend
+        echoln __c_green__ 'The dependency list files have been created, please run the build process again.' __c_reset__
+        echoln
+        $exit(0)
+    endif
+    # Build the executable program
+    jxmake ${PROG_NAME}
+    # Run the executable program
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call(link_exe)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    ### NOTE : # If new paths are added after the cache '*.dep.cache' files were created, the new paths will not
+    ###          cause the cache files to be automatically rebuilt!
+    ###        # The simplest solution is to make a target to clear the project cache by calling '$clear_project()'
+    ###          so that the cache files will be rebuilt later. Please read '../../../docs/Basic-Specification.txt'
+    ###          for more details.
+    local __include_paths__ := sys
+    $call(compile_cpp20m)
+endtarget
+
+target $call(cpp20syshu_target_glob)
+    $call(compile_sys_hunit)
+endtarget
+
+target $call(cpp20usrhu_target_glob) : %.h
+    $call(compile_usr_hunit)
+endtarget

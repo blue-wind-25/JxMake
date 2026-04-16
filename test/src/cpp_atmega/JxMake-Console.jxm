@@ -1,0 +1,43 @@
+# ./jxmake.sh -C ../test/src/cpp_atmega sercon1
+# jxmake -C ..\test\src\cpp_atmega sercon1
+target sercon1
+    echoln 'Opening serial console #1 ...'
+    $serial_console(${CPort1}, 9600)
+    echoln 'The serial console #1 has been closed'
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega sercon2
+# jxmake -C ..\test\src\cpp_atmega sercon2
+target sercon2
+    echoln 'Opening serial console #2 ...'
+    $serial_console(${CPort2}, 9600)
+    echoln 'The serial console #2 has been closed'
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_atmega sercon
+# jxmake -C ..\test\src\cpp_atmega sercon
+target sercon
+   +jxmake sercon1
+   +jxmake sercon2
+    jxwait
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_atmega tcpcon
+# jxmake -C ..\test\src\cpp_atmega tcpcon
+target tcpcon
+    local hostname := 'esp01au.local'   # Using eCxx     firmware
+   #local hostname := '192.168.0.100'   # Using eCxx     firmware (no mDNS)
+   #local hostname := '192.168.4.1'     # Using ESP-LINK firmware
+    if true
+        if !$call(set_tsb_scb, ${hostname}, 9600) : $exit(-1)
+        echoln 'Opening TCP serial console ...'
+        echoln $tcp_serial_console(${hostname}, 23)
+        echoln 'The TCP serial console has been closed'
+    else
+        if !$call(set_tsb_scb, ${hostname}, 115200) : $exit(-1)
+        echoln 'Opening TCP serial plotter ...'
+        $tcp_serial_plotter(${hostname}, 23)
+        echoln 'The TCP serial plotter has been closed'
+    endif
+endtarget

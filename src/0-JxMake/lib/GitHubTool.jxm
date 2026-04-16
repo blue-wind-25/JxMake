@@ -1,0 +1,276 @@
+(****************************************************************************************************
+ ***** GitHub REST API Tool                                                                     *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+(*
+ * According to:
+ *     https://docs.github.com/en/rest/overview/resources-in-the-rest-api
+ * The rate limit for unauthenticated requests allows for up to 60 requests per hour.
+ * Unauthenticated requests are associated with the originating IP address, and not the person making requests.
+ *
+ * Please create a GitHub account and use:
+ *     https://github.com/settings/tokens?type=beta
+ * to create a personal access token so that the rate limit can be increased to up to 5000 requests per hour.
+ * Store your personal access token to the 'GITHUB_TOKEN' environment variable.
+ *
+ * Please refer to:
+ *     https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps
+ *     https://www.endorlabs.com/blog/how-to-get-the-most-out-of-github-api-rate-limits
+ * for more details.
+ *)
+
+
+##### Common headers for GitHub REST API
+const     GitHub_API_Token := $getenv('GITHUB_TOKEN', '')
+const Has_GitHub_API_Token := $and( $cmp(${GitHub_API_Token}, '&!=', ''), $cmp(${GitHub_API_Token}, '&!=', 'null') )
+
+                             const GitHub_API_CHeaders0 :=                         'Accept'               'application/vnd.github+json'
+
+if ${Has_GitHub_API_Token} ; const GitHub_API_CHeaders1 := ${GitHub_API_CHeaders0} 'Authorization'        :"Bearer ${GitHub_API_Token}"
+else                       ; const GitHub_API_CHeaders1 := ${GitHub_API_CHeaders0}
+endif
+                             const GitHub_API_CHeaders2 := ${GitHub_API_CHeaders1} 'X-GitHub-Api-Version' '2022-11-28'
+
+##### !!! TODO : How if the API version changes? !!! #####
+
+#echoln $ftlines(${GitHub_API_CHeaders2})
+#echoln
+#$exit(0)
+
+
+##### Function to check the GitHub REST API call result
+function __gh_check_rest_api_call__(result)
+    if ${result}<1> != 200
+        local Msg  := ${result}<3>
+              Ret  := ''
+              Ret +:= ${result}<1:2>
+              Ret +:= $tcase(${Msg/.*?"message"\s*:\s*"(.*?)".*/$1/})
+        return ${Ret}
+    endif
+    return ${result}<3>
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to get the JSON data for the supported REST API versions
+function gh_get_json_data_api_versions()
+    local url := :"https://api.github.com/versions"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders1}) )
+endfunction
+
+
+##### Function to get the JSON data for rate limit
+function gh_get_json_data_rate_limit()
+    local url := :"https://api.github.com/rate_limit"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders1}) )
+endfunction
+
+
+##### Function to get the JSON data for tags
+function gh_get_json_data_tags(owner, repo)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/tags"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data for all releases
+function gh_get_json_data_releases(owner, repo)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/releases"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data for the latest release
+function gh_get_json_data_latest_release(owner, repo)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/releases/latest"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data from the specified release (by ID)
+function gh_get_json_data_release_by_id(owner, repo, id)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/releases/${id}"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data from the specified release (by tag name)
+function gh_get_json_data_release_by_tag_name(owner, repo, tag)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data for the latest specified commit (by path)
+function gh_get_json_data_latest_commit_by_path(owner, repo, path)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&page=1&per_page=1"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+##### Function to get the JSON data for the specified tag object (by tag name)
+function gh_get_json_data_tag_object_by_tag_name(owner, repo, tag)
+    local url := :"https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${tag}"
+    echoln "<<< GET ${url}\n>>>"
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
+endfunction
+
+
+#####
+#####
+#####
+
+##### Function to check the result of a REST API call which returns a map handle;
+##### if there is an error, print the error message and then exit the program
+function gh_check_rest_api_mh(mh)
+    if !&${mh}<1>
+        echoln $ftlines(${mh})
+        $call(__exit_error_rest_api_fail__)
+    endif
+endfunction
+
+
+##### Function to get the supported REST API versions
+function gh_get_api_versions()
+    # Get the JSON data
+    local Res := $call(gh_get_json_data_api_versions)
+    if !&${Res}<1> : return ${Res}
+    # Create a nested map object using the JSON string
+    local nmh := $nmap_from_json(${Res})
+    # Extract the versions
+    local ver := $map_get(${nmh}, '__Array__')
+    # Delete the nested map object
+    $nmap_delete(${nmh})
+    # Return the versions
+    return ${ver}
+endfunction
+
+
+##### Function to get the rate limit
+function gh_get_rate_limit()
+    # Get the JSON data
+    local Res := $call(gh_get_json_data_rate_limit)
+    if !&${Res}<1> : return ${Res}
+    # Prepare a new map for storing the results
+    local mh := $map_new()
+    # Create a nested map object using the JSON string
+    local nmh := $nmap_from_json(${Res})
+    # Extract and store the data
+    local rmh := $map_get(${nmh}, 'rate')
+    $map_put( ${mh}, 'limit'    , $map_get(${rmh}, 'limit'    ) )
+    $map_put( ${mh}, 'used'     , $map_get(${rmh}, 'used'     ) )
+    $map_put( ${mh}, 'remaining', $map_get(${rmh}, 'remaining') )
+    $map_put( ${mh}, 'reset'    , $map_get(${rmh}, 'reset'    ) )
+    # Delete the nested map object
+    $nmap_delete(${nmh})
+    # Return the map handle
+    return ${mh}
+endfunction
+
+
+##### Function to get all tags
+function gh_get_tags(owner, repo)
+    local Res := $call(gh_get_json_data_tags, ${owner}, ${repo})
+    if !&${Res}<1> : return ${Res}
+    return $gh_get_tags(${Res})
+endfunction
+
+
+##### Function to get assets from all releases
+function gh_get_assets_from_all_releases(owner, repo)
+    local Res := $call(gh_get_json_data_releases, ${owner}, ${repo})
+    if !&${Res}<1> : return ${Res}
+    return $gh_get_assets(${Res})
+endfunction
+
+
+##### Function to get assets from the latest release
+function gh_get_assets_from_latest_release(owner, repo)
+    local Res := $call(gh_get_json_data_latest_release, ${owner}, ${repo})
+    if !&${Res}<1> : return ${Res}
+    return $gh_get_assets(${Res})
+endfunction
+
+
+##### Function to get assets from the specified release (by ID)
+function gh_get_assets_from_release_by_id(owner, repo, id)
+    local Res := $call(gh_get_json_data_release_by_id, ${owner}, ${repo}, ${id})
+    if !&${Res}<1> : return ${Res}
+    return $gh_get_assets(${Res})
+endfunction
+
+
+##### Function to get assets from the specified release (by tag name)
+function gh_get_assets_from_release_by_tag_name(owner, repo, tag)
+    local Res := $call(gh_get_json_data_release_by_tag_name, ${owner}, ${repo}, ${tag})
+    if !&${Res}<1> : return ${Res}
+    return $gh_get_assets(${Res})
+endfunction
+
+
+##### Function to get the commit date for the latest specified commit (by path)
+function gh_get_latest_commit_date_by_path(owner, repo, path)
+    # Get the JSON data
+    local Res := $call(gh_get_json_data_latest_commit_by_path, ${owner}, ${repo}, ${path})
+    if !&${Res}<1> : return ${Res}
+    # Create a nested map object using the JSON string
+    local nmh := $nmap_from_json(${Res})
+    # Extract the author date
+    local adate
+    local value
+    foreach value in $map_get(${nmh}, '__Array__')
+         value := $map_get(${value}, 'commit')
+         if &${value}
+             value := $map_get(${value}, 'author')
+             if &${value}
+                 value := $map_get(${value}, 'date')
+                 if &${value}
+                     adate := ${value}
+                     break
+                 endif
+             endif
+         endif
+    endforeach
+    # Delete the nested map object
+    $nmap_delete(${nmh})
+    # Return the author date
+    return ${adate}
+endfunction
+
+
+##### Function to get the type and hash for the specified tag object (by tag name)
+function gh_get_tag_object_type_and_hash_by_tag_name(owner, repo, tag)
+    # Get the JSON data
+    local Res := $call(gh_get_json_data_tag_object_by_tag_name, ${owner}, ${repo}, ${tag})
+    if !&${Res}<1> : return ${Res}
+    # Create a nested map object using the JSON string
+    local nmh := $nmap_from_json(${Res})
+    # Extract the tag type and hash
+    local object := $map_get(${nmh}   , 'object')
+    local type   := $map_get(${object}, 'type'  )
+    local sha    := $map_get(${object}, 'sha'   )
+    # Delete the nested map object
+    $nmap_delete(${nmh})
+    # Return the tag type and hash
+    return { ${type} ${sha} }
+endfunction

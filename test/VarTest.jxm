@@ -1,0 +1,439 @@
+##### Test ANSI escape code #####
+$printf("\n##### Testing ANSI escape code #####\n\n")
+
+echo __c_clrscr__
+echo __c_red__     "red\n"
+echo __c_green__   "green\n"
+echo __c_yellow__  "yellow\n"
+echo __c_blue__    "blue\n"
+echo __c_magenta__ "magenta\n"
+echo __c_cyan__    "cyan\n"
+echo __c_black__   "black\n"
+echo __c_dgray__   "dgray\n"
+echo __c_lgray__   "lgray\n"
+echo __c_white__   "white\n"
+echo __c_reset__
+
+$printf("\n")
+
+##### Test variable assignment from command line arguments #####
+$printf("\n##### Testing variable assignment from command line arguments #####\n\n")
+
+$printf("ArgVar1 = '%s'\n", ${ArgVar1})
+$printf("ArgVar2 = '%s'\n", ${ArgVar2})
+$printf("ArgVar3 = '%s'\n", ${ArgVar3})
+
+$printf("\n")
+
+##### Test lazy variable assignment #####
+$printf("\n##### Testing variable lazy assignment #####\n\n")
+
+B0 = ${X} ${A} ${Z}
+B1 = ${A}
+B2 = ${A/(.+)\.ref/$1.o/}
+C  = "123 ${B1} ${B2} 456"
+D  = "123 ${B2} ${B2/(.+)\.o/$1.o.o/} 456"
+
+A  = test.ref
+$printf("A  = '%s'\n", ${A} )
+$printf("B0 = '%s'\n", ${B0})
+$printf("B1 = '%s'\n", ${B1})
+$printf("B2 = '%s'\n", ${B2})
+$printf("C  = '%s'\n", ${C} )
+$printf("D  = '%s'\n", ${D} )
+$printf("\n")
+
+A  = abc.ref
+$printf("A  = '%s'\n", ${A} )
+$printf("B0 = '%s'\n", ${B0})
+$printf("B1 = '%s'\n", ${B1})
+$printf("B2 = '%s'\n", ${B2})
+$printf("C  = '%s'\n", ${C} )
+$printf("D  = '%s'\n", ${D} )
+
+$printf("\n")
+
+##### Test direct variable assignment #####
+$printf("\n##### Testing direct variable assignment #####\n\n")
+
+A   = def.ref
+B1 := ${A}
+B2 := ${A/(.+)\.ref/$1.o/}
+A   = ghi.ref
+$printf("C = '%s'\n", ${C} )
+$printf("D = '%s'\n", ${D} )
+
+$printf("\n")
+
+##### Test read only special-variable-shortcut #####
+$printf("\n##### Testing read only special-variable-shortcut #####\n\n")
+
+Val = __jxm_ver_value__
+$printf("%06x %03d.%03d.%03d-%s\n", ${Val}, __jxm_ver_major__, __jxm_ver_minor__, __jxm_ver_patch__, __jxm_ver_devel__)
+
+$printf("\n")
+
+$printf("'%c' '%c'\n", __os_dsep_char__, __os_psep_char__)
+
+$printf("\n")
+
+##### Test writable special-variable-shortcut #####
+$printf("\n##### Testing writable special-variable-shortcut #####\n\n")
+
+__include_paths__ = ${UHP}
+
+Val = __include_paths__
+UHP = myinclude1
+$printf("%s %s\n", ${Val}, __include_paths__)
+
+UHP = myinclude2
+$printf("%s %s\n", ${Val}, __include_paths__)
+
+UHP += myinclude3
+__include_paths__ := ${UHP}
+$printf("%s %s\n", ${Val}, __include_paths__)
+
+UHP = myinclude4
+$printf("%s %s\n", ${Val}, __include_paths__)
+
+$printf("\n")
+
+##### Test automatic special-variable #####
+$printf("\n##### Testing automatic special-variable #####\n\n")
+
+Val = $[target]
+$printf("%s %s\n", ${Val}, $[target])
+
+Val = $[target]
+$printf("%s %s\n", ${Val/(.+)\.obj/$1.cpp.o/}, $[target/(.+)\.obj/$1.cpp.o/])
+
+Val = $[target/(.+)\.obj/$1.cpp.o/]
+Mod = ${Val/(.+)\.cpp.o/$1.cpp.obj/}
+$printf("%s %s\n", ${Val}, ${Mod})
+
+Val = $[preq^]
+$printf("%s %s\n", ${Val}, $[preq^])
+
+Val = $[preq*]
+$printf("%s %s\n", ${Val}, $[preq*])
+
+Val = $[preq?]
+$printf("%s %s\n", ${Val}, $[preq?])
+
+Val = $[preq1]
+$printf("%s %s\n", ${Val}, $[preq1])
+
+Val = $[preq9]
+$printf("%s %s\n", ${Val}, $[preq9])
+
+I   = 5
+Val = $[preq:I]
+$printf("%s %s\n", ${Val}, $[preq:I])
+
+$printf("\n")
+
+Val = $[preq+]
+$printf("%s %s\n", ${Val}, $[preq+])
+
+Val = $[preq%]
+$printf("%s %s\n", ${Val}, $[preq%])
+
+Val = $[preq~]
+$printf("%s %s\n", ${Val}, $[preq~])
+
+$printf("\n")
+
+Val = $[excode]
+$printf("%s %s\n", ${Val}, $[excode])
+
+Val = $[stderr]
+$printf("%s %s\n", ${Val}, $[stderr])
+
+Val = $[stdout]
+$printf("%s %s\n", ${Val}, $[stdout])
+
+$printf("\n")
+
+##### Test function calls that are related to string processing #####
+$printf("\n##### Testing function calls that are related to string processing #####\n\n")
+
+Val := -$sprintf('Test $sprintf(%s, %d, %b)', 'abc')
+Err := $[lserr] # Consume (read and clear the last suppressed error message)
+$printf("RESULT = '%s'\n", ${Val})
+
+Val := $sprintf('Test $sprintf(%s, %d, %b)', 'abc', 123, false)
+$printf("RESULT = '%s'\n", ${Val})
+
+$printf("\n")
+
+Val0  = 'abc'
+Val1 := $ucase(${Val0})
+Val2 := $lcase(${Val0})
+$printf("'%s' '%s'\n", ${Val1}, ${Val2})
+
+$printf("\n")
+
+Val0  = ' abc '
+Val1 := $ltrim(${Val0})
+Val2 := $rtrim(${Val0})
+Val3 := $strim(${Val0})
+$printf("'%s' '%s' '%s'\n", ${Val1}, ${Val2}, ${Val3})
+
+$printf("\n")
+
+Val0  = 'abc'
+Val0 += 'def'
+Val0 += 'ghi'
+
+Val1 := $implode(${Val0})
+Val2 := $explode(${Val1})
+$printf("%s\n", ${Val1})
+$printf("%s\n", ${Val2})
+
+$printf("\n")
+
+ValS  = '['
+ValS += ']'
+Val1 := $implode(${Val0}, ${ValS})
+Val2 := $explode(${Val1}, ${ValS})
+$printf("%s\n", ${Val1})
+$printf("%s\n", ${Val2})
+
+$printf("\n")
+
+Val1 := $implode(${Val0})
+Val2 := $explode(${Val1})
+$printf("%s\n", ${Val1})
+$printf("%s\n", ${Val2})
+
+$printf("\n")
+
+Val1 := $implode(${Val0})
+Val2 := $flatten(${Val0})
+$printf("%s\n", ${Val1})
+$printf("%s\n", ${Val2})
+
+$printf("\n")
+
+Val2 := $explode(${Val1})
+ValN := $part_count(${Val2})
+$printf("%s\n", ${ValN})
+
+ValX := $partn(${Val2}, 1)
+$printf("[1] %s\n", ${ValX})
+
+ValX := $partn(${Val2}, 2)
+$printf("[2] %s\n", ${ValX})
+
+ValX := $partn(${Val2}, 3)
+$printf("[3] %s\n", ${ValX})
+
+ValX := $partn(${Val2}, 4)
+$printf("[4] %s\n", ${ValX})
+
+ValX := $partn(${Val2}, 5)
+$printf("[5] %s\n", ${ValX})
+
+$printf("\n")
+
+##### Test split assignment  #####
+$printf("\n##### Testing split assignment #####\n\n")
+
+Val1  = 'My'   ' '   'Value 1'
+ValN := $part_count(${Val1})
+$printf("%d : %s\n", ${ValN}, ${Val1})
+
+Val1  = 123
+Val2  = "Value is ${Val1}"
+ValN := $part_count(${Val2})
+$printf("%d : %s\n", ${ValN}, ${Val2})
+
+$printf("\n")
+
+C := "123 ${B1} ${B2} 456"
+D := "123 ${B2} ${B2/(.+)\.o/$1.o.o/} 456"
+
+ValN := $part_count(${C})
+$printf("%d : %s\n", ${ValN}, ${C})
+
+ValN := $part_count(${D})
+$printf("%d : %s\n", ${ValN}, ${D})
+$printf("\n")
+
+E    := $flatten(${C})
+ValN := $part_count(${E})
+$printf("%d : %s\n", ${ValN}, ${E})
+
+E    := $flatten(${D})
+ValN := $part_count(${E})
+$printf("%d : %s\n", ${ValN}, ${E})
+
+$printf("\n")
+
+##### Test if-not-set assignment #####
+$printf("\n##### Testing if-not-set assignment #####\n\n")
+
+A  = 123
+$printf("A = '%s'\n", ${A} )
+
+A ?= 456
+$printf("A = '%s'\n", ${A} )
+
+A ?:= 789
+B ?:= 789
+$printf("A = '%s'\n", ${A} )
+$printf("B = '%s'\n", ${B} )
+
+$printf("\n")
+
+A = __include_paths__
+
+__include_paths__  = 123
+$printf("A = '%s'\n", ${A} )
+
+__include_paths__  = 456
+$printf("A = '%s'\n", ${A} )
+
+__include_paths__ ?= 789
+$printf("A = '%s'\n", ${A} )
+
+$printf("\n")
+
+##### Test function calls that are related to file and directory #####
+$printf("\n##### Testing function calls that are related to file and directory #####\n\n")
+
+CWD := $cwd()
+$printf("'%s'\n", ${CWD} )
+
+PTD := $ptd()
+$printf("'%s'\n", ${PTD} )
+
+UHD := $uhd()
+$printf("'%s'\n", ${UHD} )
+
+JXD := $jxd()
+$printf("'%s'\n", ${JXD} )
+
+$printf("\n")
+
+$printf("'%s'\n", $cat_path('a', 'b') )
+$printf("'%s'\n", $cat_path( $cat_path( $cwd(), 'a' ), 'b' ) )
+$printf("'%s'\n", $cat_path( $cat_path( $ptd(), 'a' ), 'b' ) )
+
+$printf("\n")
+
+File  = 'IncTest_Main.jxm'
+FAbs := $abs_path(${File})
+FRel := $rel_path(${FAbs})
+$printf("'%s'\n", ${FAbs} )
+$printf("'%s'\n", ${FRel} )
+
+$printf("\n")
+
+Valid    := $valid_path(${FAbs})
+DirName  := $dir_name  (${FAbs})
+FileName := $file_name (${FAbs})
+$printf("[%-5b] '%s' '%s'\n", ${Valid}, ${DirName}, ${FileName} )
+
+echo "'${FAbs}'\n'${DirName}'\n'${FileName}'\n"
+
+$printf("\n")
+
+Path = __dummy_path_prerequisite_2__
+Valid    := $valid_path(${Path})
+DirName  := $dir_name  (${Path})
+FileName := $file_name (${Path})
+$printf("[%-5b] '%s' '%s'\n", ${Valid}, ${DirName}, ${FileName} )
+
+echo "'${Path}'\n'${DirName}'\n'${FileName}'\n"
+
+$printf("\n")
+
+Path = SHFTest.jxm
+Valid    := $valid_path(${Path})
+DirName  := $dir_name  (${Path})
+FileName := $file_name (${Path})
+$printf("[%-5b] '%s' '%s'\n", ${Valid}, ${DirName}, ${FileName} )
+
+echo "'${Path}'\n'${DirName}'\n'${FileName}'\n"
+
+$printf("\n")
+
+$printf(">>> Testing $mkdir, $touch, $rm, and $rmdir\n")
+
+ $mkdir ('mydir'           )
+ $touch ('mydir/myfile.txt')
+ $printf("The last suppressed error message is '%s'\n", $[lserr])
+-$rmdir ('mydir'           )
+ $printf("The last suppressed error message is '%s'\n", $[lserr])
+ $printf("The last suppressed error message is '%s'\n", $[lserr])
+ $rmfile('mydir/myfile.txt')
+ $rmdir ('mydir'           )
+
+$printf("\n")
+
+$printf(">>> Testing $mkdir, $touch, and $rmdir_rec\n")
+$mkdir    ('mydir'           )
+$touch    ('mydir/myfile.txt')
+$rmdir_rec('mydir'           )
+
+$printf("\n")
+
+$printf(">>> Testing $newer_path\n")
+
+Chk1  = 'myfileR.txt'
+ChkN  = 'myfileR.txt' 'myfileR.txt' 'myfileR.txt'
+Ref   = 'myfile1.txt'
+Ref  += 'myfile2.txt'
+Ref  += 'myfile3.txt'
+All   = ${Chk1} ${Ref}
+
+$touch(${All})
+
+Res := $newer_path(${Chk1}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+Res := $newer_path(${ChkN}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+$touch('myfileR.txt')
+Res := $newer_path(${Chk1}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+Res := $newer_path(${ChkN}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+$touch('myfile2.txt')
+Res := $newer_path(${Chk1}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+Res := $newer_path(${ChkN}, ${Ref})
+Res := $implode(${Res}, ' ')
+$printf("%s\n", ${Res})
+
+$rmfile(${All})
+
+$printf("\n")
+
+##### Test escape whitespace #####
+$printf("\n##### Testing escape whitespace #####\n\n")
+
+A := a b c
+echoln $implode(${A}, '|')
+
+A := a\ b\ c
+echoln $implode(${A}, '|')
+
+A := a\\\ b\ c
+echoln $implode(${A}, '|')
+
+##### Test exit code #####
+$printf("\n##### Testing exit code #####\n\n")
+
+echo "$exit(7)\n\n"
+$exit(7)

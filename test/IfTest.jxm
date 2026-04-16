@@ -1,0 +1,145 @@
+function cmpZero(Arg)
+    if ${Arg}
+        echo "\${Arg} != 0\n"
+    endif
+    if !${Arg}
+        echo "\${Arg} == 0\n"
+    endif
+endfunction
+
+function cmpEmpty(Arg)
+    if &${Arg}
+        echo "\${Arg} != ''\n"
+    endif
+
+    if !&${Arg}
+        echo "\${Arg} == ''\n"
+    endif
+endfunction
+
+
+
+function genNumMsgOther(Arg)
+   #$exit(7)
+   #-$mkdir('/root/test')
+    return "\${Arg} == other (${Arg})\n"
+endfunction
+
+function genStrMsgOther(Arg)
+    return "\${Arg} == other ('${Arg}')\n"
+endfunction
+
+function cmpNumber(Arg)
+    if ${Arg} == 1
+        echo "\${Arg} == 1\n"
+    else
+        if ${Arg} == 2
+            echo "\${Arg} == 2\n"
+        else
+            if ${Arg} == 3
+                echo "\${Arg} == 3\n"
+            else
+                local Msg := $call(genNumMsgOther, ${Arg})
+                echo ${Msg}
+                return 1
+            endif
+        endif
+    endif
+    return 0
+endfunction
+
+function cmpString(Arg)
+    if ${Arg} &== 'a'
+        echo "\${Arg} == 'a'\n"
+    elif ${Arg} &== 'b'
+        echo "\${Arg} == 'b'\n"
+    elif ${Arg} &== 'c'
+        echo "\${Arg} == 'c'\n"
+    else
+        local Msg := $call(genStrMsgOther, ${Arg})
+        echo ${Msg}
+        return 1
+    endif
+    return 0
+endfunction
+
+
+
+$call(cmpZero , 0)
+$call(cmpZero , 1)
+echoln
+
+$call(cmpEmpty, ''   )
+$call(cmpEmpty, 'abc')
+echoln
+
+R1 := $call(cmpNumber, 0)
+R2 := $call(cmpNumber, 1)
+R3 := $call(cmpNumber, 2)
+R4 := $call(cmpNumber, 3)
+R5 := $call(cmpNumber, 4)
+R6 := $call(cmpNumber, 5)
+echoln "${R1} ${R2} ${R3} ${R4} ${R5} ${R6}"
+echoln
+
+R1 := $call(cmpString, 'a')
+R2 := $call(cmpString, 'b')
+R3 := $call(cmpString, 'c')
+R4 := $call(cmpString, 'd')
+R5 := $call(cmpString, 'e')
+R6 := $call(cmpString, 'f')
+echoln "${R1} ${R2} ${R3} ${R4} ${R5} ${R6}"
+echoln
+
+
+
+if __os_windows__
+    function getName()
+        return 'Windows'
+    endfunction
+elif __os_linux__
+    function getName()
+        return 'Linux'
+    endfunction
+elif __os_mac__
+    function getName()
+        return 'MaxOS'
+    endfunction
+else
+    function getName()
+        return 'Other'
+    endfunction
+endif
+
+echoln $call(getName)
+echoln
+
+
+
+Val = ''
+if  &${Val} : $printf("ONE-LINE-IF  &\${Val} | '%s'\n", ${Val})
+if !&${Val} : $printf("ONE-LINE-IF !&\${Val} | '%s'\n", ${Val})
+
+Val = 'val'
+if  &${Val} : $printf("ONE-LINE-IF  &\${Val} | '%s'\n", ${Val})
+if !&${Val} : $printf("ONE-LINE-IF !&\${Val} | '%s'\n", ${Val})
+
+echoln
+
+Val = 0
+if  ${Val} : $printf("ONE-LINE-IF  \${Val} | %d\n", ${Val})
+if !${Val} : $printf("ONE-LINE-IF !\${Val} | %d\n", ${Val})
+
+Val = 1
+if  ${Val} : $printf("ONE-LINE-IF  \${Val} | %d\n", ${Val})
+if !${Val} : $printf("ONE-LINE-IF !\${Val} | %d\n", ${Val})
+
+echoln
+
+Val = 10
+if ${Val} == 10 : echoln "ONE-LINE-IF \${Val} == 10 | ${Val}"
+if ${Val} != 10 : echoln "ONE-LINE-IF \${Val} != 10 | ${Val}"
+
+Val = 20
+if ${Val} == 10 : echoln "ONE-LINE-IF \${Val} == 10 | ${Val}"
+if ${Val} != 10 : echoln "ONE-LINE-IF \${Val} != 10 | ${Val}"

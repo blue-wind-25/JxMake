@@ -1,0 +1,572 @@
+(****************************************************************************************************
+ ***** Arduino CLI Build Tool                                                                   *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility and other utilities
+:::include_once 'BasicPlatformUtil.jxm'
+:::include_once 'C++XBuildTool_ArduinoUtil.jxm'
+
+
+##### Set flags
+const __arduino__                  := 1
+const __x_arduino__                := 1
+const __ArduinoBuildTool_Defined__ := 1
+const __BuildTool_Name__           := 'Arduino CLI'
+const __BuildTool_Target__         := 'Arduino'
+const __BuildTool_Title__          := 'Arduino CLI'
+      __BuildTool_Version__        := 0
+      __BuildTool_Version_Num__    := 0
+
+
+##### Define build directory
+ArduinoBuildDir := 'build'
+
+
+##### Define the executables, paths, and options
+ARDUINO_CLI_PATH ?:= $getenv('ARDUINO_CLI_PATH', '')
+
+ArduinoCLIBinDir  := ''
+ArduinoCLI        := 'arduino-cli'
+
+ArduinoBuildFlags := ''
+
+
+##### Function to check if 'ArduinoBuildDir' is a relative path
+function __check_ArduinoBuildDir__()
+    $call(__exit_error_if_not_rel_path__, ${ArduinoBuildDir}, 'ArduinoBuildDir')
+endfunction
+
+
+##### Get the Arduino CLI version
+function __calc_arduino_cli_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_333, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_arduino_cli_ver_exec__()
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${ArduinoCLI} version
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_arduino_cli_ver_impl__()
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec(__get_arduino_cli_ver_exec__)
+        # Get and extract the version number
+        local lines := $flatten( $sflines($[stdout]) )
+        local parts := $sfdots(${lines/(?s)arduino-cli.+?(\d+)\.(\d+)\.(\d+).+/$1.$2.$3/})
+        local major := ${parts}<1>
+        local minor := ${parts}<2>
+        local patch := ${parts}<3>
+        # Store the version number
+        result  := $call(__calc_arduino_cli_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}"
+    endif
+    # Return the result
+    return ${result}
+endfunction
+
+function __get_arduino_cli_ver__()
+    local result  := $call(__get_arduino_cli_ver_impl__)
+    local numeric := ${result}<1>
+    if ${numeric}
+        __BuildTool_Version__     := ${result}<2>
+        __BuildTool_Version_Num__ := ${numeric}
+    endif
+    return ${numeric}
+endfunction
+
+
+##### Check if the compiler version is at least/most
+function arduino_cli_ver_min(major, minor, patch)
+    return $cmp( ${__BuildTool_Version_Num__}, '>=', $call(__calc_arduino_cli_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function arduino_cli_ver_max(major, minor, patch)
+    return $cmp( ${__BuildTool_Version_Num__}, '<=', $call(__calc_arduino_cli_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+
+##### Function to ensure the sketch's build directory name contains the FQBN
+function __ac_set_arduino_build_dir_fqbn__()
+    if !&${ArduinoBuildDir} : return
+    if !&${ArduinoFQBN}     : return
+    ArduinoBuildDirFQBN := $cat_path( ~${ArduinoBuildDir}, $series(__os_name__, '-', ${ArduinoFQBN/:/_/}) )
+endfunction
+
+
+##### Function to initialize the project build
+function init_project()
+    # Determine the tool full path
+    if !&${ArduinoCLIBinDir} : ArduinoCLIBinDir := ${ARDUINO_CLI_PATH}
+    if  &${ArduinoCLIBinDir} : ArduinoCLI       := $cat_path(${ArduinoCLIBinDir}, ${ArduinoCLI})
+    # Get the tool version
+    $call(__get_arduino_cli_ver__)
+    # Ensure the Arduino CLI is executable
+    if !${__BuildTool_Version_Num__}
+        $call(__exit_error_nup_ext__, ${ArduinoCLI}, ${ArduinoCLIBinDir}, true)
+        echoln "Please use your operating system package manager to install the Arduino CLI tool or download and install it from:"
+        echoln '    https://arduino.github.io/arduino-cli'
+        echoln
+        echoln 'Set \'ARDUINO_CLI_PATH\' to the Arduino CLI tool location if the installation location is not in the system-wide PATH.'
+        echoln
+        $exit(-1)
+    endif
+    # Check the tool version
+    if !$call(arduino_cli_ver_min, 0, 30, 0)
+        $call( __exit_error_ns_desc__, $flatten( {{ __c_cyan__, 'Arduino CLI', __c_white__, ' less than version' }} ), '0.30.0' )
+    endif
+    # Create the build directory
+    $mkdir(~${ArduinoBuildDir})
+    # Ensure the sketch's build directory name contains the FQBN
+    $call(__ac_set_arduino_build_dir_fqbn__)
+    # Set extra configuration information text
+    __BuildTool_ExtraInfoName__  +:= 'Arduino CLI Path'
+    __BuildTool_ExtraInfoValue__ +:= ${ArduinoCLI}
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function clean_project()
+    $call         (__check_ArduinoBuildDir__)
+    $rmdir_rec    (~${ArduinoBuildDir}      )
+    $call         (__ac_rm_keychain_files__ )
+    $clear_project(true                     )
+endfunction
+
+
+##### Function to enable/disable debugging
+ArduinoBuildType  := 'Release'
+ArduinoDebugFlags := ''
+
+function enable_debug_info(enabled)
+    if ${enabled}
+        ArduinoBuildType  := 'Debug'
+        ArduinoDebugFlags := '--optimize-for-debug'
+    else
+        ArduinoBuildType  := 'Release'
+        ArduinoDebugFlags := ''
+    endif
+endfunction
+
+
+##### Function to set the sketch directory
+ArduinoSketchDir := ''
+
+function ac_set_sketch_dir(directory)
+    ArduinoSketchDir := $strim(${directory})
+endfunction
+
+
+##### Function to set the fully qualified board name (FQBN)
+ArduinoFQBN := ''
+
+function ac_set_fqbn(fqbn)
+    # Set the FQBN
+    ArduinoFQBN := $strim(${fqbn})
+    # Ensure the sketch's build directory name contains the FQBN
+    $call(__ac_set_arduino_build_dir_fqbn__)
+endfunction
+
+
+##### Function to list all supported cores
+function __ac_list_all_cores_exec__()
+    @${ArduinoCLI} core list
+endfunction
+
+function ac_list_all_cores()
+    $cmd_stderr_chk_on()
+    $exec(__ac_list_all_cores_exec__                   )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_stderr_chk_off()
+endfunction
+
+
+##### Function to list all supported boards
+function __ac_list_all_boards_exec__(filter)
+    @${ArduinoCLI} board listall ${filter}
+endfunction
+
+function ac_list_all_boards(?filter)
+    $cmd_stderr_chk_on()
+    $exec(__ac_list_all_boards_exec__, ${filter}       )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_stderr_chk_off()
+endfunction
+
+
+##### Function to list the board's details
+function __ac_list_boards_details_exec__(fqbn)
+    @${ArduinoCLI} board details --fqbn ${fqbn}
+endfunction
+
+function ac_list_boards_details(?fqbn)
+    fqbn ?:= ${ArduinoFQBN}
+    $cmd_stderr_chk_on()
+    $exec(__ac_list_boards_details_exec__, ${fqbn}     )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $cmd_stderr_chk_off()
+endfunction
+
+
+##### ??? TODO : Add some more utility functions ??? #####
+(*
+/opt/arduino-cli_0.33.1_Linux_64bit/arduino-cli core update-index
+Z:/arduino-cli_0.33.1_Windows_64bit/arduino-cli core update-index
+
+arduino-cli config dump --verbose
+
+arduino-cli sketch new MyFirstSketch
+
+arduino-cli core install   arduino:samd
+arduino-cli core uninstall arduino:samd
+
+arduino-cli core update-index   --additional-urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
+arduino-cli core search esp8266 --additional-urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
+
+arduino-cli lib search debouncer
+*)
+
+
+##### Function to set the board options
+ArduinoBoardOptions := ''
+
+function ac_set_board_options(options)
+    ArduinoBoardOptions := $implode( $strim(${options}), ',' )
+endfunction
+
+
+##### Function to set the build properties
+ArduinoBuildProperties := ''
+
+function ac_set_build_properties(properties)
+    ArduinoBuildProperties := $interleave( '--build-property', $strim(${properties}) )
+endfunction
+
+
+##### Function to set the keychain directory (used only by the platforms that support it)
+ArduinoKeychainDir := ''
+ArduinoSignFlags   := ''
+
+function ac_set_keychain_dir(directory)
+    ArduinoKeychainDir := $strim(${directory})
+    if &${ArduinoKeychainDir}
+        ArduinoSignFlags := '--keys-keychain' ~${ArduinoSketchDir} '--sign-key' 'private.key' '--encrypt-key' 'public.key'
+    else
+        ArduinoSignFlags := ''
+    endif
+endfunction
+
+function __ac_rm_keychain_files__()
+    # Determine the destination keychain files
+    local const prvKeyFileDst := :"~${ArduinoSketchDir}/private.key"
+    local const pubKeyFileDst := :"~${ArduinoSketchDir}/public.key"
+    # Delete the destination keychain files
+    $rmfile(${prvKeyFileDst})
+    $rmfile(${pubKeyFileDst})
+    # Delete the signed binary files as needed
+    if &${ArduinoBuildDirFQBN}
+        if &${ArduinoSketchDir}
+            $rmfile(:"${ArduinoBuildDirFQBN}/${ArduinoSketchDir}.ino.bin.signed"    )
+            $rmfile(:"${ArduinoBuildDirFQBN}/${ArduinoSketchDir}.ino.bin.legacy_sig")
+        endif
+    endif
+endfunction
+
+function __ac_cp_keychain_files__()
+    # Copy the keychain files
+    if &${ArduinoKeychainDir}
+        # Determine the source keychain files
+        local const prvKeyFileSrc := :"~${ArduinoKeychainDir}/private.key"
+        local const pubKeyFileSrc := :"~${ArduinoKeychainDir}/public.key"
+        # Determine the destination keychain files
+        local const prvKeyFileDst := :"~${ArduinoSketchDir}/private.key"
+        local const pubKeyFileDst := :"~${ArduinoSketchDir}/public.key"
+        # Copy the source keychain files to the destination keychain files as needed
+        if $newer_path(${prvKeyFileSrc}, ${prvKeyFileDst}) : $cpfile(${prvKeyFileSrc}, ${prvKeyFileDst})
+        if $newer_path(${pubKeyFileSrc}, ${pubKeyFileDst}) : $cpfile(${pubKeyFileSrc}, ${pubKeyFileDst})
+    # Delete the keychain files
+    else
+        $call(__ac_rm_keychain_files__)
+    endif
+endfunction
+
+
+##### Function to set the common build and upload flags
+ArduinoBuildFlags  := ''
+ArduinoUploadFlags := ''
+
+function __ac_set_common_build_upload_flags__()
+    # Check if the flags already set
+    if &${ArduinoBuildFlags}  : local DoneBF := true
+    if &${ArduinoUploadFlags} : local DoneUF := true
+    if $and(${DoneBF}, ${DoneUF}) : return
+    # Ensure the sketch's build directory name contains the FQBN
+    $call(__ac_set_arduino_build_dir_fqbn__)
+    # Set the build flags as needed
+    if !${DoneBF}
+                                        ArduinoBuildFlags   := '--fqbn'               ${ArduinoFQBN}
+        if &${ArduinoBoardOptions}    : ArduinoBuildFlags  +:= '--board-options'      ${ArduinoBoardOptions}
+        if &${ArduinoBuildProperties} : ArduinoBuildFlags  +:=                        ${ArduinoBuildProperties}
+        if &${ArduinoSignFlags}       : ArduinoBuildFlags  +:=                        ${ArduinoSignFlags}
+                                        ArduinoBuildFlags  +:= '--build-path'       :"${ArduinoBuildDirFQBN}"
+
+        if !$call(arduino_cli_ver_min, 1, 1, 0)
+                                        ArduinoBuildFlags  +:= '--build-cache-path' :"${ArduinoBuildDirFQBN}/cache"
+        endif
+                                        ArduinoBuildFlags  +:= '--output-dir'       :"${ArduinoBuildDirFQBN}/output"
+        if &${ArduinoDebugFlags}      : ArduinoBuildFlags  +:=                        ${ArduinoDebugFlags}
+                                        ArduinoBuildFlags  +:= '--warnings'          'default'
+                                        ArduinoBuildFlags  +:= '--log-level'         'info'
+                                        ArduinoBuildFlags  +:= '--verbose'
+    endif
+    # Set the upload flags as needed
+    if !${DoneUF}
+                                        ArduinoUploadFlags  := '--fqbn'               ${ArduinoFQBN}
+        if &${ArduinoBoardOptions}    : ArduinoUploadFlags +:= '--board-options'     "${ArduinoBoardOptions}"
+                                        ArduinoUploadFlags +:= '--input-dir'        :"${ArduinoBuildDirFQBN}/output"
+    endif
+endfunction
+
+
+##### Helper macros to build and upload sketch
+.macro __arduino_cli_bu_common_entry_code__
+    # Set the common build and upload flags
+    $call(__ac_set_common_build_upload_flags__)
+    # Ensure the keychain file are up to date
+    $call(__ac_cp_keychain_files__)
+    # Enable streaming for '@' as needed
+    local ES := ${__ARDUINO_CLI_FORCE_CMD_STREAMING__}
+    if !${ES} : ES := $not( $call(is_all_stdxxx_silent) )
+    if  ${ES} : $cmd_streaming_on()
+.endmacro
+
+.macro __arduino_cli_bu_common_leave_code__
+    # Disable streaming for '@' or perform conditional print and check as needed
+    if ${ES} ; $cmd_streaming_off()
+    else     ; $call(__conditional_print_stdxxx_and_check_excode__)
+    endif
+    # Check for error
+    if $[excode] : $exit($[excode])
+.endmacro
+
+
+##### Function to build sketch
+function __ac_build_sketch_exec__()
+    # --show-properties
+    +@${ArduinoCLI} compile ${ArduinoBuildFlags} ~${ArduinoSketchDir}
+endfunction
+
+function ac_build_sketch()
+    # Execute the common entry code
+    .$__arduino_cli_bu_common_entry_code__
+    # Perform build
+    $call(__bpt_arduino_build__, ${ArduinoSketchDir})
+    $exec(__ac_build_sketch_exec__                  )
+    # Execute the common leave code
+    .$__arduino_cli_bu_common_leave_code__
+endfunction
+
+
+##### Functions to upload sketch
+function __ac_upload_sketch_exec__(addUploadFlags)
+    +@${ArduinoCLI} upload ${ArduinoUploadFlags} ${addUploadFlags} ~${ArduinoSketchDir}
+endfunction
+
+function ac_upload_sketch(port)
+    # Set the additional upload flags
+    local addUploadFlags := '--port' ${port}
+    # Execute the common entry code
+    .$__arduino_cli_bu_common_entry_code__
+    # Perform upload
+    $call(__bpt_arduino_upload_std__, ${ArduinoSketchDir})
+    $exec(__ac_upload_sketch_exec__, ${addUploadFlags}   )
+    # Execute the common leave code
+    .$__arduino_cli_bu_common_leave_code__
+endfunction
+
+function ac_prg_upload_sketch(prog, ?port)
+    # Set the additional upload flags
+            local prog            := $lcase(${prog/\s//})
+            local addUploadFlags  := '--programmer' ${prog}
+    if &${port} : addUploadFlags +:= '--port'       ${port}
+    # Execute the common entry code
+    .$__arduino_cli_bu_common_entry_code__
+    # Perform upload
+    $call(__bpt_arduino_upload_prg__, ${ArduinoSketchDir})
+    $exec(__ac_upload_sketch_exec__, ${addUploadFlags}   )
+    # Execute the common leave code
+    .$__arduino_cli_bu_common_leave_code__
+endfunction
+
+function ac_net_upload_sketch(net_address)
+    # Set the additional upload flags
+    $call(__bpt_arduino_upload_net__, ${ArduinoSketchDir})
+          local addUploadFlags  := '--discovery-timeout' '3s'
+                addUploadFlags +:= '--protocol'          'network'
+                addUploadFlags +:= '--port'
+                addUploadFlags +:=                       $resolve_ip(${net_address})
+    # Execute the common entry code
+    local __ARDUINO_CLI_FORCE_CMD_STREAMING__ := true # Force enable streaming for '@'
+    .$__arduino_cli_bu_common_entry_code__
+    # Perform upload
+    $exec(__ac_upload_sketch_exec__, ${addUploadFlags})
+    # Print some helper information messages
+    if $[excode]
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+        echoln __c_white__ 'If an error message about getting port metadata such as below appears:' __c_reset__
+        echoln             '    ...'
+        echoln             '    Error getting port metadata: port not found: xxx.xxx.xxx.xxx network.'
+        echoln             '    ...'
+        echoln __c_white__ 'you may be using an incorrect IP addres or full access to \'224.0.0.251:5353\' or \'[ff02::fb]:5353\' is' __c_reset__
+        echoln __c_white__ 'blocked by your operating system\'s firewall; mDNS discovery needs full access to the specified network' __c_reset__
+        echoln __c_white__ 'address and port. Please refer to this article for more details:' __c_reset__
+        echoln             '    https://en.wikipedia.org/wiki/Multicast_DNS'
+        echoln
+        echoln __c_white__ 'If an error message about getting user input such as below appears:' __c_reset__
+        echoln             '    ...'
+        echoln             '    Uploading to specified board using network protocol requires the following info:'
+        echoln             '    Error getting user input: user input not supported in non interactive mode'
+        echoln             '    ...'
+        echoln __c_white__ 'try to restart the target, reboot your PC, or use a different terminal program.' __c_reset__
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+    # Execute the common leave code
+    .$__arduino_cli_bu_common_leave_code__
+endfunction
+
+(*
+~/.arduino15/packages/builtin/tools/mdns-discovery/1.0.9/mdns-discovery
+%HOMEDRIVE%%HOMEPATH%\AppData\Local\Arduino15\packages\builtin\tools\mdns-discovery\1.0.8\mdns-discovery
+    HELLO 1 "arduino-cli 0.33.0"
+    {
+      "eventType": "hello",
+      "message": "OK",
+      "protocolVersion": 1
+    }
+    START_SYNC
+    {
+      "eventType": "start_sync",
+      "message": "OK"
+    }
+    {
+      "eventType": "add",
+      "port": {
+        "address": "192.168.0.100",
+        "label": "nodemcu at 192.168.0.100",
+        "protocol": "network",
+        "protocolLabel": "Network Port",
+        "properties": {
+          ".": "nodemcuv2",
+          "auth_upload": "yes",
+          "board": "nodemcuv2",
+          "hostname": "nodemcu.local.",
+          "port": "8266",
+          "ssh_upload": "no",
+          "tcp_check": "no"
+        }
+      }
+    }
+
+/opt/arduino-cli_0.33.1_Linux_64bit/arduino-cli board list --discovery-timeout 3s
+Z:/arduino-cli_0.33.1_Windows_64bit/arduino-cli board list --discovery-timeout 3s
+    Port          Protocol Type             Board Name                   FQBN                      Core
+    /dev/ttyUSB0  serial   Serial Port(USB) Unknown
+    192.168.1.111 network  Network Port     NodeMCU 1.0 (ESP-12E Module) esp8266:esp8266:nodemcuv2 esp8266:esp8266
+*)
+
+
+##### Undefine the helper macros here to prevent duplicated name later on
+.undefmacro __arduino_cli_bu_common_entry_code__
+.undefmacro __arduino_cli_bu_common_leave_code__
+
+
+#####
+#####
+#####
+
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__()
+    $call(__btlib_help_print_title_main__)
+    $call(__btlib_help_print_title_variables__)
+    echoln __c_green__ '    __arduino__               ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_arduino__             ' __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln
+    echoln __c_green__ '    __BuildTool_Name__        ' __c_white__ ': evaluate to the Arduino CLI name'
+    echoln __c_green__ '    __BuildTool_Version__     ' __c_white__ ': evaluate to the Arduino CLI version'
+    echoln __c_green__ '    __BuildTool_Version_Num__ ' __c_white__ ': evaluate to the Arduino CLI version (in the form of combined numeric value)'
+    echoln
+    echoln __c_green__ '    ArduinoBuildDir           ' __c_white__ ': set the build directory under the source tree - the default is \'' __c_yellow__ 'build' __c_white__ '\'     ; can only be changed before calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '    ArduinoCLIBinDir          ' __c_white__ ': set the location of the Arduino CLI binary    - override \'' __c_yellow__ 'ARDUINO_CLI_PATH' __c_white__ '\'; can only be changed before calling \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln
+   #$call(__btlib_help_print_title_functions__, 9, 12, 1)
+    $call(__btlib_help_print_title_functions__, 0,  0, 0)
+    echoln __c_green__ '    init_project           (            ) ' __c_white__ ': initialize the project build; ' __c_red__ 'must be called first and as early as possible' __c_white__ ' (after changing the global values of the'
+    echoln __c_green__ '                                          ' __c_white__ '  variables above, if necessary)'
+    echoln __c_green__ '    clean_project          (            ) ' __c_white__ ': clean the project build (delete all the generated files)'
+    echoln __c_green__ '    print_devenv_config    (            ) ' __c_white__ ': print the development environment configuration summary; must only be called after \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    silent_stdxxx          (?silent     ) ' __c_white__ ': silent/unsilent all    stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'false' __c_white__ '\''
+    echoln __c_green__ '    silent_stdxxx_syslib   (?silent     ) ' __c_white__ ': silent/unsilent system stderr/stdout outputs, unless the exit code is non-zero - the default is \'' __c_green__ 'true' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    arduino_cli_ver_min    (mj, mn, pl  ) ' __c_white__ ': check if the Arduino CLI version is at least ' __c_yellow__ '<major>.<minor>.<patch>'
+    echoln __c_green__ '    arduino_cli_ver_max    (mj, mn, pl  ) ' __c_white__ ': check if the Arduino CLI version is at most  ' __c_yellow__ '<major>.<minor>.<patch>'
+    echoln
+    echoln __c_green__ '    enable_debug_info      (enabled     ) ' __c_white__ ': enable/disable debugging information - the default is disabled'
+    echoln
+    echoln __c_green__ '    ac_set_sketch_dir      (directory   ) ' __c_white__ ': set the sketch directory to be used'
+    echoln
+    echoln __c_green__ '    ac_set_fqbn            (fqbn        ) ' __c_white__ ': set the FQBN to be used'
+    echoln __c_green__ '                                          ' __c_green__  '     fqbn' __c_white__ ' fully qualified board name - for example \'' __c_yellow__ 'arduino:avr:mega' __c_white__ '\', \'' __c_yellow__ 'esp8266:esp8266:nodemcuv2' __c_white__ '\', etc.'
+    echoln
+    echoln __c_green__ '    ac_list_all_cores      (            ) ' __c_white__ ': list all supported cores'
+    echoln __c_green__ '    ac_list_all_boards     (?filter     ) ' __c_white__ ': list all supported boards'
+    echoln __c_green__ '    ac_list_boards_details (?fqbn       ) ' __c_white__ ': list all the board\'s details - if no FQBN is specified, the one set using \'' __c_green__ 'ac_set_fqbn' __c_white__ '\' will be used'
+    echoln
+    echoln __c_green__ '    ac_set_board_options   (options     ) ' __c_white__ ': set the board options to be used'
+    echoln __c_green__ '                                          ' __c_green__  '     options' __c_white__ ' key-value pairs separated by set members and/or commas - for example:'
+    echoln __c_green__ '                                          ' __c_green__  '                 ' __c_white__ '\'' __c_yellow__ '{{ \'baud=460800\', \'ip=lm6f\' }}' __c_white__ '\''
+    echoln __c_green__ '                                          ' __c_green__  '                 ' __c_white__ '\'' __c_yellow__ 'baud=460800,ip=lm6f' __c_white__ '\''
+    echoln
+    echoln __c_green__ '    ac_set_build_properties(properties  ) ' __c_white__ ': set the build properties to be used'
+    echoln __c_green__ '                                          ' __c_green__  '     properties' __c_white__ ' key-value pairs separated by set members - for example:'
+    echoln __c_green__ '                                          ' __c_green__  '                    ' __c_white__ '\'' __c_yellow__ '{{ \'build.mcu=atmega2560\', \'build.extra_flags=\\\'-DDUMMY_MACRO="Dummy Value"\\\'\' }}' __c_white__ '\''
+    echoln
+    echoln __c_green__ '                                          ' __c_white__  '     If a parameter can be set by both \'' __c_green__ 'ac_set_board_options' __c_white__ '\' and \'' __c_green__ 'ac_set_build_properties' __c_white__ '\', using the former is recommended.'
+    echoln
+    echoln __c_green__ '    ac_set_keychain_dir    (directory   ) ' __c_white__ ': set the keychain directory containing the keys to be used to sign and encrypt the binary (used only by the platforms '
+    echoln __c_green__ '                                          ' __c_white__ '  that support it)'
+    echoln __c_green__ '                                          ' __c_green__ '      directory' __c_white__ ' the directory that contains the files \'' __c_yellow__ 'private.key' __c_white__ '\' and \'' __c_yellow__ 'public.key' __c_white__ '\''
+    echoln
+    echoln __c_green__ '                                          ' __c_white__ '      Please ensure the sketch directory does not contains the files \'' __c_yellow__ 'private.key' __c_white__ '\' and \'' __c_yellow__ 'public.key' __c_white__ '\' as those files'
+    echoln __c_green__ '                                          ' __c_white__ '      will be copied from the location specified using \'' __c_green__ 'ac_set_keychain_dir' __c_white__ '\' and deleted as needed by the build system.'
+    echoln
+    echoln __c_green__ '    ac_build_sketch        (            ) ' __c_white__ ': build the sketch'
+    echoln
+    echoln __c_green__ '    ac_upload_sketch       (port        ) ' __c_white__ ': upload the sketch'
+    echoln __c_green__ '                                          ' __c_green__  '     port' __c_white__ ' target port (e.g. \'' __c_yellow__ 'COM1' __c_white__ '\'' __c_white__ ' or \'' __c_yellow__ '/dev/ttyACM0' __c_white__ '\')'
+    echoln
+    echoln __c_green__ '    ac_prg_upload_sketch   (prog, ?port ) ' __c_white__ ': upload the sketch using programmer'
+    echoln __c_green__ '                                          ' __c_green__  '     prog' __c_white__ ' programmer name (e.g. \'' __c_yellow__ 'USBasp' __c_white__ '\'' __c_white__ ' or \'' __c_yellow__ 'AVRISP mkII' __c_white__ '\' )'
+    echoln __c_green__ '                                          ' __c_green__  '     port' __c_white__ ' programmer port (e.g. \'' __c_yellow__ 'COM1' __c_white__ '\'  ' __c_white__ ' or \'' __c_yellow__ '/dev/ttyACM0' __c_white__ '\') - the default is not specified'
+    echoln
+    echoln __c_green__ '    ac_net_upload_sketch   (net_address ) ' __c_white__ ': upload the sketch using network protocol'
+    echoln __c_green__ '                                          ' __c_green__  '     net_address' __c_white__ ' IP address or hostname of the target'
+    echoln
+    $call(__btlib_help_print_note_arduino_environment__)
+    echoln __c_reset__
+endfunction
+

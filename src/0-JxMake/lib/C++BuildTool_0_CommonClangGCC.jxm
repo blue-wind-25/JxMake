@@ -1,0 +1,390 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Common Code for Clang and GCC                                           *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+(***** Only include this part of the script where necessary *****)
+if $or(${__ForceGCC__}, __os_posix__, __os_posix_compat__)
+
+
+##### Function to define macros
+function def_macro(name, ?value)
+    value ?:= 1
+    return :"-D${name}=${value}"
+endfunction
+
+
+##### Define the common options
+SLibBuilderCommonFlags := 'rcs'
+
+
+##### Function to select whether to treat warnings as errors
+CppWarningAsErrorFlags := ''
+
+function treat_warnings_as_errors(enabled)
+    if ${enabled} ; CppWarningAsErrorFlags := '-Werror'
+    else          ; CppWarningAsErrorFlags := ''
+    endif
+endfunction
+
+
+##### Function to enable/disable debugging
+CppBuildType  := 'Release'
+
+AsmDebugFlags := '-DNDEBUG'
+CppDebugFlags := '-DNDEBUG'
+
+function enable_debug_info(enabled)
+    if ${enabled}
+        CppBuildType  := 'Debug'
+        AsmDebugFlags :=         '-DDEBUG'
+        CppDebugFlags := '-ggdb' '-DDEBUG'
+    else
+        CppBuildType  := 'Release'
+        AsmDebugFlags :=        '-DNDEBUG'
+        CppDebugFlags :=        '-DNDEBUG'
+    endif
+endfunction
+
+
+##### Function to select optimization level
+CppOptimizationFlags := '-Os'
+
+function select_optimization(level)
+    if ${level} &== 'none'
+        CppOptimizationFlags := '-O0'
+    elif ${level} &== 'size'
+        CppOptimizationFlags := '-Os'
+    elif ${level} &== 'speed'
+        CppOptimizationFlags := '-O2'
+    else
+        CppOptimizationFlags := ${level}
+    endif
+endfunction
+
+
+##### Functions to select language standards
+CppCcLangStdFlags  := '-std=c11'
+CppCxxLangStdFlags := '-std=c++11'
+
+function select_c_langstd(langstd, ?gnu)
+          gnu ?:= 0
+    local sp   := $csel(${gnu}, 'gnu', 'c')
+    if ${langstd} &== 'c89'
+        CppCcLangStdFlags := :"-std=${sp}89"
+    elif ${langstd} &== 'c90'
+        CppCcLangStdFlags := :"-std=${sp}90"
+    elif ${langstd} &== 'c95'
+        CppCcLangStdFlags := :"-std=${sp}99"
+    elif ${langstd} &== 'c99'
+        CppCcLangStdFlags := :"-std=${sp}99"
+    elif ${langstd} &== 'c11'
+        CppCcLangStdFlags := :"-std=${sp}11"
+    elif ${langstd} &== 'c17'
+        CppCcLangStdFlags := :"-std=${sp}17"
+    elif ${langstd} &== 'c23'
+        CppCcLangStdFlags := :"-std=${sp}2x"
+    else
+        CppCcLangStdFlags := ${langstd}
+    endif
+endfunction
+
+function select_cxx_langstd(langstd, ?gnu)
+          gnu ?:= 0
+    local sp   := $csel(${gnu}, 'gnu', 'c')
+    if ${langstd} &== 'c++98'
+        CppCxxLangStdFlags := :"-std=${sp}++98"
+    elif ${langstd} &== 'c++03'
+        CppCxxLangStdFlags := :"-std=${sp}++03"
+    elif ${langstd} &== 'c++11'
+        CppCxxLangStdFlags := :"-std=${sp}++11"
+    elif ${langstd} &== 'c++14'
+        CppCxxLangStdFlags := :"-std=${sp}++14"
+    elif ${langstd} &== 'c++17'
+        CppCxxLangStdFlags := :"-std=${sp}++17"
+    elif ${langstd} &== 'c++20'
+        CppCxxLangStdFlags := :"-std=${sp}++20"
+    elif ${langstd} &== 'c++23'
+        CppCxxLangStdFlags := :"-std=${sp}++2b"
+    else
+        CppCxxLangStdFlags := ${langstd}
+    endif
+endfunction
+
+
+(*
+# Function to unconditionally remove '-Wextra' to prevent printing a lot of warnings from SDK source files
+function __unconditionally_remove_wextra__()
+    CppCommonAssemblerFlags  := $erase_if(${CppCommonAssemblerFlags} , '-Wextra')
+    CppCommonCcCompileFlags  := $erase_if(${CppCommonCcCompileFlags} , '-Wextra')
+    CppCommonCxxCompileFlags := $erase_if(${CppCommonCxxCompileFlags}, '-Wextra')
+endfunction
+#*)
+
+
+##### Function to get the compiler version
+function __calc_cpp_compiler_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_cpp_compiler_ver_exec__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   -@${CppCxxCompiler} -dumpfullversion -dumpversion
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_cpp_compiler_ver_impl__()
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec( __get_cpp_compiler_ver_exec__, $call(__get_LDLibraryPaths__) )
+        local text  := $partn( $erase_ifempty( $sflines($[stdout]) ), 1 )
+              text  := $sfdots(${text/(?:.*?)(\d+?\.\d+?\.\d+?)(?:.*)/$1/})
+        local major := $partn(${text}, 1)
+        local minor := $partn(${text}, 2)
+        local patch := $partn(${text}, 3)
+        result  := $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}"
+    endif
+    # Return the version
+    return ${result}
+endfunction
+
+
+##### Check if the compiler version is at least/most
+function cpp_compiler_ver_min(major, minor, patch, ?dummyIgnored)
+    return $cmp( ${__BuildTool_Version_Num__}, '>=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function cpp_compiler_ver_max(major, minor, patch, ?dummyIgnored)
+    return $cmp( ${__BuildTool_Version_Num__}, '<=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+
+##### A helper macro for constructing command line option for include paths
+.macro __CLANG_GCC__IU_IS__
+        local IU := $path_ndsep( $abs_path(__include_paths__) )
+              IU := ${IU/(.+)/-I$1/}
+    if &${CppSysHeaderDir}
+        local IS := $path_ndsep( $abs_path(${CppSysHeaderDir}) )
+              IS := ${IS/(.+)/-isystem$1/}
+    endif
+.endmacro
+
+
+##### Function to compile linker scripts
+function __compile_ld__(extraOptions, ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    local IU := ''
+    if __os_cygwin__
+        IU := $dir_name(-$[preq*])
+        IU := ${IU/(.+)/-I$1/}
+    endif
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCommonCxxCompileFlags} ${IU} ${extraOptions} -CC -E -P ~$[preq*] -o ~$[target]
+endfunction
+
+function compile_ld(?extraOptions)
+    $call( __bpt_cxx_ld__                                                 )
+    $exec( __compile_ld__, ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                  )
+    if !$valid_path(~$[target])
+        if &$[stderr] : echoln $[stderr]
+        if &$[stdout] : echoln $[stdout]
+        $call(__exit_error_build_process_fail_ext__, ~$[target], :"$[function]()")
+    endif
+endfunction
+
+
+##### Function to compile assembly source codes
+function __compile_s__(extraOptions, ldLibraryPath)
+    if &${CppToolBinDir} : local CppAssembler := $cat_path(${CppToolBinDir}, ${CppAssembler})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppAssembler} ${CppAssemblerFlags} ${extraOptions} -c ~$[preq*] -o ~$[target]
+endfunction
+
+function compile_s(?extraOptions)
+    $call( __bpt_s__                                                     )
+    $exec( __compile_s__, ${extraOptions}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                 )
+endfunction
+
+
+##### Function to compile C source codes
+function __compile_c__(extraOptions, forSharedLibObj, ldLibraryPath)
+    if &${CppToolBinDir}   : local CppCcCompiler := $cat_path(${CppToolBinDir}, ${CppCcCompiler})
+    if  ${forSharedLibObj} : local fPIC          := '-fPIC'
+    .$__CLANG_GCC__IU_IS__
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCcCompiler} ${CppCcCompileFlags} ${IU} ${IS} ${CppCcLangStdFlags} ${extraOptions} ${fPIC} -c ~$[preq*] -o ~$[target]
+endfunction
+
+function compile_c(?extraOptions, ?forSharedLibObj)
+    $call( __bpt_cc__                                                                        )
+    $exec( __compile_c__, ${extraOptions}, ${forSharedLibObj}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                     )
+endfunction
+
+
+##### Function to link executable and shared library files
+if __os_mac__
+    DLibLinkFlag := -dynamiclib
+else
+    DLibLinkFlag := -shared
+endif
+
+function __link_elf__(extraOptions, genSharedLib, ldLibraryPath)
+    if &${CppToolBinDir} : local CppLinker := $cat_path(${CppToolBinDir}, ${CppLinker})
+    if &${CppLDToolBin}
+        if ${__clang__}
+            local CppLDToolBin := :"--ld-path=${CppLDToolBin}"
+        else
+            local CppLDToolBin := ''
+        endif
+    endif
+    if &${SharedLib}
+        local DLibDir := ~${SharedLibDir}
+              DLibDir := ${DLibDir/(.+)/-L$1/}
+        local DLibLst := ${SharedLib/(.+)/-l$1/}
+    endif
+    if &${StaticLib}
+        local SLibDir := ~${StaticLibDir}
+              SLibDir := ${SLibDir/(.+)/-L$1/}
+        local SLibBeg := '-Wl,--start-group' '-Wl,-Bstatic'
+        local SLibEnd := '-Wl,--end-group'   '-Wl,-Bdynamic'
+        local SLibLst := ${StaticLib/(.+)/-l$1/}
+    endif
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    #(*
+    if ${genSharedLib}
+        +@${CppLinker} ${CppLDToolBin} ${CppCommonLinkFlags} ${extraOptions} ${DLibLinkFlag} ${SLibDir} ${SLibBeg} ~$[preq*] ~${CppExtraLinkObjects} ${SLibLst} ${SLibEnd} ${DLibDir} ${DLibLst} -o ~$[target]
+    else
+        +@${CppLinker} ${CppLDToolBin} ${CppCommonLinkFlags} ${extraOptions}                 ${SLibDir} ${SLibBeg} ~$[preq*] ~${CppExtraLinkObjects} ${SLibLst} ${SLibEnd} ${DLibDir} ${DLibLst} -o ~$[target]
+    endif
+    #*)
+    (*
+    ##### !!! TODO : Consider using '@command.arguments' later because link arguments can be very long !!! #####
+    ##### !!! TODO : How about the 'compile_*' functions? !!!                                              #####
+    if ${genSharedLib}
+        local CmdArgs := ${CppLDToolBin} ${CppCommonLinkFlags} ${extraOptions} ${DLibLinkFlag} ${SLibDir} ${SLibBeg} ~$[preq*] ~${CppExtraLinkObjects} ${SLibLst} ${SLibEnd} ${DLibDir} ${DLibLst} -o ~$[target]
+    else
+        local CmdArgs := ${CppLDToolBin} ${CppCommonLinkFlags} ${extraOptions}                 ${SLibDir} ${SLibBeg} ~$[preq*] ~${CppExtraLinkObjects} ${SLibLst} ${SLibEnd} ${DLibDir} ${DLibLst} -o ~$[target]
+    endif
+    local CmdFile := $cat_path( $ptd(), :"command.$[usn].arguments" )
+    $put_file( ${CmdFile}, ${CmdArgs/\\/\\\\/} )
+   +@${CppLinker} :"@${CmdFile}"
+    $nop($[excode]) # Ensure all pending commands are executed
+    $rmfile(${CmdFile})
+    #*)
+endfunction
+
+function link_exe(?extraOptions)
+    local SharedLib    := $stack(${CppSysSharedLib}   , ${CppUsrSharedLib}   )
+    local StaticLib    := $stack(${CppSysStaticLib}   , ${CppUsrStaticLib}   )
+    local SharedLibDir := $stack(${CppSysSharedLibDir}, ${CppUsrSharedLibDir})
+    local StaticLibDir := $stack(${CppSysStaticLibDir}, ${CppUsrStaticLibDir})
+    $call( __bpt_link_exe__                                                    )
+    $exec( __link_elf__, ${extraOptions}, false, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                       )
+    $call( __store_exe_dlib_slib_depend__                                      )
+endfunction
+
+function link_dlib(?extraOptions)
+    local SharedLib    := ${CppSysSharedLib}
+    local StaticLib    := ${CppSysStaticLib}
+    local SharedLibDir := ${CppSysSharedLibDir}
+    local StaticLibDir := ${CppSysStaticLibDir}
+    $call( __bpt_link_dlib__                                                   )
+    $exec( __link_elf__, ${extraOptions}, true , $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                       )
+    $call( __check_exe_dlib_slib_depend__                                      )
+endfunction
+
+##### Function to create static libraries
+function __link_slib__(ldLibraryPath)
+    if &${CppToolBinDir} : local SLibBuilder := $cat_path(${CppToolBinDir}, ${SLibBuilder})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${SLibBuilder} ${SLibBuilderCommonFlags} ~$[target] ~$[preq*]
+endfunction
+
+function link_slib()
+    $call( __bpt_link_slib__                             )
+    $exec( __link_slib__,  $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__ )
+    $call( __check_exe_dlib_slib_depend__                )
+endfunction
+
+
+##### Function to run the given executable file
+function __run_exe__(progName, ldLibraryPath)
+    +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    +@~${progName}
+endfunction
+
+function run_exe(progName)
+    $exec( __run_exe__, ${progName}, $call(__get_LDLibraryPaths__) )
+    $call( __print_stdxxx_and_check_excode__                       )
+endfunction
+
+
+##### Define the dependency list file extension
+DepListFileExt := dep
+
+##### Define the object, executable, and library file extensions
+    LDFileExt   := ld
+
+    AsmFileExt  := S
+
+    ObjFileExt  := o
+    SLibFileExt := a
+
+if $or(__os_cygwin__, __os_mingw__, __os_msys__)
+    ExeFileExt  := exe
+    DLibFileExt := dll
+elif __os_mac__
+    ExeFileExt  := elf
+    DLibFileExt := dylib
+else
+    ExeFileExt  := elf
+    DLibFileExt := so
+endif
+
+##### Define the library file name prefix
+LibFilePrefix := 'lib'
+
+
+##### Define the executables, paths, and options
+CppToolBinDir := ''
+CppLDToolBin  := ''
+
+
+#####
+#####
+#####
+
+
+##### Function to demangle C++ symbol string
+function __cpp_demangle__(symbolStr, ldLibraryPath)
+    if &${CppToolBinDir}
+        local CppDemanglerBin := $cat_path(${CppToolBinDir}, ${CppDemangler})
+        if $valid_path(${CppDemanglerBin}) : local CppDemangler := ${CppDemanglerBin}
+    endif
+  -@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+  -@${CppDemangler} -t ${symbolStr}
+    if $[excode] : return ${symbolStr}
+    if &$[lserr] : return ${symbolStr}
+    return $strim($[stdout])
+endfunction
+
+
+(***** Only include this part of the script where necessary *****)
+endif

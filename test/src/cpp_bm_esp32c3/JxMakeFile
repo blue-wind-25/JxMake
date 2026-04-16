@@ -1,0 +1,126 @@
+:::include <C++XBuildTool_BM_ESP32C3>
+
+
+(*
+ * On Linux with GLIBC < 2.25 you will need to:
+ *     1. Build an install a newer GLIBC to '/opt'
+ *     2. Rename two files:
+ *            'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/cc1'     to 'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/_cc1'
+ *            'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/cc1plus' to 'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/_cc1plus'
+ *     3. Create two scripts:
+ *            'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/cc1' that contains something like:
+ *                #!/bin/bash
+ *                LD_LIBRARY_PATH=/opt/glibc-2.27/lib /opt/glibc-2.27/lib/ld-linux-x86-64.so.2 $(dirname $0)/_cc1 "$@"
+ *            'xpack-riscv-none-elf-gcc-12.3.0-1/libexec/gcc/riscv-none-elf/12.3.0/cc1plus' that contains something like:
+ *                #!/bin/bash
+ *                LD_LIBRARY_PATH=/opt/glibc-2.27/lib /opt/glibc-2.27/lib/ld-linux-x86-64.so.2 $(dirname $0)/_cc1plus "$@"
+ *        and make them executable.
+ *
+ * On Linux with GLIBC < 2.27 you will need to:
+ *     1. Build an install a newer GLIBC to '/opt'
+ *     2. Rename 'xpack-riscv-none-elf-gcc-12.3.0-1/riscv-none-elf/bin/ld' to 'xpack-riscv-none-elf-gcc-12.3.0-1/riscv-none-elf/bin/_ld'
+ *     3. Create a script 'xpack-riscv-none-elf-gcc-12.3.0-1/riscv-none-elf/bin/ld' that contains something like:
+ *            #!/bin/bash
+ *            LD_LIBRARY_PATH=/opt/glibc-2.27/lib /opt/glibc-2.27/lib/ld-linux-x86-64.so.2 $(dirname $0)/_ld "$@"
+ *        and make it executable.
+ *)
+if __os_windows__
+    RISCV_TOOLCHAIN_PATHS := 'Z:/xsdk/riscv/xpack-riscv-none-elf-gcc-12.3.0-1'     (* 1 *) \
+                             'Z:/xsdk/riscv/xpack-riscv-none-embed-gcc-10.2.0-1.2' (* 2 *) \
+                             'Z:/xsdk/riscv/riscv32-esp-elf'                       (* 3 *)
+else
+    RISCV_TOOLCHAIN_PATHS := {{ $cat_path( $uhd(), 'xsdk/riscv/xpack-riscv-none-elf-gcc-12.3.0-1'     ), (* 1 *) \
+                                $cat_path( $uhd(), 'xsdk/riscv/xpack-riscv-none-embed-gcc-10.2.0-1.2' ), (* 2 *) \
+                                $cat_path( $uhd(), 'xsdk/riscv/riscv32-esp-elf'                       )  (* 3 *) }}
+endif
+
+RISCV_TOOLCHAIN_N    := 1
+RISCV_TOOLCHAIN_PATH := ${RISCV_TOOLCHAIN_PATHS}<RISCV_TOOLCHAIN_N>
+
+#if ${RISCV_TOOLCHAIN_N} == 2 : CppCommonLinkFlags :+= '-specs=nosys.specs'
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+   #SPort := '\\\\.\\COM4'
+else
+    SPort := '/dev/ttyACM0'
+   #SPort := '/dev/ttyACM1'
+endif
+
+
+BuildSubdir := 'mdk'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main          )
+PROG_OBJS := $call( obj_fpath, main.cpp      )
+
+MLIB_NAME := $call(slib_fpath,   mdk         )
+MLIB_OBJS := $call( obj_fpath, { mdk/boot.c })
+
+LD_SCRIPT := 'mdk/link.ld'
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_bm_esp32c3 clean
+# jxmake -C ..\test\src\cpp_bm_esp32c3 run
+target run
+    jxmake ${MLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    local CppUsrStaticLib +:= mdk
+    $call( c3bm_link_exe, $call(use_ld, ${LD_SCRIPT}) )
+    $call( gen_lst      , ${PROG_NAME}                )
+endtarget
+
+target ${MLIB_NAME} : ${MLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_esp32c3 userial
+# jxmake -C ..\test\src\cpp_bm_esp32c3 userial
+target userial
+    jxmake run
+    $call(c3bm_upload_esputil, ${PROG_NAME}, ${SPort})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_esp32c3 sercon
+# jxmake -C ..\test\src\cpp_bm_esp32c3 sercon
+target sercon
+    echoln 'Opening serial console ...'
+    echoln $serial_console(${SPort}, 115200)
+    echoln 'The serial console has been closed'
+endtarget

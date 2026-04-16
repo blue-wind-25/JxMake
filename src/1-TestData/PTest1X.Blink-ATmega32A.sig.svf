@@ -1,0 +1,63 @@
+DIS   PBAR;
+PRINT "\n" ;
+
+TRST  ABSENT;
+
+ENDIR IDLE;
+ENDDR IDLE;
+
+HIR   0;
+HDR   0;
+TIR   0;
+TDR   0;
+
+STATE RESET;
+STATE IDLE;
+
+PRINT "Initializing ...\n" ;
+SIR    4 TDI(   C);                        ! AVR_RESET
+SDR    1 TDI(   1);                        ! Enable
+
+SIR    4 TDI(   4);                        ! PROG_ENABLE
+SDR   16 TDI(A370);                        ! Set key 0xA370            : 10100011_01110000
+
+SIR    4 TDI(   5);                        ! PROG_COMMANDS
+SDR   15 TDI(2308);                        ! Enter signature byte read :  0100011_00001000
+
+PRINT "Checking Signature Bytes ...\n" ;
+SDR   15 TDI(0300);                        ! Load address byte 0x00    :  0000011_bbbbbbbb
+SDR   15 TDI(3200);                        ! Read signature byte       :  0110010_00000000
+TAG   "Signature Byte 1" ;
+SDR   15 TDI(3300) TDO(001E) MASK(00FF);   ! Read data byte 0x1E       :  0110011_bbbbbbbb
+
+SDR   15 TDI(0301);                        ! Load address byte 0x01    :  0000011_bbbbbbbb
+SDR   15 TDI(3200);                        ! Read signature byte       :  0110010_00000000
+TAG   "Signature Byte 2" ;
+SDR   15 TDI(3300) TDO(0095) MASK(00FF);   ! Read data byte 0x95       :  0110011_bbbbbbbb
+
+SDR   15 TDI(0302);                        ! Load address byte 0x02    :  0000011_bbbbbbbb
+SDR   15 TDI(3200);                        ! Read signature byte       :  0110010_00000000
+TAG   "Signature Byte 2" ;
+SDR   15 TDI(3300) TDO(0002) MASK(00FF);   ! Read data byte 0x02       :  0110011_bbbbbbbb
+
+TAG   ;
+
+PRINT "Verifying flash page #0 ...\n" ;
+SIR  4 TDI(   5);                          ! PROG_COMMANDS
+SDR 15 TDI(2302);                          ! Enter flash read
+SDR 15 TDI(0700);                          ! Load Address High Byte
+SDR 15 TDI(0300);                          ! Load Address Low Byte
+SIR  4 TDI(   7);                          ! PROG_PAGEREAD
+SDR 1032
+TDI  (FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+TDO  (900F920FCFC2C042D031F7D907B136A2920D9005C002E0F1E0E2E0B0E6A0E010BFCDBFDEE0D8E5CFBE1F24110000C0140000C0160000C0180000C01A0000C01C0000C01E0000C0200000C0220000C0240000C0260000C0280000C02A0000C02C0000C02E0000C0300000C0320000C0340000C0360000C0380000C03A0000C02900)
+MASK (FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00);
+
+PRINT "Exiting ...\n" ;
+SIR    4 TDI(   4);                        ! PROG_ENABLE
+SDR   16 TDI(0000);                        ! Clear key
+
+SIR    4 TDI(   C);                        ! AVR_RESET
+SDR    1 TDI(   0);                        ! Disable
+
+STATE RESET;

@@ -1,0 +1,287 @@
+(****************************************************************************************************
+ ***** OpenSSL Utility                                                                          *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the basic platform utility
+:::include_once 'BasicPlatformUtil.jxm'
+
+
+##### OpenSSL versions
+__OpenSSL1_Version__     := 0
+__OpenSSL1_Version_Num__ := 0
+
+__OpenSSL3_Version__     := 0
+__OpenSSL3_Version_Num__ := 0
+
+__DefSelOpenSSLVersion__ := 1                           # On start, select OpenSSL 1 as the default choice
+  OpenSSL                 = ${OpenSSL1}                 # ---
+__OpenSSL_Version__       = ${__OpenSSL1_Version__}     # ---
+__OpenSSL_Version_Num__   = ${__OpenSSL1_Version_Num__} # ---
+
+
+##### Function to get the OpenSSL version
+function __calc_openssl_ver_numeric__(major, minor, patch)
+    return $call(calc_ver_numeric_222, ${major}, ${minor}, ${patch})
+endfunction
+
+function __get_openssl_ver_exec__(opensslBin)
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${opensslBin} version
+    local excode := $[excode]
+    $restore_sem()
+    if &$[lserr] : return -1 # Check if the command turns out to be unexecutable
+    return ${excode}
+endfunction
+
+function __get_openssl_ver_impl__(opensslBin)
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec( __get_openssl_ver_exec__, ${opensslBin})
+        local text  := $partn( $erase_ifempty( $sflines( $stack($[stderr], $[stdout]) ) ), 1 )
+              text  := $sfdots(${text/.*?OpenSSL\s+(\d+?)\.(\d+?)\.(\d+?)([a-z]?).*/$1.$2.$3.$4/})
+        local major := $partn(${text}, 1)
+        local minor := $partn(${text}, 2)
+        local patch := $partn(${text}, 3)
+        local extra := $partn(${text}, 4)
+        result  := $call(__calc_openssl_ver_numeric__, ${major}, ${minor}, ${patch})
+        result +:= :"${major}.${minor}.${patch}${extra}"
+    endif
+    # Return the version
+    return ${result}
+endfunction
+
+
+##### Functions to find OpenSSL
+function __find_openssl_commands__()
+    return $call(find_available_commands, 'openssl', '^openssl(\d(\.\d+)?)?$')
+endfunction
+
+function __get_latest_openssl1__(cmd)
+    # Get the version number
+    local Res_P := $call(__get_openssl_ver_impl__, ${cmd})
+    local Res_N := ${Res_P}<1>
+    local Res_S := ${Res_P}<2>
+    # Check if it is OpenSSL 2
+    if !$re_match(${Res_S}, '1\.\d+\.\d+[a-z]?') : return
+    # Compare the version and save the latest one
+    if ${Res_N} > ${__OpenSSL1_Version_Num__}
+          OpenSSL1               := ${cmd}
+        __OpenSSL1_Version__     := ${Res_S}
+        __OpenSSL1_Version_Num__ := ${Res_N}
+    endif
+endfunction
+
+function __get_latest_openssl3__(cmd)
+    # Get the version number
+    local Res_P := $call(__get_openssl_ver_impl__, ${cmd})
+    local Res_N := ${Res_P}<1>
+    local Res_S := ${Res_P}<2>
+    # Check if it is OpenSSL 3
+    if !$re_match(${Res_S}, '3\.\d+\.\d+[a-z]?') : return
+    # Compare the version and save the latest one
+    if ${Res_N} > ${__OpenSSL1_Version_Num__}
+          OpenSSL3               := ${cmd}
+        __OpenSSL3_Version__     := ${Res_S}
+        __OpenSSL3_Version_Num__ := ${Res_N}
+    endif
+endfunction
+
+function find_openssl()
+    # Try to get from the cache file first
+    local LatestCmdCacheFilePath := $cat_path( $ptd(), 'LatestOpenSSLCmd.cache' )
+    local LatestCmd
+    if $uptodate_path(${LatestCmdCacheFilePath})
+        LatestCmd := $get_file(${LatestCmdCacheFilePath})
+          OpenSSL1               := $partn(${LatestCmd},  1)
+        __OpenSSL1_Version__     := $partn(${LatestCmd},  2)
+        __OpenSSL1_Version_Num__ := $partn(${LatestCmd},  3)
+          OpenSSL3               := $partn(${LatestCmd},  4)
+        __OpenSSL3_Version__     := $partn(${LatestCmd},  5)
+        __OpenSSL3_Version_Num__ := $partn(${LatestCmd},  6)
+        __DefSelOpenSSLVersion__ := $partn(${LatestCmd},  7)
+          OpenSSL                := $partn(${LatestCmd},  8)
+        __OpenSSL_Version__      := $partn(${LatestCmd},  9)
+        __OpenSSL_Version_Num__  := $partn(${LatestCmd}, 10)
+        return
+    endif
+    # Try to find all the available OpenSSL commands first
+    local Cmds := $call(__find_openssl_commands__)
+    if &${Cmds}
+        foreach local Cmd in ${Cmds}
+            $call(__get_latest_openssl1__, ${Cmd}) # Find OpenSSL 1.x.x
+            $call(__get_latest_openssl3__, ${Cmd}) # Find OpenSSL 3.x.x
+        endforeach
+    # Try to find from standard commands
+    else
+        # Find OpenSSL 1.x.x
+        $call(__get_latest_openssl1__, 'openssl' )
+        $call(__get_latest_openssl1__, 'openssl1')
+        # Find OpenSSL 3.x.x
+        $call(__get_latest_openssl3__, 'openssl' )
+        $call(__get_latest_openssl3__, 'openssl3')
+    endif
+    # Change the selected OpenSSL as needed
+    if !${__OpenSSL1_Version_Num__}
+        if ${__OpenSSL3_Version_Num__}
+            __DefSelOpenSSLVersion__ := 3
+              OpenSSL                := ${OpenSSL3}
+            __OpenSSL_Version__      := ${__OpenSSL3_Version__}
+            __OpenSSL_Version_Num__  := ${__OpenSSL3_Version_Num__}
+        endif
+    endif
+    # Save the results to the cache file
+    if !&${OpenSSL1} : OpenSSL1 := ''
+    if !&${OpenSSL3} : OpenSSL3 := ''
+    $put_file( ${LatestCmdCacheFilePath}, { \
+        ${OpenSSL1}                         \
+        ${__OpenSSL1_Version__}             \
+        ${__OpenSSL1_Version_Num__}         \
+        ${OpenSSL3}                         \
+        ${__OpenSSL3_Version__}             \
+        ${__OpenSSL3_Version_Num__}         \
+        ${__DefSelOpenSSLVersion__}         \
+        ${OpenSSL}                          \
+        ${__OpenSSL_Version__}              \
+        ${__OpenSSL_Version_Num__}          \
+    } )
+endfunction
+
+
+##### Functions to check the OpenSSL version
+function openssl1_ver_min(major, minor, patch)
+    return $cmp( ${__OpenSSL1_Version_Num__}, '>=', $call(__calc_openssl_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function openssl1_ver_max(major, minor, patch)
+    return $cmp( ${__OpenSSL1_Version_Num__}, '<=', $call(__calc_openssl_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function openssl3_ver_min(major, minor, patch)
+    return $cmp( ${__OpenSSL3_Version_Num__}, '>=', $call(__calc_openssl_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function openssl3_ver_max(major, minor, patch)
+    return $cmp( ${__OpenSSL3_Version_Num__}, '<=', $call(__calc_openssl_ver_numeric__, ${major}, ${minor}, ${patch}) )
+endfunction
+
+function openssl_ver_min(major, minor, patch)
+    return $call(:"openssl${__DefSelOpenSSLVersion__}_ver_min", ${major}, ${minor}, ${patch})
+endfunction
+
+function openssl_ver_max(major, minor, patch)
+    return $call(:"openssl${__DefSelOpenSSLVersion__}_ver_max", ${major}, ${minor}, ${patch})
+endfunction
+
+
+##### Functions to check if OpenSSL is avaiable
+function openssl1_available()
+    local eval Chk := !!${__OpenSSL1_Version_Num__}
+    return ${Chk}
+endfunction
+
+function openssl3_available()
+    local eval Chk := !!${__OpenSSL3_Version_Num__}
+    return ${Chk}
+endfunction
+
+function openssl_available()
+    return $call(:"openssl${__DefSelOpenSSLVersion__}_available")
+endfunction
+
+
+##### Functions to print error message and then exit the program if OpenSSL is unavailable
+function __exit_error_if_opensslN_is_unavailable__(N, ?msg)
+    # Perform checking only if the 'msg' parameter is not set
+    if !&${msg}
+        # Simply exit if OpenSSL is available
+        local V := ${N}
+        if !${V} : V := ${__DefSelOpenSSLVersion__}
+        if $call(:"openssl${V}_available") : return
+        # Print error but do not exit
+        if !${N} : N := ''
+        $call(__exit_error_nup__, :"openssl${N}", true)
+    else
+        # Print error but do not exit
+        N := ${msg}
+        $call(__exit_error_nup__, :"openssl ${N}", true)
+    endif
+    # Print some information about how to get OpenSSL
+    if &${N} : N := "${N} "
+    echoln "Please use your operating system package manager to install OpenSSL ${N}or download and install OpenSSL ${N}from:"
+    echoln '   https://wiki.openssl.org/index.php/Binaries'
+    echoln '   https://sourceforge.net/projects/openssl/files/openssl-1.0.2j-fips-x86_64'
+    echoln '   https://slproweb.com/products/Win32OpenSSL.html'
+    echoln
+    echoln "Please ensure that OpenSSL ${N}is executable by adding it to the system-wide PATH."
+    echoln
+    # Exit program
+    $exit(-1)
+endfunction
+
+function exit_error_if_openssl1_is_unavailable()
+    $call(__exit_error_if_opensslN_is_unavailable__, 1)
+endfunction
+
+function exit_error_if_openssl3_is_unavailable()
+    $call(__exit_error_if_opensslN_is_unavailable__, 3)
+endfunction
+
+function exit_error_if_openssl_is_unavailable()
+    $call(__exit_error_if_opensslN_is_unavailable__, 0) # Use ''
+endfunction
+
+
+##### Functions to print error message and then exit the program if the OpenSSL version is less than the required version
+function __exit_error_if_opensslN_is_less_than_version__(N)
+    # Check the availability
+    local V := ${N}
+    if !${V} : V := ''
+    $call(:"exit_error_if_openssl${V}_is_unavailable")
+    # Check the version
+    if !$call(:"openssl${V}_ver_min", ${major}, ${minor}, ${patch})
+        $call(__exit_error_if_opensslN_is_unavailable__, -1, :"≥ ${major}.${minor}.${patch}")
+    endif
+endfunction
+
+function exit_error_if_openssl1_is_less_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_less_than_version__, 1)
+endfunction
+
+function exit_error_if_openssl3_is_less_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_less_than_version__, 3)
+endfunction
+
+function exit_error_if_openssl_is_less_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_less_than_version__, 0)
+endfunction
+
+
+##### Functions to print error message and then exit the program if the OpenSSL version is greater than the required version
+function __exit_error_if_opensslN_is_greater_than_version__(N)
+    # Check the availability
+    local V := ${N}
+    if !${V} : V := ''
+    $call(:"exit_error_if_openssl${V}_is_unavailable")
+    # Check the version
+    if !$call(:"openssl${V}_ver_max", ${major}, ${minor}, ${patch})
+        $call(__exit_error_if_opensslN_is_unavailable__, -1, :"≤ ${major}.${minor}.${patch}")
+    endif
+endfunction
+
+function exit_error_if_openssl1_is_greater_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_greater_than_version__, 1)
+endfunction
+
+function exit_error_if_openssl3_is_greater_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_greater_than_version__, 3)
+endfunction
+
+function exit_error_if_openssl_is_greater_than_version(major, minor, patch)
+    $call(__exit_error_if_opensslN_is_greater_than_version__, 0)
+endfunction

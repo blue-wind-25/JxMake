@@ -1,0 +1,487 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Microsoft(R) Visual C++(R) (MSVC)                                       *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+(***** Only include this part of the script where necessary *****)
+if !$or(__os_posix__, __os_posix_compat__)
+
+##### Set flags
+const __msvc__                  := 1
+const __CppBuildTool_Defined__  := 1
+const __BuildTool_Name__        := 'Microsoft(R) Visual C++(R)'
+      __BuildTool_Version__     := 0
+      __BuildTool_Version_Num__ := 0
+
+
+#####
+#####
+#####
+
+
+##### Function to define macros
+function def_macro(name, ?value)
+    value ?:= 1
+    return :"/D${name}=${value}"
+endfunction
+
+
+##### Function to select whether to treat warnings as errors
+CppWarningAsErrorFlags := ''
+
+function treat_warnings_as_errors(enabled)
+    if ${enabled} ; CppWarningAsErrorFlags := '/WX'
+    else          ; CppWarningAsErrorFlags := ''
+    endif
+endfunction
+
+
+##### Function to enable/disable debugging
+CppBuildType  := 'Release'
+
+AsmDebugFlags := '/DNDEBUG'
+CppDebugFlags := '/DNDEBUG'
+
+function enable_debug_info(enabled)
+    if ${enabled}
+        CppBuildType  := 'Debug'
+        AsmDebugFlags := '/Zd' '/Zi' '/DDEBUG'
+        CppDebugFlags :=       '/Zi' '/DDEBUG'
+    else
+        CppBuildType  := 'Release'
+        AsmDebugFlags :=            '/DNDEBUG'
+        CppDebugFlags :=            '/DNDEBUG'
+    endif
+endfunction
+
+
+##### Function to select optimization level
+CppOptimizationFlags := '/O1'
+
+function select_optimization(level)
+    if ${level} &== 'none'
+        CppOptimizationFlags := '/Od'
+    elif ${level} &== 'size'
+        CppOptimizationFlags := '/O1'
+    elif ${level} &== 'speed'
+        CppOptimizationFlags := '/O2'
+    else
+        CppOptimizationFlags := ${level}
+    endif
+endfunction
+
+
+##### Function to select language standard
+(*
+ * The '/std' options are available in Microsoft(R) Visual Studio(R) 2017 and later; it does
+ * not support standards modes earlier than C++14:
+ *     https://learn.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version?view=msvc-170
+ * The front part of version number printed by 'cl.exe' seems to match the '_MSC_VER' value:
+ *     https://en.wikipedia.org/wiki/Microsoft_Visual_C%2B%2B#Internal_version_numbering
+ *     https://blog.knatten.org/2022/08/26/microsoft-c-versions-explained
+ *     https://stackoverflow.com/a/49990327
+ *)
+CppCcLangStdFlags  := ''
+CppCxxLangStdFlags := ''
+
+function select_c_langstd(langstd, ?dummyIgnored)
+    if !$call(cpp_compiler_ver_min, 19, 28, 0, 0) : return
+    if ${langstd} &== 'c89'
+        CppCcLangStdFlags := ''
+    elif ${langstd} &== 'c90'
+        CppCcLangStdFlags := ''
+    elif ${langstd} &== 'c95'
+        CppCcLangStdFlags := ''
+    elif ${langstd} &== 'c99'
+        CppCcLangStdFlags := ''
+    elif ${langstd} &== 'c11'
+        CppCcLangStdFlags := '/std:c11'
+    elif ${langstd} &== 'c17'
+        CppCcLangStdFlags := '/std:c17'
+    elif ${langstd} &== 'c23'
+        CppCcLangStdFlags := '/std:c23'
+    else
+        CppCcLangStdFlags := ${langstd}
+    endif
+endfunction
+
+function select_cxx_langstd(langstd, ?dummyIgnored)
+    if !$call(cpp_compiler_ver_min, 19, 10, 0, 0) : return
+    if ${langstd} &== 'c++98'
+        CppCxxLangStdFlags := ''
+    elif ${langstd} &== 'c++03'
+        CppCxxLangStdFlags := ''
+    elif ${langstd} &== 'c++11'
+        CppCxxLangStdFlags := '/std:c++14'
+    elif ${langstd} &== 'c++14'
+        CppCxxLangStdFlags := '/std:c++14'
+    elif ${langstd} &== 'c++17'
+        if $call(cpp_compiler_ver_min, 19, 11, 0, 0)
+            CppCxxLangStdFlags := '/std:c++17'
+        else
+            CppCxxLangStdFlags := '/std:c++latest'
+        endif
+    elif ${langstd} &== 'c++20'
+        if $call(cpp_compiler_ver_min, 19, 30, 0, 0)
+            CppCxxLangStdFlags := '/std:c++20'
+        else
+            CppCxxLangStdFlags := '/std:c++latest'
+        endif
+    elif ${langstd} &== 'c++23'
+        CppCxxLangStdFlags := '/std:c++latest'
+    else
+        CppCxxLangStdFlags := ${langstd}
+    endif
+endfunction
+
+
+##### Functions to get the compiler version and target architecture
+function __calc_cpp_compiler_ver_numeric__(major, minor1, minor2, minor3)
+    return $call(calc_ver_numeric_2252, ${major}, ${minor1}, ${minor2}, ${minor3})
+endfunction
+
+function __get_cpp_compiler_info_exec__()
+    $nop($[lserr]) # Ensure the last suppressed error message is cleared
+    $silent_sem()
+   -@${CppCxxCompiler}
+    local excode := $[excode]
+    $restore_sem()
+    return ${excode}
+endfunction
+
+function __get_cpp_compiler_arch__()
+    # Get the architecture
+    if !$exec(__get_cpp_compiler_info_exec__)
+        local     text := $partn( $erase_ifempty( $sflines($[stderr]) ), 1 )
+        local     len  := $strlen(${text})
+        local sub pos, ${len}, 4
+        if $str_lidx(${text}, 'arm64') == ${pos} : return 'arm64'
+              sub pos, ${len}, 2
+        if $str_lidx(${text}, 'arm'  ) == ${pos} : return 'arm'
+        if $str_lidx(${text}, 'x64'  ) == ${pos} : return 'x64'
+        if $str_lidx(${text}, 'x86'  ) == ${pos} : return 'x86'
+    endif
+    echoln "\nERROR: unknown target architecture from text:"
+    echoln "${text}\n"
+    $exit(-1)
+endfunction
+
+function __get_cpp_compiler_ver_impl__()
+    # Prepare a zero result
+    local result := '0' '0'
+    # Get the version
+    if !$exec(__get_cpp_compiler_info_exec__)
+        local text   := $partn( $erase_ifempty( $sflines($[stderr]) ), 1 )
+              text   := $sfdots(${text/(?:.+?\s)(\d+\.\d+\.\d+(\.\d+)?)(?:.*)/$1/})
+        local major  := $partn(${text}, 1)
+        local minor1 := $partn(${text}, 2)
+        local minor2 := $partn(${text}, 3)
+        local minor3 := $partn(${text}, 4)
+        result := $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor1}, ${minor2}, ${minor3})
+        if &${minor3}
+            result +:= :"${major}.${minor1}.${minor2}.${minor3}"
+        else
+            result +:= :"${major}.${minor1}.${minor2}"
+        endif
+    endif
+    # Return the version
+    return ${result}
+endfunction
+
+
+##### Check if the compiler version is at least/most
+function cpp_compiler_ver_min(major, minor1, minor2, ?minor3)
+    minor3 ?:= 0
+    return $cmp( ${__BuildTool_Version_Num__}, '>=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor1}, ${minor2}, ${minor3}) )
+endfunction
+
+function cpp_compiler_ver_max(major, minor1, minor2, ?minor3)
+    minor3 ?:= 0
+    return $cmp( ${__BuildTool_Version_Num__}, '<=', $call(__calc_cpp_compiler_ver_numeric__, ${major}, ${minor1}, ${minor2}, ${minor3}) )
+endfunction
+
+
+##### Define the dependency list file extension
+DepListFileExt := dep
+
+##### Define the object, executable, and library file extensions
+AsmFileExt  := asm
+ObjFileExt  := obj
+ExeFileExt  := exe
+SLibFileExt := lib
+DLibFileExt := dll
+
+##### Define the library file name prefix
+LibFilePrefix := ''
+
+##### Define the module file extension
+ModFileExt := ifc
+
+
+##### Define the executables, paths, and options
+CppToolBinDir            := ''
+CppLDToolBin             := ''
+
+CppAssembler             := 'ml'
+CppCommonAssemblerFlags  := '/nologo' '/Cp' '/Cx' '/W3' '/WX'
+
+CppCcCompiler            := 'cl'
+CppCommonCcCompileFlags  := '/nologo' '/EHsc'     '/W4' '/WX'
+
+CppCxxCompiler           := 'cl'
+CppCommonCxxCompileFlags := '/nologo' '/EHsc'     '/W4' '/WX'
+CppCxx20MCompileFlags    := ''
+
+CppLinker                := 'cl'
+CppCommonLinkFlags       := '/nologo'                   '/WX'
+CppDemangler             := 'undname'
+
+CppSysHeaderDir          := ''
+
+CppSysSharedLib          := ''
+CppSysStaticLib          := ''
+CppSysSharedLibDir       := ''
+CppSysStaticLibDir       := ''
+
+CppUsrSharedLib          := ''
+CppUsrStaticLib          := ''
+CppUsrSharedLibDir        = ${CppBuildDir}
+CppUsrStaticLibDir        = ${CppBuildDir}
+
+SLibBuilder              := 'lib'
+SLibBuilderCommonFlags   := '/nologo'
+
+
+##### These functions are not supported by SDCC
+function ld_fname(baseName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function ld_fpath(baseName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function use_ld(srcFileName) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+function compile_ld(?extraOptions)
+    .$__exit_error_function_ns__
+endfunction
+
+
+##### Function to compile assembly source codes
+function __compile_s__(extraOptions)
+    # https://www.codeproject.com/Articles/1250804/Creating-Assembly-Language-DLL-Modules-for-Windows
+    # https://stackoverflow.com/questions/29265736/is-it-possible-to-dllexport-and-then-dllimport-function-written-in-assembly
+    +@${CppAssembler} ${CppAssemblerFlags} ${extraOptions} :"/Fo~$[target]" /c ~$[preq*]
+endfunction
+
+function compile_s(?extraOptions)
+    $call(__bpt_s__)
+    $exec(__compile_s__, ${extraOptions}               )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to check for C++20 module support
+function __check_cpp20m_support__(functionName)
+    # https://learn.microsoft.com/en-us/cpp/overview/visual-cpp-language-conformance?view=msvc-170
+    # https://en.wikipedia.org/wiki/Microsoft_Visual_C%2B%2B#Internal_version_numbering
+    if !$call(cpp_compiler_ver_min, 19, 28, 0, 0) : $call(__exit_error_ns_ver__, :"${functionName}()", ${__BuildTool_Name__})
+endfunction
+
+
+##### Function to compile C++20 system header units
+function compile_sys_hunit()
+    ##### !!! TODO !!! #####
+    $call(__exit_error_ni__, :"$[function]()", ${__BuildTool_Name__})
+    $call(__bpt_cxx20hu__                                           )
+endfunction
+
+
+##### Function to compile C++20 user header units
+function compile_usr_hunit()
+    ##### !!! TODO !!! #####
+    $call(__exit_error_ni__, :"$[function]()", ${__BuildTool_Name__})
+    $call(__bpt_cxx20hu__                                           )
+endfunction
+
+
+##### Function to compile C source codes
+function __compile_c__(extraOptions, forSharedLibObj)
+    local I := $path_ndsep( $abs_path( $stack(__include_paths__, ${CppSysHeaderDir}) ) )
+          I := ${I/(.+)/\/I$1/}
+   +@${CppCcCompiler} ${CppCcCompileFlags} ${I} ${CppCcLangStdFlags} ${extraOptions} :"/Fo~$[target]" /c ~$[preq*]
+endfunction
+
+function compile_c(?extraOptions, ?forSharedLibObj)
+    $call(__bpt_cc__                                        )
+    $exec(__compile_c__, ${extraOptions}, ${forSharedLibObj})
+    $call(__conditional_print_stdxxx_and_check_excode__     )
+endfunction
+
+
+##### Function to compile C++ and C++20 source codes
+function __compile_cpp__(cpp20m, extraOptions, forSharedLibObj)
+    local I := $path_ndsep( $abs_path( $stack(__include_paths__, ${CppSysHeaderDir}) ) )
+          I := ${I/(.+)/\/I$1/}
+   +@${CppCxxCompiler} ${CppCxxCompileFlags} ${I} ${CppCxxLangStdFlags} ${extraOptions} :"/Fo~$[target]" /c ~$[preq*]
+endfunction
+
+function compile_cpp(?extraOptions, ?forSharedLibObj)
+    $call(__bpt_cxx__                                                )
+    $exec(__compile_cpp__, false, ${extraOptions}, ${forSharedLibObj})
+    $call(__conditional_print_stdxxx_and_check_excode__              )
+endfunction
+
+function compile_cpp20m(?extraOptions, ?forSharedLibObj)
+    (*
+     * https://visualstudio.microsoft.com/downloads
+     * https://c2rsetup.officeapps.live.com/c2r/downloadVS.aspx?sku=community&channel=Release&version=VS2022&source=VSLandingPage&includeRecommended=true&cid=2030:79999d322bd84b4ca2d5f2bb6a4373a6
+     *
+     * https://devblogs.microsoft.com/cppblog/standard-c20-modules-support-with-msvc-in-visual-studio-2019-version-16-8
+     * https://devblogs.microsoft.com/cppblog/using-cpp-modules-in-msvc-from-the-command-line-part-1
+     *
+     * https://learn.microsoft.com/en-us/cpp/build/reference/module-reference?view=msvc-160
+     * https://learn.microsoft.com/en-us/cpp/build/reference/module-exportheader?view=msvc-160
+     * https://learn.microsoft.com/en-us/cpp/build/reference/headername?view=msvc-160
+     *
+     * /interface         Tells the compiler that the input file is a module interface unit.
+     * /internalPartition Tells the compiler that the input file is an internal partition unit.
+     * /reference         Provides the compiler with an IFC file to reference for the nominated module interface name.
+     * /ifcSearchDir      When the compiler falls back to implicit module interface search, directories specified by this option will be used.
+     * /ifcOutput         Tells the compiler where the IFC resulting from compilation should go. If that destination is a directory the compiler will generate a name based on the interface name or the header unit name.
+     * /ifcOnly           Instructs the compiler to only produce an IFC as the result of compilation. No other outputs will be produced as the result of compilation even if other options are specified.
+     * /exportHeader      Instructs the compiler to create a header unit from the input.
+     * /headerName        Tells the compiler that the input designates the name of a header.
+     *)
+    ##### !!! TODO !!! #####
+    $call(__exit_error_ni__, :"$[function]()", ${__BuildTool_Name__})
+    $call(__bpt_cxx20m__                                            )
+endfunction
+
+
+##### Function to link executable and shared library files
+function __link_pe__(extraOptions, genSharedLib)
+    local AllLibDir
+    local AllLibLst
+    if &${SharedLib}
+        AllLibDir +:= ${SharedLibDir}
+        AllLibLst +:= ${SharedLib/(.+)/$1.\${SLibFileExt}/}
+    endif
+    if &${StaticLib}
+        AllLibDir +:= ${StaticLibDir}
+        AllLibLst +:= ${StaticLib/(.+)/$1.\${SLibFileExt}/}
+    endif
+    if &${AllLibDir}
+        AllLibDir := $series('/LIBPATH:', ~${AllLibDir})
+    endif
+    local OutFile := ~$[target]
+          OutFile := :"/Fe${OutFile}"
+    if ${genSharedLib}
+        +@${CppLinker} ${CppCommonLinkFlags} ${extraOptions} ~$[preq*] ~${CppExtraLinkObjects} ${AllLibLst} ${OutFile} /LD   ${AllLibDir}
+    else
+        +@${CppLinker} ${CppCommonLinkFlags} ${extraOptions} ~$[preq*] ~${CppExtraLinkObjects} ${AllLibLst} ${OutFile} /link ${AllLibDir}
+    endif
+    #/SUBSYSTEM:CONSOLE
+endfunction
+
+function link_exe(?extraOptions)
+    local SharedLib    := $stack(${CppSysSharedLib}   , ${CppUsrSharedLib}   )
+    local StaticLib    := $stack(${CppSysStaticLib}   , ${CppUsrStaticLib}   )
+    local SharedLibDir := $stack(${CppSysSharedLibDir}, ${CppUsrSharedLibDir})
+    local StaticLibDir := $stack(${CppSysStaticLibDir}, ${CppUsrStaticLibDir})
+    $call(__bpt_link_exe__                             )
+    $exec(__link_pe__, ${extraOptions}, false          )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $call(__store_exe_dlib_slib_depend__               )
+endfunction
+
+function link_dlib(?extraOptions)
+    local SharedLib    := ${CppSysSharedLib}
+    local StaticLib    := ${CppSysStaticLib}
+    local SharedLibDir := ${CppSysSharedLibDir}
+    local StaticLibDir := ${CppSysStaticLibDir}
+    $call(__bpt_link_dlib__                            )
+    $exec(__link_pe__, ${extraOptions}, true           )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $call(__check_exe_dlib_slib_depend__               )
+endfunction
+
+
+##### Function to create static libraries
+function __link_slib__()
+    local OutFile := ~$[target]
+          OutFile := :"/OUT:${OutFile}"
+   +@${SLibBuilder} ${SLibBuilderCommonFlags} ${OutFile} ~$[preq*]
+endfunction
+
+function link_slib()
+    $call(__bpt_link_slib__                            )
+    $exec(__link_slib__                                )
+    $call(__conditional_print_stdxxx_and_check_excode__)
+    $call(__check_exe_dlib_slib_depend__               )
+endfunction
+
+
+##### Function to run the given executable file
+function __run_exe__(progName)
+   +@~${progName}
+endfunction
+
+function run_exe(progName)
+    $exec(__run_exe__, ${progName}          )
+    $call( __print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories) supersede
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+    # Get the compiler target architecture
+    CppCompilerArch := $call(__get_cpp_compiler_arch__)
+    # Use GCC style pre-defined macros as specified in:
+    #     https://sourceforge.net/p/predef/wiki/Architectures
+      if ${CppCompilerArch} &== 'arm64' ; __BuildTool_Target__ := 'ARM64'           ;                          CppArchFlags +:= '/D__aarch64__'
+    elif ${CppCompilerArch} &== 'arm'   ; __BuildTool_Target__ := 'ARM'             ;                          CppArchFlags +:= '/D__arm__'
+    elif ${CppCompilerArch} &== 'x64'   ; __BuildTool_Target__ := 'Native (64-Bit)' ; CppAssembler := 'ml64' ; CppArchFlags +:= '/D__x86_64__'
+    elif ${CppCompilerArch} &== 'x86'   ; __BuildTool_Target__ := 'Native (32-Bit)' ;                        ; CppArchFlags +:= '/D__i386__'
+    endif
+endfunction
+
+
+##### Function to clean the project build (delete all the generated files)
+function __clean_project__()
+    $rmfiles_rec( $cwd(), '.+?\\.pdb' )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to demangle C++ symbol string
+function __cpp_demangle__(symbolStr, __dummyLDLibraryPath_ignored__)
+    # undname /show_flags
+    #     0x0080 Disable expansion of access specifiers for members
+    #     0x0200 Disable expansion of 'static' or 'virtual'ness of members
+    #     0x8000 Disable enum/class/struct/union prefix
+  -@${CppDemangler} 0x8280 ${symbolStr}
+    if $[excode] : return ${symbolStr}
+    if &$[lserr] : return ${symbolStr}
+    local Res := $erase_ifempty( $sflines($[stdout]) )
+          Res := $partn( ${Res}, $part_count(${Res}) )
+    local Len := $strlen  (${Res}     ) ; dec Len
+    local Beg := $str_fidx(${Res}, '"') ; inc Beg
+    return $substr(${Res}, ${Beg}, ${Len})
+endfunction
+
+
+(***** Only include this part of the script where necessary *****)
+endif

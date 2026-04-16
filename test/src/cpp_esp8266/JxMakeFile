@@ -1,0 +1,165 @@
+:::include <C++XBuildTool_ESP8266_Arduino>
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM1'
+else
+    SPort := '/dev/ttyUSB0'
+endif
+
+
+ArduinoESP8266BoardSelCacheDir := $ftt_stack( $ptd(), '_bcd' )
+BuildSubdir                    := 'ulib'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+if !$contains($[cmdtargets], { btlib_help clean clean_all })
+    const PUB_KEY := '../../../keys/public.key'
+    const PRI_KEY := '../../../keys/private.key'
+    $call(arduino_board_selector                         )
+    $call(arduino_set_signing_key, ${PUB_KEY}, ${PRI_KEY}) ##### NOTE : After enabling/disaling signing, the target 'clean' must be run! #####
+   #$call(arduino_use_spiffs                             ) ##### NOTE : After changing file system     , the target 'clean' must be run! #####
+    $call(arduino_use_littlefs                           ) ##### NOTE : After changing file system     , the target 'clean' must be run! #####
+    $call(print_devenv_config                            )
+endif
+
+
+PROG_NAME := $call( exe_fpath, main         )
+PROG_OBJS := $call( obj_fpath, main.ino.cpp )
+
+SLIB_NAME := $call(slib_fpath,   ulib                         )
+SLIB_OBJS := $call( obj_fpath, { ulib/src1.cpp ulib/src2.cpp })
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+target clean_all
+    $call(clean_project)
+    $rmdir_rec(${ArduinoESP8266BoardSelCacheDir})
+    echoln
+    echoln __c_red__ 'The board configuration data is deleted!' __c_reset__
+    echoln
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_esp8266 clean
+# jxmake -C ..\test\src\cpp_esp8266 clean_all
+# jxmake -C ..\test\src\cpp_esp8266 run
+# jxmake -C ..\test\src\cpp_esp8266 userial
+# jxmake -C ..\test\src\cpp_esp8266 sercon
+target run
+    jxmake ${SLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(arduino_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    jxmake arduino_esp8266_compile_ld
+    jxmake arduino_esp8266_build_core_slib
+    jxmake arduino_esp8266_build_extra_slib
+    local CppUsrStaticLib :+= ulib
+    $call(arduino_link_exe)
+endtarget
+
+target ${SLIB_NAME} : ${SLIB_OBJS}
+    $call(arduino_link_slib)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(arduino_compile_cpp, ${extraDef})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 userial
+# jxmake -C ..\test\src\cpp_esp8266 userial
+target userial
+    jxmake run
+    $call(arduino_upload_serial, ${PROG_NAME}, ${SPort})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 uota
+# jxmake -C ..\test\src\cpp_esp8266 uota
+target uota
+    jxmake run
+    $call(arduino_upload_ota, ${PROG_NAME}, 'nodemcu.local', ?, 'ota$*')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 ufserial
+# jxmake -C ..\test\src\cpp_esp8266 usferial
+target ufsserial
+    $call(arduino_make_fsimage, 'fs_root')
+    $call(arduino_uploadfs_serial, ${SPort})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 ufota
+# jxmake -C ..\test\src\cpp_esp8266 ufota
+target ufsota
+    $call(arduino_make_fsimage, 'fs_root')
+    $call(arduino_uploadfs_ota, 'nodemcu.local', ?, 'ota$*')
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 sercon
+# jxmake -C ..\test\src\cpp_esp8266 sercon
+target sercon
+    echoln 'Opening serial console ...'
+    echoln $serial_console(${SPort}, 9600)
+    echoln 'The serial console has been closed'
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 serplot
+# jxmake -C ..\test\src\cpp_esp8266 serplot
+target serplot
+    echoln 'Opening serial plotter ...'
+    $serial_plotter(${SPort}, 115200)
+    echoln 'The serial plotter has been closed'
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_esp8266 stdec
+# jxmake -C ..\test\src\cpp_esp8266 stdec
+target stdec
+    # NOTE : In real-world usage, this stack trace data can come from serial console or other sources
+    local content := "--------------- CUT HERE FOR EXCEPTION DECODER ---------------\n"                      \
+                     "\n"                                                                                    \
+                     "Exception (29):\n"                                                                     \
+                     "epc1=0x4020620d epc2=0x00000000 epc3=0x00000000 excvaddr=0x00000000 depc=0x00000000\n" \
+                     "\n"                                                                                    \
+                     "ctx: cont\n"                                                                           \
+                     "sp: 3ffffde0 end: 3fffffd0 offset: 0150\n"                                             \
+                     "\n"                                                                                    \
+                     ">>>stack>>>\n"                                                                         \
+                     "3fffff30 : 3fffdad0 3fff05bc 3fff054c 4020de99  \n"                                    \
+                     "3fffff40 : 00000000 00000000 3fff0564 40211018  \n"                                    \
+                     "3fffff50 : 00000000 0000214e 00000000 00000001  \n"                                    \
+                     "3fffff60 : 3fff01ec 00000000 3fffff80 3ffeff24  \n"                                    \
+                     "3fffff70 : 3fffdad0 3fff0598 3fff054c 4020f6d4  \n"                                    \
+                     "3fffff80 : 40218980 00000000 00001388 3ffeff24  \n"                                    \
+                     "3fffff90 : 3fffdad0 00000000 3fff2054 00000000  \n"                                    \
+                     "3fffffa0 : feefeffe 00000000 3ffeff60 3ffeff24  \n"                                    \
+                     "3fffffb0 : 3fffdad0 00000000 3ffeff60 40207757  \n"                                    \
+                     "3fffffc0 : feefeffe feefeffe 3fffdab0 40100bd1  \n"                                    \
+                     "<<<stack<<<\n"                                                                         \
+                     "\n"                                                                                    \
+                     "\n"                                                                                    \
+                     "--------------- CUT HERE FOR EXCEPTION DECODER ---------------\n"
+    jxmake ${PROG_NAME}
+    echoln $flatten( $call(arduino_stdec, ${PROG_NAME}, ${content}) )
+endtarget

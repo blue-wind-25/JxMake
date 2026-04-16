@@ -1,0 +1,310 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Arduino Related Utility                                                 *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+(*
+ * Install Arduino IDE by downloading it from:
+ *     https://www.arduino.cc/en/software
+ *)
+
+
+##### Function to find the Arduino package directories
+##### Based on 'https://support.arduino.cc/hc/en-us/articles/360018448279-Open-the-Arduino15-folder'
+function find_arduino_package_dirs()
+    # Try to get the paths from the cache file first
+    local APDirsCacheFilePath := $cat_path( $ptd(), 'ArduinoPackageDirs.cache' )
+    local APDirs
+    if $uptodate_path(${APDirsCacheFilePath})
+        APDirs := $get_file(${APDirsCacheFilePath})
+        return ${APDirs}
+    endif
+    # Determine the paths
+    local UHDir  := $uhd()
+    local ChkDir
+    if __os_windows__
+        (*
+         * Arduino IDE 2.x is installed in one of these directories:
+         *     "%HOMEDRIVE%%HOMEPATH%\AppData\Local\Programs\Arduino IDE"
+         *     "%HOMEDRIVE%%HOMEPATH%\AppData\Local\Programs\arduino-ide"
+         *     "%PROGRAMFILES%\Arduino IDE"
+         *     "%PROGRAMFILES%\arduino-ide"
+         *     "%PROGRAMFILES%\WindowsApps\ArduinoLLC.ArduinoIDE_<VERSION>"
+         * but the 'package' and 'tool' directories are not inside that directory.
+         *
+         * Arduino IDE 1.x is installed in one of these directories:
+         *     "%PROGRAMFILES%\Arduino"
+         *     "%PROGRAMFILES% (x86)\Arduino"
+         * and the 'tools' directory is inside the 'hardware' subdirectory of that directory.
+         *
+         * Arduino additional hardware package directory is installed in one of these directories:
+         *     "%HOMEDRIVE%%HOMEPATH%\AppData\Local\Arduino15"
+         *     "%HOMEDRIVE%%HOMEPATH%\Documents\ArduinoData"
+         * and the 'package' directory is inside that directory.
+         *)
+        local PFDirStd := $getenv('ProgramFiles')
+        local PFDirX86 := :"${PFDirStd} (x86)"
+        ChkDir := $cat_path( ${UHDir}   , 'AppData/Local/Arduino15' ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+        ChkDir := $cat_path( ${UHDir}   , 'Documents/ArduinoData'   ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+        ChkDir := $cat_path( ${PFDirX86}, 'Arduino/hardware'        ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+        ChkDir := $cat_path( ${PFDirStd}, 'Arduino/hardware'        ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+        ##### ??? TODO : Check 'X:\Arduino*\hardware' directories too ??? ###
+        ##### ??? TODO : Check 'X:\PortableApps\Arduino*\hardware' directories too ??? ###
+    elif __os_mac__
+        (*
+         * Arduino IDE 2.x application bundle file is installed in this directory:
+         *     "/Applications/Arduino IDE.app"
+         * but the contents of the directory are not accessible when the application is not running.
+         *
+         * Arduino IDE 1.x application bundle file is installed in this directory:
+         *     "/Applications/Arduino.app"
+         * but the contents of the directory are not accessible when the application is not running.
+         *
+         * Arduino additional hardware package directory is installed in this directory:
+         *     "$HOME/Library/Arduino15"
+         * and the 'package' directory is inside that directory.
+         *)
+        ChkDir := $cat_path( ${UHDir}   , 'Library/Arduino15'       ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+        ##### ??? TODO : Check other directories too ??? ###
+    elif __os_linux__
+        (*
+         * Arduino IDE 2.x can be installed anywhere, it is up to the user.
+         * The 'package' and 'tool' directories are not inside that directory.
+         *
+         * Arduino IDE 1.x can be installed anywhere, it is up to the user.
+         * The 'tools' directory is inside the 'hardware' subdirectory of that directory.
+         *
+         * Arduino additional hardware package directory is installed in this directory:
+         *     "$HOME/.arduino15"
+         * and the 'package' directory is inside that directory.
+         *)
+        ##### ??? TODO : Check '/opt/arduino*' directories too ??? ###
+        ChkDir := $cat_path( ${UHDir}   , '.arduino15'              ) ; if $valid_path(${ChkDir}) : APDirs +:= ${ChkDir}
+    endif
+    # Save the paths to the cache file
+    $put_file(${APDirsCacheFilePath}, ${APDirs})
+    # Return the paths
+    return ${APDirs}
+endfunction
+
+
+##### Function to find the Arduino library directories
+##### Based on 'https://docs.arduino.cc/hacking/software/Libraries'
+function find_arduino_library_dirs(?arduinoPackageDirs)
+    # Try to get the paths from the cache file first
+    local ALDirsCacheFilePath := $cat_path( $ptd(), 'ArduinoLibraryDirs.cache' )
+    local ALDirs
+    if $uptodate_path(${ALDirsCacheFilePath})
+        ALDirs := $get_file(${ALDirsCacheFilePath})
+        return ${ALDirs}
+    endif
+    # Determine the paths from the common locations
+    local UHDir  := $uhd()
+    local ChkDir
+    if __os_windows__
+        (*
+         * "%HOMEDRIVE%%HOMEPATH%\Documents\Arduino\libraries"
+         * "%HOMEDRIVE%%HOMEPATH%\My Documents\Arduino\libraries"
+         *)
+        local Path1 := $cat_path(${UHDir}, 'Documents'   )
+        local Path2 := $cat_path(${UHDir}, 'My Documents')
+        local Paths
+        if $valid_path(${Path1}) : Paths +:= ${Path1}
+        if $valid_path(${Path2})
+             if !$same_path(${Path2}, ${Path1}) : Paths +:= ${Path2}
+        endif
+        foreach local Path in ${Paths}
+            ChkDir := $cat_path( ${Path}, 'Arduino/libraries'       ) ; if $valid_path(${ChkDir}) : ALDirs +:= ${ChkDir}
+        endforeach
+        ##### ??? TODO : Check 'X:\Arduino*\libraries' directories too ??? ###
+    elif __os_mac__
+        (*
+         * "$HOME/Documents/Arduino/libraries"
+         *)
+        ChkDir := $cat_path( ${UHDir}, 'Documents/Arduino/libraries') ; if $valid_path(${ChkDir}) : ALDirs +:= ${ChkDir}
+        ##### ??? TODO : Check other directories too ??? ###
+    elif __os_linux__
+        (*
+         * "$HOME/Arduino/libraries"
+         *)
+        ChkDir := $cat_path( ${UHDir}, 'Arduino/libraries'          ) ; if $valid_path(${ChkDir}) : ALDirs +:= ${ChkDir}
+        ##### ??? TODO : Check '/opt/Arduino*' directories too ??? ###
+    endif
+    # Determine the paths from the package locations
+    if &${arduinoPackageDirs}
+        local IDEPackageDirs := $cat_path(${arduinoPackageDirs}, 'libraries')
+        foreach local PD in ${IDEPackageDirs}
+            if $valid_path(${PD}) : ALDirs +:= ${PD}
+        endforeach
+    endif
+    # Save the paths to the cache file
+    $put_file(${ALDirsCacheFilePath}, ${ALDirs})
+    # Return the paths
+    return ${ALDirs}
+endfunction
+
+
+##### Function to get the Arduino library list from the specified path(s) for the specified architecture
+function list_arduino_library(paths, arch)
+    # Create a new map for storing the library dependency list
+    local LMapHandle := $map_new()
+    # Process the root directories
+    foreach local LibRootDir in ${paths}
+        # List the root directory
+        local LibDirList := $lsdir(${LibRootDir})
+        # Process the subdirectories
+        local FoundLibDirs := ''
+        foreach local LibDir in ${LibDirList}
+            # Check if it has a valid library properties file
+            local LPFilePath := $cat_path(${LibDir}, 'library.properties')
+            if !$valid_path(${LPFilePath}) : continue
+            # Read the library properties file
+            local LibProps := $get_file(${LPFilePath})
+            # Extract the library properties data
+            local AMatch := false
+            local LName  := ''
+            local LDeps  := ''
+            local LIncs  := ''
+            foreach local LP in ${LibProps}
+                if $re_match(${LP}, '^\\s*name\\s*=\\s*.+$')
+                    LName := ${LP/^\s*name\s*=\s*(.+)$/$1/}
+                elif $re_match(${LP}, '^\\s*architectures\\s*=\\s*.+$')
+                    LP := ${LP/^\s*architectures\s*=\s*(.+)$/$1/}
+                    if ${LP}                     &== '*' : AMatch := true
+                    if $str_fidx(${LP}, ${arch})  >= 1   : AMatch := true
+                elif $re_match(${LP}, '^\\s*depends\\s*=\\s*.+$')
+                    LDeps := ${LP/^\s*depends\s*=\s*(.+)$/$1/}
+                elif $re_match(${LP}, '^\\s*includes\\s*=\\s*.+$')
+                    LIncs := ${LP/^\s*includes\s*=\s*(.+)$/$1/}
+                endif
+                ##### ??? TODO : Compare 'version's if multiple libraries of the same 'name's have been found ??? #####
+                ##### ??? TODO : What to do with 'precompiled' and 'ldflags' ??? #####
+            endforeach
+            # Check if the architecture is a match
+            if !${AMatch} : continue
+            # Store the library library-root-directory name
+            local LDirName := $path_last_part(${LibDir})
+            $map_add( ${LMapHandle}, '__LRDirNames__', ${LDirName} )
+            # Store the library name
+            $map_add( ${LMapHandle}, :"{${LDirName}}:name", ${LName} )
+            # Store the library source directory path
+            local S := $cat_path(${LibDir}, 'src')
+            if !$valid_path(${S}) : S := ${LibDir}
+            $map_add(${LMapHandle}, :"{${LDirName}}:path", ${S})
+            # Store the library dependencies
+            foreach local LDep in $explode(${LDeps}, ',')
+                LDep := $strim(${LDep})
+                if &${LDep} : $map_add(${LMapHandle}, :"{${LDirName}}:depends", ${LDep})
+            endforeach
+            # Store the library includes
+            if &${LIncs}
+                foreach local LInc in $explode(${LIncs}, ',')
+                    LInc := $strim(${LInc})
+                    if &${LInc} : $map_add(${LMapHandle}, :"{${LDirName}}:includes", ${LInc})
+                endforeach
+            else
+                foreach local LInc in $lsdir(${S})
+                    if !$re_match(${LInc}, '^(.+?)\.h$') : continue
+                    $map_add( ${LMapHandle}, :"{${LDirName}}:includes", $file_name(${LInc}) )
+                endforeach
+            endif
+        endforeach
+    endforeach
+    # Convert the library names in the depedency lists to their library-root-directory names
+    foreach local Chk in $map_get(${LMapHandle}, '__LRDirNames__')
+        local DepNames    := $map_get(${LMapHandle}, :"{${Chk}}:depends")
+        local CnvDepNames := ''
+        foreach local DepName in ${DepNames}
+            foreach local Ref in $map_get(${LMapHandle}, '__LRDirNames__')
+                local RefName := $map_get(${LMapHandle}, :"{${Ref}}:name")
+                if ${DepName} &== ${RefName} : CnvDepNames +:= ${Ref}
+            endforeach
+        endforeach
+        CnvDepNames := $erase_ifempty(${CnvDepNames})
+        if &${CnvDepNames} : $map_put(${LMapHandle}, :"{${Chk}}:depends", ${CnvDepNames})
+    endforeach
+    # Return the map handle
+    return ${LMapHandle}
+endfunction
+
+
+##### Function to find the latest GCC version from the given Arduino and custom directory search functions
+function find_latest_cross_gcc_dir_arduino_custdir(cacheFileName, findLastestFromArduino_func, findLastestFromCustDir_func)
+    # Try to get the path from the cache file first
+    local LatestPathCacheFilePath := $cat_path( $ptd(), ${cacheFileName} )
+    local LatestPath
+    if $uptodate_path(${LatestPathCacheFilePath})
+        # Get the path to the latest GCC
+        LatestPath := $get_file(${LatestPathCacheFilePath})
+        # Ensure the version is up to date
+        local CppToolBinDir := ${LatestPath}
+        $call(__get_cpp_compiler_ver__, true)
+        # Return the path to the latest GCC
+        return ${LatestPath}
+    endif
+    # Find the GCC versions and paths
+    local Res0 := 0 ''
+    local Res1 := 0 ''
+    local Res2 := 0 ''
+    local DVer := $call(__get_cpp_compiler_ver__, true)
+    if ${DVer}                : Res0 := ${DVer} ${CppToolBinDir}              # Try the default GCC first
+    if &${ArduinoPackageDirs} : Res1 := $call(${findLastestFromArduino_func}) # Search from Arduino package directories first
+    if __os_posix__           : Res2 := $call(${findLastestFromCustDir_func}) # Search from other directories next
+    # Find the latest GCC
+    local LatestVersion := ${Res2}<1>
+    local LatestPath    := ${Res2}<2>
+    #(*
+    if ${Res1}<1> >= ${LatestVersion}
+        LatestVersion := ${Res1}<1>
+        LatestPath    := ${Res1}<2>
+    endif
+    #*)
+    if ${Res0}<1> >= ${LatestVersion}
+    #    LatestVersion := ${Res0}<1>
+      #  LatestPath    := ${Res0}<2>
+    endif
+    # Ensure the version is up to date
+    local CppToolBinDir := ${LatestPath}
+    $call(__get_cpp_compiler_ver__, true)
+    # Save the path to the cache file
+    $put_file(${LatestPathCacheFilePath}, ${LatestPath})
+    # Return the path to the latest GCC
+    return ${LatestPath}
+endfunction
+
+
+##### A helper macro to get the newer GCC path and version (must be used from within a loop block inside a function body)
+##### Before using this macro, please ensure that these variables are already declared as local:
+#####     'CppToolBinDir' 'LDLibraryPath' 'LatestVersion' 'LatestPath'
+.macro __lb_cmp_gcc_ver_and_get_the_newer_path_and_ver__
+    # Get the GCC binary path
+    CppToolBinDir := $cat_path(${BinDir}, 'bin')
+    if !$valid_path(${CppToolBinDir}) : continue
+    # Set additional LD paths as needed
+    if !__os_windows__
+        LDLibraryPath +:= $cat_path(${BinDir}, 'lib'  ) # This is meant to modify the local version of the variable
+        LDLibraryPath +:= $cat_path(${BinDir}, 'lib64') # This is meant to modify the local version of the variable
+    endif
+    # Get the GCC version
+    local CheckVersion := $call(__get_cpp_compiler_ver__, true)
+    # Compare the GCC versions
+    if ${CheckVersion} > ${LatestVersion}
+        LatestVersion := ${CheckVersion}
+        LatestPath    := ${CppToolBinDir}
+    endif
+.endmacro
+
+
+##### A helper function to show the build tool library help about Arduino Environment
+function __btlib_help_print_note_arduino_environment__()
+    $call(__btlib_help_print_title_note__, 'Arduino Environment')
+    echoln __c_white__ '    After installing the ' __c_cyan__ 'Arduino IDE' __c_white__ ' and/or any new packages from the board manager, it may be necessary to clear the project cache'
+    echoln             '    before continuing with the build process.'
+    echoln
+    echoln             '    Clearing the project cache can be done by running the build process (the JxMake specification file) with the command line option'
+    echoln             '    \'' __c_yellow__ '--rm-prj-cache' __c_white__ '\' or at least \'' __c_yellow__ '--rm-jxm-cache' __c_white__ '\'.'
+    echoln
+endfunction

@@ -1,0 +1,789 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+/*
+ * ################################## !!! WARNING !!! ##################################
+ * This source code file relies on the Foreign Function and Memory (FFM) API; therefore,
+ * it is excluded from the build when using Java versions earlier than 23.
+ * ################################## !!! WARNING !!! ##################################
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+
+import java.util.Arrays;
+import java.util.List;
+
+import java.util.function.IntConsumer;
+
+import net.codecrete.usb.*;
+
+import jxm.*;
+import jxm.xb.*;
+
+
+/*
+ * Standard implementation of the USBaspLoader protocol for programming MCUs with compatible bootloaders.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * This class is written partially based on the algorithms and information found from:
+ *
+ *     USBaspLoader: USBasp-Compatible Bootloader for AVR
+ *     https://github.com/gblargg/usbasploader
+ *
+ *     USBaspLoader
+ *     https://obdev.at/products/vusb/usbasploader.html
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * JxMake reimplements protocol behavior based on available documentation, supplemented by runtime
+ * observation and bench-level validation where features are undocumented or ambiguous. No LUFA
+ * source code or expressive implementation logic is used. Constants and timing are derived from
+ * functional analysis and do not constitute derivative work.
+ */
+public class ProgBootUSBasp extends ProgBootUSB {
+
+    private static final String ProgClassName = "ProgBootUSBasp";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootUSB.Config {
+
+        // NOTE : This class can use the same configuration as certain other classes
+        #include "config.inc/BootAVRSimpleUART.java.inc"
+
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int USBASP_FUNC_CONNECT        =   1;
+    private static final int USBASP_FUNC_DISCONNECT     =   2;
+    private static final int USBASP_FUNC_TRANSMIT       =   3;
+    private static final int USBASP_FUNC_READFLASH      =   4;
+    private static final int USBASP_FUNC_ENABLEPROG     =   5;
+    private static final int USBASP_FUNC_WRITEFLASH     =   6;
+    private static final int USBASP_FUNC_READEEPROM     =   7;
+    private static final int USBASP_FUNC_WRITEEEPROM    =   8;
+    private static final int USBASP_FUNC_SETLONGADDRESS =   9;
+    private static final int USBASP_FUNC_SETISPSCK      =  10;
+
+    private static final int USBASP_MAX_BULK_RD_SIZE    = 200;
+    private static final int USBASP_MAX_BULK_WR_SIZE    = 200;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private byte[] _read(final int request, final int[] param, final int length) throws Exception
+    {
+        return _device.controlTransferIn(
+            _createVendorDeviceUsbControlTransfer(
+                request,
+                (param == null) ? 0 : ( ( (param[1] << 8) | param[0] ) & 0xFFFF ),
+                (param == null) ? 0 : ( ( (param[3] << 8) | param[2] ) & 0xFFFF )
+            ),
+            length
+        );
+    }
+
+    private byte[] _read(final int request, final int length) throws Exception
+    { return _read(request, null, length); }
+
+    private void _write(final int request, final int[] param, final byte[] buff) throws Exception
+    {
+        _device.controlTransferOut(
+            _createVendorDeviceUsbControlTransfer(
+                request,
+                (param == null) ? 0 : ( ( (param[1] << 8) | param[0] ) & 0xFFFF ),
+                (param == null) ? 0 : ( ( (param[3] << 8) | param[2] ) & 0xFFFF )
+            ),
+            buff
+        );
+    }
+
+    private void _write(final int request, final int[] param) throws Exception
+    { _write(request, param, null); }
+
+    private void _write(final int request) throws Exception
+    { _write(request, null, null); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _disconnect_NoThrow()
+    {
+        try {
+            _write(USBASP_FUNC_DISCONNECT);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _chipErase_impl() throws Exception
+    {
+         // Chip Erase : 10101100 10000000 00000000 00000000
+        _write( USBASP_FUNC_TRANSMIT, new int[] { 0xAC, 0x80, 0x00, 0x00 } );
+    }
+
+    private boolean _chipErase_NoThrow()
+    {
+        try {
+            _chipErase_impl();
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _setLongAddress(final int address) throws Exception
+    {
+        _write(
+            USBASP_FUNC_SETLONGADDRESS,
+            new int[] {
+                (address >>  0) & 0xFF,
+                (address >>  8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF
+            }
+        );
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private byte[] _readMemory_impl(final int address, final int size, final boolean eeprom) throws Exception
+    {
+        final ByteArrayOutputStream baos     = new ByteArrayOutputStream();
+              int                   curAddr  = address;
+              int                   remBytes = size;
+
+        while(remBytes > 0) {
+
+            final int curCount = Math.min(remBytes, USBASP_MAX_BULK_RD_SIZE);
+
+            _setLongAddress(curAddr);
+
+            baos.write( _read(
+                eeprom ? USBASP_FUNC_READEEPROM : USBASP_FUNC_READFLASH,
+                new int[] {
+                    (curAddr >> 0) & 0xFF,
+                    (curAddr >> 8) & 0xFF,
+                    0                    ,
+                    0
+                },
+                curCount
+            ) );
+
+            remBytes -= curCount;
+            curAddr  += curCount;
+
+        } // while
+
+        return baos.toByteArray();
+    }
+
+    private byte[] _readFlash_NoThrow(final int address, final int size)
+    {
+        try {
+            return _readMemory_impl(address, size, false);
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private byte[] _readEEPROM_NoThrow(final int address, final int size)
+    {
+        try {
+            return _readMemory_impl(address, size, true);
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _writeMemoryPage_impl(final int address, final byte[] buff, final boolean eeprom) throws Exception
+    {
+        final ByteArrayInputStream bais     = new ByteArrayInputStream(buff);
+              int                  curAddr  = address;
+              int                  remBytes = buff.length;
+              boolean              firstBlk = true;
+
+
+        while(remBytes > 0) {
+
+            final int curCount = Math.min(remBytes, USBASP_MAX_BULK_WR_SIZE);
+
+            _setLongAddress(curAddr);
+
+            _write(
+                eeprom ? USBASP_FUNC_WRITEEEPROM : USBASP_FUNC_WRITEFLASH,
+                new int[] {
+                    (curAddr >> 0) & 0xFF,
+                    (curAddr >> 8) & 0xFF,
+                     _config.memoryFlash.pageSize,
+                    ( (_config.memoryFlash.pageSize & 0x0F00) >> 4 ) + (firstBlk ? 1 : 0)
+                },
+                bais.readNBytes(curCount)
+            );
+
+            remBytes -= curCount;
+            curAddr  += curCount;
+            firstBlk  = false;
+
+        } // while
+    }
+
+    private boolean _writeFlashPage_NoThrow(final int address, final byte[] buff)
+    {
+        try {
+            _writeMemoryPage_impl(address, buff, false);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    private boolean _writeEEPROMPage_NoThrow(final int address, final byte[] buff)
+    {
+        try {
+            _writeMemoryPage_impl(address, buff, true);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static int    DEF_VID = 0x16C0;          // Van Ooijen Technische Informatica - Shared ID for Use with libusb
+    private static int    DEF_PID = 0x05DC;          // ---
+
+    private static String DEF_MST = "www.fischl.de"; // Official USBasp strings
+    private static String DEF_PST = "USBasp";        // ---
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _inProgMode = false;
+    private boolean _chipErased = false;
+
+    public ProgBootUSBasp(final ProgBootUSBasp.Config config) throws Exception
+    {
+        // Process the superclass
+        super(ProgClassName, config);
+    }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return numBytes; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    private void _closeUSBasp()
+    {
+        if(_device != null) {
+            try {
+                _closeDevice();
+            }
+            catch(final Exception e) {
+                if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            }
+        }
+    }
+
+    private boolean _begin_impl(final int vid_, final int pid_, String manufacturerString_, String productString_, final String serialNumber)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flag
+        _chipErased = false;
+
+        try {
+
+            // Clean up the identifiers
+            if( manufacturerString_ != null && manufacturerString_.trim().isEmpty() ) manufacturerString_ =  null;
+            if( productString_      != null && productString_     .trim().isEmpty() ) productString_      =  null;
+
+            final int    vid = (vid_                <= 0   ) ? DEF_VID : vid_;
+            final int    pid = (pid_                <= 0   ) ? DEF_PID : pid_;
+            final String mst = (manufacturerString_ == null) ? DEF_MST : manufacturerString_;
+            final String pst = (productString_      == null) ? DEF_MST : productString_;
+
+            // Get the first connected device matching the specified VID, PID, and strings
+            final List<UsbDevice> devs = getAllDevices(vid, pid, mst, pst, USB_DEVICE_CLASS_VENDOR_SPECIFIC, 0x00, 0x00);
+
+            for(final UsbDevice dev : devs) {
+                if( serialNumber != null && !serialNumber.equals( dev.getSerialNumber() ) ) continue;
+                _device = dev;
+                break;
+            }
+
+            // Get the interface number and transfer size
+            _interfaceNumber = _getInterfaceNumber(_device, USB_DEVICE_CLASS_VENDOR_SPECIFIC, 0x00, 0x00);
+
+            // Open the device
+            _openClaimDevice(false);
+
+            // Initialize
+            _write(USBASP_FUNC_SETISPSCK );
+            _write(USBASP_FUNC_CONNECT   );
+            _write(USBASP_FUNC_ENABLEPROG);
+
+            // Read and save the MCU signature
+            _mcuSignature = new int[] {
+                 // Read Signature Byte : 00110000 00000000 000000bb oooooooo
+                _read( USBASP_FUNC_TRANSMIT, new int[] { 0x30, 0x00, 0x00, 0x00 }, 4 )[3] & 0xFF,
+                _read( USBASP_FUNC_TRANSMIT, new int[] { 0x30, 0x00, 0x01, 0x00 }, 4 )[3] & 0xFF,
+                _read( USBASP_FUNC_TRANSMIT, new int[] { 0x30, 0x00, 0x02, 0x00 }, 4 )[3] & 0xFF
+            };
+
+        }
+        catch(final Exception e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            // Report error
+            return false;
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    public boolean begin(final int vid, final int pid, final String manufacturerString, final String productString, final String serialNumber)
+    {
+        if( _begin_impl(vid, pid, manufacturerString, productString, serialNumber) ) return true;
+
+        _closeUSBasp();
+
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+    }
+
+    public boolean begin(final int vid, final int pid)
+    { return begin(vid, pid, DEF_MST, DEF_PST, null); }
+
+    public boolean begin(final String manufacturerString, final String productString)
+    { return begin(DEF_VID, DEF_PID, manufacturerString, productString, null); }
+
+    public boolean begin(final String serialNumber)
+    { return begin(DEF_VID, DEF_PID, DEF_MST, DEF_PST, serialNumber); }
+
+    public boolean begin()
+    { return begin(null); }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Start the application
+        final boolean resCommitEEPROM = commitEEPROM();
+        final boolean resDisconnect   = _disconnect_NoThrow();
+        final boolean resWaitDDis     = _waitUSBDeviceDisconnect();
+
+        // Close the device
+        _closeUSBasp();
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resCommitEEPROM || !resDisconnect || !resWaitDDis) {
+            if(!resCommitEEPROM              ) USB2GPIO.notifyError(Texts.ProgXXX_FailSWD_CmEEPROM, ProgClassName);
+            if(!resDisconnect || !resWaitDDis) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPrgDev, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // NOTE : The MCU signature was read during 'begin()'
+
+        // Done
+        return _mcuSignature != null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : Not all bootloader implementations that use the USBaspLoader protocol support chip erase!
+
+    // NOTE : Under the USBaspLoader protocol, this function is expected to erase only flash memory
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Erase the flash
+        if( !_chipErase_NoThrow() ) return false;
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(sa, nb, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Determine the number of chunks
+        final int     ChunkSize  = _config.memoryFlash.pageSize;
+
+        final boolean notAligned = (numBytes % ChunkSize) != 0;
+        final int     numChunks  = (numBytes / ChunkSize) + (notAligned ? 1 : 0);
+
+        // Read the bytes (and compare them if requested)
+        int rdbIdx = 0;
+        int verIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk (flash can be read even without a page-aligned address)
+            final int    numReads = Math.min(ChunkSize, numBytes - rdbIdx);
+            final byte[] cbytes   = _readFlash_NoThrow(sa + c * ChunkSize, numReads);
+
+            if(cbytes == null) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                return -1;
+            }
+
+            // Process the chunk bytes
+            for(int b = 0; b < numReads; b += 2) {
+
+                // Store the bytes to the result buffer
+                _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b    ] & 0xFF;
+                _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b + 1] & 0xFF;
+
+                // Compare the bytes as needed
+                if(refData != null && verIdx < refData.length) {
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                }
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+            } // for b
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return numBytes;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _writeFlash_impl(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Get the number of chunks to be written and the current address
+        final int ChunkSize = _config.memoryFlash.pageSize;
+
+        final int numChunks = nb / ChunkSize;
+              int cpgAddr   = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Write the chunks
+        int datIdx = 0;
+
+        for(int p = 0; p < numChunks; ++p) {
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the chunk
+            if( !_writeFlashPage_NoThrow( cpgAddr, XCom.arrayCopy(data, datIdx, ChunkSize) ) ) return false;
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, ChunkSize / 2);
+
+            // Increment the counters
+            cpgAddr += ChunkSize;
+            datIdx  += ChunkSize;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+              long sa = (startAddress < 0) ? 0                             : startAddress;
+        final int  nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer( data, (int) sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName );
+        if(anbr == null) return false;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize( (int) sa, anbr.nb, _config.memoryFlash.pageSize, ProgClassName ) ) return false;
+
+        // Write the flash
+        return _writeFlash_impl(anbr.buff, (int) sa, anbr.nb, progressCallback);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : Not all bootloader implementations that use the USBaspLoader protocol support EEPROM reading and writing!
+
+    private int[]     _eepromBuffer = null;
+    private boolean[] _eepromFDirty = null;
+
+    private boolean _readAllEEPROMBytes()
+    {
+        // Prepare the result buffer
+        if(_eepromBuffer == null) _eepromBuffer = new int[_config.memoryEEPROM.totalSize];
+
+        // Determine the chunk size and the number of chunks
+        final int ChunkSize = _config.memoryFlash.pageSize;
+        final int numChunks = (_config.memoryEEPROM.totalSize / ChunkSize);
+
+        // Read the bytes
+        int rdbIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk
+            final int    numReads = Math.min(ChunkSize, _config.memoryEEPROM.totalSize - rdbIdx);
+            final byte[] cbytes   = _readEEPROM_NoThrow(c * ChunkSize, ChunkSize);
+
+            if(cbytes == null) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                return false;
+            }
+
+            // Store the bytes to the result buffer
+            for(int b = 0; b < numReads; ++b) _eepromBuffer[rdbIdx++] = cbytes[b] & 0xFF;
+
+        } // for c
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeAllEEPROMBytes()
+    {
+        // Determine the chunk size and the number of chunks
+        final int ChunkSize = _config.memoryFlash.pageSize;
+        final int numChunks = (_config.memoryEEPROM.totalSize / ChunkSize);
+
+        // Write the bytes
+        int wdbIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Write in chunk
+            final int numWrites = Math.min(ChunkSize, _config.memoryEEPROM.totalSize - wdbIdx);
+            final int addr      = c * ChunkSize;
+
+            // Check if the chunk is dirty
+            boolean chunkDirty = false;
+
+            for(int b = 0; b < numWrites; ++b) {
+                if(_eepromFDirty[c * ChunkSize + b]) {
+                    chunkDirty = true;
+                    break;
+                }
+            }
+
+            // Do not write if the chunk is not dirty
+            if(!chunkDirty) {
+                wdbIdx += numWrites;
+                continue;
+            }
+
+            // Copy the bytes to the write buffer
+            final byte[] cbytes = new byte[numWrites];
+
+            for(int b = 0; b < numWrites; ++b) cbytes[b] = (byte) _eepromBuffer[wdbIdx++];
+
+            // Write the bytes
+            if( !_writeEEPROMPage_NoThrow(addr, cbytes) ) return false;
+
+        } // for c
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) {
+            USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+            return -1;
+        }
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+            return -1;
+        }
+
+        // Read the entire EEPROM as needed
+        if(_eepromBuffer == null) {
+            // Read the bytes
+            if( !_readAllEEPROMBytes() ) return -1;
+            // Mark everything as not dirty
+            _eepromFDirty = new boolean[_config.memoryEEPROM.totalSize];
+            Arrays.fill(_eepromFDirty, false);
+        }
+
+        // Return the byte
+        return _eepromBuffer[address];
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+
+        // The EEPROM must be written in page mode, hence, read the entire EEPROM first as needed
+        if(_eepromBuffer == null) {
+            if( readEEPROM(0) < 0 ) return false;
+        }
+
+        // Store the new byte to the buffer and mark the position as dirty
+        final int newData = data & 0xFF;
+
+        if(_eepromBuffer[address] != newData) {
+            _eepromBuffer[address] = newData;
+            _eepromFDirty[address] = true;
+        }
+
+        // Done
+        return true;
+    }
+
+    public boolean commitEEPROM()
+    {
+        // Simply exit if there is no EEPROM buffer
+        if(_eepromBuffer == null) return true;
+
+        // Write the entire EEPROM
+        _writeAllEEPROMBytes();
+
+        // Mark everything as not dirty
+        Arrays.fill(_eepromFDirty, false);
+
+        // Done
+        return true;
+    }
+
+} // class ProgBootUSBasp

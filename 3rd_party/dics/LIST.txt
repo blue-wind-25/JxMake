@@ -1,0 +1,54 @@
+de_DE_frami
+Deutsch
+Deutschland
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/de
+
+en_AU
+English
+Australia
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/en
+
+en_CA
+English
+Canada
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/en
+
+en_GB
+English
+Great Britain
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/en
+
+en_US
+English
+United States
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/en
+
+en_ZA
+English
+South Africa
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/en
+
+es_ES
+Español
+España
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/es
+
+fr
+Français
+France
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/fr_FR
+
+id_ID
+Bahasa Indonesia
+Indonesia
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/id
+
+nl_NL
+Nederlands
+Nederland
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/nl_NL
+
+ru_RU
+Русский
+Россия
+https://github.com/LibreOffice/dictionaries/blob/cp-25.04.7-4/ru_RU

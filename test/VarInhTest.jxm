@@ -1,0 +1,54 @@
+function fnc3()
+    $printf("%s() - entry - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+    local a := 'a3'
+    local b := 'b3'
+    local c := 'c3'
+    local d := 'd3'
+    local e := 'e3'
+    $printf("%s() - local - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+endfunction
+
+function fnc2(?b, ?c)
+    $printf("%s() - entry - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+    local a ?:= 'A2'
+    local b ?:= 'B2'
+    local c ?:= 'C2'
+    local d ?:= 'D2'
+    local e ?:= 'E2'
+    $printf("%s() - local - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+    echoln
+    $call(fnc3)
+    echoln
+    $printf("%s() - after - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+endfunction
+
+function fnc1(a, ?b, ?c, ?d)
+    $printf("%s() - entry - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+    local a ?:= $ucase(${a})
+    local b ?:= $ucase(${b})
+    local c ?:= 'C1'
+    local e ?:= 'E1'
+    $printf("%s() - local - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+    echoln
+    $call(fnc2)
+    echoln
+    $printf("%s() - after - %-2s %-2s %-2s %-2s %-2s\n", $[function], ${a}, ${b}, ${c}, ${d}, ${e})
+endfunction
+
+a := 'a0'
+b := 'b0'
+c := 'c0'
+d := 'd0'
+echoln "\n----------------------------------------------------------------------------------------------------\n"
+$printf("global - start - %-2s %-2s %-2s %-2s %-2s\n", ${a}, ${b}, ${c}, ${d}, ${e})
+echoln "\n----------------------------------------------------------------------------------------------------\n"
+
+$call(fnc1, 'a1'      )
+echoln "\n----------------------------------------------------------------------------------------------------\n"
+$call(fnc1, 'a1', 'b1')
+
+echoln "\n----------------------------------------------------------------------------------------------------\n"
+$printf("global - after - %-2s %-2s %-2s %-2s %-2s\n", ${a}, ${b}, ${c}, ${d}, ${e})
+echoln "\n----------------------------------------------------------------------------------------------------\n"
+echoln
+

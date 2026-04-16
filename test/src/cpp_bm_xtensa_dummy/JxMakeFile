@@ -1,0 +1,63 @@
+:::include <C++XBuildTool_GCC_Xtensa>
+
+
+  if __os_windows__  ; APDir := $cat_path( $uhd(), 'AppData/Local/Arduino15/packages' )
+elif __os_mac__      ; APDir := $cat_path( $uhd(), 'Library/Arduino15/packages'       )
+elif __os_linux__    ; APDir := $cat_path( $uhd(), '.arduino15/packages'              )
+endif
+
+const TC_Paths := {{ $cat_path( ${APDir}, 'esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec'   ), (* 1 *) \
+                     $cat_path( ${APDir}, 'esp32/tools/xtensa-esp32-elf-gcc/esp-2021r2-patch5-8.4.0'   ), (* 2 *) \
+                     $cat_path( ${APDir}, 'esp32/tools/xtensa-esp32s2-elf-gcc/esp-2021r2-patch5-8.4.0' ), (* 3 *) \
+                     $cat_path( ${APDir}, 'esp32/tools/xtensa-esp32s3-elf-gcc/esp-2021r2-patch5-8.4.0' )  (* 4 *) }}
+
+const SelPathN := 3
+
+XTENSA_TOOLCHAIN_PATH := ${TC_Paths}<SelPathN>
+
+(*
+echoln $symlink_target    ( $cat_path( ${APDir}, 'esp8266'                                                  )                   )
+echoln $symlink_real_apath( $cat_path( ${APDir}, 'esp8266'                                                  )                   )
+echoln $symlink_resolve   ( $cat_path( ${APDir}, 'esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec' )                   )
+echoln $symlink_resolve   ( '../../../../../.arduino15/packages/esp8266-3.1.2/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec' )
+$exit(0)
+#*)
+
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call( exe_fpath, main           )
+PROG_OBJS := $call( obj_fpath, main.cpp       )
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_xtensa_dummy clean ; ./jxmake.sh -C ../test/src/cpp_bm_xtensa_dummy run
+# jxmake -C ..\test\src\cpp_bm_xtensa_dummy clean & jxmake -C ..\test\src\cpp_bm_xtensa_dummy run
+target run
+    jxmake ${MLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call(link_exe)
+    $call(gen_lst, $[target])
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget

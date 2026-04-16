@@ -1,0 +1,25 @@
+void __handleERRCTRL(void) __attribute__ ((used, naked, section (".init3")));
+void __handleERRCTRL(void)
+{
+    if(ERRCTRL.ESF) ERRCTRL.ESF = 0xFFFFFFFF;                   // Clear all Error Status Flags
+    _PROTECTED_WRITE(ERRCTRL.CTRLA, ERRCTRL_STATE_CONFIG_gc);   // Place ERRCTRL in CONFIG state
+    ERRCTRL.ESCVREGFAIL = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // Select severity level of all error channels to NOTIFICATION error
+    ERRCTRL.ESCBUSERR   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCRAM2     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCFLASH2   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCOPC      = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCSPLIM    = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCRAM1     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCFLASH1   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCVREGWARN = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCCFD0     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCCFD1     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCCFM0     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCCFM1     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCSWDT     = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCEEPROM   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCEVSYS0   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    ERRCTRL.ESCEVSYS1   = ERRCTRL_ERRLVL_NOTIFICATION_gc;       // ---
+    _PROTECTED_WRITE(ERRCTRL.CTRLA, ERRCTRL_STATE_NORMAL_gc  ); // Place ERRCTRL in NORMAL state
+    _PROTECTED_WRITE(NVMCTRL.CTRLC, NVMCTRL_ECCALL1_DISALL_gc); // Disregard the ECC check on Flash words read as 1 from the entire Flash
+}

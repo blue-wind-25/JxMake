@@ -1,0 +1,107 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Simple Arithmetic and Logic Operations
+----------------------------------------------------------------------------------------------------
+
+[local] inc <dst_var_name>                       # dst_var_name =  dst_var_name + 1
+[local] dec <dst_var_name>                       # dst_var_name =  dst_var_name - 1
+
+[local] add <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 +  value2
+[local] sub <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 -  value2
+[local] mul <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 *  value2
+[local] div <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 /  value2
+[local] mod <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 %  value2    (remainder)
+
+[local] abs <dst_var_name>, <value1>             # dst_var_name = |value1|
+[local] neg <dst_var_name>, <value1>             # dst_var_name = -value1
+
+[local] shl <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 << value2
+[local] shr <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 >> value2
+
+[local] min <dst_var_name>, <value1>, <value2>   # dst_var_name =  min(value1, value2)
+[local] max <dst_var_name>, <value1>, <value2>   # dst_var_name =  max(value1, value2)
+
+[local] not <dst_var_name>, <value1>             # dst_var_name = ~value1              (bitwise  )
+[local] and <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 & value2     (bitwise  )
+[local] or  <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 | value2     (bitwise  )
+[local] xor <dst_var_name>, <value1>, <value2>   # dst_var_name =  value1 ^ value2     (bitwise  )
+
+
+The 'local' prefix can be used to restrict the variable for the current function or target only.
+
+
+NOTE : # All operations will be carried out as direct variable assignments (:=).
+       # All operations will internally flatten the set member(s) into one string first.
+       # All values are treated as signed integers; therefore, the words 'false' and 'true' are not
+         special words (they will always be evaluated to 0 because the are not numbers).
+
+
+----------------------------------------------------------------------------------------------------
+The 'eval' Statement
+----------------------------------------------------------------------------------------------------
+
+[local] eval <dst_var_name> := <term>...
+
+
+Each <term> is one of:
+    <operand>
+    <unary_operator><operand>
+    <binary_operator>
+    <inline_function>[ [argument...] ]
+
+
+Each <operator> is one of (in order of descending precedence):
+    +    -    @         unary plus, unary minus, unary absolute   (right-to-left)
+    ~    !              unary bitwise NOT, unary logical NOT      (right-to-left)
+    **                  power                                     (left-to-right)
+    *    /    %         multiplication, division, remainder       (left-to-right)
+    +    -              addition, subtraction                     (left-to-right)
+    <<   >>             bitwise left shift, bitwise right shift   (left-to-right)
+    <=>                 three-way comparison operator             (left-to-right)
+    <    <=   >    >=   relational operators                      (left-to-right)
+    ==   !=             equality operators                        (left-to-right)
+    &                   bitwise AND                               (left-to-right)
+    ^                   bitwise XOR                               (left-to-right)
+    |                   bitwise OR                                (left-to-right)
+    &&                  logical AND                               (left-to-right)
+    ||                  logical OR                                (left-to-right)
+    ? :                 ternary conditional                       (right-to-left)
+
+
+The available inline functions are:
+
+    sgn[ <value1>            ] : Get the sign    value of the given number
+    min[ <value1> , <value2> ] : Get the minimum value of the given numbers
+    max[ <value1> , <value2> ] : Get the maximum value of the given numbers
+
+
+Using special variable shortcuts ('__***__') in 'eval' statements are not supported, please use
+temporary/'local' variables.
+
+Non-inline function calls '$func_name(...)' in 'eval' statements are not supported, please use
+temporary/'local' variables.
+
+
+The 'local' prefix can be used to restrict the variable for the current function or target only.
+
+
+Examples:
+
+    eval C := (2 - 1) * 6 / 2
+
+    eval C := (${X} >= 10) ? ${Y} : ${Z}
+
+    eval C := max[ ${A}, min[ ${B}, ${C} ] ]
+
+
+NOTE : # All unary  operators must not be separated by whitespace with their corresponding operands.
+       # All binary operators must     be separated by whitespace.
+       # All inline functions must     be separated by whitespace exactly as shown in the examples.
+
+NOTE : # All operations will internally flatten the set member(s) into one string first.
+       # All numbers are treated as signed integers.
+
+====================================================================================================

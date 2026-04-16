@@ -1,0 +1,331 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Common Code for Generic ARM GCC Utility                                 *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the native C/C++ build tool and other utilities
+__ForceGCC__ := 1
+
+:::include_once 'C++BuildTool.jxm'
+:::include_once 'OpenOCDHelper.jxm'
+
+
+##### MSys may cause weird errors so exclude it from the supported build environment
+if __os_msys__
+    $call(__exit_error_ns_benv__, 'ARM GCC', 'MSys')
+endif
+
+
+##### Update the flags
+const __x_gcc__             := 1
+const __arm_gcc__           := 1
+const __arm_none_eabi_gcc__ := 1
+
+      __BuildTool_Name__    := 'ARM GNU Compiler Collection (GCC)'
+      __BuildTool_Target__  := 'ARM'
+      __BuildTool_Title__   := 'ARM C/C++'
+
+
+##### Update the definitions of executables, paths, and options
+      CppAssembler                 := 'arm-none-eabi-gcc'
+      CppCommonAssemblerFlags     +:= '-x' 'assembler-with-cpp'
+
+      CppCcCompiler                := 'arm-none-eabi-gcc'
+
+      CppCxxCompiler               := 'arm-none-eabi-g++'
+      CppMinimizeSizeCompileFlags +:= '-fno-use-cxa-atexit' '-fno-exceptions' '-fno-unwind-tables' '-fno-rtti'
+
+      CppLinker                    := 'arm-none-eabi-gcc'
+
+      CppLD                        := 'arm-none-eabi-ld'
+
+const __Def_SLibBuilder__          := 'arm-none-eabi-ar'
+      SLibBuilder                  := ${__Def_SLibBuilder__}
+
+      ARMObjDump                   := 'arm-none-eabi-objdump'
+
+      ARMObjCopy                   := 'arm-none-eabi-objcopy'
+      ARMObjCopyE2BFlags           := '-O' 'binary'
+      ARMObjCopyE2HFlags           := '-O' 'ihex'
+
+      ARMSize                      := 'arm-none-eabi-size'
+      ARMSizeDefFlags              := '--format=berkeley' '--radix=10'
+
+      ARMAddr2Line                 := 'arm-none-eabi-addr2line'
+
+      ARMDebugger                  := 'arm-none-eabi-gdb'
+
+
+##### Fix the file extensions as needed
+if !__os_linux__
+    ExeFileExt  := elf
+    DLibFileExt := so
+endif
+
+
+##### Function to print the size of the given executable file
+function __armgcc_obj_size__(objSizeProg, objSizeFlag, progName, ldLibraryPath, dimColor)
+    return $call(__generic_xgcc_obj_size__, ${objSizeProg}, ${objSizeFlag}, ${progName}, ${ldLibraryPath}, ${dimColor})
+endfunction
+
+
+##### Function to execute user command(s) via SWD
+function __armgcc_user_cmd_swd__(ldLibraryPath, oocdProg, oocdScriptsDir, interface, transport, adapterSpeed, targetDev, commands, ?overrideCPUTapID)
+    $exec(                                 \
+        __openocd_gen_command_exec__     , \
+        ${ldLibraryPath}                 , \
+        ${oocdProg}                      , \
+        ${oocdScriptsDir}                , \
+        ${interface}                     , \
+        ${transport}                     , \
+        ${adapterSpeed}                  , \
+        ${targetDev}                     , \
+        ${commands}                      , \
+        ${overrideCPUTapID}                \
+    )
+endfunction
+
+
+##### Function to reset the MCU via SWD
+function __armgcc_reset_swd__(ldLibraryPath, oocdProg, oocdScriptsDir, interface, transport, adapterSpeed, targetDev, ?overrideCPUTapID)
+    $exec(                                 \
+        __openocd_gen_command_exec__     , \
+        ${ldLibraryPath}                 , \
+        ${oocdProg}                      , \
+        ${oocdScriptsDir}                , \
+        ${interface}                     , \
+        ${transport}                     , \
+        ${adapterSpeed}                  , \
+        ${targetDev}                     , \
+        { 'init' 'reset run' 'shutdown' }, \
+        ${overrideCPUTapID}                \
+    )
+endfunction
+
+
+##### Function to upload the given program via SWD
+function __armgcc_upload_swd_simple__(ldLibraryPath, oocdProg, oocdScriptsDir, interface, transport, adapterSpeed, targetDev, progName, ?overrideCPUTapID, ?flashWriteOffset)
+    if &${flashWriteOffset} : local FWO := :" ${flashWriteOffset}"
+    $exec(                                               \
+        __openocd_gen_command_exec__                   , \
+        ${ldLibraryPath}                               , \
+        ${oocdProg}                                    , \
+        ${oocdScriptsDir}                              , \
+        ${interface}                                   , \
+        ${transport}                                   , \
+        ${adapterSpeed}                                , \
+        ${targetDev}                                   , \
+        :"program ~${progName} verify reset exit${FWO}", \
+        ${overrideCPUTapID}                              \
+    )
+endfunction
+
+
+##### Functions to debug the given program via SWD
+function __armgcc_debug_swd_start_print_gdb_info__(funcName, mcuName, progName, gdbProg, gdbNoExecCmd)
+    if &${CppToolBinDir} : local gdbProg := $cat_path(${CppToolBinDir}, ${gdbProg})
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    if !${gdbNoExecCmd}
+        echoln __c_white__ 'You can start GDB by executing this command from another console:' __c_reset__
+        echoln
+        echoln             "\"${gdbProg}\" \"~${progName}\""
+        echoln
+        echoln __c_white__ 'or by calling this library function:' __c_reset__
+        echoln
+        echoln             "$call(${funcName}, '-${progName}')"
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+    endif
+        echoln __c_white__ "GDB command examples to debug ${mcuName} via SWD:" __c_reset__
+        echoln
+        echoln             'target remote localhost:3333'
+        echoln             'monitor reset init'
+        echoln             'continue'
+        echoln             '^C'
+        echoln             'backtrace'
+        echoln             'monitor shutdown'
+        echoln             'quit'
+        echoln
+        echoln __c_white__ '---------------------------------------------------------------------------------------------------------' __c_reset__
+        echoln
+endfunction
+
+function __armgcc_debug_swd_start_exec_openocd__(ldLibraryPath, oocdProg, oocdScriptsDir, interface, transport, adapterSpeed, targetDev, gdbPort, tclPort, telnetPort, ?overrideCPUTapID)
+    if &${overrideCPUTapID} ; overrideCPUTapID := -c :"set CPUTAPID ${overrideCPUTapID}"
+    else                    ; overrideCPUTapID := ''
+    endif
+    if &${ldLibraryPath}
+        +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    endif
+        +@${oocdProg}                                          \
+            -f :"${oocdScriptsDir}/interface/${interface}.cfg" \
+            ${overrideCPUTapID}                                \
+            -c :"transport select ${transport}"                \
+            -c :"adapter speed ${adapterSpeed}"                \
+            -f :"${oocdScriptsDir}/target/${targetDev}.cfg"    \
+            -c :"gdb_port ${gdbPort}"                          \
+            -c :"tcl_port ${tclPort}"                          \
+            -c :"telnet_port ${telnetPort}"
+endfunction
+
+function __armgcc_debug_swd_gdb_exec__(ldLibraryPath, gdbProg, gdbPort, progName, autoConnect, ?resetInit)
+    #####
+    ##### ??? TODO : GDB non-stop mode ??? #####
+    #####
+    #-ex 'set target-async 1'
+    #-ex 'set pagination off'
+    #-ex 'set non-stop on'
+    # ...
+    #-ex 'continue -a'
+    #-ex 'interrupt -a'
+    #####
+    if &${CppToolBinDir} : local gdbProg          := $cat_path(${CppToolBinDir}, ${gdbProg})
+                           local resetMode        := $csel(${resetInit}, 'init', 'run') # The 'init' mode may not work on all systems
+    if  ${autoConnect}   : local GDBStartCommands := '-ex' :"target remote localhost:${gdbPort}" \
+                                                     '-ex' :"monitor reset ${resetMode}"         \
+                                                     '-ex'  'continue'
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${gdbProg} ~${progName} ${GDBStartCommands}
+    #####
+    ##### ??? TODO : GDB Annotations/MI-Interface ??? #####
+    #####
+  #+@${gdbProg} ~${progName} --annotate=1
+  #+@${gdbProg} ~${progName} --annotate=3
+  #+@${gdbProg} ~${progName} --interpreter mi
+    #####
+    ##### ??? TODO : Open in terminal ??? #####
+    #####
+   # GDBStartCommands :=  $series( '"', ${GDBStartCommands}, '" ')
+   #+@xterm          -maximized -e :"bash -c 'sleep 1 && \"${gdbProg}\" \"~${progName}\" ${GDBStartCommands}'"
+   #+@gnome-terminal --maximize -e :"bash -c 'sleep 1 && \"${gdbProg}\" \"~${progName}\" ${GDBStartCommands}'"
+   #+@osascript -e  'tell app "Terminal"'                                                                     \
+                -e :"set currentTab to do script (                                                            \
+                                     bash -c 'sleep 1 && \"${gdbProg}\" \"~${progName}\" ${GDBStartCommands}' \
+                     )"                                                                                       \
+                -e  'end tell'
+    #####
+   #+@cmd /c start          cmd /c          :"sleep 1 &&   ${gdbProg}     ~${progName}   ${GDBStartCommands}"
+   #+@konsole                   -e                         ${gdbProg}     ~${progName}   ${GDBStartCommands}
+    #####
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories) supersede
+    # Skip this block if 'ARM_TOOLCHAIN_PATH' contains the special string constant
+    if ${ARM_TOOLCHAIN_PATH} &!= ${__GTCP_NA__}
+        # Check the paths
+        if $or( $cmp(${ARM_TOOLCHAIN_PATH}, '&==', ''), $not( $valid_path(${ARM_TOOLCHAIN_PATH}) ) )
+            $call(__exit_error_nf__, 'ARM Toolchain (GCC ARM)', true)
+            $call(__armgcc_print_download_info__)
+            $exit(-1)
+        endif
+        # Set the location of the C/C++ binaries
+        CppToolBinDir := $cat_path(${ARM_TOOLCHAIN_PATH}, 'bin')
+        # Set additional LD paths as needed
+        if !__os_windows__
+            LDLibraryPath +:= $cat_path(${ARM_TOOLCHAIN_PATH}, 'lib'  )
+            LDLibraryPath +:= $cat_path(${ARM_TOOLCHAIN_PATH}, 'lib64')
+        endif
+    endif
+    # Set extra configuration information text as needed
+    if !&${__BuildTool_ExtraInfoName__}
+        if &${CppToolBinDir}
+            __BuildTool_ExtraInfoName__  +:= 'ARM GCC Directory'
+            __BuildTool_ExtraInfoValue__ +:= ${CppToolBinDir}
+        endif
+    endif
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to link executable files (in this case, also create the HEX and BIN files if requested)
+function link_exe(?extraOptions, ?createHEX, ?createBIN) supersede
+    # Call the origin function
+    $call(__origin__, ${extraOptions})
+    # Convert ELF to HEX as needed
+    if ${createHEX}
+        $call( __bpt_hex__                                                                                                         )
+        $exec( __generic_xgcc_elf_to_xxx__, ${ARMObjCopy}, ${ARMObjCopyE2HFlags}, ~$[target], 'hex', $call(__get_LDLibraryPaths__) )
+        $call( __conditional_print_stdxxx_and_check_excode__                                                                       )
+    endif
+    # Convert ELF to BIN as needed
+    if ${createBIN}
+        $call( __bpt_bin__                                                                                                         )
+        $exec( __generic_xgcc_elf_to_xxx__, ${ARMObjCopy}, ${ARMObjCopyE2BFlags}, ~$[target], 'bin', $call(__get_LDLibraryPaths__) )
+        $call( __conditional_print_stdxxx_and_check_excode__                                                                       )
+    endif
+endfunction
+
+
+##### Function to run the given executable file (in this case, print the size and some information)
+function run_exe(progName, ?dimColor) supersede
+    # Exit if the executable does not actually exist
+    if !$valid_path(${progName}) : return
+    # Print the size
+                 $call( __bpt_exe_size_linespace__                                                                                   )
+    local res := $call( __armgcc_obj_size__, ${ARMSize}, ${ARMSizeDefFlags}, ${progName}, $call(__get_LDLibraryPaths__), ${dimColor} )
+    if !${res} : $call( __conditional_print_stdxxx_and_check_excode__                                                                )
+endfunction
+
+
+##### Function to generate LST files
+function gen_lst(progName)
+    $call(__gen_lst__, ${progName}, ${ARMObjDump})
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some informational message about how to obtain ARM GCC
+function __armgcc_print_download_info__(?tcSimpleName, ?tcRootDirPathName, ?tcPathEnvVarName)
+    local tcSimpleName      ?:= 'ARM'
+    local tcRootDirPathName ?:= 'arm'
+    local tcPathEnvVarName  ?:= 'ARM_TOOLCHAIN_PATH'
+    echoln "Please use your operating system package manager to install the ${tcSimpleName} Toolchain (GCC ARM None EABI) or download and install it from:"
+    echoln '    https://developer.arm.com/downloads/-/gnu-rm'
+    echoln
+    echoln 'Example (Linux):'
+    echoln "    mkdir ~/${tcRootDirPathName}"
+    echoln "    cd ~/${tcRootDirPathName}"
+    echoln '    wget -c https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2'
+    echoln '    tar -xjvpf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2'
+    echoln '    cd ..'
+    echoln "Set '${tcPathEnvVarName}' to the ${tcSimpleName} Toolchain location."
+    echoln
+endfunction
+
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__(?NGInfo, ?xgfSpcCnt, ?hideComSel, ?noCpp20M, ?noSharedLib, ?noRunExe, ?userCompSel, ?userExtraFuncs) supersede
+    # Use the generic information text if it was not defined
+    if !&${NGInfo}
+        local NGText := __c_cyan__  "Generic ARM" __c_white__
+        local NGInfo := __c_white__ 'for ' ${NGText} ' '
+    endif
+    # Call the original function
+    $call(__origin__, ${hideComSel}, ${noCpp20M}, ${noSharedLib}, ${noRunExe}, ${userCompSel}, ${userExtraFuncs})
+    # Print some information
+    local max xgfSpcCnt, ${xgfSpcCnt}, 1
+    local     XGFSpc := $repeat(' ', ${xgfSpcCnt})
+    $call(__btlib_help_print_title_cross__)
+    $call(__btlib_help_print_title_variables__, ${NGInfo})
+    echoln __c_green__ '    __gcc__              ' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __x_gcc__            ' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __arm_gcc__          ' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_green__ '    __arm_none_eabi_gcc__' ${XGFSpc} __c_white__ ': always evaluate to the value ' __c_yellow__ '1' __c_white__ ' in this case'
+    echoln __c_reset__
+endfunction

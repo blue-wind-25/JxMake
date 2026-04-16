@@ -1,0 +1,135 @@
+:::include <C++XBuildTool_STM8_SPL>
+
+
+if __os_windows__
+    STM8_SDK_PATH       := 'Z:/xsdk/stm8/stm8-sdk'
+    STM8_TOOLCHAIN_PATH := $cat_path( $getenv('ProgramFiles'), 'SDCC' )
+else
+    STM8_SDK_PATH       := $cat_path( $uhd(), 'xsdk/stm8/stm8-sdk'   )
+    STM8_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/stm8/sdcc-4.2.0' )
+endif
+
+
+(*
+ * Please use:
+ *     https://github.com/tenbaht/spl-splitter
+ * to build the split libraries.
+ *)
+USE_SPL_SPLITTER_LIB := 0
+
+
+JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG := 'v0.10.0-15'
+
+
+BuildSubdir := 'ulib'
+
+(*
+STM8L101F3P6
+STM8L152C6T6
+STM8L162M8T6TR
+STM8L051F3P6
+STM8AL3146UAX
+STM8S103F3P6
+STM8TL53G4
+STM8T52F4
+*)
+
+$call(init_project            , ${BuildSubdir})
+$call(stm8spl_select_part     , STM8S103F3P6  )
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(select_c_langstd        , c11           )
+$call(select_cxx_langstd      , c++11         )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+CppCommonCcCompileFlags  +:= $call(def_macro, STM8S103)
+CppCommonCxxCompileFlags +:= $call(def_macro, STM8S103)
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+#(*
+$rmdir_rec('test_dir')
+$call(stm8spl_copy_template_files, 'test_dir')
+#*)
+
+
+PROG_NAME := $call(exe_fpath, main    )
+PROG_OBJS := $call(obj_fpath, main.cpp)
+
+    $call(stm8spl_add_pkg_src, { \
+        stm8s_it.c               \
+    } )
+if !${USE_SPL_SPLITTER_LIB}
+    $call(stm8spl_add_sys_src, { \
+        stm8s_clk.c              \
+        stm8s_gpio.c             \
+    } )
+endif
+
+SLIB_NAME := $call(slib_fpath,   ulib          )
+SLIB_OBJS := $call( obj_fpath, { ulib/src0a.S  \
+                                 ulib/src0b.c  \
+                                 ulib/src1.cpp \
+                                 ulib/src2.cpp \
+                  } )
+
+##### ??? TODO : Use 'sobj_fpath' and 'ssrc_fname' ??? #####
+
+$call(stm8spl_add_extradeps, ${PROG_NAME})
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+target run
+    jxmake ${SLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    jxmake stm8spl_build_system_library
+if ${USE_SPL_SPLITTER_LIB}
+    local CppSysStaticLib    :+= ${STM8_DEVICE}
+    local CppSysStaticLibDir :+= :"${STM8_SDK_PATH}/spl-splitter-lib"
+endif
+    local CppUsrStaticLib    :+= ulib
+    $call(stm8spl_link_exe)
+endtarget
+
+target ${SLIB_NAME} : ${SLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target $call(sobj_target_glob) : %.S
+    $call(compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_stm8s103 rswim
+# jxmake -C ..\test\src\cpp_stm8s103 rswim
+target rswim
+    $call(stm8_reset_swim)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_stm8s103 uswim
+# jxmake -C ..\test\src\cpp_stm8s103 uswim
+target uswim
+    jxmake run
+    $call(stm8_upload_swim, ${PROG_NAME})
+endtarget

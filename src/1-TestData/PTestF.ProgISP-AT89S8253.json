@@ -1,0 +1,108 @@
+{
+    "@class" : "jxm.ugc.ProgISP$Config",
+    "spiMode" : "_1",
+    "ssMode" : "ActiveLow",
+    "programmingEnable" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ProgrammingEnable",
+        "instruction" : [ 0xAC, 0x53, 0x00, 0x00 ],
+        "responseCheck" : [ -1  , -1  , 0x53, -1   ],
+        "retryCount" : 32
+    },
+    "readSignature" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ReadSignature",
+        "instruction" : [ 0x28, 0x00, 0x30, 0x00, 0x28, 0x00, 0x31, 0x00 ],
+        "responseIndex" : [ 3, 7 ]
+    },
+    "chipErase" : {
+        "@class" : "jxm.ugc.ProgISP$Config$ChipErase",
+        "instruction" : [ 0xAC, 0x80, 0x00, 0x00 ],
+        "waitDelay_MS" : 10
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryFlash",
+        "paged" : false,
+        "totalSize" : 12288,
+        "pageSize" : 0,
+        "numPages" : 0,
+        "instruction_LoadExtAddrByte" : null,
+        "a0idx_LoadExtAddrByte" : 2,
+        "instruction_ReadProgMemLB" : [ 0x20, -1  , -1  , 0x00 ],
+        "instruction_ReadProgMemHB" : null,
+        "a1idx_ReadProgMemXB" : 1,
+        "a0idx_ReadProgMemXB" : 2,
+        "responseIndex_ReadProgMemXB" : 3,
+        "readDataBuff" : null,
+        "instruction_LoadProgMemLB" : null,
+        "instruction_LoadProgMemHB" : null,
+        "a1idx_LoadProgMemXB" : 1,
+        "a0idx_LoadProgMemXB" : 2,
+        "dtidx_LoadProgMemXB" : 3,
+        "instruction_WriteProgMemPage" : null,
+        "a1idx_WriteProgMemPage" : 1,
+        "a0idx_WriteProgMemPage" : 2,
+        "waitDelay_MS_WriteProgMemPage" : 5,
+        "paged_direct" : true,
+        "pageSize_direct" : 64,
+        "numPages_direct" : 192,
+        "instruction_WritePageDirect" : [ 0x50, -1  , -1   ],
+        "a1idx_WritePageDirect" : 1,
+        "a0idx_WritePageDirect" : 2,
+        "waitDelay_MS_WritePageDirect" : 5,
+        "instruction_WriteProgMemLB" : [ 0x40, -1  , -1  , -1   ],
+        "instruction_WriteProgMemHB" : null,
+        "a1idx_WriteProgMemXB" : 1,
+        "a0idx_WriteProgMemXB" : 2,
+        "dtidx_WriteProgMemXB" : 3,
+        "waitDelay_MS_WriteProgMem" : 5
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryEEPROM",
+        "totalSize" : 0,
+        "instruction_ReadEEPROMMem" : null,
+        "a1idx_ReadEEPROMMem" : 1,
+        "a0idx_ReadEEPROMMem" : 2,
+        "responseIndex_ReadEEPROMMem" : 3,
+        "instruction_WriteEEPROMMem" : null,
+        "a1idx_WriteEEPROMMem" : 1,
+        "a0idx_WriteEEPROMMem" : 2,
+        "dtidx_WriteEEPROMMem" : 3,
+        "waitDelay_MS_WriteEEPROMMem" : 4
+    },
+    "memoryLFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryLFuse",
+        "instruction_ReadLFuse" : null,
+        "responseIndex_ReadLFuse" : 3,
+        "instruction_WriteLFuse" : null,
+        "dtidx_WriteLFuse" : 3,
+        "waitDelay_MS_WriteLFuse" : 5
+    },
+    "memoryHFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryHFuse",
+        "instruction_ReadHFuse" : null,
+        "responseIndex_ReadHFuse" : 3,
+        "instruction_WriteHFuse" : null,
+        "dtidx_WriteHFuse" : 3,
+        "waitDelay_MS_WriteHFuse" : 5
+    },
+    "memoryEFuse" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryEFuse",
+        "instruction_ReadEFuse" : null,
+        "responseIndex_ReadEFuse" : 3,
+        "instruction_WriteEFuse" : null,
+        "dtidx_WriteEFuse" : 3,
+        "waitDelay_MS_WriteEFuse" : 5
+    },
+    "memoryLockBits" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryLockBits",
+        "instruction_ReadLockBits" : null,
+        "responseIndex_ReadLockBits" : 3,
+        "instruction_WriteLockBits" : null,
+        "dtidx_WriteLockBits" : 3,
+        "waitDelay_MS_WriteLockBits" : 5
+    },
+    "memoryCalibrationByte" : {
+        "@class" : "jxm.ugc.ProgISP$Config$MemoryCalibrationByte",
+        "instruction_ReadCalibrationByte" : null,
+        "responseIndex_ReadCalibrationByte" : 3
+    }
+}

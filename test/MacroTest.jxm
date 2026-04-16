@@ -1,0 +1,41 @@
+B0 = ${X} ${A} ${Z}
+B1 = ${A}
+B2 = ${A/(.+)\.ref/$1.o/}
+C  = "123 ${B1} ${B2} 456"
+D  = "123 ${B2} ${B2/(.+)\.o/$1.o.o/} 456"
+
+
+
+.macro print_line
+    echoln
+.endmacro
+
+.macro printf_line
+    $printf("-------------------------")
+    .$print_line
+    .$print_line
+.endmacro
+
+.macro mymacro
+    $printf("A  = '%s'\n", ${A} )
+    $printf("B0 = '%s'\n", ${B0})
+    $printf("B1 = '%s'\n", ${B1})
+    $printf("B2 = '%s'\n", ${B2})
+    $printf("C  = '%s'\n", ${C} )
+    $printf("D  = '%s'\n", ${D} )
+    .$printf_line
+.endmacro
+
+A = abc.ref
+.$mymacro
+
+A = def.ref
+.$mymacro
+
+
+
+.undefmacro print_line
+.undefmacro printf_line
+.undefmacro mymacro
+
+#.$mymacro

@@ -1,0 +1,47 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc           :=  $fwc_load_intel_hex('../src/1-TestData/PTest2X.Blink-STM32F103C8T6-Ofs8k-VBC.cpp.hex')
+
+mcuConfigJSON := [["
+{
+    "@class" : "jxm.ugc.ProgBootOpenBLT$Config",
+    "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgBootSerial$Config$MemoryFlash",
+        "paged" : true,
+        "totalSize" : 65536,
+        "pageSize" : 1024,
+        "numPages" : 64,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgBootSerial$Config$MemoryEEPROM",
+        "totalSize" : 0
+    }
+}
+"]]
+
+function prog_cb(req, par)
+    if ${req} == 1 : return 0x08000000 # REQ_FLASH_BASE_ADDR
+    if ${req} == 2 : return 0x2000     # REQ_BOOTLOADER_SIZE
+    if ${req} == 3 : return 0x010C     # REQ_UPROG_VTAB_SIZE
+    if ${req} == 9                     # REQ_KEY_FROM_SEED
+        local key := ${par}<1>
+        dec   key
+        return ${key}
+    endif
+endfunction
+
+progSpec      := 'ProgBootOpenBLT' ${mcuConfigJSON} '/dev/ttyUSB0' -57600 0x08000000 0x2000 0x010C 0x54
+progSpec      := 'ProgBootOpenBLT' ${mcuConfigJSON} '/dev/ttyUSB0' -57600 -1         -1     -1     "cb:prog_cb"
+
+if !true
+    $mcu_prog_exec('', ${progSpec}, -1, { 'chip_erase' 'write_flash' 'verify_flash' }, ${fwc}, -1)
+else
+    $mcu_prog_exec('', ${progSpec}, -1, { 'verify_flash' }, ${fwc}, -1)
+endif
+
+echoln
+
+$fwc_delete(${fwc})

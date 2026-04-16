@@ -1,0 +1,12 @@
+echoln __c_white__
+
+$printf("A  = '%s'\n", ${A} )
+$printf("B0 = '%s'\n", ${B0})
+$printf("B1 = '%s'\n", ${B1})
+$printf("B2 = '%s'\n", ${B2})
+$printf("C  = '%s'\n", ${C} )
+$printf("D  = '%s'\n", ${D} )
+
+:::include '../test/IncTest_Println.jxm'
+
+echoln __c_reset__

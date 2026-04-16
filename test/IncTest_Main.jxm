@@ -1,0 +1,17 @@
+:::include  <Null>
+:::sinclude <INVALID_LIBRARY_NAME>
+
+B0 = ${X} ${A} ${Z}
+B1 = ${A}
+B2 = ${A/(.+)\.ref/$1.o/}
+C  = "123 ${B1} ${B2} 456"
+D  = "123 ${B2} ${B2/(.+)\.o/$1.o.o/} 456"
+
+:::sinclude 'NOT_EXISTENT_FILE.jxm'
+
+A = abc.ref
+:::include 'IncTest_Print.jxm'
+
+A = def.ref
+:::include 'IncTest_Print.jxm'
+

@@ -1,0 +1,142 @@
+====================================================================================================
+High Voltage Attachment --- Boost Converter and AVR-ISP/TPI & PIC-ICSP Section
+====================================================================================================
+
+The boost converter feedback path is connected to ADC0 through a 4k7 resistor and a 1k variable
+resistor, which act as a voltage divider.
+
+By design:
+
+    # The internal 2.56V ADC reference voltage must be used.
+    # The maximum boosted voltage must be capped at 13.5V (for safety reason).
+
+Therefore, the voltage divider must divide the feedback voltage by at least 13.5 / 2.56 = 5.2734375.
+
+----------------------------------------------------------------------------------------------------
+
+VBoost ───┐
+          │
+        ┌─┴─┐
+        │4k7│ Rf
+        └─┬─┘
+          │
+        ┌─┴─┐ Ra
+     Rv │1k ┣──────── PC.0 (ADC0)
+        └─┬─┘ Rb
+          │
+          │
+         ━┻━
+         GND
+
+For convenience, lets define so that 16.0V is read as 0x3FF (the ADC has 10-bit resolution).
+Hence, the voltage divider must divide the feedback voltage by 16 / 2.56 = 6.25.
+
+This means that the variable resistor must be adjusted to satisfy the following equation:
+    1 / 6.25 = Rb / (Rf + Ra + Rb)
+          Rb =      (Rf + Ra + Rb) / 6.25
+
+Because:
+    Rf      = 4700 ohms
+    Ra + Rb = 1000 ohms
+
+we can solve:
+    Ra = ~ 88 ohms
+    Rb = ~912 ohms
+
+For convenience, these are some of the possible values that the ADC may read when calibrating the
+variable resistor using Vdd:
+
+    Vdd     ADC Conversion Result
+    5.30V   339 (0x153)
+    5.25V   336 (0x150)
+    5.20V   332 (0x14C)
+    5.15V   329 (0x149)
+    5.10V   326 (0x146)
+    5.05V   323 (0x143)
+    5.00V   320 (0x140)
+    4.95V   316 (0x13C)
+    4.90V   313 (0x139)
+    4.85V   310 (0x136)
+    4.80V   307 (0x133)
+
+For convenience, the following are the minimum and maximum values that the ADC may read when
+measuring possible VIn:
+
+    Vin     ADC Conversion Result
+    3.99V   255 (0x0FF)
+    7.36V   471 (0x1D7)
+
+In the design, Vpp is routed through an SS14 Schottky diode, which exhibits a forward voltage of
+approximately 0.2V at low current. Hence, the boost converter sets the output voltage about 0.25V
+higher than the value specified by the DIP switch:
+
+    DIP Switch Setting   VBoost   ADC Conversion Result
+    13.0V                13.25V   847 (0x34F)
+    12.5V                12.75V   815 (0x32F)
+    12.0V                12.25V   783 (0x30F)
+    11.5V                11.75V   751 (0x2EF)
+    11.0V                11.25V   719 (0x2CF)
+    10.5V                10.75V   687 (0x2AF)
+    10.0V                10.25V   655 (0x28F)
+     9.5V                 9.75V   623 (0x26F)
+     9.0V                 9.25V   591 (0x24F)
+     8.5V                 8.75V   559 (0x22F)
+     8.0V                 8.25V   527 (0x20F)
+
+Please note that opting for the lower-value feedback resistor pair (4k7 and 1k) is preferred over
+the higher-value resistor pair (27k and 5k), as it contributes more effectively to achieving the
+required minimal load for the boost converter. If you choose to use the higher-value resistor
+pair, the ratio between Ra and Rb, as well as their individual values, will change.
+
+Please refer to the special notes in '../../Firmware/ATmega8A_Boost/main.c' for the more detailed
+calibration steps.
+
+NOTE : The two 100k resistors controlling the Vpp P-MOS also reduce the effective Vpp delivered
+       to the target. Currently, this reduction is considered to be within tolerance.
+
+----------------------------------------------------------------------------------------------------
+
+The boost converter is controlled using 8-bit fast PWM from PB1 (OC1A). It must be set to operate
+at the highest possible frequency (no clock prescaling); with an 11.0592MHz crystal the resulting
+PWM frequency will be 43.2kHz. At this frequency, using a 470uH inductor is preferred, although
+values up to 2mH can still be suitable.
+
+In the idle state (non-programming), the boost converter is most likely to operate in discontinuous
+conduction mode (DCM), whereas in the HP-UPDI programming state, the boost converter is most likely
+to operate in continuous conduction mode (CCM). To prevent abnormal operation and overvoltage, the
+PWM duty cycle must be constrained between ~5% and ~70% (which corresponds to OCR1A values ranging
+from 13 to 179).
+
+To prevent voltage overshoot when using HV-UPDI, the two firmware designs must be tailored so that
+the boost converter section resets its operation before the HV-UPDI section removes the high-voltage
+(HV) pulse. This is achieved using the nBOOST_STOP and nBOOST_READY signals (although this may be
+unnecessary, it is a safer approach).
+
+----------------------------------------------------------------------------------------------------
+
+The output impedance for the boosted voltage in the AVR-ISP/TPI & PIC-ICSP section can be selected
+from 820R, 2k7, and 4k7. For safety reasons, start with the highest impedance first. If it does not
+work, switch to a lower one.
+
+You can connect multiple jumpers to parallel the resistors, reducing the output impedance to as low
+as 555R. Additionally, you may adjust the resistor values on the PCB to better suit your application
+requirements. However, it is recommended to maintain an output impedance within the range of 100R to
+470R, as using 0R impedance may pose risks to both the target and the programmer.
+
+====================================================================================================
+
+
+====================================================================================================
+High Voltage Attachment --- AVR-UPDI Section
+====================================================================================================
+
+The design uses SMA (DO-214AC) hand-soldered footprints for the diodes in the UPDI section, as they
+can easily accommodate diodes with SMA, DO-34, and DO-35 footprints.
+
+To support higher baudrates, diodes such as BAT85 should be used instead of SS14.
+
+----------------------------------------------------------------------------------------------------
+
+The output impedance for the boosted voltage in the AVR-UPDI section should be quite low (< 1 ohm).
+
+====================================================================================================

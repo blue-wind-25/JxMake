@@ -1,0 +1,115 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "5c73339b-6b9b-4ef3-b462-e2fd44999fa8")
+	(paper "A4")
+	(title_block
+		(title "Power Sopply Control")
+		(date "2025-10-15")
+		(rev "1.0.5")
+		(comment 2 "This file is part of the JxMake program, see LICENSE file for the license details")
+		(comment 3 "Copyright (C) Aloysius Indrayanto")
+	)
+	(lib_symbols)
+	(text_box "IRLML6401, AO3401(A), and other similar P-MOSFETs with the same footprint can also be used as substitutes for the IRLML6402."
+		(exclude_from_sim no)
+		(at 50.8 67.31 0)
+		(size 69.85 11.43)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.508)
+				(bold yes)
+			)
+			(justify left top)
+		)
+		(uuid "1064443b-34e8-4d40-93fa-759d76123f0d")
+	)
+	(sheet
+		(at 90.17 50.8)
+		(size 30.48 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "1e89157c-877c-456d-8220-13de4444745d")
+		(property "Sheetname" "Sequencer"
+			(at 91.186 53.594 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Sequencer.kicad_sch"
+			(at 91.186 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PSC"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 50.8 50.8)
+		(size 30.48 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "35b80231-afa4-447a-bec2-f37e411b0247")
+		(property "Sheetname" "Selector"
+			(at 51.816 53.594 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Selector.kicad_sch"
+			(at 51.816 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "PSC"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)

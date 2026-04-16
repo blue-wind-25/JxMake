@@ -1,0 +1,92 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Label and Go-To
+----------------------------------------------------------------------------------------------------
+
+label <label_specifier> :
+...
+...
+...
+[s]goto <label_specifier>
+
+
+The above statements can only be used from within user defined functions and targets.
+
+
+In a 'label' statement, the <label_specifier> must be a plain symbol name or a single-quoted string.
+
+In a '[s]goto' statement, the <label_specifier> can be a plain symbol name, a single-quoted string,
+a combined/flattened double-quoted string, a variable evaluation, or a function call.
+
+The 'sgoto' statement will do nothing if the <label_specifier> does not exist.
+
+
+----------------------------------------------------------------------------------------------------
+Conditional Statements
+----------------------------------------------------------------------------------------------------
+
+if <condition1> : ...
+
+    The right hand side of a one-line if statement can only contain simple expressions.
+
+
+if <condition1>
+    ...
+endif
+
+
+if <condition1>
+    ...
+else
+    ...
+endif
+
+
+if <condition1>
+    ...
+elif <condition2>
+    ...
+else
+    ...
+endif
+
+
+if <condition1>
+    ...
+elif <condition2>
+    ...
+elif <condition3>
+    ...
+else
+    ...
+endif
+
+
+Each <condition> is one of:
+
+    <value1> &== <value2> # String         comparison
+    <value1> &!= <value2> # String         comparison
+
+    <value1>  == <value2> # Signed integer comparison
+    <value1>  != <value2> # Signed integer comparison
+
+    <value1>  <  <value2> # Signed integer comparison
+    <value1>  <= <value2> # Signed integer comparison
+    <value1>  >  <value2> # Signed integer comparison
+    <value1>  >= <value2> # Signed integer comparison
+
+    <value1>              # Shortcut for <value1>  != 0
+   !<value1>              # Shortcut for <value1>  == 0
+
+   &<value1>              # Shortcut for <value1> &!= ''
+  !&<value1>              # Shortcut for <value1> &== ''
+
+
+NOTE : # Condition evaluations will internally flatten the set member(s) into one string first.
+       # When evaluating conditions, the words 'false' and 'true' will be internally translated to
+         0 and 1 respectively.
+
+====================================================================================================

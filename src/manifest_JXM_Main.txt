@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Application-Name: JxMake
+Created-By: https://sourceforge.net/projects/jxmake
+Class-Path: ##### !!! TODO !!! #####
+Main-Class: JXM_Main

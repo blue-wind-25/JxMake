@@ -1,0 +1,42 @@
+:::include <C++XBuildTool_ESP8266_Arduino>
+
+
+BuildSubdir := 'ld'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 0             )
+$call(select_optimization     , size          )
+$call(select_c_langstd        , c11           )
+$call(select_cxx_langstd      , c++11         )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+LD_FILE_IN  :=                 'ld/eagle.app.v6.common.ld.h'
+LD_FILE_OUT := $call(ld_fpath, 'ld/local.eagle.app.v6.common')
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# ./jxmake.bat -C ../test/src/lds clean
+# ./jxmake.bat -C ../test/src/lds run
+# jxmake -C ..\test\src\lds clean
+# jxmake -C ..\test\src\lds run
+target run
+    jxmake ${LD_FILE_OUT}
+endtarget
+
+
+target ${LD_FILE_OUT} : ${LD_FILE_IN}
+    local Options  := $call(def_macro, 'MMU_IRAM_SIZE=0x8000'  )
+          Options :+= $call(def_macro, 'MMU_ICACHE_SIZE=0x8000')
+          Options :+= $call(def_macro, 'VTABLES_IN_FLASH'      )
+    $call(compile_ld, ${Options})
+endtarget

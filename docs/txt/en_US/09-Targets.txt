@@ -1,0 +1,159 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Defining Targets
+----------------------------------------------------------------------------------------------------
+
+target <target_name> [: prerequisite_name...]
+    [extradep [<specific_target_name> :] [!]<file_name_or_path>...]
+    ...
+endtarget
+
+
+The characters '? and '%' can be used to create pattern rules (glob):
+    # For a target       name : '?' match one character while '%' match multiple characters.
+    # For a prerequisite name : '%' evaluates to the captured part of '?' and '%' in the target name
+                                sequentially. It is possible to directly refer to the specific part
+                                by using number from '%1' to '%9'.
+
+
+NOTE : # A target without any prerequisites will always be executed (unless there is a file or
+         directory with the same name as the target).
+       # The <target_name> and [prerequisite_name] can be defined using a plain text, a variable
+         evaluation, a function call, a single-quoted string, and a flattened double-quoted string;
+         in case it is defined using a function call, then only one function call is allowed.
+       # Without the '!' prefix, non-existent files/paths will not actually be included by the
+         'extradep' statements.
+
+
+Examples:
+
+    function compile_cpp(source, output)
+        @<command_1>
+        @<command_2>
+        if __os_windows__
+            @<command_3_windows>
+        elif __os_linux__
+            @<command_3_linux>
+        elif __os_mac__
+            @<command_3_mac>
+        else
+            return 0
+        endif
+        @<command_4>
+        @<command_5>
+        return 1
+    endfunction
+
+    target my_target : my_source.cpp
+        local src := $lcase( $[target] )
+        local dst := $lcase( $[target] )
+        $exec( compile_cpp, ${src}, ${dst} )
+    endtarget
+
+
+Pattern rules examples:
+
+    target %.cpp.o : %.cpp
+        ...
+    endtarget
+
+    target build/mylib.a: build/mylib/%.cpp.o
+        ...
+    endtarget
+
+
+    target %.o : %.1.asm %.2.asm
+        extradep        special_include1.asm # This item is for all '%.o'
+        extradep z.o :  special_include2.asm # This item is for 'z.o' only
+        extradep z.o : !special_include3.asm # This item is for 'z.o' only and include the item
+        ...                                  # even if the file/path is non-existent when this
+        ...                                  # statement is executed
+        ...
+    endtarget
+
+    target %.?.asm : /tmp
+        ...
+    endtarget
+
+
+Examples of the intended use of the flattening operator (:"..."):
+
+    EXE_EXT   = elf
+    OBJ_EXT   = o
+
+    PROG_NAME = :"main.${EXE_EXT}"
+    OBJ_FILES = :"main.cpp.${OBJ_EXT}"
+
+    target ${PROG_NAME} : ${OBJ_FILES}
+        ...
+        ...
+        ...
+    endtarget
+
+    target :"%.cpp.${OBJ_EXT}" : %.cpp
+        ...
+        ...
+        ...
+    endtarget
+
+
+Examples of how to force the 'build 'target to execute even if a directory named 'build' exists:
+
+    target build : .PHONY
+            ...
+            ...
+            ...
+    endtarget
+
+    target .PHONY # NOTE : the name does not have to be '.PHONY'
+    endtarget
+
+
+----------------------------------------------------------------------------------------------------
+Running Other Targets
+----------------------------------------------------------------------------------------------------
+
+A target can execute other target(s) sequentially or parallelly.
+
+The keyword 'jxmake', '+jxmake', and 'jxwait' can be used for this purpose.
+
+
+Sequential execution example:
+
+    target my_target
+        ...
+        jxmake my_other_target_1 my_other_target_2 my_other_target_3
+        ...
+    endtarget
+
+    target my_target
+        ...
+        jxmake my_other_target_1
+        jxmake my_other_target_2
+        jxmake my_other_target_3
+        ...
+    endtarget
+
+
+Parallel execution example:
+
+    target my_target
+        ...
+        ...
+       +jxmake my_other_target_1
+       +jxmake my_other_target_2
+       +jxmake my_other_target_3
+        ...
+        ...
+        jxwait # Wait for the targets above to complete; without this:
+        ...    #     + Subsequent 'jxmake' commands (not '+jxmake') may produce undefined
+        ...    #       results and/or unidentifiable/unexplained errors.
+        ...    #     + The system may terminate the program upon the completion of 'my_target',
+        ...    #       even if the parallelly executed targets have not completely finished
+        ...    #       executing.
+    endtarget
+
+====================================================================================================

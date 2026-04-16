@@ -1,0 +1,224 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - GNU Compiler Collection (GCC)                                           *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+(***** Only include this part of the script where necessary *****)
+if $or(${__ForceGCC__}, __os_posix__, __os_posix_compat__)
+
+##### Set flags
+const __gcc__                   := 1
+const __CppBuildTool_Defined__  := 1
+      __BuildTool_Name__        := 'GNU Compiler Collection (GCC)'
+      __BuildTool_Version__     := 0
+      __BuildTool_Version_Num__ := 0
+
+
+#####
+#####
+#####
+
+
+##### Define the module file extension
+ModFileExt := gcm
+
+
+##### Define the executables, paths, and options
+const __MWE__ := $getenv('JXMAKELIB_MAX_WARNINGS_AND_ERRORS', ${DEFAULT_JXMAKELIB_MAX_WARNINGS_AND_ERRORS})
+
+const __CommonCompileFlags__   := '-Wall' '-Wextra' :"-fmax-errors=${__MWE__}"
+
+      CppDiagnosticsColor      := '-fdiagnostics-color=always' # '-fdiagnostics-color=always' is available starting from GCC 4.9
+
+      CppAssembler             := 'g++'
+      CppCommonAssemblerFlags  := ${__CommonCompileFlags__} ${CppDiagnosticsColor}
+
+      CppCcCompiler            := 'gcc'
+      CppCommonCcCompileFlags  := ${__CommonCompileFlags__} ${CppDiagnosticsColor}
+
+      CppCxxCompiler           := 'g++'
+      CppCommonCxxCompileFlags := ${__CommonCompileFlags__} ${CppDiagnosticsColor}
+      CppCxx20MCompileFlags    := '-std=c++20' '-fmodules-ts'
+
+      CppLinker                := 'g++'
+      CppCommonLinkFlags       := ''
+      CppDemangler             := 'c++filt'
+
+      CppSysHeaderDir          := ''
+
+      CppSysSharedLib          := ''
+      CppSysStaticLib          := ''
+      CppSysSharedLibDir       := ''
+      CppSysStaticLibDir       := ''
+
+      CppUsrSharedLib          := ''
+      CppUsrStaticLib          := ''
+      CppUsrSharedLibDir        = ${CppBuildDir}
+      CppUsrStaticLibDir        = ${CppBuildDir}
+
+      SLibBuilder              := 'gcc-ar'
+
+      ModCacheDirRoot          := 'gcm.cache'
+
+
+##### Function to check for C++20 module support
+function __check_cpp20m_support__(functionName)
+    # https://gcc.gnu.org/projects/cxx-status.html#cxx20
+    if !$call(cpp_compiler_ver_min, 11, 00, 0, 0) : $call(__exit_error_ns_ver__, :"${functionName}()", ${__BuildTool_Name__})
+endfunction
+
+
+##### Function to compile C++20 system header units
+function __compile_sys_hunit__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    local U := $[target/(?:.+\/)?(.+?)\.sys\.unit/$1/]
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCxxCompileFlags} ${CppCxx20MCompileFlags} -x c++-system-header -c ${U}
+    if $[excode] : return
+    $touch(~$[target])
+endfunction
+
+function compile_sys_hunit()
+    $call( __check_cpp20m_support__, $[function]                )
+    $call( __bpt_cxx20hu__                                      )
+    $exec( __compile_sys_hunit__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__        )
+endfunction
+
+
+##### Function to compile C++20 user header units
+function __compile_usr_hunit__(ldLibraryPath)
+    if &${CppToolBinDir} : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    .$__CLANG_GCC__IU_IS__
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${CppCxxCompiler} ${CppCxxCompileFlags} ${IU} ${IS} ${CppCxx20MCompileFlags} -fmodule-header -c -$[preq*]
+    if $[excode] : return
+    $touch(~$[target])
+endfunction
+
+function compile_usr_hunit()
+    $call( __check_cpp20m_support__, $[function]                )
+    $call( __bpt_cxx20hu__                                      )
+    $exec( __compile_usr_hunit__, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__        )
+endfunction
+
+
+##### Function to compile C++ and C++20 source codes
+function __compile_cpp__(cpp20m, extraOptions, forSharedLibObj, ldLibraryPath)
+    if &${CppToolBinDir}   : local CppCxxCompiler := $cat_path(${CppToolBinDir}, ${CppCxxCompiler})
+    if  ${forSharedLibObj} : local fPIC           := '-fPIC'
+    .$__CLANG_GCC__IU_IS__
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    if ${cpp20m}
+        +@${CppCxxCompiler} ${CppCxxCompileFlags} ${IU} ${IS} ${CppCxx20MCompileFlags} ${extraOptions} ${fPIC} -c -$[preq*] -o ~$[target]
+    else
+        +@${CppCxxCompiler} ${CppCxxCompileFlags} ${IU} ${IS} ${CppCxxLangStdFlags}    ${extraOptions} ${fPIC} -c ~$[preq*] -o ~$[target]
+    endif
+endfunction
+
+function compile_cpp(?extraOptions, ?forSharedLibObj)
+    $call( __bpt_cxx__                                                                                )
+    $exec( __compile_cpp__, false, ${extraOptions}, ${forSharedLibObj}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                              )
+endfunction
+
+function compile_cpp20m(?extraOptions, ?forSharedLibObj)
+    $call( __check_cpp20m_support__, $[function]                                                      )
+    $call( __bpt_cxx20m__                                                                             )
+    $exec( __compile_cpp__, true , ${extraOptions}, ${forSharedLibObj}, $call(__get_LDLibraryPaths__) )
+    $call( __conditional_print_stdxxx_and_check_excode__                                              )
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to generate the LST files
+function __gen_lst_exec__(progName, cmdObjDump, ldLibraryPath)
+    # Execute the tool
+    if &${CppToolBinDir} : cmdObjDump := $cat_path(${CppToolBinDir}, ${cmdObjDump})
+    $cmd_stderr_chk_on() # Workaround to prevent hung because ${cmdObjDump} may have a non-standard stderr
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${cmdObjDump} -D ~${progName}
+    $nop($[excode]) # Ensure all pending commands are executed
+    $cmd_stderr_chk_off()
+    # Save the result only and only if there is no error
+    local excode := $[excode]
+    if !${excode} : $put_file(~${progName/(.+)\.elf/$1.lst/}, $[stdout])
+    return ${excode}
+endfunction
+
+function __gen_lst__(progName, cmdObjDump)
+    if $exec( __gen_lst_exec__, ${progName}, ${cmdObjDump}, $call(__get_LDLibraryPaths__) )
+        $call(__print_stdxxx_and_check_excode__)
+        return
+    endif
+    echoln
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to convert an ELF file to another format (a generic implementation for cross compilation using GCC)
+function __generic_xgcc_elf_to_xxx__(cnvToolProg, cnvToolFlags, progName, dstExt, ldLibraryPath)
+    # Determine the paths
+    if &${CppToolBinDir} : local cnvToolProg := $cat_path(${CppToolBinDir}, ${cnvToolProg})
+    local DstFile := $re_replace(${progName}, '(.+)\\.elf', :"\$1.${dstExt}")
+    # Convert ELF to other format
+    $rmfile(~${DstFile})
+   +@setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+   +@${cnvToolProg} ${cnvToolFlags} ~${progName} ~${DstFile}
+endfunction
+
+
+##### Function to print the size of the given executable file (a generic implementation for cross compilation using GCC)
+function __generic_xgcc_obj_size_exec__(objSizeProg, objSizeFlag, progName, ldLibraryPath)
+    # Modify the binary path as needed
+    if &${CppToolBinDir} : local objSizeProg := $cat_path(${CppToolBinDir}, ${objSizeProg})
+    # Get the size
+    @setenv ${__Real_LDLibraryPath__} ${ldLibraryPath}
+    @${objSizeProg} ${objSizeFlag} ~${progName}
+    if $[excode] : return 0
+endfunction
+
+function __generic_xgcc_obj_size__(objSizeProg, objSizeFlag, progName, ldLibraryPath, dimColor)
+    # Get the size text
+    #if !
+    $exec(__generic_xgcc_obj_size_exec__, ${objSizeProg}, ${objSizeFlag}, ${progName}, ${ldLibraryPath}) #: return 0
+    # Format and print the size text
+    local ttdz   := $call(__format_section_size_text__, $[stdout])
+    local text   := ${ttdz}<1>
+    local tdsize := ${ttdz}<2:3>
+    local Color  := __c_dgray__
+    if !${dimColor}
+        echoln __c_cyan__ -${progName} __c_reset__
+        Color := __c_green__
+    endif
+    echoln ${Color} ${text} __c_reset__
+    # Return the text and data size
+    return ${tdsize}
+endfunction
+
+
+#####
+#####
+#####
+
+
+##### Function to clean the project build (delete all the generated files)
+function __clean_project__()
+    $rmdir_rec(~${ModCacheDirRoot})
+endfunction
+
+
+(***** Only include this part of the script where necessary *****)
+endif

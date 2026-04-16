@@ -1,0 +1,28 @@
+(version 1)
+
+
+(rule pad_clearance_exception
+  (condition "A.Type == 'Pad' && A.memberOfFootprint('Package_SO:SSOP-28_5.3x10.2mm_P0.65mm')")
+  (constraint clearance (min 0.20mm))
+)
+
+(rule pad_clearance_exception
+  (condition "A.Type == 'Pad' && A.memberOfFootprint('Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm')")
+  (constraint clearance (min 0.25mm))
+)
+
+(rule pad_clearance_exception
+  (condition "A.Type == 'Pad' && A.memberOfFootprint('Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm')")
+  (constraint clearance (min 0.25mm))
+)
+
+
+(rule gnd_width
+  (condition "A.NetClass == 'GND'")
+  (constraint track_width (min 0.50mm))
+)
+
+(rule gnd_width_exception
+  (condition "A.NetClass == 'GND' && A.insideArea('MCU')")
+  (constraint track_width (min 0.30mm))
+)

@@ -1,0 +1,182 @@
+(****************************************************************************************************
+ ***** Download DFU-Util                                                                        *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the SourceForge tool
+:::include_once 'SourceForgeTool.jxm'
+
+
+##### Path to the DFU-Util
+    const DFUUtil_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+    const DFUUtil_Path        := $cat_path( $jtd()         , 'dfu-util'     )
+
+    const DFUUtil_VerFileName := $cat_path( ${DFUUtil_Path}, 'VERSION'      )
+    const DFUUtil_LChFileName := $cat_path( ${DFUUtil_Path}, 'LAST_CHECKED' )
+
+if __os_windows__
+    const DFUUtil_util        := $cat_path( ${DFUUtil_Path}, 'dfu-util-static.exe')
+    const DFUUtil_prefix      := $cat_path( ${DFUUtil_Path}, 'dfu-prefix.exe'     )
+    const DFUUtil_suffix      := $cat_path( ${DFUUtil_Path}, 'dfu-suffix.exe'     )
+else
+    const DFUUtil_util        := $cat_path( ${DFUUtil_Path}, 'dfu-util'           )
+    const DFUUtil_prefix      := $cat_path( ${DFUUtil_Path}, 'dfu-prefix'         )
+    const DFUUtil_suffix      := $cat_path( ${DFUUtil_Path}, 'dfu-suffix'         )
+endif
+
+
+##### Function to delete the downloaded DFU-Util
+function delete_dfuutil()
+    if $valid_path(${DFUUtil_Path}) : $rmdir_rec(${DFUUtil_Path})
+endfunction
+
+
+##### Function to download (and install) the latest DFU-Util from DFU-Util SourceForge
+function __dfuutil_determine_paths__()
+    if !$valid_path(${DFUUtil_Path}) : return
+    DFUUtil_dlib_dir := $unique( $path_rm_last_part( $srfile_rec(${DFUUtil_Path}, '.+?\\.so.*$') ) )
+endfunction
+
+function download_latest_dfuutil(?onlyIfNotExist, ?dlExactVersion)
+    # Read environment variables
+    JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST      ?:= $getenv('JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST'     , '0')
+    JXMAKELIB_DOWNLOAD_DFU_UTIL_FORCE_VERSION ?:= $getenv('JXMAKELIB_DOWNLOAD_DFU_UTIL_FORCE_VERSION', '' )
+    # Set the default values
+    onlyIfNotExist ?:= ${JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST}
+    dlExactVersion ?:= ${JXMAKELIB_DOWNLOAD_DFU_UTIL_FORCE_VERSION}
+    # Determine paths
+    $call(__dfuutil_determine_paths__)
+    # Check if DFU-Util already exist
+    local AlreadyExist := true
+    if !$valid_path(${DFUUtil_VerFileName}) : AlreadyExist := false
+    if !$valid_path(${DFUUtil_LChFileName}) : AlreadyExist := false
+    if !$valid_path(${DFUUtil_util}       ) : AlreadyExist := false
+    if !$valid_path(${DFUUtil_prefix}     ) : AlreadyExist := false
+    if !$valid_path(${DFUUtil_suffix}     ) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${DFUUtil_LChFileName})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${DFUUtil_ChkInterval}
+        if ${InR} : return
+    endif
+    # Check if the user forces the library to download a specific version
+    if &${dlExactVersion}
+        local dlForceVersion := $sfdots(${dlExactVersion})
+              dlForceVersion := $call(calc_ver_numeric_222, ${dlForceVersion}<1>, ${dlForceVersion}<2>, ${dlForceVersion}<3>)
+    else
+              dlForceVersion := 0
+    endif
+    # Get the project release file URLs
+    local URLs  := $erase_ifnot( $call(sf_get_project_release_file_urls, 'dfu-util'), '(.+?)-binaries(.+)', true )
+   #$put_file( $cat_path( $ptd(), 'dfu-util.release.file.urls' ), ${URLs} )
+   #local URLs  := $get_file( $cat_path( $ptd(), 'dfu-util.release.file.urls' ) )
+    local LVer  := 0
+    local LURL  := ''
+    foreach local URL in ${URLs}
+        local CVer := $sfdots( ${URL/(?:.+?\/dfu-util-)(\d+)(?:\.)(\d+)?(?:\.)?(\d+)?(?:.+)?/$1.$2.$3/} )
+        local NVer := $call(calc_ver_numeric_222, ${CVer}<1>, ${CVer}<2>, ${CVer}<3>)
+        if ${dlForceVersion}
+            if ${NVer} == ${dlForceVersion}
+                LVer := ${NVer}
+                LURL := ${URL}
+            endif
+        else
+            if ${NVer} > ${LVer}
+                LVer := ${NVer}
+                LURL := ${URL}
+            endif
+        endif
+    endforeach
+    # Check if no suitable download URL was found
+    if !&${LURL} : $call(__exit_error_na_osna__, 'DFU-Util', ${dlExactVersion})
+    # Print the selected URL
+    echoln ${LURL}
+    echoln
+    # If the utilities already exist, check if the version matches
+    if ${AlreadyExist}
+        if ${LVer} &== $get_file(${DFUUtil_VerFileName})
+            # Update the last checked time and exit
+            $put_file( ${DFUUtil_LChFileName}, $call(get_timestamp) )
+            return
+        endif
+    endif
+    # Download the archive
+    local DLFile := $http_download( ${LURL}, $ptd() )
+    if !&${DLFile} : $call(__exit_error_download_fail__, ${LURL})
+    echoln
+    # Extract the archive to a temporary directory
+    local ExPath := $cat_path( $ptd(), 'dfu-util' )
+    $call(extract_archive_to, ${DLFile}, ${ExPath}, ${LURL})
+    # Get the URLs that match the OS architecture
+    local SubDirs := $srdir_rec(${ExPath}, __re_all__)
+      if __os_windows__  ; SubDirs := $erase_ifnot(${SubDirs}, '(?:.+)/win.*'   , true)
+    elif __os_mac__      ; SubDirs := $erase_ifnot(${SubDirs}, '(?:.+)/darwin.*', true)
+    elif __os_linux__    ; SubDirs := $erase_ifnot(${SubDirs}, '(?:.+)/linux.*' , true)
+    endif
+    # Get the URLs that match the OS bit size
+    local SubDir1
+    if __os_64bit__ : SubDir1 := $erase_ifnot(${SubDirs}, '(?:.+)64$' , true)
+    if !&${SubDir1} : SubDir1 := $erase_ifnot(${SubDirs}, '(?:.+)32$' , true)
+    if !&${SubDir1} : SubDir1 := $erase_ifnot(${SubDirs}, '(?:.+)686$', true)
+    if !&${SubDir1} : SubDir1 := $erase_ifnot(${SubDirs}, '(?:.+)386$', true)
+    # Check for ARM
+    local SubDir2 = ''
+    if $or( $cmp(__os_arch__, '&==', 'aarch_64'), $cmp(__os_arch__, '&==', 'arm') )
+                          SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)aarch(?:.*)', true)
+        if !&${SubDir2} : SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)arm(?:.*)'  , true)
+    endif
+    # If the operating system is an ARM based MacOS and suitable archive was found, try to use the one for x86
+    if $and(__os_mac__, $cmp(${SubDir2}, '&==', '') ) : local CheckRosetta := true
+    # Check for x86
+    if $or( ${CheckRosetta}, $cmp(__os_arch__, '&==', 'x86_64'), $cmp(__os_arch__, '&==', 'x86_32') )
+                          SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)x86_64(?:.*)', true)
+        if !&${SubDir2} : SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)amd64(?:.*)' , true)
+        if !&${SubDir2} : SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)686(?:.*)'   , true)
+        if !&${SubDir2} : SubDir2 := $erase_ifnot(${SubDir1}, '(?:.+)386(?:.*)'   , true)
+        if !&${SubDir2} : SubDir2 := ${SubDir1}
+    endif
+    # Install Apple Rosetta 2 if needed
+    if ${CheckRosetta} : $call(__install_apple_rosetta__)
+    # Remove existing destination directory (if any)
+    $call(delete_dfuutil)
+    # Copy the extracted files from temporary directory to their suitable directory
+    local ExFiles := $srfile_rec(${SubDir2}, __re_all__)
+    local PrefixLen   := $strlen(${SubDir2})
+    add PrefixLen, ${PrefixLen}, 2
+    foreach local Path in ${ExFiles}
+        # Determine the destination path
+        local Dst := $cat_path( ${DFUUtil_Path}, $substr(${Path}, ${PrefixLen}, -1) )
+        # Create the destination subdirectory (in case it does not exist yet)
+        $mkdir( $path_rm_last_part(${Dst}) )
+        # Copy the file and check
+        $cpfile(${Path}, ${Dst}, true)
+        if !$valid_path(${Dst}) : $call(__exit_error_cpfile_fail__, ${Dst})
+        (*
+        echoln "<<< ${Path}"
+        echoln ">>> ${Dst}"
+        echoln
+        *)
+        echoln ${Dst}
+    endforeach
+    echoln
+    # Create dummy tool files if for some reason they are not available
+    if !$valid_path(${DFUUtil_util}  ) : $touch(${DFUUtil_util}  )
+    if !$valid_path(${DFUUtil_prefix}) : $touch(${DFUUtil_prefix})
+    if !$valid_path(${DFUUtil_suffix}) : $touch(${DFUUtil_suffix})
+    # Put the version number
+    $put_file(${DFUUtil_VerFileName}, ${LVer})
+    # Put the last checked time
+    $put_file( ${DFUUtil_LChFileName}, $call(get_timestamp) )
+    # Remove the temporary directory and the downloaded archive file
+    $rmdir_rec(${ExPath})
+    $rmfile   (${DLFile})
+    # Determine paths
+    $call(__dfuutil_determine_paths__)
+endfunction

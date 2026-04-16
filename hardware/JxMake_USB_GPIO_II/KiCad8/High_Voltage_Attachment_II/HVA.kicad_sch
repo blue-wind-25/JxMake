@@ -1,0 +1,240 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "5c73339b-6b9b-4ef3-b462-e2fd44999fa8")
+	(paper "A4")
+	(title_block
+		(title "High Voltage Attachment II")
+		(date "2025-07-22")
+		(rev "1.1.7")
+		(comment 2 "This file is part of the JxMake program, see LICENSE file for the license details")
+		(comment 3 "Copyright (C) Aloysius Indrayanto")
+	)
+	(lib_symbols)
+	(text_box "Test each module individually before connecting them together.\n\nEnsure all special jumpers and test points are checked. See the individual pages for detailed information."
+		(exclude_from_sim no)
+		(at 33.02 124.46 0)
+		(size 220.98 21.59)
+		(stroke
+			(width 0)
+			(type default)
+			(color 255 0 0 1)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(face "Liberation Mono")
+				(size 2.54 2.54)
+				(thickness 0.508)
+				(bold yes)
+				(color 255 0 0 1)
+			)
+			(justify left)
+		)
+		(uuid "36f84da9-77f6-426e-aa9a-a81744826048")
+	)
+	(text_box "The DIP ICs are socketed.\n\nThe socket pins are bent and soldered as if they were SMD. The pins may need to be trimmed for a proper fit.\n"
+		(exclude_from_sim no)
+		(at 33.02 100.33 0)
+		(size 220.98 17.78)
+		(stroke
+			(width 0)
+			(type default)
+			(color 0 0 255 1)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(face "Liberation Mono")
+				(size 2.54 2.54)
+				(thickness 0.508)
+				(bold yes)
+				(color 0 0 255 1)
+			)
+			(justify left)
+		)
+		(uuid "9b1a789e-1dcf-4bbe-ae21-1cbdd3cce42b")
+	)
+	(text_box "JX* and JS* are soldered horizontally at the corresponding PCB edge, with JS* serving as stabilizers.\n\nJB* and JH* are soldered normally and serve as the receptacles for the corresponding JX* and JS*.\n\nPlease freely decide which ones use male 2xN headers and which ones use female 2xN headers."
+		(exclude_from_sim no)
+		(at 33.02 67.31 0)
+		(size 220.98 26.67)
+		(stroke
+			(width 0)
+			(type default)
+			(color 0 0 255 1)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(face "Liberation Mono")
+				(size 2.54 2.54)
+				(thickness 0.508)
+				(bold yes)
+				(color 0 0 255 1)
+			)
+			(justify left)
+		)
+		(uuid "b04e129a-7ca0-4879-b96c-66c5286e025a")
+	)
+	(sheet
+		(at 78.74 33.02)
+		(size 41.91 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "0cd5459a-20d2-460a-8ef4-7009a2b36fef")
+		(property "Sheetname" "Analog_Switch"
+			(at 80.137 36.068 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Analog_Switch.kicad_sch"
+			(at 80.137 37.338 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "HVA"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 124.46 33.02)
+		(size 41.91 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "565cf535-63ce-4e49-91f8-a84841bd0aff")
+		(property "Sheetname" "Controller"
+			(at 125.857 36.068 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Controller.kicad_sch"
+			(at 125.857 37.338 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "HVA"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 33.02 33.02)
+		(size 41.91 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "a2ce408c-59f5-4fc7-83c5-b3652cc7c411")
+		(property "Sheetname" "Boost_Converter"
+			(at 34.417 36.068 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Boost_Converter.kicad_sch"
+			(at 34.417 37.338 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "HVA"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 78.74 44.45)
+		(size 41.91 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "ad2a1de2-e10c-45ad-bb9e-9d87923494a9")
+		(property "Sheetname" "Mainboard"
+			(at 80.137 47.498 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Mainboard.kicad_sch"
+			(at 80.137 48.768 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "HVA"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)

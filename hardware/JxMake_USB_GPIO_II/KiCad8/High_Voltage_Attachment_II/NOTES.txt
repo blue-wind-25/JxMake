@@ -1,0 +1,238 @@
+====================================================================================================
+High Voltage Attachment II
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Boost Converter Sub-Module
+----------------------------------------------------------------------------------------------------
+
+These formulas calculate hysteresis in an op-amp configured as a non-inverting comparator for
+overvoltage protection:
+
+    Uh = Vref * (R1 + R2) / R2 - Vol * R1 / R2
+    Ul = Vref * (R1 + R2) / R2 - Voh * R1 / R2
+    Uc = (Ul + Uh) / 2
+    Uw =  Uh - Ul
+
+The parameters are as follows:
+
+    Vcc       = 3.3V   ±5% or ±10%
+    Vref = Vz = 2.7V   ±5% or ±10%
+
+    R1        = 3.3k   ±1%   (the reference series resistor)
+    R2        = 100k   ±1%   (the feedback         resistor)
+
+    Voh_max   = Vcc -  10mV
+    Voh_min   = Vcc - 100mV
+
+    Vol_max   = 180mV
+    Vol_min   =  60mV
+
+The resulting value must be scaled back up because VBoost is reduced by the voltage divider:
+
+    Scale = (27k + 5.1k) / 5.1k
+          = 32.1k        / 5.1k
+          ≈ 6.29412
+
+The ideal hysteresis of the op-amp, expressed in terms of its voltage, is given by:
+
+    Uh = 2.7V * (3.3k + 100k) / 100k - 0.06V * 3.3k / 100k
+       = 2.7V * 1.033                - 0.06V * 0.033
+       = 2.78910V                    - 0.00198V
+       = 2.78712V
+
+    Ul = 2.7V * (3.3k + 100k) / 100k - 3.29V * 3.3k / 100k
+       = 2.7V * 1.033                - 3.29V * 0.033
+       = 2.78910V                    - 0.10857V
+       = 2.68053V
+
+In terms of VBoost:
+
+    Uh ≈ 17.54V
+    Ul ≈ 16.87V
+
+You can confirm the above values using:
+
+    https://www.changpuak.ch/electronics/NonInvertingComparator.php
+    https://www.daycounter.com/Calculators/Comparator-Hysteresis-Calculator.phtml
+
+----------------------------------------------------------------------------------------------------
+
+Now, let us calculate the hysteresis (in terms of VBoost) for:
+
+    Voh = 2.87V and 3.62V
+    Vol = 0.06V and 0.18V
+
+The results are as follows:
+
+         Voh=3.62, Vol=0.06                        Voh=2.87, Vol=0.18
+         (Minimum Current, Maximum Vcc)            (Maximum Current, Minimum Vcc)
+
+    Vz    2.43    2.57    2.70    2.84    2.97      2.43    2.57    2.70    2.84    2.97
+    Uh   15.79   16.66   17.54   18.42   19.30     15.76   16.64   17.52   18.40   19.27
+    Ul   15.05   15.93   16.80   17.68   18.56     15.20   16.08   16.96   17.84   18.71
+    Uc   15.42   16.29   17.17   18.05   18.93     15.48   16.36   17.24   18.12   18.99
+    Uw    0.74    0.74    0.74    0.74    0.74      0.56    0.56    0.56    0.56    0.56
+
+         Voh=3.62, Vol=0.18                        Voh=2.87, Vol=0.06
+         (Possible Worst Condition)                (Possible Worst Condition)
+
+    Vz    2.43    2.57    2.70    2.84    2.97      2.43    2.57    2.70    2.84    2.97
+    Uh   15.76   16.64   17.52   18.40   19.27     15.79   16.66   17.54   18.42   19.30
+    Ul   15.05   15.93   16.80   17.68   18.56     15.20   16.08   16.96   17.84   18.71
+    Uc   15.40   16.28   17.16   18.04   18.92     15.50   16.37   17.25   18.13   19.01
+    Uw    0.71    0.71    0.71    0.71    0.71      0.58    0.58    0.58    0.58    0.58
+
+From the above values, if we consider the absolute worst-case condition:
+
+    Uh  19.30V
+    Ul  15.05V
+    Uc  17.17V
+    Uw   4.25V
+
+----------------------------------------------------------------------------------------------------
+
+Now, the resistors in the op-amp's feedback and VBoost voltage divider have a 1% tolerance.
+Therefore, using RSS-based tolerance calculation, the total tolerance is:
+
+    sqrt( (1%)^2 + (1%)^2 + (1%)^2 + (1%)^2 ) = sqrt(4%) = 2%
+
+The worst-case tolerance, calculated as the sum of individual tolerances, is 4%.
+
+This allows the worst-case condition to be recalculated as follows:
+
+         -4%     -2%     0%      +2%     +4%
+    Uh   18.53   18.53   19.30   19.68   20.07
+    Ul   14.45   14.75   15.05   15.35   15.65
+    Uc   16.49   16.64   17.17   17.52   17.86
+    Uw    4.08    3.78    4.25    4.34    4.42
+
+Based on the above values, the final absolute worst-case condition is:
+
+    Uh   20.07V (+4%)
+    Ul   14.45V (-4%)
+
+Note that VBoost passes through two SS14 diodes before reaching the BSS138 MOSFET and either two or
+optionally three SS14 diodes before reaching the IRLML2502 MOSFET. Consequently, the maximum voltage
+observed by each MOSFET, based on the minimum forward voltage (Vf) of the SS14 diode, is at most:
+
+    Uh - Vf - Vf = 20.07V - (2 * 0.2V)
+                 = 20.07V - 0.4V
+                 ≈ 19.67V
+
+    Uh - Vf - Vf = 20.07V - (3 * 0.2V)
+                 = 20.0V7 - 0.6V
+                 ≈ 19.47V
+
+If we plug in the op-amp's maximum input offset voltage of 7 mV, then the worst-case condition
+becomes:
+
+    Vofs_total  =  ±7mV * 2       = ±14mV   (since we are using two op-amps          )
+    Vofs_scaled = ±14mV * 6.29412 ≈ ±90mV   (scaled due to the VBoost voltage divider)
+
+    Uh   18.53   18.53   19.30   19.68   20.07
+    Ul   14.45   14.75   15.05   15.35   15.65
+
+    (19.30 + 0.09) * 1.04   =>   Uh   20.17V (+4%)   =>   19.77V or 19.57V after diodes
+    (15.05 - 0.09) * 0.96   =>   Ul   14.36V (-4%)
+
+The maximum voltages that the components can handle are above 19.77V:
+
+    MT3608                    28V
+    DG412DY                   25V or 44V
+    BSS138    Vds_breakdown   50V
+    IRLML2502 Vds_breakdown   20V
+    Capacitor                 25V
+
+The resistor networks limit the boost converter output to approximately 13.40V, with a worst-case
+maximum of ~14.07V due to tolerance, which remains below 14.36V.
+
+----------------------------------------------------------------------------------------------------
+
+When assembling this sub-module, you should ideally use a 5% Zener (or 2% or 1% if possible); thus,
+the above limit would be much safer:
+
+    Uh   18.42V (5% Zener)
+    Ul   15.93V (5% Zener)
+
+    Uh   19.16V (+4%)   --->   18.76V (-2 * Vf)   or   18.56V (-3 * Vf)
+    Ul   15.29V (-4%)
+
+If we plug in the op-amp's maximum input offset voltage, the resulting values become:
+
+    (18.42 + 0.09) * 1.04   =>   Uh   19.25V (+4%)   =>   18.85V or 18.65V after diodes
+    (15.93 - 0.09) * 0.96   =>   Ul   15.21V (-4%)
+
+Please refer to the schematic for more details.
+
+NOTE : 'NOTES_BOOST_OPAMP.ods' contains macros.
+
+
+----------------------------------------------------------------------------------------------------
+Analog Switch Sub-Module
+----------------------------------------------------------------------------------------------------
+
+This sub-module generates its own negative voltage. Please refer to the schematic to verify that the
+negative voltage is properly generated before bridging the jumper.
+
+This sub-module also produces Vpp by passing VBoost through a Schottky diode.
+
+Pay close attention when using DG412DY (or DG411DY) from Maxim, as they tend to be more sensitive.
+
+
+----------------------------------------------------------------------------------------------------
+Controller Sub-Module
+----------------------------------------------------------------------------------------------------
+
+The core of this sub-module is the ATmega128P MCU. You can use an IC with less flash and RAM, as
+long as the firmware fits.
+
+It is highly recommended to use the ISP connector only for programming the bootloader and to use the
+serial port connector for further programming.
+
+By default, the power line from the serial port connector is disconnected. Since the fully assembled
+module will be attached to an upstream programmer, it is highly recommended to keep it this way.
+
+Ensure that the USB-to-serial converter operates at the same voltage as the module. If you use
+a USB-to-serial converter that supports setting the I/O voltage via an external source, you can
+connect the supply line, but ensure that the converter does not actually supply power to the same
+line.
+
+Please refer to the schematic for more details.
+
+
+----------------------------------------------------------------------------------------------------
+Mainboard Module
+----------------------------------------------------------------------------------------------------
+
+By default, the module controls power to the target (turning it on and off as needed), unless
+explicitly set via jumper JP2 (VTG Always On) to keep the target power always on. If you do not want
+the module to power the target at all, simply avoid connecting the target's supply line to the module.
+However, if you choose this approach, ensure that the target's and module's logic levels match.
+
+The module can be powered through one of the following options:
+    1. Via the USB port from the upstream programmer only.
+    2. Via the USB port from the upstream programmer and  'HiAux VIn (4.0V–7.0V)' connector.
+    3. Via the the 'LoAux VIn (3.3V–5.5V)' connector only.
+    4. Via the the 'LoAux VIn (3.3V–5.5V)' connector and  'HiAux VIn (4.0V–7.0V)' connector.
+
+Options 1 and 2 are suitable if the target requires only low current, allowing its power to be
+supplied via USB from the upstream programmer; otherwise, use option 3 or 4.
+
+Options 1 and 3 can be used if the target supply is ≥ 4V; otherwise, you must provide a separate
+power source for the module's non-digital section, or it will not function properly. The module
+does not support automatic power selection, so make sure J9 (NDS VSel) is set correctly.
+
+In summary, 'LoAux VIn' supplies power to the digital section (Vdd) and normally also to the
+non-digital section, while 'HiAux VIn' is exclusively for the non-digital section.
+
+WARNING : # Do not power the module from both the USB port of the upstream programmer and the
+            'LoAux VIn' connector simultaneously!
+          # Despite the built-in protection against damage, the voltage supplied via 'HiAux VIn'
+            must be at least +0.5V higher than the voltage supplied to 'LoAux VIn' for safe
+            operation.
+
+Please refer to the schematic to verify that all jumpers are properly connected before attaching
+sub-modules and operating this module.
+
+====================================================================================================

@@ -1,0 +1,129 @@
+echo __c_clrscr__
+
+
+
+function printAVRInfo(text)
+    for I := 1 to $part_count(${text}) step 1
+        # Filter the line string
+        local line
+        line := $partn(${text}, ${I})
+        line := ${line/(?:.+\/)(.+):\s+file format elf32-avr/$1/}
+        line := ${line/AVR Memory Usage//}
+        line := ${line/----------------//}
+        line := ${line/\(\.text \+ \.data \+ \.bootloader\)//}
+        line := ${line/\(\.data \+ \.bss \+ \.noinit\)//}
+        line := ${line/[\r\n]*//}
+        # Skip the line if it is empty
+        if !&${line} : continue
+        # Format some fields
+        line := ${line/Device: ([0-9a-zA-Z]+)/Device  : $1/}
+        line := ${line/Program:  (.+)/Program : $1/}
+        line := ${line/Data:     (.+)/Data    : $1/}
+        # Print the line
+        if ${I} == 1 : echo __c_cyan__
+        if ${I} != 1 : echo __c_green__ '    '
+        echoln ${line} __c_reset__
+    endfor
+endfunction
+
+inStr  := "build/CharacterLCDUART:     file format elf32-avr\n"
+inStr +:= "AVR Memory Usage\n"
+inStr +:= "----------------\n"
+inStr +:= "Device: atmega4808\n"
+inStr +:= "\n"
+inStr +:= "Program:    4792 bytes (9.7% Full)\n"
+inStr +:= "(.text + .data + .bootloader)\n"
+inStr +:= "\n"
+inStr +:= "Data:        374 bytes (6.1% Full)\n"
+inStr +:= "(.data + .bss + .noinit)\n"
+inStr +:= "\n"
+
+echoln
+$call(printAVRInfo, ${inStr})
+echoln
+
+
+
+function printNodeMCUInfo(progName, text)
+    echoln __c_cyan__  ${progName} __c_reset__
+    for I := 1 to $part_count(${text}) step 1
+        # Filter the line number
+        if ${I} ==  2 : continue
+        if ${I} ==  7 : continue
+        if ${I} == 11 : continue
+        # Filter the line string
+        local line
+        line := $partn(${text}, ${I})
+        line := ${line/^\. //}
+        line := ${line/[\r\n]*//}
+        # Skip the line if it is empty
+        if !&${line} : continue
+        # Print the line
+        echoln __c_green__ '    ' ${line} __c_reset__
+    endfor
+endfunction
+
+inStr  := ". Variables and constants in RAM (global, static), used 30844 / 80192 bytes (38%)\n"
+inStr +:= "║   SEGMENT  BYTES    DESCRIPTION\n"
+inStr +:= "╠══ DATA     1500     initialized variables\n"
+inStr +:= "╠══ RODATA   1352     constants\n"
+inStr +:= "╚══ BSS      27992    zeroed variables\n"
+inStr +:= ". Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 61221 / 65536 bytes (93%)\n"
+inStr +:= "║   SEGMENT  BYTES    DESCRIPTION\n"
+inStr +:= "╠══ ICACHE   32768    reserved space for flash instruction cache\n"
+inStr +:= "╚══ IRAM     28453    code in IRAM\n"
+inStr +:= ". Code in flash (default, ICACHE_FLASH_ATTR), used 332504 / 1048576 bytes (31%)\n"
+inStr +:= "║   SEGMENT  BYTES    DESCRIPTION\n"
+inStr +:= "╚══ IROM     332504   code in flash\n"
+
+echoln
+$call(printNodeMCUInfo, 'CharacterLCDUART', ${inStr})
+echoln
+
+
+
+function getGCCVersion()
+    @gcc --version
+    local text  := $partn($sflines($[stdout]), 1)
+          text  := $sfdots(${text/.+ \(GCC\) (\d+.\d+.\d+) .+/$1/} )
+    local major := $partn(${text}, 1)
+    local minor := $partn(${text}, 2)
+    local patch := $partn(${text}, 3)
+    local vncom
+    eval  vncom := ${major} * 1000000 + ${minor} * 1000 + ${patch}
+    return $sprintf('%09d', ${vncom})
+endfunction
+
+function printGCCVersion()
+    if !__os_linux__ : return
+    echoln
+    echo $exec(getGCCVersion)
+    echoln
+endfunction
+
+echoln $call(printGCCVersion)
+
+
+
+function getMSVCVersion()
+    @cl
+    local text   := $partn($sflines($[stderr]), 1)
+          text   := $sfdots(${text/.+ (\d{2}.\d{2}.\d{5}+.\d{2}) .+/$1/})
+    local major  := $partn(${text}, 1)
+    local minor1 := $partn(${text}, 2)
+    local minor2 := $partn(${text}, 3)
+    local minor3 := $partn(${text}, 4)
+    local vncom
+    eval  vncom := ${major} * 100000000000 + ${minor1} * 100000000 + ${minor2} * 1000 + ${minor3}
+    return $sprintf('%014d', ${vncom})
+endfunction
+
+function printMSVCVersion()
+    if !__os_windows__ : return
+    echoln
+    echo $exec(getMSVCVersion)
+    echoln
+endfunction
+
+echoln $call(printMSVCVersion)
+

@@ -1,0 +1,73 @@
+
+{
+    "@class" : "jxm.ugc.ProgUPDI$Config",
+    "memoryAVRBase" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemoryAVRBase",
+        "NVM" : 0x1000,
+        "OCD" : 0x0F80,
+        "SYSCFG" : 0x0F00
+    },
+    "memorySignature" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemorySignature",
+        "address" : 0x1100,
+        "size" : 3
+    },
+    "memorySignatureExt" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemorySignatureExt",
+        "address_SerNum" : 0x1103,
+        "size_SerNum" : 10,
+        "address_OscCal16" : 0x1118,
+        "bitMask_OscCal16" : 0x7F,
+        "address_OscCal16TCal" : 0x1119,
+        "bitMask_OscCal16TCal" : 0x0F,
+        "address_OscCal20" : 0x111A,
+        "bitMask_OscCal20" : 0x7F,
+        "address_OscCal20TCal" : 0x111B,
+        "bitMask_OscCal20TCal" : 0x0F,
+        "address_Osc16Err3V" : 0x1122,
+        "bitMask_Osc16Err3V" : 0xFF,
+        "address_Osc16Err5V" : 0x1123,
+        "bitMask_Osc16Err5V" : 0xFF,
+        "address_Osc20Err3V" : 0x1124,
+        "bitMask_Osc20Err3V" : 0x00FF,
+        "address_Osc20Err5V" : 0x1125,
+        "bitMask_Osc20Err5V" : 0xFF,
+        "address_TempSense0" : 0x1120,
+        "bitMask_TempSense0" : 0xFF,
+        "address_TempSense1" : 0x1121,
+        "bitMask_TempSense1" : 0xFF
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemoryFlash",
+        "address" : 0x8000,
+        "totalSize" : 32768,
+        "pageSize" : 128,
+        "numPages" : 256,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemoryEEPROM",
+        "address" : 0x1400,
+        "totalSize" : 256,
+        "pageSize" : 64,
+        "numPages" : 4
+    },
+    "memoryFuse" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemoryFuse",
+        "address" : [
+            0x1280, 0x1281, 0x1282, -1    , -1    , 0x1285, 0x1286, 0x1287, 0x1288, -1
+        ],
+        "size" : [
+            0x0001, 0x0001, 0x0001, 0x0000, 0x0000, 0x0001, 0x0001, 0x0001, 0x0001, 0x0000
+        ],
+        "bitMask" : [
+            0x00FF, 0x00FF, 0x0083, -1    , -1    , 0x00DD, 0x0007, 0x00FF, 0x00FF, -1
+        ]
+    },
+    "memoryLockBits" : {
+        "@class" : "jxm.ugc.ProgUPDI$Config$MemoryLockBits",
+        "address" : 0x128A,
+        "size" : 1,
+        "bitMask" : 0xFF
+    }
+}

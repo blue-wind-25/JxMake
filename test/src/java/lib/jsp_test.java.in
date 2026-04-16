@@ -1,0 +1,97 @@
+package lib;
+
+public class jsp_test {
+
+    public static String Value_X0 = "#if";
+
+    public static String Value_X1 =
+    "#endif";
+
+#if __VALUE0__ /* This section will be included if __VALUE0__ is defined */
+    // __VALUE0__
+    public static String Value_0b = "true";
+    public static String Value_0s = #subst{REV_VAL_1};
+#endif
+
+#if __VALUE0__ // This section will be included if __VALUE0__ is defined
+    // __VALUE0__
+    /*
+    public static String Value_0b = "false";
+    public static String Value_0s = #subst{REV_VAL_2};
+    */
+#endif
+
+#if !__VALUE0__ /* This section will be included if __VALUE0__ is not defined */
+    // !__VALUE0__
+    /*
+    public static String Value_0b = "true";
+    public static String Value_0s = #subst{REV_VAL_1};
+    */
+#endif
+
+#if !__VALUE0__ // This section will be included if __VALUE0__ is not defined
+    // !__VALUE0__
+    public static String Value_0b = "false";
+    public static String Value_0s = #subst{REV_VAL_2};
+#endif
+
+    /*
+    // This section will be included as is
+    #if __VALUE0__
+        public static String Value_0b = "true";
+        public static String Value_0s = #subst{REV_VAL_1};
+    #endif
+
+    #if !__VALUE0__
+        public static String Value_0b = "false";
+        public static String Value_0s = #subst{REV_VAL_2};
+    #endif
+    */
+
+    public static String Value_1t =
+        #if __VALUE1__
+            "Value_1t : true"
+        #else
+            "Value_1t : false"
+        #endif
+    ;
+
+    public static String Value_1f =
+        #if !__VALUE1__
+            "Value_1f : false"
+        #else
+            "Value_1f : true"
+        #endif
+    ;
+
+#if __VALUE0__
+    #if __VALUE1__
+        #if __VALUE2__
+            public static String Value012 = "###";
+        #else
+            public static String Value012 = "##.";
+        #endif
+    #else
+        #if __VALUE2__
+            public static String Value012 = "#.#";
+        #else
+            public static String Value012 = "#..";
+        #endif
+    #endif
+#else
+    #if __VALUE1__
+        #if __VALUE2__
+            public static String Value012 = ".##";
+        #else
+            public static String Value012 = ".#.";
+        #endif
+    #else
+        #if __VALUE2__
+            public static String Value012 = "..#";
+        #else
+            public static String Value012 = "...";
+        #endif
+    #endif
+#endif
+
+} // class jsp_test

@@ -1,0 +1,135 @@
+(****************************************************************************************************
+ ***** C++ Build Tool - Xtensa GCC - Bare-Metal ESP8266                                         *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the Xtensa C/C++ build tool and other utilities
+:::include_once 'C++XBuildTool_GCC_Xtensa.jxm'
+:::include_once 'DownloadESPTool.jxm'
+:::include_once 'DownloadPySerial.jxm'
+:::include_once 'ESPToolHelper.jxm'
+
+
+##### Update the flags
+const E8266BM_CommonCPUOptions     := '-mlongcalls'
+const E8266BM_CommonCompileOptions := '-ffunction-sections' '-fdata-sections' '-ffreestanding'
+const E8266BM_CommonCompileMDef    := '-D__ESP8266_BARE_METAL__'
+
+CppCommonAssemblerFlags  +:= ${E8266BM_CommonCPUOptions} ${E8266BM_CommonCompileOptions} ${E8266BM_CommonCompileMDef}
+
+CppCommonCcCompileFlags  +:= ${E8266BM_CommonCPUOptions} ${E8266BM_CommonCompileOptions} ${E8266BM_CommonCompileMDef}
+
+CppCommonCxxCompileFlags +:= ${E8266BM_CommonCPUOptions} ${E8266BM_CommonCompileOptions}
+CppCommonCxxCompileFlags +:= ${CppMinimizeSizeCompileFlags}
+
+CppCommonLinkFlags       +:= ${E8266BM_CommonCPUOptions} '-nostdlib' '-nostartfiles' '-Wl,--gc-sections'
+
+
+#####
+#####
+#####
+
+
+##### Function to initialize the project build
+function init_project(?buildSubdirectories, ?dlOnlyIfNotExist) supersede
+    # Find Python
+    $call(find_python)
+    # Error if Python ≥ 3.6.0 is not available
+    $call(exit_error_if_python3_is_less_than_version, 3, 6, 0)
+    # Download the latest Python IntelHex
+    $call(download_latest_intelhex, ${onlyIfNotExist})
+    # Download the latest pySerial
+    $call(download_latest_pyserial, ${onlyIfNotExist})
+    # Download the latest ESPTool (and/or adjust the command)
+    ESPTOOL_EXECUTABLE_PATH := $call(__esptool_download_and_adjust_esptool_py__, ${ESPTOOL_EXECUTABLE_PATH}, ${dlOnlyIfNotExist})
+    # Call the origin function
+    $call(__origin__, ${buildSubdirectories})
+endfunction
+
+
+##### Function to upload the given program via serial port using ESPTool
+const __Def_E8266BM_SU_BAUDRATE__    := 230400
+const __Def_E8266BM_RESET_OPTIONS__  := '--before' 'default_reset' '--after' 'hard_reset'
+const __Def_E8266BM_WF_PARAMS__      := '-fm' 'qio'
+
+function __e8266bm_upload_esptool_exec__(abfList, device, baudrate, resetOptions, wfParams)
+    # Perform upload
+   +@${ESPTOOL_EXECUTABLE_PATH} --chip esp8266 --port ${device} --baud ${baudrate} ${resetOptions} write_flash ${wfParams} ${abfList}
+endfunction
+
+function e8266bm_upload_esptool(progName, device, ?baudrate, ?resetOptions, ?wfParams)
+    # Set the default value
+    baudrate     ?:= ${__Def_E8266BM_SU_BAUDRATE__}
+    resetOptions ?:= ${__Def_E8266BM_RESET_OPTIONS__}
+    wfParams     ?:= ${__Def_E8266BM_WF_PARAMS__}
+    # List the BIN file(s)
+    local BinFiles := $call(__esptool_ls_bin_files__, ~${progName})
+    # Generate a list of address(es) and BIN file(s)
+    local ABFList := $call(__esptool_gen_abf_list__, ${BinFiles})
+    # Perform upload
+    $cmd_streaming_on()
+    $exec(__e8266bm_upload_esptool_exec__, ${ABFList}, ${device}, ${baudrate}, ${resetOptions}, ${wfParams})
+    $cmd_streaming_off()
+    # Check for error
+    $call(__conditional_print_stdxxx_and_check_excode__)
+endfunction
+
+
+##### Function to link executable files (in case of ESP8266, also create the BIN file)
+function __e8266bm_elf_to_bin__(elfAbsPath, binPrefix)
+    +@${ESPTOOL_EXECUTABLE_PATH} --chip esp8266 elf2image --version=1 ${elfAbsPath} --output ${binPrefix}
+endfunction
+
+function e8266bm_link_exe(?extraOptions)
+    # Call the generic function
+    $call(link_exe, ${extraOptions})
+    # Determine the ELF file absolute path and BIN file(s) prefix
+    local ElfAbsPath := ~$[target]
+    local BinPrefix  := $call(__esptool_get_bin_file_prefix__, ${ElfAbsPath})
+    # List and remove existing BIN file(s)
+    local BinFiles := $call(__esptool_ls_bin_files__, ${ElfAbsPath})
+    $rmfile(${BinFiles})
+    # Convert ELF to BIN
+    $call( __bpt_bin__                                       )
+    $exec(__e8266bm_elf_to_bin__, ${ElfAbsPath}, ${BinPrefix})
+    $call(__conditional_print_stdxxx_and_check_excode__      )
+endfunction
+
+
+##### Linking shared library files is not supported
+function link_dlib(?extraOptions) supersede
+    .$__exit_error_function_ns__
+endfunction
+
+
+###################################################################################
+##### ==================== Library Help Printer Function ==================== #####
+###################################################################################
+
+##### Function to display some brief descriptions of the build tool's variables and functions
+function __btlib_help__() supersede
+    local NGText                        := __c_cyan__  "Bare-Metal ESP8266" __c_white__
+    local NGInfo                        := __c_white__ 'for ' ${NGText} ' '
+    local __CPP_BTLIB_HELP_EN_gen_lst__ := true
+    local __Def_E8266BM_RESET_OPTIONS__ := $ftspaces( $series('\'', __c_yellow__, ${__Def_E8266BM_RESET_OPTIONS__}, __c_white__, '\'') )
+    local __Def_E8266BM_WF_PARAMS__     := $ftspaces( $series('\'', __c_yellow__, ${__Def_E8266BM_WF_PARAMS__}    , __c_white__, '\'') )
+    $call(__origin__, ${NGInfo}, 1, true, false, true, true)
+   #$call(__btlib_help_print_title_functions__, 8, 24, 1, ${NGInfo})
+    $call(__btlib_help_print_title_functions__, 0,  0, 0, ${NGInfo})
+    echoln __c_green__ '    init_project          (?buildSubdirectories,     ' __c_white__ ': superseding the original \'' __c_green__ 'init_project' __c_white__ '\''
+    echoln __c_green__ '                           ?dlOnlyIfNotExist       ) ' __c_green__ '      buildSubdirectories' __c_white__ ' same meaning as the original implementation'
+    echoln __c_green__ '                                                     ' __c_green__ '      dlOnlyIfNotExist   ' __c_white__ ' passed to the \'' __c_green__ '?onlyIfNotExist' __c_white__ '\' parameters when downloading'
+    echoln
+    echoln __c_green__ '    e8266bm_upload_esptool(progName , device       , ' __c_white__ ': upload program to ' __c_cyan__ 'ESP8266' __c_white__ ' via ' __c_cyan__ 'serial port' __c_white__ ' using ' __c_cyan__ 'ESPUtil'
+    echoln __c_green__ '                           ?baudrate, ?resetOptions, ' __c_green__ '      progName    ' __c_white__ ' program name;       use        the value  returned by \'' __c_green__ 'exe_fpath' __c_white__ '\''
+    echoln __c_green__ '                           ?wfParams               ) ' __c_green__ '      device      ' __c_white__ ' serial device path; use one of the values returned by \'' __c_green__ '$ls_serial_ports()' __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      baudrate    ' __c_white__ ' programming baudrate   - the default value is \'' __c_yellow__ ${__Def_E8266BM_SU_BAUDRATE__} __c_white__ '\''
+    echoln __c_green__ '                                                     ' __c_green__ '      resetOptions' __c_white__ ' extra options          - the default value is ' ${__Def_E8266BM_RESET_OPTIONS__}
+    echoln __c_green__ '                                                     ' __c_green__ '      wfParams    ' __c_white__ ' write flash parameters - the default value is ' ${__Def_E8266BM_WF_PARAMS__}
+    echoln
+    echoln __c_green__ '    e8266bm_link_exe      (?extraOptions           ) ' __c_white__ ': link a ' ${NGText} ' executable; please use this instead of \'' __c_green__ 'link_exe' __c_white__ '\''
+    echoln __c_reset__
+endfunction

@@ -1,0 +1,107 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+import jxm.*;
+import jxm.xb.*;
+
+
+/*
+ * Common superclass for all 'ProgBootChip45B*' classes, intended to simplify usage
+ * and centralize shared utility functions.
+ */
+public abstract class ProgBootChip45 extends ProgBootSerial {
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootSerial.Config {
+
+        #include "config.inc/BootAVRSimpleUART.java.inc"
+
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    protected ProgBootChip45(final String progClassName, final ProgBootChip45.Config config) throws Exception
+    {
+        // Process the superclass
+        super(progClassName, config);
+    }
+
+    public abstract boolean begin(final String serialDevice, final int baudrate);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int GET_CONNECT_RETRY_COUNT = 3;
+
+    protected Matcher _c45Connect(final String progClassName, final Pattern pmConnect, final boolean skipResetAndSync)
+    {
+        // Try to connect as several times
+        for( int r = 0; r < (skipResetAndSync ? 1 : GET_CONNECT_RETRY_COUNT); ++r ) {
+
+            if(!skipResetAndSync) {
+
+                // Reset the MCU via DTR/RTS
+                _serialResetMCU_DTR_RTS();
+                SysUtil.sleepMS(25);
+
+                // Send 'U' for autobaud detection until any byte is received
+                final XCom.TimeoutMS tms = new XCom.TimeoutMS(TX_RX_TIMEOUT_MS_DEFL);
+                      boolean        con = false;
+
+                while(true) {
+                    _serialTx('U');
+                    if( serialRxUnreadCount() > 0 ) {
+                        con = true;
+                        break;
+                    }
+                    if( tms.timeout() ) {
+                        USB2GPIO.notifyError(Texts.PDevXXX_RxTimeout, progClassName);
+                        break;
+                    }
+                }
+
+                if(!con) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailConnectBLTout, progClassName);
+                    continue;
+                }
+
+            } // if
+
+            // Read the bytes
+            final char[] bytes = new char[128];
+                  int    idx   = 0;
+
+            while( serialRxUnreadCount() > 0 ) {
+                final Integer ch = _serialRxUInt8();
+                if(ch < 0) return null;
+                bytes[idx++] = (char) (int) ch;
+            }
+
+            /*
+            for(int i = 0; i < idx; ++i) SysUtil.stdDbg().printf( "%02X %c\n", (int) bytes[i], bytes[i] );
+            //*/
+
+            // Perform pattern matching
+            final Matcher m = pmConnect.matcher( new String(bytes, 0, idx) );
+
+            if( m.matches() ) {
+                SysUtil.sleepMS(25);
+                return m;
+            }
+
+        } // for
+
+        // Error
+        return null;
+    }
+
+} // class ProgBootChip45

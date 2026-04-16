@@ -1,0 +1,106 @@
+Options:
+
+    -h                      Print this message and exit.
+
+    -s                      Silence all suppressed error and warning messages (do not print to
+                            stderr).
+
+    -C DIRECTORY            Change to DIRECTORY before doing anything.
+
+    -f FILE                 Read FILE as the specification file; the default is '%1$s'.
+
+    -e <program_text>       Execute the given program text; cannot be used together with the
+                            '-f' option.
+
+    --en-jxm-lload-verbose  Enable verbose messages for JxMake library loading.
+
+    --en-jxm-cache          Enable compiled JxMake specification file cache.
+
+    --en-jxm-cache-verbose  Enable compiled JxMake specification file cache (verbose mode).
+
+    --rm-jxm-cache          Delete the compiled JxMake specification cache files and exit.
+
+    --rm-prj-cache          Delete all the project's cache files and exit.
+
+    --version               Print the program name and version and exit.
+
+    --dct                   Use dark  color theme for text (the default).
+
+    --lct                   Use light color theme for text.
+
+    --ds-ansi-ec            Disable the actual output of ANSI escape codes; please note that
+                            JxMake will not be able to strip/remove ANSI escape codes that are
+                            printed manually from user programs nor those that come from the
+                            outputs of shell/operating system commands that are executed in
+                            streaming mode.
+
+    --en-all-exception-st   Enable printing all exception stack trace on error.
+
+    --en-warn-inv-ref-var   Enable warning when evaluating or assigning to reference variables
+                            which contain invalid references.
+
+    --en-warn-var-not-exist Enable warning when evaluating non-existent variables; only enable
+                            this as necessary while debugging because many parts of the JxMake
+                            loadable libraries depends on the convention that all non-existent
+                            variables evaluate to empty strings/zeroes.
+
+    --en-warn-cnv-integer   Enable warning when converting strings to integers if the strings
+                            do not contain values that can be parsed to integers.
+
+    --en-warn-cnv-boolean   Enable warning when converting strings to booleans if the strings
+                            do not contain values that can be parsed to booleans.
+                            do not contain values that can be parsed to booleans.
+
+    --en-warn-all           Enable all warnings specified by the --en-warn-* above.
+
+    --en-headless           Set 'java.awt.headless' to 'true'. Useful on Linux if the 'DISPLAY'
+                            environment variable has an invalid value or if the X server is not
+                            accessible.
+
+    --en-opengl             Set 'sun.java2d.opengl' to 'true'. Enables the JVM to attempt using
+                            OpenGL for Java2D rendering operations.
+
+    --en-d3d                Set 'sun.java2d.d3d' to 'true'. Enables the JVM to attempt using
+                            Direct3D for Java2D rendering operations.
+
+    --extract-ejar-docs     Extract all documentation files embedded in the JxMake JAR file
+                            to '%2$s' and exit.
+
+    --extract-ejar-lib      Extract all loadable library files embedded in the JxMake JAR file
+                            to '%3$s' and exit.
+
+    --extract-ejar-abrd-dec Extract the default '%4$s' file embedded
+                            in the JxMake JAR file to '%5$s' and exit.
+
+    --browse-docs           Show the documentation browser and exit when the window is closed.
+
+    --script-editor         Run the script editor and exit when the window is closed.
+
+    --__compile__           Compile the specified JxMake specification file ('*.jxm') to make
+                            a precompiled '*.jxm.bin' library file and exit.
+                            [[[ WARNING: FOR DEVELOPER ONLY! ]]]
+
+    --__en_dtp__            Enable dummy target and prerequisites.
+                            [[[ WARNING: FOR DEVELOPER ONLY! ]]]
+
+
+Variable Assignments:
+
+    var_name   Variable's name.
+    value      Variable's value (interpreted as a constant).
+
+
+Notes:
+
+    # The system put all its cache directories and files under '<user_temp_dir>/%6$s'.
+      The exact location of '<user_temp_dir>' depends on the operating system.
+
+    # If the JxMake specification file(s) is/are large, using '--en-jxm-cache' would:
+          1. Slightly increases the compilation time because the system will need to store
+             (cache) the compiled specification file and its dependency data.
+          2. Noticeably improve the execution speed of the specification script. However,
+             please note that the total build time may not actually improve significantly
+             because the time required to execute the compilers and other external programs
+             will be significantly more than the execution time of the specification script.
+
+    # When using light color theme, the monochrome colors will be inverted.

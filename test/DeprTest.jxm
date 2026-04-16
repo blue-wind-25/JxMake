@@ -1,0 +1,120 @@
+$__dummy_dep_1__()
+$__dummy_dep_2__()
+$__dummy_rep_2__()
+
+function a()
+    echoln 'A1'
+endfunction
+
+function b()
+    echoln 'B1'
+endfunction
+
+$call(a)
+$call(b)
+
+echoln
+
+function a() supersede
+    echoln 'A2'
+    $call(__origin__)
+endfunction
+
+function b() supersede deprecated by b_new
+    echoln 'B2-DEPRECATED'
+    $call(__origin__)
+endfunction
+
+function b() supersede
+    echoln 'B3'
+    $call(__origin__)
+endfunction
+
+function c() deprecated
+    echoln 'C-DEPRECATED'
+endfunction
+
+function d() deprecated by d_new
+    echoln 'D-DEPRECATED'
+endfunction
+
+$call(a)
+$call(b)
+$call(c)
+$call(d)
+
+
+
+echoln
+echoln
+echoln
+
+
+
+echoln $[__dummy_vdep_1__]
+echoln $[__dummy_vdep_2__]
+echoln $[__dummy_vrep_2__]
+
+echoln
+
+echoln __dummy_sdep_1__
+echoln __dummy_sdep_2__
+echoln __dummy_srep_2__
+
+echoln
+
+const ABC := 'abc'
+const DEF := 'def'
+      GHI := 'ghi'
+
+echoln ${ABC}
+echoln ${DEF}
+echoln ${GHI}
+
+echoln
+
+deprecate ABC
+deprecate DEF by DEF_new
+deprecate GHI by GHI_new
+
+echoln ${ABC}
+echoln ${DEF}
+echoln ${GHI}
+
+echoln
+
+GHI := 'ghi_other_1'
+echoln ${GHI}
+
+unset GHI
+GHI := 'ghi_other_2'
+echoln ${GHI}
+
+
+
+echoln
+echoln
+echoln
+
+
+
+function MyFunc(arg1, arg2, arg3)
+    deprecate arg1
+    deprecate MyVar1
+    local     MyVar2
+    deprecate MyVar2
+    echoln "[I-ByArg] ${arg1} ${arg2} ${arg3}"
+    echoln "[I-ByVar] ${MyVar1} ${MyVar2} ${MyVar3}"
+endfunction
+
+MyVar1 := 'MyVar1'
+MyVar2 := 'MyVar2'
+MyVar3 := 'MyVar3'
+
+deprecate MyVar3;
+
+echoln "[O-ByVar] ${MyVar1} ${MyVar2} ${MyVar3}"
+echoln
+$call(MyFunc, ${MyVar1}, ${MyVar2},  ${MyVar3})
+echoln
+echoln "[O-ByVar] ${MyVar1} ${MyVar2} ${MyVar3}"

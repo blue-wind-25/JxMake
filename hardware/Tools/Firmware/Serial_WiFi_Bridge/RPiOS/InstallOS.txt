@@ -1,0 +1,1393 @@
+====================================================================================================
+Operating System and Software Installation for Raspberry Pi (RPi)
+====================================================================================================
+
+On the Raspberry Pi 5, you can use NVMe storage instead of an SD card. However, according to the
+official documentation:
+    https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-bootloader-configuration
+NVMe boot is not enabled by default.
+
+Therefore, you must first boot from the SD card and connect to the Raspberry Pi 5 via SSH to enable
+NVMe boot.
+
+View the current EEPROM configuration:
+    rpi-eeprom-config
+
+Edit the current EEPROM configuration:
+    sudo -E rpi-eeprom-config --edit
+set the following parameter to enable NVMe boot (SD -> NVMe -> USB -> RESTART):
+    BOOT_ORDER=0xF461
+or (SD -> NVMe -> USB -> NETWORK -> RESTART):
+    BOOT_ORDER=0xF2461
+then save the changes.
+
+
+If you are using Raspberry Pi Compute Module 5 with eMMC (CM5):
+    https://www.raspberrypi.com/documentation/computers/compute-module.html#cm5
+    https://pip-assets.raspberrypi.com/categories/944-raspberry-pi-compute-module-5/documents/RP-008180-DS-6-cm5-datasheet.pdf
+with its IO Board:
+    https://www.waveshare.com/wiki/Compute_Module_5_IO_Board
+    https://pip-assets.raspberrypi.com/categories/1097-raspberry-pi-compute-module-5-io-board/documents/RP-008182-DS-2-cm5io-datasheet.pdf
+you need to put the device in 'mass-storage-gadget' mode first.
+
+In order to do this, download and build 'Raspberry Pi USB Device Boot - RPIBOOT' too first:
+    git clone --recurse-submodules --depth=1  https://github.com/raspberrypi/usbboot
+    cd usbboot
+    git log --oneline
+
+    cd rpi-eeprom
+    rm -rvf .git
+    git clone --depth=1 https://github.com/raspberrypi/rpi-eeprom
+    git log --oneline
+    cd ..
+
+    make
+
+You can then use it like (you may need to use 'sudo'):
+    ./rpiboot -d mass-storage-gadget
+or install rpiboot to '/usr/bin' and boot images to '/usr/share':
+    make install
+    rpiboot
+
+Put the jumper in place to disable eMMC boot before connecting the device to your PC using the
+provided USB‑C to USB‑A male cable. Then execute 'rpiboot' (you may need to use 'sudo'):
+    ./rpiboot -d mass-storage-gadget
+it should output something like:
+    RPIBOOT: build-date 2026/03/12 pkg-version local 101f2d00
+
+    Please fit the EMMC_DISABLE / nRPIBOOT jumper before connecting the power and USB cables to the target device.
+    If the device fails to connect then please see https://rpltd.co/rpiboot for debugging tips.
+
+    Loading: mass-storage-gadget/bootfiles.bin
+    Using mass-storage-gadget/bootfiles.bin
+    Waiting for BCM2835/6/7/2711/2712...
+
+    Sending bootcode.bin
+    Successful read 4 bytes
+    Waiting for BCM2835/6/7/2711/2712...
+
+    Second stage boot server
+    File read: mcb.bin
+    File read: memsys00.bin
+    File read: memsys01.bin
+    File read: rp1c0fw1.bin
+    File read: memsys02.bin
+    File read: rp1c0fw2.bin
+    File read: memsys03.bin
+    File read: bootmain
+    Loading: mass-storage-gadget/config.txt
+    File read: config.txt
+    Loading: mass-storage-gadget/boot.img
+    File read: boot.img
+    Second stage boot server done
+and shortly afterward, your PC should enumerate a new mass‑storage device. Once the image has been
+written, make sure to remove the jumper before booting the CM5. Do not power the board using your
+PC's USB port.
+
+
+----------------------------------------------------------------------------------------------------
+Installing the Operating System
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+Download the 'Raspberry Pi OS Lite' image from:
+    https://www.raspberrypi.com/software/operating-systems
+    https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-12-04/2025-12-04-raspios-trixie-arm64-lite.img.xz
+
+Extract the image:
+    xz -dkv 2025-12-04-raspios-trixie-arm64-lite.img.xz
+
+
+Write the OS image:
+    dd if=2025-12-04-raspios-trixie-arm64-lite.img of=/dev/sdX bs=1M conv=fsync oflag=direct status=progress
+
+and flush the device:
+    blockdev --flushbufs /dev/sdX
+
+WARNING : Double-check the SD Card/NVMe device path (/dev/sdX) before running the command.
+          Use:
+              lsblk
+          or:
+              fdisk -l
+          to verify the correct device.
+
+
+Resize the root partion and create a new partition (assume sdX is sdf in this guide):
+    fdisk /dev/sdX
+
+        p        # print the partition table
+                 #      Device Boot      Start         End      Blocks   Id  System
+                 #   /dev/sdf1           16384     1064959      524288    c  W95 FAT32 (LBA)
+                 #   /dev/sdf2         1064960     5832703     2383872   83  Linux
+
+        d        # delete partition 2 (root)
+        2
+
+        n        # new partition 2 (root)
+        p
+        2
+        1064960  # first sector (same as the output of 'p' abvove)
+        +24G     # size of root partition
+
+        p        # print the partition table
+                 #      Device Boot      Start         End      Blocks   Id  System
+                 #   /dev/sdf1           16384     1064959      524288    c  W95 FAT32 (LBA)
+                 #   /dev/sdf2         1064960    51396607    25165824   83  Linux
+
+        n        # new partition 3 (data)
+        p
+        3
+        51396608 # first sector (the output of 'p' abvove plus one)
+        +3G      # size of the new partition
+
+        p        # print the partition table
+                 #      Device Boot      Start         End      Blocks   Id  System
+                 #   /dev/sdf1           16384     1064959      524288    c  W95 FAT32 (LBA)
+                 #   /dev/sdf2         1064960    51396607    25165824   83  Linux
+                 #   /dev/sdf3        51396608    57688063     3145728   83  Linux
+
+        w        # write changes and exit
+
+
+On 'Raspberry Pi OS Lite', SSH is disabled by default. To enable it, mount the boot partition of
+the SD Card/NVMe on your host PC and create an empty file named ssh (no extension) in the root of
+the boot partition:
+    touch /media/sdXN/ssh
+
+Create the default password:
+    python3 -c 'import crypt; print( crypt.crypt( "raspberry", crypt.mksalt(crypt.METHOD_SHA512) ) )'
+it should output something like:
+    $6$BnXrTP0WSxConmLR$Klb2R5hE4rLV.fdKItabYI6LECtIR3icJ.nBLmwzhurdpQ9Qhr0zhgy.OSAKrvxhcyycLge2M.WZS5SroUJ5Z0
+
+Create a file named user 'userconf' (or 'userconf.txt') on 'sdXN' containing the following:
+    pi:$6$BnXrTP0WSxConmLR$Klb2R5hE4rLV.fdKItabYI6LECtIR3icJ.nBLmwzhurdpQ9Qhr0zhgy.OSAKrvxhcyycLge2M.WZS5SroUJ5Z0
+
+
+Finally, umount the SD Card/NVMe from PC, reconnect the SD Card/NVMe to the RPi and power it on.
+
+
+Example (for normal RPi):
+    dd if=2025-12-04-raspios-trixie-arm64-lite.img of=/dev/sdf bs=1M conv=fsync oflag=direct status=progress
+    blockdev --flushbufs /dev/sdf
+    fdisk /dev/sdf
+        ... (see above)
+    mount /dev/sdf1 /media/sdf1
+    touch /media/sdf1/ssh
+    echo 'pi:$6$BnXrTP0WSxConmLR$Klb2R5hE4rLV.fdKItabYI6LECtIR3icJ.nBLmwzhurdpQ9Qhr0zhgy.OSAKrvxhcyycLge2M.WZS5SroUJ5Z0' > /media/sdf1/userconf
+    umount /dev/sdf1
+    eject /dev/sdf
+
+
+    For more information please refer to:
+    http://rptl.io/configtxt
+    https://github.com/raspberrypi/linux/blob/43fa967811484afde0bbbee182ff8f29dc0550c2/arch/arm/boot/dts/overlays/README
+
+----------------------------------------------------------------------------------------------------
+
+If you are using the CM5, you may want to allocate the entire eMMC as the OS partition and use the
+external NVMe as the extra programs and data partition. Please adjust the commands above accordingly.
+
+
+Example (for CM5 with eMMC):
+    dd if=2025-12-04-raspios-trixie-arm64-lite.img of=/dev/sdc bs=1M conv=fsync oflag=direct status=progress
+    blockdev --flushbufs /dev/sdc
+    mount /dev/sdc /media/sdc1
+    touch /media/sdc1/ssh
+    echo 'pi:$6$BnXrTP0WSxConmLR$Klb2R5hE4rLV.fdKItabYI6LECtIR3icJ.nBLmwzhurdpQ9Qhr0zhgy.OSAKrvxhcyycLge2M.WZS5SroUJ5Z0' > /media/sdc1/userconf
+    umount /dev/sdc1
+    eject /dev/sdc
+
+
+----------------------------------------------------------------------------------------------------
+Configuring SSH
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+For now, the RPi can be accessed either using:
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null pi@raspberrypi.local
+or:
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null pi@<IP_ADDRESS>
+the default password is 'raspberry'
+
+Generate a portable key pair from the host PC:
+    ssh-keygen -t ed25519 -C "pi@raspberrypi" -f ~/ssh-pi@raspberrypi-key
+
+Copy the public key to the RPi:
+    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ~/ssh-pi@raspberrypi-key.pub pi@raspberrypi.local:~/
+
+
+##### On the RPi (SSH Session) #####
+
+SSH into the RPi with password login and append the key to the authorized list:
+    mkdir -p  ~/.ssh
+    chmod 700 ~/.ssh
+    cat       ~/ssh-pi@raspberrypi-key.pub >> ~/.ssh/authorized_keys
+    chmod 600 ~/.ssh/authorized_keys
+    rm        ~/ssh-pi@raspberrypi-key.pub
+then logout.
+
+If the above steps worked, disable password‑based login (optional):
+    sudo nano /etc/ssh/sshd_config
+set (without the preceding indent):
+    PasswordAuthentication no
+    PermitRootLogin no
+then restart the service:
+    sudo systemctl restart ssh
+
+
+##### On the Host PC #####
+
+Logout and try to login using the private key:
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/ssh-pi@raspberrypi-key pi@raspberrypi.local
+
+
+Add functions for convenience:
+    nano ~/.bashrc
+and add (without the preceding indent):
+    pi_is_host() {
+        local candidate="$1"
+
+        [[ "$candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && return 0 # IPv4
+        [[ "$candidate" =~ ^[0-9a-fA-F:]+$                  ]] && return 0 # IPv6
+        [[ "$candidate" =~ ^[a-zA-Z0-9-]+\.local$           ]] && return 0 # mDNS hostname
+
+        return 1
+    }
+
+    pi_ssh() {
+        local hst='raspberrypi.local'
+
+        if pi_is_host "$1"; then
+            hst="$1"
+            shift
+        fi
+
+        ssh -o StrictHostKeyChecking=no     \
+            -o UserKnownHostsFile=/dev/null \
+            -i ~/ssh-pi@raspberrypi-key     \
+            "pi@$hst" "$@" 2> >(grep -vE "\(ECDSA\)|\(ED25519\)|\(RSA\)")
+    }
+
+    pi_scp() {
+        local src="$1"
+        local hst='raspberrypi.local'
+        local dst="$3"
+
+        if pi_is_host "$2"; then
+            hst="$2"
+        else
+            dst="$2"
+        fi
+
+        scp -o StrictHostKeyChecking=no     \
+            -o UserKnownHostsFile=/dev/null \
+            -i ~/ssh-pi@raspberrypi-key     \
+            -r "$src" "pi@$hst:$dst" 2> >(grep -vE "\(ECDSA\)|\(ED25519\)|\(RSA\)")
+    }
+then execute:
+    source ~/.bashrc
+
+
+To reboot the RPi, you can use:
+    pi_ssh 'sudo reboot'
+
+To shutdown the RPi, you can use:
+    pi_ssh 'sudo shutdown -h now'
+
+
+----------------------------------------------------------------------------------------------------
+Configuring the File System
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Verify the partition (use nvme0n1 instead of mmcblk0 if you are using NVMe instead of SD Card):
+
+    sudo fdisk /dev/mmcblk0
+        p        # print the partition table
+                 # Device         Boot    Start      End  Sectors  Size Id Type
+                 # /dev/mmcblk0p1         16384  1064959  1048576  512M  c W95 FAT32 (LBA)
+                 # /dev/mmcblk0p2       1064960 51396607 50331648   24G 83 Linux
+                 # /dev/mmcblk0p3      51396608 57688063  6291456    3G 83 Linux
+
+        q        # quit
+
+
+Resize the root partition and make the file system of the data partition:
+    sudo resize2fs /dev/mmcblk0p2
+    sudo mkfs.ext4 -L data /dev/mmcblk0p3
+
+Print the block device attributes:
+    sudo blkid /dev/mmcblk0p3
+it should output something like:
+    /dev/mmcblk0p3: LABEL="data" UUID="4954ac42-16d9-448e-b424-79eaaeb15bc2" BLOCK_SIZE="4096" TYPE="ext4" PARTUUID="3f44b4e9-03"
+
+
+Add the new partition to '/etc/fstab':
+    sudo nano /etc/fstab
+add (without the preceding indent):
+    PARTUUID=<PARTUUID>   /mnt/data       ext4    defaults,noatime  0       2
+
+then:
+    sudo mkdir /mnt/data
+    sudo systemctl daemon-reload
+    sudo mount -a
+    sudo mkdir -p    /mnt/data/pi
+    sudo chown pi:pi /mnt/data/pi
+
+
+Example content of '/etc/fstab' after completing this step (for normal RPi):
+    proc                  /proc           proc  defaults          0  0
+    PARTUUID=3f44b4e9-01  /boot/firmware  vfat  defaults          0  2
+    PARTUUID=3f44b4e9-02  /               ext4  defaults,noatime  0  1
+    PARTUUID=3f44b4e9-03  /mnt/data       ext4  defaults,noatime  0  2
+
+----------------------------------------------------------------------------------------------------
+
+If you are using the CM5 and plan to use the external NVMe as the extra programs and data partition,
+boot the CM5 and edit 'config.txt':
+    sudo nano /boot/firmware/config.txt
+and add this line under the CM5 section (without the preceding indent):
+    dtparam=pciex1
+optionally, also add this line if you need to enable PCIe Gen 3 (not certified, may be unstable):
+    dtparam=pciex1_gen=3
+
+You may need to run:
+    sudo -E rpi-eeprom-config --edit
+and rhen replace or update the configuration with something like:
+    [all]
+    BOOT_UART=0
+    POWER_OFF_ON_HALT=1
+    PCIE_PROBE=1
+    BOOT_ORDER=0xF2641 # eMMC -> USB -> NVMe -> Network -> RESTART
+    PSU_MAX_CURRENT=5000
+
+Reboot and verify if everything is working:
+    lspci
+it should output something like:
+    0001:00:00.0 PCI bridge: Broadcom Inc. and subsidiaries BCM2712 PCIe Bridge (rev 30)
+    0001:01:00.0 Non-Volatile memory controller: YEESTOR Microelectronics Co., Ltd Device ef25 (rev 01)
+    0002:00:00.0 PCI bridge: Broadcom Inc. and subsidiaries BCM2712 PCIe Bridge (rev 30)
+    0002:01:00.0 Ethernet controller: Raspberry Pi Ltd RP1 PCIe 2.0 South Bridge
+
+
+Find the NVMe device name:
+    lsblk
+it should output something like:
+    NAME         MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+    mmcblk0      179:0    0  29.1G  0 disk
+    ├─mmcblk0p1  179:1    0   512M  0 part /boot/firmware
+    └─mmcblk0p2  179:2    0  28.6G  0 part /
+    mmcblk0boot0 179:32   0     4M  1 disk
+    mmcblk0boot1 179:64   0     4M  1 disk
+    zram0        254:0    0     0B  0 disk
+    nvme0n1      259:0    0 119.2G  0 disk
+
+        p        # print the partition table
+                 #      Device Boot      Start         End      Blocks   Id  System
+                 #   /dev/sdf1           16384     1064959      524288    c  W95 FAT32 (LBA)
+                 #   /dev/sdf2         1064960     5832703     2383872   83  Linux
+
+        d        # delete partition 2 (root)
+        2
+
+Create the NVMe data partition:
+    sudo fdisk /dev/nvme0n1
+
+        o         # create a new empty MBR (DOS) partition table
+
+        n         # new partition 1 (root)
+        p
+        1
+        2048      # first sector (choose the default)
+        250069679 # last  sector (choose the default)
+
+        p        # print the partition table
+                 #        Device         Boot Start       End   Sectors   Size Id Type
+                 #        /dev/nvme0n1p1       2048 250069679 250067632 119.2G 83 Linux
+
+        w        # write changes and exit
+
+Make the file system of the data partition:
+    sudo mkfs.ext4 -L data /dev/nvme0n1p1
+
+Print the block device attributes:
+    sudo blkid /dev/nvme0n1p1
+it should output something like:
+    /dev/nvme0n1p1: LABEL="data" UUID="ef6653ae-713f-47dc-857b-d9a62230f7d0" BLOCK_SIZE="4096" TYPE="ext4" PARTUUID="c0f6ef8b-01"
+
+
+Add the new partition to '/etc/fstab':
+    sudo nano /etc/fstab
+add (without the preceding indent):
+    PARTUUID=<PARTUUID>   /mnt/data       ext4    defaults,noatime  0       2
+
+then:
+    sudo mkdir /mnt/data
+    sudo systemctl daemon-reload
+    sudo mount -a
+    sudo mkdir -p    /mnt/data/pi
+    sudo chown pi:pi /mnt/data/pi
+    sudo mkdir -p    /mnt/data/opt
+
+
+Example content of '/etc/fstab' after completing this step (for CM5 with eMMC):
+    proc                  /proc           proc  defaults          0  0
+    PARTUUID=e6f9315e-01  /boot/firmware  vfat  defaults          0  2
+    PARTUUID=e6f9315e-02  /               ext4  defaults,noatime  0  1
+    PARTUUID=c0f6ef8b-01  /mnt/data       ext4  defaults,noatime  0  2
+
+
+----------------------------------------------------------------------------------------------------
+Configuring the Cooling Fan PWM (Optional)
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+If you are using the CM5 with the Waveshare Compute Module 5 IO Board in the default casing equipped
+with the default fan:
+    https://www.waveshare.com/wiki/Compute_Module_5_IO_Board
+edit 'config.txt':
+    sudo nano /boot/firmware/config.txt
+and add these lines under the CM5 section (without the preceding indent):
+    dtparam=fan_temp0=50000,fan_temp0_hyst=2000,fan_temp0_speed=100
+    dtparam=fan_temp1=55000,fan_temp1_hyst=3000,fan_temp1_speed=150
+    dtparam=fan_temp2=60000,fan_temp2_hyst=4000,fan_temp2_speed=200
+    dtparam=fan_temp3=65000,fan_temp3_hyst=5000,fan_temp3_speed=250
+then reboot:
+    sudo reboot
+
+
+Verify if everything is working:
+    sudo dtc -I fs -O dts /proc/device-tree > /tmp/current.dts
+    grep -A5 -i cooling_fan /tmp/current.dts
+it should output something like:
+    cooling_fan {
+            rpm-regmap = <0x62>;
+            cooling-levels = <0x00 0x64 0x96 0xc8 0xfa>;
+            cooling-max-state = <0x03>;
+            compatible = "pwm-fan";
+            status = "okay";
+    ...
+then check the current temperature:
+    cat /sys/class/thermal/thermal_zone0/temp
+it should output something like:
+    45200
+
+
+Conduct a stress test:
+    openssl speed -multi 4
+the OpenSSL benchmark should cause the fan to turn on shortly and:
+    cat /sys/class/thermal/thermal_zone0/temp
+should show higher value.
+
+The fan should automatically stop when the stress test is terminated and the temperature has dropped
+sufficiently.
+
+
+----------------------------------------------------------------------------------------------------
+Configuring WiFi
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Execute:
+    sudo raspi-config
+then:
+    go to 'Localisation Options' then 'Timezone' and select your timezone
+    go to 'Localisation Options' then 'WLAN Country' and select your country
+then 'Finish' and reboot:
+    sudo reboot
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Serial Port Access
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Prevent ModemManager from claiming '/dev/ttyACM*':
+    sudo apt purge modemmanager
+    sudo apt-mark hold modemmanager
+
+
+By default, '/dev/ttyACM*' belongs to group dialout. Add the user to that group:
+    sudo usermod -aG dialout pi
+
+
+----------------------------------------------------------------------------------------------------
+Installing JDK
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Install JDK:
+    sudo apt update
+    sudo apt install default-jdk
+
+Check installed version:
+    java -version
+
+Confirm the installed path with:
+    update-alternatives --config java
+this shows something like:
+      Selection    Path                                         Priority   Status
+    ------------------------------------------------------------
+    * 0            /usr/lib/jvm/java-21-openjdk-arm64/bin/java   2111      auto mode
+      1            /usr/lib/jvm/java-21-openjdk-arm64/bin/java   2111      manual mode
+
+Edit '/etc/environment':
+    sudo nano /etc/environment
+add or adjust the lines so that they look like (without the preceding indent):
+    JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
+    PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$JAVA_HOME/bin"
+
+Logout and login again so the changes will take effect.
+
+----------------------------------------------------------------------------------------------------
+
+If you are using the CM5 and use the external NVMe as the extra programs and data partition, you may
+want to install the latest JDK there (instead of the 'default-jdk' above):
+
+Download the JDK:
+    cd /mnt/data
+    sudo wget https://download.java.net/java/GA/jdk25.0.2/b1e0dfa218384cb9959bdcb897162d4e/10/GPL/openjdk-25.0.2_linux-aarch64_bin.tar.gz
+
+Extract the JDK:
+    cd opt
+    sudo tar -xzvpf ../openjdk-25.0.2_linux-aarch64_bin.tar.gz
+
+
+Resgister the JDK to the system:
+    sudo ln -sfn /mnt/data/opt/jdk-25.0.2 /mnt/data/opt/jdk-25
+    sudo update-alternatives --install /usr/bin/java      java      /mnt/data/opt/jdk-25/bin/java      25
+    sudo update-alternatives --install /usr/bin/javac     javac     /mnt/data/opt/jdk-25/bin/javac     25
+    sudo update-alternatives --install /usr/bin/javadoc   javadoc   /mnt/data/opt/jdk-25/bin/javadoc   25
+    sudo update-alternatives --install /usr/bin/jar       jar       /mnt/data/opt/jdk-25/bin/jar       25
+    sudo update-alternatives --install /usr/bin/jarsigner jarsigner /mnt/data/opt/jdk-25/bin/jarsigner 25
+    sudo update-alternatives --install /usr/bin/jdeprscan jdeprscan /mnt/data/opt/jdk-25/bin/jdeprscan 25
+    sudo update-alternatives --install /usr/bin/keytool   keytool   /mnt/data/opt/jdk-25/bin/keytool   25
+verify:
+    for TOOL in java javac javadoc jar jarsigner jdeprscan keytool; do sudo update-alternatives --display $TOOL; done
+it should output something like:
+    java - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/java
+      link currently points to /mnt/data/opt/jdk-25/bin/java
+      link java is /usr/bin/java
+    /mnt/data/opt/jdk-25/bin/java - priority 25
+    javac - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/javac
+      link currently points to /mnt/data/opt/jdk-25/bin/javac
+      link javac is /usr/bin/javac
+    /mnt/data/opt/jdk-25/bin/javac - priority 25
+    javadoc - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/javadoc
+      link currently points to /mnt/data/opt/jdk-25/bin/javadoc
+      link javadoc is /usr/bin/javadoc
+    /mnt/data/opt/jdk-25/bin/javadoc - priority 25
+    jar - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/jar
+      link currently points to /mnt/data/opt/jdk-25/bin/jar
+      link jar is /usr/bin/jar
+    /mnt/data/opt/jdk-25/bin/jar - priority 25
+    jarsigner - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/jarsigner
+      link currently points to /mnt/data/opt/jdk-25/bin/jarsigner
+      link jarsigner is /usr/bin/jarsigner
+    /mnt/data/opt/jdk-25/bin/jarsigner - priority 25
+    jdeprscan - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/jdeprscan
+      link currently points to /mnt/data/opt/jdk-25/bin/jdeprscan
+      link jdeprscan is /usr/bin/jdeprscan
+    /mnt/data/opt/jdk-25/bin/jdeprscan - priority 25
+    keytool - auto mode
+      link best version is /mnt/data/opt/jdk-25/bin/keytool
+      link currently points to /mnt/data/opt/jdk-25/bin/keytool
+      link keytool is /usr/bin/keytool
+    /mnt/data/opt/jdk-25/bin/keytool - priority 25
+
+If you have more than one JDK installed you can use these commands to select:
+    sudo update-alternatives --config java
+    sudo update-alternatives --config javac
+    sudo update-alternatives --config javadoc
+    sudo update-alternatives --config jar
+    sudo update-alternatives --config jarsigner
+    sudo update-alternatives --config keytool
+
+
+You may want to edit the pi user's '.bashrc':
+    nano ~/.bashrc
+and add this line at the end of the file (without the preceding indent):
+    export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:/bin/java::")
+then reload the configuration now:
+    source ~/.bashrc
+
+
+----------------------------------------------------------------------------------------------------
+Installing Additional Development Packages (Optional)
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Install the build packages:
+    sudo apt install build-essential git libusb-1.0-0-dev
+
+Install Raspberry Pi USB device boot:
+    cd /home/pi
+    git clone --recurse-submodules --shallow-submodules --depth=1 https://github.com/raspberrypi/usbboot
+    cd usbboot
+    make
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Bluetooth Audio (Optional)
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Install BlueALSA:
+    sudo apt-get install bluez-alsa-utils upower
+
+Test pairing and playback, run:
+    bluetoothctl
+then execute these commands:
+    power on
+    agent on
+    default-agent
+    scan on
+it should output something like:
+    ...
+    Discovery started
+    [CHG] Controller 2C:CF:67:DF:24:E2 Discovering: yes
+    [NEW] Device AE:F1:B1:D9:36:59 SPEAKER5.0
+then execute (please adjust the address to your own device's address):
+    pair AE:F1:B1:D9:36:59
+    trust AE:F1:B1:D9:36:59
+    connect AE:F1:B1:D9:36:59
+it should output something like:
+    [CHG] Device AE:F1:B1:D9:36:59 Connected: yes
+    [CHG] Device AE:F1:B1:D9:36:59 Bonded: yes
+    ...
+    [CHG] Device AE:F1:B1:D9:36:59 ServicesResolved: yes
+    [CHG] Transport /org/bluez/hci0/dev_AE_F1_B1_D9_36_59/sep1/fd0 Volume: 0x0060 (96)
+then exit the program:
+    quit
+
+Test audio playback (please adjust the address to your own device's address):
+    speaker-test -D bluealsa:DEV=AE:F1:B1:D9:36:59,PROFILE=a2dp -c 2
+
+Next, try the sine wave test:
+    speaker-test -D bluealsa:DEV=AE:F1:B1:D9:36:59,PROFILE=a2dp -c 2 -t sine
+
+Note that speaker-test does not stop automatically; press Ctrl+C to end.
+
+Disconnect and turn off for now, run:
+    bluetoothctl
+then execute these commands:
+    disconnect AE:F1:B1:D9:36:59
+    agent off
+    power off
+    quit
+
+
+Set the default playback devices (please adjust the address to your own device's address):
+    sudo nano /etc/asound.conf
+and fill it with (without the preceding indent):
+    pcm.!default {
+        type plug
+        slave.pcm "bluealsa:DEV=AE:F1:B1:D9:36:59,PROFILE=a2dp"
+    }
+    ctl.!default {
+        type bluealsa
+    }
+
+Create helper Script (please adjust the address to your own device's address):
+    sudo nano /usr/local/bin/asound-bt-connect.sh
+and fill it with (without the preceding indent):
+    #!/bin/bash
+
+    BT_MAC="AE:F1:B1:D9:36:59"
+
+    # Check if already connected
+    if bluetoothctl info "$BT_MAC" | grep -q "Connected: yes"; then
+        exit 0
+    else
+        bluetoothctl power on             >/dev/null 2>&1
+        bluetoothctl --timeout 10 scan on >/dev/null 2>&1
+        bluetoothctl trust "$BT_MAC"      >/dev/null 2>&1
+        bluetoothctl connect "$BT_MAC"    >/dev/null 2>&1
+        if bluetoothctl info "$BT_MAC" | grep -q "Connected: yes"; then
+            exit 0
+        else
+            exit 1
+        fi
+    fi
+
+Make it executable:
+    sudo chmod +x /usr/local/bin/asound-bt-connect.sh
+
+Create a systemd unit for the above helper script:
+    sudo nano /etc/systemd/system/asound-bt-connect.service
+and fill it with (without the preceding indent):
+    [Unit]
+    Description=Auto-connect Bluetooth audio device to ALSA
+    After=bluetooth.service
+
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/local/bin/asound-bt-connect.sh
+
+Create a systemd unit for the timer:
+    sudo nano /etc/systemd/system/asound-bt-connect.timer
+and fill it with (without the preceding indent):
+    [Unit]
+    Description=Run 'asound-bt-connect' service periodically
+
+    [Timer]
+    OnBootSec=30
+    OnUnitActiveSec=20
+
+    [Install]
+    WantedBy=timers.target
+
+Ensure the Bluetooth audio device settings are present, run:
+    bluetoothctl
+then execute these commands (please adjust the address to your own device's address):
+    power on
+    info AE:F1:B1:D9:36:59
+it should output something like:
+    Device AE:F1:B1:D9:36:59 (public)
+            Name: SPEAKER5.0
+            Alias: SPEAKER5.0
+            Class: 0x00240404 (2360324)
+            Icon: audio-headset
+            Paired: yes
+            Bonded: yes
+            Trusted: yes
+            Blocked: no
+            Connected: no
+            LegacyPairing: no
+            UUID: Audio Sink                (0000110b-0000-1000-8000-00805f9b34fb)
+            UUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)
+            UUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)
+            UUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)
+            UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+            Modalias: bluetooth:v05D6p000Ad0240
+            ManufacturerData.Key: 0xffff (65535)
+            ManufacturerData.Value:
+      cf 55 07 f0 8e b9 11 cb                          .U......
+then exit the program:
+      quit
+
+Enable and start the services:
+    sudo systemctl daemon-reload
+    sudo systemctl enable asound-bt-connect.timer
+    sudo systemctl start asound-bt-connect.timer
+verify:
+    systemctl list-timers | grep asound-bt-connect
+    systemctl status asound-bt-connect.timer
+    systemctl status asound-bt-connect
+
+
+Adjust volume:
+    alsamixer
+
+Test audio:
+    aplay /usr/share/sounds/alsa/Front_Left.wav
+    aplay /usr/share/sounds/alsa/Front_Right.wav
+
+Persist settings and the reboot:
+    sudo alsactl store
+    sudo reboot
+
+It may take 1-2 minutes for the Bluetooth audio device to reconnect after a reboot
+
+
+If your Bluetooth audio device supports GATT, you can use standard tools like bluetoothctl or
+upower to see its battery level.
+
+Run bluetoothctl to see the battery status:
+    bluetoothctl info
+it should output something like:
+    Device 00:11:22:33:44:55 (public)
+        Name: Sony WH-1000XM5
+        Alias: Sony WH-1000XM5
+        ...
+        UUID: Battery Service           (0000180f-0000-1000-8000-00805f9b34fb)
+        Battery Percentage: 0x5a (90)
+
+Query the device directly (please adjust the address to your own device's address):
+    upower -i /org/freedesktop/UPower/devices/headset_dev_00_11_22_33_44_55
+it should output something like:
+    native-path:          /org/bluez/hci0/dev_00_11_22_33_44_55
+    model:                Sony WH-1000XM5
+    ...
+    headset
+        present:             yes
+        ...
+        percentage:          90%
+        icon-name:          'battery-full-symbolic'
+
+
+If your Bluetooth audio device is a Legacy HFP-AT device, follow these steps to see its battery
+level.
+
+Install dependencies and download the script:
+    sudo apt install python3-bluetooth
+    wget -c https://raw.githubusercontent.com/TheWeirdDev/Bluetooth_Headset_Battery_Level/refs/heads/master/bluetooth_battery.py
+    sudo mv bluetooth_battery.py /usr/local/bin
+
+Create a wrapper script:
+    sudo nano /usr/local/bin/bt-batt
+and fill it with (please adjust the address to your own device's address and without the preceding indent):
+    #!/bin/bash
+    python3 /usr/local/bin/bluetooth_battery.py AE:F1:B1:D9:36:59
+then:
+    sudo chmod a+x /usr/local/bin/bt-batt
+
+You can then use that script to see the battery level:
+    bt-batt
+it should output something like:
+    Battery level for AE:F1:B1:D9:36:59: 70%.
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Access-Point and DHCP Server
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Disable network manager permanently:
+    sudo systemctl stop NetworkManager
+    sudo systemctl mask NetworkManager
+
+Install the required packages:
+    sudo apt install dhcpcd5 dnsmasq hostapd
+
+
+Configure static IP for wlan0:
+    sudo nano /etc/dhcpcd.conf
+and add these lines at the end of the file (without the preceding indent):
+    interface wlan0
+        static ip_address=172.25.0.1/24
+        nohook wpa_supplicant
+
+    interface eth0
+        nolease
+
+    timeout 10
+    noarp
+
+Restart dhcpcd:
+    sudo systemctl restart dhcpcd
+
+
+Configure dnsmasq (DHCP server):
+    sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig
+    sudo nano /etc/dnsmasq.conf
+and fill it with (without the preceding indent):
+    interface=wlan0
+    dhcp-range=172.25.0.2,172.25.0.128,255.255.255.0,24h
+    leasefile-ro
+
+Configure hostapd (AP service)
+    sudo nano /etc/hostapd/hostapd.conf
+and fill it with (without the preceding indent):
+    interface=wlan0
+    driver=nl80211
+    ssid=JxMake RPi WiFi Access Point
+    hw_mode=g
+    channel=6
+    wmm_enabled=0
+    macaddr_acl=0
+    auth_algs=1
+    ignore_broadcast_ssid=0
+    wpa=2
+    wpa_passphrase=cR11d8a2w4VDjq3d
+    wpa_key_mgmt=WPA-PSK
+    rsn_pairwise=CCMP
+NOTE:
+    the passphrase is generated using:
+        tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16
+    you can select the best unused channel using:
+        sudo iwlist wlan0 scan | grep -i channel
+
+Point hostapd to its configuration:
+    sudo nano /etc/default/hostapd
+and add this line at the end of the file (without the preceding indent):
+    DAEMON_CONF=/etc/hostapd/hostapd.conf
+
+
+Enable and start the services:
+    sudo systemctl daemon-reload
+
+    sudo systemctl unmask hostapd
+    sudo systemctl enable hostapd
+    sudo systemctl start hostapd
+
+    sudo systemctl enable dnsmasq
+    sudo systemctl start dnsmasq
+
+    sudo systemctl restart dhcpcd
+
+Verify if everything is working:
+    ip addr show wlan0
+    sudo systemctl status hostapd
+    sudo systemctl status dnsmasq
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Telnet Server
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Install the required packages:
+    sudo apt install inetutils-telnetd inetutils-inetd
+
+
+Create a custom login for telnetd:
+    sudo nano /usr/local/bin/telnet-pi-login
+and fill it with (without the preceding indent):
+    #!/bin/bash
+    exec /bin/su - pi -s /bin/bash
+then execute:
+    sudo chmod +x /usr/local/bin/telnet-pi-login
+
+Enable telnetd:
+    sudo nano /etc/inetd.conf
+and add this line at the end of the file (without the preceding indent):
+    2323 stream tcp nowait root /usr/sbin/telnetd telnetd --exec-login=/usr/local/bin/telnet-pi-login
+and then restart the service:
+    sudo systemctl restart inetutils-inetd
+
+
+##### On the Host PC #####
+
+Check by executing:
+    telnet raspberrypi.local 2323
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Console Server
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+Copy the source code and compile:
+    pi_ssh 'sudo systemctl stop pi-console.service'
+    pi_ssh 'data-rw.sh'
+    pi_scp daemon /mnt/data/pi/
+    pi_ssh 'gcc -O3 -Wall -Wextra /mnt/data/pi/daemon/tcp_pty_bash_bridge.c -o /mnt/data/pi/daemon/tcp_pty_bash_bridge.elf'
+    pi_ssh 'data-ro.sh'
+    pi_ssh 'sudo systemctl start pi-console.service'
+
+
+##### On the RPi (SSH Session) #####
+
+Install the optional packages (can be used for testing):
+    sudo apt install socat
+
+You can test 'tcp_pty_bash_bridge.elf' temporarily by using:
+    sudo systemctl stop pi-console.service
+    sudo -u pi /mnt/data/pi/daemon/tcp_pty_bash_bridge.elf
+
+and then from the Host PC (with the PicoW attached):
+    screen /dev/ttyACM1 115200
+to exit, press
+    ^A K y
+AVOID execute commands with long output because ^C will only takes effect after the long output are completely streamed.
+
+
+##### On the RPi (SSH Session) #####
+
+Create the service unit:
+    sudo nano /etc/systemd/system/pi-console.service
+and fill it with (without the preceding indent):
+    [Unit]
+    Description=TCP Console on port 2525
+    After=network.target
+
+    [Service]
+    User=pi
+    Group=pi
+    WorkingDirectory=/home/pi
+    Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local
+    Environment=TERM=screen-256color
+    ExecStart=/mnt/data/pi/daemon/tcp_pty_bash_bridge.elf
+    StandardOutput=journal
+    StandardError=journal
+    Restart=always
+    RestartSec=5
+    KillMode=control-group
+
+    [Install]
+    WantedBy=multi-user.target
+
+Enable and start the services:
+    sudo systemctl daemon-reload
+    sudo systemctl enable pi-console.service
+    sudo systemctl start pi-console.service
+
+Verify if everything is working:
+    systemctl status pi-console.service
+    journalctl -u pi-console.service -f
+
+
+##### On the Host PC #####
+
+Check by executing:
+    socat readline tcp:raspberrypi.local:2525
+or run a combination of the following two commands from separate virtual consoles:
+    socat pty,link=/tmp/ttyBridge,raw,echo=0 tcp:raspberrypi.local:2525
+    screen /tmp/ttyBridge
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Serial over WiFi Bridge Server
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Configure udev rules:
+    sudo nano /etc/udev/rules.d/99-jxmake-serial-device.rules
+
+and fill it with (without the preceding indent):
+    # Official 'Caterina' Bootloader from Arduino
+    #     'Arduino Leonardo/Micro' Bootloader
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0037"    ,                                  SYMLINK+="ttySerial_caterina"
+
+    # LUFA Dual CDC Demo Application
+    #     'JxMake USB-GPIO' and 'JxMake USB-GPIO II' Modules
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="204e"    , ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_io0"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="204e"    , ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="ttySerial_io1"
+
+    # STMicroelectronics - STM32 Virtual COM Port (VCP) Demo Firmware
+    #     'JxMake USB Serial Hub GLST' Module
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740"    ,                                  SYMLINK+="ttySerial_dbg"
+
+    # Silicon Laboratories, Inc. - UART Bridges
+    #     CP2101/02/03/04/09
+    #     CP2108 (Port 1)
+    #     CP2105 (Port 1)
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea6[0-9]",                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea7[0-9]", ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="80a9"    , ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_dbg"
+
+    # Future Technology Devices International, Ltd. - FTDI Chips
+    #     FT232RL/R
+    #     FT2232H/D (Port 1)
+    #     FT4232H   (Port 1)
+    #     FT232H
+    #     FT230X/231X/234XD
+    #     Bricked Counterfeit FT232R
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010"    , ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011"    , ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="0000"    ,                                  SYMLINK+="ttySerial_dbg"
+
+    # Jiangsu Qinheng Microelectronics Co., Ltd. - WCH Bridges
+    #     CH340
+    #     CH341 (Serial Mode)
+    #     CH342 (Port 1)
+    #     CH343
+    #     CH9102
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="5523"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d2"    , ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d3"    ,                                  SYMLINK+="ttySerial_dbg"
+    KERNEL=="tty[A-Z]*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4"    ,                                  SYMLINK+="ttySerial_dbg"
+
+    ##### !!! TODO : VERIFY THE ABOVE VIDs PIDs !!! ####
+
+then execute:
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    udevadm test /sys/class/tty/ttyUSB0 2>&1 | grep "99-jxmake"
+
+After attaching any device you can run this to verify:
+    for dev in /sys/class/tty/tty{USB,ACM}*; do       \
+        [ -e "$dev" ] || continue;                    \
+        udevadm test "$dev" 2>&1 | grep  "99-jxmake"; \
+    done
+
+
+##### On the Host PC #####
+
+Copy the source code and compile:
+    pi_ssh 'sudo systemctl stop pi-serial-bridge-dbg.service'
+    pi_ssh 'data-rw.sh'
+    pi_scp daemon /mnt/data/pi/
+    pi_ssh 'gcc -O3 -Wall -Wextra /mnt/data/pi/daemon/tcp_ser_dev_bridge.c -o /mnt/data/pi/daemon/tcp_ser_dev_bridge.elf'
+    pi_ssh 'data-ro.sh'
+    pi_ssh 'sudo systemctl start pi-serial-bridge-dbg.service'
+
+
+##### On the RPi (SSH Session) #####
+
+Install the optional packages (can be used for testing):
+    sudo apt install socat
+
+You can test 'tcp_ser_dev_bridge.elf' temporarily by using:
+    sudo systemctl stop pi-serial-bridge-dbg.service
+    sudo -u pi /mnt/data/pi/daemon/tcp_ser_dev_bridge.elf 2522 /dev/ttySerial_dbg
+
+and then from the Host PC:
+    socat -,raw,echo=0,isig=1 tcp:raspberrypi.local:2522
+
+to exit, press
+    ^C
+
+
+##### On the RPi (SSH Session) #####
+
+Create the service unit:
+    sudo nano /etc/systemd/system/pi-serial-bridge-io0.service
+and fill it with (without the preceding indent):
+    [Unit]
+    Description=Serial over WiFi Bridge for /dev/ttySerial_io0
+    After=network.target
+
+    [Service]
+    User=pi
+    Group=pi
+    WorkingDirectory=/home/pi
+    ExecStart=/mnt/data/pi/daemon/tcp_ser_dev_bridge.elf 2520 /dev/ttySerial_io0
+    StandardOutput=journal
+    StandardError=journal
+    Restart=always
+    RestartSec=5
+    KillMode=control-group
+
+    [Install]
+    WantedBy=multi-user.target
+
+Then repeat with:
+    sudo nano /etc/systemd/system/pi-serial-bridge-io1.service
+with different 'Description' and 'ExecStart' lines:
+    ...
+    Description=Serial over WiFi Bridge for /dev/ttySerial_io1
+    ExecStart=/mnt/data/pi/daemon/tcp_ser_dev_bridge.elf 2521 /dev/ttySerial_io1
+    ...
+and then:
+    sudo nano /etc/systemd/system/pi-serial-bridge-dbg.service
+with different 'Description' and 'ExecStart' lines:
+    ...
+    Description=Serial over WiFi Bridge for /dev/ttySerial_dbg
+    ExecStart=/mnt/data/pi/daemon/tcp_ser_dev_bridge.elf 2522 /dev/ttySerial_dbg
+    ...
+
+Enable and start the services:
+    sudo systemctl daemon-reload
+    sudo systemctl enable pi-serial-bridge-io0 pi-serial-bridge-io1 pi-serial-bridge-dbg
+    sudo systemctl start  pi-serial-bridge-io0 pi-serial-bridge-io1 pi-serial-bridge-dbg
+
+Verify if everything is working:
+    systemctl status pi-serial-bridge-io0 pi-serial-bridge-io1 pi-serial-bridge-dbg
+    journalctl -u pi-serial-bridge-io0 -u pi-serial-bridge-io1 -u pi-serial-bridge-dbg -f
+
+
+##### On the Host PC #####
+
+Check by executing:
+    socat -,raw,echo=0,isig=1 tcp:raspberrypi.local:2520
+    socat -,raw,echo=0,isig=1 tcp:raspberrypi.local:2521
+    socat -,raw,echo=0,isig=1 tcp:raspberrypi.local:2522
+
+to exit, press
+    ^C
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Serial Device Monitoring Server
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+Copy the source code and compile:
+    pi_ssh 'sudo systemctl stop serial-device-monitoring.service'
+    pi_ssh 'data-rw.sh'
+    pi_scp daemon /mnt/data/pi/
+    pi_ssh 'gcc -O3 -Wall -Wextra /mnt/data/pi/daemon/tcp_fstate_monitor.c -o /mnt/data/pi/daemon/tcp_fstate_monitor.elf'
+    pi_ssh 'data-ro.sh'
+    pi_ssh 'sudo systemctl start serial-device-monitoring.service'
+
+
+##### On the RPi (SSH Session) #####
+
+You can test 'tcp_fstate_monitor.elf' temporarily by using:
+    sudo systemctl stop serial-device-monitoring.service
+    sudo -u pi /mnt/data/pi/daemon/tcp_fstate_monitor.elf 2500 /tmp/serial_dev___dev_ttySerial_io0 /tmp/serial_dev___dev_ttySerial_io1 /tmp/serial_dev___dev_ttySerial_dbg
+
+and then from the Host PC:
+    socat -x -,echo=0 tcp:raspberrypi.local:2500
+
+to exit, press
+    ^C
+
+
+##### On the RPi (SSH Session) #####
+
+Create the service unit:
+    sudo nano /etc/systemd/system/serial-device-monitoring.service
+and fill it with (without the preceding indent):
+    [Unit]
+    Description=Serial Device Monitoring for /dev/ttySerial_*
+    After=pi-console.service pi-serial-bridge-io0.service pi-serial-bridge-io1.service pi-serial-bridge-dbg.service
+
+    [Service]
+    User=pi
+    Group=pi
+    WorkingDirectory=/home/pi
+    ExecStart=/mnt/data/pi/daemon/tcp_fstate_monitor.elf 2500 /tmp/serial_dev___dev_ttySerial_io0 /tmp/serial_dev___dev_ttySerial_io1 /tmp/serial_dev___dev_ttySerial_dbg
+    StandardOutput=journal
+    StandardError=journal
+    Restart=always
+    RestartSec=5
+    KillMode=control-group
+
+    [Install]
+    WantedBy=multi-user.target
+
+Enable and start the services:
+    sudo systemctl daemon-reload
+    sudo systemctl enable serial-device-monitoring
+    sudo systemctl start  serial-device-monitoring
+
+Verify if everything is working:
+    systemctl status serial-device-monitoring
+    journalctl -u serial-device-monitoring -f
+
+
+##### On the Host PC #####
+
+Check by executing:
+    socat -x -,echo=0 tcp:raspberrypi.local:2500
+
+to exit, press
+    ^C
+
+
+----------------------------------------------------------------------------------------------------
+Configuring Read-Only File System
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+Copy the scripts:
+    pi_scp scripts /mnt/data/pi/
+
+
+##### On the RPi (SSH Session) #####
+
+Move the scripts:
+    cd /mnt/data/pi/scripts
+    sudo mv *.sh /usr/local/bin
+    cd ..
+    rmdir scripts
+
+Make them executable:
+    sudo chmod +x /usr/local/bin/boot-rw.sh
+    sudo chmod +x /usr/local/bin/boot-ro.sh
+    sudo chmod +x /usr/local/bin/root-rw.sh
+    sudo chmod +x /usr/local/bin/root-ro.sh
+    sudo chmod +x /usr/local/bin/data-rw.sh
+    sudo chmod +x /usr/local/bin/data-ro.sh
+
+
+Make all partitions read‑only by editing '/etc/fstab':
+    sudo nano /etc/fstab
+Change each partition entry (root, boot, etc.) to read‑only and redirect '/tmp' and '/var/log' to RAM.
+
+Based on the previous '/etc/fstab' content, it should now look like this:
+    PARTUUID=3f44b4e9-01  /boot/firmware  vfat   defaults,ro                                        0  2
+    PARTUUID=3f44b4e9-02  /               ext4   defaults,noatime,ro                                0  1
+    PARTUUID=3f44b4e9-03  /mnt/data       ext4   defaults,noatime,ro                                0  2
+    proc                  /proc           proc   defaults                                           0  0
+    tmpfs                 /tmp            tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=64M   0  0
+    tmpfs                 /var/log        tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=16M   0  0
+
+If your RPi has more RAM (e.g. RPi5 or CM5), it should now look like this:
+    PARTUUID=3f44b4e9-01  /boot/firmware  vfat   defaults,ro                                        0  2
+    PARTUUID=3f44b4e9-02  /               ext4   defaults,noatime,ro                                0  1
+    PARTUUID=3f44b4e9-03  /mnt/data       ext4   defaults,noatime,ro                                0  2
+    proc                  /proc           proc   defaults                                           0  0
+    tmpfs                 /tmp            tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=256M  0  0
+    tmpfs                 /var/log        tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=64M   0  0
+
+If you are using the CM5 with eMMC and external NVMe, it should now look like this:
+    PARTUUID=e6f9315e-01  /boot/firmware  vfat   defaults,ro                                        0  2
+    PARTUUID=e6f9315e-02  /               ext4   defaults,noatime,ro                                0  1
+    PARTUUID=c0f6ef8b-01  /mnt/data       ext4   defaults,noatime,ro                                0  2
+    proc                  /proc           proc   defaults                                           0  0
+    tmpfs                 /tmp            tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=256M  0  0
+    tmpfs                 /var/log        tmpfs  defaults,noatime,nosuid,nodev,mode=0755,size=64M   0  0
+
+
+Clear and recreate '/tmp' and '/var/log':
+    sudo rm    -rvf /tmp /var/log
+    sudo mkdir -p   /tmp /var/log
+    sudo chmod 755  /tmp
+    sudo chmod 1777 /var/log
+
+Reboot:
+    sudo reboot
+then check mounts after reboot:
+    mount | grep -E 'tmp|log'
+
+
+----------------------------------------------------------------------------------------------------
+Removing DHCP Client Cached Lease (Optional)
+----------------------------------------------------------------------------------------------------
+
+##### On the RPi (SSH Session) #####
+
+Make the root partion writeable first:
+    root-rw.sh
+
+Delete the DHCP lease caches:
+    sudo sh -c 'systemctl stop dhcpcd && rm -vf /var/lib/dhcpcd/*.lease && reboot'
+
+
+----------------------------------------------------------------------------------------------------
+Backing-Up the Operating System Image
+----------------------------------------------------------------------------------------------------
+
+##### !!! TODO : VERIFY THIS SECTION !!! ####
+
+##### On the Host PC #####
+
+Read the OS image:
+    dd if=/dev/sdX bs=1M count=28672 status=progress > rpi-jxmake-28GiB.img
+
+WARNING : Double-check the SD Card/NVMe device path (/dev/sdX) before running the command.
+          Use:
+              lsblk
+          or:
+              fdisk -l
+          to verify the correct device.
+
+Compress the image if required:
+    xz -z -c rpi5-ssd-8GiB.img > rpi5-ssd-8GiB.img.xz
+
+The new image can be cloned to other RPi SD Card/NVMe.
+
+
+----------------------------------------------------------------------------------------------------
+Updating Files from the Host PC
+----------------------------------------------------------------------------------------------------
+
+##### On the Host PC #####
+
+To update your Java application, you can use:
+    pi_ssh 'data-rw.sh'
+    pi_scp my_app_dist /mnt/data/pi/
+    pi_ssh 'data-ro.sh'
+
+##### !!! TODO : WRITE ACTUAL EXAMPLES FOR THIS SECTION !!! ####
+
+====================================================================================================

@@ -1,0 +1,117 @@
+##### !!! TODO : Improve the test                !!! #####
+##### ??? TODO : Make a library for this feature ??? #####
+
+fwc           :=  $fwc_load_intel_hex('../src/1-TestData/PTest3X.Blink-PIC18F4520.asm.hex')
+
+mcuConfigJSON := [["
+{
+    "@class" : "jxm.ugc.ProgPIC18$Config",
+    "__0_JxMake_SerialVersionUID__" : 0x0000090900000001,
+    "regPIC" : {
+        "@class" : "jxm.ugc.ProgPIC18$Config$RegPIC",
+        "EECON1" : 0xA6,
+        "EEADR" : 0xA9,
+        "EEADRH" : 0xAA,
+        "EEDATA" : 0xA8
+    },
+    "baseProgSpec" : {
+        "@class" : "jxm.ugc.ProgPIC18$Config$BaseProgSpec",
+        "bulkEraseNbD" : false,
+        "bulkEraseGSz" : 2,
+        "bulkEraseReg" : [ 0x3C0005, 0x3C0004 ],
+        "bulkEraseVal" : [ 0x3F3F, 0x8F8F ],
+        "part" : "PIC18",
+        "subPart" : "F",
+        "mode" : "LVSimple",
+        "entrySeq" : -1
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryFlash",
+        "address" : 0x00000000,
+        "totalSize" : 32768,
+        "eraseBlockSize" : 64,
+        "writeBlockSize" : 32,
+        "eraseBlockSizeE" : -1,
+        "writeBlockSizeE" : -1,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryEEPROM",
+        "addressBeg" : 0x00F00000,
+        "addressEnd" : 0x00F000FF,
+        "totalSize" : 256,
+        "writeBlockSizeE" : 0,
+        "addressMulFW" : 1,
+        "addressOfsFW" : 0x00000000
+    },
+    "memoryConfigBytes" : {
+        "@class" : "jxm.ugc.ProgPIC$Config$MemoryConfigBytes",
+        "addressBeg" : 0x00300000,
+        "addressEnd" : 0x0030000D,
+        "address" : [
+            -1        , 0x00300001, 0x00300002, 0x00300003, -1        , 0x00300005, 0x00300006, -1        , 0x00300008, 0x00300009, 0x0030000A, 0x0030000B, 0x0030000C, 0x0030000D
+        ],
+        "size" : [
+            -1      , 1       , 1       , 1       , -1      , 1       , 1       , -1      , 1       , 1       , 1       , 1       , 1       , 1
+        ],
+        "bitMask" : [
+            -1        , 0x000000CF, 0x0000001F, 0x0000001F, -1        , 0x00000087, 0x000000C5, -1        , 0x0000000F, 0x000000C0, 0x0000000F, 0x000000E0, 0x0000000F, 0x00000040
+        ],
+        "orgMask" : null,
+        "maxTotalSize" : 0,
+        "addressMulFW" : 1,
+        "addressOfsFW" : 0x00000000
+    }
+}
+"]]
+
+bendSpec      := 'JXMAKE_USB_GPIO' '/dev/ttyACM0' '/dev/ttyACM1' 'true'
+bendSpec      := 'JXMAKE_USB_GPIO' ''             '0'            'true'
+progSpec      := 'ProgPIC18' ${mcuConfigJSON} '' '8000000'
+mcuSig        := 0x10 0x80
+
+(*
+echoln $mcu_prog_cfg_json('PIC16')
+echoln $mcu_prog_cfg_json('PIC:PIC16F54')
+
+echoln $mcu_prog_cfg_json('PIC18')
+echoln $mcu_prog_cfg_json('jxm.ugc.ProgPIC18$Config')
+
+echoln $mcu_prog_cfg_json('PIC:PIC18F4520')
+echoln $mcu_prog_cfg_json('jxm.ugc.ProgPIC18$Config:PIC18F4520')
+#*)
+
+(*
+echoln $mcu_prog_cfg_ini('PIC16')
+echoln $mcu_prog_cfg_ini('PIC:PIC16F54')
+
+echoln $mcu_prog_cfg_ini('PIC18')
+echoln $mcu_prog_cfg_ini('jxm.ugc.ProgPIC18$Config')
+
+echoln $mcu_prog_cfg_ini('PIC:PIC18F4520')
+echoln $mcu_prog_cfg_ini('jxm.ugc.ProgPIC18$Config:PIC18F4520')
+#*)
+
+(*
+$mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'chip_erase' 'write_flash' 'verify_flash' 'write_embedded_fuses' 'write_embedded_eeprom' }, ${fwc}, -1)
+echoln
+#*)
+
+foreach I in $mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, { 'read_fuses' 'verify_flash' }, ${fwc}, -1)
+    $printf("%02X\n", ${I})
+endforeach
+
+echoln
+
+for J := 0 to 15 step 1
+    RdCmd +:= 'read_eeprom' ${J}
+endfor
+
+foreach I, C in $mcu_prog_exec(${bendSpec}, ${progSpec}, ${mcuSig}, ${RdCmd}, ${fwc}, -1)
+    if ${I} == 1 : echo '"'
+    $printf( "%c", $to_ch(${C}) )
+endforeach
+echoln '"'
+
+$fwc_delete(${fwc})
+

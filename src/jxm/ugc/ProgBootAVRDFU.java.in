@@ -1,0 +1,1039 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+/*
+ * ################################## !!! WARNING !!! ##################################
+ * This source code file relies on the Foreign Function and Memory (FFM) API; therefore,
+ * it is excluded from the build when using Java versions earlier than 23.
+ * ################################## !!! WARNING !!! ##################################
+ */
+
+
+package jxm.ugc;
+
+
+import java.util.Arrays;
+import java.util.List;
+
+import java.util.function.IntConsumer;
+
+import net.codecrete.usb.*;
+
+import jxm.*;
+import jxm.xb.*;
+
+
+/*
+ * Minimal implementation of the AVR4023 protocol for programming MCUs with compatible bootloaders.
+ * Limitations:
+ *     1. No support for fuses.
+ *     2. No support for security bit.
+ *     3. No support for user page.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * This class is written partially based on the algorithms and information found from:
+ *
+ *     Atmel AVR4023 - FLIP USB DFU Protocol
+ *     https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ApplicationNotes/ApplicationNotes/doc8457.pdf
+ *
+ *     Atmel USB DFU Bootloader Datasheet
+ *     https://ww1.microchip.com/downloads/en/DeviceDoc/doc7618.pdf
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ *     dfu-programmer
+ *     https://github.com/dfu-programmer/dfu-programmer
+ *
+ *     Dfu-util - Device Firmware Upgrade Utilities
+ *     https://github.com/Stefan-Schmidt/dfu-util
+ *
+ *     Atmel AVR1916 - USB DFU Boot Loader for XMEGA
+ *     https://microchip.my.site.com/s/article/Programming-AVR-XMEGA-devices-using-USB-peripheral
+ *     https://ww1.microchip.com/downloads/en/Appnotes/doc8429.pdf
+ *     https://ww1.microchip.com/downloads/en/DeviceDoc/AVR1916.zip
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * JxMake reimplements protocol behavior based on available documentation, supplemented by runtime
+ * observation and bench-level validation where features are undocumented or ambiguous. No LUFA
+ * source code or expressive implementation logic is used. Constants and timing are derived from
+ * functional analysis and do not constitute derivative work.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * NOTE : On Windows, you may need to use a custom INF file or Zadig to assign WinUSB as the device
+ *        driver.
+ */
+public class ProgBootAVRDFU extends ProgBootUSB_DFU {
+
+    // ##### !!! TODO : Verify with ATxmega DFU !!! #####
+
+    private static final String ProgClassName = "ProgBootAVRDFU";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootUSB.Config {
+
+        /*
+         * NOTE : # 'MemoryEEPROM.pageSize == 0' and 'MemoryEEPROM.numPages == 0' indicate ATmega  MCUs
+         *        # 'MemoryEEPROM.pageSize  > 0' or  'MemoryEEPROM.numPages  > 0' indicate ATxmega MCUs
+         */
+
+        // NOTE : This class can use the same configuration as certain other classes
+        #include "config.inc/BootAVRSimpleUSB.java.inc"
+        #include "config.inc/BootAVRXSimpleUSB.java.inc"
+
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final byte   ARG_ZERO                          = (byte) 0x00;
+
+    private static final byte   CMD_GROUP_DOWNLOAD                = (byte) 0x01;
+    private static final byte       GROUP_DOWNLOAD_PROGRAM_START  = (byte) 0x00;
+    private static final byte       GROUP_DOWNLOAD_EEPROM_AVR     = (byte) 0x01;
+
+    private static final byte   CMD_GROUP_UPLOAD                  = (byte) 0x03;
+    private static final byte       GROUP_READ_MEMORY             = (byte) 0x00;
+    private static final byte       GROUP_BLANK_CHECK_MEMORY      = (byte) 0x01;
+    private static final byte       GROUP_READ_EEPROM_AVR         = (byte) 0x02;
+
+    private static final byte   CMD_GROUP_EXEC                    = (byte) 0x04;
+    private static final byte       GROUP_EXEC_CHIP_ERASE         = (byte) 0x00;
+    private static final byte           CHIP_ERASE_BLOCK_0        = (byte) 0x00;
+    private static final byte           CHIP_ERASE_BLOCK_1        = (byte) 0x20;
+    private static final byte           CHIP_ERASE_BLOCK_2        = (byte) 0x40;
+    private static final byte           CHIP_ERASE_BLOCK_3        = (byte) 0x80;
+    private static final byte           CHIP_ERASE_ALL            = (byte) 0xFF;
+
+    private static final byte       GROUP_EXEC_START_APPLICATION  = (byte) 0x03;
+    private static final byte           START_APPLICATION_RESET   = (byte) 0x00;
+    private static final byte           START_APPLICATION_NORESET = (byte) 0x01;
+
+    private static final byte   CMD_READ_CONFIG                   = (byte) 0x05;
+    private static final byte[]     READ_CONFIG_AVR_BL_VERSION    = new byte[] { (byte) 0x00, (byte) 0x00 };
+    private static final byte[]     READ_CONFIG_AVR_BOOT_ID_1     = new byte[] { (byte) 0x00, (byte) 0x01 };
+    private static final byte[]     READ_CONFIG_AVR_BOOT_ID_2     = new byte[] { (byte) 0x00, (byte) 0x02 };
+    private static final byte[]     READ_CONFIG_AVR_MFC_CODE      = new byte[] { (byte) 0x01, (byte) 0x30 };
+    private static final byte[]     READ_CONFIG_AVR_FAMILY_CODE   = new byte[] { (byte) 0x01, (byte) 0x31 };
+    private static final byte[]     READ_CONFIG_AVR_PRODUCT_NAME  = new byte[] { (byte) 0x01, (byte) 0x60 };
+    private static final byte[]     READ_CONFIG_AVR_PRODUCT_REV   = new byte[] { (byte) 0x01, (byte) 0x61 };
+    private static final byte[]     READ_CONFIG_AVRX_BL_VERSION   = new byte[] { (byte) 0x04, (byte) 0x00 };
+    private static final byte[]     READ_CONFIG_AVRX_BOOT_ID_1    = new byte[] { (byte) 0x04, (byte) 0x01 };
+    private static final byte[]     READ_CONFIG_AVRX_BOOT_ID_2    = new byte[] { (byte) 0x04, (byte) 0x02 };
+    private static final byte[]     READ_CONFIG_AVRX_MFC_CODE     = new byte[] { (byte) 0x05, (byte) 0x00 };
+    private static final byte[]     READ_CONFIG_AVRX_FAMILY_CODE  = new byte[] { (byte) 0x05, (byte) 0x01 };
+    private static final byte[]     READ_CONFIG_AVRX_PRODUCT_NAME = new byte[] { (byte) 0x05, (byte) 0x02 };
+    private static final byte[]     READ_CONFIG_AVRX_PRODUCT_REV  = new byte[] { (byte) 0x05, (byte) 0x03 };
+
+    private static final byte   CMD_GROUP_SELECT                  = (byte) 0x06;
+    private static final byte       GROUP_SELECT_MEMORY           = (byte) 0x03;
+    private static final byte       GROUP_SELECT_MEMORY_UNIT      = (byte) 0x00;
+    private static final byte           MEMORY_UNIT_FLASH         = (byte) 0x00;
+    private static final byte           MEMORY_UNIT_EEPROM        = (byte) 0x01;
+    private static final byte           MEMORY_UNIT_SECURITY      = (byte) 0x02;
+    private static final byte           MEMORY_UNIT_CONFIGURATION = (byte) 0x03;
+    private static final byte           MEMORY_UNIT_BOOTLOADER    = (byte) 0x04;
+    private static final byte           MEMORY_UNIT_SIGNATURE     = (byte) 0x05;
+    private static final byte           MEMORY_UNIT_USER          = (byte) 0x06;
+    private static final byte           MEMORY_UNIT_INT_RAM       = (byte) 0x07;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS0   = (byte) 0x08;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS1   = (byte) 0x09;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS2   = (byte) 0x0A;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS3   = (byte) 0x0B;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS4   = (byte) 0x0C;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS5   = (byte) 0x0D;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS6   = (byte) 0x0E;
+    private static final byte           MEMORY_UNIT_EXT_MEM_CS7   = (byte) 0x0F;
+    private static final byte           MEMORY_UNIT_EXT_MEM_DF    = (byte) 0x10;
+    private static final byte       GROUP_SELECT_MEMORY_PAGE      = (byte) 0x01;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static DFUResult RES_OK            = new DFUResult(DFUDeviceStatus.OK            ,                                 DFUDeviceState.DFU_IDLE  , DFUDeviceState.APP_IDLE); // Command successful and device in IDLE mode
+    private static DFUResult RES_OK_DL         = new DFUResult(DFUDeviceStatus.OK            , DFUDeviceState.DFU_DNLOAD_IDLE, DFUDeviceState.DFU_IDLE  , DFUDeviceState.APP_IDLE); // ---
+    private static DFUResult RES_STALL         = new DFUResult(DFUDeviceStatus.ERR_STALLEDPKT,                                 DFUDeviceState.DFU_ERROR                          ); // Specific Setup Request unknown
+    private static DFUResult RES_MEM_UNKNOW    = new DFUResult(DFUDeviceStatus.ERR_WRITE     ,                                 DFUDeviceState.DFU_ERROR                          ); // Read or Write memory access not available
+    private static DFUResult RES_MEM_PROTECTED = new DFUResult(DFUDeviceStatus.ERR_WRITE     ,                                 DFUDeviceState.DFU_IDLE  , DFUDeviceState.APP_IDLE); // Memory access
+    private static DFUResult RES_OUTOFRANGE    = new DFUResult(DFUDeviceStatus.ERR_ADDRESS   ,                                 DFUDeviceState.DFU_ERROR                          ); // Address out of range or memory ID unknown
+    private static DFUResult RES_BLANK_FAIL    = new DFUResult(DFUDeviceStatus.ERR_ERASE     ,                                 DFUDeviceState.DFU_IDLE  , DFUDeviceState.APP_IDLE); // Blank check unsuccessful
+    private static DFUResult RES_ERASE_ONGOING = new DFUResult(DFUDeviceStatus.ERR_NOTDONE   ,                                 DFUDeviceState.DFU_DNBUSY                         ); // Erase on-going
+
+    private void _dfuExpectResult(final DFUResult expectedResult) throws DFUError
+    { _dfuExpectStatusState(expectedResult); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2, final byte arg3, final byte arg4, final byte[] data) throws Exception
+    {
+        final byte[] buff = new byte[ 6 + ( (data != null) ? data.length : 0 ) ];
+
+        buff[0] = cmdGroup;
+        buff[1] = cmdIdentifier;
+        buff[2] = arg1;
+        buff[3] = arg2;
+        buff[4] = arg3;
+        buff[5] = arg4;
+
+        if(data != null) {
+            for(int i = 0; i < data.length; ++i) buff[6 + i] = data[i];
+        }
+
+        _device.controlTransferOut( _dfuUsbControlTransfer(DFURequest.DOWNLOAD, 0), buff );
+    }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2, final byte arg3, final byte[] data) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, arg2    , arg3    , ARG_ZERO, data); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2, final byte[] data) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, arg2    , ARG_ZERO, ARG_ZERO, data); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte[] data) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, ARG_ZERO, ARG_ZERO, ARG_ZERO, data); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2, final byte arg3, final byte arg4) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, arg2    , arg3    , arg4    , null); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2, final byte arg3) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, arg2    , arg3    , ARG_ZERO, null); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1, final byte arg2) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, arg2    , ARG_ZERO, ARG_ZERO, null); }
+
+    private void _dfuSpecialCommand(final byte cmdGroup, final byte cmdIdentifier, final byte arg1) throws Exception
+    { _dfuSpecialCommand(cmdGroup, cmdIdentifier, arg1, ARG_ZERO, ARG_ZERO, ARG_ZERO, null); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _dfuSelectMemoryUnit(final byte unit) throws Exception
+    {
+        if(!_isXMega) return;
+
+        _dfuSpecialCommand(CMD_GROUP_SELECT, GROUP_SELECT_MEMORY, GROUP_SELECT_MEMORY_UNIT, unit);
+        _dfuExpectResult(RES_OK);
+    }
+
+    private boolean _dfuSelectMemoryUnit_NoThrow(final byte unit)
+    {
+        try {
+            _dfuSelectMemoryUnit(unit);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    private void _dfuSelectMemoryPage(final int page) throws Exception
+    {
+        if(_isXMega) {
+            _dfuSpecialCommand(
+                CMD_GROUP_SELECT, GROUP_SELECT_MEMORY, GROUP_SELECT_MEMORY_PAGE, (byte) ( (page >> 8) & 0xFF ), (byte) ( (page >> 0) & 0xFF )
+            );
+        }
+
+        else {
+            _dfuSpecialCommand(
+                CMD_GROUP_SELECT, GROUP_SELECT_MEMORY, GROUP_SELECT_MEMORY_UNIT, (byte) (page & 0xFF)
+            );
+        }
+
+        _dfuExpectResult(RES_OK);
+    }
+
+    private boolean _dfuSelectMemoryPage_NoThrow(final int page)
+    {
+        try {
+            _dfuSelectMemoryPage(page);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private byte[] _dfuReadBlock(final int addrStart, final int addrEnd, final boolean eeprom) throws Exception
+    {
+        _dfuSpecialCommand(
+                                    CMD_GROUP_UPLOAD                         ,
+            (_isXMega || !eeprom) ? GROUP_READ_MEMORY : GROUP_READ_EEPROM_AVR,
+                                    (byte) ( (addrStart >> 8) & 0xFF )       ,
+                                    (byte) ( (addrStart >> 0) & 0xFF )       ,
+                                    (byte) ( (addrEnd   >> 8) & 0xFF )       ,
+                                    (byte) ( (addrEnd   >> 0) & 0xFF )
+        );
+
+        final byte[] res = _dfuUpload(0,  addrEnd - addrStart + 1);
+
+        _dfuExpectResult(RES_OK);
+
+        return res;
+    }
+
+    private byte[] _dfuReadBlock_noThrow(final int addrStart, final int len, final boolean eeprom)
+    {
+        try {
+            return _dfuReadBlock(addrStart, addrStart + len - 1, eeprom);
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return null;
+    }
+
+
+    private byte[] _dfuReadFlashBlock_noThrow(final int addrStart, final int len)
+    { return _dfuReadBlock_noThrow(addrStart, len, false); }
+
+    private byte[] _dfuReadEEPROMBlock_noThrow(final int addrStart, final int len)
+    { return _dfuReadBlock_noThrow(addrStart, len, true ); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static int    DFU_64K_PAGE                = 65536;
+    private static int    DFU_MAX_TRANSFER_SIZE       =  1024;
+    private static int    DFU_CONTROL_BLOCK_SIZE_AVR  =    32;
+    private static int    DFU_CONTROL_BLOCK_SIZE_AVRX =    64;
+    private static int    DFU_FOOTER_SIZE             =    16;
+    private static int    DFU_FLASH_BUFFER_SIZE       = DFU_MAX_TRANSFER_SIZE + DFU_CONTROL_BLOCK_SIZE_AVRX * 2 + DFU_FOOTER_SIZE;
+
+    private static byte[] _wBuff                      = new byte[DFU_FLASH_BUFFER_SIZE];
+
+    private void _dfuWriteBlock(final int addrStart, final int addrEnd, final boolean eeprom, final byte[] data) throws Exception
+    {
+        _wBuff[0] =                         CMD_GROUP_DOWNLOAD                                      ;
+        _wBuff[1] = (_isXMega || !eeprom) ? GROUP_DOWNLOAD_PROGRAM_START : GROUP_DOWNLOAD_EEPROM_AVR;
+        _wBuff[2] =                         (byte) ( (addrStart >> 8) & 0xFF )                      ;
+        _wBuff[3] =                         (byte) ( (addrStart >> 0) & 0xFF )                      ;
+        _wBuff[4] =                         (byte) ( (addrEnd   >> 8) & 0xFF )                      ;
+        _wBuff[5] =                         (byte) ( (addrEnd   >> 0) & 0xFF )                      ;
+
+        int idx = _isXMega ? DFU_CONTROL_BLOCK_SIZE_AVRX + (addrStart % DFU_CONTROL_BLOCK_SIZE_AVRX)
+                           : DFU_CONTROL_BLOCK_SIZE_AVR;
+
+        for(final byte d : data) _wBuff[idx++] = d;
+
+        final long crc32 = 0; // NOTE : Use a dummy CRC for now
+
+        _wBuff[idx++] = (byte) ( (crc32 >> 24) & 0xFF );
+        _wBuff[idx++] = (byte) ( (crc32 >> 16) & 0xFF );
+        _wBuff[idx++] = (byte) ( (crc32 >>  8) & 0xFF );
+        _wBuff[idx++] = (byte) ( (crc32 >>  0) & 0xFF );
+
+        _wBuff[idx++] = (byte) 16;  // Length of DFU suffix - always 16
+
+        _wBuff[idx++] = (byte) 'D';  // ucdfuSignature - fixed 'DFU'
+        _wBuff[idx++] = (byte) 'F';  // ---
+        _wBuff[idx++] = (byte) 'U';  // ---
+
+        _wBuff[idx++] = (byte) 0x01;  // BCD DFU specification number (1.1)
+        _wBuff[idx++] = (byte) 0x10;  // ---
+
+        _wBuff[idx++] = (byte) 0xFF;  // Use 0xFFFF for vendor ID
+        _wBuff[idx++] = (byte) 0xFF;  // ---
+
+        _wBuff[idx++] = (byte) 0xFF;  // Use 0xFFFF for product ID
+        _wBuff[idx++] = (byte) 0xFF;  // ---
+
+        _wBuff[idx++] = (byte) 0xFF;  // Use 0xFFFF for BCD Firmware release number
+        _wBuff[idx++] = (byte) 0xFF;  // ---
+
+        _device.controlTransferOut( _dfuUsbControlTransfer(DFURequest.DOWNLOAD, 0), XCom.arrayCopy(_wBuff, 0, idx) );
+        _dfuExpectResult(RES_OK_DL);
+    }
+
+    private boolean _dfuWriteBlock_noThrow(final int addrStart, final boolean eeprom, final byte[] data)
+    {
+        try {
+            _dfuWriteBlock(addrStart, addrStart + data.length - 1, eeprom, data);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    private boolean _dfuWriteFlashBlock_noThrow(final int addrStart, final byte[] data)
+    { return _dfuWriteBlock_noThrow(addrStart, false, data); }
+
+    private boolean _dfuWriteEEPROMBlock_noThrow(final int addrStart, final byte[] data)
+    { return _dfuWriteBlock_noThrow(addrStart, true , data); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _dfuEraseFlash() throws Exception
+    {
+        final XCom.TimeoutMS tms = new XCom.TimeoutMS( (int) (20000L * _config.memoryFlash.totalSize / 1024 / 1024) );
+
+        _dfuSpecialCommand(CMD_GROUP_EXEC, GROUP_EXEC_CHIP_ERASE, CHIP_ERASE_ALL);
+
+        while(true) {
+
+            SysUtil.sleepMS(100);
+
+            final DFUStatus res = _dfuGetStatus();
+
+            if( res.status() != RES_ERASE_ONGOING.status() || res.state() != RES_ERASE_ONGOING.state()[0] ) break;
+
+            if( tms.timeout() ) _throwDFUError(Texts.CmdXErr_BLTimeout);
+
+        } // while
+
+        _dfuExpectResult(RES_OK);
+    }
+
+    private boolean _dfuEraseFlash_noThrow()
+    {
+        try {
+            _dfuEraseFlash();
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _cfv_BLVersion        = -1;
+    private int _cfv_BootID1          = -1;
+    private int _cfv_BootID2          = -1;
+    private int _cfv_ManufacturerCode = -1;
+    private int _cfv_FamilyCode       = -1;
+    private int _cfv_ProductName      = -1;
+    private int _cfv_ProductRevision  = -1;
+
+    private int _dfuReadConfig_avr(final byte[] address) throws Exception
+    {
+        _dfuSpecialCommand(CMD_READ_CONFIG, address[0], address[1]);
+        _dfuExpectResult(RES_OK);
+
+        return _dfuUpload(0, 1)[0] & 0xFF;
+    }
+
+    private int _dfuReadConfig_avrx(final byte[] address) throws Exception
+    {
+        _dfuSelectMemoryUnit(address[0]);
+
+        return _dfuReadBlock(address[1], address[1], false)[0] & 0xFF;
+    }
+
+    private void _dfuReadConfig() throws Exception
+    {
+        if(_isXMega) {
+            _cfv_BLVersion        = _dfuReadConfig_avrx(READ_CONFIG_AVRX_BL_VERSION  );
+            _cfv_BootID1          = _dfuReadConfig_avrx(READ_CONFIG_AVRX_BOOT_ID_1   );
+            _cfv_BootID2          = _dfuReadConfig_avrx(READ_CONFIG_AVRX_BOOT_ID_2   );
+            _cfv_ManufacturerCode = _dfuReadConfig_avrx(READ_CONFIG_AVRX_MFC_CODE    );
+            _cfv_FamilyCode       = _dfuReadConfig_avrx(READ_CONFIG_AVRX_FAMILY_CODE );
+            _cfv_ProductName      = _dfuReadConfig_avrx(READ_CONFIG_AVRX_PRODUCT_NAME);
+            _cfv_ProductRevision  = _dfuReadConfig_avrx(READ_CONFIG_AVRX_PRODUCT_REV );
+        }
+
+        else {
+            _cfv_BLVersion        = _dfuReadConfig_avr (READ_CONFIG_AVR_BL_VERSION   );
+            _cfv_BootID1          = _dfuReadConfig_avr (READ_CONFIG_AVR_BOOT_ID_1    );
+            _cfv_BootID2          = _dfuReadConfig_avr (READ_CONFIG_AVR_BOOT_ID_2    );
+            _cfv_ManufacturerCode = _dfuReadConfig_avr (READ_CONFIG_AVR_MFC_CODE     );
+            _cfv_FamilyCode       = _dfuReadConfig_avr (READ_CONFIG_AVR_FAMILY_CODE  );
+            _cfv_ProductName      = _dfuReadConfig_avr (READ_CONFIG_AVR_PRODUCT_NAME );
+            _cfv_ProductRevision  = _dfuReadConfig_avr (READ_CONFIG_AVR_PRODUCT_REV  );
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _dfuStartApplication_impl(final boolean reset) throws Exception
+    {
+        _dfuSpecialCommand(CMD_GROUP_EXEC, GROUP_EXEC_START_APPLICATION, reset ? START_APPLICATION_RESET : START_APPLICATION_NORESET);
+        _dfuExpectResult(RES_OK);
+
+        _device.controlTransferOut( _dfuUsbControlTransfer(DFURequest.DOWNLOAD, 0), null );
+        _dfuExpectResult(RES_OK);
+    }
+
+    private boolean _dfuStartApplication(final boolean reset)
+    {
+        try {
+            _dfuStartApplication_impl(reset);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static int DEF_VID = 0x03EB; // Atmel Corp. XXX AVR DFU bootloader
+    private static int DEF_PID = 0x2F00; // ---
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _isXMega      = false;
+    private int     _transferSize = -1;
+
+    private boolean _inProgMode   = false;
+    private boolean _chipErased   = false;
+
+    public ProgBootAVRDFU(final ProgBootAVRDFU.Config config) throws Exception
+    {
+        // Process the superclass
+        super(ProgClassName, config);
+
+        // Check the configuration values
+        if(_config.memoryEEPROM.pageSize > 0 || _config.memoryEEPROM.numPages > 0) {
+            if(_config.memoryEEPROM.pageSize  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMEPageSize, ProgClassName);
+            if(_config.memoryEEPROM.numPages  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMENumPages, ProgClassName);
+
+            if(_config.memoryEEPROM.pageSize * _config.memoryEEPROM.numPages != _config.memoryEEPROM.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMEPageSpec, ProgClassName);
+
+            _isXMega = true;
+        }
+    }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return numBytes; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    private void _closeDFUDevice()
+    {
+        if(_device != null) {
+            try {
+                _closeDevice();
+            }
+            catch(final Exception e) {
+                if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            }
+        }
+
+        _transferSize = -1;
+    }
+
+    private boolean _begin_impl(final int vid_, final int pid_, String serialNumber)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flag
+        _chipErased = false;
+
+        try {
+
+            // Clean up the serial number
+            if( serialNumber != null && serialNumber.trim().isEmpty() ) serialNumber = null;
+
+            // Get the VID and PID
+            final int vid = (vid_ <= 0) ? DEF_VID : (vid_ & 0xFFFF);
+                  int pid = (pid_ <= 0) ? DEF_PID : (pid_ & 0xFFFF);
+
+            if( (pid & 0xFF00) == 0 ) pid = (DEF_PID | pid);
+
+            // Get the first connected DFU device matching the specified VID, PID, and optional serial number
+            final List<UsbDevice> dfus = _dfuGetAllDevices(vid, pid);
+
+            for(final UsbDevice dfu : dfus) {
+                if( serialNumber != null && !serialNumber.equals( dfu.getSerialNumber() ) ) continue;
+                _device = dfu;
+                break;
+            }
+
+            // Get the interface number and transfer size
+            _interfaceNumber =                                  _dfuGetInterfaceNumber();
+            _transferSize    = Math.min( DFU_MAX_TRANSFER_SIZE, _dfuGetTransferSize   () );
+
+            // Open the DFU device
+            _openClaimDevice(false);
+
+            // Ensure the device is in the DFU_IDLE state
+            _dfuAbort();
+            _dfuExpectState(DFUDeviceState.DFU_IDLE);
+
+            if( !_dfuClearError() ) return false;
+
+            // Read the configuration data
+            _dfuReadConfig();
+            /*
+            SysUtil.stdDbg().printf("_cfv_BLVersion        = %02X\n", _cfv_BLVersion       );
+            SysUtil.stdDbg().printf("_cfv_BootID1          = %02X\n", _cfv_BootID1         );
+            SysUtil.stdDbg().printf("_cfv_BootID2          = %02X\n", _cfv_BootID2         );
+            SysUtil.stdDbg().printf("_cfv_ManufacturerCode = %02X\n", _cfv_ManufacturerCode);
+            SysUtil.stdDbg().printf("_cfv_FamilyCode       = %02X\n", _cfv_FamilyCode      );
+            SysUtil.stdDbg().printf("_cfv_ProductName      = %02X\n", _cfv_ProductName     );
+            SysUtil.stdDbg().printf("_cfv_ProductRevision  = %02X\n", _cfv_ProductRevision );
+            //*/
+
+            // Save the MCU signature
+            _mcuSignature = new int[] { _cfv_FamilyCode, _cfv_ProductName, _cfv_ProductRevision };
+
+        }
+        catch(final Exception e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            // Report error
+            return false;
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    public boolean begin(final int vid, final int pid, final String serialNumber)
+    {
+        if( _begin_impl(vid, pid, serialNumber) ) return true;
+
+        _closeDFUDevice();
+
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+    }
+
+    public boolean begin(final int vid, final int pid)
+    { return begin(vid, pid, null); }
+
+    public boolean begin(final String serialNumber)
+    { return begin(DEF_VID, DEF_PID, serialNumber); }
+
+    public boolean begin()
+    { return begin(null); }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Start the application
+        final boolean resCommitEEPROM = commitEEPROM();
+        final boolean resStartApp     = _dfuStartApplication(true);
+        final boolean resWaitDDis     = _waitUSBDeviceDisconnect();
+
+        // Close the DFU device
+        _closeDFUDevice();
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resCommitEEPROM || !resStartApp || !resWaitDDis) {
+            if(!resCommitEEPROM            ) USB2GPIO.notifyError(Texts.ProgXXX_FailSWD_CmEEPROM, ProgClassName);
+            if(!resStartApp || !resWaitDDis) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPrgDev, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // NOTE : The MCU signature was read during 'begin()'
+
+        // Done
+        return _mcuSignature != null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : Under the AVR4023 protocol, this function is expected to erase only flash memory
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Erase the flash
+        if( !_dfuEraseFlash_noThrow() ) return false;
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress_, final int numBytes_, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int startAddress = (startAddress_ < 0) ? 0                             : startAddress_;
+        final int numBytes     = (numBytes_     < 0) ? _config.memoryFlash.totalSize : numBytes_;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(startAddress, numBytes, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Determine aligned the start address and number of bytes
+        final int ChunkSize    = Math.min(_config.memoryFlash.pageSize, _transferSize);
+        final int alignedStart = startAddress & ~(ChunkSize - 1);
+        final int skipBytes    = startAddress - alignedStart;
+        final int alignedSize  = ( (skipBytes + numBytes + ChunkSize - 1) / ChunkSize ) * ChunkSize;
+        final int numChunks    = alignedSize / ChunkSize;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even( alignedStart, alignedSize, _config.memoryFlash.totalSize, ProgClassName ) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes_) {
+            _config.memoryFlash.readDataBuff = new int[numBytes_];
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, alignedSize);
+
+        // Index counter
+        int rdbIdx = 0;
+        int verIdx = 0;
+
+        // Read the bytes (and compare them if requested)
+        if( !_dfuSelectMemoryUnit_NoThrow(MEMORY_UNIT_FLASH) ) return -1;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk
+            final int addr = alignedStart + c * ChunkSize;
+
+            if(addr % DFU_64K_PAGE == 0) {
+                if( !_dfuSelectMemoryPage_NoThrow(addr / DFU_64K_PAGE) ) return -1;
+            }
+
+            final byte[] cbytes = _dfuReadFlashBlock_noThrow(addr % DFU_64K_PAGE, ChunkSize);
+
+            if(cbytes == null) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                return -1;
+            }
+
+            // Process the chunk bytes
+            for(int b = 0; b < ChunkSize; b += 2) {
+
+                // Proceed only if the address is within the requested range
+                if(addr + b >= startAddress_ && rdbIdx < numBytes_) {
+
+                    // Store the bytes to the result buffer
+                    _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b    ] & 0xFF;
+                    _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b + 1] & 0xFF;
+
+                    // Compare the bytes as needed
+                    if(refData != null && verIdx < refData.length) {
+                        if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                        ++verIdx;
+                        if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                        ++verIdx;
+                    }
+
+                } // if
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, alignedSize);
+
+            } // for b
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, alignedSize);
+
+        // Done
+        return numBytes_;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _writeFlash_impl(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Get the number of chunks to be written and the current address
+        final int ChunkSize = Math.min(_config.memoryFlash.pageSize, _transferSize);
+
+        final int numChunks = nb / ChunkSize;
+              int cpgAddr   = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Write the chunks
+        if( !_dfuSelectMemoryUnit_NoThrow(MEMORY_UNIT_FLASH) ) return false;
+
+        int datIdx = 0;
+
+        for(int p = 0; p < numChunks; ++p) {
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the chunk
+            if(cpgAddr % DFU_64K_PAGE == 0) {
+                if( !_dfuSelectMemoryPage_NoThrow(cpgAddr / DFU_64K_PAGE) ) return false;
+            }
+
+            if( !_dfuWriteFlashBlock_noThrow( cpgAddr % DFU_64K_PAGE, XCom.arrayCopy(data, datIdx, ChunkSize) ) ) return false;
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, ChunkSize / 2);
+
+            // Increment the counters
+            cpgAddr += ChunkSize;
+            datIdx  += ChunkSize;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+              long sa = (startAddress < 0) ? 0                             : startAddress;
+        final int  nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer( data, (int) sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName );
+        if(anbr == null) return false;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize( (int) sa, anbr.nb, _config.memoryFlash.pageSize, ProgClassName ) ) return false;
+
+        // Write the flash
+        return _writeFlash_impl(anbr.buff, (int) sa, anbr.nb, progressCallback);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int[]     _eepromBuffer = null;
+    private boolean[] _eepromFDirty = null;
+
+    private boolean _readAllEEPROMBytes()
+    {
+        // Prepare the result buffer
+        if(_eepromBuffer == null) _eepromBuffer = new int[_config.memoryEEPROM.totalSize];
+
+        // Determine the chunk size and the number of chunks
+        final int ChunkSize = Math.min(_isXMega ? _config.memoryEEPROM.pageSize : _config.memoryEEPROM.totalSize, _transferSize);
+        final int numChunks = (_config.memoryEEPROM.totalSize / ChunkSize);
+
+        // Read the bytes
+        int rdbIdx = 0;
+
+        if( !_dfuSelectMemoryUnit_NoThrow(MEMORY_UNIT_EEPROM) ) return false;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk
+            final int numReads = Math.min(ChunkSize, _config.memoryEEPROM.totalSize - rdbIdx);
+            final int addr     = c * ChunkSize;
+
+            if(addr % DFU_64K_PAGE == 0) {
+                if( !_dfuSelectMemoryPage_NoThrow(addr / DFU_64K_PAGE) ) return false;
+            }
+
+            final byte[] cbytes = _dfuReadEEPROMBlock_noThrow(addr % DFU_64K_PAGE, ChunkSize);
+
+            if(cbytes == null) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                return false;
+            }
+
+            // Store the bytes to the result buffer
+            for(int b = 0; b < numReads; ++b) _eepromBuffer[rdbIdx++] = cbytes[b] & 0xFF;
+
+        } // for c
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeAllEEPROMBytes()
+    {
+        // Determine the chunk size and the number of chunks
+        final int ChunkSize = Math.min(_isXMega ? _config.memoryEEPROM.pageSize : _config.memoryEEPROM.totalSize, _transferSize);
+        final int numChunks = (_config.memoryEEPROM.totalSize / ChunkSize);
+
+        // Write the bytes
+        int wdbIdx = 0;
+
+        if( !_dfuSelectMemoryUnit_NoThrow(MEMORY_UNIT_EEPROM) ) return false;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Write in chunk
+            final int numWrites = Math.min(ChunkSize, _config.memoryEEPROM.totalSize - wdbIdx);
+            final int addr      = c * ChunkSize;
+
+            if(addr % DFU_64K_PAGE == 0) {
+                if( !_dfuSelectMemoryPage_NoThrow(addr / DFU_64K_PAGE) ) return false;
+            }
+
+            // Check if the chunk is dirty
+            boolean chunkDirty = false;
+
+            for(int b = 0; b < numWrites; ++b) {
+                if(_eepromFDirty[c * ChunkSize + b]) {
+                    chunkDirty = true;
+                    break;
+                }
+            }
+
+            // Do not write if the chunk is not dirty
+            if(!chunkDirty) {
+                wdbIdx += numWrites;
+                continue;
+            }
+
+            // Copy the bytes to the write buffer
+            final byte[] cbytes = new byte[numWrites];
+
+            for(int b = 0; b < numWrites; ++b) cbytes[b] = (byte) _eepromBuffer[wdbIdx++];
+
+            // Write the bytes
+            if( !_dfuWriteEEPROMBlock_noThrow(addr % DFU_64K_PAGE, cbytes) ) return false;
+
+        } // for c
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) {
+            USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+            return -1;
+        }
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+            return -1;
+        }
+
+        // Read the entire EEPROM as needed
+        if(_eepromBuffer == null) {
+            // Read the bytes
+            if( !_readAllEEPROMBytes() ) return -1;
+            // Mark everything as not dirty
+            _eepromFDirty = new boolean[_config.memoryEEPROM.totalSize];
+            Arrays.fill(_eepromFDirty, false);
+        }
+
+        // Return the byte
+        return _eepromBuffer[address];
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+
+        // The EEPROM must be written in page mode, hence, read the entire EEPROM first as needed
+        if(_eepromBuffer == null) {
+            if( readEEPROM(0) < 0 ) return false;
+        }
+
+        // Store the new byte to the buffer and mark the position as dirty
+        final int newData = data & 0xFF;
+
+        if(_eepromBuffer[address] != newData) {
+            _eepromBuffer[address] = newData;
+            _eepromFDirty[address] = true;
+        }
+
+        // Done
+        return true;
+    }
+
+    public boolean commitEEPROM()
+    {
+        // Simply exit if there is no EEPROM buffer
+        if(_eepromBuffer == null) return true;
+
+        // Write the entire EEPROM
+        _writeAllEEPROMBytes();
+
+        // Mark everything as not dirty
+        Arrays.fill(_eepromFDirty, false);
+
+        // Done
+        return true;
+    }
+
+} // class ProgBootAVRDFU

@@ -1,0 +1,171 @@
+====================================================================================================
+JxMake Basic Specification
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Special Variables
+----------------------------------------------------------------------------------------------------
+
+All of these special variables are read only and automatic.
+
+
+$[cmdecho]      : evaluate to 0 or 1, depending on '$cmd_echo_off'      or '$cmd_echo_on'
+$[cmdstreaming] : evaluate to 0 or 1, depending on '$cmd_streaming_off' or '$cmd_streaming_on'
+
+$[lserr]        : evaluate to the last suppressed error message; after reading this variable its value will be cleared
+
+$[jxmakefile]   : evaluate to the JxMake specification file that was specified from the command line
+$[function]     : evaluate to the current user-defined function name string
+
+$[cmdtargets]   : evaluate to the all the target names that were specified from the command line
+
+$[usn]          : evaluate to a unique serial number every time it is read
+
+$[target]       : evaluate to the target string
+
+$[preq^]        : evaluate to the number of entire prerequisites strings
+$[preq*]        : evaluate to the           entire prerequisites strings
+$[preq?]        : evaluate to the           entire prerequisites strings that are more recent than the target
+
+$[preq1]        : evaluate to the    1-st prerequisite string
+$[preq2]        : evaluate to the    2-nd prerequisite string
+$[preqN]        : evaluate to the    N-th prerequisite string (N is a number 1 to ...                         )
+$[preq:V]       : evaluate to the ${V}-th prerequisite string (V is a plain variable name; index starts from 1)
+
+$[preq+]        : evaluate to the manually added extra dependencies
+$[preq%]        : evaluate to the auto-detected  extra dependencies
+$[preq~]        : evaluate to the effective      extra dependencies ('$[preq+]' and '$[preq%]' that are not in '$[preq*]')
+
+$[excode]       : evaluate to the exit code (value) after executing of shell/operating system commands
+$[stderr]       : evaluate to the content of stderr after executing of shell/operating system commands
+$[stdout]       : evaluate to the content of stdout after executing of shell/operating system commands
+
+
+NOTE : # Extra dependencies that are loaded globally from files using the 'depload' and 'sdepload'
+         statements, added by the auto-detection process, and added manually using the 'extradep'
+         statements are accessible only by '$[preq+]', '$[preq%]', and '$[preq~]'.
+       # The system stores the entire output from stderr and stdout each as a single set member, it
+         does not separate each line into a set member. If needed, please use the built-in function
+         '$explode' with '\n' as the separator character to separate the lines into set members.
+
+NOTE : # Unlike when the program accesses '$[excode]', '$[stderr]' and '$[stdout]' which will cause
+         all pending commands from '@' to be executed, accessing '$[lserr]' will not cause pending
+         commands to be executed.
+
+
+The contents of the above variables are automatic and thus always direct, it means assigning via '='
+versus ':=' might not produce the results you expect; for example:
+
+    (*
+     * This example should produce the results you expect
+     *)
+    $printf( "'%s'\n", $[lserr] ) # It will print               ''
+   -$mkdir ( '/root/test'       ) # Assume the error message is 'RUNTIME ERROR: java.nio.file.AccessDeniedException: /root/test'
+    $printf( "'%s'\n", $[lserr] ) # It will print               'RUNTIME ERROR: java.nio.file.AccessDeniedException: /root/test'
+    $printf( "'%s'\n", $[lserr] ) # It will print               ''
+
+    (*
+     * This example might not produce the results you expect
+     *)
+   -$mkdir ( '/root/test'       ) # Assume the error message is 'RUNTIME ERROR: java.nio.file.AccessDeniedException: /root/test'
+    Err = $[lserr]
+    Msg = "${Val} ${Err} ${Val}"
+
+    Val = 123
+    $printf( "'%s'\n", ${Msg}   ) # It will print               '123 RUNTIME ERROR: java.nio.file.AccessDeniedException: /root/test 123'
+
+    Val = 456
+    $printf( "'%s'\n", ${Msg}   ) # It will print               '456 RUNTIME ERROR: java.nio.file.AccessDeniedException: /root/test 456'
+
+In the 2nd part of the example above, it is as if:
+
+    Err = $[lserr]
+
+has been silently replaced by:
+
+    Err := $[lserr]
+
+
+----------------------------------------------------------------------------------------------------
+Special Variable Shortcuts
+----------------------------------------------------------------------------------------------------
+
+Read only special variables
+
+    __jxm_ver_major__   : evaluate to JxMake major       version (0x0000 to 0xFFFF              )
+    __jxm_ver_minor__   : evaluate to JxMake minor       version (0x00   to 0xFF                )
+    __jxm_ver_patch__   : evaluate to JxMake patch       version (0x00   to 0xFF                )
+    __jxm_ver_value__   : evaluate to JxMake numerical   version (0xJJJJNNPP                    )
+    __jxm_ver_devel__   : evaluate to JxMake development version ('alpha1', 'beta1', 'rc1', etc.)
+
+    __os_name__         : evaluate to             the operating system name (normalized)
+    __os_name_actual__  : evaluate to             the operating system name (actual    )
+
+    __os_windows__      : evaluate to non-zero if the operating system is Windows
+    __os_posix__        : evaluate to non-zero if the operating system is POSIX
+    __os_linux__        : evaluate to non-zero if the operating system is Linux
+    __os_bsd__          : evaluate to non-zero if the operating system is BSD
+    __os_mac__          : evaluate to non-zero if the operating system is MacOS
+    __os_cygwin__       : evaluate to non-zero if the operating system is Windows with Cygwin              environment
+    __os_mingw__        : evaluate to non-zero if the operating system is Windows with MinGW               environment
+    __os_msys__         : evaluate to non-zero if the operating system is Windows with MSys/MSys2          environment
+    __os_posix_compat__ : evaluate to non-zero if the operating system is Windows with POSIX compatibility environment
+
+    __os_arch__         : evaluate to             the operating system architecture
+    __os_bit_count__    : evaluate to non-zero if the operating system bit count
+    __os_32bit__        : evaluate to non-zero if the operating system is 32-bit
+    __os_64bit__        : evaluate to non-zero if the operating system is 64-bit
+    __os_be__           : evaluate to non-zero if the operating system is big-endian
+    __os_le__           : evaluate to non-zero if the operating system is little-endian
+
+    __os_dsep_char__    : evaluate to the operating system's directory separator character
+    __os_psep_char__    : evaluate to the operating system's path      separator character
+
+    __re_all__          : evaluate to the regular expression string '.+'
+
+    __c_use_dark__      : evaluate to 1 if using dark  color theme
+    __c_use_light__     : evaluate to 1 if using light color theme
+
+    __c_clrscr__        : evaluate to ANSI escape code for clear screen
+    __c_black__         : evaluate to ANSI escape code for color black      on black (or white      on white)
+    __c_dgray__         : evaluate to ANSI escape code for color dark  gray on black (or light gray on white)
+    __c_lgray__         : evaluate to ANSI escape code for color light gray on black (or dark  gray on white)
+    __c_red__           : evaluate to ANSI escape code for color red        on black (or red        on white)
+    __c_green__         : evaluate to ANSI escape code for color green      on black (or green      on white)
+    __c_yellow__        : evaluate to ANSI escape code for color yellow     on black (or yellow     on white)
+    __c_blue__          : evaluate to ANSI escape code for color blue       on black (or blue       on white)
+    __c_magenta__       : evaluate to ANSI escape code for color magenta    on black (or magenta    on white)
+    __c_cyan__          : evaluate to ANSI escape code for color cyan       on black (or cyan       on white)
+    __c_white__         : evaluate to ANSI escape code for color white      on black (or black      on white)
+    __c_reset__         : evaluate to ANSI escape code for reset all attributes
+
+
+Writable special variables
+
+    __include_paths__ : [C/C++] specify the locations to search for files when the system
+                                recursively auto-detecting the dependencies
+
+    __class_paths__   : [Java ] specify the locations to search for files when the system
+                                recursively auto-detecting the dependencies
+
+Please only put user paths in '__include_paths__' and '__class_paths__', add additional system
+paths using library features.
+
+
+A 'local' prefix can be used to make modification for the current function or target only.
+
+In order for the system to be able to utilize the modifications made by the target's body on the
+above path variables when recursively auto-detecting the dependencies, several requirements must
+be met:
+    # all assignments to those path variables must be done before any other statements (but after
+      the 'extradep' statements, if they exist);
+    # the assignments cannot be placed inside conditional or loop blocks.
+
+
+NOTE : # If new paths are added after the dependency cache files ('*.dep.cache') have been created
+         in the project cache directory, the new paths will not cause the cache files to be rebuilt.
+       # Currently, the only solution is to delete the project cache files to force the system to
+         rebuild them; it can be done from the program by calling the '$clear_project' function or
+         from the command line by passing the '--rm-prj-cache' option when running JxMake.
+
+====================================================================================================

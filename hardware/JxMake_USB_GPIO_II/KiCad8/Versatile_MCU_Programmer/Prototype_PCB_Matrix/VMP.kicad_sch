@@ -1,0 +1,131 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "5c73339b-6b9b-4ef3-b462-e2fd44999fa8")
+	(paper "A4")
+	(title_block
+		(title "Versatile MCU Programmer (Prototype PCB Matrix)")
+		(date "2025-07-23")
+		(rev "1.0.7c")
+		(comment 2 "This file is part of the JxMake program, see LICENSE file for the license details")
+		(comment 3 "Copyright (C) Aloysius Indrayanto")
+	)
+	(lib_symbols)
+	(sheet
+		(at 64.77 25.4)
+		(size 36.83 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "1f997e53-c63f-41af-b752-e7766c1bda98")
+		(property "Sheetname" "AVR_Programmer"
+			(at 66.04 28.448 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "AVR_Programmer.kicad_sch"
+			(at 66.04 29.718 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "VMP"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 25.4 25.4)
+		(size 36.83 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "819ca20e-dad6-43bd-a980-cd6262718ca2")
+		(property "Sheetname" "Main"
+			(at 26.67 28.448 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Main.kicad_sch"
+			(at 26.67 29.718 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "VMP"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 64.77 35.56)
+		(size 36.83 7.62)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "a828a888-ae4f-4a63-af00-31177e43e9c9")
+		(property "Sheetname" "SWD_SWIM_PIC_Programmer"
+			(at 66.04 38.608 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "SS_PIC_Programmer.kicad_sch"
+			(at 66.04 39.878 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "VMP"
+				(path "/5c73339b-6b9b-4ef3-b462-e2fd44999fa8"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)

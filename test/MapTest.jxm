@@ -1,0 +1,111 @@
+:::include <GitHubTool>
+
+
+
+mh := $map_new()
+echoln ${mh}
+
+$map_put(${mh}, 'Key 1', 'Value1' )
+$map_put(${mh}, 'Key 2', 'Value2a')
+$map_add(${mh}, 'Key 2', 'Value2b')
+echoln $part_count  ( $map_keys(${mh}) )
+echoln $map_num_keys( ${mh}            )
+echoln $map_num_vals( ${mh}, 'Key 1'   )
+echoln $map_num_vals( ${mh}, 'Key 2'   )
+
+$map_clear(${mh})
+$map_delete(${mh})
+
+echoln $map_num_keys( ${mh}            )
+echoln $map_num_vals( ${mh}, 'Key 1'   )
+
+echoln
+
+
+
+mh := $map_new()
+echoln ${mh}
+
+$map_put(${mh}, 'Key 1', 'Value1' )
+$map_put(${mh}, 'Key 1', 'ValueX' )
+$map_put(${mh}, 'Key 2', 'Value2a')
+$map_add(${mh}, 'Key 2', 'Value2b')
+
+foreach key in $map_keys(${mh})
+    echoln $implode( $map_get(${mh}, ${key}), '|' )
+endforeach
+
+echoln
+
+$map_remove(${mh}, 'Key 1')
+
+foreach key in $map_keys(${mh})
+    echoln $implode( $map_get(${mh}, ${key}), '|' )
+endforeach
+
+$map_delete(${mh})
+
+echoln
+
+
+
+function aboard(path, ?title)
+    local edata := $aboard_from_file(${path})
+          edata := $aboard_selector(${edata}, ${title})
+    if &${edata}
+        local mh := $aboard_getselconf(${edata})
+        local ed := $map_to_edata(${mh}) ; $map_delete(${mh})
+              mh := $map_from_edata(${ed})
+        foreach local K in $map_keys(${mh})
+            $printf("[%s]\n", ${K})
+            foreach local V in $map_get(${mh}, ${K})
+                $printf("    %s\n", ${V})
+            endforeach
+        endforeach
+        $map_delete(${mh})
+    endif
+    echoln
+endfunction
+
+#$call(aboard, '../0_excluded_directory/temporary/Arduino-AVR-Boards.txt') ; echoln
+
+$call(aboard, 'arduino_partial_boards_1.txt') ; echoln
+$call(aboard, 'arduino_partial_boards_2.txt') ; echoln
+$call(aboard, 'arduino_partial_boards_3.txt') ; echoln
+$call(aboard, 'arduino_partial_boards_4.txt') ; echoln
+
+echoln
+
+
+
+function processGHR(mh)
+    if !&${mh}<1>
+        echoln $ftlines(${mh})
+        echoln
+        return
+    endif
+    $call(dump_map_object, ${mh})
+    $map_delete(${mh})
+    echoln
+endfunction
+
+echoln $ftlines( $call(gh_get_api_versions) )
+echoln
+#$exit(1)
+
+$call( processGHR, $call(gh_get_rate_limit                                                                  ) )
+#$exit(1)
+
+$call( processGHR, $call(gh_get_tags                           , 'blue-wind-25', 'VMA-Solutions'            ) )
+#$exit(1)
+
+$call( processGHR, $call(gh_get_tags                           , 'arduino'     , 'rp2040tools'              ) )
+$call( processGHR, $call(gh_get_assets_from_all_releases       , 'arduino'     , 'rp2040tools'              ) )
+$call( processGHR, $call(gh_get_assets_from_latest_release     , 'arduino'     , 'rp2040tools'              ) )
+$call( processGHR, $call(gh_get_assets_from_release_by_id      , 'arduino'     , 'rp2040tools'  , '40035159') )
+$call( processGHR, $call(gh_get_assets_from_release_by_tag_name, 'arduino'     , 'rp2040tools'  , '1.0.1   ') )
+
+echoln $ftspaces( $call(gh_get_latest_commit_date_by_path          , 'earlephilhower', 'arduino-pico', 'tools/uf2conv.py') )
+echoln
+echoln $ftspaces( $call(gh_get_tag_object_type_and_hash_by_tag_name, 'earlephilhower', 'arduino-pico', '1.0.1'           ) )
+echoln

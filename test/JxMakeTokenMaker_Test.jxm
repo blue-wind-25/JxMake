@@ -1,0 +1,263 @@
+#
+# Only for syntax highlighting test.
+# Do not execute this JxMake file, it will produce error!
+#
+
+# word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word
+
+(***** TITLE *****)
+
+:::include <C++BuildTool>
+
+:::pragma jxmake_compile_minimum_version 0.9.9
+:::pragma jxmake_compile_maximum_version 0.9.9
+
+DLST_INAME := $call(deplist_fpath, main.inc                                                   )
+SLIB_OBJS  := $call(    obj_fpath, { staticlib.cpp staticlib_int.cpp cstaticlib/cstaticlib.c })
+
+:::include  'MacroTest.jxm'
+:::include
+:::sinclude a
+:::sinclude '../test/IncTest_Main.jxm'
+
+.option warning push
+.option warning enable  'var-not-exist'
+.option warning disable
+.option warning disable b
+.option warning disable 'var-not-exist'
+.option warning pop
+
+.macro printf_line
+    $printf("-------------------------")
+.endmacro
+
+.$printf_line
+
+.undefmacro printf_line
+
+eval A := sgn[ -7 ]
+eval B := -( 1 + max[ ${A}, min[ ${B}, (${D} + 1) * 2 ] ] ) * 2
+eval C := true ? min[ ${A}, ${B} ] : max[ ${A}, ${B} ]
+
+R = [["
+Line 1
+
+Line 2 + ^${myvar/a(.)c/x$1z/}
+Line 3 + ~${^myvar/a(.)c/x$1z/}
+
+Line 4 + $[stdout]
+Line 5 + ~$[stdout/a(.)c/x$1z/]
+"]]
+
+echoln
+
+^${myvar/a(.)c/x$1z/}
+^${^myvar/a(.)c/x$1z/}
+
+^$[stdout/a(.)c/x$1z/]
+~$[stdout/a(.)c/x$1z/]
+
+"abc+^$[stdout/a(.)c/x$1z/]123"
+
+$http_clr_auth()
+$http_clr_auth(true)
+$http_clr_auth($http_clr_auth())
+$http_clr_auth($http_clr_auth( $http_clr_auth()))
+$http_clr_auth($http_clr_auth(true))
+
+-$http_clr_auth(true, __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, ^${^myvar/a(.)c/x$1z/}, "abc+~${myvar}123", __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, ^${myvar/a(.)c/x$1z/}, "abc+~${myvar}123", __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?,  ${myvar/a(.)c/x$1z/}, "abc+~${myvar}123", __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, "abc+~${myvar}123", ^${^myvar/a(.)c/x$1z/}, __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, "abc+~${myvar}123", ^${myvar/a(.)c/x$1z/}, __os_name__, __c_clrscr__)
+-$http_clr_auth(true, ?, "abc+~${myvar}123",  ${myvar/a(.)c/x$1z/}, __os_name__, __c_clrscr__)
+-$http_clr_auth(0x10, 123, xyz, { A 1 2 },  {{ A, 1, 2 }})
+-$http_clr_auth( $lcase( $[target] ) )
+
+$call(__origin__, "abc+~${myvar}123")
+
+$call(__origin__,\
+"abc+~${myvar}123")
+
+$call(                  \
+    __origin__,         \
+     "abc+~${myvar}123" \
+)
+
+A = $call(__origin__, qwe, ${A})
+A = $call(abc, qwe, ${A})
+A = $call(${abc}, qwe, ${A})
+A = $call($[stdout], qwe, ${A})
+A = $call('abc', qwe, ${A})
+A = $call("abc", qwe, ${A})
+A = $call( abc, $lcase( $[target] ) )
+
++jxmake
+echoln __os_name__ __c_clrscr__ true
+
+echoln ~${myvar}~${myvar} ^$[excode]-$[excode]
+echoln ${myvar/(_K_)/$1 = \${_V_}/} $[stdout/(_K_)/$1 = \${_V_}/]
+
+echoln ; echoln
+
+Val := 'abc+~${myvar}123\\\'\n'
+Val := "abc+~${myvar}123\\\"\n\o040\d032\x20\u0020\U000020"
+Val := `abc+~${myvar}123\\'"\n`
+
+Val := ."abc${myvar}\-${myvar}def"
+Val := ."abc${myvar}\-${myvar}def"
+Val := ."abc$[excode]\~$[excode]def"
+
+Val := ."abc+~${myvar/a(.)c/x$1z/}123\\\"\n"
+Val := :"abc+~${myvar/a(.)c/x$1z/}123\\\"\n"
+
+       {{ A, 1, 2 }}
+Val := {{ A, 1, 2 }}
+echoln {{ A, 1, 2 }}
+echoln $lcase({{ A, 1, 2 }})
+return {{ A, 1, 2 }}
+
+return { A 1 2 }
+{ A 1 2 }
+echoln $lcase({ A 1 2 })
+return { A 1 2 }
+
+# The { and } are not PROperEval
+Val := { A 1 2 }
+Val := { \
+A 1 2    \
+}
+
+# The { and } are not PROperEval
+echoln { A 1 2 }
+echoln { \
+ A 1 2   \
+}
+
+Var1    = 10
+Var1Ref = Var1
+^Var1Ref := 0x20
+echoln ${Var1} ${^Var1Ref} $[preq12] $[preq?] $[preq:I] $[preq:ABC] $[preq*]<ABC,DEF>
+
+${array}   ${array}<1> ${array}<I>   ${array}<1,2> ${array}<1,J> ${array}<I,2> ${array}<I,J>   ${array}<1:2> ${array}<1:J> ${array}<I:2> ${array}<I:J>
+$[preq*]   $[preq*]<1> $[preq*]<I>   $[preq*]<1,2> $[preq*]<1,J> $[preq*]<I,2> $[preq*]<I,J>   $[preq*]<1:2> $[preq*]<1:J> $[preq*]<I:2> $[preq*]<I:J>
+
+Var0   = false 0x20
+Var0  += 1
+Var0  ?= 1
+
+Var0  := 1
+Var0 +:= 1
+Var0 :+= 1
+Var0 ?:= 1
+Var0 :?= 1
+
+target abc : \? \% ? % %1 %9
+    echoln
+endtarget
+
+function xyz(source, output)
+    if true  <  true : echoln   # No folding here
+    if true  <= true : echoln   # No folding here
+    if true  >  true : echoln   # No folding here
+    if true  >= true : echoln   # No folding here
+
+    if true  == true : echoln   # No folding here
+    if true  != true : echoln   # No folding here
+
+    if true &== true : echoln   # No folding here
+    if true &!= true : echoln   # No folding here
+
+    if   true : echoln   # No folding here
+    if  !true : echoln   # No folding here
+    if  &true : echoln   # No folding here
+    if !&true : echoln   # No folding here
+endfunction
+
+(*****************
+ ***** TITLE *****
+ *****************)
+
+#      0123
+# Two A\
+Two B\
+Two C
+
+$http_clr_auth()
+
+#      0123
+# Two A\
+Two B\
+$http_clr_auth()
+
+#      0123
+# Two A\
+Two B\
+
+$http_clr_auth()
+
+(*
+#(*
+*)
+
+A = $call(abc, qwe, ${A})
+
+(*
+    (*
+        echoln 123 (* xxx *) 456
+    #*)
+
+    (*
+        echoln abc (* xxx *) def
+    #*)
+#*)
+
+(*
+echoln __jxm_ver_major__
+echoln __c_use_dark__
+.option warning
+
+function function1() supersede
+    $call(__origin__)
+    echoln "function1 - supersede5"
+endfunction
+
+for i := 1 to 3 step 1
+    for j := 7 to 8 step 1
+        echoln "${i}\-${j}"
+    endfor
+endfor
+echoln
+
+
+echoln
+
+*)
+
+label mylabel:
+
+goto mylabel
+goto 'mylabel'
+
+sgoto mylabel
+sgoto 'mylabel'
+sgoto :"mylabel'
+sgoto ${myvar}
+sgoto $lcase(${myvar})
+
+  @clrenv
+  @delenv MyEnvVar
+  @setenv MyEnvVar 1
+  @addenv MyEnvVar 1
+  @sstdin MyValue
+
+  @jxmake -f ${file}
+ -@jxmake -f ${file}
+
+ -@ls ${path}
+ +@ls ${path}
+ ?@ls ${path}
+-+@ls ${path}
++-@ls ${path}

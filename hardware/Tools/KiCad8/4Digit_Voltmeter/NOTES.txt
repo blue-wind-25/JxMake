@@ -1,0 +1,61 @@
+====================================================================================================
+4-Digit Voltmeter
+====================================================================================================
+
+WARNING : # DO NOT POWER FROM BOTH J1 (Input) and J2 (AVR-ISP6) simultaneously. Supply power to the
+            module from only one of them.
+          # J1 (Input   ) can      be powered by both 3.3V and 5V supply.
+          # J2 (AVR-ISP6) can only be powered by      3.3V        supply.
+
+====================================================================================================
+
+This '4-Digit Voltmeter' module is designed to operate without a bootloader. Therefore, upload the
+firmware (sketch) using the 'Upload Using Programmer' menu. Select either 'USBasp', 'USBtinyISP',
+'Arduino as ISP', or another programmer based on your preference (ensure it operates at 3.3V).
+
+It is possible to burn a bootloader onto the module and upload the firmware (sketch) via the serial
+port. In this case, please ensure that the USB-to-serial module also operates at 3.3V. The module
+must never be powered from both the USB-to-serial module and J1 or J2 simultaneously.
+
+----------------------------------------------------------------------------------------------------
+
+This module is designed to measure voltages up to +25V and utilizes the internal 1.1V reference of
+the ATmega328P on the Arduino Pro Mini board. This implies that the input voltage must be divided
+by a factor of:
+
+    25V / 1.1V ≈ 22.72727
+
+R1, RV1, and R2 form a high-impedance voltage divider. Reading from a high-impedance source using
+the AVR ADC can be challenging but feasible. The divided voltage is obtained from the middle pin of
+RV1 and stabilized with the capacitor C1. In this design, C1 has a significantly greater capacitance
+compared to the MCU ADC's internal sample-and-hold capacitor (~14pF for the ATmega328P). Therefore,
+it should function as a "low-impedance voltage source" for the ADC.
+
+To begin the calibration process, use a multimeter and adjust RV1 such that the upper part connected
+to R1 measures approximately 80k, while the lower part connected to R2 measures approximately 120k.
+In this state with R1 at 4M7 and R2 at 100k, it will divide the voltage by:
+
+    div_factor = (RV1_lower + R2  ) / (R1  + RV1_upper + RV1_lower + R2  )
+               = (120k      + 100k) / (4M7 + 80k       + 120k      + 100k)
+               =  220k              /  5000k
+               =  0.044
+               ≈  1 / 22.72727
+
+For the next calibration process, upload the firmware, apply the correct power supply, and measure
+a known voltage using the middle pin of J1 (VRead). If the measured voltage falls within ±15% of the
+expected value, adjust RV1 until the measured voltage closely matches the expected value.
+
+If the measured tolerance exceeds ±15% or calibration cannot achieve the correct reading, then the
+SCALE_FACTOR in the firmware must be modified. Begin by resetting the upper and lower segments of
+RV1 back to approximately 80k and 120k, respectively and then read the notes in:
+    '../../Firmware/ATmega328P_4Digit_Voltmeter/ATmega328P_4Digit_Voltmeter.ino'
+
+----------------------------------------------------------------------------------------------------
+
+You can also use a custom build of an Arduino Pro Mini board that uses the ATmega168P, ATmega168PB,
+or ATmega328PB. Before building the firmware, change the MCU type and settings by either editing the
+existing entry in the 'boards.txt' file or adding new ones. There is no need to modify the existing
+'pins_arduino.h' file or create new ones, as the firmware does not utilize any additional features
+of the PB version. Technically, the ATmega88P, ATmega88PA, and ATmega88PB can also be used.
+
+====================================================================================================

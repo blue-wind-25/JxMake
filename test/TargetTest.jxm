@@ -1,0 +1,241 @@
+echoln
+echoln "========== ROOT BEG =========="
+
+sdepload 'src/cpp/_non_existing_file.dep'
+depload 'src/cpp/main.dep'
+
+
+
+function printTargetAndPreqs()
+    local T := $rel_path( $[target]  )
+    local A := $rel_path( $[preq*]   )
+          A := $implode ( ${A}, ' | ')
+    local U := $rel_path( $[preq?]   )
+          U := $implode ( ${U}, ' | ')
+    local M := $rel_path( $[preq+]   )
+          M := $implode ( ${M}, ' | ')
+    local D := $rel_path( $[preq%]   )
+          D := $implode ( ${D}, ' | ')
+    local E := $rel_path( $[preq~]   )
+          E := $implode ( ${E}, ' | ')
+    echoln
+    echoln "##### DUMMY CODE FOR TARGET ${T} #####"
+    echoln "    \$[preq^] : $[preq^]"
+    echoln "    \$[preq*] : ${A}"
+    echoln "    \$[preq?] : ${U}"
+    echoln "    \$[preq+] : ${M}"
+    echoln "    \$[preq%] : ${D}"
+    echoln "    \$[preq~] : ${E}"
+    echoln
+endfunction
+
+
+
+TEST_SRC = test1.cpp test2.cpp test3.cpp
+
+target test : ${TEST_SRC}
+    local T := $rel_path( $[target]  )
+    echoln "========== TARGET [${T}] BEG =========="
+    $call(printTargetAndPreqs)
+   #$exit(7)
+   #$mkdir('/root/test')
+    local i
+    for i := 1 to $[preq^] step 1
+        echoln $[preq:i/(.+)\.cpp/$1.o/]
+    endfor
+    echoln "========== TARGET [${T}] END =========="
+    echoln
+endtarget
+
+target %.cpp : src/cpp/all.h
+    ### NOTE : # If new paths are added after the cache '*.dep.cache' files were created, the new paths will not
+    ###          cause the cache files to be automatically rebuilt!
+    ###        # The simplest solution is to make a target to clear the project cache by calling '$clear_project()'
+    ###          so that the cache files will be rebuilt later. Please read '../docs/Basic-Specification.txt' for
+    ###          more details.
+    local __include_paths__ := src/cpp/sys
+    $call(printTargetAndPreqs)
+    if $valid_path($[target])
+        $touch($[target])
+    endif
+endtarget
+
+target src/cpp/main.o : src/cpp/main.cpp 'a\ b\ c' d\ e\ f
+    ### NOTE : # If new paths are added after the cache '*.dep.cache' files were created, the new paths will not
+    ###          cause the cache files to be automatically rebuilt!
+    ###        # The simplest solution is to make a target to clear the project cache by calling '$clear_project()'
+    ###          so that the cache files will be rebuilt later. Please read '../docs/Basic-Specification.txt' for
+    ###          more details.
+    local __include_paths__ := src/cpp/sys
+    $call(printTargetAndPreqs)
+endtarget
+
+target 'a\ b\ c'
+    $call(printTargetAndPreqs)
+endtarget
+
+target d\ e\ f
+    $call(printTargetAndPreqs)
+endtarget
+
+
+
+target %.o : %.1.asm %.2.asm
+    $call(printTargetAndPreqs)
+endtarget
+
+target %.?.asm : %1.%2.S
+    $call(printTargetAndPreqs)
+endtarget
+
+target %.?.S : __dummy_path_prerequisite_1__
+    $call(printTargetAndPreqs)
+endtarget
+
+target __dummy_path_prerequisite_1__ : __dummy_path_prerequisite_2__ __dummy_path_prerequisite_3__
+    extradep __dummy_path_prerequisite_4__
+    extradep __dummy_path_prerequisite_5__
+    $call(printTargetAndPreqs)
+    $touch($[target])
+    $touch('src/cpp/all.h')
+endtarget
+
+
+
+target clean
+    $call(printTargetAndPreqs)
+    $touch(__dummy_path_prerequisite_2__)
+    $touch(__dummy_path_prerequisite_5__)
+    echoln "========================= sdta sdtb sdtc ========================="
+    jxmake sdta sdtb sdtc
+    echoln "========================= pdta pdtb pdtc ========================="
+   +jxmake pdta
+   +jxmake pdtb
+   +jxmake pdtc
+    echoln "=========================      wait      ========================="
+    jxwait
+    echoln "=========================      done      ========================="
+    $clear_project(1)
+endtarget
+
+target sdta
+    echoln "[[[ S-DTA ]]]"
+endtarget
+
+target sdtb
+    echoln "[[[ S-DTB ]]]"
+   #$mkdir('/root/test')
+endtarget
+
+target sdtc
+    echoln "[[[ S-DTC ]]]"
+endtarget
+
+target pdta
+    echoln "[[[ P-DTA - 1 ]]]"
+    $sleep(600)
+    echoln "[[[ P-DTA - 2 ]]]"
+endtarget
+
+target pdtb
+    echoln "[[[ P-DTB - 1 ]]]"
+    $sleep(900)
+   #$mkdir('/root/test')
+    echoln "[[[ P-DTB - 2 ]]]"
+endtarget
+
+target pdtc
+    echoln "[[[ P-DTC - 1 ]]]"
+    $sleep(300)
+    echoln "[[[ P-DTC - 2 ]]]"
+endtarget
+
+
+
+TName1 = 'dummy1.out'
+TName2 = 'dummy2.out'
+TNames = "${TName1}${TName2}"
+
+target ."${TName1}${TName2}" : $[target/(.+).out/$1.src/]
+    echoln $[target]
+endtarget
+
+target ."${TNames/(.+).out/$1.src/}"
+    echoln $[target]
+endtarget
+
+
+
+target ?.abc
+    $printf("%11s -> ?.abc\n", $[target])
+endtarget
+
+target %.abc
+    $printf("%11s -> %%.abc\n", $[target])
+endtarget
+
+target %.def.abc
+    $printf("%11s -> %%.def.abc\n", $[target])
+endtarget
+
+target 7.abc
+    $printf("%11s -> 7.abc\n", $[target])
+endtarget
+
+target 789.abc
+    $printf("%11s -> 789.abc\n", $[target])
+endtarget
+
+target 789.def.abc
+    $printf("%11s -> 789.def.abc\n", $[target])
+endtarget
+
+
+
+target tc_dummy
+endtarget
+
+target tc_orig
+                    echoln           $[target]
+    if !&$[preq*] ; echoln '---'
+    else          ; echoln $ftspaces($[preq*])
+    endif
+    if !&$[preq+] ; echoln '---'
+    else          ; echoln $ftspaces($[preq+])
+    endif
+    echoln
+endtarget
+
+target clone
+    $add_target('tc_dummy', 'tc1'                                                            )
+    $add_target('tc_dummy', 'tc2'                                                            )
+    $add_target('tc_orig' , 'tc_clone1', {{ 'tc1', 'tc2' }}                                  )
+    $add_target('tc_orig' , 'tc_clone2', {{ 'tc1', 'tc2' }}, '__dummy_path_prerequisite_1__' )
+    jxmake tc_orig
+    jxmake tc_clone1
+    jxmake tc_clone2
+    echoln
+    local RST = '%.rst'
+    local UVW = '%.uvw'
+    local DEP = 'tc1' 'tc2'
+    local XDP = __dummy_path_prerequisite_5__
+    $add_target('tc_clone1', '%.xyz'                     )
+    $add_target('tc_clone1', '${UVW}', '${DEP}', '${XDP}') # It works because the new target will evaluate the new target name,
+                                                           # prerequisites, and extra dependencies as if we were defining the new
+                                                           # target normally (as if directly in the program)
+    $add_target('tc_clone1',  ${RST} ,  ${DEP} ,  ${XDP} )
+    jxmake a.xyz
+    jxmake a.uvw
+    jxmake a.rst
+    echoln
+   #$add_target('${UVW}', '%.ijk') # Error because '$add_target()' does not evaluate the '<ref_name>'
+    $add_target("${UVW}", '%.ijk')
+    $add_target( ${UVW} , '%.fgh')
+    jxmake q.ijk
+    jxmake q.fgh
+endtarget
+
+
+
+echoln "========== ROOT END =========="
+echoln

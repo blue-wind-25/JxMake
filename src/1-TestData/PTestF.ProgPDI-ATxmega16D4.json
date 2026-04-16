@@ -1,0 +1,41 @@
+{
+    "@class" : "jxm.ugc.ProgPDI$Config",
+    "memoryAVRBase" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemoryAVRBase",
+        "DATA" : 0x01000000,
+        "MCU" : 0x00000090,
+        "NVM" : 0x000001C0
+    },
+    "memorySignature" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemorySignature",
+        "address" : 0x01000090,
+        "size" : 3
+    },
+    "memoryFlash" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemoryFlash",
+        "address" : 0x800000,
+        "totalSize" : 16384,
+        "pageSize" : 256,
+        "numPages" : 64,
+        "readDataBuff" : null
+    },
+    "memoryEEPROM" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemoryEEPROM",
+        "address" : 0x8C0000,
+        "totalSize" : 1024,
+        "pageSize" : 32,
+        "numPages" : 32
+    },
+    "memoryFuse" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemoryFuse",
+        "address" : [ 0x8F0020, 0x8F0021, 0x8F0022, -1      , 0x8F0024, 0x8F0025, -1       ],
+        "size" : [ 1       , 1       , 1       , 0       , 1       , 1       , 0        ],
+        "bitMask" : [ 0x0000FF, 0x0000FF, 0x000063, -1      , 0x00001F, 0x00003F, -1       ]
+    },
+    "memoryLockBits" : {
+        "@class" : "jxm.ugc.ProgPDI$Config$MemoryLockBits",
+        "address" : 0x128A,
+        "size" : 1,
+        "bitMask" : 0xFF
+    }
+}

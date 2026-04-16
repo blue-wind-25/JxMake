@@ -1,0 +1,393 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+/*
+ * ################################## !!! WARNING !!! ##################################
+ * This source code file relies on the Foreign Function and Memory (FFM) API; therefore,
+ * it is excluded from the build when using Java versions earlier than 23.
+ * ################################## !!! WARNING !!! ##################################
+ */
+
+
+package jxm.ugc;
+
+
+import java.util.Arrays;
+import java.util.List;
+
+import java.util.function.IntConsumer;
+
+import net.codecrete.usb.*;
+
+import jxm.*;
+import jxm.xb.*;
+
+
+/*
+ * Standard implementation of the LUFA HID protocol for programming MCUs with compatible bootloaders.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * This class is written partially based on the algorithms and information found from:
+ *
+ *     LUFA - The Lightweight USB Framework for AVRs
+ *     https://github.com/mariusgreuel/LUFA/tree/master
+ *     https://github.com/mariusgreuel/LUFA/tree/master/Projects/HIDReportViewer
+ *     Written by Dean Camera
+ *     Modified MIT License (https://github.com/mariusgreuel/LUFA/blob/master/LUFA/License.txt)
+ *
+ *     LUFA - HID Bootloader
+ *     https://github.com/mariusgreuel/LUFA/tree/master/Bootloaders/HID
+ *     https://github.com/mariusgreuel/LUFA/tree/master/Bootloaders/HID/HostLoaderApp
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * JxMake reimplements protocol behavior based on available documentation, supplemented by runtime
+ * observation and bench-level validation where features are undocumented or ambiguous. No LUFA
+ * source code or expressive implementation logic is used. Constants and timing are derived from
+ * functional analysis and do not constitute derivative work.
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * NOTE : On Windows, you may need to use a custom INF file or Zadig to assign WinUSB as the device
+ *        driver.
+ */
+public class ProgBootLUFAHID extends ProgBootUSB_HID {
+
+    private static final String ProgClassName = "ProgBootLUFAHID";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootUSB.Config {
+
+        // NOTE : This class can use the same configuration as certain other classes
+        #include "config.inc/BootAVRSimpleUSB.java.inc"
+
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private final static int HID_Report_Output = 0x02;
+    private final static int HID_Report_ID     = 0x00;
+
+    private void _hidRawControlWrite(final byte[] buff)
+    { _hidRawControlWrite( (HID_Report_Output << 8) | HID_Report_ID, buff ); };
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _hidWrite_impl(final int address, final int[] buff) throws Exception
+    {
+        if(buff.length != _config.memoryFlash.pageSize) {
+            _throwHIDError(Texts.CmdXErr_BLInvalidDBlockSz, buff.length, _config.memoryFlash.pageSize);
+        }
+
+        if( _config.memoryFlash.totalSize < (64 * 1024) ) {
+            _wBuff[0] = (byte) ( (address >>  0) & 0xFF );
+            _wBuff[1] = (byte) ( (address >>  8) & 0xFF );
+        }
+        else {
+            _wBuff[0] = (byte) ( (address >>  8) & 0xFF );
+            _wBuff[1] = (byte) ( (address >> 16) & 0xFF );
+        }
+
+        for(int i = 0; i < buff.length; ++i) {
+            _wBuff[2 + i] = (byte) buff[i];
+        }
+
+        _hidRawControlWrite(_wBuff);
+    }
+
+    private boolean _hidWrite(int address, final int[] buff)
+    {
+        try {
+            _hidWrite_impl(address, buff);
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _hidStartApplication_impl() throws Exception
+    {
+        _wBuff[0] = (byte) 0xFF;
+        _wBuff[1] = (byte) 0xFF;
+        Arrays.fill( _wBuff, 2, _wBuff.length, (byte) 0 );
+
+        _hidRawControlWrite(_wBuff);
+    }
+
+    private boolean _hidStartApplication()
+    {
+        /*
+         * ##### !!! TODO !!! #####
+         * Some AVR MCUs do not respond correctly to this request, so the error should be ignored for now.
+         */
+
+        try { _hidStartApplication_impl(); } catch(final Exception e) {}
+
+        return true;
+
+        /*
+        try {
+            _hidStartApplication_impl();
+            return true;
+        }
+        catch(final Exception e) {
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        }
+
+        return false;
+        */
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static int DEF_VID = 0x03EB; // Atmel Corp. LUFA HID Class Bootloader
+    private static int DEF_PID = 0x2067; // ---
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _inProgMode = false;
+    private byte[]  _wBuff      = null;
+
+    public ProgBootLUFAHID(final ProgBootLUFAHID.Config config) throws Exception
+    {
+        // Process the superclass
+        super(ProgClassName, config);
+
+        // NOTE : '_config.memoryEEPROM.*' entries are ignored
+
+        // Allocate the write buffer
+        _wBuff = new byte[2 + config.memoryFlash.pageSize];
+    }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return numBytes; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    private void _closeHIDDevice()
+    {
+        if(_device != null) {
+            try {
+                _closeDevice();
+            }
+            catch(final Exception e) {
+                if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            }
+        }
+    }
+
+    private boolean _begin_impl(final int vid, final int pid, String serialNumber)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        try {
+
+            // Clean up the serial number
+            if( serialNumber != null && serialNumber.trim().isEmpty() ) serialNumber = null;
+
+            // Get the first connected HID device matching the specified VID and PID
+            final List<UsbDevice> hids = _hidGetAllDevices(vid, pid);
+
+            for(final UsbDevice hid : hids) {
+                if( serialNumber != null && !serialNumber.equals( hid.getSerialNumber() ) ) continue;
+                _device = hid;
+                break;
+            }
+
+            // Get the interface number and transfer size
+            _interfaceNumber = _hidGetInterfaceNumber();
+
+            // Open the HID device
+            _openClaimDevice(true);
+
+        }
+        catch(final Exception e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            // Report error
+            return false;
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    public boolean begin(final int vid, final int pid, final String serialNumber)
+    {
+        if( _begin_impl(vid, pid, serialNumber) ) return true;
+
+        _closeHIDDevice();
+
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+    }
+
+    public boolean begin(final int vid, final int pid)
+    { return begin(vid, pid, null); }
+
+    public boolean begin(final String serialNumber)
+    { return begin(DEF_VID, DEF_PID, serialNumber); }
+
+    public boolean begin()
+    { return begin(null); }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Start the application
+        final boolean resStartApp = _hidStartApplication();
+        final boolean resWaitDDis = _waitUSBDeviceDisconnect();
+
+        // Close the DFU device
+        _closeHIDDevice();
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resStartApp || !resWaitDDis) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPrgDev, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : LUFA HID bootloader does not support signature reading!
+
+    @Override
+    public boolean supportSignature()
+    { return false; }
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Done
+        return _mcuSignature != null; // NOTE : The signature is always null because it was never initialized
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : LUFA HID bootloader does not support chip erase!
+
+    @Override
+    public boolean chipErase()
+    { return false; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : LUFA HID bootloader does not support flash reading!
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return false; }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return -1; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _writeFlash_impl(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Get the number of chunks to be written and the current address
+        final int ChunkSize = _config.memoryFlash.pageSize;
+
+        final int numChunks = nb / ChunkSize;
+              int cpgAddr   = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Write the chunks
+        int datIdx = 0;
+
+        for(int p = 0; p < numChunks; ++p) {
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the chunk
+            if( !_hidWrite( cpgAddr, USB2GPIO.ba2ia(data, datIdx, ChunkSize) ) ) return false;
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, ChunkSize / 2);
+
+            // Increment the counters
+            cpgAddr += ChunkSize;
+            datIdx  += ChunkSize;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+              long sa = (startAddress < 0) ? 0                             : startAddress;
+        final int  nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer( data, (int) sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName );
+        if(anbr == null) return false;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize( (int) sa, anbr.nb, _config.memoryFlash.pageSize, ProgClassName ) ) return false;
+
+        // Write the flash
+        return _writeFlash_impl(anbr.buff, (int) sa, anbr.nb, progressCallback);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // WARNING : LUFA HID bootloader does not support EEPROM reading and writing!
+
+    @Override
+    public int readEEPROM(final int address)
+    { return -1; }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    { return false; }
+
+} // class ProgBootLUFAHID

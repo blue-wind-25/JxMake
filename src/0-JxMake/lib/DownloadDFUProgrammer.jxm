@@ -1,0 +1,170 @@
+(****************************************************************************************************
+ ***** Download DFU-Programmer                                                                  *****
+ ***** ---------------------------------------------------------------------------------------- *****
+ ***** Copyright (C) 2022-2026 Aloysius Indrayanto                                              *****
+ ***** This file is part of the JxMake script library, see LICENSE file for the license details *****
+ ****************************************************************************************************)
+
+
+##### Include the GitHub tool
+:::include_once 'GitHubTool.jxm'
+
+
+##### Path to the DFU-Programmer
+    const DFUProg_ChkInterval := ${JxMake_Download_ChkIntervalS}
+
+    const DFUProg_Path        := $cat_path( $jtd()         , 'dfu-programmer'    )
+
+    const DFUProg_VerFileName := $cat_path( ${DFUProg_Path}, 'VERSION'           )
+    const DFUProg_LChFileName := $cat_path( ${DFUProg_Path}, 'LAST_CHECKED'      )
+
+if __os_windows__
+    const DFUProg_executable  := $cat_path( ${DFUProg_Path}, 'dfu-programmer.exe')
+else
+    const DFUProg_executable  := $cat_path( ${DFUProg_Path}, 'dfu-programmer'    )
+endif
+
+
+##### Function to delete the downloaded DFU-Programmer
+function delete_dfuprog()
+    if $valid_path(${DFUProg_Path}) : $rmdir_rec(${DFUProg_Path})
+endfunction
+
+
+##### A helper macro to determine the suitable archive names
+.macro __dfuprog_determine_suitable_archive_names__
+    # Determine the suitable archive names
+    local arcv32
+    local arcv64
+    foreach local url in ${bdlurls}
+        local chk := $lcase(${url})
+        if !$str_endwith(${chk}, '.zip') : continue
+        foreach local sts in ${ST_Spec32}
+            if $str_lidx(${chk}, ${sts}) > 0 : arcv32 := ${url}
+        endforeach
+        foreach local sts in ${ST_Spec64}
+            if $str_lidx(${chk}, ${sts}) > 0 : arcv64 := ${url}
+        endforeach
+    endforeach
+    # If the operating system is 64-bit and no 64-bit archive was found, use the 32-bit one
+    if __os_64bit__
+        if !&${arcv64}
+            if &${arcv32} : arcv64 := ${arcv32}
+        endif
+    endif
+.endmacro
+
+
+##### Function to download (and install) the latest DFU-Programmer from GitHub
+function download_latest_dfuprog(?onlyIfNotExist, ?dlExactTagDFUProg)
+    # Read environment variables
+    JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST  ?:= $getenv('JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST' , '0')
+    JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG ?:= $getenv('JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG', '' )
+    # Set the default values
+    onlyIfNotExist    ?:= ${JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST}
+    dlExactTagDFUProg ?:= ${JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG}
+    # Create the tools directory
+    $mkdir(${DFUProg_Path})
+    # Check if the tools already exist
+    local AlreadyExist := true
+    if !$valid_path(${DFUProg_VerFileName}) : AlreadyExist := false
+    if !$valid_path(${DFUProg_LChFileName}) : AlreadyExist := false
+    if !$valid_path(${DFUProg_executable} ) : AlreadyExist := false
+    if ${AlreadyExist}
+        # If the 'onlyIfNotExist' flag is set, do no further checking
+        if ${onlyIfNotExist} : return
+        # Check if the last checked time is still less than interval limit
+        local LCh := $get_file(${DFUProg_LChFileName})
+        local CCh := $call(get_timestamp)
+        eval  InR := @( ${CCh} - ${LCh} ) <= ${DFUProg_ChkInterval}
+        eval X := @( ${CCh} - ${LCh} )
+        if ${InR} : return
+    endif
+    # Get the assets from the latest release
+    echoln
+    if &${dlExactTagDFUProg}
+        local mh := $call(gh_get_assets_from_release_by_tag_name, 'dfu-programmer', 'dfu-programmer', ${dlExactTagDFUProg})
+    else
+        local mh := $call(gh_get_assets_from_latest_release     , 'dfu-programmer', 'dfu-programmer'                      )
+    endif
+   #$put_file( $cat_path( $ptd(), 'dfuprog.assets.edata' ), $map_to_edata(${mh}) )
+   #local mh := $map_from_edata( $get_file( $cat_path( $ptd(), 'dfuprog.assets.edata' ) ) )
+    # Check for error
+    $call(gh_check_rest_api_mh, ${mh})
+    # Dump the map
+    $call(dump_map_object, ${mh})
+    echoln
+    # Extract the parts
+    local id      := $partn( $map_get(${mh}, '__ids__'                    ), 1 )
+    local version := $partn( $map_get(${mh}, :"${id}:tag_name"            ), 1 )
+    local bdlurls :=         $map_get(${mh}, :"${id}:browser_download_url")
+    # If the tools already exist, check if the version/date matches
+    local DownloadDFUProg := true
+    if ${AlreadyExist}
+        # Check the DFU-Programmer version
+        if ${version} &== $get_file(${DFUProg_VerFileName}) : DownloadDFUProg := false
+    endif
+    # If there is nothing new to download, update the last check time and exit
+    if !${DownloadDFUProg}
+        $put_file( ${DFUProg_LChFileName}, $call(get_timestamp) )
+        return
+    endif
+    # Determine the search terms for 'dfu-programmer[-os_name]-*.zip'
+    local ST_Spec32 := 'invalid'
+    local ST_Spec64 := 'invalid'
+      if __os_windows__ ;   if __os_arch__ &== 'x86_32' ; ST_Spec32 := 'x86' 'win32'
+                          elif __os_arch__ &== 'x86_64' ; ST_Spec32 := 'x86' 'win32' ; ST_Spec64 := 'x64' 'win64'
+                          endif
+    elif __os_mac__                                     ; ST_Spec32 := 'macos'       ; ST_Spec64 := 'macos'       ; local CheckRosetta := true
+    elif __os_linux__                                   ; ST_Spec32 := 'linux'       ; ST_Spec64 := 'linux'
+    endif
+    # Determine the suitable archive names
+    .$__dfuprog_determine_suitable_archive_names__
+    # Determine the suitable download URL
+    if __os_32bit__ : url := ${arcv32}
+    if __os_64bit__ : url := ${arcv64}
+    # Check if no suitable download URL was found
+    if !&${url} : $call(__exit_error_na_osna__, 'DFU-Programmer')
+    # Install Apple Rosetta 2 if needed
+    if ${CheckRosetta} : $call(__install_apple_rosetta__)
+    # Download the archive
+    local DLFile := $http_download( ${url}, $ptd() )
+   #local DLFile := '/tmp/__jxmake__/34bd07336e61798201e8c677443c2176f064e44765c99c7e0d27cb4420cb1860cd4e77575cefd635908ab052d764da15606ca2c539b04e8078a8d3de3d7288af/dfu-programmer-linux-1.0.0.zip'
+    if !&${DLFile} : $call(__exit_error_download_fail__, ${url})
+    echoln
+    # Extract the archive to a temporary directory
+    local ExPath := $cat_path( $ptd(), 'dfuprog' )
+    $call(extract_archive_to, ${DLFile}, ${ExPath}, ${url})
+    if !$valid_path(${ExPath}) : $call(__exit_error_archive_extract_fail__, ${url})
+    # Copy the extracted files from temporary directory to their suitable directory
+    local ExFiles := $srfile_rec(${ExPath}, __re_all__)
+    foreach local Path in ${ExFiles}
+        # Determine the destination path
+        local Dst := $cat_path( ${DFUProg_Path}, $file_name(${Path}) )
+        # Remove existing destination file (if any)
+        $rmfile(${Dst})
+        # Copy the file and check
+        $cpfile(${Path}, ${Dst}, true)
+        if !$valid_path(${Dst}) : $call(__exit_error_cpfile_fail__, ${Dst})
+        (*
+        echoln "<<< ${Path}"
+        echoln ">>> ${Dst}"
+        echoln
+        *)
+        echoln ${Dst}
+    endforeach
+    echoln
+    # Remove the temporary directory and the downloaded archive file
+    $rmdir_rec(${ExPath})
+    $rmfile   (${DLFile})
+    # Make the main program file executable because a '.zip' file does not preserve POSIX file permissions
+    $set_rwx3(${DFUProg_executable}, 'rwxrwxr-x')
+    # Put the version number
+    $put_file(${DFUProg_VerFileName}, ${version})
+    # Put the last checked time
+    $put_file( ${DFUProg_LChFileName}, $call(get_timestamp) )
+endfunction
+
+
+##### Undefine the helper macro here to prevent duplicated name later on
+.undefmacro __dfuprog_determine_suitable_archive_names__

@@ -1,0 +1,68 @@
+diff -ruEZBN caterina/Caterina.h caterina_at90usb1286/Caterina.h
+--- caterina/Caterina.h	2024-04-28 08:19:14.830967634 +0700
++++ caterina_at90usb1286/Caterina.h	2025-09-20 07:59:59.546138535 +0700
+@@ -65,10 +65,10 @@
+ 		#define SOFTWARE_IDENTIFIER          "CATERINA"
+ 		
+ 		#define CPU_PRESCALE(n)	(CLKPR = 0x80, CLKPR = (n))
+-		#define LED_SETUP()		DDRC |= (1<<7); DDRB |= (1<<0); DDRD |= (1<<5);
+-		#define L_LED_OFF()		PORTC &= ~(1<<7)
+-		#define L_LED_ON()		PORTC |= (1<<7)
+-		#define L_LED_TOGGLE()	PORTC ^= (1<<7)
++		#define LED_SETUP()		DDRB |= (1<<7); DDRB |= (1<<0); DDRD |= (1<<5);
++		#define L_LED_OFF()		PORTB &= ~(1<<7)
++		#define L_LED_ON()		PORTB |= (1<<7)
++		#define L_LED_TOGGLE()	PORTB ^= (1<<7)
+ 		#if DEVICE_PID == 0x0037	// polarity of the RX and TX LEDs is reversed on the Micro
+ 			#define TX_LED_OFF()	PORTD &= ~(1<<5)
+ 			#define TX_LED_ON()		PORTD |= (1<<5)
+diff -ruEZBN caterina/Makefile caterina_at90usb1286/Makefile
+--- caterina/Makefile	2024-04-28 08:19:14.830967634 +0700
++++ caterina_at90usb1286/Makefile	2025-09-20 08:00:22.434007924 +0700
+@@ -50,6 +50,7 @@
+ # reuse of this VID by others is forbidden by USB-IF
+ # official Arduino LLC VID
+ # VID = 0x2341
++VID = 0x03EB
+ 
+ 
+ # USB product ID (PID)
+@@ -59,9 +60,10 @@
+ # PID = 0x0037
+ # official Esplora PID
+ # PID = 0x003C
++PID = 0x204A
+ 
+ # MCU name
+-MCU = atmega32u4
++MCU = at90usb1286
+ 
+ 
+ # Target architecture (see library "Board Types" documentation).
+@@ -71,7 +73,7 @@
+ # Target board (see library "Board Types" documentation, NONE for projects not requiring
+ # LUFA board drivers). If USER is selected, put custom board drivers in a directory called
+ # "Board" inside the application directory.
+-BOARD = USER
++BOARD = NONE
+ 
+ 
+ # Processor frequency.
+@@ -107,7 +109,7 @@
+ #
+ # Note that the bootloader size and start address given in AVRStudio is in words and not
+ # bytes, and so will need to be doubled to obtain the byte address needed by AVR-GCC.
+-FLASH_SIZE_KB        = 32
++FLASH_SIZE_KB        = 128
+ BOOT_SECTION_SIZE_KB = 4
+ BOOT_START           = 0x$(shell echo "obase=16; ($(FLASH_SIZE_KB) - $(BOOT_SECTION_SIZE_KB)) * 1024" | bc)
+ 
+@@ -127,7 +129,7 @@
+ 
+ 
+ # Path to the LUFA library
+-LUFA_PATH = ../../../../../../LUFA/LUFA-111009
++LUFA_PATH = ../../../../../3rd_party/libs/lufa/lufa-LUFA-111009/
+ 
+ 
+ # LUFA library compile-time options and predefined tokens

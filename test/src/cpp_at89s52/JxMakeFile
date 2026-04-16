@@ -1,0 +1,118 @@
+:::include <C++XBuildTool_MCS51_Native>
+
+
+const MCUTypes := (* SPI Mode 0 *) 'AT89S52'   (* 1 *) \
+                  (* SPI Mode 1 *) 'AT89S8253' (* 2 *)
+
+const CPUFreqs := 22118400 \
+                  11059200
+
+const SelTypeN := 2
+
+const MCU      := ${MCUTypes}<SelTypeN>
+const FCPU     := ${CPUFreqs}<SelTypeN>
+
+
+if __os_windows__
+    MCS51_TOOLCHAIN_PATH := $cat_path( $getenv('ProgramFiles'), 'SDCC' )
+   #AVRDUDE_Cmd          := 'C:/avrdude-v7.1-windows-x64/avrdude'     '-C' 'C:/avrdude-v7.1-windows-x64/avrdude.conf'
+else
+    MCS51_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/mcs51/sdcc-4.2.0' )
+   #AVRDUDE_Cmd          := '/opt/avrdude-1902-usbasp-pdi/bin/avrdude' '-C' '/opt/avrdude-1902-usbasp-pdi/etc/avrdude.conf' # AVRDUDE 5.11svn
+   #AVRDUDE_Cmd          := '/usr/bin/avrdude'                         '-C' '/etc/avrdude/avrdude.conf'                     # AVRDUDE 6.1 in CentOS 7
+   #AVRDUDE_Cmd          := '/opt/avrdude-6.3-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-6.3-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd          := '/opt/avrdude-7.1/bin/avrdude'             '-C' '/opt/avrdude-7.1/etc/avrdude.conf'
+   #AVRDUDE_Cmd          := '/opt/avrdude-7.1-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.1-usbasp-pdi/etc/avrdude.conf'
+   #AVRDUDE_Cmd          := '/opt/avrdude-7.2-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.2-usbasp-pdi/etc/avrdude.conf'
+    AVRDUDE_Cmd          := '/opt/avrdude-7.3-usbasp-pdi/bin/avrdude'  '-C' '/opt/avrdude-7.3-usbasp-pdi/etc/avrdude.conf'
+endif
+
+
+BuildSubdir := 'ulib'
+
+$call(init_project            , ${BuildSubdir} )
+$call(mcs51_select_part       , ${MCU}, ${FCPU})
+$call(treat_warnings_as_errors, 1              )
+$call(enable_debug_info       , 1              )
+$call(select_optimization     , size           )
+$call(select_c_langstd        , c11            )
+$call(select_cxx_langstd      , c++11          )
+$call(print_devenv_config                      )
+$call(silent_stdxxx           , false          )
+$call(silent_stdxxx_syslib    , true           )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call(exe_fpath, main    )
+PROG_OBJS := $call(obj_fpath, main.cpp)
+
+SLIB_NAME := $call(slib_fpath,   ulib          )
+SLIB_OBJS := $call( obj_fpath, { ulib/src0a.S  \
+                                 ulib/src0b.c  \
+                                 ulib/src1.cpp \
+                                 ulib/src2.cpp \
+                  } )
+
+##### ??? TODO : Use 'sobj_fpath' and 'ssrc_fname' ??? #####
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+target run
+    jxmake ${SLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    local CppUsrStaticLib :+= ulib
+    $call(link_exe)
+endtarget
+
+target ${SLIB_NAME} : ${SLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target $call(sobj_target_glob) : %.S
+    $call(compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_at89s52 uusbtinyisp
+# jxmake -C ..\test\src\cpp_at89s52 uusbtinyisp
+target uusbtinyisp
+    jxmake run
+    $call(mcs51_upload_usbtinyisp, ${PROG_NAME})
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_at89s52 uusbasp
+# jxmake -C ..\test\src\cpp_at89s52 uusbasp
+target uusbasp
+    jxmake run
+    $call(mcs51_upload_usbasp, ${PROG_NAME})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_at89s52 csusbtinyisp
+# jxmake -C ..\test\src\cpp_at89s52 csusbtinyisp
+target csusbtinyisp
+    $call(mcs51_chksig_usbtinyisp)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_at89s52 csusbasp
+# jxmake -C ..\test\src\cpp_at89s52 csusbasp
+target csusbasp
+    $call(mcs51_chksig_usbasp)
+endtarget

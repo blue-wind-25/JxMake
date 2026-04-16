@@ -1,0 +1,60 @@
+A1  = 'a_1.cpp'
+A1 += 'a_2.cpp'
+A2  = ${A1/(.+).cpp/$1.cpp.o/}
+echoln $implode(${A2}, "\n")
+echoln
+
+B1  = 'b_1.cpp'
+B1 += 'b_2.cpp'
+B1 += 'b_3.cpp'
+B2  = ${B1/(.+).cpp/$1.cpp.cxx/}
+echoln $implode(${B2}, "\n")
+echoln
+
+C1  = ${A2} ${B2}
+echoln $implode(${C1}, "\n")
+echoln
+
+echoln
+
+C2  = ${C1/(.+).cpp(.*)/$1.cpp.o/}
+echoln $implode(${C2}, "\n")
+echoln
+echoln $implode(${C2/(.+).o/$1.o.o/}, "\n")
+echoln
+
+echoln
+
+D1  = ${C2/a_(.+)/A_$1/}
+D2  = ${C2/b_(.+)/B_$1/}
+D3  = ${D1} ${D2}
+echoln $implode(${D3}, "\n")
+echoln
+echoln $implode(${D3/(.+).cpp.o/$1.o/}, "\n")
+echoln
+
+echoln
+
+
+
+Val = '127.0.0.1' 'abc.0.0.1'
+Rex = `^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$`
+echoln $implode( $re_match(${Val}, ${Rex}), "\n" )
+echoln
+
+Rex = `^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$`
+echoln $implode( $re_split(${Val}, ${Rex}), "\n" )
+echoln
+
+Val = 'abc def 12345 ghi 678 jk\ lmno'
+Rex = `((?:\\s|\S)+)`
+echoln $implode( $re_split(${Val}, ${Rex}), "\n" )
+echoln
+
+Rex = `(?:\\s|\S)+`
+echoln $implode( $re_split(${Val}, ${Rex}), "\n" )
+echoln
+
+Res := $re_split(${Val}, ${Rex})
+echoln $implode(${Res/\\\s/ /}, "\n")
+echoln

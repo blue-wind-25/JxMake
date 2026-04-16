@@ -1,0 +1,152 @@
+:::include <C++XBuildTool_BM_NRF52>
+
+
+if __os_windows__
+    ARM_TOOLCHAIN_PATH := 'Z:/xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10'
+else
+    ARM_TOOLCHAIN_PATH := $cat_path( $uhd(), 'xsdk/stm32/gcc-arm-none-eabi-10.3-2021.10' )
+endif
+
+#NRFUtilProgram := {{ 'python3.6', $cat_path( $uhd(), '.local/bin/adafruit-nrfutil' ) }}
+
+
+if __os_windows__
+    # VirtualBox serial port mapping:
+    #     /dev/ttyUSB0 -> COM1
+    #     /dev/ttyUSB1 -> COM2
+    #     /dev/ttyACM0 -> COM3
+    #     /dev/ttyACM1 -> COM4
+    SPort := '\\\\.\\COM3'
+   #SPort := '\\\\.\\COM4'
+else
+    SPort := '/dev/ttyACM0'
+   #SPort := '/dev/ttyACM1'
+endif
+
+
+JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG := 'v0.10.0-15'
+
+
+BuildSubdir := 'nrfx/mdk' 'nrfx/drivers/src'
+
+$call(init_project            , ${BuildSubdir})
+$call(treat_warnings_as_errors, 1             )
+$call(enable_debug_info       , 1             )
+$call(select_optimization     , size          )
+$call(print_devenv_config                     )
+$call(silent_stdxxx           , false         )
+$call(silent_stdxxx_syslib    , true          )
+
+#$cmd_echo_off() ; $call(print_build_process_titles, true)
+
+
+PROG_NAME := $call(  exe_fpath, main                                           )
+PROG_OBJS := $call(  obj_fpath, main.cpp                                       )
+
+MLIB_NAME := $call( slib_fpath, mdk                                            )
+MLIB_OBJS := $call(  obj_fpath, $rel_path( $srfile_rec('nrfx', '.*\\.[cS]$') ) ) ##### ??? TODO : Use 'sobj_fpath' for assembly source file ??? #####
+
+LD_DIR    := 'nrfx/mdk'
+LD_SCRIPT := :"${LD_DIR}/nrf52840_xxaa.ld"
+
+
+######################################
+##### These are the SDK settings #####
+######################################
+
+NRF52840_CompileMDefs     := '-DNRF52840_XXAA' '-DNRFX_CLOCK_ENABLED=1' '-DNRFX_SYSTICK_ENABLED=1'
+
+CppCommonAssemblerFlags  +:= ${NRF52840_CompileMDefs}
+CppCommonCcCompileFlags  +:= ${NRF52840_CompileMDefs}
+CppCommonCxxCompileFlags +:= ${NRF52840_CompileMDefs}
+
+CppCommonLinkFlags        := $erase_if(${CppCommonLinkFlags}, { '-nostdlib' '-nostartfiles' })
+CppCommonLinkFlags       +:= :"-L${LD_DIR}" '--specs=nano.specs' '--specs=nosys.specs'
+
+__include_paths__        +:= 'cmsis/CMSIS/Core/Include' 'nrfx' 'nrfx/drivers/include' 'nrfx/hal' 'nrfx/mdk' 'nrfx/templates'
+
+######################################
+######################################
+######################################
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+# jxmake -C ..\test\src\cpp_bm_nrf52840 clean
+# jxmake -C ..\test\src\cpp_bm_nrf52840 run
+target run
+    jxmake ${MLIB_NAME}
+    jxmake ${PROG_NAME}
+    $call(run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    local CppUsrStaticLib +:= mdk
+    $call( n52bm_link_exe, $call(use_ld, ${LD_SCRIPT}) )
+    $call( gen_lst       , ${PROG_NAME}                )
+endtarget
+
+target ${MLIB_NAME} : ${MLIB_OBJS}
+    $call(link_slib)
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(compile_cpp)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_nrf52840 unordic
+# jxmake -C ..\test\src\cpp_bm_nrf52840 unordic
+target unordic
+    jxmake run
+    $call(n52bm_upload_nordic, ${PROG_NAME}, ${SPort})
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_nrf52840 rswd
+# jxmake -C ..\test\src\cpp_bm_nrf52840 rswd
+target rswd
+    $call(n52bm_reset_swd                    )
+   #$call(n52bm_reset_swd, 'jlink'    , 'swd')
+   #$call(n52bm_reset_swd, 'cmsis-dap', 'swd') # If using Atmel-ICE as a CMSIS-DAP device, then it may or may not work (depending on the firmware in the Atmel-ICE)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_nrf52840 uswd
+# jxmake -C ..\test\src\cpp_bm_nrf52840 uswd
+target uswd
+    ##### !!! TODO : Verify that SWD programming actually works !!! #####
+    jxmake run
+    $call(n52bm_upload_swd, ${PROG_NAME}                    )
+   #$call(n52bm_upload_swd, ${PROG_NAME}, 'jlink'    , 'swd')
+   #$call(n52bm_upload_swd, ${PROG_NAME}, 'cmsis-dap', 'swd') # If using Atmel-ICE as a CMSIS-DAP device, then it may or may not work (depending on the firmware in the Atmel-ICE)
+endtarget
+
+
+# ./jxmake.sh -C ../test/src/cpp_bm_nrf52840 dswd
+# jxmake -C ..\test\src\cpp_bm_nrf52840 dswd
+target dswd
+    jxmake run
+    $call(n52bm_debug_swd_start, ${PROG_NAME}                    )
+   #$call(n52bm_debug_swd_start, ${PROG_NAME}, 'jlink'    , 'swd')
+   #$call(n52bm_debug_swd_start, ${PROG_NAME}, 'cmsis-dap', 'swd') # If using Atmel-ICE as a CMSIS-DAP device, then it may or may not work (depending on the firmware in the Atmel-ICE)
+endtarget
+
+# ./jxmake.sh -C ../test/src/cpp_bm_nrf52840 dgdb
+# jxmake -C ..\test\src\cpp_bm_nrf52840 dgdb
+target dgdb
+    jxmake run
+    $call(n52bm_debug_swd_gdb, ${PROG_NAME})
+endtarget

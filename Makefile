@@ -122,7 +122,7 @@ arcv: dist_clean
 		mv      src/jxm/ugc2   src/jxm/ugc    > /dev/null;                                             \
 		echo -e "$(C_GREEN)Copying the project tree (excluding  the '.svn' directory) ...$(C_RESET)";  \
 		cd ..;                                                                                         \
-		rsync -av --exclude='.svn' JxMake/ "$$COPY_NAME";                                              \
+		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                     \
 		echo;                                                                                          \
 		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";                 \
 		tar -cjvpf $${COPY_NAME}.tar.bz2 $$COPY_NAME > /dev/null;                                      \

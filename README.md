@@ -45,8 +45,6 @@ note that these libraries are quite basic, so you may prefer to create custom li
 to your projects.
 
 ---
----
----
 
 If you like this software (or part of this software), please consider donating to:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;PayPal: aloysius.indrayanto@gmail.com<br>

@@ -2,7 +2,7 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system:
+# Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system:
       # A Raspberry Pi 3/4/5 or CM5 as the remote USB host will connect to:
             # the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
             # the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module; and

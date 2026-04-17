@@ -63,11 +63,24 @@ Daily workflow
 ----------------------------------------------------------------------------------------------------
 
 Work with SVN as usual:
-    svn commit -m "Your message"
+    svn update && svn cleanup
+    ...
+    svn commit -m "Commit message"
 
 Ensure the working copy is clean (no generated files), then synchronize with GitHub:
     git add -A
-    git commit -S -m "Mirror SVN commit(s)"
+    git commit -S -m 'Mirror SVN commit(s)'
     git push
+
+
+Or if you work with GIT:
+    git pull
+    ...
+    git commit -S -m "Commit message"
+    git push
+
+Then synchronize with SVN:
+    ... <svn file management commands>
+    svn commit -m 'Mirror GIT commit(s)'
 
 ====================================================================================================

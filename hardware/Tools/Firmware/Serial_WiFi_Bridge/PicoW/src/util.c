@@ -130,9 +130,10 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
                 ++accepted;
             }
             else {
-                // Ring buffer full; acknowledge bytes accepted so far and apply back-pressure.
-                // lwIP transfers pbuf ownership to the app on ERR_MEM; free it here to avoid
-                // a memory leak (the remaining unread bytes are dropped)
+                // ##### !!! TODO : How not to drop the remining bytes? !!! #####
+                // # Ring buffer full; acknowledge bytes accepted so far and apply back-pressure.
+                // # lwIP transfers pbuf ownership to the app on ERR_MEM; free it here to avoid a memory leak (the remaining unread
+                //   bytes are dropped)
                 tcp_recved(tpcb, accepted);
                 pbuf_free(p);
                 return ERR_MEM;

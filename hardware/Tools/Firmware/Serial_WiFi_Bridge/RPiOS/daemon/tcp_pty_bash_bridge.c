@@ -60,7 +60,7 @@ static void run_session(const int net_fd)
         }
 
         char slave_name_buf[128];
-        if( ptsname_r(master_fd, slave_name_buf, sizeof(slave_name_buf)) != 0 ) { // Get the '/dev/pts/N' path
+        if( ptsname_r( master_fd, slave_name_buf, sizeof(slave_name_buf) ) != 0 ) { // Get the '/dev/pts/N' path
             perror("ptsname_r");
             close(master_fd);
             exit(1);
@@ -182,9 +182,10 @@ static void run_session(const int net_fd)
         }
 
         else {
-            // Parent: bridge data between net_fd (TCP client) and master_fd (PTY master).
-            // bash_running tracks whether the bash child is still alive; set to 0 on any
-            // unrecoverable error or on PTY hangup so the loop exits and bash is reaped.
+            // Parent - bridge data between net_fd (TCP client) and master_fd (PTY master).
+            //
+            // The 'bash_running' variable tracks whether the bash child is still alive; set to 0 on any unrecoverable error
+            // or on PTY hangup so the loop exits and bash is reaped.
             int bash_running = 1;
 
             while(bash_running) {
@@ -224,23 +225,24 @@ static void run_session(const int net_fd)
                         return;
                     }
 
-                    // Write data to the PTY master in chunks; Ctrl+C is handled separately
-                    // and its raw byte is not forwarded to avoid a second SIGINT from the
-                    // line discipline (ISIG + VINTR) on top of the one already sent via kill
+                    // Write data to the PTY master in chunks; Ctrl+C is handled separately and its raw byte is not
+                    // forwarded to avoid a second SIGINT from the line discipline (ISIG + VINTR) on top of the one
+                    // already sent via kill
                     ssize_t start = 0;
 
                     while(start < n && bash_running) {
 
                         // Find the next Ctrl+C byte in the remaining window
                         const ssize_t limit     = n - start;
-                        const char*   ctrlc_ptr = (const char*) memchr(buf + start, 0x03, (size_t) limit);
-                        const ssize_t chunk     = ctrlc_ptr ? (ctrlc_ptr - (buf + start)) : limit;
+                        const char*   ctrlc_ptr = (const char*) memchr( buf + start, 0x03, (size_t) limit );
+                        const ssize_t chunk     = ctrlc_ptr ? ( ctrlc_ptr - (buf + start) ) : limit;
 
                         // Write the bytes before the Ctrl+C (or all remaining bytes if there is no Ctrl+C)
                         ssize_t off = 0;
 
                         while(off < chunk) {
-                            const ssize_t w = write(master_fd, buf + start + off, (size_t)(chunk - off));
+
+                            const ssize_t w = write( master_fd, buf + start + off, (size_t) (chunk - off) );
 
                             if(w > 0) {
                                 off += w;
@@ -252,7 +254,8 @@ static void run_session(const int net_fd)
                             perror("write");
                             bash_running = 0;
                             break;
-                        }
+
+                        } // while
 
                         if(!bash_running) break;
 
@@ -281,7 +284,7 @@ static void run_session(const int net_fd)
                             // Flush the output side of master so stale output does not confuse the client
                             if( tcflush(master_fd, TCOFLUSH) < 0 ) perror("tcflush");
 
-                        } // if ctrlc_ptr
+                        } // if
 
                     } // while
                 }
@@ -296,7 +299,7 @@ static void run_session(const int net_fd)
                         ssize_t off = 0;
 
                         while(off < n) {
-                            const ssize_t w = write(net_fd, buf + off, (size_t) (n - off));
+                            const ssize_t w = write( net_fd, buf + off, (size_t) (n - off) );
 
                             if(w < 0) {
                                 if(errno == EINTR) continue;
@@ -348,10 +351,10 @@ int main()
     close(fd);
     //*/
 
-    // SIG_IGN for SIGCHLD causes the kernel to auto-reap per-connection child processes
-    // so the parent accept loop never needs to call waitpid for them.
-    // Each child resets SIGCHLD to SIG_DFL so it can waitpid for its own bash grandchild.
-    memset(&sa, 0, sizeof(sa));
+    // # SIG_IGN for SIGCHLD causes the kernel to auto-reap per-connection child processes so the parent accept loop
+    //   never needs to call waitpid for them.
+    // # Each child resets SIGCHLD to SIG_DFL so it can waitpid for its own bash grandchild.
+    memset( &sa, 0, sizeof(sa) );
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);
     if( sigaction(SIGCHLD, &sa, NULL) < 0 ) {
@@ -435,7 +438,7 @@ int main()
             // Child - handle this client
             if( close(srv_fd) < 0 ) perror("close");
 
-            memset(&sa, 0, sizeof(sa));
+            memset( &sa, 0, sizeof(sa) );
             sa.sa_handler = SIG_DFL;
             sigemptyset(&sa.sa_mask);
 

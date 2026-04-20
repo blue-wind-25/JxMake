@@ -304,8 +304,8 @@ int main(int argc, char** argv)
     int net_fd    = -1;
     int serial_fd = -1;
 
-    // In-flight buffers preserve partial write progress within a single poll cycle;
-    // they are not a replay queue and are discarded on client or serial device reconnect
+    // In-flight buffers preserve partial write progress within a single poll cycle; they are not a replay queue and are
+    // discarded on client or serial device reconnect
     char net_to_ser[16 * 1024];
     char ser_to_net[16 * 1024];
 

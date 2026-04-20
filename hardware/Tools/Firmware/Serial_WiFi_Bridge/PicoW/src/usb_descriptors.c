@@ -297,7 +297,7 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid)
     // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.
     // https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
 
-    if ( !(index < sizeof(string_desc_arr)/sizeof(string_desc_arr[0])) ) return NULL;
+    if ( !( index < sizeof(string_desc_arr) / sizeof(string_desc_arr[0]) ) ) return NULL;
 
     const char* str = string_desc_arr[index];
 
@@ -313,7 +313,7 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid)
   }
 
   // first byte is length (including header), second byte is string type
-  _desc_str[0] = (uint16_t) ((TUSB_DESC_STRING << 8 ) | (2*chr_count + 2));
+  _desc_str[0] = (uint16_t) ( (TUSB_DESC_STRING << 8 ) | (2 * chr_count + 2) );
 
   return _desc_str;
 }

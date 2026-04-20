@@ -152,8 +152,7 @@ static int update_states(unsigned char* shared, const int n_files, char** argv)
 {
     int changed = 0;
 
-    // argv[2...] are the monitored file paths; read only the first byte of each
-    // ('1' = device connected, '0' or missing = disconnected)
+    // argv[2...] are the monitored file paths; read only the first byte of each ('1' = device connected, '0' or missing = disconnected)
     for(int i = 0; i < n_files; ++i) {
         const unsigned char state = (unsigned char) read_state(argv[i + 2]);
 
@@ -589,8 +588,8 @@ int main(int argc, char** argv)
 
     const int n_files = argc - 2;
 
-    // Shared anonymous memory holds one state byte per monitored file; all forked children
-    // read from it and the parent writes to it, giving zero-copy state distribution
+    // Shared anonymous memory holds one state byte per monitored file; all forked children read from it and the
+    // parent writes to it, giving zero-copy state distribution
     unsigned char* shared = mmap(
         NULL,
         n_files,

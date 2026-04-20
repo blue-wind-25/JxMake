@@ -35,7 +35,7 @@
     #define TCP_MSS                     1460
     #define TCP_WND                     (8 * TCP_MSS)
     #define TCP_SND_BUF                 (8 * TCP_MSS)
-    #define TCP_SND_QUEUELEN            ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
+    #define TCP_SND_QUEUELEN            ( ( 4 * (TCP_SND_BUF) + (TCP_MSS - 1) ) / (TCP_MSS) )
     #define TCP_TMR_INTERVAL            100   // Faster polling/recovery
     #define LWIP_TCP_KEEPALIVE          1
 

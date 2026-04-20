@@ -183,7 +183,7 @@ void cdc_tcp_service(cdc_tcp_pair_t* pair, bool consoleMode)
         if(count > 0) {
             uint16_t send_len = 0;
 
-            // Detect ^C only if processing is enabled
+            // Handle ^C and mouse filtering only in console mode
             if(consoleMode) {
                 for(uint16_t i = 0; i < count; ++i) {
 
@@ -196,7 +196,7 @@ void cdc_tcp_service(cdc_tcp_pair_t* pair, bool consoleMode)
                         break;
                     }
 
-                    /* Mouse filter logic:
+                    /* Mouse filtering logic:
                      *     ESC [ M ...
                      *     ESC [ < ...
                      * Colors (ESC [ 31 m) are ignored by these checks and pass through

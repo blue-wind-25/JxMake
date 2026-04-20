@@ -202,12 +202,12 @@ static void rebootDevice()
     cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
     sleep_ms(100);
 
-    // Wait ~5 seconds before reboot
+    // Wait ~5 seconds before reboot (about the same time of the systemd RestartSec)
     const uint32_t startMillis = millis();
 
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
 
-    while( millis() - startMillis < 5000 ) {
+    while( millis() - startMillis <= 5000 ) {
 
         for(int i = 0; i < 3; ++i) {
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1); sleep_ms(100);

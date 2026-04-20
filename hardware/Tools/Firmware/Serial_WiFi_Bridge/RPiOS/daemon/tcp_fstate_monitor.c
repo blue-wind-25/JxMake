@@ -152,7 +152,8 @@ static int update_states(unsigned char* shared, const int n_files, char** argv)
 {
     int changed = 0;
 
-    // argv[2...] are the monitored file paths
+    // argv[2...] are the monitored file paths; read only the first byte of each
+    // ('1' = device connected, '0' or missing = disconnected)
     for(int i = 0; i < n_files; ++i) {
         const unsigned char state = (unsigned char) read_state(argv[i + 2]);
 
@@ -448,6 +449,8 @@ static void split_path(const char* path, char** out_dir, char** out_name)
         char* name = malloc(name_len + 1);
 
         if(dir == NULL || name == NULL) {
+            free(dir);
+            free(name);
             perror("malloc");
             exit(1);
         }
@@ -586,7 +589,8 @@ int main(int argc, char** argv)
 
     const int n_files = argc - 2;
 
-    // Shared memory contains one state byte per monitored file
+    // Shared anonymous memory holds one state byte per monitored file; all forked children
+    // read from it and the parent writes to it, giving zero-copy state distribution
     unsigned char* shared = mmap(
         NULL,
         n_files,

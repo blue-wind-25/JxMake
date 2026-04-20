@@ -107,6 +107,7 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
     }
 
     if(!p) {
+        // NULL pbuf signals TCP connection closed by the remote peer
         tcp_client_disconnect(tpcb);
         pair->tcp_pcb = NULL;
         return ERR_OK;
@@ -129,7 +130,11 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
                 ++accepted;
             }
             else {
+                // Ring buffer full; acknowledge bytes accepted so far and apply back-pressure.
+                // lwIP transfers pbuf ownership to the app on ERR_MEM; free it here to avoid
+                // a memory leak (the remaining unread bytes are dropped)
                 tcp_recved(tpcb, accepted);
+                pbuf_free(p);
                 return ERR_MEM;
             }
 
@@ -315,6 +320,6 @@ ring_buffer_t* msg_tcp_service(cdc_tcp_pair_t* pair, uint8_t* data, uint16_t len
         }
     }
 
-    // Step 3 - Return the pointer to the tx_buffer for the caller to process
+    // Step 3 - Return the TX ring buffer (TCP→CDC direction) for the caller to drain
     return &pair->tx_buffer;
 }

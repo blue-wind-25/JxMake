@@ -29,6 +29,8 @@
 
 static void run_session(const int net_fd)
 {
+    // Loop so that a new bash is spawned automatically each time the previous one exits.
+    // The outer caller (accept loop) handles client disconnect by returning from this function.
     while(1) {
 
         // Open a new pseudoterminal master device
@@ -180,8 +182,10 @@ static void run_session(const int net_fd)
         }
 
         else {
-            // Parent Bridge Loop
-            int bash_running = 1; // Track bash state
+            // Parent: bridge data between net_fd (TCP client) and master_fd (PTY master).
+            // bash_running tracks whether the bash child is still alive; set to 0 on any
+            // unrecoverable error or on PTY hangup so the loop exits and bash is reaped.
+            int bash_running = 1;
 
             while(bash_running) {
 
@@ -220,13 +224,49 @@ static void run_session(const int net_fd)
                         return;
                     }
 
-                    for(ssize_t i = 0; i < n; ++i) {
+                    // Write data to the PTY master in chunks; Ctrl+C is handled separately
+                    // and its raw byte is not forwarded to avoid a second SIGINT from the
+                    // line discipline (ISIG + VINTR) on top of the one already sent via kill
+                    ssize_t start = 0;
 
-                        if(buf[i] == 0x03) {
+                    while(start < n && bash_running) {
+
+                        // Find the next Ctrl+C byte in the remaining window
+                        const ssize_t limit     = n - start;
+                        const char*   ctrlc_ptr = (const char*) memchr(buf + start, 0x03, (size_t) limit);
+                        const ssize_t chunk     = ctrlc_ptr ? (ctrlc_ptr - (buf + start)) : limit;
+
+                        // Write the bytes before the Ctrl+C (or all remaining bytes if there is no Ctrl+C)
+                        ssize_t off = 0;
+
+                        while(off < chunk) {
+                            const ssize_t w = write(master_fd, buf + start + off, (size_t)(chunk - off));
+
+                            if(w > 0) {
+                                off += w;
+                                continue;
+                            }
+
+                            if(w < 0 && errno == EINTR) continue;
+
+                            perror("write");
+                            bash_running = 0;
+                            break;
+                        }
+
+                        if(!bash_running) break;
+
+                        start += chunk;
+
+                        if(ctrlc_ptr) {
+
+                            ++start; // Advance past the Ctrl+C byte itself; do not write it to the PTY
+
                             dprintf(STDERR_FILENO, "\n[LOG] Bridge detected Ctrl+C\n");
 
-                            // Try the official way  - get Foreground Group from Master
+                            // Try the official way - get the foreground process group from the PTY master
                             pid_t fg_pgid;
+
                             if( ioctl(master_fd, TIOCGPGRP, &fg_pgid) == 0 && fg_pgid > 0 ) {
                                 // Kill the group
                                 if( kill(-fg_pgid, SIGINT) == -1 ) perror("kill failed");
@@ -235,20 +275,15 @@ static void run_session(const int net_fd)
                                 perror("ioctl");
                             }
 
-                            // The "Safety Net" - Send SIGINT to the child PID directly
+                            // Safety net - send SIGINT directly to the bash child PID
                             if( kill(pid, SIGINT) < 0 ) perror("kill");
 
-                            // Cleanups
+                            // Flush the output side of master so stale output does not confuse the client
                             if( tcflush(master_fd, TCOFLUSH) < 0 ) perror("tcflush");
-                        }
 
-                        if( write(master_fd, &buf[i], 1) < 0 ) {
-                            perror("write");
-                            bash_running = 0;
-                            break;
-                        }
+                        } // if ctrlc_ptr
 
-                    } // for
+                    } // while
                 }
 
                 if(fds[1].revents & POLLIN) {
@@ -313,7 +348,9 @@ int main()
     close(fd);
     //*/
 
-    // Auto-reap session handler forks
+    // SIG_IGN for SIGCHLD causes the kernel to auto-reap per-connection child processes
+    // so the parent accept loop never needs to call waitpid for them.
+    // Each child resets SIGCHLD to SIG_DFL so it can waitpid for its own bash grandchild.
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);

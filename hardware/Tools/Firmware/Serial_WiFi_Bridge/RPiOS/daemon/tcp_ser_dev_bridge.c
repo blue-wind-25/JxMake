@@ -202,6 +202,7 @@ static void close_client(int* net_fd, ssize_t* net_to_ser_len, ssize_t* net_to_s
         *net_fd = -1;
     }
 
+    // Discard both in-flight buffers so stale data is never replayed to the next client
     *net_to_ser_len = 0;
     *net_to_ser_off = 0;
     *ser_to_net_len = 0;
@@ -262,7 +263,7 @@ int main(int argc, char** argv)
     set_nonblock(srv_fd);
 
     // Mimics:
-    //     usr/bin/socat tcp-listen:<port>,reuseaddr,fork,sndbuf=2048,keepalive,keepidle=5,keepintvl=3,keepcnt=8 exec:/mnt/data/pi/daemon/tcp_pty_bash_bridge.elf
+    //     usr/bin/socat tcp-listen:<port>,reuseaddr,fork,sndbuf=2048,keepalive,keepidle=5,keepintvl=3,keepcnt=8 exec:/mnt/data/pi/daemon/tcp_ser_dev_bridge.elf
     int opt;
 
     opt = 1   ; setsockopt( srv_fd, SOL_SOCKET , SO_REUSEADDR , &opt, sizeof(opt) ); // reuseaddr
@@ -303,7 +304,8 @@ int main(int argc, char** argv)
     int net_fd    = -1;
     int serial_fd = -1;
 
-    // Small in-flight buffers - these preserve partial progress for the current chunk only (they are not a replay queue across reconnect)
+    // In-flight buffers preserve partial write progress within a single poll cycle;
+    // they are not a replay queue and are discarded on client or serial device reconnect
     char net_to_ser[16 * 1024];
     char ser_to_net[16 * 1024];
 

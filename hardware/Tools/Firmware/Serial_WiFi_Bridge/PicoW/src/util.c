@@ -74,12 +74,12 @@ err_t tcp_client_send(struct tcp_pcb* pcb, const void* data, u16_t len)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, uint8_t cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock)
+void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, int cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock)
 {
     ring_buffer_init(&pair->tx_buffer, tx_storage, buf_size, tx_lock);
     ring_buffer_init(&pair->rx_buffer, rx_storage, buf_size, rx_lock);
 
-    pair->cdc_itf = cdc_itf;
+    pair->cdc_itf = (uint8_t) cdc_itf; // Stored as uint8_t; -1 (optional) is only passed for the monitoring pair which never calls cdc_tcp_service
     pair->tcp_pcb = pcb;
     pair->sig_int = false;
 
@@ -107,6 +107,7 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
     }
 
     if(!p) {
+        // NULL pbuf signals TCP connection closed by the remote peer
         tcp_client_disconnect(tpcb);
         pair->tcp_pcb = NULL;
         return ERR_OK;
@@ -129,7 +130,11 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
                 ++accepted;
             }
             else {
+                // Ring buffer full; acknowledge bytes accepted so far and apply back-pressure.
+                // lwIP transfers pbuf ownership to the app on ERR_MEM; free it here to avoid
+                // a memory leak (the remaining unread bytes are dropped)
                 tcp_recved(tpcb, accepted);
+                pbuf_free(p);
                 return ERR_MEM;
             }
 
@@ -315,6 +320,6 @@ ring_buffer_t* msg_tcp_service(cdc_tcp_pair_t* pair, uint8_t* data, uint16_t len
         }
     }
 
-    // Step 3 - Return the pointer to the tx_buffer for the caller to process
+    // Step 3 - Return the TX ring buffer (TCP→CDC direction) for the caller to drain
     return &pair->tx_buffer;
 }

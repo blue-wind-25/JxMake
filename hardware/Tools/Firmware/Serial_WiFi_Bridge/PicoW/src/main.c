@@ -249,7 +249,7 @@ static struct tcp_pcb* connect_and_setup_pair(
     tcp_connected_fn  connected_cb,
     bool*             connected_flag,
     tcp_err_fn        error_cb,
-    uint8_t           cdc_itf,
+    int               cdc_itf,       // Pass -1 to mark this connection as optional
     uint8_t*          tx_storage,
     uint8_t*          rx_storage,
     uint32_t          buf_size,
@@ -261,7 +261,10 @@ static struct tcp_pcb* connect_and_setup_pair(
 {
     struct tcp_pcb* pcb = tcp_client_connect(ip_str, port, NULL, connected_cb, NULL, NULL, NULL);
 
-    if(!pcb) cleanupAndBlinkErrorLED(err_led);
+    if(!pcb) {
+        if(cdc_itf == -1) return NULL; // Optional connection; server may not be running
+        cleanupAndBlinkErrorLED(err_led);
+    }
 
     setup_tcp_pair(pair, pcb, cdc_itf, tx_storage, rx_storage, buf_size, tx_lock, rx_lock);
     if(error_cb) tcp_err(pcb, error_cb);
@@ -276,7 +279,7 @@ static struct tcp_pcb* connect_and_setup_pair(
         sleep_ms(10);
 
         if( millis() - svcStart > svcTimeoutMS ) {
-            if(cdc_itf == -1) return NULL; // If no CDC-ACM interface is defined, this connection is optional
+            if(cdc_itf == -1) return NULL; // Optional connection; server may not be running
             cleanupAndBlinkErrorLED(err_led);
         }
 
@@ -605,7 +608,8 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
 
 static void usbCDCACMTask(void)
 {
-    // If any of the connected servers go down, restart the dongle
+    // If any required server goes down, trigger a clean reboot so the dongle reconnects from scratch.
+    // The monitoring server is only checked when it was successfully reached at startup
     if( !cdc0Connected || !cdc1Connected || (monAvailable && !monConnected) ) {
         rebootDevice();
     }
@@ -613,7 +617,9 @@ static void usbCDCACMTask(void)
     // CDC #0 - Bridge #0 or Bridge #2
     cdc_tcp_service(&cdc0TCPPair, false);
 
-    // CDC #1 - Bridge #1 or Console
+    // CDC #1 - Bridge #1 or Console.
+    // In console mode, send a newline to bash when the terminal is first opened so that
+    // the shell prompt appears immediately without waiting for user input
     if(consoleMode && cdc1LineOpen && cdc1TCPPair.tcp_pcb) {
         const uint32_t now = millis();
         if( cdc1NeedKick && (now - cdc1LastKickMS >= 500) ) {
@@ -624,7 +630,7 @@ static void usbCDCACMTask(void)
     }
     cdc_tcp_service(&cdc1TCPPair, consoleMode);
 
-    // Monitoring
+    // Monitoring - decode the STX…ETX framed status packet sent by tcp_fstate_monitor
     if(monPCB) {
         #define MSG_BUFF_SIZE 8
         static uint8_t  msg[MSG_BUFF_SIZE];
@@ -632,7 +638,7 @@ static void usbCDCACMTask(void)
         static bool     collecting = false;
         static bool     overflow   = false;
         ring_buffer_t*  rb         = msg_tcp_service(&monTCPPair, 0, 0); // ##### ??? TODO : Send any character every once a while so the server is forced to resend the state ??? #####
-        // Read the frame
+        // Parse incoming bytes one at a time; the frame format is: STX | state[0] … state[n-1] | ETX
         while( !ring_buffer_empty(rb) ) {
 
             uint8_t byte;
@@ -681,7 +687,7 @@ static void usbCDCACMTask(void)
                 }
                 else {
                     if(msgIdx < MSG_BUFF_SIZE) msg[msgIdx++] = byte;
-                    else                       overflow      = true; // Too long - enter overflow mode to discard until next STX
+                    else                       overflow      = true; // Packet too long; enter overflow mode to discard until the next STX
                 }
             }
 

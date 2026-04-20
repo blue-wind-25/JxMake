@@ -46,7 +46,7 @@ typedef struct {
            bool          sig_int;   // Flag for ^C
 } cdc_tcp_pair_t;
 
-extern void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, uint8_t cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock);
+extern void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, int cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock);
 extern void cdc_tcp_clear_buffer(cdc_tcp_pair_t* pair);
 
 extern err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err);

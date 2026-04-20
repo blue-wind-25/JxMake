@@ -266,7 +266,7 @@ static struct tcp_pcb* connect_and_setup_pair(
         cleanupAndBlinkErrorLED(err_led);
     }
 
-    setup_tcp_pair(pair, pcb, (uint8_t) cdc_itf, tx_storage, rx_storage, buf_size, tx_lock, rx_lock);
+    setup_tcp_pair(pair, pcb, cdc_itf, tx_storage, rx_storage, buf_size, tx_lock, rx_lock);
     if(error_cb) tcp_err(pcb, error_cb);
 
     const uint32_t svcTimeoutMS = SERVER_CONNECT_TIMEOUT_MS;

@@ -74,12 +74,12 @@ err_t tcp_client_send(struct tcp_pcb* pcb, const void* data, u16_t len)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, uint8_t cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock)
+void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, int cdc_itf, uint8_t* tx_storage, uint8_t* rx_storage, uint32_t buf_size, uint32_t tx_lock, uint32_t rx_lock)
 {
     ring_buffer_init(&pair->tx_buffer, tx_storage, buf_size, tx_lock);
     ring_buffer_init(&pair->rx_buffer, rx_storage, buf_size, rx_lock);
 
-    pair->cdc_itf = cdc_itf;
+    pair->cdc_itf = (uint8_t) cdc_itf; // Stored as uint8_t; -1 (optional) is only passed for the monitoring pair which never calls cdc_tcp_service
     pair->tcp_pcb = pcb;
     pair->sig_int = false;
 

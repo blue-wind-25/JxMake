@@ -190,10 +190,10 @@ static void usbConnect()
 
 static void rebootDevice()
 {
-    // ##### !!! TODO : VERIFY !!! #####
-
+    // Disconnect USB
     usbDisconnect();
 
+    // Disconnect TCPs
     if(cdc0PCB) tcp_client_disconnect(cdc0PCB);
     if(cdc1PCB) tcp_client_disconnect(cdc1PCB);
     if(monPCB ) tcp_client_disconnect(monPCB );
@@ -202,6 +202,23 @@ static void rebootDevice()
     cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
     sleep_ms(100);
 
+    // Wait ~5 seconds before reboot
+    const uint32_t startMillis = millis();
+
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+
+    while( millis() - startMillis < 5000 ) {
+
+        for(int i = 0; i < 3; ++i) {
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1); sleep_ms(100);
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0); sleep_ms(100);
+        }
+
+        sleep_ms(300);
+
+    } // while
+
+    // Reboot
     cyw43_arch_deinit();
 
     watchdog_reboot(0, 0, 0);
@@ -357,11 +374,6 @@ int main(void)
     const char* ssid = "JxMake RPi WiFi Access Point";
     const char* pass = "cR11d8a2w4VDjq3d";
 
-#if 0
-    if( cyw43_arch_wifi_connect_blocking(ssid, pass, CYW43_AUTH_WPA2_AES_PSK) ) {
-        cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_FAIL);
-    }
-#else
     if( cyw43_arch_wifi_connect_async(ssid, pass, CYW43_AUTH_WPA2_AES_PSK) ) {
         cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_START);
     }
@@ -382,7 +394,6 @@ int main(void)
         if( millis() - wcaStart > wcaTimeoutMS ) cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_FAIL);
 
     } // while
-#endif
 
     sleep_ms(1000);
 
@@ -600,16 +611,7 @@ static void usbCDCACMTask(void)
     }
 
     // CDC #0 - Bridge #0 or Bridge #2
-#if 0
-    uint8_t buf[64];
-    if( tud_cdc_n_available(0) ) {
-        const uint8_t count = tud_cdc_n_read( 0, buf, sizeof(buf) );
-        for(uint8_t i = 0; i< count; ++i) tud_cdc_n_write_char ( 0, buf[i] );
-                                          tud_cdc_n_write_flush( 0         );
-    }
-#else
     cdc_tcp_service(&cdc0TCPPair, false);
-#endif
 
     // CDC #1 - Bridge #1 or Console
     if(consoleMode && cdc1LineOpen && cdc1TCPPair.tcp_pcb) {
@@ -629,7 +631,7 @@ static void usbCDCACMTask(void)
         static uint32_t msgIdx     = 0;
         static bool     collecting = false;
         static bool     overflow   = false;
-        ring_buffer_t*  rb         = msg_tcp_service(&monTCPPair, 0, 0); // ##### !!! TODO : Send any character every once a while so the server is forced to resend the state? !!! #####
+        ring_buffer_t*  rb         = msg_tcp_service(&monTCPPair, 0, 0); // ##### ??? TODO : Send any character every once a while so the server is forced to resend the state ??? #####
         // Read the frame
         while( !ring_buffer_empty(rb) ) {
 
@@ -679,7 +681,7 @@ static void usbCDCACMTask(void)
                 }
                 else {
                     if(msgIdx < MSG_BUFF_SIZE) msg[msgIdx++] = byte;
-                    else                       overflow      = true; // Too long: enter overflow mode to discard until next STX
+                    else                       overflow      = true; // Too long - enter overflow mode to discard until next STX
                 }
             }
 

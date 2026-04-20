@@ -29,15 +29,9 @@ struct tcp_pcb* tcp_client_connect(const char* ip_str, u16_t port, void* user_ar
     if(err_cb ) tcp_err (pcb, err_cb );
 
     pcb->so_options |= SOF_KEEPALIVE; // Enable keep-alive
-#if 0
-    pcb->keep_idle   = 5000;          // 5 seconds idle before first probe
-    pcb->keep_intvl  = 2500;          // 2.5 seconds between probes
-    pcb->keep_cnt    = 8;             // Send 8 probes before giving up
-#else
     pcb->keep_idle   = 2500;          // 2.5 seconds idle before first probe
     pcb->keep_intvl  = 1500;          // 1.5 second between probes
     pcb->keep_cnt    = 32;            // Send 32 probes before giving up
-#endif
 
     const err_t err = tcp_connect(pcb, &ip, port, conn_cb);
 
@@ -149,188 +143,6 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
     return ERR_OK;
 }
 
-
-#if 0
-
-void cdc_tcp_service(cdc_tcp_pair_t* pair)
-{
-    if( !pair || !pair->tcp_pcb             ) return;
-    if( !tud_mounted()                      ) return;
-    if( !tud_cdc_n_connected(pair->cdc_itf) ) return;
-
-    // Buffer
-    uint8_t buff[ (CFG_TUD_CDC_RX_BUFSIZE > CFG_TUD_CDC_TX_BUFSIZE) ? CFG_TUD_CDC_RX_BUFSIZE : CFG_TUD_CDC_TX_BUFSIZE ];
-
-    // Step 1 - drain RX buffer into TCP first
-    while( !ring_buffer_empty(&pair->rx_buffer) ) {
-
-        uint16_t chunk_len = 0;
-
-        while( chunk_len < sizeof(buff) && !ring_buffer_empty(&pair->rx_buffer) ) {
-            ring_buffer_pop( &pair->rx_buffer, &buff[chunk_len] );
-            ++chunk_len;
-        } // while
-
-        if(chunk_len > 0) {
-            const err_t err = tcp_client_send(pair->tcp_pcb, buff, chunk_len);
-            if(err != ERR_OK) {
-                // Push back if TCP window full
-                for(int i = chunk_len - 1; i >= 0; --i) ring_buffer_push(&pair->rx_buffer, buff[i]);
-                break;
-            }
-        }
-
-    } // while
-
-    // Step 2 - read new data from CDC and try direct send
-    if( tud_cdc_n_available(pair->cdc_itf) ) {
-        const uint16_t count = tud_cdc_n_read( pair->cdc_itf, buff, sizeof(buff) );
-        if(count > 0) {
-            uint16_t send_len = count;
-
-            for(uint16_t i = 0; i < count; ++i) {
-                if(buff[i] == 0x03) {
-                    pair->sig_int = true;  // ^C detected
-                    send_len      = i + 1; // Include ^C itself, stop after
-                    break;
-                }
-            }
-            // Always send up to send_len (including ^C if found)
-            const err_t err = tcp_client_send(pair->tcp_pcb, buff, send_len);
-            if(err != ERR_OK) {
-                // TCP window full → buffer for later
-                for(uint16_t i = 0; i < send_len; ++i) {
-                    if( !ring_buffer_push(&pair->rx_buffer, buff[i]) ) {
-                        // RX buffer full → stop, remaining bytes stay in TinyUSB FIFO
-                        break;
-                    }
-                }
-            }
-            // If ^C was found, ignore the remainder of buff (they stay in TinyUSB FIFO or can be discarded)
-        }
-    }
-
-    // Step 3 - drain TX buffer into CDC host
-    if(pair->sig_int) {
-        // ^C received
-        ring_buffer_clear(&pair->tx_buffer); // Clear buffer once
-        pair->sig_int = false;               // Reset flag so normal operation resumes
-    }
-    else {
-        while( !ring_buffer_empty(&pair->tx_buffer) ) {
-
-            const uint16_t avail = tud_cdc_n_write_available(pair->cdc_itf);
-            if(avail == 0) break;
-
-            uint16_t chunk_len = 0;
-
-            while( chunk_len < avail && chunk_len < sizeof(buff) && !ring_buffer_empty(&pair->tx_buffer) ) {
-                ring_buffer_pop(&pair->tx_buffer, &buff[chunk_len]);
-                ++chunk_len;
-            }
-
-            if(chunk_len > 0) {
-                tud_cdc_n_write(pair->cdc_itf, buff, chunk_len);
-                tud_cdc_n_write_flush(pair->cdc_itf);
-            }
-
-        } // while
-    }
-}
-
-#else
-
-/*
-void cdc_tcp_service(cdc_tcp_pair_t* pair, bool consoleMode)
-{
-    if( !pair || !pair->tcp_pcb             ) return;
-    if( !tud_mounted()                      ) return;
-    if( !tud_cdc_n_connected(pair->cdc_itf) ) return;
-
-    // Buffer
-    uint8_t buff[ (CFG_TUD_CDC_RX_BUFSIZE > CFG_TUD_CDC_TX_BUFSIZE) ? CFG_TUD_CDC_RX_BUFSIZE : CFG_TUD_CDC_TX_BUFSIZE ];
-
-    // Step 1 - drain RX buffer into TCP first
-    while( !ring_buffer_empty(&pair->rx_buffer) ) {
-
-        uint16_t chunk_len = 0;
-
-        while( chunk_len < sizeof(buff) && !ring_buffer_empty(&pair->rx_buffer) ) {
-            ring_buffer_pop( &pair->rx_buffer, &buff[chunk_len] );
-            ++chunk_len;
-        } // while
-
-        if(chunk_len > 0) {
-            const err_t err = tcp_client_send(pair->tcp_pcb, buff, chunk_len);
-            if(err != ERR_OK) {
-                // Push back if TCP window full
-                for(int i = chunk_len - 1; i >= 0; --i) ring_buffer_push(&pair->rx_buffer, buff[i]);
-                break;
-            }
-        }
-
-    } // while
-
-    // Step 2 - read new data from CDC and try direct send
-    if( tud_cdc_n_available(pair->cdc_itf) ) {
-        const uint16_t count = tud_cdc_n_read( pair->cdc_itf, buff, sizeof(buff) );
-        if(count > 0) {
-            uint16_t send_len = count;
-
-            // Detect ^C only if processing is enabled
-            if(consoleMode) {
-                for(uint16_t i = 0; i < count; ++i) {
-                    if(buff[i] == 0x03) {
-                        pair->sig_int = true;  // ^C detected
-                        send_len      = i + 1; // Include ^C itself, stop after
-                        break;
-                    }
-                }
-            }
-
-            // Always send up to send_len (including ^C if found)
-            const err_t err = tcp_client_send(pair->tcp_pcb, buff, send_len);
-            if(err != ERR_OK) {
-                // TCP window full → buffer for later
-                for(uint16_t i = 0; i < send_len; ++i) {
-                    if( !ring_buffer_push(&pair->rx_buffer, buff[i]) ) {
-                        // RX buffer full → stop, remaining bytes stay in TinyUSB FIFO
-                        break;
-                    }
-                }
-            }
-            // If ^C was found, ignore the remainder of buff (they stay in TinyUSB FIFO or can be discarded)
-        }
-    }
-
-    // Step 3 - drain TX buffer into CDC host
-    if(consoleMode && pair->sig_int) {
-        // ^C received
-        ring_buffer_clear(&pair->tx_buffer); // Clear buffer once
-        pair->sig_int = false;               // Reset flag so normal operation resumes
-    }
-    else {
-        while( !ring_buffer_empty(&pair->tx_buffer) ) {
-
-            const uint16_t avail = tud_cdc_n_write_available(pair->cdc_itf);
-            if(avail == 0) break;
-
-            uint16_t chunk_len = 0;
-
-            while( chunk_len < avail && chunk_len < sizeof(buff) && !ring_buffer_empty(&pair->tx_buffer) ) {
-                ring_buffer_pop(&pair->tx_buffer, &buff[chunk_len]);
-                ++chunk_len;
-            }
-
-            if(chunk_len > 0) {
-                tud_cdc_n_write(pair->cdc_itf, buff, chunk_len);
-                tud_cdc_n_write_flush(pair->cdc_itf);
-            }
-
-        } // while
-    }
-}
-*/
 
 void cdc_tcp_service(cdc_tcp_pair_t* pair, bool consoleMode)
 {
@@ -459,8 +271,6 @@ void cdc_tcp_service(cdc_tcp_pair_t* pair, bool consoleMode)
         } // while
     }
 }
-
-#endif
 
 
 ring_buffer_t* msg_tcp_service(cdc_tcp_pair_t* pair, uint8_t* data, uint16_t len)

@@ -56,4 +56,3 @@ extern ring_buffer_t* msg_tcp_service(cdc_tcp_pair_t* pair, uint8_t* data, uint1
 
 
 #endif // __UTIL_H__
-

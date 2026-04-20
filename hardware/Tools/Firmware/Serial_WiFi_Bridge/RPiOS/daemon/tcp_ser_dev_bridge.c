@@ -27,9 +27,6 @@
 #include <unistd.h>
 
 
-// ##### !!! TODO : This could hung the entire system if the serial device is disconnected !!! #####
-
-
 static void set_cloexec(const int fd)
 {
     const int flags = fcntl(fd, F_GETFD);

@@ -538,6 +538,10 @@ minicom -D /dev/ttyACM1 -b 115200 -R utf-8
 ^A X Yes
 AVOID execute commands with long output because ^C will only takes effect after the long output are completely streamed.
 DO NOT USE THE MOUSE SCROLL WHEEL, as it may cause the console to hang.
+
+
+echo -ne "\xAA\rhELLo\n" | socat - /dev/ttyACM0,b115200,raw,echo=0
+timeout 5s cat /dev/ttyACM0 & printf "\xAA\rhELLo\n" > /dev/ttyACM0
 */
 
     // Init device stack on configured roothub port
@@ -637,7 +641,7 @@ static void usbCDCACMTask(void)
         // ##### ??? TODO : Send any character every once a while so the server is forced to resend the state ??? #####
 
         #define MSG_BUFF_SIZE 8
-        
+
         static uint8_t  msg[MSG_BUFF_SIZE];
         static uint32_t msgIdx     = 0;
         static bool     collecting = false;

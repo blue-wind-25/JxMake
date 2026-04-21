@@ -1,5 +1,5 @@
 ====================================================================================================
-Connection Diagram between Two Raspberry Pi Picos (RP2040)
+Connection Diagram
 ====================================================================================================
 
 
@@ -51,5 +51,38 @@ Connection Diagram between Two Raspberry Pi Picos (RP2040)
 
 MODE Jumper : Open   → Primary   mode Serial-WiFi Bridge #0 and #1
 MODE Jumper : Closed → Secondary mode Serial-WiFi Bridge #2 and Serial Console
+
+----------------------------------------------------------------------------------------------------
+
+# A Raspberry Pi 3/4/5 or Compute Module 4/5 as the remote USB host will connect to:
+      # the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
+      # the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module; and
+      # the embedded USB-to-serial converter integrated into the hub above.
+
+  The remote USB host will run 5 servers:
+      # Two 'Serial over WiFi Bridge Servers' on ports 2520 and 2521 for
+        the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
+      # One 'Serial over WiFi Bridge Server' on port 2522 for
+        the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module;
+      # One 'Console Server' on port 2525; and
+      # One 'Serial Device Monitoring Server' on port 2500.
+
+# One Raspberry Pi Pico W board (primary) as a PC USB dongle will:
+      # enumerate as a dual-CDC device;
+      # connect CDC0 and CDC1 to the remote USB host ports 2520 and 2521; and
+      # optionally connect to the remote USB host port 2500 for monitoring data.
+
+# One Raspberry Pi Pico W board (secondary) as a PC USB dongle will:
+      # enumerate as a dual-CDC device;
+      # connect CDC2 to the remote USB host port 2522;
+      # connect CDC3 to the console server on port 2525; and
+      # optionally connect to the remote USB host port 2500 for monitoring data.
+
+Following the above connection diagram, the secondary Pico W should wait for the primary Pico W.
+Hence, the CDC‑ACM device order must be preserved. This requirement holds only under the following
+conditions:
+    1. the servers are already running when the Pico W boards are attached to the PC;
+    2. both boards are powered simultaneously (this is definitely the case if no pull‑up resistor
+       is present, but only a possible case if the 22k pull‑up resistor is used).
 
 ====================================================================================================

@@ -2,6 +2,14 @@
 Operating System and Software Installation for Raspberry Pi (RPi)
 ====================================================================================================
 
+----------------------------------------------------------------------------------------------------
+It is highly recommended to use an RPi4/CM4, RPi5/CM5, or newer models, as older models often
+produce errors such as:
+    WARN::dwc_otg_hcd_urb_dequeue:639: Timed out waiting for FSM NP transfer to complete on 5
+After this, the USB driver will become stuck.
+----------------------------------------------------------------------------------------------------
+
+
 On the Raspberry Pi 5, you can use NVMe storage instead of an SD card. However, according to the
 official documentation:
     https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-bootloader-configuration
@@ -1375,19 +1383,5 @@ Compress the image if required:
     xz -z -c rpi5-ssd-8GiB.img > rpi5-ssd-8GiB.img.xz
 
 The new image can be cloned to other RPi SD Card/NVMe.
-
-
-----------------------------------------------------------------------------------------------------
-Updating Files from the Host PC
-----------------------------------------------------------------------------------------------------
-
-##### On the Host PC #####
-
-To update your Java application, you can use:
-    pi_ssh 'data-rw.sh'
-    pi_scp my_app_dist /mnt/data/pi/
-    pi_ssh 'data-ro.sh'
-
-##### !!! TODO : WRITE ACTUAL EXAMPLES FOR THIS SECTION !!! ####
 
 ====================================================================================================

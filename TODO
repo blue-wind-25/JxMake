@@ -2,27 +2,7 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system:
-      # A Raspberry Pi 3/4/5 or CM5 as the remote USB host will connect to:
-            # the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
-            # the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module; and
-            # the embedded USB-to-serial converter integrated into the hub above.
-        The remote USB host will run 5 servers:
-            # Two 'Serial over WiFi Bridge Servers' on ports 2520 and 2521 for
-              the 'JxMake USB-GPIO' or 'JxMake USB-GPIO II' module (Dual-CDC);
-            # One 'Serial over WiFi Bridge Server' on port 2522 for
-              the 'JxMake USB Serial Hub FEFT' or 'JxMake USB Serial Hub GLST' module;
-            # One 'Console Server' on port 2525; and
-            # One 'Serial Device Monitoring Server' on port 2500.
-      # One Raspberry Pi Pico W board as a PC USB dongle will:
-            # enumerate as a dual-CDC device;
-            # connect CDC0 and CDC1 to the remote USB host ports 2520 and 2521; and
-            # optionally connect to the remote USB host port 2500 for monitoring data.
-      # One Raspberry Pi Pico W board as a PC USB dongle will:
-            # enumerate as a dual-CDC device;
-            # connect CDC2 to the remote USB host port 2522;
-            # connect CDC3 to the console server on port 2525; and
-            # optionally connect to the remote USB host port 2500 for monitoring data.
+# Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system.
 
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'

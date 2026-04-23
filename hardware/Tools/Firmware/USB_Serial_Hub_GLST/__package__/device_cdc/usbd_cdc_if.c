@@ -297,15 +297,19 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   /* USER CODE BEGIN 6 */
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
 
-  uint8_t len = (uint8_t) *Len; // Get length
+  uint32_t len = *Len; // Use full 32-bit length
   uint16_t tempHeadPos = rxBufferHeadPos; // Increment temp head pos while writing, then update main variable when complete
 
+  // Check if buffer has enough space before writing
   for (uint32_t i = 0; i < len; i++) {
-    rxBuffer[tempHeadPos] = Buf[i];
-  	tempHeadPos = (uint16_t)((uint16_t)(tempHeadPos + 1) % HL_RX_BUFFER_SIZE);
-    if (tempHeadPos == rxBufferTailPos) {
+    uint16_t nextHeadPos = (uint16_t)((uint16_t)(tempHeadPos + 1) % HL_RX_BUFFER_SIZE);
+    if (nextHeadPos == rxBufferTailPos) {
+      // Buffer full, reject remaining data
+      USBD_CDC_ReceivePacket(&hUsbDeviceFS);
       return USBD_FAIL;
     }
+    rxBuffer[tempHeadPos] = Buf[i];
+    tempHeadPos = nextHeadPos;
   }
 
   rxBufferHeadPos = tempHeadPos;
@@ -372,7 +376,15 @@ uint8_t CDC_PeekRxBuffer_FS(uint8_t* Buf, uint16_t Len)
 
 uint16_t CDC_GetRxBufferBytesAvailable_FS()
 {
-  return (uint16_t)(rxBufferHeadPos - rxBufferTailPos) % HL_RX_BUFFER_SIZE;
+  // Fix: Ensure correct circular buffer calculation
+  uint16_t head = rxBufferHeadPos;
+  uint16_t tail = rxBufferTailPos;
+
+  if (head >= tail) {
+    return head - tail;
+  } else {
+    return HL_RX_BUFFER_SIZE - tail + head;
+  }
 }
 
 void CDC_FlushRxBuffer_FS() {

@@ -643,19 +643,19 @@ USBD_StatusTypeDef USBD_Get_USB_Status(HAL_StatusTypeDef hal_status)
   {
     case HAL_OK :
       usb_status = USBD_OK;
-    break;
+      break;
     case HAL_ERROR :
       usb_status = USBD_FAIL;
-    break;
+      break;
     case HAL_BUSY :
       usb_status = USBD_BUSY;
-    break;
+      break;
     case HAL_TIMEOUT :
       usb_status = USBD_FAIL;
-    break;
+      break;
     default :
       usb_status = USBD_FAIL;
-    break;
+      break;
   }
   return usb_status;
 }

@@ -214,10 +214,11 @@ static void blinkLED(bool active)
 {
     static uint32_t lastTick = 0;
     const  uint32_t interval = active ? 100 : 1000;
+    const  uint32_t currentTick = HAL_GetTick();
 
     // Check if enough time has passed
-    if( HAL_GetTick() - lastTick >= interval ) {
-        lastTick = HAL_GetTick();
+    if( (currentTick - lastTick) >= interval ) {
+        lastTick = currentTick;
         ledState = (ledState == GPIO_PIN_SET) ? GPIO_PIN_RESET : GPIO_PIN_SET;
         HAL_GPIO_WritePin(LED_GPIO, LED_PIN, ledState);
     }
@@ -300,19 +301,21 @@ static void UART3_Init(uint32_t baudrate, bool syncMode)
 {
     __HAL_RCC_USART3_CLK_ENABLE();
 
-        cdcLineCoding.lineCoding.dwDTERate   = baudrate;
-        cdcLineCoding.lineCoding.bCharFormat = UART_STOPBITS_1;
-        cdcLineCoding.lineCoding.bParityType = UART_PARITY_NONE;
-        cdcLineCoding.lineCoding.bDataBits   = UART_WORDLENGTH_8B;
+    // Initialize line coding structure
+    cdcLineCoding.lineCoding.dwDTERate   = baudrate;
+    cdcLineCoding.lineCoding.bCharFormat = UART_STOPBITS_1;
+    cdcLineCoding.lineCoding.bParityType = UART_PARITY_NONE;
+    cdcLineCoding.lineCoding.bDataBits   = UART_WORDLENGTH_8B;
 
-        huart3.Instance          = USART3;
-        huart3.Init.BaudRate     = baudrate;
-        huart3.Init.WordLength   = UART_WORDLENGTH_8B;
-        huart3.Init.StopBits     = UART_STOPBITS_1;
-        huart3.Init.Parity       = UART_PARITY_NONE;
-        huart3.Init.Mode         = UART_MODE_TX_RX;
-        huart3.Init.HwFlowCtl    = UART_HWCONTROL_RTS_CTS; // UART_HWCONTROL_NONE
-        huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+    // Initialize UART handle
+    huart3.Instance          = USART3;
+    huart3.Init.BaudRate     = baudrate;
+    huart3.Init.WordLength   = UART_WORDLENGTH_8B;
+    huart3.Init.StopBits     = UART_STOPBITS_1;
+    huart3.Init.Parity       = UART_PARITY_NONE;
+    huart3.Init.Mode         = UART_MODE_TX_RX;
+    huart3.Init.HwFlowCtl    = UART_HWCONTROL_RTS_CTS; // UART_HWCONTROL_NONE
+    huart3.Init.OverSampling = UART_OVERSAMPLING_16;
 
     if(syncMode) {
         USART3->CR2 |=  USART_CR2_CLKEN; // Enable synchronous clock
@@ -355,6 +358,7 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
         case CDC_SET_LINE_CODING: {
             if(length != 7) return USBD_FAIL;
 
+            // Copy line coding data
             for(int i = 0; i < 7; ++i) cdcLineCoding.lcBuffer[i] = pbuf[i];
 
             const uint32_t baudrate  = cdcLineCoding.lineCoding.dwDTERate;
@@ -362,18 +366,22 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             const uint8_t  parity    = cdcLineCoding.lineCoding.bParityType;
             const uint8_t  dataBits  = cdcLineCoding.lineCoding.bDataBits;
 
+            // Validate and set baudrate
             if(baudrate < 1200 || baudrate > 1843200) return USBD_FAIL; // Not supported
             huart3.Init.BaudRate = baudrate;
 
+            // Validate and set stop bits
                  if(stopBits == 0) huart3.Init.StopBits   = UART_STOPBITS_1;
             else if(stopBits == 2) huart3.Init.StopBits   = UART_STOPBITS_2;
             else                   return USBD_FAIL; // Not supported
 
+            // Validate and set parity
                  if(parity   == 0) huart3.Init.Parity     = UART_PARITY_NONE;
             else if(parity   == 1) huart3.Init.Parity     = UART_PARITY_ODD;
             else if(parity   == 2) huart3.Init.Parity     = UART_PARITY_EVEN;
             else                   return USBD_FAIL; // Not supported
 
+            // Validate and set data bits
                  if(dataBits == 8) huart3.Init.WordLength = UART_WORDLENGTH_8B;
             else if(dataBits == 9) huart3.Init.WordLength = UART_WORDLENGTH_9B;
             else                   return USBD_FAIL; // Not supported
@@ -434,6 +442,7 @@ static bool initUSB()
 
 static void initUSBWithRetry()
 {
+    // Ensure VBUS is present before attempting USB initialization
     if( !HAL_GPIO_ReadPin(VBUS_DETECT_GPIO, VBUS_DETECT_PIN) ) blinkErrorLED();
 
     int attempt = 0;
@@ -444,6 +453,7 @@ static void initUSBWithRetry()
 
         ++attempt;
 
+        // Clean up before retry
         USBD_Stop  (&hUsbDeviceFS);
         USBD_DeInit(&hUsbDeviceFS);
 
@@ -451,6 +461,7 @@ static void initUSBWithRetry()
 
     } // while
 
+    // All retry attempts failed
     blinkErrorLED();
 }
 

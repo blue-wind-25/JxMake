@@ -41,7 +41,7 @@
 
 
 #define RUN_MODE_GPIO             22
-#define SYNC_RUN_GPIO             15
+#define SYNC_RUN_GPIO             15    // Active high
 
 #define CDC_BUFF_SIZE             16384
 #define MON_BUFF_SIZE             128
@@ -54,6 +54,7 @@
 
 static void usbCDCACMTask(void);
 static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led);
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -203,11 +204,9 @@ static void rebootDevice()
     sleep_ms(100);
 
     // Wait ~5 seconds before reboot (about the same time of the systemd RestartSec)
-    const uint32_t startMillis = millis();
-
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
 
-    while( millis() - startMillis <= 5000 ) {
+    for(int i = 0; i < 10; ++i) {
 
         for(int i = 0; i < 3; ++i) {
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1); sleep_ms(100);
@@ -216,12 +215,13 @@ static void rebootDevice()
 
         sleep_ms(300);
 
-    } // while
+    } // for
 
-    // Reboot
+    // Deinitialize
     cyw43_arch_deinit();
 
-    watchdog_reboot(0, 0, 0);
+    // Reboot
+    watchdog_reboot(0, 0, 100);
 }
 
 
@@ -249,7 +249,7 @@ static struct tcp_pcb* connect_and_setup_pair(
     tcp_connected_fn  connected_cb,
     bool*             connected_flag,
     tcp_err_fn        error_cb,
-    int               cdc_itf,        // Pass -1 to mark this connection as optional
+    int               cdc_itf, // Pass -1 to indicate the server may not run (optional) and, if it does, it has no paired CDC-ACM connection
     uint8_t*          tx_storage,
     uint8_t*          rx_storage,
     uint32_t          buf_size,
@@ -294,25 +294,35 @@ static struct tcp_pcb* connect_and_setup_pair(
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+/*
+#define DISABLE_SYNC_RUN
+//*/
+
 int main(void)
 {
     // Ensure clean (re-)start
+    const uint32_t MAGIC = 0xA5A5F00DU;
+
     if( watchdog_caused_reboot() ) {
-        watchdog_hw->scratch[0] = 0;
+            watchdog_hw->scratch[0] = 0;
     }
     else {
-        watchdog_hw->scratch[0] = 0xA5A5F00D;
-        watchdog_reboot(0, 0, 10);
-        while(true) tight_loop_contents();
+        if(watchdog_hw->scratch[0] != MAGIC) {
+            watchdog_hw->scratch[0] = MAGIC;
+            watchdog_reboot(0, 0, 100);
+        }
+        else {
+            watchdog_hw->scratch[0] = 0;
+        }
     }
 
     // Initialize board
     board_init();
 
     // Initialize RUN_MODE_GPIO as input with pull-up
-    gpio_init   (RUN_MODE_GPIO       );
-    gpio_set_dir(RUN_MODE_GPIO, false);
-    gpio_pull_up(RUN_MODE_GPIO       );
+    gpio_init   (RUN_MODE_GPIO         );
+    gpio_set_dir(RUN_MODE_GPIO, GPIO_IN);
+    gpio_pull_up(RUN_MODE_GPIO         );
 
     sleep_ms(100);
 
@@ -325,25 +335,26 @@ int main(void)
         cleanupAndBlinkErrorLED(ERR_WIFI_INIT);
     }
 
-    // Synchronize RUN_MODE_IO0_IO1 and RUN_MODE_DBG_CON
+    // RUN_MODE_IO0_IO1
     if(runMode == RUN_MODE_IO0_IO1) {
-        // Initialize SYNC_RUN_GPIO as an output with an initial value of high
+        // Initialize SYNC_RUN_GPIO as an output with an initial value of low
         gpio_init   (SYNC_RUN_GPIO          );
-        gpio_put    (SYNC_RUN_GPIO, true    ); // Set SYNC_RUN_GPIO high to defer initialization of the paired device with RUN_MODE_DBG_CON
+        gpio_put    (SYNC_RUN_GPIO, false   ); // Set SYNC_RUN_GPIO low to defer the initialization of the paired device with RUN_MODE_DBG_CON
         gpio_set_dir(SYNC_RUN_GPIO, GPIO_OUT);
     }
     else { // RUN_MODE_DBG_CON
         // Wait for a while so the RUN_MODE_IO0_IO1 mode can start its initialization first
         sleep_ms(1000);
-        // Initialize SYNC_RUN_GPIO as input with pull-up
-        gpio_init   (SYNC_RUN_GPIO       );
-        gpio_set_dir(SYNC_RUN_GPIO, false);
-        gpio_pull_up(SYNC_RUN_GPIO       );
+        // Initialize SYNC_RUN_GPIO as input with pull-down
+        gpio_init     (SYNC_RUN_GPIO         );
+        gpio_set_dir  (SYNC_RUN_GPIO, GPIO_IN);
+        gpio_pull_down(SYNC_RUN_GPIO         );
+#ifndef DISABLE_SYNC_RUN
         // Wait for the RUN_MODE_IO0_IO1 mode done its initialization
         int32_t  brightness     = 0;
         int32_t  direction      = 5;
         uint32_t last_step_time = to_ms_since_boot( get_absolute_time() );
-        while( gpio_get(SYNC_RUN_GPIO) ) { // Active low
+        while( !gpio_get(SYNC_RUN_GPIO) ) { // Wait until RUN_MODE_IO0_IO1 drives the pin high
             // Get current time in a small window (0 to 500 microseconds) - this defines our PWM frequency (2kHz)
             uint32_t current_time_us = time_us_32() % 500;
             // Map brightness (0-255) to that 1000us window
@@ -358,6 +369,8 @@ int main(void)
                 else if(brightness >= 100) { brightness = 100; direction = -direction; }
             }
         } // while
+#endif
+        // Done waiting
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
     }
 
@@ -523,6 +536,9 @@ netstat -tnp
 lsusb -v -d cafe:
 
 
+socat -x -,echo=0 tcp:raspberrypi.local:2500
+
+
 screen /dev/ttyACM0 115200
 ^A K y
 
@@ -565,8 +581,8 @@ timeout 5s cat /dev/ttyACM0 & printf "\xAA\rhELLo\n" > /dev/ttyACM0
 
     // Synchronize RUN_MODE_IO0_IO1 and RUN_MODE_DBG_CON
     if(runMode == RUN_MODE_IO0_IO1) {
-        // Set SYNC_RUN_GPIO low to allow the paired device with RUN_MODE_DBG_CON to begin initialization
-        gpio_put(SYNC_RUN_GPIO, false);
+        // Set SYNC_RUN_GPIO high to allow the paired device with RUN_MODE_DBG_CON to begin initialization
+        gpio_put(SYNC_RUN_GPIO, true);
         sleep_ms(10);
     }
 
@@ -580,10 +596,12 @@ timeout 5s cat /dev/ttyACM0 & printf "\xAA\rhELLo\n" > /dev/ttyACM0
 
         sleep_ms(1);
 
+#ifndef DISABLE_SYNC_RUN
         if(runMode == RUN_MODE_DBG_CON) {
             // Restart this device if the paired device restarts
-            if( gpio_get(SYNC_RUN_GPIO) ) rebootDevice();
+            if( !gpio_get(SYNC_RUN_GPIO) ) rebootDevice();
         }
+#endif
 
     } // while
 

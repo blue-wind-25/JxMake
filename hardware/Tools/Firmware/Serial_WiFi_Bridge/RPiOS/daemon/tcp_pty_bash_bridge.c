@@ -225,6 +225,38 @@ static void run_session(const int net_fd)
                         return;
                     }
 
+#if 0
+                    for(ssize_t i = 0; i < n; ++i) {
+
+                        if(buf[i] == 0x03) {
+                            dprintf(STDERR_FILENO, "\n[LOG] Bridge detected Ctrl+C\n");
+
+                            // Try the official way - get Foreground Group from Master
+                            pid_t fg_pgid;
+
+                            if( ioctl(master_fd, TIOCGPGRP, &fg_pgid) == 0 && fg_pgid > 0 ) {
+                                // Kill the group
+                                if( kill(-fg_pgid, SIGINT) == -1 ) perror("kill failed");
+                            }
+                            else {
+                                perror("ioctl");
+                            }
+
+                            // Safety net - send SIGINT directly to the bash child PID
+                            if( kill(pid, SIGINT) < 0 ) perror("kill");
+
+                            // Cleanups
+                            if( tcflush(master_fd, TCOFLUSH) < 0 ) perror("tcflush");
+                        }
+
+                        if( write(master_fd, &buf[i], 1) < 0 ) {
+                            perror("write");
+                            bash_running = 0;
+                            break;
+                        }
+
+                    } // for
+#else
                     // Write data to the PTY master in chunks; Ctrl+C is handled separately and its raw byte is not
                     // forwarded to avoid a second SIGINT from the line discipline (ISIG + VINTR) on top of the one
                     // already sent via kill
@@ -287,6 +319,7 @@ static void run_session(const int net_fd)
                         } // if
 
                     } // while
+#endif
                 }
 
                 if(fds[1].revents & POLLIN) {

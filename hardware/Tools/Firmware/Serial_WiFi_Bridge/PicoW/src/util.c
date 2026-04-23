@@ -79,7 +79,7 @@ void setup_tcp_pair(cdc_tcp_pair_t* pair, struct tcp_pcb* pcb, int cdc_itf, uint
     ring_buffer_init(&pair->tx_buffer, tx_storage, buf_size, tx_lock);
     ring_buffer_init(&pair->rx_buffer, rx_storage, buf_size, rx_lock);
 
-    pair->cdc_itf = (uint8_t) cdc_itf; // Stored as uint8_t; -1 (optional) is only passed for the monitoring pair which never calls cdc_tcp_service
+    pair->cdc_itf = (cdc_itf < 0) ? 255 : cdc_itf; // -1 maps to 255 since pair->cdc_itf is uint8_t; indicates the server is optional and, if present, has no paired CDC-ACM connection
     pair->tcp_pcb = pcb;
     pair->sig_int = false;
 
@@ -135,7 +135,7 @@ err_t cdc_tcp_recv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err)
                 // # lwIP transfers pbuf ownership to the app on ERR_MEM; free it here to avoid a memory leak (the remaining unread
                 //   bytes are dropped)
                 tcp_recved(tpcb, accepted);
-                pbuf_free(p);
+                //@@@pbuf_free(p);
                 return ERR_MEM;
             }
 

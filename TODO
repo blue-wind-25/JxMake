@@ -2,7 +2,9 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system.
+# Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
+  unreliably, hung, etc.
+
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'

@@ -2,19 +2,22 @@
 Connection Diagram
 ====================================================================================================
 
+MODE Jumper : Open   → Primary   mode (Serial-WiFi Bridge #0 and #1            )
+MODE Jumper : Closed → Secondary mode (Serial-WiFi Bridge #2 and Serial Console)
+
 
         Pico W #1 (Primary)                              Pico W #2 (Secondary)
                ┏━━━━━┓                                         ┏━━━━━┓
         ┏━━━━━━┫ USB ┣━━━━━━┓                           ┏━━━━━━┫ USB ┣━━━━━━┓
        ▶┃      ┃     ┃      ┃                          ▶┃      ┃     ┃      ┃
         ┃      ┗━━━━━┛      ┃                           ┃      ┗━━━━━┛      ┃
+        ┃                   ┃                           ┃               GND┈╂─ (Pin 38)
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃               3V3┈╂─ (Pin 36)
         ┃                   ┃                           ┃                   ┃
         ┃                   ┃                           ┃                   ┃
         ┃  TOP (COMPONENT)  ┃                           ┃  TOP (COMPONENT)  ┃
         ┃  SIDE             ┃                           ┃  SIDE             ┃
-        ┃                   ┃                           ┃                   ┃
-        ┃                   ┃                           ┃                   ┃
-        ┃                   ┃                           ┃                   ┃
         ┃                   ┃                           ┃                   ┃
         ┃                   ┃                           ┃                   ┃
         ┃                   ┃                           ┃                   ┃
@@ -25,32 +28,45 @@ Connection Diagram
         ┃               GND┈╂───────────┻───┘           ┃               GND┈╂───────────┻───┘
         ┃                   ┃                           ┃                   ┃
         ┃                   ┃                           ┃                   ┃
-        ┃                   ┃                  3V3      ┃                   ┃
-        ┃                   ┃                  ━┳━      ┃                   ┃
-        ┃                   ┃                   │       ┃                   ┃
-        ┃                   ┃                 ┌─┴─┐     ┃                   ┃
-        ┃                   ┃      (Optional) │22k│     ┃                   ┃
-        ┃                   ┃                 └─┬─┘     ┃                   ┃
-        ┃                   ┃                   │       ┃                   ┃
-    ┌───╂┈GP15              ┃                   ┣───────╂┈GP15              ┃
-    │   ┃      ┏━┳━┳━┓      ┃                   │       ┃      ┏━┳━┳━┓      ┃
-    │   ┗━━━━━━┻┿┻┿┻┿┻━━━━━━┛                   │       ┗━━━━━━┻┿┻┿┻┿┻━━━━━━┛
-    │            SWD                            │                SWD
-    │                                           │
-    │    ┌────┐                       ┌────┐    │
-    └────┤ 1k ├───────────┯───────────┤ 1k ├────┘
-         └────┘           │           └────┘
-                        ╭─┼─╮
-                        │ ╽ │
-                        │   │SECONDARY_MODE_RUN_DO_NOT_WAIT_PRIMARY
-                        │ ╿ │
-                        ╰─┼─╯
-                          │
-                         ━┻━
-                         GND
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+        ┃                   ┃                           ┃                   ┃
+    ┌───╂┈GP15              ┃                       ┌───╂┈GP15              ┃
+    │   ┃      ┏━┳━┳━┓      ┃                       │   ┃      ┏━┳━┳━┓      ┃
+    │   ┗━━━━━━┻┿┻┿┻┿┻━━━━━━┛                       │   ┗━━━━━━┻┿┻┿┻┿┻━━━━━━┛
+    │            SWD                                │                SWD
+    │                                               │
+    │                                               │
+    │                                               │
+    │                     +3V3                      │
+    │                      ━┳━                      │
+    │                       │                       │
+    │                     ╭─┼─╮                     │
+    │                     │ ╽ │                     │
+    │                     │   │ FORCE_SECONDARY     │
+    │                     │ ╿ │                     │
+    │                     ╰─┼─╯                     │
+    │    ┌────┐             │             ┌────┐    │
+    └────┤ 1k ├─────────────╋─────────────┤ 1k ├────┘
+         └────┘             │             └────┘
+                          ╭─┼─╮
+                          │ ╽ │
+                          │   │ BLOCK_SECONDARY
+                          │ ╿ │
+                          ╰─┼─╯
+                            │
+                           ━┻━
+                           GND
 
-MODE Jumper : Open   → Primary   mode Serial-WiFi Bridge #0 and #1
-MODE Jumper : Closed → Secondary mode Serial-WiFi Bridge #2 and Serial Console
+FORCE_SECONDARY : Forces the secondary Pico W to initialize immediately, regardless of the signal
+                  from the primary.
+
+BLOCK_SECONDARY : Prevents the secondary Pico W from initializing, regardless of the signal from
+                  the primary.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -81,8 +97,7 @@ MODE Jumper : Closed → Secondary mode Serial-WiFi Bridge #2 and Serial Console
 Following the above connection diagram, the secondary Pico W should wait for the primary Pico W.
 Hence, the CDC‑ACM device order must be preserved. This requirement holds only under the following
 conditions:
-    1. the servers are already running when the Pico W boards are attached to the PC;
-    2. both boards are powered simultaneously (this is definitely the case if no pull‑up resistor
-       is present, but only a possible case if the 22k pull‑up resistor is used).
+    1. The servers are already running when the Pico W boards are attached to the PC.
+    2. Both boards are powered and attached simultaneously.
 
 ====================================================================================================

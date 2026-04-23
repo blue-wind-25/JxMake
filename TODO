@@ -3,10 +3,10 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system.
-
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'
+# Remove the agent-*.diff and agent-*.patch files.
 
 # Further improve ProgUPDI to support more MCUs:
       # Verify ProgUPDI for MCUs with NVMCTL v5 (AVR EB series?).

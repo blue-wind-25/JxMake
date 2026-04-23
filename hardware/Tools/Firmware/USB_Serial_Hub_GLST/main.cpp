@@ -212,8 +212,8 @@ static inline void setLED(bool on)
 
 static void blinkLED(bool active)
 {
-    static uint32_t lastTick = 0;
-    const  uint32_t interval = active ? 100 : 1000;
+    static uint32_t lastTick    = 0;
+    const  uint32_t interval    = active ? 100 : 1000;
     const  uint32_t currentTick = HAL_GetTick();
 
     // Check if enough time has passed

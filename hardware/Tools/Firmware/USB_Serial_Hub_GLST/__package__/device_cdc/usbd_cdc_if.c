@@ -64,7 +64,7 @@
 
 /* USER CODE BEGIN PRIVATE_DEFINES */
 
-#define HL_RX_BUFFER_SIZE 256 // Can be larger if desired
+#define HL_RX_BUFFER_SIZE 1024 // Can be larger if desired
 
 /* USER CODE END PRIVATE_DEFINES */
 
@@ -318,6 +318,31 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   return (USBD_OK);
   /* USER CODE END 6 */
 }
+#if 0
+static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
+{
+  /* USER CODE BEGIN 6 */
+  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
+
+  uint8_t len = (uint8_t) *Len; // Get length
+  uint16_t tempHeadPos = rxBufferHeadPos; // Increment temp head pos while writing, then update main variable when complete
+
+  // Check if buffer has enough space before writing
+  for (uint32_t i = 0; i < len; i++) {
+    rxBuffer[tempHeadPos] = Buf[i];
+    tempHeadPos = (uint16_t)((uint16_t)(tempHeadPos + 1) % HL_RX_BUFFER_SIZE);
+    if (tempHeadPos == rxBufferTailPos) {
+      return USBD_FAIL;
+    }
+  }
+
+  rxBufferHeadPos = tempHeadPos;
+  USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+  return (USBD_OK);
+  /* USER CODE END 6 */
+}
+#endif
 
 /**
   * @brief  CDC_Transmit_FS

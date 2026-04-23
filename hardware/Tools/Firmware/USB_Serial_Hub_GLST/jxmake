@@ -2,4 +2,4 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-"$SCRIPT_DIR/../../../../dist_build/jxmake" "$@"
+"$SCRIPT_DIR/../../../../dist_build/jxmake" -C `pwd` "$@"

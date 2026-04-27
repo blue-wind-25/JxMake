@@ -43,7 +43,7 @@ static __force_inline void tickGetTo(volatile uint32_t* tick)
 
 
 // Function to perform a delay while regularly resetting the watchdog timer during sufficiently long delays
-static __force_inline void _delayMS_impl(uint8_t ms)
+static __force_inline void __delayMS_impl(const uint8_t ms)
 {
 	const uint32_t beg = tickGet();
 
@@ -58,22 +58,19 @@ static __force_inline void _delayMS_impl(uint8_t ms)
 	} // for
 }
 
-static __force_inline void delayMS(double ms)
+static __force_inline void delayMS(const uint16_t ms)
 {
 	if(ms <= 200) {
-		_delayMS_impl((uint8_t)ms);
+		__delayMS_impl(ms);
 	}
 
 	else {
-
-		for( uint16_t i = 0; i < ( (uint16_t) (ms / 200) ); ++i ) {
-			_delayMS_impl(200);
+		for( uint16_t i = 0; i < (ms / 200); ++i ) {
+			__delayMS_impl(200);
 		}
-
-		// Handle the remainder
-		const uint16_t remainder = (uint16_t)ms % 200;
+		const uint16_t remainder = ms % 200;
 		if(remainder > 0) {
-			_delayMS_impl((uint8_t)remainder);
+			__delayMS_impl(remainder);
 		}
 	}
 }

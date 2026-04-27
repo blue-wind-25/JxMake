@@ -12,8 +12,8 @@ void __handleMCUCSR(void)
 	// Disable watchdog with proper sequence per ATmega8A datasheet
 	wdt_reset();
 	MCUCSR = 0;
-	WDTCR = _BV(WDCE) | _BV(WDE);
-	WDTCR = 0;
+	WDTCR  = _BV(WDCE) | _BV(WDE);
+	WDTCR  = 0;
 }
 
 

@@ -68,6 +68,8 @@ static inline void aswInit()
 	const bool ctl3 = !!( EN_UPDI_HVP_PIN & _BV( EN_UPDI_HVP_BIT) );
 	const bool ctl4 = !!( EN_UPDI_UPS_PIN & _BV( EN_UPDI_UPS_BIT) );
 
+	// Check if all control pins read the same value (all high or all low)
+	// This indicates which chip variant is installed: DG411DY (active-low) or DG412DY (active-high)
 	const bool aEql = !( (ctl1 ^ ctl2) | (ctl1 ^ ctl3) | (ctl1 ^ ctl4) );
 
 	/*

@@ -15,6 +15,7 @@ ISR(INT0_vect)
 	// Update the UPDI tick (no need to disable interrupt here)
 	if(__updi_tick != 0) {
 		__updi_tick = __timer0_tick;
+		// Prevent tick from becoming zero, as zero indicates disabled state
 		if(__updi_tick == 0) __updi_tick = 1;
 	}
 

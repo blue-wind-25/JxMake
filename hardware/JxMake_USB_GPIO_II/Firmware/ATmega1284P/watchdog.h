@@ -32,9 +32,11 @@ void __handleMCUSR(void)
 // Initialize watchdog timer
 static inline void wdtInit()
 {
-//	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP2)            ; // ~ 250mS
-	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
-//	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
+	// Configure watchdog: must set WDCE and WDE before changing prescaler
+	WDTCSR = _BV(WDCE) | _BV(WDE);
+//	WDTCSR = _BV(WDE) | _BV(WDP2)            ; // ~ 250mS
+	WDTCSR = _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
+//	WDTCSR = _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
 
 	// Print message
 	printIMsgDone( PSTR("Watchdog Timer") );

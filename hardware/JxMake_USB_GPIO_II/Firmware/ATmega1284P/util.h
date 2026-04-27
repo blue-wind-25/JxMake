@@ -82,9 +82,6 @@ static inline void utilPrintCheckVoltage(const char* pstrName, const uint16_t v1
 	                        (v100 > max100) ? PSTR(" (OVERVOLTAGE)" ) :
 	                                          PSTR(""               );
 
-	const uint16_t ints   = v100 / 100;
-	const uint16_t frac   = v100 - ints * 100;
-
 	printIMsgln( PSTR("    %S = %s%S."), pstrName, utilV00ToStr02d0d(v100), status );
 
 	if(v100 < min100) {

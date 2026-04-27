@@ -82,9 +82,6 @@ static inline void utilPrintCheckVoltage(const char* pstrName, const uint16_t v1
 	                        (v100 > max100) ? PSTR(" (OVERVOLTAGE)" ) :
 	                                          PSTR(""               );
 
-	const uint16_t ints   = v100 / 100;
-	const uint16_t frac   = v100 - ints * 100;
-
 	printIMsgln( PSTR("    %S = %s%S."), pstrName, utilV00ToStr02d0d(v100), status );
 
 	if(v100 < min100) {
@@ -289,6 +286,7 @@ static __never_inline bool utilDetectPGCD()
 			// Compare the bit
 			const bool ref = (tkch & mask) != 0;
 
+			// XOR comparison: if PGD differs from expected bit, the sequence is invalid
 			if( (pgd && !ref) || (!pgd && ref) ) {
 				wdt_reset();
 				return false;

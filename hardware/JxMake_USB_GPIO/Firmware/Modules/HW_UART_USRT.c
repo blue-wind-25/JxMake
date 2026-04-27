@@ -325,8 +325,8 @@ static void _hwxuart_end(void)
 
 	if(_hwuxrtXMegaPDIMode) {
 		// Hold the Txd line and Xck line
-		HW_UXRT_PORT |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
-		HW_UXRT_DDR  |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
+		HW_UXRT_PORT |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
+		HW_UXRT_DDR  |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
 	}
 	else {
 		// Release the Txd line
@@ -341,8 +341,8 @@ static void _hwxuart_end(void)
 		// Delay for a while
 		Delay_MS(100);
 		// Release the Txd line and Xck line
-		HW_UXRT_DDR  &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
-		HW_UXRT_PORT &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
+		HW_UXRT_DDR  &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
+		HW_UXRT_PORT &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
 	}
 }
 

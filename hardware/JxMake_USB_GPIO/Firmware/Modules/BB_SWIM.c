@@ -753,10 +753,12 @@ bool bbswim_cmd_wotf(const uint8_t* buff, _SInt_IZArg_t size, uint8_t addrE, uin
 		cli();
 			uint8_t retryCount = 8;
 			while(retryCount--) {
-				if( __bbswim_tx(*buff++, 8) ) break;
+				if( __bbswim_tx(*buff, 8) ) break;
 			}
-			if(!retryCount) goto bbswim_cmd_wotf_error;
+			// Bug: retryCount underflows to 255 after decrementing from 0, so check if all retries failed
+			if(retryCount == 255) goto bbswim_cmd_wotf_error;
 		sei();
+		buff++;
 	} // while
 
 	BBSWIM_BB_LEAVE();

@@ -443,7 +443,7 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCI
 
 		// Handle number of stop bits
 		switch(CDCInterfaceInfo->State.LineEncoding.CharFormat) {
-			case CDC_LINEENCODING_OneStopBit          : hwuxrt_deferSetNumStopBit(UXRT_StopBit_1); break;
+			case CDC_LINEENCODING_OneStopBit          : hwuxrt_deferSetNumStopBit(UXRT_StopBit_1);
 			                                            break;
 			case CDC_LINEENCODING_OneAndAHalfStopBits : /* FALLTHROUGH */
 			case CDC_LINEENCODING_TwoStopBits         : hwuxrt_deferSetNumStopBit(UXRT_StopBit_2);

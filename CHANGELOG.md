@@ -3,6 +3,10 @@
 JxMake Release Changelog
 ========================
 
+[![Language: Java](https://img.shields.io/badge/Language-Java-orange?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Language: C/C++](https://img.shields.io/badge/Language-C%2FC%2B%2B-blue?style=flat&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com)
+[![Primary_License: LGPL v3+](https://img.shields.io/badge/Primary_License-LGPL_v3+-green?style=flat&logo=opensourcehardware&logoColor=white)](LICENSE)
+
 ***
 
 
@@ -15,17 +19,15 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 ### Primary Application
 
-+ ProgUPDI has been improved and tested with newer AVR MCU series.
++ The ProgUPDI class has been improved and tested with newer AVR MCU series.
 
-+ The development of the JxMake Script Editor, featuring syntax highlighting, code folding, and a simple console, is almost complete. Most of the editor's features should be usable, though they may still be unstable and not fully functional. The console supports many ANSI escape sequences and employs custom Unicode handling in the ANSI buffer for cursor positioning and character operations.
++ The development of the JxMake Script Editor, which features syntax highlighting, code folding, and a simple console, is almost complete. Most of the editor's features should be usable, though they may still be unstable and not fully functional. The console supports many ANSI escape sequences and employs custom Unicode handling in the ANSI buffer for cursor positioning and character operations.
 
 + Support for basic **i18n** has been added, but no **l10n** translation files are available yet.
 
 + Added the command-line option `--en-headless`, which is useful on Linux when the **DISPLAY** environment variable has an invalid value or the X server is not accessible.
 
 + Added Makefile targets `dist` and `dist_clean` to build the primary application distribution file `jxmake-x.x.x-xxx.zip` and clean the temporary directory.
-
-+ Initiated development activities for the `JxMake Serial-WiFi Bridge` system, covering firmware and program components
 
 + Various enhancements, bug fixes, and cleanups.
 
@@ -34,6 +36,8 @@ No individual language dictionary ***.zip** files have been released yet for the
 + Added a new hardware module  `JxMake USB Serial Hub GLST`. The underlying hub IC supports 1‑to‑4 USB 2.0 expansion, but one downstream port is internally allocated to the built‑in USB‑to‑serial converter. As a result, three external downstream ports are available to the user.
 
 + Initiated development of the `Alternative Boost Converter for High Voltage Attachment II` module and its firmware.
+
++ Initiated development of the `JxMake Serial-WiFi Bridge` system, covering firmware and program components.
 
 ****
 

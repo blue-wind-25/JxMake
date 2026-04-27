@@ -124,7 +124,7 @@ ISR(ADC_vect)
 		// Save current error for next iteration
 		prevError = error;
 
-		// Adjust the duty cyle PWM
+		// Adjust the duty cycle PWM
 		int16_t duty = ( (int16_t) pwmGet() ) + (int16_t) (PID / 4);
 
 		     if(duty < PWM_DUTY_MIN) duty = PWM_DUTY_MIN;

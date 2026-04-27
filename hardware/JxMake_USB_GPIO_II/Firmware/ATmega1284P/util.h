@@ -286,7 +286,7 @@ static __never_inline bool utilDetectPGCD()
 			// Compare the bit
 			const bool ref = (tkch & mask) != 0;
 
-			// XOR comparison: if PGD differs from expected bit, the sequence is invalid
+			// XOR comparison - if PGD differs from expected bit, the sequence is invalid
 			if( (pgd && !ref) || (!pgd && ref) ) {
 				wdt_reset();
 				return false;

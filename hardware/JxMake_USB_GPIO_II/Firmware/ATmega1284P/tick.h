@@ -68,11 +68,9 @@ static __force_inline void delayMS(const uint16_t ms)
 	}
 
 	else {
-
 		for( uint16_t i = 0; i < (ms / 200); ++i ) {
 			__delayMS_impl(200);
 		}
-
 		const uint16_t remainder = ms % 200;
 		if(remainder > 0) {
 			__delayMS_impl(remainder);

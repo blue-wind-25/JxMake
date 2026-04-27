@@ -106,7 +106,7 @@ static inline ATTR_ALWAYS_INLINE void _jtag_transfer_bits(const uint8_t nbit, ui
 		*data = *data | _jtag_tdo_7(); // Read and store the TDO bit that has been received (LSB first)
 		_jtag_tck(false);              // Make the TCK inactive
 
-	} // Note: Comment at end of loop block
+	} // for
 }
 
 

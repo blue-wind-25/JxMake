@@ -106,7 +106,7 @@ static inline ATTR_ALWAYS_INLINE void _jtag_transfer_bits(const uint8_t nbit, ui
 		*data = *data | _jtag_tdo_7(); // Read and store the TDO bit that has been received (LSB first)
 		_jtag_tck(false);              // Make the TCK inactive
 
-	} // false
+	} // Note: Comment at end of loop block
 }
 
 
@@ -333,7 +333,7 @@ bool jtag_xb_transfer(bool xUpdate, bool drShift, bool irShift, uint8_t* buff, _
 	if(drShift && irShift) return false;
 
 	// Simply exit if the number of pairs is zero
-	if(nPairs) return true;
+	if(!nPairs) return true;
 
 	// Perform state transition as needed
 	if(drShift || irShift) {

@@ -9,17 +9,25 @@
 void __handleMCUCSR(void) ATTR_INIT_SECTION(3);
 void __handleMCUCSR(void)
 {
-	// Disable watchdog
+	// Disable watchdog with proper sequence per ATmega8A datasheet
 	wdt_reset();
-	WDTCR  = _BV(WDCE);
 	MCUCSR = 0;
+	WDTCR = _BV(WDCE) | _BV(WDE);
+	WDTCR = 0;
 }
 
 
 // Initialize watchdog timer
 static __force_inline void wdtInit()
 {
-//	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP2)            ; // ~ 250mS
-	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
-//	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
+	// Enable watchdog with proper sequence per ATmega8A datasheet
+	uint8_t wdt_config;
+
+//	wdt_config = _BV(WDE) | _BV(WDP2);             // ~ 250mS
+	wdt_config = _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
+//	wdt_config = _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
+
+	wdt_reset();
+	WDTCR = _BV(WDCE) | _BV(WDE);
+	WDTCR = wdt_config;
 }

@@ -155,7 +155,7 @@ static inline void updiBegin(bool erase)
 
 	gdis_UPDI_KEY();              // Disable the software UART pin (this will allow the upstream UPDI signal from the programmer to reconnect to the target)
 
-	wdt_reset(); printf_P( PSTR("... updiBegin() - enabling INT0 by storing the inital the tick value\n") );
+	wdt_reset(); printf_P( PSTR("... updiBegin() - enabling INT0 by storing the initial tick value\n") );
 
 	tickGetTo(&_updi_tick);       // Save the initial UPDI tick
 

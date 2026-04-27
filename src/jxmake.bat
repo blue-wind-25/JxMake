@@ -29,10 +29,10 @@ if "!JAVA_VER!"=="" (
 set "JAVA_MAJOR=0"
 for /f "tokens=1 delims=." %%V in ("!JAVA_VER!") do set "JAVA_MAJOR=%%V"
 
-::::: Check if "--enable-native-access=ALL-UNNAMED" is required
+::::: Check if "--enable-native-access" flag is required
 set "NATIVE_ACCESS_FLAG="
 if !JAVA_MAJOR! GEQ 22 (
-    set "NATIVE_ACCESS_FLAG=--enable-native-access=ALL-UNNAMED"
+    set "NATIVE_ACCESS_FLAG=--enable-native-access=com.sun.jna,com.sun.jna.platform,net.codecrete.usb,ALL-UNNAMED"
 )
 
 ::::: Build the full classpath

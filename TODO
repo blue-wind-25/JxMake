@@ -2,13 +2,15 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Remove all the '*.ORIG.backup.tar.gz', 'agent-*.diff', and 'agent-*.patch' files.
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
-
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'
-# Remove the agent-*.diff and agent-*.patch files.
+
+# Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
+  module.
 
 # Further improve ProgUPDI to support more MCUs:
       # Verify ProgUPDI for MCUs with NVMCTL v5 (AVR EB series?).
@@ -21,9 +23,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
               support it).
             # Further verify and improve the converter board that merges ISP and UPDI v1 connectors
               into a UPDI v1 connector with HV-RST and a UPDI v2 connector (also with HV-RST).
-
-# Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
-  module.
 
 # Further complete, verify, and improve the implementation of the built-in script editor for
   JxMakeFiles with syntax highlighting, code folding, and console support (including direct script

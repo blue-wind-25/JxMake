@@ -20,14 +20,19 @@ import jxm.xb.*;
 
 public class WindowsDriverInstaller {
 
+    public static final int RETCODE_EXCEPTION = -1;
+    public static final int RETCODE_TIMEOUT   = -2;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     // Global buffer for the last driver installation attempt
-    public static volatile String lastDriverInstallLog = "";
+    private String _lastDriverInstallLog = "";
 
     // Installs a local INF file using PnPUtil via PowerShell with UAC elevation
     // NOTE : Use absolute paths for INF files to avoid "File not found" errors in elevated shells
-    public static int installDriver(final String infPath) throws IOException, InterruptedException
+    private int installDriver(final String infPath) throws IOException, InterruptedException
     {
-        lastDriverInstallLog = "";
+        _lastDriverInstallLog = "";
 
         // Use 'cmd /c' inside Start-Process because pnputil.exe does not handle the '>' operator
         // 'cmd /c' allows us to redirect the elevated output to a temporary file.
@@ -69,31 +74,36 @@ public class WindowsDriverInstaller {
 
         if( !proc.waitFor(waitTime, TimeUnit.MINUTES) ) {
             proc.destroyForcibly(); // Kill the PowerShell wrapper
-            lastDriverInstallLog = String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTime);
-            return -2; // Specific code for timeout
+            _lastDriverInstallLog = String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTime);
+            return RETCODE_TIMEOUT;
         }
 
         final int exitCode = proc.exitValue();
 
         // Store the log and return the exit code
-        lastDriverInstallLog = new String( buff.toByteArray(), java.nio.charset.StandardCharsets.UTF_8 ).trim();
+        _lastDriverInstallLog = new String( buff.toByteArray(), java.nio.charset.StandardCharsets.UTF_8 ).trim();
 
         return exitCode;
     }
 
-    public static int installDriver_noexcept(final String infPath)
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public static XCom.Pair<Integer, String> installDriver_noexcept(final String infPath)
     {
         try {
-            return WindowsDriverInstaller.installDriver(infPath);
+            final WindowsDriverInstaller wdi = new WindowsDriverInstaller();
+            final int                    res = wdi.installDriver(infPath);
+
+            return new XCom.Pair<Integer, String>(res, wdi._lastDriverInstallLog);
         }
         catch(final Exception e) {
             // Restore state if required
             if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            // Return error
+            return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, e.toString() );
         }
-
-        return -1;
     }
 
 } // WindowsDriverInstaller

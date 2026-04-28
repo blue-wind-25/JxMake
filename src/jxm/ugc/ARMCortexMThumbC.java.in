@@ -491,9 +491,13 @@ public class ARMCortexMThumbC extends ARMCortexMThumb {
     { return _$lsls_w_impl(true , Rd , Rm , imm5); }
 
     private ARMCortexMThumb _$lsls_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    // !!! ERROR: Wrong register argument - passes Rm as second source instead of Rn; parameter Rn is silently ignored.
+    // This makes LSL.W Rd, Rn, Rm behave as LSL.W Rd, Rm, Rm. Fix: change second arg from Rm to Rn: _$lsls_w_impl(false, Rd, Rn, Rm).
     { return _$lsls_w_impl(false, Rd , Rm , Rm  ); }
 
     private ARMCortexMThumb _$lsls_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    // !!! ERROR: Wrong register argument - passes Rm as second source instead of Rn; parameter Rn is silently ignored.
+    // This makes LSLS.W Rd, Rn, Rm behave as LSLS.W Rd, Rm, Rm. Fix: change second arg from Rm to Rn: _$lsls_w_impl(true, Rd, Rn, Rm).
     { return _$lsls_w_impl(true , Rd , Rm , Rm  ); }
 
     private ARMCortexMThumb _$lsls_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError
@@ -529,9 +533,13 @@ public class ARMCortexMThumbC extends ARMCortexMThumb {
     { return _$lsrs_w_impl(true , Rd , Rm , imm5); }
 
     private ARMCortexMThumb _$lsrs_w_impl_f(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    // !!! ERROR: Wrong register argument - passes Rm as second source instead of Rn; parameter Rn is silently ignored.
+    // This makes LSR.W Rd, Rn, Rm behave as LSR.W Rd, Rm, Rm. Fix: change second arg from Rm to Rn: _$lsrs_w_impl(false, Rd, Rn, Rm).
     { return _$lsrs_w_impl(false, Rd , Rm , Rm  ); }
 
     private ARMCortexMThumb _$lsrs_w_impl_t(final Reg Rd , final Reg Rn, final Reg Rm  ) throws JXMAsmError
+    // !!! ERROR: Wrong register argument - passes Rm as second source instead of Rn; parameter Rn is silently ignored.
+    // This makes LSRS.W Rd, Rn, Rm behave as LSRS.W Rd, Rm, Rm. Fix: change second arg from Rm to Rn: _$lsrs_w_impl(true, Rd, Rn, Rm).
     { return _$lsrs_w_impl(true , Rd , Rm , Rm  ); }
 
     private ARMCortexMThumb _$lsrs_w_impl_f(final Reg Rdn,               final Reg Rm  ) throws JXMAsmError

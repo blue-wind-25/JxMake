@@ -3159,6 +3159,9 @@ public class ARMCortexMThumb {
         if( _cpu.supInstARMv7MComplete() && ( !Rd._isRegLow() || !Rm._isRegLow() ) ) {
             _checkReg_Not_SP_PC(_MSTR, Rd);
             _checkReg_Not_SP_PC(_MSTR, Rm);
+            // !!! ERROR: Missing 'L' suffix - int literal 0b11101010010111110000000000000000 has bit 31 = 1, making it a negative int.
+            // When widened to long for _putOpCode32(), Java sign-extends it to 0xFFFFFFFF_EA5F0000L (garbage in upper 32 bits).
+            // Fix: append 'L' suffix: 0b11101010010111110000000000000000L
             _putOpCode32( 0b11101010010111110000000000000000 | (Rd.regNum << 8) | Rm.regNum );
         }
 
@@ -3206,6 +3209,9 @@ public class ARMCortexMThumb {
 
         if( !_cpu.supInstARMv7MComplete() ) _errorInvalidInstructionForm(_MSTR, "$mov.w");
 
+        // !!! ERROR: Missing 'L' suffix - int literal 0b11101010010011110000000000000000 has bit 31 = 1, making it a negative int.
+        // When widened to long for _putOpCode32(), Java sign-extends it to 0xFFFFFFFF_EA4F0000L (garbage in upper 32 bits).
+        // Fix: append 'L' suffix: 0b11101010010011110000000000000000L
         _putOpCode32( 0b11101010010011110000000000000000 | (Rd.regNum << 8) | Rm.regNum );
 
         return this;
@@ -3541,6 +3547,7 @@ public class ARMCortexMThumb {
     // [T1] MVNS <Rd>, <Rm>
     public ARMCortexMThumb $mvns(final Reg Rd, final Reg Rm) throws JXMAsmError
     {
+        // !!! ERROR: Wrong mnemonic string - says "$muls" but should be "$mvns". Fix: change "$muls" to "$mvns".
         _MNEMONIC_STRING( "$muls", Rd, Rm );
 
         _checkReg_Low(_MSTR, Rd);
@@ -4417,6 +4424,7 @@ public class ARMCortexMThumb {
     // [T2] TST.W <Rn>, <Rm> ----- not available in 'ARMv8-M Baseline'
     public ARMCortexMThumb $tst(final Reg Rn, final Reg Rm) throws JXMAsmError
     {
+        // !!! ERROR: Wrong mnemonic operand - uses Rm twice instead of Rn, Rm. Fix: change to _MNEMONIC_STRING( "$tst", Rn, Rm ).
         _MNEMONIC_STRING( "$tst", Rm, Rm );
 
         // T2

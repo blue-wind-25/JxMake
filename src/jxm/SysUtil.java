@@ -2901,7 +2901,6 @@ public class SysUtil {
         return strBuilder.toString();
     }
 
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public static void _init_ll_test_app(final String[] args) throws Exception

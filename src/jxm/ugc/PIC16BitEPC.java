@@ -1615,7 +1615,6 @@ public class PIC16BitEPC {
     // MOV <f>, <Wd>
     public PIC16BitEPC $mov(final int f, final _RWx Wd) throws JXMAsmError
     {
-        // ERROR: _MNEMONIC_STRING("$mov.w", ...) does not match the method name "$mov". Per the class convention (line ~30), the ".w" suffix is implicit and must not appear in instruction names. Fix: change "$mov.w" to "$mov".
         _MNEMONIC_STRING( "$mov.w", f, Wd );
 
         _errorIfAddressOffsetNotAligned2B(_MSTR, f);
@@ -1628,7 +1627,6 @@ public class PIC16BitEPC {
     // MOV <Ws>, <f>
     public PIC16BitEPC $mov(final _RWx Ws, final int f) throws JXMAsmError
     {
-        // ERROR: _MNEMONIC_STRING("$mov.w", ...) does not match the method name "$mov". Per the class convention (line ~30), the ".w" suffix is implicit and must not appear in instruction names. Fix: change "$mov.w" to "$mov".
         _MNEMONIC_STRING( "$mov.w", Ws, f );
 
         _errorIfAddressOffsetNotAligned2B(_MSTR, f);
@@ -1651,7 +1649,6 @@ public class PIC16BitEPC {
     // MOV #<ulit16/slit16>, <Wd>
     public PIC16BitEPC $mov(final _Lit value16, final _RWx Wd) throws JXMAsmError
     {
-        // ERROR: _MNEMONIC_STRING("$mov.w", ...) does not match the method name "$mov". Per the class convention (line ~30), the ".w" suffix is implicit and must not appear in instruction names. Fix: change "$mov.w" to "$mov".
         _MNEMONIC_STRING( "$mov.w", value16, Wd );
 
          final int imm = (value16.value >= 0)
@@ -3223,13 +3220,11 @@ public class PIC16BitEPC {
 
     // DIV.S  <Wm>, <Wn>
     // DIV.SD <Wm>, <Wn>
-    // ERROR: str="sw" causes helper $_div_wm_wd_impl to call _MNEMONIC_STRING("$div_sw", ...), but method name is "$div_s". Fix: change the str argument from "sw" to "s".
     public PIC16BitEPC $div_s (final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div_wm_wd_impl("sw", 0b110110000000000000000000, true , Wm, Wn); }
     public PIC16BitEPC $div_sd(final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div_wm_wd_impl("sd", 0b110110000000000000000000, false, Wm, Wn); }
 
     // DIV.U  <Wm>, <Wn>
     // DIV.UD <Wm>, <Wn>
-    // ERROR: str="uw" causes helper $_div_wm_wd_impl to call _MNEMONIC_STRING("$div_uw", ...), but method name is "$div_u". Fix: change the str argument from "uw" to "u".
     public PIC16BitEPC $div_u (final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div_wm_wd_impl("uw", 0b110110001000000000000000, true , Wm, Wn); }
     public PIC16BitEPC $div_ud(final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div_wm_wd_impl("ud", 0b110110001000000000000000, false, Wm, Wn); }
 
@@ -3284,13 +3279,11 @@ public class PIC16BitEPC {
 
     // DIV2.S  <Wm>, <Wn>
     // DIV2.SD <Wm>, <Wn>
-    // ERROR: str="sw" causes helper $_div2_wm_wd_impl to call _MNEMONIC_STRING("$div2_sw", ...), but method name is "$div2_s". Fix: change the str argument from "sw" to "s".
     public PIC16BitEPC $div2_s (final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div2_wm_wd_impl("sw", 0b110110000000000000100000, true , Wm, Wn); }
     public PIC16BitEPC $div2_sd(final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div2_wm_wd_impl("sd", 0b110110000000000000100000, false, Wm, Wn); }
 
     // DIV2.U  <Wm>, <Wn>
     // DIV2.UD <Wm>, <Wn>
-    // ERROR: str="uw" causes helper $_div2_wm_wd_impl to call _MNEMONIC_STRING("$div2_uw", ...), but method name is "$div2_u". Fix: change the str argument from "uw" to "u".
     public PIC16BitEPC $div2_u (final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div2_wm_wd_impl("uw", 0b110110001000000000100000, true , Wm, Wn); }
     public PIC16BitEPC $div2_ud(final _RWx Wm, final _RWx Wn) throws JXMAsmError { return $_div2_wm_wd_impl("ud", 0b110110001000000000100000, false, Wm, Wn); }
 
@@ -3859,8 +3852,7 @@ public class PIC16BitEPC {
     // PUSH.D <Ws>
     public PIC16BitEPC $push_d(final _RWx Ws) throws JXMAsmError
     {
-        // ERROR: _MNEMONIC_STRING("push_d", ...) is missing the "$" prefix. Method name is "$push_d". Fix: change "push_d" to "$push_d".
-        _MNEMONIC_STRING( "push_d", Ws);
+        _MNEMONIC_STRING( "$push_d", Ws);
 
         _piRepeat = false; // This instruction can be preceded by '$repeat()'
         return $mov_d( Ws, Expr.ind_pp(Reg.SP) );
@@ -3914,8 +3906,7 @@ public class PIC16BitEPC {
     // POP.D <Wd>
     public PIC16BitEPC $pop_d(final _RWx Wd) throws JXMAsmError
     {
-        // ERROR: _MNEMONIC_STRING("pop_d", ...) is missing the "$" prefix. Method name is "$pop_d". Fix: change "pop_d" to "$pop_d".
-        _MNEMONIC_STRING( "pop_d", Wd );
+        _MNEMONIC_STRING( "$pop_d", Wd );
 
         _piRepeat = false; // This instruction can be preceded by '$repeat()'
         return $mov_d( Expr.mm_ind(Reg.SP), Wd );

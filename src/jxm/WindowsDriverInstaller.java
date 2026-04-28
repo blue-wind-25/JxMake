@@ -8,23 +8,36 @@
 package jxm;
 
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import jxm.xb.*;
 
 
 public class WindowsDriverInstaller {
 
+    // Global buffer for the last driver installation attempt
+    public static volatile String lastDriverInstallLog = "";
+
     // Installs a local INF file using PnPUtil via PowerShell with UAC elevation
     // NOTE : Use absolute paths for INF files to avoid "File not found" errors in elevated shells
     public static int installDriver(final String infPath) throws IOException, InterruptedException
     {
-        // # Use an environment variable to pass the path safely into the PowerShell sub-process.
-        // # This prevents command injection and handles special characters (', $, &, etc.) perfectly.
-        final String psCommand = "$p = Start-Process -FilePath 'pnputil.exe' -ArgumentList \"/add-driver `\"$env:INF_PATH`\" /install\" -Verb RunAs -Wait -PassThru; exit $p.ExitCode";
+        lastDriverInstallLog = "";
+
+        // Use 'cmd /c' inside Start-Process because pnputil.exe does not handle the '>' operator
+        // 'cmd /c' allows us to redirect the elevated output to a temporary file.
+        final String psCommand =
+            "$tmp = \"$env:TEMP\\pnp_res.log\";                                                                    " +
+            "$p   = Start-Process -FilePath 'cmd.exe'                                                              " +
+            "           -ArgumentList \"/c pnputil.exe /add-driver `\"$env:INF_PATH`\" /install > `\"$tmp`\" 2>&1\"" +
+            "           -Verb RunAs -Wait -PassThru;                                                               " +
+            "if(Test-Path $tmp) {                                                                                  " +
+            "    Get-Content $tmp;                                                                                 " +
+            "    Remove-Item $tmp                                                                                  " +
+            "};                                                                                                    " +
+            "if($p) { exit $p.ExitCode } else { exit 1 }                                                           ";
 
         final ProcessBuilder pb = new ProcessBuilder(
             "powershell.exe"            ,
@@ -34,20 +47,26 @@ public class WindowsDriverInstaller {
             psCommand
         );
 
-        try {
-            // Inject the path into the process environment
-            pb.environment().put("INF_PATH", infPath);
+        pb.environment().put("INF_PATH", infPath);
+        pb.redirectErrorStream(true);
 
-            // Redirect errors to standard out so we can see them if needed
-            pb.redirectErrorStream(true);
+        final Process               proc = pb.start();
+        final ByteArrayOutputStream buff = new ByteArrayOutputStream();
 
-            // Start the process and wait for the PowerShell wrapper to finish
-            return pb.start().waitFor();
-
+        try(
+            final InputStream is = proc.getInputStream()
+        ) {
+            final byte[] data = new byte[4096];
+                  int    len;
+            while( ( len = is.read(data, 0, data.length) ) != -1 ) buff.write(data, 0, len);
         }
-        catch(final IOException | InterruptedException e) {
-            throw e;
-        }
+
+        final int exitCode = proc.waitFor();
+
+        // Store the log and return the exit code
+        lastDriverInstallLog = new String( buff.toByteArray(), java.nio.charset.StandardCharsets.UTF_8 ).trim();
+
+        return exitCode;
     }
 
     public static int installDriver_noexcept(final String infPath)

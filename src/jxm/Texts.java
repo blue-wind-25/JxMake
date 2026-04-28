@@ -420,6 +420,10 @@ public class Texts {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    public static final String EMsg_WDriverInstallTimeoutMN = _T("TIMEOUT: The driver installation took longer than %d minutes.\nThe driver may still be installing in the background.");
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public static String JxMakeAboutStringText()
     {
         final StringBuilder sb = new StringBuilder();

@@ -12,6 +12,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 
+import java.util.concurrent.TimeUnit;
+
+import jxm.*;
 import jxm.xb.*;
 
 
@@ -29,7 +32,7 @@ public class WindowsDriverInstaller {
         // Use 'cmd /c' inside Start-Process because pnputil.exe does not handle the '>' operator
         // 'cmd /c' allows us to redirect the elevated output to a temporary file.
         final String psCommand =
-            "$tmp = \"$env:TEMP\\pnp_res.log\";                                                                    " +
+            "$tmp = \"$env:TEMP\\pnp_res_$PID.log\";                                                               " +
             "$p   = Start-Process -FilePath 'cmd.exe'                                                              " +
             "           -ArgumentList \"/c pnputil.exe /add-driver `\"$env:INF_PATH`\" /install > `\"$tmp`\" 2>&1\"" +
             "           -Verb RunAs -Wait -PassThru;                                                               " +
@@ -61,7 +64,16 @@ public class WindowsDriverInstaller {
             while( ( len = is.read(data, 0, data.length) ) != -1 ) buff.write(data, 0, len);
         }
 
-        final int exitCode = proc.waitFor();
+        // Wait for up to some minutes for the user to handle the UAC and the install to finish
+        final int waitTime = 5;
+
+        if( !proc.waitFor(waitTime, TimeUnit.MINUTES) ) {
+            proc.destroyForcibly(); // Kill the PowerShell wrapper
+            lastDriverInstallLog = String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTime);
+            return -2; // Specific code for timeout
+        }
+
+        final int exitCode = proc.exitValue();
 
         // Store the log and return the exit code
         lastDriverInstallLog = new String( buff.toByteArray(), java.nio.charset.StandardCharsets.UTF_8 ).trim();

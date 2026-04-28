@@ -1046,8 +1046,13 @@ class JxMakeConsole extends ANSIScreenBuffer {
         new Thread( () -> {
 
             // Delay to ensure the requesting component has finished its processing and UI flow
-            try { Thread.sleep(250); }
-            catch(final InterruptedException ignored) {}
+            try {
+                Thread.sleep(250);
+            }
+            catch(final InterruptedException ignored) {
+                // Restore state
+                Thread.currentThread().interrupt();
+            }
 
             SwingUtilities.invokeLater( () -> {
                 if( _textField == null || !_textField.isShowing() ) return;
@@ -2761,7 +2766,10 @@ class JxMakeConsole extends ANSIScreenBuffer {
                             try {
                                 Thread.sleep(100);
                             }
-                            catch(final InterruptedException ignored) {}
+                            catch(final InterruptedException ignored) {
+                                // Restore state
+                                Thread.currentThread().interrupt();
+                            }
                         }
                         // Wait for the process to exit and get the exit code
                         final int exitCode = _processHandle.waitFor(100);
@@ -2780,11 +2788,15 @@ class JxMakeConsole extends ANSIScreenBuffer {
                         } );
                     }
                     catch(final Exception ex) {
+                        if(ex instanceof InterruptedException) Thread.currentThread().interrupt(); // Restore state if required
                         _printShortException(ex);
                         try {
                             if(_processHandle != null) _lastExitCode = _processHandle.waitFor(100);
                         }
-                        catch(final Exception ignored) {}
+                        catch(final Exception ignored) {
+                            // Restore state if required
+                            if(ignored instanceof InterruptedException) Thread.currentThread().interrupt();
+                        }
                         _processHandle = null;
                     }
                 } ).start();

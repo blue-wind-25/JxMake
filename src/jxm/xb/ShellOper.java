@@ -526,6 +526,8 @@ public class ShellOper {
 
         } // try
         catch(final Exception e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // If the suppress error flag is not set, raise a normal error

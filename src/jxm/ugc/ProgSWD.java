@@ -977,6 +977,8 @@ public class ProgSWD extends ProgSWDLowLevel {
             frThread.join();
         }
         catch(final InterruptedException e) {
+            // Restore state
+            Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Notify error
@@ -1286,6 +1288,8 @@ public class ProgSWD extends ProgSWDLowLevel {
             fwThread.join();
         }
         catch(final InterruptedException e) {
+            // Restore state
+            Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Notify error
@@ -1606,6 +1610,8 @@ public class ProgSWD extends ProgSWDLowLevel {
             erThread.join();
         }
         catch(final InterruptedException e) {
+            // Restore state
+            Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Notify error
@@ -1902,6 +1908,8 @@ public class ProgSWD extends ProgSWDLowLevel {
             ewThread.join();
         }
         catch(final InterruptedException e) {
+            // Restore state
+            Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Notify error

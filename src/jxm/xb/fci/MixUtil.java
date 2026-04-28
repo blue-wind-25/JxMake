@@ -222,6 +222,8 @@ public class MixUtil {
             }
         }
         catch(final Exception e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Throw as a different exception

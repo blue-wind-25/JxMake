@@ -2723,6 +2723,9 @@ public class SysUtil {
 
         }
         catch(final Exception e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
+            // Error
             return "0";
         }
     }
@@ -2865,6 +2868,8 @@ public class SysUtil {
 
         } // try
         catch(final Exception e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
         }
@@ -2894,6 +2899,8 @@ public class SysUtil {
             procStdOut.close();
         }
         catch(final IOException | InterruptedException e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
         }

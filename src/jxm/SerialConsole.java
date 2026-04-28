@@ -284,7 +284,9 @@ public class SerialConsole {
                                                                   ).printStackTrace();
                     }
                 }
-                catch(final Exception e) {
+                catch(final InterruptedException e) {
+                    // Restore state
+                    Thread.currentThread().interrupt();
                     // Print the stack trace if requested
                     if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
                 }

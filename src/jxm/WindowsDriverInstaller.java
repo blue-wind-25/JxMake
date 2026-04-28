@@ -22,54 +22,47 @@ public class WindowsDriverInstaller {
     // NOTE : Use absolute paths for INF files to avoid "File not found" errors in elevated shells
     public static int installDriver(final String infPath) throws IOException, InterruptedException
     {
-        // Prepare the PnPUtil command
-        //     /add-driver : adds the driver to the store
-        //     /install    : installs it onto matching devices
-        final String pnpCommand = "pnputil.exe /add-driver \"" + infPath + "\" /install";
-
-        // Wrap the command in PowerShell's Start-Process to trigger UAC
-        //     FilePath     : The program to run
-        //     ArgumentList : The flags for pnputil
-        //     Verb RunAs   : THIS TRIGGERS THE UAC PROMPT
-        final String psCommand = String.format(
-            "Start-Process -FilePath 'pnputil.exe' -ArgumentList '/add-driver \"%s\" /install' -Verb RunAs -Wait",
-            infPath
-        );
+        // # Use an environment variable to pass the path safely into the PowerShell sub-process.
+        // # This prevents command injection and handles special characters (', $, &, etc.) perfectly.
+        final String psCommand = "$p = Start-Process -FilePath 'pnputil.exe' -ArgumentList \"/add-driver `\"$env:INF_PATH`\" /install\" -Verb RunAs -Wait -PassThru; exit $p.ExitCode";
 
         final ProcessBuilder pb = new ProcessBuilder(
             "powershell.exe"            ,
             "-NoProfile"                ,
             "-ExecutionPolicy", "Bypass",
-            "-Command",
+            "-Command"                  ,
             psCommand
         );
 
         try {
+            // Inject the path into the process environment
+            pb.environment().put("INF_PATH", infPath);
+
             // Redirect errors to standard out so we can see them if needed
             pb.redirectErrorStream(true);
 
-            // Start the process and wait for the PowerShell wrapper to finish, not necessarily the
-            // elevated pnputil process unless -Wait is used in PS
+            // Start the process and wait for the PowerShell wrapper to finish
             return pb.start().waitFor();
 
         }
         catch(final IOException | InterruptedException e) {
             throw e;
         }
-
-        return -1;
     }
 
-    public static int installDriver(final String infPath)
+    public static int installDriver_noexcept(final String infPath)
     {
         try {
             return WindowsDriverInstaller.installDriver(infPath);
         }
         catch(final Exception e) {
+            // Restore state if required
+            if(e instanceof InterruptedException) Thread.currentThread().interrupt();
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
-            return -1;
         }
+
+        return -1;
     }
 
 } // WindowsDriverInstaller

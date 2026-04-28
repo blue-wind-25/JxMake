@@ -1833,6 +1833,8 @@ public abstract class ANSIScreenBuffer {
                 threadStdIn.join(THREAD_JOIN_TIMEOUT_MS);
             }
             catch(final InterruptedException e) {
+                // Restore state
+                Thread.currentThread().interrupt();
                 // Print the stack trace if requested
                 if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             }
@@ -1842,6 +1844,8 @@ public abstract class ANSIScreenBuffer {
                 threadStdOut.join(THREAD_JOIN_TIMEOUT_MS);
             }
             catch(final InterruptedException e) {
+                // Restore state
+                Thread.currentThread().interrupt();
                 // Print the stack trace if requested
                 if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             }
@@ -1851,6 +1855,8 @@ public abstract class ANSIScreenBuffer {
                 threadStdErr.join(THREAD_JOIN_TIMEOUT_MS);
             }
             catch(final InterruptedException e) {
+                // Restore state
+                Thread.currentThread().interrupt();
                 // Print the stack trace if requested
                 if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             }

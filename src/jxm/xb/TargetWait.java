@@ -43,7 +43,15 @@ public class TargetWait extends ExecBlock {
                 try {
                     task.get();
                 }
-                catch(final CancellationException | ExecutionException | InterruptedException e) {}
+                catch(final InterruptedException e) {
+                    // Restore state
+                    Thread.currentThread().interrupt();
+                    // Something happened, do not wait again for this task
+                    break;
+                }
+                catch(final CancellationException | ExecutionException e) {
+                    // Task is finished (cancelled or crashed), while loop will exit
+                }
             }
         }
 

@@ -8,14 +8,19 @@
 package jxm;
 
 
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import jxm.xb.*;
 
 
 public class WindowsDriverInstaller {
 
-    // Installs a local INF file using PnPUtil via PowerShell with UAC elevation.
-    public boolean installDriver(final String infPath)
+    // Installs a local INF file using PnPUtil via PowerShell with UAC elevation
+    // NOTE : Use absolute paths for INF files to avoid "File not found" errors in elevated shells
+    public static int installDriver(final String infPath) throws IOException, InterruptedException
     {
         // Prepare the PnPUtil command
         //     /add-driver : adds the driver to the store
@@ -32,8 +37,8 @@ public class WindowsDriverInstaller {
         );
 
         final ProcessBuilder pb = new ProcessBuilder(
-            "powershell.exe",
-            "-NoProfile",
+            "powershell.exe"            ,
+            "-NoProfile"                ,
             "-ExecutionPolicy", "Bypass",
             "-Command",
             psCommand
@@ -42,25 +47,29 @@ public class WindowsDriverInstaller {
         try {
             // Redirect errors to standard out so we can see them if needed
             pb.redirectErrorStream(true);
-            Process process = pb.start();
 
-            // Note: waitFor() here waits for the PowerShell wrapper to finish,
-            // not necessarily the elevated pnputil process unless -Wait is used in PS.
-            int exitCode = process.waitFor();
-            return exitCode == 0;
+            // Start the process and wait for the PowerShell wrapper to finish, not necessarily the
+            // elevated pnputil process unless -Wait is used in PS
+            return pb.start().waitFor();
 
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            Thread.currentThread().interrupt();
-            return false;
         }
+        catch(final IOException | InterruptedException e) {
+            throw e;
+        }
+
+        return -1;
     }
 
-    public static void main(String[] args) {
-        WindowsDriverInstaller installer = new WindowsDriverInstaller();
-        // Use absolute paths for INF files to avoid "File not found" errors in elevated shells
-        boolean success = installer.installDriver("C:\\Drivers\\MyDevice.inf");
-        System.out.println("Elevation request sent: " + success);
+    public static int installDriver(final String infPath)
+    {
+        try {
+            return WindowsDriverInstaller.installDriver(infPath);
+        }
+        catch(final Exception e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            return -1;
+        }
     }
 
 } // WindowsDriverInstaller

@@ -12,6 +12,8 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
   module.
 
+# Verify and improve the WindowsDriverInstaller class.
+
 # Further improve ProgUPDI to support more MCUs:
       # Verify ProgUPDI for MCUs with NVMCTL v5 (AVR EB series?).
       # Test using the 'JxMake Versatile MCU Programmer' and 'JxMake Versatile MCU Programmer II'
@@ -49,9 +51,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Further verify and improve the callback integration for JxMake User-Defined Function invoked from
   Java code.
-
-# Implement a method to install local INF files via 'PowerShell' and 'PnPUtil', invoked through
-  'ProcessBuilder'.
 
 # Further verify and improve the SerialDevice_JxMakeUSBGPIO class and its integration.
 # Further verify and improve the SerialDevice_Network       class and its integration.

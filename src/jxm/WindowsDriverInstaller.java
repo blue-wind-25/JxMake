@@ -12,6 +12,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 
+import java.nio.charset.*;
+
 import java.util.concurrent.TimeUnit;
 
 import jxm.*;
@@ -37,15 +39,15 @@ public class WindowsDriverInstaller {
         // Use 'cmd /c' inside Start-Process because pnputil.exe does not handle the '>' operator
         // 'cmd /c' allows us to redirect the elevated output to a temporary file.
         final String psCommand =
-            "$tmp = \"$env:TEMP\\pnp_res_$PID.log\";                                                               " +
-            "$p   = Start-Process -FilePath 'cmd.exe'                                                              " +
-            "           -ArgumentList \"/c pnputil.exe /add-driver `\"$env:INF_PATH`\" /install > `\"$tmp`\" 2>&1\"" +
-            "           -Verb RunAs -Wait -PassThru;                                                               " +
-            "if(Test-Path $tmp) {                                                                                  " +
-            "    Get-Content $tmp;                                                                                 " +
-            "    Remove-Item $tmp                                                                                  " +
-            "};                                                                                                    " +
-            "if($p) { exit $p.ExitCode } else { exit 1 }                                                           ";
+            "$tmp = \"$env:TEMP\\pnp_res_$PID.log\";                                                                " +
+            "$p   = Start-Process -FilePath 'cmd.exe'                                                               " +
+            "           -ArgumentList \"/c pnputil.exe /add-driver `\"$env:INF_PATH`\" /install > `\"$tmp`\" 2>&1\" " +
+            "           -Verb RunAs -Wait -PassThru;                                                                " +
+            "if(Test-Path $tmp) {                                                                                   " +
+            "    Get-Content $tmp;                                                                                  " +
+            "    Remove-Item $tmp                                                                                   " +
+            "};                                                                                                     " +
+            "if($p) { exit $p.ExitCode } else { exit 1 }                                                            ";
 
         final ProcessBuilder pb = new ProcessBuilder(
             "powershell.exe"            ,
@@ -81,7 +83,7 @@ public class WindowsDriverInstaller {
         final int exitCode = proc.exitValue();
 
         // Store the log and return the exit code
-        _lastDriverInstallLog = new String( buff.toByteArray(), java.nio.charset.StandardCharsets.UTF_8 ).trim();
+        _lastDriverInstallLog = new String( buff.toByteArray(), Charset.defaultCharset() ).trim();
 
         return exitCode;
     }

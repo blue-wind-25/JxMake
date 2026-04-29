@@ -1,0 +1,1764 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.Serializable;
+
+import java.util.Arrays;
+import java.util.function.IntConsumer;
+
+import jxm.*;
+import jxm.annotation.*;
+import jxm.tool.*;
+import jxm.xb.*;
+
+
+/*
+ * This class is written partially based on the algorithms and information found from:
+ *
+ *     UM0470
+ *     STM8 SWIM Communication Protocol and Debug Module
+ *     https://www.st.com/resource/en/user_manual/um0470-stm8-swim-communication-protocol-and-debug-module-stmicroelectronics.pdf
+ *
+ *     PM0051
+ *     How to Program STM8S and STM8A Flash Program Memory and Data EEPROM
+ *     https://www.st.com/resource/en/programming_manual/pm0051-how-to-program-stm8s-and-stm8a-flash-program-memory-and-data-eeprom-stmicroelectronics.pdf
+ *
+ *     PM0054
+ *     How to Program STM8L and STM8AL Flash Program Memory and Data EEPROM
+ *     https://www.st.com/resource/en/programming_manual/pm0054-how-to-program-stm8l-and-stm8al-flash-program-memory-and-data-eeprom-stmicroelectronics.pdf
+ *
+ *     ----------------------------------------------------------------------------------------------------
+ *
+ *     RM0013
+ *     STM8L001XX and STM8L101XX Microcontroller Families
+ *     https://www.st.com/resource/en/reference_manual/rm0013-stm8l001xx-and-stm8l101xx-microcontroller-families-stmicroelectronics.pdf
+ *
+ *     RM0016
+ *     STM8S Series and STM8AF Series 8-Bit Microcontrollers
+ *     https://www.st.com/resource/en/reference_manual/rm0016-stm8s-series-and-stm8af-series-8bit-microcontrollers-stmicroelectronics.pdf
+ *
+ *     RM0031
+ *     STM8L050J3, STM8L051F3, STM8L052C6, STM8L052R8 MCUs and STM8L151/L152, STM8L162, STM8AL31, STM8AL3L Lines
+ *     https://www.st.com/resource/en/reference_manual/rm0031-stm8l050j3-stm8l051f3-stm8l052c6-stm8l052r8-mcus-and-stm8l151l152-stm8l162-stm8al31-stm8al3l-lines-stmicroelectronics.pdf
+ *
+ *     ----------------------------------------------------------------------------------------------------
+ *
+ *     SWIM Programmer for STM8 Based on STM32F103
+ *     https://github.com/dimitarm1/SWIM_Programmer
+ *
+ *     STM32F100 to STM8S105 SWIM Library Wiki
+ *     https://sourceforge.net/p/stm32f100tostm8s105swimlibrary/wiki/Home
+ *
+ * ~~~ Last accessed & checked on 2024-07-02 ~~~
+ */
+public class ProgSWIM implements IProgCommon {
+
+    /*
+     * Transfer speed:
+     *     # Using USB_ISS            : not supported
+     *     # Using JxMake DASA        : not supported
+     *     # Using JxMake USB-GPIO    : up to ~4030 ... ~19200 bytes per second (depending on the target and operation)
+     *     # Using JxMake USB-GPIO II : up to ~1550 ...  ~6650 bytes per second (depending on the target and operation)
+     *
+     * ##### !!! TODO : Why 'JxMake USB-GPIO II' is slower? !!! #####
+     */
+
+    /*
+     * ##### !!! WARNING !!! #####
+     * This programmer is currently much less stable for the STM8L series (and probably for the STM8AL
+     * and STM8T series as well).
+     */
+
+    private static final String ProgClassName = "ProgSWIM";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final byte FlashMemory_EmptyValue = (byte) 0x00;
+
+    @SuppressWarnings("serial")
+    public static class Config extends SerializableDeepClone<Config> {
+
+        // JxMake use a special field name for serial version UID
+        @DataFormat.Hex16 public static final long __0_JxMake_SerialVersionUID__ = SysUtil.extSerialVersionUID(0x00000001);
+
+        /*
+         * NOTE : # The default values below are for (almost all?) STM8 MCUs that can be programmed using SWIM.
+         *        # For STM8 MCUs, the 'page Size' values below must be filled in with the block size values from the datasheets.
+         */
+
+        public static class RegSTM8 implements Serializable {
+            @DataFormat.Hex04 public int SWIM_CCR    = -1;
+            @DataFormat.Hex04 public int CLK_CKDIVR  = -1;
+            @DataFormat.Hex04 public int FLASH_PUKR  = -1;
+            @DataFormat.Hex04 public int FLASH_DUKR  = -1;
+            @DataFormat.Hex04 public int FLASH_IAPSR = -1;
+            @DataFormat.Hex04 public int FLASH_CR1   = -1;
+            @DataFormat.Hex04 public int FLASH_CR2   = -1;
+            @DataFormat.Hex04 public int FLASH_NCR2  = -1;
+            @DataFormat.Hex04 public int FLASH_FPR   = -1;
+            @DataFormat.Hex04 public int FLASH_NFPR  = -1;
+        }
+
+        public static class MemoryFlash implements Serializable {
+            @DataFormat.Hex04 public int   address      = 0;
+                              public int   totalSize    = 0;
+                              public int   pageSize     = 0;
+                              public int   numPages     = 0;
+
+                              public int[] readDataBuff = null;
+        }
+
+        public static class MemoryEEPROM implements Serializable {
+            @DataFormat.Hex04 public int address   = -1;
+                              public int totalSize =  0;
+                              public int pageSize  =  0;
+                              public int numPages  =  0;
+        }
+
+        public static class MemoryOptionBytes implements Serializable {
+            @DataFormat.Hex04 public int   address       = -1;
+                              public int   totalSize     =  0;
+                              public int   pageSize      = -1;
+            @DataFormat.Hex02 public int[] defaultValues = null;
+                              public int   idx_ROP       = -1;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public final RegSTM8           regSTM8           = new RegSTM8          ();
+        public final MemoryFlash       memoryFlash       = new MemoryFlash      ();
+        public final MemoryEEPROM      memoryEEPROM      = new MemoryEEPROM     ();
+        public final MemoryOptionBytes memoryOptionBytes = new MemoryOptionBytes();
+
+    } // class Config
+
+    @SuppressWarnings("serial")
+    public static class ConfigSTM8S extends Config { // This should also work for STM8AF series
+
+        public ConfigSTM8S()
+        {
+            // Register addresses
+            regSTM8.SWIM_CCR     = 0x50CD;
+            regSTM8.CLK_CKDIVR   = 0x50C6;
+            regSTM8.FLASH_PUKR   = 0x5062;
+            regSTM8.FLASH_DUKR   = 0x5064;
+            regSTM8.FLASH_IAPSR  = 0x505F;
+            regSTM8.FLASH_CR1    = 0x505A;
+            regSTM8.FLASH_CR2    = 0x505B;
+            regSTM8.FLASH_NCR2   = 0x505C;
+            regSTM8.FLASH_FPR    = 0x505D;
+            regSTM8.FLASH_NFPR   = 0x505E;
+
+            /*
+             * WARNING : The option-bytes total memory size and default values may be different in some MCUs!
+             */
+            memoryOptionBytes.address       = 0x4800;
+            memoryOptionBytes.totalSize     = 11;
+            memoryOptionBytes.defaultValues = new int[] { 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF };
+            memoryOptionBytes.idx_ROP       = 0;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'STM8*()' functions ??? #####
+
+
+public static ConfigSTM8S STM8S003()
+{
+    final ConfigSTM8S config = new ConfigSTM8S();
+
+    config.memoryFlash.address    = 0x8000;
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.pageSize   =   64;
+    config.memoryFlash.numPages   =  128;
+
+    config.memoryEEPROM.address   = 0x4000;
+    config.memoryEEPROM.totalSize = 128;
+    config.memoryEEPROM.pageSize  =  64;
+    config.memoryEEPROM.numPages  =   2;
+
+    return config;
+}
+
+public static ConfigSTM8S STM8S103()
+{
+    final ConfigSTM8S config = new ConfigSTM8S();
+
+    config.memoryFlash.address    = 0x8000;
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.pageSize   =   64;
+    config.memoryFlash.numPages   =  128;
+
+    config.memoryEEPROM.address   = 0x4000;
+    config.memoryEEPROM.totalSize = 640;
+    config.memoryEEPROM.pageSize  =  64;
+    config.memoryEEPROM.numPages  =  10;
+
+    return config;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    } // class ConfigSTM8S
+
+    @SuppressWarnings("serial")
+    public static class ConfigSTM8L extends Config { // This should also work for STM8AL and STM8T series
+
+        public ConfigSTM8L(final boolean ropDisable_0xAA)
+        {
+            // Register addresses
+            regSTM8.SWIM_CCR    = 0x0000;
+            regSTM8.CLK_CKDIVR  = 0x50C0;
+            regSTM8.FLASH_PUKR  = 0x5052;
+            regSTM8.FLASH_DUKR  = 0x5053;
+            regSTM8.FLASH_IAPSR = 0x5054;
+            regSTM8.FLASH_CR1   = 0x5050;
+            regSTM8.FLASH_CR2   = 0x5051;
+            regSTM8.FLASH_NCR2  = 0x0000;
+            regSTM8.FLASH_FPR   = 0x0000;
+            regSTM8.FLASH_NFPR  = 0x0000;
+
+            /*
+             * NOTE    : There appear to be two major variants for the layout of the option bytes.
+             * WARNING : The option-bytes total memory size and default values may be different in some MCUs!
+             */
+                memoryOptionBytes.address       = 0x4800;
+            if(ropDisable_0xAA) {
+                memoryOptionBytes.totalSize     = 13;
+                memoryOptionBytes.defaultValues = new int[] { 0xAA, -1, 0x00, -1, -1, -1, -1, -1, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            }
+            else {
+                memoryOptionBytes.totalSize     = 9;
+                memoryOptionBytes.defaultValues = new int[] { 0x00, -1, 0x00, 0x00, -1, -1, -1, -1, 0x00 };
+            }
+                memoryOptionBytes.idx_ROP       = 0;
+        }
+
+        public ConfigSTM8L()
+        { this(false); }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'STM8*()' functions ??? #####
+
+
+public static ConfigSTM8L STM8L151()
+{
+    final ConfigSTM8L config = new ConfigSTM8L(true);
+
+    config.memoryFlash.address    = 0x8000;
+    config.memoryFlash.totalSize  = 16384;
+    config.memoryFlash.pageSize   =   128;
+    config.memoryFlash.numPages   =   128;
+
+    config.memoryEEPROM.address   = 0x1000;
+    config.memoryEEPROM.totalSize = 1024;
+    config.memoryEEPROM.pageSize  =  128;
+    config.memoryEEPROM.numPages  =    8;
+
+    return config;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    } // class ConfigSTM8L
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int SWIM_RETRY_COUNT_VERIFY_ERROR = 3;
+
+    private final USB2GPIO _usb2gpio;
+    private final Config   _config;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int SWIM_CSR                   = 0x7F80;
+    private static final int SWIM_DM_CSR2               = 0x7F99;
+
+    private static final int SWIM_CSR_DEBUGEN           = 0b10100101;
+    private static final int SWIM_DM_CSR2_STALL         = 0b00001000;
+
+    private static final int SWIM_FLASH_PUKR_KEY1       = 0x56;
+    private static final int SWIM_FLASH_PUKR_KEY2       = 0xAE;
+
+    private static final int SWIM_FLASH_DUKR_KEY1       = 0xAE;
+    private static final int SWIM_FLASH_DUKR_KEY2       = 0x56;
+
+    private static final int SWIM_FLASH_IAPSR_EOP       = 0x04;
+    private static final int SWIM_FLASH_IAPSR_WR_PG_DIS = 0x01;
+
+    private static final int[] _cmd_SRST = new int[] {
+        /*
+         *        HOST           TARGET
+         * SRST   0 B2 B1 B0 P   A
+         *        0 0  0  0  0   Z
+         *
+         *  S = 0         B = 0         B = 0         B = 0         P = 0          Z
+         */
+            0x00, 0xFF,   0x00, 0xFF,   0x00, 0xFF,   0x00, 0xFF,   0x00, 0xFF,    0xFF
+    };
+
+    private static final int[] _cmd_ROTF = new int[] {
+        /*
+         *        HOST           TARGET
+         * ROTF   0 B2 B1 B0 P   A
+         *        0 0  0  1  1   Z
+         *
+         *  S = 0         B = 0         B = 0         B = 1         P = 1          Z
+         */
+            0x00, 0xFF,   0x00, 0xFF,   0x00, 0xFF,   0x7F, 0xFF,   0x7F, 0xFF,    0xFF
+    };
+
+    private static final int[] _cmd_WOTF = new int[] {
+        /*
+         *        HOST           TARGET
+         * WOTF   0 B2 B1 B0 P   A
+         *        0 0  1  0  1   Z
+         *
+         *  S = 0         B = 0         B = 1         B = 0         P = 1          Z
+         */
+            0x00, 0xFF,   0x00, 0xFF,   0x7F, 0xFF,   0x00, 0xFF,   0x7F, 0xFF,    0xFF
+    };
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+     * Write is assisted by HW-SPI at 4MHz
+     *     Bit '0'   =   { 0x00, 0xFF }
+     *     Bit '1'   =   { 0x7F, 0xFF }
+     *
+     * Read is assisted by HW-SPI at 8MHz
+     *     Bit 'Z'   =   { 0xFF, 0xFF, 0xFF }
+     */
+
+    private static int _parityU08(int x)
+    {
+        int y = x ^ (x >> 1);
+            y = y ^ (y >> 2);
+            y = y ^ (y >> 4);
+
+        return ( (y & 1) == 0 ) ? 0x00 : 0x01;
+    }
+
+    private static int[] _genWrByte(final int value)
+    {
+        /*
+         *        HOST                          TARGET
+         * BYTE   0 B7 B6 B5 B4 B3 B2 B1 B0 P   A
+         *        0 ?  ?  ?  ?  ?  ?  ?  ?  ?   Z
+         */
+
+        final int[] buff = new int[ (1 + 8 + 1) * 2 + 1 ];
+
+        buff[ 0] =                                 0x00      ; buff[ 1] = 0xFF;
+        buff[ 2] = ( (value & 0b10000000) != 0 ) ? 0x7F: 0x00; buff[ 3] = 0xFF;
+        buff[ 4] = ( (value & 0b01000000) != 0 ) ? 0x7F: 0x00; buff[ 5] = 0xFF;
+        buff[ 6] = ( (value & 0b00100000) != 0 ) ? 0x7F: 0x00; buff[ 7] = 0xFF;
+        buff[ 8] = ( (value & 0b00010000) != 0 ) ? 0x7F: 0x00; buff[ 9] = 0xFF;
+        buff[10] = ( (value & 0b00001000) != 0 ) ? 0x7F: 0x00; buff[11] = 0xFF;
+        buff[12] = ( (value & 0b00000100) != 0 ) ? 0x7F: 0x00; buff[13] = 0xFF;
+        buff[14] = ( (value & 0b00000010) != 0 ) ? 0x7F: 0x00; buff[15] = 0xFF;
+        buff[16] = ( (value & 0b00000001) != 0 ) ? 0x7F: 0x00; buff[17] = 0xFF;
+        buff[18] = ( _parityU08(value)    != 0 ) ? 0x7F: 0x00; buff[19] = 0xFF;
+        buff[20] =                                 0xFF      ;
+
+        return buff;
+    }
+
+    /*
+    private static int[] _genRdByte()
+    {
+        /*
+         *        TARGET                        HOST
+         * BYTE   1 B7 B6 B5 B4 B3 B2 B1 B0 P   1
+         *        Z Z  Z  Z  Z  Z  Z  Z  Z  Z   1
+         * /
+
+        final int[] buff = new int[21];
+
+        Arrays.fill(buff, 0xFF);
+        buff[buff.length - 1] = 0b00111111; // Pre-ack
+
+        return buff;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static int _checkAck_wrCmd(final int[] buff, int idx, final boolean dump)
+    {
+        // Add an information line as needed
+        if(dump) SysUtil.stdDbg().println("### _checkAck_wrCmd()");
+
+        // Process the command (SRST/ROTF/ WOTF)
+        if(idx == 0) {
+            if(dump) {
+                for( int i = 0; i < 10; i += 2 ) SysUtil.stdDbg().printf( "%02X %02X\n", buff[idx++], buff[idx++] );
+                SysUtil.stdDbg().printf( "%02X\n", buff[idx++] );
+            }
+            else {
+                idx += 11;
+            }
+            if(dump) SysUtil.stdDbg().printf( "### %02X\n", buff[idx - 2] );
+            if(buff[idx - 2] == 0xFF) return -1;
+        }
+
+        // Add a separator line as needed
+        if(dump) SysUtil.stdDbg().println();
+
+        // Done
+        return idx;
+    }
+
+    private static int _checkAck_wrNEHL(final int[] buff, int idx, final boolean dump)
+    {
+        // Process the the number of bytes (N) and 24-bit address (@E, @H, @L)
+        for(int p = 0; p < 4; ++p) {
+
+            // Add an information line as needed
+            if(dump) SysUtil.stdDbg().printf("### _checkAck_wrNEHL() [%d]\n", p);
+
+            // Process the parameter
+            if(dump) {
+                for( int i = 0; i < 20; i += 2 ) SysUtil.stdDbg().printf( "%02X %02X\n", buff[idx++], buff[idx++] );
+                SysUtil.stdDbg().printf( "%02X\n", buff[idx++] );
+            }
+            else {
+                idx += 21;
+            }
+            if(dump) SysUtil.stdDbg().printf( "### %02X\n", buff[idx - 2] );
+            if(buff[idx - 2] == 0xFF) return -1;
+
+            // Add a separator line as needed
+            if(dump) SysUtil.stdDbg().println();
+
+        } // for
+
+        // Done
+        return idx;
+    }
+
+    private static int _checkAck_wrVal(final int[] buff, int idx, final boolean dump)
+    {
+        // Add an information line as needed
+        if(dump) SysUtil.stdDbg().println("### _checkAck_wrVal()");
+
+        // Process the value
+        if(dump) {
+            for( int i = 0; i < 20; i += 2 ) SysUtil.stdDbg().printf( "%02X %02X\n", buff[idx++], buff[idx++] );
+            SysUtil.stdDbg().printf( "%02X\n", buff[idx++] );
+        }
+        else {
+            idx += 21;
+        }
+        if(dump) SysUtil.stdDbg().printf( "### %02X\n", buff[idx - 2] );
+        if(buff[idx - 2] == 0xFF) return -1;
+
+        // Add a separator line as needed
+        if(dump) SysUtil.stdDbg().println();
+
+        // Done
+        return idx;
+    }
+
+    /*
+    private static int[] _parseRes_rdVal(final int[] buff, final boolean dump)
+    {
+        // Convert the byte stream into boolean stream
+        final boolean bs[] = new boolean[buff.length * 8];
+              int     idx  = 0;
+        for(int i = 0; i < buff.length; ++i) {
+            final int v = buff[i];
+            bs[idx++] = (v & 0b10000000) != 0;
+            bs[idx++] = (v & 0b01000000) != 0;
+            bs[idx++] = (v & 0b00100000) != 0;
+            bs[idx++] = (v & 0b00010000) != 0;
+            bs[idx++] = (v & 0b00001000) != 0;
+            bs[idx++] = (v & 0b00000100) != 0;
+            bs[idx++] = (v & 0b00000010) != 0;
+            bs[idx++] = (v & 0b00000001) != 0;
+        }
+
+        if(dump) {
+            // Dump the byte stream
+            SysUtil.stdDbg().printf("\n### _parseRes_rdVal() : buff.length=%d\n", buff.length);
+            for(int i = 0; i < buff.length; i += 2) {
+                                        SysUtil.stdDbg().printf( "### %02X ", buff[i    ] );
+                if(i + 1 < buff.length) SysUtil.stdDbg().printf(     "%02X ", buff[i + 1] );
+                                        SysUtil.stdDbg().printf(        "\n"              );
+            }
+            // Dump the boolean stream
+            for(int i = 0; i < bs.length; ++i) SysUtil.stdDbg().print( bs[i] ? '1' : '0' );
+            SysUtil.stdDbg().println();
+        }
+
+        // Parse the boolean stream
+        final int[] val    = new int[] {  0,  0 };
+        final int[] par    = new int[] { -1, -1 };
+
+              int   curBit = 9;
+              int   curPos = 0;
+
+              int   curMsk = 0b10000000;
+              int   curVal = 0;
+              int   curPar = 0;
+
+        for(idx = 0; idx < bs.length;) {
+
+            // Count the number of zeroes
+            int cnt = 0;
+
+            while( idx < bs.length &&  bs[idx] ) { ++idx;        }
+            while( idx < bs.length && !bs[idx] ) { ++idx; ++cnt; }
+
+            // It is logic 1 if the number of zeroes is <= 4
+            final int NZLimit = 4;
+
+            if(curMsk != 0) {
+                if(cnt <= NZLimit) val[curPos] |= curMsk;
+            }
+            else {
+                par[curPos] = (cnt <= NZLimit) ? 1 : 0;
+            }
+
+            // Shift the mask and bit position
+            curMsk >>>= 1;
+
+            --curBit;
+
+            // Move to the next position
+            if(curBit == 0) {
+                // Dump the value as needed
+                if(dump) SysUtil.stdDbg().printf( "=== %02X %d\n", val[curPos], par[curPos] );
+                // Check the parity
+                if( _parityU08(val[curPos]) != par[curPos] ) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_RdParErr, ProgClassName);
+                    return null;
+                }
+                // Error if we got more than 2 bytes
+                if(curPos == 1) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_RdToMany, ProgClassName);
+                    return null;
+                }
+                // Update the state variables
+                curBit = 9;
+                curPos = 1;
+                curMsk = 0b10000000;
+                curVal = 0;
+                curPar = 0;
+           }
+
+        } // while
+
+        // Check and finalize the number of bytes that have been read
+        if(par[0] < 0) return null;
+        if(par[1] < 0) val[1] = -1;
+
+        // Done
+        return val;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : The SRST implementation in the firmware seems to work better in most cases.
+    // NOTE : The SPI-assisted SRST is currently used in '_swim_enterFullDebugMode()' only.
+
+    // ##### ??? TODO : Remove it along with its supporting data and functions later ??? #####
+
+    private boolean _swim_SRST()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Send the command and read the response
+        final int[] ioBuff = XCom.arrayCopy(_cmd_SRST);
+
+        if( !_usb2gpio.swimTransfer(ioBuff, 0) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_Trans, ProgClassName);
+
+        // Check the response
+        final boolean dump = false;
+
+        if( _checkAck_wrCmd(ioBuff, 0, dump) < 0 ) return false;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : The WOTF implementation in the firmware seems to work better in most cases.
+    // NOTE : The SPI-assisted WOTF is currently used only by '_swim_enterFullDebugMode()'.
+
+    // ##### ??? TODO : Remove it along with its supporting data and functions later ??? #####
+
+    private boolean _swim_WOTF( final int[] buff, final int address24)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Generate the command buffer
+        int[] ioBuff = XCom.arrayConcatCopy(
+            _cmd_WOTF                              , // 11
+            _genWrByte( 1                         ), // 21
+            _genWrByte( (address24 >>> 16) & 0xFF ), // 21
+            _genWrByte( (address24 >>>  8) & 0xFF ), // 21
+            _genWrByte( (address24 >>>  0) & 0xFF )  // 21
+        );
+
+        // Send the command and check the response
+        if( !_usb2gpio.swimTransfer(ioBuff, 0) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_Trans, ProgClassName);
+
+        final boolean dump = false;
+              int     idx  = 0;
+
+        idx = _checkAck_wrCmd (ioBuff, idx, dump); if(idx < 0) return false;
+        idx = _checkAck_wrNEHL(ioBuff, idx, dump); if(idx < 0) return false;
+
+        // Send the data and check the response
+        for(final int value : buff) {
+
+            ioBuff = _genWrByte(value); // 21
+
+            if( !_usb2gpio.swimTransfer(ioBuff, 0) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_Trans, ProgClassName);
+
+            if( _checkAck_wrVal(ioBuff, 0, dump) < 0 ) return false;
+
+        } // for
+
+        // Done
+        return true;
+    }
+
+    private boolean _swim_WOTF(final int address24, final int value)
+    { return _swim_WOTF( new int[] { value }, address24 ); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+    // WARNING : The SPI-assisted ROTF does not work well!!!
+    // NOTE    : The ROTF implementation in the firmware is much better.
+
+    // ##### ??? TODO : Remove it along with its supporting data and functions later ??? #####
+
+    private int _swim_ROTF(final int address24)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Generate the command buffer
+        final int[] iBuff = _genRdByte();
+
+        final int[] ioBuff = XCom.arrayConcatCopy(
+            _cmd_ROTF                               , // 11
+            _genWrByte ( 1                         ), // 21
+            _genWrByte ( (address24 >>> 16) & 0xFF ), // 21
+            _genWrByte ( (address24 >>>  8) & 0xFF ), // 21
+            _genWrByte ( (address24 >>>  0) & 0xFF ), // 21
+             iBuff                                    // 19
+        );
+
+        // Send the command and read the response
+        if( !_usb2gpio.swimTransfer(ioBuff, iBuff.length + 1) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_Trans, ProgClassName);
+            return -1;
+        }
+
+        // Check the response
+        final boolean dump = false;
+              int     idx  = 0;
+
+        idx = _checkAck_wrCmd (ioBuff, idx, dump); if(idx < 0) return -1;
+        idx = _checkAck_wrNEHL(ioBuff, idx, dump); if(idx < 0) return -1;
+
+        // Parse the response
+        final int[] res = _parseRes_rdVal( Arrays.copyOfRange(ioBuff, ioBuff.length - iBuff.length, ioBuff.length - 1), false );
+
+        // Return the value
+        return (res != null) ? res[0] : -1;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _swim_lineReset()
+    {
+        if( !_usb2gpio.swimLineReset() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_LineRst, ProgClassName);
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _swimCmd_WOTF_withAutoPadding(final int[] buff, final int address24, final int pageSize)
+    {
+        final int[] paddedBuff = new int[pageSize];
+
+        Arrays.fill(paddedBuff, 0);
+        for(int i = 0; i < buff.length; ++i) paddedBuff[i] = buff[i];
+
+        /*
+        return _swim_WOTF(paddedBuff, _config.memoryOptionBytes.address);
+        //*/
+
+        return _usb2gpio.swimCmd_WOTF(paddedBuff, _config.memoryOptionBytes.address);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _swim_enterFullDebugMode()
+    {
+        //*
+        if( (_config instanceof ConfigSTM8S) && ! USB_GPIO.isHWv2(_usb2gpio) ) {
+            // ##### ??? TODO : Why using the SPI-assisted WOTF is more reliable for STM8S here ??? #####
+            if( !_swim_WOTF(SWIM_CSR, SWIM_CSR_DEBUGEN) ) {
+                return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetSWCSR, ProgClassName);
+            }
+        }
+
+        else {
+            for(int i = 0; ; ++i) {
+                if( _usb2gpio.swimCmd_WOTF(SWIM_CSR, SWIM_CSR_DEBUGEN) ) break;
+                if(i >= 5) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetSWCSR, ProgClassName);
+                for(int j = 0; ; ++j) {
+                    SysUtil.sleepMS(250);
+                    if( _swim_lineReset() ) break;
+                    if(j >= 5) return false;
+                }
+            }
+        }
+        //*/
+
+        //*
+        if( !_usb2gpio.swimCmd_WOTF(SWIM_DM_CSR2, SWIM_DM_CSR2_STALL) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetDCSR2, ProgClassName);
+        //*/
+
+        return true;
+    }
+
+    private boolean _swim_unlockFlash()
+    {
+        /*
+        if( !_swim_WOTF(_config.regSTM8.FLASH_PUKR, SWIM_FLASH_PUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULFlashM, ProgClassName);
+        if( !_swim_WOTF(_config.regSTM8.FLASH_PUKR, SWIM_FLASH_PUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULFlashM, ProgClassName);
+        //*/
+
+        //*
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_PUKR, SWIM_FLASH_PUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULFlashM, ProgClassName);
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_PUKR, SWIM_FLASH_PUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULFlashM, ProgClassName);
+        //*/
+
+        return true;
+    }
+
+    private boolean _swim_unlockEEPROM()
+    {
+        /*
+        if( !_swim_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULEEPROM, ProgClassName);
+        if( !_swim_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULEEPROM, ProgClassName);
+        //*/
+
+        //*
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULEEPROM, ProgClassName);
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULEEPROM, ProgClassName);
+        //*/
+
+        return true;
+    }
+
+    private boolean _swim_unlockOptionByte()
+    {
+        /*
+        if( !_swim_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULOptByt, ProgClassName);
+        if( !_swim_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULOptByt, ProgClassName);
+        //*/
+
+        //*
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY1) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULOptByt, ProgClassName);
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_DUKR, SWIM_FLASH_DUKR_KEY2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ULOptByt, ProgClassName);
+        //*/
+
+        return true;
+    }
+
+    private static enum _SWM { FLASH, EEPROM, OBYTE }
+
+    private boolean _swim_writeInit(final int cr2Bits, final int ncr2Bits, final _SWM writeMode)
+    {
+        // Re-initialize, just in case
+        if( !_swim_lineReset() ) return false;
+        if( !_swim_enterFullDebugMode() ) return false;
+
+        // Unlock the memory
+             if(writeMode == _SWM.FLASH ) { if( !_swim_unlockFlash     () ) return false; }
+        else if(writeMode == _SWM.EEPROM) { if( !_swim_unlockEEPROM    () ) return false; }
+        else if(writeMode == _SWM.OBYTE ) { if( !_swim_unlockOptionByte() ) return false; }
+        else                              { SysUtil.systemExitError();                    } // The program flow should never have reached this point
+
+        /*
+        // Add an information line as needed
+        SysUtil.stdDbg().printf( "### _swim_writeInit() : %02X %02X %s\n", cr2Bits, ncr2Bits, writeMode.name() );
+        //*/
+
+        // Write CR2 and NCR2
+        final String errMsg = (writeMode == _SWM.FLASH ) ? Texts.ProgXXX_FailSWIM_WiFlashP
+                            : (writeMode == _SWM.EEPROM) ? Texts.ProgXXX_FailSWIM_WiEEPROM
+                            : (writeMode == _SWM.OBYTE ) ? Texts.ProgXXX_FailSWIM_WiOptByt
+                            : null; // The program flow should never have reached this point
+
+            if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_CR2 ,  cr2Bits) ) return USB2GPIO.notifyError(errMsg, ProgClassName);
+        if(_config.regSTM8.FLASH_NCR2 != 0) {
+            if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.FLASH_NCR2, ncr2Bits) ) return USB2GPIO.notifyError(errMsg, ProgClassName);
+        }
+
+        // Done
+        return true;
+    }
+
+    private boolean _swim_blockWriteInit_OptionBytes()
+    { return _swim_writeInit(0x81, 0x7E, _SWM.OBYTE); }
+
+    private boolean _swim_blockWriteInit_Flash_EEPROM(final boolean fastWrite, final _SWM writeMode)
+    {
+        // Start page (block) write
+        // STANDARD WRITE : 0x01 0xFE
+        // FAST     WRITE : 0x10 0xEF
+        // ERASE          : 0x20 0xDF
+        return _swim_writeInit(fastWrite ? 0x10 : 0x01, fastWrite ? 0xEF : 0xFE, writeMode);
+    }
+
+    private boolean _swim_waitWriteInit_Flash_EEPROM(final boolean fastWrite, final String errMsg, final int c, final int cchAddr)
+    {
+        // NOTE : According to the datasheet, a standard block write will take at most 6.6mS while a fast block write is twice as fast
+
+        // Delay for a while
+        SysUtil.sleepMS(fastWrite ? 1 : 2);
+
+        // Check whether the operation was successful
+        final XCom.TimeoutMS tms  = new XCom.TimeoutMS(fastWrite ? 35 : 70);
+        final int[]          buff = new int[2];
+
+        while( !tms.timeout() ) {
+            // Read FLASH_IAPSR
+            if( !_usb2gpio.swimCmd_ROTF(buff, _config.regSTM8.FLASH_IAPSR - buff.length + 1) ) break;
+            final int res = buff[buff.length - 1];
+          //SysUtil.stdDbg().println( XCom.uint08binStr(res) );
+            // Check the status
+            if( (res & SWIM_FLASH_IAPSR_WR_PG_DIS) != 0 ) break;
+            if( (res & SWIM_FLASH_IAPSR_EOP      ) != 0 ) return true;
+
+        } // for
+
+        // Error
+        return USB2GPIO.notifyError(errMsg, ProgClassName, c, cchAddr);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int[] _swim_readOptionBytes()
+    {
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0) return new int[0];
+
+        // Re-initialize, just in case
+        if( !_swim_lineReset() ) return null;
+        if( !_swim_enterFullDebugMode() ) return null;
+
+        // Read the bytes
+        final int[] buff = new int[_config.memoryOptionBytes.totalSize];
+
+        if( !_usb2gpio.swimCmd_ROTF(buff, _config.memoryOptionBytes.address ) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_RdOptByt, ProgClassName);
+            return null;
+        }
+
+        // Return the bytes
+        return buff;
+    }
+
+    private boolean _swim_writeOptionBytes(final int values[])
+    {
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0) return true;
+
+        // Write the bytes
+        if( !_swim_blockWriteInit_OptionBytes() ) return false;
+
+        if( !_swimCmd_WOTF_withAutoPadding(values, _config.memoryOptionBytes.address, _config.memoryOptionBytes.pageSize) ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_WrOptByt, ProgClassName);
+        }
+
+        // Wait for a while
+        SysUtil.sleepMS(100);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _inProgMode   = false;
+    private boolean _flashErased  = false;
+    private boolean _eepromErased = false;
+
+    public ProgSWIM(final USB2GPIO usb2gpio, final Config config) throws Exception
+    {
+        // Store the objects
+        _usb2gpio = usb2gpio;
+        _config   = config.deepClone();
+
+        // Check the configuration values
+        if(_config.regSTM8.SWIM_CCR    < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "SWIM_CCR"   );
+        if(_config.regSTM8.CLK_CKDIVR  < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "CLK_CKDIVR" );
+        if(_config.regSTM8.FLASH_PUKR  < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_PUKR" );
+        if(_config.regSTM8.FLASH_DUKR  < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_DUKR" );
+        if(_config.regSTM8.FLASH_IAPSR < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_IAPSR");
+        if(_config.regSTM8.FLASH_CR1   < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_CR1"  );
+        if(_config.regSTM8.FLASH_CR2   < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_CR2"  );
+        if(_config.regSTM8.FLASH_NCR2  < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_NCR2" );
+        if(_config.regSTM8.FLASH_FPR   < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_FPR"  );
+        if(_config.regSTM8.FLASH_NFPR  < 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvRegSTM8, ProgClassName, "FLASH_NFPR" );
+
+        if(_config.memoryFlash.address   <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFAddress , ProgClassName);
+        if(_config.memoryFlash.totalSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFTotSize , ProgClassName);
+        if(_config.memoryFlash.pageSize  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSize, ProgClassName);
+        if(_config.memoryFlash.numPages  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFNumPages, ProgClassName);
+
+        if(_config.memoryFlash.pageSize * _config.memoryFlash.numPages != _config.memoryFlash.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSpec, ProgClassName);
+
+        if(_config.memoryEEPROM.address >= 0 || _config.memoryEEPROM.totalSize > 0) {
+            if(_config.memoryEEPROM.address   <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMEAddress , ProgClassName);
+            if(_config.memoryEEPROM.totalSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMETotSize , ProgClassName);
+            if(_config.memoryEEPROM.pageSize  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMEPageSize, ProgClassName);
+            if(_config.memoryEEPROM.numPages  <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMENumPages, ProgClassName);
+
+            if(_config.memoryEEPROM.pageSize * _config.memoryEEPROM.numPages != _config.memoryEEPROM.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMEPageSpec, ProgClassName);
+
+            if(_config.memoryOptionBytes.pageSize <= 0) _config.memoryOptionBytes.pageSize = _config.memoryEEPROM.pageSize;
+        }
+
+        if(_config.memoryOptionBytes.address >= 0 || _config.memoryOptionBytes.totalSize > 0) {
+            if(_config.memoryOptionBytes.address              <  0                                  ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMOAddress, ProgClassName);
+            if(_config.memoryOptionBytes.totalSize            <= 0                                  ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMOTotSize, ProgClassName);
+            if(_config.memoryOptionBytes.pageSize             <= 0                                  ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMOPageSize, ProgClassName);
+            if(_config.memoryOptionBytes.defaultValues        == null                               ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMODefVals, ProgClassName);
+            if(_config.memoryOptionBytes.defaultValues.length != _config.memoryOptionBytes.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMODefVals, ProgClassName);
+            if(_config.memoryOptionBytes.idx_ROP              <  0                                  ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMOIdxROP , ProgClassName);
+            if(_config.memoryOptionBytes.idx_ROP              >= _config.memoryOptionBytes.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMOIdxROP , ProgClassName);
+        }
+    }
+
+    public Config config()
+    { return _config; }
+
+    public boolean begin()
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flags
+        _flashErased  = false;
+        _eepromErased = false;
+
+        // Enable mode
+        if(_usb2gpio instanceof USB_GPIO) {
+            if( !( (USB_GPIO) _usb2gpio ).pcf8574Enable_SWIM() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPCF8574, ProgClassName);
+        }
+
+        // Initialize the SWIM
+        for(int i = 0; i < 5; ++i) {
+            // Initialize the SWIM
+            if( _usb2gpio.swimBegin() ) break;
+            // Error initializing the SWIM - exit if this is the 2nd initialization attempt
+            if(i > 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSWIM, ProgClassName);
+            // Uninitialize the SWIM and try again
+            _usb2gpio.swimEnd();
+            SysUtil.sleepMS(250);
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Configure the SWIM clock divider
+      //if( _config.regSTM8.SWIM_CCR != 0 && !_swim_WOTF(_config.regSTM8.SWIM_CCR, 0) ) {
+        if( _config.regSTM8.SWIM_CCR != 0 && !_usb2gpio.swimCmd_WOTF(_config.regSTM8.SWIM_CCR, 0) ) {
+            // Uninitialize the SWIM
+            end();
+            // Notify error
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetClkDv, ProgClassName);
+        }
+
+        // Enable full debug mode
+        if( !_swim_enterFullDebugMode() ) {
+            // Uninitialize the SWIM
+            end();
+            // Notify error
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetSWCSR, ProgClassName);
+        }
+
+        // Configure the system clock divider
+      //if( !_swim_WOTF(_config.regSTM8.CLK_CKDIVR, 0) ) {
+        if( !_usb2gpio.swimCmd_WOTF(_config.regSTM8.CLK_CKDIVR, 0) ) {
+            // Uninitialize the SWIM
+            end();
+            // Notify error
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_SetClkDv, ProgClassName);
+        }
+
+        /*
+        // ##### ??? TODO : REMOVE THIS BLOCK LATER ??? #####
+        // ##### ??? TODO : REMOVE THIS BLOCK LATER ??? #####
+        // ##### ??? TODO : REMOVE THIS BLOCK LATER ??? #####
+        final int[] ref00 = new int[] { 0x82, 0x00, 0x80, 0x6F, 0x82, 0x00, 0x83, 0x26, 0x82, 0x00, 0x83, 0x27, 0x82, 0x00, 0x83, 0x28, 0x82, 0x00, 0x83, 0x29, 0x82, 0x00, 0x83, 0x2A, 0x82, 0x00, 0x83, 0x2B, 0x82, 0x00, 0x83, 0x2C };
+        final int[] refC0 = new int[] { 0x68, 0x5F, 0x4C, 0x69, 0x62, 0x2F, 0x4C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x69, 0x65, 0x73, 0x2F, 0x53, 0x54, 0x4D, 0x38, 0x53, 0x5F, 0x53, 0x74, 0x64, 0x50, 0x65, 0x72, 0x69, 0x70, 0x68, 0x5F };
+        final int   subAd = 2 * 0;
+        SysUtil.stdDbg().println("### A1 ###");
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) ); // A7
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        if(false) {
+            _usb2gpio.swimCmd_SRST();
+            _usb2gpio.swimEnd();
+            _usb2gpio.shutdown();
+            System.exit(1);
+        }
+        if(true) {
+            final int[] res = new int[ref00.length + subAd];
+            if( _usb2gpio.swimCmd_ROTF(res, _config.memoryFlash.address - subAd) ) {
+                for(int i = 0; i < ref00.length; ++i) {
+                    final boolean eq = (ref00[i] == res[i + subAd]);
+                    SysUtil.stdDbg().printf( "[F:%04X] %02X %s -> %s %02X %s\n", _config.memoryFlash.address + i, ref00[i], XCom.uint08binStr(ref00[i]), XCom.uint08binStr(res[i + subAd]), res[i + subAd], eq ? '✔' : '✘' );
+                 }
+            }
+        }
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        if(true) {
+            final int[] res = new int[refC0.length + subAd];
+            if( _usb2gpio.swimCmd_ROTF(res, _config.memoryFlash.address + 0xC0 - subAd) ) {
+                for(int i = 0; i < refC0.length; ++i) {
+                    final boolean eq = (refC0[i] == res[i + subAd]);
+                    SysUtil.stdDbg().printf( "[F:%04X] %02X %s -> %s %02X %s\n", _config.memoryFlash.address + 0xC0 + i, refC0[i], XCom.uint08binStr(refC0[i]), XCom.uint08binStr(res[i + subAd]), res[i + subAd], eq ? '✔' : '✘' );
+                }
+            }
+        }
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().println("### A2 ###");
+
+        SysUtil.stdDbg().println();
+
+        SysUtil.stdDbg().println("### B1 ###");
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        if(true) {
+            for(int i = 0; i < ref00.length; ++i) {
+                SysUtil.stdDbg().printf( "[F:%04X] %02X %s -> ", _config.memoryFlash.address + i, ref00[i], XCom.uint08binStr(ref00[i]) );
+                final int res = _usb2gpio.swimCmd_ROTF(_config.memoryFlash.address + i);
+                if(res >= 0) {
+                    final boolean eq = (ref00[i] == res);
+                    SysUtil.stdDbg().printf( "%s %02X %s\n", XCom.uint08binStr(res), res, eq ? '✔' : '✘' );
+                    if(!eq) _swim_lineReset();
+                }
+            }
+        }
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().printf( "[CSR   ] %02X\n", _usb2gpio.swimCmd_ROTF(SWIM_CSR) );
+        SysUtil.stdDbg().println("### B2 ###\n");
+
+        if(true) {
+            final int[] res = new int[11];
+            final int   adr = 0x4800;
+            if( _usb2gpio.swimCmd_ROTF(res, adr) ) {
+                for(int i = 0; i < res.length; ++i) {
+                    SysUtil.stdDbg().printf( "[O:%04X] %02X\n", adr + i, res[i]);
+                 }
+            }
+            SysUtil.stdDbg().println();
+        }
+        if(true) {
+            final int[] res = new int[64];
+            for(int i = 0; i < 8; ++i) {
+                final int     adr = 0x8000 + 64 * i;
+                final boolean b   = _usb2gpio.swimCmd_ROTF(res, adr);
+                SysUtil.stdDbg().printf("[O:%04X] : %b\n", adr, b);
+                if(!b) {
+                    if( !_swim_lineReset() ) { SysUtil.stdDbg().println("XXX 1 XXXX"); }
+                    if( !_swim_enterFullDebugMode() ) { SysUtil.stdDbg().println("XXX 2 XXXX"); }
+               }
+            }
+            SysUtil.stdDbg().println();
+        }
+        if(true) {
+            final int[] res = new int[11];
+            final int   adr = 0x4800;
+            if( _usb2gpio.swimCmd_ROTF(res, adr) ) {
+                for(int i = 0; i < res.length; ++i) {
+                    SysUtil.stdDbg().printf( "[O:%04X] %02X\n", adr + i, res[i]);
+                 }
+            }
+            SysUtil.stdDbg().println();
+        }
+
+        SysUtil.stdDbg().println();
+        //*/
+
+        // Done
+        return true;
+    }
+
+    private boolean _end_impl(final boolean realEnd)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Commit EEPROM, reset the MCU, and uninitialize the SWIM
+        final boolean resCommitEEPROM = realEnd ? commitEEPROM() : true;
+      //final boolean resSWIMCmdSRST  = _swim_SRST();
+        final boolean resSWIMCmdSRST  = _usb2gpio.swimCmd_SRST();
+        final boolean resSWIMEnd      = _usb2gpio.swimEnd();
+
+        // Disable mode
+        boolean resDisMode = true;
+
+        if(_usb2gpio instanceof USB_GPIO) {
+            resDisMode = ( (USB_GPIO) _usb2gpio ).pcf8574Disable();
+        }
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if( realEnd && (!resCommitEEPROM || !resSWIMCmdSRST || !resSWIMEnd|| !resDisMode) ) {
+            if(!resCommitEEPROM ) USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_CmEEPROM, ProgClassName);
+            if(!resSWIMCmdSRST  ) USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_ResetMCU, ProgClassName);
+            if(!resSWIMEnd      ) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitSWIM   , ProgClassName);
+            if(!resDisMode      ) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPCF8574, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean end()
+    { return _end_impl(true); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : STM8 does not have signature bytes!
+
+    // ##### ??? TODO : Is it possible to emulate it ??? #####
+
+    @Override
+    public boolean supportSignature()
+    { return false; }
+
+    @Override
+    public boolean readSignature()
+    { return false; }
+
+    @Override
+    public boolean verifySignature(final int[] signatureBytes)
+    { return false; }
+
+    @Override
+    public int[] mcuSignature()
+    { return null; }
+
+    /*
+    private int[] _mcuSignature = null;
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Clear the signature buffer first
+        _mcuSignature = null;
+
+        // ##### !!! TODO !!! #####
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean verifySignature(final int[] signatureBytes)
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Compare the signature
+        return Arrays.equals(_mcuSignature, signatureBytes);
+    }
+
+    @Override
+    public int[] mcuSignature()
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return null;
+        }
+
+        // Return the signature
+        return _mcuSignature;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_flashErased && _eepromErased) return true;
+
+        // STM8 does not have a chip erase command, therefore, emulate it if possible
+        if(_config.memoryOptionBytes.address >= 0 && _config.memoryOptionBytes.idx_ROP >= 0) {
+            // Set ROP
+            final int[] setROP = XCom.arrayCopy(_config.memoryOptionBytes.defaultValues);
+            final int   idxROP = _config.memoryOptionBytes.idx_ROP;
+            setROP[idxROP] = ( setROP[idxROP] == 0x00 ) ? 0xAA : 0x00;
+            _swim_writeOptionBytes(setROP);
+            _end_impl(false); // Restart
+            begin();
+            // Unset ROP
+            final int[] unsetROP = XCom.arrayCopy(_config.memoryOptionBytes.defaultValues);
+            for(int i = 0; i < unsetROP.length; ++i) if(unsetROP[i] < 0) unsetROP[i] = 0;
+            _swim_writeOptionBytes(unsetROP); // NOTE : It does seem to have to be written twice
+            _swim_writeOptionBytes(unsetROP);
+            _end_impl(false); // Restart
+            begin();
+            // Set flags
+            _flashErased  = true;
+            _eepromErased = true;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public int _flashMemoryTotalSize()
+    { return _config.memoryFlash.totalSize; }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return USB2GPIO.alignWriteSize(numBytes, _config.memoryFlash.pageSize); }
+
+    @Override
+    public int _eepromMemoryTotalSize()
+    { return _config.memoryEEPROM.totalSize; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int[] _readDataBuff()
+    { return _config.memoryFlash.readDataBuff; }
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        int sa = (startAddress < 0) ? _config.memoryFlash.address   : startAddress;
+        int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        if(sa >= _config.memoryFlash.address) sa -= _config.memoryFlash.address;
+
+        if( (nb & 0x01) != 0 ) ++nb; // Ensure the number of bytes is even
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(sa, nb, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Use the page size as the chunk size
+        final int ChunkSize = _config.memoryFlash.pageSize;
+
+        // Determine the number of chunks
+        final boolean notAligned = (nb % ChunkSize) != 0;
+        final int     numChunks  = (nb / ChunkSize) + (notAligned ? 1 : 0);
+
+        // Read the bytes (and compare them if requested)
+        final boolean verify = (refData != null);
+              int     rdbIdx = 0;
+              int     verIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk (flash can be read even without a page-aligned address)
+            final int numReads = Math.min(ChunkSize, numBytes - rdbIdx);
+
+            for(int r = 0; r < (verify ? SWIM_RETRY_COUNT_VERIFY_ERROR : 1); ++ r) {
+
+                // Re-initialize, just in case
+                if( !_swim_lineReset() ) return -1;
+                if( !_swim_enterFullDebugMode() ) return -1;
+
+                // Read the chunk bytes
+                final int   address = _config.memoryFlash.address + sa + c * ChunkSize;
+                final int[] cbytes  = new int[numReads];
+
+                if( !_usb2gpio.swimCmd_ROTF(cbytes, address) ) {
+                    // Perform line-reset
+                    _swim_lineReset();
+                    // Notify error
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_RdFlashM, ProgClassName, c, address);
+                    return -1;
+                }
+
+                // Process the chunk bytes
+                int verBadIdx = -1;
+
+                for(int b = 0; b < numReads; b += 2) {
+
+                    // Store the bytes to the result buffer
+                                          _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b    ];
+                    if(rdbIdx < numBytes) _config.memoryFlash.readDataBuff[rdbIdx++] = cbytes[b + 1];
+
+                    // Compare the bytes as needed
+                    if(verify && verIdx < refData.length) {
+                        if( verBadIdx < 0 && _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) { verBadIdx = verIdx; break; }
+                        ++verIdx;
+                    }
+                    if(verify && verIdx < refData.length) {
+                        if( verBadIdx < 0 && _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) { verBadIdx = verIdx; break; }
+                        ++verIdx;
+                    }
+
+                    // Call the progress callback function for the current value
+                    pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+                } // for b
+
+                if(verBadIdx == -1) {
+                    // Verify OK
+                    break;
+                }
+                else {
+                    // Perform line-reset
+                    if( !_swim_lineReset() ) return -1;
+                    // Retry the verify as needed
+                    if(r == SWIM_RETRY_COUNT_VERIFY_ERROR - 1) return verBadIdx;
+                }
+
+            } // for r
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return nb;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    private boolean _writeFlashPage(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Use the page size as the chunk size
+        final int ChunkSize = _config.memoryFlash.pageSize;
+
+        // Get the number of chunks to be written and the current chunk address
+        final int numChunks = nb / ChunkSize;
+              int cchAddr   = _config.memoryFlash.address + sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        final boolean ce = _flashErased;
+
+        _flashErased = false;
+
+        // Write the chunks
+        int datIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Start page (block) write
+            if( !_swim_blockWriteInit_Flash_EEPROM(ce, _SWM.FLASH) ) return false;
+
+            // Write the bytes and wait for it to finish
+            if( !_usb2gpio.swimCmd_WOTF( USB2GPIO.ba2ia(data, datIdx, ChunkSize), cchAddr ) ) {
+                return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_WrFlashM, ProgClassName, c, cchAddr);
+            }
+
+            if( !_swim_waitWriteInit_Flash_EEPROM(ce, Texts.ProgXXX_FailSWIM_WrFlashM, c, cchAddr) ) return false;
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, ChunkSize / 2);
+
+            // Increment the counters
+            cchAddr += ChunkSize;
+            datIdx  += ChunkSize;
+
+        } // for c
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Perform line-reset
+        if( !_swim_lineReset() ) return false;
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+              int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        if(sa >= _config.memoryFlash.address) sa -= _config.memoryFlash.address;
+
+        // Align the number of bytes and pad the buffer as needed
+        final USB2GPIO.ANBResult anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        if(anbr == null) return false;
+
+        // Write flash
+        return _writeFlashPage(anbr.buff, sa, anbr.nb, progressCallback);
+    }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int[]     _eepromBuffer = null;
+    private boolean[] _eepromFDirty = null;
+
+    private boolean _readAllEEPROMBytes()
+    {
+        // Determine the start address and number of bytes
+              int sa = _config.memoryEEPROM.address;
+        final int nb = _config.memoryEEPROM.totalSize;
+
+        // Prepare the result buffer
+        _eepromBuffer = new int[nb];
+
+        // Use the page size as the chunk size
+        final int ChunkSize = _config.memoryEEPROM.pageSize;
+
+        // Determine the number of chunks
+        final boolean notAligned = (nb % ChunkSize) != 0;
+        final int     numChunks  = (nb / ChunkSize) + (notAligned ? 1 : 0);
+
+        // Read the bytes
+        int rdbIdx = 0;
+
+        for(int c = 0; c < numChunks; ++c) {
+
+            // Read in chunk (EEPROM can be read even without a page-aligned address)
+            final int numReads = Math.min(ChunkSize, nb - rdbIdx);
+
+            // Re-initialize, just in case
+            if( !_swim_lineReset() ) return false;
+            if( !_swim_enterFullDebugMode() ) return false;
+
+            // Read the chunk bytes
+            final int   address = sa + c * ChunkSize;
+            final int[] cbytes  = new int[numReads];
+
+            if( !_usb2gpio.swimCmd_ROTF(cbytes, address) ) {
+                // Perform line-reset
+                _swim_lineReset();
+                // Notify error
+                return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_RdEEPROM, ProgClassName, c, address);
+            }
+
+            // Store the chunk bytes
+            for(int b = 0; b < numReads; ++b) _eepromBuffer[rdbIdx++] = cbytes[b];
+
+        } // for c
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) {
+            USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+            return -1;
+        }
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+            return -1;
+        }
+
+        // Read the entire EEPROM as needed
+        if(_eepromBuffer == null) {
+            // Read the bytes
+            if( !_readAllEEPROMBytes() ) return -1;
+            // Mark everything as not dirty
+            _eepromFDirty = new boolean[_config.memoryEEPROM.totalSize];
+            Arrays.fill(_eepromFDirty, false);
+        }
+
+        // Return the byte
+        return _eepromBuffer[address];
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+
+        // The EEPROM must be written in page mode, hence, read the entire EEPROM first as needed
+        if(_eepromBuffer == null) {
+            if( readEEPROM(0) < 0 ) return false;
+        }
+
+        // Store the new byte to the buffer and mark the position as dirty
+        final int newData = data & 0xFF;
+
+        if(_eepromBuffer[address] != newData) {
+            _eepromBuffer[address] = newData;
+            _eepromFDirty[address] = true;
+        }
+
+        // Done
+        return true;
+    }
+
+    public boolean commitEEPROM()
+    {
+        // Simply exit if there is no EEPROM buffer
+        if(_eepromBuffer == null) return true;
+
+        // Clear flag
+        final boolean ce = _eepromErased;
+
+        _eepromErased = false;
+
+        // Write only the dirty page(s)
+        int c = 0;
+
+        for(int i = 0; i < _config.memoryEEPROM.totalSize; i += _config.memoryEEPROM.pageSize) {
+
+            // Pre-increment the chunk (page) index
+            ++c;
+
+            // Skip if the page is not dirty
+            boolean pageDirty = false;
+
+            for(int b = 0; b < _config.memoryEEPROM.pageSize; ++b) {
+                if(_eepromFDirty[i + b]) {
+                    pageDirty = true;
+                    break;
+                }
+            }
+
+            if(!pageDirty) continue;
+
+            // Start page (block) write
+            if( !_swim_blockWriteInit_Flash_EEPROM(ce, _SWM.EEPROM) ) return false;
+
+            // Write the bytes and wait for it to finish
+            final int address = _config.memoryEEPROM.address + i;
+
+            if( !_usb2gpio.swimCmd_WOTF( Arrays.copyOfRange(_eepromBuffer, i, i + _config.memoryEEPROM.pageSize), address ) ) {
+                return USB2GPIO.notifyError(Texts.ProgXXX_FailSWIM_WrEEPROM, ProgClassName, c - 1, address);
+            }
+
+            if( !_swim_waitWriteInit_Flash_EEPROM(ce, Texts.ProgXXX_FailSWIM_WrEEPROM, c - 1, address) ) return false;
+
+        } // for
+
+        // Mark everything as not dirty
+        Arrays.fill(_eepromFDirty, false);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int[] readFuses()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return null;
+        }
+
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0) return new int[0];
+
+        // Read the bytes
+        final int[] buff = _swim_readOptionBytes();
+
+        if(buff == null) return null;
+
+        // Mask the unused and special positions
+        for(int i = 0; i < buff.length; ++i) {
+            if(_config.memoryOptionBytes.defaultValues[i] < 0) buff[i] = -1;
+        }
+
+        if(_config.memoryOptionBytes.idx_ROP > 0) buff[_config.memoryOptionBytes.idx_ROP] = -1;
+
+        // Return the bytes
+        return buff;
+    }
+
+    public boolean writeFuses(final int[] values)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0) return true;
+
+        // Read the original bytes
+        final int[] origBytes = _swim_readOptionBytes();
+
+        if(origBytes == null) return false;
+
+        // Use the original values for those that the user does not want to change
+        for(int i = 0; i < values.length; ++i) {
+            if(values[i] < 0) values[i] = origBytes[i];
+        }
+
+        // Mask the unused and special positions
+        for(int i = 0; i < values.length; ++i) {
+            if(_config.memoryOptionBytes.defaultValues[i] < 0) values[i] = 0;
+        }
+
+        if(_config.memoryOptionBytes.idx_ROP > 0) values[_config.memoryOptionBytes.idx_ROP] = origBytes[_config.memoryOptionBytes.idx_ROP];
+
+        // Write the bytes
+        return _swim_writeOptionBytes(values);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public long readLockBits()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0 || _config.memoryOptionBytes.idx_ROP < 0) return 0;
+
+        // Read the bytes
+        final int[] buff = _swim_readOptionBytes();
+
+        if(buff == null) return -1;
+
+        // Return the ROP byte
+        return buff[_config.memoryOptionBytes.idx_ROP] & 0xFF;
+    }
+
+    @Override
+    public boolean writeLockBits(final long value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Simply return if the operation is not supported
+        if(_config.memoryOptionBytes.address < 0 || _config.memoryOptionBytes.idx_ROP < 0) return true;
+
+        // Read the original bytes
+        final int[] buff = _swim_readOptionBytes();
+
+        if(buff == null) return false;
+
+        // Mask the unused and special positions
+        for(int i = 0; i < buff.length; ++i) {
+            if(_config.memoryOptionBytes.defaultValues[i] < 0) buff[i] = 0;
+        }
+
+        // Change the ROP byte
+        buff[_config.memoryOptionBytes.idx_ROP] = (int) (value & 0xFF);
+
+        // Write the bytes
+        return _swim_writeOptionBytes(buff);
+    }
+
+} // class ProgSWIM

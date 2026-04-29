@@ -1,0 +1,1047 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.util.function.Function;
+import java.util.function.IntConsumer;
+
+import jxm.*;
+import jxm.xb.*;
+
+
+/*
+ * Minimal implementation of the AVR109 protocol for programming MCUs with compatible bootloaders
+ * (e.g., 'caterina').
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * This class is written partially based on the algorithms and information found from:
+ *
+ *     AVR109 - Self Programming
+ *     https://ww1.microchip.com/downloads/en/AppNotes/doc1644.pdf
+ *
+ *     LUFA Library CDC Bootloader Project
+ *     https://github.com/abcminiuser/lufa/tree/master/Bootloaders/CDC
+ *     Copyright (C) Dean Camera, 2021
+ *     https://github.com/abcminiuser/lufa/blob/master/LUFA/License.txt
+ *
+ *     Arduino Caterina Bootloader
+ *     https://github.com/arduino/ArduinoCore-avr/tree/master/bootloaders/caterina
+ *
+ * ----------------------------------------------------------------------------------------------------
+ *
+ * JxMake reimplements protocol behavior based on available documentation, supplemented by runtime
+ * observation and bench-level validation where features are undocumented or ambiguous. No URBOOT
+ * source code or expressive implementation logic is used. Constants and timing are derived from
+ * functional analysis and do not constitute derivative work.
+ */
+public class ProgBootAVR109 extends ProgBootSerial {
+
+    private static final String ProgClassName    = "ProgBootAVR109";
+
+    public  static final int    DefMagicBaudrate = 1200;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgBootSerial.Config {
+
+        // NOTE : This class can use the same configuration as certain other classes
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'xxx*()' functions ??? #####
+
+
+public static Config ATtiny13()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 1024;
+    config.memoryFlash.pageSize   =   32;
+    config.memoryFlash.numPages   =   32;
+
+    config.memoryEEPROM.totalSize =   64;
+
+    return config;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config ATmega8A()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.pageSize   =   64;
+    config.memoryFlash.numPages   =  128;
+
+    config.memoryEEPROM.totalSize =  512;
+
+    return config;
+}
+
+public static Config ATmega16A()
+{
+    final Config config = ATmega8A();
+
+    config.memoryFlash.totalSize  = 16384;
+    config.memoryFlash.pageSize   =   128;
+
+    return config;
+}
+
+public static Config ATmega32A()
+{
+    final Config config = ATmega16A();
+
+    config.memoryFlash.totalSize  = 32768;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  1024;
+
+    return config;
+}
+
+public static Config ATmega64A()
+{
+    final Config config = ATmega32A();
+
+    config.memoryFlash.totalSize  = 65536;
+    config.memoryFlash.pageSize   =   256;
+
+    config.memoryEEPROM.totalSize =  2048;
+
+    return config;
+}
+
+public static Config ATmega128A()
+{
+    final Config config = ATmega64A();
+
+    config.memoryFlash.totalSize  = 131072;
+    config.memoryFlash.numPages   =    512;
+
+    config.memoryEEPROM.totalSize =   4096;
+
+    return config;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config ATmega48P()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 4096;
+    config.memoryFlash.pageSize   =   64;
+    config.memoryFlash.numPages   =   64;
+
+    config.memoryEEPROM.totalSize =  256;
+
+    return config;
+}
+
+public static Config ATmega88P()
+{
+    final Config config = ATmega48P();
+
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.numPages   =  128;
+
+    config.memoryEEPROM.totalSize =  512;
+
+    return config;
+}
+
+public static Config ATmega168P()
+{
+    final Config config = ATmega88P();
+
+    config.memoryFlash.totalSize  = 16384;
+    config.memoryFlash.pageSize   =   128;
+
+    return config;
+}
+
+public static Config ATmega328P()
+{
+    final Config config = ATmega168P();
+
+    config.memoryFlash.totalSize  = 32768;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  1024;
+
+    return config;
+}
+
+public static Config ArduinoUnoR3     () { return ATmega328P(); }
+public static Config ArduinoUnoRev3   () { return ATmega328P(); }
+public static Config ArduinoNano      () { return ATmega328P(); }
+public static Config ArduinoProMini168() { return ATmega168P(); }
+public static Config ArduinoProMini328() { return ATmega328P(); }
+public static Config ArduinoProMini   () { return ATmega328P(); }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config ATmega640()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 65536;
+    config.memoryFlash.pageSize   =   256;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  4096;
+
+    return config;
+}
+
+public static Config ATmega1280()
+{
+    final Config config = ATmega640();
+
+    config.memoryFlash.totalSize  = 131072;
+    config.memoryFlash.numPages   =    512;
+
+    return config;
+}
+
+public static Config ATmega2560()
+{
+    final Config config = ATmega1280();
+
+    config.memoryFlash.totalSize  = 262144;
+    config.memoryFlash.numPages   =   1024;
+
+    return config;
+}
+
+public static Config ArduinoMega1280() { return ATmega1280(); }
+public static Config ArduinoMega2560() { return ATmega2560(); }
+public static Config ArduinoMega    () { return ATmega2560(); }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'xxx*()' functions ??? #####
+
+
+public static Config ATmega8U2()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.pageSize   =  128;
+    config.memoryFlash.numPages   =   64;
+
+    config.memoryEEPROM.totalSize =  512;
+
+    return config;
+}
+
+public static Config ATmega16U2()
+{
+    final Config config = ATmega8U2();
+
+    config.memoryFlash.totalSize  = 16384;
+    config.memoryFlash.numPages   =   128;
+
+    config.memoryEEPROM.totalSize =   512;
+
+    return config;
+}
+
+public static Config ATmega32U2()
+{
+    final Config config = ATmega16U2();
+
+    config.memoryFlash.totalSize  = 32768;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  1024;
+
+    return config;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config ATmega16U4           () { return ATmega16U2(); }
+public static Config ATmega32U4           () { return ATmega32U2(); }
+
+public static Config ArduinoLeonardo      () { return ATmega32U4(); }
+public static Config SparkFunProMicro     () { return ATmega32U4(); }
+public static Config AdafruitTrinket      () { return ATmega32U4(); }
+public static Config AdafruitItsyBitsy32U4() { return ATmega32U4(); }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config AT90USB82()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 8192;
+    config.memoryFlash.pageSize   =  128;
+    config.memoryFlash.numPages   =   64;
+
+    config.memoryEEPROM.totalSize =  512;
+
+    return config;
+}
+
+public static Config AT90USB162()
+{
+    final Config config = AT90USB82();
+
+    config.memoryFlash.totalSize  = 16384;
+    config.memoryFlash.numPages   =   128;
+
+
+    return config;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public static Config AT90USB646()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 65536;
+    config.memoryFlash.pageSize   =   256;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  2048;
+
+    return config;
+}
+
+public static Config AT90USB1286()
+{
+    final Config config = AT90USB646();
+
+    config.memoryFlash.totalSize  = 131072;
+    config.memoryFlash.numPages   =    512;
+
+    config.memoryEEPROM.totalSize =   4096;
+
+    return config;
+}
+
+public static Config AT90USB647   () { return AT90USB646 (); }
+public static Config AT90USB1287  () { return AT90USB1286(); }
+
+public static Config DTAVRInoduino() { return AT90USB1286(); }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int GET_ID_NON_CDC_ACM_RETRY_COUNT = 32;
+    private static final int GET_ID_NON_CDC_ACM_RESET_SKIP  =  4;
+
+    private boolean _addrAutoInc = false;
+    private int     _bufferSize  = 0;
+
+    private boolean _inProgMode  = false;
+    private boolean _chipErased  = false;
+
+    public ProgBootAVR109(final ProgBootAVR109.Config config) throws Exception
+    { super(ProgClassName, config); }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    { return numBytes; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    private boolean _begin_impl(final String serialDevice, final int magicBaudrateToResetToBootloaderMode_or_baudrate)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Open the serial port
+        boolean nonCDCACM = false;
+
+        if(magicBaudrateToResetToBootloaderMode_or_baudrate >= 0) {
+            // Caterina (or another CDC ACM bootloader)
+            if( !_openSerialPort(serialDevice, 115200, new Function<ProgBootSerial, Integer>() {
+                @Override
+                public Integer apply(final ProgBootSerial pbs)
+                {
+                    // There is no need to go further if the user does not supply the magic baudrate
+                    if(magicBaudrateToResetToBootloaderMode_or_baudrate <= 0) return 0;
+                    // Get the identifier
+                    pbs._serialTx('S');
+                    final String id = pbs._serialRxStr(7);
+                    // Get the software version
+                    boolean swVerOK = false;
+                    pbs._serialTx('V');
+                    if( pbs._serialRx(_pbs_rdBuff_32I, 2) ) swVerOK = (_pbs_rdBuff_32I[0] != 0) || (_pbs_rdBuff_32I[1] != 0);
+                    // Check if the device may already be in bootloader mode
+                    final boolean inBLMode = (id != null) && ( id.trim().length() == 7 ) && swVerOK;
+                    // Return the magic baudrate as needed
+                    return inBLMode ? 0 : magicBaudrateToResetToBootloaderMode_or_baudrate;
+                }
+            } ) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSerDev, ProgClassName);
+        }
+        else {
+            // XBoot (or another bootloader not using CDC ACM)
+            if( !_openSerialPort(serialDevice, -magicBaudrateToResetToBootloaderMode_or_baudrate, null) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSerDev, ProgClassName);
+            nonCDCACM = true;
+        }
+
+        // Get the identifier
+        if(nonCDCACM) {
+            boolean doneID = false;
+            for(int i = 0; i < GET_ID_NON_CDC_ACM_RETRY_COUNT; ++i) {
+                // Reset the MCU via DTR/RTS (only once every few attempts, just in case the bootloader requires a longer startup time)
+                if( (i % GET_ID_NON_CDC_ACM_RESET_SKIP) == 0 ) {
+                    _serialResetMCU_DTR_RTS();
+                    SysUtil.sleepMS(25);
+                }
+                // Send the command and check the response
+                _serialTx('S');
+                final String id = _serialRxStr(7);
+                if(id != null) {
+                    doneID = true;
+                    break;
+                }
+            }
+            if(!doneID) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+        }
+        else {
+            _serialTx('S');
+            final String id = _serialRxStr(7);
+            if(id == null) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+        }
+
+        // Get the software version
+        _serialTx('V');
+        if( !_serialRx(_pbs_rdBuff_32I, 2) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+
+        // Get the type
+        _serialTx('p');
+        final Character type = _serialRxChar();
+        if(type == null || type != 'S') return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+
+        // Check support for address auto increment
+        _serialTx('a');
+        final Character addrAutoInc = _serialRxChar();
+        if(addrAutoInc != null && addrAutoInc == 'Y') _addrAutoInc = true;
+
+        // Check support for buffered memory access
+        _serialTx('b');
+        final Character bufMemAcc = _serialRxChar();
+        if(bufMemAcc != null && bufMemAcc == 'Y') {
+            _bufferSize = _serialRxUInt16BE();
+            if(_bufferSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+        }
+
+        if(_bufferSize == 0 && _config.memoryFlash.paged) {
+            // ##### !!! TODO : Non-buffered writes on MCUs with paged flash may not actually work; what to do here? !!! #####
+        }
+
+        // Get the supported devices
+        _serialTx('t');
+        Integer devCode      = _serialRxUInt8();
+        int     firstDevCode = -1;
+
+        while(devCode != null && devCode != 0) {
+            if(firstDevCode < 0) {
+                firstDevCode = devCode;
+            }
+            else {
+                // NOTE : It should only support one device type!
+                return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+            }
+            devCode = _serialRxUInt8();
+        }
+
+        if(firstDevCode < 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+
+        // Select the device
+        _pbs_wrBuff_32I[0] = 'T';
+        _pbs_wrBuff_32I[1] = firstDevCode;
+
+        _serialTx(_pbs_wrBuff_32I, 2);
+        if( !_serialRxChkCR() ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+        }
+
+        // Enter programming mode
+        _serialTx('P');
+        if( !_serialRxChkCR() ) {
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+        }
+
+        // Set flag
+        _inProgMode = true;
+
+        // Done
+        return true;
+    }
+
+    public boolean begin(final String serialDevice, final int magicBaudrateToResetToBootloaderMode_or_baudrate)
+    {
+        /*
+         * (baud >  0   ) → explicit magic baudrate to reset Caterina (or another CDC ACM bootloader) to
+         *                  bootloader mode
+         * (baud < -2400) → baudrate is deliberately negative to indicate the target is not a CDC ACM
+         *                  bootloader; it will be internally converted to a positive value before use
+         */
+        if(magicBaudrateToResetToBootloaderMode_or_baudrate > 0 || magicBaudrateToResetToBootloaderMode_or_baudrate < -2400) {
+            // Caterina or XBoot
+            if( _begin_impl(serialDevice, magicBaudrateToResetToBootloaderMode_or_baudrate) ) return true;
+        }
+        /*
+         * (-2400 ≤ baud ≤ 0) → use the default magic baudrate to reset Caterina (or another CDC ACM bootloader)
+         *                      to bootloader mode
+         */
+        else {
+            // Caterina
+            if( _begin_impl(serialDevice, DefMagicBaudrate) ) return true;
+        }
+
+        _closeSerialPort();
+
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailInitPrgDev, ProgClassName);
+    }
+
+    public boolean begin(final String serialDevice)
+    { return begin(serialDevice, DefMagicBaudrate); }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Leave programming mode
+        _serialTx('L');
+        final boolean resLeaveProgMode = _serialRxChkCR();
+
+        // Exit bootloader mode
+        _serialTx('E');
+        final boolean resExitBLoadMode = _serialRxChkCR();
+
+        // Close the serial port
+        _closeSerialPort();
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resLeaveProgMode || !resExitBLoadMode) {
+            if(!resLeaveProgMode) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitPrgDev, ProgClassName);
+            if(!resExitBLoadMode) USB2GPIO.notifyError(Texts.ProgXXX_FailBLExit      , ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _setAddress16(final int address)
+    {
+        _pbs_wrBuff_32I[0] = 'A';
+        _pbs_wrBuff_32I[1] = (address >> 8) & 0xFF;
+        _pbs_wrBuff_32I[2] = (address     ) & 0xFF;
+
+        if( !_serialTx(_pbs_wrBuff_32I, 3) ) return false;
+
+        return _serialRxChkCR();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _readByte_eeprom(final int address)
+    {
+        if( !_setAddress16(address) ) return -1;
+
+        if( !_serialTx('d') ) return -1;
+
+        if( !_serialRx(_pbs_rdBuff_32I, 1) ) return -1;
+
+        return _pbs_rdBuff_32I[0];
+    }
+
+    private boolean _writeByte_eeprom(final int address, final int data)
+    {
+        if( !_setAddress16(address) ) return false;
+
+        _pbs_wrBuff_32I[0] = 'D';
+        _pbs_wrBuff_32I[1] = data;
+
+        if( !_serialTx(_pbs_wrBuff_32I, 2) ) return false;
+
+        return _serialRxChkCR();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+    private int _readByte_flash(final int address)
+    {
+        if( !_setAddress16(address / 2) ) return -1;
+
+        if( !_serialTx('R') ) return -1;
+
+        if( !_serialRx(_pbs_rdBuff_32I, 2) ) return -1;
+
+        return ( (address & 0x01) != 0 ) ? _pbs_rdBuff_32I[0] : _pbs_rdBuff_32I[1];
+    }
+
+    private boolean _writeByte_flash(final int address, final int data)
+    {
+        if( !_setAddress16(address / 2) ) return false;
+
+        _pbs_wrBuff_32I[0] = ( (address & 0x01) != 0 ) ? 'C' : 'c';
+        _pbs_wrBuff_32I[1] = data;
+
+        if( !_serialTx(_pbs_wrBuff_32I, 2) ) return false;
+
+        return _serialRxChkCR();
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _commitPage_flash(final int address)
+    {
+        // Send the page address
+        if( !_setAddress16(address / 2) ) return false;
+
+        // Send the command
+        _setSerialRxTimeout_MS_long(); // Set a much longer Rx timeout
+
+        if( !_serialTx('m') ) return false;
+        final boolean res = _serialRxChkCR();
+
+        _setSerialRxTimeout_MS_default(); // Restore the default Rx timeout
+
+        if(!res) return false;
+
+        // Wait for a while
+        SysUtil.sleepMS(10);
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeFlash_non_buffered(final int address, final byte[] data, final IntConsumer callPCB)
+    {
+        // Prepare the addresses and counters
+              int byteAddress = address;
+        final int endAddress  = byteAddress + data.length;
+
+              int pageAddress = byteAddress;
+              int pageByteRem = _config.memoryFlash.pageSize;
+
+        // Send the first byte address
+        if( !_setAddress16(byteAddress / 2) ) return false;
+
+        // Send the bytes
+        while(byteAddress < endAddress) {
+
+            // Send two bytes
+            _pbs_wrBuff_32I[0] = 'C';
+            _pbs_wrBuff_32I[1] = data[byteAddress + 1] & 0xFF;
+
+            if( !_serialTx(_pbs_wrBuff_32I, 2) ) return false;
+            if( !_serialRxChkCR() ) return false;
+
+            _pbs_wrBuff_32I[0] = 'c';
+            _pbs_wrBuff_32I[1] = data[byteAddress + 0] & 0xFF;
+
+            if( !_serialTx(_pbs_wrBuff_32I) ) return false;
+            if( !_serialRxChkCR() ) return false;
+
+            // Update the address and counter
+            byteAddress += 2;
+            pageByteRem -= 2;
+
+            // Commit the page
+            if(_config.memoryFlash.paged && pageByteRem == 0) {
+                // Commit the page
+                if( !_commitPage_flash(pageAddress) ) return false;
+                // Update the address and counter
+                pageAddress = byteAddress;
+                pageByteRem = _config.memoryFlash.pageSize;
+            }
+
+            // Update the address as needed
+            if(!_addrAutoInc) {
+                if( !_setAddress16(byteAddress / 2) ) return false;
+            }
+
+            // Call the progress callback function for the current value
+            callPCB.accept(1);
+
+        } // while
+
+        // Commit the last page if required
+        if(_config.memoryFlash.paged && pageByteRem < _config.memoryFlash.pageSize) {
+            if( !_commitPage_flash(pageAddress) ) return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeFlash_buffered(final int address, final byte[] data, final IntConsumer callPCB)
+    {
+        // Prepare the addresses
+              int byteAddress = address;
+        final int endAddress  = byteAddress + data.length;
+
+        // Send the start byte address
+        if( !_setAddress16(byteAddress / 2) ) return false;
+
+        // Write the bytes
+        int chunkSize = _bufferSize;
+
+        _pbs_wrBuff_32I[0] = 'B';
+        _pbs_wrBuff_32I[3] = 'F';
+
+        while(byteAddress < endAddress) {
+
+            // Determine the number of bytes to be written
+            final int remBytes = endAddress - byteAddress;
+            if(remBytes < chunkSize) chunkSize = remBytes;
+
+            // Store the chunk size
+            _pbs_wrBuff_32I[1] = (chunkSize >> 8) & 0xFF;
+            _pbs_wrBuff_32I[2] = (chunkSize     ) & 0xFF;
+
+            // Send the command
+            _setSerialRxTimeout_MS_long(); // Set a much longer Rx timeout
+
+            // ##### !!! TODO : Skip writing the chunk if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            if( !_serialTx(_pbs_wrBuff_32I, 4) ) return false;
+            if( !_serialTx( USB2GPIO.ba2ia(data, byteAddress, chunkSize) ) ) return false;
+            if( !_serialRxChkCR() ) return false;
+
+            _setSerialRxTimeout_MS_default(); // Restore the default Rx timeout
+
+            // Call the progress callback function for the current value as many times as necessary
+            callPCB.accept(chunkSize / 2);
+
+            // Update the address
+            byteAddress += chunkSize;
+
+        } // while
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeBytes_flash(final int address, final byte[] data, final IntConsumer callPCB)
+    {
+        if(_bufferSize != 0) return _writeFlash_buffered    (address, data, callPCB);
+        else                 return _writeFlash_non_buffered(address, data, callPCB);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Read the signature
+        _serialTx('s');
+        if( !_serialRx(_pbs_rdBuff_32I, 3) ) return false;
+
+        // Copy the result
+        _mcuSignature = new int[] { _pbs_rdBuff_32I[2], _pbs_rdBuff_32I[1], _pbs_rdBuff_32I[0] };
+
+        // Done
+        return _mcuSignature != null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : Under the AVR109 protocol, this function is expected to erase only flash memory
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Send the command
+        _setSerialRxTimeout_MS_long(); // Set a much longer Rx timeout
+
+        _serialTx('e');
+        final boolean res = _serialRxChkCR();
+
+        _setSerialRxTimeout_MS_default(); // Restore the default Rx timeout
+
+        if(!res) return USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+
+        // Wait for a while
+        SysUtil.sleepMS(10);
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _storeAndVerifyTwoBytes(final byte[] refData, final int rdbIdx, final int verIdx, final int b0, final int b1)
+    {
+        // Store the bytes to the result buffer
+        _config.memoryFlash.readDataBuff[rdbIdx + 0] = b0;
+        _config.memoryFlash.readDataBuff[rdbIdx + 1] = b1;
+
+        // Compare the bytes as needed
+        if(refData != null && verIdx < refData.length) {
+            if( _config.memoryFlash.readDataBuff[verIdx + 0] != (refData[verIdx + 0] & 0xFF) ) return -(verIdx + 1);
+            if( _config.memoryFlash.readDataBuff[verIdx + 1] != (refData[verIdx + 1] & 0xFF) ) return -(verIdx + 2);
+        }
+
+        return verIdx + 2;
+    }
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_even(sa, nb, _config.memoryFlash.totalSize, ProgClassName) ) return -1;
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Index counter
+        int rdbIdx = 0;
+        int verIdx = 0;
+
+        // Use buffered mode
+        if(_bufferSize != 0) {
+
+            // Determine the number of chunks
+            final int     ChunkSize  = _bufferSize;
+
+            final boolean notAligned = (numBytes % ChunkSize) != 0;
+            final int     numChunks  = (numBytes / ChunkSize) + (notAligned ? 1 : 0);
+
+            // Send the start address
+            if( !_setAddress16(sa / 2) ) return -1;
+
+            // Read the bytes (and compare them if requested)
+            _pbs_wrBuff_32I[0] = 'g';
+            _pbs_wrBuff_32I[3] = 'F';
+
+            for(int c = 0; c < numChunks; ++c) {
+
+                // Read in chunk (flash can be read even without a page-aligned address)
+                final int   numReads = Math.min(ChunkSize, numBytes - rdbIdx);
+                final int[] cbytes   = new int[numReads];
+
+                _pbs_wrBuff_32I[1] = (numReads >> 8) & 0xFF;
+                _pbs_wrBuff_32I[2] = (numReads     ) & 0xFF;
+
+                if( !_serialTx(_pbs_wrBuff_32I, 4) ) return -1;
+
+                if( !_serialRx(cbytes) ) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailBLPrgCmdXErr, ProgClassName);
+                    return -1;
+                }
+
+                // Process the chunk bytes
+                for(int b = 0; b < numReads; b += 2) {
+
+                    // Store the bytes to the result buffer and compare the them as needed
+                    verIdx = _storeAndVerifyTwoBytes(refData, rdbIdx, verIdx, cbytes[b], cbytes[b + 1]);
+                    if(verIdx < 0) return -(verIdx + 1);
+
+                    rdbIdx += 2;
+
+                    // Call the progress callback function for the current value
+                    pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+                } // for b
+
+            } // for c
+
+        }
+
+        // Use non-buffered mode
+        else {
+
+            for(int i = 0; i < numBytes; i += 2) {
+
+                // Send the address
+                if( !_setAddress16( (sa + i) / 2 ) ) return -1;
+
+                // Read two bytes
+                if( !_serialTx('R') ) return -1;
+                if( !_serialRx(_pbs_rdBuff_32I, 2) ) return -1;
+
+                // Store the bytes to the result buffer and compare the them as needed
+                verIdx = _storeAndVerifyTwoBytes(refData, rdbIdx, verIdx, _pbs_rdBuff_32I[1], _pbs_rdBuff_32I[0]);
+                    if(verIdx < 0) return -(verIdx + 1);
+
+                rdbIdx += 2;
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+            } // for
+
+        }
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return numBytes;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+        final int    sa   = (startAddress < 0) ? 0                             : startAddress;
+              int    nb   = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+              byte[] buff = data;
+
+        // Check the start address and number of bytes
+        if( (sa & 0x01) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_SAddrNotEven , ProgClassName); // The start address   must be even
+        if( (nb & 0x01) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_NBytesNotEven, ProgClassName); // The number of bytes must be even
+
+        if(_config.memoryFlash.paged) {
+            if( (sa % _config.memoryFlash.pageSize) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_SAddrNotMPZ , ProgClassName); // The start address must be a multiple of the page size
+        }
+
+        if(sa + nb > _config.memoryFlash.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_FSAddrNBytesOoR, ProgClassName);
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Write the bytes
+        final int nb_ = nb;
+
+        if( !_writeBytes_flash(sa, data, new IntConsumer() {
+            @Override
+            public void accept(final int repeatCount)
+            {
+                // Call the progress callback function for the current value as many times as necessary
+                pcb.callProgressCallbackCurrentMulti(progressCallback, nb_, repeatCount);
+            }
+        } ) ) return false;
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) {
+            USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+            return -1;
+        }
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+            return -1;
+        }
+
+        // Read and return the byte
+        return _readByte_eeprom(address);
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+
+        // Write the byte
+        return _writeByte_eeprom(address, data);
+    }
+
+} // class ProgBootAVR109

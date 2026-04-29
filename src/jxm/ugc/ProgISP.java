@@ -1,0 +1,1176 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.Serializable;
+
+import java.util.Arrays;
+import java.util.function.IntConsumer;
+
+import jxm.*;
+import jxm.annotation.*;
+import jxm.tool.*;
+import jxm.xb.*;
+
+
+/*
+ * This class is written partially based on information found from various ATmega MCU datasheets.
+ */
+public class ProgISP implements IProgCommon {
+
+    /*
+     * Transfer speed:
+     *     # Using USB_ISS            : up to   ~60           bytes per second
+     *     # Using JxMake DASA        : up to  ~170           bytes per second
+     *     # Using JxMake USB-GPIO    : up to ~2410 ... ~5650 bytes per second (depending on the clock rate)
+     *     # Using JxMake USB-GPIO II : similar to 'JxMake USB-GPIO'           (depending on the clock rate)
+     */
+
+    private static final String ProgClassName = "ProgISP";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final byte FlashMemory_EmptyValue = (byte) 0xFF;
+
+    @SuppressWarnings("serial")
+    public static class Config extends SerializableDeepClone<Config> {
+
+        // JxMake use a special field name for serial version UID
+        @DataFormat.Hex16 public static final long __0_JxMake_SerialVersionUID__ = SysUtil.extSerialVersionUID(0x00000001);
+
+        // NOTE : The default values below are for (almost all?) AVR MCUs that can be programmed using ISP
+
+        public static class ProgrammingEnable implements Serializable {
+            @DataFormat.Hex02 public int[] instruction   = new int[] { 0xAC, 0x53, 0x00, 0x00 };
+            @DataFormat.Hex02 public int[] responseCheck = new int[] { -1  , -1  , 0x53, -1   };
+                              public int   retryCount    = 32;
+        }
+
+        public static class ReadSignature implements Serializable {
+            @DataFormat.Hex02 public int[] instruction   = new int[] { 0x30, 0x00, 0x00, 0x00,
+                                                                       0x30, 0x00, 0x01, 0x00,
+                                                                       0x30, 0x00, 0x02, 0x00 };
+                              public int[] responseIndex = new int[] { 3, 7, 11 };
+        }
+
+        public static class ChipErase implements Serializable {
+            @DataFormat.Hex02 public int[] instruction  = new int[] { 0xAC, 0x80, 0x00, 0x00 };
+                              public int   waitDelay_MS = 10;
+        }
+
+        public static class MemoryFlash implements Serializable {
+            // All MCUs
+                              public boolean paged                         = true;
+
+                              public int     totalSize                     = 0;
+                              public int     pageSize                      = 0;
+                              public int     numPages                      = 0;
+
+            // AVR MCUs only
+            @DataFormat.Hex02 public int[]   instruction_LoadExtAddrByte   = new int[] { 0x4D, 0x00, -1, 0x00 };
+                              public int     a0idx_LoadExtAddrByte         = 2;
+
+            // Read - byte mode
+            @DataFormat.Hex02 public int[]   instruction_ReadProgMemLB     = new int[] { 0x20, -1  , -1, 0x00 };
+            @DataFormat.Hex02 public int[]   instruction_ReadProgMemHB     = new int[] { 0x28, -1  , -1, 0x00 };
+                              public int     a1idx_ReadProgMemXB           = 1;
+                              public int     a0idx_ReadProgMemXB           = 2;
+                              public int     responseIndex_ReadProgMemXB   = 3;
+
+                              public int[]   readDataBuff                  = null;
+
+            // Write - page mode
+            @DataFormat.Hex02 public int[]   instruction_LoadProgMemLB     = new int[] { 0x40, -1  , -1, -1   };
+            @DataFormat.Hex02 public int[]   instruction_LoadProgMemHB     = new int[] { 0x48, -1  , -1, -1   };
+                              public int     a1idx_LoadProgMemXB           = 1;
+                              public int     a0idx_LoadProgMemXB           = 2;
+                              public int     dtidx_LoadProgMemXB           = 3;
+
+            @DataFormat.Hex02 public int[]   instruction_WriteProgMemPage  = new int[] { 0x4C, -1  , -1, 0x00 };
+                              public int     a1idx_WriteProgMemPage        = 1;
+                              public int     a0idx_WriteProgMemPage        = 2;
+                              public int     waitDelay_MS_WriteProgMemPage = 5;
+
+            // Write - direct page mode (AT89S* MCUs only) - it should be much faster than the byte mode
+                              public boolean paged_direct                  = false;
+                              public int     pageSize_direct               = 0;
+                              public int     numPages_direct               = 0;
+
+            @DataFormat.Hex02 public int[]   instruction_WritePageDirect   = null;
+                              public int     a1idx_WritePageDirect         = 1;
+                              public int     a0idx_WritePageDirect         = 2;
+                              public int     waitDelay_MS_WritePageDirect  = 5;
+
+            // Write - byte mode
+            @DataFormat.Hex02 public int[]   instruction_WriteProgMemLB    = null; // NOTE : For AT89S* MCUs, the instruction are the same as the 'instruction_LoadProgMemLB' instructions
+            @DataFormat.Hex02 public int[]   instruction_WriteProgMemHB    = null; // ---
+
+                              public int     a1idx_WriteProgMemXB          = 1;
+                              public int     a0idx_WriteProgMemXB          = 2;
+                              public int     dtidx_WriteProgMemXB          = 3;
+                              public int     waitDelay_MS_WriteProgMem     = 5;
+        }
+
+        public static class MemoryEEPROM implements Serializable {
+                              public int     totalSize                     = 0;
+
+            // Read - byte mode
+            @DataFormat.Hex02 public int[]   instruction_ReadEEPROMMem     = new int[] { 0xA0, -1  , -1, 0x00 };
+                              public int     a1idx_ReadEEPROMMem           = 1;
+                              public int     a0idx_ReadEEPROMMem           = 2;
+                              public int     responseIndex_ReadEEPROMMem   = 3;
+
+            // Write - byte mode
+            @DataFormat.Hex02 public int[]   instruction_WriteEEPROMMem    = new int[] { 0xC0, -1  , -1, -1   };
+                              public int     a1idx_WriteEEPROMMem          = 1;
+                              public int     a0idx_WriteEEPROMMem          = 2;
+                              public int     dtidx_WriteEEPROMMem          = 3;
+                              public int     waitDelay_MS_WriteEEPROMMem   = 4;
+        }
+
+        public static class MemoryLFuse implements Serializable {
+            @DataFormat.Hex02 public int[]   instruction_ReadLFuse   = new int[] { 0x50, 0x00, 0x00, 0x00 };
+                              public int     responseIndex_ReadLFuse = 3;
+
+            @DataFormat.Hex02 public int[]   instruction_WriteLFuse  = new int[] { 0xAC, 0xA0, 0x00, -1   };
+                              public int     dtidx_WriteLFuse        = 3;
+                              public int     waitDelay_MS_WriteLFuse = 5;
+        }
+
+        public static class MemoryHFuse implements Serializable {
+            @DataFormat.Hex02 public int[]   instruction_ReadHFuse   = new int[] { 0x58, 0x08, 0x00, 0x00 };
+                              public int     responseIndex_ReadHFuse = 3;
+
+            @DataFormat.Hex02 public int[]   instruction_WriteHFuse  = new int[] { 0xAC, 0xA8, 0x00, -1   };
+                              public int     dtidx_WriteHFuse        = 3;
+                              public int     waitDelay_MS_WriteHFuse = 5;
+        }
+
+        public static class MemoryEFuse implements Serializable {
+            @DataFormat.Hex02 public int[]   instruction_ReadEFuse   = new int[] { 0x50, 0x08, 0x00, 0x00 };
+                              public int     responseIndex_ReadEFuse = 3;
+
+            @DataFormat.Hex02 public int[]   instruction_WriteEFuse  = new int[] { 0xAC, 0xA4, 0x00, -1   };
+                              public int     dtidx_WriteEFuse        = 3;
+                              public int     waitDelay_MS_WriteEFuse = 5;
+        }
+
+        public static class MemoryLockBits implements Serializable {
+            @DataFormat.Hex02 public int[]   instruction_ReadLockBits   = new int[] { 0x58, 0x00, 0x00, 0x00 };
+                              public int     responseIndex_ReadLockBits = 3;
+
+            @DataFormat.Hex02 public int[]   instruction_WriteLockBits  = new int[] { 0xAC, 0xE0, 0x00, -1   };
+                              public int     dtidx_WriteLockBits        = 3;
+                              public int     waitDelay_MS_WriteLockBits = 5;
+        }
+
+        public static class MemoryCalibrationByte implements Serializable {
+            @DataFormat.Hex02 public int[]   instruction_ReadCalibrationByte   = new int[] { 0x38, 0x00, 0x00, 0x00 };
+                              public int     responseIndex_ReadCalibrationByte = 3;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public       USB2GPIO.SPIMode      spiMode               = USB2GPIO.SPIMode._0;
+        public       USB2GPIO.SSMode       ssMode                = USB2GPIO.SSMode.ActiveLow;
+
+        public final ProgrammingEnable     programmingEnable     = new ProgrammingEnable();
+        public final ReadSignature         readSignature         = new ReadSignature    ();
+        public final ChipErase             chipErase             = new ChipErase        ();
+        public final MemoryFlash           memoryFlash           = new MemoryFlash      ();
+        public final MemoryEEPROM          memoryEEPROM          = new MemoryEEPROM     ();
+        public final MemoryLFuse           memoryLFuse           = new MemoryLFuse      ();
+        public final MemoryHFuse           memoryHFuse           = new MemoryHFuse      ();
+        public final MemoryEFuse           memoryEFuse           = new MemoryEFuse      ();
+        public final MemoryLockBits        memoryLockBits        = new MemoryLockBits   ();
+        public final MemoryCalibrationByte memoryCalibrationByte = new MemoryCalibrationByte();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'ATmega*()' functions ??? #####
+
+
+public static Config ATmega328P()
+{
+    final Config config = new Config();
+
+    config.memoryFlash.totalSize  = 32768;
+    config.memoryFlash.pageSize   =   128;
+    config.memoryFlash.numPages   =   256;
+
+    config.memoryEEPROM.totalSize =  1024;
+
+    return config;
+}
+
+public static Config ArduinoUnoR3  () { return ATmega328P(); }
+public static Config ArduinoUnoRev3() { return ATmega328P(); }
+public static Config ArduinoNano   () { return ATmega328P(); }
+public static Config ArduinoProMini() { return ATmega328P(); }
+public static Config ArduinoMicro  () { return ATmega328P(); }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private final USB2GPIO _usb2gpio;
+    private final Config   _config;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _inProgMode = false;
+    private boolean _chipErased = false;
+
+    public ProgISP(final USB2GPIO usb2gpio, final Config config) throws Exception
+    {
+        // Store the objects
+        _usb2gpio = usb2gpio;
+        _config   = config.deepClone();
+
+        // Check the configuration values
+        if(_config.memoryFlash.totalSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFTotSize, ProgClassName);
+
+        if(_config.memoryFlash.paged) {
+            if(_config.memoryFlash.pageSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSize, ProgClassName);
+            if(_config.memoryFlash.numPages <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFNumPages, ProgClassName);
+
+            if(_config.memoryFlash.pageSize * _config.memoryFlash.numPages != _config.memoryFlash.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPageSpec, ProgClassName);
+        }
+
+        if(_config.memoryFlash.paged_direct) {
+            if(_config.memoryFlash.pageSize_direct <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPgDrSize, ProgClassName);
+            if(_config.memoryFlash.numPages_direct <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFNumPgsDr, ProgClassName);
+
+            if(_config.memoryFlash.pageSize_direct * _config.memoryFlash.numPages_direct != _config.memoryFlash.totalSize) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFPgDrSpec, ProgClassName);
+        }
+    }
+
+    public Config config()
+    { return _config; }
+
+    public boolean begin(final int spiClockFrequency)
+    {
+        // Error if already in programming mode
+        if(_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_InProgMode, ProgClassName);
+
+        // Get the SPI clock divider
+        final int spiClkDiv = _usb2gpio.spiClkFreqToClkDiv(spiClockFrequency);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Initialize the SPI
+        // WARNING : If the underlying SPI system uses bit banging, then the clock divider is ignored (not used)
+        for(int i = 0; i < 2; ++i) {
+            // Initialize the SPI
+            if( _usb2gpio.spiBegin(_config.spiMode, _config.ssMode, spiClkDiv) ) break;
+            // Error initializing the SPI - exit if this is the 2nd initialization attempt
+            if(i > 0) return USB2GPIO.notifyError(Texts.ProgXXX_FailInitSPI, ProgClassName);
+            // Uninitialize the SPI and try again
+            _usb2gpio.spiEnd();
+        }
+
+        // Select the device
+        if( !_usb2gpio.spiSelectSlave() ) {
+            _usb2gpio.spiEnd();
+            return USB2GPIO.notifyError(Texts.ProgXXX_FailSelSlave, ProgClassName);
+        }
+
+        SysUtil.sleepMS(250);
+
+        /*
+        SysUtil.stdDbg().println("### TEST ###");
+        if(true) {
+            for(int i = 0; i < 1000000; ++i) _usb2gpio.spiTransfer( new int[] { 0xAA } );
+            return false;
+        }
+        //*/
+
+        // Enable programming mode (try as many as specified by the configuration)
+        for(int i = 0; i < _config.programmingEnable.retryCount; ++i) {
+
+            // Send the instruction
+            final int[] ioBuff = XCom.arrayCopy(_config.programmingEnable.instruction);
+
+            if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+            // Check the response
+            boolean respOK = true; // Assume OK initially
+
+            /*
+            for(int f: ioBuff) SysUtil.stdDbg().printf("%02X ", f);
+            SysUtil.stdDbg().println();
+            //*/
+
+            for(int j = 0; j < _config.programmingEnable.responseCheck.length; ++j) {
+                if(_config.programmingEnable.responseCheck[j] < 0) continue;
+                if(_config.programmingEnable.responseCheck[j] != ioBuff[j]) {
+                    // Not OK - clear flag and break
+                    respOK = false;
+                    break;
+                }
+            }
+
+            if(respOK) {
+                // Set flag
+                _inProgMode = true;
+                // Done
+                return true;
+            }
+
+            // Pulse the SS
+            if( !_usb2gpio.spiPulseSlaveSelect() ) return USB2GPIO.notifyError(Texts.ProgXXX_FailPulseSS, ProgClassName);
+
+            SysUtil.sleepMS(250);
+
+        } // for i
+
+        // Not done
+        _usb2gpio.spiEnd();
+        return USB2GPIO.notifyError(Texts.ProgXXX_FailEProgMode, ProgClassName);
+    }
+
+    @Override
+    public boolean end()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Deselect the device and uninitialize the SPI
+        final boolean resDeselectSlave = _usb2gpio.spiDeselectSlave();
+        final boolean resSPIEnd        = _usb2gpio.spiEnd();
+
+        // Clear flag
+        _inProgMode = false;
+
+        // Check for error(s)
+        if(!resDeselectSlave || !resSPIEnd) {
+            if(!resDeselectSlave) USB2GPIO.notifyError(Texts.ProgXXX_FailDselSlave, ProgClassName);
+            if(!resSPIEnd       ) USB2GPIO.notifyError(Texts.ProgXXX_FailUninitSPI, ProgClassName);
+            return false;
+        }
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int[] _mcuSignature = null;
+
+    @Override
+    public boolean supportSignature()
+    { return true; }
+
+    @Override
+    public boolean readSignature()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Clear the signature buffer first
+        _mcuSignature = null;
+
+        // Send the instruction
+        final int[] ioBuff = XCom.arrayCopy(_config.readSignature.instruction);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Get the signature bytes
+        _mcuSignature = new int[_config.readSignature.responseIndex.length];
+
+        for(int i = 0; i < _config.readSignature.responseIndex.length; ++i) {
+            _mcuSignature[i] = ioBuff[ _config.readSignature.responseIndex[i] ];
+        }
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean verifySignature(final int[] signatureBytes)
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Compare the signature
+        return Arrays.equals(_mcuSignature, signatureBytes);
+    }
+
+    @Override
+    public int[] mcuSignature()
+    {
+        // Error if the signature has not been read
+        if(_mcuSignature == null) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return null;
+        }
+
+        // Return the signature
+        return _mcuSignature;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : This function erases flash, EEPROM, and lock bits
+    @Override
+    public boolean chipErase()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Exit if the device is already erased
+        if(_chipErased) return true;
+
+        // Send the instruction
+        final int[] ioBuff = XCom.arrayCopy(_config.chipErase.instruction);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.chipErase.waitDelay_MS);
+
+        // Set flag
+        _chipErased = true;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _prvExtAddr;
+    private int _curExtAddr;
+
+    private void _resetExtendedAddressByte()
+    {
+        _prvExtAddr = -1;
+        _curExtAddr =  0;
+    }
+
+    private boolean _updateExtendedAddressByte(final int addr)
+    {
+        // Simly return if the MCU does not have the extended address byte
+        if(_config.memoryFlash.instruction_LoadExtAddrByte == null) return true;
+
+        // Calculate and check the extended address byte
+        _curExtAddr = addr >> 17;
+        if(_prvExtAddr == _curExtAddr) return true;
+
+        // Load the extended address byte
+        final int[] ioBuff = XCom.arrayCopy(_config.memoryFlash.instruction_LoadExtAddrByte);
+
+        ioBuff[_config.memoryFlash.a0idx_LoadExtAddrByte] = _curExtAddr;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Update the reference value
+        _prvExtAddr = _curExtAddr;
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public int _flashMemoryTotalSize()
+    { return _config.memoryFlash.totalSize; }
+
+    @Override
+    public byte _flashMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int _flashMemoryAlignWriteSize(final int numBytes)
+    {
+             if(_config.memoryFlash.paged                            ) return USB2GPIO.alignWriteSize(numBytes, _config.memoryFlash.pageSize       );
+        else if(_config.memoryFlash.paged_direct                     ) return USB2GPIO.alignWriteSize(numBytes, _config.memoryFlash.pageSize_direct);
+        else if(_config.memoryFlash.instruction_ReadProgMemHB != null) return USB2GPIO.alignWriteSize(numBytes, 2                                  );
+        else                                                           return numBytes;
+    }
+
+    @Override
+    public int _eepromMemoryTotalSize()
+    { return _config.memoryEEPROM.totalSize; }
+
+    @Override
+    public byte _eepromMemoryEmptyValue()
+    { return FlashMemory_EmptyValue; }
+
+    @Override
+    public int[] _readDataBuff()
+    { return _config.memoryFlash.readDataBuff; }
+
+    private int _verifyReadFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Check the start address and number of bytes
+        if(sa + nb > _config.memoryFlash.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FSAddrNBytesOoR, ProgClassName);
+            return -1;
+        }
+
+        if(_config.memoryFlash.instruction_ReadProgMemHB != null) {
+            if( (sa & 0x01) != 0 ) {
+                USB2GPIO.notifyError(Texts.ProgXXX_SAddrNotEven , ProgClassName); // The start address   must be even
+                return -1;
+            }
+            if( (nb & 0x01) != 0 ) {
+                USB2GPIO.notifyError(Texts.ProgXXX_NBytesNotEven, ProgClassName); // The number of bytes must be even
+                return -1;
+            }
+        }
+
+        // Prepare the result buffer
+        if(_config.memoryFlash.readDataBuff == null || _config.memoryFlash.readDataBuff.length != numBytes) {
+            _config.memoryFlash.readDataBuff = new int[numBytes];
+        }
+
+        int rdbIdx = 0;
+        int verIdx = 0;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Reset the extended address byte
+        _resetExtendedAddressByte();
+
+        // Read the bytes (and compare them if requested)
+        for(int addr = sa; addr < (sa + nb); addr += 2) {
+
+            // Update the extended address byte
+            if( !_updateExtendedAddressByte(addr) ) {
+                USB2GPIO.notifyError(Texts.ProgXXX_FailISP_UpXAddr, ProgClassName);
+                return -1;
+            }
+
+            // Process in word
+            if(_config.memoryFlash.instruction_ReadProgMemHB != null) {
+
+                // Read the program memory bytes
+                final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_ReadProgMemLB, _config.memoryFlash.instruction_ReadProgMemHB);
+
+                ioBuff[_config.memoryFlash.a1idx_ReadProgMemXB    ] = (addr >> 9) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_ReadProgMemXB    ] = (addr >> 1) & 0xFF;
+                ioBuff[_config.memoryFlash.a1idx_ReadProgMemXB + 4] = ioBuff[_config.memoryFlash.a1idx_ReadProgMemXB];
+                ioBuff[_config.memoryFlash.a0idx_ReadProgMemXB + 4] = ioBuff[_config.memoryFlash.a0idx_ReadProgMemXB];
+
+                if( !_usb2gpio.spiTransfer(ioBuff) ) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+                    return -1;
+                }
+
+                // Store the bytes to the result buffer
+                _config.memoryFlash.readDataBuff[rdbIdx++] = ioBuff[_config.memoryFlash.responseIndex_ReadProgMemXB    ];
+                _config.memoryFlash.readDataBuff[rdbIdx++] = ioBuff[_config.memoryFlash.responseIndex_ReadProgMemXB + 4];
+
+            }
+            // Process in bytes
+            else {
+
+                // Read the program memory bytes
+                final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_ReadProgMemLB,_config.memoryFlash.instruction_ReadProgMemLB);
+
+                ioBuff[_config.memoryFlash.a1idx_ReadProgMemXB    ] = (  addr      >> 8 ) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_ReadProgMemXB    ] = (  addr           ) & 0xFF;
+                ioBuff[_config.memoryFlash.a1idx_ReadProgMemXB + 4] = ( (addr + 1) >> 8 ) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_ReadProgMemXB + 4] = ( (addr + 1)      ) & 0xFF;
+
+                if( !_usb2gpio.spiTransfer(ioBuff) ) {
+                    USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+                    return -1;
+                }
+
+                // Store the bytes to the result buffer
+                                      _config.memoryFlash.readDataBuff[rdbIdx++] = ioBuff[_config.memoryFlash.responseIndex_ReadProgMemXB    ];
+                if(rdbIdx < numBytes) _config.memoryFlash.readDataBuff[rdbIdx++] = ioBuff[_config.memoryFlash.responseIndex_ReadProgMemXB + 4];
+
+            } // if
+
+            // Compare the bytes as needed
+            if(refData != null && verIdx < refData.length) {
+                if(true) {
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                }
+                if(verIdx < refData.length) {
+                    if( _config.memoryFlash.readDataBuff[verIdx] != (refData[verIdx] & 0xFF) ) return verIdx;
+                    ++verIdx;
+                }
+            }
+
+            // Call the progress callback function for the current value
+            pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+        } // for addr
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return numBytes;
+    }
+
+    @Override
+    public boolean readFlash(final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(null, startAddress, numBytes, progressCallback) == numBytes; }
+
+    private boolean _writeFlashByte(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Check the start address and number of bytes as needed
+        if(_config.memoryFlash.instruction_WriteProgMemHB != null) {
+            if( (sa & 0x01) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_SAddrNotEven , ProgClassName); // The start address   must be even
+            if( (nb & 0x01) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_NBytesNotEven, ProgClassName); // The number of bytes must be even
+        }
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Reset the extended address byte
+        _resetExtendedAddressByte();
+
+        // Write the bytes
+        int datIdx = 0;
+
+        for(int addr = sa; addr < (sa + nb); addr += 2) {
+
+            // Update the extended address byte
+            if( !_updateExtendedAddressByte(addr) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailISP_UpXAddr, ProgClassName);
+
+            // Process in word
+            if(_config.memoryFlash.instruction_WriteProgMemHB != null) {
+
+                // Write the program memory bytes
+                final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_WriteProgMemLB, _config.memoryFlash.instruction_WriteProgMemHB);
+
+                ioBuff[_config.memoryFlash.a1idx_WriteProgMemXB    ] = (addr >> 9) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_WriteProgMemXB    ] = (addr >> 1) & 0xFF;
+                ioBuff[_config.memoryFlash.a1idx_WriteProgMemXB + 4] = ioBuff[_config.memoryFlash.a1idx_WriteProgMemXB];
+                ioBuff[_config.memoryFlash.a0idx_WriteProgMemXB + 4] = ioBuff[_config.memoryFlash.a0idx_WriteProgMemXB];
+
+                ioBuff[_config.memoryFlash.dtidx_WriteProgMemXB    ] = data[datIdx++] & 0xFF;
+                ioBuff[_config.memoryFlash.dtidx_WriteProgMemXB + 4] = data[datIdx++] & 0xFF;
+
+                if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+            }
+            // Process in bytes
+            else {
+
+                // Write the program memory bytes
+                final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_WriteProgMemLB, _config.memoryFlash.instruction_WriteProgMemLB);
+
+                ioBuff[_config.memoryFlash.a1idx_WriteProgMemXB    ] =   (addr      >> 8 ) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_WriteProgMemXB    ] =   (addr           ) & 0xFF;
+                ioBuff[_config.memoryFlash.a1idx_WriteProgMemXB + 4] = ( (addr + 1) >> 8 ) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_WriteProgMemXB + 4] = ( (addr + 1)      ) & 0xFF;
+
+                ioBuff[_config.memoryFlash.dtidx_WriteProgMemXB    ] =                          (data[datIdx++] & 0xFF);
+                ioBuff[_config.memoryFlash.dtidx_WriteProgMemXB + 4] = (datIdx < data.length) ? (data[datIdx++] & 0xFF) : 0x00;
+
+                if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+            } // if
+
+            // Wait until the operation is complete
+            SysUtil.sleepMS(_config.memoryFlash.waitDelay_MS_WriteProgMem);
+
+            // Call the progress callback function for the current value
+            pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+        } // for addr
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeFlashPage(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Check the start address and number of bytes
+        if( !USB2GPIO.checkStartAddressAndNumberOfBytes_pageSize(sa, nb, _config.memoryFlash.pageSize, ProgClassName) ) return false;
+
+        // Get the number of pages to be written and the current page address
+        final int numPages = nb / _config.memoryFlash.pageSize;
+              int cpgAddr  = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Reset the extended address byte
+        _resetExtendedAddressByte();
+
+        // Write the pages
+        int datIdx = 0;
+
+        for(int p = 0; p < numPages; ++p) {
+
+            // ##### !!! TODO : Skip writing the page if it is blank (its contents are all 'FlashMemory_EmptyValue') !!! #####
+
+            // Write the bytes
+            for(int addr = cpgAddr; addr < (cpgAddr + _config.memoryFlash.pageSize); addr += 2) {
+
+                // Update the extended address byte
+                if( !_updateExtendedAddressByte(addr) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailISP_UpXAddr, ProgClassName);
+
+                // Load the program memory bytes
+                final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_LoadProgMemLB, _config.memoryFlash.instruction_LoadProgMemHB);
+
+                ioBuff[_config.memoryFlash.a1idx_LoadProgMemXB    ] = (addr >> 9) & 0xFF;
+                ioBuff[_config.memoryFlash.a0idx_LoadProgMemXB    ] = (addr >> 1) & 0xFF;
+                ioBuff[_config.memoryFlash.dtidx_LoadProgMemXB    ] = data[datIdx++] & 0xFF;
+                ioBuff[_config.memoryFlash.a1idx_LoadProgMemXB + 4] = ioBuff[_config.memoryFlash.a1idx_LoadProgMemXB];
+                ioBuff[_config.memoryFlash.a0idx_LoadProgMemXB + 4] = ioBuff[_config.memoryFlash.a0idx_LoadProgMemXB];
+                ioBuff[_config.memoryFlash.dtidx_LoadProgMemXB + 4] = data[datIdx++] & 0xFF;
+
+                if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+                // Call the progress callback function for the current value
+                pcb.callProgressCallbackCurrent(progressCallback, nb);
+
+            } // for addr
+
+            // Write (commit/flush) the page
+            final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryFlash.instruction_WriteProgMemPage);
+
+            ioBuff[_config.memoryFlash.a1idx_WriteProgMemPage] = (cpgAddr >> 9) & 0xFF;
+            ioBuff[_config.memoryFlash.a0idx_WriteProgMemPage] = (cpgAddr >> 1) & 0xFF;
+
+            if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+            // Wait until the operation is complete
+            SysUtil.sleepMS(_config.memoryFlash.waitDelay_MS_WriteProgMemPage);
+
+            // Increment the current page address
+            cpgAddr += _config.memoryFlash.pageSize;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    private boolean _writeFlashPgDr(final byte[] data, final int sa, final int nb, final IntConsumer progressCallback)
+    {
+        // Check the start address and number of bytes
+        if( (sa % _config.memoryFlash.pageSize_direct) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_SAddrNotMPZ , ProgClassName); // The start address   must be a multiple of the page size
+        if( (nb % _config.memoryFlash.pageSize_direct) != 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_NBytesNotMPZ, ProgClassName); // The number of bytes must be a multiple of the page size
+
+        // Get the number of pages to be written and the current page address
+        final int numPages = nb / _config.memoryFlash.pageSize_direct;
+              int cpgAddr  = sa;
+
+        // Call the progress callback function for the initial value
+        final ProgressCB pcb = new ProgressCB();
+
+        pcb.callProgressCallbackInitial(progressCallback, nb);
+
+        // Clear flag
+        _chipErased = false;
+
+        // Prepare the IO buffer and mask
+        final int[] ioBuff = new int[_config.memoryFlash.instruction_WritePageDirect.length + _config.memoryFlash.pageSize_direct];
+        final int   a0Mask = ~(_config.memoryFlash.pageSize_direct - 1) & 0xFF;
+
+        // Write the pages
+        int datIdx = 0;
+
+        for(int p = 0; p < numPages; ++p) {
+
+            // Store the instruction
+            int idx;
+
+            for(idx = 0; idx < _config.memoryFlash.instruction_WritePageDirect.length; ++idx) {
+                ioBuff[idx] = _config.memoryFlash.instruction_WritePageDirect[idx];
+            }
+
+            ioBuff[_config.memoryFlash.a1idx_WritePageDirect] = (cpgAddr >> 8) & 0xFF;
+            ioBuff[_config.memoryFlash.a0idx_WritePageDirect] = (cpgAddr     ) & a0Mask;
+
+            // Store the data bytes
+            for(int i = 0; i < _config.memoryFlash.pageSize_direct; ++i) {
+                ioBuff[idx++] = data[datIdx++] & 0xFF;
+            }
+
+            // Write the bytes
+            if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+            // Wait until the operation is complete
+            SysUtil.sleepMS(_config.memoryFlash.waitDelay_MS_WritePageDirect);
+
+            // Call the progress callback function for the current value as many times as necessary
+            pcb.callProgressCallbackCurrentMulti(progressCallback, nb, _config.memoryFlash.pageSize_direct / 2);
+
+            // Increment the current page address
+            cpgAddr += _config.memoryFlash.pageSize_direct;
+
+        } // for p
+
+        // Call the progress callback function for the final value
+        pcb.callProgressCallbackFinal(progressCallback, nb);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Determine the start address and number of bytes
+        final int sa = (startAddress < 0) ? 0                             : startAddress;
+        final int nb = (numBytes     < 0) ? _config.memoryFlash.totalSize : numBytes;
+
+        // Align the number of bytes and pad the buffer as needed
+        USB2GPIO.ANBResult anbr = null;
+
+        /*
+         * On AVR 0x0000 means NOP:
+         *     https://en.wikipedia.org/wiki/Atmel_AVR_instruction_set
+         *     https://ww1.microchip.com/downloads/en/devicedoc/atmel-0856-avr-instruction-set-manual.pdf
+         * On MCS51 0x00 means NOP:
+         *     https://www.win.tue.nl/~aeb/comp/8051/set8051.html#51nop
+         *     https://turbo51.com/documentation/8051-instruction-set#51nop
+         */
+        if(_config.memoryFlash.paged) {
+            // Paged - use '_config.memoryFlash.pageSize'
+            anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, _config.memoryFlash.pageSize, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        }
+        else if(_config.memoryFlash.paged_direct) {
+            // Paged - use '_config.memoryFlash.pageSize_direct'
+            anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, _config.memoryFlash.pageSize_direct, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        }
+        else if(_config.memoryFlash.instruction_ReadProgMemHB != null) {
+            // Non-paged - use '2'
+            anbr = USB2GPIO.alignNumberOfBytesAndPadBuffer(data, sa, nb, 2, _config.memoryFlash.totalSize, FlashMemory_EmptyValue, ProgClassName);
+        }
+        else {
+            // Simply copy the original values to the result
+            anbr = new USB2GPIO.ANBResult(nb, data);
+        }
+
+        if(anbr == null) return false;
+
+        // Write flash
+             if(_config.memoryFlash.paged       ) return _writeFlashPage(anbr.buff, sa, anbr.nb, progressCallback);
+        else if(_config.memoryFlash.paged_direct) return _writeFlashPgDr(anbr.buff, sa, anbr.nb, progressCallback);
+        else                                      return _writeFlashByte(anbr.buff, sa, anbr.nb, progressCallback);
+    }
+
+    @Override
+    public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+    { return _verifyReadFlash(refData, startAddress, numBytes, progressCallback); }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public int readEEPROM(final int address)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) {
+            USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+            return -1;
+        }
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) {
+            USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+            return -1;
+        }
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryEEPROM.instruction_ReadEEPROMMem);
+
+        ioBuff[_config.memoryEEPROM.a1idx_ReadEEPROMMem] = (address >> 8) & 0xFF;
+        ioBuff[_config.memoryEEPROM.a0idx_ReadEEPROMMem] = (address >> 0) & 0xFF;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryEEPROM.responseIndex_ReadEEPROMMem];
+    }
+
+    @Override
+    public boolean writeEEPROM(final int address, final byte data)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Error if EEPROM is not available
+        if(_config.memoryEEPROM.totalSize <= 0) return USB2GPIO.notifyError(Texts.ProgXXX_ENotAvailable, ProgClassName);
+
+        // Check the address
+        if(address < 0 || address >= _config.memoryEEPROM.totalSize) return USB2GPIO.notifyError(Texts.ProgXXX_EAddrOoR, ProgClassName);
+
+        // ##### !!! TODO : Check if the new and original bytes are the same? !!! #####
+
+        // Write the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryEEPROM.instruction_WriteEEPROMMem);
+
+        ioBuff[_config.memoryEEPROM.a1idx_WriteEEPROMMem] = (address >> 8) & 0xFF;
+        ioBuff[_config.memoryEEPROM.a0idx_WriteEEPROMMem] = (address >> 0) & 0xFF;
+        ioBuff[_config.memoryEEPROM.dtidx_WriteEEPROMMem] = data & 0xFF;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.memoryEEPROM.waitDelay_MS_WriteEEPROMMem);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int readLFuse()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryLFuse.instruction_ReadLFuse == null) return 0xFF;
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryLFuse.instruction_ReadLFuse);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryLFuse.responseIndex_ReadLFuse];
+    }
+
+    public boolean writeLFuse(final byte value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryLFuse.instruction_WriteLFuse == null) return true;
+
+        // Write the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryLFuse.instruction_WriteLFuse);
+
+        ioBuff[_config.memoryLFuse.dtidx_WriteLFuse] = value & 0xFF;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.memoryLFuse.waitDelay_MS_WriteLFuse);
+
+        // Done
+        return true;
+    }
+
+    public int readHFuse()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryHFuse.instruction_ReadHFuse == null) return 0xFF;
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryHFuse.instruction_ReadHFuse);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryHFuse.responseIndex_ReadHFuse];
+    }
+
+    public boolean writeHFuse(final byte value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryHFuse.instruction_WriteHFuse == null) return true;
+
+        // Write the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryHFuse.instruction_WriteHFuse);
+
+        ioBuff[_config.memoryHFuse.dtidx_WriteHFuse] = value & 0xFF;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.memoryHFuse.waitDelay_MS_WriteHFuse);
+
+        // Done
+        return true;
+    }
+
+    public int readEFuse()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryEFuse.instruction_ReadEFuse == null) return 0xFF;
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryEFuse.instruction_ReadEFuse);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryEFuse.responseIndex_ReadEFuse];
+    }
+
+    public boolean writeEFuse(final byte value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Simply exit if the MCU does not support low fuse
+        if(_config.memoryEFuse.instruction_WriteEFuse == null) return true;
+
+        // Write the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryEFuse.instruction_WriteEFuse);
+
+        ioBuff[_config.memoryEFuse.dtidx_WriteEFuse] = value & 0xFF;
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.memoryEFuse.waitDelay_MS_WriteEFuse);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public long readLockBits()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryLockBits.instruction_ReadLockBits);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryLockBits.responseIndex_ReadLockBits] & 0x000000FFL;
+    }
+
+    @Override
+    public boolean writeLockBits(final long value)
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) return USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+
+        // Write the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryLockBits.instruction_WriteLockBits);
+
+        ioBuff[_config.memoryLockBits.dtidx_WriteLockBits] = (int) (value & 0x000000FFL);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) return USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+
+        // Wait until the operation is complete
+        SysUtil.sleepMS(_config.memoryLockBits.waitDelay_MS_WriteLockBits);
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int readCalibrationByte()
+    {
+        // Error if not in programming mode
+        if(!_inProgMode) {
+            USB2GPIO.notifyError(Texts.ProgXXX_NotInProgMode, ProgClassName);
+            return -1;
+        }
+
+        // Read the byte
+        final int[] ioBuff = XCom.arrayConcatCopy(_config.memoryCalibrationByte.instruction_ReadCalibrationByte);
+
+        if( !_usb2gpio.spiTransfer(ioBuff) ) {
+            USB2GPIO.notifyError(Texts.ProgXXX_FailSPITrans, ProgClassName);
+            return -1;
+        }
+
+        // Return the byte
+        return ioBuff[_config.memoryCalibrationByte.responseIndex_ReadCalibrationByte];
+    }
+
+} // class ProgISP

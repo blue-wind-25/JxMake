@@ -128,6 +128,8 @@ public class WindowsDriverInstaller {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // ##### ??? TODO : Make it accessible from SysUtil ??? #####
+
     public static XCom.Pair<Integer, String> installDriver(final String infPath)
     {
         try {

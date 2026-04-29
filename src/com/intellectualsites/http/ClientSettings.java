@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -29,8 +33,8 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/**
- * Settings that change the behaviour of {@link HttpClient}
+/*
+ Settings that change the behaviour of {@link HttpClient}
  */
 final class ClientSettings {
 
@@ -42,60 +46,60 @@ final class ClientSettings {
         this.baseURL = "";
     }
 
-    /**
-     * Base URL that is prepended to the URL
-     * of each request
-     *
-     * @return Base URL
+    /*
+     Base URL that is prepended to the URL
+     of each request
+     
+     @return Base URL
      */
     String getBaseURL() {
         return this.baseURL;
     }
 
-    /**
-     * Get the entity mapper that should be used
-     * in all request (by default)
-     *
-     * @return Entity mapper
+    /*
+     Get the entity mapper that should be used
+     in all request (by default)
+     
+     @return Entity mapper
      */
     EntityMapper getEntityMapper() {
         return this.entityMapper;
     }
 
-    /**
-     * Get all registered request decorators
-     *
-     * @return Unmodifiable collection of decorators
+    /*
+     Get all registered request decorators
+     
+     @return Unmodifiable collection of decorators
      */
     Collection<Consumer<HttpClient.WrappedRequestBuilder>> getRequestDecorators() {
         return Collections.unmodifiableCollection(this.decorators);
     }
 
-    /**
-     * Set the base URL, that is prepended to
-     * the URL of each request
-     *
-     * @param baseURL base URL
+    /*
+     Set the base URL, that is prepended to
+     the URL of each request
+     
+     @param baseURL base URL
      */
     void setBaseURL(final String baseURL) {
         this.baseURL = Objects.requireNonNull(baseURL, "Base URL may not be null");
     }
 
-    /**
-     * Set the default entity mapper that is used
-     * by all requests, unless otherwise specified
-     *
-     * @param entityMapper Entity mapper
+    /*
+     Set the default entity mapper that is used
+     by all requests, unless otherwise specified
+     
+     @param entityMapper Entity mapper
      */
     void setEntityMapper(final EntityMapper entityMapper) {
         this.entityMapper = entityMapper;
     }
 
-    /**
-     * Add a new request decorator. This will have the opportunity
-     * to decorate every request made by this client
-     *
-     * @param decorator Decorator
+    /*
+     Add a new request decorator. This will have the opportunity
+     to decorate every request made by this client
+     
+     @param decorator Decorator
      */
     void addDecorator(final Consumer<HttpClient.WrappedRequestBuilder> decorator) {
         this.decorators.add(Objects.requireNonNull(decorator, "Decorator may not be null"));

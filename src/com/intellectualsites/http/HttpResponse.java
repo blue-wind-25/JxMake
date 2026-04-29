@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -25,8 +29,8 @@ package com.intellectualsites.http;
 
 import java.util.Objects;
 
-/**
- * A HTTP response
+/*
+ A HTTP response
  */
 public final class HttpResponse {
 
@@ -48,58 +52,58 @@ public final class HttpResponse {
         this.body = body;
     }
 
-    /**
-     * Create a new builder instance
-     *
-     * @return Builder instance
+    /*
+     Create a new builder instance
+     
+     @return Builder instance
      */
     static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Get the HTTP status message
-     *
-     * @return Status message
+    /*
+     Get the HTTP status message
+     
+     @return Status message
      */
     public String getStatus() {
         return this.status;
     }
 
-    /**
-     * Get the HTTP status code
-     *
-     * @return Status code
+    /*
+     Get the HTTP status code
+     
+     @return Status code
      */
     public int getStatusCode() {
         return this.code;
     }
 
-    /**
-     * Get the raw response body
-     *
-     * @return Response body
+    /*
+     Get the raw response body
+     
+     @return Response body
      */
     public byte[] getRawResponse() {
         return this.body;
     }
 
-    /**
-     * Get the response headers
-     *
-     * @return Response headers
+    /*
+     Get the response headers
+     
+     @return Response headers
      */
     public Headers getHeaders() {
         return this.headers;
     }
 
-    /**
-     * Get the response entity and map it to a specific type
-     *
-     * @param returnType Return type class
-     * @param <T> Return type
-     * @return Response
-     * @throws IllegalArgumentException If no mapper exists for the type
+    /*
+     Get the response entity and map it to a specific type
+     
+     @param returnType Return type class
+     @param <T> Return type
+     @return Response
+     @throws IllegalArgumentException If no mapper exists for the type
      */
     public <T> T getResponseEntity(final Class<T> returnType) {
         final String contentTypeString = this.headers.getOrDefault("content-type", null);

@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -23,38 +27,38 @@
  */
 package com.intellectualsites.http;
 
-/**
- * HTTP methods
+/*
+ HTTP methods
  */
 enum HttpMethod {
 
-    /**
-     * Post requests are used to handle data
+    /*
+     Post requests are used to handle data
      */
     POST,
 
-    /**
-     * Get requests are handled for getting resources
+    /*
+     Get requests are handled for getting resources
      */
     GET,
 
-    /**
-     * Add data to an external source
+    /*
+     Add data to an external source
      */
     PUT,
 
-    /**
-     * Patch content on an external source
+    /*
+     Patch content on an external source
      */
     PATCH,
 
-    /**
-     * Retrieve the headers for a request
+    /*
+     Retrieve the headers for a request
      */
     HEAD(false),
 
-    /**
-     * Delete content from an external source
+    /*
+     Delete content from an external source
      */
     DELETE;
 
@@ -68,10 +72,10 @@ enum HttpMethod {
         this.hasBody = hasBody;
     }
 
-    /**
-     * Whether or not the method should return an entity
-     *
-     * @return Whether or not a response entity should be expected
+    /*
+     Whether or not the method should return an entity
+     
+     @return Whether or not a response entity should be expected
      */
     boolean hasBody() {
         return this.hasBody;

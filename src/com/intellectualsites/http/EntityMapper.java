@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -30,8 +34,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Utility responsible for serializing and de-serializing HTTP entities
+/*
+ Utility responsible for serializing and de-serializing HTTP entities
  */
 public final class EntityMapper {
 
@@ -43,10 +47,10 @@ public final class EntityMapper {
         return (T) o;
     }
 
-    /**
-     * Create a new entity mapper instance
-     *
-     * @return Created instance
+    /*
+     Create a new entity mapper instance
+     
+     @return Created instance
      */
     public static EntityMapper newInstance() {
         final EntityMapper mapper = new EntityMapper();
@@ -55,13 +59,13 @@ public final class EntityMapper {
         return mapper;
     }
 
-    /**
-     * Register a serializer that maps a given type to an array of bytes
-     *
-     * @param clazz      Class of type to map
-     * @param serializer Serializer that performs the mapping
-     * @param <T>        Type to map
-     * @return Mapper instance
+    /*
+     Register a serializer that maps a given type to an array of bytes
+     
+     @param clazz      Class of type to map
+     @param serializer Serializer that performs the mapping
+     @param <T>        Type to map
+     @return Mapper instance
      */
     public <T> EntityMapper registerSerializer(final Class<T> clazz,
         final EntitySerializer<T> serializer) {
@@ -71,13 +75,13 @@ public final class EntityMapper {
         return this;
     }
 
-    /**
-     * Register a deserializer that maps objects of a certain content type to Java objects
-     *
-     * @param clazz        Content type
-     * @param deserializer Deserializer
-     * @param <T>          Type of the objects produces by the deserializer
-     * @return Mapper instance
+    /*
+     Register a deserializer that maps objects of a certain content type to Java objects
+     
+     @param clazz        Content type
+     @param deserializer Deserializer
+     @param <T>          Type of the objects produces by the deserializer
+     @return Mapper instance
      */
     public <T> EntityMapper registerDeserializer(final Class<T> clazz,
         final EntityDeserializer<T> deserializer) {
@@ -87,12 +91,12 @@ public final class EntityMapper {
         return this;
     }
 
-    /**
-     * Attempt to retrieve the serializer for a given type
-     *
-     * @param clazz Class
-     * @param <T>   Type
-     * @return Serializer
+    /*
+     Attempt to retrieve the serializer for a given type
+     
+     @param clazz Class
+     @param <T>   Type
+     @return Serializer
      */
     public <T> Optional<EntitySerializer<T>> getSerializer(final Class<T> clazz) {
         final EntitySerializer<?> serializer = this.serializers.get(clazz);
@@ -102,12 +106,12 @@ public final class EntityMapper {
         return Optional.of(castUnsafe(serializer));
     }
 
-    /**
-     * Attempt to retrieve the deserializer for a given content type
-     *
-     * @param type Content class
-     * @param <T>  Content type
-     * @return Deserializer
+    /*
+     Attempt to retrieve the deserializer for a given content type
+     
+     @param type Content class
+     @param <T>  Content type
+     @return Deserializer
      */
     @SuppressWarnings("unchecked")
     public <T> Optional<EntityDeserializer<T>> getDeserializer(final Class<T> type) {
@@ -119,46 +123,46 @@ public final class EntityMapper {
     }
 
 
-    /**
-     * Serializer for HTTP request bodies
-     *
-     * @param <T> Object type
+    /*
+     Serializer for HTTP request bodies
+     
+     @param <T> Object type
      */
     public interface EntitySerializer<T> {
 
-        /**
-         * Serialize the input into a byte array, which can then be
-         * written to the HTTP request
-         *
-         * @param input Input that should be serialized
-         * @return The serialized object
+        /*
+         Serialize the input into a byte array, which can then be
+         written to the HTTP request
+         
+         @param input Input that should be serialized
+         @return The serialized object
          */
         byte[] serialize(final T input);
 
-        /**
-         * Get the content type of the object
-         *
-         * @return Content Type
+        /*
+         Get the content type of the object
+         
+         @return Content Type
          */
         ContentType getContentType();
 
     }
 
 
-    /**
-     * Deserializer for HTTP response bodies
-     *
-     * @param <T> Object type
+    /*
+     Deserializer for HTTP response bodies
+     
+     @param <T> Object type
      */
     @FunctionalInterface
     public interface EntityDeserializer<T> {
 
-        /**
-         * Deserialize the input byte array into an object.
-         *
-         * @param contentType Optional content type, if supplied by the server
-         * @param input       Input that should be de-serialized
-         * @return De-serialized input
+        /*
+         Deserialize the input byte array into an object.
+         
+         @param contentType Optional content type, if supplied by the server
+         @param input       Input that should be de-serialized
+         @return De-serialized input
          */
         T deserialize(final ContentType contentType,
             final byte[] input);

@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic;
 
 import java.util.HashMap;
@@ -7,197 +11,197 @@ import java.util.Map;
 import com.j256.simplemagic.entries.IanaEntries;
 import com.j256.simplemagic.entries.IanaEntry;
 
-/**
- * Enumerated type of the content if it is known by SimpleMagic matched from the mime-type. This information is _not_
- * processed from the magic files.
- * 
- * @author graywatson
+/*
+ Enumerated type of the content if it is known by SimpleMagic matched from the mime-type. This information is _not_
+ processed from the magic files.
+ 
+ @author graywatson
  */
 public enum ContentType {
 
-	/** Adobe Illustrator (may look like a PDF) */
+	/* Adobe Illustrator (may look like a PDF) */
 	AI("application/vnd.adobe.illustrator", "ai"),
-	/** AIFF audio format */
+	/* AIFF audio format */
 	AIFF("audio/x-aiff", "aiff", "aif", "aiff", "aifc"),
-	/** Apple Quicktime image */
+	/* Apple Quicktime image */
 	APPLE_QUICKTIME_IMAGE("image/x-quicktime", null),
-	/** Apple Quicktime movie */
+	/* Apple Quicktime movie */
 	APPLE_QUICKTIME_MOVIE("video/quicktime", "quicktime", "qt", "mov"),
-	/** ARC archive data */
+	/* ARC archive data */
 	ARC("application/x-arc", "arc", "arc"),
-	/** MPEG audio file */
+	/* MPEG audio file */
 	AUDIO_MPEG("audio/mpeg", "mpeg", "mpga", "mp2", "mp2a", "mp3", "m2a", "m3a"),
-	/** Microsoft AVI video file */
+	/* Microsoft AVI video file */
 	AVI("video/x-msvideo", "avi", "avi"),
-	/** Unix AWK command script */
+	/* Unix AWK command script */
 	AWK("text/x-awk", "awk", "awk"),
-	/** Macintosh BinHex file */
+	/* Macintosh BinHex file */
 	BINHEX("application/mac-binhex40", "binhex", "hqx"),
-	/** Bittorrent file */
+	/* Bittorrent file */
 	BITTORRENT("application/x-bittorrent", "bittorrent", "torrent"),
-	/** Microsoft PC bitmap image */
+	/* Microsoft PC bitmap image */
 	BMP("image/x-ms-bmp", "bmp", "bmp"),
-	/** Bzip2 compressed file */
+	/* Bzip2 compressed file */
 	BZIP2("application/x-bzip2", "bzip2", "bz2", "boz"),
-	/** Unix compress file */
+	/* Unix compress file */
 	COMPRESS("application/x-compress", "compress", "Z"),
-	/** Corel Draw image file */
+	/* Corel Draw image file */
 	COREL_DRAW("image/x-coreldraw", "corel-draw"),
-	/** Unix core dump output */
+	/* Unix core dump output */
 	CORE_DUMP("application/x-coredump", "core-dump"),
-	/** Unix CPIO archive data */
+	/* Unix CPIO archive data */
 	CPIO("application/x-cpio", "cpio", "cpio"),
-	/** Berkeley database file */
+	/* Berkeley database file */
 	DBM("application/x-dbm", "dbm"),
-	/** Debian installation package */
+	/* Debian installation package */
 	DEBIAN_PACKAGE("application/x-debian-package", "debian-pkg", "pkg", "deb", "udeb"),
-	/** Unix diff output */
+	/* Unix diff output */
 	DIFF("text/x-diff", "diff", "diff"),
-	/** TeX DVI output file */
+	/* TeX DVI output file */
 	DVI("application/x-dvi", "dvi", "dvi"),
-	/** FITS document */
+	/* FITS document */
 	FITS("application/fits", "fits", "fits"),
-	/** Macromedia Flash data */
+	/* Macromedia Flash data */
 	FLASH("application/x-shockwave-flash", "flash", "swf"),
-	/** Macromedia Flash movie file */
+	/* Macromedia Flash movie file */
 	FLASH_VIDEO("video/x-flv", "flash-video", "flv"),
-	/** FORTRAN program */
+	/* FORTRAN program */
 	FORTRAN("text/x-fortran", "fortran", "f", "for", "f77", "f90"),
-	/** FrameMaker document */
+	/* FrameMaker document */
 	FRAMEMAKER("application/x-mif", "framemaker", "fm", "frame", "maker", "book"),
-	/** GNU awk script */
+	/* GNU awk script */
 	GAWK("text/x-gawk", "gawk", "gawk"),
-	/** GNU database file */
+	/* GNU database file */
 	GDBM("application/x-gdbm", "gdbm"),
-	/** GIF image file */
+	/* GIF image file */
 	GIF("image/gif", "gif", "gif"),
-	/** GNU Numeric file */
+	/* GNU Numeric file */
 	GNUMERIC("application/x-gnumeric", "gnumeric"),
-	/** GPG keyring file */
+	/* GPG keyring file */
 	GNUPG_KEYRING("application/x-gnupg-keyring", "gnupg-keyring"),
-	/** GNU Info file */
+	/* GNU Info file */
 	GNU_INFO("text/x-info", "gnu-info", "info"),
-	/** Gzip compressed data */
+	/* Gzip compressed data */
 	GZIP("application/x-gzip", "gzip", "gz"),
-	/** H264 video encoded file */
+	/* H264 video encoded file */
 	H264("video/h264", "h264", "h264"),
-	/** HTML document */
+	/* HTML document */
 	HTML("text/html", "html", "html", "htm"),
-	/** MS Windows icon resource */
+	/* MS Windows icon resource */
 	ICO("image/x-ico", "ico", "ico"),
-	/** ISO 9660 CD-ROM filesystem data */
+	/* ISO 9660 CD-ROM filesystem data */
 	ISO_9660("application/x-iso9660-image", "iso9660", "iso"),
-	/** Java applet */
+	/* Java applet */
 	JAVA_APPLET("application/x-java-applet", "applet"),
-	/** Java keystore file */
+	/* Java keystore file */
 	JAVA_KEYSTORE("application/x-java-keystore", "java-keystore"),
-	/** JPEG image */
+	/* JPEG image */
 	JPEG("image/jpeg", "jpeg", "jpeg", "jpg", "jpe"),
-	/** JPEG 2000 image */
+	/* JPEG 2000 image */
 	JPEG_2000("image/jp2", "jp2", "jp2"),
-	/** LHA archive data */
+	/* LHA archive data */
 	LHA("application/x-lha", "lha", "lha", "lzh"),
-	/** Lisp program */
+	/* Lisp program */
 	LISP("text/x-lisp", "lisp", "lisp"),
-	/** Lotus 123 spreadsheet */
+	/* Lotus 123 spreadsheet */
 	LOTUS_123("application/x-123", "lotus-123", "123"),
-	/** Microsoft access database */
+	/* Microsoft access database */
 	MICROSOFT_ACCESS("application/x-msaccess", "access", "mdb"),
-	/** Microsoft excel spreadsheet */
+	/* Microsoft excel spreadsheet */
 	MICROSOFT_EXCEL("application/vnd.ms-excel", "excel", "xls", "xlm", "xla", "xlc", "xlt", "xlw", "xlsx"),
-	/** Microsoft word document */
+	/* Microsoft word document */
 	MICROSOFT_WORD("application/msword", "word", "doc", "dot", "docx"),
-	/** Microsoft office document */
+	/* Microsoft office document */
 	MICROSOFT_OFFICE("application/vnd.openxmlformats-officedocument", "office"),
-	/** MIDI audio */
+	/* MIDI audio */
 	MIDI("audio/midi", "midi", "mid", "midi", "kar", "rmi"),
-	/** MNG video */
+	/* MNG video */
 	MNG("video/x-mng", "mng", "mng"),
-	/** MP4 encoded video */
+	/* MP4 encoded video */
 	MP4A("video/mp4", "mp4a", "mp4", "mp4a", "mpg4"),
-	/** MP4V encoded video */
+	/* MP4V encoded video */
 	MP4V("video/mp4v-es", "mp4v", "mp4v"),
-	/** New Awk script */
+	/* New Awk script */
 	NAWK("text/x-nawk", "nawk", "nawk"),
-	/** Network news message */
+	/* Network news message */
 	NEWS("message/news", "news"),
-	/** OGG file container */
+	/* OGG file container */
 	OGG("application/ogg", "ogg", "ogg", "oga", "spx"),
-	/** PBM image */
+	/* PBM image */
 	PBM("image/x-portable-bitmap", "pbm", "pbm"),
-	/** PDF document */
+	/* PDF document */
 	PDF("application/pdf", "pdf", "pdf"),
-	/** Perl script */
+	/* Perl script */
 	PERL("text/x-perl", "perl", "pl"),
-	/** PGM image */
+	/* PGM image */
 	PGM("image/x-portable-greymap", "pgm", "pgm"),
-	/** PGP encrypted message */
+	/* PGP encrypted message */
 	PGP("application/pgp-encrypted", "pgp", "pgp"),
-	/** PGP keyring */
+	/* PGP keyring */
 	PGP_KEYRING("application/x-pgp-keyring", "pgp-keyring"),
-	/** PGP signature */
+	/* PGP signature */
 	PGP_SIGNATURE("application/pgp-signature", "pgp-signature"),
-	/** Photoshop image */
+	/* Photoshop image */
 	PHOTOSHOP("image/vnd.adobe.photoshop", "photoshop", "psd"),
-	/** PHP script */
+	/* PHP script */
 	PHP("text/x-php", "php", "php"),
-	/** PNG image */
+	/* PNG image */
 	PNG("image/png", "png", "png"),
-	/** Postscript file */
+	/* Postscript file */
 	POSTSCRIPT("application/postscript", "postscript", "ps", "eps"),
-	/** PPM image */
+	/* PPM image */
 	PPM("image/x-portable-pixmap", "ppm", "ppm"),
-	/** RAR archive data */
+	/* RAR archive data */
 	RAR("application/x-rar", "rar", "rar"),
-	/** Real-audio file */
+	/* Real-audio file */
 	REAL_AUDIO("audio/x-pn-realaudio", "real-audio", "ram", "ra"),
-	/** Real-media file */
+	/* Real-media file */
 	REAL_MEDIA("application/vnd.rn-realmedia", "real-media", "rm"),
-	/** RFC822 news message */
+	/* RFC822 news message */
 	MIME("message/rfc822", "mime", "eml", "mime"),
-	/** RedHat package file */
+	/* RedHat package file */
 	RPM("application/x-rpm", "rpm", "rpm"),
-	/** Rich text format document */
+	/* Rich text format document */
 	RTF("text/rtf", "rtf", "rtf"),
-	/** Shared library file */
+	/* Shared library file */
 	SHARED_LIBRARY("application/x-sharedlib", "shared-lib"),
-	/** Unix shell script */
+	/* Unix shell script */
 	SHELL_SCRIPT("text/x-shellscript", "shell-script", "sh"),
-	/** Mac Stuffit archive data */
+	/* Mac Stuffit archive data */
 	STUFFIT("application/x-stuffit", "stuffit", "sit"),
-	/** SVG image */
+	/* SVG image */
 	SVG("image/svg+xml", "svg", "svg", "svgz"),
-	/** TAR archive data */
+	/* TAR archive data */
 	TAR("application/x-tar", "tar", "tar"),
-	/** TeX document */
+	/* TeX document */
 	TEX("text/x-tex", "tex", "tex"),
-	/** TeXinfo document */
+	/* TeXinfo document */
 	TEXINFO("text/x-texinfo", "texinfo", "texinfo", "texi"),
-	/** TIFF image */
+	/* TIFF image */
 	TIFF("image/tiff", "tiff", "tiff", "tif"),
-	/** Troff document */
+	/* Troff document */
 	TROFF("text/troff", "troff", "t", "tr", "roff", "man", "me", "ms"),
-	/** vCard visiting card */
+	/* vCard visiting card */
 	VCARD("text/x-vcard", "vcard", "vcf"),
-	/** Mpeg video */
+	/* Mpeg video */
 	VIDEO_MPEG("video/mpeg", "mpeg", "mpeg", "mpg", "mpe", "m1v", "m2v"),
-	/** VRML modeling file */
+	/* VRML modeling file */
 	VRML("model/vrml", "vrml", "wrl", "vrml"),
-	/** WAV audio */
+	/* WAV audio */
 	WAV("audio/x-wav", "wav", "wav"),
-	/** X3D modeling file */
+	/* X3D modeling file */
 	X3D("model/x3d", "x3d", "x3d", "x3dz"),
-	/** XML document */
+	/* XML document */
 	XML("application/xml", "xml", "xml", "xsl"),
-	/** Zip archive data */
+	/* Zip archive data */
 	ZIP("application/zip", "zip", "zip"),
-	/** Zoo archive data */
+	/* Zoo archive data */
 	ZOO("application/x-zoo", "zoo", "zoo"),
 
-	/**
-	 * Copied from http://svn.apache.org/viewvc/httpd/httpd/trunk/docs/conf/mime.types?view=co
-	 * 
-	 * FYI: many of these are not in the built in magic rules file.
+	/*
+	 Copied from http://svn.apache.org/viewvc/httpd/httpd/trunk/docs/conf/mime.types?view=co
+	 
+	 FYI: many of these are not in the built in magic rules file.
 	 */
 	ANDREW_INSERT("application/andrew-inset", "andrew-insert", "ez"),
 	APPLIXWARE("application/applixware", "applixware", "aw"),
@@ -881,9 +885,9 @@ public enum ContentType {
 	HBS("text/x-handlebars-template", "hbs", "hbs"),
 	AMR("audio/amr", "amr", "amr"),
 
-	/** default if no content */
+	/* default if no content */
 	EMPTY("application/octet-stream", "other"),
-	/** default if no specific match to the mime-type */
+	/* default if no specific match to the mime-type */
 	OTHER("application/octet-stream", "other"),
 	// end
 	;
@@ -919,8 +923,8 @@ public enum ContentType {
 		this.ianaEntry = findIanaEntryByMimeType(mimeType);
 	}
 
-	/**
-	 * Get simple name of the type.
+	/*
+	 Get simple name of the type.
 	 */
 	public String getSimpleName() {
 		return simpleName;
@@ -934,8 +938,8 @@ public enum ContentType {
 		return fileExtensions;
 	}
 
-	/**
-	 * Return the type associated with the mime-type string or {@link #OTHER} if not found.
+	/*
+	 Return the type associated with the mime-type string or {@link #OTHER} if not found.
 	 */
 	public static ContentType fromMimeType(String mimeType) {
 		// NOTE: mimeType can be null
@@ -951,8 +955,8 @@ public enum ContentType {
 
 	}
 
-	/**
-	 * Return the type associated with the file-extension string or {@link #OTHER} if not found.
+	/*
+	 Return the type associated with the file-extension string or {@link #OTHER} if not found.
 	 */
 	public static ContentType fromFileExtension(String fileExtension) {
 		// NOTE: mimeType can be null
@@ -964,8 +968,8 @@ public enum ContentType {
 		}
 	}
 
-	/**
-	 * Returns the references of the mime type or null if none.
+	/*
+	 Returns the references of the mime type or null if none.
 	 */
 	public List<String> getReferences() {
 		if (ianaEntry == null) {
@@ -975,8 +979,8 @@ public enum ContentType {
 		}
 	}
 
-	/**
-	 * Returns the URL of the references or null if none.
+	/*
+	 Returns the URL of the references or null if none.
 	 */
 	public List<String> getReferenceUrls() {
 		if (ianaEntry == null) {

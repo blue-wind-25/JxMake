@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.entries;
 
 import java.io.BufferedReader;
@@ -13,17 +17,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
-/**
- * Loads the IANA databases (build on 10 august 2017). IANA databases provides the following elements in a CSV file:
- * <ul>
- * <li>Name of the file type</li>
- * <li>Mime-type</li>
- * <li>Name of the articles describing the mime type</li>
- * </ul>
- * In addition to these elements, two URLs are created in order to locate the description of the mime type and the URL
- * of the articles.
- *
- * @author Jean-Christophe Malapert
+/*
+ Loads the IANA databases (build on 10 august 2017). IANA databases provides the following elements in a CSV file:
+ <ul>
+ <li>Name of the file type</li>
+ <li>Mime-type</li>
+ <li>Name of the articles describing the mime type</li>
+ </ul>
+ In addition to these elements, two URLs are created in order to locate the description of the mime type and the URL
+ of the articles.
+ 
+ @author Jean-Christophe Malapert
  */
 public class IanaEntries {
 
@@ -40,15 +44,15 @@ public class IanaEntries {
 		loadFile(INTERNAL_IANA_FONT_DB);
 	}
 
-	/**
-	 * Returns the IANA metadata for a specific mime type or null if not found.
+	/*
+	 Returns the IANA metadata for a specific mime type or null if not found.
 	 */
 	public IanaEntry lookupByMimeType(String mimeType) {
 		return entryMap.get(mimeType);
 	}
 
-	/**
-	 * Loads the IANA database from the specified file.
+	/*
+	 Loads the IANA database from the specified file.
 	 */
 	private void loadFile(String resourcePath) {
 		InputStream stream = getClass().getResourceAsStream(resourcePath);
@@ -95,9 +99,9 @@ public class IanaEntries {
 		}
 	}
 
-	/**
-	 * Parses the references (such as RFC document) associated to a mime type. One or several references can be
-	 * associated to a mime type. Each reference is encompassed by this pattern [ ].
+	/*
+	 Parses the references (such as RFC document) associated to a mime type. One or several references can be
+	 associated to a mime type. Each reference is encompassed by this pattern [ ].
 	 */
 	private List<String> parseReference(String reference) {
 		List<String> references = new ArrayList<String>();

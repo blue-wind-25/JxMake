@@ -1,15 +1,19 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger.backend;
 
 import com.j256.simplemagic.logger.Level;
 import com.j256.simplemagic.logger.LogBackend;
 import com.j256.simplemagic.logger.LogBackendFactory;
 
-/**
- * Log backend that writes to the console.
- * 
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * @author graywatson
+/*
+ Log backend that writes to the console.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ @author graywatson
  */
 public class ConsoleLogBackend implements LogBackend {
 
@@ -47,8 +51,8 @@ public class ConsoleLogBackend implements LogBackend {
 		}
 	}
 
-	/**
-	 * Factory for generating ConsoleLogBackend instances.
+	/*
+	 Factory for generating ConsoleLogBackend instances.
 	 */
 	public static class ConsoleLogBackendFactory implements LogBackendFactory {
 		@Override

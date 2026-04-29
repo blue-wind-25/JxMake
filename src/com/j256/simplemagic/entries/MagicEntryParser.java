@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.entries;
 
 import java.util.regex.Matcher;
@@ -8,10 +12,10 @@ import com.j256.simplemagic.endian.EndianConverter;
 import com.j256.simplemagic.endian.EndianType;
 import com.j256.simplemagic.entries.MagicEntry.OffsetInfo;
 
-/**
- * Class which parses a line from the magic (5) format and produces a {@link MagicEntry} class.
- *
- * @author graywatson
+/*
+ Class which parses a line from the magic (5) format and produces a {@link MagicEntry} class.
+ 
+ @author graywatson
  */
 @SuppressWarnings("rawtypes")
 public class MagicEntryParser {
@@ -24,8 +28,8 @@ public class MagicEntryParser {
 	private final static Pattern OFFSET_PATTERN =
 			Pattern.compile("\\(([0-9a-fA-Fx]+)\\.?([bsilBSILm]?)([\\*\\+\\-]?)([0-9a-fA-Fx]*)\\)");
 
-	/**
-	 * Parse a line from the magic configuration file into an entry.
+	/*
+	 Parse a line from the magic configuration file into an entry.
 	 */
 	public static MagicEntry parseLine(MagicEntry previous, String line, ErrorCallBack errorCallBack) {
 		if (line.startsWith("!:")) {
@@ -324,20 +328,20 @@ public class MagicEntryParser {
 		return -1;
 	}
 
-	/**
-	 * Copied from the magic(5) man page:
-	 *
-	 * <p>
-	 * Offsets do not need to be constant, but can also be read from the file being examined. If the first character
-	 * following the last '>' is a '(' then the string after the parenthesis is interpreted as an indirect offset. That
-	 * means that the number after the parenthesis is used as an offset in the file. The value at that offset is read,
-	 * and is used again as an offset in the file. Indirect offsets are of the form: ((x[.[bsilBSILm]][+-]y). The value
-	 * of x is used as an offset in the file. A byte, id3 length, short or long is read at that offset depending on the
-	 * [bislBISLm] type specifier. The capitalized types interpret the number as a big-endian value, whereas the small
-	 * letter versions interpret the number as a little-endian value; the 'm' type interprets the number as a
-	 * middle-endian (PDP-11) value. To that number the value of y is added and the result is used as an offset in the
-	 * file. The default type if one is not specified is 4-byte long.
-	 * </p>
+	/*
+	 Copied from the magic(5) man page:
+	 
+	 <p>
+	 Offsets do not need to be constant, but can also be read from the file being examined. If the first character
+	 following the last '>' is a '(' then the string after the parenthesis is interpreted as an indirect offset. That
+	 means that the number after the parenthesis is used as an offset in the file. The value at that offset is read,
+	 and is used again as an offset in the file. Indirect offsets are of the form: ((x[.[bsilBSILm]][+-]y). The value
+	 of x is used as an offset in the file. A byte, id3 length, short or long is read at that offset depending on the
+	 [bislBISLm] type specifier. The capitalized types interpret the number as a big-endian value, whereas the small
+	 letter versions interpret the number as a little-endian value; the 'm' type interprets the number as a
+	 middle-endian (PDP-11) value. To that number the value of y is added and the result is used as an offset in the
+	 file. The default type if one is not specified is 4-byte long.
+	 </p>
 	 */
 	private static OffsetInfo parseOffset(String offsetString, String line, ErrorCallBack errorCallBack) {
 		// (9.b+19)

@@ -1,7 +1,11 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
-/**
- * Operators for tests. If no operator character then equals is assumed.
+/*
+ Operators for tests. If no operator character then equals is assumed.
  */
 public enum TestOperator {
 
@@ -56,8 +60,8 @@ public enum TestOperator {
 	// end
 	;
 
-	/**
-	 * Default operator which should be used if {@link #fromTest(String)} returns null;
+	/*
+	 Default operator which should be used if {@link #fromTest(String)} returns null;
 	 */
 	public static final TestOperator DEFAULT_OPERATOR = EQUALS;
 
@@ -67,20 +71,20 @@ public enum TestOperator {
 		this.prefixChar = prefixChar;
 	}
 
-	/**
-	 * Perform the test using the operator.
+	/*
+	 Perform the test using the operator.
 	 */
 	public abstract boolean doTest(boolean unsignedType, Number extractedValue, Number testValue,
 			NumberType numberType);
 
-	/**
-	 * Returns the operator if the first character is an operator. Otherwise this returns null and you should use the
-	 * {@link #DEFAULT_OPERATOR}.
-	 * 
-	 * <p>
-	 * <b>NOTE:</b> We _don't_ return the default operator here because the caller needs to know if the prefix was
-	 * supplied or not.
-	 * </p>
+	/*
+	 Returns the operator if the first character is an operator. Otherwise this returns null and you should use the
+	 {@link #DEFAULT_OPERATOR}.
+	 
+	 <p>
+	 <b>NOTE:</b> We _don't_ return the default operator here because the caller needs to know if the prefix was
+	 supplied or not.
+	 </p>
 	 */
 	public static TestOperator fromTest(String testStr) {
 		if (testStr.length() == 0) {

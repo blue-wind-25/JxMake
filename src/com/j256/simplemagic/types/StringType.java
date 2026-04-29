@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import java.util.Arrays;
@@ -7,15 +11,15 @@ import java.util.regex.Pattern;
 import com.j256.simplemagic.entries.MagicFormatter;
 import com.j256.simplemagic.entries.MagicMatcher;
 
-/**
- * From the magic(5) man page: A string of bytes. The string type specification can be optionally followed by /[Bbc]*.
- * The ``B'' flag compacts whitespace in the target, which must contain at least one whitespace character. If the magic
- * has n consecutive blanks, the target needs at least n consecutive blanks to match. The ``b'' flag treats every blank
- * in the target as an optional blank. Finally the ``c'' flag, specifies case insensitive matching: lower-case
- * characters in the magic match both lower and upper case characters in the target, whereas upper case characters in
- * the magic only match upper-case characters in the target.
- * 
- * @author graywatson
+/*
+ From the magic(5) man page: A string of bytes. The string type specification can be optionally followed by /[Bbc]*.
+ The ``B'' flag compacts whitespace in the target, which must contain at least one whitespace character. If the magic
+ has n consecutive blanks, the target needs at least n consecutive blanks to match. The ``b'' flag treats every blank
+ in the target as an optional blank. Finally the ``c'' flag, specifies case insensitive matching: lower-case
+ characters in the magic match both lower and upper case characters in the target, whereas upper case characters in
+ the magic only match upper-case characters in the target.
+ 
+ @author graywatson
  */
 public class StringType implements MagicMatcher {
 
@@ -105,8 +109,8 @@ public class StringType implements MagicMatcher {
 		}
 	}
 
-	/**
-	 * Find offset match either in an array of bytes or chars, which ever is not null.
+	/*
+	 Find offset match either in an array of bytes or chars, which ever is not null.
 	 */
 	protected String findOffsetMatch(TestInfo info, int startOffset, MutableOffset mutableOffset, final byte[] bytes,
 			final char[] chars, final int maxPos) {
@@ -193,8 +197,8 @@ public class StringType implements MagicMatcher {
 		return (char) (bytes[index] & 0xFF);
 	}
 
-	/**
-	 * Internal holder for test information about strings.
+	/*
+	 Internal holder for test information about strings.
 	 */
 	protected static class TestInfo {
 		final StringOperator operator;
@@ -215,8 +219,8 @@ public class StringType implements MagicMatcher {
 			this.maxOffset = maxOffset;
 		}
 
-		/**
-		 * Get the bytes that start the pattern from an optimization standpoint.
+		/*
+		 Get the bytes that start the pattern from an optimization standpoint.
 		 */
 		public byte[] getStartingBytes() {
 			if (pattern == null || pattern.length() < 4) {

@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.entries;
 
 import java.text.DecimalFormat;
@@ -5,10 +9,10 @@ import java.text.Format;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Representation of our percent expression used by the {@link MagicFormatter} class.
- * 
- * @author graywatson
+/*
+ Representation of our percent expression used by the {@link MagicFormatter} class.
+ 
+ @author graywatson
  */
 public class PercentExpression {
 
@@ -29,11 +33,11 @@ public class PercentExpression {
 	private final int truncateWidth;
 	private final char patternChar;
 	private final Format decimalFormat;
-	/** if we need to choose the shorter of two formats */
+	/* if we need to choose the shorter of two formats */
 	private final Format altDecimalFormat;
 
-	/**
-	 * Package permissions because the {@link MagicFormatter} should only be constructing it.
+	/*
+	 Package permissions because the {@link MagicFormatter} should only be constructing it.
 	 */
 	PercentExpression(String expression) {
 		this.expression = expression;
@@ -342,8 +346,8 @@ public class PercentExpression {
 		}
 	}
 
-	/**
-	 * -d.ddd+-dd style, if no precision then 6 digits, 'inf', nan', if 0 precision then ""
+	/*
+	 -d.ddd+-dd style, if no precision then 6 digits, 'inf', nan', if 0 precision then ""
 	 */
 	private Format decimalFormat(int fractionPrecision) {
 		DecimalFormat format;

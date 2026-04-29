@@ -1,10 +1,14 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.endian;
 
-/**
- * Converts values in "big" endian-ness where the high-order bytes come before the low-order (ABCD). Also called network
- * byte order. Big is better. Motorola 68000 processors.
- * 
- * @author graywatson
+/*
+ Converts values in "big" endian-ness where the high-order bytes come before the low-order (ABCD). Also called network
+ byte order. Big is better. Motorola 68000 processors.
+ 
+ @author graywatson
  */
 public class BigEndianConverter implements EndianConverter {
 

@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger.backend;
 
 import com.j256.simplemagic.logger.Level;
@@ -5,12 +9,12 @@ import com.j256.simplemagic.logger.LogBackend;
 import com.j256.simplemagic.logger.LogBackendFactory;
 import com.j256.simplemagic.logger.LoggerFactory;
 
-/**
- * Log backend that ignores all log requests.
- * 
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * @author graywatson
+/*
+ Log backend that ignores all log requests.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ @author graywatson
  */
 public class NullLogBackend implements LogBackend {
 
@@ -34,9 +38,9 @@ public class NullLogBackend implements LogBackend {
 		// no-op
 	}
 
-	/**
-	 * Factory for generating NullLogBackend instances. This can be used with the
-	 * {@link LoggerFactory#setLogBackendFactory(LogBackendFactory)} method to completely disable all logging.
+	/*
+	 Factory for generating NullLogBackend instances. This can be used with the
+	 {@link LoggerFactory#setLogBackendFactory(LogBackendFactory)} method to completely disable all logging.
 	 */
 	public static class NullLogBackendFactory implements LogBackendFactory {
 

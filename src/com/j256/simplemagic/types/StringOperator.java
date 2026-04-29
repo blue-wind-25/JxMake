@@ -1,7 +1,11 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
-/**
- * Internal class that provides information about a particular test.
+/*
+ Internal class that provides information about a particular test.
  */
 public enum StringOperator {
 
@@ -40,8 +44,8 @@ public enum StringOperator {
 	// end
 	;
 
-	/**
-	 * Default operator which should be used if {@link #fromTest(String)} returns null;
+	/*
+	 Default operator which should be used if {@link #fromTest(String)} returns null;
 	 */
 	public static final StringOperator DEFAULT_OPERATOR = EQUALS;
 
@@ -51,20 +55,20 @@ public enum StringOperator {
 		this.prefixChar = prefixChar;
 	}
 
-	/**
-	 * Test 2 characters. If this is the last character then the operator might want to be more strict in its testing.
-	 * For example, "dogs" &gt; "dog" but 'd', 'o', and 'g' should be tested as &ge;.
+	/*
+	 Test 2 characters. If this is the last character then the operator might want to be more strict in its testing.
+	 For example, "dogs" &gt; "dog" but 'd', 'o', and 'g' should be tested as &ge;.
 	 */
 	public abstract boolean doTest(char extractedChar, char testChar, boolean lastChar);
 
-	/**
-	 * Returns the operator if the first character is an operator. Otherwise this returns null and you should use the
-	 * {@link #DEFAULT_OPERATOR}.
-	 * 
-	 * <p>
-	 * <b>NOTE:</b> We _don't_ return the default operator here because the caller needs to know if the prefix was
-	 * supplied or not.
-	 * </p>
+	/*
+	 Returns the operator if the first character is an operator. Otherwise this returns null and you should use the
+	 {@link #DEFAULT_OPERATOR}.
+	 
+	 <p>
+	 <b>NOTE:</b> We _don't_ return the default operator here because the caller needs to know if the prefix was
+	 supplied or not.
+	 </p>
 	 */
 	public static StringOperator fromTest(String testStr) {
 		if (testStr.length() == 0) {

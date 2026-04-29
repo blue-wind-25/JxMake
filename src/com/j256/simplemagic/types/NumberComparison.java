@@ -1,7 +1,11 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
-/**
- * Internal class that compares a number from the bytes with the value from the magic rule.
+/*
+ Internal class that compares a number from the bytes with the value from the magic rule.
  */
 public class NumberComparison {
 
@@ -9,8 +13,8 @@ public class NumberComparison {
 	private final TestOperator operator;
 	private final Number value;
 
-	/**
-	 * Pre-process the test string into an operator and a value.
+	/*
+	 Pre-process the test string into an operator and a value.
 	 */
 	public NumberComparison(NumberType numberType, String testStr) {
 		this.numberType = numberType;

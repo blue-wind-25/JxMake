@@ -1,13 +1,17 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import java.util.Date;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * An 8-byte value interpreted as a UNIX-style date, but interpreted as local time rather than UTC.
- * 
- * @author graywatson
+/*
+ An 8-byte value interpreted as a UNIX-style date, but interpreted as local time rather than UTC.
+ 
+ @author graywatson
  */
 public class LocalLongDateType extends LocalDateType {
 

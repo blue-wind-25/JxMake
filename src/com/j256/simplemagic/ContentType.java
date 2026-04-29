@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic;
 
@@ -14,7 +14,7 @@ import com.j256.simplemagic.entries.IanaEntry;
 /*
  Enumerated type of the content if it is known by SimpleMagic matched from the mime-type. This information is _not_
  processed from the magic files.
- 
+
  @author graywatson
  */
 public enum ContentType {
@@ -200,7 +200,7 @@ public enum ContentType {
 
 	/*
 	 Copied from http://svn.apache.org/viewvc/httpd/httpd/trunk/docs/conf/mime.types?view=co
-	 
+
 	 FYI: many of these are not in the built in magic rules file.
 	 */
 	ANDREW_INSERT("application/andrew-inset", "andrew-insert", "ez"),

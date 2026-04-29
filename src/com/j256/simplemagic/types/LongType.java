@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -8,7 +8,7 @@ import com.j256.simplemagic.endian.EndianType;
 
 /*
  An eight-byte value constituted "quad" when the magic file spec was written.
- 
+
  @author graywatson
  */
 public class LongType extends BaseLongType {

@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic;
 
@@ -27,7 +27,7 @@ import com.j256.simplemagic.entries.MagicEntries;
  file-system using {@link #ContentInfoUtil(String)}. Once the rules are loaded, you can use {@link #findMatch(String)}
  or other {@code findMatch(...)} methods to get the content-type of a file or bytes.
  </p>
- 
+
  <pre>
  // create a magic utility using the internal magic file
  ContentInfoUtil util = new ContentInfoUtil();
@@ -41,7 +41,7 @@ import com.j256.simplemagic.entries.MagicEntries;
  	System.out.println(&quot;Content-type is: &quot; + info.getName());
  }
  </pre>
- 
+
  @author graywatson
  */
 public class ContentInfoUtil {
@@ -61,7 +61,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Construct a magic utility using the internal magic file built into the package.
-	 
+
 	 @throws IllegalStateException
 	             If there was a problem reading the magic entries from the internal magic file.
 	 */
@@ -72,7 +72,7 @@ public class ContentInfoUtil {
 	/*
 	 Construct a magic utility using the internal magic file built into the package. This also allows the caller to
 	 log any errors discovered in the file(s).
-	 
+
 	 @param errorCallBack
 	            Call back which shows any problems with the magic entries loaded.
 	 @throws IllegalStateException
@@ -95,7 +95,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Construct a magic utility using the magic files from a file or a directory of files.
-	 
+
 	 @param fileOrDirectoryPath
 	            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
 	 @throws IOException
@@ -108,7 +108,7 @@ public class ContentInfoUtil {
 	/*
 	 Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
 	 to log any errors discovered in the file(s).
-	 
+
 	 @param fileOrDirectoryOrResourcePath
 	            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
 	 @param errorCallBack
@@ -131,7 +131,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Construct a magic utility using the magic files from a file or a directory of files.
-	 
+
 	 @param fileOrDirectory
 	            A path which can be a magic file, or a directory of magic files.
 	 @throws IOException
@@ -144,7 +144,7 @@ public class ContentInfoUtil {
 	/*
 	 Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
 	 to log any errors discovered in the file(s).
-	 
+
 	 @param fileOrDirectory
 	            A path which can be a magic file, or a directory of magic files.
 	 @param errorCallBack
@@ -162,7 +162,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Construct a magic utility using the magic file entries from a reader.
-	 
+
 	 @param reader
 	            A reader from which we will read the magic file entries.
 	 @throws IOException
@@ -174,7 +174,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Construct a magic utility using the magic file entries from a reader.
-	 
+
 	 @param reader
 	            A reader from which we will read the magic file entries.
 	 @param errorCallBack
@@ -188,7 +188,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Return the content type for the file-path or null if none of the magic entries matched.
-	 
+
 	 @throws IOException
 	             If there was a problem reading from the file.
 	 */
@@ -198,7 +198,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Return the content type for the file or null if none of the magic entries matched.
-	 
+
 	 @throws IOException
 	             If there was a problem reading from the file.
 	 */
@@ -238,11 +238,11 @@ public class ContentInfoUtil {
 	 Return the content type for the input-stream or null if none of the magic entries matched. You might want to use
 	 the {@link ContentInfoInputStreamWrapper} class to delegate to an input-stream and determine content information
 	 at the same time.
-	 
+
 	 <p>
 	 <b>NOTE:</b> The caller is responsible for closing the input-stream.
 	 </p>
-	 
+
 	 @throws IOException
 	             If there was a problem reading from the input-stream.
 	 @see ContentInfoInputStreamWrapper
@@ -274,7 +274,7 @@ public class ContentInfoUtil {
 	/*
 	 Return the content type if the extension from the file-name matches our internal list. This can either be just
 	 the extension part or it will look for the last period and take the string after that as the extension.
-	 
+
 	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findExtensionMatch(String name) {
@@ -302,7 +302,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Return the content type if the mime-type matches our internal list.
-	 
+
 	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findMimeTypeMatch(String mimeType) {
@@ -316,7 +316,7 @@ public class ContentInfoUtil {
 
 	/*
 	 Set the default size that will be read if we are getting the content from a file.
-	 
+
 	 @see #DEFAULT_READ_SIZE
 	 */
 	public void setFileReadSize(int fileReadSize) {
@@ -414,7 +414,7 @@ public class ContentInfoUtil {
 
 		/*
 		 An error was generated while processing the line.
-		 
+
 		 @param line
 		            Line where the error happened.
 		 @param details

@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -14,7 +14,7 @@ import com.j256.simplemagic.entries.MagicEntry.OffsetInfo;
 
 /*
  Class which parses a line from the magic (5) format and produces a {@link MagicEntry} class.
- 
+
  @author graywatson
  */
 @SuppressWarnings("rawtypes")
@@ -330,7 +330,7 @@ public class MagicEntryParser {
 
 	/*
 	 Copied from the magic(5) man page:
-	 
+
 	 <p>
 	 Offsets do not need to be constant, but can also be read from the file being examined. If the first character
 	 following the last '>' is a '(' then the string after the parenthesis is interpreted as an indirect offset. That

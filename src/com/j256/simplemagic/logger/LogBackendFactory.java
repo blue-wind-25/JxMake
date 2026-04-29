@@ -1,14 +1,14 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger;
 
 /*
  Factory for generating LogBackend instances.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  @author graywatson
  */
 public interface LogBackendFactory {

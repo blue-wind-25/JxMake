@@ -1,12 +1,12 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.endian;
 
 /*
  Converts values in "little" endian-ness where the high-order bytes come _after_ the low-order (DCBA). x86 processors.
- 
+
  @author graywatson
  */
 public class LittleEndianConverter implements EndianConverter {

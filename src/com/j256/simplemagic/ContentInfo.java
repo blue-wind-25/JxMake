@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic;
 
@@ -9,7 +9,7 @@ import java.io.Serializable;
 /*
  Information associated with some content, returned by the magic matching code in
  {@link ContentInfoUtil#findMatch(String)} and other methods.
- 
+
  @author graywatson
  */
 public class ContentInfo implements Serializable {

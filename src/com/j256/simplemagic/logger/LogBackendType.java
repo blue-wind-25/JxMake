@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger;
 
@@ -11,9 +11,9 @@ import com.j256.simplemagic.logger.backend.NullLogBackend.NullLogBackendFactory;
 /*
  Type of logging backends that are supported. The classes are specified as strings so there is not a direct dependency
  placed on them since these classes may reference types not on the classpath.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  @author graywatson
  */
 public enum LogBackendType implements LogBackendFactory {
@@ -39,7 +39,7 @@ public enum LogBackendType implements LogBackendFactory {
 	LOG4J("Log4jLogBackend$Log4jLogBackendFactory"),
 	/*
 	 Local simple log backend that writes to a output file.
-	 
+
 	 <p>
 	 NOTE: any loggers defined below this will not be auto-detected because this is always available.
 	 </p>

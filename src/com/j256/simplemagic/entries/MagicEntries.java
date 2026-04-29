@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -16,7 +16,7 @@ import com.j256.simplemagic.logger.LoggerFactory;
 
 /*
  Class which encompasses a set of entries and allows us to optimize their use.
- 
+
  @author graywatson
  */
 @SuppressWarnings("rawtypes")

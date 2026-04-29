@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -18,7 +18,7 @@ import com.j256.simplemagic.entries.MagicMatcher;
  in the target as an optional blank. Finally the ``c'' flag, specifies case insensitive matching: lower-case
  characters in the magic match both lower and upper case characters in the target, whereas upper case characters in
  the magic only match upper-case characters in the target.
- 
+
  @author graywatson
  */
 public class StringType implements MagicMatcher {

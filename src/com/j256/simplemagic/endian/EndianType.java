@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.endian;
 
@@ -8,7 +8,7 @@ import java.nio.ByteOrder;
 
 /*
  Types of endian-ness supported by the system.
- 
+
  @author graywatson
  */
 public enum EndianType {

@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -8,7 +8,7 @@ import com.j256.simplemagic.endian.EndianType;
 
 /*
  A 32-bit single precision IEEE floating point number in this machine's native byte order.
- 
+
  @author graywatson
  */
 public class FloatType extends DoubleType {

@@ -1,12 +1,12 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
 /*
  Some common pattern utilities used by multiple types.
- 
+
  @author graywatson
  */
 public class PatternUtils {

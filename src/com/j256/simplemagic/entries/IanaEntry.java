@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -9,7 +9,7 @@ import java.util.List;
 
 /*
  <a href="https://www.iana.org/assignments/media-types/media-types.xhtml">IANA metadata</a>.
- 
+
  @author Jean-Christophe Malapert
  */
 public class IanaEntry {

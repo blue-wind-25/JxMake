@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -54,7 +54,7 @@ public final class HttpResponse {
 
     /*
      Create a new builder instance
-     
+
      @return Builder instance
      */
     static Builder builder() {
@@ -63,7 +63,7 @@ public final class HttpResponse {
 
     /*
      Get the HTTP status message
-     
+
      @return Status message
      */
     public String getStatus() {
@@ -72,7 +72,7 @@ public final class HttpResponse {
 
     /*
      Get the HTTP status code
-     
+
      @return Status code
      */
     public int getStatusCode() {
@@ -81,7 +81,7 @@ public final class HttpResponse {
 
     /*
      Get the raw response body
-     
+
      @return Response body
      */
     public byte[] getRawResponse() {
@@ -90,7 +90,7 @@ public final class HttpResponse {
 
     /*
      Get the response headers
-     
+
      @return Response headers
      */
     public Headers getHeaders() {
@@ -99,7 +99,7 @@ public final class HttpResponse {
 
     /*
      Get the response entity and map it to a specific type
-     
+
      @param returnType Return type class
      @param <T> Return type
      @return Response

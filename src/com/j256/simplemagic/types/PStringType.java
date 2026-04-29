@@ -1,13 +1,13 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
 /*
  A Pascal-style string where the first byte is interpreted as the an unsigned length. The string is not '\0'
  terminated.
- 
+
  @author graywatson
  */
 public class PStringType extends StringType {

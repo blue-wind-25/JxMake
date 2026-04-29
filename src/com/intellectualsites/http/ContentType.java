@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -51,7 +51,7 @@ public final class ContentType {
 
     /*
      Get the MIME type instance corresponding to the IANA template name
-     
+
      @param type MIME type
      @return MIME type instance
      */

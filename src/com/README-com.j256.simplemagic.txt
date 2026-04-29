@@ -15,26 +15,35 @@ were downloaded from the GitHub repository:
 
 ----------------------------------------------------------------------------------------------------
 
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
+CHANGES:
 
-Some '@SuppressWarnings' annotations have been modified and/or added.
+    A marker has been added at the top of each Java source file to indicate that this program has
+    been modified by the JxMake project.
 
-The IanaEntries class has been modified to fix the IANA DB paths.
+    Some files and directories that are not strictly required for the running of the program are not
+    included here to save space.
 
-The class:
-    MagicEntry.OffsetInfo
-has been modified to remove the redundant cast to Long.
+    Some '@SuppressWarnings' annotations have been modified and/or added.
 
-The function:
-    LogBackendType.detectFactory()
-has been modified to replace 'newInstance()' with 'getDeclaredConstructor().newInstance()'; the
-function is deprecated as of Java 9.
+    The IanaEntries class has been modified to fix the IANA DB paths.
 
-The file 'com/j256/simplemagic/resources/magic' has been slightly updated using the contents of the
-file '/usr/share/magic' from CentOS Linux release 7.9.2009 (Core). This file can be updated/rebuilt
-manually by combining the many smaller files from:
-    https://github.com/file/file/tree/master/magic/Magdir
+    The class:
+        MagicEntry.OffsetInfo
+    has been modified to remove the redundant cast to Long.
+
+    The function:
+        LogBackendType.detectFactory()
+    has been modified to replace 'newInstance()' with 'getDeclaredConstructor().newInstance()'; the
+    function is deprecated as of Java 9.
+
+    The file 'com/j256/simplemagic/resources/magic' has been slightly updated using the contents of
+    the file '/usr/share/magic' from CentOS Linux release 7.9.2009 (Core). This file can be updated
+    (rebuilt) manually by combining the many smaller files from:
+        https://github.com/file/file/tree/master/magic/Magdir
+
+    All Javadoc-style comments have been converted to normal Java comments.
+
+    Some minor coding style changes.
 
 ----------------------------------------------------------------------------------------------------
 

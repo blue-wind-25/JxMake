@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -8,7 +8,7 @@ import com.j256.simplemagic.endian.EndianType;
 
 /*
  A four-byte integer value where the high bit of each byte is ignored.
- 
+
  @author graywatson
  */
 public class Id3LengthType extends IntegerType {

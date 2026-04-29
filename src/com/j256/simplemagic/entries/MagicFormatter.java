@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 /*
  Formatter that handles the C %0.2f type formats appropriately. I would have used the {@link java.util.Formatter} but
  you can't pre-parse those for some stupid reason. Also, I needed this to be compatible with the printf(3) C formats.
- 
+
  @author graywatson
  */
 public class MagicFormatter {

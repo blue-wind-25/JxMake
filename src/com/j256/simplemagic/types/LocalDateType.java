@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -13,7 +13,7 @@ import com.j256.simplemagic.entries.MagicFormatter;
 
 /*
  A 4-byte value interpreted as a UNIX-style date, but interpreted as local time rather than UTC.
- 
+
  @author graywatson
  */
 public class LocalDateType extends IntegerType {

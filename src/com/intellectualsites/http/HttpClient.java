@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -49,7 +49,7 @@ public final class HttpClient {
 
     /*
      Create a new {@link Builder}
-     
+
      @return Builder instance
      */
     public static Builder newBuilder() {
@@ -58,7 +58,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a GET request
-     
+
      @param url URL
      @return Created builder
      */
@@ -69,7 +69,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a POST request
-     
+
      @param url URL
      @return Created builder
      */
@@ -80,7 +80,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a PUT request
-     
+
      @param url URL
      @return Created builder
      */
@@ -91,7 +91,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a HEAD request
-     
+
      @param url URL
      @return Created builder
      */
@@ -102,7 +102,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a DELETE request
-     
+
      @param url URL
      @return Created builder
      */
@@ -113,7 +113,7 @@ public final class HttpClient {
 
     /*
      Initialise a request builder for a PATCH request
-     
+
      @param url URL
      @return Created builder
      */
@@ -124,7 +124,7 @@ public final class HttpClient {
 
     /*
      Get the entity mapper used by the client
-     
+
      @return Entity mapper
      */
     public EntityMapper getMapper() {
@@ -147,7 +147,7 @@ public final class HttpClient {
         /*
          Set the base URL. This will be prepended to each request made with the
          client.
-         
+
          @param baseURL Base URL. Cannot be null, but can be empty.
          @return Builder instance
          */
@@ -164,7 +164,7 @@ public final class HttpClient {
         /*
          Set the default entity mapper that is used
          by all requests, unless otherwise specified
-         
+
          @param entityMapper Entity mapper
          @return Builder instance
          */
@@ -176,7 +176,7 @@ public final class HttpClient {
         /*
          Add a new request decorator. This will have the opportunity
          to decorate every request made by this client
-         
+
          @param decorator Decorator
          @return Builder instance
          */
@@ -188,7 +188,7 @@ public final class HttpClient {
         /*
          Create a new {@link HttpClient} using the
          settings specified in the builder
-         
+
          @return Created client
          */
         public HttpClient build() {
@@ -200,7 +200,7 @@ public final class HttpClient {
 
     /*
      Wrapper used to interact with HTTP requests.
-     
+
      @see #get(String) To create a new GET request
      @see #post(String) To create a new POST request
      @see #head(String) To create a new HEAD request
@@ -243,7 +243,7 @@ public final class HttpClient {
          established correctly. This requires that there is a
          {@link com.intellectualsites.http.EntityMapper.EntitySerializer}
          registered for the type of the object, in the {@link EntityMapper} used by the client
-         
+
          @param input Input
          @return Builder instance
          */
@@ -254,7 +254,7 @@ public final class HttpClient {
 
         /*
          Specify the entity mapper used by the request
-         
+
          @param mapper Entity mapper
          @return Builder instance
          */
@@ -265,7 +265,7 @@ public final class HttpClient {
 
         /*
          Add a header to the request
-         
+
          @param key   Header key
          @param value Header value
          @return Builder instance
@@ -278,7 +278,7 @@ public final class HttpClient {
 
         /*
          Add a consumer that acts on a specific status code
-         
+
          @param code             Status code
          @param responseConsumer Response consumer
          @return Builder instance
@@ -291,7 +291,7 @@ public final class HttpClient {
 
         /*
          Add a consumer that acts on all remaining status code
-         
+
          @param responseConsumer Response consumer
          @return Builder instance
          */
@@ -303,7 +303,7 @@ public final class HttpClient {
 
         /*
          Add an exception consumer
-         
+
          @param consumer Exception consumer
          @return Builder instance
          */
@@ -316,7 +316,7 @@ public final class HttpClient {
 
         /*
          Perform the request
-         
+
          @return The raw response, if no exception was thrown during the
                  handling of the response. If any exception was handled,
                  the method will return {@code null}

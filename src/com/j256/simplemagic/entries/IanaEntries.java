@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -26,7 +26,7 @@ import java.util.zip.GZIPInputStream;
  </ul>
  In addition to these elements, two URLs are created in order to locate the description of the mime type and the URL
  of the articles.
- 
+
  @author Jean-Christophe Malapert
  */
 public class IanaEntries {

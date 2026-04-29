@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger.backend;
 
@@ -27,19 +27,19 @@ import com.j256.simplemagic.logger.LoggerFactory;
 
 /*
  Log backend that uses logging classes if they are not available.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  <p>
  You can set the log level by setting the System.setProperty(LocalLogBackend.LOCAL_LOG_LEVEL_PROPERTY, "trace").
  Acceptable values are: TRACE, DEBUG, INFO, WARN, ERROR, and FATAL. You can also redirect the log to a file by setting
  the System.setProperty(LocalLogBackend.LOCAL_LOG_FILE_PROPERTY, "log.out"). Otherwise, log output will go to stdout.
  </p>
- 
+
  <p>
  It also supports a file simpleLoggingLocalLog.properties file which contains lines such as:
  </p>
- 
+
  <pre>
  # regex-pattern = Level
  com\.foo\.yourclass.*=DEBUG
@@ -47,7 +47,7 @@ import com.j256.simplemagic.logger.LoggerFactory;
  com\.foo\.yourclass\.MappedCreate=TRACE
  com\.foo\.yourclass\.StatementExecutor=TRACE
  </pre>
- 
+
  @author graywatson
  */
 public class LocalLogBackend implements LogBackend {

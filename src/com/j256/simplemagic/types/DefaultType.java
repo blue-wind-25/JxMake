@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -10,11 +10,11 @@ import com.j256.simplemagic.entries.MagicMatcher;
 /*
  This is intended to be used with the test @code{x} (which is always true) and a message that is to be used if there
  are no other matches.
- 
+
  <p>
  <b>WARNING:</b> This type _is_ used in the magic files.
  </p>
- 
+
  @author graywatson
  */
 public class DefaultType implements MagicMatcher {

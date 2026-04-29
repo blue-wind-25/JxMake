@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -74,7 +74,7 @@ enum HttpMethod {
 
     /*
      Whether or not the method should return an entity
-     
+
      @return Whether or not a response entity should be expected
      */
     boolean hasBody() {

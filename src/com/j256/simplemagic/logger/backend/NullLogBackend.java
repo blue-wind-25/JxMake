@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger.backend;
 
@@ -11,9 +11,9 @@ import com.j256.simplemagic.logger.LoggerFactory;
 
 /*
  Log backend that ignores all log requests.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  @author graywatson
  */
 public class NullLogBackend implements LogBackend {

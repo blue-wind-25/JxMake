@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -10,7 +10,7 @@ import com.j256.simplemagic.endian.EndianType;
 
 /*
  A 8-byte value interpreted as a UNIX date in UTC timezone.
- 
+
  @author graywatson
  */
 public class UtcLongDateType extends UtcDateType {

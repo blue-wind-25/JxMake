@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -47,7 +47,7 @@ final public class Headers {
 
     /*
      Return an empty {@link Headers} instance
-     
+
      @return Headers instance
      */
     static Headers newInstance() {
@@ -56,7 +56,7 @@ final public class Headers {
 
     /*
      Add a header to the header collection
-     
+
      @param key   Header name
      @param value Header value
      */
@@ -75,7 +75,7 @@ final public class Headers {
 
     /*
      Get a list of all the headers with the specified name
-     
+
      @param key Header key
      @return Unmodifiable list
      */
@@ -92,7 +92,7 @@ final public class Headers {
      Get the value of a specific header, or an empty string.
      If multiple values are specified for the header key,
      only the last value will be returned.
-     
+
      @param key Header key
      @return Header value, or {@code ""}
      */
@@ -104,7 +104,7 @@ final public class Headers {
      Get the value of a specific header, or default string.
      If multiple values are specified for the header key,
      only the last value will be returned.
-     
+
      @param key           Header key
      @param defaultString Default value
      @return Header value, or the default value
@@ -119,7 +119,7 @@ final public class Headers {
 
     /*
      Get the name of all headers in the collection
-     
+
      @return Unmodifiable collection
      */
     public Collection<String> getHeaders() {

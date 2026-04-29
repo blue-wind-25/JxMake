@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -49,7 +49,7 @@ public final class EntityMapper {
 
     /*
      Create a new entity mapper instance
-     
+
      @return Created instance
      */
     public static EntityMapper newInstance() {
@@ -61,7 +61,7 @@ public final class EntityMapper {
 
     /*
      Register a serializer that maps a given type to an array of bytes
-     
+
      @param clazz      Class of type to map
      @param serializer Serializer that performs the mapping
      @param <T>        Type to map
@@ -77,7 +77,7 @@ public final class EntityMapper {
 
     /*
      Register a deserializer that maps objects of a certain content type to Java objects
-     
+
      @param clazz        Content type
      @param deserializer Deserializer
      @param <T>          Type of the objects produces by the deserializer
@@ -93,7 +93,7 @@ public final class EntityMapper {
 
     /*
      Attempt to retrieve the serializer for a given type
-     
+
      @param clazz Class
      @param <T>   Type
      @return Serializer
@@ -108,7 +108,7 @@ public final class EntityMapper {
 
     /*
      Attempt to retrieve the deserializer for a given content type
-     
+
      @param type Content class
      @param <T>  Content type
      @return Deserializer
@@ -125,7 +125,7 @@ public final class EntityMapper {
 
     /*
      Serializer for HTTP request bodies
-     
+
      @param <T> Object type
      */
     public interface EntitySerializer<T> {
@@ -133,7 +133,7 @@ public final class EntityMapper {
         /*
          Serialize the input into a byte array, which can then be
          written to the HTTP request
-         
+
          @param input Input that should be serialized
          @return The serialized object
          */
@@ -141,7 +141,7 @@ public final class EntityMapper {
 
         /*
          Get the content type of the object
-         
+
          @return Content Type
          */
         ContentType getContentType();
@@ -151,7 +151,7 @@ public final class EntityMapper {
 
     /*
      Deserializer for HTTP response bodies
-     
+
      @param <T> Object type
      */
     @FunctionalInterface
@@ -159,7 +159,7 @@ public final class EntityMapper {
 
         /*
          Deserialize the input byte array into an object.
-         
+
          @param contentType Optional content type, if supplied by the server
          @param input       Input that should be de-serialized
          @return De-serialized input

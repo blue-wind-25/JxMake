@@ -1,14 +1,14 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger;
 
 /*
  Class which fronts various log backend implementations which may or may not be in the classpath.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  @author graywatson
  */
 public interface LogBackend {

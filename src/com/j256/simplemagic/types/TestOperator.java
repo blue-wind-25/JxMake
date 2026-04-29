@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -80,7 +80,7 @@ public enum TestOperator {
 	/*
 	 Returns the operator if the first character is an operator. Otherwise this returns null and you should use the
 	 {@link #DEFAULT_OPERATOR}.
-	 
+
 	 <p>
 	 <b>NOTE:</b> We _don't_ return the default operator here because the caller needs to know if the prefix was
 	 supplied or not.

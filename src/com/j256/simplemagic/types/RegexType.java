@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -22,7 +22,7 @@ import com.j256.simplemagic.entries.MagicMatcher;
  flag update the offset to the start offset of the match, rather than the end. The regular expression is tested
  against line N + 1 onwards, where N is the given offset. Line endings are assumed to be in the machine's native
  format. ^ and $ match the beginning and end of individual lines, respectively, not beginning and end of file.
- 
+
  @author graywatson
  */
 public class RegexType implements MagicMatcher {

@@ -1,12 +1,12 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
 /*
  A two-byte unicode (UCS16) string in big-endian byte order.
- 
+
  @author graywatson
  */
 public class BigEndianString16Type extends StringType {

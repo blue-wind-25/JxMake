@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger.backend;
 
@@ -9,9 +9,9 @@ import java.io.StringWriter;
 
 /*
  Some common utility methods.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  @author graywatson
  */
 public class LogBackendUtil {

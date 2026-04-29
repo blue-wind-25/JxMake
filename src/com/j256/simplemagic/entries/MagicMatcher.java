@@ -1,12 +1,12 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
 /*
  Classes which are able to match content according to operations and output description.
- 
+
  @author graywatson
  */
 public interface MagicMatcher {
@@ -19,7 +19,7 @@ public interface MagicMatcher {
 
 	/*
 	 Extract the value from the bytes either for doing the match or rendering it in the format.
-	 
+
 	 @param offset
 	            Number of bytes into the bytes array that we are extracting from.
 	 @param bytes
@@ -34,7 +34,7 @@ public interface MagicMatcher {
 
 	/*
 	 Matches if the bytes match at a certain offset.
-	 
+
 	 @return The extracted-value object, or null if no match.
 	 */
 	public Object isMatch(Object testValue, Long andValue, boolean unsignedType, Object extractedValue,

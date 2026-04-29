@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -9,12 +9,12 @@ package com.j256.simplemagic.types;
  used as for string patterns. The modifier flags (if any) must be followed by /number range, that is, the number of
  positions at which the match will be attempted, starting from the start offset. This is suitable for searching larger
  binary expressions with variable offsets, using \ escapes for special characters. The offset works as for regex.
- 
+
  <p>
  <b>NOTE:</b> in our experience, the /number is _before_ the flags in 99% of the lines so that is how we implemented
  it.
  </p>
- 
+
  @author graywatson
  */
 public class SearchType extends StringType {

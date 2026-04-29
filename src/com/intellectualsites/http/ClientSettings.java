@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -49,7 +49,7 @@ final class ClientSettings {
     /*
      Base URL that is prepended to the URL
      of each request
-     
+
      @return Base URL
      */
     String getBaseURL() {
@@ -59,7 +59,7 @@ final class ClientSettings {
     /*
      Get the entity mapper that should be used
      in all request (by default)
-     
+
      @return Entity mapper
      */
     EntityMapper getEntityMapper() {
@@ -68,7 +68,7 @@ final class ClientSettings {
 
     /*
      Get all registered request decorators
-     
+
      @return Unmodifiable collection of decorators
      */
     Collection<Consumer<HttpClient.WrappedRequestBuilder>> getRequestDecorators() {
@@ -78,7 +78,7 @@ final class ClientSettings {
     /*
      Set the base URL, that is prepended to
      the URL of each request
-     
+
      @param baseURL base URL
      */
     void setBaseURL(final String baseURL) {
@@ -88,7 +88,7 @@ final class ClientSettings {
     /*
      Set the default entity mapper that is used
      by all requests, unless otherwise specified
-     
+
      @param entityMapper Entity mapper
      */
     void setEntityMapper(final EntityMapper entityMapper) {
@@ -98,7 +98,7 @@ final class ClientSettings {
     /*
      Add a new request decorator. This will have the opportunity
      to decorate every request made by this client
-     
+
      @param decorator Decorator
      */
     void addDecorator(final Consumer<HttpClient.WrappedRequestBuilder> decorator) {

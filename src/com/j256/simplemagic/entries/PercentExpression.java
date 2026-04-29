@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 /*
  Representation of our percent expression used by the {@link MagicFormatter} class.
- 
+
  @author graywatson
  */
 public class PercentExpression {

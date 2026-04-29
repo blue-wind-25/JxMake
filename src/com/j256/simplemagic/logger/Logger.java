@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.logger;
 
@@ -9,9 +9,9 @@ import java.lang.reflect.Array;
 /*
  Class which wraps our {@link LogBackend} interface and provides {} argument features like slf4j. It allows us to plug
  in additional log backends if necessary.
- 
+
  From SimpleLogging: https://github.com/j256/simplelogging
- 
+
  <p>
  <b>NOTE:</b> We do the (msg, arg0), (msg, arg0, arg1), (msg, arg0, arg1, arg2), (msg, arg0, arg1, arg2, arg3), and
  (msg, argArray) patterns because if we do ... for everything, we will get a new Object[] each log call which we don't
@@ -19,16 +19,16 @@ import java.lang.reflect.Array;
  to know <i>when</i> we are creating a new Object[] so we can make sure it is what we want. I thought ... was so much
  better than slf4j but it turns out they were spot on. Sigh.
  </p>
- 
+
  <p>
  <b>NOTE:</b> When you are using the argArray methods, you should consider wrapping the call in an {@code if} so the
  {@code Object[]} won't be created unnecessarily.
  </p>
- 
+
  <pre>
  if (logger.isLevelEnabled(Level...)) ...
  </pre>
- 
+
  @author graywatson
  */
 public class Logger {

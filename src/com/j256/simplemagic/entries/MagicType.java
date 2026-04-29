@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.entries;
 
@@ -29,7 +29,7 @@ import com.j256.simplemagic.types.UtcLongDateType;
 
 /*
  The various types which correspond to the "type" part of the magic (5) format.
- 
+
  @author graywatson
  */
 public enum MagicType {

@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 /*
  * MIT License
@@ -68,7 +68,7 @@ final class HttpRequest {
 
     /*
      Create a new request {@link Builder builder}
-     
+
      @return Builder instance
      */
     static Builder newBuilder() {
@@ -184,7 +184,7 @@ final class HttpRequest {
 
         /*
          Specify the entity mapper used by the request
-         
+
          @param mapper Entity mapper
          @return Builder instance
          */
@@ -195,7 +195,7 @@ final class HttpRequest {
 
         /*
          Specify the HTTP method used in the request
-         
+
          @param method HTTP method
          @return Builder instance
          */
@@ -206,7 +206,7 @@ final class HttpRequest {
 
         /*
          Specify the URL used in the request
-         
+
          @param url URL
          @return Builder instance
          */
@@ -217,7 +217,7 @@ final class HttpRequest {
 
         /*
          Add a header to the request
-         
+
          @param key Header key
          @param value Header value
          @return Builder instance
@@ -231,7 +231,7 @@ final class HttpRequest {
 
         /*
          Add an input entity to the request
-         
+
          @param inputSupplier Input supplier
          @return Builder instance
          */
@@ -242,7 +242,7 @@ final class HttpRequest {
 
         /*
          Add a throwable consumer
-         
+
          @param consumer Throwable consumer
          @return Builder instance
          */

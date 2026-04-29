@@ -1,6 +1,6 @@
 /*
-  * #### This file has been modified by JxMake project #####
-  */
+ * ##### This file has been modified by JxMake project #####
+ */
 
 package com.j256.simplemagic.types;
 
@@ -8,7 +8,7 @@ import com.j256.simplemagic.endian.EndianType;
 
 /*
  Base class for those types which use long types to compare.
- 
+
  @author graywatson
  */
 public abstract class BaseLongType extends NumberType {

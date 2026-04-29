@@ -15,21 +15,30 @@ subdirectories were downloaded from the GitHub repository:
 
 ----------------------------------------------------------------------------------------------------
 
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
+CHANGES:
 
-Some '@SuppressWarnings' annotations have been modified and/or added.
+    A marker has been added at the top of each Java source file to indicate that this program has
+    been modified by the JxMake project.
 
-All uses of '@NotNull' and '@Nullable' from 'org.jetbrains.annotations' have been removed.
+    Some files and directories that are not strictly required for the running of the program are not
+    included here to save space.
 
-These functions have been modified to support custom timeouts:
-    HttpClient.execute()
-    HttpRequest.executeRequest()
+    Some '@SuppressWarnings' annotations have been modified and/or added.
 
-The 'Headers' class has been modified so that these functions are publicly accessible:
-    Collection<String> getHeaders()
-    List<String> getHeaders(final String key)
-    String getHeader(final String key)
+    All uses of '@NotNull' and '@Nullable' from 'org.jetbrains.annotations' have been removed.
+
+    These functions have been modified to support custom timeouts:
+        HttpClient.execute()
+        HttpRequest.executeRequest()
+
+    The 'Headers' class has been modified so that these functions are publicly accessible:
+        Collection<String> getHeaders()
+        List<String> getHeaders(final String key)
+        String getHeader(final String key)
+
+    All Javadoc-style comments have been converted to normal Java comments.
+
+    Some minor coding style changes.
 
 ----------------------------------------------------------------------------------------------------
 

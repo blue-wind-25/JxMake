@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -27,8 +31,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Wrapper for Content-Type header values
+/*
+ Wrapper for Content-Type header values
  */
 public final class ContentType {
 
@@ -45,11 +49,11 @@ public final class ContentType {
         this.type = type;
     }
 
-    /**
-     * Get the MIME type instance corresponding to the IANA template name
-     *
-     * @param type MIME type
-     * @return MIME type instance
+    /*
+     Get the MIME type instance corresponding to the IANA template name
+     
+     @param type MIME type
+     @return MIME type instance
      */
     public static ContentType of(final String type) {
         return internalMap.computeIfAbsent(Objects.requireNonNull(type,

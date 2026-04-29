@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -31,8 +35,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * A simple Java HTTP client
+/*
+ A simple Java HTTP client
  */
 public final class HttpClient {
 
@@ -43,94 +47,94 @@ public final class HttpClient {
         this.settings = Objects.requireNonNull(settings);
     }
 
-    /**
-     * Create a new {@link Builder}
-     *
-     * @return Builder instance
+    /*
+     Create a new {@link Builder}
+     
+     @return Builder instance
      */
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    /**
-     * Initialise a request builder for a GET request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a GET request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder get(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.GET, url);
     }
 
-    /**
-     * Initialise a request builder for a POST request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a POST request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder post(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.POST, url);
     }
 
-    /**
-     * Initialise a request builder for a PUT request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a PUT request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder put(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.PUT, url);
     }
 
-    /**
-     * Initialise a request builder for a HEAD request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a HEAD request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder head(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.HEAD, url);
     }
 
-    /**
-     * Initialise a request builder for a DELETE request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a DELETE request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder delete(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.DELETE, url);
     }
 
-    /**
-     * Initialise a request builder for a PATCH request
-     *
-     * @param url URL
-     * @return Created builder
+    /*
+     Initialise a request builder for a PATCH request
+     
+     @param url URL
+     @return Created builder
      */
     public WrappedRequestBuilder patch(final String url) {
         Objects.requireNonNull(url, "URL may not be null");
         return new WrappedRequestBuilder(HttpMethod.PATCH, url);
     }
 
-    /**
-     * Get the entity mapper used by the client
-     *
-     * @return Entity mapper
+    /*
+     Get the entity mapper used by the client
+     
+     @return Entity mapper
      */
     public EntityMapper getMapper() {
         return this.mapper;
     }
 
 
-    /**
-     * Builder for {@link HttpClient}. Use {@link #newBuilder()} to create
-     * an instance of the builder
+    /*
+     Builder for {@link HttpClient}. Use {@link #newBuilder()} to create
+     an instance of the builder
      */
     public static final class Builder {
 
@@ -140,12 +144,12 @@ public final class HttpClient {
             this.settings = new ClientSettings();
         }
 
-        /**
-         * Set the base URL. This will be prepended to each request made with the
-         * client.
-         *
-         * @param baseURL Base URL. Cannot be null, but can be empty.
-         * @return Builder instance
+        /*
+         Set the base URL. This will be prepended to each request made with the
+         client.
+         
+         @param baseURL Base URL. Cannot be null, but can be empty.
+         @return Builder instance
          */
         public Builder withBaseURL(final String baseURL) {
             Objects.requireNonNull(baseURL, "Base URL may not be null");
@@ -157,35 +161,35 @@ public final class HttpClient {
             return this;
         }
 
-        /**
-         * Set the default entity mapper that is used
-         * by all requests, unless otherwise specified
-         *
-         * @param entityMapper Entity mapper
-         * @return Builder instance
+        /*
+         Set the default entity mapper that is used
+         by all requests, unless otherwise specified
+         
+         @param entityMapper Entity mapper
+         @return Builder instance
          */
         public Builder withEntityMapper(final EntityMapper entityMapper) {
             this.settings.setEntityMapper(entityMapper);
             return this;
         }
 
-        /**
-         * Add a new request decorator. This will have the opportunity
-         * to decorate every request made by this client
-         *
-         * @param decorator Decorator
-         * @return Builder instance
+        /*
+         Add a new request decorator. This will have the opportunity
+         to decorate every request made by this client
+         
+         @param decorator Decorator
+         @return Builder instance
          */
         public Builder withDecorator(final Consumer<WrappedRequestBuilder> decorator) {
             this.settings.addDecorator(Objects.requireNonNull(decorator, "Decorator may not be null"));
             return this;
         }
 
-        /**
-         * Create a new {@link HttpClient} using the
-         * settings specified in the builder
-         *
-         * @return Created client
+        /*
+         Create a new {@link HttpClient} using the
+         settings specified in the builder
+         
+         @return Created client
          */
         public HttpClient build() {
             return new HttpClient(settings);
@@ -194,15 +198,15 @@ public final class HttpClient {
     }
 
 
-    /**
-     * Wrapper used to interact with HTTP requests.
-     *
-     * @see #get(String) To create a new GET request
-     * @see #post(String) To create a new POST request
-     * @see #head(String) To create a new HEAD request
-     * @see #put(String) To create a new PUT request
-     * @see #patch(String) To create a new PATCH request
-     * @see #delete(String) To create a new DELETE request
+    /*
+     Wrapper used to interact with HTTP requests.
+     
+     @see #get(String) To create a new GET request
+     @see #post(String) To create a new POST request
+     @see #head(String) To create a new HEAD request
+     @see #put(String) To create a new PUT request
+     @see #patch(String) To create a new PATCH request
+     @see #delete(String) To create a new DELETE request
      */
     public final class WrappedRequestBuilder {
 
@@ -234,36 +238,37 @@ public final class HttpClient {
             }
         }
 
-        /**
-         * Specify an input supplier which will be used to write to the connection, if it
-         * established correctly. This requires that there is a {@link com.intellectualsites.http.EntityMapper.EntitySerializer}
-         * registered for the type of the object, in the {@link EntityMapper} used by the client
-         *
-         * @param input Input
-         * @return Builder instance
+        /*
+         Specify an input supplier which will be used to write to the connection, if it
+         established correctly. This requires that there is a
+         {@link com.intellectualsites.http.EntityMapper.EntitySerializer}
+         registered for the type of the object, in the {@link EntityMapper} used by the client
+         
+         @param input Input
+         @return Builder instance
          */
         public WrappedRequestBuilder withInput(final Supplier<Object> input) {
             builder.withInput(input);
             return this;
         }
 
-        /**
-         * Specify the entity mapper used by the request
-         *
-         * @param mapper Entity mapper
-         * @return Builder instance
+        /*
+         Specify the entity mapper used by the request
+         
+         @param mapper Entity mapper
+         @return Builder instance
          */
         public WrappedRequestBuilder withMapper(final EntityMapper mapper) {
             builder.withMapper(mapper);
             return this;
         }
 
-        /**
-         * Add a header to the request
-         *
-         * @param key   Header key
-         * @param value Header value
-         * @return Builder instance
+        /*
+         Add a header to the request
+         
+         @param key   Header key
+         @param value Header value
+         @return Builder instance
          */
         public WrappedRequestBuilder withHeader(final String key,
             final String value) {
@@ -271,12 +276,12 @@ public final class HttpClient {
             return this;
         }
 
-        /**
-         * Add a consumer that acts on a specific status code
-         *
-         * @param code             Status code
-         * @param responseConsumer Response consumer
-         * @return Builder instance
+        /*
+         Add a consumer that acts on a specific status code
+         
+         @param code             Status code
+         @param responseConsumer Response consumer
+         @return Builder instance
          */
         public WrappedRequestBuilder onStatus(final int code,
             final Consumer<HttpResponse> responseConsumer) {
@@ -284,11 +289,11 @@ public final class HttpClient {
             return this;
         }
 
-        /**
-         * Add a consumer that acts on all remaining status code
-         *
-         * @param responseConsumer Response consumer
-         * @return Builder instance
+        /*
+         Add a consumer that acts on all remaining status code
+         
+         @param responseConsumer Response consumer
+         @return Builder instance
          */
         public WrappedRequestBuilder onRemaining(
             final Consumer<HttpResponse> responseConsumer) {
@@ -296,11 +301,11 @@ public final class HttpClient {
             return this;
         }
 
-        /**
-         * Add an exception consumer
-         *
-         * @param consumer Exception consumer
-         * @return Builder instance
+        /*
+         Add an exception consumer
+         
+         @param consumer Exception consumer
+         @return Builder instance
          */
         public WrappedRequestBuilder onException(
             final Consumer<Throwable> consumer) {
@@ -309,12 +314,12 @@ public final class HttpClient {
             return this;
         }
 
-        /**
-         * Perform the request
-         *
-         * @return The raw response, if no exception was thrown during the
-         *         handling of the response. If any exception was handled,
-         *         the method will return {@code null}
+        /*
+         Perform the request
+         
+         @return The raw response, if no exception was thrown during the
+                 handling of the response. If any exception was handled,
+                 the method will return {@code null}
          */
         public HttpResponse execute(int timeout) {
             for (final Consumer<WrappedRequestBuilder> decorator : settings.getRequestDecorators()) {
@@ -327,7 +332,8 @@ public final class HttpClient {
                 }
                 final HttpResponse response = this.builder.build().executeRequest(timeout);
                 if (response != null) {
-                    final Consumer<HttpResponse> responseConsumer = this.consumers.getOrDefault(response.getStatusCode(), this.other);
+                    final Consumer<HttpResponse> responseConsumer =
+                        this.consumers.getOrDefault(response.getStatusCode(), this.other);
                     responseConsumer.accept(response);
                 }
                 if (throwables[0] != null) {

@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -36,9 +40,9 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * HTTP request class. This should not be interacted with directly,
- * rather {@link com.intellectualsites.http.HttpClient} should be used
+/*
+ HTTP request class. This should not be interacted with directly,
+ rather {@link com.intellectualsites.http.HttpClient} should be used
  */
 final class HttpRequest {
 
@@ -62,10 +66,10 @@ final class HttpRequest {
         this.throwableConsumer = throwableConsumer;
     }
 
-    /**
-     * Create a new request {@link Builder builder}
-     *
-     * @return Builder instance
+    /*
+     Create a new request {@link Builder builder}
+     
+     @return Builder instance
      */
     static Builder newBuilder() {
         return new Builder();
@@ -102,7 +106,8 @@ final class HttpRequest {
                 final Object object = this.inputSupplier.get();
                 if (object != null) {
                     final EntityMapper.EntitySerializer serializer =
-                        this.mapper.getSerializer(object.getClass()).orElseThrow(() -> new IllegalArgumentException(String
+                        this.mapper.getSerializer(object.getClass())
+                            .orElseThrow(() -> new IllegalArgumentException(String
                             .format("There is no registered serializer for type '%s'",
                                 object.getClass().getCanonicalName())));
                     if (this.headers.getHeader("Content-Type").isEmpty()) {
@@ -177,67 +182,69 @@ final class HttpRequest {
         private Builder() {
         }
 
-        /**
-         * Specify the entity mapper used by the request
-         *
-         * @param mapper Entity mapper
-         * @return Builder instance
+        /*
+         Specify the entity mapper used by the request
+         
+         @param mapper Entity mapper
+         @return Builder instance
          */
         Builder withMapper(final EntityMapper mapper) {
             this.mapper = Objects.requireNonNull(mapper, "Mapper may not be null");
             return this;
         }
 
-        /**
-         * Specify the HTTP method used in the request
-         *
-         * @param method HTTP method
-         * @return Builder instance
+        /*
+         Specify the HTTP method used in the request
+         
+         @param method HTTP method
+         @return Builder instance
          */
         Builder withMethod(final HttpMethod method) {
             this.method = Objects.requireNonNull(method, "Method may not be null");
             return this;
         }
 
-        /**
-         * Specify the URL used in the request
-         *
-         * @param url URL
-         * @return Builder instance
+        /*
+         Specify the URL used in the request
+         
+         @param url URL
+         @return Builder instance
          */
         Builder withURL(final URL url) {
             this.url = Objects.requireNonNull(url, "URL may not be null");
             return this;
         }
 
-        /**
-         * Add a header to the request
-         *
-         * @param key Header key
-         * @param value Header value
-         * @return Builder instance
+        /*
+         Add a header to the request
+         
+         @param key Header key
+         @param value Header value
+         @return Builder instance
          */
         Builder withHeader(final String key, final String value) {
-            this.headers.addHeader(Objects.requireNonNull(key, "Key may not be null"), Objects.requireNonNull(value, "Value may not be null"));
+            this.headers.addHeader(
+                Objects.requireNonNull(key, "Key may not be null"),
+                Objects.requireNonNull(value, "Value may not be null"));
             return this;
         }
 
-        /**
-         * Add an input entity to the request
-         *
-         * @param inputSupplier Input supplier
-         * @return Builder instance
+        /*
+         Add an input entity to the request
+         
+         @param inputSupplier Input supplier
+         @return Builder instance
          */
         Builder withInput(final Supplier<Object> inputSupplier) {
             this.inputSupplier = Objects.requireNonNull(inputSupplier, "Input supplier may not be null");
             return this;
         }
 
-        /**
-         * Add a throwable consumer
-         *
-         * @param consumer Throwable consumer
-         * @return Builder instance
+        /*
+         Add a throwable consumer
+         
+         @param consumer Throwable consumer
+         @return Builder instance
          */
         Builder onException(final Consumer<Throwable> consumer) {
             this.throwableConsumer = Objects.requireNonNull(consumer, "Consumer may not be null");

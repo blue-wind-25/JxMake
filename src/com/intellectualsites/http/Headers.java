@@ -1,4 +1,8 @@
 /*
+  * #### This file has been modified by JxMake project #####
+  */
+
+/*
  * MIT License
  *
  * Copyright (c) 2022 IntellectualSites
@@ -31,8 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Container for HTTP headers
+/*
+ Container for HTTP headers
  */
 final public class Headers {
 
@@ -41,20 +45,20 @@ final public class Headers {
     private Headers() {
     }
 
-    /**
-     * Return an empty {@link Headers} instance
-     *
-     * @return Headers instance
+    /*
+     Return an empty {@link Headers} instance
+     
+     @return Headers instance
      */
     static Headers newInstance() {
         return new Headers();
     }
 
-    /**
-     * Add a header to the header collection
-     *
-     * @param key   Header name
-     * @param value Header value
+    /*
+     Add a header to the header collection
+     
+     @param key   Header name
+     @param value Header value
      */
     void addHeader(String key, final String value) {
         Objects.requireNonNull(key, "Key may not be null");
@@ -69,11 +73,11 @@ final public class Headers {
         }
     }
 
-    /**
-     * Get a list of all the headers with the specified name
-     *
-     * @param key Header key
-     * @return Unmodifiable list
+    /*
+     Get a list of all the headers with the specified name
+     
+     @param key Header key
+     @return Unmodifiable list
      */
     public List<String> getHeaders(final String key) {
         Objects.requireNonNull(key, "Key may not be null");
@@ -84,26 +88,26 @@ final public class Headers {
         return Collections.unmodifiableList(headers);
     }
 
-    /**
-     * Get the value of a specific header, or an empty string.
-     * If multiple values are specified for the header key,
-     * only the last value will be returned.
-     *
-     * @param key Header key
-     * @return Header value, or {@code ""}
+    /*
+     Get the value of a specific header, or an empty string.
+     If multiple values are specified for the header key,
+     only the last value will be returned.
+     
+     @param key Header key
+     @return Header value, or {@code ""}
      */
     public String getHeader(final String key) {
         return Objects.requireNonNull(getOrDefault(key, ""));
     }
 
-    /**
-     * Get the value of a specific header, or default string.
-     * If multiple values are specified for the header key,
-     * only the last value will be returned.
-     *
-     * @param key           Header key
-     * @param defaultString Default value
-     * @return Header value, or the default value
+    /*
+     Get the value of a specific header, or default string.
+     If multiple values are specified for the header key,
+     only the last value will be returned.
+     
+     @param key           Header key
+     @param defaultString Default value
+     @return Header value, or the default value
      */
     String getOrDefault(final String key, final String defaultString) {
         final List<String> headers = this.getHeaders(key);
@@ -113,10 +117,10 @@ final public class Headers {
         return headers.get(headers.size() - 1);
     }
 
-    /**
-     * Get the name of all headers in the collection
-     *
-     * @return Unmodifiable collection
+    /*
+     Get the name of all headers in the collection
+     
+     @return Unmodifiable collection
      */
     public Collection<String> getHeaders() {
         return Collections.unmodifiableSet(this.headers.keySet());

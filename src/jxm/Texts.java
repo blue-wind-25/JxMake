@@ -420,6 +420,7 @@ public class Texts {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    public static final String EMsg_WDriverInstallInvInfPth = _T("invalid INF path '%s'; it must be absolute and exist");
     public static final String EMsg_WDriverInstallTimeoutMN = _T("TIMEOUT: The driver installation took longer than %d minutes.\nThe driver may still be installing in the background.");
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

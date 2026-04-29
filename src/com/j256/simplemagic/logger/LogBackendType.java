@@ -1,58 +1,62 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger;
 
 import com.j256.simplemagic.logger.backend.ConsoleLogBackend.ConsoleLogBackendFactory;
 import com.j256.simplemagic.logger.backend.LocalLogBackend.LocalLogBackendFactory;
 import com.j256.simplemagic.logger.backend.NullLogBackend.NullLogBackendFactory;
 
-/**
- * Type of logging backends that are supported. The classes are specified as strings so there is not a direct dependency
- * placed on them since these classes may reference types not on the classpath.
- *
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * @author graywatson
+/*
+ Type of logging backends that are supported. The classes are specified as strings so there is not a direct dependency
+ placed on them since these classes may reference types not on the classpath.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ @author graywatson
  */
 public enum LogBackendType implements LogBackendFactory {
-	/**
-	 * SLF4J which is often paired with logback. See: http://www.slf4j.org/
+	/*
+	 SLF4J which is often paired with logback. See: http://www.slf4j.org/
 	 */
 	SLF4J("Slf4jLoggingLogBackend$Slf4jLoggingLogBackendFactory"),
-	/**
-	 * Logback direct. See: http://logback.qos.ch/
+	/*
+	 Logback direct. See: http://logback.qos.ch/
 	 */
 	LOGBACK("LogbackLogBackend$LogbackLogBackendFactory"),
-	/**
-	 * Apache commons logging. See https://commons.apache.org/proper/commons-logging/
+	/*
+	 Apache commons logging. See https://commons.apache.org/proper/commons-logging/
 	 */
 	COMMONS_LOGGING("CommonsLoggingLogBackend$CommonsLoggingLogBackendFactory"),
-	/**
-	 * Version 2 of the log4j package. See https://logging.apache.org/log4j/2.x/
+	/*
+	 Version 2 of the log4j package. See https://logging.apache.org/log4j/2.x/
 	 */
 	LOG4J2("Log4j2LogBackend$Log4j2LogBackendFactory"),
-	/**
-	 * Old version of the log4j package. See https://logging.apache.org/log4j/2.x/
+	/*
+	 Old version of the log4j package. See https://logging.apache.org/log4j/2.x/
 	 */
 	LOG4J("Log4jLogBackend$Log4jLogBackendFactory"),
-	/**
-	 * Local simple log backend that writes to a output file.
-	 *
-	 * <p>
-	 * NOTE: any loggers defined below this will not be auto-detected because this is always available.
-	 * </p>
+	/*
+	 Local simple log backend that writes to a output file.
+	 
+	 <p>
+	 NOTE: any loggers defined below this will not be auto-detected because this is always available.
+	 </p>
 	 */
 	LOCAL(new LocalLogBackendFactory()),
-	/**
-	 * Simple log backend that writes out to System.out or System.err.
+	/*
+	 Simple log backend that writes out to System.out or System.err.
 	 */
 	CONSOLE(new ConsoleLogBackendFactory()),
-	/**
-	 * Internal JVM logging implementation almost always available. We put this below the LOCAL log because it's always
-	 * available but we don't want to auto-detect it. See:
-	 * https://docs.oracle.com/javase/7/docs/api/java/util/logging/package-summary.html
+	/*
+	 Internal JVM logging implementation almost always available. We put this below the LOCAL log because it's always
+	 available but we don't want to auto-detect it. See:
+	 https://docs.oracle.com/javase/7/docs/api/java/util/logging/package-summary.html
 	 */
 	JAVA_UTIL("JavaUtilLogBackend$JavaUtilLogBackendFactory"),
-	/**
-	 * Logging backend which ignores all messages. Used to disable all logging. This is never chosen automatically.
+	/*
+	 Logging backend which ignores all messages. Used to disable all logging. This is never chosen automatically.
 	 */
 	NULL(new NullLogBackendFactory()),
 	// end
@@ -74,9 +78,9 @@ public enum LogBackendType implements LogBackendFactory {
 		return factory.createLogBackend(classLabel);
 	}
 
-	/**
-	 * Return true if the log class is available. This typically is testing to see if a class is available on the
-	 * classpath.
+	/*
+	 Return true if the log class is available. This typically is testing to see if a class is available on the
+	 classpath.
 	 */
 	public boolean isAvailable() {
 		/*
@@ -87,13 +91,15 @@ public enum LogBackendType implements LogBackendFactory {
 				|| (this != LogBackendType.NULL && !(factory instanceof LocalLogBackendFactory)));
 	}
 
-	/**
-	 * Try to detect if the logger class is available and if calling the factory to make a logger works.
+	/*
+	 Try to detect if the logger class is available and if calling the factory to make a logger works.
 	 */
 	private LogBackendFactory detectFactory(String factoryClassName) {
 		try {
 			// sometimes the constructor works but it's not fully wired
-			LogBackendFactory factory = (LogBackendFactory) Class.forName(factoryClassName).getDeclaredConstructor().newInstance();
+			LogBackendFactory factory = (LogBackendFactory) Class.forName(factoryClassName)
+					.getDeclaredConstructor()
+					.newInstance();
 			// we may really need to use the class before we see issues
 			factory.createLogBackend("test").isLevelEnabled(Level.INFO);
 			return factory;

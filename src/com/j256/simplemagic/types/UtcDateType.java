@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import java.text.DateFormat;
@@ -6,10 +10,10 @@ import java.util.TimeZone;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * A 4-byte value interpreted as a UNIX date in UTC timezone.
- * 
- * @author graywatson
+/*
+ A 4-byte value interpreted as a UNIX date in UTC timezone.
+ 
+ @author graywatson
  */
 public class UtcDateType extends LocalDateType {
 

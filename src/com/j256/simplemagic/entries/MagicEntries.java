@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.entries;
 
 import java.io.BufferedReader;
@@ -10,10 +14,10 @@ import com.j256.simplemagic.ContentInfoUtil.ErrorCallBack;
 import com.j256.simplemagic.logger.Logger;
 import com.j256.simplemagic.logger.LoggerFactory;
 
-/**
- * Class which encompasses a set of entries and allows us to optimize their use.
- *
- * @author graywatson
+/*
+ Class which encompasses a set of entries and allows us to optimize their use.
+ 
+ @author graywatson
  */
 @SuppressWarnings("rawtypes")
 public class MagicEntries {
@@ -26,8 +30,8 @@ public class MagicEntries {
 	@SuppressWarnings("unchecked")
 	private final List<MagicEntry>[] firstByteEntryLists = new ArrayList[FIRST_BYTE_LIST_SIZE];
 
-	/**
-	 * Read the entries so later we can find matches with them.
+	/*
+	 Read the entries so later we can find matches with them.
 	 */
 	public void readEntries(BufferedReader lineReader, ErrorCallBack errorCallBack) throws IOException {
 		final MagicEntry[] levelParents = new MagicEntry[MAX_LEVELS];
@@ -82,8 +86,8 @@ public class MagicEntries {
 		}
 	}
 
-	/**
-	 * Optimize the magic entries by removing the first-bytes information into their own lists
+	/*
+	 Optimize the magic entries by removing the first-bytes information into their own lists
 	 */
 	public void optimizeFirstBytes() {
 		// now we post process the entries and remove the first byte ones we can optimize
@@ -104,8 +108,8 @@ public class MagicEntries {
 		}
 	}
 
-	/**
-	 * Find and return a match for the associated bytes.
+	/*
+	 Find and return a match for the associated bytes.
 	 */
 	public ContentInfo findMatch(byte[] bytes) {
 		if (bytes.length == 0) {

@@ -1,11 +1,15 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * A one-byte value.
- * 
- * @author graywatson
+/*
+ A one-byte value.
+ 
+ @author graywatson
  */
 public class ByteType extends BaseLongType {
 

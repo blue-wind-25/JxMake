@@ -1,9 +1,13 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
-/**
- * A two-byte unicode (UCS16) string in big-endian byte order.
- * 
- * @author graywatson
+/*
+ A two-byte unicode (UCS16) string in big-endian byte order.
+ 
+ @author graywatson
  */
 public class BigEndianString16Type extends StringType {
 
@@ -32,8 +36,8 @@ public class BigEndianString16Type extends StringType {
 				chars.length);
 	}
 
-	/**
-	 * Convert 2 bytes into a character.
+	/*
+	 Convert 2 bytes into a character.
 	 */
 	protected char bytesToChar(int firstByte, int secondByte) {
 		return (char) ((firstByte << 8) + secondByte);

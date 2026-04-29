@@ -1,16 +1,20 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger;
 
-/**
- * Factory for generating LogBackend instances.
- *
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * @author graywatson
+/*
+ Factory for generating LogBackend instances.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ @author graywatson
  */
 public interface LogBackendFactory {
 
-	/**
-	 * Create a log backend implementation from the class-label.
+	/*
+	 Create a log backend implementation from the class-label.
 	 */
 	public LogBackend createLogBackend(String classLabel);
 }

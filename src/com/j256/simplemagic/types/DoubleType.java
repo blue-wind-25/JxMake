@@ -1,11 +1,15 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * A 64-bit double precision IEEE floating point number in this machine's native byte order.
- * 
- * @author graywatson
+/*
+ A 64-bit double precision IEEE floating point number in this machine's native byte order.
+ 
+ @author graywatson
  */
 public class DoubleType extends NumberType {
 
@@ -48,8 +52,8 @@ public class DoubleType extends NumberType {
 		return null;
 	}
 
-	/**
-	 * Convert a long to the type.
+	/*
+	 Convert a long to the type.
 	 */
 	protected Object longToObject(Long value) {
 		return Double.longBitsToDouble(value);
@@ -60,8 +64,8 @@ public class DoubleType extends NumberType {
 		return value;
 	}
 
-	/**
-	 * Return the number of bytes in this type.
+	/*
+	 Return the number of bytes in this type.
 	 */
 	@Override
 	public int getBytesPerType() {

@@ -1,31 +1,35 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger;
 
 import java.lang.reflect.Array;
 
-/**
- * Class which wraps our {@link LogBackend} interface and provides {} argument features like slf4j. It allows us to plug
- * in additional log backends if necessary.
- * 
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * <p>
- * <b>NOTE:</b> We do the (msg, arg0), (msg, arg0, arg1), (msg, arg0, arg1, arg2), (msg, arg0, arg1, arg2, arg3), and
- * (msg, argArray) patterns because if we do ... for everything, we will get a new Object[] each log call which we don't
- * want -- even if the message is never logged because of the log level. Also, we don't use ... at all because we want
- * to know <i>when</i> we are creating a new Object[] so we can make sure it is what we want. I thought ... was so much
- * better than slf4j but it turns out they were spot on. Sigh.
- * </p>
- * 
- * <p>
- * <b>NOTE:</b> When you are using the argArray methods, you should consider wrapping the call in an {@code if} so the
- * {@code Object[]} won't be created unnecessarily.
- * </p>
- * 
- * <pre>
- * if (logger.isLevelEnabled(Level...)) ...
- * </pre>
- * 
- * @author graywatson
+/*
+ Class which wraps our {@link LogBackend} interface and provides {} argument features like slf4j. It allows us to plug
+ in additional log backends if necessary.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ <p>
+ <b>NOTE:</b> We do the (msg, arg0), (msg, arg0, arg1), (msg, arg0, arg1, arg2), (msg, arg0, arg1, arg2, arg3), and
+ (msg, argArray) patterns because if we do ... for everything, we will get a new Object[] each log call which we don't
+ want -- even if the message is never logged because of the log level. Also, we don't use ... at all because we want
+ to know <i>when</i> we are creating a new Object[] so we can make sure it is what we want. I thought ... was so much
+ better than slf4j but it turns out they were spot on. Sigh.
+ </p>
+ 
+ <p>
+ <b>NOTE:</b> When you are using the argArray methods, you should consider wrapping the call in an {@code if} so the
+ {@code Object[]} won't be created unnecessarily.
+ </p>
+ 
+ <pre>
+ if (logger.isLevelEnabled(Level...)) ...
+ </pre>
+ 
+ @author graywatson
  */
 public class Logger {
 
@@ -41,612 +45,612 @@ public class Logger {
 		this.backend = backend;
 	}
 
-	/**
-	 * Set the log level for all of the loggers. This should be done very early in an application's main or launch
-	 * methods. It allows the caller to set a filter on all log messages. Set to null to disable any global log level
-	 * filtering of messages and go back to the per-log level matching.
+	/*
+	 Set the log level for all of the loggers. This should be done very early in an application's main or launch
+	 methods. It allows the caller to set a filter on all log messages. Set to null to disable any global log level
+	 filtering of messages and go back to the per-log level matching.
 	 */
 	public static void setGlobalLogLevel(Level level) {
 		Logger.globalLevel = level;
 	}
 
-	/**
-	 * Return if logging level is enabled.
+	/*
+	 Return if logging level is enabled.
 	 */
 	public boolean isLevelEnabled(Level level) {
 		return backend.isLevelEnabled(level);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg) {
 		logIfEnabled(Level.TRACE, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg, Object arg0) {
 		logIfEnabled(Level.TRACE, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.TRACE, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.TRACE, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.TRACE, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a trace message.
+	/*
+	 Log a trace message.
 	 */
 	public void trace(String msg, Object[] argArray) {
 		logIfEnabled(Level.TRACE, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg) {
 		logIfEnabled(Level.TRACE, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null, null);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.TRACE, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.TRACE, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.TRACE, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.TRACE, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a trace message with a throwable.
+	/*
+	 Log a trace message with a throwable.
 	 */
 	public void trace(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.TRACE, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg) {
 		logIfEnabled(Level.DEBUG, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg, Object arg0) {
 		logIfEnabled(Level.DEBUG, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.DEBUG, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.DEBUG, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.DEBUG, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a debug message.
+	/*
+	 Log a debug message.
 	 */
 	public void debug(String msg, Object[] argArray) {
 		logIfEnabled(Level.DEBUG, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg) {
 		logIfEnabled(Level.DEBUG, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.DEBUG, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.DEBUG, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.DEBUG, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.DEBUG, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a debug message with a throwable.
+	/*
+	 Log a debug message with a throwable.
 	 */
 	public void debug(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.DEBUG, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg) {
 		logIfEnabled(Level.INFO, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg, Object arg0) {
 		logIfEnabled(Level.INFO, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.INFO, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.INFO, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.INFO, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a info message.
+	/*
+	 Log a info message.
 	 */
 	public void info(String msg, Object[] argArray) {
 		logIfEnabled(Level.INFO, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg) {
 		logIfEnabled(Level.INFO, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.INFO, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.INFO, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.INFO, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.INFO, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a info message with a throwable.
+	/*
+	 Log a info message with a throwable.
 	 */
 	public void info(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.INFO, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg) {
 		logIfEnabled(Level.WARNING, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg, Object arg0) {
 		logIfEnabled(Level.WARNING, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.WARNING, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.WARNING, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.WARNING, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a warning message.
+	/*
+	 Log a warning message.
 	 */
 	public void warn(String msg, Object[] argArray) {
 		logIfEnabled(Level.WARNING, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg) {
 		logIfEnabled(Level.WARNING, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.WARNING, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.WARNING, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.WARNING, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.WARNING, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a warning message with a throwable.
+	/*
+	 Log a warning message with a throwable.
 	 */
 	public void warn(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.WARNING, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg) {
 		logIfEnabled(Level.ERROR, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg, Object arg0) {
 		logIfEnabled(Level.ERROR, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.ERROR, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.ERROR, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.ERROR, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a error message.
+	/*
+	 Log a error message.
 	 */
 	public void error(String msg, Object[] argArray) {
 		logIfEnabled(Level.ERROR, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg) {
 		logIfEnabled(Level.ERROR, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.ERROR, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.ERROR, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.ERROR, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.ERROR, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a error message with a throwable.
+	/*
+	 Log a error message with a throwable.
 	 */
 	public void error(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.ERROR, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg) {
 		logIfEnabled(Level.FATAL, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg, Object arg0) {
 		logIfEnabled(Level.FATAL, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.FATAL, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.FATAL, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.FATAL, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a fatal message.
+	/*
+	 Log a fatal message.
 	 */
 	public void fatal(String msg, Object[] argArray) {
 		logIfEnabled(Level.FATAL, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg) {
 		logIfEnabled(Level.FATAL, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(Level.FATAL, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(Level.FATAL, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(Level.FATAL, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(Level.FATAL, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a fatal message with a throwable.
+	/*
+	 Log a fatal message with a throwable.
 	 */
 	public void fatal(Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(Level.FATAL, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg) {
 		logIfEnabled(level, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg, Object arg0) {
 		logIfEnabled(level, null, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg, Object arg0, Object arg1) {
 		logIfEnabled(level, null, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(level, null, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(level, null, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a message at the provided level.
+	/*
+	 Log a message at the provided level.
 	 */
 	public void log(Level level, String msg, Object[] argArray) {
 		logIfEnabled(level, null, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg) {
 		logIfEnabled(level, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg, Object arg0) {
 		logIfEnabled(level, throwable, msg, arg0, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg, Object arg0, Object arg1) {
 		logIfEnabled(level, throwable, msg, arg0, arg1, UNKNOWN_ARG, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg, Object arg0, Object arg1, Object arg2) {
 		logIfEnabled(level, throwable, msg, arg0, arg1, arg2, UNKNOWN_ARG, null);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg, Object arg0, Object arg1, Object arg2, Object arg3) {
 		logIfEnabled(level, throwable, msg, arg0, arg1, arg2, arg3, null);
 	}
 
-	/**
-	 * Log a message with a throwable at the provided level.
+	/*
+	 Log a message with a throwable at the provided level.
 	 */
 	public void log(Level level, Throwable throwable, String msg, Object[] argArray) {
 		logIfEnabled(level, throwable, msg, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, UNKNOWN_ARG, argArray);
 	}
 
-	/**
-	 * Get the underlying log backend implementation for testing purposes.
+	/*
+	 Get the underlying log backend implementation for testing purposes.
 	 */
 	public LogBackend getLogBackend() {
 		return backend;
@@ -666,8 +670,8 @@ public class Logger {
 		}
 	}
 
-	/**
-	 * Return a combined single message from the msg (with possible {}) and optional arguments.
+	/*
+	 Return a combined single message from the msg (with possible {}) and optional arguments.
 	 */
 	private String buildFullMessage(String msg, Object arg0, Object arg1, Object arg2, Object arg3, Object[] argArray) {
 		StringBuilder sb = null;

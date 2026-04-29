@@ -1,14 +1,18 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
-/**
- * Some common pattern utilities used by multiple types.
- * 
- * @author graywatson
+/*
+ Some common pattern utilities used by multiple types.
+ 
+ @author graywatson
  */
 public class PatternUtils {
 
-	/**
-	 * Pre-processes the pattern by handling backslash escapes such as \b and \007.
+	/*
+	 Pre-processes the pattern by handling backslash escapes such as \b and \007.
 	 */
 	public static String preProcessPattern(String pattern) {
 		int index = pattern.indexOf('\\');

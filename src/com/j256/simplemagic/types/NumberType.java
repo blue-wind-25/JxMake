@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import com.j256.simplemagic.endian.EndianConverter;
@@ -5,10 +9,10 @@ import com.j256.simplemagic.endian.EndianType;
 import com.j256.simplemagic.entries.MagicFormatter;
 import com.j256.simplemagic.entries.MagicMatcher;
 
-/**
- * Base class for our numbers so we can do generic operations on them.
- * 
- * @author graywatson
+/*
+ Base class for our numbers so we can do generic operations on them.
+ 
+ @author graywatson
  */
 public abstract class NumberType implements MagicMatcher {
 
@@ -18,23 +22,23 @@ public abstract class NumberType implements MagicMatcher {
 		this.endianConverter = endianType.getConverter();
 	}
 
-	/**
-	 * Decode the test string value.
+	/*
+	 Decode the test string value.
 	 */
 	public abstract Number decodeValueString(String valueStr) throws NumberFormatException;
 
-	/**
-	 * Return the number of bytes in this type.
+	/*
+	 Return the number of bytes in this type.
 	 */
 	public abstract int getBytesPerType();
 
-	/**
-	 * Return -1 if extractedValue is &lt; testValue, 1 if it is &gt;, 0 if it is equals.
+	/*
+	 Return -1 if extractedValue is &lt; testValue, 1 if it is &gt;, 0 if it is equals.
 	 */
 	public abstract int compare(boolean unsignedType, Number extractedValue, Number testValue);
 
-	/**
-	 * Return the value with the appropriate bytes masked off corresponding to the bytes in the type.
+	/*
+	 Return the value with the appropriate bytes masked off corresponding to the bytes in the type.
 	 */
 	public abstract long maskValue(long value);
 

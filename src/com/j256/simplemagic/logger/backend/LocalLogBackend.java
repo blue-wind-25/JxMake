@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.logger.backend;
 
 import java.io.BufferedReader;
@@ -21,30 +25,30 @@ import com.j256.simplemagic.logger.LogBackend;
 import com.j256.simplemagic.logger.LogBackendFactory;
 import com.j256.simplemagic.logger.LoggerFactory;
 
-/**
- * Log backend that uses logging classes if they are not available.
- * 
- * From SimpleLogging: https://github.com/j256/simplelogging
- *
- * <p>
- * You can set the log level by setting the System.setProperty(LocalLogBackend.LOCAL_LOG_LEVEL_PROPERTY, "trace").
- * Acceptable values are: TRACE, DEBUG, INFO, WARN, ERROR, and FATAL. You can also redirect the log to a file by setting
- * the System.setProperty(LocalLogBackend.LOCAL_LOG_FILE_PROPERTY, "log.out"). Otherwise, log output will go to stdout.
- * </p>
- * 
- * <p>
- * It also supports a file simpleLoggingLocalLog.properties file which contains lines such as:
- * </p>
- * 
- * <pre>
- * # regex-pattern = Level
- * com\.foo\.yourclass.*=DEBUG
- * com\.foo\.yourclass\.BaseMappedStatement=TRACE
- * com\.foo\.yourclass\.MappedCreate=TRACE
- * com\.foo\.yourclass\.StatementExecutor=TRACE
- * </pre>
- * 
- * @author graywatson
+/*
+ Log backend that uses logging classes if they are not available.
+ 
+ From SimpleLogging: https://github.com/j256/simplelogging
+ 
+ <p>
+ You can set the log level by setting the System.setProperty(LocalLogBackend.LOCAL_LOG_LEVEL_PROPERTY, "trace").
+ Acceptable values are: TRACE, DEBUG, INFO, WARN, ERROR, and FATAL. You can also redirect the log to a file by setting
+ the System.setProperty(LocalLogBackend.LOCAL_LOG_FILE_PROPERTY, "log.out"). Otherwise, log output will go to stdout.
+ </p>
+ 
+ <p>
+ It also supports a file simpleLoggingLocalLog.properties file which contains lines such as:
+ </p>
+ 
+ <pre>
+ # regex-pattern = Level
+ com\.foo\.yourclass.*=DEBUG
+ com\.foo\.yourclass\.BaseMappedStatement=TRACE
+ com\.foo\.yourclass\.MappedCreate=TRACE
+ com\.foo\.yourclass\.StatementExecutor=TRACE
+ </pre>
+ 
+ @author graywatson
  */
 public class LocalLogBackend implements LogBackend {
 
@@ -114,8 +118,8 @@ public class LocalLogBackend implements LogBackend {
 		this.level = level;
 	}
 
-	/**
-	 * Reopen the associated static logging stream. Set to null to redirect to System.out.
+	/*
+	 Reopen the associated static logging stream. Set to null to redirect to System.out.
 	 */
 	public static void openLogFile(String logPath) {
 		if (logPath == null) {
@@ -144,15 +148,15 @@ public class LocalLogBackend implements LogBackend {
 		printMessage(level, msg, throwable);
 	}
 
-	/**
-	 * Flush any IO to disk. For testing purposes.
+	/*
+	 Flush any IO to disk. For testing purposes.
 	 */
 	void flush() {
 		printStream.flush();
 	}
 
-	/**
-	 * Read in our levels from our configuration file.
+	/*
+	 Read in our levels from our configuration file.
 	 */
 	static List<PatternLevel> readLevelResourceFile(InputStream stream) {
 		List<PatternLevel> levels = null;
@@ -221,9 +225,9 @@ public class LocalLogBackend implements LogBackend {
 		}
 	}
 
-	/**
-	 * Internal factory for LocalLogBackend instances. This can be used with the
-	 * {@link LoggerFactory#setLogBackendFactory(LogBackendFactory)} method to send all log messages to a file.
+	/*
+	 Internal factory for LocalLogBackend instances. This can be used with the
+	 {@link LoggerFactory#setLogBackendFactory(LogBackendFactory)} method to send all log messages to a file.
 	 */
 	public static class LocalLogBackendFactory implements LogBackendFactory {
 

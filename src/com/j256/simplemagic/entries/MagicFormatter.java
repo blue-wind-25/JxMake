@@ -1,13 +1,17 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.entries;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Formatter that handles the C %0.2f type formats appropriately. I would have used the {@link java.util.Formatter} but
- * you can't pre-parse those for some stupid reason. Also, I needed this to be compatible with the printf(3) C formats.
- * 
- * @author graywatson
+/*
+ Formatter that handles the C %0.2f type formats appropriately. I would have used the {@link java.util.Formatter} but
+ you can't pre-parse those for some stupid reason. Also, I needed this to be compatible with the printf(3) C formats.
+ 
+ @author graywatson
  */
 public class MagicFormatter {
 
@@ -21,8 +25,8 @@ public class MagicFormatter {
 	private final static Pattern FORMAT_PATTERN =
 			Pattern.compile("([^%]*)(%[-+0-9# ." + PATTERN_MODIFIERS + "]*[" + FINAL_PATTERN_CHARS + "])?(.*)");
 
-	/**
-	 * This takes a format string, breaks it up into prefix, %-thang, and suffix.
+	/*
+	 This takes a format string, breaks it up into prefix, %-thang, and suffix.
 	 */
 	public MagicFormatter(String formatString) {
 		Matcher matcher = FORMAT_PATTERN.matcher(formatString);
@@ -72,8 +76,8 @@ public class MagicFormatter {
 		}
 	}
 
-	/**
-	 * Formats the extracted value assigned and returns the associated string
+	/*
+	 Formats the extracted value assigned and returns the associated string
 	 */
 	public void format(StringBuilder sb, Object value) {
 		if (prefix != null) {

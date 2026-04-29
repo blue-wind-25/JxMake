@@ -1,3 +1,7 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic;
 
 import java.io.BufferedInputStream;
@@ -16,63 +20,63 @@ import java.util.zip.GZIPInputStream;
 
 import com.j256.simplemagic.entries.MagicEntries;
 
-/**
- * <p>
- * Class which reads in the magic files and determines the {@link ContentInfo} for files and byte arrays. You use the
- * default constructor {@link #ContentInfoUtil()} to use the internal rules file or load in a local file from the
- * file-system using {@link #ContentInfoUtil(String)}. Once the rules are loaded, you can use {@link #findMatch(String)}
- * or other {@code findMatch(...)} methods to get the content-type of a file or bytes.
- * </p>
- * 
- * <pre>
- * // create a magic utility using the internal magic file
- * ContentInfoUtil util = new ContentInfoUtil();
- * // get the content info for this file-path or null if no match
- * ContentInfo info = util.findMatch(&quot;/tmp/upload.tmp&quot;);
- * // display content type information
- * if (info == null) {
- * 	System.out.println(&quot;Unknown content-type&quot;);
- * } else {
- * 	// other information in ContentInfo type
- * 	System.out.println(&quot;Content-type is: &quot; + info.getName());
- * }
- * </pre>
- * 
- * @author graywatson
+/*
+ <p>
+ Class which reads in the magic files and determines the {@link ContentInfo} for files and byte arrays. You use the
+ default constructor {@link #ContentInfoUtil()} to use the internal rules file or load in a local file from the
+ file-system using {@link #ContentInfoUtil(String)}. Once the rules are loaded, you can use {@link #findMatch(String)}
+ or other {@code findMatch(...)} methods to get the content-type of a file or bytes.
+ </p>
+ 
+ <pre>
+ // create a magic utility using the internal magic file
+ ContentInfoUtil util = new ContentInfoUtil();
+ // get the content info for this file-path or null if no match
+ ContentInfo info = util.findMatch(&quot;/tmp/upload.tmp&quot;);
+ // display content type information
+ if (info == null) {
+ 	System.out.println(&quot;Unknown content-type&quot;);
+ } else {
+ 	// other information in ContentInfo type
+ 	System.out.println(&quot;Content-type is: &quot; + info.getName());
+ }
+ </pre>
+ 
+ @author graywatson
  */
 public class ContentInfoUtil {
 
 	private final static String INTERNAL_MAGIC_FILE = "/magic.gz";
 
-	/**
-	 * Number of bytes that the utility class by default reads to determine the content type information.
+	/*
+	 Number of bytes that the utility class by default reads to determine the content type information.
 	 */
 	public final static int DEFAULT_READ_SIZE = 10 * 1024;
 
-	/** internal entries loaded once if the {@link ContentInfoUtil#MagicUtil()} constructor is used. */
+	/* internal entries loaded once if the {@link ContentInfoUtil#MagicUtil()} constructor is used. */
 	private static MagicEntries internalMagicEntries;
 
 	private final MagicEntries magicEntries;
 	private int fileReadSize = DEFAULT_READ_SIZE;
 
-	/**
-	 * Construct a magic utility using the internal magic file built into the package.
-	 * 
-	 * @throws IllegalStateException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the internal magic file built into the package.
+	 
+	 @throws IllegalStateException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil() {
 		this((ErrorCallBack) null);
 	}
 
-	/**
-	 * Construct a magic utility using the internal magic file built into the package. This also allows the caller to
-	 * log any errors discovered in the file(s).
-	 * 
-	 * @param errorCallBack
-	 *            Call back which shows any problems with the magic entries loaded.
-	 * @throws IllegalStateException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the internal magic file built into the package. This also allows the caller to
+	 log any errors discovered in the file(s).
+	 
+	 @param errorCallBack
+	            Call back which shows any problems with the magic entries loaded.
+	 @throws IllegalStateException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil(ErrorCallBack errorCallBack) {
 		if (internalMagicEntries == null) {
@@ -89,28 +93,28 @@ public class ContentInfoUtil {
 		this.magicEntries = internalMagicEntries;
 	}
 
-	/**
-	 * Construct a magic utility using the magic files from a file or a directory of files.
-	 * 
-	 * @param fileOrDirectoryPath
-	 *            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the magic files from a file or a directory of files.
+	 
+	 @param fileOrDirectoryPath
+	            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil(String fileOrDirectoryPath) throws IOException {
 		this(new File(fileOrDirectoryPath), null);
 	}
 
-	/**
-	 * Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
-	 * to log any errors discovered in the file(s).
-	 * 
-	 * @param fileOrDirectoryOrResourcePath
-	 *            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
-	 * @param errorCallBack
-	 *            Call back which shows any problems with the magic entries loaded.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
+	 to log any errors discovered in the file(s).
+	 
+	 @param fileOrDirectoryOrResourcePath
+	            A path which can be a magic file, or a directory of magic files, or a magic file in a resource path.
+	 @param errorCallBack
+	            Call back which shows any problems with the magic entries loaded.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil(String fileOrDirectoryOrResourcePath, ErrorCallBack errorCallBack) throws IOException {
 		MagicEntries magicEntries = readEntriesFromResource(fileOrDirectoryOrResourcePath, errorCallBack);
@@ -125,28 +129,28 @@ public class ContentInfoUtil {
 		this.magicEntries = magicEntries;
 	}
 
-	/**
-	 * Construct a magic utility using the magic files from a file or a directory of files.
-	 * 
-	 * @param fileOrDirectory
-	 *            A path which can be a magic file, or a directory of magic files.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the magic files from a file or a directory of files.
+	 
+	 @param fileOrDirectory
+	            A path which can be a magic file, or a directory of magic files.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil(File fileOrDirectory) throws IOException {
 		this(fileOrDirectory, null);
 	}
 
-	/**
-	 * Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
-	 * to log any errors discovered in the file(s).
-	 * 
-	 * @param fileOrDirectory
-	 *            A path which can be a magic file, or a directory of magic files.
-	 * @param errorCallBack
-	 *            Call back which shows any problems with the magic entries loaded.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the internal magic file.
+	/*
+	 Construct a magic utility using the magic files from a file or a directory of files. This also allows the caller
+	 to log any errors discovered in the file(s).
+	 
+	 @param fileOrDirectory
+	            A path which can be a magic file, or a directory of magic files.
+	 @param errorCallBack
+	            Call back which shows any problems with the magic entries loaded.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the internal magic file.
 	 */
 	public ContentInfoUtil(File fileOrDirectory, ErrorCallBack errorCallBack) throws IOException {
 		this.magicEntries = readEntriesFromFile(fileOrDirectory, errorCallBack);
@@ -156,47 +160,47 @@ public class ContentInfoUtil {
 		}
 	}
 
-	/**
-	 * Construct a magic utility using the magic file entries from a reader.
-	 * 
-	 * @param reader
-	 *            A reader from which we will read the magic file entries.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the reader.
+	/*
+	 Construct a magic utility using the magic file entries from a reader.
+	 
+	 @param reader
+	            A reader from which we will read the magic file entries.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the reader.
 	 */
 	public ContentInfoUtil(Reader reader) throws IOException {
 		this(reader, null);
 	}
 
-	/**
-	 * Construct a magic utility using the magic file entries from a reader.
-	 * 
-	 * @param reader
-	 *            A reader from which we will read the magic file entries.
-	 * @param errorCallBack
-	 *            Call back which shows any problems with the magic entries loaded.
-	 * @throws IOException
-	 *             If there was a problem reading the magic entries from the reader.
+	/*
+	 Construct a magic utility using the magic file entries from a reader.
+	 
+	 @param reader
+	            A reader from which we will read the magic file entries.
+	 @param errorCallBack
+	            Call back which shows any problems with the magic entries loaded.
+	 @throws IOException
+	             If there was a problem reading the magic entries from the reader.
 	 */
 	public ContentInfoUtil(Reader reader, ErrorCallBack errorCallBack) throws IOException {
 		this.magicEntries = readEntries(reader, errorCallBack);
 	}
 
-	/**
-	 * Return the content type for the file-path or null if none of the magic entries matched.
-	 * 
-	 * @throws IOException
-	 *             If there was a problem reading from the file.
+	/*
+	 Return the content type for the file-path or null if none of the magic entries matched.
+	 
+	 @throws IOException
+	             If there was a problem reading from the file.
 	 */
 	public ContentInfo findMatch(String filePath) throws IOException {
 		return findMatch(new File(filePath));
 	}
 
-	/**
-	 * Return the content type for the file or null if none of the magic entries matched.
-	 * 
-	 * @throws IOException
-	 *             If there was a problem reading from the file.
+	/*
+	 Return the content type for the file or null if none of the magic entries matched.
+	 
+	 @throws IOException
+	             If there was a problem reading from the file.
 	 */
 	public ContentInfo findMatch(File file) throws IOException {
 		int readSize = fileReadSize;
@@ -230,18 +234,18 @@ public class ContentInfoUtil {
 		return findMatch(bytes);
 	}
 
-	/**
-	 * Return the content type for the input-stream or null if none of the magic entries matched. You might want to use
-	 * the {@link ContentInfoInputStreamWrapper} class to delegate to an input-stream and determine content information
-	 * at the same time.
-	 * 
-	 * <p>
-	 * <b>NOTE:</b> The caller is responsible for closing the input-stream.
-	 * </p>
-	 * 
-	 * @throws IOException
-	 *             If there was a problem reading from the input-stream.
-	 * @see ContentInfoInputStreamWrapper
+	/*
+	 Return the content type for the input-stream or null if none of the magic entries matched. You might want to use
+	 the {@link ContentInfoInputStreamWrapper} class to delegate to an input-stream and determine content information
+	 at the same time.
+	 
+	 <p>
+	 <b>NOTE:</b> The caller is responsible for closing the input-stream.
+	 </p>
+	 
+	 @throws IOException
+	             If there was a problem reading from the input-stream.
+	 @see ContentInfoInputStreamWrapper
 	 */
 	public ContentInfo findMatch(InputStream inputStream) throws IOException {
 		byte[] bytes = new byte[fileReadSize];
@@ -256,8 +260,8 @@ public class ContentInfoUtil {
 		return findMatch(bytes);
 	}
 
-	/**
-	 * Return the content type from the associated bytes or null if none of the magic entries matched.
+	/*
+	 Return the content type from the associated bytes or null if none of the magic entries matched.
 	 */
 	public ContentInfo findMatch(byte[] bytes) {
 		if (bytes.length == 0) {
@@ -267,11 +271,11 @@ public class ContentInfoUtil {
 		}
 	}
 
-	/**
-	 * Return the content type if the extension from the file-name matches our internal list. This can either be just
-	 * the extension part or it will look for the last period and take the string after that as the extension.
-	 * 
-	 * @return The matching content-info or null if no matches.
+	/*
+	 Return the content type if the extension from the file-name matches our internal list. This can either be just
+	 the extension part or it will look for the last period and take the string after that as the extension.
+	 
+	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findExtensionMatch(String name) {
 		name = name.toLowerCase();
@@ -296,10 +300,10 @@ public class ContentInfoUtil {
 		}
 	}
 
-	/**
-	 * Return the content type if the mime-type matches our internal list.
-	 * 
-	 * @return The matching content-info or null if no matches.
+	/*
+	 Return the content type if the mime-type matches our internal list.
+	 
+	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findMimeTypeMatch(String mimeType) {
 		ContentType type = ContentType.fromMimeType(mimeType.toLowerCase());
@@ -310,17 +314,17 @@ public class ContentInfoUtil {
 		}
 	}
 
-	/**
-	 * Set the default size that will be read if we are getting the content from a file.
-	 * 
-	 * @see #DEFAULT_READ_SIZE
+	/*
+	 Set the default size that will be read if we are getting the content from a file.
+	 
+	 @see #DEFAULT_READ_SIZE
 	 */
 	public void setFileReadSize(int fileReadSize) {
 		this.fileReadSize = fileReadSize;
 	}
 
-	/**
-	 * @deprecated Not used since it is only passed into the constructor.
+	/*
+	 @deprecated Not used since it is only passed into the constructor.
 	 */
 	@Deprecated
 	public void setErrorCallBack(ErrorCallBack errorCallBack) {
@@ -402,21 +406,21 @@ public class ContentInfoUtil {
 		}
 	}
 
-	/**
-	 * Optional call-back which will be made whenever we discover an error while parsing the magic configuration files.
-	 * There are usually tons of badly formed lines and other errors.
+	/*
+	 Optional call-back which will be made whenever we discover an error while parsing the magic configuration files.
+	 There are usually tons of badly formed lines and other errors.
 	 */
 	public interface ErrorCallBack {
 
-		/**
-		 * An error was generated while processing the line.
-		 * 
-		 * @param line
-		 *            Line where the error happened.
-		 * @param details
-		 *            Specific information about the error.
-		 * @param e
-		 *            Exception that was thrown trying to parse the line or null if none.
+		/*
+		 An error was generated while processing the line.
+		 
+		 @param line
+		            Line where the error happened.
+		 @param details
+		            Specific information about the error.
+		 @param e
+		            Exception that was thrown trying to parse the line or null if none.
 		 */
 		public void error(String line, String details, Exception e);
 	}

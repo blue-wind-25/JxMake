@@ -1,11 +1,15 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * An eight-byte value constituted "quad" when the magic file spec was written.
- * 
- * @author graywatson
+/*
+ An eight-byte value constituted "quad" when the magic file spec was written.
+ 
+ @author graywatson
  */
 public class LongType extends BaseLongType {
 
@@ -15,8 +19,8 @@ public class LongType extends BaseLongType {
 		super(endianType);
 	}
 
-	/**
-	 * Return the number of bytes in this type.
+	/*
+	 Return the number of bytes in this type.
 	 */
 	@Override
 	public int getBytesPerType() {
@@ -33,8 +37,8 @@ public class LongType extends BaseLongType {
 		return staticCompare(extractedValue, testValue);
 	}
 
-	/**
-	 * Static compare of longs which are unsigned or signed.
+	/*
+	 Static compare of longs which are unsigned or signed.
 	 */
 	public static int staticCompare(Number extractedValue, Number testValue) {
 		long extractedLong = extractedValue.longValue();

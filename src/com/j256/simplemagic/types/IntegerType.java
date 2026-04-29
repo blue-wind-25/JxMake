@@ -1,11 +1,15 @@
+/*
+  * #### This file has been modified by JxMake project #####
+  */
+
 package com.j256.simplemagic.types;
 
 import com.j256.simplemagic.endian.EndianType;
 
-/**
- * A four-byte integer value which often handles the "long" types when the spec was written.
- * 
- * @author graywatson
+/*
+ A four-byte integer value which often handles the "long" types when the spec was written.
+ 
+ @author graywatson
  */
 public class IntegerType extends BaseLongType {
 

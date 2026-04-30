@@ -34,6 +34,11 @@ public class SerialPortUtil  {
         SysUtil.stdDbg().println(LowestBaudrate  );
         SysUtil.stdDbg().println(ResetPulseTimeMS);
         //*/
+
+        /*
+        final SerialPort[] ports = SerialPort.getCommPorts();
+        for(;;) SysUtil.sleepMS(1000);
+        //*/
     }
 
     public static ArrayList<String> listSerialPort()

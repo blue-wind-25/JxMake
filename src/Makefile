@@ -50,8 +50,6 @@ default:
 ##### Configuration
 JFLAGS	:= -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
 
-CP_AFWC	:= com/fazecast/jSerialComm/external/android.jar
-
 ##### !!! TODO : Update JGit and SLF4J later !!! #####
 CF_PDIR	:= $(HOME)/0-JxMake/manual
 CF_PTST	:= $(shell test -d "$(CF_PDIR)" && echo true)
@@ -59,23 +57,24 @@ CF_JGIT	:= org.eclipse.jgit-5.13.0.202109080827-r.jar slf4j-simple-2.0.13.jar
 
 CF_LDIR	:= $(HOME)/Projects/JxMake/3rd_party/jars
 CF_LTST	:= $(shell test -d "$(CF_LDIR)" && echo true)
-CF_JUSB	:= java-does-usb.jar
+CF_JSCM	:= jSerialComm.jar
 CF_RSTA	:= spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar
+CF_JUSB	:= java-does-usb.jar
 CF_PTYJ	:= pty4j.jar annotations.jar kotlin-stdlib.jar slf4j-api.jar jna.jar jna-platform.jar
-CF_ALLS	:= $(CF_JUSB) $(CF_RSTA) $(CF_PTYJ)
+CF_ALLS	:= $(CF_JSCM) $(CF_RSTA) $(CF_JUSB) $(CF_PTYJ)
 
 CP_MANL	:= $(if $(CF_PTST),:$(subst $(__EMPTY__) $(__EMPTY__),:,$(addprefix $(CF_PDIR)/,$(CF_JGIT))),)
 CP_LOCL	:= $(if $(CF_LTST),:$(subst $(__EMPTY__) $(__EMPTY__),:,$(addprefix $(CF_LDIR)/,$(CF_ALLS))),)
 CP_EXTR	:= $(CP_MANL)$(CP_LOCL)
 
-CP_CPL	:= -cp .:$(CP_AFWC)
-CP_CPL	:= -cp .:$(CP_AFWC)$(CP_EXTR)
+CP_CPL	:= -cp .
+CP_CPL	:= -cp .:$(CP_EXTR)
 
 CP_RUN	:= -cp .
 CP_RUN	:= -cp .$(CP_EXTR)
 
-CP_JDS	:= --class-path .:$(CP_AFWC)
-CP_JDS	:= --class-path .:$(CP_AFWC)$(CP_EXTR)
+CP_JDS	:= --class-path .
+CP_JDS	:= --class-path .:$(CP_EXTR)
 
 JPATH	:=
 #JPATH	:= /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64

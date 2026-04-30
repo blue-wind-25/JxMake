@@ -32,11 +32,11 @@ for /f "tokens=1 delims=." %%V in ("!JAVA_VER!") do set "JAVA_MAJOR=%%V"
 ::::: Check if "--enable-native-access" flag is required
 set "NATIVE_ACCESS_FLAG="
 if !JAVA_MAJOR! GEQ 22 (
-    set "NATIVE_ACCESS_FLAG=--enable-native-access=com.sun.jna,com.sun.jna.platform,net.codecrete.usb,ALL-UNNAMED"
+    set "NATIVE_ACCESS_FLAG=--enable-native-access=com.fazecast.jSerialComm,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED"
 )
 
 ::::: Build the full classpath
-set "DEP_CP=spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar java-does-usb.jar pty4j.jar annotations.jar slf4j-api.jar kotlin-stdlib.jar jna.jar jna-platform.jar"
+set "DEP_CP=jSerialComm.jar spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar java-does-usb.jar pty4j.jar annotations.jar slf4j-api.jar kotlin-stdlib.jar jna.jar jna-platform.jar"
 
 set "ALL_CP=%DIR%\jxmake_dist\jxmake.jar"
 

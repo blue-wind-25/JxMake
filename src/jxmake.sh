@@ -34,7 +34,7 @@ fi
 NEEDS_NATIVE_ACCESS=$(echo "$JAVA_VERSION" | awk -F. '{ if ($1 >= 22) print "true"; else print "false" }')
 
 ##### Build the full classpath
-DEP_CP=(spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar java-does-usb.jar pty4j.jar annotations.jar slf4j-api.jar kotlin-stdlib.jar jna.jar jna-platform.jar)
+DEP_CP=(jSerialComm.jar spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar java-does-usb.jar pty4j.jar annotations.jar slf4j-api.jar kotlin-stdlib.jar jna.jar jna-platform.jar)
 
 ALL_CP="$DIR/jxmake_dist/jxmake.jar"
 
@@ -46,7 +46,7 @@ done
 FLAGS=("-Xms512m" "-Xmx2048m" "-Xss2m" "-XX:+UseG1GC" "-XX:MaxGCPauseMillis=200" "-XX:+ParallelRefProcEnabled" "-XX:+AlwaysPreTouch")
 
 if [ "$NEEDS_NATIVE_ACCESS" == "true" ]; then
-    FLAGS=("--enable-native-access=com.sun.jna,com.sun.jna.platform,net.codecrete.usb,ALL-UNNAMED" "${FLAGS[@]}")
+    FLAGS=("--enable-native-access=com.fazecast.jSerialComm,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED" "${FLAGS[@]}")
 fi
 
 ##### Run the JxMake JAR file with the appropriate flag based on the major version

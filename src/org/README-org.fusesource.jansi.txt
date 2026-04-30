@@ -23,10 +23,12 @@ NOTE : # Jansi has been merged into JLine 3.x; however, there are currently no p
 
 ----------------------------------------------------------------------------------------------------
 
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
+CHANGES:
 
-Some '@SuppressWarnings' annotations have been modified and/or added.
+    Some files and directories that are not strictly required for the running of the program are not
+    included here to save space.
+
+    Some '@SuppressWarnings' annotations have been modified and/or added.
 
 ----------------------------------------------------------------------------------------------------
 

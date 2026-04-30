@@ -79,7 +79,7 @@ public class USB_GPIO extends USB2GPIO {
     private static final int   CMD_HW_SPI_SET_CLR_BREAK_EXT        = 0x49;
     private static final int   CMD_HW_SPI_XB_TRANSFER              = 0x4A;
     private static final int   CMD_HW_SPI_XB_SPECIAL               = 0x4C;
-	private static final int   CMD_HW_SPI_TRANSFER_W16ND_R16DN     = 0x50;
+    private static final int   CMD_HW_SPI_TRANSFER_W16ND_R16DN     = 0x50;
     private static final int       HW_SPI_XBS_DSPIC30_HV_ESQ       = 1;
     private static final int       HW_SPI_XBS_DSPIC33_LV_ESQ       = 2;
     private static final int[]     HW_SPI_TRANSFER_MAX_SIZE        = PROTOCOL_ARGUMENT_STORE_BUFFER_SIZE;
@@ -370,6 +370,20 @@ public class USB_GPIO extends USB2GPIO {
         _ttyPortS.setNumStopBits​    (SerialPort.ONE_STOP_BIT);
         _ttyPortS.setComPortTimeouts​(SerialPort.TIMEOUT_NONBLOCKING, 1000, 1000);
         _ttyPortS.openPort          ();
+
+        /*
+        final Thread a = new Thread( () -> {
+             System.out.println("### A");
+        } );
+        final Thread b = new Thread( () -> {
+             System.out.println("### B");
+        } );
+
+        PCF8574_ShutdownHook.register(a);
+        PCF8574_ShutdownHook.register(b);
+        PCF8574_ShutdownHook.unregister(a);
+        PCF8574_ShutdownHook.unregister(b);
+        */
     }
 
     @Override
@@ -1787,6 +1801,60 @@ public class USB_GPIO extends USB2GPIO {
 
     } // enum PCF8574_Mode
 
+    private static class PCF8574_ShutdownHook {
+
+        private static final    ArrayList<Thread> _shutdownHooks = new ArrayList<Thread>();
+        private static volatile boolean           _spshInstalled = false;
+
+        private static void _register_SerialPortShutdownHook()
+        {
+            if(_spshInstalled) return;
+
+            SerialPort.addShutdownHook( new Thread( () -> {
+
+                if( _shutdownHooks.isEmpty() ) return;
+
+                boolean wasInterrupted = false;
+
+                ArrayList<Thread> hooksCopy;
+                synchronized (PCF8574_ShutdownHook.class) {
+                    // Synchronize and copy the list to prevent ConcurrentModificationException
+                    hooksCopy = new ArrayList<>(_shutdownHooks);
+                }
+
+                for(final Thread hook : hooksCopy) {
+
+                    try {
+                        hook.start();
+                        hook.join();
+                    }
+                    catch(final InterruptedException ignored) {
+                        wasInterrupted = true;
+                    }
+                    catch(final Exception ignored) {}
+
+                } // for
+
+                if(wasInterrupted) Thread.currentThread().interrupt();
+
+                _shutdownHooks.clear();
+
+            } ) );
+
+            _spshInstalled = true;
+        }
+
+        public synchronized static void register(final Thread hook)
+        {
+            _register_SerialPortShutdownHook();
+            _shutdownHooks.add(hook);
+        }
+
+        public synchronized static void unregister(final Thread hook)
+        { _shutdownHooks.remove(hook); }
+
+    } // class PCF8574_ShutdownHook
+
     private Thread  _pcf8574ShutdownHook = null;
     private boolean _pcf8574SelfInitTWI  = false;
     private boolean _pcf8574Initialized  = false;
@@ -1836,16 +1904,14 @@ public class USB_GPIO extends USB2GPIO {
             if(_pcf8574SelfInitTWI) hwtwiEnd();
         } );
 
-        // NOTE : Must use 'SerialPort.addShutdownHook()' instead of 'Runtime.getRuntime().addShutdownHook()'
-        SerialPort.addShutdownHook(_pcf8574ShutdownHook);
+        PCF8574_ShutdownHook.register(_pcf8574ShutdownHook);
     }
 
     private void _pcf8574UnregisterShutdownHook()
     {
         if(_pcf8574ShutdownHook == null) return;
 
-        // NOTE : Must use 'SerialPort.removeShutdownHook()' instead of 'Runtime.getRuntime().removeShutdownHook()'
-        try { SerialPort.removeShutdownHook(_pcf8574ShutdownHook); }
+        try { PCF8574_ShutdownHook.unregister(_pcf8574ShutdownHook); }
         catch(final Exception e) {}
 
         _pcf8574ShutdownHook = null;

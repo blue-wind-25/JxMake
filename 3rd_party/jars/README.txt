@@ -1,3 +1,13 @@
+jSerialComm
+https://fazecast.github.io/jSerialComm
+https://github.com/Fazecast/jSerialComm
+    Dual-licensed under:
+        # The Apache License version 2; or
+        # The GNU Lesser General Public License (LGPL) version 3 or later.
+    https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-APACHE-2.0
+    https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-LGPL-3.0
+https://github.com/Fazecast/jSerialComm/releases/download/v2.11.4/jSerialComm-2.11.4.jar
+
 SpellChecker
 https://github.com/bobbylight/SpellChecker
     Licensed under the GNU Lesser General Public License (LGPL) version 2.1 or later.

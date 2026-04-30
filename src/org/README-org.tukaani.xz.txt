@@ -35,8 +35,10 @@ matches the Java source code from the original GitHub repository for the Tukaani
 
 ----------------------------------------------------------------------------------------------------
 
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
+CHANGES:
+
+    Some files and directories that are not strictly required for the running of the program are not
+    included here to save space.
 
 ----------------------------------------------------------------------------------------------------
 

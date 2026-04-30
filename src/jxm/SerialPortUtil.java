@@ -29,6 +29,8 @@ public class SerialPortUtil  {
             System.setProperty( "jSerialComm.jar.library.path", nativeLibPath );
         }
 
+        SerialPort.getCommPorts(); // Force jSerialComm to extract its native library early
+
         /*
         SysUtil.stdDbg().println(MagicBaudrate   );
         SysUtil.stdDbg().println(LowestBaudrate  );

@@ -373,17 +373,17 @@ public class USB_GPIO extends USB2GPIO {
 
         /*
         final Thread a = new Thread( () -> {
-             System.out.println("### A");
+             SysUtil.stdDbg().println("### A ###");
         } );
         final Thread b = new Thread( () -> {
-             System.out.println("### B");
+             SysUtil.stdDbg().println("### B ###");
         } );
 
-        PCF8574_ShutdownHook.register(a);
-        PCF8574_ShutdownHook.register(b);
+        PCF8574_ShutdownHook.register  (a);
+        PCF8574_ShutdownHook.register  (b);
         PCF8574_ShutdownHook.unregister(a);
         PCF8574_ShutdownHook.unregister(b);
-        */
+        //*/
     }
 
     @Override

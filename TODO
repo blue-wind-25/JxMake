@@ -144,9 +144,9 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Continue the improvement of (also replace deprecated methods with the newer ones):
       'com.j256.simplemagic'
       'com.intellectualsites.http' (use the more modern 'java.net.http.HttpClient', if possible)
-      'org.kamranzafar.jtar'       (adds support for archiving symbolic links)
+      'org.kamranzafar.jtar'
       'org.itadaki.bzip2'
-# Replace 'org.tukaani.xz' with JxMake's own derivative library?
+# Replace (unlikely) 'org.tukaani.xz' with JxMake's own derivative library?
 
 ----------------------------------------------------------------------------------------------------
 
@@ -224,9 +224,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Implement new loadable libraries ('C++XBuildTool_BM_ESP32C2/C5/C6/H2/P4') and their tests?
 # Implement new loadable libraries ('C++XBuildTool_RP235X_Pico.jxm') for the new Raspberry Pi Pico
   MCUs (RP2350A, RP2350B, RP2354A, and RP2354B) and their tests?
-
-# Try to find a smaller stub version of 'android.jar' to replace the one used by jSerialComm in the
-  directory 'src/com/fazecast/jSerialComm/external' (if possible).
 
 ----------------------------------------------------------------------------------------------------
 

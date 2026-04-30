@@ -29,6 +29,8 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 + Added Makefile targets `dist` and `dist_clean` to build the primary application distribution file `jxmake-x.x.x-xxx.zip` and clean the temporary directory.
 
++ The **jSerialComm** source code is no longer embedded as part of the JxMake source; instead, the prebuilt JAR file is included in the `3rd_party/jars` directory.
+
 + Various enhancements, bug fixes, and cleanups.
 
 ### Hardware (Schematics, PCB Designs, Bootloaders, and Firmwares)

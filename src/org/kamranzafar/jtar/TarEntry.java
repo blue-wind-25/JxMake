@@ -1,4 +1,8 @@
-/**
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright 2012 Kamran Zafar
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +24,7 @@ package org.kamranzafar.jtar;
 import java.io.File;
 import java.util.Date;
 
-/**
+/*
  * @author Kamran Zafar
  *
  */
@@ -45,7 +49,7 @@ public class TarEntry {
 		this.parseTarHeader(headerBuf);
 	}
 
-	/**
+	/*
 	 * Constructor to create an entry from an existing TarHeader object.
 	 *
 	 * This method is useful to add new entries programmatically (e.g. for
@@ -152,7 +156,7 @@ public class TarEntry {
 		header.size = size;
 	}
 
-	/**
+	/*
 	 * Checks if the org.kamrazafar.jtar entry is a directory
 	 */
 	public boolean isDirectory() {
@@ -170,15 +174,16 @@ public class TarEntry {
 		return false;
 	}
 
-	/**
+	/*
 	 * Extract header from File
 	 */
 	public void extractTarHeader(String entryName) {
 		int permissions = PermissionUtils.permissions(file);
-		header = TarHeader.createHeader(entryName, file.length(), file.lastModified() / 1000, file.isDirectory(), permissions);
+		header = TarHeader.createHeader(entryName, file.length(), file.lastModified() / 1000,
+				file.isDirectory(), permissions);
 	}
 
-	/**
+	/*
 	 * Calculate checksum
 	 */
 	public long computeCheckSum(byte[] buf) {
@@ -191,7 +196,7 @@ public class TarEntry {
 		return sum;
 	}
 
-	/**
+	/*
 	 * Writes the header to the byte buffer
 	 */
 	public void writeEntryHeader(byte[] outbuf) {
@@ -229,7 +234,7 @@ public class TarEntry {
 		Octal.getCheckSumOctalBytes(checkSum, outbuf, csOffset, TarHeader.CHKSUMLEN);
 	}
 
-	/**
+	/*
 	 * Parses the tar header to the byte buffer
 	 */
 	public void parseTarHeader(byte[] bh) {

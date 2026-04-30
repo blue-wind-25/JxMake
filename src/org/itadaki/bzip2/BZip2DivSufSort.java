@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2003-2008 Yuta Mori All Rights Reserved.
  * Copyright (c) 2011 Matthew Francis
  * 
@@ -24,7 +28,7 @@
 package org.itadaki.bzip2;
 
 
-/**
+/*
  * DivSufSort suffix array generator
  * Based on libdivsufsort 1.2.3 patched to support BZip2
  * 
@@ -33,27 +37,27 @@ package org.itadaki.bzip2;
  */
 public class BZip2DivSufSort {
 
-	/**
+	/*
 	 */
 	private static final int STACK_SIZE = 64;
 
-	/**
+	/*
 	 */
 	private static final int BUCKET_A_SIZE = 256;
 
-	/**
+	/*
 	 */
 	private static final int BUCKET_B_SIZE = 65536;
 
-	/**
+	/*
 	 */
 	private static final int SS_BLOCKSIZE = 1024;
 
-	/**
+	/*
 	 */
 	private static final int INSERTIONSORT_THRESHOLD = 8;
 
-	/**
+	/*
 	 */
 	private static final int log2table[]= {
 		-1,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
@@ -66,20 +70,20 @@ public class BZip2DivSufSort {
 		7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
 	};
 
-	/**
+	/*
 	 */
 	private final int[] SA;
 
-	/**
+	/*
 	 */
 	private final byte[] T;
 
-	/**
+	/*
 	 */
 	private final int n;
 
 
-	/**
+	/*
 	 * @param array1 
 	 * @param index1 
 	 * @param array2 
@@ -94,7 +98,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param p1 
 	 * @param p2 
 	 * @param depth 
@@ -121,7 +125,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param p1
 	 * @param p2
@@ -161,7 +165,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA 
 	 * @param first 
 	 * @param last 
@@ -193,7 +197,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param Td
 	 * @param PA
 	 * @param sa
@@ -221,7 +225,7 @@ public class BZip2DivSufSort {
 
 	}
 
-	/**
+	/*
 	 * @param Td
 	 * @param PA
 	 * @param sa
@@ -262,7 +266,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param Td
 	 * @param PA
 	 * @param v1
@@ -298,7 +302,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param Td
 	 * @param PA
 	 * @param v1
@@ -381,7 +385,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param Td
 	 * @param PA
 	 * @param first
@@ -414,7 +418,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param n
 	 * @return
 	 */
@@ -427,7 +431,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param first
 	 * @param last
@@ -462,24 +466,24 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 */
 	private static class StackEntry {
 
-		/**
+		/*
 		 */
 		final int a;
-		/**
+		/*
 		 */
 		final int b;
-		/**
+		/*
 		 */
 		final int c;
-		/**
+		/*
 		 */
 		final int d;
 
-		/**
+		/*
 		 * @param a
 		 * @param b
 		 * @param c
@@ -497,7 +501,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param first
 	 * @param last
@@ -675,7 +679,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param array1 
 	 * @param first1
 	 * @param array2 
@@ -693,7 +697,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param buf 
 	 * @param bufoffset
@@ -764,7 +768,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param buf 
 	 * @param buf
@@ -902,7 +906,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param a
 	 * @return
 	 */
@@ -913,7 +917,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param depth
 	 * @param a
@@ -933,7 +937,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param first
 	 * @param middle
@@ -1055,7 +1059,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param PA
 	 * @param first
 	 * @param last
@@ -1124,7 +1128,7 @@ public class BZip2DivSufSort {
 
 	/*----------------------------------------------------------------------------*/
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1138,7 +1142,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1170,7 +1174,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1211,7 +1215,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1243,7 +1247,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param n
 	 * @return
 	 */
@@ -1256,7 +1260,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1293,7 +1297,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1376,7 +1380,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1417,7 +1421,7 @@ public class BZip2DivSufSort {
 
 	/*---------------------------------------------------------------------------*/
 
-	/**
+	/*
 	 * @param ISA
 	 * @param sa
 	 * @param first
@@ -1454,7 +1458,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1607,7 +1611,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param n
 	 * @param depth
@@ -1663,19 +1667,19 @@ public class BZip2DivSufSort {
 
 	/*---------------------------------------------------------------------------*/
 
-	/**
+	/*
 	 */
 	private final class PartitionResult {
 
-		/**
+		/*
 		 */
 		final int first;
 
-		/**
+		/*
 		 */
 		final int last;
 
-		/**
+		/*
 		 * @param first
 		 * @param last
 		 */
@@ -1687,7 +1691,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -1757,7 +1761,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAn
 	 * @param first
@@ -1797,7 +1801,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param ISAd
 	 * @param ISAn
@@ -2132,19 +2136,19 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 */
 	private static class TRBudget {
 
-		/**
+		/*
 		 */
 		int budget;
 
-		/**
+		/*
 		 */
 		int chance;
 
-		/**
+		/*
 		 * @param size
 		 * @param n
 		 * @return something
@@ -2163,7 +2167,7 @@ public class BZip2DivSufSort {
 
 		}
 
-		/**
+		/*
 		 * @param budget
 		 * @param chance
 		 */
@@ -2177,7 +2181,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param ISA
 	 * @param n
 	 * @param depth
@@ -2219,7 +2223,7 @@ public class BZip2DivSufSort {
 
 	/*---------------------------------------------------------------------------*/
 
-	/**
+	/*
 	 * @param bucketB
 	 * @param c0
 	 * @param c1
@@ -2232,7 +2236,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param bucketB
 	 * @param c0
 	 * @param c1
@@ -2245,7 +2249,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param bucketA
 	 * @param bucketB
 	 * @return
@@ -2406,7 +2410,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param bucketA
 	 * @param bucketB
 	 * @return
@@ -2488,7 +2492,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * Performs a Burrows Wheeler Transform on the input array
 	 * @return the index of the first character of the input array within the output array
 	 */
@@ -2518,7 +2522,7 @@ public class BZip2DivSufSort {
 	}
 
 
-	/**
+	/*
 	 * @param T The input array
 	 * @param SA The output array
 	 * @param n The length of the input data

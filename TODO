@@ -2,17 +2,19 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Further verify all changes made by the AI coding agent and then delete all '*.ORIG.backup.tar.gz',
+  'agent-*.diff', and 'agent-*.patch' files.
+
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'
-# Remove all the '*.ORIG.backup.tar.gz', 'agent-*.diff', and 'agent-*.patch' files.
+
+# Further verify and improve the WindowsDriverInstaller class.
 
 # Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
   module.
-
-# Verify and improve the WindowsDriverInstaller class.
 
 # Further improve ProgUPDI to support more MCUs:
       # Verify ProgUPDI for MCUs with NVMCTL v5 (AVR EB series?).

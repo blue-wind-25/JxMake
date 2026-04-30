@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,39 +30,39 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 
-/**
+/*
  * <p>An OutputStream wrapper that compresses BZip2 data</p>
  *
  * <p>Instances of this class are not threadsafe.</p>
  */
 public class BZip2OutputStream extends OutputStream {
 
-	/**
+	/*
 	 * The stream to which compressed BZip2 data is written
 	 */
 	private OutputStream outputStream;
 
-	/**
+	/*
 	 * An OutputStream wrapper that provides bit-level writes
 	 */
 	private BZip2BitOutputStream bitOutputStream;
 
-	/**
+	/*
 	 * (@code true} if the compressed stream has been finished, otherwise {@code false}
 	 */
 	private boolean streamFinished = false;
 
-	/**
+	/*
 	 * The declared maximum block size of the stream (before final run-length decoding)
 	 */
 	private final int streamBlockSize;
 
-	/**
+	/*
 	 * The merged CRC of all blocks compressed so far
 	 */
 	private int streamCRC = 0;
 
-	/**
+	/*
 	 * The compressor for the current block
 	 */
 	private BZip2BlockCompressor blockCompressor;
@@ -129,7 +133,7 @@ public class BZip2OutputStream extends OutputStream {
 	}
 
 
-	/**
+	/*
 	 * Initialises a new block for compression
 	 */
 	private void initialiseNextBlock() {
@@ -139,7 +143,7 @@ public class BZip2OutputStream extends OutputStream {
 	}
 
 
-	/**
+	/*
 	 * Compress and write out the block currently in progress. If no bytes have been written to the
 	 * block, it is discarded
 	 * @throws IOException on any I/O error writing to the output stream
@@ -157,7 +161,7 @@ public class BZip2OutputStream extends OutputStream {
 	}
 
 
-	/**
+	/*
 	 * Compresses and writes out any as yet unwritten data, then writes the end of the BZip2 stream.
 	 * The underlying OutputStream is not closed
 	 * @throws IOException on any I/O error writing to the output stream
@@ -181,7 +185,7 @@ public class BZip2OutputStream extends OutputStream {
 	}
 
 
-	/**
+	/*
 	 * @param outputStream The output stream to write to
 	 * @param blockSizeMultiplier The BZip2 block size as a multiple of 100,000 bytes (minimum 1,
 	 * maximum 9). Larger block sizes require more memory for both compression and decompression,
@@ -211,7 +215,7 @@ public class BZip2OutputStream extends OutputStream {
 	}
 
 
-	/**
+	/*
 	 * Constructs a BZip2 stream compressor with the maximum (900,000 byte) block size
 	 * @param outputStream The output stream to write to
 	 * @throws IOException on any I/O error writing to the output stream

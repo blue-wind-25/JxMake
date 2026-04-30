@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,58 +30,58 @@ import java.io.IOException;
 import java.util.Arrays;
 
 
-/**
+/*
  * An encoder for the BZip2 Huffman encoding stage
  */
 class BZip2HuffmanStageEncoder {
 
-	/**
+	/*
 	 * Used in initial Huffman table generation
 	 */
 	private static final int HUFFMAN_HIGH_SYMBOL_COST = 15;
 
-	/**
+	/*
 	 * The BZip2BitOutputStream to which the Huffman tables and data is written
 	 */
 	private final BZip2BitOutputStream bitOutputStream;
 
-	/**
+	/*
 	 * The output of the Move To Front Transform and Run Length Encoding[2] stages
 	 */
 	private final char[] mtfBlock;
 
-	/**
+	/*
 	 * The actual number of values contained in the {@link mtfBlock} array
 	 */
 	private int mtfLength;
 
-	/**
+	/*
 	 * The number of unique values in the {@link mtfBlock} array
 	 */
 	private int mtfAlphabetSize;
 
-	/**
+	/*
 	 * The global frequencies of values within the {@link mtfBlock} array
 	 */
 	private final int[] mtfSymbolFrequencies;
 
-	/**
+	/*
 	 * The Canonical Huffman code lengths for each table
 	 */
 	private final int[][] huffmanCodeLengths;
 
-	/**
+	/*
 	 * Merged code symbols for each table. The value at each position is ((code length << 24) | code)
 	 */
 	private final int[][] huffmanMergedCodeSymbols;
 
-	/**
+	/*
 	 * The selectors for each segment
 	 */
 	private final byte[] selectors;
 
 
-	/**
+	/*
 	 * Selects an appropriate table count for a given MTF length
 	 * @param mtfLength The length to select a table count for
 	 * @return The selected table count
@@ -93,7 +97,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Generate a Huffman code length table for a given list of symbol frequencies
 	 * @param alphabetSize The total number of symbols
 	 * @param symbolFrequencies The frequencies of the symbols
@@ -130,7 +134,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Generate initial Huffman code length tables, giving each table a different low cost section
 	 * of the alphabet that is roughly equal in overall cumulative frequency. Note that the initial
 	 * tables are invalid for actual Huffman code generation, and only serve as the seed for later
@@ -175,7 +179,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Co-optimise the selector list and the alternative Huffman table code lengths. This method is
 	 * called repeatedly in the hope that the total encoded size of the selectors, the Huffman code
 	 * lengths and the block data encoded with them will converge towards a minimum.<br>
@@ -245,7 +249,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Assigns Canonical Huffman codes based on the calculated lengths
 	 */
 	private void assignHuffmanCodeSymbols() {
@@ -288,7 +292,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Write out the selector list and Huffman tables
 	 * @throws IOException on any I/O error writing the data
 	 */
@@ -333,7 +337,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Writes out the encoded block data
 	 * @throws IOException on any I/O error writing the data
 	 */
@@ -360,7 +364,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * Encodes and writes the block data
 	 * @throws IOException on any I/O error writing the data
 	 */
@@ -380,7 +384,7 @@ class BZip2HuffmanStageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @param bitOutputStream The BZip2BitOutputStream to write to
 	 * @param mtfBlock The MTF block data
 	 * @param mtfLength The actual length of the MTF block
@@ -399,7 +403,8 @@ class BZip2HuffmanStageEncoder {
 
 		this.huffmanCodeLengths = new int[totalTables][mtfAlphabetSize];
 		this.huffmanMergedCodeSymbols = new int[totalTables][mtfAlphabetSize];
-		this.selectors = new byte [(mtfLength + BZip2Constants.HUFFMAN_GROUP_RUN_LENGTH - 1) / BZip2Constants.HUFFMAN_GROUP_RUN_LENGTH];
+		this.selectors = new byte [(mtfLength + BZip2Constants.HUFFMAN_GROUP_RUN_LENGTH - 1)
+						/ BZip2Constants.HUFFMAN_GROUP_RUN_LENGTH];
 
 	}
 

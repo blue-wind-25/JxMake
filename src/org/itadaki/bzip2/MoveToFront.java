@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,12 +27,12 @@
 package org.itadaki.bzip2;
 
 
-/**
+/*
  * A 256 entry Move To Front transform
  */
 public class MoveToFront {
 
-	/**
+	/*
 	 * The Move To Front list
 	 */
 	private final byte[] mtf = {
@@ -58,7 +62,7 @@ public class MoveToFront {
 	};
 
 
-	/**
+	/*
 	 * Moves a value to the head of the MTF list (forward Move To Front transform)
 	 * @param value The value to move
 	 * @return The position the value moved from
@@ -84,7 +88,7 @@ public class MoveToFront {
 	}
 
 
-	/**
+	/*
 	 * Gets the value from a given index and moves it to the front of the MTF list (inverse Move To
 	 * Front transform)
 	 * @param index The index to move

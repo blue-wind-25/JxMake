@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 package org.kamranzafar.jtar;
 
 import java.io.File;
@@ -10,12 +14,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
+/*
  * Helps dealing with file permissions.
  */
 public class PermissionUtils {
 
-	/**
+	/*
 	 * XXX: When using standard Java permissions, we treat 'owner' and 'group' equally and give no
 	 *      permissions for 'others'.
 	 */
@@ -45,7 +49,7 @@ public class PermissionUtils {
 		posixPermissionToInteger.put(PosixFilePermission.OTHERS_READ, 0004);
 	}
 
-	/**
+	/*
 	 * Get file permissions in octal mode, e.g. 0755.
 	 *
 	 * Note: it uses `java.nio.file.attribute.PosixFilePermission` if OS supports this, otherwise reverts to

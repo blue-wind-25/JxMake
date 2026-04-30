@@ -16,10 +16,19 @@ NOTE : # This repository was archived by the owner on 2024-02-14 and is now read
 
 ----------------------------------------------------------------------------------------------------
 
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
+CHANGES:
 
-Some '@SuppressWarnings' annotations have been modified and/or added.
+    A marker has been added at the top of each Java source file to indicate that this program has
+    been modified by the JxMake project.
+
+    Some files and directories that are not strictly required for the running of the program are not
+    included here to save space.
+
+    Some '@SuppressWarnings' annotations have been modified and/or added.
+
+    All Javadoc-style comments have been converted to normal Java comments.
+
+    Some minor coding style changes.
 
 ----------------------------------------------------------------------------------------------------
 

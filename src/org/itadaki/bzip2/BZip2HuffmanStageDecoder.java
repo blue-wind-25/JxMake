@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,60 +29,60 @@ package org.itadaki.bzip2;
 import java.io.IOException;
 
 
-/**
+/*
  * A decoder for the BZip2 Huffman coding stage
  */
 public class BZip2HuffmanStageDecoder {
 
-	/**
+	/*
 	 * The BZip2BitInputStream from which Huffman codes are read
 	 */
 	private final BZip2BitInputStream bitInputStream;
 
-	/**
+	/*
 	 * The Huffman table number to use for each group of 50 symbols
 	 */
 	private final byte[] selectors;
 
-	/**
+	/*
 	 * The minimum code length for each Huffman table
 	 */
 	private final int[] minimumLengths = new int[BZip2Constants.HUFFMAN_MAXIMUM_TABLES];
 
-	/**
+	/*
 	 * An array of values for each Huffman table that must be subtracted from the numerical value of
 	 * a Huffman code of a given bit length to give its canonical code index
 	 */
 	private final int[][] codeBases = new int[BZip2Constants.HUFFMAN_MAXIMUM_TABLES][BZip2Constants.HUFFMAN_DECODE_MAXIMUM_CODE_LENGTH + 2];
 
-	/**
+	/*
 	 * An array of values for each Huffman table that gives the highest numerical value of a Huffman
 	 * code of a given bit length
 	 */
 	private final int[][] codeLimits = new int[BZip2Constants.HUFFMAN_MAXIMUM_TABLES][BZip2Constants.HUFFMAN_DECODE_MAXIMUM_CODE_LENGTH + 1];
 
-	/**
+	/*
 	 * A mapping for each Huffman table from canonical code index to output symbol
 	 */
 	private final int[][] codeSymbols = new int[BZip2Constants.HUFFMAN_MAXIMUM_TABLES][BZip2Constants.HUFFMAN_MAXIMUM_ALPHABET_SIZE];
 
-	/**
+	/*
 	 * The Huffman table for the current group
 	 */
 	private int currentTable;
 
-	/**
+	/*
 	 * The index of the current group within the selectors array
 	 */
 	private int groupIndex = -1;
 
-	/**
+	/*
 	 * The byte position within the current group. A new group is selected every 50 decoded bytes
 	 */
 	private int groupPosition = -1;
 
 
-	/**
+	/*
 	 * Constructs Huffman decoding tables from lists of Canonical Huffman code lengths
 	 * @param alphabetSize The total number of codes (uniform for each table)
 	 * @param tableCodeLengths The Canonical Huffman code lengths for each table
@@ -136,7 +140,7 @@ public class BZip2HuffmanStageDecoder {
 	}
 
 
-	/**
+	/*
 	 * Decodes and returns the next symbol
 	 * @return The decoded symbol
 	 * @throws IOException if the end of the input stream is reached while decoding
@@ -175,7 +179,7 @@ public class BZip2HuffmanStageDecoder {
 	}
 
 
-	/**
+	/*
 	 * @param bitInputStream The BZip2BitInputStream from which Huffman codes are read
 	 * @param alphabetSize The total number of codes (uniform for each table)
 	 * @param tableCodeLengths The Canonical Huffman code lengths for each table

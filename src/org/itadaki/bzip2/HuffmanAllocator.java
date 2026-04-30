@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,7 +27,7 @@
 package org.itadaki.bzip2;
 
 
-/**
+/*
  * An in-place, length restricted Canonical Huffman code length allocator
  * 
  * Based on the algorithm proposed by R. L. Milidiú, A. A. Pessoa and E. S. Laber in "In-place
@@ -33,7 +37,7 @@ package org.itadaki.bzip2;
  */
 public class HuffmanAllocator {
 
-	/**
+	/*
 	 * FIRST() function
 	 * @param array The code length array
 	 * @param i The input position
@@ -67,7 +71,7 @@ public class HuffmanAllocator {
 	}
 
 
-	/**
+	/*
 	 * Fills the code array with extended parent pointers
 	 * @param array The code length array
 	 */
@@ -99,7 +103,7 @@ public class HuffmanAllocator {
 	}
 
 
-	/**
+	/*
 	 * Finds the number of nodes to relocate in order to achieve a given code length limit
 	 * @param array The code length array
 	 * @param maximumLength The maximum bit length for the generated codes
@@ -117,7 +121,7 @@ public class HuffmanAllocator {
 	}
 
 
-	/**
+	/*
 	 * A final allocation pass with no code length limit
 	 * @param array The code length array
 	 */
@@ -140,7 +144,7 @@ public class HuffmanAllocator {
 	}
 
 
-	/**
+	/*
 	 * A final allocation pass that relocates nodes in order to achieve a maximum code length limit
 	 * @param array The code length array
 	 * @param nodesToMove The number of internal nodes to be relocated
@@ -178,7 +182,7 @@ public class HuffmanAllocator {
 	}
 
 
-	/**
+	/*
 	 * Allocates Canonical Huffman code lengths in place based on a sorted frequency array
 	 * @param array On input, a sorted array of symbol frequencies; On output, an array of Canonical
 	 *              Huffman code lengths
@@ -211,7 +215,7 @@ public class HuffmanAllocator {
 
 	}
 
-	/**
+	/*
 	 * Non-instantiable
 	 */
 	private HuffmanAllocator() { }

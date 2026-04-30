@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,12 +27,12 @@
 package org.itadaki.bzip2;
 
 
-/**
+/*
  * A CRC32 calculator
  */
 public final class CRC32 {
 
-	/**
+	/*
 	 * A static CRC lookup table
 	 */
 	private static final int crc32Lookup[] = {
@@ -69,13 +73,13 @@ public final class CRC32 {
 	};
 
 
-	/**
+	/*
 	 * The current CRC
 	 */
 	private int crc = 0xffffffff;
 
 
-	/**
+	/*
 	 * @return The current CRC
 	 */
 	public int getCRC() {
@@ -85,7 +89,7 @@ public final class CRC32 {
 	}
 
 
-	/**
+	/*
 	 * Update the CRC with a single byte
 	 * @param value The value to update the CRC with
 	 */
@@ -98,7 +102,7 @@ public final class CRC32 {
 	}
 
 
-	/**
+	/*
 	 * Update the CRC with a sequence of identical bytes
 	 * @param value The value to update the CRC with
 	 * @param count The number of bytes
@@ -116,4 +120,3 @@ public final class CRC32 {
 	}
 
 }
-

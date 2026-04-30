@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,12 +40,12 @@ import java.io.IOException;
  * 7. Run-Length Decoding[1] - read()
  * 8. Optional Block De-Randomisation - read() (through decodeNextBWTByte())
  */
-/**
+/*
  * Reads and decompresses a single BZip2 block
  */
 public class BZip2BlockDecompressor {
 
-	/**
+	/*
 	 * The BZip2 specification originally included the optional addition of a slight pseudo-random
 	 * perturbation to the input data, in order to work around the block sorting algorithm's non-
 	 * optimal performance on some types of input. The current mainline bzip2 does not require this
@@ -85,34 +89,34 @@ public class BZip2BlockDecompressor {
 			203, 50, 668, 108, 645, 990, 626, 197, 510, 357, 358, 850, 858, 364, 936, 638
 	};
 
-	/**
+	/*
 	 * Provides bits of input to decode
 	 */
 	private final BZip2BitInputStream bitInputStream;
 
-	/**
+	/*
 	 * Calculates the block CRC from the fully decoded bytes of the block
 	 */
 	private final CRC32 crc = new CRC32();
 
-	/**
+	/*
 	 * The CRC of the current block as read from the block header
 	 */
 	private final int blockCRC;
 
-	/**
+	/*
 	 * {@code true} if the current block is randomised, otherwise {@code false}
 	 */
 	private final boolean blockRandomised;
 
 	/* Huffman Decoding stage */
 
-	/**
+	/*
 	 * The end-of-block Huffman symbol. Decoding of the block ends when this is encountered
 	 */
 	private int huffmanEndOfBlockSymbol;
 
-	/**
+	/*
 	 * A map from Huffman symbol index to output character. Some types of data (e.g. ASCII text)
 	 * may contain only a limited number of byte values; Huffman symbols are only allocated to
 	 * those values that actually occur in the uncompressed data.
@@ -121,13 +125,13 @@ public class BZip2BlockDecompressor {
 
 	/* Move To Front stage */
 
-	/**
+	/*
 	 * Counts of each byte value within the {@link bwtTransformedArray} data. Collected at the Move
 	 * To Front stage, consumed by the Inverse Burrows Wheeler Transform stage
 	 */
 	private final int[] bwtByteCounts = new int[256];
 
-	/**
+	/*
 	 * The Burrows-Wheeler Transform processed data. Read at the Move To Front stage, consumed by the
 	 * Inverse Burrows Wheeler Transform stage 
 	 */
@@ -135,7 +139,7 @@ public class BZip2BlockDecompressor {
 
 	/* Inverse Burrows-Wheeler Transform stage */
 
-	/**
+	/*
 	 * At each position contains the union of :-
 	 *   An output character (8 bits)
 	 *   A pointer from each position to its successor (24 bits, left shifted 8 bits)
@@ -146,18 +150,18 @@ public class BZip2BlockDecompressor {
 	 */
 	private int[] bwtMergedPointers;
 
-	/**
+	/*
 	 * The current merged pointer into the Burrow-Wheeler Transform array
 	 */
 	private int bwtCurrentMergedPointer;
 
-	/**
+	/*
 	 * The actual length in bytes of the current block at the Inverse Burrows Wheeler Transform
 	 * stage (before final Run-Length Decoding)
 	 */
 	private int bwtBlockLength;
 
-	/**
+	/*
 	 * The number of output bytes that have been decoded up to the Inverse Burrows Wheeler Transform
 	 * stage
 	 */
@@ -165,35 +169,35 @@ public class BZip2BlockDecompressor {
 
 	/* Run-Length Encoding and Random Perturbation stage */
 
-	/**
+	/*
 	 * The most recently RLE decoded byte
 	 */
 	private int rleLastDecodedByte = -1;
 
-	/**
+	/*
 	 * The number of previous identical output bytes decoded. After 4 identical bytes, the next byte
 	 * decoded is an RLE repeat count
 	 */
 	private int rleAccumulator;
 
-	/**
+	/*
 	 * The RLE repeat count of the current decoded byte. When this reaches zero, a new byte is
 	 * decoded
 	 */
 	private int rleRepeat;
 
-	/**
+	/*
 	 * If the current block is randomised, the position within the RNUMS randomisation array
 	 */
 	private int randomIndex = 0;
 
-	/**
+	/*
 	 * If the current block is randomised, the remaining count at the current RNUMS position
 	 */
 	private int randomCount = RNUMS[0] - 1;
 
 
-	/**
+	/*
 	 * Read and decode the block's Huffman tables
 	 * @return A decoder for the Huffman stage that uses the decoded tables
 	 * @throws IOException if the input stream reaches EOF before all table data has been read
@@ -256,7 +260,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Reads the Huffman encoded data from the input stream, performs Run-Length Decoding and
 	 * applies the Move To Front transform to reconstruct the Burrows-Wheeler Transform array
 	 * @param huffmanDecoder The Huffman decoder through which symbols are read
@@ -320,7 +324,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Set up the Inverse Burrows-Wheeler Transform merged pointer array
 	 * @param bwtStartPointer The start pointer into the BWT array
 	 * @throws IOException if the given start pointer is invalid
@@ -357,7 +361,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Decodes a byte from the Burrows-Wheeler Transform stage. If the block has randomisation
 	 * applied, reverses the randomisation
 	 * @return The decoded byte
@@ -383,7 +387,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Decodes a byte from the final Run-Length Encoding stage, pulling a new byte from the
 	 * Burrows-Wheeler Transform stage when required
 	 * @return The decoded byte, or -1 if there are no more bytes
@@ -426,7 +430,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Decodes multiple bytes from the final Run-Length Encoding stage, pulling new bytes from the
 	 * Burrows-Wheeler Transform stage when required
 	 * @param destination The array to write to
@@ -449,7 +453,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * Verify and return the block CRC. This method may only be called after all of the block's
 	 * bytes have been read
 	 * @return The block CRC
@@ -466,7 +470,7 @@ public class BZip2BlockDecompressor {
 	}
 
 
-	/**
+	/*
 	 * @param bitInputStream The BZip2BitInputStream to read from
 	 * @param blockSize The maximum decoded size of the block
 	 * @throws IOException If the block could not be decoded

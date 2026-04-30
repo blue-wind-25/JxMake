@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,30 +30,30 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 
-/**
+/*
  * <p>An OutputStream wrapper that allows the writing of single bit booleans, unary numbers, bit
  * strings of arbitrary length (up to 24 bits), and bit aligned 32-bit integers. A single byte at a
  * time is written to the wrapped stream when sufficient bits have been accumulated
  */
 public class BZip2BitOutputStream {
 
-	/**
+	/*
 	 * The stream to which bits are written
 	 */
 	private final OutputStream outputStream;
 
-	/**
+	/*
 	 * A buffer of bits waiting to be written to the output stream
 	 */
 	private int bitBuffer;
 
-	/**
+	/*
 	 * The number of bits currently buffered in {@link #bitBuffer}
 	 */
 	private int bitCount;
 
 
-	/**
+	/*
 	 * Writes a single bit to the wrapped output stream
 	 * @param value The bit to write
 	 * @throws IOException if an error occurs writing to the stream
@@ -71,7 +75,7 @@ public class BZip2BitOutputStream {
 	}
 
 
-	/**
+	/*
 	 * Writes a zero-terminated unary number to the wrapped output stream
 	 * @param value The number to write (must be non-negative)
 	 * @throws IOException if an error occurs writing to the stream
@@ -86,7 +90,7 @@ public class BZip2BitOutputStream {
 	}
 
 
-	/**
+	/*
 	 * Writes up to 24 bits to the wrapped output stream
 	 * @param count The number of bits to write (maximum 24)
 	 * @param value The bits to write
@@ -110,7 +114,7 @@ public class BZip2BitOutputStream {
 	}
 
 
-	/**
+	/*
 	 * Writes an integer as 32 bits of output
 	 * @param value The integer to write
 	 * @throws IOException if an error occurs writing to the stream
@@ -123,7 +127,7 @@ public class BZip2BitOutputStream {
 	}
 
 
-	/**
+	/*
 	 * Writes any remaining bits to the output stream, zero padding to a whole byte as required
 	 * @throws IOException if an error occurs writing to the stream
 	 */
@@ -136,7 +140,7 @@ public class BZip2BitOutputStream {
 	}
 
 
-	/**
+	/*
 	 * @param outputStream The OutputStream to wrap
 	 */
 	public BZip2BitOutputStream (final OutputStream outputStream) {

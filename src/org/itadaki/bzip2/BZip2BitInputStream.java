@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,30 +30,30 @@ import java.io.IOException;
 import java.io.InputStream;
 
 
-/**
+/*
  * <p>An InputStream wrapper that allows the reading of single bit booleans, unary numbers, bit
  * strings of arbitrary length (up to 24 bits), and bit aligned 32-bit integers. A single byte at a
  * time is read from the wrapped stream when more bits are required</p>
  */
 public class BZip2BitInputStream {
 
-	/**
+	/*
 	 * The stream from which bits are read
 	 */
 	private final InputStream inputStream;
 
-	/**
+	/*
 	 * A buffer of bits read from the input stream that have not yet been returned
 	 */
 	private int bitBuffer;
 
-	/**
+	/*
 	 * The number of bits currently buffered in {@link #bitBuffer}
 	 */
 	private int bitCount;
 
 
-	/**
+	/*
 	 * Reads a single bit from the wrapped input stream
 	 * @return {@code true} if the bit read was {@code 1}, otherwise {@code false}
 	 * @throws IOException if no more bits are available in the input stream
@@ -79,7 +83,7 @@ public class BZip2BitInputStream {
 	}
 
 
-	/**
+	/*
 	 * Reads a zero-terminated unary number from the wrapped input stream
 	 * @return The unary number
 	 * @throws IOException if no more bits are available in the input stream
@@ -115,7 +119,7 @@ public class BZip2BitInputStream {
 	}
 
 
-	/**
+	/*
 	 * Reads up to 24 bits from the wrapped input stream
 	 * @param count The number of bits to read (maximum 24)
 	 * @return The bits requested, right-aligned within the integer
@@ -149,7 +153,7 @@ public class BZip2BitInputStream {
 	}
 
 
-	/**
+	/*
 	 * Reads 32 bits of input as an integer
 	 * @return The integer read
 	 * @throws IOException if 32 bits are not available in the input stream
@@ -161,7 +165,7 @@ public class BZip2BitInputStream {
 	}
 
 
-	/**
+	/*
 	 * @param inputStream The InputStream to wrap
 	 */
 	public BZip2BitInputStream (final InputStream inputStream) {

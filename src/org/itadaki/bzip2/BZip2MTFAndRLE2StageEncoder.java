@@ -1,50 +1,54 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 package org.itadaki.bzip2;
 
-/**
+/*
  * An encoder for the BZip2 Move To Front Transform and Run-Length Encoding[2] stages<br>
  * Although conceptually these two stages are separate, it is computationally efficient to perform
  * them in one pass.
  */
 public class BZip2MTFAndRLE2StageEncoder {
 
-	/**
+	/*
 	 * The Burrows-Wheeler transformed block
 	 */
 	private final int[] bwtBlock;
 
-	/**
+	/*
 	 * Actual length of the data in the {@link bwtBlock} array
 	 */
 	private int bwtLength;
 
-	/**
+	/*
 	 * At each position, {@code true} if the byte value with that index is present within the block,
 	 * otherwise {@code false} 
 	 */
 	private final boolean[] bwtValuesInUse;
 
-	/**
+	/*
 	 * The output of the Move To Front Transform and Run-Length Encoding[2] stages
 	 */
 	private final char[] mtfBlock;
 
-	/**
+	/*
 	 * The actual number of values contained in the {@link mtfBlock} array
 	 */
 	private int mtfLength;
 
-	/**
+	/*
 	 * The global frequencies of values within the {@link mtfBlock} array
 	 */
 	private final int[] mtfSymbolFrequencies = new int[BZip2Constants.HUFFMAN_MAXIMUM_ALPHABET_SIZE];
 
-	/**
+	/*
 	 * The encoded alphabet size
 	 */
 	private int alphabetSize;
 
 
-	/**
+	/*
 	 * Performs the Move To Front transform and Run Length Encoding[1] stages
 	 */
 	public void encode() {
@@ -134,7 +138,7 @@ public class BZip2MTFAndRLE2StageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @return The encoded MTF block
 	 */
 	public char[] getMtfBlock() {
@@ -144,7 +148,7 @@ public class BZip2MTFAndRLE2StageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @return The actual length of the MTF block
 	 */
 	public int getMtfLength() {
@@ -154,7 +158,7 @@ public class BZip2MTFAndRLE2StageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @return The size of the MTF block's alphabet
 	 */
 	public int getMtfAlphabetSize() {
@@ -164,7 +168,7 @@ public class BZip2MTFAndRLE2StageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @return The frequencies of the MTF block's symbols
 	 */
 	public int[] getMtfSymbolFrequencies() {
@@ -174,7 +178,7 @@ public class BZip2MTFAndRLE2StageEncoder {
 	}
 
 
-	/**
+	/*
 	 * @param bwtBlock The Burrows Wheeler Transformed block data
 	 * @param bwtLength The actual length of the BWT data
 	 * @param bwtValuesPresent The values that are present within the BWT data. For each index,

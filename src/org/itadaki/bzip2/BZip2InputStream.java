@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Copyright (c) 2011 Matthew Francis
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,7 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 
-/**
+/*
  * <p>An InputStream wrapper that decompresses BZip2 data</p>
  *
  * <p>A BZip2 stream consists of one or more blocks of compressed data. This decompressor reads a
@@ -47,28 +51,28 @@ import java.io.InputStream;
  */
 public class BZip2InputStream extends InputStream {
 
-	/**
+	/*
 	 * The stream from which compressed BZip2 data is read and decoded
 	 */
 	private InputStream inputStream;
 
-	/**
+	/*
 	 * An InputStream wrapper that provides bit-level reads
 	 */
 	private BZip2BitInputStream bitInputStream;
 
-	/**
+	/*
 	 * If {@code true}, the caller is assumed to have read away the stream's leading "BZ" identifier
 	 * bytes
 	 */
 	private final boolean headerless;
 
-	/**
+	/*
 	 * (@code true} if the end of the compressed stream has been reached, otherwise {@code false}
 	 */
 	private boolean streamComplete = false;
 
-	/**
+	/*
 	 * The declared block size of the stream (before final run-length decoding). The final block
 	 * will usually be smaller, but no block in the stream has to be exactly this large, and an
 	 * encoder could in theory choose to mix blocks of any size up to this value. Its function is
@@ -77,12 +81,12 @@ public class BZip2InputStream extends InputStream {
 	 */
 	private int streamBlockSize;
 
-	/**
+	/*
 	 * The merged CRC of all blocks decompressed so far
 	 */
 	private int streamCRC = 0;
 
-	/**
+	/*
 	 * The decompressor for the current block
 	 */
 	private BZip2BlockDecompressor blockDecompressor = null;
@@ -157,7 +161,7 @@ public class BZip2InputStream extends InputStream {
 	}
 
 
-	/**
+	/*
 	 * Reads the stream header and checks that the data appears to be a valid BZip2 stream
 	 * @throws IOException if the stream header is not valid
 	 */
@@ -198,7 +202,7 @@ public class BZip2InputStream extends InputStream {
 	}
 
 
-	/**
+	/*
 	 * Prepares a new block for decompression if any remain in the stream. If a previous block has
 	 * completed, its CRC is checked and merged into the stream CRC. If the previous block was the
 	 * final block in the stream, the stream CRC is validated
@@ -252,7 +256,7 @@ public class BZip2InputStream extends InputStream {
 	}
 
 
-	/**
+	/*
 	 * @param inputStream The InputStream to wrap
 	 * @param headerless If {@code true}, the caller is assumed to have read away the stream's
 	 *                   leading "BZ" identifier bytes

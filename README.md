@@ -1,3 +1,5 @@
+![Project Logo](docs/JxMake-Logo-Small.png)
+
 # JxMake
 
 [![Language: Java](https://img.shields.io/badge/Language-Java-orange?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/)

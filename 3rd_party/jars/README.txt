@@ -1,3 +1,10 @@
+Jansi
+https://fusesource.github.io/jansi
+https://github.com/fusesource/jansi
+    Licensed under the Apache License version 2.0.
+    https://github.com/fusesource/jansi/blob/master/license.txt
+https://repo1.maven.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3.jar
+
 jSerialComm
 https://fazecast.github.io/jSerialComm
 https://github.com/Fazecast/jSerialComm
@@ -7,6 +14,8 @@ https://github.com/Fazecast/jSerialComm
     https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-APACHE-2.0
     https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-LGPL-3.0
 https://github.com/Fazecast/jSerialComm/releases/download/v2.11.4/jSerialComm-2.11.4.jar
+
+----------------------------------------------------------------------------------------------------
 
 SpellChecker
 https://github.com/bobbylight/SpellChecker

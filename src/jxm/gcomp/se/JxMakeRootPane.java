@@ -524,6 +524,9 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
 
         final JScrollPane scrollPane = new JScrollPane(panel);
 
+            final int scrollStep = Math.max( 16, htmlMessage.length() / 100 );
+            scrollPane.getVerticalScrollBar().setUnitIncrement(scrollStep);
+
             final Dimension sz = Toolkit.getDefaultToolkit().getScreenSize();
             final int       w  = Math.max(800, sz.width  / 3);
             final int       h  = Math.max(450, sz.height / 3);

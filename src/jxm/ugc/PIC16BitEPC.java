@@ -2362,12 +2362,11 @@ public class PIC16BitEPC {
               // 0b........bbbb.B...pppssss
                  opcode                          |
             (b ? 0b000000000000010000000000 : 0) |
-            (ulit4_ulit3.value << 12             ) |
+            (ulit4_ulit3.value << 12           ) |
             (Wx.mode         <<  4             ) |
             (Wx.Wx.regNum                      )
         );
         return this;
-
     }
 
     public PIC16BitEPC $bset  (_RWx    Wd, final _Lit bit4) throws JXMAsmError { return $_alu_rwxmem_ulit4or3_impl( "bset", 0b101000000000000000000000, false, Expr._reg(Wd), bit4 ); }

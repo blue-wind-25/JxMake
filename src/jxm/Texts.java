@@ -457,7 +457,7 @@ public class Texts {
         sb.append( "        Licensed under the MIT License.\n"                                                          );
         sb.append( "        https://github.com/fredcooke/maven-jbzip2/blob/master/LICENCE\n"                            );
         sb.append( '\n'                                                                                                 );
-        sb.append( _T("JxMake contains slightly modified code from these open source libraries:\n")                     );
+        sb.append( _T("JxMake contains slightly modified code from this open source library:\n")                        );
         sb.append( '\n'                                                                                                 );
         sb.append( "    XZ for Java\n"                                                                                  );
         sb.append( "    https://tukaani.org/xz/java.html\n"                                                             );
@@ -466,13 +466,13 @@ public class Texts {
         sb.append( "        Licensed under the BSD Zero Clause License (0BSD).\n"                                       );
         sb.append( "        https://github.com/tukaani-project/xz-java/blob/master/COPYING\n"                           );
         sb.append( '\n'                                                                                                 );
+        sb.append( _T("JxMake linked against these open source libraries:\n")                                           );
+        sb.append( '\n'                                                                                                 );
         sb.append( "    Jansi\n"                                                                                        );
         sb.append( "    https://fusesource.github.io/jansi\n"                                                           );
         sb.append( "    https://github.com/fusesource/jansi\n"                                                          );
         sb.append( "        Licensed under the Apache License version 2.0.\n"                                           );
         sb.append( "        https://github.com/fusesource/jansi/blob/master/license.txt\n"                              );
-        sb.append( '\n'                                                                                                 );
-        sb.append( _T("JxMake linked against these open source libraries:\n")                                           );
         sb.append( '\n'                                                                                                 );
         sb.append( "    jSerialComm - Platform-Independent Serial Port Access for Java\n"                               );
         sb.append( "    https://fazecast.github.io/jSerialComm\n"                                                       );

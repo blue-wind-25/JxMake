@@ -20,6 +20,7 @@ public class SerialPortUtil  {
     public static void initialize()
     {
         System.setProperty("fazecast.jSerialComm.appid", "JxMake");
+
         /*
         final String nativeLibPath = "com/fazecast/jSerialComm/native";
         if( SysUtil.isRunFromClassFile() ) {

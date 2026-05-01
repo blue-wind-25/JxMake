@@ -1,10 +1,10 @@
-# ![JXMake Logo](docs/JxMake-Logo-Small.png) JxMake
+# ![JxMake Logo](docs/JxMake-Logo-Small.png)
 
 [![Language: Java](https://img.shields.io/badge/Language-Java-orange?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Language: C/C++](https://img.shields.io/badge/Language-C%2FC%2B%2B-blue?style=flat&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com)
 [![Primary_License: LGPL v3+](https://img.shields.io/badge/Primary_License-LGPL_v3+-green?style=flat&logo=opensourcehardware&logoColor=white)](LICENSE)
 
-This project is primarily licensed under **LGPL v3+**.
+JxMake is primarily licensed under **LGPL v3+**.
 
 Copies of the licenses for third-party libraries/components included in this repository are located in the `3rd_party_library_licenses` directory. Please refer to individual sub-directories of the libraries/components for specific author credits and copyright headers.
 

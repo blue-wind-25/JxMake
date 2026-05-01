@@ -1,6 +1,4 @@
-![Project Logo](docs/JxMake-Logo-Small.png)
-
-# JxMake
+# ![JXMake Logo](docs/JxMake-Logo-Small.png) JxMake
 
 [![Language: Java](https://img.shields.io/badge/Language-Java-orange?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Language: C/C++](https://img.shields.io/badge/Language-C%2FC%2B%2B-blue?style=flat&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com)

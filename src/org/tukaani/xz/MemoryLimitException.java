@@ -1,10 +1,14 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
 
 package org.tukaani.xz;
 
-/**
+/*
  * Thrown when the memory usage limit given to the XZ decompressor
  * would be exceeded.
  * <p>
@@ -17,7 +21,7 @@ public class MemoryLimitException extends XZIOException {
     private final int memoryNeeded;
     private final int memoryLimit;
 
-    /**
+    /*
      * Creates a new MemoryLimitException.
      * <p>
      * The amount of memory needed and the memory usage limit are
@@ -34,7 +38,7 @@ public class MemoryLimitException extends XZIOException {
         this.memoryLimit = memoryLimit;
     }
 
-    /**
+    /*
      * Gets how much memory is required to decompress the data.
      *
      * @return      amount of memory needed as kibibytes (KiB)
@@ -43,7 +47,7 @@ public class MemoryLimitException extends XZIOException {
         return memoryNeeded;
     }
 
-    /**
+    /*
      * Gets what the memory usage limit was at the time the exception
      * was created.
      *

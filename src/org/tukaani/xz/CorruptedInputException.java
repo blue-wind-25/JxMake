@@ -1,10 +1,14 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
 
 package org.tukaani.xz;
 
-/**
+/*
  * Thrown when the compressed input data is corrupt.
  * However, it is possible that some or all of the data
  * already read from the input stream was corrupt too.
@@ -12,7 +16,7 @@ package org.tukaani.xz;
 public class CorruptedInputException extends XZIOException {
     private static final long serialVersionUID = 3L;
 
-    /**
+    /*
      * Creates a new CorruptedInputException with
      * the default error detail message.
      */
@@ -20,7 +24,7 @@ public class CorruptedInputException extends XZIOException {
         super("Compressed data is corrupt");
     }
 
-    /**
+    /*
      * Creates a new CorruptedInputException with
      * the specified error detail message.
      *

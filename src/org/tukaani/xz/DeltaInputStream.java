@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -8,7 +12,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import org.tukaani.xz.delta.DeltaDecoder;
 
-/**
+/*
  * Decodes raw Delta-filtered data (no XZ headers).
  * <p>
  * The delta filter doesn't change the size of the data and thus it
@@ -16,12 +20,12 @@ import org.tukaani.xz.delta.DeltaDecoder;
  * its input stream indicates end of input.
  */
 public class DeltaInputStream extends InputStream {
-    /**
+    /*
      * Smallest supported delta calculation distance.
      */
     public static final int DISTANCE_MIN = 1;
 
-    /**
+    /*
      * Largest supported delta calculation distance.
      */
     public static final int DISTANCE_MAX = 256;
@@ -33,7 +37,7 @@ public class DeltaInputStream extends InputStream {
 
     private final byte[] tempBuf = new byte[1];
 
-    /**
+    /*
      * Creates a new Delta decoder with the given delta calculation distance.
      *
      * @param       in          input stream from which Delta filtered data
@@ -53,7 +57,7 @@ public class DeltaInputStream extends InputStream {
         this.delta = new DeltaDecoder(distance);
     }
 
-    /**
+    /*
      * Decode the next byte from this input stream.
      *
      * @return      the next decoded byte, or {@code -1} to indicate
@@ -66,7 +70,7 @@ public class DeltaInputStream extends InputStream {
         return read(tempBuf, 0, 1) == -1 ? -1 : (tempBuf[0] & 0xFF);
     }
 
-    /**
+    /*
      * Decode into an array of bytes.
      * <p>
      * This calls {@code in.read(buf, off, len)} and defilters the
@@ -110,7 +114,7 @@ public class DeltaInputStream extends InputStream {
         return size;
     }
 
-    /**
+    /*
      * Calls {@code in.available()}.
      *
      * @return      the value returned by {@code in.available()}
@@ -126,7 +130,7 @@ public class DeltaInputStream extends InputStream {
         return in.available();
     }
 
-    /**
+    /*
      * Closes the stream and calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      *

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -11,7 +15,7 @@ final class Optimum {
     final State state = new State();
     final int[] reps = new int[LZMACoder.REPS];
 
-    /**
+    /*
      * Cumulative price of arriving to this byte.
      */
     int price;
@@ -24,14 +28,14 @@ final class Optimum {
     int optPrev2;
     int backPrev2;
 
-    /**
+    /*
      * Resets the price.
      */
     void reset() {
         price = INFINITY_PRICE;
     }
 
-    /**
+    /*
      * Sets to indicate one LZMA symbol (literal, rep, or match).
      */
     void set1(int newPrice, int optCur, int back) {
@@ -41,7 +45,7 @@ final class Optimum {
         prev1IsLiteral = false;
     }
 
-    /**
+    /*
      * Sets to indicate two LZMA symbols of which the first one is a literal.
      */
     void set2(int newPrice, int optCur, int back) {
@@ -52,7 +56,7 @@ final class Optimum {
         hasPrev2 = false;
     }
 
-    /**
+    /*
      * Sets to indicate three LZMA symbols of which the second one
      * is a literal.
      */

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -13,13 +17,13 @@ public abstract class LZEncoder {
     public static final int MF_HC4 = 0x04;
     public static final int MF_BT4 = 0x14;
 
-    /**
+    /*
      * Number of bytes to keep available before the current byte
      * when moving the LZ window.
      */
     private final int keepSizeBefore;
 
-    /**
+    /*
      * Number of bytes that must be available, the current byte included,
      * to make hasEnoughData return true. Flushing and finishing are
      * naturally exceptions to this since there cannot be any data after
@@ -49,7 +53,7 @@ public abstract class LZEncoder {
         }
     }
 
-    /**
+    /*
      * Gets the size of the LZ window buffer that needs to be allocated.
      */
     private static int getBufSize(
@@ -61,7 +65,7 @@ public abstract class LZEncoder {
         return keepSizeBefore + keepSizeAfter + reserveSize;
     }
 
-    /**
+    /*
      * Gets approximate memory usage of the LZEncoder base structure and
      * the match finder as kibibytes.
      */
@@ -88,7 +92,7 @@ public abstract class LZEncoder {
         return m;
     }
 
-    /**
+    /*
      * Creates a new LZEncoder.
      * <p>
      * @param       dictSize    dictionary size
@@ -129,7 +133,7 @@ public abstract class LZEncoder {
         throw new IllegalArgumentException();
     }
 
-    /**
+    /*
      * Creates a new LZEncoder. See {@code getInstance}.
      */
     LZEncoder(int dictSize, int extraSizeBefore, int extraSizeAfter,
@@ -153,7 +157,7 @@ public abstract class LZEncoder {
         arrayCache.putArray(buf);
     }
 
-    /**
+    /*
      * Sets a preset dictionary. If a preset dictionary is wanted, this
      * function must be called immediately after creating the LZEncoder
      * before any data has been encoded.
@@ -173,7 +177,7 @@ public abstract class LZEncoder {
         }
     }
 
-    /**
+    /*
      * Moves data from the end of the buffer to the beginning, discarding
      * old data and making space for new input.
      */
@@ -190,7 +194,7 @@ public abstract class LZEncoder {
         writePos -= moveOffset;
     }
 
-    /**
+    /*
      * Copies new data into the LZEncoder's buffer.
      */
     public int fillWindow(byte[] in, int off, int len) {
@@ -220,7 +224,7 @@ public abstract class LZEncoder {
         return len;
     }
 
-    /**
+    /*
      * Process pending bytes remaining from preset dictionary initialization
      * or encoder flush operation.
      */
@@ -242,7 +246,7 @@ public abstract class LZEncoder {
         }
     }
 
-    /**
+    /*
      * Returns true if at least one byte has already been run through
      * the match finder.
      */
@@ -250,7 +254,7 @@ public abstract class LZEncoder {
         return readPos != -1;
     }
 
-    /**
+    /*
      * Marks that all the input needs to be made available in
      * the encoded output.
      */
@@ -259,7 +263,7 @@ public abstract class LZEncoder {
         processPendingBytes();
     }
 
-    /**
+    /*
      * Marks that there is no more input remaining. The read position
      * can be advanced until the end of the data.
      */
@@ -269,7 +273,7 @@ public abstract class LZEncoder {
         processPendingBytes();
     }
 
-    /**
+    /*
      * Tests if there is enough input available to let the caller encode
      * at least one more byte.
      */
@@ -282,7 +286,7 @@ public abstract class LZEncoder {
         out.write(buf, readPos + 1 - backward, len);
     }
 
-    /**
+    /*
      * Get the number of bytes available, including the current byte.
      * <p>
      * Note that the result is undefined if {@code getMatches} or
@@ -294,7 +298,7 @@ public abstract class LZEncoder {
         return writePos - readPos;
     }
 
-    /**
+    /*
      * Gets the lowest four bits of the absolute offset of the current byte.
      * Bits other than the lowest four are undefined.
      */
@@ -302,7 +306,7 @@ public abstract class LZEncoder {
         return readPos;
     }
 
-    /**
+    /*
      * Gets the byte from the given backward offset.
      * <p>
      * The current byte is at {@code 0}, the previous byte
@@ -315,7 +319,7 @@ public abstract class LZEncoder {
         return buf[readPos - backward] & 0xFF;
     }
 
-    /**
+    /*
      * Gets the byte from the given forward minus backward offset.
      * The forward offset is added to the current position. This lets
      * one read bytes ahead of the current byte.
@@ -324,7 +328,7 @@ public abstract class LZEncoder {
         return buf[readPos + forward - backward] & 0xFF;
     }
 
-    /**
+    /*
      * Get the length of a match at the given distance.
      *
      * @param       dist        zero-based distance of the match to test
@@ -336,7 +340,7 @@ public abstract class LZEncoder {
         return MatchLength.getLen(buf, readPos, dist + 1, 0, lenLimit);
     }
 
-    /**
+    /*
      * Get the length of a match at the given distance and forward offset.
      *
      * @param       forward     forward offset
@@ -350,7 +354,7 @@ public abstract class LZEncoder {
                                   0, lenLimit);
     }
 
-    /**
+    /*
      * Verifies that the matches returned by the match finder are valid.
      * This is meant to be used in an assert statement. This is totally
      * useless for actual encoding since match finder's results should
@@ -370,7 +374,7 @@ public abstract class LZEncoder {
         return true;
     }
 
-    /**
+    /*
      * Moves to the next byte, checks if there is enough input available,
      * and returns the amount of input available.
      *
@@ -403,12 +407,12 @@ public abstract class LZEncoder {
         return avail;
     }
 
-    /**
+    /*
      * Runs match finder for the next byte and returns the matches found.
      */
     public abstract Matches getMatches();
 
-    /**
+    /*
      * Skips the given number of bytes in the match finder.
      */
     public abstract void skip(int len);

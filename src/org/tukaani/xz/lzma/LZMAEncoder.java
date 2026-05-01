@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -15,7 +19,7 @@ public abstract class LZMAEncoder extends LZMACoder {
     public static final int MODE_FAST = 1;
     public static final int MODE_NORMAL = 2;
 
-    /**
+    /*
      * LZMA2 chunk is considered full when its uncompressed size exceeds
      * {@code LZMA2_UNCOMPRESSED_LIMIT}.
      * <p>
@@ -27,7 +31,7 @@ public abstract class LZMAEncoder extends LZMACoder {
     private static final int LZMA2_UNCOMPRESSED_LIMIT
             = (2 << 20) - MATCH_LEN_MAX;
 
-    /**
+    /*
      * LZMA2 chunk is considered full when its compressed size exceeds
      * {@code LZMA2_COMPRESSED_LIMIT}.
      * <p>
@@ -110,7 +114,7 @@ public abstract class LZMAEncoder extends LZMACoder {
         lz.putArraysToCache(arrayCache);
     }
 
-    /**
+    /*
      * Gets an integer [0, 63] matching the highest two bits of an integer.
      * This is like bit scan reverse (BSR) on x86 except that this also
      * cares about the second highest bit.
@@ -123,7 +127,7 @@ public abstract class LZMAEncoder extends LZMACoder {
         return (i << 1) + ((dist >>> (i - 1)) & 1);
     }
 
-    /**
+    /*
      * Gets the next LZMA symbol.
      * <p>
      * There are three types of symbols: literal (a single byte),
@@ -184,7 +188,7 @@ public abstract class LZMAEncoder extends LZMACoder {
         uncompressedSize = 0;
     }
 
-    /**
+    /*
      * Compress for LZMA1.
      */
     public void encodeForLZMA1() throws IOException {
@@ -207,7 +211,7 @@ public abstract class LZMAEncoder extends LZMACoder {
         encodeMatch(-1, MATCH_LEN_MIN, posState);
     }
 
-    /**
+    /*
      * Compresses for LZMA2.
      *
      * @return      true if the LZMA2 chunk became full, false otherwise
@@ -486,7 +490,7 @@ public abstract class LZMAEncoder extends LZMACoder {
                                                                  i);
     }
 
-    /**
+    /*
      * Updates the lookup tables used for calculating match distance
      * and length prices. The updating is skipped for performance reasons
      * if the tables haven't changed much since the previous update.
@@ -628,7 +632,7 @@ public abstract class LZMAEncoder extends LZMACoder {
 
 
     class LengthEncoder extends LengthCoder {
-        /**
+        /*
          * The prices are updated after at least
          * {@code PRICE_UPDATE_INTERVAL} many lengths
          * have been encoded with the same posState.

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -18,14 +22,14 @@ final class HC4 extends LZEncoder {
     private int cyclicPos = -1;
     private int lzPos;
 
-    /**
+    /*
      * Gets approximate memory usage of the match finder as kibibytes.
      */
     static int getMemoryUsage(int dictSize) {
         return Hash234.getMemoryUsage(dictSize) + dictSize / (1024 / 4) + 10;
     }
 
-    /**
+    /*
      * Creates a new LZEncoder with the HC4 match finder.
      * See {@code LZEncoder.getInstance} for parameter descriptions.
      */
@@ -60,7 +64,7 @@ final class HC4 extends LZEncoder {
         super.putArraysToCache(arrayCache);
     }
 
-    /**
+    /*
      * Moves to the next byte, checks that there is enough available space,
      * and possibly normalizes the hash tables and the hash chain.
      *

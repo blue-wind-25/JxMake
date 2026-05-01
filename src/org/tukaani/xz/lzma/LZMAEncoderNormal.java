@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -57,7 +61,7 @@ final class LZMAEncoderNormal extends LZMAEncoder {
         super.reset();
     }
 
-    /**
+    /*
      * Converts the opts array from backward indexes to forward indexes.
      * Then it will be simple to get the next symbol from the array
      * in later calls to {@code getNextSymbol()}.
@@ -297,7 +301,7 @@ final class LZMAEncoderNormal extends LZMAEncoder {
         return convertOpts();
     }
 
-    /**
+    /*
      * Updates the state and reps for the current byte in the opts array.
      */
     private void updateOptStateAndReps() {
@@ -364,7 +368,7 @@ final class LZMAEncoderNormal extends LZMAEncoder {
         }
     }
 
-    /**
+    /*
      * Calculates prices of a literal, a short rep, and literal + rep0.
      */
     private void calc1BytePrices(int pos, int posState,
@@ -420,7 +424,7 @@ final class LZMAEncoderNormal extends LZMAEncoder {
         }
     }
 
-    /**
+    /*
      * Calculates prices of long rep and long rep + literal + rep0.
      */
     private int calcLongRepPrices(int pos, int posState,
@@ -491,7 +495,7 @@ final class LZMAEncoderNormal extends LZMAEncoder {
         return startLen;
     }
 
-    /**
+    /*
      * Calculates prices of a normal match and normal match + literal + rep0.
      */
     private void calcNormalMatchPrices(int pos, int posState, int avail,

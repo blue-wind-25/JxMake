@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -7,11 +11,11 @@ package org.tukaani.xz;
 import java.io.InputStream;
 import java.io.IOException;
 
-/**
+/*
  * Input stream with random access support.
  */
 public abstract class SeekableInputStream extends InputStream {
-    /**
+    /*
      * Seeks {@code n} bytes forward in this stream.
      * <p>
      * This will not seek past the end of the file. If the current position
@@ -49,17 +53,17 @@ public abstract class SeekableInputStream extends InputStream {
         return n;
     }
 
-    /**
+    /*
      * Gets the size of the stream.
      */
     public abstract long length() throws IOException;
 
-    /**
+    /*
      * Gets the current position in the stream.
      */
     public abstract long position() throws IOException;
 
-    /**
+    /*
      * Seeks to the specified absolute position in the stream.
      * <p>
      * Seeking past the end of the file should be supported by the subclasses

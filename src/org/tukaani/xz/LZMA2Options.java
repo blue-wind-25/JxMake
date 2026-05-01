@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -9,7 +13,7 @@ import java.io.IOException;
 import org.tukaani.xz.lz.LZEncoder;
 import org.tukaani.xz.lzma.LZMAEncoder;
 
-/**
+/*
  * LZMA2 compression options.
  * <p>
  * While this allows setting the LZMA2 compression options in detail,
@@ -17,27 +21,27 @@ import org.tukaani.xz.lzma.LZMAEncoder;
  * {@code LZMA2Options(int)}.
  */
 public final class LZMA2Options extends FilterOptions {
-    /**
+    /*
      * Minimum valid compression preset level is 0.
      */
     public static final int PRESET_MIN = 0;
 
-    /**
+    /*
      * Maximum valid compression preset level is 9.
      */
     public static final int PRESET_MAX = 9;
 
-    /**
+    /*
      * Default compression preset level is 6.
      */
     public static final int PRESET_DEFAULT = 6;
 
-    /**
+    /*
      * Minimum dictionary size is 4 KiB.
      */
     public static final int DICT_SIZE_MIN = 4096;
 
-    /**
+    /*
      * Maximum dictionary size for compression is 768 MiB.
      * <p>
      * The decompressor supports bigger dictionaries, up to almost 2 GiB.
@@ -50,70 +54,70 @@ public final class LZMA2Options extends FilterOptions {
      */
     public static final int DICT_SIZE_MAX = 768 << 20;
 
-    /**
+    /*
      * The default dictionary size is 8 MiB.
      */
     public static final int DICT_SIZE_DEFAULT = 8 << 20;
 
-    /**
+    /*
      * Maximum value for lc + lp is 4.
      */
     public static final int LC_LP_MAX = 4;
 
-    /**
+    /*
      * The default number of literal context bits is 3.
      */
     public static final int LC_DEFAULT = 3;
 
-    /**
+    /*
      * The default number of literal position bits is 0.
      */
     public static final int LP_DEFAULT = 0;
 
-    /**
+    /*
      * Maximum value for pb is 4.
      */
     public static final int PB_MAX = 4;
 
-    /**
+    /*
      * The default number of position bits is 2.
      */
     public static final int PB_DEFAULT = 2;
 
-    /**
+    /*
      * Compression mode: uncompressed.
      * The data is wrapped into a LZMA2 stream without compression.
      */
     public static final int MODE_UNCOMPRESSED = 0;
 
-    /**
+    /*
      * Compression mode: fast.
      * This is usually combined with a hash chain match finder.
      */
     public static final int MODE_FAST = LZMAEncoder.MODE_FAST;
 
-    /**
+    /*
      * Compression mode: normal.
      * This is usually combined with a binary tree match finder.
      */
     public static final int MODE_NORMAL = LZMAEncoder.MODE_NORMAL;
 
-    /**
+    /*
      * Minimum value for {@code niceLen} is 8.
      */
     public static final int NICE_LEN_MIN = 8;
 
-    /**
+    /*
      * Maximum value for {@code niceLen} is 273.
      */
     public static final int NICE_LEN_MAX = 273;
 
-    /**
+    /*
      * Match finder: Hash Chain 2-3-4
      */
     public static final int MF_HC4 = LZEncoder.MF_HC4;
 
-    /**
+    /*
      * Match finder: Binary tree 2-3-4
      */
     public static final int MF_BT4 = LZEncoder.MF_BT4;
@@ -134,7 +138,7 @@ public final class LZMA2Options extends FilterOptions {
     private int mf;
     private int depthLimit;
 
-    /**
+    /*
      * Creates new LZMA2 options and sets them to the default values.
      * This is equivalent to {@code LZMA2Options(PRESET_DEFAULT)}.
      */
@@ -147,7 +151,7 @@ public final class LZMA2Options extends FilterOptions {
         }
     }
 
-    /**
+    /*
      * Creates new LZMA2 options and sets them to the given preset.
      *
      * @throws      UnsupportedOptionsException
@@ -157,7 +161,7 @@ public final class LZMA2Options extends FilterOptions {
         setPreset(preset);
     }
 
-    /**
+    /*
      * Creates new LZMA2 options and sets them to the given custom values.
      *
      * @throws      UnsupportedOptionsException
@@ -175,7 +179,7 @@ public final class LZMA2Options extends FilterOptions {
         setDepthLimit(depthLimit);
     }
 
-    /**
+    /*
      * Sets the compression options to the given preset.
      * <p>
      * The presets 0-3 are fast presets with medium compression.
@@ -214,7 +218,7 @@ public final class LZMA2Options extends FilterOptions {
         }
     }
 
-    /**
+    /*
      * Sets the dictionary size in bytes.
      * <p>
      * The dictionary (or history buffer) holds the most recently seen
@@ -243,14 +247,14 @@ public final class LZMA2Options extends FilterOptions {
         this.dictSize = dictSize;
     }
 
-    /**
+    /*
      * Gets the dictionary size in bytes.
      */
     public int getDictSize() {
         return dictSize;
     }
 
-    /**
+    /*
      * Sets a preset dictionary. Use null to disable the use of
      * a preset dictionary. By default there is no preset dictionary.
      * <p>
@@ -268,14 +272,14 @@ public final class LZMA2Options extends FilterOptions {
         this.presetDict = presetDict;
     }
 
-    /**
+    /*
      * Gets the preset dictionary.
      */
     public byte[] getPresetDict() {
         return presetDict;
     }
 
-    /**
+    /*
      * Sets the number of literal context bits and literal position bits.
      * <p>
      * The sum of {@code lc} and {@code lp} is limited to 4.
@@ -297,7 +301,7 @@ public final class LZMA2Options extends FilterOptions {
         this.lp = lp;
     }
 
-    /**
+    /*
      * Sets the number of literal context bits.
      * <p>
      * All bytes that cannot be encoded as matches are encoded as literals.
@@ -327,7 +331,7 @@ public final class LZMA2Options extends FilterOptions {
         setLcLp(lc, lp);
     }
 
-    /**
+    /*
      * Sets the number of literal position bits.
      * <p>
      * This affets what kind of alignment in the uncompressed data is
@@ -343,21 +347,21 @@ public final class LZMA2Options extends FilterOptions {
         setLcLp(lc, lp);
     }
 
-    /**
+    /*
      * Gets the number of literal context bits.
      */
     public int getLc() {
         return lc;
     }
 
-    /**
+    /*
      * Gets the number of literal position bits.
      */
     public int getLp() {
         return lp;
     }
 
-    /**
+    /*
      * Sets the number of position bits.
      * <p>
      * This affects what kind of alignment in the uncompressed data is
@@ -389,14 +393,14 @@ public final class LZMA2Options extends FilterOptions {
         this.pb = pb;
     }
 
-    /**
+    /*
      * Gets the number of position bits.
      */
     public int getPb() {
         return pb;
     }
 
-    /**
+    /*
      * Sets the compression mode.
      * <p>
      * This specifies the method to analyze the data produced by
@@ -422,14 +426,14 @@ public final class LZMA2Options extends FilterOptions {
         this.mode = mode;
     }
 
-    /**
+    /*
      * Gets the compression mode.
      */
     public int getMode() {
         return mode;
     }
 
-    /**
+    /*
      * Sets the nice length of matches.
      * Once a match of at least {@code niceLen} bytes is found,
      * the algorithm stops looking for better matches. Higher values tend
@@ -453,14 +457,14 @@ public final class LZMA2Options extends FilterOptions {
         this.niceLen = niceLen;
     }
 
-    /**
+    /*
      * Gets the nice length of matches.
      */
     public int getNiceLen() {
         return niceLen;
     }
 
-    /**
+    /*
      * Sets the match finder type.
      * <p>
      * Match finder has a major effect on compression speed, memory usage,
@@ -479,14 +483,14 @@ public final class LZMA2Options extends FilterOptions {
         this.mf = mf;
     }
 
-    /**
+    /*
      * Gets the match finder type.
      */
     public int getMatchFinder() {
         return mf;
     }
 
-    /**
+    /*
      * Sets the match finder search depth limit.
      * <p>
      * The default is a special value of {@code 0} which indicates that
@@ -511,7 +515,7 @@ public final class LZMA2Options extends FilterOptions {
         this.depthLimit = depthLimit;
     }
 
-    /**
+    /*
      * Gets the match finder search depth limit.
      */
     public int getDepthLimit() {
@@ -534,7 +538,7 @@ public final class LZMA2Options extends FilterOptions {
         return new LZMA2OutputStream(out, this, arrayCache);
     }
 
-    /**
+    /*
      * Gets how much memory the LZMA2 decoder will need to decompress the data
      * that was encoded with these options and stored in a .xz file.
      * <p>

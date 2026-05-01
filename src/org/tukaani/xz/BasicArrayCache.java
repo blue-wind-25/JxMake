@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -10,7 +14,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
+/*
  * A basic {@link ArrayCache} implementation.
  * <p>
  * This caches exact array sizes, that is, {@code getByteArray} will return
@@ -33,35 +37,35 @@ import java.util.Map;
  * @since 1.7
  */
 public class BasicArrayCache extends ArrayCache {
-    /**
+    /*
      * Arrays smaller than this many elements will not be cached.
      */
     private static final int CACHEABLE_SIZE_MIN = 32 << 10;
 
-    /**
+    /*
      * Number of stacks i.e. how many different array sizes to cache.
      */
     private static final int STACKS_MAX = 32;
 
-    /**
+    /*
      * Number of arrays of the same type and size to keep in the cache.
      * (ELEMENTS_PER_STACK - 1) is used as a bit mask so ELEMENTS_PER_STACK
      * must be a power of two!
      */
     private static final int ELEMENTS_PER_STACK = 512;
 
-    /**
+    /*
      * A thread-safe stack-like data structure whose {@code push} method
      * overwrites the oldest element in the stack if the stack is full.
      */
     private static class CyclicStack<T> {
-        /**
+        /*
          * Array that holds the elements in the cyclic stack.
          */
         @SuppressWarnings("unchecked")
         private final T[] elements = (T[])new Object[ELEMENTS_PER_STACK];
 
-        /**
+        /*
          * Read-write position in the {@code refs} array.
          * The most recently added element is in {@code refs[pos]}.
          * If it is {@code null}, then the stack is empty and all
@@ -74,7 +78,7 @@ public class BasicArrayCache extends ArrayCache {
          */
         private int pos = 0;
 
-        /**
+        /*
          * Gets the most recently added element from the stack.
          * If the stack is empty, {@code null} is returned.
          */
@@ -85,7 +89,7 @@ public class BasicArrayCache extends ArrayCache {
             return e;
         }
 
-        /**
+        /*
          * Adds a new element to the stack. If the stack is full, the oldest
          * element is overwritten.
          */
@@ -95,19 +99,19 @@ public class BasicArrayCache extends ArrayCache {
         }
     }
 
-    /**
+    /*
      * Maps Integer (array size) to stacks of references to arrays. At most
      * STACKS_MAX number of stacks are kept in the map (LRU cache).
      */
     private static class CacheMap<T>
             extends LinkedHashMap<Integer, CyclicStack<Reference<T>>> {
-        /**
+        /*
          * This class won't be serialized but this is needed
          * to silence a compiler warning.
          */
         private static final long serialVersionUID = 1L;
 
-        /**
+        /*
          * Creates a new CacheMap.
          */
         public CacheMap() {
@@ -124,7 +128,7 @@ public class BasicArrayCache extends ArrayCache {
             super(2 * STACKS_MAX, 0.75f, true);
         }
 
-        /**
+        /*
          * Returns true if the map is full and the least recently used stack
          * should be removed.
          */
@@ -135,7 +139,7 @@ public class BasicArrayCache extends ArrayCache {
         }
     }
 
-    /**
+    /*
      * Helper class for the singleton instance.
      * This is allocated only if {@code getInstance()} is called.
      */
@@ -143,7 +147,7 @@ public class BasicArrayCache extends ArrayCache {
         static final BasicArrayCache INSTANCE = new BasicArrayCache();
     }
 
-    /**
+    /*
      * Returns a statically-allocated {@code BasicArrayCache} instance.
      * This is often a good choice when a cache is needed.
      */
@@ -151,17 +155,17 @@ public class BasicArrayCache extends ArrayCache {
         return LazyHolder.INSTANCE;
     }
 
-    /**
+    /*
      * Stacks for cached byte arrays.
      */
     private final CacheMap<byte[]> byteArrayCache = new CacheMap<byte[]>();
 
-    /**
+    /*
      * Stacks for cached int arrays.
      */
     private final CacheMap<int[]> intArrayCache = new CacheMap<int[]>();
 
-    /**
+    /*
      * Gets {@code T[size]} from the given {@code cache}.
      * If no such array is found, {@code null} is returned.
      */
@@ -193,7 +197,7 @@ public class BasicArrayCache extends ArrayCache {
         return array;
     }
 
-    /**
+    /*
      * Puts the {@code array} of {@code size} elements long into
      * the {@code cache}.
      */
@@ -219,7 +223,7 @@ public class BasicArrayCache extends ArrayCache {
         stack.push(new SoftReference<T>(array));
     }
 
-    /**
+    /*
      * Allocates a new byte array, hopefully reusing an existing
      * array from the cache.
      *
@@ -242,7 +246,7 @@ public class BasicArrayCache extends ArrayCache {
         return array;
     }
 
-    /**
+    /*
      * Puts the given byte array to the cache. The caller must no longer
      * use the array.
      * <p>
@@ -253,7 +257,7 @@ public class BasicArrayCache extends ArrayCache {
         putArray(byteArrayCache, array, array.length);
     }
 
-    /**
+    /*
      * This is like getByteArray but for int arrays.
      */
     @Override
@@ -268,7 +272,7 @@ public class BasicArrayCache extends ArrayCache {
         return array;
     }
 
-    /**
+    /*
      * Puts the given int array to the cache. The caller must no longer
      * use the array.
      * <p>

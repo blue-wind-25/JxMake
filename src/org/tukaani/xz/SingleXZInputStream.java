@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -13,7 +17,7 @@ import org.tukaani.xz.common.StreamFlags;
 import org.tukaani.xz.index.IndexHash;
 import org.tukaani.xz.check.Check;
 
-/**
+/*
  * Decompresses exactly one XZ Stream in streamed mode (no seeking).
  * The decompression stops after the first XZ Stream has been decompressed,
  * and the read position in the input stream is left at the first byte
@@ -48,7 +52,7 @@ public class SingleXZInputStream extends InputStream {
 
     private final byte[] tempBuf = new byte[1];
 
-    /**
+    /*
      * Reads the Stream Header into a buffer.
      * This is a helper function for the constructors.
      */
@@ -58,7 +62,7 @@ public class SingleXZInputStream extends InputStream {
         return streamHeader;
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} without a memory usage limit.
      * <p>
@@ -89,7 +93,7 @@ public class SingleXZInputStream extends InputStream {
         this(in, -1);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} without a memory usage limit.
      * <p>
@@ -124,7 +128,7 @@ public class SingleXZInputStream extends InputStream {
         this(in, -1, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} with an optional memory usage limit.
      * <p>
@@ -158,7 +162,7 @@ public class SingleXZInputStream extends InputStream {
         this(in, memoryLimit, true);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} with an optional memory usage limit.
      * <p>
@@ -197,7 +201,7 @@ public class SingleXZInputStream extends InputStream {
         this(in, memoryLimit, true, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} with an optional memory usage limit
      * and ability to disable verification of integrity checks.
@@ -252,7 +256,7 @@ public class SingleXZInputStream extends InputStream {
         this(in, memoryLimit, verifyCheck, ArrayCache.getDefaultCache());
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor that decompresses exactly one
      * XZ Stream from {@code in} with an optional memory usage limit
      * and ability to disable verification of integrity checks.
@@ -308,7 +312,7 @@ public class SingleXZInputStream extends InputStream {
         check = Check.getInstance(streamHeaderFlags.checkType);
     }
 
-    /**
+    /*
      * Gets the ID of the integrity check used in this XZ Stream.
      *
      * @return      the Check ID specified in the XZ Stream Header
@@ -317,7 +321,7 @@ public class SingleXZInputStream extends InputStream {
         return streamHeaderFlags.checkType;
     }
 
-    /**
+    /*
      * Gets the name of the integrity check used in this XZ Stream.
      *
      * @return      the name of the check specified in the XZ Stream Header
@@ -326,7 +330,7 @@ public class SingleXZInputStream extends InputStream {
         return check.getName();
     }
 
-    /**
+    /*
      * Decompresses the next byte from this input stream.
      * <p>
      * Reading lots of data with {@code read()} from this input stream
@@ -352,7 +356,7 @@ public class SingleXZInputStream extends InputStream {
         return read(tempBuf, 0, 1) == -1 ? -1 : (tempBuf[0] & 0xFF);
     }
 
-    /**
+    /*
      * Decompresses into an array of bytes.
      * <p>
      * If {@code len} is zero, no bytes are read and {@code 0}
@@ -453,7 +457,7 @@ public class SingleXZInputStream extends InputStream {
                     "XZ Stream Footer does not match Stream Header");
     }
 
-    /**
+    /*
      * Returns the number of uncompressed bytes that can be read
      * without blocking. The value is returned with an assumption
      * that the compressed input data will be valid. If the compressed
@@ -475,7 +479,7 @@ public class SingleXZInputStream extends InputStream {
         return blockDecoder == null ? 0 : blockDecoder.available();
     }
 
-    /**
+    /*
      * Closes the stream and calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      * <p>
@@ -488,7 +492,7 @@ public class SingleXZInputStream extends InputStream {
         close(true);
     }
 
-    /**
+    /*
      * Closes the stream and optionally calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      * If {@code close(false)} has been called, a further call of

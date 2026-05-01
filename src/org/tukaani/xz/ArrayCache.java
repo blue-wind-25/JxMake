@@ -1,10 +1,14 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
 
 package org.tukaani.xz;
 
-/**
+/*
  * Caches large arrays for reuse (base class and a dummy cache implementation).
  * <p>
  * When compressing or decompressing many (very) small files in a row, the
@@ -63,12 +67,12 @@ package org.tukaani.xz;
  * @see BasicArrayCache
  */
 public class ArrayCache {
-    /**
+    /*
      * Global dummy cache instance that is returned by {@code getDummyCache()}.
      */
     private static final ArrayCache dummyCache = new ArrayCache();
 
-    /**
+    /*
      * Global default {@code ArrayCache} that is used when no other cache has
      * been specified.
      */
@@ -96,7 +100,7 @@ public class ArrayCache {
         }
     }
 
-    /**
+    /*
      * Returns a statically-allocated {@code ArrayCache} instance.
      * It can be shared by all code that needs a dummy cache.
      */
@@ -104,7 +108,7 @@ public class ArrayCache {
         return dummyCache;
     }
 
-    /**
+    /*
      * Gets the default {@code ArrayCache} instance.
      * This is a global cache that is used when the application
      * specifies nothing else. The default is a dummy cache
@@ -115,7 +119,7 @@ public class ArrayCache {
         return defaultCache;
     }
 
-    /**
+    /*
      * Sets the default {@code ArrayCache} instance.
      * Use with care. Other libraries using this package probably shouldn't
      * call this function as libraries cannot know if there are other users
@@ -129,14 +133,14 @@ public class ArrayCache {
         defaultCache = arrayCache;
     }
 
-    /**
+    /*
      * Creates a new {@code ArrayCache} that does no caching
      * (a dummy cache). If you need a dummy cache, you may want to call
      * {@link #getDummyCache()} instead.
      */
     public ArrayCache() {}
 
-    /**
+    /*
      * Allocates a new byte array.
      * <p>
      * This implementation simply returns {@code new byte[size]}.
@@ -155,7 +159,7 @@ public class ArrayCache {
         return new byte[size];
     }
 
-    /**
+    /*
      * Puts the given byte array to the cache. The caller must no longer
      * use the array.
      * <p>
@@ -163,7 +167,7 @@ public class ArrayCache {
      */
     public void putArray(byte[] array) {}
 
-    /**
+    /*
      * Allocates a new int array.
      * <p>
      * This implementation simply returns {@code new int[size]}.
@@ -182,7 +186,7 @@ public class ArrayCache {
         return new int[size];
     }
 
-    /**
+    /*
      * Puts the given int array to the cache. The caller must no longer
      * use the array.
      * <p>

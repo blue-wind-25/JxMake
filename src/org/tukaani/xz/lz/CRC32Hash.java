@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -5,7 +9,7 @@
 
 package org.tukaani.xz.lz;
 
-/**
+/*
  * Provides a CRC32 table using the polynomial from IEEE 802.3.
  */
 class CRC32Hash {

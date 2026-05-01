@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -13,11 +17,11 @@ import org.tukaani.xz.lz.LZDecoder;
 import org.tukaani.xz.rangecoder.RangeDecoderFromBuffer;
 import org.tukaani.xz.lzma.LZMADecoder;
 
-/**
+/*
  * Decompresses a raw LZMA2 stream (no XZ headers).
  */
 public class LZMA2InputStream extends InputStream {
-    /**
+    /*
      * Smallest valid LZMA2 dictionary size.
      * <p>
      * Very tiny dictionaries would be a performance problem, so
@@ -25,7 +29,7 @@ public class LZMA2InputStream extends InputStream {
      */
     public static final int DICT_SIZE_MIN = 4096;
 
-    /**
+    /*
      * Largest dictionary size supported by this implementation.
      * <p>
      * The LZMA2 algorithm allows dictionaries up to one byte less than 4 GiB.
@@ -57,7 +61,7 @@ public class LZMA2InputStream extends InputStream {
 
     private final byte[] tempBuf = new byte[1];
 
-    /**
+    /*
      * Gets approximate decompressor memory requirements as kibibytes for
      * the given dictionary size.
      *
@@ -86,7 +90,7 @@ public class LZMA2InputStream extends InputStream {
         return (dictSize + 15) & ~15;
     }
 
-    /**
+    /*
      * Creates a new input stream that decompresses raw LZMA2 data
      * from {@code in}.
      * <p>
@@ -113,7 +117,7 @@ public class LZMA2InputStream extends InputStream {
         this(in, dictSize, null);
     }
 
-    /**
+    /*
      * Creates a new LZMA2 decompressor using a preset dictionary.
      * <p>
      * This is like {@code LZMA2InputStream(InputStream, int)} except
@@ -135,7 +139,7 @@ public class LZMA2InputStream extends InputStream {
         this(in, dictSize, presetDict, ArrayCache.getDefaultCache());
     }
 
-    /**
+    /*
      * Creates a new LZMA2 decompressor using a preset dictionary
      * and array cache.
      * <p>
@@ -172,7 +176,7 @@ public class LZMA2InputStream extends InputStream {
             needDictReset = false;
     }
 
-    /**
+    /*
      * Decompresses the next byte from this input stream.
      * <p>
      * Reading lots of data with {@code read()} from this input stream
@@ -196,7 +200,7 @@ public class LZMA2InputStream extends InputStream {
         return read(tempBuf, 0, 1) == -1 ? -1 : (tempBuf[0] & 0xFF);
     }
 
-    /**
+    /*
      * Decompresses into an array of bytes.
      * <p>
      * If {@code len} is zero, no bytes are read and {@code 0}
@@ -339,7 +343,7 @@ public class LZMA2InputStream extends InputStream {
         lzma = new LZMADecoder(lz, rc, lc, lp, pb);
     }
 
-    /**
+    /*
      * Returns the number of uncompressed bytes that can be read
      * without blocking. The value is returned with an assumption
      * that the compressed input data will be valid. If the compressed
@@ -379,7 +383,7 @@ public class LZMA2InputStream extends InputStream {
         }
     }
 
-    /**
+    /*
      * Closes the stream and calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      *

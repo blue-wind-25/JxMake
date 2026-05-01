@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -7,7 +11,7 @@ package org.tukaani.xz;
 import java.io.InputStream;
 import java.io.FilterInputStream;
 
-/**
+/*
  * An {@code InputStream} wrapper whose {@code close()} does nothing.
  * This is useful with raw decompressors if you want to call
  * {@code close()} to release memory allocated from an {@link ArrayCache}
@@ -29,14 +33,14 @@ import java.io.FilterInputStream;
  * @since 1.7
  */
 public class CloseIgnoringInputStream extends FilterInputStream {
-    /**
+    /*
      * Creates a new {@code CloseIgnoringInputStream}.
      */
     public CloseIgnoringInputStream(InputStream in) {
         super(in);
     }
 
-    /**
+    /*
      * This does nothing (doesn't call {@code in.close()}).
      */
     @Override

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -32,7 +36,7 @@ public final class LZMADecoder extends LZMACoder {
         repLenDecoder.reset();
     }
 
-    /**
+    /*
      * Returns true if LZMA end marker was detected. It is encoded as
      * the maximum match distance which with signed ints becomes -1. This
      * function is needed only for LZMA1. LZMA2 doesn't use the end marker

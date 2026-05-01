@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -6,7 +10,7 @@ package org.tukaani.xz;
 
 import java.io.InputStream;
 
-/**
+/*
  * Delta filter options. The Delta filter can be used only as a non-last
  * filter in the chain, for example Delta + LZMA2.
  * <p>
@@ -22,31 +26,31 @@ import java.io.InputStream;
  * FLAC will give much smaller result at much better compression speed.
  */
 public final class DeltaOptions extends FilterOptions {
-    /**
+    /*
      * Smallest supported delta calculation distance.
      */
     public static final int DISTANCE_MIN = 1;
 
-    /**
+    /*
      * Largest supported delta calculation distance.
      */
     public static final int DISTANCE_MAX = 256;
 
     private int distance = DISTANCE_MIN;
 
-    /**
+    /*
      * Creates new Delta options and sets the delta distance to 1 byte.
      */
     public DeltaOptions() {}
 
-    /**
+    /*
      * Creates new Delta options and sets the distance to the given value.
      */
     public DeltaOptions(int distance) throws UnsupportedOptionsException {
         setDistance(distance);
     }
 
-    /**
+    /*
      * Sets the delta distance in bytes. The new distance must be in
      * the range [DISTANCE_MIN, DISTANCE_MAX].
      */
@@ -59,7 +63,7 @@ public final class DeltaOptions extends FilterOptions {
         this.distance = distance;
     }
 
-    /**
+    /*
      * Gets the delta distance.
      */
     public int getDistance() {

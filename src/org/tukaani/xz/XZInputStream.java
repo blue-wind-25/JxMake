@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -10,7 +14,7 @@ import java.io.IOException;
 import java.io.EOFException;
 import org.tukaani.xz.common.DecoderUtil;
 
-/**
+/*
  * Decompresses a .xz file in streamed mode (no seeking).
  * <p>
  * Use this to decompress regular standalone .xz files. This reads from
@@ -65,7 +69,7 @@ public class XZInputStream extends InputStream {
 
     private final byte[] tempBuf = new byte[1];
 
-    /**
+    /*
      * Creates a new XZ decompressor without a memory usage limit.
      * <p>
      * This constructor reads and parses the XZ Stream Header (12 bytes)
@@ -95,7 +99,7 @@ public class XZInputStream extends InputStream {
         this(in, -1);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor without a memory usage limit.
      * <p>
      * This is identical to {@code XZInputStream(InputStream)}
@@ -129,7 +133,7 @@ public class XZInputStream extends InputStream {
         this(in, -1, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor with an optional memory usage limit.
      * <p>
      * This is identical to {@code XZInputStream(InputStream)} except
@@ -162,7 +166,7 @@ public class XZInputStream extends InputStream {
         this(in, memoryLimit, true);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor with an optional memory usage limit.
      * <p>
      * This is identical to {@code XZInputStream(InputStream)} except
@@ -201,7 +205,7 @@ public class XZInputStream extends InputStream {
         this(in, memoryLimit, true, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor with an optional memory usage limit
      * and ability to disable verification of integrity checks.
      * <p>
@@ -256,7 +260,7 @@ public class XZInputStream extends InputStream {
         this(in, memoryLimit, verifyCheck, ArrayCache.getDefaultCache());
     }
 
-    /**
+    /*
      * Creates a new XZ decompressor with an optional memory usage limit
      * and ability to disable verification of integrity checks.
      * <p>
@@ -304,7 +308,7 @@ public class XZInputStream extends InputStream {
                                             arrayCache);
     }
 
-    /**
+    /*
      * Decompresses the next byte from this input stream.
      * <p>
      * Reading lots of data with {@code read()} from this input stream
@@ -330,7 +334,7 @@ public class XZInputStream extends InputStream {
         return read(tempBuf, 0, 1) == -1 ? -1 : (tempBuf[0] & 0xFF);
     }
 
-    /**
+    /*
      * Decompresses into an array of bytes.
      * <p>
      * If {@code len} is zero, no bytes are read and {@code 0}
@@ -447,7 +451,7 @@ public class XZInputStream extends InputStream {
         }
     }
 
-    /**
+    /*
      * Returns the number of uncompressed bytes that can be read
      * without blocking. The value is returned with an assumption
      * that the compressed input data will be valid. If the compressed
@@ -469,7 +473,7 @@ public class XZInputStream extends InputStream {
         return xzIn == null ? 0 : xzIn.available();
     }
 
-    /**
+    /*
      * Closes the stream and calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      * <p>
@@ -482,7 +486,7 @@ public class XZInputStream extends InputStream {
         close(true);
     }
 
-    /**
+    /*
      * Closes the stream and optionally calls {@code in.close()}.
      * If the stream was already closed, this does nothing.
      * If {@code close(false)} has been called, a further call of

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 // SPDX-License-Identifier: 0BSD
 // SPDX-FileCopyrightText: The XZ for Java authors and contributors
 // SPDX-FileContributor: Lasse Collin <lasse.collin@tukaani.org>
@@ -11,7 +15,7 @@ import org.tukaani.xz.common.StreamFlags;
 import org.tukaani.xz.check.Check;
 import org.tukaani.xz.index.IndexEncoder;
 
-/**
+/*
  * Compresses into the .xz file format.
  *
  * <h2>Examples</h2>
@@ -57,7 +61,7 @@ public class XZOutputStream extends FinishableOutputStream {
     private BlockOutputStream blockEncoder = null;
     private FilterEncoder[] filters;
 
-    /**
+    /*
      * True if the current filter chain supports flushing.
      * If it doesn't support flushing, {@code flush()}
      * will use {@code endBlock()} as a fallback.
@@ -69,7 +73,7 @@ public class XZOutputStream extends FinishableOutputStream {
 
     private final byte[] tempBuf = new byte[1];
 
-    /**
+    /*
      * Creates a new XZ compressor using one filter and CRC64 as
      * the integrity check. This constructor is equivalent to passing
      * a single-member {@code FilterOptions} array to
@@ -91,7 +95,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, filterOptions, XZ.CHECK_CRC64);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using one filter and CRC64 as
      * the integrity check. This constructor is equivalent to passing
      * a single-member {@code FilterOptions} array to
@@ -118,7 +122,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, filterOptions, XZ.CHECK_CRC64, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using one filter and the specified
      * integrity check type. This constructor is equivalent to
      * passing a single-member {@code FilterOptions} array to
@@ -143,7 +147,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, new FilterOptions[] { filterOptions }, checkType);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using one filter and the specified
      * integrity check type. This constructor is equivalent to
      * passing a single-member {@code FilterOptions} array to
@@ -174,7 +178,7 @@ public class XZOutputStream extends FinishableOutputStream {
              arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using 1-4 filters and CRC64 as
      * the integrity check. This constructor is equivalent
      * {@code XZOutputStream(out, filterOptions, XZ.CHECK_CRC64)}.
@@ -195,7 +199,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, filterOptions, XZ.CHECK_CRC64);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using 1-4 filters and CRC64 as
      * the integrity check. This constructor is equivalent
      * {@code XZOutputStream(out, filterOptions, XZ.CHECK_CRC64, arrayCache)}.
@@ -221,7 +225,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, filterOptions, XZ.CHECK_CRC64, arrayCache);
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using 1-4 filters and the specified
      * integrity check type.
      *
@@ -244,7 +248,7 @@ public class XZOutputStream extends FinishableOutputStream {
         this(out, filterOptions, checkType, ArrayCache.getDefaultCache());
     }
 
-    /**
+    /*
      * Creates a new XZ compressor using 1-4 filters and the specified
      * integrity check type.
      *
@@ -279,7 +283,7 @@ public class XZOutputStream extends FinishableOutputStream {
         encodeStreamHeader();
     }
 
-    /**
+    /*
      * Updates the filter chain with a single filter.
      * This is equivalent to passing a single-member {@code FilterOptions}
      * array to {@code updateFilters(FilterOptions[])}.
@@ -298,7 +302,7 @@ public class XZOutputStream extends FinishableOutputStream {
         updateFilters(opts);
     }
 
-    /**
+    /*
      * Updates the filter chain with 1-4 filters.
      * <p>
      * Currently this cannot be used to update e.g. LZMA2 options in the
@@ -343,7 +347,7 @@ public class XZOutputStream extends FinishableOutputStream {
         filters = newFilters;
     }
 
-    /**
+    /*
      * Writes one byte to be compressed.
      *
      * @throws      XZIOException
@@ -361,7 +365,7 @@ public class XZOutputStream extends FinishableOutputStream {
         write(tempBuf, 0, 1);
     }
 
-    /**
+    /*
      * Writes an array of bytes to be compressed.
      * The compressors tend to do internal buffering and thus the written
      * data won't be readable from the compressed output immediately.
@@ -408,7 +412,7 @@ public class XZOutputStream extends FinishableOutputStream {
         }
     }
 
-    /**
+    /*
      * Finishes the current XZ Block (but not the whole XZ Stream).
      * This doesn't flush the stream so it's possible that not all data will
      * be decompressible from the output stream when this function returns.
@@ -459,7 +463,7 @@ public class XZOutputStream extends FinishableOutputStream {
         }
     }
 
-    /**
+    /*
      * Flushes the encoder and calls {@code out.flush()}.
      * All buffered pending data will then be decompressible from
      * the output stream.
@@ -508,7 +512,7 @@ public class XZOutputStream extends FinishableOutputStream {
         }
     }
 
-    /**
+    /*
      * Finishes compression without closing the underlying stream.
      * No more data can be written to this stream after finishing
      * (calling {@code write} with an empty buffer is OK).
@@ -548,7 +552,7 @@ public class XZOutputStream extends FinishableOutputStream {
         }
     }
 
-    /**
+    /*
      * Finishes compression and closes the underlying stream.
      * The underlying stream {@code out} is closed even if finishing
      * fails. If both finishing and closing fail, the exception thrown

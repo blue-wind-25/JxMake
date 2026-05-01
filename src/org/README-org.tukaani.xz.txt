@@ -37,8 +37,15 @@ matches the Java source code from the original GitHub repository for the Tukaani
 
 CHANGES:
 
+    A marker has been added at the top of each Java source file to indicate that this program has
+    been modified by the JxMake project.
+
     Some files and directories that are not strictly required for the running of the program are not
     included here to save space.
+
+    All Javadoc-style comments have been converted to normal Java comments.
+
+    Some minor coding style changes.
 
 ----------------------------------------------------------------------------------------------------
 

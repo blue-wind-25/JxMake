@@ -20,7 +20,7 @@ public class SerialPortUtil  {
     public static void initialize()
     {
         System.setProperty("fazecast.jSerialComm.appid", "JxMake");
-
+        /*
         final String nativeLibPath = "com/fazecast/jSerialComm/native";
         if( SysUtil.isRunFromClassFile() ) {
             System.setProperty( "jSerialComm.library.path"    , SysUtil.resolvePath( nativeLibPath, SysUtil.getJxMakeClassDir().getParent().toString() ) );
@@ -28,6 +28,7 @@ public class SerialPortUtil  {
         else {
             System.setProperty( "jSerialComm.jar.library.path", nativeLibPath );
         }
+        //*/
 
         SerialPort.getCommPorts(); // Force jSerialComm to extract its native library early
 

@@ -15,6 +15,27 @@ https://github.com/Fazecast/jSerialComm
     https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-LGPL-3.0
 https://github.com/Fazecast/jSerialComm/releases/download/v2.11.4/jSerialComm-2.11.4.jar
 
+Zstd-jni
+https://github.com/luben/zstd-jni
+    Licensed under the BSD 2-Clause "Simplified" License.
+    https://github.com/luben/zstd-jni/blob/master/LICENSE
+https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.7-8/zstd-jni-1.5.7-8.jar
+    NOTE : The fat JAR has been reduced in size by removing native libraries for exotic or rarely
+           used platforms:
+               mkdir   zstd-work
+               cd      zstd-work
+               jar xf  ../zstd-jni-1.5.7-8.jar
+               rm -rvf aix
+               rm -rvf linux/loongarch64
+               rm -rvf linux/mips64
+               rm -rvf linux/ppc64
+               rm -rvf linux/ppc64le
+               rm -rvf linux/riscv64
+               rm -rvf linux/s390x
+               jar cf  ../zstd-jni.jar .
+               cd      ..
+               rm -rvf zstd-work
+
 ----------------------------------------------------------------------------------------------------
 
 SpellChecker

@@ -481,6 +481,11 @@ public class Texts {
         sb.append( "        https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-APACHE-2.0\n"                   );
         sb.append( "        https://github.com/Fazecast/jSerialComm/blob/master/LICENSE-LGPL-3.0\n"                     );
         sb.append( '\n'                                                                                                 );
+        sb.append( "    Zstd-jni\n"                                                                                     );
+        sb.append( "    https://github.com/luben/zstd-jni\n"                                                            );
+        sb.append( "        Licensed under the BSD 2-Clause \"Simplified\" License.\n"                                  );
+        sb.append( "        https://github.com/luben/zstd-jni/blob/master/LICENSE\n"                                    );
+        sb.append( '\n'                                                                                                 );
         sb.append( "    SpellChecker\n"                                                                                 );
         sb.append( "    https://github.com/bobbylight/SpellChecker\n"                                                   );
         sb.append( "        Licensed under the GNU Lesser General Public License (LGPL) version 2.1 or later.\n"        );

@@ -905,7 +905,7 @@ public enum ContentType {
 			if (type.fileExtensions != null) {
 				for (String fileExtension : type.fileExtensions) {
 					// NOTE: this may overwrite this mapping
-					fileExtensionMap.put(fileExtension, type);
+					fileExtensionMap.put(fileExtension.toLowerCase(), type);
 				}
 			}
 		}
@@ -944,7 +944,11 @@ public enum ContentType {
 	public static ContentType fromMimeType(String mimeType) {
 		// NOTE: mimeType can be null
 		if (mimeType != null) {
-			mimeType = mimeType.toLowerCase();
+			int separatorIndex = mimeType.indexOf(';');
+			if (separatorIndex >= 0) {
+				mimeType = mimeType.substring(0, separatorIndex);
+			}
+			mimeType = mimeType.trim().toLowerCase();
 		}
 		ContentType type = mimeTypeMap.get(mimeType);
 		if (type == null) {
@@ -959,7 +963,16 @@ public enum ContentType {
 	 Return the type associated with the file-extension string or {@link #OTHER} if not found.
 	 */
 	public static ContentType fromFileExtension(String fileExtension) {
-		// NOTE: mimeType can be null
+		if (fileExtension == null) {
+			return OTHER;
+		}
+		fileExtension = fileExtension.trim();
+		if (fileExtension.startsWith(".")) {
+			fileExtension = fileExtension.substring(1);
+		}
+		if (fileExtension.isEmpty()) {
+			return OTHER;
+		}
 		ContentType type = fileExtensionMap.get(fileExtension.toLowerCase());
 		if (type == null) {
 			return OTHER;

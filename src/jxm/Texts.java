@@ -457,8 +457,6 @@ public class Texts {
         sb.append( "        Licensed under the MIT License.\n"                                                          );
         sb.append( "        https://github.com/fredcooke/maven-jbzip2/blob/master/LICENCE\n"                            );
         sb.append( '\n'                                                                                                 );
-        sb.append( _T("JxMake contains slightly modified code from this open source library:\n")                        );
-        sb.append( '\n'                                                                                                 );
         sb.append( "    XZ for Java\n"                                                                                  );
         sb.append( "    https://tukaani.org/xz/java.html\n"                                                             );
         sb.append( "    https://github.com/tukaani-project/xz-java\n"                                                   );

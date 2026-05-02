@@ -1,0 +1,634 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+
+package jxm.ugc;
+
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.ArrayList;
+
+import jxm.*;
+import jxm.annotation.*;
+import jxm.tool.fwc.*;
+import jxm.xb.*;
+
+import static jxm.ugc.USB2GPIO.IEVal;
+
+
+/*
+ * Please refer to the comment block before the 'ProgPIC' class definition in the 'ProgPIC.java' file for more details and information.
+ */
+public class ProgPIC24 extends ProgPIC {
+
+    @SuppressWarnings("serial")
+    public static class Config extends ProgPIC.Config {
+
+        // JxMake use a special field name for serial version UID
+        @DataFormat.Hex16 public static final long __0_JxMake_SerialVersionUID__ = SysUtil.extSerialVersionUID(0x00000001);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public final ProgPIC_SIX_REGOUT.MemoryPE memoryPE = new ProgPIC_SIX_REGOUT.MemoryPE();
+        public final ProgPIC_EICSP     .CmdPE    cmdPE    = new ProgPIC_EICSP     .CmdPE   ();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public Config(final SubPart subPart, final Mode mode)
+        {
+            // Process the superclass
+            super( new BaseProgSpec() );
+
+            // Set the standard configuration values
+            baseProgSpec.part     = Part.PIC24;
+            baseProgSpec.subPart  = subPart;
+            baseProgSpec.mode     = mode;
+            baseProgSpec.entrySeq = (mode == Mode.HVEntrySeq || mode == Mode.LVEntrySeq) ? 0x4D434851L : -1; // NOTE : Do not use EICSP by default
+        }
+
+        public Config(final SubPart subPart)
+        { this(subPart, Mode.Default); }
+
+        public Config(final Mode mode)
+        { this(SubPart.F, mode); }
+
+        public Config()
+        { this(SubPart.F, Mode.Default); }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE : Do not forget to update '../../../../docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt' (and its translations) when adding entries here!
+
+// ##### ??? TODO : Add more specific-part 'PIC24*()' functions ??? #####
+
+
+public static Config PIC24FJxxGB00x(final int flashKSize, final int cwAStart)
+{
+    // Instantiate the configuration object
+    final Config config = new Config(SubPart.FJ, Mode.LVEntrySeq);
+
+    // Set the specification
+    config.memoryFlash.totalSize          = flashKSize * 1024 * 3;
+    config.memoryFlash.writeBlockSize     = 64                * 3; // NOTE : PIC24 writes 64 words at once (192 bytes)
+    config.memoryFlash.eraseBlockSize     = 64                * 3; // NOTE : It does not matter as long as it is multiple of 'writeBlockSize' and smaller than the 'totalSize'
+
+    config.memoryEEPROM.totalSize         = 0;
+
+    config.memoryConfigBytes.addressBeg   = cwAStart;
+    config.memoryConfigBytes.addressEnd   = config.memoryConfigBytes.addressBeg + 8 * 2;
+
+    config.memoryConfigBytes.address      = new long[] { cwAStart + 0xE    , cwAStart + 0xC    , cwAStart + 0xA    , cwAStart + 0x8     };
+    config.memoryConfigBytes.size         = new int [] { 2                 , 2                 , 2                 , 2                  };
+    config.memoryConfigBytes.bitMask      = new long[] { 0b0111101111011111, 0b1111111111110111, 0b1110111100111111, 0b0000000011111111 };
+    config.memoryConfigBytes.maxTotalSize = 8 * 2;
+    config.memoryConfigBytes.addressMulFW = 2;
+    config.memoryConfigBytes.addressOfsFW = 0;
+
+    config.memoryPE.address               = 0x800000;
+    config.memoryPE.totalSize             = 1024 * 3;
+    config.memoryPE.pageSize              =  512 * 3;
+    config.memoryPE.numPages              =  2;
+    config.memoryPE.saveWordOffset        = -1;
+    config.memoryPE.saveWordCount         =  0;
+
+    config.cmdPE.READD                    = -1; // Not available in this device
+    config.cmdPE.PROGD                    = -1; // ---
+
+    /*
+    config.cmdPE.waitDelay_MS_EraseProgMem = 2;
+    config.cmdPE.waitDelay_MS_WriteProgMem = 2;
+
+    config.cmdPE.waitDelay_MS_EraseDataMem = 2;
+    config.cmdPE.waitDelay_MS_WriteDataMem = 2;
+    //*/
+
+    // Return the configuration object
+    return config;
+}
+
+public static Config PIC24FJ32GB00x() { return PIC24FJxxGB00x(11, 0x57F0); }
+public static Config PIC24FJ64GB00x() { return PIC24FJxxGB00x(22, 0xABF0); }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+// PIC24FV32KA304
+config.memoryEEPROM.totalSize       = 512;
+config.memoryEEPROM.writeBlockSizeE = ?;
+config.memoryEEPROM.addressBeg      = 0x7FFE00;
+config.memoryEEPROM.addressEnd      = config.memoryEEPROM.addressBeg + config.memoryEEPROM.totalSize - 1;
+config.memoryEEPROM.addressMulFW    = 2;
+config.memoryEEPROM.addressOfsFW    = 0;
+//*/
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    } // class Config
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private   final ProgPIC_SIX_REGOUT _cs = new ProgPIC_SIX_REGOUT();
+    private   final ProgPIC_EICSP      _pe;
+
+    protected final Config             _config24;
+    protected final boolean            _eicsp;
+
+    @SuppressWarnings("this-escape")
+    public ProgPIC24(final USB2GPIO usb2gpio, final Config config) throws Exception
+    {
+        // Process the superclass
+        super(usb2gpio, config);
+
+        // Store the objects
+        _config24 = (Config) super._config;
+        _eicsp    = (_config24.baseProgSpec.entrySeq == 0x4D434850L);
+
+        // Configure the 'ProgPIC_SIX_REGOUT'
+        _cs.setC4D24Mode             ( useHardwareAssistedBitBangingSPI() );
+        _cs.setResetInternalPCAddress( 0x200, 0, 1                        );
+
+        // Check the configuration values
+        if(   _config24.baseProgSpec.part    != Part   .PIC24     ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvBPSPart, ProgClassName);
+        if(   _config24.baseProgSpec.subPart != SubPart.FJ        ) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvBPSSPrt, ProgClassName);
+        if(   _config24.baseProgSpec.mode    != Mode   .HVSimple
+           && _config24.baseProgSpec.mode    != Mode   .HVEntrySeq
+           && _config24.baseProgSpec.mode    != Mode   .LVSimple
+           && _config24.baseProgSpec.mode    != Mode   .LVEntrySeq) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvBPSMode, ProgClassName);
+
+        ProgPIC_SIX_REGOUT.checkMemoryPE(_config24.memoryPE, ProgClassName);
+
+        /*
+        // EICSP is not supported yet
+        if(_eicsp) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvBPSEICSP , ProgClassName);
+        //*/
+
+        // Instantiate 'ProgPIC_EICSP' as needed
+        _pe = _eicsp ? new ProgPIC_EICSP(this, USB_GPIO.SPIMode._1, USB_GPIO.SPIMode._0) : null;
+
+        if(_pe != null) {
+            _pe.adjustFlashBlockSize(_config24); // EICSP may use different flash block sizes
+            _pe.setC4D24Mode( useHardwareAssistedBitBangingSPI() );
+        }
+    }
+
+    @Override
+    public boolean inEICSPMode()
+    { return _eicsp; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected USB2GPIO.SPIMode _pic_spiMode()
+    { return USB2GPIO.SPIMode._0; }
+
+    @Override
+    protected boolean _pic_enterPVM_mcuSpecific_extra()
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Extra delay
+        SysUtil.sleepMS(100);
+
+        // EICSP
+        if(_eicsp) {
+
+            // Perform sanity check
+            return _pe.xbSanityCheck();
+        }
+
+        // ICSP
+        else {
+
+            // Send extra 5 clocks
+            if( !_usb2gpio.spiXBTransferIgnoreSS( USB2GPIO.IEVal._X, USB2GPIO.IEVal._X, 0, USB2GPIO.IEVal._X, USB2GPIO.IEVal._X, new int[] { 4, 0x00 } ) ) return false;
+
+            // Exit the reset vector
+            final int[] entry = new int[] {
+                0b0000, 0x000000, // NOP
+                0b0000, 0x040200, // GOTO 0x200
+                0b0000, 0x000000  // NOP
+            };
+
+            return _pic_xbTransfer_c4_d24(entry);
+
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _pic24_writeCWMemory(final int address24, final int value16)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_writeCWMemory_pic24(this, 0x4003, address24, value16);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_writeCWMemory_pic24(this, 0x4004, address24, value16);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_writeCWMemory_pic24(this, 0x4000, address24, value16);
+        else                                                  return false; // Invalid sub-part
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _pic24_chipErase()
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_chipErase_pic24(this, 0x404F);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_chipErase_pic24(this, 0x4064);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_chipErase_pic24(this, 0x404F);
+        else                                                  return false; // Invalid sub-part
+    }
+
+    private boolean _pic24_peErase()
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_peErase_pic24( this, 0x4042, (int) _config24.memoryPE.address, _cs.cadr(_config24.memoryPE.pageSize), _config24.memoryPE.numPages,  0 );
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_peErase_pic24( this, 0x405A, (int) _config24.memoryPE.address, _cs.cadr(_config24.memoryPE.pageSize), _config24.memoryPE.numPages,  0 );
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_peErase_pic24( this, 0x4042, (int) _config24.memoryPE.address, _cs.cadr(_config24.memoryPE.pageSize), _config24.memoryPE.numPages, 20 );
+        else                                                  return false; // Invalid sub-part
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private int _pic24_readU16MemoryPage(final int address24)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return -1; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_readU16Memory_pic24(this, address24);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_readU16Memory_pic24(this, address24);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return -1; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_readU16Memory_pic24(this, address24);
+        else                                                  return -1; // Invalid sub-part
+    }
+
+    private boolean _pic24_readU16MemoryPage(final int address24, final int[] dstBuff)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_readU16Memory_pic24(this, address24, dstBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_readU16Memory_pic24(this, address24, dstBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_readU16Memory_pic24(this, address24, dstBuff);
+        else                                                  return false; // Invalid sub-part
+    }
+
+    private boolean _pic24_writeU16MemoryPage(final int address24, final int[] srcBuff)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_writeU16MemoryPage_pic24(this, 0x4001, address24, srcBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_writeU16MemoryPage_pic24(this, 0x4004, address24, srcBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_writeU16MemoryPage_pic24(this, 0x4001, address24, srcBuff);
+        else                                                  return false; // Invalid sub-part
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _pic24_readCodeMemory(final int address24, final int[] dstBuff)
+    { return _cs.exeCmds_readCodeMemory_pic24(this, _config24.memoryFlash, address24, dstBuff); }
+
+    private boolean _pic24_writeCodeMemory(final boolean firstCall, final int address24, final int[] srcBuff)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return _cs.exeCmds_writeCodeMemory_pic24(this, _config24.memoryFlash, 0x4001, 16, firstCall, address24, srcBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_writeCodeMemory_pic24(this, _config24.memoryFlash, 0x4004,  8, firstCall, address24, srcBuff);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // ##### !!! TODO !!! #####
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return _cs.exeCmds_writeCodeMemory_pic24(this, _config24.memoryFlash, 0x4001, 16, firstCall, address24, srcBuff);
+        else                                                  return false; // Invalid sub-part
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _pic24_readDataMemory(final int address24, final int[] dstBuff)
+    { return _cs.exeCmds_readDataMemory_pic24(this, address24, dstBuff); }
+
+    private boolean _pic24_writeDataMemory(final int address24, final int[] srcBuff, final boolean eepromErased)
+    {
+             if(_config24.baseProgSpec.subPart == SubPart.EP) return false; // This MCU variant does not have built-in EEPROM // ##### ??? TODO ??? #####
+        else if(_config24.baseProgSpec.subPart == SubPart.FJ) return false; // This MCU variant does not have built-in EEPROM
+        else if(_config24.baseProgSpec.subPart == SubPart.FK) return _cs.exeCmds_writeDataMemory_pic24(this, 0x4004, address24, srcBuff, !eepromErased);
+        else if(_config24.baseProgSpec.subPart == SubPart.FV) return false; // This MCU variant does not have built-in EEPROM
+        else if(_config24.baseProgSpec.subPart == SubPart.HJ) return false; // This MCU variant does not have built-in EEPROM
+        else                                                  return false; // Invalid sub-part
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean _pic24_subPartIsNotSupported()
+    {
+        // For the time being, these subparts are not supported
+        return _config24.baseProgSpec.subPart == SubPart.EP || _config24.baseProgSpec.subPart == SubPart.FK ||
+               _config24.baseProgSpec.subPart == SubPart.FV || _config24.baseProgSpec.subPart == SubPart.HJ;
+    }
+
+    private boolean _pic24_operationIsNotSupported_icsp()
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return true;
+
+        // This operation is not supported in ICSP mode
+        if(!_eicsp) return !USB2GPIO.notifyError(Texts.ProgXXX_FailPIC_OperICSP, ProgClassName);
+
+        // The operation is supported in ICSP mode
+        return false;
+    }
+
+    private boolean _pic24_operationIsNotSupported_eicsp()
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return true;
+
+        // This operation is not supported in EICSP mode
+        if(_eicsp) return !USB2GPIO.notifyError(Texts.ProgXXX_FailPIC_OperEICSP, ProgClassName);
+
+        // The operation is supported in EICSP mode
+        return false;
+    }
+
+    @Override
+    protected int _picxx_minSANBAlignSize()
+    { return 3; }
+
+    @Override
+    protected int _picxx_configByteSize()
+    { return 2; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected int _picxx_readDeviceIDFull()
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return -1;
+
+        /*
+        System.out.printf( "### %04X\n", _pic24_readU16MemoryPage(0x8007F0) ); // Application ID
+        // 0x00BB -> the programming executive is available for use
+        //*/
+
+        // Read and return the device ID
+        return _eicsp ? _pe.ssReadDeviceID      (0xFF0000)
+                      : _pic24_readU16MemoryPage(0xFF0000);
+    }
+
+    @Override
+    protected int _picxx_readDeviceID()
+    {
+        // There is no device revision code in the device ID
+        return _picxx_readDeviceIDFull();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected boolean _picxx_chipErase()
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Most programmer executive does not support full chip erase, so assume good here
+        if(_eicsp) return true;
+
+        // Perform chip erase
+        return _pic24_chipErase();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected boolean _picxx_readFlash(final long address, final int[] dstBuff)
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Prepare an aligned buffer as needed
+        final boolean reqPad = (dstBuff.length % _config24.memoryFlash.writeBlockSize != 0);
+        final int     blkCnt = (dstBuff.length / _config24.memoryFlash.writeBlockSize) + (reqPad ? 1 : 0);
+        final int[]   rdBuff = reqPad ? ( new int[blkCnt * _config24.memoryFlash.writeBlockSize] ) : dstBuff;
+
+        // Read the code memory
+        if(_eicsp) {
+            if( !_pe.ssReadCodeMemory ( (int) address, rdBuff ) ) return false;
+        }
+        else {
+            if( !_pic24_readCodeMemory( (int) address, rdBuff ) ) return false;
+        }
+
+        // Copy the result as needed
+        if(reqPad) XCom.arrayCopy(dstBuff, rdBuff, 0, dstBuff.length);
+
+        // Done
+        return true;
+    }
+
+    @Override
+    protected boolean _picxx_writeFlash(final boolean firstCall, final long address, final int[] srcBuff)
+    {
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Write the code memory
+        if(_eicsp) {
+            return _pe.ssWriteCodeMemory ( (int) address, srcBuff );
+        }
+        else {
+            return _pic24_writeCodeMemory( firstCall, (int) address, srcBuff );
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean _picxx_supportsEEPROMAutoErase()
+    { return true; }
+
+    @Override
+    protected boolean _picxx_readEntireEEPROM(final int[] dstBuff)
+    {
+        // ##### !!! TODO : VERIFY !!! #####
+
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Read and return all the EEPROM data
+        if(_eicsp) {
+            return _pe.ssReadEntireDataMemory( (int) _config24.memoryEEPROM.addressBeg, dstBuff );
+        }
+        else {
+            return _pic24_readDataMemory( (int) _config24.memoryEEPROM.addressBeg, dstBuff );
+        }
+    }
+
+    @Override
+    protected boolean _picxx_writeEntireEEPROM(final int[] srcBuff, final boolean[] fDirty, final boolean eepromErased)
+    {
+        // ##### !!! TODO : VERIFY !!! #####
+
+        // NOTE : The parameter 'eepromErased' is not used here because PIC24 will automatically erase
+        //        the EEPROM before writing to it.
+        // ##### !!! TODO : Does PIC24 really automatically erase the EEPROM before writing to it   !!! #####
+        // ##### !!! TODO : If not, pass the 'eepromErased' argument to the implementation function !!! #####
+
+        // Check for unsupported subparts
+        if( _pic24_subPartIsNotSupported() ) return false;
+
+        // Check if at least one of the elements is dirty
+        // ##### !!! TODO : Pass the 'fDirty' argument to the implementation function (for optimization)? !!! #####
+        if( XCom.arrayAllElementsEqual(fDirty) && !fDirty[0] ) return true;
+
+        // Write all the EEPROM data
+        if(_eicsp) {
+            return _pe.ssWriteEntireDataMemory( (int) _config24.memoryEEPROM.addressBeg, srcBuff, _config24.memoryEEPROM.writeBlockSizeE );
+        }
+        else {
+            return _pic24_writeDataMemory( (int) _config24.memoryEEPROM.addressBeg, srcBuff, eepromErased );
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected long _picxx_readConfigByte(final long address)
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return -1;
+
+        // Read the byte
+        return _pic24_readU16MemoryPage( (int) address );
+    }
+
+    @Override
+    protected boolean _picxx_writeConfigBytes(final long[] refBuff, final long[] newBuff)
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return false;
+
+        // Write the configuration bytes as needed
+        for(int i = 0; i < _config24.memoryConfigBytes.address.length; ++i) {
+
+            // Skip those that are not used
+            if(_config24.memoryConfigBytes.address[i] < 0) continue;
+
+            // Get the new value
+            final long newVal = _getNewCWValue(i, refBuff, newBuff, _config24);
+
+            // Skip those that are not changed
+            if(newVal == refBuff[i]) continue;
+
+            // Write the byte
+            /*
+            SysUtil.stdErr().printf("### [%08X] : %04X => %04X\n", _config24.memoryConfigBytes.address[i], refBuff[i], newVal);
+            //*/
+            if( !_pic24_writeCWMemory( (int) _config24.memoryConfigBytes.address[i], (int) newVal ) ) return false;
+
+        } // for
+
+        // Done
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected ProgPIC_EICSP.CmdPE _picxx_pe_cmdPE()
+    { return _config24.cmdPE; }
+
+    @Override
+    protected byte[] _picxx_pe_checkAdjustPE(final byte[] data)
+    { return data; }
+
+    @Override
+    protected int[] _picxx_pe_readSavedWords()
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return null;
+
+        // Simply return an empty array if there is no word to be saved
+        if( _config24.memoryPE.saveWordOffset < 0 ) return new int[0];
+
+        // Read the words
+        final int[] buff16 = new int [_config24.memoryPE.saveWordCount];
+
+        if( !_pic24_readU16MemoryPage( (int) (_config24.memoryPE.address + _config24.memoryPE.saveWordOffset), buff16 ) ) return null;
+
+        // Copy and return the words with padding
+        final int[] res = new int[_config24.memoryFlash.writeBlockSize / 3];
+
+        Arrays.fill(res, FlashMemory_EmptyValue & 0xFF);
+        for(int i = 0; i < buff16.length; ++i) res[i] = buff16[i];
+
+        return res;
+    }
+
+    @Override
+    protected boolean _picxx_pe_writeSavedWords(final int[] srcBuff)
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return false;
+
+        // Error if the buffer is null
+        if(srcBuff == null) return false;
+
+        // Write the words
+        return _pic24_writeU16MemoryPage( (int) (_config24.memoryPE.address + _config24.memoryPE.saveWordOffset), srcBuff );
+    }
+
+    @Override
+    protected boolean _picxx_pe_eraseArea()
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return false;
+
+        if(false) return true;
+
+        // Perform area erase
+        return _pic24_peErase();
+    }
+
+    @Override
+    protected boolean _picxx_pe_writeData(final boolean firstCall, final long address, final int[] srcBuff)
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return false;
+
+        // Error if the address is out of range
+        if(address + srcBuff.length > _config24.memoryPE.totalSize) return false;
+
+        if(false) return true;
+
+        // Write the PE memory
+        return _picxx_writeFlash( firstCall, _cs.badr(_config24.memoryPE.address) + address, srcBuff );
+    }
+
+    @Override
+    protected boolean _picxx_pe_readData(final long address, final int[] dstBuff)
+    {
+        // Check for unsupported subparts and operation
+        if( _pic24_operationIsNotSupported_eicsp() ) return false;
+
+        // Error if the address is out of range
+        if(address + dstBuff.length > _config24.memoryPE.totalSize) return false;
+
+        if(false) return true;
+
+        // Read the PE memory
+        return _picxx_readFlash( _cs.badr(_config24.memoryPE.address) + address, dstBuff );
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public FWD fwDecompose(final FWComposer fwc) throws Exception
+    { return _cs.fwDecompose( super.fwDecompose(fwc), fwc ); }
+
+} // class ProgPIC24

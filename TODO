@@ -141,7 +141,7 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Create a 'JxMake USB-GPIO III' module using the STM32H7xx, compatible with the same
   'Logic Level Translator' module used in the 'JxMake USB-GPIO II' module.
 
-# Continue the improvement of (also replace deprecated methods with the newer ones):
+# Further the improvement of (also replace deprecated methods with the newer ones):
       'com.j256.simplemagic'
       'com.intellectualsites.http' (use the more modern 'java.net.http.HttpClient', if possible)
       'org.kamranzafar.jtar'

@@ -62,7 +62,7 @@ public class BZip2BlockCompressor {
 	/*
 	 * Current length of the data within the {@link block} array
 	 */
-	private int blockLength = 0;
+	private long blockLength = 0;
 
 	/*
 	 * A limit beyond which new data will not be accepted into the block
@@ -132,7 +132,7 @@ public class BZip2BlockCompressor {
 	 */
 	private void writeRun (final int value, int runLength) {
 
-		final int blockLength = this.blockLength;
+		final int blockLength = (int)this.blockLength;
 		final byte[] block = this.block;
 
 		this.blockValuesPresent[value] = true;
@@ -245,10 +245,10 @@ public class BZip2BlockCompressor {
 		}
 
 		// Apply a one byte block wrap required by the BWT implementation
-		this.block[this.blockLength] = this.block[0];
+		this.block[(int)this.blockLength] = this.block[0];
 
 		// Perform the Burrows Wheeler Transform
-		BZip2DivSufSort divSufSort = new BZip2DivSufSort (this.block, this.bwtBlock, this.blockLength);
+		BZip2DivSufSort divSufSort = new BZip2DivSufSort (this.block, this.bwtBlock, (int)this.blockLength);
 		int bwtStartPointer = divSufSort.bwt();
 
 		// Write out the block header
@@ -262,7 +262,7 @@ public class BZip2BlockCompressor {
 		writeSymbolMap();
 
 		// Perform the Move To Front Transform and Run-Length Encoding[2] stages
-		BZip2MTFAndRLE2StageEncoder mtfEncoder = new BZip2MTFAndRLE2StageEncoder (this.bwtBlock, this.blockLength, this.blockValuesPresent);
+		BZip2MTFAndRLE2StageEncoder mtfEncoder = new BZip2MTFAndRLE2StageEncoder (this.bwtBlock, (int)this.blockLength, this.blockValuesPresent);
 		mtfEncoder.encode();
 
 		// Perform the Huffman Encoding stage and write out the encoded data

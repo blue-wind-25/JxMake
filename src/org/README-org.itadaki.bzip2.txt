@@ -26,6 +26,12 @@ CHANGES:
 
     Some '@SuppressWarnings' annotations have been modified and/or added.
 
+    Added features:
+        - Replaced the complex DivSufSort with Manber-Myers doubling algorithm using radix sort.
+        - Implemented stream-level CRC.
+        - Implemented large file support.
+        - Implemented trailing garbage handling.
+
     All Javadoc-style comments have been converted to normal Java comments.
 
     Some minor coding style changes.

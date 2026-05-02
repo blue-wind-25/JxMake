@@ -26,8 +26,8 @@ No individual language dictionary ***.zip** files have been released yet for the
 + Support for basic **i18n** has been added, but no **l10n** translation files are available yet.
 
 + Support for Zstandard compression and decompression has been added.
-org.kamranzafar.jtar
-org.itadaki.bzip2
+
++ The implementations of `org.kamranzafar.jtar` and `org.itadaki.bzip2` have been improved.
 
 + Added the command-line option `--en-headless`, which is useful on Linux when the **DISPLAY** environment variable has an invalid value or the X server is not accessible.
 

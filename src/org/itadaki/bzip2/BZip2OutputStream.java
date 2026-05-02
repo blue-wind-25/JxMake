@@ -67,6 +67,10 @@ public class BZip2OutputStream extends OutputStream {
 	 */
 	private BZip2BlockCompressor blockCompressor;
 
+	private long totalBytesWritten = 0;
+
+	private long totalBlocksWritten = 0;
+
 
 	/* (non-Javadoc)
 	 * @see java.io.OutputStream#write(int)
@@ -82,6 +86,7 @@ public class BZip2OutputStream extends OutputStream {
 			throw new BZip2Exception ("Write beyond end of stream");
 		}
 
+		this.totalBytesWritten++;
 		if (!this.blockCompressor.write (value & 0xff)) {
 			closeBlock();
 			initialiseNextBlock();
@@ -105,6 +110,7 @@ public class BZip2OutputStream extends OutputStream {
 			throw new BZip2Exception ("Write beyond end of stream");
 		}
 
+		this.totalBytesWritten += length;
 		int bytesWritten;
 		while (length > 0) {
 			if ((bytesWritten = this.blockCompressor.write (data, offset, length)) < length) {
@@ -138,6 +144,7 @@ public class BZip2OutputStream extends OutputStream {
 	 */
 	private void initialiseNextBlock() {
 
+		this.totalBlocksWritten++;
 		this.blockCompressor = new BZip2BlockCompressor (this.bitOutputStream, this.streamBlockSize);
 
 	}

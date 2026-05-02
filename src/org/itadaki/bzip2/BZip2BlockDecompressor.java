@@ -159,13 +159,13 @@ public class BZip2BlockDecompressor {
 	 * The actual length in bytes of the current block at the Inverse Burrows Wheeler Transform
 	 * stage (before final Run-Length Decoding)
 	 */
-	private int bwtBlockLength;
+	private long bwtBlockLength;
 
 	/*
 	 * The number of output bytes that have been decoded up to the Inverse Burrows Wheeler Transform
 	 * stage
 	 */
-	private int bwtBytesDecoded;
+	private long bwtBytesDecoded;
 
 	/* Run-Length Encoding and Random Perturbation stage */
 
@@ -332,7 +332,7 @@ public class BZip2BlockDecompressor {
 	private void initialiseInverseBWT (final int bwtStartPointer) throws IOException {
 
 		final byte[] bwtBlock  = this.bwtBlock;
-		final int[] bwtMergedPointers = new int[this.bwtBlockLength];
+		final int[] bwtMergedPointers = new int[(int)this.bwtBlockLength];
 		final int[] characterBase = new int[256];
 
 		if ((bwtStartPointer < 0) || (bwtStartPointer >= this.bwtBlockLength)) {

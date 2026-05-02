@@ -26,10 +26,10 @@ CHANGES:
     Some '@SuppressWarnings' annotations have been modified and/or added.
 
     Added features:
+        - Updated Octal and TarHeader to use Base-256 binary encoding for file sizes exceeding 8GB.
         - Implemented GNU @LongLink support. TarOutputStream now automatically writes @LongLink
           entries for names or link names exceeding 100 bytes, and TarInputStream transparently
           restores the full path.
-        - Updated Octal and TarHeader to use Base-256 binary encoding for file sizes exceeding 8GB.
         - Switched filename and path handling to UTF-8 in TarHeader, ensuring modern filesystem
           compatibility.
         - Added an overloaded TarHeader.createHeader() to support LF_LINK (hard links) and

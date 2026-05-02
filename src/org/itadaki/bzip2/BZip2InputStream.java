@@ -91,12 +91,23 @@ public class BZip2InputStream extends InputStream {
 	 */
 	private BZip2BlockDecompressor blockDecompressor = null;
 
+	private long totalBytesRead = 0;
+
+	private long totalBlocksRead = 0;
+
+	private boolean finished = false;
+
 
 	/* (non-Javadoc)
 	 * @see java.io.InputStream#read()
 	 */
 	@Override
 	public int read() throws IOException {
+
+		final boolean finished = this.finished;
+		if (finished) {
+			return -1;
+		}
 
 		int nextByte = -1;
 		if (this.blockDecompressor == null) {
@@ -111,6 +122,10 @@ public class BZip2InputStream extends InputStream {
 			}
 		}
 
+		if (nextByte != -1) {
+			this.totalBytesRead++;
+		}
+
 		return nextByte;
 
 	}
@@ -121,6 +136,11 @@ public class BZip2InputStream extends InputStream {
 	 */
 	@Override
 	public int read (final byte[] destination, final int offset, final int length) throws IOException {
+
+		final boolean finished = this.finished;
+		if (finished) {
+			return -1;
+		}
 
 		int bytesRead = -1;
 		if (this.blockDecompressor == null) {
@@ -133,6 +153,10 @@ public class BZip2InputStream extends InputStream {
 			if (initialiseNextBlock()) {
 				bytesRead = this.blockDecompressor.read (destination, offset, length);
 			}
+		}
+
+		if (bytesRead != -1) {
+			this.totalBytesRead += bytesRead;
 		}
 
 		return bytesRead;
@@ -232,6 +256,7 @@ public class BZip2InputStream extends InputStream {
 		if (marker1 == BZip2Constants.BLOCK_HEADER_MARKER_1 && marker2 == BZip2Constants.BLOCK_HEADER_MARKER_2) {
 			// Initialise a new block
 			try {
+				this.totalBlocksRead++;
 				this.blockDecompressor = new BZip2BlockDecompressor (this.bitInputStream, this.streamBlockSize);
 			} catch (IOException e) {
 				// If the block could not be decoded, stop trying to read more data
@@ -246,6 +271,7 @@ public class BZip2InputStream extends InputStream {
 			if (storedCombinedCRC != this.streamCRC) {
 				throw new BZip2Exception ("BZip2 stream CRC error");
 			}
+			this.finished = true;
 			return false;
 		}
 

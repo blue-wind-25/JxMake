@@ -107,7 +107,7 @@ public final class CRC32 {
 	 * @param value The value to update the CRC with
 	 * @param count The number of bytes
 	 */
-	public void updateCRC (final int value, int count) {
+	public void updateCRC (final int value, long count) {
 
 		int crc = this.crc;
 

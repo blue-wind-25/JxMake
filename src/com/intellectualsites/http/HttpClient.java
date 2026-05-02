@@ -219,14 +219,17 @@ public final class HttpClient {
 
         @SuppressWarnings("deprecation")
         private WrappedRequestBuilder(final HttpMethod method, String url) {
-            if (url.startsWith("/")) {
-                if (url.length() == 1) {
-                    url = "";
+            final String baseURL = HttpClient.this.settings.getBaseURL();
+            if (!URI.create(url).isAbsolute()) {
+                if (url.startsWith("/")) {
+                    url = (url.length() == 1) ? "" : url.substring(1);
+                }
+                if (baseURL.endsWith("/")) {
+                    url = baseURL + url;
                 } else {
-                    url = url.substring(1);
+                    url = baseURL + '/' + url;
                 }
             }
-            url = HttpClient.this.settings.getBaseURL() + '/' + url;
             try {
                 final URL javaURL = URI.create(url).toURL();
                 builder.withURL(javaURL);

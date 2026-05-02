@@ -278,6 +278,9 @@ public class ContentInfoUtil {
 	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findExtensionMatch(String name) {
+		if (name == null) {
+			return null;
+		}
 		name = name.toLowerCase();
 
 		// look up the whole name first
@@ -306,7 +309,7 @@ public class ContentInfoUtil {
 	 @return The matching content-info or null if no matches.
 	 */
 	public static ContentInfo findMimeTypeMatch(String mimeType) {
-		ContentType type = ContentType.fromMimeType(mimeType.toLowerCase());
+		ContentType type = ContentType.fromMimeType(mimeType);
 		if (type == ContentType.OTHER) {
 			return null;
 		} else {

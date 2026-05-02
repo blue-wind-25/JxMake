@@ -127,7 +127,7 @@ endif
 ##### Exclude source code files that rely on the Foreign Function and Memory (FFM) API when
 ##### building with Java versions earlier than 23 (required by JavaDoesUSB) or if the required
 ##### dependency JAR files are missing
-ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 23 || test "$(CF_TDIR)" != true ) && echo true), true)
+ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 23 ) && echo true), true)
     ExcludeUSB      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU
     JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeUSB),$(JAVA_CLASSES))
     JAVA_SOURCES_PP := $(call filter_out_multi,$(ExcludeUSB),$(JAVA_SOURCES_PP))

@@ -28,6 +28,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+
 
 /*
  * @author Kamran Zafar
@@ -122,12 +124,30 @@ public class TarOutputStream extends OutputStream {
 	public void putNextEntry(TarEntry entry) throws IOException {
 		closeCurrentEntry();
 
+		writeGnuLongName(entry.getName(), TarHeader.LF_GNULONGLINK);
+		writeGnuLongName(entry.getHeader().linkName.toString(), TarHeader.LF_GNULONGLINK_LINK);
+
 		byte[] header = new byte[TarConstants.HEADER_BLOCK];
 		entry.writeEntryHeader( header );
 
 		write( header );
 
 		currentEntry = entry;
+	}
+
+	private void writeGnuLongName(String name, byte type) throws IOException {
+		byte[] bytes = name.getBytes(StandardCharsets.UTF_8);
+		if (bytes.length > TarHeader.NAMELEN) {
+			TarHeader longHeader = new TarHeader();
+			longHeader.name = new StringBuffer("././@LongLink");
+			longHeader.linkFlag = type;
+			longHeader.size = bytes.length + 1;
+
+			putNextEntry(new TarEntry(longHeader));
+			write(bytes);
+			write(0);
+			closeCurrentEntry();
+		}
 	}
 
 	/*

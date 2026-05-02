@@ -200,6 +200,8 @@ public class FuncCall extends ExecBlock {
                 case srfile_rec         :        FSManip ._execute_srfd_rec     (_retVal, evalVals, this, execData, false                  ); break;
                 case srdir_rec          :        FSManip ._execute_srfd_rec     (_retVal, evalVals, this, execData, true                   ); break;
 
+                case tzstdir_rec        :        FCUtil  ._execute_tzstdir_rec  (_retVal, evalVals, this, execData, false                  ); break;
+                case untzst_rec         :        FCUtil  ._execute_tzstdir_rec  (_retVal, evalVals, this, execData, true                   ); break;
                 case txzdir_rec         :        FCUtil  ._execute_txzdir_rec   (_retVal, evalVals, this, execData, false                  ); break;
                 case untxz_rec          :        FCUtil  ._execute_txzdir_rec   (_retVal, evalVals, this, execData, true                   ); break;
                 case tbz2dir_rec        :        FCUtil  ._execute_tbz2dir_rec  (_retVal, evalVals, this, execData, false                  ); break;
@@ -210,6 +212,8 @@ public class FuncCall extends ExecBlock {
                 case untzip_rec         :        FCUtil  ._execute_tzipdir_rec  (_retVal, evalVals, this, execData, true                   ); break;
                 case untar_rec          :        FCUtil  ._execute_untardir_rec (_retVal, evalVals, this, execData                         ); break;
                 case unzip_rec          :        FCUtil  ._execute_unzipdir_rec (_retVal, evalVals, this, execData                         ); break;
+                case zst                :        FCUtil  ._execute_zst          (_retVal, evalVals, this, execData, false                  ); break;
+                case unzst              :        FCUtil  ._execute_zst          (_retVal, evalVals, this, execData, true                   ); break;
                 case xz                 :        FCUtil  ._execute_xz           (_retVal, evalVals, this, execData, false                  ); break;
                 case unxz               :        FCUtil  ._execute_xz           (_retVal, evalVals, this, execData, true                   ); break;
                 case bzip2              :        FCUtil  ._execute_bzip2        (_retVal, evalVals, this, execData, false                  ); break;

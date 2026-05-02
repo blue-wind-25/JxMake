@@ -1092,6 +1092,8 @@ public class XCom {
         lsdir_rec,
         srfile_rec,
         srdir_rec,
+        tzstdir_rec,
+        untzst_rec,
         txzdir_rec,
         untxz_rec,
         tbz2dir_rec,
@@ -1102,6 +1104,8 @@ public class XCom {
         untzip_rec,
         untar_rec,
         unzip_rec,
+        zst,
+        unzst,
         xz,
         unxz,
         bzip2,
@@ -1460,6 +1464,8 @@ public class XCom {
             _funcList.put( "$lsdir_rec"         , new FuncSpec(FuncName.lsdir_rec         , true , 1,  2) );
             _funcList.put( "$srfile_rec"        , new FuncSpec(FuncName.srfile_rec        , true , 2,  1) );
             _funcList.put( "$srdir_rec"         , new FuncSpec(FuncName.srdir_rec         , true , 2,  1) );
+            _funcList.put( "$tzstdir_rec"       , new FuncSpec(FuncName.tzstdir_rec       , true , 2,  2) );
+            _funcList.put( "$untzst_rec"        , new FuncSpec(FuncName.untzst_rec        , true , 2,  1) );
             _funcList.put( "$txzdir_rec"        , new FuncSpec(FuncName.txzdir_rec        , true , 2,  2) );
             _funcList.put( "$untxz_rec"         , new FuncSpec(FuncName.untxz_rec         , true , 2,  1) );
             _funcList.put( "$tbz2dir_rec"       , new FuncSpec(FuncName.tbz2dir_rec       , true , 2,  2) );
@@ -1470,6 +1476,8 @@ public class XCom {
             _funcList.put( "$untzip_rec"        , new FuncSpec(FuncName.untzip_rec        , true , 2,  1) );
             _funcList.put( "$untar_rec"         , new FuncSpec(FuncName.untar_rec         , true , 2,  1) );
             _funcList.put( "$unzip_rec"         , new FuncSpec(FuncName.unzip_rec         , true , 2,  1) );
+            _funcList.put( "$zst"               , new FuncSpec(FuncName.zst               , true , 2,  1) );
+            _funcList.put( "$unzst"             , new FuncSpec(FuncName.unzst             , true , 2,  1) );
             _funcList.put( "$xz"                , new FuncSpec(FuncName.xz                , true , 2,  1) );
             _funcList.put( "$unxz"              , new FuncSpec(FuncName.unxz              , true , 2,  1) );
             _funcList.put( "$bzip2"             , new FuncSpec(FuncName.bzip2             , true , 2,  1) );

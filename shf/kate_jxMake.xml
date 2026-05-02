@@ -17,7 +17,7 @@
 <language
     name="JxMake Specification File"
     section="Other"
-    version="1.0.121"
+    version="1.0.122"
     kateversion="2.4"
     indenter="normal"
     mimetype="text/plain"
@@ -570,6 +570,8 @@
                 <StringDetect String="lsdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="lsdir"              attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="srdir_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="tzstdir_rec"        attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="untzst_rec"         attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="txzdir_rec"         attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="untxz_rec"          attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="tbz2dir_rec"        attribute="BFunctionCall" context="BFunctionCall" />
@@ -580,6 +582,8 @@
                 <StringDetect String="untzip_rec"         attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="untar_rec"          attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="unzip_rec"          attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="unzst"              attribute="BFunctionCall" context="BFunctionCall" />
+                <StringDetect String="zst"                attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="unxz"               attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="xz"                 attribute="BFunctionCall" context="BFunctionCall" />
                 <StringDetect String="bzip2"              attribute="BFunctionCall" context="BFunctionCall" />

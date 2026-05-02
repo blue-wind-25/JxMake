@@ -22,6 +22,7 @@
 package org.kamranzafar.jtar;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 /*
  * Header
@@ -96,6 +97,8 @@ public class TarHeader {
 	public static final byte LF_DIR = (byte) '5';
 	public static final byte LF_FIFO = (byte) '6';
 	public static final byte LF_CONTIG = (byte) '7';
+	public static final byte LF_GNULONGLINK = (byte) 'L';
+	public static final byte LF_GNULONGLINK_LINK = (byte) 'K';
 
 	/*
 	 * Ustar header
@@ -156,16 +159,12 @@ public class TarHeader {
 	 * @return The header's entry name.
 	 */
 	public static StringBuffer parseName(byte[] header, int offset, int length) {
-		StringBuffer result = new StringBuffer(length);
-
-		int end = offset + length;
-		for (int i = offset; i < end; ++i) {
-			if (header[i] == 0)
-				break;
-			result.append((char) header[i]);
+		int len = 0;
+		for (int i = offset; i < offset + length && header[i] != 0; i++) {
+			len++;
 		}
 
-		return result;
+		return new StringBuffer(new String(header, offset, len, StandardCharsets.UTF_8));
 	}
 
 	/*
@@ -181,9 +180,10 @@ public class TarHeader {
 	 */
 	public static int getNameBytes(StringBuffer name, byte[] buf, int offset, int length) {
 		int i;
+		byte[] bytes = name.toString().getBytes(StandardCharsets.UTF_8);
 
-		for (i = 0; i < length && i < name.length(); ++i) {
-			buf[offset + i] = (byte) name.charAt(i);
+		for (i = 0; i < length && i < bytes.length; ++i) {
+		      buf[offset + i] = bytes[i];
 		}
 
 		for (; i < length; ++i) {
@@ -213,13 +213,9 @@ public class TarHeader {
 		TarHeader header = new TarHeader();
 		header.linkName = new StringBuffer("");
 		header.mode = permissions;
+		header.name = new StringBuffer(name);
+		header.namePrefix = new StringBuffer("");
 
-		if (name.length() > 100) {
-			header.namePrefix = new StringBuffer(name.substring(0, name.lastIndexOf('/')));
-			header.name = new StringBuffer(name.substring(name.lastIndexOf('/') + 1));
-		} else {
-			header.name = new StringBuffer(name);
-		}
 		if (dir) {
 			header.linkFlag = TarHeader.LF_DIR;
 			if (header.name.charAt(header.name.length() - 1) != '/') {
@@ -236,6 +232,15 @@ public class TarHeader {
 		header.devMajor = 0;
 		header.devMinor = 0;
 
+		return header;
+	}
+
+	public static TarHeader createHeader(String entryName, long size, long modTime, boolean dir, int permissions, byte linkFlag, String linkName) {
+		TarHeader header = createHeader(entryName, size, modTime, dir, permissions);
+		header.linkFlag = linkFlag;
+		if (linkName != null) {
+			header.linkName = new StringBuffer(linkName);
+		}
 		return header;
 	}
 }

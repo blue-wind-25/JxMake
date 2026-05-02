@@ -41,6 +41,14 @@ public class Octal {
 	 * @return The long value of the octal string.
 	 */
 	public static long parseOctal(byte[] header, int offset, int length) {
+		if ((header[offset] & 0x80) != 0) {
+			long result = 0;
+			for (int i = offset + (length - 8); i < offset + length; i++) {
+				result = (result << 8) + (header[i] & 0xff);
+			}
+			return result;
+		}
+
 		long result = 0;
 		boolean stillPadding = true;
 
@@ -139,9 +147,22 @@ public class Octal {
 	 * @return The long value of the octal bytes.
 	 */
 	public static int getLongOctalBytes(long value, byte[] buf, int offset, int length) {
+		if (value < 0 || value >= 8589934592L) {
+			return getBinaryBytes(value, buf, offset, length);
+		}
 		byte[] temp = new byte[length + 1];
 		getOctalBytes( value, temp, 0, length + 1 );
 		System.arraycopy( temp, 0, buf, offset, length );
+		return offset + length;
+	}
+
+	private static int getBinaryBytes(long value, byte[] buf, int offset, int length) {
+		long val = value;
+		for (int i = length - 1; i >= 1; i--) {
+			buf[offset + i] = (byte) (val & 0xff);
+			val >>= 8;
+		}
+		buf[offset] = (byte) 0x80;
 		return offset + length;
 	}
 

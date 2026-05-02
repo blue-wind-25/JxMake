@@ -77,6 +77,9 @@ public abstract class TarGen {
 
         strList.remove(srcDirAbsPath);
 
+        // ##### !!! TODO : Symbolic and hard links? !!! #####
+        // public static TarHeader createHeader(String entryName, long size, long modTime, boolean dir, int permissions, byte linkFlag, String linkName);
+
         // Get the inputs
         final File[] inFiles = new File[ strList.size() ];
 

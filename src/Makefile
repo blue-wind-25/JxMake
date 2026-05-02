@@ -982,17 +982,20 @@ clean: jxmlib_clean kicad8_clean
 	@rm -rvf ../test/src/cpp_arduino/OTA/public.key
 	@rm -rvf ../test/src/java/build
 	@rm -rvf ../test/src/lds/build
+	@rm  -vf ../test/test.tar.zst
 	@rm  -vf ../test/test.tar.xz
 	@rm  -vf ../test/test.tar.bz2
 	@rm  -vf ../test/test.tar.gz
 	@rm  -vf ../test/test.tar.zip
 	@rm  -vf ../test/test.zip
 	@rm  -vf ../test/1-test.zip
+	@rm  -vf ../test/1-tarinpdir-*.tar.zst
 	@rm  -vf ../test/1-tarinpdir-*.tar.xz
 	@rm  -vf ../test/1-tarinpdir-*.tar.bz2
 	@rm  -vf ../test/1-tarinpdir-*.tar.gz
 	@rm  -vf ../test/1-tarinpdir-*.tar.zip
 	@rm -rvf ../test/1-tarinpdir_copy
+	@rm -rvf ../test/1-taroutdir_untzst
 	@rm -rvf ../test/1-taroutdir_untxz
 	@rm -rvf ../test/1-taroutdir_untxz_copy
 	@rm -rvf ../test/1-taroutdir_untbz2
@@ -1003,9 +1006,11 @@ clean: jxmlib_clean kicad8_clean
 	@rm -rvf ../test/1-taroutdir_untzip_copy
 	@rm -rvf ../test/1-zipoutdir
 	@rm  -vf ../test/2-1-tarinpdir-*.tar
+	@rm  -vf ../test/2-1-tarinpdir-*.tar.zst
 	@rm  -vf ../test/2-1-tarinpdir-*.tar.xz
 	@rm  -vf ../test/2-1-tarinpdir-*.tar.bz2
 	@rm  -vf ../test/2-1-tarinpdir-*.tar.gz
+	@rm -rvf ../test/2-1-taroutdir_untzs
 	@rm -rvf ../test/2-1-taroutdir_untxz
 	@rm -rvf ../test/2-1-taroutdir_untbz
 	@rm -rvf ../test/2-1-taroutdir_untgz

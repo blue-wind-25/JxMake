@@ -25,6 +25,10 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 + Support for basic **i18n** has been added, but no **l10n** translation files are available yet.
 
++ Support for Zstandard compression and decompression has been added.
+org.kamranzafar.jtar
+org.itadaki.bzip2
+
 + Added the command-line option `--en-headless`, which is useful on Linux when the **DISPLAY** environment variable has an invalid value or the X server is not accessible.
 
 + Added Makefile targets `dist` and `dist_clean` to build the primary application distribution file `jxmake-x.x.x-xxx.zip` and clean the temporary directory.

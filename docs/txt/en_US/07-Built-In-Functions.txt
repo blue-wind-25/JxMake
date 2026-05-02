@@ -482,6 +482,8 @@ NOTE : # Each function call must be in its own statement; please use temporary/'
       $exit               : <exit_value>
       $cpfile             : [replace_existing]     and [norm_pfp]
       $mvfile             : [replace_existing]
+      $tzstdir_rec        : <tarzst_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
+      $untzst_rec         : <tarzst_file_name>     and <dst_path>                                  and [xerr]
       $txzdir_rec         : < tarxz_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
       $untxz_rec          : < tarxz_file_name>     and <dst_path>                                  and [xerr]
       $tbz2dir_rec        : <tarbz2_file_name>     and <src_path>            and [add_pdirname]    and [xerr]
@@ -492,6 +494,7 @@ NOTE : # Each function call must be in its own statement; please use temporary/'
       $untzip_rec         : <tarzip_file_name>     and <dst_path>                                  and [xerr]
       $untar_rec          : <   tar_file_name>     and <dst_path>                                  and [xerr]
       $unzip_rec          : <   zip_file_name>     and <dst_path>                                  and [xerr]
+      $[un]zst            :                                                                            [xerr]
       $[un]xz             :                                                                            [xerr]
       $b[un]zip2          :                                                                            [xerr]
       $g[un]zip           :                                                                            [xerr]
@@ -638,6 +641,7 @@ NOTE : # Each function call must be in its own statement; please use temporary/'
       $cpfile        : [replace_existing] and [norm_pfp]
       $mvfile        : [replace_existing]
       $cpdir_rec     : <replace_existing>
+      $tzstdir_rec   : [xerr]
       $txzdir_rec    : [xerr]
       $untxz_rec     : [xerr]
       $tbz2dir_rec   : [xerr]
@@ -648,6 +652,7 @@ NOTE : # Each function call must be in its own statement; please use temporary/'
       $untzip_rec    : [xerr]
       $untar_rec     : [xerr]
       $unzip_rec     : [xerr]
+      $[un]zst       : [xerr]
       $[un]xz        : [xerr]
       $b[un]zip2     : [xerr]
       $g[un]zip      : [xerr]

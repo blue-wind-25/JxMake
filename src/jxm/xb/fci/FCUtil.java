@@ -70,6 +70,12 @@ public class FCUtil {
         }
     }
 
+    public static void _execute_tzstdir_rec(final XCom.VariableValue retVal, final ArrayList<XCom.VariableValue> evalVals, final ExecBlock execBlock, final XCom.ExecData execData, final boolean uncompress) throws JXMException
+    {
+        if(uncompress) _execute_impl_comp_uncomp_rec(retVal, evalVals, execBlock, execData, "untzst_rec" , "<tarzst_file_name>", null               , TarZst::uncompressDir);
+        else           _execute_impl_comp_uncomp_rec(retVal, evalVals, execBlock, execData, "tzstdir_rec", "<tarzst_file_name>", TarZst::compressDir, null                 );
+    }
+
     public static void _execute_txzdir_rec(final XCom.VariableValue retVal, final ArrayList<XCom.VariableValue> evalVals, final ExecBlock execBlock, final XCom.ExecData execData, final boolean uncompress) throws JXMException
     {
         if(uncompress) _execute_impl_comp_uncomp_rec(retVal, evalVals, execBlock, execData, "untxz_rec"  , "<tarxz_file_name>" , null               , TarXz ::uncompressDir);
@@ -157,10 +163,16 @@ public class FCUtil {
         }
     }
 
+    public static void _execute_zst(final XCom.VariableValue retVal, final ArrayList<XCom.VariableValue> evalVals, final ExecBlock execBlock, final XCom.ExecData execData, final boolean uncompress) throws JXMException
+    {
+        if(uncompress) _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "unzst"  , TarZst::unzstd );
+        else           _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "zst"    , TarZst::zstd   );
+    }
+
     public static void _execute_xz(final XCom.VariableValue retVal, final ArrayList<XCom.VariableValue> evalVals, final ExecBlock execBlock, final XCom.ExecData execData, final boolean uncompress) throws JXMException
     {
-        if(uncompress) _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "unxz"   , TarXz ::unxz  );
-        else           _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "xz"     , TarXz ::xz    );
+        if(uncompress) _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "unxz"   , TarXz ::unxz   );
+        else           _execute_impl_comp_uncomp(retVal, evalVals, execBlock, execData, "xz"     , TarXz ::xz     );
     }
 
     public static void _execute_bzip2(final XCom.VariableValue retVal, final ArrayList<XCom.VariableValue> evalVals, final ExecBlock execBlock, final XCom.ExecData execData, final boolean uncompress) throws JXMException

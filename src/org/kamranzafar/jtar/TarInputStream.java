@@ -24,6 +24,7 @@ package org.kamranzafar.jtar;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /*
  * @author Kamran Zafar
@@ -149,6 +150,32 @@ public class TarInputStream extends FilterInputStream {
 
 		if (!eof) {
 			currentEntry = new TarEntry(header);
+
+			if (currentEntry.getHeader().linkFlag == TarHeader.LF_GNULONGLINK || currentEntry.getHeader().linkFlag == TarHeader.LF_GNULONGLINK_LINK) {
+				byte[] nameBuf = new byte[(int) currentEntry.getSize()];
+				int read = 0;
+				while (read < nameBuf.length) {
+					int res = read(nameBuf, read, nameBuf.length - read);
+					if (res == -1) {
+						throw new IOException("Unexpected EOF");
+					}
+					read += res;
+				}
+
+				String longName = new String(nameBuf, 0, nameBuf.length - (nameBuf[nameBuf.length - 1] == 0 ? 1 : 0), StandardCharsets.UTF_8);
+				byte type = currentEntry.getHeader().linkFlag;
+
+				TarEntry next = getNextEntry();
+				if (next != null) {
+					if (type == TarHeader.LF_GNULONGLINK) {
+						next.setName(longName);
+						next.getHeader().namePrefix = new StringBuffer("");
+					} else {
+						next.getHeader().linkName = new StringBuffer(longName);
+					}
+				}
+				return next;
+			}
 		}
 
 		return currentEntry;

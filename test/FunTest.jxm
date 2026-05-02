@@ -347,6 +347,26 @@ echoln
 
 DateTime := $datetime('yyyyMMdd-HHmm')
 
+TarFile  := :"${SrcDir}\-${DateTime}.tar.zst"
+DstDir   := '1-taroutdir_untzst'
+
+echoln ${TarFile}
+echoln
+
+$rmdir_rec (            ${DstDir}            )
+$tzstdir_rec(${TarFile}, ${SrcDir}, 'wrapper')
+$untzst_rec (${TarFile}, ${DstDir}           )
+
+ValR := $lsdir_rec(${DstDir})
+echoln $implode(${ValR}, "\n")
+
+
+
+echoln
+echoln
+
+DateTime := $datetime('yyyyMMdd-HHmm')
+
 TarFile  := :"${SrcDir}\-${DateTime}.tar.xz"
 DstDir   := '1-taroutdir_untxz'
 
@@ -444,12 +464,14 @@ echoln
 echoln
 
 TarFile   := :"2\-${SrcDir}\-${DateTime}.tar"
+TarZsFile := :"${TarFile}.zst"
 TarXzFile := :"${TarFile}.xz"
 TarBzFile := :"${TarFile}.bz2"
 TarGzFile := :"${TarFile}.gz"
 TarZiFile := :"${SrcDir}\-${DateTime}.tar.zip"
 
 echoln ${TarFile  }
+echoln ${TarZsFile}
 echoln ${TarXzFile}
 echoln ${TarBzFile}
 echoln ${TarGzFile}
@@ -460,17 +482,21 @@ $tgzdir_rec(${TarGzFile}, ${SrcDir}, 'wrapper')
 $gunzip    (${TarGzFile}, ${TarFile}          )
 $rmfile    (${TarGzFile}                      )
 
+$zst    (${TarFile}, ${TarZsFile})
 $xz     (${TarFile}, ${TarXzFile})
 $bzip2  (${TarFile}, ${TarBzFile})
 $gzip   (${TarFile}, ${TarGzFile})
 
+$unzst  (${TarZsFile}, ${TarFile/\.tar/-zs.tar/})
 $unxz   (${TarXzFile}, ${TarFile/\.tar/-xz.tar/})
 $bunzip2(${TarBzFile}, ${TarFile/\.tar/-bz.tar/})
 $gunzip (${TarGzFile}, ${TarFile/\.tar/-gz.tar/})
 
+DstDirZs := '2-1-taroutdir_untzs'
 DstDirXz := '2-1-taroutdir_untxz'
 DstDirBz := '2-1-taroutdir_untbz'
 DstDirGz := '2-1-taroutdir_untgz'
+$untar_rec(${TarFile/\.tar/-zs.tar/}, ${DstDirZs})
 $untar_rec(${TarFile/\.tar/-xz.tar/}, ${DstDirXz})
 $untar_rec(${TarFile/\.tar/-bz.tar/}, ${DstDirBz})
 $untar_rec(${TarFile/\.tar/-gz.tar/}, ${DstDirGz})
@@ -490,6 +516,7 @@ echoln $gunzip    (${TarGzFile}               , '/INVALID_DST_PATH'           , 
 echoln $gunzip    (${TarBzFile}               , ${TarFile/\.tar/-bz.tar/}     , false) ; echoln
 
 echoln
+echoln {{ '.tar.zst = ', $file_mime_type(${TarZsFile} ) }}
 echoln {{ '.tar.xz  = ', $file_mime_type(${TarXzFile} ) }}
 echoln {{ '.tar.bz2 = ', $file_mime_type(${TarBzFile} ) }}
 echoln {{ '.tar.gz  = ', $file_mime_type(${TarGzFile} ) }}
@@ -497,7 +524,13 @@ echoln {{ '.tar.zip = ', $file_mime_type(${TarZiFile} ) }}
 echoln {{ '.tar     = ', $file_mime_type(${TarFile}   ) }}
 echoln {{ '.zip     = ', $file_mime_type(${ZipFile}   ) }}
 
-#$exit(100)
+# @@@ @@@ @@@
+(*
+echoln
+echoln "!!! EARLY EXIT !!!"
+$exit(0)
+#*)
+# @@@ @@@ @@@
 
 
 

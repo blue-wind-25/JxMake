@@ -2,6 +2,8 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Further complete, verify and improve the WindowsDriverInstaller class.
+
 # Further verify all changes made by AI coding agents and then delete all '*.ORIG.backup.tar.gz',
   'agent-*.diff', and 'agent-*.patch' files.
 
@@ -10,8 +12,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'
-
-# Further verify and improve the WindowsDriverInstaller class.
 
 # Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
   module.

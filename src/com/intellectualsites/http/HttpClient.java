@@ -28,6 +28,7 @@
 package com.intellectualsites.http;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -227,7 +228,7 @@ public final class HttpClient {
             }
             url = HttpClient.this.settings.getBaseURL() + '/' + url;
             try {
-                final URL javaURL = new URL(url);
+                final URL javaURL = URI.create(url).toURL();
                 builder.withURL(javaURL);
             } catch (MalformedURLException e) {
                 throw new RuntimeException(e);

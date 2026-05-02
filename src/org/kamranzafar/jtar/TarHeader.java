@@ -239,6 +239,7 @@ public class TarHeader {
 		TarHeader header = createHeader(entryName, size, modTime, dir, permissions);
 		header.linkFlag = linkFlag;
 		if (linkFlag == TarHeader.LF_LINK || linkFlag == TarHeader.LF_SYMLINK) {
+			// Link entries do not carry file payload; GNU/POSIX tar requires size to be zero.
 			header.size = 0;
 		}
 		if (linkName != null) {

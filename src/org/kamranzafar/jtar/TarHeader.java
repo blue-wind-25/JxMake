@@ -238,6 +238,9 @@ public class TarHeader {
 	public static TarHeader createHeader(String entryName, long size, long modTime, boolean dir, int permissions, byte linkFlag, String linkName) {
 		TarHeader header = createHeader(entryName, size, modTime, dir, permissions);
 		header.linkFlag = linkFlag;
+		if (linkFlag == TarHeader.LF_LINK || linkFlag == TarHeader.LF_SYMLINK) {
+			header.size = 0;
+		}
 		if (linkName != null) {
 			header.linkName = new StringBuffer(linkName);
 		}

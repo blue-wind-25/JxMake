@@ -120,6 +120,9 @@ arcv: dist_clean
 		cp -Rav src/jxm/ugc    src/jxm/ugc2   > /dev/null;                                             \
 		rm -rvf src/jxm/ugc                   > /dev/null;                                             \
 		mv      src/jxm/ugc2   src/jxm/ugc    > /dev/null;                                             \
+		cp -Rav test           test2          > /dev/null;                                             \
+		rm -rvf test                          > /dev/null;                                             \
+		mv      test2          test           > /dev/null;                                             \
 		echo -e "$(C_GREEN)Copying the project tree (excluding  the '.svn' directory) ...$(C_RESET)";  \
 		cd ..;                                                                                         \
 		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                     \

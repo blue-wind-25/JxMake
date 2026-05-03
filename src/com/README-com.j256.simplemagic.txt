@@ -25,21 +25,20 @@ CHANGES:
 
     Some '@SuppressWarnings' annotations have been modified and/or added.
 
-    The IanaEntries class has been modified to fix the IANA DB paths.
-
-    The class:
-        MagicEntry.OffsetInfo
-    has been modified to remove the redundant cast to Long.
-
-    The function:
-        LogBackendType.detectFactory()
-    has been modified to replace 'newInstance()' with 'getDeclaredConstructor().newInstance()'; the
-    function is deprecated as of Java 9.
-
-    The file 'com/j256/simplemagic/resources/magic' has been slightly updated using the contents of
-    the file '/usr/share/magic' from CentOS Linux release 7.9.2009 (Core). This file can be updated
-    (rebuilt) manually by combining the many smaller files from:
-        https://github.com/file/file/tree/master/magic/Magdir
+    Added features:
+        - Improved robustness of MIME type detection.
+        - Updated the IanaEntries class to correct IANA DB paths.
+        - Updated the function:
+              LogBackendType.detectFactory()
+          to replace 'newInstance()' with 'getDeclaredConstructor().newInstance()'; this function
+          has been deprecated since Java 9.
+        - Modified the class:
+              MagicEntry.OffsetInfo
+          to remove the redundant cast to Long.
+        - Slightly updated the file 'com/j256/simplemagic/resources/magic' using the contents of
+          '/usr/share/magic' from CentOS Linux release 7.9.2009 (Core), along with manual edits.
+          This file can be rebuilt manually by combining the smaller component files from:
+              https://github.com/file/file/tree/master/magic/Magdir
 
     All Javadoc-style comments have been converted to normal Java comments.
 

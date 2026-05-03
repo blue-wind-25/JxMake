@@ -2462,7 +2462,7 @@
 
 # https://github.com/facebook/zstd
 0	ustring		\x28\xB5\x2F\xFD		Zstandard compressed data
-!:mime	application/x-zstd
+!:mime	application/zstd
 
 # https://github.com/ckolivas/lrzip/blob/master/doc/magic.header.txt
 0	string		LRZI			LRZIP compressed data

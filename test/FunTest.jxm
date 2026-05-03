@@ -525,7 +525,7 @@ echoln {{ '.tar     = ', $file_mime_type(${TarFile}   ) }}
 echoln {{ '.zip     = ', $file_mime_type(${ZipFile}   ) }}
 
 # @@@ @@@ @@@
-#(*
+(*
 echoln
 echoln "!!! EARLY EXIT !!!"
 $exit(0)

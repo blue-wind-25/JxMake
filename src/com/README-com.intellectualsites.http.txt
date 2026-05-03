@@ -27,14 +27,15 @@ CHANGES:
 
     All uses of '@NotNull' and '@Nullable' from 'org.jetbrains.annotations' have been removed.
 
-    These functions have been modified to support custom timeouts:
-        HttpClient.execute()
-        HttpRequest.executeRequest()
-
-    The 'Headers' class has been modified so that these functions are publicly accessible:
-        Collection<String> getHeaders()
-        List<String> getHeaders(final String key)
-        String getHeader(final String key)
+    Added features:
+        - Fixed handling of HTTP URLs.
+        - Modified the following functions to support custom timeouts:
+              HttpClient.execute()
+              HttpRequest.executeRequest()
+        - Updated the 'Headers' class so that these methods are now publicly accessible:
+              Collection<String> getHeaders()
+              List<String> getHeaders(final String key)
+              String getHeader(final String key)
 
     All Javadoc-style comments have been converted to normal Java comments.
 

@@ -4,8 +4,8 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Further complete, verify and improve the WindowsDriverInstaller class.
 
-# Further verify all changes made by AI coding agents and then delete all '*.ORIG.backup.tar.gz',
-  'agent-*.diff', and 'agent-*.patch' files.
+# Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
+  files.
 
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.

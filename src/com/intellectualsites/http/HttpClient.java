@@ -217,7 +217,6 @@ public final class HttpClient {
         };
         private Consumer<Throwable> exceptionHandler = null;
 
-        @SuppressWarnings("deprecation")
         private WrappedRequestBuilder(final HttpMethod method, String url) {
             final String baseURL = HttpClient.this.settings.getBaseURL();
             if (!URI.create(url).isAbsolute()) {

@@ -278,7 +278,7 @@ public abstract class TarGen {
             final int eqIndex = content.indexOf('=' , spaceIndex);
             final int nlIndex = content.indexOf('\n', eqIndex   );
 
-            if(eqIndex == -1 || eqIndex < nlIndex) continue;
+            if(eqIndex == -1 || nlIndex == -1) break;
 
             // Extract the key and value
             final String key   = content.substring(spaceIndex + 1, eqIndex);
@@ -595,3 +595,43 @@ to handle 'S' (GNU tar sparse file descriptor).
 Write the proposal only as a single comment block with method signature and steps, without implementing actual code.
 Place this block at the end of TarGen.java.
 */
+
+
+/*
+ * Proposal: _compressDir extension — _writeGnuSparseEntry(TarOutputStreamExt tos, File file, String entryName, long modTime, int mode) throws IOException
+ * Proposal: _uncompressDir extension — _readGnuSparseEntry(TarInputStreamExt tis, TarEntry entry, String dstName) throws IOException
+ *
+ * _writeGnuSparseEntry — called from _compressDir instead of the normal file path when a
+ * sparse file is detected (i.e., its apparent size on disk is larger than its actual block
+ * usage, detectable via BasicFileAttributes / FileStore blockSize heuristics or
+ * Files.getAttribute("unix:blocks")).
+ *
+ * Steps for _writeGnuSparseEntry:
+ *   1. Open the file as a SeekableByteChannel and scan for non-zero data regions using
+ *      lseek(SEEK_DATA) / lseek(SEEK_HOLE) semantics via ExtendedOpenOption or JNA; collect
+ *      a list of (offset, size) extents representing the real data segments.
+ *   2. Build a 512-byte GNU 'S' header block: copy the standard ustar fields from a normal
+ *      TarHeader, set linkFlag = TarHeader.LF_GNUSPARSE ('S'), write up to 4 extents into
+ *      bytes [386..481], set the "isextended" flag at byte [482], and write the real logical
+ *      file size as a 12-byte octal string at bytes [483..494].
+ *   3. If there are more than 4 extents, write one or more 512-byte extended sparse blocks
+ *      immediately after the header; each block holds up to 21 (offset, size) pairs and a
+ *      1-byte "isextended" continuation flag.
+ *   4. Write the actual data blocks: for each extent, seek to its offset in the source file
+ *      and copy exactly extent.size bytes to the TarOutputStream, then pad the entire data
+ *      section to a 512-byte boundary.
+ *
+ * _readGnuSparseEntry — called from _uncompressDir when tarHeader.linkFlag == TarHeader.LF_GNUSPARSE ('S').
+ *
+ * Steps for _readGnuSparseEntry:
+ *   1. Call TarInputStream.handleGnuSparseEntry(entry) (see proposal in TarInputStream.java)
+ *      to obtain the SparseMap (ordered list of (offset, size) extents and the realSize).
+ *   2. Guard against dangerous paths via SysUtil._isDangerousPath(dstName); return early if unsafe.
+ *   3. Create (or truncate) the destination file to realSize bytes using
+ *      FileChannel.open(...).truncate(realSize), which creates an implicit hole from 0 to realSize.
+ *   4. For each extent in the SparseMap: read exactly extent.size bytes from the TarInputStream
+ *      into a buffer, then write those bytes into the FileChannel at position extent.offset,
+ *      leaving all other regions as implicit zero-filled holes.
+ *   5. Close the FileChannel; then apply POSIX permissions via _setPOSIXPermission if running
+ *      on a POSIX OS.
+ */

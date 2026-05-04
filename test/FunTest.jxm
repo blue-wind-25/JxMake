@@ -353,7 +353,7 @@ DstDir   := '1-taroutdir_untzst'
 echoln ${TarFile}
 echoln
 
-$rmdir_rec (            ${DstDir}            )
+$rmdir_rec  (            ${DstDir}           )
 $tzstdir_rec(${TarFile}, ${SrcDir}, 'wrapper')
 $untzst_rec (${TarFile}, ${DstDir}           )
 

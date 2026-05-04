@@ -15,8 +15,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.kamranzafar.jtar.*;
 import com.github.luben.zstd.*;
+import org.kamranzafar.jtar.*;
 
 
 public class TarZst extends TarGen {

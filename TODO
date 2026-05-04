@@ -2,6 +2,8 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Update the 3rd party libraries in '3rd_party/jars' as needed.
+
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 
@@ -9,6 +11,7 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
+
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'
       'JxMake Power Supply Control'
@@ -42,10 +45,17 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Further verify and improve the ProgPDI     reliability and speed as much as possible.
 # Further verify and improve the ProgBootTSB reliability and speed as much as possible.
 
+# Further test with Java 11 (it is an LTS version).
+
 ----------------------------------------------------------------------------------------------------
 
-# Release the non-default language ZIP dictionary files for the built-in script editor separately
-  and individually.
+# Update the Java SDK requirement to Java SDK 11 or later (should be safe as of 2026).
+# Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Implement support for AVR network-based bootloaders, such as:
+      https://github.com/folny/SEM-Bootloader
+      https://github.com/per1234/Ariadne-Bootloader
+      etc.
 
 # Make the types of JXMException thrown by functions more consistent.
 # Improve the clarity of error messages generated during JxMake script parsing and execution.
@@ -77,12 +87,15 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Further verify and improve the documentations.
 
+# Further test with Java 17 (it is an LTS version).
+
 ----------------------------------------------------------------------------------------------------
 
-# Implement support for AVR network-based bootloaders, such as:
-      https://github.com/folny/SEM-Bootloader
-      https://github.com/per1234/Ariadne-Bootloader
-      etc.
+# Update the Java SDK requirement to Java SDK 17 or later (should be safe as of 2028).
+# Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Release the non-default language ZIP dictionary files for the built-in script editor separately
+  and individually.
 
 # Create a module that expands the DTR/nRST signal to nRST, RST, nBOOT, BOOT, etc. signals. So that
   a single control signal will be sufficient to program MCUs requiring multiple control signals to
@@ -98,11 +111,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Further verify that JxMake works properly at least on moderately modern Linux, Windows, and MacOS.
 # Further verify that JxMake works properly to build C/C++ and Java programs.
 # Further verify that the parallel execution mode ('+jxmake' and 'jxwait') really works reliably.
-
-# Further test with Java 11 (it is an LTS version).
-# Further test with Java 17 (it is an LTS version).
-# Further test with Java 21 (it is an LTS version).
-# Further test with Java 25 (it is an LTS version).
 
 # Further verify and improve the 'JxMake USB-GPIO II' module firmware and Java driver.
 # Further verify and improve the 'JxMake Versatile MCU Programmer II' module Java driver.
@@ -122,9 +130,11 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
   'C++XBuildTool_AVR_Native' library implementation (they may not always work for all platforms).
 # Implement the support for 'avrftdi' and 'avrftdi_jtag' programmers (such as 'FT232H') for AVRDUDE?
 
+# Further test with Java 21 (it is an LTS version).
+
 ----------------------------------------------------------------------------------------------------
 
-# Update the Java SDK requirement to Java SDK 11 or later.
+# Update the Java SDK requirement to Java SDK 21 or later (should be safe as of 2030).
 # Fix/update/remove all deprecated uses of Java features (as much as possible).
 
 # Add support for cloning GIT repository and its submodules (using JGit 6.x or later)?
@@ -141,17 +151,15 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Create a 'JxMake USB-GPIO III' module using the STM32H7xx, compatible with the same
   'Logic Level Translator' module used in the 'JxMake USB-GPIO II' module.
 
-# Further the improvement of (also replace deprecated methods with the newer ones):
-      'com.j256.simplemagic'
-      'com.intellectualsites.http' (use the more modern 'java.net.http.HttpClient', if possible)
-      'org.kamranzafar.jtar'
-      'org.itadaki.bzip2'
-# Replace (unlikely) 'org.tukaani.xz' with JxMake's own derivative library?
+# Further test with Java 25 (it is an LTS version).
 
 ----------------------------------------------------------------------------------------------------
 
-# Update the Java SDK requirement to Java SDK 17 or later.
+# Update the Java SDK requirement to Java SDK 25 or later (should be safe as of 2032).
 # Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Fully integrate 'https://github.com/manuelbl/JavaDoesUSB' to provide native access to raw USB
+  devices, enabling JxMake to support DFU, HID, and other USB bootloaders without external tooling.
 
 # Improve the support for cloning GIT repository and its submodules (using JGit 7.x or later)?
 
@@ -176,12 +184,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Implement the support for more PIC MCUs in ProgPIC (whenever possible).
 
 ----------------------------------------------------------------------------------------------------
-
-# Update the Java SDK requirement to Java SDK 25 or later.
-# Fix/update/remove all deprecated uses of Java features (as much as possible).
-
-# Fully integrate 'https://github.com/manuelbl/JavaDoesUSB' to provide native access to raw USB
-  devices, enabling JxMake to support DFU, HID, and other USB bootloaders without external tooling.
 
 # Replace all 3rd-party Java Native Interface (JNI) usage with the Java Foreign Function & Memory
   (FFM) API - using either the updated external libraries or JxMake's own libraries.
@@ -224,6 +226,13 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Implement new loadable libraries ('C++XBuildTool_BM_ESP32C2/C5/C6/H2/P4') and their tests?
 # Implement new loadable libraries ('C++XBuildTool_RP235X_Pico.jxm') for the new Raspberry Pi Pico
   MCUs (RP2350A, RP2350B, RP2354A, and RP2354B) and their tests?
+
+# Further the improvement of (also replace deprecated methods with the newer ones):
+      'com.j256.simplemagic'
+      'com.intellectualsites.http' (use the more modern 'java.net.http.HttpClient', if possible)
+      'org.kamranzafar.jtar'
+      'org.itadaki.bzip2'
+# Replace (unlikely) 'org.tukaani.xz' with JxMake's own derivative library?
 
 ----------------------------------------------------------------------------------------------------
 

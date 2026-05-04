@@ -79,7 +79,7 @@ public class TarInputStream extends FilterInputStream {
 	}
 
 	public void setCurrentEntrySize(long size) {
-		if (currentEntry != null) {
+		if(currentEntry != null) {
 			currentEntry.getHeader().size = size;
 		}
 	}
@@ -312,30 +312,31 @@ public class TarInputStream extends FilterInputStream {
 	public void setDefaultSkip(boolean defaultSkip) {
 		this.defaultSkip = defaultSkip;
 	}
-
-	/*
-	 * Proposal: handleGnuSparseEntry(TarEntry entry) throws IOException
-	 *
-	 * Handles a GNU tar sparse file entry (linkFlag == TarHeader.LF_GNUSPARSE == 'S').
-	 * Returns a SparseMap (list of (offset, size) extents plus the real logical file
-	 * size) so that the caller can reconstruct the sparse file without any knowledge
-	 * of the internal GNU sparse layout.
-	 *
-	 * Steps:
-	 *   1. Re-read bytes [386..481] of the already-consumed 512-byte header block
-	 *      (saved in the TarEntry) to extract up to 4 standard sparse extents;
-	 *      each extent is a pair of 12-byte octal strings (offset, numbytes).
-	 *   2. Read the "isextended" flag at byte [482] of the header block;
-	 *      if non-zero, read successive 512-byte extended sparse blocks from the
-	 *      stream.  Each extension block holds up to 21 (offset, numbytes) pairs
-	 *      (each 24 bytes) followed by a 1-byte "isextended" flag; keep reading
-	 *      until "isextended" is zero.  Update bytesRead for each block consumed.
-	 *   3. Parse the "realSize" field from bytes [483..494] of the main header
-	 *      block to obtain the total logical (uncompressed) size of the file.
-	 *   4. Collect all extents into an ordered list and pair them with realSize;
-	 *      return this as the SparseMap to the caller.
-	 *   5. After the last extent's data is consumed, call skipPad() to align the
-	 *      stream to the next 512-byte boundary before the caller requests the
-	 *      following entry.
-	 */
 }
+
+/*
+ * Proposal: handleGnuSparseEntry(TarEntry entry) throws IOException
+ *
+ * Handles a GNU tar sparse file entry (linkFlag == TarHeader.LF_GNUSPARSE == 'S').
+ * Returns a SparseMap (list of (offset, size) extents plus the real logical file
+ * size) so that the caller can reconstruct the sparse file without any knowledge
+ * of the internal GNU sparse layout.
+ *
+ * Steps:
+ *   1. Re-read bytes [386..481] of the already-consumed 512-byte header block
+ *      (saved in the TarEntry) to extract up to 4 standard sparse extents;
+ *      each extent is a pair of 12-byte octal strings (offset, numbytes).
+ *   2. Read the "isextended" flag at byte [482] of the header block;
+ *      if non-zero, read successive 512-byte extended sparse blocks from the
+ *      stream.  Each extension block holds up to 21 (offset, numbytes) pairs
+ *      (each 24 bytes) followed by a 1-byte "isextended" flag; keep reading
+ *      until "isextended" is zero.  Update bytesRead for each block consumed.
+ *   3. Parse the "realSize" field from bytes [483..494] of the main header
+ *      block to obtain the total logical (uncompressed) size of the file.
+ *   4. Collect all extents into an ordered list and pair them with realSize;
+ *      return this as the SparseMap to the caller.
+ *   5. After the last extent's data is consumed, call skipPad() to align the
+ *      stream to the next 512-byte boundary before the caller requests the
+ *      following entry.
+ */
+ 

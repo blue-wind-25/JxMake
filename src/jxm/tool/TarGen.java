@@ -507,20 +507,6 @@ public abstract class TarGen {
                          * 'V' : Volume label (GNU tar)
                          * 'X' : POSIX.1-2001 extended header (some older implementations, similar to 'x')
                          */
-                        /*
-                            // After creating the file, for each (offset, size) pair in the sparse map:
-                            try(
-                                final FileChannel fc = FileChannel.open( Paths.get(dstName), StandardOpenOption.WRITE, StandardOpenOption.CREATE )
-                            ) {
-                                // Set the final file size first (creates implicit hole from 0 to size)
-                                fc.truncate(totalSize);
-                                // Write only the real data regions at their correct offsets
-                                for(each sparse region) {
-                                    fc.position(regionOffset);
-                                    fc.write(dataBuffer);
-                                }
-                            }
-                         */
                     }
                     continue;
                 }
@@ -573,30 +559,6 @@ In 'JxMake/test' directory
     rm -rvf tmp && tar -xzvpf test.tar.gz && ls -li tmp/z && rm -rvf tmp && ls -li /tmp/z && ls -li /tmp/q/tmp/z
 */
 
-
-/*
-(1) Check and perform bug fix if needed:
-    src/org/kamranzafar/jtar/*
-Verify LF_GNULONGLINK and LF_GNULONGLINK_LINK are implemented transparently,
-so TarGen.java can use tagEntry.getName() and tarHeader.linkName directly.
-If not, apply minimal patch.
-
-Additionally, propose a method to support LF_GNUSPARSE.
-Write the proposal only as a single comment block with method signature and steps, without implementing actual code.
-Place this block at the end of TarInputStream.java.
-
-(2) Check and perform bug fix if needed:
-    src/jxm/tool/TarGen.java
-Verify PAX 'x' entries correctly override TarHeader fields for 'path', 'linkpath', and 'size'.
-If not, apply minimal patch.
-
-Additionally, propose a method in functions _compressDir and _uncompressDir
-to handle 'S' (GNU tar sparse file descriptor).
-Write the proposal only as a single comment block with method signature and steps, without implementing actual code.
-Place this block at the end of TarGen.java.
-*/
-
-
 /*
  * Proposal: _compressDir extension — _writeGnuSparseEntry(TarOutputStreamExt tos, File file, String entryName, long modTime, int mode) throws IOException
  * Proposal: _uncompressDir extension — _readGnuSparseEntry(TarInputStreamExt tis, TarEntry entry, String dstName) throws IOException
@@ -634,4 +596,17 @@ Place this block at the end of TarGen.java.
  *      leaving all other regions as implicit zero-filled holes.
  *   5. Close the FileChannel; then apply POSIX permissions via _setPOSIXPermission if running
  *      on a POSIX OS.
+ *
+ *   // After creating the file, for each (offset, size) pair in the sparse map:
+ *   try(
+ *       final FileChannel fc = FileChannel.open( Paths.get(dstName), StandardOpenOption.WRITE, StandardOpenOption.CREATE )
+ *   ) {
+ *       // Set the final file size first (creates implicit hole from 0 to size)
+ *       fc.truncate(totalSize);
+ *       // Write only the real data regions at their correct offsets
+ *       for(each sparse region) {
+ *           fc.position(regionOffset);
+ *           fc.write(dataBuffer);
+ *       }
+ *   }
  */

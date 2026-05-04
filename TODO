@@ -2,8 +2,6 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Update the 3rd party libraries in '3rd_party/jars' as needed.
-
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 

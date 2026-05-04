@@ -26,6 +26,7 @@ CHANGES:
     Some '@SuppressWarnings' annotations have been modified and/or added.
 
     Added features:
+        - Implemented detection of the 'ustar' magic field in TarInputStream.
         - Updated Octal and TarHeader to use Base-256 binary encoding for file sizes exceeding 8GB.
         - Implemented GNU @LongLink support. TarOutputStream now automatically writes @LongLink
           entries for names or link names exceeding 100 bytes, and TarInputStream transparently

@@ -54,18 +54,18 @@ public class TarInputStream extends FilterInputStream {
 
 		// A Tar file must be at least 512 bytes (one header block)
 		if(n < 512) {
-			throw new IOException("Invalid Tar: Stream is too small to contain a Tar header");
+			throw new IOException("Invalid TAR: Stream is too small to contain a TAR header");
 		}
 
 		// Standard UStar magic check at offset 257 "ustar" in ASCII
-		boolean isUstar = header[257] == 'u' &&
-						  header[258] == 's' &&
-						  header[259] == 't' &&
-						  header[260] == 'a' &&
-						  header[261] == 'r';
+		final boolean isUstar = header[257] == 'u' &&
+							    header[258] == 's' &&
+							    header[259] == 't' &&
+							    header[260] == 'a' &&
+							    header[261] == 'r';
 
 		if(!isUstar) {
-			throw new IOException("Invalid Tar: 'ustar' magic not found at offset 257");
+			throw new IOException("Invalid Tar: 'ustar' header magic missing at offset 257");
 		}
 
 		// Unread the whole 512-byte block so the parser can read it

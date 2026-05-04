@@ -10,12 +10,15 @@ package jxm.tool;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+
+import java.nio.charset.StandardCharsets;
 
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -48,7 +51,7 @@ public abstract class TarGen {
     protected static class TarInputStreamExt extends TarInputStream {
         protected final InputStream _is;
 
-        protected TarInputStreamExt(final InputStream is)
+        protected TarInputStreamExt(final InputStream is) throws IOException
         {
             super(is);
             _is = is;
@@ -58,7 +61,7 @@ public abstract class TarGen {
     protected static class TarOutputStreamExt extends TarOutputStream {
         protected final OutputStream _os;
 
-        protected TarOutputStreamExt(final OutputStream os)
+        protected TarOutputStreamExt(final OutputStream os) throws IOException
         {
             super(os);
             _os = os;
@@ -125,6 +128,10 @@ public abstract class TarGen {
         Files.setPosixFilePermissions(path, pfp);
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // NOTE : This function is named '_compressDir' rather than '_packDir'  because it will be
+    //        invoked by derived classes that primarily perform compression
     protected void _compressDir(final String targenFilePath, final String srcDirPath, final String appendParentDirName) throws IOException
     {
         // List the source directory
@@ -239,7 +246,53 @@ public abstract class TarGen {
         tos.close();
     }
 
-    private static void _uncompressAndWriteFile(final String dstName, final TarInputStreamExt tis, final byte[] data) throws IOException
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void _parsePaxHeader(final Map<String, String> headers, final TarInputStreamExt tis, final int size, final byte[] buffer) throws IOException
+    {
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        headers.clear();
+
+        // Read the entire pax data block
+        int read      = 0;
+        int remaining = size;
+
+        while( remaining > 0 && ( read = tis.read( buffer, 0, Math.min(buffer.length, remaining) ) ) != -1 ) {
+
+            baos.write(buffer, 0, read);
+            remaining -= read;
+
+        } // while
+
+        final String content = new String( baos.toByteArray(), StandardCharsets.UTF_8 );
+              int    offset  = 0;
+
+        while( offset < content.length() ) {
+
+            // Find the space after the length
+            final int spaceIndex = content.indexOf(' ', offset);
+            if(spaceIndex == -1) break;
+
+            // Find the equals sign and newline
+            final int eqIndex = content.indexOf('=' , spaceIndex);
+            final int nlIndex = content.indexOf('\n', eqIndex   );
+
+            if(eqIndex == -1 || eqIndex < nlIndex) continue;
+
+            // Extract the key and value
+            final String key   = content.substring(spaceIndex + 1, eqIndex);
+            final String value = content.substring(eqIndex    + 1, nlIndex);
+
+            headers.put(key, value);
+
+            // Adjust the offset
+            offset = nlIndex + 1;
+
+        } // while
+    }
+
+    private static void _unpackAndWriteFile(final String dstName, final TarInputStreamExt tis, final byte[] data) throws IOException
     {
         if( SysUtil._isDangerousPath(dstName) ) return;
 
@@ -259,6 +312,8 @@ public abstract class TarGen {
         bos.close();
     }
 
+    // NOTE : This function is named '_uncompressDir' rather than '_unpackDir'  because it will be
+    //        invoked by derived classes that primarily perform decompression
     protected void _uncompressDir(final String targenFilePath, final String dstDirPath) throws IOException
     {
         try {
@@ -275,7 +330,8 @@ public abstract class TarGen {
             SysUtil.cu_mkdir(dstDirAbsPath);
 
             // Uncompress the files and directories
-            final byte data[] = new byte[CDBufferSize];
+            final byte                data[]     = new byte[CDBufferSize];
+            final Map<String, String> paxHeaders = new HashMap<>();
 
             while(true) {
 
@@ -286,7 +342,21 @@ public abstract class TarGen {
 
                 // Get the file/directory name
                 final TarHeader tarHeader = tagEntry.getHeader();
-                final String    dstName   = SysUtil.resolvePath( tagEntry.getName(), dstDirAbsPath );
+                      String    dstName   = SysUtil.resolvePath( tagEntry.getName(), dstDirAbsPath );
+
+                if( !paxHeaders.isEmpty() ) {
+                    if( paxHeaders.containsKey("path") ) {
+                        dstName = SysUtil.resolvePath( paxHeaders.get("path") , dstDirAbsPath);
+                    }
+                    if( paxHeaders.containsKey("linkpath") ) {
+                        tarHeader.linkName.setLength(0);
+                        tarHeader.linkName.append( paxHeaders.get("linkpath") );
+                    }
+                    if( paxHeaders.containsKey("size") ) {
+                        tis.setCurrentEntrySize( Long.parseLong( paxHeaders.get("size") ) );
+                    }
+                    paxHeaders.clear();
+                }
 
                 // If the entry is a directory, create it
                 if(tarHeader.linkFlag == TarHeader.LF_DIR) {
@@ -379,7 +449,7 @@ public abstract class TarGen {
                     /*
                     SysUtil.stdDbg().printf("[D-FIL] '%s'\n", dstName);
                     //*/
-                    _uncompressAndWriteFile(dstName, tis, data);
+                    _unpackAndWriteFile(dstName, tis, data);
                 }
 
                 /* Special entries
@@ -393,27 +463,42 @@ public abstract class TarGen {
                          ( tarHeader.linkFlag == (byte) 'x'                                     ) ||
                          ( tarHeader.linkFlag >= (byte) 'A' && tarHeader.linkFlag <= (byte) 'Z' )
                 ) {
-                    // Process the 'g' and 'x' entries
-                    if( tarHeader.linkFlag == (byte) 'g' || tarHeader.linkFlag == (byte) 'x' ) {
-                        if(true) {
-                            // Discard the data
-                            while( tis.read(data) != -1 );
-                            // ##### ??? TODO : Parse and use ??? #####
-                            // <total-length> <key>=<value>\n
-                        }
-                        else {
-                            // Make directory, it should be something like /PaxHeaders\\.\d+/
-                            SysUtil.cu_mkdir( SysUtil.getDirName(dstName) );
-                            // Uncompress and write the file
-                            _uncompressAndWriteFile(dstName, tis, data);
-                        }
+                    // Ignore the 'g' entry
+                    if( tarHeader.linkFlag == (byte) 'g' ) {
+                        /*
+                         * Entry 'g' (Global Extended Header)
+                         *     Header name       : ././@GlobalHead
+                         *     Data block format : <length> <key>=<value>\n
+                         *     Example           :
+                         *         17 charset=UTF-8
+                         *         15 delete=atime
+                         *
+                         * Applies to all subsequent entries in the archive.
+                         */
+                         // Discard the data
+                        while( tis.read(data) != -1 );
+                    }
+                    // Process the 'x' entry
+                    else if( tarHeader.linkFlag == (byte) 'x' ) {
+                        /*
+                         * Entry 'x' (Extended Header)
+                         *     Header name       : ././@PaxHeader
+                         *     Data block format : <length> <key>=<value>\n
+                         *     Example           :
+                         *         52 path=very/long/path/to/myfile.txt
+                         *         20 size=10737418240
+                         *         30 mtime=1714900000.123456789
+                         *
+                         * Applies ONLY to the next immediate file entry.
+                         */
+                         _parsePaxHeader( paxHeaders, tis, (int) tagEntry.getSize(), data );
                     }
                     // Ignore the 'A' - 'Z' entries
                     else {
                         // Discard the data
                         while( tis.read(data) != -1 );
+                        // ##### ??? TODO : Parse and use ??? #####
                         /*
-                         * ##### ??? TODO ??? #####
                          * 'A' : Solaris ACL data
                          * 'E' : Solaris extended header
                          * 'I' : Inode metadata (some implementations)
@@ -486,4 +571,27 @@ ls -li /tmp/z
 
 In 'JxMake/test' directory
     rm -rvf tmp && tar -xzvpf test.tar.gz && ls -li tmp/z && rm -rvf tmp && ls -li /tmp/z && ls -li /tmp/q/tmp/z
+*/
+
+
+/*
+(1) Check and perform bug fix if needed:
+    src/org/kamranzafar/jtar/*
+Verify LF_GNULONGLINK and LF_GNULONGLINK_LINK are implemented transparently,
+so TarGen.java can use tagEntry.getName() and tarHeader.linkName directly.
+If not, apply minimal patch.
+
+Additionally, propose a method to support LF_GNUSPARSE.
+Write the proposal only as a single comment block with method signature and steps, without implementing actual code.
+Place this block at the end of TarInputStream.java.
+
+(2) Check and perform bug fix if needed:
+    src/jxm/tool/TarGen.java
+Verify PAX 'x' entries correctly override TarHeader fields for 'path', 'linkpath', and 'size'.
+If not, apply minimal patch.
+
+Additionally, propose a method in functions _compressDir and _uncompressDir
+to handle 'S' (GNU tar sparse file descriptor).
+Write the proposal only as a single comment block with method signature and steps, without implementing actual code.
+Place this block at the end of TarGen.java.
 */

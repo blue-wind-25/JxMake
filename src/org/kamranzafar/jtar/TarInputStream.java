@@ -24,6 +24,7 @@ package org.kamranzafar.jtar;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 import java.nio.charset.StandardCharsets;
 
 /*
@@ -38,15 +39,47 @@ public class TarInputStream extends FilterInputStream {
 	private long bytesRead;
 	private boolean defaultSkip = false;
 
-	public TarInputStream(InputStream in) {
-		super(in);
+
+	public TarInputStream(InputStream in) throws IOException {
+		super(verifyIsTar(in));
 		currentFileSize = 0;
 		bytesRead = 0;
+	}
+
+	private static InputStream verifyIsTar(InputStream in) throws IOException {
+		// We need to peek at least 262 bytes to see the "ustar" magic
+		final PushbackInputStream pbis   = new PushbackInputStream(in, 512);
+		final byte[]              header = new byte[512];
+		final int                 n      = pbis.read(header);
+
+		// A Tar file must be at least 512 bytes (one header block)
+		if(n < 512) {
+			throw new IOException("Invalid Tar: Stream is too small to contain a Tar header");
+		}
+
+		// Standard UStar magic check at offset 257 "ustar" in ASCII
+		boolean isUstar = header[257] == 'u' &&
+						  header[258] == 's' &&
+						  header[259] == 't' &&
+						  header[260] == 'a' &&
+						  header[261] == 'r';
+
+		if(!isUstar) {
+			throw new IOException("Invalid Tar: 'ustar' magic not found at offset 257");
+		}
+
+		// Unread the whole 512-byte block so the parser can read it
+		pbis.unread(header, 0, n);
+		return pbis;
 	}
 
 	@Override
 	public boolean markSupported() {
 		return false;
+	}
+
+	public void setCurrentEntrySize(long size) {
+		this.currentFileSize = size;
 	}
 
 	/*

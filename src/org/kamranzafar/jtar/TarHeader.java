@@ -89,6 +89,7 @@ public class TarHeader {
 	/*
 	 * File Types
 	 */
+	public static final byte LF_OLDNORMAL = (byte) '\0';
 	public static final byte LF_NORMAL = (byte) '0';
 	public static final byte LF_LINK = (byte) '1';
 	public static final byte LF_SYMLINK = (byte) '2';
@@ -99,6 +100,9 @@ public class TarHeader {
 	public static final byte LF_CONTIG = (byte) '7';
 	public static final byte LF_GNULONGLINK = (byte) 'L';
 	public static final byte LF_GNULONGLINK_LINK = (byte) 'K';
+	public static final byte LF_GNUVOLUME = (byte) 'V'; // Not useful!
+	public static final byte LF_GNUDUMPDIR = (byte) 'D'; // Not useful!
+	public static final byte LF_GNUSPARSE = (byte) 'S'; // Not implemented yet!
 
 	/*
 	 * Ustar header

@@ -510,6 +510,8 @@ echoln $tgzdir_rec('/INVALID_DST_PATH.tar.gz2', '/INVALID_SRC_PATH', ''       , 
 echoln $tgzdir_rec('/INVALID_DST_PATH.tar.gz2', '/INVALID_SRC_PATH', 'wrapper', false) ; echoln
 echoln $untgz_rec (${TarGzFile}               , '/INVALID_DST_PATH'           , false) ; echoln
 echoln $untgz_rec (${TarBzFile}               , ${DstDirBz}                   , false) ; echoln
+echoln $untbz2_rec(${TarGzFile}               , ${DstDirGz}                   , false) ; echoln
+echoln $untar_rec (${TarGzFile}               , ${DstDirGz}                   , false) ; echoln
 echoln $untar_rec (${TarBzFile}               , ${DstDirBz}                   , false) ; echoln
 echoln $gzip      (${TarFile}                 , '/INVALID_DST_PATH'           , false) ; echoln
 echoln $gunzip    (${TarGzFile}               , '/INVALID_DST_PATH'           , false) ; echoln

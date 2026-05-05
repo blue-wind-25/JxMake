@@ -36,6 +36,7 @@ public class SSLTrustAll {
 
     private static       HostnameVerifier _orgHostnameVerifier = null;
     private static       SSLSocketFactory _orgSSLSocketFactory = null;
+    private static       SSLContext        _trustAllSSLContext  = null;
 
     private static final HostnameVerifier _trustAllHosts       = new HostnameVerifier() {
         @Override public boolean verify(final String hostname, final SSLSession session) { return true; }
@@ -65,6 +66,9 @@ public class SSLTrustAll {
         final SSLContext sc = SSLContext.getInstance("SSL");
         sc.init( null, _trustAllCerts, new SecureRandom() );
         HttpsURLConnection.setDefaultSSLSocketFactory( sc.getSocketFactory() );
+
+        // Store the context so HttpClient-based paths can use it
+        _trustAllSSLContext = sc;
     }
 
     private static void _disSSLTrustAll() throws GeneralSecurityException
@@ -79,6 +83,7 @@ public class SSLTrustAll {
         // Clear the saved instances
         _orgHostnameVerifier = null;
         _orgSSLSocketFactory = null;
+        _trustAllSSLContext  = null;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,5 +105,14 @@ public class SSLTrustAll {
 
         _sslTrustAllMutex.unlock();
     }
+
+    /*
+     * Returns the permissive SSLContext installed by setSSLTrustAll(true), or
+     * null if trust-all is not currently active.  This context accepts all
+     * certificates and is suitable for passing to HttpClient.Builder.sslContext()
+     * so that self-signed certificates are honoured on the modern Java path.
+     */
+    public static SSLContext getTrustAllSSLContext()
+    { return _trustAllSSLContext; }
 
 } // class SSLTrustAll

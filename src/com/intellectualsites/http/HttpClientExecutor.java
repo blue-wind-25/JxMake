@@ -246,7 +246,7 @@ final class HttpClientExecutor implements HttpExecutor {
         final SSLContext sslCtx = (M_SSL_TRUST_ALL_GET_CONTEXT != null)
             ? (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null)
             : null;
-        final Authenticator auth = Authenticator.getDefault();
+        final Authenticator auth = jxm.tool.TLAuthenticator.instance();
         if (sslCtx != null || auth != null) {
             final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
             if (sslCtx != null) {

@@ -329,18 +329,16 @@ public class HTTPDownloader  {
         final SSLContext sslCtx = SSLTrustAll.getTrustAllSSLContext();
         if(sslCtx != null) {
             _mClientBuilderSslContext.invoke(builder, sslCtx);
-            // Disable hostname verification so self-signed certificates are accepted.
-            final SSLParameters sslParams = new SSLParameters();
-            sslParams.setEndpointIdentificationAlgorithm(null);
-            _mClientBuilderSslParameters.invoke(builder, sslParams);
+            // Disable hostname verification.  getTrustAllSSLParameters() returns
+            // SSLParameters with the endpoint-identification algorithm set to the
+            // empty string (not null): Java 11+ HttpClient silently promotes a null
+            // value to "HTTPS", whereas an empty string disables the check entirely.
+            _mClientBuilderSslParameters.invoke(builder, SSLTrustAll.getTrustAllSSLParameters());
         }
 
-        // Apply the global Authenticator ( set via TLAuthenticator.setAsDefault() ) so that server/proxy credentials
-        // are forwarded on the HttpClient path, matching the behaviour of the legacy HttpsURLConnection path
-        final java.net.Authenticator auth = TLAuthenticator.instance();
-        if(auth != null) {
-            _mClientBuilderAuthenticator.invoke(builder, auth);
-        }
+        // Always apply the TLAuthenticator so that server/proxy credentials are
+        // forwarded on the HttpClient path, matching the legacy HttpsURLConnection path.
+        _mClientBuilderAuthenticator.invoke(builder, TLAuthenticator.instance());
 
         return _mClientBuilderBuild.invoke(builder);
     }

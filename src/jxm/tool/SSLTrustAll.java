@@ -8,6 +8,8 @@
 package jxm.tool;
 
 
+import java.net.Socket;
+
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 
@@ -16,11 +18,12 @@ import java.security.cert.X509Certificate;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.X509ExtendedTrustManager;
 
 import jxm.xb.*;
 
@@ -46,7 +49,7 @@ public class SSLTrustAll {
 
     };
 
-    private static final TrustManager[]   _trustAllCerts       = new TrustManager[] { new X509TrustManager() {
+    private static final TrustManager[]   _trustAllCerts       = new TrustManager[] { new X509ExtendedTrustManager() {
 
         @Override public X509Certificate[] getAcceptedIssuers()
         { return new X509Certificate[0]; }
@@ -55,6 +58,18 @@ public class SSLTrustAll {
         {}
 
         @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType)
+        {}
+
+        @Override public void checkClientTrusted(final X509Certificate[] chain, final String authType, final Socket socket)
+        {}
+
+        @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType, final Socket socket)
+        {}
+
+        @Override public void checkClientTrusted(final X509Certificate[] chain, final String authType, final SSLEngine engine)
+        {}
+
+        @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType, final SSLEngine engine)
         {}
 
     } };

@@ -91,21 +91,6 @@ final class HttpClientExecutor implements HttpExecutor {
     private static final Method M_DURATION_OF_MILLIS;
 
     /* ------------------------------------------------------------------ *
-     *  Optional reflective reference to jxm.tool.SSLTrustAll              *
-     *  Null when the class is not on the classpath.                        *
-     * ------------------------------------------------------------------ */
-
-    private static final Method M_SSL_TRUST_ALL_GET_CONTEXT;
-    private static final Method M_SSL_TRUST_ALL_GET_PARAMS;
-
-    /* ------------------------------------------------------------------ *
-     *  Cached plain HttpClient (no custom SSL context)                     *
-     *  Used for all requests when SSLTrustAll is not active.               *
-     * ------------------------------------------------------------------ */
-
-    private static final Object PLAIN_CLIENT;
-
-    /* ------------------------------------------------------------------ *
      *  Static initialiser – runs exactly once                              *
      * ------------------------------------------------------------------ */
 
@@ -143,34 +128,9 @@ final class HttpClientExecutor implements HttpExecutor {
             M_RESPONSE_HEADERS             = CLS_HTTP_RESPONSE.getMethod("headers");
             M_HEADERS_MAP                  = CLS_HTTP_HEADERS.getMethod("map");
             M_DURATION_OF_MILLIS           = CLS_DURATION.getMethod("ofMillis", long.class);
-
-            /* Build the shared plain client (no custom SSL context). */
-            PLAIN_CLIENT = M_CLIENT_BUILDER_BUILD.invoke(M_CLIENT_NEW_BUILDER.invoke(null));
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
-
-        /* Optional: discover jxm.tool.SSLTrustAll without a hard compile-time dependency.
-         * ClassNotFoundException is expected when the library is used outside the JxMake project.
-         * getTrustAllSSLParameters is resolved separately so that an older SSLTrustAll that lacks
-         * the method still allows getTrustAllSSLContext to work; the caller falls back to creating
-         * SSLParameters inline in that case. */
-        Method m = null;
-        Method mp = null;
-        try {
-            final Class<?> cls = Class.forName("jxm.tool.SSLTrustAll");
-            m = cls.getMethod("getTrustAllSSLContext");
-            try {
-                mp = cls.getMethod("getTrustAllSSLParameters");
-            } catch (final ReflectiveOperationException ignored) {
-                /* Older SSLTrustAll without getTrustAllSSLParameters – hostname
-                 * verification will be disabled via inline SSLParameters fallback. */
-            }
-        } catch (final ReflectiveOperationException ignored) {
-            /* jxm.tool.SSLTrustAll is not present – SSL trust-all will not be applied. */
-        }
-        M_SSL_TRUST_ALL_GET_CONTEXT = m;
-        M_SSL_TRUST_ALL_GET_PARAMS  = mp;
     }
 
     /* ------------------------------------------------------------------ *
@@ -251,48 +211,23 @@ final class HttpClientExecutor implements HttpExecutor {
         /* ----- Send ----- */
         final Object bodyHandler = M_HANDLERS_OF_BYTE_ARRAY.invoke(null);
 
-        /* Use the plain shared client unless SSLTrustAll is currently active or a
-         * default Authenticator is installed, in which case build a per-request
-         * client configured appropriately so that self-signed certificates and
-         * authentication credentials are both honoured, matching legacy behaviour. */
+        /* Always build a per-request HttpClient so that the current SSLContext
+         * (when trust-all is active) and the TLAuthenticator are consistently
+         * applied to every request. */
         final Object client;
-        /*
-        final SSLContext sslCtx = (M_SSL_TRUST_ALL_GET_CONTEXT != null)
-            ? (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null)
-            : null;
-        */
         final SSLContext sslCtx = jxm.tool.SSLTrustAll.getTrustAllSSLContext();
-        final SSLParameters sslPar = jxm.tool.SSLTrustAll.getTrustAllSSLParameters();
-        final Authenticator auth = jxm.tool.TLAuthenticator.instance();
-        if (sslCtx != null || auth != null) {
-            final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
-            if (sslCtx != null) {
-                M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
-                /* Disable hostname verification so self-signed certificates whose
-                 * CN/SAN does not match the target host are still accepted.
-                 * An empty-string endpoint identification algorithm is used rather
-                 * than null: Java 11+ HttpClient silently promotes null to "HTTPS",
-                 * whereas an empty string is treated as "no algorithm" and bypasses
-                 * that promotion.  SSLTrustAll.getTrustAllSSLParameters() is preferred
-                 * when available; a local fallback is used with older SSLTrustAll
-                 * builds that pre-date the method. */
-                SSLParameters sp = (M_SSL_TRUST_ALL_GET_PARAMS != null)
-                    ? (SSLParameters) M_SSL_TRUST_ALL_GET_PARAMS.invoke(null)
-                    : null;
-                if (sp == null) {
-                    sp = new SSLParameters();
-                    sp.setEndpointIdentificationAlgorithm("");
-                }
-                M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, sp);
-            }
-            //*/
-            if (auth != null) {
-                M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, auth);
-            }
-            client = M_CLIENT_BUILDER_BUILD.invoke(cb);
-        } else {
-            client = PLAIN_CLIENT;
+        final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
+        if (sslCtx != null) {
+            M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
+            /* Disable hostname verification.  SSLTrustAll.getTrustAllSSLParameters()
+             * returns SSLParameters with the endpoint-identification algorithm set to
+             * the empty string.  An empty string is required (not null): Java 11+
+             * HttpClient silently promotes null to "HTTPS", whereas an empty string
+             * disables the check entirely. */
+            M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, jxm.tool.SSLTrustAll.getTrustAllSSLParameters());
         }
+        M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, jxm.tool.TLAuthenticator.instance());
+        client = M_CLIENT_BUILDER_BUILD.invoke(cb);
 
         final Object httpResponse  = M_CLIENT_SEND.invoke(
             client, httpRequest, bodyHandler);

@@ -107,10 +107,12 @@ public class SSLTrustAll {
     public static void setSSLTrustAll(final boolean enabled) throws GeneralSecurityException
     {
         _sslTrustAllMutex.lock();
+
         try {
             if(enabled) _enaSSLTrustAll();
             else        _disSSLTrustAll();
-        } finally {
+        }
+        finally {
             _sslTrustAllMutex.unlock();
         }
     }

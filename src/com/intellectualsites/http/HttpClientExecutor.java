@@ -256,9 +256,13 @@ final class HttpClientExecutor implements HttpExecutor {
          * client configured appropriately so that self-signed certificates and
          * authentication credentials are both honoured, matching legacy behaviour. */
         final Object client;
+        /*
         final SSLContext sslCtx = (M_SSL_TRUST_ALL_GET_CONTEXT != null)
             ? (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null)
             : null;
+        */
+        final SSLContext sslCtx = jxm.tool.SSLTrustAll.getTrustAllSSLContext();
+        final SSLParameters sslPar = jxm.tool.SSLTrustAll.getTrustAllSSLParameters();
         final Authenticator auth = jxm.tool.TLAuthenticator.instance();
         if (sslCtx != null || auth != null) {
             final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
@@ -281,6 +285,7 @@ final class HttpClientExecutor implements HttpExecutor {
                 }
                 M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, sp);
             }
+            //*/
             if (auth != null) {
                 M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, auth);
             }

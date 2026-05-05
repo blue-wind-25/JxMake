@@ -16,6 +16,7 @@ import java.security.cert.X509Certificate;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -36,6 +37,7 @@ public class SSLTrustAll {
     private static       HostnameVerifier _orgHostnameVerifier = null;
     private static       SSLSocketFactory _orgSSLSocketFactory = null;
     private static       SSLContext       _trustAllSSLContext  = null;
+    private static       SSLParameters   _trustAllSSLParams   = null;
 
     private static final HostnameVerifier _trustAllHosts       = new HostnameVerifier() {
         @Override public boolean verify(final String hostname, final SSLSession session)
@@ -74,6 +76,14 @@ public class SSLTrustAll {
 
         // Store the context so HttpClient-based paths can use it
         _trustAllSSLContext = sc;
+
+        // Build SSLParameters that disable hostname verification for Java 11+
+        // HttpClient.  Setting the endpoint identification algorithm to the
+        // empty string (rather than null) is required because the HttpClient
+        // implementation silently overrides a null value with "HTTPS".
+        final SSLParameters sp = new SSLParameters();
+        sp.setEndpointIdentificationAlgorithm("");
+        _trustAllSSLParams = sp;
     }
 
     private static void _disSSLTrustAll() throws GeneralSecurityException
@@ -89,6 +99,7 @@ public class SSLTrustAll {
         _orgHostnameVerifier = null;
         _orgSSLSocketFactory = null;
         _trustAllSSLContext  = null;
+        _trustAllSSLParams   = null;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -112,5 +123,16 @@ public class SSLTrustAll {
      */
     public static SSLContext getTrustAllSSLContext()
     { return _trustAllSSLContext; }
+
+    /*
+     * Returns SSLParameters with endpoint identification disabled, suitable for
+     * passing to HttpClient.Builder.sslParameters() together with the context
+     * returned by getTrustAllSSLContext().  The empty-string algorithm value is
+     * intentional: Java 11+ HttpClient overrides a null value with "HTTPS",
+     * whereas an empty string bypasses that check and disables hostname
+     * verification.  Returns null when trust-all mode is not active.
+     */
+    public static SSLParameters getTrustAllSSLParameters()
+    { return _trustAllSSLParams; }
 
 } // class SSLTrustAll

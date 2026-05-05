@@ -96,6 +96,7 @@ final class HttpClientExecutor implements HttpExecutor {
      * ------------------------------------------------------------------ */
 
     private static final Method M_SSL_TRUST_ALL_GET_CONTEXT;
+    private static final Method M_SSL_TRUST_ALL_GET_PARAMS;
 
     /* ------------------------------------------------------------------ *
      *  Cached plain HttpClient (no custom SSL context)                     *
@@ -150,14 +151,26 @@ final class HttpClientExecutor implements HttpExecutor {
         }
 
         /* Optional: discover jxm.tool.SSLTrustAll without a hard compile-time dependency.
-         * ClassNotFoundException is expected when the library is used outside the JxMake project. */
+         * ClassNotFoundException is expected when the library is used outside the JxMake project.
+         * getTrustAllSSLParameters is resolved separately so that an older SSLTrustAll that lacks
+         * the method still allows getTrustAllSSLContext to work; the caller falls back to creating
+         * SSLParameters inline in that case. */
         Method m = null;
+        Method mp = null;
         try {
-            m = Class.forName("jxm.tool.SSLTrustAll").getMethod("getTrustAllSSLContext");
+            final Class<?> cls = Class.forName("jxm.tool.SSLTrustAll");
+            m = cls.getMethod("getTrustAllSSLContext");
+            try {
+                mp = cls.getMethod("getTrustAllSSLParameters");
+            } catch (final ReflectiveOperationException ignored) {
+                /* Older SSLTrustAll without getTrustAllSSLParameters – hostname
+                 * verification will be disabled via inline SSLParameters fallback. */
+            }
         } catch (final ReflectiveOperationException ignored) {
             /* jxm.tool.SSLTrustAll is not present – SSL trust-all will not be applied. */
         }
         M_SSL_TRUST_ALL_GET_CONTEXT = m;
+        M_SSL_TRUST_ALL_GET_PARAMS  = mp;
     }
 
     /* ------------------------------------------------------------------ *
@@ -252,9 +265,20 @@ final class HttpClientExecutor implements HttpExecutor {
             if (sslCtx != null) {
                 M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
                 /* Disable hostname verification so self-signed certificates whose
-                 * CN/SAN does not match the target host are still accepted. */
-                final SSLParameters sp = new SSLParameters();
-                sp.setEndpointIdentificationAlgorithm(null);
+                 * CN/SAN does not match the target host are still accepted.
+                 * An empty-string endpoint identification algorithm is used rather
+                 * than null: Java 11+ HttpClient silently promotes null to "HTTPS",
+                 * whereas an empty string is treated as "no algorithm" and bypasses
+                 * that promotion.  SSLTrustAll.getTrustAllSSLParameters() is preferred
+                 * when available; a local fallback is used with older SSLTrustAll
+                 * builds that pre-date the method. */
+                SSLParameters sp = (M_SSL_TRUST_ALL_GET_PARAMS != null)
+                    ? (SSLParameters) M_SSL_TRUST_ALL_GET_PARAMS.invoke(null)
+                    : null;
+                if (sp == null) {
+                    sp = new SSLParameters();
+                    sp.setEndpointIdentificationAlgorithm("");
+                }
                 M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, sp);
             }
             if (auth != null) {

@@ -17,22 +17,24 @@ the 'FreeMono' font); they can be downloaded from:
 Configurable Environment Variables
 ----------------------------------------------------------------------------------------------------
 
-JXMAKE_COUNTRY             - if set, it will override the country  defined by the system locale
-JXMAKE_LANGUAGE            - if set, it will override the language defined by the system locale
+JXMAKE_COUNTRY                - if set, it will override the country  defined by the system locale
+JXMAKE_LANGUAGE               - if set, it will override the language defined by the system locale
 
-JXMAKE_I18N_CAPTURE_FILE   - if set, a translation file (.po) will be created at the specified path
+JXMAKE_I18N_CAPTURE_FILE      - if set, a translation file (.po) will be created at the specified path
 
 
-JXMAKE_DBROWSER_FONT_NAME  - if not set, the default value is autodetected
-JXMAKE_DBROWSER_FONT_SIZE  - if not set, the default value is autodetected
+JXMAKE_DBROWSER_FONT_NAME     - if not set, the default value is autodetected
+JXMAKE_DBROWSER_FONT_SIZE     - if not set, the default value is autodetected
 
-JXMAKE_SEDITOR_FONT_NAME   - if not set, the default value is autodetected
-JXMAKE_SEDITOR_FONT_SIZE   - if not set, the default value is autodetected
+JXMAKE_SEDITOR_FONT_NAME      - if not set, the default value is autodetected
+JXMAKE_SEDITOR_FONT_SIZE      - if not set, the default value is autodetected
 
-JXMAKE_MAGIC_BAUDRATE      - if not set, the default value is 1200
-JXMAKE_LOWEST_BAUDRATE     - if not set, the default value is 2400
-JXMAKE_LOWEST_BAUDRATE_ALT - if not set, the default value is  600
-JXMAKE_RESET_PULSE_TIME_MS - if not set, the default value is  250
+JXMAKE_MAGIC_BAUDRATE         - if not set, the default value is 1200
+JXMAKE_LOWEST_BAUDRATE        - if not set, the default value is 2400
+JXMAKE_LOWEST_BAUDRATE_ALT    - if not set, the default value is  600
+JXMAKE_RESET_PULSE_TIME_MS    - if not set, the default value is  250
+
+JXMAKE_ALWAYS_USE_LEGACY_HTTP - if set and not zero, never use HttpClient, even if available
 
 
 ----------------------------------------------------------------------------------------------------

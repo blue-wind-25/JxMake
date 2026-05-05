@@ -27,16 +27,16 @@
  */
 package com.intellectualsites.http;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /*
  Wrapper for Content-Type header values
  */
 public final class ContentType {
 
-    private static final Map<String, ContentType> internalMap = new HashMap<>();
+    private static final Map<String, ContentType> internalMap = new ConcurrentHashMap<>();
 
     public static final ContentType JSON = of("application/json; charset=UTF-8");
     public static final ContentType XML = of("application/xml");

@@ -652,8 +652,6 @@ echoln "GET 'https://localhost'"
 echoln $implode( $http_get('https://localhost'), "\n" )
 echoln
 
-$exit(0)
-
 echoln "GET 'https://${IP}'"
 echoln $implode( $http_get(:"https://${IP}"), "\n" )
 echoln
@@ -670,6 +668,7 @@ echoln $implode( $http_get(:"https://${IP}"), "\n" )
 echoln
 #*)
 
+#(*
 echoln "GET 'http://${IP}/basic.php'"
 echoln $implode( $http_get(:"http://${IP}/basic.php"), "\n" )
 echoln

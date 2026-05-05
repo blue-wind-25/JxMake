@@ -8,6 +8,10 @@
 package jxm.xb.fci;
 
 
+import java.lang.reflect.InvocationTargetException;
+
+import java.io.IOException;
+
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
@@ -173,9 +177,28 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
+            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
+            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
+            Throwable cause       = e;
+            Throwable iteFallback = null;
+            while(cause != null) {
+                // If we find the error, use it immediately and exit
+                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
+                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
+                    return;
+                }
+                // If we find the reflection wrapper, remember it in case we do not find an SSL error
+                if(cause instanceof InvocationTargetException) iteFallback = cause;
+                // Get the next cause
+                cause = cause.getCause();
+            }
+            if(iteFallback != null) {
+                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
+                return;
+            }
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
-            // Throw as a different exception
+            // Throw as a different exception for any other errors
             throw XCom.newJXMRuntimeError( e.toString() );
         }
     }
@@ -214,6 +237,25 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
+            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
+            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
+            Throwable cause       = e;
+            Throwable iteFallback = null;
+            while(cause != null) {
+                // If we find the error, use it immediately and exit
+                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
+                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
+                    return;
+                }
+                // If we find the reflection wrapper, remember it in case we do not find an SSL error
+                if(cause instanceof InvocationTargetException) iteFallback = cause;
+                // Get the next cause
+                cause = cause.getCause();
+            }
+            if(iteFallback != null) {
+                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
+                return;
+            }
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Throw as a different exception
@@ -242,6 +284,27 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
+            //*
+            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
+            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
+            Throwable cause       = e;
+            Throwable iteFallback = null;
+            while(cause != null) {
+                // If we find the error, use it immediately and exit
+                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
+                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
+                    return;
+                }
+                // If we find the reflection wrapper, remember it in case we do not find an SSL error
+                if(cause instanceof InvocationTargetException) iteFallback = cause;
+                // Get the next cause
+                cause = cause.getCause();
+            }
+            if(iteFallback != null) {
+                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
+                return;
+            }
+            //*/
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Throw as a different exception

@@ -50,9 +50,7 @@ public class SSLTrustAll {
 
     };
 
-    /* Permissive X509TrustManager — Java 8 / fallback path.
-     * Only the three abstract methods from X509TrustManager are overridden;
-     * no Socket or SSLEngine variants are available on this base class. */
+    // Permissive X509TrustManager - Java 8/fallback path
     private static final class _PermissiveTM implements X509TrustManager {
 
         @Override public X509Certificate[] getAcceptedIssuers()
@@ -66,11 +64,7 @@ public class SSLTrustAll {
 
     }
 
-    /* Permissive X509ExtendedTrustManager — Java 9 / 11+ path.
-     * The additional Socket and SSLEngine overrides prevent the JDK from
-     * wrapping this in a delegation layer that re-applies hostname checks.
-     * Compiled against the Java 7+ API where X509ExtendedTrustManager was
-     * introduced; never instantiated when the class is absent at runtime. */
+    // Permissive X509ExtendedTrustManager - Java 9/11+ path
     private static final class _PermissiveExtendedTM extends X509ExtendedTrustManager {
 
         @Override public X509Certificate[] getAcceptedIssuers()
@@ -96,22 +90,25 @@ public class SSLTrustAll {
 
     }
 
-    /* Selected once at class-load time: try to use X509ExtendedTrustManager (available
-     * since Java 7 but absent in some stripped-down environments) so that the JDK does
-     * not wrap this in a delegation layer that re-applies hostname verification.  Falls
-     * back to the plain X509TrustManager when the extended class is not present. */
+    // Selected once at class-load time; try to use X509ExtendedTrustManager fallsback to the plain X509TrustManager
+    // when the extended class is not present
     private static final TrustManager[] _trustAllCerts;
 
     static {
+
         TrustManager tm;
+
         try {
             Class.forName("javax.net.ssl.X509ExtendedTrustManager");
             tm = new _PermissiveExtendedTM();
-        } catch (final ClassNotFoundException ignored) {
+        }
+        catch(final ClassNotFoundException ignored) {
             tm = new _PermissiveTM();
         }
+
         _trustAllCerts = new TrustManager[] { tm };
-    }
+
+    } // static
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -135,10 +132,9 @@ public class SSLTrustAll {
         // Store the context so HttpClient-based paths can use it
         _trustAllSSLContext = sc;
 
-        // Build SSLParameters that disable hostname verification for Java 11+
-        // HttpClient.  Setting the endpoint identification algorithm to the
-        // empty string (rather than null) is required because the HttpClient
-        // implementation silently overrides a null value with "HTTPS".
+        // # Build SSLParameters that disable hostname verification for Java 11+ HttpClient.
+        // # Setting the endpoint identification algorithm to the empty string (rather than null) is
+        //   required because the HttpClient implementation silently overrides a null value with "HTTPS".
         final SSLParameters sp = new SSLParameters();
         sp.setEndpointIdentificationAlgorithm("");
         _trustAllSSLParams = sp;
@@ -175,23 +171,11 @@ public class SSLTrustAll {
         }
     }
 
-    /*
-     * Returns the permissive SSLContext installed by setSSLTrustAll(true), or
-     * null if trust-all is not currently active.  This context accepts all
-     * certificates and is suitable for passing to HttpClient.Builder.sslContext()
-     * so that self-signed certificates are honoured on the modern Java path.
-     */
+    // Returns the permissive SSLContext installed by setSSLTrustAll(true), or null if trust-all is not currently active
     public static SSLContext getTrustAllSSLContext()
     { return _trustAllSSLContext; }
 
-    /*
-     * Returns SSLParameters with endpoint identification disabled, suitable for
-     * passing to HttpClient.Builder.sslParameters() together with the context
-     * returned by getTrustAllSSLContext().  The empty-string algorithm value is
-     * intentional: Java 11+ HttpClient overrides a null value with "HTTPS",
-     * whereas an empty string bypasses that check and disables hostname
-     * verification.  Returns null when trust-all mode is not active.
-     */
+    // Returns SSLParameters with endpoint identification disabled
     public static SSLParameters getTrustAllSSLParameters()
     { return _trustAllSSLParams; }
 

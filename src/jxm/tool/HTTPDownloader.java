@@ -85,6 +85,7 @@ public class HTTPDownloader  {
     private static Method   _mClientBuilderConnectTimeout;
     private static Method   _mClientBuilderSslContext;
     private static Method   _mClientBuilderSslParameters;
+    private static Method   _mClientBuilderAuthenticator;
     private static Method   _mClientBuilderBuild;
     private static Method   _mClientSend;
     private static Method   _mResponseStatusCode;
@@ -124,6 +125,7 @@ public class HTTPDownloader  {
                 _mClientBuilderConnectTimeout  = _clsHttpClientBuilder.getMethod("connectTimeout", Duration.class);
                 _mClientBuilderSslContext      = _clsHttpClientBuilder.getMethod("sslContext", SSLContext.class);
                 _mClientBuilderSslParameters   = _clsHttpClientBuilder.getMethod("sslParameters", SSLParameters.class);
+                _mClientBuilderAuthenticator   = _clsHttpClientBuilder.getMethod("authenticator", java.net.Authenticator.class);
                 _mClientBuilderBuild           = _clsHttpClientBuilder.getMethod("build");
                 _mClientSend                   = _clsHttpClient.getMethod("send", _clsHttpRequest, _clsBodyHandler);
                 _mResponseStatusCode           = _clsHttpResponse.getMethod("statusCode");
@@ -331,6 +333,14 @@ public class HTTPDownloader  {
             final SSLParameters sslParams = new SSLParameters();
             sslParams.setEndpointIdentificationAlgorithm(null);
             _mClientBuilderSslParameters.invoke(builder, sslParams);
+        }
+
+        // Apply the global Authenticator (set via TLAuthenticator.setAsDefault()) so
+        // that server/proxy credentials are forwarded on the HttpClient path, matching
+        // the behaviour of the legacy HttpsURLConnection path.
+        final java.net.Authenticator auth = java.net.Authenticator.getDefault();
+        if (auth != null) {
+            _mClientBuilderAuthenticator.invoke(builder, auth);
         }
 
         return _mClientBuilderBuild.invoke(builder);

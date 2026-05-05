@@ -31,7 +31,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import java.net.Authenticator;
+
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 
 /*
  {@link HttpExecutor} implementation that delegates to {@code java.net.http.HttpClient}
@@ -77,6 +80,8 @@ final class HttpClientExecutor implements HttpExecutor {
     private static final Method M_HANDLERS_OF_BYTE_ARRAY;
     private static final Method M_CLIENT_NEW_BUILDER;
     private static final Method M_CLIENT_BUILDER_SSL_CTX;
+    private static final Method M_CLIENT_BUILDER_SSL_PARAMS;
+    private static final Method M_CLIENT_BUILDER_AUTHENTICATOR;
     private static final Method M_CLIENT_BUILDER_BUILD;
     private static final Method M_CLIENT_SEND;
     private static final Method M_RESPONSE_STATUS_CODE;
@@ -133,6 +138,10 @@ final class HttpClientExecutor implements HttpExecutor {
             M_CLIENT_NEW_BUILDER       = CLS_HTTP_CLIENT.getMethod("newBuilder");
             M_CLIENT_BUILDER_SSL_CTX   = CLS_HTTP_CLIENT_BUILDER.getMethod(
                                              "sslContext", SSLContext.class);
+            M_CLIENT_BUILDER_SSL_PARAMS = CLS_HTTP_CLIENT_BUILDER.getMethod(
+                                             "sslParameters", SSLParameters.class);
+            M_CLIENT_BUILDER_AUTHENTICATOR = CLS_HTTP_CLIENT_BUILDER.getMethod(
+                                             "authenticator", Authenticator.class);
             M_CLIENT_BUILDER_BUILD     = CLS_HTTP_CLIENT_BUILDER.getMethod("build");
             M_CLIENT_SEND              = CLS_HTTP_CLIENT.getMethod(
                                              "send", CLS_HTTP_REQUEST, CLS_BODY_HANDLER);
@@ -237,18 +246,29 @@ final class HttpClientExecutor implements HttpExecutor {
         /* ----- Send ----- */
         final Object bodyHandler = M_HANDLERS_OF_BYTE_ARRAY.invoke(null);
 
-        /* Use the plain shared client unless SSLTrustAll is currently active, in which
-         * case build a per-request client with the trust-all SSLContext applied. */
+        /* Use the plain shared client unless SSLTrustAll is currently active or a
+         * default Authenticator is installed, in which case build a per-request
+         * client configured appropriately so that self-signed certificates and
+         * authentication credentials are both honoured, matching legacy behaviour. */
         final Object client;
-        if (M_SSL_TRUST_ALL_GET_CONTEXT != null) {
-            final SSLContext sslCtx = (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null);
+        final SSLContext sslCtx = (M_SSL_TRUST_ALL_GET_CONTEXT != null)
+            ? (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null)
+            : null;
+        final Authenticator auth = Authenticator.getDefault();
+        if (sslCtx != null || auth != null) {
+            final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
             if (sslCtx != null) {
-                final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
                 M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
-                client = M_CLIENT_BUILDER_BUILD.invoke(cb);
-            } else {
-                client = PLAIN_CLIENT;
+                /* Disable hostname verification so self-signed certificates whose
+                 * CN/SAN does not match the target host are still accepted. */
+                final SSLParameters sp = new SSLParameters();
+                sp.setEndpointIdentificationAlgorithm(null);
+                M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, sp);
             }
+            if (auth != null) {
+                M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, auth);
+            }
+            client = M_CLIENT_BUILDER_BUILD.invoke(cb);
         } else {
             client = PLAIN_CLIENT;
         }

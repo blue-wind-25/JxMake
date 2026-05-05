@@ -36,6 +36,7 @@ JXMAKE_RESET_PULSE_TIME_MS    - if not set, the default value is  250
 
 JXMAKE_ALWAYS_USE_LEGACY_HTTP - if set and not zero, never use HttpClient, even if available
 
+
 ----------------------------------------------------------------------------------------------------
 Serial Port Access in MacOS
 ----------------------------------------------------------------------------------------------------

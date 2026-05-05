@@ -8,6 +8,8 @@
 package jxm.tool;
 
 
+import java.net.Socket;
+
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 
@@ -16,10 +18,12 @@ import java.security.cert.X509Certificate;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import jxm.xb.*;
@@ -46,7 +50,10 @@ public class SSLTrustAll {
 
     };
 
-    private static final TrustManager[]   _trustAllCerts       = new TrustManager[] { new X509TrustManager() {
+    /* Permissive X509TrustManager — Java 8 / fallback path.
+     * Only the three abstract methods from X509TrustManager are overridden;
+     * no Socket or SSLEngine variants are available on this base class. */
+    private static final class _PermissiveTM implements X509TrustManager {
 
         @Override public X509Certificate[] getAcceptedIssuers()
         { return new X509Certificate[0]; }
@@ -57,7 +64,54 @@ public class SSLTrustAll {
         @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType)
         {}
 
-    } };
+    }
+
+    /* Permissive X509ExtendedTrustManager — Java 9 / 11+ path.
+     * The additional Socket and SSLEngine overrides prevent the JDK from
+     * wrapping this in a delegation layer that re-applies hostname checks.
+     * Compiled against the Java 7+ API where X509ExtendedTrustManager was
+     * introduced; never instantiated when the class is absent at runtime. */
+    private static final class _PermissiveExtendedTM extends X509ExtendedTrustManager {
+
+        @Override public X509Certificate[] getAcceptedIssuers()
+        { return new X509Certificate[0]; }
+
+        @Override public void checkClientTrusted(final X509Certificate[] chain, final String authType)
+        {}
+
+        @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType)
+        {}
+
+        @Override public void checkClientTrusted(final X509Certificate[] chain, final String authType, final Socket socket)
+        {}
+
+        @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType, final Socket socket)
+        {}
+
+        @Override public void checkClientTrusted(final X509Certificate[] chain, final String authType, final SSLEngine engine)
+        {}
+
+        @Override public void checkServerTrusted(final X509Certificate[] chain, final String authType, final SSLEngine engine)
+        {}
+
+    }
+
+    /* Selected once at class-load time: try to use X509ExtendedTrustManager (available
+     * since Java 7 but absent in some stripped-down environments) so that the JDK does
+     * not wrap this in a delegation layer that re-applies hostname verification.  Falls
+     * back to the plain X509TrustManager when the extended class is not present. */
+    private static final TrustManager[] _trustAllCerts;
+
+    static {
+        TrustManager tm;
+        try {
+            Class.forName("javax.net.ssl.X509ExtendedTrustManager");
+            tm = new _PermissiveExtendedTM();
+        } catch (final ClassNotFoundException ignored) {
+            tm = new _PermissiveTM();
+        }
+        _trustAllCerts = new TrustManager[] { tm };
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

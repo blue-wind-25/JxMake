@@ -27,15 +27,8 @@
  */
 package com.intellectualsites.http;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -46,7 +39,27 @@ import java.util.function.Supplier;
  */
 final class HttpRequest {
 
-    private static final int READ_TIMEOUT = 3600000; // 3600 seconds
+    static final int READ_TIMEOUT = 3600000; // 3600 seconds
+
+    /*
+     The executor is selected once at class-load time.
+     On Java 11+ we prefer java.net.http.HttpClient (via reflection); on Java 8
+     we fall back to HttpURLConnection.  Any failure during the reflective
+     initialisation of HttpClientExecutor is caught here and causes the fallback
+     to be used instead, so the library remains fully functional on Java 8.
+     */
+    private static final HttpExecutor EXECUTOR;
+
+    static {
+        HttpExecutor chosen;
+        try {
+            Class.forName("java.net.http.HttpClient");
+            chosen = new HttpClientExecutor();
+        } catch (final Throwable ignored) {
+            chosen = new HttpUrlConnectionExecutor();
+        }
+        EXECUTOR = chosen;
+    }
 
     private final HttpMethod method;
     private final URL url;
@@ -66,6 +79,26 @@ final class HttpRequest {
         this.throwableConsumer = throwableConsumer;
     }
 
+    HttpMethod getMethod() {
+        return this.method;
+    }
+
+    URL getUrl() {
+        return this.url;
+    }
+
+    Headers getHeaders() {
+        return this.headers;
+    }
+
+    EntityMapper getMapper() {
+        return this.mapper;
+    }
+
+    Supplier<Object> getInputSupplier() {
+        return this.inputSupplier;
+    }
+
     /*
      Create a new request {@link Builder builder}
 
@@ -75,96 +108,17 @@ final class HttpRequest {
         return new Builder();
     }
 
-    @SuppressWarnings( { "rawtypes", "unchecked" } )
     HttpResponse executeRequest(int timeout) throws IOException {
-        final HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection();
         try {
-            httpURLConnection.setRequestMethod(this.method.name());
-            httpURLConnection.setDoOutput(this.method.hasBody());
-            httpURLConnection.setUseCaches(false);
-            httpURLConnection.setConnectTimeout( (timeout > 0) ? timeout : READ_TIMEOUT );
-            httpURLConnection.setReadTimeout( (timeout > 0) ? timeout : READ_TIMEOUT );
-            for (final String headerName : this.headers.getHeaders()) {
-                final List<String> headers = this.headers.getHeaders(headerName);
-                if (headers.size() == 1) {
-                    httpURLConnection.addRequestProperty(headerName, headers.get(0));
-                } else if (headers.size() > 1) {
-                    final StringBuilder headerBuilder = new StringBuilder();
-                    final Iterator<String> headerIterator = headers.iterator();
-                    while (headerIterator.hasNext()) {
-                        headerBuilder.append(headerIterator.next());
-                        if (headerIterator.hasNext()) {
-                            headerBuilder.append(',');
-                        }
-                    }
-                    httpURLConnection.addRequestProperty(headerName, headerBuilder.toString());
-                }
-            }
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(this.inputSupplier != null);
-            if (this.inputSupplier != null) {
-                final Object object = this.inputSupplier.get();
-                if (object != null) {
-                    final EntityMapper.EntitySerializer serializer =
-                        this.mapper.getSerializer(object.getClass())
-                            .orElseThrow(() -> new IllegalArgumentException(String
-                            .format("There is no registered serializer for type '%s'",
-                                object.getClass().getCanonicalName())));
-                    if (this.headers.getHeader("Content-Type").isEmpty()) {
-                        httpURLConnection.setRequestProperty("Content-Type", serializer.getContentType().toString());
-                    }
-                    final byte[] bytes = serializer.serialize(object);
-                    httpURLConnection.setRequestProperty("Content-Length", Integer.toString(bytes.length));
-                    try (final DataOutputStream dataOutputStream = new DataOutputStream(
-                        httpURLConnection.getOutputStream())) {
-                        dataOutputStream.write(bytes);
-                        dataOutputStream.flush();
-                    }
-                }
-            }
-            httpURLConnection.connect();
-
-            final InputStream stream;
-            if (this.method.hasBody()) {
-                if (httpURLConnection.getResponseCode() >= 400) {
-                    stream = httpURLConnection.getErrorStream();
-                } else {
-                    stream = httpURLConnection.getInputStream();
-                }
-            } else {
-                stream = null;
-            }
-
-            final HttpResponse.Builder builder = HttpResponse.builder()
-                .withStatus(httpURLConnection.getResponseCode())
-                .withStatusMessage(httpURLConnection.getResponseMessage())
-                .withEntityMapper(this.mapper);
-            for (final Map.Entry<String, List<String>> entry : httpURLConnection.getHeaderFields().entrySet()) {
-                if (entry.getKey() == null) {
-                    continue;
-                }
-                for (final String header : entry.getValue()) {
-                    builder.withHeader(entry.getKey(), header);
-                }
-            }
-
-            if (stream != null) {
-                try (final ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-                    int b;
-                    while ((b = stream.read()) != -1) {
-                        bos.write(b);
-                    }
-                    builder.withBody(bos.toByteArray());
-                }
-            }
-
-            return builder.build();
-        } catch (final Throwable throwable) {
-            throwableConsumer.accept(throwable);
-        } finally {
-            if (httpURLConnection != null) {
-                httpURLConnection.disconnect();
-            }
+            return EXECUTOR.execute(this, timeout);
+        } catch (final IOException e) {
+            throwableConsumer.accept(e);
+        } catch (final RuntimeException e) {
+            throwableConsumer.accept(e);
+        } catch (final Exception e) {
+            throwableConsumer.accept(e);
+        } catch (final Throwable t) {
+            throwableConsumer.accept(t);
         }
         return null;
     }

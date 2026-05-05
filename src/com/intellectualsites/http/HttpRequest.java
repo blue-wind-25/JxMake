@@ -40,6 +40,19 @@ import java.util.function.Supplier;
 final class HttpRequest {
 
     static final int READ_TIMEOUT = 3600000; // 3600 seconds
+    public static final boolean ALWAYS_USE_LEGACY_HTTP = shouldAlwaysUseLegacyHttp();
+
+    private static boolean shouldAlwaysUseLegacyHttp() {
+        final String env = System.getenv("JXMAKE_ALWAYS_USE_LEGACY_HTTP");
+        if (env == null || env.isEmpty()) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(env) > 0;
+        } catch (final NumberFormatException ignored) {
+            return false;
+        }
+    }
 
     /*
      The executor is selected once at class-load time.
@@ -52,11 +65,15 @@ final class HttpRequest {
 
     static {
         HttpExecutor chosen;
-        try {
-            Class.forName("java.net.http.HttpClient");
-            chosen = new HttpClientExecutor();
-        } catch (final Throwable ignored) {
+        if (ALWAYS_USE_LEGACY_HTTP) {
             chosen = new HttpUrlConnectionExecutor();
+        } else {
+            try {
+                Class.forName("java.net.http.HttpClient");
+                chosen = new HttpClientExecutor();
+            } catch (final Throwable ignored) {
+                chosen = new HttpUrlConnectionExecutor();
+            }
         }
         EXECUTOR = chosen;
     }

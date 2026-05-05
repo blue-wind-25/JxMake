@@ -57,6 +57,10 @@ public final class HttpClient {
         return new Builder();
     }
 
+    public static boolean isLegacyHttpForced() {
+        return HttpRequest.ALWAYS_USE_LEGACY_HTTP;
+    }
+
     /*
      Initialise a request builder for a GET request
 

@@ -94,12 +94,7 @@ public class HTTPDownloader  {
 
     static {
         boolean avail = false;
-
-        // If JXMAKE_ALWAYS_USE_LEGACY_HTTP is set and non-zero, always use the legacy path.
-        final String legacyEnv = System.getenv("JXMAKE_ALWAYS_USE_LEGACY_HTTP");
-        final boolean legacy   = (legacyEnv != null && !legacyEnv.isEmpty() && !legacyEnv.equals("0"));
-
-        if (!legacy) {
+        if (!com.intellectualsites.http.HttpClient.isLegacyHttpForced()) {
             try {
                 _clsHttpRequest        = Class.forName("java.net.http.HttpRequest");
                 _clsHttpRequestBuilder = Class.forName("java.net.http.HttpRequest$Builder");

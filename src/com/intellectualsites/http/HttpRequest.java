@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 final class HttpRequest {
 
     static final int READ_TIMEOUT = 3600000; // 3600 seconds
+
     public static final boolean ALWAYS_USE_LEGACY_HTTP = shouldAlwaysUseLegacyHttp();
 
     private static boolean shouldAlwaysUseLegacyHttp() {

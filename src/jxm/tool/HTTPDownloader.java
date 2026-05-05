@@ -48,15 +48,15 @@ public class HTTPDownloader  {
     private static final int DefaultMaxTotalRetry                    = 65536;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    // java.net.http.HttpClient support via reflection.
-    // No java.net.http.* type is imported directly so that this file compiles on Java 8.
 
-    // True when java.net.http.HttpClient is available and should be used.
+    // java.net.http.HttpClient support via reflection
+
+    // True when java.net.http.HttpClient is available and should be used
     private static final boolean _USE_HTTP_CLIENT;
 
-    // Reflectively resolved java.net.http classes (null when _USE_HTTP_CLIENT is false).
-    // Stored as static fields because they are used in getMethod() calls below
-    // (as parameter-type arguments) and the compiler needs them to be accessible.
+    // # Reflectively resolved java.net.http classes (null when _USE_HTTP_CLIENT is false).
+    // # Stored as static fields because they are used in getMethod() calls below
+    //   (as parameter-type arguments) and the compiler needs them to be accessible.
     private static Class<?> _clsHttpRequest;
     private static Class<?> _clsHttpRequestBuilder;
     private static Class<?> _clsBodyPublisher;
@@ -67,10 +67,10 @@ public class HTTPDownloader  {
     private static Class<?> _clsHttpClient;
     private static Class<?> _clsHttpClientBuilder;
 
-    // HttpClient.Redirect.NORMAL enum constant.
+    // HttpClient.Redirect.NORMAL enum constant
     private static Object   _redirectNormal;
 
-    // Reflectively resolved methods (null when _USE_HTTP_CLIENT is false).
+    // Reflectively resolved methods (null when _USE_HTTP_CLIENT is false)
     private static Method   _mHttpRequestNewBuilder;
     private static Method   _mBuilderUri;
     private static Method   _mBuilderMethod;
@@ -94,7 +94,7 @@ public class HTTPDownloader  {
 
     static {
         boolean avail = false;
-        if (!com.intellectualsites.http.HttpClient.isLegacyHttpForced()) {
+        if( !com.intellectualsites.http.HttpClient.isLegacyHttpForced() ) {
             try {
                 _clsHttpRequest        = Class.forName("java.net.http.HttpRequest");
                 _clsHttpRequestBuilder = Class.forName("java.net.http.HttpRequest$Builder");
@@ -132,8 +132,9 @@ public class HTTPDownloader  {
                 _mHeadersMap                   = clsHttpHeaders.getMethod("map");
 
                 avail = true;
-            } catch (final Throwable ignored) {
-                // HttpClient unavailable (Java 8) or initialisation failed; fall back to legacy path.
+            }
+            catch (final Throwable ignored) {
+                // HttpClient unavailable (Java 8) or initialisation failed; fall back to legacy path
             }
         }
 
@@ -319,8 +320,8 @@ public class HTTPDownloader  {
     private Object _createHttpClient() throws Exception
     {
         final Object builder = _mClientNewBuilder.invoke(null);
-        _mClientBuilderFollowRedirects.invoke(builder, _redirectNormal);
-        _mClientBuilderConnectTimeout .invoke(builder, Duration.ofMillis(_timeout));
+        _mClientBuilderFollowRedirects.invoke( builder, _redirectNormal             );
+        _mClientBuilderConnectTimeout .invoke( builder, Duration.ofMillis(_timeout) );
 
         // Apply the trust-all SSLContext if SSLTrustAll is currently active.
         final SSLContext sslCtx = SSLTrustAll.getTrustAllSSLContext();
@@ -351,9 +352,9 @@ public class HTTPDownloader  {
                 // ----- HEAD request -----
                 {
                     final Object b = _mHttpRequestNewBuilder.invoke(null);
-                    _mBuilderUri    .invoke(b, _url.toURI());
-                    _mBuilderMethod .invoke(b, "HEAD", noBody);
-                    _mBuilderTimeout.invoke(b, Duration.ofMillis(_timeout));
+                    _mBuilderUri    .invoke( b, _url.toURI()                );
+                    _mBuilderMethod .invoke( b, "HEAD", noBody              );
+                    _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
 
                     final Object req      = _mBuilderBuild.invoke(b);
                     final Object handler  = _mHandlersOfByteArray.invoke(null);
@@ -373,16 +374,21 @@ public class HTTPDownloader  {
                     _fileSize = -1;
                     String cd = null;
 
-                    for(final Map.Entry<String, List<String>> e : hMap.entrySet()) {
-                        if(e.getKey() == null || e.getValue().isEmpty()) continue;
+                    for( final Map.Entry<String, List<String>> e : hMap.entrySet() ) {
+
+                        if( e.getKey() == null || e.getValue().isEmpty() ) continue;
+
                         final String k = e.getKey();
-                        if(k.equalsIgnoreCase("content-length")) {
-                            try { _fileSize = Long.parseLong(e.getValue().get(0)); }
+
+                        if( k.equalsIgnoreCase("content-length") ) {
+                            try { _fileSize = Long.parseLong( e.getValue().get(0) ); }
                             catch(final NumberFormatException ignored) {}
-                        } else if(k.equalsIgnoreCase("content-disposition")) {
+                        }
+                        else if( k.equalsIgnoreCase("content-disposition") ) {
                             cd = e.getValue().get(0);
                         }
-                    }
+
+                    } // for
 
                     if(_fileSize == 0) _fileSize = -1;
 
@@ -390,7 +396,7 @@ public class HTTPDownloader  {
                     if(_outFileName == null) {
                       //if(cd != null) _outFileName = cd.replaceFirst("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", "$1").trim();
                         if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
-                        if(_outFileName == null || _outFileName.isEmpty()) _outFileName = Paths.get(_url.toURI().getPath()).getFileName().toString();
+                        if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
                     }
                 }
 
@@ -409,9 +415,9 @@ public class HTTPDownloader  {
                 // ----- GET request -----
                 {
                     final Object b = _mHttpRequestNewBuilder.invoke(null);
-                    _mBuilderUri    .invoke(b, _url.toURI());
-                    _mBuilderMethod .invoke(b, "GET", noBody);
-                    _mBuilderTimeout.invoke(b, Duration.ofMillis(_timeout));
+                    _mBuilderUri    .invoke( b, _url.toURI()                );
+                    _mBuilderMethod .invoke( b, "GET", noBody               );
+                    _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
 
                     if(_downloadedSize > 0 && _fileSize > 0) {
                         _mBuilderHeader.invoke(b, "Range", "bytes=" + _downloadedSize + "-" + _fileSize);
@@ -428,12 +434,13 @@ public class HTTPDownloader  {
                         if(_downloadedSize == 0) {
                             if(statusCode != HttpURLConnection.HTTP_OK) throw XCom.newIOException("HTTP GET error %d: %s", statusCode, _url);
                             _fos = new FileOutputStream(_outFilePath, false);
-                        } else {
+                        }
+                        else {
                             if(statusCode != HttpURLConnection.HTTP_PARTIAL) throw XCom.newIOException("HTTP partial GET error %d (range bytes=%d-%d): %s", statusCode, _downloadedSize, _fileSize, _url);
                             _fos = new FileOutputStream(_outFilePath, true);
                         }
                         // Prepare the input stream
-                        _bis = new BufferedInputStream((InputStream) _mResponseBody.invoke(response));
+                        _bis = new BufferedInputStream( (InputStream) _mResponseBody.invoke(response) );
                     }
                     catch(final IOException e) {
                         // Close the streams
@@ -453,7 +460,8 @@ public class HTTPDownloader  {
                 if(cause instanceof IOException) throw (IOException) cause;
                 throw new IOException(cause);
             }
-        } else {
+        }
+        else {
             // =================================================================
             // Legacy path (Java 8, or when HttpClient is disabled via env-var)
             // HttpsURLConnection is used automatically for HTTPS URLs since it

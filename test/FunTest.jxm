@@ -642,6 +642,7 @@ echoln
 IP := '10.0.2.2'
 IP := 'localhost'
 
+#(*
 echoln "$ssl_trust_all(true)\n"
 $ssl_trust_all(true)
 
@@ -663,6 +664,7 @@ echoln
 echoln "GET 'https://${IP}'"
 echoln $implode( $http_get(:"https://${IP}"), "\n" )
 echoln
+#*)
 
 echoln "GET 'http://${IP}/basic.php'"
 echoln $implode( $http_get(:"http://${IP}/basic.php"), "\n" )

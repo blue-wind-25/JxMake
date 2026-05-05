@@ -35,16 +35,22 @@ public class SSLTrustAll {
 
     private static       HostnameVerifier _orgHostnameVerifier = null;
     private static       SSLSocketFactory _orgSSLSocketFactory = null;
-    private static       SSLContext        _trustAllSSLContext  = null;
+    private static       SSLContext       _trustAllSSLContext  = null;
 
     private static final HostnameVerifier _trustAllHosts       = new HostnameVerifier() {
-        @Override public boolean verify(final String hostname, final SSLSession session) { return true; }
+        @Override public boolean verify(final String hostname, final SSLSession session)
+        { return true; }
     };
 
     private static final TrustManager[]   _trustAllCerts       = new TrustManager[] { new X509TrustManager() {
-        @Override public X509Certificate[] getAcceptedIssuers(                                                    ) { return new X509Certificate[0]; }
-        @Override public void              checkClientTrusted(final X509Certificate[] chain, final String authType) {}
-        @Override public void              checkServerTrusted(final X509Certificate[] chain, final String authType) {}
+        @Override public X509Certificate[] getAcceptedIssuers()
+        { return new X509Certificate[0]; }
+
+        @Override public void              checkClientTrusted(final X509Certificate[] chain, final String authType)
+        {}
+
+        @Override public void              checkServerTrusted(final X509Certificate[] chain, final String authType)
+        {}
     } };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -111,12 +111,6 @@ final class HttpRequest {
     HttpResponse executeRequest(int timeout) throws IOException {
         try {
             return EXECUTOR.execute(this, timeout);
-        } catch (final IOException e) {
-            throwableConsumer.accept(e);
-        } catch (final RuntimeException e) {
-            throwableConsumer.accept(e);
-        } catch (final Exception e) {
-            throwableConsumer.accept(e);
         } catch (final Throwable t) {
             throwableConsumer.accept(t);
         }

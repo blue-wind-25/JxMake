@@ -97,41 +97,42 @@ public class HTTPDownloader  {
         boolean avail = false;
         if( !com.intellectualsites.http.HttpClient.isLegacyHttpForced() ) {
             try {
-                _clsHttpRequest        = Class.forName("java.net.http.HttpRequest");
-                _clsHttpRequestBuilder = Class.forName("java.net.http.HttpRequest$Builder");
-                _clsBodyPublisher      = Class.forName("java.net.http.HttpRequest$BodyPublisher");
-                _clsBodyPublishers     = Class.forName("java.net.http.HttpRequest$BodyPublishers");
-                _clsBodyHandler        = Class.forName("java.net.http.HttpResponse$BodyHandler");
-                _clsBodyHandlers       = Class.forName("java.net.http.HttpResponse$BodyHandlers");
-                _clsHttpResponse       = Class.forName("java.net.http.HttpResponse");
-                _clsHttpClient         = Class.forName("java.net.http.HttpClient");
-                _clsHttpClientBuilder  = Class.forName("java.net.http.HttpClient$Builder");
+                final Class<?> clsHttpHeaders  = Class.forName("java.net.http.HttpHeaders"        );
+                final Class<?> clsRedirect     = Class.forName("java.net.http.HttpClient$Redirect");
 
-                final Class<?> clsHttpHeaders = Class.forName("java.net.http.HttpHeaders");
-                final Class<?> clsRedirect = Class.forName("java.net.http.HttpClient$Redirect");
-                _redirectNormal = clsRedirect.getField("NORMAL").get(null);
+                _clsHttpRequest                = Class.forName("java.net.http.HttpRequest"               );
+                _clsHttpRequestBuilder         = Class.forName("java.net.http.HttpRequest$Builder"       );
+                _clsBodyPublisher              = Class.forName("java.net.http.HttpRequest$BodyPublisher" );
+                _clsBodyPublishers             = Class.forName("java.net.http.HttpRequest$BodyPublishers");
+                _clsBodyHandler                = Class.forName("java.net.http.HttpResponse$BodyHandler"  );
+                _clsBodyHandlers               = Class.forName("java.net.http.HttpResponse$BodyHandlers" );
+                _clsHttpResponse               = Class.forName("java.net.http.HttpResponse"              );
+                _clsHttpClient                 = Class.forName("java.net.http.HttpClient"                );
+                _clsHttpClientBuilder          = Class.forName("java.net.http.HttpClient$Builder"        );
 
-                _mHttpRequestNewBuilder        = _clsHttpRequest.getMethod("newBuilder");
-                _mBuilderUri                   = _clsHttpRequestBuilder.getMethod("uri", URI.class);
-                _mBuilderMethod                = _clsHttpRequestBuilder.getMethod("method", String.class, _clsBodyPublisher);
-                _mBuilderHeader                = _clsHttpRequestBuilder.getMethod("header", String.class, String.class);
-                _mBuilderTimeout               = _clsHttpRequestBuilder.getMethod("timeout", Duration.class);
-                _mBuilderBuild                 = _clsHttpRequestBuilder.getMethod("build");
-                _mPublishersNoBody             = _clsBodyPublishers.getMethod("noBody");
-                _mHandlersOfInputStream        = _clsBodyHandlers.getMethod("ofInputStream");
-                _mHandlersOfByteArray          = _clsBodyHandlers.getMethod("ofByteArray");
-                _mClientNewBuilder             = _clsHttpClient.getMethod("newBuilder");
-                _mClientBuilderFollowRedirects = _clsHttpClientBuilder.getMethod("followRedirects", clsRedirect);
-                _mClientBuilderConnectTimeout  = _clsHttpClientBuilder.getMethod("connectTimeout", Duration.class);
-                _mClientBuilderSslContext      = _clsHttpClientBuilder.getMethod("sslContext", SSLContext.class);
-                _mClientBuilderSslParameters   = _clsHttpClientBuilder.getMethod("sslParameters", SSLParameters.class);
-                _mClientBuilderAuthenticator   = _clsHttpClientBuilder.getMethod("authenticator", java.net.Authenticator.class);
-                _mClientBuilderBuild           = _clsHttpClientBuilder.getMethod("build");
-                _mClientSend                   = _clsHttpClient.getMethod("send", _clsHttpRequest, _clsBodyHandler);
-                _mResponseStatusCode           = _clsHttpResponse.getMethod("statusCode");
-                _mResponseBody                 = _clsHttpResponse.getMethod("body");
-                _mResponseHeaders              = _clsHttpResponse.getMethod("headers");
-                _mHeadersMap                   = clsHttpHeaders.getMethod("map");
+                _redirectNormal                = clsRedirect.getField("NORMAL").get(null);
+
+                _mHttpRequestNewBuilder        = _clsHttpRequest       .getMethod("newBuilder"                                                    );
+                _mBuilderUri                   = _clsHttpRequestBuilder.getMethod("uri"            , URI.class                                    );
+                _mBuilderMethod                = _clsHttpRequestBuilder.getMethod("method"         , String.class             , _clsBodyPublisher );
+                _mBuilderHeader                = _clsHttpRequestBuilder.getMethod("header"         , String.class             , String.class      );
+                _mBuilderTimeout               = _clsHttpRequestBuilder.getMethod("timeout"        , Duration.class);
+                _mBuilderBuild                 = _clsHttpRequestBuilder.getMethod("build"                                                         );
+                _mPublishersNoBody             = _clsBodyPublishers    .getMethod("noBody"                                                        );
+                _mHandlersOfInputStream        = _clsBodyHandlers      .getMethod("ofInputStream"                                                 );
+                _mHandlersOfByteArray          = _clsBodyHandlers      .getMethod("ofByteArray"                                                   );
+                _mClientNewBuilder             = _clsHttpClient        .getMethod("newBuilder"                                                    );
+                _mClientBuilderFollowRedirects = _clsHttpClientBuilder .getMethod("followRedirects", clsRedirect                                  );
+                _mClientBuilderConnectTimeout  = _clsHttpClientBuilder .getMethod("connectTimeout" , Duration.class                               );
+                _mClientBuilderSslContext      = _clsHttpClientBuilder .getMethod("sslContext"     , SSLContext.class                             );
+                _mClientBuilderSslParameters   = _clsHttpClientBuilder .getMethod("sslParameters"  , SSLParameters.class                          );
+                _mClientBuilderAuthenticator   = _clsHttpClientBuilder .getMethod("authenticator"  , java.net.Authenticator.class                 );
+                _mClientBuilderBuild           = _clsHttpClientBuilder .getMethod("build");
+                _mClientSend                   = _clsHttpClient        .getMethod("send"           , _clsHttpRequest             , _clsBodyHandler);
+                _mResponseStatusCode           = _clsHttpResponse      .getMethod("statusCode"                                                    );
+                _mResponseBody                 = _clsHttpResponse      .getMethod("body"                                                          );
+                _mResponseHeaders              = _clsHttpResponse      .getMethod("headers"                                                       );
+                _mHeadersMap                   =  clsHttpHeaders       .getMethod("map"                                                           );
 
                 avail = true;
             }
@@ -327,7 +328,7 @@ public class HTTPDownloader  {
 
         // Apply the trust-all SSLContext if SSLTrustAll is currently active.
         final SSLContext sslCtx = SSLTrustAll.getTrustAllSSLContext();
-        if (sslCtx != null) {
+        if(sslCtx != null) {
             _mClientBuilderSslContext.invoke(builder, sslCtx);
             // Disable hostname verification so self-signed certificates are accepted.
             final SSLParameters sslParams = new SSLParameters();
@@ -335,11 +336,11 @@ public class HTTPDownloader  {
             _mClientBuilderSslParameters.invoke(builder, sslParams);
         }
 
-        // Apply the global Authenticator (set via TLAuthenticator.setAsDefault()) so
+        // Apply the global Authenticator ( set via TLAuthenticator.setAsDefault() ) so
         // that server/proxy credentials are forwarded on the HttpClient path, matching
         // the behaviour of the legacy HttpsURLConnection path.
-        final java.net.Authenticator auth = java.net.Authenticator.getDefault();
-        if (auth != null) {
+        final java.net.Authenticator auth = TLAuthenticator.instance();
+        if(auth != null) {
             _mClientBuilderAuthenticator.invoke(builder, auth);
         }
 

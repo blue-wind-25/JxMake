@@ -110,46 +110,38 @@ final class HttpClientExecutor implements HttpExecutor {
 
     static {
         try {
-            CLS_HTTP_CLIENT          = Class.forName("java.net.http.HttpClient");
-            CLS_HTTP_CLIENT_BUILDER  = Class.forName("java.net.http.HttpClient$Builder");
-            CLS_HTTP_REQUEST         = Class.forName("java.net.http.HttpRequest");
-            CLS_HTTP_REQUEST_BUILDER = Class.forName("java.net.http.HttpRequest$Builder");
-            CLS_BODY_PUBLISHERS      = Class.forName("java.net.http.HttpRequest$BodyPublishers");
-            CLS_BODY_PUBLISHER       = Class.forName("java.net.http.HttpRequest$BodyPublisher");
-            CLS_HTTP_RESPONSE        = Class.forName("java.net.http.HttpResponse");
-            CLS_BODY_HANDLERS        = Class.forName("java.net.http.HttpResponse$BodyHandlers");
-            CLS_BODY_HANDLER         = Class.forName("java.net.http.HttpResponse$BodyHandler");
-            CLS_HTTP_HEADERS         = Class.forName("java.net.http.HttpHeaders");
-            CLS_DURATION             = Class.forName("java.time.Duration");
+            CLS_HTTP_CLIENT                = Class.forName("java.net.http.HttpClient");
+            CLS_HTTP_CLIENT_BUILDER        = Class.forName("java.net.http.HttpClient$Builder");
+            CLS_HTTP_REQUEST               = Class.forName("java.net.http.HttpRequest");
+            CLS_HTTP_REQUEST_BUILDER       = Class.forName("java.net.http.HttpRequest$Builder");
+            CLS_BODY_PUBLISHERS            = Class.forName("java.net.http.HttpRequest$BodyPublishers");
+            CLS_BODY_PUBLISHER             = Class.forName("java.net.http.HttpRequest$BodyPublisher");
+            CLS_HTTP_RESPONSE              = Class.forName("java.net.http.HttpResponse");
+            CLS_BODY_HANDLERS              = Class.forName("java.net.http.HttpResponse$BodyHandlers");
+            CLS_BODY_HANDLER               = Class.forName("java.net.http.HttpResponse$BodyHandler");
+            CLS_HTTP_HEADERS               = Class.forName("java.net.http.HttpHeaders");
+            CLS_DURATION                   = Class.forName("java.time.Duration");
 
-            M_NEW_BUILDER              = CLS_HTTP_REQUEST.getMethod("newBuilder");
-            M_BUILDER_URI              = CLS_HTTP_REQUEST_BUILDER.getMethod("uri", URI.class);
-            M_BUILDER_METHOD           = CLS_HTTP_REQUEST_BUILDER.getMethod(
-                                             "method", String.class, CLS_BODY_PUBLISHER);
-            M_BUILDER_HEADER           = CLS_HTTP_REQUEST_BUILDER.getMethod(
-                                             "header", String.class, String.class);
-            M_BUILDER_TIMEOUT          = CLS_HTTP_REQUEST_BUILDER.getMethod(
-                                             "timeout", CLS_DURATION);
-            M_BUILDER_BUILD            = CLS_HTTP_REQUEST_BUILDER.getMethod("build");
-            M_PUBLISHERS_OF_BYTE_ARRAY = CLS_BODY_PUBLISHERS.getMethod(
-                                             "ofByteArray", byte[].class);
-            M_PUBLISHERS_NO_BODY       = CLS_BODY_PUBLISHERS.getMethod("noBody");
-            M_HANDLERS_OF_BYTE_ARRAY   = CLS_BODY_HANDLERS.getMethod("ofByteArray");
-            M_CLIENT_NEW_BUILDER       = CLS_HTTP_CLIENT.getMethod("newBuilder");
-            M_CLIENT_BUILDER_SSL_CTX   = CLS_HTTP_CLIENT_BUILDER.getMethod(
-                                             "sslContext", SSLContext.class);
-            M_CLIENT_BUILDER_SSL_PARAMS = CLS_HTTP_CLIENT_BUILDER.getMethod(
-                                             "sslParameters", SSLParameters.class);
-            M_CLIENT_BUILDER_AUTHENTICATOR = CLS_HTTP_CLIENT_BUILDER.getMethod(
-                                             "authenticator", Authenticator.class);
-            M_CLIENT_BUILDER_BUILD     = CLS_HTTP_CLIENT_BUILDER.getMethod("build");
-            M_CLIENT_SEND              = CLS_HTTP_CLIENT.getMethod(
-                                             "send", CLS_HTTP_REQUEST, CLS_BODY_HANDLER);
-            M_RESPONSE_STATUS_CODE     = CLS_HTTP_RESPONSE.getMethod("statusCode");
-            M_RESPONSE_BODY            = CLS_HTTP_RESPONSE.getMethod("body");
-            M_RESPONSE_HEADERS         = CLS_HTTP_RESPONSE.getMethod("headers");
-            M_HEADERS_MAP              = CLS_HTTP_HEADERS.getMethod("map");
-            M_DURATION_OF_MILLIS       = CLS_DURATION.getMethod("ofMillis", long.class);
+            M_NEW_BUILDER                  = CLS_HTTP_REQUEST.getMethod("newBuilder");
+            M_BUILDER_URI                  = CLS_HTTP_REQUEST_BUILDER.getMethod("uri", URI.class);
+            M_BUILDER_METHOD               = CLS_HTTP_REQUEST_BUILDER.getMethod("method", String.class, CLS_BODY_PUBLISHER);
+            M_BUILDER_HEADER               = CLS_HTTP_REQUEST_BUILDER.getMethod("header", String.class, String.class);
+            M_BUILDER_TIMEOUT              = CLS_HTTP_REQUEST_BUILDER.getMethod("timeout", CLS_DURATION);
+            M_BUILDER_BUILD                = CLS_HTTP_REQUEST_BUILDER.getMethod("build");
+            M_PUBLISHERS_OF_BYTE_ARRAY     = CLS_BODY_PUBLISHERS.getMethod("ofByteArray", byte[].class);
+            M_PUBLISHERS_NO_BODY           = CLS_BODY_PUBLISHERS.getMethod("noBody");
+            M_HANDLERS_OF_BYTE_ARRAY       = CLS_BODY_HANDLERS.getMethod("ofByteArray");
+            M_CLIENT_NEW_BUILDER           = CLS_HTTP_CLIENT.getMethod("newBuilder");
+            M_CLIENT_BUILDER_SSL_CTX       = CLS_HTTP_CLIENT_BUILDER.getMethod("sslContext", SSLContext.class);
+            M_CLIENT_BUILDER_SSL_PARAMS    = CLS_HTTP_CLIENT_BUILDER.getMethod("sslParameters", SSLParameters.class);
+            M_CLIENT_BUILDER_AUTHENTICATOR = CLS_HTTP_CLIENT_BUILDER.getMethod("authenticator", Authenticator.class);
+            M_CLIENT_BUILDER_BUILD         = CLS_HTTP_CLIENT_BUILDER.getMethod("build");
+            M_CLIENT_SEND                  = CLS_HTTP_CLIENT.getMethod("send", CLS_HTTP_REQUEST, CLS_BODY_HANDLER);
+            M_RESPONSE_STATUS_CODE         = CLS_HTTP_RESPONSE.getMethod("statusCode");
+            M_RESPONSE_BODY                = CLS_HTTP_RESPONSE.getMethod("body");
+            M_RESPONSE_HEADERS             = CLS_HTTP_RESPONSE.getMethod("headers");
+            M_HEADERS_MAP                  = CLS_HTTP_HEADERS.getMethod("map");
+            M_DURATION_OF_MILLIS           = CLS_DURATION.getMethod("ofMillis", long.class);
 
             /* Build the shared plain client (no custom SSL context). */
             PLAIN_CLIENT = M_CLIENT_BUILDER_BUILD.invoke(M_CLIENT_NEW_BUILDER.invoke(null));

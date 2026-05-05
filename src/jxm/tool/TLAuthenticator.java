@@ -55,6 +55,9 @@ public class TLAuthenticator extends Authenticator {
         return new PasswordAuthentication( username, password.toCharArray() );
     }
 
+    public static Authenticator instance()
+    { return _instance; }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public static void setAsDefault()

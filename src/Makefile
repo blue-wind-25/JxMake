@@ -84,7 +84,7 @@ JPATH	:=
 #JPATH	:= /usr/java/jdk-11.0.16.1
 #JPATH	:= /usr/java/jdk-17.0.5
 #JPATH	:= /opt/openjdk-21_linux-x64_bin/jdk-21
-JPATH	:= /opt/openjdk-25_linux-x64_bin/jdk-25
+#JPATH	:= /opt/openjdk-25_linux-x64_bin/jdk-25
 
 JDS	:= /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64/bin/jdeprscan --release 11 $(CP_JDS)
 JDS	:= /usr/java/jdk-11.0.16.1/bin/jdeprscan                                 --release 11 $(CP_JDS)

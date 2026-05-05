@@ -31,15 +31,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.net.ssl.SSLContext;
+
 /*
  {@link HttpExecutor} implementation that delegates to {@code java.net.http.HttpClient}
  entirely through reflection so that this source file can be compiled on Java 8 without
  importing any {@code java.net.http.*} type directly.
 
  All {@code java.net.http} classes and the methods used on them are resolved once in the
- static initialiser and stored in {@code static final} fields.  A single
- {@code java.net.http.HttpClient} instance is created at that point and reused for every
- request; {@code HttpClient} is documented as thread-safe.
+ static initialiser and stored in {@code static final} fields.  A new
+ {@code java.net.http.HttpClient} instance is created per request via
+ {@code HttpClient.newBuilder()}, so that a {@code SSLContext} provided by
+ {@code jxm.tool.SSLTrustAll} (if present) is applied at the time each request is sent.
  */
 final class HttpClientExecutor implements HttpExecutor {
 
@@ -48,6 +51,7 @@ final class HttpClientExecutor implements HttpExecutor {
      * ------------------------------------------------------------------ */
 
     private static final Class<?> CLS_HTTP_CLIENT;
+    private static final Class<?> CLS_HTTP_CLIENT_BUILDER;
     private static final Class<?> CLS_HTTP_REQUEST;
     private static final Class<?> CLS_HTTP_REQUEST_BUILDER;
     private static final Class<?> CLS_BODY_PUBLISHERS;
@@ -71,6 +75,9 @@ final class HttpClientExecutor implements HttpExecutor {
     private static final Method M_PUBLISHERS_OF_BYTE_ARRAY;
     private static final Method M_PUBLISHERS_NO_BODY;
     private static final Method M_HANDLERS_OF_BYTE_ARRAY;
+    private static final Method M_CLIENT_NEW_BUILDER;
+    private static final Method M_CLIENT_BUILDER_SSL_CTX;
+    private static final Method M_CLIENT_BUILDER_BUILD;
     private static final Method M_CLIENT_SEND;
     private static final Method M_RESPONSE_STATUS_CODE;
     private static final Method M_RESPONSE_BODY;
@@ -79,10 +86,18 @@ final class HttpClientExecutor implements HttpExecutor {
     private static final Method M_DURATION_OF_MILLIS;
 
     /* ------------------------------------------------------------------ *
-     *  Shared HttpClient instance                                          *
+     *  Optional reflective reference to jxm.tool.SSLTrustAll              *
+     *  Null when the class is not on the classpath.                        *
      * ------------------------------------------------------------------ */
 
-    private static final Object CLIENT_INSTANCE;
+    private static final Method M_SSL_TRUST_ALL_GET_CONTEXT;
+
+    /* ------------------------------------------------------------------ *
+     *  Cached plain HttpClient (no custom SSL context)                     *
+     *  Used for all requests when SSLTrustAll is not active.               *
+     * ------------------------------------------------------------------ */
+
+    private static final Object PLAIN_CLIENT;
 
     /* ------------------------------------------------------------------ *
      *  Static initialiser – runs exactly once                              *
@@ -91,6 +106,7 @@ final class HttpClientExecutor implements HttpExecutor {
     static {
         try {
             CLS_HTTP_CLIENT          = Class.forName("java.net.http.HttpClient");
+            CLS_HTTP_CLIENT_BUILDER  = Class.forName("java.net.http.HttpClient$Builder");
             CLS_HTTP_REQUEST         = Class.forName("java.net.http.HttpRequest");
             CLS_HTTP_REQUEST_BUILDER = Class.forName("java.net.http.HttpRequest$Builder");
             CLS_BODY_PUBLISHERS      = Class.forName("java.net.http.HttpRequest$BodyPublishers");
@@ -114,6 +130,10 @@ final class HttpClientExecutor implements HttpExecutor {
                                              "ofByteArray", byte[].class);
             M_PUBLISHERS_NO_BODY       = CLS_BODY_PUBLISHERS.getMethod("noBody");
             M_HANDLERS_OF_BYTE_ARRAY   = CLS_BODY_HANDLERS.getMethod("ofByteArray");
+            M_CLIENT_NEW_BUILDER       = CLS_HTTP_CLIENT.getMethod("newBuilder");
+            M_CLIENT_BUILDER_SSL_CTX   = CLS_HTTP_CLIENT_BUILDER.getMethod(
+                                             "sslContext", SSLContext.class);
+            M_CLIENT_BUILDER_BUILD     = CLS_HTTP_CLIENT_BUILDER.getMethod("build");
             M_CLIENT_SEND              = CLS_HTTP_CLIENT.getMethod(
                                              "send", CLS_HTTP_REQUEST, CLS_BODY_HANDLER);
             M_RESPONSE_STATUS_CODE     = CLS_HTTP_RESPONSE.getMethod("statusCode");
@@ -122,11 +142,21 @@ final class HttpClientExecutor implements HttpExecutor {
             M_HEADERS_MAP              = CLS_HTTP_HEADERS.getMethod("map");
             M_DURATION_OF_MILLIS       = CLS_DURATION.getMethod("ofMillis", long.class);
 
-            /* Create the shared HttpClient via the static factory method. */
-            CLIENT_INSTANCE = CLS_HTTP_CLIENT.getMethod("newHttpClient").invoke(null);
+            /* Build the shared plain client (no custom SSL context). */
+            PLAIN_CLIENT = M_CLIENT_BUILDER_BUILD.invoke(M_CLIENT_NEW_BUILDER.invoke(null));
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
+
+        /* Optional: discover jxm.tool.SSLTrustAll without a hard compile-time dependency.
+         * ClassNotFoundException is expected when the library is used outside the JxMake project. */
+        Method m = null;
+        try {
+            m = Class.forName("jxm.tool.SSLTrustAll").getMethod("getTrustAllSSLContext");
+        } catch (final ReflectiveOperationException ignored) {
+            /* jxm.tool.SSLTrustAll is not present – SSL trust-all will not be applied. */
+        }
+        M_SSL_TRUST_ALL_GET_CONTEXT = m;
     }
 
     /* ------------------------------------------------------------------ *
@@ -205,9 +235,26 @@ final class HttpClientExecutor implements HttpExecutor {
         final Object httpRequest = M_BUILDER_BUILD.invoke(builder);
 
         /* ----- Send ----- */
-        final Object bodyHandler   = M_HANDLERS_OF_BYTE_ARRAY.invoke(null);
+        final Object bodyHandler = M_HANDLERS_OF_BYTE_ARRAY.invoke(null);
+
+        /* Use the plain shared client unless SSLTrustAll is currently active, in which
+         * case build a per-request client with the trust-all SSLContext applied. */
+        final Object client;
+        if (M_SSL_TRUST_ALL_GET_CONTEXT != null) {
+            final SSLContext sslCtx = (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null);
+            if (sslCtx != null) {
+                final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
+                M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
+                client = M_CLIENT_BUILDER_BUILD.invoke(cb);
+            } else {
+                client = PLAIN_CLIENT;
+            }
+        } else {
+            client = PLAIN_CLIENT;
+        }
+
         final Object httpResponse  = M_CLIENT_SEND.invoke(
-            CLIENT_INSTANCE, httpRequest, bodyHandler);
+            client, httpRequest, bodyHandler);
 
         /* ----- Extract response ----- */
         final int statusCode    = (Integer) M_RESPONSE_STATUS_CODE.invoke(httpResponse);

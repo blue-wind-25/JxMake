@@ -226,6 +226,8 @@ final class HttpClientExecutor implements HttpExecutor {
              * disables the check entirely. */
             M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, jxm.tool.SSLTrustAll.getTrustAllSSLParameters());
         }
+        /* TLAuthenticator.instance() returns the pre-initialised singleton and is
+         * never null, so no null guard is required before passing it to the builder. */
         M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, jxm.tool.TLAuthenticator.instance());
         client = M_CLIENT_BUILDER_BUILD.invoke(cb);
 

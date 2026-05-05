@@ -317,16 +317,15 @@ public class HTTPDownloader  {
         _fos = null;
     }
 
-    // Create a java.net.http.HttpClient via reflection, optionally configured
-    // with the trust-all SSLContext from SSLTrustAll when self-signed certificates
-    // must be accepted.  Only called when _USE_HTTP_CLIENT is true.
+    // Create a java.net.http.HttpClient via reflection, optionally configured with the trust-all SSLContext
+    // from SSLTrustAll when self-signed certificates must be accepted. Only called when _USE_HTTP_CLIENT is true.
     private Object _createHttpClient() throws Exception
     {
         final Object builder = _mClientNewBuilder.invoke(null);
         _mClientBuilderFollowRedirects.invoke( builder, _redirectNormal             );
         _mClientBuilderConnectTimeout .invoke( builder, Duration.ofMillis(_timeout) );
 
-        // Apply the trust-all SSLContext if SSLTrustAll is currently active.
+        // Apply the trust-all SSLContext if SSLTrustAll is currently active
         final SSLContext sslCtx = SSLTrustAll.getTrustAllSSLContext();
         if(sslCtx != null) {
             _mClientBuilderSslContext.invoke(builder, sslCtx);
@@ -336,9 +335,8 @@ public class HTTPDownloader  {
             _mClientBuilderSslParameters.invoke(builder, sslParams);
         }
 
-        // Apply the global Authenticator ( set via TLAuthenticator.setAsDefault() ) so
-        // that server/proxy credentials are forwarded on the HttpClient path, matching
-        // the behaviour of the legacy HttpsURLConnection path.
+        // Apply the global Authenticator ( set via TLAuthenticator.setAsDefault() ) so that server/proxy credentials
+        // are forwarded on the HttpClient path, matching the behaviour of the legacy HttpsURLConnection path
         final java.net.Authenticator auth = TLAuthenticator.instance();
         if(auth != null) {
             _mClientBuilderAuthenticator.invoke(builder, auth);
@@ -353,9 +351,9 @@ public class HTTPDownloader  {
         if(_url == null) return false;
 
         if(_USE_HTTP_CLIENT) {
-            // =================================================================
+            // ====================================================================================================
             // HttpClient path (Java 11+, via reflection)
-            // =================================================================
+            // ====================================================================================================
             try {
                 final Object client = _createHttpClient();
                 final Object noBody = _mPublishersNoBody.invoke(null);
@@ -405,7 +403,6 @@ public class HTTPDownloader  {
 
                     // Determine the output file name as needed
                     if(_outFileName == null) {
-                      //if(cd != null) _outFileName = cd.replaceFirst("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", "$1").trim();
                         if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
                         if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
                     }
@@ -418,7 +415,8 @@ public class HTTPDownloader  {
                 if(_fileSize > 0) {
                     // Check only if the server sent the file size
                     if(_downloadedSize >= _fileSize) return (_downloadedSize == _fileSize);
-                } else {
+                }
+                else {
                     // Start from the beginning if the server did not send the file size
                     _downloadedSize = 0;
                 }
@@ -473,12 +471,11 @@ public class HTTPDownloader  {
             }
         }
         else {
-            // =================================================================
-            // Legacy path (Java 8, or when HttpClient is disabled via env-var)
-            // HttpsURLConnection is used automatically for HTTPS URLs since it
-            // is a subclass of HttpURLConnection; SSLTrustAll continues to
-            // configure the default SSL socket factory globally.
-            // =================================================================
+            // ====================================================================================================
+            // Legacy path (Java 8, or when HttpClient is disabled via env-var) HttpsURLConnection is used
+            // automatically for HTTPS URLs since it is a subclass of HttpURLConnection; SSLTrustAll continues to
+            // configure the default SSL socket factory globally
+            // ====================================================================================================
 
             // Send HEAD request
             HttpURLConnection httpConnection = (HttpURLConnection) _url.openConnection();
@@ -498,7 +495,6 @@ public class HTTPDownloader  {
             // Determine the output file name as needed
             if(_outFileName == null) {
                 final String cd = httpConnection.getHeaderField("Content-Disposition");
-              //if(cd != null) _outFileName = cd.replaceFirst("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", "$1").trim();
                 if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
                 if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
             }
@@ -567,7 +563,7 @@ public class HTTPDownloader  {
         // Perform download
         boolean error = false;
 
-        //int simErr = 0;
+      //int simErr = 0;
 
         try {
             final byte dataBuffer[] = new byte[DownloadBufferSize];
@@ -589,8 +585,8 @@ public class HTTPDownloader  {
                     if( !progressCB.apply(_downloadedSize, _fileSize) ) return DRes_Error;
                 }
 
-                //if(++simErr > 30) return DRes_Error;
-                //if(++simErr > 30) break;
+              //if(++simErr > 30) return DRes_Error;
+              //if(++simErr > 30) break;
 
                 // Check if the file is already fully downloaded
                 if(_downloadedSize == _fileSize) break;
@@ -655,7 +651,7 @@ public class HTTPDownloader  {
         int consecutiveErrorCount = 0;
         int totalRetryCount       = 0;
 
-        //int simErr = 0;
+      //int simErr = 0;
 
         while(true) {
 

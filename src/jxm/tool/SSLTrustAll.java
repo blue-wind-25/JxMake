@@ -16,6 +16,7 @@ import java.security.cert.X509Certificate;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -96,10 +97,12 @@ public class SSLTrustAll {
     public static void setSSLTrustAll(final boolean enabled) throws GeneralSecurityException
     {
         _sslTrustAllMutex.lock();
+
         try {
             if(enabled) _enaSSLTrustAll();
             else        _disSSLTrustAll();
-        } finally {
+        }
+        finally {
             _sslTrustAllMutex.unlock();
         }
     }
@@ -112,5 +115,15 @@ public class SSLTrustAll {
      */
     public static SSLContext getTrustAllSSLContext()
     { return _trustAllSSLContext; }
+
+    public static SSLParameters getTrustAllSSLParameters()
+    {
+        final SSLContext    ctx = getTrustAllSSLContext();
+        final SSLParameters sp  = ctx.getDefaultSSLParameters();
+
+        sp.setEndpointIdentificationAlgorithm(null);
+
+        return sp;
+    }
 
 } // class SSLTrustAll

@@ -623,6 +623,7 @@ H_KVP +:= 'application/vnd.github+json'
 H_KVP +:= 'X-GitHub-Api-Version'
 H_KVP +:= '2022-11-28'
 
+(*
 echoln "HEAD 'https://httpbin.org/get'"
 echoln $implode( $http_head('https://httpbin.org/get', '', 30), "\n" )
 echoln
@@ -638,6 +639,7 @@ echoln
 echoln "POST 'https://httpbin.org/post'"
 echoln $implode( $http_post('https://httpbin.org/post', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', ${H_KVP}, 30), "\n" )
 echoln
+#*)
 
 IP := '10.0.2.2'
 IP := 'localhost'
@@ -649,6 +651,8 @@ $ssl_trust_all(true)
 echoln "GET 'https://localhost'"
 echoln $implode( $http_get('https://localhost'), "\n" )
 echoln
+
+$exit(0)
 
 echoln "GET 'https://${IP}'"
 echoln $implode( $http_get(:"https://${IP}"), "\n" )

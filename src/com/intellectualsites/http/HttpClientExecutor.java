@@ -93,6 +93,13 @@ final class HttpClientExecutor implements HttpExecutor {
     private static final Method M_SSL_TRUST_ALL_GET_CONTEXT;
 
     /* ------------------------------------------------------------------ *
+     *  Cached plain HttpClient (no custom SSL context)                     *
+     *  Used for all requests when SSLTrustAll is not active.               *
+     * ------------------------------------------------------------------ */
+
+    private static final Object PLAIN_CLIENT;
+
+    /* ------------------------------------------------------------------ *
      *  Static initialiser – runs exactly once                              *
      * ------------------------------------------------------------------ */
 
@@ -134,15 +141,21 @@ final class HttpClientExecutor implements HttpExecutor {
             M_RESPONSE_HEADERS         = CLS_HTTP_RESPONSE.getMethod("headers");
             M_HEADERS_MAP              = CLS_HTTP_HEADERS.getMethod("map");
             M_DURATION_OF_MILLIS       = CLS_DURATION.getMethod("ofMillis", long.class);
+
+            /* Build the shared plain client (no custom SSL context). */
+            PLAIN_CLIENT = M_CLIENT_BUILDER_BUILD.invoke(M_CLIENT_NEW_BUILDER.invoke(null));
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
 
-        /* Optional: discover jxm.tool.SSLTrustAll without a hard compile-time dependency. */
+        /* Optional: discover jxm.tool.SSLTrustAll without a hard compile-time dependency.
+         * ClassNotFoundException is expected when the library is used outside the JxMake project. */
         Method m = null;
         try {
             m = Class.forName("jxm.tool.SSLTrustAll").getMethod("getTrustAllSSLContext");
-        } catch (final Throwable ignored) {}
+        } catch (final ReflectiveOperationException ignored) {
+            /* jxm.tool.SSLTrustAll is not present – SSL trust-all will not be applied. */
+        }
         M_SSL_TRUST_ALL_GET_CONTEXT = m;
     }
 
@@ -224,15 +237,21 @@ final class HttpClientExecutor implements HttpExecutor {
         /* ----- Send ----- */
         final Object bodyHandler = M_HANDLERS_OF_BYTE_ARRAY.invoke(null);
 
-        /* Build an HttpClient for this request, applying the trust-all SSLContext if active. */
-        final Object clientBuilder = M_CLIENT_NEW_BUILDER.invoke(null);
+        /* Use the plain shared client unless SSLTrustAll is currently active, in which
+         * case build a per-request client with the trust-all SSLContext applied. */
+        final Object client;
         if (M_SSL_TRUST_ALL_GET_CONTEXT != null) {
             final SSLContext sslCtx = (SSLContext) M_SSL_TRUST_ALL_GET_CONTEXT.invoke(null);
             if (sslCtx != null) {
-                M_CLIENT_BUILDER_SSL_CTX.invoke(clientBuilder, sslCtx);
+                final Object cb = M_CLIENT_NEW_BUILDER.invoke(null);
+                M_CLIENT_BUILDER_SSL_CTX.invoke(cb, sslCtx);
+                client = M_CLIENT_BUILDER_BUILD.invoke(cb);
+            } else {
+                client = PLAIN_CLIENT;
             }
+        } else {
+            client = PLAIN_CLIENT;
         }
-        final Object client = M_CLIENT_BUILDER_BUILD.invoke(clientBuilder);
 
         final Object httpResponse  = M_CLIENT_SEND.invoke(
             client, httpRequest, bodyHandler);

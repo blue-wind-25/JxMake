@@ -193,13 +193,9 @@ final class HttpClientExecutor implements HttpExecutor {
             }
         }
 
-        /* Add Content-Type and Content-Length headers for the serialized body */
+        /* Add Content-Type header for the serialized body */
         if (addContentType != null) {
             M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
-        }
-        if (bodyBytes != null) {
-            M_BUILDER_HEADER.invoke(
-                builder, "Content-Length", Integer.toString(bodyBytes.length));
         }
 
         /* Set request timeout */

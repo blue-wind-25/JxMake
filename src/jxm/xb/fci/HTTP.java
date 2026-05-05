@@ -39,13 +39,13 @@ public class HTTP {
     }
 
     public static class ReqExWrapper {
-        Exception e;
+        Throwable e;
 
         public ReqExWrapper()
         { e = null; }
 
         public void set(final Throwable e_)
-        { e = (Exception)  e_; }
+        { e = e_; }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,7 +133,8 @@ public class HTTP {
             }
             // Other error
             else {
-                throw rew.e;
+                if(rew.e instanceof Exception) throw (Exception) rew.e;
+                throw new RuntimeException(rew.e);
             }
         }
     }

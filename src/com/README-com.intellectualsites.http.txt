@@ -28,6 +28,7 @@ CHANGES:
     All uses of '@NotNull' and '@Nullable' from 'org.jetbrains.annotations' have been removed.
 
     Added features:
+        - Added support for HttpClient via reflection.
         - Fixed handling of HTTP URLs.
         - Modified the following functions to support custom timeouts:
               HttpClient.execute()

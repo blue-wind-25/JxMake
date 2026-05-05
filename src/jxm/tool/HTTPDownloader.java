@@ -55,6 +55,8 @@ public class HTTPDownloader  {
     private static final boolean _USE_HTTP_CLIENT;
 
     // Reflectively resolved java.net.http classes (null when _USE_HTTP_CLIENT is false).
+    // Stored as static fields because they are used in getMethod() calls below
+    // (as parameter-type arguments) and the compiler needs them to be accessible.
     private static Class<?> _clsHttpRequest;
     private static Class<?> _clsHttpRequestBuilder;
     private static Class<?> _clsBodyPublisher;
@@ -62,7 +64,6 @@ public class HTTPDownloader  {
     private static Class<?> _clsBodyHandler;
     private static Class<?> _clsBodyHandlers;
     private static Class<?> _clsHttpResponse;
-    private static Class<?> _clsHttpHeaders;
     private static Class<?> _clsHttpClient;
     private static Class<?> _clsHttpClientBuilder;
 
@@ -107,10 +108,10 @@ public class HTTPDownloader  {
                 _clsBodyHandler        = Class.forName("java.net.http.HttpResponse$BodyHandler");
                 _clsBodyHandlers       = Class.forName("java.net.http.HttpResponse$BodyHandlers");
                 _clsHttpResponse       = Class.forName("java.net.http.HttpResponse");
-                _clsHttpHeaders        = Class.forName("java.net.http.HttpHeaders");
                 _clsHttpClient         = Class.forName("java.net.http.HttpClient");
                 _clsHttpClientBuilder  = Class.forName("java.net.http.HttpClient$Builder");
 
+                final Class<?> clsHttpHeaders = Class.forName("java.net.http.HttpHeaders");
                 final Class<?> clsRedirect = Class.forName("java.net.http.HttpClient$Redirect");
                 _redirectNormal = clsRedirect.getField("NORMAL").get(null);
 
@@ -133,7 +134,7 @@ public class HTTPDownloader  {
                 _mResponseStatusCode           = _clsHttpResponse.getMethod("statusCode");
                 _mResponseBody                 = _clsHttpResponse.getMethod("body");
                 _mResponseHeaders              = _clsHttpResponse.getMethod("headers");
-                _mHeadersMap                   = _clsHttpHeaders.getMethod("map");
+                _mHeadersMap                   = clsHttpHeaders.getMethod("map");
 
                 avail = true;
             } catch (final Throwable ignored) {
@@ -365,7 +366,7 @@ public class HTTPDownloader  {
 
                     final int statusCode  = (Integer) _mResponseStatusCode.invoke(response);
                     if(statusCode != HttpURLConnection.HTTP_OK) {
-                        throw XCom.newIOException("HTTP HEAD error: %d", statusCode);
+                        throw XCom.newIOException("HTTP HEAD error %d: %s", statusCode, _url);
                     }
 
                     // Extract Content-Length and Content-Disposition from response headers
@@ -417,7 +418,7 @@ public class HTTPDownloader  {
                     _mBuilderMethod .invoke(b, "GET", noBody);
                     _mBuilderTimeout.invoke(b, Duration.ofMillis(_timeout));
 
-                    if(_downloadedSize > 0) {
+                    if(_downloadedSize > 0 && _fileSize > 0) {
                         _mBuilderHeader.invoke(b, "Range", "bytes=" + _downloadedSize + "-" + _fileSize);
                     }
 
@@ -430,10 +431,10 @@ public class HTTPDownloader  {
                     try {
                         // Prepare the output stream
                         if(_downloadedSize == 0) {
-                            if(statusCode != HttpURLConnection.HTTP_OK) throw XCom.newIOException("HTTP GET error: %d", statusCode);
+                            if(statusCode != HttpURLConnection.HTTP_OK) throw XCom.newIOException("HTTP GET error %d: %s", statusCode, _url);
                             _fos = new FileOutputStream(_outFilePath, false);
                         } else {
-                            if(statusCode != HttpURLConnection.HTTP_PARTIAL) throw XCom.newIOException("HTTP partial GET error: %d", statusCode);
+                            if(statusCode != HttpURLConnection.HTTP_PARTIAL) throw XCom.newIOException("HTTP partial GET error %d (range bytes=%d-%d): %s", statusCode, _downloadedSize, _fileSize, _url);
                             _fos = new FileOutputStream(_outFilePath, true);
                         }
                         // Prepare the input stream

@@ -11,7 +11,6 @@ package jxm.tool;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.net.ssl.HostnameVerifier;
@@ -91,19 +90,12 @@ public class SSLTrustAll {
     public static void setSSLTrustAll(final boolean enabled) throws GeneralSecurityException
     {
         _sslTrustAllMutex.lock();
-
         try {
             if(enabled) _enaSSLTrustAll();
             else        _disSSLTrustAll();
-        }
-        catch(final GeneralSecurityException e) {
-            // Unlock mutex
+        } finally {
             _sslTrustAllMutex.unlock();
-            // Re-throw the exception
-            throw e;
         }
-
-        _sslTrustAllMutex.unlock();
     }
 
     /*

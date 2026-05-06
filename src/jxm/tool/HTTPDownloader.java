@@ -357,10 +357,10 @@ public class HTTPDownloader  {
                 final Object client = _createHttpClient();
                 final Object noBody = _mPublishersNoBody.invoke(null);
 
-                // # Preemptive authentication: capture the Authorization header once at the start of each
-                //   _begin() call rather than relying on the Authenticator challenge/retry mechanism, which
-                //   is unreliable in java.net.http.HttpClient across JDK versions (early Java 11 bugs,
-                //   HTTP/2 path, custom SSLContext interactions).
+                // Preemptive authentication - capture the Authorization header once at the start of each
+                // _begin() call rather than relying on the Authenticator challenge/retry mechanism, which
+                // is unreliable in java.net.http.HttpClient across JDK versions (early Java 11 bugs,
+                // HTTP/2 path, custom SSLContext interactions).
                 final String authHdr = TLAuthenticator.getServerAuthorizationHeader();
 
                 // ----- HEAD request -----

@@ -2,6 +2,12 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Further verify, improve and cleanups:
+      src/jxm/tool/TLAuthenticator.java
+      src/jxm/tool/SSLTrustAll.java
+      src/jxm/tool/HTTPDownloader.java
+      src/com/intellectualsites/http/*
+
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 

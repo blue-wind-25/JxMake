@@ -78,6 +78,7 @@ CP_RUN	:= -cp .$(CP_EXTR)
 CP_JDS	:= --class-path .
 CP_JDS	:= --class-path .:$(CP_EXTR)
 
+# gemini --resume 04af527a-4dc2-4a76-a24c-58558b75fb68
 # make funtest
 # JPATH=/usr/java/jdk-17.0.5 make funtest
 # JPATH=/opt/openjdk-25_linux-x64_bin/jdk-25 make funtest

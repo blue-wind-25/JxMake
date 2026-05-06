@@ -11,6 +11,10 @@ package jxm.tool;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 
+import java.nio.charset.StandardCharsets;
+
+import java.util.Base64;
+
 import jxm.xb.*;
 
 
@@ -151,6 +155,22 @@ public class TLAuthenticator extends Authenticator {
     {
         _serverUsername.set(null);
         _serverPassword.set(null);
+    }
+
+    /*
+     * # Returns the value of the 'Authorization' header for the current thread's server credentials,
+     * # encoded as HTTP Basic authentication (RFC 7617), or null if no server credentials are set.
+     * # Use this for preemptive authentication with java.net.http.HttpClient (Java 11+) because the
+     *   Authenticator-based challenge/retry mechanism is unreliable across JDK versions and HTTP/2.
+     */
+    public static String getServerAuthorizationHeader()
+    {
+        final String u = _serverUsername.get();
+        final String p = _serverPassword.get();
+
+        if(u == null || p == null) return null;
+
+        return "Basic " + Base64.getEncoder().encodeToString( (u + ":" + p).getBytes(StandardCharsets.UTF_8) );
     }
 
 } // class TLAuthenticator

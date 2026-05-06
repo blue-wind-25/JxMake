@@ -200,6 +200,14 @@ final class HttpClientExecutor implements HttpExecutor {
             M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
         }
 
+        /* Preemptive authentication: add the Authorization header directly rather than relying on the
+         * Authenticator challenge/retry mechanism, which is unreliable in java.net.http.HttpClient
+         * across JDK versions (early Java 11 bugs, HTTP/2 path, custom SSLContext interactions). */
+        final String authHdr = jxm.tool.TLAuthenticator.getServerAuthorizationHeader();
+        if (authHdr != null) {
+            M_BUILDER_HEADER.invoke(builder, "Authorization", authHdr);
+        }
+
         /* Set request timeout */
         final Object duration =
             M_DURATION_OF_MILLIS.invoke(null, (long) effectiveTimeout);

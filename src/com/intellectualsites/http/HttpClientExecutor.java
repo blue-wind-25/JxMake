@@ -175,7 +175,7 @@ final class HttpClientExecutor implements HttpExecutor {
 
         M_BUILDER_URI.invoke(builder, request.getUrl().toURI());
         M_BUILDER_METHOD.invoke(builder, request.getMethod().name(), bodyPublisher);
-        M_BUILDER_HEADER.invoke(builder, "User-Agent", "JxMake/1.0 (Java " + System.getProperty("java.version") + ")");
+        M_BUILDER_HEADER.invoke(builder, "User-Agent", jxm.SysUtil._JxMakeUserAgent);
 
         /* Copy request headers */
         final Headers headers = request.getHeaders();

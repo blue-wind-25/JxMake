@@ -33,6 +33,9 @@ import jxm.xb.*;
  * The code in this class is developed based on the information from:
  *     https://stackoverflow.com/a/13032654
  *     https://stackoverflow.com/a/2893932
+ *
+ * This class provides mechanisms to disable SSL certificate and hostname verification globally
+ * (for HttpsURLConnection) and provide an SSLContext for Java 11+ HttpClient.
  */
 public class SSLTrustAll {
 

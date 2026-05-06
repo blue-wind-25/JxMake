@@ -399,9 +399,9 @@ public class HTTPDownloader  {
                     final boolean manualAuth = (step % 2) == 0;
                     final boolean forceHttp1 = step >= 4;
 
-                    _mBuilderMethod.invoke( b, useGet ? "GET" : "HEAD", noBody );
-                    _mBuilderHeader.invoke( b, "User-Agent", "JxMake/1.0 (Java " + System.getProperty("java.version") + ")" );
-
+                    _mBuilderMethod .invoke( b, useGet ? "GET" : "HEAD", noBody        );
+                    _mBuilderHeader .invoke( b, "User-Agent", SysUtil._JxMakeUserAgent );
+                    _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout)            );
                     if(manualAuth && authHdr != null) _mBuilderHeader .invoke(b, "Authorization", authHdr);
                     if(forceHttp1)                    _mBuilderVersion.invoke(b, _versionHttp11);
 
@@ -412,12 +412,13 @@ public class HTTPDownloader  {
                     final int statusCode = (Integer) _mResponseStatusCode.invoke(response);
                     if(statusCode == HttpURLConnection.HTTP_OK) break;
 
+                    // If it was a GET request, we need to close the input stream because we only wanted the headers
+                    if(useGet) {
+                        try { ( (InputStream) _mResponseBody.invoke(response) ).close(); } catch(final Exception ignored) {}
+                    }
+
                     // If it's a 401 or 405 (Method Not Allowed for HEAD), try the next step
                     if( (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || statusCode == HttpURLConnection.HTTP_BAD_METHOD) && ++step < 8 ) {
-                        // Close InputStream if it's a GET response
-                        if(useGet) {
-                            try { ( (InputStream) _mResponseBody.invoke(response) ).close(); } catch(final Exception ignored) {}
-                        }
                         continue;
                     }
 
@@ -489,14 +490,15 @@ public class HTTPDownloader  {
                     final boolean manualAuth = (step % 2) == 0;
                     final boolean forceHttp1 = step >= 2;
 
-                    _mBuilderMethod.invoke( b, "GET", noBody );
-                    _mBuilderHeader.invoke( b, "User-Agent", "JxMake/1.0 (Java " + System.getProperty("java.version") + ")" );
-                    if(manualAuth && authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
+                    _mBuilderMethod .invoke(b, "GET", noBody                         );
+                    _mBuilderHeader .invoke(b, "User-Agent", SysUtil._JxMakeUserAgent);
+                    if(manualAuth && authHdr != null) _mBuilderHeader .invoke(b, "Authorization", authHdr);
                     if(forceHttp1)                    _mBuilderVersion.invoke(b, _versionHttp11);
 
                     if(_downloadedSize > 0 && _fileSize > 0) {
                         _mBuilderHeader.invoke( b, "Range", "bytes=" + _downloadedSize + "-" + (_fileSize - 1) );
                     }
+
 
                     final Object req        = _mBuilderBuild.invoke(b);
                     final Object handler    = _mHandlersOfInputStream.invoke(null);

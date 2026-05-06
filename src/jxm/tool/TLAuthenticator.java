@@ -22,6 +22,10 @@ import jxm.xb.*;
 /*
  * The code in this class is developed based on the information from:
  *     https://gist.github.com/veysiertekin/763f4637c60368f199e4
+ *
+ * This class provides a ThreadLocal-based Authenticator that allows each thread to have its own
+ * HTTP server and proxy credentials. It also provides a snapshot mechanism for compatibility with
+ * Java 11+ HttpClient worker threads.
  */
 public class TLAuthenticator extends Authenticator {
 

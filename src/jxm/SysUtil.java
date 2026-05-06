@@ -161,6 +161,8 @@ public class SysUtil {
 
     public static final long    _SerialVersionUID          = _JXM_Ver_Value;
 
+    public static final String  _JxMakeUserAgent           = "JxMake/1.0 (Java " + System.getProperty("java.version") + ")";
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private static       String            _userHomeDir        = null;

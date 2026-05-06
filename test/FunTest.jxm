@@ -1,3 +1,6 @@
+# @@@ @@@ @@@ : A
+if 1
+
 function concat(a, b)
     local c  = ${a}
           c += ${b}
@@ -526,13 +529,13 @@ echoln {{ '.tar.zip = ', $file_mime_type(${TarZiFile} ) }}
 echoln {{ '.tar     = ', $file_mime_type(${TarFile}   ) }}
 echoln {{ '.zip     = ', $file_mime_type(${ZipFile}   ) }}
 
-# @@@ @@@ @@@
+# @@@ @@@ @@@ : B
 (*
 echoln
 echoln "!!! EARLY EXIT !!!"
 $exit(0)
 #*)
-# @@@ @@@ @@@
+# @@@ @@@ @@@ :B
 
 
 
@@ -563,6 +566,7 @@ echoln $file_ext (${File})
 
 
 
+(*
 echoln
 echoln
 
@@ -575,6 +579,7 @@ echo __c_red__ 'Enter a line of password: ' __c_reset__
 Line := $read_pswd()
 echoln 'You have entered \'' ${Line} '\''
 echoln
+#*)
 
 
 
@@ -611,6 +616,9 @@ echoln $esp_st_decoder( \
     ${Content} \
 )
 
+# @@@ @@@ @@@ : A
+endif
+
 
 
 #(*
@@ -623,7 +631,7 @@ H_KVP +:= 'application/vnd.github+json'
 H_KVP +:= 'X-GitHub-Api-Version'
 H_KVP +:= '2022-11-28'
 
-(*
+#(*
 echoln "HEAD 'https://httpbin.org/get'"
 echoln $implode( $http_head('https://httpbin.org/get', '', 30), "\n" )
 echoln

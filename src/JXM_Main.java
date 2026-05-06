@@ -13,6 +13,17 @@ import jxm.JxMake;
 //
 public class JXM_Main {
 
+    static {
+        /*
+         * Allow the 'Authorization' header to be set manually in java.net.http.HttpClient.
+         * This header is restricted by default in JDK 11+ and stripped if set manually,
+         * which breaks preemptive authentication.
+         *
+         * This property MUST be set before the HttpClient class is loaded/initialized.
+         */
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "Authorization");
+    }
+
     public static void main(final String[] args)
     { JxMake.process(args); }
 

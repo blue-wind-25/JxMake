@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.util.Base64;
 
+import jxm.*;
 import jxm.xb.*;
 
 
@@ -34,24 +35,38 @@ public class TLAuthenticator extends Authenticator {
     private static final ThreadLocal<String> _serverUsername = new ThreadLocal<>();
     private static final ThreadLocal<String> _serverPassword = new ThreadLocal<>();
 
+    private static String _fallbackServerUsername = null;
+    private static String _fallbackServerPassword = null;
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private TLAuthenticator()
     {}
 
+    private static String _getSUser() {
+        return (_serverUsername.get() != null) ? _serverUsername.get() : _fallbackServerUsername;
+    }
+
+    private static String _getSPass() {
+        return (_serverPassword.get() != null) ? _serverPassword.get() : _fallbackServerPassword;
+    }
+
     @Override
     protected PasswordAuthentication getPasswordAuthentication()
     {
+        final RequestorType rt = getRequestorType();
+
         String username = null;
         String password = null;
 
-        if( super.getRequestorType() == RequestorType.PROXY ) {
+        if( rt == RequestorType.PROXY ) {
             username = _proxyUsername.get();
             password = _proxyPassword.get();
         }
-        else if( super.getRequestorType() == RequestorType.SERVER ) {
-            username = _serverUsername.get();
-            password = _serverPassword.get();
+        else {
+            // Default to server credentials for SERVER or any other (null/unexpected) type
+            username = _getSUser();
+            password = _getSPass();
         }
 
         if(username == null || password == null) return null;
@@ -67,22 +82,25 @@ public class TLAuthenticator extends Authenticator {
     {
         final String proxyUser  = _proxyUsername .get();
         final String proxyPass  = _proxyPassword .get();
-        final String serverUser = _serverUsername.get();
-        final String serverPass = _serverPassword.get();
+        final String serverUser = _getSUser();
+        final String serverPass = _getSPass();
 
         return new Authenticator() {
 
             @Override
             protected PasswordAuthentication getPasswordAuthentication()
             {
+                final RequestorType rt = getRequestorType();
+
                 String username = null;
                 String password = null;
 
-                if( getRequestorType() == RequestorType.PROXY ) {
+                if( rt == RequestorType.PROXY ) {
                     username = proxyUser;
                     password = proxyPass;
                 }
-                else if( getRequestorType() == RequestorType.SERVER ) {
+                else {
+                    // Default to server credentials for SERVER or any other (null/unexpected) type
                     username = serverUser;
                     password = serverPass;
                 }
@@ -100,30 +118,6 @@ public class TLAuthenticator extends Authenticator {
     public static void setAsDefault()
     {
         _tlaMutex.lock();
-
-        /*
-         *  DEPRECATED since Java 9
-         *
-         *  https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.base/share/classes/sun/net/www/protocol/http/AuthCacheValue.java
-         *  https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.base/share/classes/sun/net/www/protocol/http/AuthCacheImpl.java
-         *
-         *  import sun.net.www.protocol.http.AuthCacheValue;
-         *  import sun.net.www.protocol.http.AuthCacheImpl;
-         *  ....
-         *  AuthCacheValue.setAuthCache(new AuthCacheImpl());
-         *  Authenticator.setDefault(new URLAuthenticator(username, password));
-         */
-        /*
-        try {
-            final Class<?>  classAuthCacheValue = Class.forName("sun.net.www.protocol.http.AuthCacheValue");
-            final Class<?>  classAuthCache      = Class.forName("sun.net.www.protocol.http.AuthCache"     );
-            final Class<?>  classAuthCacheImpl  = Class.forName("sun.net.www.protocol.http.AuthCacheImpl" );
-            classAuthCacheValue.getDeclaredMethod("setAuthCache", classAuthCache).invoke( classAuthCacheValue, classAuthCacheImpl.newInstance() );
-        }
-        catch(final Exception e) {
-            e.printStackTrace();
-        }
-        //*/
 
         if(!_installed) {
             Authenticator.setDefault(_instance);
@@ -149,12 +143,20 @@ public class TLAuthenticator extends Authenticator {
     {
         _serverUsername.set(username);
         _serverPassword.set(password);
+
+        // Also update the fallback
+        _fallbackServerUsername = username;
+        _fallbackServerPassword = password;
     }
 
     public static void clrServerAuth()
     {
         _serverUsername.set(null);
         _serverPassword.set(null);
+
+        // Also clear the fallback
+        _fallbackServerUsername = null;
+        _fallbackServerPassword = null;
     }
 
     /*
@@ -165,8 +167,8 @@ public class TLAuthenticator extends Authenticator {
      */
     public static String getServerAuthorizationHeader()
     {
-        final String u = _serverUsername.get();
-        final String p = _serverPassword.get();
+        final String u = _getSUser();
+        final String p = _getSPass();
 
         if(u == null || p == null) return null;
 

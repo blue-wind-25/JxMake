@@ -66,9 +66,14 @@ public class HTTPDownloader  {
     private static Class<?> _clsHttpResponse;
     private static Class<?> _clsHttpClient;
     private static Class<?> _clsHttpClientBuilder;
+    private static Class<?> _clsHttpClientVersion;
 
     // HttpClient.Redirect.NORMAL enum constant
     private static Object   _redirectNormal;
+
+    // HttpClient.Version enum constants
+    private static Object   _versionHttp11;
+    private static Object   _versionHttp2;
 
     // Reflectively resolved methods (null when _USE_HTTP_CLIENT is false)
     private static Method   _mHttpRequestNewBuilder;
@@ -76,6 +81,7 @@ public class HTTPDownloader  {
     private static Method   _mBuilderMethod;
     private static Method   _mBuilderHeader;
     private static Method   _mBuilderTimeout;
+    private static Method   _mBuilderVersion;
     private static Method   _mBuilderBuild;
     private static Method   _mPublishersNoBody;
     private static Method   _mHandlersOfInputStream;
@@ -109,14 +115,18 @@ public class HTTPDownloader  {
                 _clsHttpResponse               = Class.forName("java.net.http.HttpResponse"              );
                 _clsHttpClient                 = Class.forName("java.net.http.HttpClient"                );
                 _clsHttpClientBuilder          = Class.forName("java.net.http.HttpClient$Builder"        );
+                _clsHttpClientVersion          = Class.forName("java.net.http.HttpClient$Version"        );
 
                 _redirectNormal                = clsRedirect.getField("NORMAL").get(null);
+                _versionHttp11                 = _clsHttpClientVersion.getField("HTTP_1_1").get(null);
+                _versionHttp2                  = _clsHttpClientVersion.getField("HTTP_2"  ).get(null);
 
                 _mHttpRequestNewBuilder        = _clsHttpRequest       .getMethod("newBuilder"                                                    );
                 _mBuilderUri                   = _clsHttpRequestBuilder.getMethod("uri"            , URI.class                                    );
                 _mBuilderMethod                = _clsHttpRequestBuilder.getMethod("method"         , String.class             , _clsBodyPublisher );
                 _mBuilderHeader                = _clsHttpRequestBuilder.getMethod("header"         , String.class             , String.class      );
-                _mBuilderTimeout               = _clsHttpRequestBuilder.getMethod("timeout"        , Duration.class);
+                _mBuilderTimeout               = _clsHttpRequestBuilder.getMethod("timeout"        , Duration.class                               );
+                _mBuilderVersion               = _clsHttpRequestBuilder.getMethod("version"        , _clsHttpClientVersion                        );
                 _mBuilderBuild                 = _clsHttpRequestBuilder.getMethod("build"                                                         );
                 _mPublishersNoBody             = _clsBodyPublishers    .getMethod("noBody"                                                        );
                 _mHandlersOfInputStream        = _clsBodyHandlers      .getMethod("ofInputStream"                                                 );
@@ -354,7 +364,6 @@ public class HTTPDownloader  {
             // HttpClient path (Java 11+, via reflection)
             // ====================================================================================================
             try {
-                final Object client = _createHttpClient();
                 final Object noBody = _mPublishersNoBody.invoke(null);
 
                 // Preemptive authentication - capture the Authorization header once at the start of each
@@ -363,198 +372,176 @@ public class HTTPDownloader  {
                 // HTTP/2 path, custom SSLContext interactions).
                 final String authHdr = TLAuthenticator.getServerAuthorizationHeader();
 
-                // ----- HEAD request -----
-                {
-                    final Object b = _mHttpRequestNewBuilder.invoke(null);
+                // Multi-step retry strategy for the initial file-info request:
+                //   1. HEAD with manual Authorization (preemptive)
+                //   2. HEAD without manual Authorization (rely on Authenticator)
+                //   3. GET  with manual Authorization
+                //   4. GET  without manual Authorization
+                //   5. Force HTTP/1.1 for any of the above if 401 persists
+                Object response = null;
+                int    step     = 0;
+                while(true) {
+                    final Object client = _createHttpClient();
+                    final Object b      = _mHttpRequestNewBuilder.invoke(null);
                     _mBuilderUri    .invoke( b, _url.toURI()                );
-                    _mBuilderMethod .invoke( b, "HEAD", noBody              );
                     _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
 
-                    if(authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
+                    // Step logic:
+                    // 0: HEAD, manual auth
+                    // 1: HEAD, no manual auth
+                    // 2: GET, manual auth
+                    // 3: GET, no manual auth
+                    // 4: HEAD, manual auth, HTTP/1.1
+                    // 5: HEAD, no manual auth, HTTP/1.1
+                    // 6: GET, manual auth, HTTP/1.1
+                    // 7: GET, no manual auth, HTTP/1.1
+                    final boolean useGet     = (step % 4) >= 2;
+                    final boolean manualAuth = (step % 2) == 0;
+                    final boolean forceHttp1 = step >= 4;
 
-                    final Object req      = _mBuilderBuild.invoke(b);
-                    final Object handler  = _mHandlersOfByteArray.invoke(null);
-                    final Object response = _mClientSend.invoke(client, req, handler);
+                    _mBuilderMethod.invoke( b, useGet ? "GET" : "HEAD", noBody );
+                    _mBuilderHeader.invoke( b, "User-Agent", "JxMake/1.0 (Java " + System.getProperty("java.version") + ")" );
 
-                    final int statusCode  = (Integer) _mResponseStatusCode.invoke(response);
-                    if(statusCode != HttpURLConnection.HTTP_OK) {
-                        throw XCom.newIOException("HTTP HEAD error %d: %s", statusCode, _url);
+                    if(manualAuth && authHdr != null) _mBuilderHeader .invoke(b, "Authorization", authHdr);
+                    if(forceHttp1)                    _mBuilderVersion.invoke(b, _versionHttp11);
+
+                    final Object req     = _mBuilderBuild.invoke(b);
+                    final Object handler = useGet ? _mHandlersOfInputStream.invoke(null) : _mHandlersOfByteArray.invoke(null);
+                    response = _mClientSend.invoke(client, req, handler);
+
+                    final int statusCode = (Integer) _mResponseStatusCode.invoke(response);
+                    if(statusCode == HttpURLConnection.HTTP_OK) break;
+
+                    // If it's a 401 or 405 (Method Not Allowed for HEAD), try the next step
+                    if( (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || statusCode == HttpURLConnection.HTTP_BAD_METHOD) && ++step < 8 ) {
+                        // Close InputStream if it's a GET response
+                        if(useGet) {
+                            try { ( (InputStream) _mResponseBody.invoke(response) ).close(); } catch(final Exception ignored) {}
+                        }
+                        continue;
                     }
 
-                    // Extract Content-Length and Content-Disposition from response headers
-                    final Object headersObj = _mResponseHeaders.invoke(response);
-                    @SuppressWarnings("unchecked")
-                    final Map<String, List<String>> hMap =
-                        (Map<String, List<String>>) _mHeadersMap.invoke(headersObj);
-
-                    _fileSize = -1;
-                    String cd = null;
-
-                    for( final Map.Entry<String, List<String>> e : hMap.entrySet() ) {
-
-                        if( e.getKey() == null || e.getValue().isEmpty() ) continue;
-
-                        final String k = e.getKey();
-
-                        if( k.equalsIgnoreCase("content-length") ) {
-                            try { _fileSize = Long.parseLong( e.getValue().get(0) ); }
-                            catch(final NumberFormatException ignored) {}
-                        }
-                        else if( k.equalsIgnoreCase("content-disposition") ) {
-                            cd = e.getValue().get(0);
-                        }
-
-                    } // for
-
-                    if(_fileSize == 0) _fileSize = -1;
-
-                    // Determine the output file name as needed
-                    if(_outFileName == null) {
-                        if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
-                        if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
-                    }
+                    throw XCom.newIOException("HTTP info request error %d: %s", statusCode, _url);
                 }
 
-                // Get and check the output file size
-                _outFilePath    = SysUtil.resolvePath(_outFileName, _outDirPath);
-                _downloadedSize = SysUtil.pathIsValidFile(_outFilePath) ? SysUtil.pathGetFileSize(_outFilePath) : 0;
-
-                if(_fileSize > 0) {
-                    // Check only if the server sent the file size
-                    if(_downloadedSize >= _fileSize) return (_downloadedSize == _fileSize);
-                }
-                else {
-                    // Start from the beginning if the server did not send the file size
-                    _downloadedSize = 0;
-                }
-
-                // ----- GET request -----
-                {
-                    final Object b = _mHttpRequestNewBuilder.invoke(null);
-                    _mBuilderUri    .invoke( b, _url.toURI()                );
-                    _mBuilderMethod .invoke( b, "GET", noBody               );
-                    _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
-
-                    if(authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
-
-                    if(_downloadedSize > 0 && _fileSize > 0) {
-                        _mBuilderHeader.invoke(b, "Range", "bytes=" + _downloadedSize + "-" + _fileSize);
-                    }
-
-                    final Object req      = _mBuilderBuild.invoke(b);
-                    final Object handler  = _mHandlersOfInputStream.invoke(null);
-                    final Object response = _mClientSend.invoke(client, req, handler);
-
-                    final int statusCode  = (Integer) _mResponseStatusCode.invoke(response);
-
-                    try {
-                        // Prepare the output stream
-                        if(_downloadedSize == 0) {
-                            if(statusCode != HttpURLConnection.HTTP_OK) throw XCom.newIOException("HTTP GET error %d: %s", statusCode, _url);
-                            _fos = new FileOutputStream(_outFilePath, false);
-                        }
-                        else {
-                            if(statusCode != HttpURLConnection.HTTP_PARTIAL) throw XCom.newIOException("HTTP partial GET error %d (range bytes=%d-%d): %s", statusCode, _downloadedSize, _fileSize, _url);
-                            _fos = new FileOutputStream(_outFilePath, true);
-                        }
-                        // Prepare the input stream
-                        _bis = new BufferedInputStream( (InputStream) _mResponseBody.invoke(response) );
-                    }
-                    catch(final IOException e) {
-                        // Close the streams
-                        _closeStreams();
-                        // Re-throw the exception
-                        throw e;
-                    }
-                }
-
-            }
-            catch(final IOException e) {
-                throw e;
+                // If we got here and response is still null, or if we want to try legacy fallback
+                // (This part is actually reached if break is called)
             }
             catch(final Exception e) {
-                // Unwrap InvocationTargetException and similar reflective wrappers
-                final Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-                if(cause instanceof IOException) throw (IOException) cause;
-                throw new IOException(cause);
+                // If it was a 401, try falling back to legacy path as a last resort
+                String msg = (e.getMessage() != null) ? e.getMessage() : "";
+                if( msg.contains("401") || msg.contains("Unauthorized") ) {
+                    return _beginLegacy();
+                }
+                if(e instanceof IOException)       throw (IOException) e;
+                if(e instanceof URISyntaxException) throw (URISyntaxException) e;
+                if(e instanceof JXMException)      throw (JXMException) e;
+                throw new IOException(e);
             }
         }
         else {
-            // ====================================================================================================
-            // Legacy path (Java 8, or when HttpClient is disabled via env-var) HttpsURLConnection is used
-            // automatically for HTTPS URLs since it is a subclass of HttpURLConnection; SSLTrustAll continues to
-            // configure the default SSL socket factory globally
-            // ====================================================================================================
-
-            // Send HEAD request
-            HttpURLConnection httpConnection = (HttpURLConnection) _url.openConnection();
-
-            httpConnection.setDoInput       (true    );
-            httpConnection.setConnectTimeout(_timeout);
-            httpConnection.setReadTimeout   (_timeout);
-            httpConnection.setRequestMethod ("HEAD"  );
-
-            if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_OK ) _throwHTTPError(httpConnection);
-
-            // Get the file size
-            _fileSize = httpConnection.getContentLengthLong();
-
-            if(_fileSize == 0) _fileSize = -1; // Set the file size to -1 if the server does not sent the content length
-
-            // Determine the output file name as needed
-            if(_outFileName == null) {
-                final String cd = httpConnection.getHeaderField("Content-Disposition");
-                if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
-                if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
-            }
-
-            // Disconnect
-            httpConnection.disconnect();
-
-            // Get and check the output file size
-            _outFilePath    = SysUtil.resolvePath(_outFileName, _outDirPath);
-            _downloadedSize = SysUtil.pathIsValidFile(_outFilePath) ? SysUtil.pathGetFileSize(_outFilePath) : 0;
-
-            if(_fileSize > 0) {
-                // Check only if the server sent the file size
-                if(_downloadedSize >= _fileSize) return (_downloadedSize == _fileSize); // Return 'true' if both sizes match
-            }
-            else {
-                // Start from the beginning if the server did not send the file size
-                _downloadedSize = 0;
-            }
-
-            // Prepare the input and output stream
-            httpConnection = (HttpURLConnection) _url.openConnection();
-
-            httpConnection.setDoInput       (true    );
-            httpConnection.setConnectTimeout(_timeout);
-            httpConnection.setReadTimeout   (_timeout);
-            httpConnection.setRequestMethod ("GET"   );
-
-            try {
-                // Prepare the output stream
-                if(_downloadedSize == 0) {
-                    if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_OK ) _throwHTTPError(httpConnection);
-                    _fos = new FileOutputStream(_outFilePath, false);
-                }
-                else {
-                    httpConnection.setRequestProperty("Range", "bytes=" + _downloadedSize + "-" + _fileSize);
-                    if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_PARTIAL ) _throwHTTPError(httpConnection);
-                    _fos = new FileOutputStream(_outFilePath, true );
-                }
-                // Prepare the input stream
-                _bis = new BufferedInputStream( httpConnection.getInputStream() );
-            }
-            catch(final IOException e) {
-                // Close the streams
-                _closeStreams();
-                // Re-throw the exception
-                throw e;
-            }
+            return _beginLegacy();
         }
 
         // Done
+        return true;
+    }
+
+    private boolean _beginLegacy() throws IOException, URISyntaxException, JXMException
+    {
+        // ====================================================================================================
+        // Legacy path (Java 8, or when HttpClient is disabled via env-var) HttpsURLConnection is used
+        // automatically for HTTPS URLs since it is a subclass of HttpURLConnection; SSLTrustAll continues to
+        // configure the default SSL socket factory globally
+        // ====================================================================================================
+
+        // Send HEAD request
+        HttpURLConnection httpConnection = (HttpURLConnection) _url.openConnection();
+
+        httpConnection.setDoInput       (true    );
+        httpConnection.setConnectTimeout(_timeout);
+        httpConnection.setReadTimeout   (_timeout);
+        httpConnection.setRequestMethod ("HEAD"  );
+
+        // Preemptive authentication for legacy path
+        final String authHdr = TLAuthenticator.getServerAuthorizationHeader();
+        if(authHdr != null) httpConnection.setRequestProperty("Authorization", authHdr);
+
+        if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_OK ) {
+            // Try GET if HEAD fails with 401 or 405
+            if( httpConnection.getResponseCode() == HttpURLConnection.HTTP_UNAUTHORIZED || httpConnection.getResponseCode() == HttpURLConnection.HTTP_BAD_METHOD ) {
+                httpConnection.disconnect();
+                httpConnection = (HttpURLConnection) _url.openConnection();
+                httpConnection.setDoInput       (true    );
+                httpConnection.setConnectTimeout(_timeout);
+                httpConnection.setReadTimeout   (_timeout);
+                httpConnection.setRequestMethod ("GET"   );
+                if(authHdr != null) httpConnection.setRequestProperty("Authorization", authHdr);
+                if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_OK ) _throwHTTPError(httpConnection);
+            }
+            else {
+                _throwHTTPError(httpConnection);
+            }
+        }
+
+        // Get the file size
+        _fileSize = httpConnection.getContentLengthLong();
+
+        if(_fileSize == 0) _fileSize = -1; // Set the file size to -1 if the server does not sent the content length
+
+        // Determine the output file name as needed
+        if(_outFileName == null) {
+            final String cd = httpConnection.getHeaderField("Content-Disposition");
+            if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
+            if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
+        }
+
+        // Disconnect
+        httpConnection.disconnect();
+
+        // Get and check the output file size
+        _outFilePath    = SysUtil.resolvePath(_outFileName, _outDirPath);
+        _downloadedSize = SysUtil.pathIsValidFile(_outFilePath) ? SysUtil.pathGetFileSize(_outFilePath) : 0;
+
+        if(_fileSize > 0) {
+            // Check only if the server sent the file size
+            if(_downloadedSize >= _fileSize) return (_downloadedSize == _fileSize); // Return 'true' if both sizes match
+        }
+        else {
+            // Start from the beginning if the server did not send the file size
+            _downloadedSize = 0;
+        }
+
+        // Prepare the input and output stream
+        httpConnection = (HttpURLConnection) _url.openConnection();
+
+        httpConnection.setDoInput       (true    );
+        httpConnection.setConnectTimeout(_timeout);
+        httpConnection.setReadTimeout   (_timeout);
+        httpConnection.setRequestMethod ("GET"   );
+        if(authHdr != null) httpConnection.setRequestProperty("Authorization", authHdr);
+
+        try {
+            // Prepare the output stream
+            if(_downloadedSize == 0) {
+                if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_OK ) _throwHTTPError(httpConnection);
+                _fos = new FileOutputStream(_outFilePath, false);
+            }
+            else {
+                httpConnection.setRequestProperty( "Range", "bytes=" + _downloadedSize + "-" + (_fileSize - 1) );
+                if( httpConnection.getResponseCode() != HttpURLConnection.HTTP_PARTIAL ) _throwHTTPError(httpConnection);
+                _fos = new FileOutputStream(_outFilePath, true );
+            }
+            // Prepare the input stream
+            _bis = new BufferedInputStream( httpConnection.getInputStream() );
+        }
+        catch(final IOException e) {
+            // Close the streams
+            _closeStreams();
+            // Re-throw the exception
+            throw e;
+        }
+
         return true;
     }
 

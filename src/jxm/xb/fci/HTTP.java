@@ -292,7 +292,8 @@ public class HTTP {
             while(cause != null) {
                 // If we find the error, use it immediately and exit
                 if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
-                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
+                    SysUtil.printError( cause.toString() );
+                    retVal.add( new XCom.VariableStore( true, "" ) );
                     return;
                 }
                 // If we find the reflection wrapper, remember it in case we do not find an SSL error
@@ -301,7 +302,8 @@ public class HTTP {
                 cause = cause.getCause();
             }
             if(iteFallback != null) {
-                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
+                SysUtil.printError( iteFallback.toString() );
+                retVal.add( new XCom.VariableStore( true, "" ) );
                 return;
             }
             //*/

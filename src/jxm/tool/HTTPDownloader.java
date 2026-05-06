@@ -329,18 +329,17 @@ public class HTTPDownloader  {
         final SSLContext sslCtx = SSLTrustAll.getTrustAllSSLContext();
         if(sslCtx != null) {
             _mClientBuilderSslContext.invoke(builder, sslCtx);
-            // Disable hostname verification.  getTrustAllSSLParameters() returns
-            // SSLParameters with the endpoint-identification algorithm set to the
-            // empty string (not null): Java 11+ HttpClient silently promotes a null
-            // value to "HTTPS", whereas an empty string disables the check entirely.
-            _mClientBuilderSslParameters.invoke(builder, SSLTrustAll.getTrustAllSSLParameters());
+            // Disable hostname verification - getTrustAllSSLParameters() returns SSLParameters with the
+            // endpoint-identification algorithm set to the empty string (not null) because Java 11+ HttpClient
+            // silently promotes a null value to "HTTPS", whereas an empty string disables the check entirely.
+            _mClientBuilderSslParameters.invoke( builder, SSLTrustAll.getTrustAllSSLParameters() );
         }
 
-        // Use a per-request snapshot of the calling thread's credentials rather than the
-        // TLAuthenticator singleton.  Java 11+ HttpClient invokes the Authenticator from its
-        // own thread pool, so ThreadLocal values set by the calling thread would not be visible
-        // there.  The snapshot captures the credentials at call time.
-        _mClientBuilderAuthenticator.invoke(builder, TLAuthenticator.snapshot());
+        // # Use a per-request snapshot of the calling thread's credentials rather than the TLAuthenticator singleton.
+        // # Java 11+ HttpClient invokes the Authenticator from its own thread pool, so ThreadLocal values set by the
+        //   calling thread would not be visible there.
+        // # The snapshot captures the credentials at call time.
+        _mClientBuilderAuthenticator.invoke( builder, TLAuthenticator.snapshot() );
 
         return _mClientBuilderBuild.invoke(builder);
     }

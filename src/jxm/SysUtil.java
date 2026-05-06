@@ -102,17 +102,19 @@ import jxm.xioe.*;
 public class SysUtil {
 
     // ##### !!! NOTE : Synchronize with '../Makefile' !!!
-    private static final long   _JXM_Ver_Major = 0;
-    private static final long   _JXM_Ver_Minor = 9;
-    private static final long   _JXM_Ver_Patch = 9;
-    private static final long   _JXM_Ver_Value = (_JXM_Ver_Major << 16) | (_JXM_Ver_Minor << 8) | _JXM_Ver_Patch;
-    private static final String _JXM_Ver_Devel = "tp2";
+    private static final long   _JXM_Ver_Major   = 0;
+    private static final long   _JXM_Ver_Minor   = 9;
+    private static final long   _JXM_Ver_Patch   = 9;
+    private static final long   _JXM_Ver_Value   = (_JXM_Ver_Major << 16) | (_JXM_Ver_Minor << 8) | _JXM_Ver_Patch;
+    private static final String _JXM_Ver_Devel   = "tp2";
 
-    private static final String _JXM_Copyright = "Copyright (C) 2022-2026 Aloysius Indrayanto\n\n"
-                                               + "License LGPLv3+ : GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>\n\n"
-                                               + "This is free software: you are free to change and redistribute it.\n"
-                                               + "There is NO WARRANTY, to the extent permitted by law.\n";
+    private static final String _JXM_Copyright   = "Copyright (C) 2022-2026 Aloysius Indrayanto\n\n"
+                                                 + "License LGPLv3+ : GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>\n\n"
+                                                 + "This is free software: you are free to change and redistribute it.\n"
+                                                 + "There is NO WARRANTY, to the extent permitted by law.\n";
 
+    public static final String  _JxMakeUserAgent = "JxMake/" + jxmVerString() + " (Java " + System.getProperty("java.version") + ")";
+    
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private static String _gel(final String envVarName, final String defaultValue)
@@ -160,8 +162,6 @@ public class SysUtil {
     public static final String  _JxMakeDistDir             = "jxmake_dist";     // JxMake distribution directory for third-party libraries and resource files, which may be updated independently by the user
 
     public static final long    _SerialVersionUID          = _JXM_Ver_Value;
-
-    public static final String  _JxMakeUserAgent           = "JxMake/1.0 (Java " + System.getProperty("java.version") + ")";
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

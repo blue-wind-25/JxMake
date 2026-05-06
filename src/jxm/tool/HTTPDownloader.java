@@ -357,12 +357,20 @@ public class HTTPDownloader  {
                 final Object client = _createHttpClient();
                 final Object noBody = _mPublishersNoBody.invoke(null);
 
+                // # Preemptive authentication: capture the Authorization header once at the start of each
+                //   _begin() call rather than relying on the Authenticator challenge/retry mechanism, which
+                //   is unreliable in java.net.http.HttpClient across JDK versions (early Java 11 bugs,
+                //   HTTP/2 path, custom SSLContext interactions).
+                final String authHdr = TLAuthenticator.getServerAuthorizationHeader();
+
                 // ----- HEAD request -----
                 {
                     final Object b = _mHttpRequestNewBuilder.invoke(null);
                     _mBuilderUri    .invoke( b, _url.toURI()                );
                     _mBuilderMethod .invoke( b, "HEAD", noBody              );
                     _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
+
+                    if(authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
 
                     final Object req      = _mBuilderBuild.invoke(b);
                     final Object handler  = _mHandlersOfByteArray.invoke(null);
@@ -426,6 +434,8 @@ public class HTTPDownloader  {
                     _mBuilderUri    .invoke( b, _url.toURI()                );
                     _mBuilderMethod .invoke( b, "GET", noBody               );
                     _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
+
+                    if(authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
 
                     if(_downloadedSize > 0 && _fileSize > 0) {
                         _mBuilderHeader.invoke(b, "Range", "bytes=" + _downloadedSize + "-" + _fileSize);

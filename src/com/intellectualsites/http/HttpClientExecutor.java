@@ -226,9 +226,11 @@ final class HttpClientExecutor implements HttpExecutor {
              * disables the check entirely. */
             M_CLIENT_BUILDER_SSL_PARAMS.invoke(cb, jxm.tool.SSLTrustAll.getTrustAllSSLParameters());
         }
-        /* TLAuthenticator.instance() returns the pre-initialised singleton and is
-         * never null, so no null guard is required before passing it to the builder. */
-        M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, jxm.tool.TLAuthenticator.instance());
+        /* Use a per-request snapshot of the calling thread's credentials rather than the
+         * TLAuthenticator singleton.  Java 11+ HttpClient invokes the Authenticator from
+         * its own thread pool, so ThreadLocal values set by the calling thread would not
+         * be visible there.  The snapshot captures the credentials at call time. */
+        M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, jxm.tool.TLAuthenticator.snapshot());
         client = M_CLIENT_BUILDER_BUILD.invoke(cb);
 
         final Object httpResponse  = M_CLIENT_SEND.invoke(

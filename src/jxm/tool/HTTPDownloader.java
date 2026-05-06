@@ -336,9 +336,11 @@ public class HTTPDownloader  {
             _mClientBuilderSslParameters.invoke(builder, SSLTrustAll.getTrustAllSSLParameters());
         }
 
-        // Always apply the TLAuthenticator so that server/proxy credentials are
-        // forwarded on the HttpClient path, matching the legacy HttpsURLConnection path.
-        _mClientBuilderAuthenticator.invoke(builder, TLAuthenticator.instance());
+        // Use a per-request snapshot of the calling thread's credentials rather than the
+        // TLAuthenticator singleton.  Java 11+ HttpClient invokes the Authenticator from its
+        // own thread pool, so ThreadLocal values set by the calling thread would not be visible
+        // there.  The snapshot captures the credentials at call time.
+        _mClientBuilderAuthenticator.invoke(builder, TLAuthenticator.snapshot());
 
         return _mClientBuilderBuild.invoke(builder);
     }

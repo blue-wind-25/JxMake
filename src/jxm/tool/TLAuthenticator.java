@@ -58,6 +58,43 @@ public class TLAuthenticator extends Authenticator {
     public static Authenticator instance()
     { return _instance; }
 
+    /*
+     * Returns a stand-alone Authenticator whose credentials are a snapshot of the calling
+     * thread's current credentials.  Unlike instance(), the returned Authenticator does NOT
+     * read from ThreadLocal storage, so it is safe to hand to java.net.http.HttpClient (Java
+     * 11+) which invokes the authenticator from its own internal thread pool.  If the calling
+     * thread has no credentials set, the returned Authenticator returns null (no credentials).
+     */
+    public static Authenticator snapshot()
+    {
+        final String proxyUser  = _proxyUsername .get();
+        final String proxyPass  = _proxyPassword .get();
+        final String serverUser = _serverUsername.get();
+        final String serverPass = _serverPassword.get();
+
+        return new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication()
+            {
+                String username = null;
+                String password = null;
+
+                if( getRequestorType() == RequestorType.PROXY ) {
+                    username = proxyUser;
+                    password = proxyPass;
+                }
+                else if( getRequestorType() == RequestorType.SERVER ) {
+                    username = serverUser;
+                    password = serverPass;
+                }
+
+                if(username == null || password == null) return null;
+
+                return new PasswordAuthentication( username, password.toCharArray() );
+            }
+        };
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public static void setAsDefault()

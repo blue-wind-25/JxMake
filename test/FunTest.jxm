@@ -566,7 +566,7 @@ echoln $file_ext (${File})
 
 
 
-#(*
+(*
 echoln
 echoln
 
@@ -761,3 +761,10 @@ $ssl_trust_all(false)
 #echoln "DOWNLOAD 'https://localhost/download.php'"
 #echoln $http_download('https://localhost/download.php', '/tmp')
 #echoln
+
+
+
+echoln "DOWNLOAD 'https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz'"
+OutFile := $http_download('https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz', '/tmp')
+echoln ${OutFile}
+$exit(0)

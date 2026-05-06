@@ -328,7 +328,7 @@ public class HTTPDownloader  {
     }
 
     // Create a java.net.http.HttpClient via reflection, optionally configured with the trust-all SSLContext
-    // from SSLTrustAll when self-signed certificates must be accepted. Only called when _USE_HTTP_CLIENT is true.
+    // from SSLTrustAll when self-signed certificates must be accepted. Only called when _USE_HTTP_CLIENT is true
     private Object _createHttpClient() throws Exception
     {
         final Object builder = _mClientNewBuilder.invoke(null);
@@ -341,7 +341,7 @@ public class HTTPDownloader  {
             _mClientBuilderSslContext.invoke(builder, sslCtx);
             // Disable hostname verification - getTrustAllSSLParameters() returns SSLParameters with the
             // endpoint-identification algorithm set to the empty string (not null) because Java 11+ HttpClient
-            // silently promotes a null value to "HTTPS", whereas an empty string disables the check entirely.
+            // silently promotes a null value to "HTTPS", whereas an empty string disables the check entirely
             _mClientBuilderSslParameters.invoke( builder, SSLTrustAll.getTrustAllSSLParameters() );
         }
 
@@ -366,10 +366,10 @@ public class HTTPDownloader  {
             try {
                 final Object noBody = _mPublishersNoBody.invoke(null);
 
-                // Preemptive authentication - capture the Authorization header once at the start of each
-                // _begin() call rather than relying on the Authenticator challenge/retry mechanism, which
-                // is unreliable in java.net.http.HttpClient across JDK versions (early Java 11 bugs,
-                // HTTP/2 path, custom SSLContext interactions).
+                // Preemptive authentication - capture the Authorization header once at the start of each _begin()
+                // call rather than relying on the Authenticator challenge/retry mechanism, which is unreliable
+                // in java.net.http.HttpClient across JDK versions (early Java 11 bugs, HTTP/2 path, custom SSLContext
+                // interactions)
                 final String authHdr = TLAuthenticator.getServerAuthorizationHeader();
 
                 // Multi-step retry strategy for the initial file-info request:
@@ -387,14 +387,14 @@ public class HTTPDownloader  {
                     _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
 
                     // Step logic:
-                    // 0: HEAD, manual auth
+                    // 0: HEAD,    manual auth
                     // 1: HEAD, no manual auth
-                    // 2: GET, manual auth
-                    // 3: GET, no manual auth
-                    // 4: HEAD, manual auth, HTTP/1.1
+                    // 2: GET ,    manual auth
+                    // 3: GET , no manual auth
+                    // 4: HEAD,    manual auth, HTTP/1.1
                     // 5: HEAD, no manual auth, HTTP/1.1
-                    // 6: GET, manual auth, HTTP/1.1
-                    // 7: GET, no manual auth, HTTP/1.1
+                    // 6: GET ,    manual auth, HTTP/1.1
+                    // 7: GET , no manual auth, HTTP/1.1
                     final boolean useGet     = (step % 4) >= 2;
                     final boolean manualAuth = (step % 2) == 0;
                     final boolean forceHttp1 = step >= 4;
@@ -424,8 +424,111 @@ public class HTTPDownloader  {
                     throw XCom.newIOException("HTTP info request error %d: %s", statusCode, _url);
                 }
 
-                // If we got here and response is still null, or if we want to try legacy fallback
-                // (This part is actually reached if break is called)
+                // Extract Content-Length and Content-Disposition from response headers
+                final Object headersObj = _mResponseHeaders.invoke(response);
+
+                @SuppressWarnings("unchecked")
+                final Map< String, List<String> > hMap = (Map< String, List<String> >) _mHeadersMap.invoke(headersObj);
+
+                _fileSize = -1;
+                String cd = null;
+
+                for( final Map.Entry<String, List<String>> e : hMap.entrySet() ) {
+
+                    if( e.getKey() == null || e.getValue().isEmpty() ) continue;
+
+                    final String k = e.getKey();
+
+                    if( k.equalsIgnoreCase("content-length") ) {
+                        try { _fileSize = Long.parseLong( e.getValue().get(0) ); }
+                        catch(final NumberFormatException ignored) {}
+                    }
+                    else if( k.equalsIgnoreCase("content-disposition") ) {
+                        cd = e.getValue().get(0);
+                    }
+
+                } // for
+
+                if(_fileSize == 0) _fileSize = -1;
+
+                // Determine the output file name as needed
+                if(_outFileName == null) {
+                    if(cd != null) _outFileName = ReCache._reGetMatcher("(?i)^.*?; filename=\"?([^\"]+)\"?.*$", cd).replaceFirst("$1").trim();
+                    if( _outFileName == null || _outFileName.isEmpty() ) _outFileName = Paths.get( _url.toURI().getPath() ).getFileName().toString();
+                }
+
+                // If it was a GET request, we need to close the input stream because we only wanted the headers
+                if( ( (Integer) _mResponseStatusCode.invoke(response) ) == HttpURLConnection.HTTP_OK ) {
+                    final Object body = _mResponseBody.invoke(response);
+                    if(body instanceof InputStream) {
+                        try { ( (InputStream) body ).close(); } catch(final Exception ignored) {}
+                    }
+                }
+
+                // Get and check the output file size
+                _outFilePath    = SysUtil.resolvePath(_outFileName, _outDirPath);
+                _downloadedSize = SysUtil.pathIsValidFile(_outFilePath) ? SysUtil.pathGetFileSize(_outFilePath) : 0;
+
+                if(_fileSize > 0) {
+                    // Check only if the server sent the file size
+                    if(_downloadedSize >= _fileSize) return (_downloadedSize == _fileSize);
+                }
+                else {
+                    // Start from the beginning if the server did not send the file size
+                    _downloadedSize = 0;
+                }
+
+                // ----- GET request (Main download) -----
+                step = 0;
+                while(true) {
+                    final Object client = _createHttpClient();
+                    final Object b      = _mHttpRequestNewBuilder.invoke(null);
+                    _mBuilderUri    .invoke( b, _url.toURI()                );
+                    _mBuilderTimeout.invoke( b, Duration.ofMillis(_timeout) );
+
+                    final boolean manualAuth = (step % 2) == 0;
+                    final boolean forceHttp1 = step >= 2;
+
+                    _mBuilderMethod.invoke( b, "GET", noBody );
+                    _mBuilderHeader.invoke( b, "User-Agent", "JxMake/1.0 (Java " + System.getProperty("java.version") + ")" );
+                    if(manualAuth && authHdr != null) _mBuilderHeader.invoke(b, "Authorization", authHdr);
+                    if(forceHttp1)                    _mBuilderVersion.invoke(b, _versionHttp11);
+
+                    if(_downloadedSize > 0 && _fileSize > 0) {
+                        _mBuilderHeader.invoke( b, "Range", "bytes=" + _downloadedSize + "-" + (_fileSize - 1) );
+                    }
+
+                    final Object req        = _mBuilderBuild.invoke(b);
+                    final Object handler    = _mHandlersOfInputStream.invoke(null);
+                    final Object res        = _mClientSend.invoke(client, req, handler);
+                    final int    statusCode = (Integer) _mResponseStatusCode.invoke(res);
+
+                    // If it's a 401, try the next step
+                    if(statusCode == HttpURLConnection.HTTP_UNAUTHORIZED && ++step < 4) {
+                        continue;
+                    }
+
+                    try {
+                        // Prepare the output stream
+                        if(_downloadedSize == 0) {
+                            if(statusCode != HttpURLConnection.HTTP_OK) throw XCom.newIOException("HTTP GET error %d: %s", statusCode, _url);
+                            _fos = new FileOutputStream(_outFilePath, false);
+                        }
+                        else {
+                            if(statusCode != HttpURLConnection.HTTP_PARTIAL) throw XCom.newIOException("HTTP partial GET error %d (range bytes=%d-%d): %s", statusCode, _downloadedSize, _fileSize - 1, _url);
+                            _fos = new FileOutputStream(_outFilePath, true);
+                        }
+                        // Prepare the input stream
+                        _bis = new BufferedInputStream( (InputStream) _mResponseBody.invoke(res) );
+                        break;
+                    }
+                    catch(final IOException e) {
+                        // Close the streams
+                        _closeStreams();
+                        // Re-throw the exception
+                        throw e;
+                    }
+                } // while true
             }
             catch(final Exception e) {
                 // If it was a 401, try falling back to legacy path as a last resort

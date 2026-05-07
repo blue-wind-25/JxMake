@@ -1,4 +1,4 @@
-#(*
+(*
 $http_clr_auth()
 $http_set_auth('guest', 'guest')
 echoln "GET 'http://localhost/basic.php'"
@@ -7,32 +7,28 @@ echoln
 
 if $getenv("DIGEST") &== '1'
 
-    $http_clr_auth()
-    $http_set_auth('guest', 'guest')
     echoln "GET 'http://localhost/digest_default_md5.php'"
     echoln $implode( $http_get(:"http://localhost/digest_default_md5.php"), "\n" )
     echoln
 
 elif $getenv("DIGEST") &== '2'
 
-    $http_clr_auth()
-    $http_set_auth('guest', 'guest')
     echoln "GET 'http://localhost/digest_sha1.php'"
     echoln $implode( $http_get(:"http://localhost/digest_sha1.php"), "\n" )
     echoln
 
 else
 
-    $http_clr_auth()
-    $http_set_auth('guest', 'guest')
     echoln "GET 'http://localhost/digest_default_md5.php'"
     echoln $implode( $http_get(:"http://localhost/digest_default_md5.php"), "\n" )
     echoln
 
-    $http_clr_auth()
-    $http_set_auth('guest', 'guest')
     echoln "GET 'http://localhost/digest_sha1.php'"
     echoln $implode( $http_get(:"http://localhost/digest_sha1.php"), "\n" )
+    echoln
+
+    echoln "GET 'http://localhost/digest_sha256.php'"
+    echoln $implode( $http_get(:"http://localhost/digest_sha256.php"), "\n" )
     echoln
 
 endif
@@ -607,7 +603,7 @@ echoln $file_ext (${File})
 
 
 
-(*
+#(*
 echoln
 echoln
 

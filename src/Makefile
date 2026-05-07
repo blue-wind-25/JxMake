@@ -80,6 +80,7 @@ CP_JDS	:= --class-path .:$(CP_EXTR)
 
 # gemini --resume 04af527a-4dc2-4a76-a24c-58558b75fb68
 # make funtest
+# JPATH=/usr/java/jdk-11.0.16.1 make funtest
 # JPATH=/usr/java/jdk-17.0.5 make funtest
 # JPATH=/opt/openjdk-25_linux-x64_bin/jdk-25 make funtest
 #JPATH	?=
@@ -122,6 +123,7 @@ JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 22 && echo true), true)
     EN_NAA_FLAG := --enable-native-access=ALL-UNNAMED
 endif
+
 
 ##### Check if "-Xlint:-dangling-doc-comments" is required (for Java versions 25 and above)
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 25 && echo true), true)

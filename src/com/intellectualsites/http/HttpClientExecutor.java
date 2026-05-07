@@ -195,16 +195,11 @@ final class HttpClientExecutor implements HttpExecutor {
                 }
                 M_BUILDER_HEADER.invoke(builder, headerName, sb.toString());
             }
-            }
+        }
 
-                /* Add Authorization header if available (for preemptive auth with HttpClient) */
-                final String authorizationHeader = jxm.tool.TLAuthenticator.getServerAuthorizationHeader();
-                if (authorizationHeader != null) {
-                    M_BUILDER_HEADER.invoke(builder, "Authorization", authorizationHeader);
-                }
-
-            /* Add Content-Type header for the serialized body */
-            if (addContentType != null) {            M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
+        /* Add Content-Type header for the serialized body */
+        if (addContentType != null) {
+            M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
         }
 
         /* Set request timeout */

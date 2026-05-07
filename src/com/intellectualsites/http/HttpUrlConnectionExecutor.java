@@ -46,6 +46,9 @@ final class HttpUrlConnectionExecutor implements HttpExecutor {
     @SuppressWarnings( { "rawtypes", "unchecked" } )
     @Override
     public HttpResponse execute(final HttpRequest request, final int timeout) throws IOException {
+        // Clear cache for the Java 8 or legacy path
+        jxm.tool.TLAuthenticator.clearAuthCache();
+
         final HttpURLConnection connection =
             (HttpURLConnection) request.getUrl().openConnection();
         try {

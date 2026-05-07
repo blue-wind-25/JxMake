@@ -97,6 +97,31 @@ public class TLAuthenticator extends Authenticator {
         };
     }
 
+    /*
+     * Forcefully clears the JRE's internal authentication cache (including nonces) by resetting
+     * the global AuthCacheValue. This is a workaround for JREs that persist authentication state
+     * across requests, causing consecutive Digest Authentication failures.
+     *
+     * NOTE : # Work          in Java 8.
+     *        # Work          in Java 11, but produces WARNINGs.
+     *        # Does NOT work in Java 17+.
+     */
+    public static void clearAuthCache()
+    {
+        try {
+            final Class<?> clsAuthCacheValue = Class.forName("sun.net.www.protocol.http.AuthCacheValue");
+            final Class<?> clsAuthCache      = Class.forName("sun.net.www.protocol.http.AuthCache"     );
+            final Class<?> clsAuthCacheImpl  = Class.forName("sun.net.www.protocol.http.AuthCacheImpl" );
+
+            final java.lang.reflect.Method mSetAuthCache = clsAuthCacheValue.getMethod("setAuthCache", clsAuthCache);
+            final Object                   authCacheImpl = clsAuthCacheImpl.getDeclaredConstructor().newInstance();
+
+            mSetAuthCache.invoke(null, authCacheImpl);
+        }
+        catch(final Exception ignored) {
+            // Ignore errors if the internal classes are not available or accessible
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -161,3 +186,4 @@ public class TLAuthenticator extends Authenticator {
     }
 
 } // class TLAuthenticator
+

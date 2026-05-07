@@ -78,7 +78,8 @@ CP_RUN	:= -cp .$(CP_EXTR)
 CP_JDS	:= --class-path .
 CP_JDS	:= --class-path .:$(CP_EXTR)
 
-# gemini --resume 04af527a-4dc2-4a76-a24c-58558b75fb68
+# gemini --resume 5b819054-25a2-4cbf-a8e4-7d7bd16a4a8c
+#
 # make funtest
 # JPATH=/usr/java/jdk-11.0.16.1 make funtest
 # JPATH=/usr/java/jdk-17.0.5 make funtest

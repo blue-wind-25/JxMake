@@ -97,9 +97,16 @@ public class HTTP {
     {
         // Check if the request is successful (there is no exception)
         if(rew.e == null) {
+            final int statusCode = res.getStatusCode();
+
+            // If it is an unauthorized error and no credentials were provided, throw an exception to match modern HttpClient behavior
+            if(statusCode == 401 && TLAuthenticator.getServerAuthorizationHeader() == null) {
+                throw new IOException("No credentials provided");
+            }
+
             // Store the status
-            retVal.add( new XCom.VariableStore( true, String.valueOf( res.getStatusCode() ) ) );
-            retVal.add( new XCom.VariableStore( true,                 res.getStatus    ()   ) );
+            retVal.add( new XCom.VariableStore( true, String.valueOf( statusCode ) ) );
+            retVal.add( new XCom.VariableStore( true,              res.getStatus() ) );
             // Store the headers
             if(getHeader) {
                 for( final String key : res.getHeaders().getHeaders() ) {
@@ -121,26 +128,80 @@ public class HTTP {
 
         // The request is failed (there is an exception)
         else {
-            // Check for special error causes
-            String suErr = null;
-                 if(rew.e instanceof ConnectException      ) suErr = "ConnectException";
-            else if(rew.e instanceof NoRouteToHostException) suErr = "NoRouteToHostException";
-            else if(rew.e instanceof UnknownHostException  ) suErr = "UnknownHostException";
-            else if(rew.e instanceof SocketTimeoutException) suErr = "SocketTimeoutException";
-            else if(rew.e instanceof CertificateException  ) suErr = "CertificateException";
-            else if(rew.e instanceof SSLHandshakeException ) suErr = "SSLHandshakeException";
-            // Process special error causes
-            if(suErr != null) {
-                retVal.add( new XCom.VariableStore(true, "503"                ) );
-                retVal.add( new XCom.VariableStore(true, "Service Unavailable") );
-                retVal.add( new XCom.VariableStore(true, suErr                ) );
-            }
-            // Other error
-            else {
-                if(rew.e instanceof Exception) throw (Exception) rew.e;
-                throw new RuntimeException(rew.e);
-            }
+            if(rew.e instanceof Exception) throw (Exception) rew.e;
+            throw new RuntimeException(rew.e);
         }
+    }
+
+    private static void _processException(final XCom.VariableValue retVal, final Throwable e, final boolean isDownload) throws JXMException
+    {
+        // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
+        Throwable cause       = e;
+        Throwable iteFallback = null;
+
+        while(cause != null) {
+            final String clsNm = cause.getClass().getName();
+            String suErr = null;
+
+                 if( cause instanceof ConnectException             ) suErr = "ConnectException";
+            else if( cause instanceof NoRouteToHostException       ) suErr = "NoRouteToHostException";
+            else if( cause instanceof UnknownHostException         ) suErr = "UnknownHostException";
+            else if( cause instanceof SocketTimeoutException       ) suErr = "SocketTimeoutException";
+            else if( cause instanceof CertificateException         ) suErr = "CertificateException";
+            else if( cause instanceof SSLHandshakeException        ) suErr = "SSLHandshakeException";
+            else if( clsNm.contains("HttpConnectTimeoutException") ) suErr = "HttpConnectTimeoutException"; // Map modern java.net.http timeouts to 503 as well
+            else if( clsNm.contains("HttpTimeoutException"       ) ) suErr = "HttpTimeoutException";
+
+            // If we found a 503-mappable error
+            if(suErr != null) {
+                if(isDownload) {
+                    SysUtil.printError( String.format("503 Service Unavailable: %s", suErr) );
+                    retVal.add( new XCom.VariableStore(true, ""                   ) );
+                }
+                else {
+                    retVal.add( new XCom.VariableStore(true, "503"                ) );
+                    retVal.add( new XCom.VariableStore(true, "Service Unavailable") );
+                    retVal.add( new XCom.VariableStore(true, suErr                ) );
+                }
+                return;
+            }
+
+            // If we find the error, use it immediately and exit
+            if(cause instanceof IOException) {
+                if(isDownload) {
+                    SysUtil.printError( cause.toString() );
+                    retVal.add( new XCom.VariableStore(true, ""               ) );
+                }
+                else {
+                    retVal.add( new XCom.VariableStore(true, cause.toString() ) );
+                }
+                return;
+            }
+
+            // If we find the reflection wrapper, remember it in case we do not find an SSL error
+            if(cause instanceof InvocationTargetException) iteFallback = cause;
+            // Get the next cause
+            cause = cause.getCause();
+
+        } // while
+
+        // Use the reflection wrapper if we have one
+        if(iteFallback != null) {
+            if(isDownload) {
+                SysUtil.printError( iteFallback.toString() );
+                retVal.add( new XCom.VariableStore(true, ""                     ) );
+            }
+            else {
+                retVal.add( new XCom.VariableStore(true, iteFallback.toString() ) );
+            }
+            return;
+        }
+
+        // Print the stack trace if requested
+        if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+        
+        // Throw as a different exception
+        throw XCom.newJXMRuntimeError( e.toString() );
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,29 +238,7 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
-            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
-            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
-            Throwable cause       = e;
-            Throwable iteFallback = null;
-            while(cause != null) {
-                // If we find the error, use it immediately and exit
-                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
-                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
-                    return;
-                }
-                // If we find the reflection wrapper, remember it in case we do not find an SSL error
-                if(cause instanceof InvocationTargetException) iteFallback = cause;
-                // Get the next cause
-                cause = cause.getCause();
-            }
-            if(iteFallback != null) {
-                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
-                return;
-            }
-            // Print the stack trace if requested
-            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
-            // Throw as a different exception for any other errors
-            throw XCom.newJXMRuntimeError( e.toString() );
+            _processException(retVal, e, false);
         }
     }
 
@@ -237,29 +276,7 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
-            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
-            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
-            Throwable cause       = e;
-            Throwable iteFallback = null;
-            while(cause != null) {
-                // If we find the error, use it immediately and exit
-                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
-                    retVal.add( new XCom.VariableStore( true, cause.toString() ) );
-                    return;
-                }
-                // If we find the reflection wrapper, remember it in case we do not find an SSL error
-                if(cause instanceof InvocationTargetException) iteFallback = cause;
-                // Get the next cause
-                cause = cause.getCause();
-            }
-            if(iteFallback != null) {
-                retVal.add( new XCom.VariableStore( true, iteFallback.toString() ) );
-                return;
-            }
-            // Print the stack trace if requested
-            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
-            // Throw as a different exception
-            throw XCom.newJXMRuntimeError( e.toString() );
+            _processException(retVal, e, false);
         }
     }
 
@@ -284,33 +301,8 @@ public class HTTP {
 
         } // try
         catch(final Exception e) {
-            //*
-            // ##### !!! TODO : REFACTOR & COMBINE !!! #####
-            // Check if this is an IOException, InvocationTargetException, or SSLHandshakeException hiding anywhere in the cause chain
-            Throwable cause       = e;
-            Throwable iteFallback = null;
-            while(cause != null) {
-                // If we find the error, use it immediately and exit
-                if(cause instanceof IOException | cause instanceof SSLHandshakeException) {
-                    SysUtil.printError( cause.toString() );
-                    retVal.add( new XCom.VariableStore( true, "" ) );
-                    return;
-                }
-                // If we find the reflection wrapper, remember it in case we do not find an SSL error
-                if(cause instanceof InvocationTargetException) iteFallback = cause;
-                // Get the next cause
-                cause = cause.getCause();
-            }
-            if(iteFallback != null) {
-                SysUtil.printError( iteFallback.toString() );
-                retVal.add( new XCom.VariableStore( true, "" ) );
-                return;
-            }
-            //*/
-            // Print the stack trace if requested
-            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
-            // Throw as a different exception
-            throw XCom.newJXMRuntimeError( e.toString() );
+            _processException(retVal, e, true);
+            return;
         }
 
         // Set the result

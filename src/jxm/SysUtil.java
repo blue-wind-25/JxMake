@@ -114,7 +114,7 @@ public class SysUtil {
                                                  + "There is NO WARRANTY, to the extent permitted by law.\n";
 
     public static final String  _JxMakeUserAgent = "JxMake/" + jxmVerString() + " (Java " + System.getProperty("java.version") + ")";
-    
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private static String _gel(final String envVarName, final String defaultValue)

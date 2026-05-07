@@ -23,8 +23,11 @@ public class JxMake {
         /*
          * Re-enable MD5 and SHA-1 as HTTP DIGEST mechanisms that were disabled by:
          *     https://bugs.openjdk.org/browse/JDK-8282649
+         *
+         * NOTE: We must also enable them for the modern HttpClient via system property.
          */
-        System.setProperty("http.auth.digest.reEnabledAlgorithms", "MD5, SHA-1");
+        System.setProperty("http.auth.digest.reEnabledAlgorithms", "MD5, SHA-1, SHA-256, SHA-512");
+        System.setProperty("jdk.httpclient.auth.digest.reEnabledAlgorithms", "MD5, SHA-1, SHA-256, SHA-512");
 
         // Install Jansi to the system
         SysUtil.jansiSystemInstall();

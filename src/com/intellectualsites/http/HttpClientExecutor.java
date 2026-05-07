@@ -32,9 +32,10 @@ import java.util.List;
 import java.util.Map;
 
 import java.net.Authenticator;
-
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+
+import jxm.SysUtil;
 
 /*
  {@link HttpExecutor} implementation that delegates to {@code java.net.http.HttpClient}
@@ -194,19 +195,16 @@ final class HttpClientExecutor implements HttpExecutor {
                 }
                 M_BUILDER_HEADER.invoke(builder, headerName, sb.toString());
             }
-        }
+            }
 
-        /* Add Content-Type header for the serialized body */
-        if (addContentType != null) {
-            M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
-        }
+                /* Add Authorization header if available (for preemptive auth with HttpClient) */
+                final String authorizationHeader = jxm.tool.TLAuthenticator.getServerAuthorizationHeader();
+                if (authorizationHeader != null) {
+                    M_BUILDER_HEADER.invoke(builder, "Authorization", authorizationHeader);
+                }
 
-        /* Preemptive authentication: add the Authorization header directly rather than relying on the
-         * Authenticator challenge/retry mechanism, which is unreliable in java.net.http.HttpClient
-         * across JDK versions (early Java 11 bugs, HTTP/2 path, custom SSLContext interactions). */
-        final String authHdr = jxm.tool.TLAuthenticator.getServerAuthorizationHeader();
-        if (authHdr != null) {
-            M_BUILDER_HEADER.invoke(builder, "Authorization", authHdr);
+            /* Add Content-Type header for the serialized body */
+            if (addContentType != null) {            M_BUILDER_HEADER.invoke(builder, "Content-Type", addContentType);
         }
 
         /* Set request timeout */
@@ -239,16 +237,32 @@ final class HttpClientExecutor implements HttpExecutor {
          * TLAuthenticator singleton.  Java 11+ HttpClient invokes the Authenticator from
          * its own thread pool, so ThreadLocal values set by the calling thread would not
          * be visible there.  The snapshot captures the credentials at call time. */
-        M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, jxm.tool.TLAuthenticator.snapshot());
+        final Authenticator authSnapshot = jxm.tool.TLAuthenticator.snapshot();
+        M_CLIENT_BUILDER_AUTHENTICATOR.invoke(cb, authSnapshot);
         client = M_CLIENT_BUILDER_BUILD.invoke(cb);
 
         final Object httpResponse  = M_CLIENT_SEND.invoke(
             client, httpRequest, bodyHandler);
 
         /* ----- Extract response ----- */
-        final int statusCode    = (Integer) M_RESPONSE_STATUS_CODE.invoke(httpResponse);
-        final byte[] rawBody    = (byte[]) M_RESPONSE_BODY.invoke(httpResponse);
-        final Object httpHeaders = M_RESPONSE_HEADERS.invoke(httpResponse);
+        int statusCode          = (Integer) M_RESPONSE_STATUS_CODE.invoke(httpResponse);
+        byte[] rawBody          = (byte[]) M_RESPONSE_BODY.invoke(httpResponse);
+        Object httpHeaders      = M_RESPONSE_HEADERS.invoke(httpResponse);
+
+        /* Fallback for Digest Auth: If 401 is received, try the legacy HttpUrlConnectionExecutor.
+         * The modern HttpClient struggles with Digest Auth handshakes. */
+        if (statusCode == 401) {
+            final Object httpHeadersMap = M_HEADERS_MAP.invoke(httpHeaders);
+            @SuppressWarnings("unchecked")
+            final Map<String, List<String>> headersMap = (Map<String, List<String>>) httpHeadersMap;
+            final List<String> wwwAuth = headersMap.get("WWW-Authenticate");
+            if (wwwAuth != null && wwwAuth.stream().anyMatch(h -> h.trim().toLowerCase().startsWith("digest"))) {
+                if( jxm.xb.XCom.enableAllExceptionStackTrace() ) {
+                    SysUtil.stdOut().println("@@@ HttpClientExecutor: 401 Digest detected, falling back to HttpUrlConnectionExecutor...");
+                }
+                return new HttpUrlConnectionExecutor().execute(request, timeout);
+            }
+        }
 
         @SuppressWarnings("unchecked")
         final Map<String, List<String>> headersMap =
@@ -257,8 +271,8 @@ final class HttpClientExecutor implements HttpExecutor {
         /* ----- Build HTTP4J response ----- */
         final HttpResponse.Builder responseBuilder = HttpResponse.builder()
             .withStatus(statusCode)
-            /* HTTP/2 and HTTP/1.1 via HttpClient do not expose a reason phrase. */
-            .withStatusMessage("")
+            /* Use the reason phrase mapper since HttpClient does not expose it. */
+            .withStatusMessage(HttpResponse.getReasonPhrase(statusCode))
             .withEntityMapper(request.getMapper());
 
         for (final Map.Entry<String, List<String>> entry : headersMap.entrySet()) {

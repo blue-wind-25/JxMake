@@ -1,3 +1,44 @@
+#(*
+$http_clr_auth()
+$http_set_auth('guest', 'guest')
+echoln "GET 'http://localhost/basic.php'"
+echoln $implode( $http_get(:"http://localhost/basic.php"), "\n" )
+echoln
+
+if $getenv("DIGEST") &== '1'
+
+    $http_clr_auth()
+    $http_set_auth('guest', 'guest')
+    echoln "GET 'http://localhost/digest_default_md5.php'"
+    echoln $implode( $http_get(:"http://localhost/digest_default_md5.php"), "\n" )
+    echoln
+
+elif $getenv("DIGEST") &== '2'
+
+    $http_clr_auth()
+    $http_set_auth('guest', 'guest')
+    echoln "GET 'http://localhost/digest_sha1.php'"
+    echoln $implode( $http_get(:"http://localhost/digest_sha1.php"), "\n" )
+    echoln
+
+else
+
+    $http_clr_auth()
+    $http_set_auth('guest', 'guest')
+    echoln "GET 'http://localhost/digest_default_md5.php'"
+    echoln $implode( $http_get(:"http://localhost/digest_default_md5.php"), "\n" )
+    echoln
+
+    $http_clr_auth()
+    $http_set_auth('guest', 'guest')
+    echoln "GET 'http://localhost/digest_sha1.php'"
+    echoln $implode( $http_get(:"http://localhost/digest_sha1.php"), "\n" )
+    echoln
+
+endif
+$exit(0)
+#*)
+
 # @@@ @@@ @@@ : A
 if 1
 
@@ -708,6 +749,16 @@ echoln
 
 echoln "$http_clr_auth()\n"
 $http_clr_auth()
+
+
+
+echoln "GET 'http://localhost/?rate=9600'"
+echoln $implode( $http_get('http://localhost/?rate=9600'                              ), "\n" )
+echoln
+
+echoln "GET 'http://localhost/console/baud?rate=9600'"
+echoln $implode( $http_get('http://localhost/console/baud?rate=9600'                  ), "\n" )
+echoln
 
 echoln "GET 'http://192.168.000.100:80/console/baud?rate=9600'"
 echoln $implode( $http_get('http://192.168.000.100:80/console/baud?rate=9600'         ), "\n" )

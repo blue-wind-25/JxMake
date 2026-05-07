@@ -60,14 +60,6 @@ final class HttpUrlConnectionExecutor implements HttpExecutor {
 
             connection.setRequestProperty("User-Agent", jxm.SysUtil._JxMakeUserAgent);
 
-            /* Preemptive authentication: add the Authorization header directly rather than relying on the
-             * Authenticator challenge/retry mechanism, which is unreliable in java.net.http.HttpClient
-             * across JDK versions (early Java 11 bugs, HTTP/2 path, custom SSLContext interactions). */
-            final String authHdr = jxm.tool.TLAuthenticator.getServerAuthorizationHeader();
-            if (authHdr != null) {
-                connection.setRequestProperty("Authorization", authHdr);
-            }
-
             final Headers headers = request.getHeaders();
             for (final String headerName : headers.getHeaders()) {
                 final List<String> values = headers.getHeaders(headerName);

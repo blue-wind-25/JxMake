@@ -60,18 +60,8 @@ public class TLAuthenticator extends Authenticator {
     {
         final RequestorType rt = getRequestorType();
 
-        String username = null;
-        String password = null;
-
-        if( rt == RequestorType.PROXY ) {
-            username = _proxyUsername.get();
-            password = _proxyPassword.get();
-        }
-        else {
-            // Default to server credentials for SERVER or any other (null/unexpected) type
-            username = _getSUser();
-            password = _getSPass();
-        }
+        String username = _getSUser();
+        String password = _getSPass();
 
         if(username == null || password == null) return null;
 
@@ -84,8 +74,8 @@ public class TLAuthenticator extends Authenticator {
      */
     public static Authenticator snapshot()
     {
-        final String proxyUser  = _proxyUsername .get();
-        final String proxyPass  = _proxyPassword .get();
+        final String proxyUser  = _proxyUsername.get();
+        final String proxyPass  = _proxyPassword.get();
         final String serverUser = _getSUser();
         final String serverPass = _getSPass();
 
@@ -96,18 +86,8 @@ public class TLAuthenticator extends Authenticator {
             {
                 final RequestorType rt = getRequestorType();
 
-                String username = null;
-                String password = null;
-
-                if( rt == RequestorType.PROXY ) {
-                    username = proxyUser;
-                    password = proxyPass;
-                }
-                else {
-                    // Default to server credentials for SERVER or any other (null/unexpected) type
-                    username = serverUser;
-                    password = serverPass;
-                }
+                String username = (_serverUsername.get() != null) ? _serverUsername.get() : serverUser;
+                String password = (_serverPassword.get() != null) ? _serverPassword.get() : serverPass;
 
                 if(username == null || password == null) return null;
 
@@ -116,6 +96,7 @@ public class TLAuthenticator extends Authenticator {
 
         };
     }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

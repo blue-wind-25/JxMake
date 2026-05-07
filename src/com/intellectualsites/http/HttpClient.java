@@ -352,7 +352,9 @@ public final class HttpClient {
                     return response;
                 }
             } catch (final Exception e) {
-                if (this.exceptionHandler == null) {
+                if (this.exceptionHandler != null) {
+                    this.exceptionHandler.accept(e);
+                } else {
                     if (e instanceof RuntimeException) {
                         throw ((RuntimeException) e);
                     }

@@ -3038,7 +3038,32 @@ public class XCom {
     {
         if( sep.equals("") ) {
             for(final VariableStore item : parts) {
-                // BUGNOTE: item.value can be null (VariableStore default constructor); calling codePoints() or split() on null throws NullPointerException; fix: skip items where item.value is null
+                if(item.value == null) {
+                                                                            retVal.add( new VariableStore( true, null                                ) );
+                }
+                else {
+                    for( final int cp : item.value.codePoints().toArray() ) retVal.add( new VariableStore( true, new String( Character.toChars(cp) ) ) );
+                  //for( final char ch : item.value.toCharArray() ) retVal.add( new VariableStore( true, String.valueOf(ch) ) );
+                }
+            }
+        }
+        else {
+            for(final VariableStore item : parts) {
+                if(item.value == null) {
+                                                 retVal.add( new VariableStore(true, null) );
+                }
+                else {
+                    final String[] tokens = item.value.split( Pattern.quote(sep) );
+                    for(final String t : tokens) retVal.add( new VariableStore(true, t   ) );
+                }
+            }
+        }
+    }
+    /*
+    public static void explode(final VariableValue retVal, final VariableValue parts, final String sep)
+    {
+        if( sep.equals("") ) {
+            for(final VariableStore item : parts) {
                 for( final int cp : item.value.codePoints().toArray() ) retVal.add( new VariableStore( true, new String( Character.toChars(cp) ) ) );
               //for( final char ch : item.value.toCharArray() ) retVal.add( new VariableStore( true, String.valueOf(ch) ) );
             }
@@ -3050,6 +3075,7 @@ public class XCom {
             }
         }
     }
+    */
 
     public static String flatten(final ArrayList<String> aryStr, final String separator) throws JXMException
     {

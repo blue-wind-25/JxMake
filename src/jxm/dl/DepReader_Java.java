@@ -89,10 +89,10 @@ public class DepReader_Java extends DepReader {
         }
     }
 
-    private final HashSet<String>  _procDirList = new HashSet  <>();
-    private final Deque  <String>  _dirFileList = new ArrayDeque<>();
+    private final HashSet  <String>  _procDirList = new HashSet  <>();
+    private final Deque    <String>  _dirFileList = new ArrayDeque<>();
 
-    private final SymbolMap        _symPathMap  = new SymbolMap  ();
+    private final SymbolMap          _symPathMap  = new SymbolMap  ();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

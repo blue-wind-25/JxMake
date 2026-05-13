@@ -1,0 +1,73 @@
+High-confidence spelling and grammar findings in prose only
+
+1)
+file path: docs/txt/en_US/01-Introduction.txt
+anchor text: JxMake is case sensitive and using UTF-8 encoding.
+suggested minimal correction: using -> uses
+reason: obvious local grammar error; the coordinated verb should match "is ... and uses ..."
+confidence: high
+
+2)
+file path: docs/txt/en_US/01-Introduction.txt
+anchor text: The file name must be a simple plain text, it cannot contains variable expansion.
+suggested minimal correction: contains -> contain
+reason: obvious local grammar error after the modal verb "cannot"
+confidence: high
+
+3)
+file path: docs/txt/en_US/02-Defining-Strings.txt
+anchor text: A double-quoted strings ("") support a wider range of escape sequences:
+suggested minimal correction: strings -> string; support -> supports
+reason: obvious local grammar mismatch between singular article "A" and plural noun/verb
+confidence: high
+
+4)
+file path: docs/txt/en_US/02-Defining-Strings.txt
+anchor text: Not all statement support using multiline double-quoted strings.
+suggested minimal correction: statement -> statements
+reason: obvious local grammar error; "Not all" requires a plural noun here
+confidence: high
+
+5)
+file path: docs/txt/en_US/03-Defining-Dependency-List.txt
+anchor text: been defined from those file.
+suggested minimal correction: file -> files
+reason: obvious local grammar error; "those" requires a plural noun
+confidence: high
+
+6)
+file path: docs/txt/en_US/04-Defining-Variables.txt
+anchor text: Lazy   assigment ( =)
+nearby context: also appears in "Direct assigment (:=)" and "# Lazy variable assigment using the result of a function call is not supported."
+suggested minimal correction: assigment -> assignment
+reason: high-confidence spelling mistake in prose
+confidence: high
+
+7)
+file path: docs/txt/en_US/05-Special-Variables.txt
+anchor text: $[cmdtargets]   : evaluate to the all the target names that were specified from the command line
+suggested minimal correction: remove the first "the"
+reason: obvious duplicated article in prose
+confidence: high
+
+8)
+file path: docs/txt/en_US/08-User-Defined-Function.txt
+anchor text: will will be combined into the same internal script buffer
+suggested minimal correction: will will -> will
+reason: obvious duplicated word in prose
+confidence: high
+
+9)
+file path: docs/txt/en_US/12-Numerical-Operations.txt
+anchor text: because the are not numbers
+suggested minimal correction: the -> they
+reason: obvious pronoun typo in prose
+confidence: high
+
+10)
+file path: docs/txt/en_US/13-Loadable-Libraries.txt
+anchor text: Despite this library can be loaded and used by users directly,
+nearby context: same construction also appears under C++XBuildTool_ArduinoUtil
+suggested minimal correction: Despite -> Although
+reason: obvious local grammar error; "Despite" does not take a finite clause here
+confidence: high

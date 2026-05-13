@@ -10,7 +10,9 @@ package jxm.dl;
 
 import java.io.IOException;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 
 import jxm.*;
 import jxm.xb.*;
@@ -20,35 +22,39 @@ public class DepBuilder {
 
     private static void _buildDepList_impl(final DepList depList, final String sourceFilePath, final ArrayList<String> absCIncludePaths, final ArrayList<String> absJavaClassPaths) throws IOException
     {
-        // Create a dependency reader instance
-        final DepReader depReader = DepReader.newDepReader(sourceFilePath, absCIncludePaths, absJavaClassPaths);
-        if(depReader == null) return;
+        // Use an explicit stack to avoid deep recursion on large dependency trees
+        final Deque<String> pending = new ArrayDeque<>();
+        pending.push(sourceFilePath);
 
-        // Store the source file path as a dependency
-        depList.addDepFile( depReader.filePath() );
+        while( !pending.isEmpty() ) {
 
-        // Loop until no more dependency paths can be read
-        ArrayList<String> recDepPaths = new ArrayList<>();
+            // Pop the next file to process
+            final String filePath = pending.pop();
 
-        while(true) {
+            // Create a dependency reader instance
+            final DepReader depReader = DepReader.newDepReader(filePath, absCIncludePaths, absJavaClassPaths);
+            if(depReader == null) continue;
 
-            // Try to read one path
-            final String depPath = depReader.readOneDepPath();
-            if(depPath == null) break;
+            // Store the source file path as a dependency
+            depList.addDepFile( depReader.filePath() );
 
-            // Skip if the path is already in the final list
-            if( depList.hasDepFile(depPath) ) continue;
+            // Collect the direct dependencies of this file
+            while(true) {
 
-            // Add the path to the final list
-            depList.addDepFile(depPath);
+                // Try to read one path
+                final String depPath = depReader.readOneDepPath();
+                if(depPath == null) break;
 
-            // Add the path to the recursive list
-            recDepPaths.add(depPath);
+                // Skip if the path is already in the final list
+                if( depList.hasDepFile(depPath) ) continue;
 
-        } // while true
+                // Add the path to the final list and schedule it for processing
+                depList.addDepFile(depPath);
+                pending.push(depPath);
 
-        // Recursively visit each dependency path
-        for(final String path : recDepPaths) _buildDepList_impl(depList, path, absCIncludePaths, absJavaClassPaths);
+            } // while true
+
+        } // while pending
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

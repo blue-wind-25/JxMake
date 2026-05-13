@@ -428,6 +428,11 @@ public class DepReader_C extends DepReader {
                         sb.append(' '        );
                         sb.append(preqRelPath);
                     } // for
+                    // Warn if the module import could not be resolved to any known producer
+                    if( depList.isEmpty() ) {
+                        final String modIdent = modSpec.partition.isEmpty() ? modSpec.name : modSpec.name + ':' + modSpec.partition;
+                        SysUtil.printfSimpleWarning( Texts.WMsg_Cpp20ModuleNotFound, modIdent, targetAbsPath );
+                    }
                 } // if
             } // for
 
@@ -479,6 +484,8 @@ public class DepReader_C extends DepReader {
                 else if( incMatcher.group(2) != null && incMatcher.group(2).charAt(0) == '"' ) {
                     final String relDepPath = _resolveRelDepFilePath( incMatcher.group(3) );
                     if(relDepPath != null) return relDepPath;
+                    // Warn if the dependency could not be resolved
+                    SysUtil.printfSimpleWarning( Texts.WMsg_CIncludeNotFound, incMatcher.group(3), filePath() );
                 }
 
             }

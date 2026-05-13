@@ -177,11 +177,10 @@ public abstract class DepReader {
         if(depFileAbsPath == null) throw XCom.newIOException(Texts.EMsg_GenDepDataFailed, depOutFilePath);
 
         // Save the data
-        final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(depFileAbsPath), SysUtil._CharEncoding ) );
-
-        bfw.write(depDataStr);
-        bfw.flush(          );
-        bfw.close(          );
+        try( final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(depFileAbsPath), SysUtil._CharEncoding ) ) ) {
+            bfw.write(depDataStr);
+            bfw.flush(          );
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

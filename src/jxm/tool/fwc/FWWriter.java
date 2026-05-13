@@ -100,12 +100,20 @@ abstract class FWWriter {
     {
         if(_binaryOutputStream == null || cnt <= 0) return;
 
-        // ##### !!! TODO : Optimize !!! #####
+        final int    chunkSize = (int) Math.min(cnt, 4096);
+        final byte[] chunk     = new byte[chunkSize];
 
-        final int d = data & 0xFF;
+        for(int i = 0; i < chunkSize; ++i) chunk[i] = data;
 
-        for(long i = 0; i < cnt; ++i) _binaryOutputStream.write(d);
-                                      _binaryOutputStream.flush();
+        long remaining = cnt;
+
+        while(remaining > 0) {
+            final int writeLen = (int) Math.min(remaining, chunkSize);
+            _binaryOutputStream.write(chunk, 0, writeLen);
+            remaining -= writeLen;
+        }
+
+        _binaryOutputStream.flush();
     }
 
     protected void _writeBinaryData(final byte[] data) throws IOException

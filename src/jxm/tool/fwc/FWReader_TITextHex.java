@@ -72,9 +72,10 @@ class FWReader_TITextHex extends FWReaderTextRL {
 
                 // Extract the data
                 final byte[]  data         = FWUtil.parse2Hexs( XCom.re_removeAllWhitespaces(dataLine) );
-                      boolean sectionBreak = (data.length < FWUtil.TIXH_StdMaxRecLineDByteCnt);
 
                 if(data == null) _throwInvalidRecLineDFormat();
+
+                      boolean sectionBreak = (data.length < FWUtil.TIXH_StdMaxRecLineDByteCnt);
 
                 // Read the next data line and check
                 dataLine = _readRecordLine();

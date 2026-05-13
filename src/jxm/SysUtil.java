@@ -945,8 +945,12 @@ public class SysUtil {
                  if( umask.isEmpty()     ) umask = "0002";
             else if( umask.length () > 4 ) umask = umask.substring(0, 4);
             // Calculate its inverse
-            try { _invUMask = 0777 - Integer.parseInt(umask, 8); }
-            catch(final NumberFormatException e) { _invUMask = 0777 - 0002; }
+            try {
+                _invUMask = 0777 - Integer.parseInt(umask, 8);
+            }
+            catch(final NumberFormatException e) {
+                _invUMask = 0777 - 0002;
+            }
         }
 
         // Return the inverse file mode creation mask
@@ -2263,6 +2267,7 @@ public class SysUtil {
         if( !_copyJARRes_prepareDstDir(true , dstAbsPath, printMsg) ) return;
 
         final List<String> _resFilePaths = getJARResFilePaths(resRootDir);
+
         if(_resFilePaths == null) return;
 
         for( final String resName : _resFilePaths ) {
@@ -2602,13 +2607,22 @@ public class SysUtil {
             // Try Java 9+ API via reflection
             final Class<?> phClass = Class.forName("java.lang.ProcessHandle");
             final Object   ph      = phClass.getMethod("current").invoke(null);
+
             return (Long) phClass.getMethod("pid").invoke(ph);
+
         }
         catch(final Throwable t) {
             // Fallback for Java 8
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            // BUGNOTE: jvmName.split("@") returns an empty array when jvmName is "@" (trailing-empty elision), making [0] throw ArrayIndexOutOfBoundsException; Long.parseLong also throws NumberFormatException if the prefix is non-numeric; fix: use split("@", 2) and wrap in try/catch returning -1
-            return Long.parseLong( jvmName.split("@")[0] );
+
+            try {
+                final String[] parts = jvmName.split("@", 2);
+                return Long.parseLong(parts[0]);
+            }
+            catch(final Exception e) {
+                // Fallback value if the PID can not be parsed
+                return -1L;
+            }
         }
     }
 
@@ -2619,8 +2633,10 @@ public class SysUtil {
          *     https://www.rgagnon.com/javadetails/java-get-running-jvm-path.html
          */
 
-        final long   pid  = getPID();
-              String path = null;
+        final long pid  = getPID();
+        if(pid == -1L) return null;
+
+        String path = null;
 
         try {
             final File file = File.createTempFile("getJavaPath", ".vbs");
@@ -2694,35 +2710,30 @@ public class SysUtil {
         try {
 
             // Execute the command
-          //final Process        proc = Runtime.getRuntime().exec( getJavaBinaryPath() + " " + "-XshowSettings:properties -version" );
-            final Process        proc = new ProcessBuilder( getJavaBinaryPath(), "-XshowSettings:properties", "-version" ).start();
-            final BufferedReader bro  = new BufferedReader( new InputStreamReader( proc.getInputStream() ) );
-            final BufferedReader bre  = new BufferedReader( new InputStreamReader( proc.getErrorStream() ) );
+            final ProcessBuilder pb = new ProcessBuilder( getJavaBinaryPath(), "-XshowSettings:properties", "-version" );
+            pb.redirectErrorStream(true);
+
+            final Process        pr = pb.start();
+            final BufferedReader br = new BufferedReader( new InputStreamReader( pr.getInputStream() ) );
 
             // Get the version string
             String line    = null;
             String version = null;
 
-                while( ( line = bro.readLine() ) != null ) {
-                    if( line.contains("java.specification.version") ) {
-                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
-                        version = line.split("=")[1].trim();
-                        break;
-                    }
-                }
-
-            if(version == null) {
-                while( ( line = bre.readLine() ) != null ) {
-                    if( line.contains("java.specification.version") ) {
-                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
-                        version = line.split("=")[1].trim();
+            while( ( line = br.readLine() ) != null ) {
+                if( line.contains("java.specification.version") ) {
+                    final String[] parts = line.split("=", 2);
+                    if(parts.length == 2) {
+                        version = parts[1].trim();
                         break;
                     }
                 }
             }
 
-            // Ensure process completes
-            proc.waitFor();
+            br.close();
+
+            // Ensure the process completes
+            pr.waitFor();
 
             // Save the version string
             if(version != null) _javaBinVer = version;

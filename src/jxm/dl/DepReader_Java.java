@@ -27,17 +27,21 @@ import jxm.xb.*;
 
 public class DepReader_Java extends DepReader {
 
-    private static final Pattern _pmImportOne      = Pattern.compile("import\\s*([^*\\r\\n]*)\\s*;"                  ); // import package.class
-    private static final Pattern _pmImportAll      = Pattern.compile("import\\s*([^*\\r\\n]*)\\s*\\.\\s*\\*\\s*\\s*;"); // import package.*
+    private static final Pattern _pmImportOne      = Pattern.compile("import\\s*([^*\\r\\n]*)\\s*;"                  ); // import org.my_package.MyClass
+    private static final Pattern _pmImportAll      = Pattern.compile("import\\s*([^*\\r\\n]*)\\s*\\.\\s*\\*\\s*\\s*;"); // import org.my_package.*
 
     private static final Pattern _pmJavaSQDQ       = Pattern.compile("([\"'])(?:[^\\\"]|\\.)*?\\1");
     private static final Pattern _pmJavaSymbolName = Pattern.compile('(' + XCom._reStrSymbolNameUnicode + ')', Pattern.UNICODE_CHARACTER_CLASS);
 
-    // Pattern to detect fully qualified class names (e.g. org.my_package.MyClass)
+    // Pattern to detect fully qualified class names (e.g., org.my_package.MyClass)
     private static final Pattern _pmFQNClassName   = Pattern.compile("\\b([a-z][a-zA-Z0-9_]*(?:\\.[a-z][a-zA-Z0-9_]*)*\\.[A-Z][a-zA-Z0-9_]*)\\b");
 
     // Pattern to detect reflection-based constructs to exclude from FQN scanning
     private static final Pattern _pmReflection     = Pattern.compile("\\b(?:Class|Method|Field|Constructor)\\.(?:forName|invoke|newInstance|getMethod|getField|getConstructor|getDeclared[A-Za-z]*)\\s*\\(");
+
+    // Matches : import static com.my_package.MyClass.myMethodOrField;
+    //           import static com.my_package.MyClass.*;
+    private static final Pattern _pmImportStatic   = Pattern.compile("import\\s+static\\s+([^*\\r\\n]*)(?:\\.[a-zA-Z0-9_*]+)\\s*;");
 
   //private static final Pattern _pmTerminate      = Pattern.compile("\\b(?:class|interface|module)\\b");
 
@@ -84,6 +88,9 @@ public class DepReader_Java extends DepReader {
         {
             //SysUtil.stdDbg().printf("### %s : %s\n", symbolName, sourcePath);
 
+            computeIfAbsent( symbolName, k -> new HashSet<>() ).add(sourcePath);
+
+            /*
             HashSet<String> paths = get(symbolName);
 
             if(paths == null) {
@@ -92,6 +99,7 @@ public class DepReader_Java extends DepReader {
             }
 
             paths.add(sourcePath);
+            */
         }
     }
 
@@ -148,6 +156,11 @@ public class DepReader_Java extends DepReader {
             final String line = _readLine_CppJava();
             if(line == null) return null;
 
+            // Skip regex scanning for obviously non-functional lines
+            // ##### !!! TODO : Handle the inside of /* ... */ !!! #####
+            final String trimmed = line.trim();
+            if( trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("/*") ) continue;
+
             // Check for 'import a.b.c.d.e.ClassName;'
             final Matcher oneMatcher = _pmImportOne.matcher(line);
             if( oneMatcher.matches() ) {
@@ -196,6 +209,31 @@ public class DepReader_Java extends DepReader {
                 }
             }
 
+            // Check for static imports
+            final Matcher imsMatcher = _pmImportStatic.matcher(line);
+            if( imsMatcher.matches() ) {
+                final String fullPath = imsMatcher.group(1);
+                final int     lastDot = fullPath.lastIndexOf('.');
+                if(lastDot > 0) {
+                    final String className = fullPath.substring(0, lastDot); // com.package.ClassName
+                    final String filePath  = _convertDotToPath(className) + ".java";
+                    // Try to resolve using absolute location
+                    final String absDepPath = _resolveAbsDepFilePath(filePath);
+                    if(absDepPath != null) return absDepPath;
+                    // Warn only when the parent package directory is reachable (project package) but the specific class file
+                    // is absent - avoids noise for library imports
+                    if( _warnMissingDependency() ) {
+                        final int lastSlash = filePath.lastIndexOf('/');
+                        if(lastSlash > 0) {
+                            final String pkgDir = filePath.substring(0, lastSlash);
+                            if( _resolveRelDepDirPath(pkgDir) != null || _resolveAbsDepDirPath(pkgDir) != null ) {
+                                 SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
+                            }
+                        }
+                    }
+                }
+            }
+
             // Check all '*.java' files in the same directory as the source file
             if(true) {
                 // Get the path
@@ -215,14 +253,12 @@ public class DepReader_Java extends DepReader {
                 }
             }
 
-            // ##### !!! TODO : Handle 'import static' !!! #####
+            // Strip string/char literals and reflection-based constructs before scanning
+            final String strippedLine = _pmReflection.matcher( _pmJavaSQDQ.matcher(line).replaceAll("") ).replaceAll("");
 
-             // Strip string/char literals and reflection-based constructs before scanning
-             final String strippedLine = _pmReflection.matcher( _pmJavaSQDQ.matcher(line).replaceAll("") ).replaceAll("");
-
-             // Scan for symbol names from the same-directory and wildcard-imported packages
-             final Matcher jsnMatcher = _pmJavaSymbolName.matcher(strippedLine);
-             while( jsnMatcher.find() ) {
+            // Scan for symbol names from the same-directory and wildcard-imported packages
+            final Matcher jsnMatcher = _pmJavaSymbolName.matcher(strippedLine);
+            while( jsnMatcher.find() ) {
                 // Get the paths
                 final HashSet<String> paths = _symPathMap.get( jsnMatcher.group(1) );
                 if(paths == null) continue;
@@ -231,11 +267,11 @@ public class DepReader_Java extends DepReader {
                     if( _dirFileList.contains(path) ) continue;
                     _dirFileList.add(path);
                 }
-             } // while
+            } // while
 
-             // Scan for fully qualified class names (e.g. org.my_package.MyClass)
-             final Matcher fqnMatcher = _pmFQNClassName.matcher(strippedLine);
-             while( fqnMatcher.find() ) {
+            // Scan for fully qualified class names (e.g., org.my_package.MyClass)
+            final Matcher fqnMatcher = _pmFQNClassName.matcher(strippedLine);
+            while( fqnMatcher.find() ) {
                 // Get the file path for the FQN
                 final String fqnFilePath = _convertDotToPath( fqnMatcher.group(1) ) + ".java";
                 // Try to resolve using relative location, then absolute

@@ -202,13 +202,13 @@ public class ProgSWD extends ProgSWDLowLevel {
     private long[] _lng_mcuID3 = null; // ---
 
     /*
-     * NOTE : # Some MCUs (e.g. RP2040) expose multiple Debug Ports (DPs), typically one per core.
+     * NOTE : # Some MCUs (e.g., RP2040) expose multiple Debug Ports (DPs), typically one per core.
      *          In this case, specify their ID values in 'multidropIDs[]'. For example:
      *
      *              new long[] { 0x01002927L,   // Core #0
      *                           0x11002927L  } // Core #1
      *
-     *        # Some MCUs (e.g. RP2350) expose only a single DP, with multiple cores accessible via
+     *        # Some MCUs (e.g., RP2350) expose only a single DP, with multiple cores accessible via
      *          Mem-AP offsets. In this case, specify negative values for the IDs in 'multidropIDs[]'
      *          to indicate that it uses Mem-AP offsets. For example:
      *

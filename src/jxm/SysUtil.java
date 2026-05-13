@@ -686,7 +686,7 @@ public class SysUtil {
         // Get the length of the path string
         final int pathLen = path.length();
 
-        // The operating system uses '\' as the directory separator (e.g. Windows)
+        // The operating system uses '\' as the directory separator (e.g., Windows)
         if( File.separatorChar == '\\' ) {
             for(int i = 0; i < pathLen; ++i) {
                 final char ch = path.charAt(i);
@@ -709,7 +709,7 @@ public class SysUtil {
             } // for
         }
 
-        // The operating system uses '/' as the directory separator (e.g. POSIX)
+        // The operating system uses '/' as the directory separator (e.g., POSIX)
         else {
             for(int i = 0; i < pathLen; ++i) {
                 final char ch = path.charAt(i);
@@ -756,7 +756,7 @@ public class SysUtil {
      * NOTE : # On Windows, if this function (and some others) reports that a file does not exist, please
      *          double-check if the correct file extension has been supplied.
      *        # This is especially important when checking executable files because POSIX uses permissions
-     *          whereas Windows uses extensions (e.g. 'avrdude' vs 'avrdude.exe').
+     *          whereas Windows uses extensions (e.g., 'avrdude' vs 'avrdude.exe').
      */
     public static boolean pathIsValid(final String path)
     { return Files.exists( Paths.get(path), LinkOption.NOFOLLOW_LINKS ); }

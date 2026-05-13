@@ -453,7 +453,7 @@ public abstract class ANSIScreenBuffer {
     private final StringBuilder      _ansiOSCBuff       = new StringBuilder();
 
     private       boolean            _ansiInSeq         = false;       // Are we inside an escape sequence?
-    private       char               _ansiParamMode     =  0;          // Introducer; e.g. '[', ']', '(', ')', '#', etc.
+    private       char               _ansiParamMode     =  0;          // Introducer; e.g., '[', ']', '(', ')', '#', etc.
     private       int                _ansiParamIdx      =  0;          // Current parameter index
     private       int                _ansiParamCount    =  0;          // Parameter count
     private       int                _ansiParamExtIdx   = -1;          // Current extra parameter index
@@ -1180,7 +1180,7 @@ public abstract class ANSIScreenBuffer {
                 _ansiBeg();
             }
             else {
-                // Next char selects charset (e.g. '0' for line drawing)
+                // Next char selects charset (e.g., '0' for line drawing)
                 _ansiEnd(ch);
             }
         }

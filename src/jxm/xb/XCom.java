@@ -2836,14 +2836,14 @@ public class XCom {
                     i += 3;
                 }
                 else if( (nch >= '0') && nch <= '7' ) { // Octal escape
-                    final StringBuilder code = new StringBuilder();
-                    while( (i < len - 1) && (nch >= '0') && (nch <= '7') ) {
-                        ++i;
-                        code.append(nch);
-                        // BUGNOTE: after ++i, i + 1 can equal len, making str.charAt(i + 1) throw StringIndexOutOfBoundsException; fix: guard with (i + 1 < len) ? str.charAt(i + 1) : '\0'
-                        nch = str.charAt(i + 1);
+                    // Continue while we have digits AND we have not over-consumed (max 3)
+                    final int octalStart = i + 1; // The first octal digit
+                          int octalEnd   = octalStart;
+                    while( octalEnd - octalStart < 3 && octalEnd < len && str.charAt(octalEnd) >= '0' && str.charAt(octalEnd) <= '7' ) {
+                        ++octalEnd;
                     }
-                    sb.append( (char) Integer.parseInt( code.toString(), 8 ) );
+                    sb.append( (char) Integer.parseInt( str.substring(octalStart, octalEnd), 8 ) );
+                    i = octalEnd - 1; // The for-loop ++i will advance to octalEnd
                 }
                 else {
                     switch(nch) {

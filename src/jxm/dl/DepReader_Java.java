@@ -37,7 +37,7 @@ public class DepReader_Java extends DepReader {
     private static final Pattern _pmFQNClassName   = Pattern.compile("\\b([a-z][a-zA-Z0-9_]*(?:\\.[a-z][a-zA-Z0-9_]*)*\\.[A-Z][a-zA-Z0-9_]*)\\b");
 
     // Pattern to detect reflection-based constructs to exclude from FQN scanning
-    private static final Pattern _pmReflection     = Pattern.compile("\\b(?:Class|Method|Field|Constructor)\\.(?:forName|invoke|newInstance|getDeclared[A-Za-z]*)\\s*\\(");
+    private static final Pattern _pmReflection     = Pattern.compile("\\b(?:Class|Method|Field|Constructor)\\.(?:forName|invoke|newInstance|getMethod|getField|getConstructor|getDeclared[A-Za-z]*)\\s*\\(");
 
   //private static final Pattern _pmTerminate      = Pattern.compile("\\b(?:class|interface|module)\\b");
 

@@ -5,6 +5,7 @@ on:
 jobs:
   claude:
     runs-on: ubuntu-latest
+    if: github.event.assignee.login == 'blue-wind-25' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))
     permissions:
       contents: write
       issues: write

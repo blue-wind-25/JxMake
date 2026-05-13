@@ -64,7 +64,9 @@ public class DepList {
     public void saveToFile(final String absPath) throws IOException
     {
         // Open, write, flush, and close the file
-        try( final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(absPath), SysUtil._CharEncoding ) ) ) {
+        try(
+            final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(absPath), SysUtil._CharEncoding ) )
+        ) {
             for(final String line : _depFileList) {
                 bfw.write(line);
                 bfw.newLine();
@@ -79,7 +81,9 @@ public class DepList {
         clear();
 
         // Open the file, read the data, and close the file
-        try( final BufferedReader bfr = new BufferedReader( new InputStreamReader( new FileInputStream(absPath), SysUtil._CharEncoding ) ) ) {
+        try(
+            final BufferedReader bfr = new BufferedReader( new InputStreamReader( new FileInputStream(absPath), SysUtil._CharEncoding ) )
+        ) {
             while(true) {
 
                 // Read one line

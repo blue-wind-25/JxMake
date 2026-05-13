@@ -56,6 +56,8 @@ public abstract class DepReader {
     protected static final String  _smCpp20Module   = "#!/type/C++20 Module";
     protected static final String  _smJavaImport    = "#!/type/Java Module";
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     private static boolean _missingDependencyWarningsEnabled = false;
 
     public static void setMissingDependencyWarningsEnabled(final boolean enabled)

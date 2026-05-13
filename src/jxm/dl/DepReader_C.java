@@ -489,7 +489,6 @@ public class DepReader_C extends DepReader {
                 }
 
             }
-
             /*
             // Terminate the file read if the token '(' or '{' is found
             else {

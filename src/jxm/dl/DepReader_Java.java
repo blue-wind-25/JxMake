@@ -33,7 +33,7 @@ public class DepReader_Java extends DepReader {
     private static final Pattern _pmJavaSQDQ       = Pattern.compile("([\"'])(?:[^\\\"]|\\.)*?\\1");
     private static final Pattern _pmJavaSymbolName = Pattern.compile('(' + XCom._reStrSymbolNameUnicode + ')', Pattern.UNICODE_CHARACTER_CLASS);
 
-    // Pattern to detect fully qualified class names (e.g., org.hispkg.HisClass)
+    // Pattern to detect fully qualified class names (e.g. org.my_package.MyClass)
     private static final Pattern _pmFQNClassName   = Pattern.compile("\\b([a-z][a-zA-Z0-9_]*(?:\\.[a-z][a-zA-Z0-9_]*)*\\.[A-Z][a-zA-Z0-9_]*)\\b");
 
     // Pattern to detect reflection-based constructs to exclude from FQN scanning
@@ -95,10 +95,10 @@ public class DepReader_Java extends DepReader {
         }
     }
 
-    private final HashSet  <String>  _procDirList = new HashSet  <>();
+    private final HashSet  <String>  _procDirList = new HashSet   <>();
     private final Deque    <String>  _dirFileList = new ArrayDeque<>();
 
-    private final SymbolMap          _symPathMap  = new SymbolMap  ();
+    private final SymbolMap          _symPathMap  = new SymbolMap   ();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -124,9 +124,8 @@ public class DepReader_Java extends DepReader {
 
     private String _convertDotToPath(final String str)
     {
-        final StringBuilder sb = new StringBuilder( str.length() );
-
-        final StringTokenizer st = new StringTokenizer(str, ".");
+        final StringBuilder   sb = new StringBuilder  ( str.length() );
+        final StringTokenizer st = new StringTokenizer( str, "."     );
 
         while( st.hasMoreTokens() ) {
             if( sb.length() > 0 ) sb.append('/');
@@ -160,13 +159,15 @@ public class DepReader_Java extends DepReader {
                 // Try to resolve using absolute location
                 final String absDepPath = _resolveAbsDepFilePath(filePath);
                 if(absDepPath != null) return absDepPath;
-                // Warn only when the parent package directory is reachable (project package)
-                // but the specific class file is absent - avoids noise for library imports
-                final int lastSlash = filePath.lastIndexOf('/');
-                if(lastSlash > 0) {
-                    final String pkgDir = filePath.substring(0, lastSlash);
-                    if( _resolveRelDepDirPath(pkgDir) != null || _resolveAbsDepDirPath(pkgDir) != null ) {
-                        if( _warnMissingDependency() ) SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
+                // Warn only when the parent package directory is reachable (project package) but the specific class file
+                // is absent - avoids noise for library imports
+                if( _warnMissingDependency() ) {
+                    final int lastSlash = filePath.lastIndexOf('/');
+                    if(lastSlash > 0) {
+                        final String pkgDir = filePath.substring(0, lastSlash);
+                        if( _resolveRelDepDirPath(pkgDir) != null || _resolveAbsDepDirPath(pkgDir) != null ) {
+                             SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
+                        }
                     }
                 }
             }
@@ -214,19 +215,16 @@ public class DepReader_Java extends DepReader {
                 }
             }
 
-            /*
-             * ### !!! TODO : !!! ###
-             *     + Handle 'import static'!!!
-             *     + It can still cause circular dependencies! How to fix?
-             */
+            // ##### !!! TODO : Handle 'import static' !!! #####
+
              // Strip string/char literals and reflection-based constructs before scanning
              final String strippedLine = _pmReflection.matcher( _pmJavaSQDQ.matcher(line).replaceAll("") ).replaceAll("");
 
              // Scan for symbol names from the same-directory and wildcard-imported packages
-             final Matcher m = _pmJavaSymbolName.matcher(strippedLine);
-             while( m.find() ) {
+             final Matcher jsnMatcher = _pmJavaSymbolName.matcher(strippedLine);
+             while( jsnMatcher.find() ) {
                 // Get the paths
-                final HashSet<String> paths = _symPathMap.get( m.group(1) );
+                final HashSet<String> paths = _symPathMap.get( jsnMatcher.group(1) );
                 if(paths == null) continue;
                 // Add the paths
                 for(final String path : paths) {
@@ -235,7 +233,7 @@ public class DepReader_Java extends DepReader {
                 }
              } // while
 
-             // Scan for fully qualified class names (e.g., org.hispkg.HisClass)
+             // Scan for fully qualified class names (e.g. org.my_package.MyClass)
              final Matcher fqnMatcher = _pmFQNClassName.matcher(strippedLine);
              while( fqnMatcher.find() ) {
                 // Get the file path for the FQN
@@ -247,7 +245,7 @@ public class DepReader_Java extends DepReader {
                 if(fqnDepPath != null) {
                     if( !_dirFileList.contains(fqnDepPath) ) _dirFileList.add(fqnDepPath);
                 }
-             } // while
+            } // while
 
             /*
             // Terminate the file read if the keyword 'class', 'interface', or 'module' is found

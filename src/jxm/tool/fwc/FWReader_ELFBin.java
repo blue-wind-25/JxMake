@@ -121,7 +121,7 @@ class FWReader_ELFBin extends FWReader {
             final int res = FWUtil._readUInt08(_elfDataStream);
             if(res <  0) _throwInvalidBinFileEOF();
             if(res == 0) break;
-            sb.append((char) res);
+            sb.append( (char) res );
         }
 
         return sb.toString();
@@ -157,14 +157,14 @@ class FWReader_ELFBin extends FWReader {
             if( _rdUI32BE() != 0x7F454C46L ) _throwInvalidBinFileFormat();
             // Parse 'e_ident[EI_CLASS]:1'
             final int elfClass = _rdUI08();
-            if     ( elfClass == 0x01 ) _elf32 = true;
-            else if( elfClass == 0x02 ) _elf64 = true;
-            else                        _throwInvalidBinFileFormat();
+            if     (elfClass == 0x01) _elf32 = true;
+            else if(elfClass == 0x02) _elf64 = true;
+            else                      _throwInvalidBinFileFormat();
             // Parse 'e_ident[EI_DATA]:1'
             final int elfData = _rdUI08();
-            if     ( elfData == 0x01 ) _elfLE = true;
-            else if( elfData == 0x02 ) _elfBE = true;
-            else                       _throwInvalidBinFileFormat();
+            if     (elfData == 0x01) _elfLE = true;
+            else if(elfData == 0x02) _elfBE = true;
+            else                     _throwInvalidBinFileFormat();
             // Check 'e_ident[EI_VERSION]:1'
             if( _rdUI08() != 0x01 ) _throwInvalidBinFileFormat();
             // Ignore 'e_ident[EI_OSABI]:1' and 'e_ident[EI_ABIVERSION]:1' and 'e_ident[EI_PAD]:7'

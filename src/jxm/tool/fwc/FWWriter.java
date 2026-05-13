@@ -16,6 +16,7 @@ import java.io.OutputStreamWriter;
 import java.io.IOException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import jxm.*;
 import jxm.annotation.*;
@@ -100,10 +101,11 @@ abstract class FWWriter {
     {
         if(_binaryOutputStream == null || cnt <= 0) return;
 
+        // ##### ??? TODO : Pre-allocate a static or member buffer for this ??? #####
         final int    chunkSize = (int) Math.min(cnt, 4096);
         final byte[] chunk     = new byte[chunkSize];
 
-        for(int i = 0; i < chunkSize; ++i) chunk[i] = data;
+        Arrays.fill(chunk, data);
 
         long remaining = cnt;
 

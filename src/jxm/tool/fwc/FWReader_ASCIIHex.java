@@ -99,8 +99,8 @@ class FWReader_ASCIIHex extends FWReaderTextRLSB {
                   String dataLine = ( strMGrpD.indexOf("$S") < 0 ) ? strMGrpD : _pmRemoveCheksum.matcher(strMGrpD).replaceAll("");
                          dataLine = _pmSeparator.matcher(dataLine).replaceAll("");
 
-                         if( matcher.group(1) != null ) _sectionAddress = Long.parseLong( matcher.group(1), 16 );
-            final byte[] data            = FWUtil .parse2Hexs( dataLine             );
+                         _sectionAddress = Long  .parseLong ( matcher.group(1), 16 );
+            final byte[] data            = FWUtil.parse2Hexs( dataLine             );
 
             // Store the data bytes
             if( !_storeOrSaveDataBlockBytes(_sectionAddress, data) ) break;

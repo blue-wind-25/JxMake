@@ -28,7 +28,7 @@ class FWReader_MotorolaSRecord extends FWReaderTextRL {
     {
         int chk = 0;
 
-        if(addr_data != null) for(int v : addr_data) chk += v & 0xFF;
+        for(int v : addr_data) chk += v & 0xFF;
         for(int v : others   ) chk += v;
 
         return ( (chk & 0xFF) == 0xFF );

@@ -2795,35 +2795,37 @@ public class SysUtil {
         if( !_javaCmd.isEmpty() ) return  new ArrayList<>(_javaCmd);
 
         try {
-            final String javaBin = getJavaBinaryPath();
-            final int    mjrVer  = getJavaBinaryVersionMajor();
+            final String       javaBin = getJavaBinaryPath();
+            final int          mjrVer  = getJavaBinaryVersionMajor();
+            final List<String> jvmArgs = new ArrayList<>( java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments() );
+
+            jvmArgs.removeIf( arg -> arg.contains("-agentlib") || arg.contains("-Xrunjdwp") );
+
+                                        _javaCmd.add   ( javaBin                              );
+                                        _javaCmd.addAll( jvmArgs                              );
+                if(mjrVer >= 22)        _javaCmd.add   ( "--enable-native-access=ALL-UNNAMED" );
 
             // Running with java -jar
             if( isRunFromJAR() ) {
                 final File curJar = getJxMakeJarFile();
 
                 if( curJar.getName().endsWith(".jar") ) {
-                                     _javaCmd.add( javaBin                              );
-                    if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED" );
-                                     _javaCmd.add( "-jar"                               );
-                                     _javaCmd.add( curJar.getPath()                     );
+                                        _javaCmd.add   ( "-jar"                               );
+                                        _javaCmd.add   ( curJar.getPath()                     );
                 }
             }
 
             // Running with -cp but main class loaded from a JAR
             else if( isRunFromJARClass() ) {
-
                 final String cp = getAbsClassPath();
-
-                                 _javaCmd.add( javaBin                              );
-                if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED" );
-                                 _javaCmd.add( "-cp"                                );
-                                 _javaCmd.add( cp                                   );
+                                        _javaCmd.add   ( "-cp"                                );
+                                        _javaCmd.add   ( cp                                   );
 
                 final String cmd = getSunJavaCommand();
                 if( cmd != null && !cmd.endsWith(".jar") ) {
-                  //_javaCmd.add( ( new File(cmd) ).getAbsoluteFile().toString() );
-                    _javaCmd.add( ( new File(cmd) ).getName() );
+                  //final String jarName = ( new File(cmd) ).getAbsoluteFile().toString();
+                    final String jarName = ( new File(cmd) ).getName();
+                                        _javaCmd.add   ( jarName                              );
                 }
             }
 
@@ -2832,16 +2834,18 @@ public class SysUtil {
                 String cp = getAbsClassPath();
                 if( !cp.isEmpty() ) cp = File.pathSeparator + cp;
 
-                                 _javaCmd.add( javaBin                                         );
-                if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED"            );
-                                 _javaCmd.add( "-cp"                                           );
-                // BUGNOTE: getJxMakeClassDir() returns null on exception; calling getParent() on null throws NullPointerException; fix: null-check classDir and its parent before use
-                                 _javaCmd.add( getJxMakeClassDir().getParent().toString() + cp );
+                final Path classDir  = getJxMakeClassDir();
+                final Path parentDir = (classDir != null) ? classDir.getParent() : null;
+
+                if(parentDir != null) { _javaCmd.add   ( "-cp"                                );
+                                        _javaCmd.add   ( parentDir.toString() + cp            );
+                }
 
                 final String cmd = getSunJavaCommand();
                 if( cmd != null && !cmd.endsWith(".jar") ) {
-                  //_javaCmd.add( ( new File(cmd) ).getAbsoluteFile().toString() );
-                    _javaCmd.add( ( new File(cmd) ).getName() );
+                  //final String jarName = ( new File(cmd) ).getAbsoluteFile().toString();
+                    final String jarName = ( new File(cmd) ).getName();
+                                        _javaCmd.add   ( jarName                              );
                 }
             }
 
@@ -2855,7 +2859,7 @@ public class SysUtil {
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
         }
 
-        return  new ArrayList<>(_javaCmd);
+        return new ArrayList<>(_javaCmd);
     }
 
     public synchronized static ArrayList<String> getJavaCmd()

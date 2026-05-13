@@ -2,7 +2,7 @@
 JxMake Basic Specification
 ====================================================================================================
 
-JxMake is case sensitive and using UTF-8 encoding.
+JxMake is case sensitive and uses UTF-8 encoding.
 
 
 Empty lines are ignored.
@@ -99,7 +99,7 @@ Including Other JxMake Files
 In case LIBRARY_NAME or 'file_name' is not found, ':::include' will raise error while ':::sinclude'
 will not.
 
-The file name must be a simple plain text, it cannot contains variable expansion. It is recommended
+The file name must be a simple plain text, it cannot contain variable expansion. It is recommended
 to enclose the file name in single quotes.
 
 

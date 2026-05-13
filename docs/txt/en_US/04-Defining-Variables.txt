@@ -12,8 +12,8 @@ Command line arguments are automatically converted to variables. All variables v
 
 All variable values that come from command line arguments are assumed to be constants.
 
-Lazy   assigment ( =) means the variables are evaluated when they are used.
-Direct assigment (:=) means the variables are evaluated when they are assigned.
+Lazy   assignment ( =) means the variables are evaluated when they are used.
+Direct assignment (:=) means the variables are evaluated when they are assigned.
 
 Concatenation assignments (+=) and (:+= or +:=)mean the new values are stacked to the variables.
 
@@ -43,7 +43,7 @@ a single set, either use a temporary/'local' variable or use one of these specia
 Variables can be deleted (unset) using the 'unset' statement.
 
 
-NOTE : # Lazy variable assigment using the result of a function call is not supported.
+NOTE : # Lazy variable assignment using the result of a function call is not supported.
        # The 'echo' and 'echoln' statements can be used to conveniently flatten and print the entire
          arguments as a string.
        # By convention, all non-existent variables evaluate to empty strings/zeroes.

@@ -38,7 +38,7 @@ Null
 
 
 BasicPlatformUtil
-    A basic platform utility library. Despite this library can be loaded and used by users directly,
+    A basic platform utility library. Although this library can be loaded and used by users directly,
     it is still primarily intended to be included from the other libraries listed below.
 
     This library reads and uses the 'JXMAKELIB_DOWNLOAD_CHK_INTERVAL_SECONDS' environment variable.

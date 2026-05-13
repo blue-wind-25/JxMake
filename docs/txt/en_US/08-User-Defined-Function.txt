@@ -117,8 +117,8 @@ Since the modifications will only affect the internal script buffer once, you wi
 them for the next separate group of executions (when the subsequent block of shell/operating system
 commands is not considered consecutive).
 
-All shell/operating system commands are considered consecutive and will will be combined into the
-same internal script buffer as long as these conditions are met:
+All shell/operating system commands are considered consecutive and will be combined into the same
+internal script buffer as long as these conditions are met:
 
     # The function where the commands are placed is still running (not yet exited); therefore, all
       pending commands (if any) will be executed just before the function exits.

@@ -21,7 +21,7 @@ Other sequences are ignored and STORED AS IS, for example:
     MyVar = '123\'456\\789\x\y\z000'     # MyVar now contains { 123'456\789\x\y\z000 ｝
 
 
-A double-quoted strings ("") support a wider range of escape sequences:
+A double-quoted string ("") supports a wider range of escape sequences:
     '\t'           # Evaluates to horizontal tab  (byte 0x09 in ASCII encoding)
     '\v'           # Evaluates to vertical   tab  (byte 0x0B in ASCII encoding)
     '\r'           # Evaluates to carriage return (byte 0x0D in ASCII encoding)
@@ -67,7 +67,7 @@ The opening token [[" must not be             followed by any other token.
 The closing token "]] must not be preceded or followed by any other token.
 
 All whitespaces inside multiline double-quoted strings are preserved.
-Not all statement support using multiline double-quoted strings.
+Not all statements support using multiline double-quoted strings.
 
 
 Evaluating a double-quoted string that contains variables will produce multiple set members, for

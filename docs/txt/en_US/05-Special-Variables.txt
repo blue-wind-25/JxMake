@@ -17,7 +17,7 @@ $[lserr]        : evaluate to the last suppressed error message; after reading t
 $[jxmakefile]   : evaluate to the JxMake specification file that was specified from the command line
 $[function]     : evaluate to the current user-defined function name string
 
-$[cmdtargets]   : evaluate to the all the target names that were specified from the command line
+$[cmdtargets]   : evaluate to all the target names that were specified from the command line
 
 $[usn]          : evaluate to a unique serial number every time it is read
 

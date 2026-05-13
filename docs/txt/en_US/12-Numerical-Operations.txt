@@ -36,7 +36,7 @@ The 'local' prefix can be used to restrict the variable for the current function
 NOTE : # All operations will be carried out as direct variable assignments (:=).
        # All operations will internally flatten the set member(s) into one string first.
        # All values are treated as signed integers; therefore, the words 'false' and 'true' are not
-         special words (they will always be evaluated to 0 because the are not numbers).
+         special words (they will always be evaluated to 0 because they are not numbers).
 
 
 ----------------------------------------------------------------------------------------------------

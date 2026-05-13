@@ -1,0 +1,17 @@
+[Unit]
+Description=Serial over WiFi Bridge for /dev/ttySerial_io1
+After=network.target
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+ExecStart=/mnt/data/pi/daemon/tcp_ser_dev_bridge.elf 2521 /dev/ttySerial_io1
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=TCP Console on port 2525
+After=network.target
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local
+Environment=TERM=screen-256color
+ExecStart=/mnt/data/pi/daemon/tcp_pty_bash_bridge.elf
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=Auto-connect Bluetooth audio device to ALSA
+After=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/asound-bt-connect.sh

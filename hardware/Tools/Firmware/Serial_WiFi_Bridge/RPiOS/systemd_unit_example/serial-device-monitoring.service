@@ -1,0 +1,17 @@
+[Unit]
+Description=Serial Device Monitoring for /dev/ttySerial_*
+After=pi-console.service pi-serial-bridge-io0.service pi-serial-bridge-io1.service pi-serial-bridge-dbg.service
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+ExecStart=/mnt/data/pi/daemon/tcp_fstate_monitor.elf 2500 /tmp/serial_dev___dev_ttySerial_io0 /tmp/serial_dev___dev_ttySerial_io1 /tmp/serial_dev___dev_ttySerial_dbg
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

@@ -8,7 +8,9 @@
 package jxm.dl;
 
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -87,10 +89,10 @@ public class DepReader_Java extends DepReader {
         }
     }
 
-    private final HashSet  <String> _procDirList = new HashSet  <>();
-    private final ArrayList<String> _dirFileList = new ArrayList<>();
+    private final HashSet<String>  _procDirList = new HashSet  <>();
+    private final Deque  <String>  _dirFileList = new ArrayDeque<>();
 
-    private final SymbolMap         _symPathMap  = new SymbolMap  ();
+    private final SymbolMap        _symPathMap  = new SymbolMap  ();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -116,16 +118,16 @@ public class DepReader_Java extends DepReader {
 
     private String _convertDotToPath(final String str)
     {
-        String cnv = "";
+        final StringBuilder sb = new StringBuilder( str.length() );
 
         final StringTokenizer st = new StringTokenizer(str, ".");
 
         while( st.hasMoreTokens() ) {
-            if( !cnv.isEmpty() ) cnv += '/';
-            cnv += st.nextToken();
+            if( sb.length() > 0 ) sb.append('/');
+            sb.append( st.nextToken() );
         }
 
-        return cnv;
+        return sb.toString();
     }
 
     @Override
@@ -135,7 +137,7 @@ public class DepReader_Java extends DepReader {
         while(true) {
 
             // Return from the existing directory file list if it is not empty
-            if( !_dirFileList.isEmpty() ) return _dirFileList.remove(0);
+            if( !_dirFileList.isEmpty() ) return _dirFileList.removeFirst();
 
             // Read one line
             final String line = _readLine_CppJava();
@@ -152,6 +154,15 @@ public class DepReader_Java extends DepReader {
                 // Try to resolve using absolute location
                 final String absDepPath = _resolveAbsDepFilePath(filePath);
                 if(absDepPath != null) return absDepPath;
+                // Warn only when the parent package directory is reachable (project package)
+                // but the specific class file is absent - avoids noise for library imports
+                final int lastSlash = filePath.lastIndexOf('/');
+                if(lastSlash > 0) {
+                    final String pkgDir = filePath.substring(0, lastSlash);
+                    if( _resolveRelDepDirPath(pkgDir) != null || _resolveAbsDepDirPath(pkgDir) != null ) {
+                        SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
+                    }
+                }
             }
 
             // Check for 'import a.b.c.d.e.*;'

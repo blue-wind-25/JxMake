@@ -63,18 +63,14 @@ public class DepList {
 
     public void saveToFile(final String absPath) throws IOException
     {
-        // Open the file
-        final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(absPath), SysUtil._CharEncoding ) );
-
-        // Write the data
-        for(final String line : _depFileList) {
-            bfw.write(line);
-            bfw.newLine();
+        // Open, write, flush, and close the file
+        try( final BufferedWriter bfw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(absPath), SysUtil._CharEncoding ) ) ) {
+            for(final String line : _depFileList) {
+                bfw.write(line);
+                bfw.newLine();
+            }
+            bfw.flush();
         }
-
-        // Flush and close the file
-        bfw.flush();
-        bfw.close();
     }
 
     public void loadFromFile(final String absPath) throws IOException
@@ -82,23 +78,19 @@ public class DepList {
         // Clear first
         clear();
 
-        // Open the file
-        final BufferedReader bfr = new BufferedReader( new InputStreamReader( new FileInputStream(absPath), SysUtil._CharEncoding ) );
+        // Open the file, read the data, and close the file
+        try( final BufferedReader bfr = new BufferedReader( new InputStreamReader( new FileInputStream(absPath), SysUtil._CharEncoding ) ) ) {
+            while(true) {
 
-        // Read the data
-        while(true) {
+                // Read one line
+                final String line = bfr.readLine();
+                if(line == null) break;
 
-            // Read one line
-            final String line = bfr.readLine();
-            if(line == null) break;
+                // Store the line if it is not empty
+                if( line.length() != 0 ) _depFileList.add(line);
 
-            // Store the line is it is not empty
-            if( line.length() != 0 ) _depFileList.add(line);
-
-        } // while true
-
-        // Close the file
-        bfr.close();
+            } // while true
+        }
 
         // Save the file name
         _depFilePath = absPath;

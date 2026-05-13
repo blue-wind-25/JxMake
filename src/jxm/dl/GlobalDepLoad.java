@@ -271,10 +271,13 @@ public class GlobalDepLoad {
         final BufferedReader bfr = new BufferedReader( new InputStreamReader( new FileInputStream(depFileAbsPath), SysUtil._CharEncoding ) );
 
         // Load the dependency data
-        final TreeMap< String, TreeSet<String> > dm = _loadDepData(depFileAbsDir, bfr, false);
-
-        // Close the file
-        bfr.close();
+        final TreeMap< String, TreeSet<String> > dm;
+        try {
+            dm = _loadDepData(depFileAbsDir, bfr, false);
+        }
+        finally {
+            bfr.close();
+        }
 
         // Return the dependency data
         return dm;

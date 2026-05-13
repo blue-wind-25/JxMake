@@ -431,7 +431,7 @@ public class DepReader_C extends DepReader {
                     // Warn if the module import could not be resolved to any known producer
                     if( depList.isEmpty() ) {
                         final String modIdent = modSpec.partition.isEmpty() ? modSpec.name : modSpec.name + ':' + modSpec.partition;
-                        SysUtil.printfSimpleWarning( Texts.WMsg_Cpp20ModuleNotFound, modIdent, targetAbsPath );
+                        if( _warnMissingDependency() ) SysUtil.printfSimpleWarning( Texts.WMsg_Cpp20ModuleNotFound, modIdent, targetAbsPath );
                     }
                 } // if
             } // for
@@ -485,7 +485,7 @@ public class DepReader_C extends DepReader {
                     final String relDepPath = _resolveRelDepFilePath( incMatcher.group(3) );
                     if(relDepPath != null) return relDepPath;
                     // Warn if the dependency could not be resolved
-                    SysUtil.printfSimpleWarning( Texts.WMsg_CIncludeNotFound, incMatcher.group(3), filePath() );
+                    if( _warnMissingDependency() ) SysUtil.printfSimpleWarning( Texts.WMsg_CIncludeNotFound, incMatcher.group(3), filePath() );
                 }
 
             }

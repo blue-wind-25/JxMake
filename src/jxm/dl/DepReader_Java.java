@@ -33,6 +33,12 @@ public class DepReader_Java extends DepReader {
     private static final Pattern _pmJavaSQDQ       = Pattern.compile("([\"'])(?:[^\\\"]|\\.)*?\\1");
     private static final Pattern _pmJavaSymbolName = Pattern.compile('(' + XCom._reStrSymbolNameUnicode + ')', Pattern.UNICODE_CHARACTER_CLASS);
 
+    // Pattern to detect fully qualified class names (e.g., org.hispkg.HisClass)
+    private static final Pattern _pmFQNClassName   = Pattern.compile("\\b([a-z][a-zA-Z0-9_]*(?:\\.[a-z][a-zA-Z0-9_]*)*\\.[A-Z][a-zA-Z0-9_]*)\\b");
+
+    // Pattern to detect reflection-based constructs to exclude from FQN scanning
+    private static final Pattern _pmReflection     = Pattern.compile("\\b(?:Class|Method|Field|Constructor)\\.(?:forName|invoke|newInstance|getDeclared[A-Za-z]*)\\s*\\(");
+
   //private static final Pattern _pmTerminate      = Pattern.compile("\\b(?:class|interface|module)\\b");
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -160,7 +166,7 @@ public class DepReader_Java extends DepReader {
                 if(lastSlash > 0) {
                     final String pkgDir = filePath.substring(0, lastSlash);
                     if( _resolveRelDepDirPath(pkgDir) != null || _resolveAbsDepDirPath(pkgDir) != null ) {
-                        SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
+                        if( _warnMissingDependency() ) SysUtil.printfSimpleWarning( Texts.WMsg_JavaDepNotFound, filePath, filePath() );
                     }
                 }
             }
@@ -212,9 +218,12 @@ public class DepReader_Java extends DepReader {
              * ### !!! TODO : !!! ###
              *     + Handle 'import static'!!!
              *     + It can still cause circular dependencies! How to fix?
-             *     + Not all possible conditions may have been considered (directly using the fully qualified name, reflection, etc.)
              */
-             final Matcher m = _pmJavaSymbolName.matcher( _pmJavaSQDQ.matcher(line).replaceAll("") );
+             // Strip string/char literals and reflection-based constructs before scanning
+             final String strippedLine = _pmReflection.matcher( _pmJavaSQDQ.matcher(line).replaceAll("") ).replaceAll("");
+
+             // Scan for symbol names from the same-directory and wildcard-imported packages
+             final Matcher m = _pmJavaSymbolName.matcher(strippedLine);
              while( m.find() ) {
                 // Get the paths
                 final HashSet<String> paths = _symPathMap.get( m.group(1) );
@@ -223,6 +232,20 @@ public class DepReader_Java extends DepReader {
                 for(final String path : paths) {
                     if( _dirFileList.contains(path) ) continue;
                     _dirFileList.add(path);
+                }
+             } // while
+
+             // Scan for fully qualified class names (e.g., org.hispkg.HisClass)
+             final Matcher fqnMatcher = _pmFQNClassName.matcher(strippedLine);
+             while( fqnMatcher.find() ) {
+                // Get the file path for the FQN
+                final String fqnFilePath = _convertDotToPath( fqnMatcher.group(1) ) + ".java";
+                // Try to resolve using relative location, then absolute
+                String fqnDepPath = _resolveRelDepFilePath(fqnFilePath);
+                if(fqnDepPath == null) fqnDepPath = _resolveAbsDepFilePath(fqnFilePath);
+                // Add to the pending list if found
+                if(fqnDepPath != null) {
+                    if( !_dirFileList.contains(fqnDepPath) ) _dirFileList.add(fqnDepPath);
                 }
              } // while
 

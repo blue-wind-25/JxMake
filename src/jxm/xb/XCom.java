@@ -384,9 +384,8 @@ public class XCom {
             return true;
         }
 
-        // BUGNOTE: value can be null (VariableStore default constructor sets value = null) or empty; value.charAt(0) throws NullPointerException or StringIndexOutOfBoundsException; fix: add null and empty check before charAt
         public boolean isVar()
-        { return !constant && ( value.charAt(0) == '$' || isWritableSVarSCut(value) ); }
+        { return !constant && (value != null) && !value.isEmpty() && ( value.charAt(0) == '$' || isWritableSVarSCut(value) ); }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2523,8 +2522,7 @@ public class XCom {
     public static String sqStringEllipsis(final String str, final int maxLen)
     {
         return sqStringEllipsis(
-            // BUGNOTE: when maxLen < 5, maxLen - 5 is negative and substring throws StringIndexOutOfBoundsException; fix: add maxLen < 5 to the short-circuit condition
-            ( str == null || str.length() < maxLen - 2 ) ? str : ( str.substring(0, maxLen - 5) + "..." )
+            ( str == null || (maxLen < 5) || ( str.length() < maxLen - 2 ) ) ? str : ( str.substring(0, maxLen - 5) + "..." )
         );
     }
 

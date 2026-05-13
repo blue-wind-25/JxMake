@@ -24,9 +24,8 @@ import jxm.*;
 
 public class DepReader_C extends DepReader {
 
-    private static final Pattern     _pmInclude        = Pattern.compile("#include\\s*(?:(<)\\s*|(\"))(.+?)(?:\"|\\s*>)"                                   ); // Plain header file - #include <...>
+    private static final Pattern     _pmInclude        = Pattern.compile("#\\s*include\\s*(?:(<)\\s*|(\"))(.+?)(?:\"|\\s*>)"                                   ); // Plain header file - #include <...>
                                                                                                                                                               //                   - #include "..."
-
     private static final Pattern     _pmCons_HdrU      = Pattern.compile("import\\s*(?:(<)\\s*|(\"))(.+?)(?:\"|\\s*>)\\s*;"                                ); // Consumer          -  header_unit
     private static final Pattern     _pmCons_RMod      = Pattern.compile("(?<!export)\\s*module\\s+([^:\\r\\n<\"]+)\\s*;"                                  ); // Consumer          -  module
     private static final Pattern     _pmCons_OMod_RPar = Pattern.compile("import\\s+([^:\\r\\n<\"]+)?((?:\\s*):(?:\\s*)[^:\\r\\n<\"]+)?\\s*;"              ); // Consumer          - [module] :partition
@@ -230,6 +229,17 @@ public class DepReader_C extends DepReader {
                 String line = dr._readLine_CppJava();
                 if(line == null) break;
 
+                // Skip regex scanning for obviously non-functional lines
+                // ##### !!! TODO : Handle the inside of /* ... */ !!! #####
+                final String trimmed = line.trim();
+                if( trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("/*") ) continue;
+
+                // A C++ line ONLY matters to if it starts with '#' or 'i' or 'e' or 'm'
+                final char first = trimmed.charAt(0);
+                if( first != '#' && first != 'i' && first != 'e' && first != 'm' ) {
+                    continue;
+                }
+
                 // Flag
                 boolean gotMatch = false;
 
@@ -306,10 +316,12 @@ public class DepReader_C extends DepReader {
                     }
                 }
 
+                //*
                 // Terminate the file read if the token '(' or '{' is found
                 if(!gotMatch) {
                     if( line.indexOf('(') >= 0 || line.indexOf('{') >= 0 ) break;
                 }
+                //*/
 
             } // while true
 

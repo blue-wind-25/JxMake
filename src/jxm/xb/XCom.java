@@ -3641,20 +3641,29 @@ public class XCom {
     }
 
     public static int _M2CCStr(final String str)
-     {
+    {
         final char[] res = new char[2]; // Store converted values
-              int    idx  = 0;
+              int    idx = 0;
 
         for(int i = 0; i < str.length() && idx < 2; ++i) {
-            if( str.charAt(i) == '\\' && i + 5 < str.length() && str.charAt(i + 1) == 'u' ) {
-                // Extract the hexadecimal value and convert it into a normal character
-                // BUGNOTE: Integer.parseInt throws NumberFormatException if the four hex digits are not valid hex; fix: wrap in try/catch and treat the backslash as a literal character on failure
-                res[idx++] = (char) Integer.parseInt( str.substring(i + 2, i + 6), 16 );
-                i += 5;
+
+            char ch = str.charAt(i);
+
+            if( ch == '\\' && i + 5 < str.length() && str.charAt(i + 1) == 'u' ) {
+                try {
+                    // Attempt to parse the unicode hex
+                    res[idx++] = (char) Integer.parseInt( str.substring(i + 2, i + 6), 16 );
+                    // Success - skip the processed hex digits
+                    i += 5;
+                }
+                catch(final NumberFormatException e) {
+                    // Failure - treat backslash as a literal character
+                    res[idx++] = ch;
+                }
             }
             else {
                 // Append the normal character as-is
-                res[idx++] = str.charAt(i);
+                res[idx++] = ch;
             }
 
         } // for

@@ -945,7 +945,8 @@ public class SysUtil {
                  if( umask.isEmpty()     ) umask = "0002";
             else if( umask.length () > 4 ) umask = umask.substring(0, 4);
             // Calculate its inverse
-            _invUMask = 0777 - Integer.parseInt(umask, 8);
+            try { _invUMask = 0777 - Integer.parseInt(umask, 8); }
+            catch(final NumberFormatException e) { _invUMask = 0777 - 0002; }
         }
 
         // Return the inverse file mode creation mask
@@ -2261,7 +2262,10 @@ public class SysUtil {
     {
         if( !_copyJARRes_prepareDstDir(true , dstAbsPath, printMsg) ) return;
 
-        for( final String resName : getJARResFilePaths(resRootDir) ) {
+        final List<String> _resFilePaths = getJARResFilePaths(resRootDir);
+        if(_resFilePaths == null) return;
+
+        for( final String resName : _resFilePaths ) {
             _copyJARRes_copyRes(resName, dstAbsPath, printMsg);
         }
 
@@ -2603,7 +2607,8 @@ public class SysUtil {
         catch(final Throwable t) {
             // Fallback for Java 8
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            return Long.parseLong( jvmName.split("@")[0] );
+            try { return Long.parseLong( jvmName.split("@")[0] ); }
+            catch(final NumberFormatException e) { return -1; }
         }
     }
 
@@ -2700,16 +2705,16 @@ public class SysUtil {
 
                 while( ( line = bro.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
-                        version = line.split("=")[1].trim();
-                        break;
+                        final String[] _parts = line.split("=");
+                        if(_parts.length > 1) { version = _parts[1].trim(); break; }
                     }
                 }
 
             if(version == null) {
                 while( ( line = bre.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
-                        version = line.split("=")[1].trim();
-                        break;
+                        final String[] _parts = line.split("=");
+                        if(_parts.length > 1) { version = _parts[1].trim(); break; }
                     }
                 }
             }
@@ -2736,7 +2741,8 @@ public class SysUtil {
     {
         final String javaVer = getJavaBinaryVersion();
 
-        return javaVer.startsWith("1.") ? Integer.parseInt( javaVer.substring(2) ) : Integer.parseInt(javaVer);
+        try { return javaVer.startsWith("1.") ? Integer.parseInt( javaVer.substring(2) ) : Integer.parseInt(javaVer); }
+        catch(final NumberFormatException e) { return 0; }
     }
 
     public synchronized static String getAbsClassPath()
@@ -2816,7 +2822,9 @@ public class SysUtil {
                                  _javaCmd.add( javaBin                                         );
                 if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED"            );
                                  _javaCmd.add( "-cp"                                           );
-                                 _javaCmd.add( getJxMakeClassDir().getParent().toString() + cp );
+                final Path _classDir = getJxMakeClassDir();
+                if(_classDir != null && _classDir.getParent() != null)
+                                 _javaCmd.add( _classDir.getParent().toString() + cp            );
 
                 final String cmd = getSunJavaCommand();
                 if( cmd != null && !cmd.endsWith(".jar") ) {
@@ -2955,7 +2963,9 @@ public class SysUtil {
 
         final List<String> fontList = Arrays.asList( GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames() );
               String       fontName =                   SysUtil.getEnv(envVarFontName, null)  ;
-              int          fontSize = Integer.parseInt( SysUtil.getEnv(envVarFontSize, "0" ) );
+              int          fontSize;
+              try          { fontSize = Integer.parseInt( SysUtil.getEnv(envVarFontSize, "0" ) ); }
+              catch(final NumberFormatException e) { fontSize = 0; }
 
         fontName = __selectPreferredFont(null, fontName, fontList); // Ensure that the user-selected font actually exists
 

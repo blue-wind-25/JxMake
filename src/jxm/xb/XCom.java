@@ -384,8 +384,9 @@ public class XCom {
             return true;
         }
 
+        // BUGNOTE: value can be null (VariableStore default constructor sets value = null) or empty; value.charAt(0) throws NullPointerException or StringIndexOutOfBoundsException; fix: add null and empty check before charAt
         public boolean isVar()
-        { return !constant && value != null && !value.isEmpty() && ( value.charAt(0) == '$' || isWritableSVarSCut(value) ); }
+        { return !constant && ( value.charAt(0) == '$' || isWritableSVarSCut(value) ); }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2522,7 +2523,8 @@ public class XCom {
     public static String sqStringEllipsis(final String str, final int maxLen)
     {
         return sqStringEllipsis(
-            ( str == null || maxLen < 5 || str.length() < maxLen - 2 ) ? str : ( str.substring(0, maxLen - 5) + "..." )
+            // BUGNOTE: when maxLen < 5, maxLen - 5 is negative and substring throws StringIndexOutOfBoundsException; fix: add maxLen < 5 to the short-circuit condition
+            ( str == null || str.length() < maxLen - 2 ) ? str : ( str.substring(0, maxLen - 5) + "..." )
         );
     }
 
@@ -2840,7 +2842,8 @@ public class XCom {
                     while( (i < len - 1) && (nch >= '0') && (nch <= '7') ) {
                         ++i;
                         code.append(nch);
-                        nch = (i + 1 < len) ? str.charAt(i + 1) : '\0';
+                        // BUGNOTE: after ++i, i + 1 can equal len, making str.charAt(i + 1) throw StringIndexOutOfBoundsException; fix: guard with (i + 1 < len) ? str.charAt(i + 1) : '\0'
+                        nch = str.charAt(i + 1);
                     }
                     sb.append( (char) Integer.parseInt( code.toString(), 8 ) );
                 }
@@ -3037,14 +3040,13 @@ public class XCom {
     {
         if( sep.equals("") ) {
             for(final VariableStore item : parts) {
-                if(item.value == null) continue;
+                // BUGNOTE: item.value can be null (VariableStore default constructor); calling codePoints() or split() on null throws NullPointerException; fix: skip items where item.value is null
                 for( final int cp : item.value.codePoints().toArray() ) retVal.add( new VariableStore( true, new String( Character.toChars(cp) ) ) );
               //for( final char ch : item.value.toCharArray() ) retVal.add( new VariableStore( true, String.valueOf(ch) ) );
             }
         }
         else {
             for(final VariableStore item : parts) {
-                if(item.value == null) continue;
                 final String[] tokens = item.value.split( Pattern.quote(sep) );
                 for(final String t : tokens) retVal.add( new VariableStore(true, t) );
             }
@@ -3622,8 +3624,9 @@ public class XCom {
         for(int i = 0; i < str.length() && idx < 2; ++i) {
             if( str.charAt(i) == '\\' && i + 5 < str.length() && str.charAt(i + 1) == 'u' ) {
                 // Extract the hexadecimal value and convert it into a normal character
-                try { res[idx++] = (char) Integer.parseInt( str.substring(i + 2, i + 6), 16 ); i += 5; }
-                catch(final NumberFormatException e) { res[idx++] = str.charAt(i); }
+                // BUGNOTE: Integer.parseInt throws NumberFormatException if the four hex digits are not valid hex; fix: wrap in try/catch and treat the backslash as a literal character on failure
+                res[idx++] = (char) Integer.parseInt( str.substring(i + 2, i + 6), 16 );
+                i += 5;
             }
             else {
                 // Append the normal character as-is

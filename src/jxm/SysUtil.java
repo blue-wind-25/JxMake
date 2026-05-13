@@ -2607,8 +2607,8 @@ public class SysUtil {
         catch(final Throwable t) {
             // Fallback for Java 8
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            try { return Long.parseLong( jvmName.split("@", 2)[0] ); }
-            catch(final NumberFormatException e) { return -1; }
+            // BUGNOTE: jvmName.split("@") returns an empty array when jvmName is "@" (trailing-empty elision), making [0] throw ArrayIndexOutOfBoundsException; Long.parseLong also throws NumberFormatException if the prefix is non-numeric; fix: use split("@", 2) and wrap in try/catch returning -1
+            return Long.parseLong( jvmName.split("@")[0] );
         }
     }
 
@@ -2705,16 +2705,18 @@ public class SysUtil {
 
                 while( ( line = bro.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
-                        final String[] _parts = line.split("=");
-                        if(_parts.length > 1) { version = _parts[1].trim(); break; }
+                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
+                        version = line.split("=")[1].trim();
+                        break;
                     }
                 }
 
             if(version == null) {
                 while( ( line = bre.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
-                        final String[] _parts = line.split("=");
-                        if(_parts.length > 1) { version = _parts[1].trim(); break; }
+                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
+                        version = line.split("=")[1].trim();
+                        break;
                     }
                 }
             }
@@ -2741,8 +2743,8 @@ public class SysUtil {
     {
         final String javaVer = getJavaBinaryVersion();
 
-        try { return javaVer.startsWith("1.") ? Integer.parseInt( javaVer.substring(2) ) : Integer.parseInt(javaVer); }
-        catch(final NumberFormatException e) { return 0; }
+        // BUGNOTE: Integer.parseInt throws NumberFormatException for non-standard version strings like "21-ea"; fix: wrap in try/catch returning 0
+        return javaVer.startsWith("1.") ? Integer.parseInt( javaVer.substring(2) ) : Integer.parseInt(javaVer);
     }
 
     public synchronized static String getAbsClassPath()
@@ -2822,9 +2824,8 @@ public class SysUtil {
                                  _javaCmd.add( javaBin                                         );
                 if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED"            );
                                  _javaCmd.add( "-cp"                                           );
-                final Path _classDir = getJxMakeClassDir();
-                if(_classDir != null && _classDir.getParent() != null)
-                                 _javaCmd.add( _classDir.getParent().toString() + cp            );
+                // BUGNOTE: getJxMakeClassDir() returns null on exception; calling getParent() on null throws NullPointerException; fix: null-check classDir and its parent before use
+                                 _javaCmd.add( getJxMakeClassDir().getParent().toString() + cp );
 
                 final String cmd = getSunJavaCommand();
                 if( cmd != null && !cmd.endsWith(".jar") ) {

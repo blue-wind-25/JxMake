@@ -28,7 +28,7 @@ class FWReader_MotorolaSRecord extends FWReaderTextRL {
     {
         int chk = 0;
 
-        for(int v : addr_data) chk += v & 0xFF;
+        if(addr_data != null) for(int v : addr_data) chk += v & 0xFF;
         for(int v : others   ) chk += v;
 
         return ( (chk & 0xFF) == 0xFF );
@@ -77,7 +77,7 @@ class FWReader_MotorolaSRecord extends FWReaderTextRL {
             final int    checksum   = Integer.parseInt  ( matcher.group(5), 16 );
 
             // Check the byte count
-            if(addr_data.length != byteCount - 1) _throwInvalidRecLineByteCount();
+            if((addr_data == null ? 0 : addr_data.length) != byteCount - 1) _throwInvalidRecLineByteCount();
 
             // Check the checksum
             if( !_checkChecksum( addr_data, byteCount, checksum ) ) _throwInvalidRecLineChecksum();

@@ -25,11 +25,11 @@ class FWWriter_TITextHex extends FWWriter {
 
     @Override
     protected String __L_RNAME()
-    { return FWUtil.MOST_RName_L; }
+    { return FWUtil.TIXH_RName_L; }
 
     @Override
     protected String __S_RNAME()
-    { return FWUtil.MOST_RName_S; }
+    { return FWUtil.TIXH_RName_S; }
 
     // NOTE : 'nullByte' is not currently used by 'TI-TXT Hex' writer!
     @Override

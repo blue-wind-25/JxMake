@@ -2607,7 +2607,7 @@ public class SysUtil {
         catch(final Throwable t) {
             // Fallback for Java 8
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            try { return Long.parseLong( jvmName.split("@")[0] ); }
+            try { return Long.parseLong( jvmName.split("@", 2)[0] ); }
             catch(final NumberFormatException e) { return -1; }
         }
     }

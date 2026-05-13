@@ -1720,10 +1720,22 @@ public class SysUtil {
     {
         if(_jxmakeExeDir == null) {
             try {
-                if( isRunFromClassFile() ) _jxmakeExeDir = normalizeDirectorySeparators( getJxMakeClassDir().getParent().toString() ); // Run from the main class file
-                else                       _jxmakeExeDir = getDirName( getJxMakeJarFile().getPath() );                                 // Run from a JAR file
+                if( isRunFromClassFile() ) {
+                    // Run from the main class file
+                    final Path classDir  = getJxMakeClassDir();
+                    final Path parentDir = (classDir != null) ? classDir.getParent() : null;
+                    if(parentDir != null) {
+                        _jxmakeExeDir = normalizeDirectorySeparators( parentDir.toString() );
+                    }
+                }
+                else {
+                    // Run from a JAR file
+                    _jxmakeExeDir = getDirName( getJxMakeJarFile().getPath() );
+                }
             }
-            catch(final Exception e) {}
+            catch(final Exception e) {
+                if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            }
         }
 
         return _jxmakeExeDir;

@@ -92,6 +92,10 @@ public class Texts {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    public static final String WMsg_JavaDepNotFound     = _T("Java dependency '%s' not found (imported in '%s')");
+    public static final String WMsg_CIncludeNotFound    = _T("C/C++ include '%s' not found (included in '%s')");
+    public static final String WMsg_Cpp20ModuleNotFound = _T("C++20 module '%s' not found (imported in '%s')");
+
     public static final String WMsg_DeprecatedSVar0     = _T("the special-variable '%s' is deprecated; no replacement has been specified");
     public static final String WMsg_DeprecatedSVar1     = _T("the special-variable '%s' is deprecated; use '%s' instead");
 
@@ -260,10 +264,6 @@ public class Texts {
 
     public static final String EMsg_LoadDepDataLevelOrRec   = _T("dependency nesting level is too deep or dependency recursion was detected '%s' -> '%s'");
     public static final String EMsg_GenDepDataFailed        = _T("failed generating dependency data for '%s': unknown error");
-
-    public static final String WMsg_JavaDepNotFound         = _T("Java dependency '%s' not found (imported in '%s')");
-    public static final String WMsg_CIncludeNotFound        = _T("C/C++ include '%s' not found (included in '%s')");
-    public static final String WMsg_Cpp20ModuleNotFound     = _T("C++20 module '%s' not found (imported in '%s')");
 
     public static final String EMsg_ShellCmdEvalToEmpty     = _T("the shell/operating system command evaluates to an empty expression");
 

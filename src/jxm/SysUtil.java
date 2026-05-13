@@ -945,7 +945,8 @@ public class SysUtil {
                  if( umask.isEmpty()     ) umask = "0002";
             else if( umask.length () > 4 ) umask = umask.substring(0, 4);
             // Calculate its inverse
-            _invUMask = 0777 - Integer.parseInt(umask, 8);
+            try { _invUMask = 0777 - Integer.parseInt(umask, 8); }
+            catch(final NumberFormatException e) { _invUMask = 0777 - 0002; }
         }
 
         // Return the inverse file mode creation mask
@@ -2261,7 +2262,10 @@ public class SysUtil {
     {
         if( !_copyJARRes_prepareDstDir(true , dstAbsPath, printMsg) ) return;
 
-        for( final String resName : getJARResFilePaths(resRootDir) ) {
+        final List<String> _resFilePaths = getJARResFilePaths(resRootDir);
+        if(_resFilePaths == null) return;
+
+        for( final String resName : _resFilePaths ) {
             _copyJARRes_copyRes(resName, dstAbsPath, printMsg);
         }
 
@@ -2603,6 +2607,7 @@ public class SysUtil {
         catch(final Throwable t) {
             // Fallback for Java 8
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
+            // BUGNOTE: jvmName.split("@") returns an empty array when jvmName is "@" (trailing-empty elision), making [0] throw ArrayIndexOutOfBoundsException; Long.parseLong also throws NumberFormatException if the prefix is non-numeric; fix: use split("@", 2) and wrap in try/catch returning -1
             return Long.parseLong( jvmName.split("@")[0] );
         }
     }
@@ -2700,6 +2705,7 @@ public class SysUtil {
 
                 while( ( line = bro.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
+                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
                         version = line.split("=")[1].trim();
                         break;
                     }
@@ -2708,6 +2714,7 @@ public class SysUtil {
             if(version == null) {
                 while( ( line = bre.readLine() ) != null ) {
                     if( line.contains("java.specification.version") ) {
+                        // BUGNOTE: line.split("=")[1] throws ArrayIndexOutOfBoundsException if the line contains no '='; fix: store split result and check length before accessing index 1
                         version = line.split("=")[1].trim();
                         break;
                     }
@@ -2736,6 +2743,7 @@ public class SysUtil {
     {
         final String javaVer = getJavaBinaryVersion();
 
+        // BUGNOTE: Integer.parseInt throws NumberFormatException for non-standard version strings like "21-ea"; fix: wrap in try/catch returning 0
         return javaVer.startsWith("1.") ? Integer.parseInt( javaVer.substring(2) ) : Integer.parseInt(javaVer);
     }
 
@@ -2816,6 +2824,7 @@ public class SysUtil {
                                  _javaCmd.add( javaBin                                         );
                 if(mjrVer >= 22) _javaCmd.add( "--enable-native-access=ALL-UNNAMED"            );
                                  _javaCmd.add( "-cp"                                           );
+                // BUGNOTE: getJxMakeClassDir() returns null on exception; calling getParent() on null throws NullPointerException; fix: null-check classDir and its parent before use
                                  _javaCmd.add( getJxMakeClassDir().getParent().toString() + cp );
 
                 final String cmd = getSunJavaCommand();
@@ -2955,7 +2964,9 @@ public class SysUtil {
 
         final List<String> fontList = Arrays.asList( GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames() );
               String       fontName =                   SysUtil.getEnv(envVarFontName, null)  ;
-              int          fontSize = Integer.parseInt( SysUtil.getEnv(envVarFontSize, "0" ) );
+              int          fontSize;
+              try          { fontSize = Integer.parseInt( SysUtil.getEnv(envVarFontSize, "0" ) ); }
+              catch(final NumberFormatException e) { fontSize = 0; }
 
         fontName = __selectPreferredFont(null, fontName, fontList); // Ensure that the user-selected font actually exists
 

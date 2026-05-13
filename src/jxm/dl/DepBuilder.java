@@ -97,6 +97,8 @@ public class DepBuilder {
 
         // Recursively build the dependency list
         for(final String sourceFilePath : sourceFilePaths) {
+            // Reset the dependency list before processing each source file
+            depList.clear();
             // Try to load from the cache file first
             try {
                 // Load from file

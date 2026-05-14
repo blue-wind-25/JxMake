@@ -225,13 +225,13 @@ public abstract class TarGen {
 
                 // Compress the file data
                 if( !file.isDirectory() ) {
-                    final BufferedInputStream bis  = new BufferedInputStream( new FileInputStream(file) );
-                    while(true) {
-                        final int cnt = bis.read(data);
-                        if(cnt == -1) break;
-                        tos.write(data, 0, cnt);
+                    try( final BufferedInputStream bis = new BufferedInputStream( new FileInputStream(file) ) ) {
+                        while(true) {
+                            final int cnt = bis.read(data);
+                            if(cnt == -1) break;
+                            tos.write(data, 0, cnt);
+                        }
                     }
-                    bis.close();
                 }
 
             }
@@ -300,16 +300,16 @@ public abstract class TarGen {
         SysUtil.cu_rmfile(dstName);
 
         // Decompress the file data
-        final BufferedOutputStream bos = new BufferedOutputStream( new FileOutputStream(dstName) );
+        try( final BufferedOutputStream bos = new BufferedOutputStream( new FileOutputStream(dstName) ) ) {
 
-        while(true) {
-            final int cnt = tis.read(data);
-            if(cnt == -1) break;
-            bos.write(data, 0, cnt);
+            while(true) {
+                final int cnt = tis.read(data);
+                if(cnt == -1) break;
+                bos.write(data, 0, cnt);
+            }
+
+            bos.flush();
         }
-
-        bos.flush();
-        bos.close();
     }
 
     // NOTE : This function is named '_uncompressDir' rather than '_unpackDir'  because it will be

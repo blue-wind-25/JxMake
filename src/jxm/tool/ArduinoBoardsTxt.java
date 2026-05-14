@@ -126,9 +126,9 @@ public class ArduinoBoardsTxt extends ArduinoBoardsTxt_Dec {
         loadDecRule();
 
         // Open the file
-        final BufferedReader bfr = new BufferedReader(
+        try( final BufferedReader bfr = new BufferedReader(
                                            new InputStreamReader( new FileInputStream( SysUtil.resolveAbsolutePath(path) ), SysUtil._CharEncoding )
-                                       );
+                                       ) ) {
 
         // Prepare the processing variables
         final MenuIDTextMap menuIDTextMap = new MenuIDTextMap();
@@ -211,6 +211,8 @@ public class ArduinoBoardsTxt extends ArduinoBoardsTxt_Dec {
 
         // Return the finalized board definition list
         return boardDefList.finalizeAll();
+
+        } // try
     }
 
     public static BoardDefList fromEData(final String str) throws IOException, ClassNotFoundException

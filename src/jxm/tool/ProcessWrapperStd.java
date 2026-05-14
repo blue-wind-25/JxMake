@@ -26,6 +26,7 @@ public class ProcessWrapperStd extends ProcessWrapperBase {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    @Override
     public void setEnvironment(final Map<String, String> environment)
     {
         _stdPB.environment().clear();

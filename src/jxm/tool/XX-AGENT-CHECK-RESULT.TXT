@@ -1,0 +1,104 @@
+================================================================================
+AGENT CODE REVIEW NOTES
+================================================================================
+
+The following items were identified but NOT changed because they are either
+intentional design decisions, ambiguous, or touch public API / behavior in
+ways that require owner confirmation.
+
+--------------------------------------------------------------------------------
+File: AutoPrintf.java
+Line: "       if( idx < 0 || idx >= args.length ) return null;"
+Issue: Indentation inconsistency - line uses 3 leading spaces while the
+       surrounding method body uses 8 spaces (4-space indent inside method).
+       This is a pure formatting issue; logic is correct.
+Suggested change: Align to 8 spaces to match the surrounding code style.
+       Not changed because the task says "Do not change the code format."
+--------------------------------------------------------------------------------
+
+File: CommandShell.java
+Line: "                    System.out.printf(\"‼ %s -> ✗\\n\", file, trg);"
+Issue: The format string contains one %s specifier but two arguments (file,
+       trg) are passed. The second argument (trg) is silently ignored by
+       printf. This may be intentional (to print only the source on an
+       unhandled entry type), but looks like a missed argument.
+Suggested change: Either remove the second argument "trg" if the current
+       output is intended, or change the format to "‼ %s -> %s\\n" to also
+       print the destination.
+--------------------------------------------------------------------------------
+
+File: CommandSpecifier.java
+Lines: "        public static String ATTR_COLOR_RESET    = null;"
+       "        public static String ATTR_COLOR_CAPTION1 = null;"
+       "        public static String ATTR_COLOR_CAPTION2 = null;"
+       "        public static String ATTR_COLOR_COMMAND  = null;"
+       "        public static String ATTR_COLOR_OPTION   = null;"
+       "        public static String ATTR_COLOR_VALUE    = null;"
+       "        public static String ATTR_COLOR_OPERATOR = null;"
+Issue: These are mutable public static fields inside CommandRegistry. They
+       are not final because resetHelpTextColors() reassigns them at
+       runtime. However, exposing mutable static state publicly is risky
+       in multithreaded contexts (no synchronization on writes or reads).
+Suggested change: If thread safety is needed, guard reads/writes with
+       synchronization or use volatile. If single-threaded Swing use is
+       guaranteed, leave as-is. Not changed because altering the access
+       pattern could affect callers.
+--------------------------------------------------------------------------------
+
+File: I18N.java
+Lines: "    private static final StringBuilder _sbEscapeUnescape = new StringBuilder();"
+       (referenced by _escape() at line 61 and _unescape() at line 84)
+Issue: _sbEscapeUnescape is a shared static StringBuilder used by both
+       _escape() and _unescape(). These methods are called from
+       _saveTranslationFile(), which is invoked from a shutdown hook.
+       If two threads call _escape() or _unescape() concurrently (e.g.,
+       during a concurrent shutdown scenario), the shared buffer state
+       would be corrupted.
+Suggested change: Replace the shared field with a local StringBuilder
+       inside each method, or synchronize access. Not changed because
+       _saveTranslationFile() appears to only be called from a single
+       shutdown hook in practice, making concurrent access unlikely.
+--------------------------------------------------------------------------------
+
+File: I18N.java
+Line (shutdown hook registration, static initializer block near end of file):
+       (the shutdown hook calls _saveTranslationFile())
+Issue: The shutdown hook is registered unconditionally even when
+       _captureFile is null. In that case _saveTranslationFile() is
+       still called but exits early. Not a bug, but a minor inefficiency.
+Suggested change: Register the shutdown hook only when _captureFile != null.
+       Not changed because the current behavior is safe.
+--------------------------------------------------------------------------------
+
+File: JSONDecoder.java
+Line: "            return String.format( _tokSB.toString() );"
+       (inside Tokenizer._getString())
+Issue: String.format() is called with a single argument to convert
+       escaped %% sequences back to %. This works correctly for %% -> %,
+       but any unescaped format specifiers in the JSON value (such as
+       %n, %s, etc.) would cause runtime errors. The code doubles every
+       literal % to %% before calling String.format, which protects
+       against this. The approach is functionally correct but unusual.
+Suggested change: Consider replacing the double-%% approach with a
+       direct replace: return _tokSB.toString().replace("%%", "%").
+       However, this would only be correct if no % characters other than
+       literal percent signs appear. Not changed because the current
+       logic is intentional and correct.
+--------------------------------------------------------------------------------
+
+File: CommandHistory.java
+Line: "        if( _commandIndex >= _commandHistory.size() ) _commandIndex = _commandHistory.size() - 1;"
+       (inside deleteLastN(), line 163)
+Issue: When the last N items are deleted and the list becomes empty,
+       _commandHistory.size() - 1 evaluates to -1, setting _commandIndex
+       to -1. This is not a crash because hasPrev() and hasNext() both
+       guard with isEmpty() before using _commandIndex. However, -1 is
+       an unusual sentinel value and differs from the 0 used by clearAll().
+       After deleteLastN() empties the list, a subsequent call to
+       clearAll() would reset _commandIndex to 0; calling deleteLastN()
+       alone leaves it at -1.
+Suggested change: Use Math.max(0, _commandHistory.size() - 1) to keep
+       _commandIndex non-negative when empty. Not changed because
+       hasPrev()/hasNext() guard against empty-list access, and the
+       observable behavior is identical.
+--------------------------------------------------------------------------------

@@ -51,15 +51,13 @@ public class CommandHistory {
 
     public void save()
     {
-        try {
-            final OutputStreamWriter writer = new OutputStreamWriter( new FileOutputStream(_cmdHistFPath), SysUtil._CharEncoding );
-            final int                size   = _commandHistory.size();
-            final int                start  = Math.max(0, size - _commandMaxSave); // Only keep the last '_commandMaxSave' commands
+        try(final OutputStreamWriter writer = new OutputStreamWriter( new FileOutputStream(_cmdHistFPath), SysUtil._CharEncoding ) ) {
+            final int size  = _commandHistory.size();
+            final int start = Math.max(0, size - _commandMaxSave); // Only keep the last '_commandMaxSave' commands
             for(int i = start; i < size; ++i) {
                 writer.write( _commandHistory.get(i) );
                 writer.write( "\n" );
             }
-            writer.close();
         }
         catch(final Exception e) {
             if( !(e instanceof FileNotFoundException) ) {
@@ -71,14 +69,11 @@ public class CommandHistory {
 
     public void load()
     {
-        try {
-            final InputStreamReader reader  = new InputStreamReader( new FileInputStream(_cmdHistFPath), SysUtil._CharEncoding );
-            final BufferedReader    breader = new BufferedReader(reader);
-                  String            line;
+        try(final BufferedReader breader = new BufferedReader( new InputStreamReader( new FileInputStream(_cmdHistFPath), SysUtil._CharEncoding ) ) ) {
+                  String line;
             while( (line = breader.readLine() ) != null ) {
                 _commandHistory.add(line);
             }
-            reader.close();
             _commandIndex = _commandHistory.size();
         }
         catch(final Exception e) {
@@ -94,7 +89,7 @@ public class CommandHistory {
     public void put(final String text)
     {
         // Remove the text if it is already in the command history
-        if( _commandHistory.contains(text) ) _commandHistory.remove(text);
+        _commandHistory.remove(text);
 
         // Add the text to the end of the command history
         _commandHistory.add(text);
@@ -147,7 +142,7 @@ public class CommandHistory {
 
         final int count = Math.min( N, _commandHistory.size() );
 
-        for(int i = 0; i < count; ++i) _commandHistory.remove(0);
+        _commandHistory.subList(0, count).clear();
 
         _commandIndex = Math.max(0, _commandIndex - count);
     }
@@ -158,7 +153,7 @@ public class CommandHistory {
 
         final int count = Math.min( N, _commandHistory.size() );
 
-        for(int i = 0; i < count; ++i) _commandHistory.remove( _commandHistory.size() - 1 );
+        _commandHistory.subList(_commandHistory.size() - count, _commandHistory.size()).clear();
 
         if( _commandIndex >= _commandHistory.size() ) _commandIndex = _commandHistory.size() - 1;
     }

@@ -1363,16 +1363,16 @@ public class XBBuilder {
                 if( token.isEOL() ) {
                     // Get and check the option type
                     final String      typeStr = TokenReader.strPopFirst(_trTokens);
-                    if( typeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);
                           Option.Type type    = null;
+                    if(typeStr == null) return _setError(token, Texts.EMsg_PrematureEOL);
                     switch(typeStr) {
                         case "warning" : type = Option.Type.warning; break;
                         default        : return _setError(token, Texts.EMsg_UnexpectedToken, typeStr);
                     }
                     // Get and check the option mode
                     final String      modeStr = TokenReader.strPopFirst(_trTokens);
-                    if( modeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);
                           Option.Mode mode    = null;
+                    if(modeStr == null) return _setError(token, Texts.EMsg_PrematureEOL);
                     switch(modeStr) {
                         case "push"    : mode = Option.Mode.push   ; break;
                         case "pop"     : mode = Option.Mode.pop    ; break;

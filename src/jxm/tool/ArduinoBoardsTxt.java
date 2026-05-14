@@ -126,91 +126,93 @@ public class ArduinoBoardsTxt extends ArduinoBoardsTxt_Dec {
         loadDecRule();
 
         // Open the file
-        try( final BufferedReader bfr = new BufferedReader(
-                                           new InputStreamReader( new FileInputStream( SysUtil.resolveAbsolutePath(path) ), SysUtil._CharEncoding )
-                                       ) ) {
+        try(
+            final BufferedReader bfr = new BufferedReader( new InputStreamReader(
+                                           new FileInputStream( SysUtil.resolveAbsolutePath(path) ), SysUtil._CharEncoding
+                                       ) )
+        ) {
 
-        // Prepare the processing variables
-        final MenuIDTextMap menuIDTextMap = new MenuIDTextMap();
-        final BoardDefList  boardDefList  = new BoardDefList ();
-              BoardDef      boardDef      = null;
+            // Prepare the processing variables
+            final MenuIDTextMap menuIDTextMap = new MenuIDTextMap();
+            final BoardDefList  boardDefList  = new BoardDefList ();
+                  BoardDef      boardDef      = null;
 
-        // Process until EOF
-        while(true) {
+            // Process until EOF
+            while(true) {
 
-            // Read one line and check for EOF
-            final String line = _readLine(bfr);
-            if(line == null) break;
+                // Read one line and check for EOF
+                final String line = _readLine(bfr);
+                if(line == null) break;
 
-            // Extract the parts
-            final ArrayList<String> parts   = XCom.extract_kv( line               , "=" );
-            final ArrayList<String> key     = XCom.explode   ( parts.get(0).trim(), "." );
-            final int               keySize = key.size();
-            final String            value   = ( parts.size() > 1 ) ? parts.get(1).trim() : "";
+                // Extract the parts
+                final ArrayList<String> parts   = XCom.extract_kv( line               , "=" );
+                final ArrayList<String> key     = XCom.explode   ( parts.get(0).trim(), "." );
+                final int               keySize = key.size();
+                final String            value   = ( parts.size() > 1 ) ? parts.get(1).trim() : "";
 
-            // Get the menu texts from 'menu.*=*'
-            if( key.get(0).equals("menu") ) {
-                menuIDTextMap.put( key.get(1), value );
-            }
+                // Get the menu texts from 'menu.*=*'
+                if( key.get(0).equals("menu") ) {
+                    menuIDTextMap.put( key.get(1), value );
+                }
 
-            // Get the board names from '*.name=*'
-            else if( key.get(1).equals("name") ) {
-                boardDef = new BoardDef( key.get(0), value );
-                boardDefList.add(boardDef);
-            }
+                // Get the board names from '*.name=*'
+                else if( key.get(1).equals("name") ) {
+                    boardDef = new BoardDef( key.get(0), value );
+                    boardDefList.add(boardDef);
+                }
 
-            // Get the menu definitions from '*'.menu.*...=*
-            else if( key.get(1).equals("menu") ) {
-                // Get the board definition object
-                boardDef = boardDefList.getBoardDefByID( key.get(0) );
-                // Remove the '*.menu' parts
-                key.subList(0, 2).clear();
-                // Perform key transformation
-                _execDir_transformKey(key);
-                // Process the remaining parts of the key using handlers
-                final XCom.IntegerRef xjvLPIdx        = new XCom.IntegerRef();
-                      boolean         xjvItemsHandled = false;
-                for(final XKV_PartHandler partHandlers : _xkvPartHandlersList) {
-                    if( _keyPartsEnd( xjvLPIdx, key, partHandlers.part, partHandlers.xkvHandlers ) ) {
-                        final XKV_Consumer_List handlers = partHandlers.xkvHandlers.list.get( xjvLPIdx.get() ).handlers;
-                        for(int j = 0; j < handlers.list.size(); ++j) {
-                            if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
-                            handlers.list.get(j).apply(boardDef, key, value);
+                // Get the menu definitions from '*'.menu.*...=*
+                else if( key.get(1).equals("menu") ) {
+                    // Get the board definition object
+                    boardDef = boardDefList.getBoardDefByID( key.get(0) );
+                    // Remove the '*.menu' parts
+                    key.subList(0, 2).clear();
+                    // Perform key transformation
+                    _execDir_transformKey(key);
+                    // Process the remaining parts of the key using handlers
+                    final XCom.IntegerRef xjvLPIdx        = new XCom.IntegerRef();
+                          boolean         xjvItemsHandled = false;
+                    for(final XKV_PartHandler partHandlers : _xkvPartHandlersList) {
+                        if( _keyPartsEnd( xjvLPIdx, key, partHandlers.part, partHandlers.xkvHandlers ) ) {
+                            final XKV_Consumer_List handlers = partHandlers.xkvHandlers.list.get( xjvLPIdx.get() ).handlers;
+                            for(int j = 0; j < handlers.list.size(); ++j) {
+                                if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
+                                handlers.list.get(j).apply(boardDef, key, value);
+                            }
+                            xjvItemsHandled = true;
+                            break;
                         }
-                        xjvItemsHandled = true;
+                    }
+                    // If the parts were not handled, add the parts as they are
+                    if(!xjvItemsHandled) {
+                        if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
+                        boardDef.addMenuItem(menuIDTextMap, key, value);
+                    }
+                }
+
+                // Get the non-menu definitions from '*.build.*=*' and '*.upload.*=*'
+                else {
+                    // Get the board definition object
+                    boardDef = boardDefList.getBoardDefByID( key.get(0) );
+                    // Process the remaining parts of the key using handlers
+                    for(final XKV_PartHandler mpartHandler : _xkvPartHandlersList) {
+                        if( !mpartHandler.part.equals( key.get(1) ) ) continue;
+                        for(final XKV_Handler handler : mpartHandler.xkvHandlers.list) {
+                            if( !handler.part.equals( key.get(2) ) ) continue;
+                            for(final XKV_Consumer cons : handler.handlers.list) {
+                                if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
+                                cons.apply(boardDef, null, value); // Non-menu -> the 'key' is null
+                            }
+                            break;
+                        }
                         break;
                     }
                 }
-                // If the parts were not handled, add the parts as they are
-                if(!xjvItemsHandled) {
-                    if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
-                    boardDef.addMenuItem(menuIDTextMap, key, value);
-                }
-            }
 
-            // Get the non-menu definitions from '*.build.*=*' and '*.upload.*=*'
-            else {
-                // Get the board definition object
-                boardDef = boardDefList.getBoardDefByID( key.get(0) );
-                // Process the remaining parts of the key using handlers
-                for(final XKV_PartHandler mpartHandler : _xkvPartHandlersList) {
-                    if( !mpartHandler.part.equals( key.get(1) ) ) continue;
-                    for(final XKV_Handler handler : mpartHandler.xkvHandlers.list) {
-                        if( !handler.part.equals( key.get(2) ) ) continue;
-                        for(final XKV_Consumer cons : handler.handlers.list) {
-                            if(boardDef == null) throw XCom.newIOException( Texts.EMsg_UnresolvedABoardsTxtID, key.get(0) );
-                            cons.apply(boardDef, null, value); // Non-menu -> the 'key' is null
-                        }
-                        break;
-                    }
-                    break;
-                }
-            }
+            } // while true
 
-        } // while true
-
-        // Return the finalized board definition list
-        return boardDefList.finalizeAll();
+            // Return the finalized board definition list
+            return boardDefList.finalizeAll();
 
         } // try
     }

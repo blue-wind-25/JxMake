@@ -12,7 +12,7 @@ Options:
     -e <program_text>       Execute the given program text; cannot be used together with the
                             '-f' option.
 
-    --en-jxm-load-verbose   Enable verbose messages for JxMake library loading.
+    --en-jxm-lload-verbose  Enable verbose messages for JxMake library loading.
 
     --en-jxm-cache          Enable compiled JxMake specification file cache.
 

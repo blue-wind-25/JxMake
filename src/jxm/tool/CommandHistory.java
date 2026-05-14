@@ -51,7 +51,9 @@ public class CommandHistory {
 
     public void save()
     {
-        try(final OutputStreamWriter writer = new OutputStreamWriter( new FileOutputStream(_cmdHistFPath), SysUtil._CharEncoding ) ) {
+        try(
+            final OutputStreamWriter writer = new OutputStreamWriter( new FileOutputStream(_cmdHistFPath), SysUtil._CharEncoding )
+        ) {
             final int size  = _commandHistory.size();
             final int start = Math.max(0, size - _commandMaxSave); // Only keep the last '_commandMaxSave' commands
             for(int i = start; i < size; ++i) {
@@ -69,8 +71,12 @@ public class CommandHistory {
 
     public void load()
     {
-        try(final BufferedReader breader = new BufferedReader( new InputStreamReader( new FileInputStream(_cmdHistFPath), SysUtil._CharEncoding ) ) ) {
-                  String line;
+        try(
+            final BufferedReader breader = new BufferedReader( new InputStreamReader(
+                                               new FileInputStream(_cmdHistFPath), SysUtil._CharEncoding
+                                           ) )
+        ) {
+            String line;
             while( (line = breader.readLine() ) != null ) {
                 _commandHistory.add(line);
             }
@@ -153,7 +159,7 @@ public class CommandHistory {
 
         final int count = Math.min( N, _commandHistory.size() );
 
-        _commandHistory.subList(_commandHistory.size() - count, _commandHistory.size()).clear();
+        _commandHistory.subList( _commandHistory.size() - count, _commandHistory.size() ).clear();
 
         if( _commandIndex >= _commandHistory.size() ) _commandIndex = _commandHistory.size() - 1;
     }

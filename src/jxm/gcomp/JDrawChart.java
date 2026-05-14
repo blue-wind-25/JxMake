@@ -135,8 +135,9 @@ public class JDrawChart extends JPanel implements ActionListener {
         try {
             g2d.scale(scl, scl);
             paint(g2d);
-
-            try( final FileOutputStream fos = new FileOutputStream(filePath) ) {
+            try(
+                final FileOutputStream fos = new FileOutputStream(filePath)
+            ) {
                 ImageIO.write( img, "png", fos );
             }
         }

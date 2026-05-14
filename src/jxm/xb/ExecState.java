@@ -742,8 +742,10 @@ public class ExecState {
 
                 // '$[cmdtargets]'
                 case cmdtargets:
-                    for(final String name : _cmdTargetNames) {
-                        varVal.add( new XCom.VariableStore(true, name) );
+                    if(_cmdTargetNames != null) {
+                        for(final String name : _cmdTargetNames) {
+                            varVal.add( new XCom.VariableStore(true, name) );
+                        }
                     }
                     break;
 

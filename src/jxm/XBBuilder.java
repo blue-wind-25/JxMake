@@ -584,12 +584,18 @@ public class XBBuilder {
 
     private boolean _checkFuncCallParentheses(final XCom.IntegerRef begIdx_, final XCom.IntegerRef endIdx_)
     {
+        // Error if the list is empty
+        if( _trTokens.isEmpty() ) return _setError(_lastToken, Texts.EMsg_PrematureEOL);
+
         // Get the indexes
         final int begIdx = begIdx_.get();
         final int endIdx = endIdx_.get();
 
         // Check the number of tokens
-        if( begIdx + 1 >= endIdx ) return _setError( _trTokens.get( Math.min( _trTokens.size() - 1, endIdx + 1 ) ), Texts.EMsg_PrematureEOL );
+        if( begIdx + 1 >= endIdx ) {
+            final int errorIdx = Math.max( 0, Math.min(_trTokens.size() - 1, endIdx) );
+            return _setError( _trTokens.get(errorIdx), Texts.EMsg_PrematureEOL );
+        }
 
         // Check if the next token is the opening '('
         int pcnt = _trTokens.get(begIdx).tStr.equals("(") ? 1 : 0;
@@ -1580,7 +1586,9 @@ public class XBBuilder {
                     if( _curFDefDepre.equals("") ) {
                         // Check if the token is 'by'
                         if(token.tStr.equals("by") ) {
+                            /*
                             if( !"".equals(_curFDefDepre) ) return _setError(token, Texts.EMsg_UnexpectedToken, token.tStr);
+                            */
                             _curFDefDepre = "<__BY__>";
                             break;
                         }
@@ -2001,7 +2009,7 @@ public class XBBuilder {
                     if( _state == State.VarDeprecate && !_trTokens.isEmpty() ) {
                         // Check for 'by'
                         final String byStr = TokenReader.strPopFirst(_trTokens);
-                        if( !byStr.equals("by") ) return _setError(token, Texts.EMsg_UnexpectedToken, byStr);
+                        if( !"by".equals(byStr) ) return _setError(token, Texts.EMsg_UnexpectedToken, byStr);
                         // Get the replacement name
                         repName = TokenReader.strPopFirst(_trTokens);
                         if( repName == null || repName.isEmpty() ) return _setError(token, Texts.EMsg_PrematureEOL);

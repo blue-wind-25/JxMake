@@ -75,7 +75,7 @@ target run
 
     #(*
     echoln
-    $call( printResult, $xmlframe_file('../src/Test.GUI.xml') )
+    $call( printResult, $xmlframe_file('../src/1-TestData/GTest1.GUI.xml') )
 
     echoln
    #echoln ${XMLFrame}

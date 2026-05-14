@@ -12,9 +12,7 @@ jobs:
       github.event.sender.login == 'blue-wind-25' &&
       (
         contains(github.event.issue.title, '@Claude') ||
-        contains(github.event.issue.title, '@claude') ||
-        contains(github.event.issue.body || '', '@Claude') ||
-        contains(github.event.issue.body || '', '@claude')
+        contains(github.event.issue.body || '', '@Claude')
       )
 
     permissions:
@@ -40,4 +38,4 @@ jobs:
             First create a new git branch, then make the requested changes,
             commit them, push the branch, and open a pull request.
           claude_args: --allowedTools Edit,Write,Bash,Read
-          # show_full_output: true  # uncomment for debugging
+        # show_full_output: true  # uncomment for debugging

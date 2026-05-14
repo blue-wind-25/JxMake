@@ -268,7 +268,6 @@ public abstract class STM32QSPI extends ARMCortexMCommonInst {
         return cmd;
     }
 
-
     public QSPICmd_Common newQSPICmd( // Instruction - Address - Data - Dummy Cycles
             final InstMode instMode,   final long     instValue ,     final boolean instSIOO   ,
             final AddrMode addrMode,   final AddrSize addrSize  ,     final long    addrValue  ,

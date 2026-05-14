@@ -796,6 +796,9 @@ class JxMakeConsole extends ANSIScreenBuffer {
             catch(final BadLocationException e) {
                 // Ignore error
             }
+            finally {
+                graphics.dispose();
+            }
 
             // Return the base font
             return baseFont;

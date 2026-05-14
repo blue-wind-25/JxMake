@@ -141,7 +141,7 @@ public abstract class ANSIScreenBuffer {
             ch = EmptyChar;
 
             bg = DefaultBackgroundColor;
-            fg = DefaultBackgroundColor;
+            fg = DefaultForegroundColor;
 
             b  = false;
             i  = false;
@@ -282,7 +282,7 @@ public abstract class ANSIScreenBuffer {
 
         public void reset()
         {
-            showCursor = !true;
+            showCursor = false;
 
             foreground = DefaultForegroundColor;
             background = DefaultBackgroundColor;

@@ -1,0 +1,179 @@
+AGENT CHECK RESULT
+==================
+Findings that were too uncertain to fix automatically.
+Each entry documents a potential issue found during code review.
+
+Notation:
+  FILE     - source file (relative to src/jxm/gcomp/)
+  LINE     - exact source line copied from the file
+  ISSUE    - description of the suspected problem
+  SUGGEST  - suggested change or note for the human reviewer
+
+
+================================================================================
+ENTRY 1
+================================================================================
+FILE:    JDrawChart.java
+LINE:    final double xScale = ( (double) aw - Padding2 - YLabelPadding ) / (pCount - 1               );
+ISSUE:   Potential division by zero.  When the data set contains exactly one
+         point, pCount == 1 and (pCount - 1) == 0, making xScale infinite (or
+         NaN for integer arithmetic).  The downstream loop "for(int i = 0;
+         i < pCount - 1; ++i)" exits immediately when pCount == 1, so the
+         x-axis line-drawing loop is safe.  However, xScale itself is still
+         used unconditionally before that loop for other drawing operations
+         (grid lines, Y-axis labels).  The X-axis hatch block already guards
+         with "if(pCount > 1)", but xScale is computed outside and before that
+         guard.
+SUGGEST: Add an early return (or a guard) before the scale calculations when
+         pCount <= 1, similar to what is already done for the X-axis hatch
+         block:
+             if(pCount <= 1) return;
+         Place this guard immediately after the "pCount = ds.values.get(0)
+         .size();" assignment, before the scale calculations.
+         Alternatively, also verify every caller of paintComponent ensures the
+         data set is non-trivial before triggering a repaint.
+
+
+================================================================================
+ENTRY 2
+================================================================================
+FILE:    JDrawChart.java
+LINE:    final double yScale = ( (double) ah - Padding2 - XLabelPadding ) / (ds.maxValue - ds.minValue);
+ISSUE:   Potential division by zero / NaN propagation.  After the alignment
+         block (lines 235-246), ds.maxValue and ds.minValue are set from
+         _align().  When _align() is called with 0.0 it returns 1.0, so for an
+         all-zero dataset ds.maxValue == 1.0 and ds.minValue == 0.0 -- that is
+         fine.  However the mixed-sign branch (else, lines 243-246) assigns:
+             ds.maxValue = (ds.maxValue >= 0) ? aligned : -aligned;
+             ds.minValue = (ds.minValue >= 0) ? aligned : -aligned;
+         When ds.maxValue > 0 and ds.minValue < 0, both fields receive the
+         same absolute value (aligned), so ds.maxValue == aligned and
+         ds.minValue == -aligned, making ds.maxValue - ds.minValue == 2*aligned
+         which is correct.  But when both are exactly 0.0 after alignment
+         (edge case if somehow aligned == 0), the denominator would be zero.
+         The _align() function guards n <= 0 by returning 1.0, so this is
+         unlikely in practice, but mathematically not fully ruled out.
+SUGGEST: Add a defensive guard after the alignment block:
+             if(ds.maxValue == ds.minValue) return;
+         This would silently skip drawing when there is no vertical range, which
+         is the safest observable behavior.
+
+
+================================================================================
+ENTRY 3
+================================================================================
+FILE:    JDrawChart.java
+LINE:    for( int i = 0; i < pCount; i += (pCount / XDivisions) ) {
+ISSUE:   Potential integer division by zero if XDivisions is ever 0.
+         XDivisions is a private static final int set to 10, so this cannot
+         happen with the current code.  However if the constant is ever changed
+         to 0 (e.g., during refactoring), the division pCount / XDivisions
+         would throw ArithmeticException at runtime, or produce an infinite
+         loop when the step is 0 and pCount > 0.
+SUGGEST: Low-severity / informational note.  No change needed while XDivisions
+         remains a non-zero constant.  If it is ever made configurable, add a
+         guard: "if(XDivisions <= 0) return;" or use Math.max(1, XDivisions).
+
+
+================================================================================
+ENTRY 4
+================================================================================
+FILE:    JDrawChart.java
+LINE:    if(i < pCount) {
+ISSUE:   Dead condition inside the for-loop "for( int i = 0; i < pCount; ...)"
+         (line 293).  The outer loop invariant already guarantees i < pCount,
+         so this inner if is always true and never guards anything.
+SUGGEST: Either remove the if-block wrapper (keeping only the body), or replace
+         it with a tighter bound check such as "if( i < ds.index.size() )" in
+         case ds.index may have fewer entries than pCount, which would be the
+         real defensive check.
+
+
+================================================================================
+ENTRY 5
+================================================================================
+FILE:    ANSIScreenBuffer.java (inner class Char)
+LINE:    private static final HashMap<Long, SimpleAttributeSet> CACHE_SimpleAttributeSet = new HashMap<>();
+ISSUE:   Unbounded static cache.  Every unique combination of (foreground color,
+         background color, bold, italic, underline, strikethrough, userFlag)
+         creates a new entry in this map that is never evicted.  For a
+         long-running terminal session with many distinct colors or attributes,
+         this can grow without bound and consume heap memory indefinitely.
+SUGGEST: Consider bounding the cache, for example using a LinkedHashMap with
+         removeEldestEntry(), or switch to a WeakHashMap / soft-reference map.
+         Alternatively, document that the key space is bounded in practice
+         (e.g., only 256 standard colors × limited flag combinations) so that
+         the map size stays manageable and no fix is needed.
+
+
+================================================================================
+ENTRY 6
+================================================================================
+FILE:    se/JxMakeRootPane_Menu.java
+LINE:            ex.printStackTrace();
+ISSUE:   Unconditional printStackTrace() not gated by
+         XCom.enableAllExceptionStackTrace().  This is inside _invokeMethod()
+         which is called from menu action listeners.  The rest of the codebase
+         consistently gates debug stack traces behind
+         "if( XCom.enableAllExceptionStackTrace() )".  While the call is
+         followed by SysUtil.systemExitError() making it fatal, the inconsistent
+         gating breaks the ability to suppress stack-trace noise in production
+         builds.
+SUGGEST: Change to:
+             if( XCom.enableAllExceptionStackTrace() ) ex.printStackTrace();
+             SysUtil.systemExitError();
+         (Note: this is a style/consistency concern; the fatal call means the
+         output will not be missed by a developer diagnosing a crash.)
+
+
+================================================================================
+ENTRY 7
+================================================================================
+FILE:    se/JxMakeRootPane_Menu.java
+LINE:            e.printStackTrace();
+ISSUE:   Same as Entry 6, inside createMenuBar().  Unconditional
+         printStackTrace() not gated by XCom.enableAllExceptionStackTrace(),
+         followed by SysUtil.systemExitError().
+SUGGEST: Change to:
+             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+             SysUtil.systemExitError();
+
+
+================================================================================
+ENTRY 8
+================================================================================
+FILE:    SwingApp.java
+LINE:            e.printStackTrace();
+ISSUE:   Unconditional printStackTrace() in initialize(), followed by
+         SysUtil.systemExitError().  Same consistency issue as Entries 6-7.
+         This is a fatal startup path so the stack trace is important for
+         diagnosis, but it bypasses the application's standard gating mechanism.
+SUGGEST: Change to:
+             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+             SysUtil.systemExitError();
+         Or, if the intent is that initialization errors always print a trace
+         regardless of the flag, add a comment explaining the deliberate choice
+         to deviate from the normal gating pattern.
+
+
+================================================================================
+ENTRY 9
+================================================================================
+FILE:    JDrawChart.java
+LINE:    private static double _alignImpl_bn(double n)
+ISSUE:   Potential infinite loop.  The while loop "while(aval > nval) aval -=
+         dval;" can loop forever if dval == 0.  dval is computed as
+         "(long) Math.ceil(aval / 20.0)".  aval >= 1 after the earlier guard
+         "else if(aval == 0) aval = 1", so aval / 20.0 >= 0.05 and
+         Math.ceil(...) >= 1, meaning dval >= 1 at that point.  The path seems
+         safe in practice.  However, if n arrives as a very small positive
+         value causing aval (after scaling) to still round to 0 before the
+         guard is reached, dval could be 0.
+SUGGEST: Add an assertion or guard:
+             if(dval <= 0) return (double) aval / 10.0;
+         immediately after the dval assignment to prevent any hypothetical
+         infinite loop.
+
+================================================================================
+END OF FINDINGS
+================================================================================

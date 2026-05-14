@@ -54,7 +54,7 @@ public class Eval extends ExecBlock {
     private void _pushVal(final long value, final Stack<Long> stackNum, final Stack<Boolean> stackBol)
     {
         stackNum.push(  value                      );
-        stackBol.push( (value != 0) ? true : false );
+        stackBol.push( value != 0 );
     }
 
     @Override

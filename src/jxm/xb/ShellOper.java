@@ -118,9 +118,9 @@ public class ShellOper {
         newShellOper._sbStdErr.append( _sbStdErr.toString() );
         newShellOper._sbStdOut.append( _sbStdOut.toString() );
 
-        newShellOper._exitCode      = newShellOper._exitCode;
-        newShellOper._eStr          = newShellOper._eStr;
-        newShellOper._enableDummyTP = newShellOper._enableDummyTP;
+        newShellOper._exitCode      = _exitCode;
+        newShellOper._eStr          = _eStr;
+        newShellOper._enableDummyTP = _enableDummyTP;
 
         return newShellOper;
     }

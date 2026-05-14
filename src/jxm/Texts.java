@@ -986,7 +986,7 @@ public class Texts {
       /***/ MenuSpec.Separator                                                                                                                              ,
         new MenuSpec(null           , "view_inc_fsize" , _T( "Decrease Font Size")     , MenuSpec.VK_D, KS_decreaseFontSize, Action_decreaseFontSize       ),
         new MenuSpec(null           , "view_dec_fsize" , _T( "Increase Font Size")     , MenuSpec.VK_I, KS_increaseFontSize, Action_increaseFontSize       ),
-        new MenuSpec(null           , "view_rst_fsize" , _T( "Reset Font Size")         , MenuSpec.VK_R, KS_resetFontSize   , Action_resetFontSize          ),
+        new MenuSpec(null           , "view_rst_fsize" , _T( "Reset Font Size")        , MenuSpec.VK_R, KS_resetFontSize   , Action_resetFontSize          ),
       /***/ MenuSpec.Separator                                                                                                                              ,
         new MenuSpec(ID_viewSpellChk, "view_spl_chk"   , _T("*Spell Checking")         , MenuSpec.VK_S, KS_viewSpellChk    , "#handle_mnuViewSpellCheck"   ),
         new MenuSpec(ID_viewChgDict , "view_chg_dic"   , _T( "Change Dictionary...")   , MenuSpec.VK_C, KS_viewChgDict     , "#handle_mnuViewChangeDict"   ),
@@ -1141,7 +1141,7 @@ public class Texts {
     public static final String ProgXXX_FailPulseSS       = _T("%s: failed to pulse the select signal of the target device");
     public static final String ProgXXX_FailSPITrans      = _T("%s: SPI transfer failed");
 
-    public static final String ProgXXX_PrinterBLNotFound  = _T("%s: the printer bootloader '%s' was not found");
+    public static final String ProgXXX_PrinterBLNotFound = _T("%s: the printer bootloader '%s' was not found");
     public static final String ProgXXX_PrinterBLBusy     = _T("%s: the printer bootloader has pending job(s) - please use your operating system's method to cancel all pending job(s) before proceeding");
     public static final String ProgXXX_PrinterBLTimeout  = _T("%s: the printer bootloader job has exceeded the timeout limit");
 

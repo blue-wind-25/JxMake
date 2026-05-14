@@ -265,7 +265,6 @@ public class ProgBootLUFAPrinter implements IProgCommon {
         /* 07 */ pcb.callProgressCallbackCurrentMulti(progressCallback, FlashWrite_StepBytes, FlashWrite_StepMulti);
 
         if(ps == null) return USB2GPIO.notifyError(Texts.ProgXXX_PrinterBLNotFound, ProgClassName, _printerName);
-
         if( _getQueuedJobCount(ps) > 0 ) return USB2GPIO.notifyError(Texts.ProgXXX_PrinterBLBusy, ProgClassName);
         /* 08 */ pcb.callProgressCallbackCurrentMulti(progressCallback, FlashWrite_StepBytes, FlashWrite_StepMulti);
 

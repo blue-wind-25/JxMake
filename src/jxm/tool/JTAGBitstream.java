@@ -508,7 +508,7 @@ public class JTAGBitstream {
         {
             if( (tdiLen != null) && (tdoLen == null) ) return a_tdiLen();
             if( (tdiLen == null) && (tdoLen != null) ) return a_tdoLen();
-
+            if( (tdiLen == null) && (tdoLen == null) ) return null;
 
             if( !tdiLen.equals(tdoLen) ) return null;
 

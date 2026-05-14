@@ -192,7 +192,7 @@ public class HTTPDownloader  {
 
         public boolean apply(long downloadedSize, long totalSize)
         {
-            // Calculate the number of ticks that should has been printed
+            // Calculate the number of ticks that should have been printed
             int ticks = 0;
 
             if(totalSize > 0) {
@@ -204,7 +204,7 @@ public class HTTPDownloader  {
                 ticks             = (int) downloadedSize / 32768;
             }
 
-            // Check for errpr
+            // Check for error
             if(downloadedSize < 0) {
                 SysUtil.stdOut().printf(Texts.IMsg_HTTPDownloaderError, downloadedSize);
                 _resetState();
@@ -652,9 +652,9 @@ public class HTTPDownloader  {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private static int DRes_Error      = -1;
-    private static int DRes_Incomplete =  0;
-    private static int DRes_Done       =  1;
+    private static final int DRes_Error      = -1;
+    private static final int DRes_Incomplete =  0;
+    private static final int DRes_Done       =  1;
 
     private int _download(final ProgressCB progressCB)
     {
@@ -704,10 +704,10 @@ public class HTTPDownloader  {
         // Close the streams
         _closeStreams();
 
-        // Set the file size to the downloade size if the server did not send the file size
+        // Set the file size to the downloaded size if the server did not send the file size
         if(_fileSize < 0) {
             _fileSize = _downloadedSize;
-            if( !progressCB.apply(_downloadedSize, _fileSize) ) return DRes_Error;
+            if( progressCB != null && !progressCB.apply(_downloadedSize, _fileSize) ) return DRes_Error;
         }
 
         // Done
@@ -737,10 +737,10 @@ public class HTTPDownloader  {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private static long DErr_BeginError       = -101;
-    private static long DErr_DownloadError    = -102;
-    private static long DErr_ConsecutiveError = -201;
-    private static long DErr_MaxTotalRetry    = -202;
+    private static final long DErr_BeginError       = -101;
+    private static final long DErr_DownloadError    = -102;
+    private static final long DErr_ConsecutiveError = -201;
+    private static final long DErr_MaxTotalRetry    = -202;
 
     public boolean download(final ProgressCB progressCB, int numOfRetryInCaseOfConsecutiveError, int maxNumOfTotalRetry) throws IOException, URISyntaxException, JXMException
     {

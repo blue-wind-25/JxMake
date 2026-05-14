@@ -627,8 +627,8 @@ public class CommandShell {
 
         if( !Files.exists(src, LinkOption.NOFOLLOW_LINKS)          ) throw new FileNotFoundException          ( src.toString() );
         if(  Files.exists(dst, LinkOption.NOFOLLOW_LINKS) ) {
-            if( !Files.isDirectory(dst, LinkOption.NOFOLLOW_LINKS) ) throw new DirectoryAlreadyExistsException( dst.toString() );
-            else                                                     throw new FileAlreadyExistsException     ( dst.toString() );
+            if( !Files.isDirectory(dst, LinkOption.NOFOLLOW_LINKS) ) throw new FileAlreadyExistsException     ( dst.toString() );
+            else                                                     throw new DirectoryAlreadyExistsException( dst.toString() );
         }
 
         // Copy single file
@@ -714,7 +714,7 @@ public class CommandShell {
 
         if( !Files.exists(trg, LinkOption.NOFOLLOW_LINKS) ) throw new FileNotFoundException( trg.toString() );
 
-        // If it iss a symlink or a regular file, just delete it
+        // If it is a symlink or a regular file, just delete it
         if( Files.isRegularFile(trg, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(trg) ) {
             System.out.printf("␡ %s\n", trg);
             Files.delete(trg);
@@ -790,8 +790,8 @@ public class CommandShell {
 
             if( !Files.exists(src, LinkOption.NOFOLLOW_LINKS)          ) throw new FileNotFoundException          ( src.toString() );
             if(  Files.exists(dst, LinkOption.NOFOLLOW_LINKS) ) {
-                if( !Files.isDirectory(dst, LinkOption.NOFOLLOW_LINKS) ) throw new DirectoryAlreadyExistsException( dst.toString() );
-                else                                                     throw new FileAlreadyExistsException     ( dst.toString() );
+                if( !Files.isDirectory(dst, LinkOption.NOFOLLOW_LINKS) ) throw new FileAlreadyExistsException     ( dst.toString() );
+                else                                                     throw new DirectoryAlreadyExistsException( dst.toString() );
             }
 
             System.out.printf("» %s -> %s\n", src, dst);
@@ -811,8 +811,8 @@ public class CommandShell {
 
                 final Path trg = dst.resolve( src.getFileName() );
                 if(  Files.exists(trg, LinkOption.NOFOLLOW_LINKS) ) {
-                    if( !Files.isDirectory(trg, LinkOption.NOFOLLOW_LINKS) ) throw new DirectoryAlreadyExistsException( trg.toString() );
-                    else                                                     throw new FileAlreadyExistsException     ( trg.toString() );
+                    if( !Files.isDirectory(trg, LinkOption.NOFOLLOW_LINKS) ) throw new FileAlreadyExistsException     ( trg.toString() );
+                    else                                                     throw new DirectoryAlreadyExistsException( trg.toString() );
                 }
 
                 System.out.printf("» %s -> %s\n", src, trg);

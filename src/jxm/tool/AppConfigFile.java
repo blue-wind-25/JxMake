@@ -79,7 +79,7 @@ public class AppConfigFile<T extends Serializable> {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public static String DEFAULT_KEY_NAME = "DEFAULT";
+    public static final String DEFAULT_KEY_NAME = "DEFAULT";
 
     @SuppressWarnings("serial")
     private static final HashMap<Character, String> KEY_NAME_REPLACEMENTS = new HashMap<Character, String>() {{

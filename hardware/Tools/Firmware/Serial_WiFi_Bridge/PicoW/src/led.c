@@ -5,6 +5,7 @@
  */
 
 
+#include <hardware/watchdog.h>
 #include <pico/cyw43_arch.h>
 
 #include "led.h"
@@ -32,8 +33,11 @@ void blinkActivityLED(BlinkPattern mode)
 }
 
 
-__no_return__ void blinkErrorLED(ErrorBlinkPattern pattern)
+__no_return__ void blinkErrorLED(ErrorBlinkPattern pattern, bool autoRestart)
 {
+    const uint32_t startMs   = millis();
+    const uint32_t timeoutMs = 15000; // 15 seconds
+
     while(true) {
 
         for(int i = 0; i < pattern; ++i) {
@@ -44,6 +48,11 @@ __no_return__ void blinkErrorLED(ErrorBlinkPattern pattern)
         } // for
 
         sleep_ms(1000);
+
+        if( autoRestart && millis() - startMs > timeoutMs ) {
+            watchdog_reboot(0, 0, 100);
+            for(;;) tight_loop_contents(); // Spin until watchdog fires
+        }
 
     } // while
 }

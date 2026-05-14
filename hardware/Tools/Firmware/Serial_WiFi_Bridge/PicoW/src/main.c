@@ -53,7 +53,7 @@
 
 
 static void usbCDCACMTask(void);
-static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led);
+static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led, bool autoRestart);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,7 +181,7 @@ static void usbConnect()
 
         sleep_ms(10);
 
-        if( millis() - usbStart > usbTimeoutMS ) cleanupAndBlinkErrorLED(ERR_USB_RESTART_FAIL);
+        if( millis() - usbStart > usbTimeoutMS ) cleanupAndBlinkErrorLED(ERR_USB_RESTART_FAIL, false);
 
     } // while
 
@@ -222,13 +222,14 @@ static void rebootDevice()
 
     // Reboot
     watchdog_reboot(0, 0, 100);
+    for(;;) tight_loop_contents(); // Spin until watchdog fires
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led)
+static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led, bool autoRestart)
 {
     if(cdc0PCB) tcp_client_disconnect(cdc0PCB);
     if(cdc1PCB) tcp_client_disconnect(cdc1PCB);
@@ -239,7 +240,7 @@ static __no_return__ void cleanupAndBlinkErrorLED(ErrorBlinkPattern err_led)
     cyw43_arch_deinit();
     //*/
 
-    blinkErrorLED(err_led);
+    blinkErrorLED(err_led, autoRestart);
 }
 
 
@@ -263,7 +264,7 @@ static struct tcp_pcb* connect_and_setup_pair(
 
     if(!pcb) {
         if(cdc_itf == -1) return NULL; // Optional connection; server may not be running
-        cleanupAndBlinkErrorLED(err_led);
+        cleanupAndBlinkErrorLED(err_led, true);
     }
 
     setup_tcp_pair(pair, pcb, cdc_itf, tx_storage, rx_storage, buf_size, tx_lock, rx_lock);
@@ -280,7 +281,7 @@ static struct tcp_pcb* connect_and_setup_pair(
 
         if( millis() - svcStart > svcTimeoutMS ) {
             if(cdc_itf == -1) return NULL; // Optional connection; server may not be running
-            cleanupAndBlinkErrorLED(err_led);
+            cleanupAndBlinkErrorLED(err_led, true);
         }
 
     } // while
@@ -310,6 +311,7 @@ int main(void)
         if(watchdog_hw->scratch[0] != MAGIC) {
             watchdog_hw->scratch[0] = MAGIC;
             watchdog_reboot(0, 0, 100);
+            for(;;) tight_loop_contents(); // Spin until watchdog fires
         }
         else {
             watchdog_hw->scratch[0] = 0;
@@ -332,7 +334,7 @@ int main(void)
 
     // Initialized WiFi
     if( cyw43_arch_init_with_country(CYW43_COUNTRY_WORLDWIDE) ) {
-        cleanupAndBlinkErrorLED(ERR_WIFI_INIT);
+        cleanupAndBlinkErrorLED(ERR_WIFI_INIT, true);
     }
 
     // RUN_MODE_IO0_IO1
@@ -391,7 +393,7 @@ int main(void)
     const char* pass = "cR11d8a2w4VDjq3d";
 
     if( cyw43_arch_wifi_connect_async(ssid, pass, CYW43_AUTH_WPA2_AES_PSK) ) {
-        cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_START);
+        cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_START, true);
     }
 
     const uint32_t wcaTimeoutMS = WIFI_CONNECT_TIMEOUT_MS;
@@ -407,7 +409,7 @@ int main(void)
 
         sleep_ms(10);
 
-        if( millis() - wcaStart > wcaTimeoutMS ) cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_FAIL);
+        if( millis() - wcaStart > wcaTimeoutMS ) cleanupAndBlinkErrorLED(ERR_WIFI_CONNECT_FAIL, true);
 
     } // while
 
@@ -427,7 +429,7 @@ int main(void)
 
         sleep_ms(10);
 
-        if( millis() - ipStart > ipTimeoutMS ) cleanupAndBlinkErrorLED(ERR_WIFI_GET_IP_FAIL);
+        if( millis() - ipStart > ipTimeoutMS ) cleanupAndBlinkErrorLED(ERR_WIFI_GET_IP_FAIL, true);
 
     } // while
 
@@ -573,7 +575,7 @@ timeout 5s cat /dev/ttyACM0 & printf "\xAA\rhELLo\n" > /dev/ttyACM0
 
         sleep_ms(10);
 
-        if( millis() - usbStart > usbTimeoutMS ) cleanupAndBlinkErrorLED(ERR_USB_ENUM_FAIL);
+        if( millis() - usbStart > usbTimeoutMS ) cleanupAndBlinkErrorLED(ERR_USB_ENUM_FAIL, false);
 
     } // while
 

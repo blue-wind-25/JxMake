@@ -36,7 +36,7 @@ typedef enum  {
 
 extern void blinkActivityLED(BlinkPattern mode);
 
-extern __no_return__ void blinkErrorLED(ErrorBlinkPattern pattern);
+extern __no_return__ void blinkErrorLED(ErrorBlinkPattern pattern, bool autoRestart);
 
 
 #endif // __LED_H__

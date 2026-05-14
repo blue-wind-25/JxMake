@@ -20,7 +20,7 @@ public class ForeverLoop extends LoopBlock {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public ForeverLoop(final String path, final int lNum, final int cNum, final boolean allocExecBlocksElem)
-    { super(path, lNum, cNum, false); }
+    { super(path, lNum, cNum, allocExecBlocksElem); }
 
     public ForeverLoop(final String path, final int lNum, final int cNum)
     { super(path, lNum, cNum, true); }

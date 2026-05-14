@@ -1,0 +1,113 @@
+AGENT CODE REVIEW RESULTS
+=========================
+Files reviewed: all Java files under src/jxm/xb/* and src/jxm/xb/fci/*
+
+
+========================================================================
+FIXED BUGS
+========================================================================
+
+------------------------------------------------------------------------
+File: ShellOper.java
+Line: newShellOper._exitCode      = newShellOper._exitCode;
+      newShellOper._eStr          = newShellOper._eStr;
+      newShellOper._enableDummyTP = newShellOper._enableDummyTP;
+Issue: deepClone() assigns each field from newShellOper back to itself
+       instead of copying from `this`. All three fields stay at their
+       default values (0, null, false) regardless of the source object.
+Fix applied: Changed to copy from `this` (the source instance):
+       newShellOper._exitCode      = _exitCode;
+       newShellOper._eStr          = _eStr;
+       newShellOper._enableDummyTP = _enableDummyTP;
+
+------------------------------------------------------------------------
+File: Option.java
+Line: (inside OptionStack.deepClone())
+      final OptionStack newOptionStack = new OptionStack();
+      for(final HashSet<Spec> refHashSet : _warningDisabled) { ... push ... }
+      for(final HashSet<Spec> refHashSet : _warningEnabled ) { ... push ... }
+Issue: The OptionStack constructor calls _warningPush(), which pushes one
+       empty HashSet onto both _warningDisabled and _warningEnabled. The
+       subsequent loops then push all N entries from the original stacks on
+       top. The clone ends up with N+1 entries instead of N, causing the
+       warning option state to be misaligned.
+Fix applied: Added clear() calls on both stacks immediately after
+       construction and before the copy loops:
+       newOptionStack._warningDisabled.clear();
+       newOptionStack._warningEnabled .clear();
+
+------------------------------------------------------------------------
+File: XCacheHelper.java
+Line: throw XCom.newIOException( "loading class '" + ( className.isEmpty() ? "<ERROR>" :  className ) + ...
+Issue: className is initialised to null and is only assigned inside the
+       loop body. If an exception is thrown before the first successful
+       dis.readUTF() call (e.g. on the very first iteration), className is
+       still null and calling className.isEmpty() throws a
+       NullPointerException, masking the original exception.
+Fix applied: Changed the guard to:
+       className == null || className.isEmpty()
+
+------------------------------------------------------------------------
+File: ForeverLoop.java
+Line: public ForeverLoop(final String path, final int lNum, final int cNum, final boolean allocExecBlocksElem)
+      { super(path, lNum, cNum, false); }
+Issue: The allocExecBlocksElem parameter is declared but silently ignored;
+       false is always passed to the superclass constructor. In current
+       call sites the argument is always false so no runtime failure
+       occurs, but the mismatch between declared intent and actual
+       behaviour is a latent defect and a maintenance hazard.
+Fix applied: Changed to pass allocExecBlocksElem to super().
+
+------------------------------------------------------------------------
+File: Eval.java
+Line: stackBol.push( (value != 0) ? true : false );
+Issue: The conditional ternary '(value != 0) ? true : false' is redundant;
+       the boolean expression 'value != 0' already yields a boolean.
+Fix applied: Simplified to: stackBol.push( value != 0 );
+
+
+========================================================================
+NOTES / ITEMS NOT CHANGED (large files, partially reviewed)
+========================================================================
+
+------------------------------------------------------------------------
+File: XCom.java
+Size: 179 KB (too large to fully review in a single pass)
+Note: Only a limited portion of this file was readable. The file defines
+      core data structures (VariableValue, VariableStore, ReadVarSpec,
+      ExecData, FuncName, PostfixOper, etc.) used throughout the codebase.
+      A full review was not possible. No issues were identified in the
+      portions that were examined.
+
+------------------------------------------------------------------------
+File: ExecState.java
+Size: 55.3 KB (partially reviewed, first ~350 lines)
+Note: The reviewed portion (constructor, deepClone, variable-map helpers)
+      appears correct. The variable-scoping logic (local vs global vs arg
+      stacks) and the deep-clone path look consistent. The remaining
+      portions (readVar, assignVar, getVar, etc.) were not fully reviewed.
+
+------------------------------------------------------------------------
+File: FuncCall.java
+Size: 56.3 KB (partially reviewed)
+Note: The dispatch table (switch on _funcSpec.fnName) and the
+      _execute_call_exec() helper were reviewed. They appear correct.
+      The large number of built-in function dispatches was not
+      individually verified.
+
+------------------------------------------------------------------------
+File: Target.java
+Size: 43.2 KB (partially reviewed, first ~150 lines)
+Note: Only the constructor and field declarations were reviewed. The
+      prerequisite evaluation, dependency tracking, and execution logic
+      were not examined. No issues were found in the reviewed portion.
+
+------------------------------------------------------------------------
+File: fci/SysManip.java
+Line: _shOwnerThread = Thread.currentThread().getId();  (lines 81, 91)
+Note: Thread.getId() is deprecated since Java 19. The code already
+      suppresses the deprecation warning with @SuppressWarnings("deprecation")
+      and the comment "@@@ Use 'threadId()' when JxMake requires Java SDK 19
+      or later" documents the known issue. No change was made because
+      switching to threadId() would break Java 8-18 compatibility, which
+      is a stated requirement.

@@ -148,6 +148,10 @@ public class Option extends ExecBlock {
         {
             final OptionStack newOptionStack = new OptionStack();
 
+            // Clear the initial entry added by the constructor before copying the original stacks
+            newOptionStack._warningDisabled.clear();
+            newOptionStack._warningEnabled .clear();
+
             for(final HashSet<Spec> refHashSet : _warningDisabled) {
                 final HashSet<Spec> newHashSet = new HashSet<>();
                 for(final Spec spec : refHashSet) newHashSet.add(spec);

@@ -635,9 +635,10 @@ public class Target extends ContainerBlock implements XCom.LabelMapOwner {
                 if( value.isEmpty() ) continue;
                 // Check if it is an indicator for the target name
                 if( value.equals(DepForMarker) ) {
+                    if( (i + 1) >= depItems.size() ) break; // Malformed dependency list
                     // Save the target name
-                    depForTarget = depItems.get(++i);
-                    depForAll    = depForTarget.equals(DepForAll);
+                                             depForTarget = depItems.get(++i);
+                    if(depForTarget != null) depForAll    = depForTarget.equals(DepForAll);
                     continue;
                 }
                 // Check if it is an indicator to force the item to be store even if the file/path is non-existent

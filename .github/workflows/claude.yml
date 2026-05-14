@@ -1,23 +1,43 @@
 name: Claude
+
 on:
   issues:
     types: [assigned]
+
 jobs:
   claude:
     runs-on: ubuntu-latest
-    if: github.event.assignee.login == 'blue-wind-25' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))
+    if: >-
+      github.event.assignee.login == 'blue-wind-25' &&
+      github.event.sender.login == 'blue-wind-25' &&
+      (
+        contains(github.event.issue.title, '@Claude') ||
+        contains(github.event.issue.title, '@claude') ||
+        contains(github.event.issue.body || '', '@Claude') ||
+        contains(github.event.issue.body || '', '@claude')
+      )
+
     permissions:
       contents: write
       issues: write
       pull-requests: write
       id-token: write
+
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "${{ github.event.issue.title }}. ${{ github.event.issue.body }}. After making changes, create a new git branch, commit the changes, push the branch, and open a pull request."
-          claude_args: "--allowedTools Edit,Write,Bash,Read"
+          prompt: |
+            ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body || '' }}
+
+            First create a new git branch, then make the requested changes,
+            commit them, push the branch, and open a pull request.
+          claude_args: --allowedTools Edit,Write,Bash,Read
           # show_full_output: true  # uncomment for debugging

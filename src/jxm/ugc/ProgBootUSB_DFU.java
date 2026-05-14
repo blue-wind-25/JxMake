@@ -257,14 +257,22 @@ public abstract class ProgBootUSB_DFU extends ProgBootUSB {
     protected boolean _dfuClearError()
     {
         final DFUStatus status;
-        try { status = _dfuGetStatus(); }
-        catch(final DFUError e) { return false; }
+        try {
+            status = _dfuGetStatus();
+        }
+        catch(final DFUError e) {
+            return false;
+        }
 
         if( status.status() != DFUDeviceStatus.OK ) {
             _dfuClearStatus();
             SysUtil.sleepMS( status.pollTimeout() );
-            try { return ( _dfuGetStatus().status() == DFUDeviceStatus.OK ); }
-            catch(final DFUError e) { return false; }
+            try {
+                return ( _dfuGetStatus().status() == DFUDeviceStatus.OK );
+            }
+            catch(final DFUError e) {
+                return false;
+            }
         }
 
         return true;

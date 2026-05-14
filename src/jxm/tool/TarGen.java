@@ -225,7 +225,9 @@ public abstract class TarGen {
 
                 // Compress the file data
                 if( !file.isDirectory() ) {
-                    try( final BufferedInputStream bis = new BufferedInputStream( new FileInputStream(file) ) ) {
+                    try(
+                        final BufferedInputStream bis = new BufferedInputStream( new FileInputStream(file) )
+                    ) {
                         while(true) {
                             final int cnt = bis.read(data);
                             if(cnt == -1) break;
@@ -300,14 +302,14 @@ public abstract class TarGen {
         SysUtil.cu_rmfile(dstName);
 
         // Decompress the file data
-        try( final BufferedOutputStream bos = new BufferedOutputStream( new FileOutputStream(dstName) ) ) {
-
+        try(
+            final BufferedOutputStream bos = new BufferedOutputStream( new FileOutputStream(dstName) )
+        ) {
             while(true) {
                 final int cnt = tis.read(data);
                 if(cnt == -1) break;
                 bos.write(data, 0, cnt);
             }
-
             bos.flush();
         }
     }

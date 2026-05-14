@@ -707,7 +707,9 @@ public class HTTPDownloader  {
         // Set the file size to the downloaded size if the server did not send the file size
         if(_fileSize < 0) {
             _fileSize = _downloadedSize;
-            if( progressCB != null && !progressCB.apply(_downloadedSize, _fileSize) ) return DRes_Error;
+            if(progressCB != null) {
+                if( !progressCB.apply(_downloadedSize, _fileSize) ) return DRes_Error;
+            }
         }
 
         // Done

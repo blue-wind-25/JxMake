@@ -158,6 +158,8 @@ public class SerialDevice_Network extends SerialDevice {
     @Override
     public boolean closePort()
     {
+        if(_socket == null) return true;
+
         try {
             _socket.close();
         }

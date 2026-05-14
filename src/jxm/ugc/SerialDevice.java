@@ -81,13 +81,17 @@ public abstract class SerialDevice {
     {
         if( _isJxmPort(portDescriptor) ) {
             final String[] jxmPort = _getJxmPort(portDescriptor);
+            if(jxmPort == null) throw new IllegalArgumentException("Invalid JxMake port descriptor: " + portDescriptor);
             return new SerialDevice_JxMakeUSBGPIO(jxmPort[0], jxmPort[1]);
         }
 
         if( _isNetPort(portDescriptor) ) {
             final String[] netPort        = _getNetPort(portDescriptor);
+            if(netPort == null) throw new IllegalArgumentException("Invalid network port descriptor: " + portDescriptor);
             final String   hostNameOrIP   = netPort[0].trim();
-            final int      uploadPort     = Integer.parseInt( netPort[1].trim() );
+            final int      uploadPort;
+            try { uploadPort = Integer.parseInt( netPort[1].trim() ); }
+            catch(final NumberFormatException e) { throw new IllegalArgumentException("Invalid port number in network port descriptor: " + portDescriptor, e); }
             final String   sbURLFormat    = netPort[2].trim();
             final boolean  hasSBURL       = !sbURLFormat.isEmpty();
             final String   urlSetBaudrate = hasSBURL ? ("http://" + hostNameOrIP + "/" + sbURLFormat) : null;

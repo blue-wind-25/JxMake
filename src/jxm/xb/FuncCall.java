@@ -531,40 +531,48 @@ public class FuncCall extends ExecBlock {
         // Enable shell operation as requested
         execData.enShellOper = enShellOper;
 
-        // Map and store the argument(s)
-        final ArrayList<String> parNames = function.parNames();
-
-        int reqCnt = 0;
-        int optCnt = 0;
-
-        for(final String name : parNames) {
-            final boolean isOpt = ( name.charAt(0) == '?' );
-            if(isOpt) ++optCnt;
-            else      ++reqCnt;
-        }
-
-        final int gotArgCnt = evalVals.size() - 1; // Decrement it by one because the first argument is the function name
-
-        if( gotArgCnt < reqCnt          ) throw XCom.newJXMRuntimeError(Texts.EMsg_UserFuncTooFewNumArg,  ufuncName);
-        if( gotArgCnt > reqCnt + optCnt ) throw XCom.newJXMRuntimeError(Texts.EMsg_UserFuncTooManyNumArg, ufuncName);
-
-        int idx = 1;
-        for(final String name : parNames) {
-            final String             varName = ( idx <= reqCnt          ) ? XCom.genRVarName(name) : XCom.genRVarName( name.substring(1) );
-            final XCom.VariableValue varVal  = ( idx <  evalVals.size() ) ? evalVals.get(idx++)    : XCom.VarVal_EmptyValue;
-            final boolean            varNull = ( varVal.size() == 1 && varVal.get(0).value == XCom.Str_NullArgument );
-            execData.execState.setArgVar(varName, varNull ? XCom.VarVal_EmptyValue : varVal, false, false);
-            execData.execState.delLocalVar(varName);
-        }
-
         // Execute the body
-        XCom.ExecuteResult xres = function.executeBody(execData);
+        XCom.ExecuteResult xres;
 
-        // Disable shell operation
-        execData.enShellOper = false;
+        try {
 
-        // Pop the program state
-        execData.execState.popProgState();
+            // Map and store the argument(s)
+            final ArrayList<String> parNames = function.parNames();
+
+            int reqCnt = 0;
+            int optCnt = 0;
+
+            for(final String name : parNames) {
+                final boolean isOpt = ( name.charAt(0) == '?' );
+                if(isOpt) ++optCnt;
+                else      ++reqCnt;
+            }
+
+            final int gotArgCnt = evalVals.size() - 1; // Decrement it by one because the first argument is the function name
+
+            if( gotArgCnt < reqCnt          ) throw XCom.newJXMRuntimeError(Texts.EMsg_UserFuncTooFewNumArg,  ufuncName);
+            if( gotArgCnt > reqCnt + optCnt ) throw XCom.newJXMRuntimeError(Texts.EMsg_UserFuncTooManyNumArg, ufuncName);
+
+            int idx = 1;
+            for(final String name : parNames) {
+                final String             varName = ( idx <= reqCnt          ) ? XCom.genRVarName(name) : XCom.genRVarName( name.substring(1) );
+                final XCom.VariableValue varVal  = ( idx <  evalVals.size() ) ? evalVals.get(idx++)    : XCom.VarVal_EmptyValue;
+                final boolean            varNull = ( varVal.size() == 1 && varVal.get(0).value == XCom.Str_NullArgument );
+                execData.execState.setArgVar(varName, varNull ? XCom.VarVal_EmptyValue : varVal, false, false);
+                execData.execState.delLocalVar(varName);
+            }
+
+            // Execute the body
+            xres = function.executeBody(execData);
+
+        }
+        finally {
+            // Disable shell operation
+            execData.enShellOper = false;
+
+            // Pop the program state
+            execData.execState.popProgState();
+        }
 
         // Check for error
         if( function.isErrorBlockSet() ) {

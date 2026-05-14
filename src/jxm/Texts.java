@@ -54,7 +54,7 @@ public class Texts {
     public static final String IMsg_ArgParserErrorOptEOptF          = _T("option '-e' cannot be used together with option '-f'");
     public static final String IMsg_ArgParserInvalidOption          = _T("invalid option '%s'");
     public static final String IMsg_ArgParserInvalidArgument        = _T("invalid argument '%s'");
-    public static final String IMsg_ArgParserVarAssignReqArg        = _T("variable assigment '%s=' requires an argument");
+    public static final String IMsg_ArgParserVarAssignReqArg        = _T("variable assignment '%s=' requires an argument");
 
     public static final String IMsg_SReadSkipLoadJxMakeLib          = _T("SRead: Skip loading JxMake library <%s> (it is already included once) ...\n");
     public static final String IMsg_SReadSkipLoadJxMakePCLib        = _T("SRead: Skip loading precompiled JxMake library <%s> because it is not up to date\n");
@@ -157,7 +157,7 @@ public class Texts {
     public static final String EMsg_UnbalancedMLCMarker     = _T("unbalanced number of '(*' and '*)'");
     public static final String EMsg_UnbalancedLRParentheses = _T("unbalanced number of '(' and ')'");
     public static final String EMsg_UnbalancedLRSqrBracket  = _T("unbalanced number of '[' and ']'");
-    public static final String EMsg_LabelExist              = _T("a label specifier with the same value ('%s') is already defined in the function/target body'");
+    public static final String EMsg_LabelExist              = _T("a label specifier with the same value ('%s') is already defined in the function/target body");
     public static final String EMsg_MacroDefExist           = _T("a macro with the same name ('%s') is already defined in '%s:%d:%d'");
     public static final String EMsg_MacroDefNotExist        = _T("using a non-existent macro '%s'");
     public static final String EMsg_IllegalMacroDef         = _T("macro definition statement is not allowed here");
@@ -271,7 +271,7 @@ public class Texts {
 
     public static final String EMsg_getenv_NumDefValLarger  = _T("$getenv(): the number of default values (%d) is larger than the number of environment variable names (%d)");
 
-    public static final String EMsg_prep_NumIdxRepNotSame   = _T("$part_replace(): the number of indexes (%d) is not the same with the number of replacement values (%d)");
+    public static final String EMsg_prep_NumIdxRepNotSame   = _T("$part_replace(): the number of indexes (%d) is not the same as the number of replacement values (%d)");
 
     public static final String EMsg_xxx_EmptyValueStr       = _T("$%s(): empty value for %s");
     public static final String EMsg_xxx_EmptyPathStr        = _T("$%s(): empty path for %s");
@@ -307,7 +307,7 @@ public class Texts {
     public static final String EMsg_UnresolvedABoardsTxtID  = _T("unresolved Arduino 'boards.txt' ID (name) '%s'");
     public static final String EMsg_UnresolvedABoardsTxtRef = _T("unresolved Arduino 'boards.txt' reference '%s'");
 
-    public static final String EMsg_gdl_NumFileDirNotSame   = _T("$gdl_xxx(): the number of output depedency file names (%d) is not the same with the number of source directories (%d)");
+    public static final String EMsg_gdl_NumFileDirNotSame   = _T("$gdl_xxx(): the number of output dependency file names (%d) is not the same as the number of source directories (%d)");
 
     public static final String EMsg_IndexOutOfRange         = _T("index %d is out of range");
     public static final String EMsg_InvalidIndex            = _T("index %d is invalid");
@@ -368,7 +368,7 @@ public class Texts {
     public static final String EMsg_JDL_TypeNotArray        = _T("cannot deserialize a non-array element into an array");
     public static final String EMsg_JDL_TypeNotObject       = _T("cannot deserialize a non-object element into an object");
     public static final String EMsg_JDL_MismatchedCls       = _T("cannot deserialize class '%s' into class '%s'");
-    public static final String EMsg_JDL_FieldNotExist       = _T("cannot deserialize a non existent field '%s' into class '%s'");
+    public static final String EMsg_JDL_FieldNotExist       = _T("cannot deserialize a non-existent field '%s' into class '%s'");
   //public static final String EMsg_JDL_OnlyAryAndObjRootEl = _T("a root element that is not an array or object cannot be deserialized");
     public static final String EMsg_JDL_OnlyObjRootEl       = _T("a root element that is not an object cannot be deserialized");
 
@@ -986,7 +986,7 @@ public class Texts {
       /***/ MenuSpec.Separator                                                                                                                              ,
         new MenuSpec(null           , "view_inc_fsize" , _T( "Decrease Font Size")     , MenuSpec.VK_D, KS_decreaseFontSize, Action_decreaseFontSize       ),
         new MenuSpec(null           , "view_dec_fsize" , _T( "Increase Font Size")     , MenuSpec.VK_I, KS_increaseFontSize, Action_increaseFontSize       ),
-        new MenuSpec(null           , "view_rst_fsize" , _T( "ResetFont Size")         , MenuSpec.VK_R, KS_resetFontSize   , Action_resetFontSize          ),
+        new MenuSpec(null           , "view_rst_fsize" , _T( "Reset Font Size")         , MenuSpec.VK_R, KS_resetFontSize   , Action_resetFontSize          ),
       /***/ MenuSpec.Separator                                                                                                                              ,
         new MenuSpec(ID_viewSpellChk, "view_spl_chk"   , _T("*Spell Checking")         , MenuSpec.VK_S, KS_viewSpellChk    , "#handle_mnuViewSpellCheck"   ),
         new MenuSpec(ID_viewChgDict , "view_chg_dic"   , _T( "Change Dictionary...")   , MenuSpec.VK_C, KS_viewChgDict     , "#handle_mnuViewChangeDict"   ),
@@ -1126,7 +1126,7 @@ public class Texts {
     public static final String CmdXInf_BLAppFlashSize    = _T("App-Flash-Size");
     public static final String CmdXInf_BLAppJumpMode     = _T("App-Jump-Mode");
     public static final String CmdXInf_BLAppJumpAddress  = _T("App-Jump-Addr");
-    public static final String CmdXInf_BLTimeoutCounter  = _T("Timout-Counter");
+    public static final String CmdXInf_BLTimeoutCounter  = _T("Timeout-Counter");
 
     public static String ProgXXX_InfoBLMMod(final String prefix, final int nameWidth, final String name, final boolean set)
     { return String.format( prefix + " " + (set ? "SET" : "CLR") + " %-" + nameWidth + "s\n", name ); }
@@ -1221,7 +1221,7 @@ public class Texts {
     public static final String ProgXXX_FailPDI_ResetDev  = _T("%s: PDI failed to reset the device");
     public static final String ProgXXX_FailPDI_Init      = _T("%s: PDI initialization failed");
     public static final String ProgXXX_FailPDI_RdByte    = _T("%s: PDI failed to read byte(s)");
-    public static final String ProgXXX_FailPDI_RInvVal   = _T("%s: PPI read invalid value");
+    public static final String ProgXXX_FailPDI_RInvVal   = _T("%s: PDI read invalid value");
     public static final String ProgXXX_FailPDI_NVMNotE   = _T("%s: PDI NVM programming is not enabled");
     public static final String ProgXXX_FailPDI_NVMNotD   = _T("%s: PDI NVM programming is not disabled");
     public static final String ProgXXX_FailPDI_NVMNotR   = _T("%s: PDI NVM is not ready");
@@ -1244,7 +1244,7 @@ public class Texts {
     public static final String ProgXXX_FailLGT8_Unlock1  = _T("%s: LGT8-SWD failed to unlock 1");
     public static final String ProgXXX_FailLGT8_Unlock2  = _T("%s: LGT8-SWD failed to unlock 2");
     public static final String ProgXXX_FailLGT8_ErsChip  = _T("%s: LGT8-SWD failed to erase chip");
-    public static final String ProgXXX_FailLGT8_UPrChip  = _T("%s: LGT8-SWD failed to unprotec chip");
+    public static final String ProgXXX_FailLGT8_UPrChip  = _T("%s: LGT8-SWD failed to unprotect chip");
 
     public static final String ProgXXX_FailSWD_InvMDID   = _T("%s: SWD invalid multidrop ID(s)");
     public static final String ProgXXX_FailSWD_Init      = _T("%s: SWD initialization failed");
@@ -1282,7 +1282,7 @@ public class Texts {
     public static final String ProgXXX_FailSWD_WrEEPROM  = _T("%s: SWD failed to write EEPROM memory using driver '%s' with status %d");
     public static final String ProgXXX_FailSWD_CmEEPROM  = _T("%s: SWD failed to commit EEPROM changes");
     public static final String ProgXXX_FailSWD_CmFsLBs   = _T("%s: SWD failed to commit configuration bits (fuses) and security bits (lock bits) changes");
-    public static final String ProgXXX_FailSWD_UninitSys = _T("%s: SWD failed to uninitialize sytem");
+    public static final String ProgXXX_FailSWD_UninitSys = _T("%s: SWD failed to uninitialize system");
     public static final String ProgXXX_FailSWD_InsInvld  = _T("%s: SWD [_exec:%010o] invalid instruction");
     public static final String ProgXXX_FailSWD_InsCmpVal = _T("%s: SWD [_exec:%010o] compare value 0x%08X (%010d) %s 0x%08X (%010d)");
     public static final String ProgXXX_FailSWD_InsTOut   = _T("%s: SWD [_exec:%010o] timeout (execute/wait/loop time > %d milliseconds)");

@@ -12,7 +12,7 @@ Options:
     -e <program_text>       Execute the given program text; cannot be used together with the
                             '-f' option.
 
-    --en-jxm-lload-verbose  Enable verbose messages for JxMake library loading.
+    --en-jxm-load-verbose   Enable verbose messages for JxMake library loading.
 
     --en-jxm-cache          Enable compiled JxMake specification file cache.
 
@@ -41,14 +41,13 @@ Options:
 
     --en-warn-var-not-exist Enable warning when evaluating non-existent variables; only enable
                             this as necessary while debugging because many parts of the JxMake
-                            loadable libraries depends on the convention that all non-existent
+                            loadable libraries depend on the convention that all non-existent
                             variables evaluate to empty strings/zeroes.
 
     --en-warn-cnv-integer   Enable warning when converting strings to integers if the strings
                             do not contain values that can be parsed to integers.
 
     --en-warn-cnv-boolean   Enable warning when converting strings to booleans if the strings
-                            do not contain values that can be parsed to booleans.
                             do not contain values that can be parsed to booleans.
 
     --en-warn-all           Enable all warnings specified by the --en-warn-* above.
@@ -96,7 +95,7 @@ Notes:
       The exact location of '<user_temp_dir>' depends on the operating system.
 
     # If the JxMake specification file(s) is/are large, using '--en-jxm-cache' would:
-          1. Slightly increases the compilation time because the system will need to store
+          1. Slightly increase the compilation time because the system will need to store
              (cache) the compiled specification file and its dependency data.
           2. Noticeably improve the execution speed of the specification script. However,
              please note that the total build time may not actually improve significantly

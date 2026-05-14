@@ -122,7 +122,7 @@ public class BSEList {
 
             while(_cursor >= _capTot) _incCap();
 
-            _size = Math.max(_size, _cursor - 1);
+            _size = Math.max(_size, _cursor/* - 1*/); // @@@
         }
 
         private synchronized void _put(final byte value)
@@ -180,7 +180,7 @@ public class BSEList {
 
         public synchronized void truncate()
         {
-            _size = _cursor - 1;
+            _size = _cursor/* - 1*/; // @@@
             if(_size < 0) _size = 0;
         }
 
@@ -632,15 +632,10 @@ public class BSEList {
             final int cEnd = Math.min(cBeg + len, _size);
             final int cLen = cEnd - cBeg;
 
-            // Determine the range to be moved
-            final int mBeg = cEnd;
-            final int mEnd = _size;
-                  int mCnt = cBeg;
-
             // Move the bytes
-            for(int i = mBeg; i < mEnd; ++i) {
-                _buff[mCnt++] = _buff[i];
-            }
+            final int numToMove = _size - cEnd;
+
+            if(numToMove > 0) System.arraycopy(_buff, cEnd, _buff, cBeg, numToMove);
 
             // Clear the bytes (reduce the size)
             _size -= cLen;
@@ -689,14 +684,11 @@ public class BSEList {
             _incCapToAtLeast(_size + sLen);
 
             // Move the bytes
-            for(int i = _size - 1; i >= _cursor; --i) {
-                _buff[i + sLen] = _buff[i];
-            }
+            final int numToMove = _size - _cursor;
+            if(numToMove > 0) System.arraycopy(_buff, _cursor, _buff, _cursor + sLen, numToMove);
 
             // Copy the bytes
-            for(int i = 0; i < sLen; ++i) {
-                _buff[_cursor + i] = srcEH._buff[i];
-            }
+            System.arraycopy(srcEH._buff, 0, _buff, _cursor, sLen);
 
             // Increase the size
             _size += sLen;
@@ -719,9 +711,7 @@ public class BSEList {
             _incCapToAtLeast(_cursor + sLen);
 
             // Copy the bytes
-            for(int i = 0; i < sLen; ++i) {
-                _buff[_cursor + i] = srcEH._buff[i];
-            }
+            System.arraycopy(srcEH._buff, 0, _buff, _cursor, sLen);
 
             // Increase the size
             _size = Math.max(_size, _cursor + sLen);

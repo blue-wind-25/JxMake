@@ -1363,6 +1363,7 @@ public class XBBuilder {
                 if( token.isEOL() ) {
                     // Get and check the option type
                     final String      typeStr = TokenReader.strPopFirst(_trTokens);
+                    if( typeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);
                           Option.Type type    = null;
                     switch(typeStr) {
                         case "warning" : type = Option.Type.warning; break;
@@ -1370,6 +1371,7 @@ public class XBBuilder {
                     }
                     // Get and check the option mode
                     final String      modeStr = TokenReader.strPopFirst(_trTokens);
+                    if( modeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);
                           Option.Mode mode    = null;
                     switch(modeStr) {
                         case "push"    : mode = Option.Mode.push   ; break;
@@ -2002,7 +2004,7 @@ public class XBBuilder {
                         if( !byStr.equals("by") ) return _setError(token, Texts.EMsg_UnexpectedToken, byStr);
                         // Get the replacement name
                         repName = TokenReader.strPopFirst(_trTokens);
-                        if( repName.isEmpty() ) return _setError(token, Texts.EMsg_PrematureEOL);
+                        if( repName == null || repName.isEmpty() ) return _setError(token, Texts.EMsg_PrematureEOL);
                         // Check the replacement name
                         if( !XCom.isSymbolName(repName) ) return _setError(token, Texts.EMsg_SyntaxError             );
                         if(  XCom.isKeyword   (repName) ) return _setError(token, Texts.EMsg_UnexpectedToken, repName);

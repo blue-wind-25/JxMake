@@ -1,0 +1,89 @@
+Agent check result for: src/jxm/XBBuilder.java
+===============================================
+Focus areas: resource leak, NPE, NumberFormatException
+
+
+---- FIXED -------------------------------------------------------
+
+[1] File: XBBuilder.java
+    Line: final String      typeStr = TokenReader.strPopFirst(_trTokens);
+    Issue: NPE — TokenReader.strPopFirst() returns null when the list is empty
+           (confirmed by the null-guard on line 1384: "if(specStr != null)").
+           The immediately following switch(typeStr) throws NullPointerException
+           when typeStr is null (Java switch on null always throws NPE).
+           This can occur if the user writes ".option" with no arguments.
+    Fix applied: Added "if( typeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);"
+                 between the strPopFirst() call and the switch statement.
+
+[2] File: XBBuilder.java
+    Line: final String      modeStr = TokenReader.strPopFirst(_trTokens);
+    Issue: NPE — same root cause as [1]. After popping typeStr, _trTokens may
+           become empty. strPopFirst() returns null, and switch(modeStr) throws
+           NullPointerException.
+    Fix applied: Added "if( modeStr == null ) return _setError(token, Texts.EMsg_PrematureEOL);"
+                 between the strPopFirst() call and the switch statement.
+
+[3] File: XBBuilder.java
+    Line: if( repName.isEmpty() ) return _setError(token, Texts.EMsg_PrematureEOL);
+    Issue: NPE — repName is assigned via TokenReader.strPopFirst(_trTokens) on
+           the line directly above. After popping "by" from the list, _trTokens
+           may be empty, causing strPopFirst() to return null. Calling
+           repName.isEmpty() on a null reference throws NullPointerException.
+    Fix applied: Changed to "if( repName == null || repName.isEmpty() )".
+
+
+---- NOTED (not changed) -----------------------------------------
+
+[4] File: XBBuilder.java
+    Line: if( !"".equals(_curFDefDepre) ) return _setError(token, Texts.EMsg_UnexpectedToken, token.tStr);
+    Issue: Dead code. This line appears inside the block
+           "else if(_curFDefDepre != null) { if( _curFDefDepre.equals("") ) { if(token.tStr.equals("by")) {"
+           which is only entered when _curFDefDepre equals "". The condition
+           !"".equals(_curFDefDepre) is therefore always false, and the error
+           return is unreachable. The assignment on the next line
+           (_curFDefDepre = "<__BY__>") is always executed instead.
+           This appears to be a leftover guard from an earlier version or a
+           copy-paste error. The dead check has no runtime impact.
+    Suggestion: Remove the unreachable "if( !"".equals(_curFDefDepre) ) return ..."
+                line. The guarding "by"-check logic is already correct without it.
+
+[5] File: XBBuilder.java
+    Line: final String byStr = TokenReader.strPopFirst(_trTokens);
+          if( !byStr.equals("by") ) return _setError(token, Texts.EMsg_UnexpectedToken, byStr);
+    Issue: Potential NPE — byStr comes from strPopFirst() called when
+           _trTokens is non-empty (guarded by the "!_trTokens.isEmpty()" check
+           two lines above). In practice byStr will be the tStr field of the
+           first token, which is not expected to be null. However, if tStr were
+           ever null the call byStr.equals("by") would throw NullPointerException.
+           As a defensive measure, consider replacing
+               !byStr.equals("by")
+           with the null-safe form
+               !"by".equals(byStr)
+           which returns true (i.e., triggers the error) when byStr is null.
+
+[6] File: XBBuilder.java
+    Line: if( begIdx + 1 >= endIdx ) return _setError( _trTokens.get( Math.min( _trTokens.size() - 1, endIdx + 1 ) ), Texts.EMsg_PrematureEOL );
+    Issue: Theoretical IndexOutOfBoundsException — when _trTokens is empty,
+           _trTokens.size() - 1 evaluates to -1. Math.min(-1, endIdx+1) equals -1
+           (for any non-negative endIdx), and _trTokens.get(-1) throws
+           IndexOutOfBoundsException. All current callers ensure _trTokens is
+           non-empty before this method is invoked, so this is not triggered in
+           practice. Adding an explicit guard ("if(_trTokens.isEmpty()) return
+           _setError(_lastToken, ...)") would make the method self-protecting.
+
+[7] File: XBBuilder.java
+    Line: if(rIdx < lIdx) return _setError( _trTokens.get(endIdx - 1), Texts.EMsg_UnbalancedLRParentheses );
+    Issue: Theoretical IndexOutOfBoundsException — if endIdx equals 0,
+           _trTokens.get(-1) throws. All current callers pass endIdx > 0 by
+           construction, so this path is not reachable in practice.
+
+
+---- RESOURCE LEAKS / NumberFormatException ----------------------
+
+No resource leaks found. The file performs no I/O; it only manipulates
+in-memory token lists and execution-block collections. No Closeable or
+AutoCloseable resources are created.
+
+No NumberFormatException risks found. The file contains no calls to
+Integer.parseInt, Long.parseLong, or any other numeric-parsing API.
+Numeric processing is delegated to other classes (e.g. InfixToPostfix).

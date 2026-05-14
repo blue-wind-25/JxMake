@@ -339,11 +339,13 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
         if (request->bRequest == 0x01) { // 0x01 is the command for BOOTSEL
             deinitWiFi();
             reset_usb_boot(0, 0); // Enable both the USB Mass Storage and PICOBOOT interfaces
+            for(;;) tight_loop_contents(); // Spin until watchdog fires
             return true;
         }
         if (request->bRequest == 0x02) { // 0x02 is a regular reboot
             deinitWiFi();
             watchdog_reboot(0, 0, 100);
+            for(;;) tight_loop_contents(); // Spin until watchdog fires
             return true;
         }
     }

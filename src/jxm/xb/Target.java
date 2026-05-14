@@ -647,6 +647,7 @@ public class Target extends ContainerBlock implements XCom.LabelMapOwner {
                     continue;
                 }
                 // Skip if the target name does not match
+                if( depForTarget == null ) continue;
                 if( !depForAll && !_targetNameEvaled.endsWith(depForTarget) ) continue;
                 // Store the name
                 final String path = SysUtil.resolveAbsolutePath(value);

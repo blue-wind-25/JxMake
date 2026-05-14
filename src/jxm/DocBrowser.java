@@ -83,11 +83,13 @@ public class DocBrowser extends SwingApp {
     // Read file
     private static String __readFile(final String path) throws IOException
     {
-        try (final BufferedReader bfr = new BufferedReader( new InputStreamReader(
-                                           path.startsWith("jar:") ? JxMake.class.getResourceAsStream( path.substring(4) ) : Files.newInputStream( Paths.get(path) ),
+        try(
+            final BufferedReader bfr = new BufferedReader( new InputStreamReader(
+                                           path.startsWith("jar:") ? JxMake.class.getResourceAsStream( path.substring(4) )
+                                                                   : Files.newInputStream( Paths.get(path) ),
                                            SysUtil._CharEncoding
-                                       ) )) {
-
+                                       ) )
+        ) {
             final StringBuilder sb = new StringBuilder();
 
             while(true) {

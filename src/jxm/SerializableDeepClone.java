@@ -33,12 +33,18 @@ public class SerializableDeepClone<T> implements Serializable {
     {
         // Serialize the object
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (final ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+
+        try(
+            final ObjectOutputStream oos = new ObjectOutputStream(bos)
+        ) {
             oos.writeObject(inst);
+            oos.flush();
         }
 
         // Deserialize and create a new object
-        try (final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( bos.toByteArray() ) )) {
+        try(
+            final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( bos.toByteArray() ) )
+        ) {
             // Return the new object
             return (T) ois.readObject();
         }
@@ -52,14 +58,20 @@ public class SerializableDeepClone<T> implements Serializable {
 
             // Serialize the 1st object
             final ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
-            try (final ObjectOutputStream oos1 = new ObjectOutputStream(bos1)) {
+            try(
+                final ObjectOutputStream oos1 = new ObjectOutputStream(bos1)
+            ) {
                 oos1.writeObject(inst1);
+                oos1.flush();
             }
 
             // Serialize the 2nd object
             final ByteArrayOutputStream bos2 = new ByteArrayOutputStream();
-            try (final ObjectOutputStream oos2 = new ObjectOutputStream(bos2)) {
+            try(
+                final ObjectOutputStream oos2 = new ObjectOutputStream(bos2)
+            ) {
                 oos2.writeObject(inst2);
+                oos2.flush();
             }
 
             // Compare the byte stream and return the comparison result
@@ -79,8 +91,11 @@ public class SerializableDeepClone<T> implements Serializable {
     public static String serializeToBase64String(final Object obj) throws IOException
     {
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+        try(
+            final ObjectOutputStream oos = new ObjectOutputStream(baos)
+        ) {
             oos.writeObject(obj);
+            oos.flush();
         }
 
         return XCom.base64StringFromByteArray( baos.toByteArray() );
@@ -88,7 +103,9 @@ public class SerializableDeepClone<T> implements Serializable {
 
     public static Object deserializeFromBase64String(final String str) throws IOException, ClassNotFoundException
     {
-        try (final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( XCom.byteArrayFromBase64String(str) ) )) {
+        try(
+            final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( XCom.byteArrayFromBase64String(str) ) )
+        ) {
             return ois.readObject();
         }
     }

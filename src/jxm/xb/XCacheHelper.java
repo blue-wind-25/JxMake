@@ -117,7 +117,9 @@ public class XCacheHelper {
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Throw as a different exception
-            throw XCom.newIOException( "loading class '" + ( className == null ? "<NULL>" : className.isEmpty() ? "<EMPTY>" : className ) + "'\n" + e.toString() );
+            throw XCom.newIOException(
+                "loading class '" + ( className == null ? "<NULL>" : ( className.isEmpty() ? "<EMPTY>" : className ) ) + "'\n" + e.toString()
+            );
         }
 
         // Done

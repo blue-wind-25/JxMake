@@ -132,12 +132,17 @@ public class JDrawChart extends JPanel implements ActionListener {
         final BufferedImage img = new BufferedImage( getWidth() * scl, getHeight() * scl, BufferedImage.TYPE_INT_ARGB );
         final Graphics2D    g2d = (Graphics2D) img.getGraphics();
 
-        g2d.scale(scl, scl);
-        paint(g2d);
+        try {
+            g2d.scale(scl, scl);
+            paint(g2d);
 
-        ImageIO.write( img, "png", new FileOutputStream(filePath) );
-
-        g2d.dispose();
+            try( final FileOutputStream fos = new FileOutputStream(filePath) ) {
+                ImageIO.write( img, "png", fos );
+            }
+        }
+        finally {
+            g2d.dispose();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

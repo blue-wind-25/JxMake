@@ -1141,6 +1141,7 @@ public class Texts {
     public static final String ProgXXX_FailPulseSS       = _T("%s: failed to pulse the select signal of the target device");
     public static final String ProgXXX_FailSPITrans      = _T("%s: SPI transfer failed");
 
+    public static final String ProgXXX_PrinterBLNotFound  = _T("%s: the printer bootloader '%s' was not found");
     public static final String ProgXXX_PrinterBLBusy     = _T("%s: the printer bootloader has pending job(s) - please use your operating system's method to cancel all pending job(s) before proceeding");
     public static final String ProgXXX_PrinterBLTimeout  = _T("%s: the printer bootloader job has exceeded the timeout limit");
 

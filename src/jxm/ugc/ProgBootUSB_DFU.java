@@ -236,11 +236,11 @@ public abstract class ProgBootUSB_DFU extends ProgBootUSB {
     protected byte[] _dfuUpload(final int value, final int len)
     { return _device.controlTransferIn( _dfuUsbControlTransfer(DFURequest.UPLOAD, value), len ); }
 
-    protected DFUStatus _dfuGetStatus()
+    protected DFUStatus _dfuGetStatus() throws DFUError
     {
         final byte[] res = _device.controlTransferIn( _dfuUsbControlTransfer(DFURequest.GET_STATUS, 0), 6 );
 
-        if(res.length != 6) return null;
+        if(res.length != 6) _throwDFUError(Texts.CmdXErr_BLInvalidDBlockSz, res.length, 6);
 
         return DFUStatus.fromBytes(res);
     }
@@ -256,12 +256,15 @@ public abstract class ProgBootUSB_DFU extends ProgBootUSB {
 
     protected boolean _dfuClearError()
     {
-        final DFUStatus status = _dfuGetStatus();
+        final DFUStatus status;
+        try { status = _dfuGetStatus(); }
+        catch(final DFUError e) { return false; }
 
         if( status.status() != DFUDeviceStatus.OK ) {
             _dfuClearStatus();
             SysUtil.sleepMS( status.pollTimeout() );
-            return ( _dfuGetStatus().status() == DFUDeviceStatus.OK );
+            try { return ( _dfuGetStatus().status() == DFUDeviceStatus.OK ); }
+            catch(final DFUError e) { return false; }
         }
 
         return true;

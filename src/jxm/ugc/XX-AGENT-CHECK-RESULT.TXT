@@ -1,0 +1,57 @@
+================================================================================
+AGENT CODE REVIEW NOTES
+================================================================================
+
+The following items were reviewed but not changed, either because the fix is
+uncertain, the behavior is intentional, or additional context is needed.
+
+--------------------------------------------------------------------------------
+FILE: ProgBootUSB_DFU.java
+LINE: 211
+CONTENT:     return _getUInt16(descriptor, offset + 5); // DFU mode functional descriptor - wTransferSize
+SUSPECTED ISSUE: NullPointerException / incorrect read
+NOTE: _dfuGetTransferSize() calls _getDescriptorOffset(), which returns -1 when the
+  descriptor is not found. If offset == -1, the read accesses descriptor[4] and
+  descriptor[5] instead of raising an error, silently returning a wrong value.
+  Additionally, if _device.getConfigurationDescriptor() returns null, a NPE occurs
+  at _getDescriptorOffset(). Suggest checking offset >= 0 before the _getUInt16
+  call and verifying descriptor != null.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+FILE: SerialDevice_Network.java
+LINE: 185
+CONTENT:             return _is.available();
+SUSPECTED ISSUE: NullPointerException
+NOTE: bytesAvailable(), readBytes(), writeBytes(), and flushIOBuffers() all access
+  _is or _os without null checks. These are only safe to call after openPort()
+  succeeds. If called before openPort() or after a failed openPort(), a NPE
+  results. The pattern appears consistent with other SerialDevice implementations
+  (SerialDevice_Serial, SerialDevice_JxMakeUSBGPIO) and these methods are
+  presumably only called on an open port, so no change was made. If defensive
+  null checks are desired, they should be added to all four methods.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+FILE: ProgBootSTM32DFU.java.in (template)
+LINE: 209
+CONTENT:         _dfuExpectState( status1, DFUDeviceState.DFU_DNBUSY );
+NOTE: After fixing _dfuGetStatus() in ProgBootUSB_DFU.java to throw DFUError
+  instead of returning null, this call site is safe — the DFUError will propagate
+  through _dfuFinalizeReq_DOWNLOAD() which already declares throws Exception.
+  No change needed in the template.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+FILE: ProgBootAVRDFU.java.in (template)
+LINE: 390
+CONTENT:             if( res.status() != RES_ERASE_ONGOING.status() || res.state() != RES_ERASE_ONGOING.state()[0] ) break;
+NOTE: After fixing _dfuGetStatus() in ProgBootUSB_DFU.java to throw DFUError
+  instead of returning null, this call site is safe — the DFUError will propagate
+  through _dfuEraseFlash() which already declares throws Exception.
+  No change needed in the template.
+--------------------------------------------------------------------------------
+
+================================================================================
+END OF NOTES
+================================================================================

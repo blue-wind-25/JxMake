@@ -3,11 +3,10 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
 # Further verify, improve and cleanups:
-      src/jxm/tool/TLAuthenticator.java
       src/jxm/tool/SSLTrustAll.java
+      src/jxm/tool/TLAuthenticator.java
       src/jxm/tool/HTTPDownloader.java
       src/com/intellectualsites/http/*
-# Replace (unlikely) 'org.tukaani.xz' with JxMake's own derivative library?
 
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
@@ -56,6 +55,8 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Update the Java SDK requirement to Java SDK 11 or later (should be safe as of 2026).
 # Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Replace (VERY UNLIKELY) 'org.tukaani.xz' with JxMake's own derivative library?
 
 # Implement support for AVR network-based bootloaders, such as:
       https://github.com/folny/SEM-Bootloader

@@ -31,8 +31,10 @@ public abstract class SerialDevice {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private static final String JXM_PREFIX = "jxm:";
-    private static final String NET_PREFIX = "net:";
+    private static final String DeviceClassName = "SerialDevice";
+
+    private static final String JXM_PREFIX      = "jxm:";
+    private static final String NET_PREFIX      = "net:";
 
     private static boolean _isJxmPort(final String portDescriptor)
     { return portDescriptor.startsWith(JXM_PREFIX); }
@@ -80,21 +82,34 @@ public abstract class SerialDevice {
     public static SerialDevice getCommPort​(final String portDescriptor)
     {
         if( _isJxmPort(portDescriptor) ) {
+
             final String[] jxmPort = _getJxmPort(portDescriptor);
-            if(jxmPort == null) throw new IllegalArgumentException("Invalid JxMake port descriptor: " + portDescriptor);
+
+            if(jxmPort == null) throw XCom.newIllegalArgumentException(Texts.SDevNet_InvJxmPortDsc, DeviceClassName, portDescriptor);
+
             return new SerialDevice_JxMakeUSBGPIO(jxmPort[0], jxmPort[1]);
+            
         }
 
         if( _isNetPort(portDescriptor) ) {
+
             final String[] netPort        = _getNetPort(portDescriptor);
-            if(netPort == null) throw new IllegalArgumentException("Invalid network port descriptor: " + portDescriptor);
+            if(netPort == null) throw XCom.newIllegalArgumentException(Texts.SDevNet_InvNetPortDsc, DeviceClassName, portDescriptor);
+
             final String   hostNameOrIP   = netPort[0].trim();
             final int      uploadPort;
-            try { uploadPort = Integer.parseInt( netPort[1].trim() ); }
-            catch(final NumberFormatException e) { throw new IllegalArgumentException("Invalid port number in network port descriptor: " + portDescriptor, e); }
+
+            try {
+                uploadPort = Integer.parseInt( netPort[1].trim() );
+            }
+            catch(final NumberFormatException e) {
+                throw XCom.newIllegalArgumentException(Texts.SDevNet_InvPortNumDsc, DeviceClassName, portDescriptor);
+            }
+
             final String   sbURLFormat    = netPort[2].trim();
             final boolean  hasSBURL       = !sbURLFormat.isEmpty();
             final String   urlSetBaudrate = hasSBURL ? ("http://" + hostNameOrIP + "/" + sbURLFormat) : null;
+
             return new SerialDevice_Network(hostNameOrIP, uploadPort, urlSetBaudrate);
         }
 

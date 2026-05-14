@@ -1354,8 +1354,8 @@ public class ProgUPDI implements IProgCommon {
         _config   = config.deepClone();
 
         // Check the configuration values
-        if(_config.memorySignature.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigAddr , ProgClassName);
-        if(_config.memorySignature.size    <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigSize , ProgClassName);
+        if(_config.memorySignature.address <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigAddr, ProgClassName);
+        if(_config.memorySignature.size    <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFSigSize, ProgClassName);
 
         if(_config.memoryFlash.address   <  0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFAddress , ProgClassName);
         if(_config.memoryFlash.totalSize <= 0) throw XCom.newJXMFatalLogicError(Texts.ProgXXX_InvMFTotSize , ProgClassName);

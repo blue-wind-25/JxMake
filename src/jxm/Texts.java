@@ -1030,6 +1030,12 @@ public class Texts {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    public static final String SDevNet_InvJxmPortDsc = _T("%s: invalid JxMake port descriptor '%s'");
+    public static final String SDevNet_InvNetPortDsc = _T("%s: invalid network port descriptor '%s'");
+    public static final String SDevNet_InvPortNumDsc = _T("%s: invalid port number in network port descriptor '%s'");
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public static final String ProgXXX_FailInitPCF8574   = _T("%s: failed to initialize mode selection (PCF8574)");
     public static final String ProgXXX_FailUninitPCF8574 = _T("%s: failed to uninitialize mode selection (PCF8574)");
 

@@ -10,7 +10,6 @@ package jxm;
 
 import java.util.HashMap;
 
-import jxm.*;
 import jxm.tool.*;
 import jxm.tool.fwc.*;
 

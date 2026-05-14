@@ -194,7 +194,7 @@ public class TokenReader {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public static Token NullToken = new Token(null, 0, 0, "", "", "", null, true);
+    public static final Token NullToken = new Token(null, 0, 0, "", "", "", null, true);
 
     public static Token newConstStringToken(final Token refPLCToken, final String tStr_)
     { return new Token(refPLCToken.path, refPLCToken.lNum, refPLCToken.cNum, tStr_, "", "", null, true); }

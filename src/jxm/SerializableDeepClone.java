@@ -32,23 +32,16 @@ public class SerializableDeepClone<T> implements Serializable {
     public static <T> T applyDeepClone(final T inst) throws ClassNotFoundException, IOException
     {
         // Serialize the object
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(   );
-        ObjectOutputStream    oos = new ObjectOutputStream   (bos);
-
-        oos.writeObject(inst);
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (final ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+            oos.writeObject(inst);
+        }
 
         // Deserialize and create a new object
-        ByteArrayInputStream bis = new ByteArrayInputStream( bos.toByteArray() );
-        ObjectInputStream    ois = new ObjectInputStream   ( bis               );
-
-        final T obj = (T) ois.readObject();
-
-        // Close all the streams
-        oos.close();
-        ois.close();
-
-        // Return the new object
-        return obj;
+        try (final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( bos.toByteArray() ) )) {
+            // Return the new object
+            return (T) ois.readObject();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -58,26 +51,19 @@ public class SerializableDeepClone<T> implements Serializable {
         try {
 
             // Serialize the 1st object
-            ByteArrayOutputStream bos1 = new ByteArrayOutputStream(    );
-            ObjectOutputStream    oos1 = new ObjectOutputStream   (bos1);
-
-            oos1.writeObject(inst1);
+            final ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
+            try (final ObjectOutputStream oos1 = new ObjectOutputStream(bos1)) {
+                oos1.writeObject(inst1);
+            }
 
             // Serialize the 2nd object
-            ByteArrayOutputStream bos2 = new ByteArrayOutputStream(    );
-            ObjectOutputStream    oos2 = new ObjectOutputStream   (bos2);
+            final ByteArrayOutputStream bos2 = new ByteArrayOutputStream();
+            try (final ObjectOutputStream oos2 = new ObjectOutputStream(bos2)) {
+                oos2.writeObject(inst2);
+            }
 
-            oos2.writeObject(inst2);
-
-            // Compare the byte stream
-            final boolean res = Arrays.equals( bos1.toByteArray(), bos2.toByteArray() );
-
-            // Close all the streams
-            oos1.close();
-            oos2.close();
-
-            // Return the comparison result
-            return res;
+            // Compare the byte stream and return the comparison result
+            return Arrays.equals( bos1.toByteArray(), bos2.toByteArray() );
 
         } // try
         catch(final IOException  e) {
@@ -92,23 +78,19 @@ public class SerializableDeepClone<T> implements Serializable {
 
     public static String serializeToBase64String(final Object obj) throws IOException
     {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(    );
-        ObjectOutputStream    oos  = new ObjectOutputStream   (baos);
-
-        oos.writeObject(obj);
-        oos.close();
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeObject(obj);
+        }
 
         return XCom.base64StringFromByteArray( baos.toByteArray() );
     }
 
     public static Object deserializeFromBase64String(final String str) throws IOException, ClassNotFoundException
     {
-        final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( XCom.byteArrayFromBase64String(str) ) );
-        final Object            obj = ois.readObject();
-
-        ois.close();
-
-        return obj;
+        try (final ObjectInputStream ois = new ObjectInputStream( new ByteArrayInputStream( XCom.byteArrayFromBase64String(str) ) )) {
+            return ois.readObject();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

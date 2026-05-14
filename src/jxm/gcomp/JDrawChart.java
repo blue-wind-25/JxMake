@@ -162,8 +162,8 @@ public class JDrawChart extends JPanel implements ActionListener {
              if(aval <  n) aval += factor;
         else if(aval == 0) aval = 1;
 
-        final long dval   = (long) Math.ceil(aval / 20.0);
-              long nval   = (long) Math.ceil(n    / dval) * dval;
+        final long dval = Math.max( 1, (long) Math.ceil(aval / 20.0)        );
+              long nval =              (long) Math.ceil(n    / dval) * dval  ;
 
         while(aval > nval) aval -= dval;
 
@@ -187,7 +187,7 @@ public class JDrawChart extends JPanel implements ActionListener {
 
     private static double _align(double n)
     {
-        if(n > 0.0)  return (n >= 1.0) ? _alignImpl_bn(n) : _alignImpl_sn(n);
+        if(n > 0.0) return (n >= 1.0) ? _alignImpl_bn(n) : _alignImpl_sn(n);
         return 1.0;
     }
 
@@ -207,7 +207,7 @@ public class JDrawChart extends JPanel implements ActionListener {
 
         if(_noDraw) return;
 
-        final Graphics2D g2d = (Graphics2D) g; // g.create();
+        final Graphics2D g2d = (Graphics2D) g.create();
 
         if(JTextFieldPH.DesktopHints != null) g2d.setRenderingHints(JTextFieldPH.DesktopHints);
 
@@ -234,16 +234,16 @@ public class JDrawChart extends JPanel implements ActionListener {
         final double aligned = _align(largest);
 
         if(ds.maxValue >= 0 && ds.minValue >= 0) {
-            ds.maxValue = aligned;
-            ds.minValue = 0;
+            ds.maxValue =  aligned;
+            ds.minValue =  0;
         }
         else if(ds.maxValue <= 0 && ds.minValue <= 0) {
-            ds.maxValue = 0;
+            ds.maxValue =  0;
             ds.minValue = -aligned;
         }
         else {
-            ds.maxValue = (ds.maxValue >= 0) ? aligned : -aligned;
-            ds.minValue = (ds.minValue >= 0) ? aligned : -aligned;
+            ds.maxValue =  aligned;
+            ds.minValue = -aligned;
         }
 
         // Get the width and height of the drawing area
@@ -253,8 +253,9 @@ public class JDrawChart extends JPanel implements ActionListener {
 
         // Get the number of points and calculate the scale
         final int    pCount = ds.values.get(0).size();
-        final double xScale = ( (double) aw - Padding2 - YLabelPadding ) / (pCount - 1               );
-        final double yScale = ( (double) ah - Padding2 - XLabelPadding ) / (ds.maxValue - ds.minValue);
+        final double yDelta = ds.maxValue - ds.minValue;
+        final double xScale = (pCount >  1) ? ( ( (double) aw - Padding2 - YLabelPadding ) / (pCount - 1 ) ) : 0;
+        final double yScale = (yDelta != 0) ? ( ( (double) ah - Padding2 - XLabelPadding ) / yDelta        ) : 0;
 
         // Draw the background
         g2d.setColor(BackgroundColor);
@@ -291,7 +292,8 @@ public class JDrawChart extends JPanel implements ActionListener {
 
         // Create hatch marks, grid lines, and labels for X axis
         if(pCount > 1) {
-            for( int i = 0; i < pCount; i += (pCount / XDivisions) ) {
+            final int step = Math.max(1, pCount / XDivisions);
+            for(int i = 0; i < pCount; i += step) {
                 // Calculate the coordinates
                 final int x0 = i * (aw - Padding2 - YLabelPadding) / (pCount - 1) + Padding + YLabelPadding;
                 final int x1 = x0;
@@ -304,13 +306,11 @@ public class JDrawChart extends JPanel implements ActionListener {
                 g2d.setColor(TickColor);
                 g2d.drawLine(x0, y0, x1, y1);
                 // Draw the label
-                if(i < pCount) {
-                    final long   index  = ds.index.get(i);
-                    final String xLabel = (index < 0) ? "" : String.valueOf(index);
-                    final int    width  = fontMetrics.stringWidth(xLabel);
-                    g2d.setColor(TextColor);
-                    g2d.drawString( xLabel, x0 - width / 2, y1 + fontMetrics.getAscent() + 3 );
-                }
+                final long   index  = ds.index.get(i);
+                final String xLabel = (index < 0) ? "" : String.valueOf(index);
+                final int    width  = fontMetrics.stringWidth(xLabel);
+                g2d.setColor(TextColor);
+                g2d.drawString( xLabel, x0 - width / 2, y1 + fontMetrics.getAscent() + 3 );
             } // for
         }
 
@@ -363,10 +363,8 @@ public class JDrawChart extends JPanel implements ActionListener {
             }
         } // for
 
-        /*
         // Dispose the graphics context
         g2d.dispose();
-        //*/
     }
 
 } // JDrawChart

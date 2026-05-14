@@ -70,6 +70,8 @@ class JxMakeRootPane_Menu {
             method.invoke(rootPane);
         }
         catch(final Exception ex) {
+            // Always print the stack trace regardless of 'XCom.enableAllExceptionStackTrace()',
+            // because on error the program will always exit
             ex.printStackTrace();
             SysUtil.systemExitError();
         }
@@ -269,6 +271,8 @@ class JxMakeRootPane_Menu {
 
         }
         catch(final Exception e) {
+            // Always print the stack trace regardless of 'XCom.enableAllExceptionStackTrace()',
+            // because on error the program will always exit
             e.printStackTrace();
             SysUtil.systemExitError();
         }

@@ -681,7 +681,7 @@ public class CommandShell {
                         Files.copy(file, trg, StandardCopyOption.COPY_ATTRIBUTES);
                     }
                     else if( attrs.isOther() ) {
-                        System.out.printf("‼ %s -> ✗\n", file, trg);
+                        System.out.printf("‼ %s -> ✗\n", file);
                     }
 
                     return FileVisitResult.CONTINUE;

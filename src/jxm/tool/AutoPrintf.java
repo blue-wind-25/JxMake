@@ -217,7 +217,7 @@ public class AutoPrintf {
 
     private static Object _convertArg(final String[] args, final int idx, final char type)
     {
-       if( idx < 0 || idx >= args.length ) return null;
+        if( idx < 0 || idx >= args.length ) return null;
 
         switch( Character.toLowerCase(type) ) {
 

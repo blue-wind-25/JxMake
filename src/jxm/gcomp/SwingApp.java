@@ -521,6 +521,8 @@ public abstract class SwingApp {
             Toolkit.getDefaultToolkit().setDynamicLayout(true);
         }
         catch(final Exception e) {
+            // Always print the stack trace regardless of 'XCom.enableAllExceptionStackTrace()',
+            // because on error the program will always exit
             e.printStackTrace();
             SysUtil.systemExitError();
         }

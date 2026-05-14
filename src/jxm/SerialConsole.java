@@ -1238,7 +1238,8 @@ public class SerialConsole {
         spDataSets.maxValue = -Double.MAX_VALUE;
 
         // Get the last field index
-        final int lastFieldSetIndex = _spFieldList.size() - 1;
+        final int actualListSize    = _spFieldList.size();
+        final int lastFieldSetIndex = actualListSize - 1;
 
         // Get the number of sets
         final int setCount = _spFieldList.get(lastFieldSetIndex)._varName.size();
@@ -1257,7 +1258,7 @@ public class SerialConsole {
         for(int w = idxStart; w < idxEnd; ++w) {
 
             // Get the data set
-                  boolean    spFieldNull  = (w < 0);
+                  boolean    spFieldNull  = (w < 0 || w >= actualListSize);
             final SPFieldSet spFieldSet   = spFieldNull ? null : _spFieldList.get(w);
             final int        spValueCount = spFieldNull ? 0    :  spFieldSet._varValue.size();
             final boolean    spIdxInvalid = spFieldNull || (spFieldSet._index < 0);

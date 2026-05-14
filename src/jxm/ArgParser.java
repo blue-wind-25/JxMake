@@ -445,7 +445,7 @@ public class ArgParser {
                     _enableAllExceptionStackTrace = true;
                     break;
 
-                // Enable warning when evaluating eference variables which contain invalid references
+                // Enable warning when evaluating reference variables which contain invalid references
                 case "--en-warn-inv-ref-var":
                     // Save the argument as needed
                     if(!_enableWarnEvalInvRefVar) _savedArgs.add(arg0);

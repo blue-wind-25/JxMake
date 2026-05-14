@@ -181,7 +181,7 @@ public class MapList {
             if(orgMap == null) continue;
 
             for( final String key : orgMap.keySet() ) {
-                ArrayList<String> mvalues = mvalues = newMap.get(key);
+                ArrayList<String> mvalues = newMap.get(key);
                 if(mvalues == null) {
                     mvalues = new ArrayList<>();
                     newMap.put( key, mvalues );

@@ -1,0 +1,63 @@
+==============================================================================
+AGENT CHECK RESULT - src/jxm (direct files only, excluding SysUtil.java)
+==============================================================================
+
+The following items could not be confirmed as bugs or could not be safely
+changed without running the code. They are listed here for manual review.
+
+------------------------------------------------------------------------------
+
+FILE: BSEList.java
+LINE: _size = Math.max(_size, _cursor - 1);
+FULL LINE (inside _seek()):
+    _size = Math.max(_size, _cursor - 1);
+SUSPECTED ISSUE:
+    Off-by-one in _seek(). When seeking past the current logical end of the
+    buffer, the size is updated to (cursor - 1) rather than (cursor). This
+    means the byte at the cursor position is NOT counted as part of the valid
+    data region, even though seeking to it implies intent to write there.
+    Compare with truncate(), which sets _size = _cursor - 1 to explicitly
+    discard bytes from the cursor onwards — a different semantic. If _seek()
+    is meant to extend the valid range to include the seek target, the
+    expression should be Math.max(_size, _cursor) instead.
+NOTE:
+    This was left unchanged because the design may be intentional (the seek
+    position is the next write target, not the last written byte). Changing
+    this without runtime tests could break existing behavior.
+
+------------------------------------------------------------------------------
+
+FILE: BSEList.java
+SECTION: rdUTF16(boolean readLength) — null-terminator scan loop
+FULL LINE:
+    if(_buff[i] == 0 && _buff[i + 1] == 0) break;
+SUSPECTED ISSUE:
+    When readLength is false, the loop scans for a UTF-16 null terminator by
+    checking _buff[i] and _buff[i+1] in steps of 2. If _size is odd (which
+    should not happen for valid UTF-16 data but could in theory), accessing
+    _buff[i+1] when i+1 == _size could read a byte in the allocated-but-
+    beyond-logical-size region. Since the buffer is always pre-filled with
+    _DefVal (typically 0) beyond _size, this would still terminate correctly
+    in practice, but it reads beyond the logical data boundary.
+    A stricter check would guard: if(i + 1 >= _size) break;
+NOTE:
+    Left unchanged because the pre-fill guarantee makes this safe in practice,
+    and modifying it might alter behavior in edge cases.
+
+------------------------------------------------------------------------------
+
+FILE: XBBuilder.java
+NOTE:
+    This file is 138 KB and could not be fully reviewed. Only the first 80
+    lines (state machine enum and initial field declarations) were examined.
+    A full manual review of the remaining parsing logic is recommended.
+
+------------------------------------------------------------------------------
+
+FILE: Texts.java
+NOTE:
+    This file is approximately 141 KB (string constants). It was not reviewed.
+    A scan for obvious issues (duplicate keys, mismatched format specifiers)
+    is recommended.
+
+------------------------------------------------------------------------------

@@ -88,16 +88,16 @@ public abstract class SerialDevice {
             if(jxmPort == null) throw XCom.newIllegalArgumentException(Texts.SDevNet_InvJxmPortDsc, DeviceClassName, portDescriptor);
 
             return new SerialDevice_JxMakeUSBGPIO(jxmPort[0], jxmPort[1]);
-            
+
         }
 
         if( _isNetPort(portDescriptor) ) {
 
-            final String[] netPort        = _getNetPort(portDescriptor);
+            final String[] netPort = _getNetPort(portDescriptor);
             if(netPort == null) throw XCom.newIllegalArgumentException(Texts.SDevNet_InvNetPortDsc, DeviceClassName, portDescriptor);
 
-            final String   hostNameOrIP   = netPort[0].trim();
-            final int      uploadPort;
+            final String hostNameOrIP = netPort[0].trim();
+            final int    uploadPort;
 
             try {
                 uploadPort = Integer.parseInt( netPort[1].trim() );

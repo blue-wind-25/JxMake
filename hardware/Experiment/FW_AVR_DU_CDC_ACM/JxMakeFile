@@ -88,7 +88,7 @@ endtarget
 
 target upload
     jxmake build
-    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , 115200)
+    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , 230400)
 endtarget
 
 target clean

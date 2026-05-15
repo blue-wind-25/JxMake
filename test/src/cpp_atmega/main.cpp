@@ -59,10 +59,6 @@ int main()
 {
     nop();
 
-#ifdef ENABLE_AVR_DU_USB
-    usb_init();
-#endif
-
 #if defined(__AVR_ATmega32__) || defined(__AVR_ATmega32A__)
     #include "inc_anim_atmega32.h"
 #elif defined(__AVR_ATmega328P__) || defined(__AVR_AT90USB162__) || defined(__AVR_AT90USB1286__)

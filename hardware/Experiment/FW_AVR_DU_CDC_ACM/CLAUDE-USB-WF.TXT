@@ -44,6 +44,18 @@ Workflow:
 
 
 
+The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance). The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
+
+
+No, but you can edit JxMakeFile to remove manufacturer source from the build script.
+
+
+● Just start a new Claude Code session in the same directory — the memory system will automatically load the project context. The memory file at memory/project_fw_avr_du_cdc_acm.md has the full current state:
+  last commit (120c698), size tracking, all completed steps, and the exact next step (flatten USB_CDCDataTerminalReady()).
+
+  You don't need to do anything special. Just open a new session and say something like "continue the CDC-ACM flattening project" and I'll pick up from where we left off.
+
+
 
 
 
@@ -59,244 +71,51 @@ Do this one by one, using the lowest‑level manufacturer SDK functions, and wai
 
 
 
-The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance). The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
 
 
+RETURN_CODE_t USB_Stop(void)
+{
+    RETURN_CODE_t status = SUCCESS;
 
+    // Detaches from the bus and disables peripheral.
+    USB_BusDetach();
+    USB_PeripheralDisable();
 
+    // Aborts any ongoing transfers.
+    USB_PIPE_t pipe = { .address = 0 };
+    while (pipe.address < USB_EP_NUM)
+    {
+        if (status == SUCCESS)
+        {
+            pipe.direction = USB_EP_DIR_OUT;
+            status = USB_TransferAbort(pipe);
+        }
+        if (status == SUCCESS)
+        {
+            pipe.direction = USB_EP_DIR_IN;
+            status = USB_TransferAbort(pipe);
+        }
+        pipe.address++;
+    }
 
+    return status;
+}
 
-
-
-
-
-Claude CLI workflow for tracing USB code into vendor SDK and flattening chained calls
-
-1. Start with a narrow target
-Do not begin with “analyze my whole USB stack”.
-
-Pick one concrete path, for example:
-- USB init
-- USB EP0 control transfer
-- CDC transmit
-- CDC receive
-- interrupt handler path
-- endpoint configuration
-- low-level packet write/read
-
---------------------------------------------------
-2. First prompt: trace only
---------------------------------------------------
-
-I want to trace one concrete USB code path through my code and into the vendor SDK.
-
-Task:
-- follow the call chain starting from [ENTRY FUNCTION OR FILE]
-- trace through all chained wrappers until the first real register-level or hardware-access layer
-- flatten the chain conceptually
-- identify for each step whether it is:
-  - entry point
-  - thin forwarding wrapper
-  - parameter adaptation
-  - stateful logic
-  - hardware sequencing
-  - register access
-
-Output:
-- ordered call chain
-- file and function for each step
-- short role of each step
-- first point where hardware/register access really happens
-- wrappers that look removable or collapsible
-- places where removal may be unsafe because of side effects, ordering, callbacks, macros, or shared state
-
-Restrictions:
-- do not propose code changes yet
-- do not assume a wrapper is removable unless the code strongly supports it
-- clearly separate confirmed findings from hypotheses
-- if macros/configuration affect behavior, call that out explicitly
-
-Replace [ENTRY FUNCTION OR FILE] with something real.
-
---------------------------------------------------
-3. Then ask for a flattening candidate map
---------------------------------------------------
-
-From the traced chain, identify the best candidates for flattening or bypassing.
-
-For each candidate layer:
-- say why it looks redundant
-- say what real logic it still performs, if any
-- say what would break if it were removed incorrectly
-- classify it as:
-  - likely removable
-  - maybe removable with care
-  - should probably stay
-
-Focus on reducing indirection and dead weight, not rewriting architecture
-
---------------------------------------------------
-4. Then ask for SDK bloat reasons
---------------------------------------------------
-
-Based on the traced path, explain why the current indirection may prevent the compiler/linker from eliminating unused SDK parts.
-
-Look for causes such as:
-- shared helper references
-- large dispatch tables
-- callbacks
-- init coupling
-- global state
-- function pointer registration
-- macro-expanded dependencies
-- broad module references
-
-Distinguish:
-- code that is actually used in the traced path
-- code that may be retained because of structure rather than true need
-
---------------------------------------------------
-5. Then ask for a minimal refactor plan
---------------------------------------------------
-
-Propose the smallest safe refactor to reduce indirection on this path.
-
-Output:
-- exact functions/layers to bypass or collapse
-- what logic must remain
-- what must not change
-- specific risks
-- how to verify behavior after the change
-
-Do not produce code yet
-
---------------------------------------------------
-6. Then code, but only for one path
---------------------------------------------------
-
-Implement only the minimal approved refactor for this traced path.
-Do not broaden scope.
-Do not clean up unrelated code.
-Preserve behavior exactly.
-If any step depends on uncertain SDK side effects, stop and report instead of guessing.
-
---------------------------------------------------
-Good CLI habits for this task
---------------------------------------------------
-
-A. Feed it the right files
-Best if you provide:
-- your top-level USB file
-- the SDK layer file it calls
-- the low-level driver file
-- any register access header/source
-- relevant config headers
-
-Avoid dumping the whole SDK at once.
-
-B. Keep one build/config in scope
-Very important for embedded work.
-
-Tell it:
-- MCU family
-- exact build config
-- device vs host mode
-- class used: CDC/HID/MSC/etc.
-- any compile flags that change the path
-
-Example:
-
-Assume STM32F103 USB device CDC build configuration using [config name]
-Only analyze the active path under this configuration
-
-C. Ask it to call out uncertainty
-Use this often:
-
-If a conclusion depends on macros, weak symbols, generated code, linker script behavior, or unseen files, mark it as uncertain
-
-D. Make it produce tables
-For call tracing, tables are very useful.
-
-Ask for:
-
-Present the call chain as a table with:
-- order
-- function
-- file
-- role
-- removable?
-- reason
-
---------------------------------------------------
-Best sequence for your use case
---------------------------------------------------
-
-Pass 1
-Trace one path:
-- e.g. CDC transmit
-
-Pass 2
-Find flattening candidates
-
-Pass 3
-Explain bloat retention causes
-
-Pass 4
-Plan smallest safe simplification
-
-Pass 5
-Implement only that simplification
-
-Then repeat for another path.
-
---------------------------------------------------
-What not to ask first
---------------------------------------------------
-
-Avoid:
-- “analyze the whole USB stack”
-- “remove all unused SDK code”
-- “flatten everything”
-- “rewrite the vendor SDK”
-- “make it minimal”
-
-Those are too broad and will produce weak results.
-
---------------------------------------------------
-Example concrete prompt
---------------------------------------------------
-
-I am analyzing USB code in an embedded project.
-
-Target:
-Trace the USB CDC transmit path starting from function [YOUR_TOP_FUNCTION].
-
-Context:
-- This project uses a vendor SDK
-- I want to understand the chained calls down to the first real register-level or packet-buffer access
-- My goal is to identify removable wrappers and indirection that keep unused SDK code alive
-
-Please:
-1. trace the ordered call chain
-2. identify file + function at each step
-3. classify each step as wrapper, adaptation, stateful logic, sequencing, or hardware/register access
-4. identify the first point where the code actually touches hardware-facing state or registers
-5. point out which layers look collapsible
-6. explain risks or hidden side effects that may make flattening unsafe
-
-Restrictions:
-- do not propose broad rewrites
-- do not assume the vendor SDK is safe to simplify unless code evidence is strong
-- distinguish confirmed facts from hypotheses
-- if config macros or callbacks affect the path, call that out explicitly
-
---------------------------------------------------
-Bottom line
---------------------------------------------------
-
-For your local Claude CLI workflow:
-- use small, path-specific prompts
-- trace first
-- classify layers
-- identify flatten candidates
-- only then ask for code changes
+RETURN_CODE_t USB_Reset(void)
+{
+    RETURN_CODE_t status = USB_Stop();
+    if (status == SUCCESS)
+    {
+        USB_PeripheralInitialize();
+        status = USB_ControlEndpointsInit();
+    }
+    if (status == SUCCESS)
+    {
+        status = USB_ControlTransferReset();
+    }
+    if (status == SUCCESS)
+    {
+        USB_BusAttach();
+    }
+    return status;
+}

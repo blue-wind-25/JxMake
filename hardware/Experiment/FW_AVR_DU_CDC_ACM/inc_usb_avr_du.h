@@ -97,9 +97,11 @@ static inline void delayMS(uint32_t mS)
 
 static void usb_init()
 {
-    // Reinitialize OSCHF
-    _PROTECTED_WRITE(CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc);
-    _PROTECTED_WRITE(CLKCTRL.OSCHFTUNE , 0x00                                                                );
+    // Initialize OSCHF
+    _PROTECTED_WRITE(CLKCTRL.OSCHFCTRLA, CLKCTRL_FRQSEL_24M_gc | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc);
+    _PROTECTED_WRITE(CLKCTRL.OSCHFTUNE , 0x00
+
+    );
 
     while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
 

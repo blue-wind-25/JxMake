@@ -14,6 +14,9 @@
 
 int main()
 {
+    // Initialize USB
+    usb_init();
+
     // Set OSCHF as main clock source
     // NOTE : This is not actually required on the AVR Dx/Ex/Sx series, but it is retained for clarity
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_OSCHF_gc);
@@ -24,18 +27,8 @@ int main()
     // NOTE : This is not actually required on the AVR Dx/Sx series, but it is retained for clarity
     _PROTECTED_WRITE(CLKCTRL_MCLKCTRLB, 0x00);
 
-    /*
-    // Change the OSCHF frequency (F_CPU is 24MHz)
-    _PROTECTED_WRITE(CLKCTRL.OSCHFCTRLA, CLKCTRL_FRQSEL_24M_gc);
-
-    while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
-    */
-
-    // Initialize USB
-    usb_init();
-
-    // Initialize IO
-    LED_PORT.DIRSET  = LED_PIN;
+    // Initialize the LED pin
+    LED_PORT.DIRSET = LED_PIN;
 
     // Animate the LEDs
     for(;;) {

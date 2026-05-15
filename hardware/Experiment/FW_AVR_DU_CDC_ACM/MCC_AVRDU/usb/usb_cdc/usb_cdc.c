@@ -32,8 +32,6 @@
 #include <stddef.h>
 #include <usb_cdc.h>
 #include <usb_common_elements.h>
-#include <usb_core.h>
-#include <usb_core_requests.h>
 #include <usb_core_transfer.h>
 #include <usb_protocol_cdc.h>
 #include <usb_protocol_headers.h>
@@ -42,21 +40,8 @@
 #include <usb_config.h>
 
 // Line state and setup
-STATIC uint16_t usbCDCControlLineState;
-STATIC USB_CDC_LINE_CODING_t usbCDCLineCoding;
-
-void USB_CDCInitialize(void)
-{
-    // Initial values
-    usbCDCControlLineState = 0;
-    usbCDCLineCoding = (USB_CDC_LINE_CODING_t){
-        .dwDTERate = 0,
-        .bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT,
-        .bParityType = USB_CDC_LINE_CODING_PARITY_NONE,
-        .bDataBits = USB_CDC_LINE_CODING_8_DATA_BITS,
-    };
-
-}
+uint16_t usbCDCControlLineState;
+USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
 {

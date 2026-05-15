@@ -99,9 +99,11 @@ static void usb_init()
     USB0.INTCTRLB   = 0;             // disable all transaction interrupts (was USB0_Initialize)
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm; // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
     applicationPointers = &descriptorPointers;      // was USB_DescriptorPointersSet (was USBDevice_Initialize)
-    USB_CDCInitialize();                            // was USBDevice_Initialize → USB_CDCVirtualSerialPortInitialize → USB_CDCInitialize
-    // (USBDevice_Initialize's internal callback registrations and USB_Start() call are dropped:
-    //  the ISRs now call USB_TransferHandler/USB_EventHandler directly; USB_Start() called after VREG enable)
+    usbCDCControlLineState       = 0;               // was USB_CDCInitialize()
+    usbCDCLineCoding.dwDTERate   = 0;
+    usbCDCLineCoding.bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT;
+    usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
+    usbCDCLineCoding.bDataBits   = USB_CDC_LINE_CODING_8_DATA_BITS;
 
     USB0.INTCTRLA |= USB_RESET_bm;    // Enable RESET    interrupt
     USB0.INTCTRLA |= USB_STALLED_bm;  // Enable STALLED  interrupt

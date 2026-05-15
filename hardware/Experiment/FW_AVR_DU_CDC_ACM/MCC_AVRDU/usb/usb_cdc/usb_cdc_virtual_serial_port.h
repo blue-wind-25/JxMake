@@ -52,14 +52,6 @@ typedef enum CDC_RETURN_CODE_enum
 
 /**
  * @ingroup usb_cdc
- * @brief Initializes the CDC Virtual Serial Port functionality.
- * @param None.
- * @return None.
- */
-void USB_CDCVirtualSerialPortInitialize(void);
-
-/**
- * @ingroup usb_cdc
  * @brief Performs Virtual Serial Port writes using the CDC class.
  * @param None.
  * @return SUCCESS or an Error code according to RETURN_CODE_t

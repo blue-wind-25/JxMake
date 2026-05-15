@@ -36,13 +36,8 @@
 #include <usb_protocol_cdc.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_cdc
- * @brief Initializes the CDC class.
- * @param None.
- * @return None.
- */
-void USB_CDCInitialize(void);
+extern uint16_t usbCDCControlLineState;
+extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 /**
  * @ingroup usb_cdc

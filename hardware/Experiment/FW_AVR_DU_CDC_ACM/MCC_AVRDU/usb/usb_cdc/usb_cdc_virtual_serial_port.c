@@ -30,7 +30,6 @@
  */
 
 #include <usb_cdc_virtual_serial_port.h>
-#include <usb_cdc.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
@@ -68,11 +67,6 @@ STATIC CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .tail = 0,
     .maxLength = USB_CDC_TX_BUFFER_SIZE,
 };
-
-void USB_CDCVirtualSerialPortInitialize(void)
-{
-    USB_CDCInitialize();
-}
 
 RETURN_CODE_t USB_CDCVirtualSerialPortHandler(void)
 {

@@ -10,10 +10,8 @@ jobs:
     if: >-
       github.event.assignee.login == 'blue-wind-25' &&
       github.event.sender.login == 'blue-wind-25' &&
-      (
-        contains(github.event.issue.title, '@Claude') ||
-        contains(github.event.issue.body || '', '@Claude')
-      )
+      (contains(github.event.issue.title, '@Claude') ||
+      contains(github.event.issue.body, '@Claude'))
 
     permissions:
       contents: write
@@ -33,9 +31,21 @@ jobs:
           prompt: |
             ${{ github.event.issue.title }}
 
-            ${{ github.event.issue.body || '' }}
+            ${{ github.event.issue.body }}
 
-            First create a new git branch, then make the requested changes,
+            Before making any commits, run:
+              git config user.name "claude[bot]"
+              git config user.email "claude[bot]@users.noreply.github.com"
+
+            Then create a new git branch, make the requested changes,
             commit them, push the branch, and open a pull request.
-          claude_args: --allowedTools Edit,Write,Bash,Read
+          claude_args: >-
+            --allowedTools
+            Edit,Write,Read,
+            Bash(git:*),
+            Bash(grep:*),Bash(rg:*),Bash(find:*),
+            Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),
+            Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),
+            Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),
+            Bash(chmod:*)
         # show_full_output: true  # uncomment for debugging

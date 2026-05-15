@@ -58,6 +58,12 @@ No, but you can edit JxMakeFile to remove manufacturer source from the build scr
 
 
 
+tar -cjvpf _0_claude-mem-20260516.tar.gz ~/.claude/ ~/.claude.json
+
+
+
+
+
 
 Flatten first the calls in inc_usb_avr_du.h:
     SYSCFG_Initialize();

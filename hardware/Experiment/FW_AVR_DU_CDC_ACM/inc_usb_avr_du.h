@@ -47,13 +47,6 @@ static volatile RETURN_CODE_t     status    = SUCCESS;
 static volatile CDC_RETURN_CODE_t cdcStatus = CDC_SUCCESS;
 
 
-static void USBDevice_TransferHandler()
-{ USB_TransferHandler(); }
-
-static void USBDevice_EventHandler()
-{ USB_EventHandler(); }
-
-
 static void USBDevice_CDCACMHandler()
 {
     if(  USB_CDCVirtualSerialPortHandler() != SUCCESS ) return;
@@ -104,12 +97,14 @@ static void usb_init()
     while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
 
     // Start USB
-    SYSCFG_Initialize   ();
-    USB0_Initialize     ();
-    USBDevice_Initialize();
-
-    USB0_TrnComplCallbackRegister(USBDevice_TransferHandler);
-    USB0_BusEventCallbackRegister(USBDevice_EventHandler   );
+    SYSCFG.VUSBCTRL = 0;             // USBVREG disable (was SYSCFG_Initialize)
+    USB0.INTCTRLA   = 0;             // disable all bus-event interrupts  (was USB0_Initialize)
+    USB0.INTCTRLB   = 0;             // disable all transaction interrupts (was USB0_Initialize)
+    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm; // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
+    USB_DescriptorPointersSet(&descriptorPointers); // was USBDevice_Initialize
+    USB_CDCVirtualSerialPortInitialize();           // was USBDevice_Initialize
+    // (USBDevice_Initialize's internal callback registrations and USB_Start() call are dropped:
+    //  the ISRs now call USB_TransferHandler/USB_EventHandler directly; USB_Start() called after VREG enable)
 
     USB0.INTCTRLA |= USB_RESET_bm;    // Enable RESET    interrupt
     USB0.INTCTRLA |= USB_STALLED_bm;  // Enable STALLED  interrupt

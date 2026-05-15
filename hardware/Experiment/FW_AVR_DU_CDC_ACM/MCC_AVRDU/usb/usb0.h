@@ -10,7 +10,7 @@
  * @version USB0 Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ï¿½ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -32,41 +32,6 @@
 
 #ifndef USB0_H
 #define USB0_H
-
-/**
- * @ingroup usb0
- * @typedef void *USB_cb_t
- * @brief Data type for the interrupt handlers called by USB. The default value is set to NULL which means that no callback function will be used.
- */  
-typedef void (*USB_cb_t)(void);
-
-/**
-  Section: USB0 APIs
-*/
-
-/**
- * @ingroup usb0
- * @brief Initializes USB0.
- * @param None.
- * @return None.
- */ 
-void USB0_Initialize(void);
-
-/**
- * @ingroup usb0
- * @brief Registers a callback function handling the Interrupt Service Routine (ISR) if a Transaction Complete interrupt flag is set.
- * @param USB_cb_t cb - Callback function for a transaction complete event
- * @return None.
- */ 
-void USB0_TrnComplCallbackRegister(USB_cb_t cb);
-
-/**
- * @ingroup usb0
- * @brief Registers a callback function handling the ISR if a Bus Event interrupt flag is set.
- * @param USB_cb_t cb - Callback function for a bus event
- * @return None.
- */ 
-void USB0_BusEventCallbackRegister(USB_cb_t cb);
 
 #endif // USB0_H
 /**

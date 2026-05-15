@@ -10,7 +10,7 @@
  * @version USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ï¿½ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -33,20 +33,14 @@
 #include <usb_core.h>
 #include <usb_cdc_virtual_serial_port.h>
 #include "usb_device.h"
-#include "usb0.h"
 
 static RETURN_CODE_t usbStatus;
-static void USBDevice_TransferHandler(void);
-static void USBDevice_EventHandler(void);
 
 void USBDevice_Initialize(void)
 {
     USB_DescriptorPointersSet(&descriptorPointers);
-    
-    USB_CDCVirtualSerialPortInitialize();
 
-    USB0_TrnComplCallbackRegister(USBDevice_TransferHandler);
-    USB0_BusEventCallbackRegister(USBDevice_EventHandler);
+    USB_CDCVirtualSerialPortInitialize();
 
     usbStatus = USB_Start();
 }
@@ -67,16 +61,6 @@ RETURN_CODE_t USBDevice_Handle(void)
 RETURN_CODE_t USBDevice_StatusGet(void)
 {
     return usbStatus;
-}
-
-static void USBDevice_TransferHandler(void)
-{
-    usbStatus = USB_TransferHandler();
-}
-
-static void USBDevice_EventHandler(void)
-{
-    usbStatus = USB_EventHandler();
 }
 
 /**

@@ -43,10 +43,6 @@ extern "C" {
 static void USBDevice_CDCACMHandler();
 
 
-static volatile RETURN_CODE_t     status    = SUCCESS;
-static volatile CDC_RETURN_CODE_t cdcStatus = CDC_SUCCESS;
-
-
 static void USBDevice_CDCACMHandler()
 {
     if(  USB_CDCVirtualSerialPortHandler() != SUCCESS ) return;
@@ -102,7 +98,7 @@ static void usb_init()
     USB0.INTCTRLB   = 0;             // disable all transaction interrupts (was USB0_Initialize)
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm; // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
     USB_DescriptorPointersSet(&descriptorPointers); // was USBDevice_Initialize
-    USB_CDCVirtualSerialPortInitialize();           // was USBDevice_Initialize
+    USB_CDCInitialize();                            // was USBDevice_Initialize → USB_CDCVirtualSerialPortInitialize
     // (USBDevice_Initialize's internal callback registrations and USB_Start() call are dropped:
     //  the ISRs now call USB_TransferHandler/USB_EventHandler directly; USB_Start() called after VREG enable)
 
@@ -115,7 +111,7 @@ static void usb_init()
     USB0.INTCTRLB |= USB_GNDONE_bm;   // Enable GNDONE   interrupt
     USB0.INTCTRLB |= USB_SETUP_bm;    // Enable SETUP    interrupt
 
-    SYSCFG_UsbVregEnable();
+    SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
     USB_Start           ();
 
     // Enable TCA0 in normal mode

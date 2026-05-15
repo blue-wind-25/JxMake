@@ -131,7 +131,7 @@ const BoardAICEMode := 'isp'  (* 1 *) \
  *              https://github.com/avrdudes/avr-libc
  *        # Certain code constructs or execution flows may be incompatible with specific compiler or linker options.
  *)
- 
+
 # Tested Status        —  —  ✓     ~    …    …    ✓    ✓    …    ✓
 #                      1  2  3     4    5    6    7    8    9    10
 const SelBoardN     := 6 -32 da128 da32 db32 dd32 du32 ea32 eb32 sd32

@@ -1,0 +1,113 @@
+:::include <C++XBuildTool_AVR_Native>
+
+
+JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS := $ftpseps( { \
+    '/opt/avr-gcc-11.1.0-x64-linux'                  \
+    '/opt/avr-gcc-14.1.0-x64-linux'                  \
+    '/opt/avr-gcc-15.2.0-x64-linux'                  \
+} )
+
+AVRDUDE_Cmd := '/opt/avrdude-8.1/bin/avrdude' '-C' '/opt/avrdude-8.1/etc/avrdude.conf'
+
+
+# https://packs.download.microchip.com
+const DFPDirectory := 'xsdk/Microchip.AVR-Dx_DFP.2.7.321'
+const MCUType      := avr32du28
+const CPUFrequency := 24000000
+
+if __os_windows__  ; const PPort := 'COM1'
+else               ; PPort := '/dev/ttyUSB0'
+endif
+
+if __os_windows__ ; const DFPPath := :"Z:/${DFPDirectory}"
+else              ; const DFPPath := $cat_path( $uhd(), ${DFPDirectory} )
+endif
+
+
+JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
+
+ULIB_BDIRS := MCC_AVRDU/system/src                  \
+              MCC_AVRDU/usb/src                     \
+              MCC_AVRDU/usb/usb_cdc/circular_buffer \
+              MCC_AVRDU/usb/usb_common              \
+              MCC_AVRDU/usb/usb_peripheral
+
+ULIB_HDIRS := MCC_AVRDU/system                      \
+              MCC_AVRDU/usb                         \
+              MCC_AVRDU/usb/usb_cdc                 \
+              MCC_AVRDU/usb/usb_cdc/circular_buffer \
+              MCC_AVRDU/usb/usb_common              \
+              MCC_AVRDU/usb/usb_peripheral
+
+$call(init_project            , ${ULIB_BDIRS}              )
+$call(avr_select_part         , ${MCUType}, ${CPUFrequency})
+$call(treat_warnings_as_errors, 1                          )
+$call(enable_debug_info       , 0                          )
+$call(select_optimization     , size                       )
+$call(select_c_langstd        , c11                        )
+$call(select_cxx_langstd      , c++11                      )
+$call(set_device_pack_dir     , ${DFPPath}                 )
+$call(print_devenv_config                                  )
+$call(silent_stdxxx           , false                      )
+$call(silent_stdxxx_syslib    , true                       )
+
+
+PROG_NAME := $call( exe_fpath, main    )
+PROG_OBJS := $call( obj_fpath, {                             \
+    main.cpp                                                 \
+    MCC_AVRDU/system/src/protected_io.S                      \
+    MCC_AVRDU/system/src/syscfg.c                            \
+    MCC_AVRDU/usb/usb_descriptors.c                          \
+    MCC_AVRDU/usb/usb_device.c                               \
+    MCC_AVRDU/usb/src/usb0.c                                 \
+    MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.c  \
+    MCC_AVRDU/usb/usb_cdc/usb_cdc.c                          \
+    MCC_AVRDU/usb/usb_cdc/usb_cdc_virtual_serial_port.c      \
+    MCC_AVRDU/usb/usb_common/usb_core.c                      \
+    MCC_AVRDU/usb/usb_common/usb_core_descriptors.c          \
+    MCC_AVRDU/usb/usb_common/usb_core_events.c               \
+    MCC_AVRDU/usb/usb_common/usb_core_requests.c             \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_device.c      \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_endpoint.c    \
+    MCC_AVRDU/usb/usb_common/usb_core_requests_interface.c   \
+    MCC_AVRDU/usb/usb_common/usb_core_transfer.c             \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral.c            \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_endpoint.c   \
+    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_read_write.c \
+})
+
+
+target clean
+    $call(clean_project)
+endtarget
+
+
+target run
+    local __include_paths__ +:= ${ULIB_HDIRS}
+    jxmake ${PROG_NAME}
+    $call(avr_run_exe, ${PROG_NAME})
+endtarget
+
+
+target ${PROG_NAME} : ${PROG_OBJS}
+    $call(avr_link_exe)
+endtarget
+
+target $call(sobj_target_glob) : $call(ssrc_fname, '%')
+    $call(avr_compile_s)
+endtarget
+
+target $call(cobj_target_glob) : %.c
+    $call(avr_compile_c)
+endtarget
+
+target $call(cppobj_target_glob) : %.cpp
+    $call(avr_compile_cpp)
+endtarget
+
+
+target userialupdi
+    jxmake run
+    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , ${SerialUPDIBaud})
+endtarget
+

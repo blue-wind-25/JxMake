@@ -16,7 +16,7 @@ const MCUType      := avr32du28
 const CPUFrequency := 24000000
 
 if __os_windows__  ; const PPort := 'COM1'
-else               ; PPort := '/dev/ttyUSB0'
+else               ; const PPort := '/dev/ttyUSB0'
 endif
 
 if __os_windows__ ; const DFPPath := :"Z:/${DFPDirectory}"
@@ -77,15 +77,22 @@ PROG_OBJS := $call( obj_fpath, {                             \
 })
 
 
-target clean
-    $call(clean_project)
+target .PHONY
 endtarget
 
-
-target run
+target build : .PHONY
     local __include_paths__ +:= ${ULIB_HDIRS}
     jxmake ${PROG_NAME}
     $call(avr_run_exe, ${PROG_NAME})
+endtarget
+
+target upload
+    jxmake build
+    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , 115200)
+endtarget
+
+target clean
+    $call(clean_project)
 endtarget
 
 
@@ -104,10 +111,3 @@ endtarget
 target $call(cppobj_target_glob) : %.cpp
     $call(avr_compile_cpp)
 endtarget
-
-
-target userialupdi
-    jxmake run
-    $call(avr_upload_serialupdi, ${PROG_NAME}, ${PPort}, ? , ${SerialUPDIBaud})
-endtarget
-

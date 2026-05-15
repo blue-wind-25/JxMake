@@ -41,6 +41,7 @@
 #include <usb_peripheral.h>
 #include <usb_core.h>
 #include <usb_core_descriptors.h>
+#include <usb_cdc.h>
 
 STATIC uint8_t deviceAddress = 0;
 
@@ -105,27 +106,11 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
 
     if (USB_DESCRIPTOR_TYPE_VENDOR <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
-       // Vendor Get_Descriptor Requests handled by VendorRequest callback.
-       if (NULL != event.VendorRequest)
-       {
-           status = event.VendorRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        status = UNSUPPORTED;
     }
     else if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
-        // Class Get_Descriptor Requests handled by ClassRequest callback.
-        if (NULL != event.ClassRequest)
-        {
-            status = event.ClassRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        status = USB_CDCRequestHandler(setupRequestPtr);
     }
     else
     {

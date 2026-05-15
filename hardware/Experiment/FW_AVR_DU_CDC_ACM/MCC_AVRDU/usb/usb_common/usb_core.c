@@ -43,6 +43,7 @@
 #include <usb_core_transfer.h>
 #include <usb_peripheral.h>
 #include <usb_protocol_headers.h>
+#include <usb_cdc.h>
 
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
@@ -77,18 +78,6 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
                 status = USB_SetupProcessInterfaceRequest(setupRequestPtr);
                 break;
             }
-            case USB_REQUEST_RECIPIENT_OTHER:
-            {
-                if (NULL != event.OtherRequest)
-                {
-                    status = event.OtherRequest(setupRequestPtr);
-                }
-                else
-                {
-                    status = UNSUPPORTED;
-                }
-                break;
-            }
             default:
                 status = UNSUPPORTED;
                 break;
@@ -97,25 +86,7 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
     }
     else if (USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
     {
-        if (NULL != event.ClassRequest)
-        {
-            status = event.ClassRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
-    }
-    else if (USB_REQUEST_TYPE_VENDOR == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
-    {
-        if (NULL != event.VendorRequest)
-        {
-            status = event.VendorRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        status = USB_CDCRequestHandler(setupRequestPtr);
     }
     else
     {

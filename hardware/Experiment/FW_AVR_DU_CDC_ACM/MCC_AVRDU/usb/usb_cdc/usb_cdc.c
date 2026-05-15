@@ -56,7 +56,6 @@ void USB_CDCInitialize(void)
         .bDataBits = USB_CDC_LINE_CODING_8_DATA_BITS,
     };
 
-    USB_ClassRequestCallbackRegister(USB_CDCRequestHandler);
 }
 
 RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)

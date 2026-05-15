@@ -41,8 +41,6 @@
 #include <usb_peripheral.h>
 #include <usb_protocol_headers.h>
 
-USB_EVENT_HANDLERS_t event;
-
 RETURN_CODE_t USB_EventHandler(void)
 {
     RETURN_CODE_t status = SUCCESS;
@@ -50,18 +48,10 @@ RETURN_CODE_t USB_EventHandler(void)
     if (USB_EventSOFIsReceived() == true)
     {
         USB_EventSOFClear();
-        if (NULL != event.SOFCallback)
-        {
-            event.SOFCallback();
-        }
     }
     if (USB_EventResetIsReceived() == true)
     {
         USB_EventResetClear();
-        if (NULL != event.ResetCallback)
-        {
-            event.ResetCallback();
-        }
         USB_PIPE_t pipe = { .address = 0 };
         while (pipe.address < USB_EP_NUM)
         {
@@ -90,25 +80,16 @@ RETURN_CODE_t USB_EventHandler(void)
         }
         else
         {
-            // Non-control overunderflows currently ignored by event handler
             status = SUCCESS;
         }
     }
     if (USB_EventSuspendIsReceived() == true)
     {
         USB_EventSuspendClear();
-        if (NULL != event.SuspendCallback)
-        {
-            event.SuspendCallback();
-        }
     }
     if (USB_EventResumeIsReceived() == true)
     {
         USB_EventResumeClear();
-        if (NULL != event.ResumeCallback)
-        {
-            event.ResumeCallback();
-        }
     }
     if (USB_EventStalledIsReceived() == true)
     {
@@ -117,54 +98,4 @@ RETURN_CODE_t USB_EventHandler(void)
         status = USB_HandleEventStalled(pipe);
     }
     return status;
-}
-
-void USB_SetConfigurationCallbackRegister(USB_SETUP_EVENT_CALLBACK_t callback)
-{
-    event.SetConfiguration = callback;
-}
-
-void USB_SetInterfaceCallbackRegister(USB_SETUP_EVENT_CALLBACK_t callback)
-{
-    event.SetInterface = callback;
-}
-
-void USB_InterfaceDisabledCallbackRegister(USB_EVENT_CALLBACK_t callback)
-{
-    event.InterfaceDisabled = callback;
-}
-
-void USB_VendorRequestCallbackRegister(USB_SETUP_PROCESS_CALLBACK_t callback)
-{
-    event.VendorRequest = callback;
-}
-
-void USB_ClassRequestCallbackRegister(USB_SETUP_PROCESS_CALLBACK_t callback)
-{
-    event.ClassRequest = callback;
-}
-
-void USB_OtherRequestCallbackRegister(USB_SETUP_PROCESS_CALLBACK_t callback)
-{
-    event.OtherRequest = callback;
-}
-
-void USB_SOFCallbackRegister(USB_EVENT_CALLBACK_t callback)
-{
-    event.SOFCallback = callback;
-}
-
-void USB_ResetCallbackRegister(USB_EVENT_CALLBACK_t callback)
-{
-    event.ResetCallback = callback;
-}
-
-void USB_SuspendCallbackRegister(USB_EVENT_CALLBACK_t callback)
-{
-    event.SuspendCallback = callback;
-}
-
-void USB_ResumeCallbackRegister(USB_EVENT_CALLBACK_t callback)
-{
-    event.ResumeCallback = callback;
 }

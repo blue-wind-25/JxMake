@@ -40,7 +40,7 @@
 #include <usb_config.h>
 #include <usb_peripheral.h>
 #include <usb_core.h>
-#include <usb_core_events.h>
+#include <usb_cdc.h>
 
 /**
  * @ingroup usb_core_requests
@@ -94,14 +94,6 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     RETURN_CODE_t status = USB_DescriptorInterfaceConfigure(setupRequestPtr->wIndex, setupRequestPtr->wValue, true);
-    if (SUCCESS == status)
-    {
-        if (NULL != event.SetInterface)
-        {
-            event.SetInterface(setupRequestPtr);
-        }
-    }
-
     return status;
 }
 
@@ -113,31 +105,14 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupR
 
     if (USB_DESCRIPTOR_TYPE_VENDOR <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
-        // Vendor Get_Descriptor Requests handled by VendorRequest callback
-        if (NULL != event.VendorRequest)
-        {
-            status = event.VendorRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        status = UNSUPPORTED;
     }
     else if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
-        // Class Get_Descriptor Requests handled by ClassRequest callback
-        if (NULL != event.ClassRequest)
-        {
-            status = event.ClassRequest(setupRequestPtr);
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        status = USB_CDCRequestHandler(setupRequestPtr);
     }
     else
     {
-        // Standard descriptor types not supported on interface requests
         status = UNSUPPORTED;
     }
 

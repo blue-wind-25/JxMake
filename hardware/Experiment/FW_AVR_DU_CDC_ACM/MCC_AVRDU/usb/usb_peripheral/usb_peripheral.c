@@ -40,6 +40,8 @@ SOFTWARE.
 #include <usb_peripheral_avr_du.h>
 #include <usb_protocol_headers.h>
 
+RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
+
 STATIC USB_CONTROL_TRANSFER_t controlTransfer __attribute__((aligned(2))) = { .transferDataPtr = controlTransfer.buffer };
 
 bool USB_SetupIsReceived(void)
@@ -223,10 +225,8 @@ RETURN_CODE_t USB_ControlSetupReceived(void)
         // Copies setup packet out of buffer to make it available for a data stage.
         (void)memcpy((uint8_t *)(&controlTransfer.setupRequest), controlTransfer.buffer, sizeof(USB_SETUP_REQUEST_t));
 
-        // The processSetupCallback is in most cases the USB_SetupProcess function in usb_core.c.
-        if (controlTransfer.processSetupCallback != NULL)
         {
-            RETURN_CODE_t setup_status = controlTransfer.processSetupCallback(&controlTransfer.setupRequest);
+            RETURN_CODE_t setup_status = USB_SetupProcess(&controlTransfer.setupRequest);
 
             if (UNSUPPORTED == setup_status)
             {
@@ -276,11 +276,6 @@ RETURN_CODE_t USB_ControlSetupReceived(void)
                 // Forward error from setup.
                 status = setup_status;
             }
-        }
-        else
-        {
-            // processSetupCallback missing, return error.
-            status = CONTROL_SETUP_CALLBACK_ERROR;
         }
     }
 
@@ -547,11 +542,6 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
     controlTransfer.endOfRequestCallback = callback;
 }
 
-void USB_ControlProcessSetupCallbackRegister(USB_SETUP_PROCESS_CALLBACK_t callback)
-{
-    controlTransfer.processSetupCallback = callback;
-}
-
 void USB_ControlOverUnderRunCallbackRegister(USB_SETUP_OVERUNDERRUN_CALLBACK_t callback)
 {
     controlTransfer.overUnderRunCallback = callback;
@@ -636,6 +626,13 @@ void USB_PeripheralInitialize(void)
         endpointTable.EP[endpoint].OUT.STATUS = 0;
         endpointTable.EP[endpoint].IN.CTRL = 0;
         endpointTable.EP[endpoint].IN.STATUS = 0;
+    }
+    // Reset software pipe transfer state
+    USB_PIPE_t pipe;
+    for (pipe.address = 0; pipe.address < USB_EP_NUM; pipe.address++)
+    {
+        pipe.direction = USB_EP_DIR_OUT; (void)USB_PipeReset(pipe);
+        pipe.direction = USB_EP_DIR_IN;  (void)USB_PipeReset(pipe);
     }
 }
 

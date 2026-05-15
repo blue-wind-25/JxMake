@@ -48,6 +48,8 @@
  * @param *descriptorPtr - The address of the application descriptor pointers
  * @return SUCCESS or an Error code according to RETURN_CODE_t
  */
+extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
+
 RETURN_CODE_t USB_DescriptorPointersSet(USB_DESCRIPTOR_POINTERS_t *descriptorPtr);
 
 /**

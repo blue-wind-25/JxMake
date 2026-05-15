@@ -70,14 +70,6 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /**
  * @ingroup usb_core
- * @brief Starts the USB peripheral, configures the callbacks and attaches it to the bus.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_Start(void);
-
-/**
- * @ingroup usb_core
  * @brief Stops the USB peripheral and detaches it from the bus.
  * @param None.
  * @return SUCCESS or an Error code according to RETURN_CODE_t

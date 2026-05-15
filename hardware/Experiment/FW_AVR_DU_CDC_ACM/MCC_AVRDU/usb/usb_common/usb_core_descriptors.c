@@ -82,7 +82,7 @@ typedef union USB_DESCRIPTOR_PTR_union
 
 STATIC USB_CONFIGURATION_DESCRIPTOR_t *activeConfigurationPtr = NULL;
 STATIC uint8_t activeInterfaces[USB_INTERFACE_NUM];
-STATIC USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
+USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
 
 RETURN_CODE_t USB_DescriptorPointersSet(USB_DESCRIPTOR_POINTERS_t *descriptorPointersPtr)
 {

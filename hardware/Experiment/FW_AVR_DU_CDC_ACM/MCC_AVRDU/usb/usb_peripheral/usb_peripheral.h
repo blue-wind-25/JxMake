@@ -53,7 +53,6 @@ typedef struct USB_CONTROL_TRANSFER_struct
     uint8_t *transferDataPtr;                               /**<Location in RAM to send or fill during transfer*/
     uint16_t transferDataSize;                              /**<Number of bytes to transfer to or from RAM location*/
     uint16_t totalBytesTransferred;                         /**<Number of data transfered last transaction*/
-    USB_SETUP_PROCESS_CALLBACK_t processSetupCallback;      /**<Callback to call during setup process*/
     USB_SETUP_OVERUNDERRUN_CALLBACK_t overUnderRunCallback; /**<Callback to call on a control overrun or underrun*/
     USB_SETUP_ENDOFREQUEST_CALLBACK_t endOfRequestCallback; /**<Callback to call when a setup request is complete*/
     USB_SETUP_REQUEST_t setupRequest;                       /**<Setup request packet*/
@@ -284,14 +283,6 @@ RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataS
  * @return None.
  */
 void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback);
-
-/**
- * @ingroup usb_peripheral
- * @brief Sets the callback for the setup processing.
- * @param callback - The function to call for the setup processing
- * @return None.
- */
-void USB_ControlProcessSetupCallbackRegister(USB_SETUP_PROCESS_CALLBACK_t callback);
 
 /**
  * @ingroup usb_peripheral

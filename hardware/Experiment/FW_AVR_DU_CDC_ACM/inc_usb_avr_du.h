@@ -36,6 +36,7 @@ extern "C" {
     #include "system.h"
     #include "usb_cdc.h"
     #include "usb_cdc_virtual_serial_port.h"
+    #include <usb_peripheral.h>
 }
 
 
@@ -97,8 +98,8 @@ static void usb_init()
     USB0.INTCTRLA   = 0;             // disable all bus-event interrupts  (was USB0_Initialize)
     USB0.INTCTRLB   = 0;             // disable all transaction interrupts (was USB0_Initialize)
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm; // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
-    USB_DescriptorPointersSet(&descriptorPointers); // was USBDevice_Initialize
-    USB_CDCInitialize();                            // was USBDevice_Initialize → USB_CDCVirtualSerialPortInitialize
+    applicationPointers = &descriptorPointers;      // was USB_DescriptorPointersSet (was USBDevice_Initialize)
+    USB_CDCInitialize();                            // was USBDevice_Initialize → USB_CDCVirtualSerialPortInitialize → USB_CDCInitialize
     // (USBDevice_Initialize's internal callback registrations and USB_Start() call are dropped:
     //  the ISRs now call USB_TransferHandler/USB_EventHandler directly; USB_Start() called after VREG enable)
 
@@ -112,7 +113,11 @@ static void usb_init()
     USB0.INTCTRLB |= USB_SETUP_bm;    // Enable SETUP    interrupt
 
     SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
-    USB_Start           ();
+    // was USB_Start()
+    USB_PeripheralInitialize();
+    (void)USB_ControlEndpointsInit();
+    (void)USB_ControlTransferReset();
+    USB_BusAttach();
 
     // Enable TCA0 in normal mode
     TCA0.SINGLE.CTRLA   = 0;

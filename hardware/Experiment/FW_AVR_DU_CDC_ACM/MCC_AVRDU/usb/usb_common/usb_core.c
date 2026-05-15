@@ -125,53 +125,6 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
     return status;
 }
 
-RETURN_CODE_t USB_Start(void)
-{
-    RETURN_CODE_t status = SUCCESS;
-
-    // Configures setup callback.
-    USB_ControlProcessSetupCallbackRegister(USB_SetupProcess);
-
-    // Sets up the peripheral.
-    USB_PeripheralInitialize();
-
-    // Initializes and configures the endpoints.
-    USB_PIPE_t pipe = { .address = 0 };
-    while (pipe.address < USB_EP_NUM)
-    {
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_OUT;
-            status = USB_PipeReset(pipe);
-        }
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_IN;
-            status = USB_PipeReset(pipe);
-        }
-        pipe.address++;
-    }
-
-    // Initializes the control endpoints.
-    if (status == SUCCESS)
-    {
-        status = USB_ControlEndpointsInit();
-    }
-
-    // Attaches the device to the bus.
-    if (status == SUCCESS)
-    {
-        status = USB_ControlTransferReset();
-    }
-
-    if (status == SUCCESS)
-    {
-        USB_BusAttach();
-    }
-
-    return status;
-}
-
 RETURN_CODE_t USB_Stop(void)
 {
     RETURN_CODE_t status = SUCCESS;
@@ -202,11 +155,19 @@ RETURN_CODE_t USB_Stop(void)
 
 RETURN_CODE_t USB_Reset(void)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-    status = USB_Stop();
+    RETURN_CODE_t status = USB_Stop();
     if (status == SUCCESS)
     {
-        status = USB_Start();
+        USB_PeripheralInitialize();
+        status = USB_ControlEndpointsInit();
+    }
+    if (status == SUCCESS)
+    {
+        status = USB_ControlTransferReset();
+    }
+    if (status == SUCCESS)
+    {
+        USB_BusAttach();
     }
     return status;
 }

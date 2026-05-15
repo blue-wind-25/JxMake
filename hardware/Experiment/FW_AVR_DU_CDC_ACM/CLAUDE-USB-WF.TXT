@@ -63,7 +63,6 @@ The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack t
 
 
 
-yes it is intact
 
 
 

@@ -58,8 +58,9 @@ No, but you can edit JxMakeFile to remove manufacturer source from the build scr
 
 
 
+Do not forget to update:
+../../../0_excluded_directory/_0_claude-mem-20260516.tar.gz
 tar -cjvpf _0_claude-mem-20260516.tar.gz ~/.claude/ ~/.claude.json
-
 
 
 

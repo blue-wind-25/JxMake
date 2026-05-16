@@ -461,7 +461,6 @@ RETURN_CODE_t USB_ControlTransferReset(void)
 
         // Resets the control transfer variables
         controlTransfer.endOfRequestCallback = NULL;
-        controlTransfer.overUnderRunCallback = NULL;
         controlTransfer.transferDataSize = 0u;
         controlTransfer.status = USB_CONTROL_SETUP;
     }
@@ -497,21 +496,10 @@ RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)
 
 RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataSize)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if (USB_EP0_SIZE < dataSize)
-    {
-        status = CONTROL_SIZE_ERROR;
-    }
-    else
-    {
-        (void)memcpy(controlTransfer.buffer, dataPtr, dataSize);
-        controlTransfer.transferDataPtr = controlTransfer.buffer;
-        controlTransfer.transferDataSize = dataSize;
-
-        status = SUCCESS;
-    }
-    return status;
+    (void)memcpy(controlTransfer.buffer, dataPtr, dataSize);
+    controlTransfer.transferDataPtr = controlTransfer.buffer;
+    controlTransfer.transferDataSize = dataSize;
+    return SUCCESS;
 }
 
 void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback)
@@ -519,10 +507,6 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
     controlTransfer.endOfRequestCallback = callback;
 }
 
-void USB_ControlOverUnderRunCallbackRegister(USB_SETUP_OVERUNDERRUN_CALLBACK_t callback)
-{
-    controlTransfer.overUnderRunCallback = callback;
-}
 
 RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow)
 {

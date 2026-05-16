@@ -57,7 +57,6 @@ typedef struct USB_CONTROL_TRANSFER_struct
     uint8_t *transferDataPtr;                               /*<Location in RAM to send or fill during transfer*/
     uint16_t transferDataSize;                              /*<Number of bytes to transfer to or from RAM location*/
     uint16_t totalBytesTransferred;                         /*<Number of data transfered last transaction*/
-    USB_SETUP_OVERUNDERRUN_CALLBACK_t overUnderRunCallback; /*<Callback to call on a control overrun or underrun*/
     USB_SETUP_ENDOFREQUEST_CALLBACK_t endOfRequestCallback; /*<Callback to call when a setup request is complete*/
     USB_SETUP_REQUEST_t setupRequest;                       /*<Setup request packet*/
 } USB_CONTROL_TRANSFER_t;
@@ -294,7 +293,6 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
  *     callback - The function to call on a control overrun or underrun
  * return None.
  */
-void USB_ControlOverUnderRunCallbackRegister(USB_SETUP_OVERUNDERRUN_CALLBACK_t callback);
 
 /*
  * usb_peripheral

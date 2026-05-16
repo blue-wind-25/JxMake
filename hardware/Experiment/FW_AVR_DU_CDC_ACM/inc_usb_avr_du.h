@@ -48,10 +48,10 @@ static void USBDevice_CDCACMHandler()
 {
     if(  USB_CDCVirtualSerialPortHandler() != SUCCESS ) return;
     if( !(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm) ) return;
-    if(  USB_CDCTxBusy                  ()            ) return;
+    if( CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe) ) return;
 
     static uint8_t cdcData;
-    if( USB_CDCRead(&cdcData) == CDC_SUCCESS ) USB_CDCWrite(cdcData);
+    if( CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS ) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
 }
 
 

@@ -40,7 +40,7 @@
 static bool zlpStateTX = true;
 
 // USB Pipes
-STATIC USB_PIPE_t CDCTxPipe = {
+USB_PIPE_t CDCTxPipe = {
     .address = USB_CDC_BULK_EP_IN,
     .direction = USB_EP_DIR_IN,
 };
@@ -53,7 +53,7 @@ STATIC USB_PIPE_t CDCRxPipe = {
 // RX Buffer
 STATIC uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
 STATIC uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
-STATIC CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
+CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .content = usbCDCReceiveArray,
     .head = 0,
     .tail = 0,
@@ -61,7 +61,7 @@ STATIC CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
 };
 // TX Buffer
 STATIC uint8_t usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
-STATIC CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
+CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .content = usbCDCTransmitArray,
     .head = 0,
     .tail = 0,
@@ -117,21 +117,6 @@ RETURN_CODE_t USB_CDCVirtualSerialPortHandler(void)
     }
 
     return status;
-}
-
-CDC_RETURN_CODE_t USB_CDCRead(uint8_t *data)
-{
-    return (CDC_RETURN_CODE_t) CIRCBUF_Dequeue(&usbCDCReceiveBuffer, data);
-}
-
-CDC_RETURN_CODE_t USB_CDCWrite(uint8_t data)
-{
-    return (CDC_RETURN_CODE_t) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, data);
-}
-
-bool USB_CDCTxBusy(void)
-{
-    return CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe);
 }
 
 void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)

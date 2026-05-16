@@ -37,6 +37,7 @@
 #include <usb_core.h>
 #include <usb_common_elements.h>
 #include <usb_protocol_cdc.h>
+#include <circular_buffer.h>
 
 /**
  * @ingroup usb_cdc
@@ -50,39 +51,11 @@ typedef enum CDC_RETURN_CODE_enum
     CDC_BUFFER_EMPTY = -2 /**<Error triggered by empty CDC buffer*/
 } CDC_RETURN_CODE_t;
 
-/**
- * @ingroup usb_cdc
- * @brief Performs Virtual Serial Port writes using the CDC class.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
+extern USB_PIPE_t CDCTxPipe;
+extern CIRCULAR_BUFFER_t usbCDCReceiveBuffer;
+extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
+
 RETURN_CODE_t USB_CDCVirtualSerialPortHandler(void);
-
-/**
- * @ingroup usb_cdc
- * @brief Pulls data from the CDC receive buffer.
- * @param buffer - Pointer to application receive buffer
- * @return status - Result of the called circular buffer function
- */
-CDC_RETURN_CODE_t USB_CDCRead(uint8_t *data);
-
-/**
- * @ingroup usb_cdc
- * @brief Adds data to the CDC transmit buffer.
- * @param data - Pointer to data to be transmitted
- * @param length - Length in number of bytes for data to be transmitted
- * @return status - Result of the called circular buffer function
- */
-CDC_RETURN_CODE_t USB_CDCWrite(uint8_t data);
-
-/**
- * @ingroup usb_cdc
- * @brief Checks if the transmit buffer is full.
- * @param None.
- * @retval 0 - Buffer not full
- * @retval 1 - Buffer full
- */
-bool USB_CDCTxBusy(void);
 
 /**
  * @ingroup usb_cdc

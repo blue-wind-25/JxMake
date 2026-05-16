@@ -82,53 +82,31 @@ RETURN_CODE_t USB_TransactionStart(USB_PIPE_t pipe)
 
 RETURN_CODE_t USB_TransactionAbort(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        USB_EndpointOutNAKSet(pipe.address);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutNAKSet(pipe.address);
-        }
-        else
-        {
-            USB_EndpointInNAKSet(pipe.address);
-        }
-
-        pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_ABORTED;
-        status = SUCCESS;
+        USB_EndpointInNAKSet(pipe.address);
     }
 
-    return status;
+    pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_ABORTED;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_TransactionCompleteAck(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        USB_EndpointOutTransactionCompleteAck(pipe.address);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutTransactionCompleteAck(pipe.address);
-        }
-        else
-        {
-            USB_EndpointInTransactionCompleteAck(pipe.address);
-        }
-        pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_OK;
-        status = SUCCESS;
+        USB_EndpointInTransactionCompleteAck(pipe.address);
     }
-
-    return status;
+    pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_OK;
+    return SUCCESS;
 }
 
 bool USB_TransactionIsCompleted(void)
@@ -173,26 +151,14 @@ RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe)
 
 RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
-    {
-        status = ENDPOINT_ADDRESS_ERROR;
-    }
-    else
-    {
-        pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-        pipeTransferPtr->transferDataPtr = NULL;
-        pipeTransferPtr->transferDataSize = 0;
-        pipeTransferPtr->bytesTransferred = 0;
-        pipeTransferPtr->transferEndCallback = NULL;
-        pipeTransferPtr->ZLPEnable = false;
-
-        status = SUCCESS;
-    }
-
-    return status;
+    pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
+    pipeTransferPtr->transferDataPtr = NULL;
+    pipeTransferPtr->transferDataSize = 0;
+    pipeTransferPtr->bytesTransferred = 0;
+    pipeTransferPtr->transferEndCallback = NULL;
+    pipeTransferPtr->ZLPEnable = false;
+    return SUCCESS;
 }
 
 USB_TRANSFER_STATUS_t USB_PipeStatusGet(USB_PIPE_t pipe)

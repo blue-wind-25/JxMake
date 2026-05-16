@@ -47,18 +47,8 @@ STATIC uint8_t deviceAddress = 0;
 
 RETURN_CODE_t SetupDeviceRequestGetStatus(void)
 {
-    // Return IN transaction with Remote Wake-up and Self Powered.
+    // Bus-powered, no remote wakeup — both bits always 0
     uint8_t data[] = {0, 0};
-
-   if (USB_DescriptorActiveConfigurationSelfPoweredGet())
-   {
-       data[0] |= USB_REQUEST_DEVICE_SELF_POWERED;
-   }
-   if (USB_DescriptorActiveConfigurationRemoteWakeupGet())
-   {
-       data[0] |= USB_REQUEST_DEVICE_REMOTE_WAKEUP;
-   }
-
     return USB_ControlTransferDataWriteBuffer(data, sizeof(data));
 }
 

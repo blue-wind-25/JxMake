@@ -45,10 +45,6 @@ RETURN_CODE_t USB_EventHandler(void)
 {
     RETURN_CODE_t status = SUCCESS;
 
-    if (USB_EventSOFIsReceived() == true)
-    {
-        USB_EventSOFClear();
-    }
     if (USB_EventResetIsReceived() == true)
     {
         USB_EventResetClear();
@@ -82,14 +78,6 @@ RETURN_CODE_t USB_EventHandler(void)
         {
             status = SUCCESS;
         }
-    }
-    if (USB_EventSuspendIsReceived() == true)
-    {
-        USB_EventSuspendClear();
-    }
-    if (USB_EventResumeIsReceived() == true)
-    {
-        USB_EventResumeClear();
     }
     if (USB_EventStalledIsReceived() == true)
     {

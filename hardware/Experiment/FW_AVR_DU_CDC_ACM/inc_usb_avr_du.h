@@ -85,6 +85,32 @@ static inline void delayMS(uint32_t mS)
 }
 
 
+static __attribute__((unused)) RETURN_CODE_t usb_stop()
+{
+    RETURN_CODE_t status = SUCCESS;
+    USB_BusDetach();
+    USB_PeripheralDisable();
+    USB_PIPE_t pipe;
+    pipe.address   = 0;
+    pipe.direction = USB_EP_DIR_OUT;
+    while (pipe.address < USB_EP_NUM)
+    {
+        if (status == SUCCESS) { pipe.direction = USB_EP_DIR_OUT; status = USB_TransferAbort(pipe); }
+        if (status == SUCCESS) { pipe.direction = USB_EP_DIR_IN;  status = USB_TransferAbort(pipe); }
+        pipe.address++;
+    }
+    return status;
+}
+
+static __attribute__((unused)) void usb_start()
+{
+    USB_PeripheralInitialize();
+    (void)USB_ControlEndpointsInit();
+    (void)USB_ControlTransferReset();
+    USB_BusAttach();
+}
+
+
 static void usb_init()
 {
     // Reinitialize OSCHF

@@ -470,67 +470,38 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if (NULL != applicationPointers->langIDptr)
+    if (stringIndex == 0u)
     {
-        if (stringIndex == 0u)
-        {
-            // Index 0 is the language id index, writes pointer and length.
-            *descriptorAddressPtr = (uint8_t *)applicationPointers->langIDptr;
-            *descriptorLength = (uint16_t)applicationPointers->langIDptr->header.bLength;
-            status = SUCCESS;
-        }
-        else
-        {
-            // Iterates through the supported language IDs to find the index.
-            uint8_t langIdx = 0;
-            for (langIdx = 0; langIdx < LANG_ID_NUM; langIdx++)
-            {
-                if (langID == applicationPointers->langIDptr->id_array[langIdx])
-                {
-                    // Language match, langIdx found.
-                    break;
-                }
-            }
+        // Index 0 returns the language ID descriptor
+        *descriptorAddressPtr = (uint8_t *)applicationPointers->langIDptr;
+        *descriptorLength = (uint16_t)applicationPointers->langIDptr->header.bLength;
+        return SUCCESS;
+    }
 
-            if (LANG_ID_NUM == langIdx)
-            {
-                // Language ID not in langID struct, returns UNSUPPORTED.
-                status = UNSUPPORTED;
-            }
-            else if (NULL != applicationPointers->stringPtrs[langIdx])
-            {
-                // Iterates through string descriptors to account for different string lengths.
-                USB_DESCRIPTOR_HEADER_t *stringHeader = applicationPointers->stringPtrs[langIdx];
-                if (1u == stringIndex)
-                {
-                    status = SUCCESS;
-                }
-                else
-                {
-                    for (uint8_t i = 1u; i < stringIndex; i++)
-                    {
-                        status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_STRING, &stringHeader);
-                    }
-                }
+    // LANG_ID_NUM == 1: only id_array[0] exists
+    if (langID != applicationPointers->langIDptr->id_array[0])
+    {
+        return UNSUPPORTED;
+    }
 
-                // Writes pointer and length.
-                if (SUCCESS == status)
-                {
-                    *descriptorAddressPtr = (uint8_t *)stringHeader;
-                    *descriptorLength = (uint16_t)stringHeader->bLength;
-                }
-            }
-            else
-            {
-                // stringPtrs not set up correctly, returns error.
-                status = DESCRIPTOR_POINTER_ERROR;
-            }
+    // stringPtrs[0] is always initialized (statically set in usb_descriptors.c)
+    USB_DESCRIPTOR_HEADER_t *stringHeader = applicationPointers->stringPtrs[0];
+    if (stringIndex > 1u)
+    {
+        for (uint8_t i = 1u; i < stringIndex; i++)
+        {
+            status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_STRING, &stringHeader);
         }
     }
     else
     {
-        // langIDptr not set up, returns unsupported and stalls request.
-        status = UNSUPPORTED;
+        status = SUCCESS;
+    }
+
+    if (SUCCESS == status)
+    {
+        *descriptorAddressPtr = (uint8_t *)stringHeader;
+        *descriptorLength = (uint16_t)stringHeader->bLength;
     }
 
     return status;

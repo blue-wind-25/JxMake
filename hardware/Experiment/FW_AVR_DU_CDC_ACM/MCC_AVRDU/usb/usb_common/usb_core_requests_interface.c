@@ -97,24 +97,3 @@ RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRe
     return status;
 }
 
-RETURN_CODE_t USB_SetupInterfaceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
-
-    if (USB_DESCRIPTOR_TYPE_VENDOR <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
-    {
-        status = UNSUPPORTED;
-    }
-    else if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
-    {
-        status = USB_CDCRequestHandler(setupRequestPtr);
-    }
-    else
-    {
-        status = UNSUPPORTED;
-    }
-
-    return status;
-}

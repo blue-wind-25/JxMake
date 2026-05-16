@@ -52,26 +52,6 @@ RETURN_CODE_t SetupDeviceRequestGetStatus(void)
     return USB_ControlTransferDataWriteBuffer(data, sizeof(data));
 }
 
-RETURN_CODE_t SetupDeviceRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr)
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Clear feature for DEVICE_REMOTE_WAKEUP and TEST_MODE not yet supported
-    (void)setupRequestPtr;
-
-    return status;
-}
-
-RETURN_CODE_t SetupDeviceRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr)
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Set feature for DEVICE_REMOTE_WAKEUP and TEST_MODE not yet supported
-    (void)setupRequestPtr;
-
-    return status;
-}
-
 RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address)
 {
     // Must register the callback here since device address must be set after completion of status stage.

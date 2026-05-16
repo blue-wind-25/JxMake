@@ -54,12 +54,14 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
     }
     case USB_REQUEST_CLEAR_FEATURE:
     {
-        status = SetupDeviceRequestClearFeature(setupRequestPtr);
+        // DEVICE_REMOTE_WAKEUP and TEST_MODE not supported
+        status = UNSUPPORTED;
         break;
     }
     case USB_REQUEST_SET_FEATURE:
     {
-        status = SetupDeviceRequestSetFeature(setupRequestPtr);
+        // DEVICE_REMOTE_WAKEUP and TEST_MODE not supported
+        status = UNSUPPORTED;
         break;
     }
     case USB_REQUEST_SET_ADDRESS:
@@ -176,7 +178,8 @@ RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequest
     }
     case USB_REQUEST_GET_DESCRIPTOR:
     {
-        status = USB_SetupInterfaceRequestGetDescriptor(setupRequestPtr);
+        // Standard GET_DESCRIPTOR to interface not used by CDC-ACM
+        status = UNSUPPORTED;
         break;
     }
     default:

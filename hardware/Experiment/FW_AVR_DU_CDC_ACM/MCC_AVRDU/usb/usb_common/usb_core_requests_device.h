@@ -49,22 +49,6 @@ RETURN_CODE_t SetupDeviceRequestGetStatus(void);
 
 /**
  * @ingroup usb_core_requests
- * @brief Clears the device feature.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
-
-/**
- * @ingroup usb_core_requests
- * @brief Sets the device feature.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
-
-/**
- * @ingroup usb_core_requests
  * @brief Sets the device address.
  * @param address - Address to be set
  * @return SUCCESS or an Error code according to RETURN_CODE_t

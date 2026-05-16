@@ -84,18 +84,5 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
  */
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Setup function for the interface request for class-specific descriptors.
- *
- * | bRequest       | wValue            | wIndex    | wLength | Data       |
- * |----------------|-------------------|-----------|---------|------------|
- * | GET_DESCRIPTOR | Type and index    | Zero      | Length  | Descriptor |
- *
- * @param *setupRequestPtr - Pointer to the request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_SetupInterfaceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr);
-
 #endif	/* USB_CORE_REQUESTS_INTERFACE_H */
 

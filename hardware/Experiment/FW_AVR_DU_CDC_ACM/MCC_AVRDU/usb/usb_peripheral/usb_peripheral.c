@@ -237,7 +237,7 @@ RETURN_CODE_t USB_ControlSetupReceived(void)
                     else
                     {
                         // Control OUT data transactions are controlled by the IN.DATAPTR so set specifically here.
-                        status = EndpointBufferSet(controlPipe, controlTransfer.transferDataPtr);
+                        EndpointBufferSet(controlPipe, controlTransfer.transferDataPtr);
 
                         controlPipe.direction = USB_EP_DIR_OUT;
                         controlTransfer.status = USB_CONTROL_DATA_OUT;

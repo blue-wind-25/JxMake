@@ -238,11 +238,8 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
             if ((interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber) && (activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting))
             {
                 // Disable endpoints for the active alternate interface
-                status = DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
-                if (SUCCESS == status)
-                {
-                    activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
-                }
+                DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
+                activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
             }
 
             if (enable)
@@ -279,11 +276,8 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
                 if (NULL != enableInterfacePtr)
                 {
                     // Enable the endpoints for the activated interface
-                    status = DescriptorEndpointsConfigure(enableInterfacePtr, true);
-                    if (SUCCESS == status)
-                    {
-                        activeInterfaces[interfaceNumber] = alternateSetting;
-                    }
+                    DescriptorEndpointsConfigure(enableInterfacePtr, true);
+                    activeInterfaces[interfaceNumber] = alternateSetting;
                 }
                 else
                 {
@@ -302,8 +296,6 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
 
 RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable)
 {
-    RETURN_CODE_t status = SUCCESS;
-
     // The number of endpoints to enable/disable is found from the interface.
     uint8_t numEndpoints = interfacePtr->bNumEndpoints;
 
@@ -319,28 +311,21 @@ RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interface
         {
             if (true == enable)
             {
-                // Configures endpoint according to descriptor.
-                status
-                    = USB_EndpointConfigure(currentDescriptor.endpointPtr->bEndpointAddress, currentDescriptor.endpointPtr->wMaxPacketSize, currentDescriptor.endpointPtr->bmAttributes.type);
+                // Configures endpoint according to descriptor (sizes 8/64 always valid).
+                USB_EndpointConfigure(currentDescriptor.endpointPtr->bEndpointAddress, currentDescriptor.endpointPtr->wMaxPacketSize, currentDescriptor.endpointPtr->bmAttributes.type);
             }
             else
             {
                 // Aborts any ongoing transfer and disable endpoint.
                 USB_TransferAbort(currentDescriptor.endpointPtr->bEndpointAddress);
-                status = USB_EndpointDisable(currentDescriptor.endpointPtr->bEndpointAddress);
+                USB_EndpointDisable(currentDescriptor.endpointPtr->bEndpointAddress);
             }
 
             numEndpoints--;
-
-            if (SUCCESS != status)
-            {
-                // Exits loop immediately.
-                numEndpoints = 0;
-            }
         }
     }
 
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t **descriptorPtr, uint16_t *descriptorLength)

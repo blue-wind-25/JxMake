@@ -470,28 +470,10 @@ RETURN_CODE_t USB_ControlTransferReset(void)
 
 RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if (dataPtr == NULL)
-    {
-        controlTransfer.transferDataPtr = controlTransfer.buffer;
-        if (0u != dataSize)
-        {
-            status = CONTROL_SIZE_ERROR;
-        }
-        else
-        {
-            status = SUCCESS;
-        }
-    }
-    else
-    {
-        controlTransfer.transferDataPtr = dataPtr;
-        status = SUCCESS;
-    }
+    // NULL callers always pass dataSize=0 (USB_SetupProcess reset path)
+    controlTransfer.transferDataPtr = (dataPtr != NULL) ? dataPtr : controlTransfer.buffer;
     controlTransfer.transferDataSize = dataSize;
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataSize)

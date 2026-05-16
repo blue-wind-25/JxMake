@@ -349,17 +349,8 @@ RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)
 
     if (USB_EP_DIR_IN == pipe.direction)
     {
-        // Transaction complete on IN.
-        if (USB_EndpointInMultipktIsEnabled(pipe.address) == true)
-        {
-            // With multipacket enabled we know exactly what got transferred.
-            transactionSize = USB_NumberBytesSentGet(pipe.address);
-        }
-        else
-        {
-            // With multipacket disabled we know what we meant to transfer.
-            transactionSize = USB_NumberBytesToSendGet(pipe.address);
-        }
+        // Transaction complete on IN — InMultipktEnable=1 for EP0 and EP2.
+        transactionSize = USB_NumberBytesSentGet(pipe.address);
 
         // Check if we need to send more data, or ZLP.
         pipeTransferPtr->bytesTransferred += transactionSize;

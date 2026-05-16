@@ -129,12 +129,8 @@ RETURN_CODE_t USB_TransferHandler(void)
 
         if (status == SUCCESS)
         {
-            // Acks the transaction.
-            status = USB_TransactionCompleteAck(pipe);
-        }
+            USB_TransactionCompleteAck(pipe);
 
-        if (status == SUCCESS)
-        {
             // Handles control transactions separately.
             if (pipe.address == 0U)
             {

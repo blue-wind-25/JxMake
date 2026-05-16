@@ -113,24 +113,6 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
 
 /*
  * usb_core
- * Get the active alternate interface number for an interface.
- *     interfaceNumber - The interface number to get the alternate setting for
- *     *alternateSetting - The requested alternate setting
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t ActiveAlternateSettingGet(uint8_t interfaceNumber, uint8_t *alternateSetting);
-
-/*
- * usb_core
- * Set the active alternate interface number for an interface.
- *     interfaceNumber - The interface number to set the alternate setting for
- *     alternateSetting - The alternate setting to set
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t ActiveAlternateSettingSet(uint8_t interfaceNumber, uint8_t alternateSetting);
-
-/*
- * usb_core
  * Collects the configuration pointer.
  *     configurationValue - Value of the referenced configuration
  *     **configurationPtr - Pointer to the configuration

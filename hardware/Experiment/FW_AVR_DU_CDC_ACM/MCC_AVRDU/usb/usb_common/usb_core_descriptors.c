@@ -96,66 +96,59 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
     // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t currentDescriptor;
 
-    if (NULL == applicationPointers)
+    if (NULL != activeConfigurationPtr)
     {
-        status = DESCRIPTOR_POINTER_ERROR;
-    }
-    else
-    {
-        if (NULL != activeConfigurationPtr)
+        status = SUCCESS;
+
+        // Find and disable all active interfaces in the current configuration
+        currentDescriptor.configurationPtr = activeConfigurationPtr;
+        uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
+        while ((SUCCESS == status) && (numInterfaces > 0u))
         {
-            status = SUCCESS;
+            status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr);
 
-            // Find and disable all active interfaces in the current configuration
-            currentDescriptor.configurationPtr = activeConfigurationPtr;
-            uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
-            while ((SUCCESS == status) && (numInterfaces > 0u))
+            if (SUCCESS == status)
             {
-                status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr);
-
-                if (SUCCESS == status)
+                if (activeInterfaces[currentDescriptor.interfacePtr->bInterfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting)
                 {
-                    if (activeInterfaces[currentDescriptor.interfacePtr->bInterfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting)
-                    {
-                        status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, false);
-                        numInterfaces--;
-                    }
+                    status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, false);
+                    numInterfaces--;
                 }
             }
         }
+    }
+    else
+    {
+        // No current configuration, nothing to disable
+        status = SUCCESS;
+    }
+
+    if (SUCCESS == status)
+    {
+        if (USB_REQUEST_DEVICE_DISABLE_CONFIGURATION == configurationValue)
+        {
+            // Active configuration is disabled, so clear pointer
+            activeConfigurationPtr = NULL;
+        }
         else
         {
-            // No current configuration, nothing to disable
-            status = SUCCESS;
-        }
+            // Get new configuration pointer and enable its interfaces
+            status = ConfigurationPointerGet(configurationValue, &activeConfigurationPtr);
 
-        if (SUCCESS == status)
-        {
-            if (USB_REQUEST_DEVICE_DISABLE_CONFIGURATION == configurationValue)
+            if (SUCCESS == status)
             {
-                // Active configuration is disabled, so clear pointer
-                activeConfigurationPtr = NULL;
-            }
-            else
-            {
-                // Get new configuration pointer and enable its interfaces
-                status = ConfigurationPointerGet(configurationValue, &activeConfigurationPtr);
-
-                if (SUCCESS == status)
+                // Find and enable all interfaces in the set configuration with bAlternateSetting == 0
+                currentDescriptor.configurationPtr = activeConfigurationPtr;
+                uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
+                while ((SUCCESS == status) && (numInterfaces > 0u))
                 {
-                    // Find and enable all interfaces in the set configuration with bAlternateSetting == 0
-                    currentDescriptor.configurationPtr = activeConfigurationPtr;
-                    uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
-                    while ((SUCCESS == status) && (numInterfaces > 0u))
+                    status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr);
+                    if (SUCCESS == status)
                     {
-                        status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr);
-                        if (SUCCESS == status)
+                        if (USB_DEFAULT_ALTERNATE_SETTING == currentDescriptor.interfacePtr->bAlternateSetting)
                         {
-                            if (USB_DEFAULT_ALTERNATE_SETTING == currentDescriptor.interfacePtr->bAlternateSetting)
-                            {
-                                status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, true);
-                                numInterfaces--;
-                            }
+                            status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, true);
+                            numInterfaces--;
                         }
                     }
                 }
@@ -412,17 +405,9 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
     switch (descriptor)
     {
     case USB_DESCRIPTOR_TYPE_DEVICE:
-        // Returns pointer to device descriptor.
-        if (applicationPointers != NULL)
-        {
-            *descriptorPtr = (uint8_t *)applicationPointers->devicePtr;
-            *descriptorLength = (uint16_t)applicationPointers->devicePtr->header.bLength;
-            status = SUCCESS;
-        }
-        else
-        {
-            status = DESCRIPTOR_POINTER_ERROR;
-        }
+        *descriptorPtr = (uint8_t *)applicationPointers->devicePtr;
+        *descriptorLength = (uint16_t)applicationPointers->devicePtr->header.bLength;
+        status = SUCCESS;
         break;
     case USB_DESCRIPTOR_TYPE_CONFIGURATION:;
         // Returns pointer to configuration, with the total length.
@@ -435,15 +420,9 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
         }
         break;
     case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
-        // Only for high-speed.
-        status = UNSUPPORTED;
-        break;
     case USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION:
-        // Only for high-speed.
-        status = UNSUPPORTED;
-        break;
     case USB_DESCRIPTOR_TYPE_BOS:
-        // No BOS descriptor — bus-powered CDC-ACM device
+        // Not supported: high-speed only or not present
         status = UNSUPPORTED;
         break;
     default:

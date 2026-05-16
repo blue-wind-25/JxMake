@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOREREQUESTSDEVICE USB Core Requests Device Core File
  * usb_core_requests_device.c
  * usb_core_requests

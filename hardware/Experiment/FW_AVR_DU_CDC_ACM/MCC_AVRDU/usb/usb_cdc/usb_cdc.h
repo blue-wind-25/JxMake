@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCDC CDC Header File
  * usb_cdc.h
  * usb_cdc USB Communications Device Class (CDC)

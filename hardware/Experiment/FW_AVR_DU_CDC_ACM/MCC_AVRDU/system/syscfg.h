@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * SYSCFG Generated Driver API Header File
  *
  * syscfg.h
@@ -10,7 +14,7 @@
  * SYSCFG Driver Version 1.0.0
 */
 /*
- [2025] Microchip Technology Inc. and its subsidiaries.
+(C) [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.

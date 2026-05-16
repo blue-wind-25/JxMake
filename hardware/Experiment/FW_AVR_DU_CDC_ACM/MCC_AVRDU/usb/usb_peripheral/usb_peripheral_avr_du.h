@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPERIPHERALAVRDU Peripheral AVR DU Specific Header File
  * usb_peripheral_avr_du.h
  * usb_peripheral_avr_du USB Peripheral AVR DU

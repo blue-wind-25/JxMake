@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * Interrupt Manager Generated Driver API Header File.
  *
  * interrupt.h
@@ -11,7 +15,7 @@
 */
 
 /*
- [2025] Microchip Technology Inc. and its subsidiaries.
+(C) [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.

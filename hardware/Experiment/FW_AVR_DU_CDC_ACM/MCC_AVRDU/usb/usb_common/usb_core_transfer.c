@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCORETRANSFER USB Core Transfer Source File
  * usb_core_transfer.c
  * usb_core_transfer

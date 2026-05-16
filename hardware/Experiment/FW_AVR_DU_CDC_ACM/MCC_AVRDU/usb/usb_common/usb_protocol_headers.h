@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPROTOCOLHEADERS USB Protocol Headers Header File
  * usb_protocol_headers.h
  * usb_protocol USB Protocol

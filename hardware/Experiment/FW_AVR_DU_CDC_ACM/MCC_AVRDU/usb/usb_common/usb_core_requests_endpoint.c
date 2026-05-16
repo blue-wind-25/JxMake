@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOREREQUESTSENDPOINT USB Core Requests Endpoint Source  File
  * usb_core_requests_endpoint.c
  * usb_core_requests

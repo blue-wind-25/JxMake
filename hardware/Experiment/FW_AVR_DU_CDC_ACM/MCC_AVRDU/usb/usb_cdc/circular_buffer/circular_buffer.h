@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * CIRCULARBUFFER CDC Circular Buffer Header File
  * circular_buffer.h
  * usb_cdc

@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USB_CONFIG Generated Config Header File
  *
  * usb_config.h
@@ -13,7 +17,7 @@
  * USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
- [2025] Microchip Technology Inc. and its subsidiaries.
+(C) [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.

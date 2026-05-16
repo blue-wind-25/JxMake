@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOREDESCRIPTOR Core Descriptors Header File
  * usb_core_descriptors.h
  * usb_core_descriptors USB Descriptor Definitions

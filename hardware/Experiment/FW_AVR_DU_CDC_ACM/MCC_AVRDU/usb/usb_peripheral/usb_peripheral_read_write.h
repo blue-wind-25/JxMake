@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPERIPHERALREADWRITE Peripheral Read/Write Header File
  * usb_peripheral_read_write.h
  * usb_peripheral_read_write USB Peripheral Read/Write

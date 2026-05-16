@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCDCVIRTUALSERIALPORT CDC Virtual Serial Port Source File
  * usb_cdc_virtual_serial_port.c
  * usb_cdc

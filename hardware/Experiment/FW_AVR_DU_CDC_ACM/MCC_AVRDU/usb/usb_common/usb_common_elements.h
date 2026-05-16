@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOMMONELEMENTS Common Elements Header File
  * usb_common_elements.h
  * usb_common USB Common Elements

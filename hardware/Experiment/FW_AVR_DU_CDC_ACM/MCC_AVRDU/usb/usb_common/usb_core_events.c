@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOREEVENTS USB Core Events Source File
  * usb_core_events.h
  * usb_core_events

@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCORE CORE Header File
  * usb_core.h
  * usb_core USB Core Layer

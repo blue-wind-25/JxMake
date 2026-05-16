@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPERIPHERAL Peripheral Header File
  * usb_peripheral.h
  * usb_peripheral USB Peripheral Hardware Abstraction Layer (HAL)

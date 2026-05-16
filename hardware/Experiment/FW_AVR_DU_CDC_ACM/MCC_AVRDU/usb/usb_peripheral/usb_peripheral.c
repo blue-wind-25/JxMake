@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPERIPHERAL Peripheral Source File
  * usb_peripheral.c
  * usb_peripheral

@@ -1,3 +1,7 @@
+/*
+ * ##### This file has been modified by JxMake project #####
+ */
+
 
 /*
  * CLKCTRL Generated Driver API Header File
@@ -13,7 +17,7 @@
  * Package Version 2.0.10
 */
 /*
- [2025] Microchip Technology Inc. and its subsidiaries.
+(C) [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.

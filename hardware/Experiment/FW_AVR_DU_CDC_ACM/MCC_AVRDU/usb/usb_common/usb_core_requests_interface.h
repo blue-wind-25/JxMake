@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCOREREQUESTSINTERFACE USB Core Requests Interface Header File
  * usb_core_requests_interface.h
  * usb_core_requests

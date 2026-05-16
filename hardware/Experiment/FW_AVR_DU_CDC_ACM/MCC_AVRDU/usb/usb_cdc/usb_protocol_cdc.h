@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPROTOCOLCDC CDC Protocol Header File
  * usb_protocol_cdc.h
  * usb_cdc

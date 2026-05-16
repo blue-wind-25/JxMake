@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBPERIPHERALENDPOINT Peripheral Endpoint Header File
  * usb_peripheral_endpoint.h
  * usb_peripheral_endpoint USB Peripheral Endpoint

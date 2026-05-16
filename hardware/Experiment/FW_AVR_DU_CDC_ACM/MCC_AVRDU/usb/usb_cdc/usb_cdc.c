@@ -1,4 +1,8 @@
 /*
+ * ##### This file has been modified by JxMake project #####
+ */
+
+/*
  * USBCDC CDC Source File
  * usb_cdc.c
  * usb_cdc

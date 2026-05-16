@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREREQUESTSINTERFACE USB Core Requests Interface Header File
- * @file usb_core_requests_interface.h
- * @ingroup usb_core_requests
- * @brief USB Interface Core Requests handling.
- * @version USB Device Core Version 1.0.0
+ * usb_core_requests_interface.h
+ * usb_core_requests
+ * USB Interface Core Requests handling.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -40,23 +40,23 @@
 #include "usb_protocol_headers.h"
 #include "usb_common_elements.h"
 
-/**
- * @ingroup usb_core_requests
- * @brief Returns status for the specified interface.
+/*
+ * usb_core_requests
+ * Returns status for the specified interface.
  *
  * Get status from interface request according to USB 2.0 specification Ch. 9.4.5.
  * | bRequest   | wValue | wIndex      | wLength | Data      |
  * |------------|--------|-------------|---------|-----------|
  * | GET_STATUS | Zero   |  Interface  | Two     | Interface |
  *
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
 
-/**
- * @ingroup usb_core_requests
- * @brief Returns the alternate setting for the specified interface.
+/*
+ * usb_core_requests
+ * Returns the alternate setting for the specified interface.
  *
  * Format for GET_INTERFACE request according to USB 2.0 specification Ch 9.4.4.
  * Document: Universal Serial Bus Specification for USB 2.0.
@@ -64,14 +64,14 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
  * |---------------|--------|-----------|---------|-------------------|
  * | GET_INTERFACE | Zero   | Interface | One     | Alternate setting |
  *
- * @param *setupRequestPtr - Pointer to the request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     *setupRequestPtr - Pointer to the request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Setup function for the interface request to select the alternate setting.
+/*
+ * usb_core_requests
+ * Setup function for the interface request to select the alternate setting.
  *
  * A request to set interface according to USB 2.0 specification Ch. 9.4.10.
  * Document: Universal Serial Bus Specification for USB 2.0
@@ -79,8 +79,8 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
  * |---------------|-------------------|-----------|---------|------|
  * | SET_INTERFACE | Alternate setting | Interface | Zero    | None |
  *
- * @param *setupRequestPtr - Pointer to the request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     *setupRequestPtr - Pointer to the request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
 

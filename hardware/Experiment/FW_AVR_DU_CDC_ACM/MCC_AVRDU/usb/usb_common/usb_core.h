@@ -1,9 +1,9 @@
-/**
+/*
  * USBCORE CORE Header File
- * @file usb_core.h
- * @defgroup usb_core USB Core Layer
- * @brief Core functionality for the USB stack.
- * @version USB Device Core Version 1.0.0
+ * usb_core.h
+ * usb_core USB Core Layer
+ * Core functionality for the USB stack.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -41,9 +41,9 @@
 #include <usb_core_transfer.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_core
- * @brief Setup function for the Standard Device Request USB 2.0 Specification Ch 9.4.
+/*
+ * usb_core
+ * Setup function for the Standard Device Request USB 2.0 Specification Ch 9.4.
  * | bRequest          | wValue                                | wIndex                  | wLength           | Data                                |
  * |-------------------|---------------------------------------|-------------------------|-------------------|-------------------------------------|
  * | CLEAR_FEATURE     | Feature Selector                      | Zero                    | None              |                                     |
@@ -63,24 +63,24 @@
  * | SET_FEATURE       | Feature Selector                      | Endpoint                | Zero              |                                     |
  * | SET_INTERFACE     | Alternate Setting                     | Interface               | Zero              | None                                |
  * | SYNCH_FRAME       | Zero                                  | Endpoint                | Two               | Frame Number                        |
- * @param *setupRequestPtr - Pointer to the setup request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     *setupRequestPtr - Pointer to the setup request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core
- * @brief Stops the USB peripheral and detaches it from the bus.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core
+ * Stops the USB peripheral and detaches it from the bus.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_Stop(void);
 
-/**
- * @ingroup usb_core
- * @brief Resets the USB peripheral.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core
+ * Resets the USB peripheral.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_Reset(void);
 

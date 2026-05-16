@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREREQUESTSENDPOINT USB Core Requests Endpoint Header File
- * @file usb_core_requests_endpoint.h
- * @ingroup usb_core_requests
- * @brief USB Endpoint Core Requests handling.
- * @version USB Device Core Version USB 1.0.0
+ * usb_core_requests_endpoint.h
+ * usb_core_requests
+ * USB Endpoint Core Requests handling.
+ * USB Device Core Version USB 1.0.0
  */
 
 /*
@@ -40,43 +40,43 @@
 #include "usb_protocol_headers.h"
 #include "usb_common_elements.h"
 
-/**
- * @ingroup usb_core_requests
- * @brief Gets the endpoint status.
- * @param wIndex - Endpoint address and direction
- * @return A structure with the endpoint status
+/*
+ * usb_core_requests
+ * Gets the endpoint status.
+ *     wIndex - Endpoint address and direction
+ * return A structure with the endpoint status
  */
 USB_PIPE_t EndpointFromRequestGet(uint16_t wIndex);
 
-/**
- * @ingroup usb_core_requests
- * @brief Gets the endpoint status.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Gets the endpoint status.
+ *     *setupRequestPtr - Pointer to the setup request
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupEndpointRequestGetStatus(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Clears the endpoint feature.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Clears the endpoint feature.
+ *     *setupRequestPtr - Pointer to the setup request
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupEndpointRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Sets the endpoint feature.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Sets the endpoint feature.
+ *     *setupRequestPtr - Pointer to the setup request
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Gets the current frame number.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Gets the current frame number.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupEndpointRequestSynchFrame(void);
 

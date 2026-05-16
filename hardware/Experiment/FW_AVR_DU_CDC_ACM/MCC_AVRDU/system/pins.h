@@ -1,18 +1,18 @@
-/**
+/*
  * Generated Pins header File
  * 
- * @file pins.h
+ * pins.h
  * 
- * @defgroup  pinsdriver Pins Driver
+ *  pinsdriver Pins Driver
  * 
- * @brief This is generated driver header for pins. 
+ * This is generated driver header for pins. 
  *        This header file provides APIs for all pins selected in the GUI.
  *
- * @version Driver Version  1.1.0
+ * Driver Version  1.1.0
 */
 
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -76,53 +76,53 @@
 #define LED_EnableInterruptForLowLevelSensing() do { PORTF.PIN2CTRL = (PORTF.PIN2CTRL & ~PORT_ISC_gm) | 0x5 ; } while(0)
 #define PF2_SetInterruptHandler LED_SetInterruptHandler
 
-/**
- * @ingroup  pinsdriver
- * @brief GPIO and peripheral I/O initialization
- * @param none
- * @return none
+/*
+ *  pinsdriver
+ * GPIO and peripheral I/O initialization
+ *     none
+ * return none
  */
 void PIN_MANAGER_Initialize();
 
-/**
- * @ingroup  pinsdriver
- * @brief Default Interrupt Handler for VBUS pin. 
+/*
+ *  pinsdriver
+ * Default Interrupt Handler for VBUS pin. 
  *        This is a predefined interrupt handler to be used together with the VBUS_SetInterruptHandler() method.
  *        This handler is called every time the VBUS ISR is executed. 
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param none
- * @return none
+ * PIN_MANAGER_Initialize() has been called at least once
+ *     none
+ * return none
  */
 void VBUS_DefaultInterruptHandler(void);
 
-/**
- * @ingroup  pinsdriver
- * @brief Interrupt Handler Setter for VBUS pin input-sense-config functionality.
+/*
+ *  pinsdriver
+ * Interrupt Handler Setter for VBUS pin input-sense-config functionality.
  *        Allows selecting an interrupt handler for VBUS at application runtime
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param InterruptHandler function pointer.
- * @return none
+ * PIN_MANAGER_Initialize() has been called at least once
+ *     InterruptHandler function pointer.
+ * return none
  */
 void VBUS_SetInterruptHandler(void (* interruptHandler)(void)) ; 
 
-/**
- * @ingroup  pinsdriver
- * @brief Default Interrupt Handler for LED pin. 
+/*
+ *  pinsdriver
+ * Default Interrupt Handler for LED pin. 
  *        This is a predefined interrupt handler to be used together with the LED_SetInterruptHandler() method.
  *        This handler is called every time the LED ISR is executed. 
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param none
- * @return none
+ * PIN_MANAGER_Initialize() has been called at least once
+ *     none
+ * return none
  */
 void LED_DefaultInterruptHandler(void);
 
-/**
- * @ingroup  pinsdriver
- * @brief Interrupt Handler Setter for LED pin input-sense-config functionality.
+/*
+ *  pinsdriver
+ * Interrupt Handler Setter for LED pin input-sense-config functionality.
  *        Allows selecting an interrupt handler for LED at application runtime
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param InterruptHandler function pointer.
- * @return none
+ * PIN_MANAGER_Initialize() has been called at least once
+ *     InterruptHandler function pointer.
+ * return none
  */
 void LED_SetInterruptHandler(void (* interruptHandler)(void)) ; 
 #endif /* PINS_H_INCLUDED */

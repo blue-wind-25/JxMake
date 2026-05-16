@@ -1,13 +1,13 @@
-/**
+/*
  * USB0 Generated Driver API Header File
  * 
- * @file usb0.h
+ * usb0.h
  * 
- * @defgroup  usb0 USB0
+ *  usb0 USB0
  * 
- * @brief This file contains the API prototypes for the USB0 driver.
+ * This file contains the API prototypes for the USB0 driver.
  *
- * @version USB0 Driver Version 1.0.0
+ * USB0 Driver Version 1.0.0
 */
 /*
 � [2025] Microchip Technology Inc. and its subsidiaries.
@@ -34,6 +34,6 @@
 #define USB0_H
 
 #endif // USB0_H
-/**
+/*
  End of File
 */

@@ -1,17 +1,17 @@
-/**
+/*
  * Interrupt Manager Generated Driver API Header File.
  *
- * @file interrupt.h
+ * interrupt.h
  *
- * @defgroup interrupt INTERRUPT
+ * interrupt INTERRUPT
  *
- * @brief This file contains the API prototype for the Interrupt Manager.
+ * This file contains the API prototype for the Interrupt Manager.
  *
- * @version Interrupt Manager Driver Version 1.0.0
+ * Interrupt Manager Driver Version 1.0.0
 */
 
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -43,10 +43,10 @@
 extern "C" {
 #endif
 
-/**
- * @ingroup interrupt
- * @brief Initializes the Interrupt module.
- * @retval 0 - Initialization is successful.
+/*
+ * interrupt
+ * Initializes the Interrupt module.
+ * 0 - Initialization is successful.
  */
 int8_t CPUINT_Initialize();
 

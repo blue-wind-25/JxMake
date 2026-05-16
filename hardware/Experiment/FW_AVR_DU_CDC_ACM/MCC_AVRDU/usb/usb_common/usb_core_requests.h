@@ -1,10 +1,10 @@
-/**
+/*
  * USBCOREREQUESTS USB Core Requests Header File
- * @file usb_core_requests.h
- * @defgroup usb_core_requests USB Core Requests
- * @ingroup usb_core
- * @brief USB Device Core Requests handling.
- * @version USB Device Core Version 1.0.0
+ * usb_core_requests.h
+ * usb_core_requests USB Core Requests
+ * usb_core
+ * USB Device Core Requests handling.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -44,9 +44,9 @@
 #include <usb_protocol_headers.h>
 #include <usb_common_elements.h>
 
-/**
- * @ingroup usb_core_requests
- * @brief Setup function for the device requests
+/*
+ * usb_core_requests
+ * Setup function for the device requests
  *
  * USB 2.0 Specification Ch 9.4.
  * | bRequest          | wValue            | wIndex     | wLength | Data                |
@@ -60,14 +60,14 @@
  * | SET_DESCRIPTOR    | Type and index    | Zero or ID | Length  | Descriptor          |
  * | SET_FEATURE       | Feature selector  | Zero       | Zero    | None                |
  *
- * @param setupRequestPtr - Pointer to the setup request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     setupRequestPtr - Pointer to the setup request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Setup function for the endpoint requests
+/*
+ * usb_core_requests
+ * Setup function for the endpoint requests
  *
  * USB 2.0 Specification Ch. 9.4.
  * | bRequest      | wValue           | wIndex   | wLength | Data            |
@@ -77,14 +77,14 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
  * | SET_FEATURE   | Feature selector | Endpoint | Zero    | None            |
  * | SYNCH_FRAME   | Zero             | Endpoint | Two     | Frame number    |
  *
- * @param *setupRequestPtr - Pointer to the request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     *setupRequestPtr - Pointer to the request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Setup function for the interface requests
+/*
+ * usb_core_requests
+ * Setup function for the interface requests
  *
  * USB 2.0 Specification Ch 9.4.
  * | bRequest        | wValue            | wIndex    | wLength | Data                |
@@ -96,8 +96,8 @@ RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestP
  * | SET_INTERFACE   | Alternate setting | Interface | Zero    | None                |
  * | GET_DESCRIPTOR  | Type and index    | Zero      | Length  | Descriptor          |
  *
- * @param setupRequestPtr - Pointer to the setup request and its data
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+ *     setupRequestPtr - Pointer to the setup request and its data
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 

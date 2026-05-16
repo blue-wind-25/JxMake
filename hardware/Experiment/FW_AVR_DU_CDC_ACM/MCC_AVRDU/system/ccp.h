@@ -1,16 +1,16 @@
-/**
+/*
  * CCP Header File
  *
- * @file ccp.h
+ * ccp.h
  *
- * @ingroup config_bitsdriver
+ * config_bitsdriver
  *
- * @brief This file contains the Configuration Change Protection (CCP) header file for the Configuration bits driver.
+ * This file contains the Configuration Change Protection (CCP) header file for the Configuration bits driver.
  *
- * @version Driver Version 1.0.0
+ * Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -41,10 +41,10 @@
 extern "C" {
 #endif
 
-/**
- * @brief Writes to a CCP-protected 8-bit I/O register.
- * @param addr Address of the I/O register.
- * @param value Value to be written.
+/*
+ * Writes to a CCP-protected 8-bit I/O register.
+ *     addr Address of the I/O register.
+ *     value Value to be written.
  * NOTE: Using IAR Embedded workbench, the choice of memory model has an impact on calling convention.
  * Memory model must be defined in the Assembler preprocessor directives to be visible to the preprocessor.
  */
@@ -53,10 +53,10 @@ static inline void ccp_write_io(void *addr, uint8_t value)
 	protected_write_io(addr, CCP_IOREG_gc, value);
 }
 
-/**
- * @brief Writes to a CCP-protected 8-bit SPM register.
- * @param addr Address of the SPM register.
- * @param value Value to be written.
+/*
+ * Writes to a CCP-protected 8-bit SPM register.
+ *     addr Address of the SPM register.
+ *     value Value to be written.
  * NOTE: Using IAR Embedded workbench, the choice of memory model has an impacton calling convention.
  * Memory model must be defined in the Assembler preprocessor directives to be visible to the preprocessor.
  */

@@ -1,9 +1,9 @@
-/**
+/*
  * USBCDC CDC Header File
- * @file usb_cdc.h
- * @defgroup usb_cdc USB Communications Device Class (CDC)
- * @brief This file contains prototypes and data types for a CDC application
- * @version USB Device Stack Driver Version 1.0.0
+ * usb_cdc.h
+ * usb_cdc USB Communications Device Class (CDC)
+ * This file contains prototypes and data types for a CDC application
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*
@@ -39,11 +39,11 @@
 extern uint16_t usbCDCControlLineState;
 extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
-/**
- * @ingroup usb_cdc
- * @brief Performs handling of control transfers.
- * @param setupRequestPtr - Pointer to the Setup Request struct
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_cdc
+ * Performs handling of control transfers.
+ *     setupRequestPtr - Pointer to the Setup Request struct
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr);
 

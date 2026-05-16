@@ -1,10 +1,10 @@
-/**
+/*
  * USBCOREEVENTS USB Core Events Header File
- * @file usb_core_events.h
- * @defgroup usb_core_events USB Core Events
- * @ingroup usb_core
- * @brief Event handling for the USB Core Stack.
- * @version USB Device Core Version 1.0.0
+ * usb_core_events.h
+ * usb_core_events USB Core Events
+ * usb_core
+ * Event handling for the USB Core Stack.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -45,11 +45,11 @@
 #include <usb_peripheral.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_core
- * @brief Handles the different types of events.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core
+ * Handles the different types of events.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_EventHandler(void);
 

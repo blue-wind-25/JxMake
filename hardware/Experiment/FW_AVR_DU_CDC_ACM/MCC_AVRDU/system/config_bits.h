@@ -1,19 +1,19 @@
-/**
+/*
  * CONFIGURATION BITS Generated Driver Header File
  *
- * @file config_bits.h
+ * config_bits.h
  *
- * @defgroup config_bitsdriver CONFIGBITS Driver
+ * config_bitsdriver CONFIGBITS Driver
  *
- * @brief This file contains the API Prototypes for the Configuration Bits driver.
+ * This file contains the API Prototypes for the Configuration Bits driver.
  *
- * @version Driver Version 1.0.5
+ * Driver Version 1.0.5
  *
- * @version Package Version 4.3.0
+ * Package Version 4.3.0
 */
 
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -39,6 +39,6 @@
 #include "../system/clock.h"
 
 #endif //CONFIG_BITS_H
-/**
+/*
  End of File
 */

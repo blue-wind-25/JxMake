@@ -1,16 +1,16 @@
-/**
+/*
  * USB_DEVICE_STACK Generated API Header File
  * 
- * @file usb_descriptors.h
+ * usb_descriptors.h
  * 
- * @ingroup usb_device_stack
+ * usb_device_stack
  * 
- * @brief Header file for example application descriptors.
+ * Header file for example application descriptors.
  *
- * @version USB_DEVICE_STACK Driver Version 1.0.0
+ * USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -39,38 +39,38 @@
 
 #include <usb_protocol_cdc.h>
 
-/**
- * @ingroup usb_device_stack
- * @def LANG_EN_US
- * @brief Language ID String Descriptor, for English (US).
+/*
+ * usb_device_stack
+ * LANG_EN_US
+ * Language ID String Descriptor, for English (US).
  */
 #define LANG_EN_US 0x0409U
 
-/**
- * @ingroup usb_device_stack
- * @def STRING_MANUFACTURER
- * @brief Manufacturer String descriptor.
+/*
+ * usb_device_stack
+ * STRING_MANUFACTURER
+ * Manufacturer String descriptor.
  */
 #define STRING_MANUFACTURER L"Microchip Technology Inc."
 
-/**
- * @ingroup usb_device_stack
- * @def STRING_PRODUCT
- * @brief Product String descriptor.
+/*
+ * usb_device_stack
+ * STRING_PRODUCT
+ * Product String descriptor.
  */
 #define STRING_PRODUCT      L"CDC Class Demo"
 
-/**
- * @ingroup usb_device_stack
- * @def STRING_SERIAL
- * @brief Serial Number String descriptor.
+/*
+ * usb_device_stack
+ * STRING_SERIAL
+ * Serial Number String descriptor.
  */
 #define STRING_SERIAL       L"1"
 
-/**
- * @ingroup usb_device_stack
- * @struct USB_APPLICATION_CONFIGURATION1_struct
- * @brief USB Configuration, Interface and Endpoint descriptors for Config1.
+/*
+ * usb_device_stack
+ * USB_APPLICATION_CONFIGURATION1_struct
+ * USB Configuration, Interface and Endpoint descriptors for Config1.
  */
 typedef struct USB_APPLICATION_CONFIGURATION1_struct
 {
@@ -85,20 +85,20 @@ typedef struct USB_APPLICATION_CONFIGURATION1_struct
     USB_ENDPOINT_DESCRIPTOR_t CDC_Data_Interface_Endpoint2OUT;
 } USB_APPLICATION_CONFIGURATION1_t;
 
-/**
- * @ingroup usb_device_stack
- * @struct USB_APPLICATION_CONFIGURATION_struct
- * @brief USB Configuration, Interface and Endpoint descriptors.
+/*
+ * usb_device_stack
+ * USB_APPLICATION_CONFIGURATION_struct
+ * USB Configuration, Interface and Endpoint descriptors.
  */
 typedef struct USB_APPLICATION_CONFIGURATION_struct
 {
     USB_APPLICATION_CONFIGURATION1_t Config1;
 } USB_APPLICATION_CONFIGURATION_t;
 
-/**
- * @ingroup usb_device_stack
- * @struct USB_APPLICATION_STRING_DESCRIPTORS_struct
- * @brief USB String descriptors.
+/*
+ * usb_device_stack
+ * USB_APPLICATION_STRING_DESCRIPTORS_struct
+ * USB String descriptors.
  */
 typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
 {
@@ -110,15 +110,15 @@ typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
     wchar_t serial[DESCRIPTOR_STRING_LENGTH(STRING_SERIAL)]; 
 } USB_APPLICATION_STRING_DESCRIPTORS_t;
 
-/**
- * @ingroup usb_device_stack
- * @struct descriptorPointers
- * @brief Pointers to the standard USB descriptors.
+/*
+ * usb_device_stack
+ * descriptorPointers
+ * Pointers to the standard USB descriptors.
  */
 extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 
 #endif // USB_DESCRIPTORS_H
-/**
+/*
  End of File
 */

@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREREQUESTSINTERFACE USB Core Requests Interface Source File
- * @file usb_core_requests_interface.c
- * @ingroup usb_core_requests
- * @brief USB Interface Core Requests handling.
- * @version USB Device Core Version 1.0.0
+ * usb_core_requests_interface.c
+ * usb_core_requests
+ * USB Interface Core Requests handling.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -42,24 +42,24 @@
 #include <usb_core.h>
 #include <usb_cdc.h>
 
-/**
- * @ingroup usb_core_requests
- * @def GET_INTERFACE_REQUEST_NUMBER_MASK
- * @brief Mask for the interface number in the wIndex field of the setup request.
+/*
+ * usb_core_requests
+ * GET_INTERFACE_REQUEST_NUMBER_MASK
+ * Mask for the interface number in the wIndex field of the setup request.
  */
 #define GET_INTERFACE_REQUEST_NUMBER_MASK (0xffu)
 
-/**
- * @ingroup usb_core_requests
- * @def GET_INTERFACE_REQUEST_WVALUE
- * @brief Value for the wValue field of the setup request.
+/*
+ * usb_core_requests
+ * GET_INTERFACE_REQUEST_WVALUE
+ * Value for the wValue field of the setup request.
  */
 #define GET_INTERFACE_REQUEST_WVALUE 0u
 
-/**
- * @ingroup usb_core_requests
- * @def GET_INTERFACE_RESPONSE_SIZE
- * @brief Size of the response to the Get Interface request.
+/*
+ * usb_core_requests
+ * GET_INTERFACE_RESPONSE_SIZE
+ * Size of the response to the Get Interface request.
  */
 #define GET_INTERFACE_RESPONSE_SIZE 1u
 

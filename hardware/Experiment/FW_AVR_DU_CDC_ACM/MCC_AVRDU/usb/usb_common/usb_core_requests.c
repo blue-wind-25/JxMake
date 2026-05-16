@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREREQUESTS USB Core Requests Source File
- * @file usb_core_requests.c
- * @ingroup usb_core_requests
- * @brief USB Device Core Requests handling.
- * @version USB Device Core Version 1.0.0
+ * usb_core_requests.c
+ * usb_core_requests
+ * USB Device Core Requests handling.
+ * USB Device Core Version 1.0.0
  */
 
 /*

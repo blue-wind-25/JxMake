@@ -1,9 +1,9 @@
-/**
+/*
  * USBCDCVIRTUALSERIAL CDC Virtual Serial Port Header File
- * @file usb_cdc_virtual_serial_port.h
- * @ingroup usb_cdc
- * @brief This file contains prototypes and datatypes for a CDC application
- * @version USB Device Stack Driver Version 1.0.0
+ * usb_cdc_virtual_serial_port.h
+ * usb_cdc
+ * This file contains prototypes and datatypes for a CDC application
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*
@@ -39,16 +39,16 @@
 #include <usb_protocol_cdc.h>
 #include <circular_buffer.h>
 
-/**
- * @ingroup usb_cdc
- * @enum CDC_RETURN_CODE_t
- * @brief Type define for the CDC return codes.
+/*
+ * usb_cdc
+ * CDC_RETURN_CODE_t
+ * Type define for the CDC return codes.
  */
 typedef enum CDC_RETURN_CODE_enum
 {
-    CDC_SUCCESS = 0,      /**<Action successfully executed*/
-    CDC_BUFFER_FULL = -1, /**<Error triggered by full CDC buffer*/
-    CDC_BUFFER_EMPTY = -2 /**<Error triggered by empty CDC buffer*/
+    CDC_SUCCESS = 0,      /*<Action successfully executed*/
+    CDC_BUFFER_FULL = -1, /*<Error triggered by full CDC buffer*/
+    CDC_BUFFER_EMPTY = -2 /*<Error triggered by empty CDC buffer*/
 } CDC_RETURN_CODE_t;
 
 extern USB_PIPE_t CDCTxPipe;
@@ -57,23 +57,23 @@ extern uint8_t usbCDCReceiveTempBuffer[];
 extern CIRCULAR_BUFFER_t usbCDCReceiveBuffer;
 extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
 
-/**
- * @ingroup usb_cdc
- * @brief Callback function called after the USB IN transaction started.
- * @param pipe - USB pipe used for the started transaction
- * @param status - Transfer status
- * @param bytesTransferred - Number of bytes transmitted in the transaction
- * @return None.
+/*
+ * usb_cdc
+ * Callback function called after the USB IN transaction started.
+ *     pipe - USB pipe used for the started transaction
+ *     status - Transfer status
+ *     bytesTransferred - Number of bytes transmitted in the transaction
+ * return None.
  */
 void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
 
-/**
- * @ingroup usb_cdc
- * @brief Callback function called after the USB OUT transaction started.
- * @param pipe - USB pipe used for the started transaction
- * @param status - Transfer status
- * @param bytesTransferred - Number of bytes received in the transaction
- * @return None.
+/*
+ * usb_cdc
+ * Callback function called after the USB OUT transaction started.
+ *     pipe - USB pipe used for the started transaction
+ *     status - Transfer status
+ *     bytesTransferred - Number of bytes received in the transaction
+ * return None.
  */
 void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
 

@@ -1,9 +1,9 @@
-/**
+/*
  * USBPERIPHERALREADWRITE Peripheral Read/Write Source File
- * @file usb_peripheral_read_write.c
- * @ingroup usb_peripheral_read_write
- * @brief API module for usb_peripheral covering low level USB transaction functions.
- * @version USB Device Stack HAL Driver Version 1.0.0
+ * usb_peripheral_read_write.c
+ * usb_peripheral_read_write
+ * API module for usb_peripheral covering low level USB transaction functions.
+ * USB Device Stack HAL Driver Version 1.0.0
  */
 
 /*
@@ -41,11 +41,11 @@
 #include <usb_peripheral_read_write.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_peripheral_read_write
- * @def Calculates from pipe address and direction to location in a transfer array.
- * @param pipe - A combination of endpoint address and direction
- * @return The pipe transaction index for this pipe in pipe_transfer[]
+/*
+ * usb_peripheral_read_write
+ * Calculates from pipe address and direction to location in a transfer array.
+ *     pipe - A combination of endpoint address and direction
+ * return The pipe transaction index for this pipe in pipe_transfer[]
  */
 #define PipeTransferIndexGet(pipe) (((pipe).address * 2) + (pipe).direction)
 

@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREEVENTS USB Core Events Source File
- * @file usb_core_events.h
- * @ingroup usb_core_events
- * @brief Event handling for the USB Core Stack.
- * @version USB Device Core Version 1.0.0
+ * usb_core_events.h
+ * usb_core_events
+ * Event handling for the USB Core Stack.
+ * USB Device Core Version 1.0.0
  */
 
 /*

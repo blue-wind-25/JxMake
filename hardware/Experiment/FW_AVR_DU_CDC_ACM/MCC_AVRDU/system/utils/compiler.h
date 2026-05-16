@@ -1,16 +1,16 @@
-/**
+/*
  * Compiler Header File
  * 
- * @file compiler.h
+ * compiler.h
  * 
- * @defgroup doc_driver_utils_compiler Compiler abstraction
+ * doc_driver_utils_compiler Compiler abstraction
  *
- * @brief This file contains the compiler abstraction layer and code utilities for 8-bit AVR. This module provides various abstraction layers and utilities to make code compatible between different compilers.
+ * This file contains the compiler abstraction layer and code utilities for 8-bit AVR. This module provides various abstraction layers and utilities to make code compatible between different compilers.
  *
- * @version Driver Version 1.0.0
+ * Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -63,9 +63,9 @@
 
 #include "interrupt_avr8.h"
 
-/**
- * @def UNUSED
- * @brief Marking \a v as a unused parameter or value.
+/*
+ * UNUSED
+ * Marking \a v as a unused parameter or value.
  */
 #define UNUSED(v) (void)(v)
 

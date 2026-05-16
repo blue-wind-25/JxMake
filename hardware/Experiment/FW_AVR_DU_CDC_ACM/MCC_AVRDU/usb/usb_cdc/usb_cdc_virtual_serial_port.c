@@ -1,9 +1,9 @@
-/**
+/*
  * USBCDCVIRTUALSERIALPORT CDC Virtual Serial Port Source File
- * @file usb_cdc_virtual_serial_port.c
- * @ingroup usb_cdc
- * @brief This file contains implementation for a CDC application
- * @version USB Device Stack Driver Version 1.0.0
+ * usb_cdc_virtual_serial_port.c
+ * usb_cdc
+ * This file contains implementation for a CDC application
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*

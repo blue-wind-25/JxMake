@@ -48,7 +48,6 @@ The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack t
 
 
 
-firmware intact, continue
 
 
 Do not forget to update:
@@ -56,13 +55,12 @@ tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517.tar.gz ~/.claude
 
 
 
-Firmware intact, but usage quota is almost up. Commit and we'll continue later. BTW, now I will use Gemini to convert all doxygen style comment to normal comment. I will also manually remove source code files from other sub-directories that 100% we will never unused . Expect some changes the next time we work again.
-
-  - Doxygen → plain comments: safe, no binary impact. Go ahead everywhere.
-
+firmware intact, continue
+Firmware intact, but usage quota is almost up. Commit and we'll continue later.
 
 
-Act as a precise source-code transformation engine.
+
+Act as a precise source-code transformation engine for all .h and .c files in this directory.
 Rules:
 1. Convert all Doxygen-style comments (/** */, ///, //!<) into normal comments:
    - /** ... */ → /* ... */

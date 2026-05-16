@@ -1,18 +1,18 @@
-/**
+/*
  * protected_io Header File
  *
- * @file protected_io.h
+ * protected_io.h
  *
- * @defgroup doc_driver_system_protected_io Protected IO
+ * doc_driver_system_protected_io Protected IO
  *
- * @brief This file contains the generated prtected_io header file for the CONFIGURATION BITS.
+ * This file contains the generated prtected_io header file for the CONFIGURATION BITS.
  *
- * @version Driver Version 1.0.0
+ * Driver Version 1.0.0
  *
- *@{
+ *
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -41,41 +41,41 @@ extern "C" {
 
 #if defined(__DOXYGEN__)
 //! \name IAR Memory Model defines.
-//@{
+//
 
-/**
- * @def CONFIG_MEMORY_MODEL_TINY
- * @brief Configuration symbol to enable 8 bit pointers.
+/*
+ * CONFIG_MEMORY_MODEL_TINY
+ * Configuration symbol to enable 8 bit pointers.
  */
 #define CONFIG_MEMORY_MODEL_TINY
 
-/**
- * @def CONFIG_MEMORY_MODEL_SMALL
- * @brief Configuration symbol to enable 16 bit pointers.
+/*
+ * CONFIG_MEMORY_MODEL_SMALL
+ * Configuration symbol to enable 16 bit pointers.
  * NOTE: If no memory model is defined, SMALL is default.
  */
 #define CONFIG_MEMORY_MODEL_SMALL
 
-/**
- * @def CONFIG_MEMORY_MODEL_LARGE
- * @brief Configuration symbol to enable 24 bit pointers.
+/*
+ * CONFIG_MEMORY_MODEL_LARGE
+ * Configuration symbol to enable 24 bit pointers.
  */
 #define CONFIG_MEMORY_MODEL_LARGE
 
-//@}
+//
 #endif
 
-/**
- * @brief Writes to an 8-bit I/O register protected by CCP or a protection bit.
- * @param addr Address of the I/O register.
- * @param magic CCP magic value or Mask for protection bit.
- * @param value Value to be written.
+/*
+ * Writes to an 8-bit I/O register protected by CCP or a protection bit.
+ *     addr Address of the I/O register.
+ *     magic CCP magic value or Mask for protection bit.
+ *     value Value to be written.
  * NOTE: Using IAR Embedded workbench, the choice of memory model has an impact on calling convention.
  * Memory model must be defined in the Assembler preprocessor directives to be visible to the preprocessor.
  */
 extern void protected_write_io(void *addr, uint8_t magic, uint8_t value);
 
-/** @} */
+/* */
 
 #ifdef __cplusplus
 }

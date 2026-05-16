@@ -1,16 +1,16 @@
-/**
+/*
  * USB_DEVICE_STACK Generated Driver File
  *
- * @file usb_descriptors.c
+ * usb_descriptors.c
  *
- * @ingroup usb_device_stack
+ * usb_device_stack
  *
- * @brief Driver implementation file for example application descriptors.
+ * Driver implementation file for example application descriptors.
  *
- * @version USB_DEVICE_STACK Driver Version 1.0.0
+ * USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -231,6 +231,6 @@ USB_DESCRIPTOR_POINTERS_t descriptorPointers = {
     },
 };
 
-/**
+/*
  End of File
 */

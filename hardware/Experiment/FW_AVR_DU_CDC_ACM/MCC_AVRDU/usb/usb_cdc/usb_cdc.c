@@ -1,9 +1,9 @@
-/**
+/*
  * USBCDC CDC Source File
- * @file usb_cdc.c
- * @ingroup usb_cdc
- * @brief This file contains implementation for CDC
- * @version USB Device Stack Driver Version 1.0.0
+ * usb_cdc.c
+ * usb_cdc
+ * This file contains implementation for CDC
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*

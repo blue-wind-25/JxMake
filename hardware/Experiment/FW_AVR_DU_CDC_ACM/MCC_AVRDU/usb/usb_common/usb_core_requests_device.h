@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREREQUESTSDEVICE USB Core Requests Device Header File
- * @file usb_core_requests_device.h
- * @ingroup usb_core_requests
- * @brief USB Device Core Requests handling.
- * @version USB Device Core Version 1.0.0
+ * usb_core_requests_device.h
+ * usb_core_requests
+ * USB Device Core Requests handling.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -39,51 +39,51 @@
 #include "usb_protocol_headers.h"
 #include "usb_common_elements.h"
 
-/**
- * @ingroup usb_core_requests
- * @brief Returns the status of the device features.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Returns the status of the device features.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestGetStatus(void);
 
-/**
- * @ingroup usb_core_requests
- * @brief Sets the device address.
- * @param address - Address to be set
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Sets the device address.
+ *     address - Address to be set
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address);
 
-/**
- * @ingroup usb_core_requests
- * @brief Callback function for the address.
- * @param None.
- * @return None.
+/*
+ * usb_core_requests
+ * Callback function for the address.
+ *     None.
+ * return None.
  */
 void SetupDeviceAddressCallback(void);
 
-/**
- * @ingroup usb_core_requests
- * @brief Gets the device descriptor.
- * @param *setupRequestPtr - Pointer to the setup request
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Gets the device descriptor.
+ *     *setupRequestPtr - Pointer to the setup request
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-/**
- * @ingroup usb_core_requests
- * @brief Gets the device configuration.
- * @param None.
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Gets the device configuration.
+ *     None.
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestGetConfiguration(void);
 
-/**
- * @ingroup usb_core_requests
- * @brief Sets the device configuration.
- * @param configurationValue - Configuration value to be set
- * @return SUCCESS or an Error code according to RETURN_CODE_t
+/*
+ * usb_core_requests
+ * Sets the device configuration.
+ *     configurationValue - Configuration value to be set
+ * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestSetConfiguration(uint8_t configurationValue);
 

@@ -1,9 +1,9 @@
-/**
+/*
  * CIRCULARBUFFER CDC Circular Buffer Source File
- * @file circular_buffer.c
- * @ingroup usb_cdc
- * @brief This file contains the implementation for a circular buffer.
- * @version USB Device Stack Driver Version 1.0.0
+ * circular_buffer.c
+ * usb_cdc
+ * This file contains the implementation for a circular buffer.
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*

@@ -1,9 +1,9 @@
-/**
+/*
  * USBCORE CORE Source File
- * @file usb_core.h
- * @ingroup usb_core
- * @brief Core functionality for the USB stack.
- * @version USB Device Core Version 1.0.0
+ * usb_core.h
+ * usb_core
+ * Core functionality for the USB stack.
+ * USB Device Core Version 1.0.0
  */
 
 /*

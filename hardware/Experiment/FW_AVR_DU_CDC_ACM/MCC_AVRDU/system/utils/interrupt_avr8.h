@@ -1,16 +1,16 @@
-/**
+/*
  * interrupt_avr8 Header File
  * 
- * @file interrupt_avr8.h
+ * interrupt_avr8.h
  * 
- * @defgroup doc_driver_utils_interrupts ISR abstraction
+ * doc_driver_utils_interrupts ISR abstraction
  *
- * @brief Interrupt-related functionality.
+ * Interrupt-related functionality.
  *
- * @version Driver Version 1.0.0
+ * Driver Version 1.0.0
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -33,27 +33,27 @@
 #ifndef UTILS_INTERRUPT_AVR8_H
 #define UTILS_INTERRUPT_AVR8_H
 
-/**
+/*
  * \weakgroup interrupt_group
  *
- * @{
+ * 
  */
 
 #ifdef ISR_CUSTOM_H
 #include ISR_CUSTOM_H
 #else
 
-/**
- * @def ISR
- * @brief Define service routine for specified interrupt vector.
- * @code
+/*
+ * ISR
+ * Define service routine for specified interrupt vector.
+ * 
     ISR(FOO_vect)
     {
         ...
     }
- * @endcode
+ * 
  *
- * @param vect Interrupt vector name as found in the device header files.
+ *     vect Interrupt vector name as found in the device header files.
  */
 #if defined(__DOXYGEN__)
 #define ISR(vect)
@@ -73,16 +73,16 @@
 #define cpu_irq_disable() __disable_interrupt()
 #endif
 
-//! @}
+//! 
 
-/**
+/*
  * \weakgroup interrupt_deprecated_group
- * @{
+ * 
  */
 // Deprecated definitions.
 #define Enable_global_interrupt() cpu_irq_enable()
 #define Disable_global_interrupt() cpu_irq_disable()
 #define Is_global_interrupt_enabled() cpu_irq_is_enabled()
-//! @}
+//! 
 
 #endif /* UTILS_INTERRUPT_AVR8_H */

@@ -1,9 +1,9 @@
-/**
+/*
  * CIRCULARBUFFER CDC Circular Buffer Header File
- * @file circular_buffer.h
- * @ingroup usb_cdc
- * @brief This file contains prototypes and datatypes for a circular buffer.
- * @version USB Device Stack Driver Version 1.0.0
+ * circular_buffer.h
+ * usb_cdc
+ * This file contains prototypes and datatypes for a circular buffer.
+ * USB Device Stack Driver Version 1.0.0
  */
 
 /*
@@ -36,72 +36,72 @@
 #include <stdbool.h>
 #include <usb_common_elements.h>
 
-/**
- * @ingroup usb_cdc
- * @enum BUFFER_RETURN_CODE_t
- * @brief Type define for circular buffer return codes.
+/*
+ * usb_cdc
+ * BUFFER_RETURN_CODE_t
+ * Type define for circular buffer return codes.
  */
 typedef enum BUFFER_RETURN_CODE_enum
 {
-    BUFFER_SUCCESS = 0, /**<Action successfully executed*/
-    BUFFER_FULL = -1,   /**<Error triggered by full buffer*/
-    BUFFER_EMPTY = -2   /**<Error triggered by empty buffer*/
+    BUFFER_SUCCESS = 0, /*<Action successfully executed*/
+    BUFFER_FULL = -1,   /*<Error triggered by full buffer*/
+    BUFFER_EMPTY = -2   /*<Error triggered by empty buffer*/
 } BUFFER_RETURN_CODE_t;
 
-/**
- * @ingroup usb_cdc
- * @struct CIRCULAR_BUFFER_t
- * @brief Type define for circular buffers of varying length.
+/*
+ * usb_cdc
+ * CIRCULAR_BUFFER_t
+ * Type define for circular buffers of varying length.
  */
 typedef struct CIRCULAR_BUFFER_struct
 {
-    uint8_t *content;         /**<Actual buffer data*/
-    uint16_t head;            /**<Index of first empty slot in buffer*/
-    uint16_t tail;            /**<Index of first occupied buffer slot*/
-    const uint16_t maxLength; /**<Maximum length of buffer*/
+    uint8_t *content;         /*<Actual buffer data*/
+    uint16_t head;            /*<Index of first empty slot in buffer*/
+    uint16_t tail;            /*<Index of first occupied buffer slot*/
+    const uint16_t maxLength; /*<Maximum length of buffer*/
 } CIRCULAR_BUFFER_t;
 
-/**
- * @ingroup usb_cdc
- * @brief Adds input data to circular buffer if there is space available.
- * @param buffer - Circular buffer address
- * @param data - Intput data
- * @return status - Result of the addition process
+/*
+ * usb_cdc
+ * Adds input data to circular buffer if there is space available.
+ *     buffer - Circular buffer address
+ *     data - Intput data
+ * return status - Result of the addition process
  */
 BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
 
-/**
- * @ingroup usb_cdc
- * @brief Pulls data from the circular buffer if it's available.
- * @param buffer - Circular buffer address
- * @param data - Output data variable address
- * @return status - Result of the retrieval process
+/*
+ * usb_cdc
+ * Pulls data from the circular buffer if it's available.
+ *     buffer - Circular buffer address
+ *     data - Output data variable address
+ * return status - Result of the retrieval process
  */
 BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
 
-/**
- * @ingroup usb_cdc
- * @brief Checks if the circular buffer is empty.
- * @param buffer - Circular buffer address
- * @retval 0 - Buffer not full
- * @retval 1 - Buffer full
+/*
+ * usb_cdc
+ * Checks if the circular buffer is empty.
+ *     buffer - Circular buffer address
+ * 0 - Buffer not full
+ * 1 - Buffer full
  */
 bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer);
 
-/**
- * @ingroup usb_cdc
- * @brief Checks if the circular buffer is full.
- * @param buffer - Circular buffer address
- * @retval 0 - Buffer not full
- * @retval 1 - Buffer full
+/*
+ * usb_cdc
+ * Checks if the circular buffer is full.
+ *     buffer - Circular buffer address
+ * 0 - Buffer not full
+ * 1 - Buffer full
  */
 bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer);
 
-/**
- * @ingroup usb_cdc
- * @brief Returns the number of available bytes in the circular buffer.
- * @param buffer - Circular buffer address
- * @return freeSpace - Available bytes
+/*
+ * usb_cdc
+ * Returns the number of available bytes in the circular buffer.
+ *     buffer - Circular buffer address
+ * return freeSpace - Available bytes
  */
 uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer);
 

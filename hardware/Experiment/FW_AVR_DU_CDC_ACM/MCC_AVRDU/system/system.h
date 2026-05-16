@@ -1,15 +1,15 @@
-/**
+/*
  * System Driver Header File
  *
- * @file system.h
+ * system.h
  *
- * @defgroup systemdriver System Driver
+ * systemdriver System Driver
  *
- * @brief This file contains the API prototype for the System Driver.
+ * This file contains the API prototype for the System Driver.
  *
- * @version Driver Version 1.0.3
+ * Driver Version 1.0.3
  *
- * @version Package Version 4.3.0
+ * Package Version 4.3.0
 */
 /*
 � [2025] Microchip Technology Inc. and its subsidiaries.
@@ -51,11 +51,11 @@ extern "C" {
 #include "../system/interrupt.h"
 #include "../system/clock.h"
 #include "../system/syscfg.h"
-/**
- * @ingroup systemdriver
- * @brief Initializes the System module. This routine is called only once during system initialization, before calling any other API.
- * @param None.
- * @return None.
+/*
+ * systemdriver
+ * Initializes the System module. This routine is called only once during system initialization, before calling any other API.
+ *     None.
+ * return None.
 */
 extern void SYSTEM_Initialize(void);
 
@@ -63,6 +63,6 @@ extern void SYSTEM_Initialize(void);
 }
 #endif
 #endif	/* MCC_H */
-/**
+/*
  End of File
 */

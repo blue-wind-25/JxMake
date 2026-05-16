@@ -1,9 +1,9 @@
-/**
+/*
  * USBCOREDESCRIPTOR Core Descriptors Source File
- * @file usb_core_descriptors.h
- * @ingroup usb_core_descriptors
- * @brief descriptors for the USB Core Stack.
- * @version USB Device Core Version 1.0.0
+ * usb_core_descriptors.h
+ * usb_core_descriptors
+ * descriptors for the USB Core Stack.
+ * USB Device Core Version 1.0.0
  */
 
 /*
@@ -42,31 +42,31 @@
 #include <usb_peripheral.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_core_descriptors
- * @def USB_DEFAULT_INTERFACE
- * @brief Default interface number.
+/*
+ * usb_core_descriptors
+ * USB_DEFAULT_INTERFACE
+ * Default interface number.
  */
 #define USB_DEFAULT_INTERFACE 0u
 
-/**
- * @ingroup usb_core_descriptors
- * @def USB_DEFAULT_ALTERNATE_SETTING
- * @brief Default alternate setting.
+/*
+ * usb_core_descriptors
+ * USB_DEFAULT_ALTERNATE_SETTING
+ * Default alternate setting.
  */
 #define USB_DEFAULT_ALTERNATE_SETTING 0u
 
-/**
- * @ingroup usb_core_descriptors
- * @def USB_DESCRIPTOR_SEARCH_LIMIT
- * @brief The number of descriptors NextDescriptorPointerGet will search through before returning an error.
+/*
+ * usb_core_descriptors
+ * USB_DESCRIPTOR_SEARCH_LIMIT
+ * The number of descriptors NextDescriptorPointerGet will search through before returning an error.
  */
 #define USB_DESCRIPTOR_SEARCH_LIMIT 30u
 
-/**
- * @typedef  USB_DESCRIPTOR_PTR_t
- * @brief Union of a uint8_t pointer and pointers to the different descriptor types.
- * @misradeviation{@advisory,19.2} Needed for the stack to parse through the configuration descriptors
+/*
+ *  USB_DESCRIPTOR_PTR_t
+ * Union of a uint8_t pointer and pointers to the different descriptor types.
+ * ,19.2} Needed for the stack to parse through the configuration descriptors
  * without pointer casting between the different descriptor types and uint8_t.
  */
 // cppcheck-suppress misra-c2012-19.2

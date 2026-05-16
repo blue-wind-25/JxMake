@@ -1,13 +1,13 @@
-/**
+/*
  * USB0 Generated Driver File
  * 
- * @file usb0.c
+ * usb0.c
  * 
- * @ingroup usb0
+ * usb0
  * 
- * @brief This file contains the API implementations for the USB0 driver.
+ * This file contains the API implementations for the USB0 driver.
  *
- * @version USB0 Driver Version 1.0.0
+ * USB0 Driver Version 1.0.0
 */
 /*
 � [2025] Microchip Technology Inc. and its subsidiaries.
@@ -42,6 +42,6 @@ ISR(USB0_BUSEVENT_vect) {
     USB_EventHandler();
 }
 
-/**
+/*
  End of File
 */

@@ -1,19 +1,19 @@
 
-/**
+/*
  * CLKCTRL Generated Driver API Header File
  *
- * @file clkctrl.h
+ * clkctrl.h
  *
- * @defgroup clkctrl CLKCTRL
+ * clkctrl CLKCTRL
  *
- * @brief This header file provides APIs for the CLKCTRL driver.
+ * This header file provides APIs for the CLKCTRL driver.
  *
- * @version CLKCTRL Driver Version 1.1.4
+ * CLKCTRL Driver Version 1.1.4
  *
- * @version Package Version 2.0.10
+ * Package Version 2.0.10
 */
 /*
-© [2025] Microchip Technology Inc. and its subsidiaries.
+ [2025] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
@@ -43,27 +43,27 @@
 
 #include "ccp.h"
 
-/**
- * @ingroup clkctrl
- * @brief Initializes the CLKCTRL module.
- * @param None.
- * @return None.
+/*
+ * clkctrl
+ * Initializes the CLKCTRL module.
+ *     None.
+ * return None.
  */
 void CLOCK_Initialize(void);
 
-/**
- * @ingroup clkctrl
- * @brief Enables the Clock Failure Detection on the main clock.
- * @param CLKCTRL_CFDSRC_t cfd_source - main clock source for CFD
- * @return None.
+/*
+ * clkctrl
+ * Enables the Clock Failure Detection on the main clock.
+ *     CLKCTRL_CFDSRC_t cfd_source - main clock source for CFD
+ * return None.
  */
 void CFD_Enable(CLKCTRL_CFDSRC_t cfd_source);
 
-/**
- * @ingroup clkctrl
- * @brief Disables the Clock Failure Detection on the main clock.
- * @param None.
- * @return None.
+/*
+ * clkctrl
+ * Disables the Clock Failure Detection on the main clock.
+ *     None.
+ * return None.
  */
 void CFD_Disable(void);
 

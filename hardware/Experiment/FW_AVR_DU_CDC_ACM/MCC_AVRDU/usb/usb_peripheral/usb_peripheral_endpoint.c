@@ -80,31 +80,16 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
     {
         status = ENDPOINT_SIZE_ERROR;
     }
-    else if ((uint8_t)USB_EP_NUM <= pipe.address)
-    {
-        status = ENDPOINT_ADDRESS_ERROR;
-    }
-    else if (INTERRUPT < endpointType)
-    {
-        status = ENDPOINT_TYPE_ERROR;
-    }
     else
     {
-        switch (endpointType)
+        // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
+        if (CONTROL == endpointType)
         {
-        case CONTROL:
             endpointConfiguration |= USB_TYPE_CONTROL_gc;
-            break;
-        case ISOCHRONOUS:
-            endpointConfiguration |= USB_TYPE_ISO_gc;
-            break;
-        case BULK:
-        case INTERRUPT:
+        }
+        else
+        {
             endpointConfiguration |= USB_TYPE_BULKINT_gc;
-            break;
-        default:
-            endpointConfiguration |= USB_TYPE_DISABLE_gc;
-            break;
         }
 
         if (USB_EP_DIR_OUT == pipe.direction)
@@ -114,32 +99,12 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
             USB_NumberBytesReceivedReset(pipe.address);
             USB_EndpointOutControlSet(pipe.address, endpointConfiguration);
 
-            // Set up the static endpoint configurations
+            // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all
             if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].OutMultipktEnable)
             {
                 USB_EndpointOutMultipktEnable(pipe.address);
-
-                if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].OutAzlpEnable)
-                {
-                    USB_EndpointOutAzlpEnable(pipe.address);
-                }
-
-                status = SUCCESS;
             }
-            else if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].OutAzlpEnable)
-            {
-                // AZLP only works together with multipacket
-                status = ENDPOINT_AZLP_ERROR;
-            }
-            else
-            {
-                status = SUCCESS;
-            }
-
-            if ((uint8_t)0x01 != endpointStaticConfig[pipe.address].OutTrncInterruptEnable)
-            {
-                USB_EndpointOutTransactionCompleteInterruptDisable(pipe.address);
-            }
+            status = SUCCESS;
         }
         else
         {
@@ -148,32 +113,12 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
             USB_NumberBytesToSendReset(pipe.address);
             USB_EndpointInControlSet(pipe.address, endpointConfiguration);
 
-            // Set up the static endpoint configurations
+            // InAzlpEnable=0 for all endpoints; InTrncInterruptEnable=1 for all
             if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].InMultipktEnable)
             {
                 USB_EndpointInMultipktEnable(pipe.address);
-
-                if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].InAzlpEnable)
-                {
-                    USB_EndpointInAlzpEnable(pipe.address);
-                }
-
-                status = SUCCESS;
             }
-            else if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].InAzlpEnable)
-            {
-                // AZLP only works together with multipacket
-                status = ENDPOINT_AZLP_ERROR;
-            }
-            else
-            {
-                status = SUCCESS;
-            }
-
-            if ((uint8_t)0x01 != endpointStaticConfig[pipe.address].InTrncInterruptEnable)
-            {
-                USB_EndpointInTransactionCompleteDisable(pipe.address);
-            }
+            status = SUCCESS;
         }
     }
 
@@ -207,28 +152,17 @@ RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe)
 
 uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe)
 {
-    uint8_t endpointType = 0;
-    uint8_t endpointSizeConfig = 0;
-    int16_t endpointSize = 0;
+    // No ISO endpoints — always use default size register
+    uint8_t endpointSizeConfig;
     if (USB_EP_DIR_OUT == pipe.direction)
     {
-        endpointType = USB_EndPointOutTypeConfigGet(pipe.address);
-        endpointSizeConfig = (USB_TYPE_ISO_gc == endpointType) ? USB_EndpointOutIsoSizeGet(pipe.address) : USB_EndpointOutDefaultSizeGet(pipe.address);
+        endpointSizeConfig = USB_EndpointOutDefaultSizeGet(pipe.address);
     }
     else
     {
-        endpointType = USB_EndPointInTypeConfigGet(pipe.address);
-        endpointSizeConfig = (USB_TYPE_ISO_gc == endpointType) ? USB_EndpointInIsoSizeGet(pipe.address) : USB_EndpointInDefaultSizeGet(pipe.address);
+        endpointSizeConfig = USB_EndpointInDefaultSizeGet(pipe.address);
     }
-    if (USB_BUFSIZE_ISO_BUF1023_gc == endpointSizeConfig)
-    {
-        endpointSize = MAX_ENDPOINT_SIZE_ISO;
-    }
-    else
-    {
-        endpointSize = 8U << (uint16_t)endpointSizeConfig;
-    }
-    return endpointSize;
+    return 8U << (uint16_t)endpointSizeConfig;
 }
 
 USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe)
@@ -412,48 +346,20 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
 
 RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if (ISOCHRONOUS == endpointType)
+    (void)endpointType;
+    if (((uint16_t)MAX_ENDPOINT_SIZE_DEFAULT < endpointSize) || !(IsPowerOfTwo(endpointSize)))
     {
-        if (((uint16_t)MAX_ENDPOINT_SIZE_ISO < endpointSize) || ((endpointSize < (uint16_t)MAX_ENDPOINT_SIZE_ISO) && !(IsPowerOfTwo(endpointSize))))
-        {
-            status = ENDPOINT_SIZE_ERROR;
-        }
+        return ENDPOINT_SIZE_ERROR;
     }
-    else
+    uint8_t mask = 0;
+    uint16_t baseSize = 8;
+    while (baseSize < endpointSize)
     {
-        if (((uint16_t)MAX_ENDPOINT_SIZE_DEFAULT < endpointSize) || !(IsPowerOfTwo(endpointSize)))
-        {
-            status = ENDPOINT_SIZE_ERROR;
-        }
+        mask++;
+        baseSize <<= 1;
     }
-
-    if (UNINITIALIZED == status)
-    {
-        if ((uint16_t)MAX_ENDPOINT_SIZE_ISO == endpointSize)
-        {
-            *endpointMaskPtr = USB_BUFSIZE_ISO_BUF1023_gc;
-        }
-        else
-        {
-            uint8_t mask = 0;
-            uint16_t baseSize = 8;
-
-            while (baseSize < endpointSize)
-            {
-
-                mask++;
-                baseSize <<= 1;
-            }
-
-            *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
-        }
-
-        status = SUCCESS;
-    }
-
-    return status;
+    *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
+    return SUCCESS;
 }
 
 RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)

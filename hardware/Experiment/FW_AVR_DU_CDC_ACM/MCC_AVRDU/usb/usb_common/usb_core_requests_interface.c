@@ -72,23 +72,10 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void)
 
 RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((GET_INTERFACE_REQUEST_WVALUE == setupRequestPtr->wValue) && (GET_INTERFACE_RESPONSE_SIZE == setupRequestPtr->wLength))
-    {
-        uint8_t alternateSetting;
-        status = ActiveAlternateSettingGet((GET_INTERFACE_REQUEST_NUMBER_MASK & setupRequestPtr->wIndex), &alternateSetting);
-        if (SUCCESS == status)
-        {
-            status = USB_ControlTransferDataWriteBuffer(&alternateSetting, sizeof(alternateSetting));
-        }
-    }
-    else
-    {
-        status = INTERFACE_GET_ERROR;
-    }
-
-    return status;
+    // All interfaces have only alternate setting 0
+    (void)setupRequestPtr;
+    uint8_t alternateSetting = 0;
+    return USB_ControlTransferDataWriteBuffer(&alternateSetting, sizeof(alternateSetting));
 }
 
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)

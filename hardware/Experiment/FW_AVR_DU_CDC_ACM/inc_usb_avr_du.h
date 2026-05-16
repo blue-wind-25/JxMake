@@ -45,12 +45,12 @@ static void USBDevice_CDCACMHandler()
     RETURN_CODE_t status = SUCCESS;
     if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
         if (!USB_PipeStatusIsBusy(CDCTxPipe))
-            status = USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, true, USB_CDCDataTransmitted);
+            status = USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
     }
     if (status == SUCCESS) {
         if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
             if (!USB_PipeStatusIsBusy(CDCRxPipe))
-                status = USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, false, USB_CDCDataReceived);
+                status = USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
         }
     }
     if (status != SUCCESS) return;

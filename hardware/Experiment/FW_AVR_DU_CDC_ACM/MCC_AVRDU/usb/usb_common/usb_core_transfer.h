@@ -63,7 +63,7 @@
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, bool useZLP, USB_TRANSFER_END_CALLBACK_t callback);
+RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
 
 /*
  * usb_core_transfer
@@ -78,7 +78,7 @@ RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, bool useZLP, USB_TRANSFER_END_CALLBACK_t callback);
+RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
 
 /*
  * usb_core_transfer

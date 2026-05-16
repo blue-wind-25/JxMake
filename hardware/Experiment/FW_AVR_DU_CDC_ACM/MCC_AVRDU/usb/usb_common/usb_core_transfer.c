@@ -44,7 +44,7 @@
 #include <usb_config.h>
 #include <usb_peripheral.h>
 
-RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, bool useZLP, USB_TRANSFER_END_CALLBACK_t callback)
+RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
@@ -62,17 +62,14 @@ RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t
         USB_PipeDataPtrSet(pipe, dataPtr);
         USB_PipeDataToTransferSizeSet(pipe, dataSize);
         USB_PipeDataTransferredSizeReset(pipe);
-        if (true == useZLP)
-        {
-            USB_PipeTransferZLP_Enable(pipe);
-        }
+        USB_PipeTransferZLP_Enable(pipe);
         USB_PipeTransferEndCallbackRegister(pipe, callback);
         status = USB_InTransactionRun(pipe);
     }
     return status;
 }
 
-RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, bool useZLP, USB_TRANSFER_END_CALLBACK_t callback)
+RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
@@ -90,10 +87,6 @@ RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t 
         USB_PipeDataPtrSet(pipe, dataPtr);
         USB_PipeDataToTransferSizeSet(pipe, dataSize);
         USB_PipeDataTransferredSizeReset(pipe);
-        if (true == useZLP)
-        {
-            USB_PipeTransferZLP_Enable(pipe);
-        }
         USB_PipeTransferEndCallbackRegister(pipe, callback);
         status = USB_OutTransactionRun(pipe);
     }

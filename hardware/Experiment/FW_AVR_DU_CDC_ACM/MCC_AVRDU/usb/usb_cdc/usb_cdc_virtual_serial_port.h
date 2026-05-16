@@ -52,10 +52,10 @@ typedef enum CDC_RETURN_CODE_enum
 } CDC_RETURN_CODE_t;
 
 extern USB_PIPE_t CDCTxPipe;
+extern USB_PIPE_t CDCRxPipe;
+extern uint8_t usbCDCReceiveTempBuffer[];
 extern CIRCULAR_BUFFER_t usbCDCReceiveBuffer;
 extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
-
-RETURN_CODE_t USB_CDCVirtualSerialPortHandler(void);
 
 /**
  * @ingroup usb_cdc

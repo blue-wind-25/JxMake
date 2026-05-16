@@ -36,22 +36,19 @@
 #include <usb_config.h>
 #include <circular_buffer.h>
 
-// ZLP state
-static bool zlpStateTX = true;
-
 // USB Pipes
 USB_PIPE_t CDCTxPipe = {
     .address = USB_CDC_BULK_EP_IN,
     .direction = USB_EP_DIR_IN,
 };
 
-STATIC USB_PIPE_t CDCRxPipe = {
+USB_PIPE_t CDCRxPipe = {
     .address = USB_CDC_BULK_EP_OUT,
     .direction = USB_EP_DIR_OUT,
 };
 
 // RX Buffer
-STATIC uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
+uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
 STATIC uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .content = usbCDCReceiveArray,
@@ -67,57 +64,6 @@ CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .tail = 0,
     .maxLength = USB_CDC_TX_BUFFER_SIZE,
 };
-
-RETURN_CODE_t USB_CDCVirtualSerialPortHandler(void)
-{
-    RETURN_CODE_t status = SUCCESS;
-
-    // Checks if data have been added to transmit buffer
-    if (false == CIRCBUF_Empty(&usbCDCTransmitBuffer))
-    {
-        // Transmits data to host if pipe not busy
-        if (false == USB_PipeStatusIsBusy(CDCTxPipe))
-        {
-            status = USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitArray, usbCDCTransmitBuffer.head, zlpStateTX, USB_CDCDataTransmitted);
-        }
-        else
-        {
-            // Pipe is busy, retry on next iteration
-        }
-    }
-    else
-    {
-        // No data to transmit
-    }
-
-    // Checks if outgoing data transmitted or not available
-    if (SUCCESS == status)
-    {
-        // Checks if room exist for 1 USB CDC packet in the receive buffer
-        if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer))
-        {
-            // Receives data from host if pipe not busy
-            if (false == USB_PipeStatusIsBusy(CDCRxPipe))
-            {
-                status = USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, false, USB_CDCDataReceived);
-            }
-            else
-            {
-                // Pipe is busy, retry on next iteration
-            }
-        }
-        else
-        {
-            // RX buffer is full, retry on next iteration
-        }
-    }
-    else
-    {
-        ; // Skips read if write failed
-    }
-
-    return status;
-}
 
 void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)
 {

@@ -40,18 +40,25 @@ extern "C" {
 }
 
 
-// Forward declaration
-static void USBDevice_CDCACMHandler();
-
-
 static void USBDevice_CDCACMHandler()
 {
-    if(  USB_CDCVirtualSerialPortHandler() != SUCCESS ) return;
-    if( !(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm) ) return;
-    if( CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe) ) return;
+    RETURN_CODE_t status = SUCCESS;
+    if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
+        if (!USB_PipeStatusIsBusy(CDCTxPipe))
+            status = USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, true, USB_CDCDataTransmitted);
+    }
+    if (status == SUCCESS) {
+        if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
+            if (!USB_PipeStatusIsBusy(CDCRxPipe))
+                status = USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, false, USB_CDCDataReceived);
+        }
+    }
+    if (status != SUCCESS) return;
+    if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
+    if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
 
     static uint8_t cdcData;
-    if( CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS ) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
+    if (CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
 }
 
 

@@ -47,12 +47,10 @@
 
 RETURN_CODE_t USB_EventHandler(void)
 {
-    RETURN_CODE_t status = SUCCESS;
-
     if (USB_EventResetIsReceived() == true)
     {
         USB_EventResetClear();
-        status = USB_Reset();
+        USB_Reset();
     }
     uint8_t eventOverUnderflow = USB_EventOverUnderflowIsReceived();
     if (0u < eventOverUnderflow)
@@ -61,18 +59,13 @@ RETURN_CODE_t USB_EventHandler(void)
         uint8_t controlOverUnderflow = USB_ControlOverUnderflowIsReceived();
         if (0u < controlOverUnderflow)
         {
-            status = USB_ControlProcessOverUnderflow(controlOverUnderflow);
-        }
-        else
-        {
-            status = SUCCESS;
+            USB_ControlProcessOverUnderflow(controlOverUnderflow);
         }
     }
     if (USB_EventStalledIsReceived() == true)
     {
         USB_EventStalledClear();
-        USB_PIPE_t pipe = { .address = 0x00, .direction = USB_EP_DIR_OUT };
-        status = USB_HandleEventStalled(pipe);
+        USB_HandleEventStalled((USB_PIPE_t){ .address = 0x00, .direction = USB_EP_DIR_OUT });
     }
-    return status;
+    return SUCCESS;
 }

@@ -449,41 +449,25 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
 
 RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     if (USB_CONTROL_DATA_IN == controlTransfer.status)
     {
         if (OVERFLOW_EVENT == overunderflow)
         {
             // Host is done with the data stage and expects an OUT ZLP
-            status = USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
+            USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
         }
-        else
-        {
-            // Host is too eager, let this be handled by the transfer handler
-            status = SUCCESS;
-        }
+        // else: host is too eager, let transfer handler deal with it
     }
     else if (USB_CONTROL_DATA_OUT == controlTransfer.status)
     {
         if (UNDERFLOW_EVENT == overunderflow)
         {
             // Host is done with the data stage and expects an IN ZLP
-            status = USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
+            USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
         }
-        else
-        {
-            // Host is too eager, let this be handled by the transfer handler
-            status = SUCCESS;
-        }
+        // else: host is too eager, let transfer handler deal with it
     }
-    else
-    {
-        // Remaining control statuses ignores overflow and underflow events
-        status = SUCCESS;
-    }
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe)

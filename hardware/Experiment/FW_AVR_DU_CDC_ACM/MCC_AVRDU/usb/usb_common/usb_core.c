@@ -122,11 +122,8 @@ RETURN_CODE_t USB_Reset(void)
 {
     USB_Stop();
     USB_PeripheralInitialize();
-    RETURN_CODE_t status = USB_ControlEndpointsInit();
-    if (status == SUCCESS)
-    {
-        USB_ControlTransferReset();
-        USB_BusAttach();
-    }
-    return status;
+    USB_ControlEndpointsInit();
+    USB_ControlTransferReset();
+    USB_BusAttach();
+    return SUCCESS;
 }

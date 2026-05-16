@@ -150,63 +150,6 @@
  */
 #define USB_INTERFACE_NUM 2U
 
-/*
- * usb_device_stack
- * USB_EP_STATIC_CONFIG_BITS_struct
- * Static endpoint settings.
- */
-typedef struct USB_EP_STATIC_CONFIG_BITS_struct
-{
-    uint8_t InMultipktEnable : 1;
-    uint8_t InAzlpEnable : 1;
-    uint8_t InTrncInterruptEnable : 1;
-    uint8_t OutMultipktEnable : 1;
-    uint8_t OutAzlpEnable : 1;
-    uint8_t OutTrncInterruptEnable : 1;
-    uint8_t reserved : 2;
-} USB_EP_STATIC_CONFIG_BITS_t;
-
-/*
- * usb_device_stack
- * endpointStaticConfig
- * Configuration of static endpoint settings.
- */
-static const USB_EP_STATIC_CONFIG_BITS_t endpointStaticConfig[USB_EP_NUM] = {
-    [0] = {
-        .InMultipktEnable        = 1,
-        .InAzlpEnable            = 0,
-        .InTrncInterruptEnable   = 1,
-        .OutMultipktEnable       = 1,
-        .OutAzlpEnable           = 0,
-        .OutTrncInterruptEnable  = 1,
-        .reserved                = 0
-    },
-    [1] = {
-        .InMultipktEnable        = 0,
-        .InAzlpEnable            = 0,
-        .InTrncInterruptEnable   = 1,
-        .OutMultipktEnable       = 0,
-        .OutAzlpEnable           = 0,
-        .OutTrncInterruptEnable  = 1,
-        .reserved                = 0
-    },
-    [2] = {
-        .InMultipktEnable        = 1,
-        .InAzlpEnable            = 0,
-        .InTrncInterruptEnable   = 1,
-        .OutMultipktEnable       = 1,
-        .OutAzlpEnable           = 0,
-        .OutTrncInterruptEnable  = 1,
-        .reserved                = 0
-    }
-};
-/*
-static const USB_EP_STATIC_CONFIG_BITS_t endpointStaticConfig [USB_EP_NUM] = {
-    [0] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 1, .InAzlpEnable = 0, .OutMultipktEnable = 1, .OutAzlpEnable = 0},
-    [1] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
-    [2] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 1, .InAzlpEnable = 0, .OutMultipktEnable = 1, .OutAzlpEnable = 0},
-};
-*/
 
 #endif // USB_CONFIG_H
 /*

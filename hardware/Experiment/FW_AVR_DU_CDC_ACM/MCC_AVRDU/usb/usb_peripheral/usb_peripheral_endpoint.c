@@ -110,8 +110,8 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
             USB_NumberBytesToSendReset(pipe.address);
             USB_EndpointInControlSet(pipe.address, endpointConfiguration);
 
-            // InAzlpEnable=0 for all endpoints; InTrncInterruptEnable=1 for all
-            if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].InMultipktEnable)
+            // EP1 IN (interrupt) has InMultipktEnable=0; all others=1
+            if (pipe.address != 1u)
             {
                 USB_EndpointInMultipktEnable(pipe.address);
             }

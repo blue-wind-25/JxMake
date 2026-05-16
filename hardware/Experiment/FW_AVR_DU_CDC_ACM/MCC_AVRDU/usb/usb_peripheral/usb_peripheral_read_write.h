@@ -221,6 +221,6 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe);
+void USB_PipeTransactionComplete(USB_PIPE_t pipe);
 
 #endif /* USB_PERIPHERAL_READ_WRITE_H */

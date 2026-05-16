@@ -180,93 +180,77 @@ RETURN_CODE_t USB_ControlEndpointsInit(void)
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_ControlSetupReceived(void)
+void USB_ControlSetupReceived(void)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     USB_SetupInterruptClear();
 
     if (USB_CONTROL_STALL_REQ == controlTransfer.status)
     {
         // Stall events are handled by the EventHandler.
-        status = SUCCESS;
+        return;
     }
-    else
+
+    // Acks Setup Received on the control endpoints.
+    USB_EndpointOutSetupReceivedAck(0u);
+    USB_EndpointInSetupCompleteAck(0u);
+
+    // Clears bytes received and sent
+    USB_NumberBytesToSendReset(0u);
+    USB_NumberBytesSentReset(0u);
+    USB_NumberBytesToReceiveReset(0u);
+    USB_NumberBytesReceivedReset(0u);
+
+    // Copies setup packet out of buffer to make it available for a data stage.
+    (void)memcpy((uint8_t *)(&controlTransfer.setupRequest), controlTransfer.buffer, sizeof(USB_SETUP_REQUEST_t));
+
+    RETURN_CODE_t setup_status = USB_SetupProcess(&controlTransfer.setupRequest);
+
+    if (UNSUPPORTED == setup_status)
     {
-        // Acks Setup Received on the control endpoints.
-        USB_EndpointOutSetupReceivedAck(0u);
-        USB_EndpointInSetupCompleteAck(0u);
-
-        // Clears bytes received and sent
-        USB_NumberBytesToSendReset(0u);
-        USB_NumberBytesSentReset(0u);
-        USB_NumberBytesToReceiveReset(0u);
-        USB_NumberBytesReceivedReset(0u);
-
-        // Copies setup packet out of buffer to make it available for a data stage.
-        (void)memcpy((uint8_t *)(&controlTransfer.setupRequest), controlTransfer.buffer, sizeof(USB_SETUP_REQUEST_t));
-
+        // Setup Request unknown or rejected, stalls the next control transaction.
+        controlTransfer.status = USB_CONTROL_STALL_REQ;
+        USB_EndpointInStall(0u);
+        USB_EndpointOutStall(0u);
+    }
+    else if (SUCCESS == setup_status)
+    {
+        if (0u == controlTransfer.transferDataSize)
         {
-            RETURN_CODE_t setup_status = USB_SetupProcess(&controlTransfer.setupRequest);
-
-            if (UNSUPPORTED == setup_status)
+            // Request did not contain a data stage, sends ZLP directly.
+            USB_ControlTransferZLP(USB_EP_DIR_IN);
+        }
+        else
+        {
+            // Sends or Receives data in next stage of request.
+            controlTransfer.totalBytesTransferred = 0;
+            USB_PIPE_t controlPipe = { .address = 0u, .direction = USB_EP_DIR_IN };
+            if ((controlTransfer.setupRequest.bmRequestType.dataPhaseTransferDirection) == USB_REQUEST_DIR_IN)
             {
-                // Setup Request unknown or rejected, stalls the next control transaction.
-                controlTransfer.status = USB_CONTROL_STALL_REQ;
-                USB_EndpointInStall(0u);
-                USB_EndpointOutStall(0u);
-
-                status = SUCCESS;
-            }
-            else if (SUCCESS == setup_status)
-            {
-                if (0u == controlTransfer.transferDataSize)
-                {
-                    // Request did not contain a data stage, sends ZLP directly.
-                    status = USB_ControlTransferZLP(USB_EP_DIR_IN);
-                }
-                else
-                {
-                    // Sends or Receives data in next stage of request.
-                    controlTransfer.totalBytesTransferred = 0;
-                    USB_PIPE_t controlPipe = { .address = 0u, .direction = USB_EP_DIR_IN };
-                    if ((controlTransfer.setupRequest.bmRequestType.dataPhaseTransferDirection) == USB_REQUEST_DIR_IN)
-                    {
-                        controlTransfer.status = USB_CONTROL_DATA_IN;
-                    }
-                    else
-                    {
-                        // Control OUT data transactions are controlled by the IN.DATAPTR so set specifically here.
-                        EndpointBufferSet(controlPipe, controlTransfer.transferDataPtr);
-
-                        controlPipe.direction = USB_EP_DIR_OUT;
-                        controlTransfer.status = USB_CONTROL_DATA_OUT;
-                    }
-
-                    // Sets up the pipe variables.
-                    USB_PipeDataTransferredSizeReset(controlPipe);
-                    USB_PipeDataPtrSet(controlPipe, controlTransfer.transferDataPtr);
-                    USB_PipeDataToTransferSizeSet(controlPipe, controlTransfer.transferDataSize);
-
-                    // Start data stage transaction.
-                    status = USB_ControlTransactionComplete(controlPipe);
-                }
+                controlTransfer.status = USB_CONTROL_DATA_IN;
             }
             else
             {
-                // Forward error from setup.
-                status = setup_status;
+                // Control OUT data transactions are controlled by the IN.DATAPTR so set specifically here.
+                EndpointBufferSet(controlPipe, controlTransfer.transferDataPtr);
+
+                controlPipe.direction = USB_EP_DIR_OUT;
+                controlTransfer.status = USB_CONTROL_DATA_OUT;
             }
+
+            // Sets up the pipe variables.
+            USB_PipeDataTransferredSizeReset(controlPipe);
+            USB_PipeDataPtrSet(controlPipe, controlTransfer.transferDataPtr);
+            USB_PipeDataToTransferSizeSet(controlPipe, controlTransfer.transferDataSize);
+
+            // Start data stage transaction.
+            USB_ControlTransactionComplete(controlPipe);
         }
     }
-
-    return status;
+    // else: setup error — no action, stall will occur on next transaction
 }
 
-RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
+void USB_ControlTransactionComplete(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     // Always called with pipe.address == 0 (control endpoint)
     USB_DataToggleSet(pipe);
 
@@ -289,22 +273,21 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
                 if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
                 {
                     // Data stage is complete, sends an OUT ZLP for status stage.
-                    status = USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
+                    USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
                 }
                 else
                 {
                     // No overUnderRunCallback registered — send ZLP for data stage.
-                    status = USB_InTransactionRun(pipe);
+                    USB_InTransactionRun(pipe);
                 }
             }
             else
             {
                 // Starts next transaction in data stage.
-                status = USB_InTransactionRun(pipe);
+                USB_InTransactionRun(pipe);
             }
 
             USB_EndpointInOverUnderflowAck(0);
-
             break;
         }
         case USB_CONTROL_DATA_OUT:
@@ -323,7 +306,7 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
                 if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
                 {
                     // Data stage is complete, sends an IN ZLP for status stage.
-                    status = USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
+                    USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
                 }
                 else
                 {
@@ -331,13 +314,12 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
                     controlTransfer.status = USB_CONTROL_STALL_REQ;
                     USB_EndpointInStall(0);
                     USB_EndpointOutStall(0);
-                    status = SUCCESS;
                 }
             }
             else
             {
                 // Starts next transaction in data stage.
-                status = USB_OutTransactionRun(pipe);
+                USB_OutTransactionRun(pipe);
             }
 
             USB_EndpointOutOverUnderflowAck(0);
@@ -350,24 +332,17 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
             {
                 controlTransfer.endOfRequestCallback();
             }
-
-            // Reinitializes control endpoint management.
-            status = USB_ControlTransferReset();
+            USB_ControlTransferReset();
             break;
         }
         case USB_CONTROL_SETUP:
         {
-            status = USB_ControlTransferReset();
+            USB_ControlTransferReset();
             break;
         }
         default:
-        {
-            status = CONTROL_TRANSACTION_STATUS_ERROR;
             break;
-        }
     }
-
-    return status;
 }
 
 RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)

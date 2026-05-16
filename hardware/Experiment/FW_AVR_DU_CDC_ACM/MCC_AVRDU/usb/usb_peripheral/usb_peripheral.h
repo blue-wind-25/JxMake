@@ -235,7 +235,7 @@ RETURN_CODE_t USB_ControlEndpointsInit(void);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlSetupReceived(void);
+void USB_ControlSetupReceived(void);
 
 /*
  * usb_peripheral
@@ -243,7 +243,7 @@ RETURN_CODE_t USB_ControlSetupReceived(void);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe);
+void USB_ControlTransactionComplete(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral

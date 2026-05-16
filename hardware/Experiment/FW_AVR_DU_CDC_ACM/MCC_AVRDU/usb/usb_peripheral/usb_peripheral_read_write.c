@@ -288,10 +288,9 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)
+void USB_PipeTransactionComplete(USB_PIPE_t pipe)
 {
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
-    RETURN_CODE_t status = UNINITIALIZED;
     uint16_t transactionSize;
 
     if (USB_EP_DIR_IN == pipe.direction)
@@ -303,12 +302,11 @@ RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)
         pipeTransferPtr->bytesTransferred += transactionSize;
         if ((pipeTransferPtr->bytesTransferred != pipeTransferPtr->transferDataSize) || (pipeTransferPtr->ZLPEnable))
         {
-            status = USB_InTransactionRun(pipe);
+            USB_InTransactionRun(pipe);
         }
         else
         {
             pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-            status = SUCCESS;
         }
     }
     else
@@ -329,24 +327,21 @@ RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)
             else
             {
                 pipeTransferPtr->status = USB_PIPE_TRANSFER_ERROR;
-                status = PIPE_TRANSFER_ERROR;
+                USB_PipeTransferEndCallback(pipe);
+                return;
             }
         }
 
-        if (PIPE_TRANSFER_ERROR != status)
-        {
-            // Updates bytes transfered and check if we need to run more transactions.
-            pipeTransferPtr->bytesTransferred += transactionSize;
+        // Updates bytes transferred and check if we need to run more transactions.
+        pipeTransferPtr->bytesTransferred += transactionSize;
 
-            if (((pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize) || pipeTransferPtr->ZLPEnable) && (0u == (transactionSize % USB_EndpointSizeGet(pipe))))
-            {
-                status = USB_OutTransactionRun(pipe);
-            }
-            else
-            {
-                pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-                status = SUCCESS;
-            }
+        if (((pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize) || pipeTransferPtr->ZLPEnable) && (0u == (transactionSize % USB_EndpointSizeGet(pipe))))
+        {
+            USB_OutTransactionRun(pipe);
+        }
+        else
+        {
+            pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
         }
     }
 
@@ -355,6 +350,4 @@ RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)
     {
         USB_PipeTransferEndCallback(pipe);
     }
-
-    return status;
 }

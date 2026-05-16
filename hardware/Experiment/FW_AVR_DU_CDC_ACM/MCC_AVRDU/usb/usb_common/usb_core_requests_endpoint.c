@@ -93,40 +93,23 @@ RETURN_CODE_t SetupEndpointRequestGetStatus(USB_SETUP_REQUEST_t *setupRequestPtr
 
 RETURN_CODE_t SetupEndpointRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Only ENDPOINT_HALT available for endpoints
     if (setupRequestPtr->wValue == USB_ENDPOINT_FEATURE_HALT)
     {
-        USB_PIPE_t endpoint = EndpointFromRequestGet(setupRequestPtr->wIndex);
-
-        status = USB_EndpointStallClear(endpoint);
+        USB_EndpointStallClear(EndpointFromRequestGet(setupRequestPtr->wIndex));
+        return SUCCESS;
     }
-    else
-    {
-        status = UNSUPPORTED;
-    }
-
-    return status;
+    return UNSUPPORTED;
 }
 
 RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Only ENDPOINT_HALT available for endpoints
     if (setupRequestPtr->wValue == USB_ENDPOINT_FEATURE_HALT)
     {
         USB_PIPE_t endpoint = EndpointFromRequestGet(setupRequestPtr->wIndex);
-
         USB_TransferAbort(endpoint);
-        status = USB_EndpointStall(endpoint);
+        USB_EndpointStall(endpoint);
+        return SUCCESS;
     }
-    else
-    {
-        status = UNSUPPORTED;
-    }
-
-    return status;
+    return UNSUPPORTED;
 }
 

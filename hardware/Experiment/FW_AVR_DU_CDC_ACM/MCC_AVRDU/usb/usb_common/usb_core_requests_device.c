@@ -108,7 +108,7 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
                 descriptorLength = setupRequestPtr->wLength;
             }
 
-            status = USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
+            USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
         }
     }
 

@@ -84,7 +84,6 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
 
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
-    RETURN_CODE_t status = USB_DescriptorInterfaceConfigure(setupRequestPtr->wIndex, setupRequestPtr->wValue, true);
-    return status;
+    return USB_DescriptorInterfaceConfigure(setupRequestPtr->wIndex, setupRequestPtr->wValue, true);
 }
 

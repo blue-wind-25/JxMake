@@ -185,72 +185,37 @@ USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe)
 
 RETURN_CODE_t USB_EndpointStall(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        USB_EndpointOutStall(pipe.address);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutStall(pipe.address);
-        }
-        else
-        {
-            USB_EndpointInStall(pipe.address);
-        }
-
-        status = SUCCESS;
+        USB_EndpointInStall(pipe.address);
     }
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_EndpointStallClear(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        USB_EndpointOutStallClear(pipe.address);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutStallClear(pipe.address);
-        }
-        else
-        {
-            USB_EndpointInStallClear(pipe.address);
-        }
-
-        status = SUCCESS;
+        USB_EndpointInStallClear(pipe.address);
     }
-
-    return status;
+    return SUCCESS;
 }
 
 bool USB_EndpointIsStalled(USB_PIPE_t pipe)
 {
-
-    bool isStalled = false;
-
-    if ((uint8_t)USB_EP_NUM > pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            isStalled = USB_EndpointOutIsStalled(pipe.address);
-        }
-        else
-        {
-            isStalled = USB_EndpointInIsStalled(pipe.address);
-        }
+        return USB_EndpointOutIsStalled(pipe.address);
     }
-
-    return isStalled;
+    return USB_EndpointInIsStalled(pipe.address);
 }
 
 RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe)

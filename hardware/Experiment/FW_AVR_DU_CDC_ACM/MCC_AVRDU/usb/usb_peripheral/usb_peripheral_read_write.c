@@ -266,13 +266,11 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
         // InMultipktEnable=1 for all used endpoints (EP0, EP2)
         pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize % (uint16_t)endpointSize));
 
-        status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
-        if (SUCCESS == status)
-        {
-            USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
-            USB_NumberBytesSentReset(pipe.address);
-            USB_EndpointInNAKClear(pipe.address);
-        }
+        EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
+        USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
+        USB_NumberBytesSentReset(pipe.address);
+        USB_EndpointInNAKClear(pipe.address);
+        status = SUCCESS;
     }
 
     return status;
@@ -281,10 +279,9 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
 RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
 {
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
-    RETURN_CODE_t status = UNINITIALIZED;
 
     pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
-    status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
+    EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
 
     uint16_t endpointSize = USB_EndpointSizeGet(pipe);
     uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
@@ -304,7 +301,7 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
     USB_NumberBytesToReceiveSet(pipe.address, nextTransactionSize);
     USB_EndpointOutNAKClear(pipe.address);
 
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_PipeTransactionComplete(USB_PIPE_t pipe)

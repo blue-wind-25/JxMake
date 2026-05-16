@@ -129,9 +129,3 @@ RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPt
     return status;
 }
 
-RETURN_CODE_t SetupEndpointRequestSynchFrame(void)
-{
-    uint16_t framenum = USB_FrameNumberGet();
-
-    return USB_ControlTransferDataWriteBuffer((uint8_t*) & framenum, sizeof (framenum));
-}

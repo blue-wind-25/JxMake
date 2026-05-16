@@ -129,11 +129,6 @@ RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestP
             status = SetupEndpointRequestSetFeature(setupRequestPtr);
             break;
         }
-        case USB_REQUEST_SYNCH_FRAME:
-        {
-            status = SetupEndpointRequestSynchFrame();
-            break;
-        }
         default:
             // Invalid request, please STALL
             status = UNSUPPORTED;

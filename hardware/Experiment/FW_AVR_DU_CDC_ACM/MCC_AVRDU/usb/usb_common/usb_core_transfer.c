@@ -46,52 +46,33 @@
 
 RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     if (USB_PipeStatusIsBusy(pipe) == true)
     {
-        status = PIPE_BUSY_ERROR;
+        return PIPE_BUSY_ERROR;
     }
-    else
-    {
-        status = USB_PipeReset(pipe);
-    }
-
-    if (status == SUCCESS)
-    {
-        USB_PipeDataPtrSet(pipe, dataPtr);
-        USB_PipeDataToTransferSizeSet(pipe, dataSize);
-        USB_PipeDataTransferredSizeReset(pipe);
-        USB_PipeTransferZLP_Enable(pipe);
-        USB_PipeTransferEndCallbackRegister(pipe, callback);
-        status = USB_InTransactionRun(pipe);
-    }
-    return status;
+    USB_PipeReset(pipe);
+    USB_PipeDataPtrSet(pipe, dataPtr);
+    USB_PipeDataToTransferSizeSet(pipe, dataSize);
+    USB_PipeDataTransferredSizeReset(pipe);
+    USB_PipeTransferZLP_Enable(pipe);
+    USB_PipeTransferEndCallbackRegister(pipe, callback);
+    USB_InTransactionRun(pipe);
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     if (USB_PipeStatusIsBusy(pipe) == true)
     {
-        status = PIPE_BUSY_ERROR;
+        return PIPE_BUSY_ERROR;
     }
-    else
-    {
-        status = USB_PipeReset(pipe);
-    }
-
-    if (status == SUCCESS)
-    {
-        USB_PipeDataPtrSet(pipe, dataPtr);
-        USB_PipeDataToTransferSizeSet(pipe, dataSize);
-        USB_PipeDataTransferredSizeReset(pipe);
-        USB_PipeTransferEndCallbackRegister(pipe, callback);
-        status = USB_OutTransactionRun(pipe);
-    }
-
-    return status;
+    USB_PipeReset(pipe);
+    USB_PipeDataPtrSet(pipe, dataPtr);
+    USB_PipeDataToTransferSizeSet(pipe, dataSize);
+    USB_PipeDataTransferredSizeReset(pipe);
+    USB_PipeTransferEndCallbackRegister(pipe, callback);
+    USB_OutTransactionRun(pipe);
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback)

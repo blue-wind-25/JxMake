@@ -375,8 +375,6 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
 
 RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langID, uint8_t **descriptorAddressPtr, uint16_t *descriptorLength)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     if (stringIndex == 0u)
     {
         // Index 0 returns the language ID descriptor
@@ -395,21 +393,18 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
     USB_DESCRIPTOR_HEADER_t *stringHeader = applicationPointers->stringPtrs[0];
     if (stringIndex > 1u)
     {
+        RETURN_CODE_t status = UNINITIALIZED;
         for (uint8_t i = 1u; i < stringIndex; i++)
         {
             status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_STRING, &stringHeader);
         }
-    }
-    else
-    {
-        status = SUCCESS;
-    }
-
-    if (SUCCESS == status)
-    {
-        *descriptorAddressPtr = (uint8_t *)stringHeader;
-        *descriptorLength = (uint16_t)stringHeader->bLength;
+        if (SUCCESS != status)
+        {
+            return status;
+        }
     }
 
-    return status;
+    *descriptorAddressPtr = (uint8_t *)stringHeader;
+    *descriptorLength = (uint16_t)stringHeader->bLength;
+    return SUCCESS;
 }

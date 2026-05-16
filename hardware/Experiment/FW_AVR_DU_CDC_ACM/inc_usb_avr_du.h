@@ -42,18 +42,14 @@ extern "C" {
 
 static void USBDevice_CDCACMHandler()
 {
-    RETURN_CODE_t status = SUCCESS;
     if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
         if (!USB_PipeStatusIsBusy(CDCTxPipe))
-            status = USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
+            USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
     }
-    if (status == SUCCESS) {
-        if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
-            if (!USB_PipeStatusIsBusy(CDCRxPipe))
-                status = USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
-        }
+    if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
+        if (!USB_PipeStatusIsBusy(CDCRxPipe))
+            USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
     }
-    if (status != SUCCESS) return;
     if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
     if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
 

@@ -73,53 +73,44 @@ USB_ENDPOINT_TABLE_t endpointTable __attribute__((aligned(2)));
 
 RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     uint8_t endpointConfiguration = 0;
-    if (SUCCESS != ConvertEndpointSizeToMask(endpointSize, endpointType, &endpointConfiguration))
+    ConvertEndpointSizeToMask(endpointSize, endpointType, &endpointConfiguration);
+
+    // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
+    if (CONTROL == endpointType)
     {
-        status = ENDPOINT_SIZE_ERROR;
+        endpointConfiguration |= USB_TYPE_CONTROL_gc;
     }
     else
     {
-        // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
-        if (CONTROL == endpointType)
-        {
-            endpointConfiguration |= USB_TYPE_CONTROL_gc;
-        }
-        else
-        {
-            endpointConfiguration |= USB_TYPE_BULKINT_gc;
-        }
+        endpointConfiguration |= USB_TYPE_BULKINT_gc;
+    }
 
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutNAKSet(pipe.address);
-            USB_EndpointOutStatusClear(pipe.address);
-            USB_NumberBytesReceivedReset(pipe.address);
-            USB_EndpointOutControlSet(pipe.address, endpointConfiguration);
+    if (USB_EP_DIR_OUT == pipe.direction)
+    {
+        USB_EndpointOutNAKSet(pipe.address);
+        USB_EndpointOutStatusClear(pipe.address);
+        USB_NumberBytesReceivedReset(pipe.address);
+        USB_EndpointOutControlSet(pipe.address, endpointConfiguration);
 
-            // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all; OutMultipkt=1 for all configured OUT
-            USB_EndpointOutMultipktEnable(pipe.address);
-            status = SUCCESS;
-        }
-        else
-        {
-            USB_EndpointInNAKSet(pipe.address);
-            USB_EndpointInStatusClear(pipe.address);
-            USB_NumberBytesToSendReset(pipe.address);
-            USB_EndpointInControlSet(pipe.address, endpointConfiguration);
+        // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all; OutMultipkt=1 for all configured OUT
+        USB_EndpointOutMultipktEnable(pipe.address);
+    }
+    else
+    {
+        USB_EndpointInNAKSet(pipe.address);
+        USB_EndpointInStatusClear(pipe.address);
+        USB_NumberBytesToSendReset(pipe.address);
+        USB_EndpointInControlSet(pipe.address, endpointConfiguration);
 
-            // EP1 IN (interrupt) has InMultipktEnable=0; all others=1
-            if (pipe.address != 1u)
-            {
-                USB_EndpointInMultipktEnable(pipe.address);
-            }
-            status = SUCCESS;
+        // EP1 IN (interrupt) has InMultipktEnable=0; all others=1
+        if (pipe.address != 1u)
+        {
+            USB_EndpointInMultipktEnable(pipe.address);
         }
     }
 
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe)

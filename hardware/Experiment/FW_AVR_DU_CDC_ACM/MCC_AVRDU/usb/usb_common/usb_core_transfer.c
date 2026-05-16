@@ -91,44 +91,28 @@ RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe)
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_TransferHandler(void)
+void USB_TransferHandler(void)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     // If it's the initial setup packet, handle that separately.
     if (USB_SetupIsReceived() == true)
     {
-        status = USB_ControlSetupReceived();
+        USB_ControlSetupReceived();
     }
     // If a transaction is complete, handle that one.
     else if (USB_TransactionIsCompleted() == true)
     {
-        // Finds out which pipe has a completed transaction.
         USB_PIPE_t pipe;
-
-        status = USB_TransactionCompletedPipeGet(&pipe);
-
-        if (status == SUCCESS)
+        if (SUCCESS == USB_TransactionCompletedPipeGet(&pipe))
         {
             USB_TransactionCompleteAck(pipe);
-
-            // Handles control transactions separately.
             if (pipe.address == 0U)
             {
-                status = USB_ControlTransactionComplete(pipe);
+                USB_ControlTransactionComplete(pipe);
             }
             else
             {
-                // Regular handling of all regular endpoints.
-                status = USB_PipeTransactionComplete(pipe);
+                USB_PipeTransactionComplete(pipe);
             }
         }
     }
-    else
-    {
-        // No handling needed, return SUCCESS.
-        status = SUCCESS;
-    }
-
-    return status;
 }

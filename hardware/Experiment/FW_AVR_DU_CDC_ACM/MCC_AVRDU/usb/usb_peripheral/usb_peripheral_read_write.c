@@ -116,37 +116,21 @@ bool USB_TransactionIsCompleted(void)
 
 RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
+    // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO
+    // Reading the FIFO Read Pointer will handle the Transaction Complete Interrupt flag.
+    // The USB_FifoReadPointerGet is a device-specific function.
+    uint8_t fifoEntry = endpointTable.FIFO[(USB_EP_NUM * 2u) + USB_FifoReadPointerGet()];
 
-    if (USB_TransactionIsCompleted())
+    // The FIFO entry contains the endpoint address and direction of the endpoint to handle next.
+    USB_PIPE_t returnPipe = { .direction = (fifoEntry & USB_DIR_bm) >> USB_DIR_bp, .address = (fifoEntry & USB_EPNUM_gm) >> USB_EPNUM_gp };
+
+    if ((uint8_t)USB_EP_NUM <= returnPipe.address)
     {
-        // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO
-        // Reading the FIFO Read Pointer will handle the Transaction Complete Interrupt flag.
-        // The USB_FifoReadPointerGet is a device-specific function.
-
-        uint8_t fifoEntry = endpointTable.FIFO[(USB_EP_NUM * 2u) + USB_FifoReadPointerGet()];
-
-        // The FIFO entry contains the endpoint address and direction of the endpoint to handle next.
-        USB_PIPE_t returnPipe = { .direction = (fifoEntry & USB_DIR_bm) >> USB_DIR_bp, .address = (fifoEntry & USB_EPNUM_gm) >> USB_EPNUM_gp };
-
-        if ((uint8_t)USB_EP_NUM <= returnPipe.address)
-        {
-            status = ENDPOINT_ADDRESS_ERROR;
-        }
-        else
-        {
-            pipe->address = returnPipe.address;
-            pipe->direction = returnPipe.direction;
-            status = SUCCESS;
-        }
+        return ENDPOINT_ADDRESS_ERROR;
     }
-    else
-    {
-        // No transaction is completed.
-        status = PIPE_TRANSFER_ERROR;
-    }
-
-    return status;
+    pipe->address = returnPipe.address;
+    pipe->direction = returnPipe.direction;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe)

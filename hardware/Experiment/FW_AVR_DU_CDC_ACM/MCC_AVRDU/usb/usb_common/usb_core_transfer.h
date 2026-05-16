@@ -114,7 +114,7 @@ RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferHandler(void);
+void USB_TransferHandler(void);
 
 #endif	/* USB_CORE_TRANSFER_H */
 

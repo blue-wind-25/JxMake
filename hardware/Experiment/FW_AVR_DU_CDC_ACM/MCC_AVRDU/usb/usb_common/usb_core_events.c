@@ -45,7 +45,7 @@
 #include <usb_peripheral.h>
 #include <usb_protocol_headers.h>
 
-RETURN_CODE_t USB_EventHandler(void)
+void USB_EventHandler(void)
 {
     if (USB_EventResetIsReceived() == true)
     {
@@ -67,5 +67,4 @@ RETURN_CODE_t USB_EventHandler(void)
         USB_EventStalledClear();
         USB_HandleEventStalled((USB_PIPE_t){ .address = 0x00, .direction = USB_EP_DIR_OUT });
     }
-    return SUCCESS;
 }

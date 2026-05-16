@@ -90,16 +90,12 @@ USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Descriptor pointer to search through the different descriptors
     // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t currentDescriptor;
+    RETURN_CODE_t status = SUCCESS;
 
     if (NULL != activeConfigurationPtr)
     {
-        status = SUCCESS;
-
         // Find and disable all active interfaces in the current configuration
         currentDescriptor.configurationPtr = activeConfigurationPtr;
         uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
@@ -116,11 +112,6 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
                 }
             }
         }
-    }
-    else
-    {
-        // No current configuration, nothing to disable
-        status = SUCCESS;
     }
 
     if (SUCCESS == status)

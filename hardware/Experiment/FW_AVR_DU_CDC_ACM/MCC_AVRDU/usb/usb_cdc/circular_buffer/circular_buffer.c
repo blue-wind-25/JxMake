@@ -37,62 +37,34 @@
 
 BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data)
 {
-    BUFFER_RETURN_CODE_t status = BUFFER_SUCCESS;
-
-    // Finds next buffer head
     uint16_t nextHead = buffer->head + 1U;
-
-    // Checks if next head at end of array reached, wraps around
     if (buffer->maxLength <= nextHead)
     {
         nextHead = 0;
     }
-
-    // Checks if buffer is full
     if (buffer->tail == nextHead)
     {
-        status = BUFFER_FULL;
+        return BUFFER_FULL;
     }
-    else
-    {
-        // Writes data to buffer
-        buffer->content[buffer->head] = data;
-        // Updates head
-        buffer->head = nextHead;
-    }
-
-    return status;
+    buffer->content[buffer->head] = data;
+    buffer->head = nextHead;
+    return BUFFER_SUCCESS;
 }
 
 BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data)
 {
-    BUFFER_RETURN_CODE_t status = BUFFER_SUCCESS;
-
-    uint16_t nextTail;
-
-    // Checks if buffer is empty
     if (buffer->head == buffer->tail)
     {
-        status = BUFFER_EMPTY;
+        return BUFFER_EMPTY;
     }
-    else
+    uint16_t nextTail = buffer->tail + 1U;
+    if (buffer->maxLength <= nextTail)
     {
-        // Finds next buffer tail
-        nextTail = buffer->tail + 1U;
-
-        // Checks if next tail at end of array reached, wraps around
-        if (buffer->maxLength <= nextTail)
-        {
-            nextTail = 0;
-        }
-
-        // Reads data from buffer
-        *data = buffer->content[buffer->tail];
-        // Updates tail
-        buffer->tail = nextTail;
+        nextTail = 0;
     }
-
-    return status;
+    *data = buffer->content[buffer->tail];
+    buffer->tail = nextTail;
+    return BUFFER_SUCCESS;
 }
 
 bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer)

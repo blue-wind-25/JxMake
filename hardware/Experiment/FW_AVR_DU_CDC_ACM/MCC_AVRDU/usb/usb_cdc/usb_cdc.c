@@ -82,60 +82,40 @@ RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    // Tests if recipient is interface
     if (USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t)setupRequestPtr->bmRequestType.recipient)
     {
-        // Determines request direction
         if (USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection)
         {
-            // If Class request
-            if (USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
+            switch (setupRequestPtr->bRequest)
             {
-                // Determines Class Get request ID
-                switch (setupRequestPtr->bRequest)
-                {
-                case USB_CDC_REQUEST_GET_LINE_CODING:
-                    status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
-                    break;
-                default:
-                    status = UNSUPPORTED; // Currently unsupported request
-                    break;
-                }
-            }
-            else
-            {
-                status = UNSUPPORTED; // Unsupported or invalid request type
+            case USB_CDC_REQUEST_GET_LINE_CODING:
+                status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
+                break;
+            default:
+                status = UNSUPPORTED;
+                break;
             }
         }
-        else // USB_REQUEST_DIR_OUT
+        else
         {
-            // If Class request
-            if (USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
+            switch (setupRequestPtr->bRequest)
             {
-                // Determines Class Set/Send request ID
-                switch (setupRequestPtr->bRequest)
-                {
-                case USB_CDC_REQUEST_SET_LINE_CODING:
-                    status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
-                    break;
-                case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
-                    usbCDCControlLineState = setupRequestPtr->wValue;
-                    status = SUCCESS;
-                    break;
-                default:
-                    status = UNSUPPORTED; // Currently unsupported request
-                    break;
-                }
-            }
-            else
-            {
-                status = UNSUPPORTED; // Unsupported or invalid request type
+            case USB_CDC_REQUEST_SET_LINE_CODING:
+                status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
+                break;
+            case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
+                usbCDCControlLineState = setupRequestPtr->wValue;
+                status = SUCCESS;
+                break;
+            default:
+                status = UNSUPPORTED;
+                break;
             }
         }
     }
-    else // Non-interface recipient
+    else
     {
-        status = UNSUPPORTED; // Unsupported recipients
+        status = UNSUPPORTED;
     }
 
     return status;

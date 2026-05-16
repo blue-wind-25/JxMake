@@ -49,6 +49,7 @@ The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack t
 
 No, but you can edit JxMakeFile to remove manufacturer source from the build script.
 
+Before continuing, make a copy of usb_stop() and usb_start() from existing SDK code in inc_usb_avr_du.h, so I can use them in the future.
 
 ● Just start a new Claude Code session in the same directory — the memory system will automatically load the project context. The memory file at memory/project_fw_avr_du_cdc_acm.md has the full current state:
   last commit (120c698), size tracking, all completed steps, and the exact next step (flatten USB_CDCDataTerminalReady()).

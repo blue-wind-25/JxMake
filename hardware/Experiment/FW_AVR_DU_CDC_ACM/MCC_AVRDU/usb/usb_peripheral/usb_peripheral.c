@@ -431,41 +431,29 @@ RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)
 
 RETURN_CODE_t USB_ControlTransferReset(void)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
+    // USB_TransactionAbort always returns SUCCESS
     USB_PIPE_t controlPipeOut = { .address = 0u, .direction = USB_EP_DIR_OUT };
+    USB_TransactionAbort(controlPipeOut);
+    USB_TransactionAbort((USB_PIPE_t){ .address = 0u, .direction = USB_EP_DIR_IN });
 
-    // Aborts any ongoing transaction and resets the endpoint statuses
-    status = USB_TransactionAbort(controlPipeOut);
-    if (SUCCESS == status)
-    {
-        USB_PIPE_t controlPipeIn = { .address = 0u, .direction = USB_EP_DIR_IN };
-        status = USB_TransactionAbort(controlPipeIn);
-    }
+    USB_EndpointOutStatusClear(0u);
+    USB_EndpointInStatusClear(0u);
 
-    if (SUCCESS == status)
-    {
-        USB_EndpointOutStatusClear(0u);
-        USB_EndpointInStatusClear(0u);
+    USB_PipeDataPtrSet(controlPipeOut, controlTransfer.buffer);
+    USB_PipeDataToTransferSizeSet(controlPipeOut, sizeof(USB_SETUP_REQUEST_t));
+    USB_PipeDataTransferredSizeReset(controlPipeOut);
+    USB_PipeTransferEndCallbackRegister(controlPipeOut, NULL);
 
-        // Prepare for receiving a new request packet
-        USB_PipeDataPtrSet(controlPipeOut, controlTransfer.buffer);
-        USB_PipeDataToTransferSizeSet(controlPipeOut, sizeof(USB_SETUP_REQUEST_t));
-        USB_PipeDataTransferredSizeReset(controlPipeOut);
-        USB_PipeTransferEndCallbackRegister(controlPipeOut, NULL);
+    USB_NumberBytesToSendReset(0u);
+    USB_NumberBytesSentReset(0u);
+    USB_NumberBytesToReceiveReset(0u);
+    USB_NumberBytesReceivedReset(0u);
 
-        // Clears the endpoint count registers
-        USB_NumberBytesToSendReset(0u);
-        USB_NumberBytesSentReset(0u);
-        USB_NumberBytesToReceiveReset(0u);
-        USB_NumberBytesReceivedReset(0u);
+    controlTransfer.endOfRequestCallback = NULL;
+    controlTransfer.transferDataSize = 0u;
+    controlTransfer.status = USB_CONTROL_SETUP;
 
-        // Resets the control transfer variables
-        controlTransfer.endOfRequestCallback = NULL;
-        controlTransfer.transferDataSize = 0u;
-        controlTransfer.status = USB_CONTROL_SETUP;
-    }
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)

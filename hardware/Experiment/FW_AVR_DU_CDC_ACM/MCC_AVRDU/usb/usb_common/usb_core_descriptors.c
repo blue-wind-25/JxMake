@@ -364,11 +364,8 @@ RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interface
                     else
                     {
                         // Aborts any ongoing transfer and disable endpoint.
-                        status = USB_TransferAbort(currentDescriptor.endpointPtr->bEndpointAddress);
-                        if (SUCCESS == status)
-                        {
-                            status = USB_EndpointDisable(currentDescriptor.endpointPtr->bEndpointAddress);
-                        }
+                        USB_TransferAbort(currentDescriptor.endpointPtr->bEndpointAddress);
+                        status = USB_EndpointDisable(currentDescriptor.endpointPtr->bEndpointAddress);
                     }
 
                     numEndpoints--;

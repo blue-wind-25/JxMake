@@ -102,27 +102,12 @@ RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, US
 
 RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Checks if abort is needed.
     if (USB_PipeStatusIsBusy(pipe) == true)
     {
-        //Stops transfer.
-        status = USB_TransactionAbort(pipe);
-
-        if (status == SUCCESS)
-        {
-            // Calls callback.
-            USB_PipeTransferEndCallback(pipe);
-        }
+        USB_TransactionAbort(pipe);
+        USB_PipeTransferEndCallback(pipe);
     }
-    else
-    {
-        // Pipe is not busy, so no need to abort.
-        status = SUCCESS;
-    }
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_TransferHandler(void)

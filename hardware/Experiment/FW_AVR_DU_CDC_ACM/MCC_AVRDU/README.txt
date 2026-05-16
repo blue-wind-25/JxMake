@@ -1,18 +1,25 @@
 ====================================================================================================
 
-All source code files in this directory are downloaded from:
+This directory contains a flattened and simplified AVR DU Series USB CDC-ACM stack.
+
+The flattening process, aimed at minimizing bloat and optimizing speed, was carried out with the
+help of Claude Sonnet via Claude Code CLI.
+
+A marker has been added at the top of each source file to indicate that this program has been
+modified by the JxMake project.
+
+Some files and directories not strictly required for program execution have been omitted to save
+space.
+
+----------------------------------------------------------------------------------------------------
+
+The original source code files in this directory were downloaded from:
 
 GitHub Account : Microchip PIC & AVR Examples - Microchip Technology
 Repository     : USB Communication Device Class (CDC) Data Logger with AVR® DU
 Repository URL : https://github.com/microchip-pic-avr-examples/avr64du32-cnano-usb-cdc-datalogger-mplab-mcc
 License        : https://github.com/microchip-pic-avr-examples/avr64du32-cnano-usb-cdc-datalogger-mplab-mcc/blob/main/LICENSE.txt
 
-A marker has been added at the top of each source files to indicate that this program has been
-modified by the JxMake project.
-
-Some files and directories that are not strictly required for the running of the program are not
-included here to save space.
-     
 ----------------------------------------------------------------------------------------------------
 
 (C) 2024 Microchip Technology Inc. and its subsidiaries.

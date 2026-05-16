@@ -102,46 +102,30 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
 
 RETURN_CODE_t USB_Stop(void)
 {
-    RETURN_CODE_t status = SUCCESS;
-
-    // Detaches from the bus and disables peripheral.
     USB_BusDetach();
     USB_PeripheralDisable();
 
-    // Aborts any ongoing transfers.
     USB_PIPE_t pipe = { .address = 0 };
     while (pipe.address < USB_EP_NUM)
     {
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_OUT;
-            status = USB_TransferAbort(pipe);
-        }
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_IN;
-            status = USB_TransferAbort(pipe);
-        }
+        pipe.direction = USB_EP_DIR_OUT;
+        USB_TransferAbort(pipe);
+        pipe.direction = USB_EP_DIR_IN;
+        USB_TransferAbort(pipe);
         pipe.address++;
     }
 
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_Reset(void)
 {
-    RETURN_CODE_t status = USB_Stop();
+    USB_Stop();
+    USB_PeripheralInitialize();
+    RETURN_CODE_t status = USB_ControlEndpointsInit();
     if (status == SUCCESS)
     {
-        USB_PeripheralInitialize();
-        status = USB_ControlEndpointsInit();
-    }
-    if (status == SUCCESS)
-    {
-        status = USB_ControlTransferReset();
-    }
-    if (status == SUCCESS)
-    {
+        USB_ControlTransferReset();
         USB_BusAttach();
     }
     return status;

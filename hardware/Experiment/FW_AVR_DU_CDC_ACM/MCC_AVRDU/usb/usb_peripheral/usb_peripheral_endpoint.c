@@ -99,11 +99,8 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
             USB_NumberBytesReceivedReset(pipe.address);
             USB_EndpointOutControlSet(pipe.address, endpointConfiguration);
 
-            // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all
-            if ((uint8_t)0x01 == endpointStaticConfig[pipe.address].OutMultipktEnable)
-            {
-                USB_EndpointOutMultipktEnable(pipe.address);
-            }
+            // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all; OutMultipkt=1 for all configured OUT
+            USB_EndpointOutMultipktEnable(pipe.address);
             status = SUCCESS;
         }
         else
@@ -127,27 +124,15 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
 
 RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        USB_EndPointOutDisable(pipe.address);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndPointOutDisable(pipe.address);
-        }
-        else
-        {
-            USB_EndPointInDisable(pipe.address);
-        }
-
-        status = SUCCESS;
+        USB_EndPointInDisable(pipe.address);
     }
-
-    return status;
+    return SUCCESS;
 }
 
 uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe)

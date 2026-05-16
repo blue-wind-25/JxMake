@@ -52,21 +52,6 @@ RETURN_CODE_t USB_EventHandler(void)
     if (USB_EventResetIsReceived() == true)
     {
         USB_EventResetClear();
-        USB_PIPE_t pipe = { .address = 0 };
-        while (pipe.address < USB_EP_NUM)
-        {
-            pipe.direction = USB_EP_DIR_IN;
-            if (SUCCESS == status)
-            {
-                status = USB_TransferAbort(pipe);
-            }
-            pipe.direction = USB_EP_DIR_OUT;
-            if (SUCCESS == status)
-            {
-                status = USB_TransferAbort(pipe);
-            }
-            pipe.address++;
-        }
         status = USB_Reset();
     }
     uint8_t eventOverUnderflow = USB_EventOverUnderflowIsReceived();

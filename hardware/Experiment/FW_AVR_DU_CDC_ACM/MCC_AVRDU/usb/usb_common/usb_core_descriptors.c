@@ -195,17 +195,8 @@ RETURN_CODE_t NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptorType, USB
     uint8_t incrementCount = 0u;
     while (UNINITIALIZED == status)
     {
-        // Increments to the start of the next pointer.
-        if ((USB_DESCRIPTOR_TYPE_CONFIGURATION == descriptorType) && (USB_DESCRIPTOR_TYPE_CONFIGURATION == (USB_DESCRIPTOR_TYPE_t)currentDescriptor.headerPtr->bDescriptorType))
-        {
-            // If the device is looking for the next configuration, it increments the pointer with total length of the configuration.
-            currentDescriptor.bytePtr = &currentDescriptor.bytePtr[currentDescriptor.configurationPtr->wTotalLength];
-        }
-        else
-        {
-            // Else it only increments with the descriptor length.
-            currentDescriptor.bytePtr = &currentDescriptor.bytePtr[currentDescriptor.headerPtr->bLength];
-        }
+        // Advance by the current descriptor's own length (CONFIGURATION type never passed by callers)
+        currentDescriptor.bytePtr = &currentDescriptor.bytePtr[currentDescriptor.headerPtr->bLength];
 
         // Checks whether it has found the correct descriptor type or if it needs to continue looping.
         if (descriptorType == (USB_DESCRIPTOR_TYPE_t)currentDescriptor.headerPtr->bDescriptorType)

@@ -290,15 +290,8 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if (pipe.address != 0)
-    {
-        status = ENDPOINT_ADDRESS_ERROR;
-    }
-    else
-    {
-        // The data stage and the status stage must always have the data toggle bit set.
-        status = USB_DataToggleSet(pipe);
-    }
+    // Always called with pipe.address == 0 (control endpoint)
+    status = USB_DataToggleSet(pipe);
 
     if (SUCCESS == status)
     {
@@ -320,20 +313,12 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
                 controlTransfer.totalBytesTransferred += bytesSent;
                 if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
                 {
-
                     // Data stage is complete, sends an OUT ZLP for status stage.
                     status = USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
                 }
                 else
                 {
-                    // Data stage is not complete, checks if we need a new buffer.
-                    if ((controlTransfer.overUnderRunCallback != NULL) && (SUCCESS == controlTransfer.overUnderRunCallback()))
-                    {
-                        USB_PipeDataTransferredSizeReset(pipe);
-                        USB_PipeDataToTransferSizeSet(pipe, controlTransfer.transferDataSize);
-                    }
-
-                    // If no new buffer a normal in ZLP will get sent for the data stage.
+                    // No overUnderRunCallback registered — send ZLP for data stage.
                     status = USB_InTransactionRun(pipe);
                 }
             }
@@ -362,28 +347,16 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
                 controlTransfer.totalBytesTransferred += bytesReceived;
                 if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
                 {
-
                     // Data stage is complete, sends an IN ZLP for status stage.
                     status = USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
                 }
                 else
                 {
-                    // Data stage is not complete, checks if we need a new buffer.
-                    if ((controlTransfer.overUnderRunCallback != NULL) && (SUCCESS == controlTransfer.overUnderRunCallback()))
-                    {
-                        USB_PipeDataTransferredSizeReset(pipe);
-                        USB_PipeDataToTransferSizeSet(pipe, controlTransfer.transferDataSize);
-                        status = USB_InTransactionRun(pipe);
-                    }
-                    else
-                    {
-                        // If no new buffer the next transaction will be stalled.
-                        controlTransfer.status = USB_CONTROL_STALL_REQ;
-                        USB_EndpointInStall(0);
-                        USB_EndpointOutStall(0);
-
-                        status = SUCCESS;
-                    }
+                    // No overUnderRunCallback registered — stall.
+                    controlTransfer.status = USB_CONTROL_STALL_REQ;
+                    USB_EndpointInStall(0);
+                    USB_EndpointOutStall(0);
+                    status = SUCCESS;
                 }
             }
             else
@@ -594,21 +567,14 @@ RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
+    // Always called with pipe.address == 0 (control endpoint)
     USB_EndpointInStallAck(pipe.address);
     USB_EndpointOutStallAck(pipe.address);
 
     USB_EndpointInStallClear(pipe.address);
     USB_EndpointOutStallClear(pipe.address);
 
-    if (0u == pipe.address)
-    {
-        // Reinitializes control endpoint management.
-        status = USB_ControlTransferReset();
-    }
-    else
-    {
-        status = USB_TransactionAbort(pipe);
-    }
+    status = USB_ControlTransferReset();
 
     return status;
 }

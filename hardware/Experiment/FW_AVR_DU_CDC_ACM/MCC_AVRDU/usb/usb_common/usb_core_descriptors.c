@@ -174,16 +174,6 @@ uint8_t USB_DescriptorActiveConfigurationValueGet(void)
     return configurationValue;
 }
 
-bool USB_DescriptorActiveConfigurationSelfPoweredGet(void)
-{
-    return (activeConfigurationPtr->bmAttributes & USB_CONFIG_ATTR_SELF_POWERED) == USB_CONFIG_ATTR_SELF_POWERED;
-}
-
-bool USB_DescriptorActiveConfigurationRemoteWakeupGet(void)
-{
-    return (activeConfigurationPtr->bmAttributes & USB_CONFIG_ATTR_REMOTE_WAKEUP) == USB_CONFIG_ATTR_REMOTE_WAKEUP;
-}
-
 RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t **configurationPtr)
 {
     // Single configuration device (bNumConfigurations == 1)
@@ -458,36 +448,12 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
         status = UNSUPPORTED;
         break;
     case USB_DESCRIPTOR_TYPE_BOS:
-        if (NULL != applicationPointers->deviceBOSptr)
-        {
-            *descriptorPtr = (uint8_t *)applicationPointers->deviceBOSptr;
-            *descriptorLength = (uint16_t)applicationPointers->deviceBOSptr->wTotalLength;
-            status = SUCCESS;
-        }
-        else
-        {
-            status = UNSUPPORTED;
-        }
+        // No BOS descriptor — bus-powered CDC-ACM device
+        status = UNSUPPORTED;
         break;
     default:
-        // Find class or vendor descriptor types in the active configuration
-        if (descriptor >= USB_DESCRIPTOR_TYPE_CLASS)
-        {
-            localDescriptorPtr.configurationPtr = activeConfigurationPtr;
-
-            // Find the first descriptor available of the current type
-            status = NextDescriptorPointerGet(descriptor, &localDescriptorPtr.headerPtr);
-            if (SUCCESS == status)
-            {
-                *descriptorPtr = (uint8_t *)localDescriptorPtr.headerPtr;
-                *descriptorLength = localDescriptorPtr.headerPtr->bLength;
-            }
-        }
-        else
-        {
-            status = DESCRIPTOR_REQUEST_ERROR;
-        }
-
+        // Class/vendor descriptors are filtered before this function is called
+        status = DESCRIPTOR_REQUEST_ERROR;
         break;
     }
 

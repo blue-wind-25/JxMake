@@ -62,24 +62,6 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue);
 
 /**
  * @ingroup usb_core
- * @brief Gets the Self-Powered setting from the active configuration.
- * @param None.
- * @retval 0 - Self-Powered is not enabled
- * @retval 1 - Self-Powered is enabled
- */
-bool USB_DescriptorActiveConfigurationSelfPoweredGet(void);
-
-/**
- * @ingroup usb_core
- * @brief Gets the Remote Wake-up setting from the active configuration.
- * @param None.
- * @retval 0 - Remote Wake-up is not enabled
- * @retval 1 - Remote Wake-up is enabled
- */
-bool USB_DescriptorActiveConfigurationRemoteWakeupGet(void);
-
-/**
- * @ingroup usb_core
  * @brief Gets the active configuration value.
  * @param None.
  * @return The active configuration value

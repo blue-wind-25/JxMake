@@ -40,17 +40,7 @@
 #include <usb_common_elements.h>
 #include <usb_protocol_headers.h>
 
-/**
- * @ingroup usb_core
- * @brief Handles Descriptor pointer setup.
- * Sets the address to the application descriptor pointers.
- * Checks if the device pointer and a pointer to the start of the application configuration(s) are set before saving the address to the USB Core Stack.
- * @param *descriptorPtr - The address of the application descriptor pointers
- * @return SUCCESS or an Error code according to RETURN_CODE_t
- */
 extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
-
-RETURN_CODE_t USB_DescriptorPointersSet(USB_DESCRIPTOR_POINTERS_t *descriptorPtr);
 
 /**
  * @ingroup usb_core

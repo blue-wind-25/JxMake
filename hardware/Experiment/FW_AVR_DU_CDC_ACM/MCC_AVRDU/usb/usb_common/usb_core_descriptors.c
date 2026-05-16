@@ -84,41 +84,6 @@ STATIC USB_CONFIGURATION_DESCRIPTOR_t *activeConfigurationPtr = NULL;
 STATIC uint8_t activeInterfaces[USB_INTERFACE_NUM];
 USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
 
-RETURN_CODE_t USB_DescriptorPointersSet(USB_DESCRIPTOR_POINTERS_t *descriptorPointersPtr)
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if (NULL != descriptorPointersPtr)
-    {
-        // Checks that the device pointer is pointing to a struct with the device type.
-        if ((NULL == descriptorPointersPtr->devicePtr) || (USB_DESCRIPTOR_TYPE_DEVICE != (USB_DESCRIPTOR_TYPE_t)descriptorPointersPtr->devicePtr->header.bDescriptorType))
-        {
-            status = DESCRIPTOR_POINTER_ERROR;
-        }
-        // Checks that the first configuration pointer is pointing to a struct with the configuration type.
-        else if ((NULL == descriptorPointersPtr->configurationsPtr) || (USB_DESCRIPTOR_TYPE_CONFIGURATION != (USB_DESCRIPTOR_TYPE_t)descriptorPointersPtr->configurationsPtr->header.bDescriptorType))
-        {
-            status = DESCRIPTOR_POINTER_ERROR;
-        }
-        else
-        {
-            status = SUCCESS;
-        }
-    }
-    else
-    {
-        status = DESCRIPTOR_POINTER_ERROR;
-    }
-
-    if (SUCCESS == status)
-    {
-        // Saves the pointer structure address.
-        applicationPointers = descriptorPointersPtr;
-    }
-
-    return status;
-}
-
 RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
 {
     RETURN_CODE_t status = UNINITIALIZED;

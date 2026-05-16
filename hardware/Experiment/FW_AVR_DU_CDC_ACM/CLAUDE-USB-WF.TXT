@@ -54,3 +54,26 @@ firmware intact, continue
 Do not forget to update:
 tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517.tar.gz ~/.claude/ ~/.claude.json
 
+
+
+Firmware intact, but usage quota is almost up. Commit and we'll continue later. BTW, now I will use Gemini to convert all doxygen style comment to normal comment. I will also manually remove source code files from other sub-directories that 100% we will never unused . Expect some changes the next time we work again.
+
+  - Doxygen → plain comments: safe, no binary impact. Go ahead everywhere.
+  - Removing unused source files: also edit JxMakeFile to drop the corresponding PROG_OBJS entries, otherwise the build will fail on missing files.
+  - Files that are definitely live (don't remove): everything under usb_common/, usb_cdc/, usb_descriptors.c, usb_peripheral/, main.c, the UART/CDC glue.
+
+
+
+Act as a precise source-code transformation engine.
+Rules:
+1. Convert all Doxygen-style comments (/** */, ///, //!<) into normal comments:
+   - /** ... */ → /* ... */
+   - /// → //
+   - //!< → //
+2. Remove all Doxygen tags (@ingroup, @brief, @param, @return, @def, etc.).
+   - Keep only the descriptive text following them.
+   - Indent parameter descriptions by 4 spaces for readability.
+   - Replace "@return" with "return" (no @).
+3. Preserve indentation, spacing, and brace placement exactly as in the original code.
+4. Do NOT alter code outside comments.
+5. Output ONLY raw source code. No markdown, no explanations.

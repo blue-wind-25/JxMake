@@ -4,7 +4,7 @@ This directory contains a flattened and simplified AVR DU Series USB CDC‑ACM s
 a single CDC‑ACM interface.
 
 The flattening process, aimed at minimizing bloat and optimizing speed, was carried out with the
-help of Claude Sonnet via Claude Code CLI.
+help of Claude Sonnet 4.6 with high effort via Claude Code CLI.
 
 A marker has been added at the top of each source file to indicate that this program has been
 modified by the JxMake project.

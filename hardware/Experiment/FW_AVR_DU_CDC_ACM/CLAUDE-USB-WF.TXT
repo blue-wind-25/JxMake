@@ -57,6 +57,7 @@ tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517-2.tar.gz ~/.clau
 
 firmware intact, continue
 firmware intact, commit and continue
+firmware intact, commit and stop for now; we'll continue later
 firmware intact, but usage quota is almost up; commit and we'll continue later
 
 

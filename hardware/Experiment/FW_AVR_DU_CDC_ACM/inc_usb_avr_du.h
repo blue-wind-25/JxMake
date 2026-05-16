@@ -102,6 +102,7 @@ static __attribute__((unused)) RETURN_CODE_t usb_stop()
     return status;
 }
 
+
 static __attribute__((unused)) void usb_start()
 {
     USB_PeripheralInitialize();

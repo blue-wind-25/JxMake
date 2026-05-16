@@ -60,8 +60,7 @@ Before continuing, make a copy of usb_stop() and usb_start() from existing SDK c
 
 
 Do not forget to update:
-../../../0_excluded_directory/_0_claude-mem-20260516.tar.gz
-tar -cjvpf _0_claude-mem-20260516.tar.gz ~/.claude/ ~/.claude.json
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517.tar.gz ~/.claude/ ~/.claude.json
 
 
 

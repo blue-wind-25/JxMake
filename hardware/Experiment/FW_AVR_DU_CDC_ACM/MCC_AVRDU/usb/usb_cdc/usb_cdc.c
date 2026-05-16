@@ -30,18 +30,49 @@
  */
 
 #include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
 #include <usb_cdc.h>
+#include <usb_cdc_virtual_serial_port.h>
 #include <usb_common_elements.h>
 #include <usb_core_transfer.h>
 #include <usb_protocol_cdc.h>
 #include <usb_protocol_headers.h>
-
-// #include <usb_descriptors.h>
 #include <usb_config.h>
+#include <circular_buffer.h>
 
 // Line state and setup
 uint16_t usbCDCControlLineState;
 USB_CDC_LINE_CODING_t usbCDCLineCoding;
+
+// USB Pipes
+USB_PIPE_t CDCTxPipe = {
+    .address = USB_CDC_BULK_EP_IN,
+    .direction = USB_EP_DIR_IN,
+};
+
+USB_PIPE_t CDCRxPipe = {
+    .address = USB_CDC_BULK_EP_OUT,
+    .direction = USB_EP_DIR_OUT,
+};
+
+// RX Buffer
+uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
+STATIC uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
+CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
+    .content = usbCDCReceiveArray,
+    .head = 0,
+    .tail = 0,
+    .maxLength = USB_CDC_RX_BUFFER_SIZE,
+};
+// TX Buffer
+STATIC uint8_t usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
+CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
+    .content = usbCDCTransmitArray,
+    .head = 0,
+    .tail = 0,
+    .maxLength = USB_CDC_TX_BUFFER_SIZE,
+};
 
 RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
@@ -106,42 +137,27 @@ RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
     return status;
 }
 
-void USB_CDCSetBaud(uint16_t baud)
+void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)
 {
-    usbCDCLineCoding.dwDTERate = baud;
+    (void)(pipe);
+
+    if (USB_PIPE_TRANSFER_OK == status)
+    {
+        for (uint16_t i = 0; i < bytesTransferred; i++)
+        {
+            CIRCBUF_Enqueue(&usbCDCReceiveBuffer, usbCDCReceiveTempBuffer[i]);
+        }
+    }
 }
 
-uint32_t USB_CDCGetBaud(void)
+void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)
 {
-    return usbCDCLineCoding.dwDTERate;
-}
+    (void)(pipe);
+    (void)(bytesTransferred);
 
-void USB_CDCSetStopBits(USB_CDC_LINE_CODING_STOP_BITS_t numStopBits)
-{
-    usbCDCLineCoding.bCharFormat = numStopBits;
-}
-
-USB_CDC_LINE_CODING_STOP_BITS_t USB_CDCGetStopBits(void)
-{
-    return usbCDCLineCoding.bCharFormat;
-}
-
-void USB_CDCSetParity(USD_CDC_LINE_CODING_PARITY_t parity)
-{
-    usbCDCLineCoding.bParityType = parity;
-}
-
-USD_CDC_LINE_CODING_PARITY_t USB_CDCGetParity(void)
-{
-    return usbCDCLineCoding.bParityType;
-}
-
-void USB_CDCSetDataBits(USD_CDC_LINE_CODING_DATA_BITS_t numDataBits)
-{
-    usbCDCLineCoding.bDataBits = numDataBits;
-}
-
-USD_CDC_LINE_CODING_DATA_BITS_t USB_CDCGetDataBits(void)
-{
-    return usbCDCLineCoding.bDataBits;
+    if (USB_PIPE_TRANSFER_OK == status)
+    {
+        usbCDCTransmitBuffer.head = 0;
+        usbCDCTransmitBuffer.tail = 0;
+    }
 }

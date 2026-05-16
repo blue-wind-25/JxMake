@@ -60,7 +60,6 @@ PROG_OBJS := $call( obj_fpath, {                             \
     MCC_AVRDU/usb/src/usb0.c                                 \
     MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.c  \
     MCC_AVRDU/usb/usb_cdc/usb_cdc.c                          \
-    MCC_AVRDU/usb/usb_cdc/usb_cdc_virtual_serial_port.c      \
     MCC_AVRDU/usb/usb_common/usb_core.c                      \
     MCC_AVRDU/usb/usb_common/usb_core_descriptors.c          \
     MCC_AVRDU/usb/usb_common/usb_core_events.c               \

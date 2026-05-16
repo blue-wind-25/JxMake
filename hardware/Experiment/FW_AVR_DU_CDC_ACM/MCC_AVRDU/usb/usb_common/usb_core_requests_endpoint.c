@@ -119,11 +119,8 @@ RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPt
     {
         USB_PIPE_t endpoint = EndpointFromRequestGet(setupRequestPtr->wIndex);
 
-        status = USB_TransferAbort(endpoint);
-        if (SUCCESS == status)
-        {
-            status = USB_EndpointStall(endpoint);
-        }
+        USB_TransferAbort(endpoint);
+        status = USB_EndpointStall(endpoint);
     }
     else
     {

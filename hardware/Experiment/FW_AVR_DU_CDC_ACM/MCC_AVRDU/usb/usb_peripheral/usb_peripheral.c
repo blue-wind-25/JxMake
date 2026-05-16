@@ -166,41 +166,18 @@ uint16_t USB_FrameNumberGet(void)
 
 RETURN_CODE_t USB_ControlEndpointsInit(void)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     USB_PIPE_t controlPipeOut = { .address = 0, .direction = USB_EP_DIR_OUT };
     USB_PIPE_t controlPipeIn = { .address = 0, .direction = USB_EP_DIR_IN };
 
-    status = USB_EndpointConfigure(controlPipeOut, USB_EP0_SIZE, CONTROL);
-    if (SUCCESS == status)
-    {
-        status = USB_EndpointConfigure(controlPipeIn, USB_EP0_SIZE, CONTROL);
-    }
+    USB_EndpointConfigure(controlPipeOut, USB_EP0_SIZE, CONTROL);
+    USB_EndpointConfigure(controlPipeIn, USB_EP0_SIZE, CONTROL);
+    EndpointBufferSet(controlPipeOut, controlTransfer.buffer);
+    EndpointBufferSet(controlPipeIn, controlTransfer.buffer);
+    USB_DataToggleClear(controlPipeOut);
+    USB_DataToggleSet(controlPipeIn);
+    controlTransfer.status = USB_CONTROL_SETUP;
 
-    if (SUCCESS == status)
-    {
-        status = EndpointBufferSet(controlPipeOut, controlTransfer.buffer);
-        if (SUCCESS == status)
-        {
-            status = EndpointBufferSet(controlPipeIn, controlTransfer.buffer);
-        }
-    }
-
-    if (SUCCESS == status)
-    {
-        status = USB_DataToggleClear(controlPipeOut);
-        if (SUCCESS == status)
-        {
-            status = USB_DataToggleSet(controlPipeIn);
-        }
-    }
-
-    if (SUCCESS == status)
-    {
-        controlTransfer.status = USB_CONTROL_SETUP;
-    }
-
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_ControlSetupReceived(void)
@@ -291,12 +268,10 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
     RETURN_CODE_t status = UNINITIALIZED;
 
     // Always called with pipe.address == 0 (control endpoint)
-    status = USB_DataToggleSet(pipe);
+    USB_DataToggleSet(pipe);
 
-    if (SUCCESS == status)
+    switch (controlTransfer.status)
     {
-        switch (controlTransfer.status)
-        {
         case USB_CONTROL_DATA_IN:
         {
             pipe.direction = USB_EP_DIR_IN;
@@ -390,7 +365,6 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
             status = CONTROL_TRANSACTION_STATUS_ERROR;
             break;
         }
-        }
     }
 
     return status;
@@ -398,8 +372,6 @@ RETURN_CODE_t USB_ControlTransactionComplete(USB_PIPE_t pipe)
 
 RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     USB_NumberBytesToSendReset(0);
     USB_NumberBytesSentReset(0);
     USB_NumberBytesToReceiveReset(0u);
@@ -407,26 +379,23 @@ RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)
 
     // Prepare to receive a new setup package in case the host decides to ignore the ZLP stage
     USB_PipeDataPtrSet((USB_PIPE_t){ .address = 0, .direction = USB_REQUEST_DIR_OUT }, controlTransfer.buffer);
-    status = EndpointBufferSet((USB_PIPE_t){ .address = 0, .direction = USB_REQUEST_DIR_OUT }, controlTransfer.buffer);
+    EndpointBufferSet((USB_PIPE_t){ .address = 0, .direction = USB_REQUEST_DIR_OUT }, controlTransfer.buffer);
 
-    if (SUCCESS == status)
+    controlTransfer.status = USB_CONTROL_ZLP;
+
+    // Starts the ZLP transaction
+    if (direction == USB_REQUEST_DIR_IN)
     {
-        controlTransfer.status = USB_CONTROL_ZLP;
-
-        // Starts the ZLP transaction
-        if (direction == USB_REQUEST_DIR_IN)
-        {
-            USB_EndpointInNAKClear(0);
-            USB_EndpointInOverUnderflowAck(0);
-        }
-        else
-        {
-            USB_EndpointOutNAKClear(0);
-            USB_EndpointOutOverUnderflowAck(0);
-        }
+        USB_EndpointInNAKClear(0);
+        USB_EndpointInOverUnderflowAck(0);
+    }
+    else
+    {
+        USB_EndpointOutNAKClear(0);
+        USB_EndpointOutOverUnderflowAck(0);
     }
 
-    return status;
+    return SUCCESS;
 }
 
 RETURN_CODE_t USB_ControlTransferReset(void)
@@ -519,18 +488,13 @@ RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow)
 
 RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     // Always called with pipe.address == 0 (control endpoint)
     USB_EndpointInStallAck(pipe.address);
     USB_EndpointOutStallAck(pipe.address);
-
     USB_EndpointInStallClear(pipe.address);
     USB_EndpointOutStallClear(pipe.address);
-
-    status = USB_ControlTransferReset();
-
-    return status;
+    USB_ControlTransferReset();
+    return SUCCESS;
 }
 
 void USB_PeripheralInitialize(void)

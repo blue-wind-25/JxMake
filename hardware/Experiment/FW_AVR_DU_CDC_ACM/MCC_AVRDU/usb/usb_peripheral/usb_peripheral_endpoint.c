@@ -349,33 +349,18 @@ RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t en
 
 RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
+    if (USB_EP_DIR_OUT == pipe.direction)
     {
-        status = ENDPOINT_ADDRESS_ERROR;
+        // Errata: Out transactions must be word aligned when using multipacket (always enabled for OUT)
+        if (((uint16_t)bufAddress & 0x0001) != 0u)
+        {
+            return ENDPOINT_ALIGN_ERROR;
+        }
+        USB_EndpointOutBufferSet(pipe.address, bufAddress);
     }
     else
     {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            // Errata: Out transactions must be word aligned when using multipacket
-            if ((1u == endpointStaticConfig[pipe.address].OutMultipktEnable) && (((uint16_t)bufAddress & 0x0001) != 0u))
-            {
-                status = ENDPOINT_ALIGN_ERROR;
-            }
-            else
-            {
-                USB_EndpointOutBufferSet(pipe.address, bufAddress);
-                status = SUCCESS;
-            }
-        }
-        else
-        {
-            USB_EndpointInBufferSet(pipe.address, bufAddress);
-            status = SUCCESS;
-        }
+        USB_EndpointInBufferSet(pipe.address, bufAddress);
     }
-
-    return status;
+    return SUCCESS;
 }

@@ -251,12 +251,8 @@ void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe)
 
 void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe)
 {
-    // Only enable manual ZLP if hardware AZLP is not enabled.
-    if (((USB_EP_DIR_IN == pipe.direction) && (0u == endpointStaticConfig[pipe.address].InAzlpEnable))
-        || ((USB_EP_DIR_OUT == pipe.direction) && (0u == endpointStaticConfig[pipe.address].OutAzlpEnable)))
-    {
-        pipeTransfer[PipeTransferIndexGet(pipe)].ZLPEnable = true;
-    }
+    // InAzlpEnable=0 and OutAzlpEnable=0 for all endpoints — always use manual ZLP
+    pipeTransfer[PipeTransferIndexGet(pipe)].ZLPEnable = true;
 }
 
 void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback)
@@ -280,63 +276,36 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
     RETURN_CODE_t status = UNINITIALIZED;
     uint16_t nextTransactionSize;
 
-    if (USB_EP_DIR_IN != pipe.direction)
-    {
-        // Pipe is OUT, returns error code.
-        status = ENDPOINT_DIRECTION_ERROR;
-    }
-    else
-    {
-        // Makes sure the transfer status is busy.
-        pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
+    pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
 
-        // Calculates the size of next transaction.
-        nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
-        if (0U == nextTransactionSize)
+    nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
+    if (0U == nextTransactionSize)
+    {
+        if (true == pipeTransferPtr->ZLPEnable)
         {
-            // All data is sent, check if we need to send a manual ZLP as well.
-            if (true == pipeTransferPtr->ZLPEnable)
-            {
-                // Sends a zero-length package by setting bytes to send to 0.
-                USB_NumberBytesToSendSet(pipe.address, 0u);
-                USB_NumberBytesSentReset(pipe.address);
-                USB_EndpointInNAKClear(pipe.address);
-
-                // Clears ZLPEnable to show it has been sent.
-                pipeTransferPtr->ZLPEnable = false;
-            }
-            else
-            {
-                // Everything has been sent, return transfer status to OK.
-                pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-            }
-
-            status = SUCCESS;
+            USB_NumberBytesToSendSet(pipe.address, 0u);
+            USB_NumberBytesSentReset(pipe.address);
+            USB_EndpointInNAKClear(pipe.address);
+            pipeTransferPtr->ZLPEnable = false;
         }
         else
         {
-            uint16_t endpointSize = USB_EndpointSizeGet(pipe);
-            if ((0u == endpointStaticConfig[pipe.address].InMultipktEnable) && (nextTransactionSize > endpointSize))
-            {
-                // Only send endpoint size packet per transaction when MultiPacket is disabled.
-                nextTransactionSize = endpointSize;
-            }
-            else
-            {
-                // Check if a manual ZLP is needed after transaction, if transaction size is a multiple of endpoint size.
-                pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize % (uint16_t)endpointSize));
-            }
+            pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
+        }
+        status = SUCCESS;
+    }
+    else
+    {
+        uint16_t endpointSize = USB_EndpointSizeGet(pipe);
+        // InMultipktEnable=1 for all used endpoints (EP0, EP2)
+        pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize % (uint16_t)endpointSize));
 
-            // Configure where to transfer from.
-            status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
-
-            // Send transaction
-            if (SUCCESS == status)
-            {
-                USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
-                USB_NumberBytesSentReset(pipe.address);
-                USB_EndpointInNAKClear(pipe.address);
-            }
+        status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
+        if (SUCCESS == status)
+        {
+            USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
+            USB_NumberBytesSentReset(pipe.address);
+            USB_EndpointInNAKClear(pipe.address);
         }
     }
 
@@ -348,61 +317,26 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if (USB_EP_DIR_OUT != pipe.direction)
+    pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
+    status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
+
+    uint16_t endpointSize = USB_EndpointSizeGet(pipe);
+    uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
+    // OutMultipktEnable=1 for all used endpoints (EP0, EP2)
+
+    if (0u == nextTransactionSize)
     {
-        // Pipe is IN, return error code.
-        status = ENDPOINT_DIRECTION_ERROR;
+        pipeTransferPtr->ZLPEnable = false;
+        pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
     }
     else
     {
-        // Make sure the transfer status is busy.
-        pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
-
-        // Update the data pointer for the next transaction.
-        status = EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
-
-        // Calculate the size of next transaction.
-        uint16_t endpointSize = USB_EndpointSizeGet(pipe);
-        uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
-        if (0u == endpointStaticConfig[pipe.address].OutMultipktEnable)
-        {
-            if (nextTransactionSize < endpointSize)
-            {
-                // Temporarily enable MultiPacket to avoid receiving data that overflows endpoint buffer.
-                USB_EndpointOutMultipktEnable(pipe.address);
-            }
-            else
-            {
-                // Only expect one endpoint size packet per transaction when MultiPacket is disabled.
-                if (nextTransactionSize > endpointSize)
-                {
-                    nextTransactionSize = endpointSize;
-                }
-
-                // Disable MultiPacket in case it was enabled for previous transaction.
-                USB_EndpointOutMultipktDisable(pipe.address);
-            }
-        }
-
-        if (0u == nextTransactionSize)
-        {
-            // Clear ZLPEnable to indicate that the transfer is completed and the ZLP transfer is initated.
-            pipeTransferPtr->ZLPEnable = false;
-
-            // Everything has been sent, return transfer status to OK.
-            pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-        }
-        else
-        {
-            // Check if a manual ZLP is needed after transaction, if transaction size is a multiple of endpoint size.
-            pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && (0u == (nextTransactionSize % endpointSize));
-        }
-
-        // Start the transaction
-        USB_NumberBytesReceivedReset(pipe.address);
-        USB_NumberBytesToReceiveSet(pipe.address, nextTransactionSize);
-        USB_EndpointOutNAKClear(pipe.address);
+        pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && (0u == (nextTransactionSize % endpointSize));
     }
+
+    USB_NumberBytesReceivedReset(pipe.address);
+    USB_NumberBytesToReceiveSet(pipe.address, nextTransactionSize);
+    USB_EndpointOutNAKClear(pipe.address);
 
     return status;
 }

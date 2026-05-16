@@ -47,82 +47,10 @@ Workflow:
 The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance). The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
 
 
-No, but you can edit JxMakeFile to remove manufacturer source from the build script.
 
-Before continuing, make a copy of usb_stop() and usb_start() from existing SDK code in inc_usb_avr_du.h, so I can use them in the future.
-
-● Just start a new Claude Code session in the same directory — the memory system will automatically load the project context. The memory file at memory/project_fw_avr_du_cdc_acm.md has the full current state:
-  last commit (120c698), size tracking, all completed steps, and the exact next step (flatten USB_CDCDataTerminalReady()).
-
-  You don't need to do anything special. Just open a new session and say something like "continue the CDC-ACM flattening project" and I'll pick up from where we left off.
-
-
+firmware intact, continue
 
 
 Do not forget to update:
 tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517.tar.gz ~/.claude/ ~/.claude.json
 
-
-
-
-
-Flatten first the calls in inc_usb_avr_du.h:
-    SYSCFG_Initialize();
-    USB0_Initialize();
-    USBDevice_Initialize();
-    USB0_TrnComplCallbackRegister(USBDevice_TransferHandler);
-    USB0_BusEventCallbackRegister(USBDevice_EventHandler);
-
-Do this one by one, using the lowest‑level manufacturer SDK functions, and wait for my confirmation that runtime behavior is intact before continuing.
-
-
-
-
-
-
-RETURN_CODE_t USB_Stop(void)
-{
-    RETURN_CODE_t status = SUCCESS;
-
-    // Detaches from the bus and disables peripheral.
-    USB_BusDetach();
-    USB_PeripheralDisable();
-
-    // Aborts any ongoing transfers.
-    USB_PIPE_t pipe = { .address = 0 };
-    while (pipe.address < USB_EP_NUM)
-    {
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_OUT;
-            status = USB_TransferAbort(pipe);
-        }
-        if (status == SUCCESS)
-        {
-            pipe.direction = USB_EP_DIR_IN;
-            status = USB_TransferAbort(pipe);
-        }
-        pipe.address++;
-    }
-
-    return status;
-}
-
-RETURN_CODE_t USB_Reset(void)
-{
-    RETURN_CODE_t status = USB_Stop();
-    if (status == SUCCESS)
-    {
-        USB_PeripheralInitialize();
-        status = USB_ControlEndpointsInit();
-    }
-    if (status == SUCCESS)
-    {
-        status = USB_ControlTransferReset();
-    }
-    if (status == SUCCESS)
-    {
-        USB_BusAttach();
-    }
-    return status;
-}

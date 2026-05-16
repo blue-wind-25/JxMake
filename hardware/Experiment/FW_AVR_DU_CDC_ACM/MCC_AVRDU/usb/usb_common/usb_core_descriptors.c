@@ -186,65 +186,13 @@ bool USB_DescriptorActiveConfigurationRemoteWakeupGet(void)
 
 RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t **configurationPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    // Checks if the requested configuration is an existing configuration.
-    if (configurationValue > applicationPointers->devicePtr->bNumConfigurations)
+    // Single configuration device (bNumConfigurations == 1)
+    if (configurationValue > 1u)
     {
-        status = DESCRIPTOR_CONFIGURATIONS_ERROR;
+        return DESCRIPTOR_CONFIGURATIONS_ERROR;
     }
-    else
-    {
-        // If there is only one configuration, return the pointer to the configuration.
-        if (1u == applicationPointers->devicePtr->bNumConfigurations)
-        {
-            *configurationPtr = applicationPointers->configurationsPtr;
-            status = SUCCESS;
-        }
-        else
-        {
-            // Pointer initialized to the address of the first configuration descriptor.
-            // cppcheck-suppress misra-c2012-19.2
-            USB_DESCRIPTOR_PTR_t currentDescriptor = { .configurationPtr = applicationPointers->configurationsPtr };
-
-            uint8_t i = applicationPointers->devicePtr->bNumConfigurations;
-            while (i-- > 0u)
-            {
-                if (currentDescriptor.configurationPtr->bConfigurationValue != configurationValue)
-                {
-                    status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_CONFIGURATION, &currentDescriptor.headerPtr);
-                }
-                else
-                {
-                    status = SUCCESS;
-
-                    // Ends loop on success
-                    i = 0;
-                }
-
-                if (SUCCESS != status)
-                {
-                    // Ends loop on error.
-                    i = 0;
-                }
-            }
-
-            if (SUCCESS == status)
-            {
-                if (currentDescriptor.configurationPtr->bConfigurationValue == configurationValue)
-                {
-                    *configurationPtr = currentDescriptor.configurationPtr;
-                }
-                else
-                {
-                    // configurationValue not found
-                    status = DESCRIPTOR_SEARCH_ERROR;
-                }
-            }
-        }
-    }
-
-    return status;
+    *configurationPtr = applicationPointers->configurationsPtr;
+    return SUCCESS;
 }
 
 RETURN_CODE_t NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t **descriptorHeaderPtr)

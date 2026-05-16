@@ -106,11 +106,6 @@ RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
     return status;
 }
 
-bool USB_CDCDataTerminalReady(void)
-{
-    return usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm;
-}
-
 void USB_CDCSetBaud(uint16_t baud)
 {
     usbCDCLineCoding.dwDTERate = baud;

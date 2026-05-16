@@ -49,15 +49,6 @@ RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /**
  * @ingroup usb_cdc
- * @brief Checks if the Data Terminal Equipment bit has been set from the host.
- * @param None.
- * @retval 0 - False if bit not set
- * @retval 1 - True if bit set
- */
-bool USB_CDCDataTerminalReady(void);
-
-/**
- * @ingroup usb_cdc
  * @brief Sets the data transfer baud rate for the CDC communication.
  * @param baud - Data transfer baud rate
  * @return None.

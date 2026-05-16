@@ -47,7 +47,7 @@ static void USBDevice_CDCACMHandler();
 static void USBDevice_CDCACMHandler()
 {
     if(  USB_CDCVirtualSerialPortHandler() != SUCCESS ) return;
-    if( !USB_CDCDataTerminalReady       ()            ) return;
+    if( !(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm) ) return;
     if(  USB_CDCTxBusy                  ()            ) return;
 
     static uint8_t cdcData;

@@ -361,21 +361,13 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
         return UNSUPPORTED;
     }
 
-    // stringPtrs[0] is always initialized (statically set in usb_descriptors.c)
-    USB_DESCRIPTOR_HEADER_t *stringHeader = applicationPointers->stringPtrs[0];
+    // LANG_ID_NUM == 1: only stringPtrs[0] exists (index 1 = manufacturer string)
     if (stringIndex > 1u)
     {
-        RETURN_CODE_t status = UNINITIALIZED;
-        for (uint8_t i = 1u; i < stringIndex; i++)
-        {
-            status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_STRING, &stringHeader);
-        }
-        if (SUCCESS != status)
-        {
-            return status;
-        }
+        return UNSUPPORTED;
     }
 
+    USB_DESCRIPTOR_HEADER_t *stringHeader = applicationPointers->stringPtrs[0];
     *descriptorAddressPtr = (uint8_t *)stringHeader;
     *descriptorLength = (uint16_t)stringHeader->bLength;
     return SUCCESS;

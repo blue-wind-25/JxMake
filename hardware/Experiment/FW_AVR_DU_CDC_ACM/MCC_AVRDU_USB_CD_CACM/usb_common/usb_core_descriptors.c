@@ -342,12 +342,6 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
         break;
     }
 
-    if (SUCCESS != status)
-    {
-        *descriptorPtr = NULL;
-        *descriptorLength = 0u;
-    }
-
     return status;
 }
 

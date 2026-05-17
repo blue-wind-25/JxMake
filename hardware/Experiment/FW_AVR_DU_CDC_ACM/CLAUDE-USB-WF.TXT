@@ -51,7 +51,7 @@ The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack t
 
 
 Do not forget to update:
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260517-2.tar.gz ~/.claude/ ~/.claude.json
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260518.tar.gz ~/.claude/ ~/.claude.json
 
 
 

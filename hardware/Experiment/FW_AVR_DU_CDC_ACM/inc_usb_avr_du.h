@@ -85,6 +85,7 @@ static void USBDevice_CDCACMHandler()
     if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
     if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
 
+    // Loopback test
     static uint8_t cdcData;
     if (CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
 }

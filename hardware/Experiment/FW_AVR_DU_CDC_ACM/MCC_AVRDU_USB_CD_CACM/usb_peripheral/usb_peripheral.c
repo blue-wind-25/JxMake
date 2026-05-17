@@ -161,7 +161,7 @@ uint16_t USB_FrameNumberGet(void)
     return (USB_FrameNumGet());
 }
 
-RETURN_CODE_t USB_ControlEndpointsInit(void)
+void USB_ControlEndpointsInit(void)
 {
     USB_PIPE_t controlPipeOut = { .address = 0, .direction = USB_EP_DIR_OUT };
     USB_PIPE_t controlPipeIn = { .address = 0, .direction = USB_EP_DIR_IN };
@@ -173,8 +173,6 @@ RETURN_CODE_t USB_ControlEndpointsInit(void)
     USB_DataToggleClear(controlPipeOut);
     USB_DataToggleSet(controlPipeIn);
     controlTransfer.status = USB_CONTROL_SETUP;
-
-    return SUCCESS;
 }
 
 void USB_ControlSetupReceived(void)

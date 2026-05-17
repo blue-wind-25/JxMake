@@ -3,17 +3,15 @@
 This directory contains a flattened and simplified AVR DU Series USB CDC‑ACM stack, configured for
 a single CDC‑ACM interface.
 
-The flattening process, aimed at minimizing bloat and optimizing speed, was carried out with the
-help of Claude Sonnet 4.6 with high effort via Claude Code CLI.
+The flattening process, designed to minimize bloat and improve execution speed, was performed with
+the assistance of Claude Sonnet 4.6, using high‑effort runs via the Claude Code CLI.
 
-A marker has been added at the top of each source file to indicate that this program has been
-modified by the JxMake project.
+Each source file includes a marker at the top indicating that it has been modified by the JxMake
+project. To conserve space, files and directories not essential for program execution have been
+omitted.
 
-Some files and directories not strictly required for program execution have been omitted to save
-space.
-
-This flattened and simplified USB CDC‑ACM stack does not support advanced USB events (e.g., suspend,
-wake-up, etc.). It is also limited to compilation with AVR‑GCC.
+This streamlined USB CDC‑ACM stack does not support advanced USB events (e.g., suspend, wake‑up,
+etc.) and is restricted to compilation with AVR‑GCC.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -28,22 +26,19 @@ License        : https://github.com/microchip-pic-avr-examples/avr64du32-cnano-u
 
 (C) 2021-2025 Microchip Technology Inc. and its subsidiaries.
 
-Subject to your compliance with these terms, you may use Microchip software
-and any derivatives exclusively with Microchip products. You're responsible
-for complying with 3rd party license terms applicable to your use of 3rd
-party software (including open source software) that may accompany Microchip
-software.
+Subject to your compliance with these terms, you may use Microchip software and any derivatives
+exclusively with Microchip products. You're responsible for complying with 3rd party license terms
+applicable to your use of 3rd party software (including open source software) that may accompany
+Microchip software.
 
-SOFTWARE IS "AS IS." NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY,
-APPLY TO THIS SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,
-MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+SOFTWARE IS "AS IS." NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS SOFTWARE,
+INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR
+PURPOSE.
 
-IN NO EVENT WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE,
-INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY KIND
-WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF MICROCHIP
-HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE FORESEEABLE. TO
-THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP'S TOTAL LIABILITY ON ALL
-CLAIMS RELATED TO THE SOFTWARE WILL NOT EXCEED AMOUNT OF FEES, IF ANY,
-YOU PAID DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
+IN NO EVENT WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, INCIDENTAL OR
+CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER
+CAUSED, EVEN IF MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE FORESEEABLE. TO THE
+FULLEST EXTENT ALLOWED BY LAW, MICROCHIP'S TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE
+WILL NOT EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 
 ====================================================================================================

@@ -223,7 +223,7 @@ uint16_t USB_FrameNumberGet(void);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlEndpointsInit(void);
+void USB_ControlEndpointsInit(void);
 
 /*
  * usb_peripheral

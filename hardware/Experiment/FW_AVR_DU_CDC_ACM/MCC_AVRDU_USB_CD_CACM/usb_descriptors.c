@@ -229,7 +229,6 @@ static USB_APPLICATION_STRING_DESCRIPTORS_t stringDescriptors = {
 USB_DESCRIPTOR_POINTERS_t descriptorPointers = {
     .devicePtr = (USB_DEVICE_DESCRIPTOR_t *) & deviceDescriptor,
     .configurationsPtr = (USB_CONFIGURATION_DESCRIPTOR_t *) & configurationDescriptor,
-    .deviceBOSptr = NULL,
     .langIDptr = &langIDDescriptor,
     .stringPtrs =
     {

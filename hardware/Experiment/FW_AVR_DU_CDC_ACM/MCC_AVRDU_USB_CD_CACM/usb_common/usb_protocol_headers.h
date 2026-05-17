@@ -589,7 +589,6 @@ typedef struct USB_DESCRIPTOR_POINTERS_struct
 {
     USB_DEVICE_DESCRIPTOR_t *devicePtr;
     USB_CONFIGURATION_DESCRIPTOR_t *configurationsPtr;
-    USB_DEV_BOS_DESC_t *deviceBOSptr;
     USB_STRING_LANG_ID_DESCRIPTOR_t *langIDptr;
     USB_DESCRIPTOR_HEADER_t *stringPtrs[LANG_ID_NUM];
 } USB_DESCRIPTOR_POINTERS_t;

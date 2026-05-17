@@ -160,7 +160,7 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe);
  *     endpointMaskPtr - Pointer to the mask variable to write to
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void ConvertEndpointSizeToMask(uint16_t endpointSize, uint8_t *endpointMaskPtr);
+void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr);
 
 /*
  * usb_peripheral_endpoint

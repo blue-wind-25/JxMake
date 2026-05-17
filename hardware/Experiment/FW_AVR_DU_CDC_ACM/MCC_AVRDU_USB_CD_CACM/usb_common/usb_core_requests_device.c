@@ -36,7 +36,6 @@
 
 #include <stddef.h>
 
-#include "../usb_cdc/usb_cdc.h"
 #include "../usb_peripheral/usb_peripheral.h"
 #include "usb_core_descriptors.h"
 #include "usb_core_requests_device.h"
@@ -73,13 +72,12 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
     uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
     uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xffu);
 
-    if (USB_DESCRIPTOR_TYPE_VENDOR <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
+    if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
+        // Class (0x20–0x3F) and vendor (0x40+) descriptor types are not requested
+        // via GET_DESCRIPTOR in CDC-ACM — class descriptors are embedded in the
+        // configuration descriptor.
         status = UNSUPPORTED;
-    }
-    else if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
-    {
-        status = USB_CDCRequestHandler(setupRequestPtr);
     }
     else
     {

@@ -4,12 +4,12 @@
 
 /*
  * Generated Ports header File
- * 
+ *
  * port.h
- * 
+ *
  * pinsdriver
- * 
- * This Source file provides APIs. 
+ *
+ * This Source file provides APIs.
  *
  * Driver Version  1.0.1
 */
@@ -17,21 +17,21 @@
 /*
 (C) [2025] Microchip Technology Inc. and its subsidiaries.
 
-    Subject to your compliance with these terms, you may use Microchip 
-    software and any derivatives exclusively with Microchip products. 
-    You are responsible for complying with 3rd party license terms  
-    applicable to your use of 3rd party software (including open source  
-    software) that may accompany Microchip software. SOFTWARE IS ?AS IS.? 
-    NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS 
-    SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,  
-    MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT 
-    WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, 
-    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY 
-    KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF 
-    MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE 
-    FORESEEABLE. TO THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP?S 
-    TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE WILL NOT 
-    EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR 
+    Subject to your compliance with these terms, you may use Microchip
+    software and any derivatives exclusively with Microchip products.
+    You are responsible for complying with 3rd party license terms
+    applicable to your use of 3rd party software (including open source
+    software) that may accompany Microchip software. SOFTWARE IS ?AS IS.?
+    NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS
+    SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,
+    MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT
+    WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE,
+    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY
+    KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF
+    MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE
+    FORESEEABLE. TO THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP?S
+    TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE WILL NOT
+    EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR
     THIS SOFTWARE.
 */
 
@@ -103,7 +103,7 @@ static inline void PORTA_pin_set_inverted(const uint8_t pin, const bool inverted
 /*
  *  pinsdriver
  * Set port pin input/sense configuration, Enable/disable digital input buffer and pin change interrupt,
- * 		  select pin interrupt edge/level sensing mode 
+ * 		  select pin interrupt edge/level sensing mode
  *     The pin number within port
  *     isc PORT_ISC_t
  * return none
@@ -312,7 +312,7 @@ static inline void PORTC_pin_set_inverted(const uint8_t pin, const bool inverted
 /*
  *  pinsdriver
  * Set port pin input/sense configuration, Enable/disable digital input buffer and pin change interrupt,
- * 		  select pin interrupt edge/level sensing mode 
+ * 		  select pin interrupt edge/level sensing mode
  *     The pin number within port
  *     isc PORT_ISC_t
  * return none
@@ -521,7 +521,7 @@ static inline void PORTD_pin_set_inverted(const uint8_t pin, const bool inverted
 /*
  *  pinsdriver
  * Set port pin input/sense configuration, Enable/disable digital input buffer and pin change interrupt,
- * 		  select pin interrupt edge/level sensing mode 
+ * 		  select pin interrupt edge/level sensing mode
  *     The pin number within port
  *     isc PORT_ISC_t
  * return none
@@ -730,7 +730,7 @@ static inline void PORTF_pin_set_inverted(const uint8_t pin, const bool inverted
 /*
  *  pinsdriver
  * Set port pin input/sense configuration, Enable/disable digital input buffer and pin change interrupt,
- * 		  select pin interrupt edge/level sensing mode 
+ * 		  select pin interrupt edge/level sensing mode
  *     The pin number within port
  *     isc PORT_ISC_t
  * return none

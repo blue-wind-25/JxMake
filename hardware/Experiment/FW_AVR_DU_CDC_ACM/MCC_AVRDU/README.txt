@@ -12,6 +12,9 @@ modified by the JxMake project.
 Some files and directories not strictly required for program execution have been omitted to save
 space.
 
+This flattened and simplified USB CDC‑ACM stack does not support advanced USB events such as
+suspend or wake‑up. It is also limited to compilation with AVR‑GCC.
+
 ----------------------------------------------------------------------------------------------------
 
 The original source code files in this directory were downloaded from:

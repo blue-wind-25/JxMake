@@ -38,11 +38,9 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_COMMON_ELEMENTS_H
 
-#ifndef TEST
+
 #define STATIC static
-#else
-#define STATIC
-#endif
+
 
 /*
  * usb_common
@@ -99,5 +97,6 @@ typedef enum RETURN_CODE_enum
  * The maximum endpoint packet size for the isochronous endpoint type.
  */
 #define MAX_ENDPOINT_SIZE_ISO (1023)
+
 
 #endif /* USB_COMMON_ELEMENTS_H */

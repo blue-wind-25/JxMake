@@ -33,16 +33,13 @@ OF FEES, IF ANY, THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS
 SOFTWARE.
 */
 
-#include <stdbool.h>
+
 #include <stddef.h>
-#include <stdint.h>
 #include <string.h>
 
-#include <usb_common_elements.h>
-#include <usb_config.h>
-#include <usb_peripheral.h>
-#include <usb_peripheral_avr_du.h>
-#include <usb_protocol_headers.h>
+#include "usb_peripheral.h"
+#include "usb_peripheral_avr_du.h"
+
 
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 

@@ -33,7 +33,9 @@
     SOFTWARE.
  */
 
+
 #include "circular_buffer.h"
+
 
 BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data)
 {

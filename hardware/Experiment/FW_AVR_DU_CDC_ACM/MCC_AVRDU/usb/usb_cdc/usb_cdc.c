@@ -33,17 +33,12 @@
     SOFTWARE.
  */
 
+
 #include <stddef.h>
-#include <stdbool.h>
-#include <string.h>
-#include <usb_cdc.h>
-#include <usb_cdc_virtual_serial_port.h>
-#include <usb_common_elements.h>
-#include <usb_core_transfer.h>
-#include <usb_protocol_cdc.h>
-#include <usb_protocol_headers.h>
-#include <usb_config.h>
-#include <circular_buffer.h>
+
+#include "usb_cdc.h"
+#include "usb_cdc_virtual_serial_port.h"
+
 
 // Line state and setup
 uint16_t usbCDCControlLineState;

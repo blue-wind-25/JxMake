@@ -37,13 +37,9 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_CORE_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include <usb_common_elements.h>
-#include <usb_core_events.h>
-#include <usb_core_transfer.h>
-#include <usb_protocol_headers.h>
+#include "usb_core_transfer.h"
+
 
 /*
  * usb_core
@@ -87,5 +83,6 @@ RETURN_CODE_t USB_Stop(void);
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_Reset(void);
+
 
 #endif /* USB_CORE_H */

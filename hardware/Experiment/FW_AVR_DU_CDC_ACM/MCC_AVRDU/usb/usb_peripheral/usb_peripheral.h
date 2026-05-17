@@ -37,13 +37,10 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_PERIPHERAL_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include <usb_common_elements.h>
-#include <usb_peripheral_endpoint.h>
-#include <usb_peripheral_read_write.h>
-#include <usb_protocol_headers.h>
+#include "usb_peripheral_endpoint.h"
+#include "usb_peripheral_read_write.h"
+
 
 /*
  * usb_peripheral
@@ -325,5 +322,6 @@ void USB_PeripheralInitialize(void);
  * return None.
  */
 void USB_PeripheralDisable(void);
+
 
 #endif /* USB_PERIPHERAL_H */

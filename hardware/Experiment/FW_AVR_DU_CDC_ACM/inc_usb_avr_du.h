@@ -32,30 +32,14 @@
 
 #include <util/atomic.h>
 
+
 extern "C" {
     #include <usb_descriptors.h>
-    #include <usb_peripheral.h>
-    #include <usb_cdc.h>
-    #include <usb_cdc_virtual_serial_port.h>
+    #include <usb_cdc/usb_cdc.h>
+    #include <usb_cdc/usb_cdc_virtual_serial_port.h>
 }
 
-
-static void USBDevice_CDCACMHandler()
-{
-    if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
-        if (!USB_PipeStatusIsBusy(CDCTxPipe))
-            USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
-    }
-    if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
-        if (!USB_PipeStatusIsBusy(CDCRxPipe))
-            USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
-    }
-    if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
-    if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
-
-    static uint8_t cdcData;
-    if (CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
-}
+static void USBDevice_CDCACMHandler();
 
 
 volatile uint32_t millisCnt = 0;
@@ -88,35 +72,51 @@ static inline void delayMS(uint32_t mS)
 }
 
 
-static __attribute__((unused)) RETURN_CODE_t usb_stop()
+static void USBDevice_CDCACMHandler()
 {
-    RETURN_CODE_t status = SUCCESS;
-    USB_BusDetach();
-    USB_PeripheralDisable();
-    USB_PIPE_t pipe;
-    pipe.address   = 0;
-    pipe.direction = USB_EP_DIR_OUT;
-    while (pipe.address < USB_EP_NUM)
-    {
-        if (status == SUCCESS) { pipe.direction = USB_EP_DIR_OUT; status = USB_TransferAbort(pipe); }
-        if (status == SUCCESS) { pipe.direction = USB_EP_DIR_IN;  status = USB_TransferAbort(pipe); }
-        pipe.address++;
+    if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
+        if (!USB_PipeStatusIsBusy(CDCTxPipe))
+            USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
     }
-    return status;
+    if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
+        if (!USB_PipeStatusIsBusy(CDCRxPipe))
+            USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
+    }
+    if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
+    if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
+
+    static uint8_t cdcData;
+    if (CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
 }
 
+static void usb_stop()
+{
+    USB_BusDetach();
+    USB_PeripheralDisable();
 
-static __attribute__((unused)) void usb_start()
+    USB_PIPE_t pipe;
+    pipe.address = 0;
+
+    while(pipe.address < USB_EP_NUM) {
+        pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort(pipe);
+        pipe.direction = USB_EP_DIR_IN ; USB_TransferAbort(pipe);
+        ++pipe.address;
+    }
+}
+
+static void usb_start()
 {
     USB_PeripheralInitialize();
-    (void)USB_ControlEndpointsInit();
-    (void)USB_ControlTransferReset();
+    USB_ControlEndpointsInit();
+    USB_ControlTransferReset();
     USB_BusAttach();
 }
 
 
 static void usb_init()
 {
+    (void) usb_stop;
+
     // Reinitialize OSCHF
     _PROTECTED_WRITE(CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc);
     _PROTECTED_WRITE(CLKCTRL.OSCHFTUNE , 0x00                                                                );
@@ -145,11 +145,8 @@ static void usb_init()
     USB0.INTCTRLB |= USB_SETUP_bm;    // Enable SETUP    interrupt
 
     SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
-    // was USB_Start()
-    USB_PeripheralInitialize();
-    (void)USB_ControlEndpointsInit();
-    (void)USB_ControlTransferReset();
-    USB_BusAttach();
+
+    usb_start();
 
     // Enable TCA0 in normal mode
     TCA0.SINGLE.CTRLA   = 0;

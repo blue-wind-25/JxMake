@@ -33,18 +33,12 @@
     SOFTWARE.
  */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 
-#include <usb_core_requests.h>
-#include <usb_common_elements.h>
-#include <usb_protocol_headers.h>
-#include <usb_config.h>
-#include <usb_peripheral.h>
-#include <usb_core.h>
-#include <usb_core_transfer.h>
+
+#include "../usb_peripheral/usb_peripheral.h"
+#include "usb_core_requests_endpoint.h"
+#include "usb_core_transfer.h"
+
 
 /*
  * usb_core_requests
@@ -112,4 +106,3 @@ RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPt
     }
     return UNSUPPORTED;
 }
-

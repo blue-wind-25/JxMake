@@ -40,14 +40,11 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_PERIPHERAL_AVR_DU_H
 
-#ifdef __XC8
-    #include <xc.h>
-#else // avr-gcc
-    #include <avr/io.h>
-#endif
 
-#include <usb_config.h>
-#include <usb_protocol_headers.h>
+#include <avr/io.h>
+
+#include "../usb_common/usb_protocol_headers.h"
+
 
 /*
  * usb_peripheral_avr_du
@@ -1930,5 +1927,6 @@ static ALWAYS_INLINE void USB_InterruptFlagsClear(void)
     USB0.INTFLAGSA = 0xff;
     USB0.INTFLAGSB = 0xff;
 }
+
 
 #endif /* USB_PERIPHERAL_AVR_DU_H */

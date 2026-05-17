@@ -36,8 +36,6 @@
 #ifndef USB_PROTOCOL_CDC_H
 #define USB_PROTOCOL_CDC_H
 
-#include <stdint.h>
-#include <usb_config.h>
 
 /*
  * usb_cdc
@@ -411,5 +409,6 @@ typedef enum USD_CDC_CONTROL_LINE_STATE_enum
     USB_CDC_REQUEST_TO_SEND_bm = 0x0002,     /*<Carrier control for half duplex modems. This signal corresponds to V.24 signal 105 and RS-232 signal RTS.*/
 
 } USD_CDC_CONTROL_LINE_STATE_t;
+
 
 #endif /* USB_PROTOCOL_CDC_H */

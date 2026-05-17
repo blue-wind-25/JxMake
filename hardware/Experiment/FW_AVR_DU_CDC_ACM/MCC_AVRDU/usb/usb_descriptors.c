@@ -34,9 +34,10 @@
     THIS SOFTWARE.
 */
 
+
 #include <string.h>
+
 #include "usb_descriptors.h"
-#include <usb_protocol_headers.h>
 
 
 static USB_DEVICE_DESCRIPTOR_t deviceDescriptor = {
@@ -234,7 +235,3 @@ USB_DESCRIPTOR_POINTERS_t descriptorPointers = {
         &stringDescriptors.manufacturer_header,
     },
 };
-
-/*
- End of File
-*/

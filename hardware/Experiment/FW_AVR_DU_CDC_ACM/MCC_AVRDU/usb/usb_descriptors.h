@@ -37,11 +37,12 @@
 #ifndef USB_DESCRIPTORS_H
 #define USB_DESCRIPTORS_H
 
-#include <stddef.h>
-#include <usb_protocol_headers.h>
-#include "usb_config.h"
 
-#include <usb_protocol_cdc.h>
+#include <stddef.h>
+
+#include "usb_common/usb_protocol_headers.h"
+#include "usb_cdc/usb_protocol_cdc.h"
+
 
 /*
  * usb_device_stack
@@ -123,6 +124,3 @@ extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 
 #endif // USB_DESCRIPTORS_H
-/*
- End of File
-*/

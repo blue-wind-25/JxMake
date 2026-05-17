@@ -37,11 +37,9 @@
 // cppcheck-suppress misra-c2012-2.5
 #define	USB_CORE_REQUESTS_DEVICE_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
 #include "usb_protocol_headers.h"
-#include "usb_common_elements.h"
+
 
 /*
  * usb_core_requests
@@ -90,6 +88,7 @@ RETURN_CODE_t SetupDeviceRequestGetConfiguration(void);
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t SetupDeviceRequestSetConfiguration(uint8_t configurationValue);
+
 
 #endif	/* USB_CORE_REQUESTS_DEVICE_H */
 

@@ -33,16 +33,10 @@
     SOFTWARE.
  */
 
-
 #ifndef USB_CORE_REQUESTS_ENDPOINT_H
 // cppcheck-suppress misra-c2012-2.5
 #define	USB_CORE_REQUESTS_ENDPOINT_H
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "usb_protocol_headers.h"
-#include "usb_common_elements.h"
 
 /*
  * usb_core_requests
@@ -84,5 +78,5 @@ RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPt
  */
 RETURN_CODE_t SetupEndpointRequestSynchFrame(void);
 
-#endif	/* USB_CORE_REQUESTS_ENDPOINT_H */
 
+#endif	/* USB_CORE_REQUESTS_ENDPOINT_H */

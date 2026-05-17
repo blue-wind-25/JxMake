@@ -40,8 +40,11 @@
 #ifndef USB_CONFIG_H
 #define USB_CONFIG_H
 
+
 #include <stdint.h>
-#include <usb_common_elements.h>
+
+#include "usb_common/usb_common_elements.h"
+
 
 /*
  * usb_device_stack
@@ -152,6 +155,3 @@
 
 
 #endif // USB_CONFIG_H
-/*
- End of File
-*/

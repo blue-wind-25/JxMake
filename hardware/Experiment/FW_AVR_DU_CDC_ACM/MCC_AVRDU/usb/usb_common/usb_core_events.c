@@ -33,17 +33,12 @@
     SOFTWARE.
  */
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
 
-#include <usb_common_elements.h>
-#include <usb_config.h>
-#include <usb_core.h>
-#include <usb_core_events.h>
-#include <usb_peripheral.h>
-#include <usb_protocol_headers.h>
+#include <stddef.h>
+
+#include "usb_core.h"
+#include "usb_core_events.h"
+
 
 void USB_EventHandler(void)
 {

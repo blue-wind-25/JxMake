@@ -38,11 +38,11 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_PERIPHERAL_ENDPOINT_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include "usb_common_elements.h"
-#include "usb_protocol_headers.h"
+#include <stdbool.h>
+
+#include "../usb_common/usb_protocol_headers.h"
+
 
 /*
  * usb_peripheral_endpoint
@@ -171,5 +171,6 @@ RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t en
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress);
+
 
 #endif /* USB_PERIPHERAL_ENDPOINT_H */

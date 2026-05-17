@@ -34,21 +34,15 @@
     SOFTWARE.
  */
 
-
 #ifndef USB_CORE_TRANSFER_H
 // cppcheck-suppress misra-c2012-2.5
 #define	USB_CORE_TRANSFER_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include <usb_protocol_headers.h>
-#include <usb_common_elements.h>
+#include "../usb_peripheral/usb_peripheral.h"
+#include "usb_core_requests.h"
+#include "usb_core_descriptors.h"
 
-#include <usb_core_transfer.h>
-#include <usb_core_requests.h>
-#include <usb_core_descriptors.h>
-#include <usb_peripheral.h>
 
 /*
  * usb_core_transfer
@@ -116,5 +110,5 @@ RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe);
  */
 void USB_TransferHandler(void);
 
-#endif	/* USB_CORE_TRANSFER_H */
 
+#endif	/* USB_CORE_TRANSFER_H */

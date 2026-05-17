@@ -38,10 +38,12 @@
 // cppcheck-suppress misra-c2012-2.5
 #define	USB_PROTOCOL_HEADERS_H
 
-#include "usb_common_elements.h"
-#include <stdbool.h>
+
 #include <stdint.h>
-#include <usb_config.h>
+
+#include "../usb_config.h"
+#include "usb_common_elements.h"
+
 
 /*
  * ENDPOINT LAYER
@@ -660,5 +662,6 @@ typedef void (*USB_SETUP_ENDOFREQUEST_CALLBACK_t)(void);
  * return None.
  */
 typedef void (*USB_EVENT_CALLBACK_t)(void);
+
 
 #endif /* USB_PROTOCOL_HEADERS_H */

@@ -26,18 +26,12 @@ endif
 
 JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
 
-ULIB_BDIRS := MCC_AVRDU/system/src                  \
-              MCC_AVRDU/usb/src                     \
+ULIB_BDIRS := MCC_AVRDU/usb/src                     \
               MCC_AVRDU/usb/usb_cdc/circular_buffer \
               MCC_AVRDU/usb/usb_common              \
               MCC_AVRDU/usb/usb_peripheral
 
-ULIB_HDIRS := MCC_AVRDU/system                      \
-              MCC_AVRDU/usb                         \
-              MCC_AVRDU/usb/usb_cdc                 \
-              MCC_AVRDU/usb/usb_cdc/circular_buffer \
-              MCC_AVRDU/usb/usb_common              \
-              MCC_AVRDU/usb/usb_peripheral
+ULIB_HDIRS := MCC_AVRDU/usb
 
 $call(init_project            , ${ULIB_BDIRS}              )
 $call(avr_select_part         , ${MCUType}, ${CPUFrequency})
@@ -104,10 +98,6 @@ endtarget
 
 target ${PROG_NAME} : ${PROG_OBJS}
     $call(avr_link_exe)
-endtarget
-
-target $call(sobj_target_glob) : $call(ssrc_fname, '%')
-    $call(avr_compile_s)
 endtarget
 
 target $call(cobj_target_glob) : %.c

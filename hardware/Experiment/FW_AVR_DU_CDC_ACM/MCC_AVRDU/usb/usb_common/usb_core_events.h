@@ -38,16 +38,9 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_CORE_EVENTS_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include <usb_common_elements.h>
+#include "usb_core_transfer.h"
 
-#include <usb_core_descriptors.h>
-#include <usb_core_requests.h>
-#include <usb_core_transfer.h>
-#include <usb_peripheral.h>
-#include <usb_protocol_headers.h>
 
 /*
  * usb_core
@@ -56,5 +49,6 @@
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 void USB_EventHandler(void);
+
 
 #endif /* USB_CORE_EVENTS_H */

@@ -36,9 +36,10 @@
 #ifndef CIRCULAR_BUFFER_H_
 #define CIRCULAR_BUFFER_H_
 
+
 #include <stdint.h>
 #include <stdbool.h>
-#include <usb_common_elements.h>
+
 
 /*
  * usb_cdc
@@ -108,5 +109,6 @@ bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer);
  * return freeSpace - Available bytes
  */
 uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer);
+
 
 #endif /* CIRCULAR_BUFFER_H_ */

@@ -33,17 +33,14 @@
     SOFTWARE.
  */
 
+
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <string.h>
 
-#include <usb_common_elements.h>
-#include <usb_config.h>
-#include <usb_peripheral_avr_du.h>
-#include <usb_peripheral_endpoint.h>
-#include <usb_peripheral_read_write.h>
-#include <usb_protocol_headers.h>
+#include "usb_peripheral_avr_du.h"
+#include "usb_peripheral_endpoint.h"
+#include "usb_peripheral_read_write.h"
+
 
 /*
  * usb_peripheral_read_write

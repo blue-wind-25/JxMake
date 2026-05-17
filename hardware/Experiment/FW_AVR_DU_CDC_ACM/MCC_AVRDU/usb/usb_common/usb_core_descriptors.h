@@ -39,10 +39,6 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_CORE_DESCRIPTORS_H
 
-#include <stdbool.h>
-
-#include <usb_common_elements.h>
-#include <usb_protocol_headers.h>
 
 extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
 
@@ -137,5 +133,6 @@ RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interface
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t **descriptorHeaderPtr);
+
 
 #endif /* USB_CORE_DESCRIPTORS_H */

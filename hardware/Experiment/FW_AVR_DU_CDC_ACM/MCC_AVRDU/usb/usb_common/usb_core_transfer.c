@@ -33,16 +33,9 @@
     SOFTWARE.
  */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 
-#include <usb_core.h>
-#include <usb_protocol_headers.h>
-#include <usb_common_elements.h>
-#include <usb_config.h>
-#include <usb_peripheral.h>
+#include "usb_core_transfer.h"
+
 
 RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
 {

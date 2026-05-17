@@ -36,12 +36,10 @@
 #ifndef USB_CDC_VIRTUAL_SERIAL_PORT_H
 #define USB_CDC_VIRTUAL_SERIAL_PORT_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <usb_core.h>
-#include <usb_common_elements.h>
-#include <usb_protocol_cdc.h>
-#include <circular_buffer.h>
+
+#include "../usb_common/usb_core.h"
+#include "circular_buffer/circular_buffer.h"
+
 
 /*
  * usb_cdc
@@ -80,5 +78,6 @@ void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint1
  * return None.
  */
 void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
+
 
 #endif /* USB_CDC_VIRTUAL_SERIAL_PORT_H */

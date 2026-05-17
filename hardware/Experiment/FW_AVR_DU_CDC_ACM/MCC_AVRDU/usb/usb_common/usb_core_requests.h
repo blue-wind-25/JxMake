@@ -39,14 +39,11 @@
 // cppcheck-suppress misra-c2012-2.5
 #define	USB_CORE_REQUESTS_H
 
-#include <stdbool.h>
-#include <stdint.h>
 
-#include <usb_core_requests_device.h>
-#include <usb_core_requests_interface.h>
-#include <usb_core_requests_endpoint.h>
-#include <usb_protocol_headers.h>
-#include <usb_common_elements.h>
+#include "usb_core_requests_device.h"
+#include "usb_core_requests_endpoint.h"
+#include "usb_core_requests_interface.h"
+
 
 /*
  * usb_core_requests
@@ -105,5 +102,5 @@ RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestP
  */
 RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-#endif	/* USB_CORE_REQUESTS_H */
 
+#endif	/* USB_CORE_REQUESTS_H */

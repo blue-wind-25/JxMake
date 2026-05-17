@@ -33,21 +33,12 @@
     SOFTWARE.
  */
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
 
-#include <usb_common_elements.h>
-#include <usb_config.h>
-#include <usb_core.h>
-#include <usb_core_descriptors.h>
-#include <usb_core_events.h>
-#include <usb_core_requests.h>
-#include <usb_core_transfer.h>
-#include <usb_peripheral.h>
-#include <usb_protocol_headers.h>
-#include <usb_cdc.h>
+#include <stddef.h>
+
+#include "../usb_cdc/usb_cdc.h"
+#include "usb_core.h"
+
 
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
 {

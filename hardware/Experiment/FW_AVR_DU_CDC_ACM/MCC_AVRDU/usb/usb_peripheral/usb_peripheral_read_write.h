@@ -37,11 +37,6 @@
 // cppcheck-suppress misra-c2012-2.5
 #define USB_PERIPHERAL_READ_WRITE_H
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "usb_common_elements.h"
-#include "usb_protocol_headers.h"
 
 /*
  * usb_peripheral_read_write
@@ -222,5 +217,6 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe);
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 void USB_PipeTransactionComplete(USB_PIPE_t pipe);
+
 
 #endif /* USB_PERIPHERAL_READ_WRITE_H */

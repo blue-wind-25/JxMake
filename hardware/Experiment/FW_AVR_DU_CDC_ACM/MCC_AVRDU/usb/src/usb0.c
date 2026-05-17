@@ -35,10 +35,11 @@
 */
 
 
-#include "../../system/utils/interrupt_avr8.h"
+#include <avr/interrupt.h>
 
-#include <usb_core_transfer.h>
-#include <usb_core_events.h>
+#include "usb_common/usb_core_events.h"
+#include "usb_common/usb_core_transfer.h"
+
 
 ISR(USB0_TRNCOMPL_vect) {
     USB_TransferHandler();
@@ -47,7 +48,3 @@ ISR(USB0_TRNCOMPL_vect) {
 ISR(USB0_BUSEVENT_vect) {
     USB_EventHandler();
 }
-
-/*
- End of File
-*/

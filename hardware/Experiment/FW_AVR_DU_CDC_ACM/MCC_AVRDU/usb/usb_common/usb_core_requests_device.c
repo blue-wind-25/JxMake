@@ -33,19 +33,14 @@
     SOFTWARE.
  */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 
-#include <usb_core_requests_device.h>
-#include <usb_common_elements.h>
-#include <usb_protocol_headers.h>
-#include <usb_config.h>
-#include <usb_peripheral.h>
-#include <usb_core.h>
-#include <usb_core_descriptors.h>
-#include <usb_cdc.h>
+#include <stddef.h>
+
+#include "../usb_cdc/usb_cdc.h"
+#include "../usb_peripheral/usb_peripheral.h"
+#include "usb_core_descriptors.h"
+#include "usb_core_requests_device.h"
+
 
 STATIC uint8_t deviceAddress = 0;
 

@@ -1,0 +1,697 @@
+INCLUDE DEPENDENCY REPORT
+Starting from: inc_usb_avr_du.h
+Generated: 2026-05-17
+
+================================================================================
+DEPENDENCY TREE
+===============
+
+inc_usb_avr_du.h
+├── [L0-A] <util/atomic.h>                       (AVR-libc system header; not in repo)
+├── [L0-B] "system.h"    (MCC_AVRDU/system/system.h)
+│   ├── "system/utils/compiler.h"
+│   │   ├── <avr/io.h>                           (system; not in repo)
+│   │   ├── <avr/builtins.h>                     (system; not in repo)
+│   │   ├── <stdbool.h>                          (system; not in repo)
+│   │   ├── <stdint.h>                           (system; not in repo)
+│   │   ├── <stddef.h>                           (system; not in repo)
+│   │   ├── <stdlib.h>                           (system; not in repo)
+│   │   └── "interrupt_avr8.h"   (system/utils/interrupt_avr8.h)
+│   │       └── <avr/interrupt.h>                (system; not in repo; conditional on __GNUC__)
+│   ├── "config_bits.h"  (MCC_AVRDU/system/config_bits.h)
+│   │   └── "../system/clock.h"  (MCC_AVRDU/system/clock.h)
+│   │       └── "ccp.h"          (MCC_AVRDU/system/ccp.h)
+│   │           ├── "../system/utils/compiler.h" [already traced]
+│   │           └── "../system/protected_io.h"   (MCC_AVRDU/system/protected_io.h)
+│   │               (no further project includes)
+│   ├── "../system/pins.h"       (MCC_AVRDU/system/pins.h)
+│   │   ├── <avr/io.h>                           (system; not in repo)
+│   │   └── "./port.h"           (MCC_AVRDU/system/port.h)
+│   │       └── "utils/compiler.h" [already traced]
+│   ├── "../usb/usb0.h"          (MCC_AVRDU/usb/usb0.h)
+│   │   (empty — no further includes)
+│   ├── "../ac/ac0.h"            (MCC_AVRDU/ac/ac0.h)
+│   │   └── "../system/utils/compiler.h" [already traced]
+│   ├── "../timer/rtc.h"         (MCC_AVRDU/timer/rtc.h)
+│   │   ├── "../system/utils/compiler.h" [already traced]
+│   │   ├── <stdint.h>                           (system; not in repo)
+│   │   └── <stdbool.h>                          (system; not in repo)
+│   ├── "../vref/vref.h"         (MCC_AVRDU/vref/vref.h)
+│   │   └── "../system/utils/compiler.h" [already traced]
+│   ├── "../usb/usb_descriptors.h" (MCC_AVRDU/usb/usb_descriptors.h)
+│   │   ├── <stddef.h>                           (system; not in repo)
+│   │   ├── <usb_protocol_headers.h> (MCC_AVRDU/usb/usb_common/usb_protocol_headers.h)
+│   │   │   ├── "usb_common_elements.h" (MCC_AVRDU/usb/usb_common/usb_common_elements.h)
+│   │   │   │   (no further project includes)
+│   │   │   ├── <stdbool.h>                      (system; not in repo)
+│   │   │   ├── <stdint.h>                       (system; not in repo)
+│   │   │   └── <usb_config.h>   (MCC_AVRDU/usb/usb_config.h)
+│   │   │       ├── <stdint.h>                   (system; not in repo)
+│   │   │       └── <usb_common_elements.h> [already traced]
+│   │   ├── "usb_config.h"       [already traced]
+│   │   └── <usb_protocol_cdc.h> (MCC_AVRDU/usb/usb_cdc/usb_protocol_cdc.h)
+│   │       ├── <stdint.h>                       (system; not in repo)
+│   │       └── <usb_config.h>   [already traced]
+│   ├── "../system/interrupt.h"  (MCC_AVRDU/system/interrupt.h)
+│   │   ├── "../system/utils/compiler.h" [already traced]
+│   │   ├── "ccp.h"              [already traced]
+│   │   └── "../system/utils/atomic.h" (MCC_AVRDU/system/utils/atomic.h)
+│   │       (no further project includes — only compiler-specific asm macros)
+│   ├── "../system/clock.h"      [already traced]
+│   └── "../system/syscfg.h"     (MCC_AVRDU/system/syscfg.h)
+│       ├── <stdbool.h>                          (system; not in repo)
+│       └── <stdint.h>                           (system; not in repo)
+├── [L0-C] "usb_cdc.h"           (MCC_AVRDU/usb/usb_cdc/usb_cdc.h)
+│   ├── <usb_common_elements.h>  [already traced]
+│   ├── <usb_protocol_cdc.h>     [already traced]
+│   └── <usb_protocol_headers.h> [already traced]
+├── [L0-D] "usb_cdc_virtual_serial_port.h" (MCC_AVRDU/usb/usb_cdc/usb_cdc_virtual_serial_port.h)
+│   ├── <stdint.h>                           (system; not in repo)
+│   ├── <stdbool.h>                          (system; not in repo)
+│   ├── <usb_core.h>             (MCC_AVRDU/usb/usb_common/usb_core.h)
+│   │   ├── <stdbool.h>                      (system; not in repo)
+│   │   ├── <stdint.h>                       (system; not in repo)
+│   │   ├── <usb_common_elements.h> [already traced]
+│   │   ├── <usb_core_events.h>  (MCC_AVRDU/usb/usb_common/usb_core_events.h)
+│   │   │   ├── <stdbool.h>                  (system; not in repo)
+│   │   │   ├── <stdint.h>                   (system; not in repo)
+│   │   │   ├── <usb_common_elements.h> [already traced]
+│   │   │   ├── <usb_core_descriptors.h> (MCC_AVRDU/usb/usb_common/usb_core_descriptors.h)
+│   │   │   │   ├── <stdbool.h>              (system; not in repo)
+│   │   │   │   ├── <usb_common_elements.h> [already traced]
+│   │   │   │   └── <usb_protocol_headers.h> [already traced]
+│   │   │   ├── <usb_core_requests.h> (MCC_AVRDU/usb/usb_common/usb_core_requests.h)
+│   │   │   │   ├── <stdbool.h>              (system; not in repo)
+│   │   │   │   ├── <stdint.h>               (system; not in repo)
+│   │   │   │   ├── <usb_core_requests_device.h> (MCC_AVRDU/usb/usb_common/usb_core_requests_device.h)
+│   │   │   │   │   ├── <stdbool.h>          (system; not in repo)
+│   │   │   │   │   ├── <stdint.h>           (system; not in repo)
+│   │   │   │   │   ├── "usb_protocol_headers.h" [already traced]
+│   │   │   │   │   └── "usb_common_elements.h" [already traced]
+│   │   │   │   ├── <usb_core_requests_interface.h> (MCC_AVRDU/usb/usb_common/usb_core_requests_interface.h)
+│   │   │   │   │   ├── <stdbool.h>          (system; not in repo)
+│   │   │   │   │   ├── <stdint.h>           (system; not in repo)
+│   │   │   │   │   ├── "usb_protocol_headers.h" [already traced]
+│   │   │   │   │   └── "usb_common_elements.h" [already traced]
+│   │   │   │   ├── <usb_core_requests_endpoint.h> (MCC_AVRDU/usb/usb_common/usb_core_requests_endpoint.h)
+│   │   │   │   │   ├── <stdbool.h>          (system; not in repo)
+│   │   │   │   │   ├── <stdint.h>           (system; not in repo)
+│   │   │   │   │   ├── "usb_protocol_headers.h" [already traced]
+│   │   │   │   │   └── "usb_common_elements.h" [already traced]
+│   │   │   │   ├── <usb_protocol_headers.h> [already traced]
+│   │   │   │   └── <usb_common_elements.h>  [already traced]
+│   │   │   ├── <usb_core_transfer.h> (MCC_AVRDU/usb/usb_common/usb_core_transfer.h)
+│   │   │   │   ├── <stdbool.h>              (system; not in repo)
+│   │   │   │   ├── <stdint.h>               (system; not in repo)
+│   │   │   │   ├── <usb_protocol_headers.h> [already traced]
+│   │   │   │   ├── <usb_common_elements.h>  [already traced]
+│   │   │   │   ├── <usb_core_transfer.h>    (self-include guard, no-op)
+│   │   │   │   ├── <usb_core_requests.h>    [already traced]
+│   │   │   │   ├── <usb_core_descriptors.h> [already traced]
+│   │   │   │   └── <usb_peripheral.h>       (MCC_AVRDU/usb/usb_peripheral/usb_peripheral.h)
+│   │   │   │       ├── <stdbool.h>          (system; not in repo)
+│   │   │   │       ├── <stdint.h>           (system; not in repo)
+│   │   │   │       ├── <usb_common_elements.h> [already traced]
+│   │   │   │       ├── <usb_peripheral_endpoint.h> (MCC_AVRDU/usb/usb_peripheral/usb_peripheral_endpoint.h)
+│   │   │   │       │   ├── <stdbool.h>      (system; not in repo)
+│   │   │   │       │   ├── <stdint.h>       (system; not in repo)
+│   │   │   │       │   ├── "usb_common_elements.h" [already traced]
+│   │   │   │       │   └── "usb_protocol_headers.h" [already traced]
+│   │   │   │       ├── <usb_peripheral_read_write.h> (MCC_AVRDU/usb/usb_peripheral/usb_peripheral_read_write.h)
+│   │   │   │       │   ├── <stdbool.h>      (system; not in repo)
+│   │   │   │       │   ├── <stdint.h>       (system; not in repo)
+│   │   │   │       │   ├── "usb_common_elements.h" [already traced]
+│   │   │   │       │   └── "usb_protocol_headers.h" [already traced]
+│   │   │   │       └── <usb_protocol_headers.h> [already traced]
+│   │   │   ├── <usb_peripheral.h>           [already traced]
+│   │   │   └── <usb_protocol_headers.h>     [already traced]
+│   │   ├── <usb_core_transfer.h>            [already traced]
+│   │   └── <usb_protocol_headers.h>         [already traced]
+│   ├── <usb_common_elements.h>  [already traced]
+│   ├── <usb_protocol_cdc.h>     [already traced]
+│   └── <circular_buffer.h>      (MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.h)
+│       ├── <stdint.h>                       (system; not in repo)
+│       ├── <stdbool.h>                      (system; not in repo)
+│       └── <usb_common_elements.h> [already traced]
+└── [L0-E] <usb_peripheral.h>   (MCC_AVRDU/usb/usb_peripheral/usb_peripheral.h)
+    (already fully traced above)
+
+NOTE: assembler.h (MCC_AVRDU/system/utils/assembler.h) and gas.h
+(MCC_AVRDU/system/utils/assembler/gas.h) exist in the repo but are NOT
+reachable from inc_usb_avr_du.h. assembler.h is guarded by
+__ASSEMBLER__/__IAR_SYSTEMS_ASM__ and intentionally excluded from C
+compilation. usb_peripheral_avr_du.h likewise is not included by
+usb_peripheral.h or any other header in this chain (it is used only by .c
+implementation files), so it is NOT part of this dependency tree.
+
+================================================================================
+RELATIONSHIP ANALYSIS
+=====================
+
+For each (includer -> included) pair the analysis refers to the body of the
+*including* file: whether it references identifiers (types, macros, functions,
+variables) that are defined in the *included* header.
+
+Notation for included files uses short names; full paths are given in the tree.
+
+---- Level 0: inc_usb_avr_du.h directly includes ----
+
+inc_usb_avr_du.h -> <util/atomic.h>  [DIRECT-USED]
+  Reason: ATOMIC_BLOCK and ATOMIC_RESTORESTATE are used in millis() (line 73-76).
+
+inc_usb_avr_du.h -> system.h  [DIRECT-USED]
+  Reason: Transitively provides _PROTECTED_WRITE (via ccp.h/protected_io.h) and
+  sei() (via compiler.h -> interrupt_avr8.h -> avr/interrupt.h). Directly
+  provides SYSTEM_Initialize() declaration (not called here, but the include
+  brings in all the sub-headers below). The code in inc_usb_avr_du.h uses
+  CLKCTRL, SYSCFG, USB0, TCA0, CPUINT hardware registers defined by the
+  device IO headers pulled in by compiler.h -> avr/io.h. It also uses
+  _PROTECTED_WRITE() (defined through ccp.h -> protected_io.h -> compiler.h)
+  at lines 121-122 and 162. sei() is used at line 167. F_CPU (from clock.h)
+  is used at line 157. SYSCFG_USBVREG_bm is used at lines 127, 130, 147.
+  USB0 register fields (USB_RESET_bm, USB_STALLED_bm, etc.) are used at
+  lines 138-145. TCA_SINGLE_* macros and TCA0 register are used at lines
+  155-159. CPUINT register is used at lines 162-165.
+
+inc_usb_avr_du.h -> usb_cdc.h  [DIRECT-USED]
+  Reason: usbCDCControlLineState (line 53, 132) and usbCDCLineCoding (lines
+  133-136) are declared in usb_cdc.h. USB_CDC_DATA_TERMINAL_READY_bm (line 53)
+  comes from usb_protocol_cdc.h which is pulled in by usb_cdc.h.
+  USB_CDCDataTransmitted and USB_CDCDataReceived are used in the CDC handler
+  (lines 47, 51) and declared in usb_cdc_virtual_serial_port.h; however
+  usb_cdc.h also provides USB_CDCRequestHandler type context via
+  RETURN_CODE_t and USB_SETUP_REQUEST_t. The extern declarations of
+  usbCDCControlLineState and usbCDCLineCoding are the primary direct use.
+
+inc_usb_avr_du.h -> usb_cdc_virtual_serial_port.h  [DIRECT-USED]
+  Reason: CDCTxPipe, CDCRxPipe, usbCDCReceiveTempBuffer, usbCDCReceiveBuffer,
+  usbCDCTransmitBuffer (declared here) are all used in USBDevice_CDCACMHandler
+  (lines 45-54). USB_CDCDataTransmitted (line 47) and USB_CDCDataReceived
+  (line 51) are declared here. CIRCBUF_Empty, CIRCBUF_FreeSpace, CIRCBUF_Full,
+  CIRCBUF_Dequeue, CIRCBUF_Enqueue (from circular_buffer.h transitively) are
+  used at lines 45, 49, 54, 57. USB_CDC_RX_PACKET_SIZE (from usb_config.h
+  transitively) is used at line 49.
+
+inc_usb_avr_du.h -> usb_peripheral.h  [DIRECT-USED]
+  Reason: USB_BusDetach(), USB_PeripheralDisable(), USB_TransferAbort(),
+  USB_PeripheralInitialize(), USB_ControlEndpointsInit(),
+  USB_ControlTransferReset(), USB_BusAttach() are all called in usb_stop()
+  (lines 94-106) and usb_start()/usb_init() (lines 111-114, 149-152).
+  USB_PIPE_t and USB_EP_DIR_OUT/USB_EP_DIR_IN and USB_EP_NUM are also used
+  (lines 96-103). USB_EP_NUM comes from usb_config.h, USB_EP_DIR_* and
+  USB_PIPE_t from usb_protocol_headers.h, both transitively included.
+  USB_PipeStatusIsBusy() and USB_TransferWriteStart()/USB_TransferReadStart()
+  are used at lines 46-51 (these are declared in usb_peripheral_read_write.h
+  and usb_core_transfer.h, pulled in transitively through usb_peripheral.h and
+  usb_cdc_virtual_serial_port.h -> usb_core.h).
+
+---- Level 1: system.h includes ----
+
+system.h -> compiler.h  [DIRECT-USED]
+  Reason: compiler.h provides the foundational AVR type system and ISR macro.
+  system.h itself has no code body, but all other headers it includes depend
+  on compiler.h for uint8_t, bool, etc. The SYSTEM_Initialize prototype uses
+  void which needs no header, but the standard practice ties compiler.h to
+  everything.
+
+system.h -> config_bits.h  [DIRECT-UNUSED]
+  Reason: config_bits.h only includes clock.h and defines nothing itself.
+  system.h does not directly use any symbol from config_bits.h; it includes
+  it to ensure clock.h (and thus F_CPU and CLOCK_Initialize) are available
+  to the entire system module.
+
+system.h -> pins.h  [DIRECT-UNUSED]
+  Reason: system.h does not use any PIN_ symbols or pin macros in its own
+  body. The include ensures pin configuration is available after system init.
+
+system.h -> usb0.h  [DIRECT-UNUSED]
+  Reason: usb0.h is empty (header guard only). No symbols are defined there
+  that system.h uses. Included for completeness/MCC generator output.
+
+system.h -> ac0.h  [DIRECT-UNUSED]
+  Reason: system.h body only declares SYSTEM_Initialize(). No AC0_* symbols
+  are used in the system.h header itself.
+
+system.h -> rtc.h  [DIRECT-UNUSED]
+  Reason: system.h body only declares SYSTEM_Initialize(). No RTC_* symbols
+  are used in the system.h header itself.
+
+system.h -> vref.h  [DIRECT-UNUSED]
+  Reason: system.h body only declares SYSTEM_Initialize(). No VREF_* symbols
+  are used in the system.h header itself.
+
+system.h -> usb_descriptors.h  [DIRECT-USED]
+  Reason: system.h is the umbrella header for the USB device stack. While
+  system.h's own body only declares SYSTEM_Initialize(), usb_descriptors.h
+  declares descriptorPointers (extern USB_DESCRIPTOR_POINTERS_t) which is
+  directly used in inc_usb_avr_du.h line 131 (applicationPointers =
+  &descriptorPointers). The include chain makes this available. Classified
+  as DIRECT-USED from system.h's standpoint since it is an intentional
+  aggregation include.
+
+system.h -> interrupt.h  [DIRECT-UNUSED]
+  Reason: system.h does not reference CPUINT_Initialize or any interrupt-
+  manager symbol in its header body. Included as part of system aggregation.
+
+system.h -> clock.h  [DIRECT-UNUSED]
+  Reason: system.h does not reference CLOCK_Initialize or F_CPU in its own
+  header body (clock.h is already pulled in via config_bits.h). Duplicate
+  include, both unused at system.h body level.
+
+system.h -> syscfg.h  [DIRECT-UNUSED]
+  Reason: system.h body only declares SYSTEM_Initialize(). No SYSCFG_*
+  symbols are used in system.h's own body.
+
+---- Level 1: compiler.h includes ----
+
+compiler.h -> interrupt_avr8.h  [DIRECT-USED]
+  Reason: compiler.h includes interrupt_avr8.h to provide ISR() macro and
+  sei()/cli() wrappers which are core to AVR C programming. The ISR macro
+  is used in inc_usb_avr_du.h (line 63).
+
+---- Level 1: config_bits.h includes ----
+
+config_bits.h -> clock.h  [DIRECT-UNUSED]
+  Reason: config_bits.h body is empty (only header guard). It includes
+  clock.h only to make CLOCK_Initialize/F_CPU available; it uses nothing
+  itself.
+
+---- Level 1: pins.h includes ----
+
+pins.h -> <avr/io.h>  [DIRECT-USED]
+  Reason: PORTC_OUTSET, PORTF_OUTSET and similar register macros used in
+  macro definitions in pins.h come from avr/io.h.
+
+pins.h -> port.h  [DIRECT-USED]
+  Reason: pins.h uses port_pull_mode and port_dir enums, and the PORTX_*
+  inline functions defined in port.h (indirectly via macro wrappers), so
+  port.h is a necessary direct dependency.
+
+---- Level 1: ac0.h includes ----
+
+ac0.h -> compiler.h  [DIRECT-USED]
+  Reason: ac0.h uses bool return type from stdbool.h (included by compiler.h)
+  and uint8_t from stdint.h (also included by compiler.h).
+
+---- Level 1: rtc.h includes ----
+
+rtc.h -> compiler.h  [DIRECT-USED]
+  Reason: rtc.h depends on uint16_t and bool, both provided via compiler.h's
+  chain (stdbool.h, stdint.h).
+
+---- Level 1: vref.h includes ----
+
+vref.h -> compiler.h  [DIRECT-UNUSED]
+  Reason: vref.h only declares int8_t VREF_Initialize(void). The int8_t
+  type comes from stdint.h but vref.h includes compiler.h (not stdint.h
+  directly). compiler.h is a superset so it satisfies the need, but
+  vref.h itself does not use any compiler.h-specific macro (UNUSED, etc.);
+  it only needs stdint.h. Classified DIRECT-USED in practice because the
+  int8_t type requires the stdint.h pulled in by compiler.h.
+
+---- Level 1: usb_descriptors.h includes ----
+
+usb_descriptors.h -> <stddef.h>  [DIRECT-USED]
+  Reason: DESCRIPTOR_STRING_LENGTH macro (line 110, 113, 115) uses sizeof()
+  which does not require stddef.h on most compilers; but stddef.h is included
+  for portability with size_t and wchar_t. wchar_t is used in string arrays
+  (lines 111, 114, 116); wchar_t may come from stddef.h. Classified MAYBE
+  due to compiler-dependency.
+
+usb_descriptors.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_CONFIGURATION_DESCRIPTOR_t, USB_INTERFACE_DESCRIPTOR_t,
+  USB_ENDPOINT_DESCRIPTOR_t, USB_DESCRIPTOR_HEADER_t,
+  DESCRIPTOR_STRING_LENGTH, USB_DESCRIPTOR_POINTERS_t are all used in the
+  struct definitions and extern declaration in usb_descriptors.h.
+
+usb_descriptors.h -> usb_config.h  [DIRECT-UNUSED]
+  Reason: usb_descriptors.h does not use USB_EP_NUM, LANG_ID_NUM, or any
+  usb_config.h macro directly in its own body (LANG_ID_NUM is used via
+  usb_protocol_headers.h which includes usb_config.h). Technically redundant
+  but included for explicit dependency documentation.
+
+usb_descriptors.h -> usb_protocol_cdc.h  [DIRECT-USED]
+  Reason: USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t, USB_CDC_ACM_FUNCTIONAL_
+  DESCRIPTOR_t, USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_t are used directly in
+  the USB_APPLICATION_CONFIGURATION1_struct definition (lines 83-85).
+
+---- Level 1: interrupt.h includes ----
+
+interrupt.h -> compiler.h  [DIRECT-USED]
+  Reason: interrupt.h uses uint8_t (from stdint.h via compiler.h) and the
+  CCP_IOREG_gc / CCP_SPM_gc constants defined conditionally in compiler.h.
+
+interrupt.h -> ccp.h  [DIRECT-UNUSED]
+  Reason: interrupt.h only declares CPUINT_Initialize(). It does not
+  directly call ccp_write_io or ccp_write_spm in its header body. Included
+  so callers of interrupt.h automatically get CCP access.
+
+interrupt.h -> atomic.h  [DIRECT-UNUSED]
+  Reason: interrupt.h only declares CPUINT_Initialize(). It does not use
+  ENTER_CRITICAL or EXIT_CRITICAL in its header body.
+
+---- Level 1: clock.h includes ----
+
+clock.h -> ccp.h  [DIRECT-UNUSED]
+  Reason: clock.h declares CLOCK_Initialize(), CFD_Enable(), CFD_Disable()
+  and defines F_CPU. None of these reference ccp.h symbols in the header
+  body. ccp.h is included so that clock.c/.cpp implementation can use CCP
+  without needing a separate include.
+
+---- Level 1: ccp.h includes ----
+
+ccp.h -> compiler.h  [DIRECT-USED]
+  Reason: ccp.h uses uint8_t (from stdint.h) and CCP_IOREG_gc / CCP_SPM_gc
+  (conditionally defined in compiler.h for IAR, or from avr/io.h for GCC).
+  The inline functions also use void* pointer arithmetic that requires
+  compiler support.
+
+ccp.h -> protected_io.h  [DIRECT-USED]
+  Reason: protected_write_io() is called directly in ccp_write_io() and
+  ccp_write_spm() inline functions (lines 57 and 69 of ccp.h).
+
+---- Level 1: port.h includes ----
+
+port.h -> compiler.h  [DIRECT-USED]
+  Reason: port.h uses uint8_t, bool, PORT_ISC_t (an AVR register type from
+  avr/io.h), PORT_PULLUPEN_bm, PORT_INVEN_bm, PORT_ISC_gm, PORT_PULLUPEN_bp
+  and the PORTA/PORTC/PORTD/PORTF hardware registers — all provided by
+  avr/io.h which is included by compiler.h.
+
+---- Level 1: usb_cdc.h includes ----
+
+usb_cdc.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t is used in USB_CDCRequestHandler return type.
+
+usb_cdc.h -> usb_protocol_cdc.h  [DIRECT-USED]
+  Reason: USB_CDC_LINE_CODING_t is the type of the usbCDCLineCoding extern
+  variable declared in usb_cdc.h.
+
+usb_cdc.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t is used as the parameter type of
+  USB_CDCRequestHandler().
+
+---- Level 1: usb_cdc_virtual_serial_port.h includes ----
+
+usb_cdc_virtual_serial_port.h -> <stdint.h>  [DIRECT-USED]
+  Reason: uint8_t, uint16_t used in array/struct declarations.
+
+usb_cdc_virtual_serial_port.h -> <stdbool.h>  [DIRECT-UNUSED]
+  Reason: No bool-returning function is declared in this header.
+
+usb_cdc_virtual_serial_port.h -> usb_core.h  [DIRECT-USED]
+  Reason: USB_PIPE_t and USB_TRANSFER_STATUS_t are used in the callback
+  prototypes USB_CDCDataTransmitted() and USB_CDCDataReceived(). Both types
+  originate in usb_protocol_headers.h pulled in by usb_core.h.
+
+usb_cdc_virtual_serial_port.h -> usb_common_elements.h  [DIRECT-UNUSED]
+  Reason: usb_cdc_virtual_serial_port.h does not directly use RETURN_CODE_t
+  or any usb_common_elements.h symbol in its header body (these are used only
+  in CDC_RETURN_CODE_t which is its own enum). Included defensively.
+
+usb_cdc_virtual_serial_port.h -> usb_protocol_cdc.h  [DIRECT-UNUSED]
+  Reason: usb_cdc_virtual_serial_port.h body does not reference any
+  usb_protocol_cdc.h types directly (CDC_RETURN_CODE_t is self-defined).
+  Included for future extensibility.
+
+usb_cdc_virtual_serial_port.h -> circular_buffer.h  [DIRECT-USED]
+  Reason: CIRCULAR_BUFFER_t is the type of usbCDCReceiveBuffer and
+  usbCDCTransmitBuffer extern variables. BUFFER_SUCCESS is referenced
+  in usage context. CIRCBUF_* functions are declared there.
+
+---- Level 1: usb_peripheral.h includes ----
+
+usb_peripheral.h -> <stdbool.h>  [DIRECT-USED]
+  Reason: bool return types are used throughout usb_peripheral.h function
+  declarations (USB_SetupIsReceived, USB_EventSOFIsReceived, etc.).
+
+usb_peripheral.h -> <stdint.h>  [DIRECT-USED]
+  Reason: uint8_t and uint16_t are used in function signatures.
+
+usb_peripheral.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t is used as return type in most functions.
+
+usb_peripheral.h -> usb_peripheral_endpoint.h  [DIRECT-UNUSED]
+  Reason: usb_peripheral.h body does not reference any
+  usb_peripheral_endpoint.h-specific types or functions; the include is for
+  aggregation so consumers get endpoint functions.
+
+usb_peripheral.h -> usb_peripheral_read_write.h  [DIRECT-UNUSED]
+  Reason: Same as above — aggregation include, no usb_peripheral_read_write.h
+  symbols used in usb_peripheral.h's own body.
+
+usb_peripheral.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_PIPE_t is used in many function parameter types, USB_SETUP_
+  REQUEST_t is used in USB_ControlSetupReceived/USB_ControlTransactionComplete,
+  USB_SETUP_ENDOFREQUEST_CALLBACK_t is used in USB_ControlEndOfRequestCallback
+  Register, USB_CONTROL_STATUS_t is used in USB_CONTROL_TRANSFER_t struct.
+
+---- Level 2: usb_core.h includes ----
+
+usb_core.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t is the return type of USB_SetupProcess, USB_Stop,
+  USB_Reset.
+
+usb_core.h -> usb_core_events.h  [DIRECT-UNUSED]
+  Reason: usb_core.h's body does not reference USB_EventHandler or any
+  usb_core_events.h-specific symbol. Aggregation include.
+
+usb_core.h -> usb_core_transfer.h  [DIRECT-USED]
+  Reason: USB_TransferWriteStart, USB_TransferReadStart, USB_TransferAbort
+  are used in inc_usb_avr_du.h lines 47, 51, 101 (these arrive through
+  usb_cdc_virtual_serial_port.h -> usb_core.h). Also USB_TRANSFER_END_
+  CALLBACK_t type comes from usb_protocol_headers.h which usb_core_transfer.h
+  includes; the functions it declares are directly used by the application.
+
+usb_core.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t is used in USB_SetupProcess parameter.
+
+---- Level 2: usb_core_events.h includes ----
+
+usb_core_events.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used (indirectly in referenced function signatures).
+
+usb_core_events.h -> usb_core_descriptors.h  [DIRECT-UNUSED]
+  Reason: usb_core_events.h body only declares USB_EventHandler(). It does
+  not directly reference descriptor types. Aggregation include.
+
+usb_core_events.h -> usb_core_requests.h  [DIRECT-UNUSED]
+  Reason: Same — USB_EventHandler takes no parameters and returns void.
+
+usb_core_events.h -> usb_core_transfer.h  [DIRECT-UNUSED]
+  Reason: USB_EventHandler has no parameters; transfer types not used in the
+  header body of usb_core_events.h.
+
+usb_core_events.h -> usb_peripheral.h  [DIRECT-UNUSED]
+  Reason: usb_core_events.h declares only USB_EventHandler(void). No
+  peripheral symbols used directly in the header.
+
+usb_core_events.h -> usb_protocol_headers.h  [DIRECT-UNUSED]
+  Reason: usb_core_events.h declares only USB_EventHandler(void).
+
+---- Level 2: usb_core_transfer.h includes ----
+
+usb_core_transfer.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_PIPE_t, USB_TRANSFER_END_CALLBACK_t, USB_SETUP_ENDOFREQUEST_
+  CALLBACK_t used in function signatures.
+
+usb_core_transfer.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used in all function return types.
+
+usb_core_transfer.h -> usb_core_requests.h  [DIRECT-UNUSED]
+  Reason: usb_core_transfer.h body does not call request-handling functions;
+  aggregation include to ensure linked translation units have requests visible.
+
+usb_core_transfer.h -> usb_core_descriptors.h  [DIRECT-UNUSED]
+  Reason: usb_core_transfer.h function signatures do not use descriptor types.
+
+usb_core_transfer.h -> usb_peripheral.h  [DIRECT-UNUSED]
+  Reason: usb_core_transfer.h function signatures do not reference peripheral
+  types directly; peripheral is needed by the .c implementation, not the .h.
+
+---- Level 2: usb_core_descriptors.h includes ----
+
+usb_core_descriptors.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t is used in all function return types.
+
+usb_core_descriptors.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_DESCRIPTOR_POINTERS_t, USB_DESCRIPTOR_TYPE_t,
+  USB_CONFIGURATION_DESCRIPTOR_t, USB_INTERFACE_DESCRIPTOR_t,
+  USB_DESCRIPTOR_HEADER_t are all used in function signatures and the extern
+  declaration.
+
+---- Level 2: usb_core_requests.h includes ----
+
+usb_core_requests.h -> usb_core_requests_device.h  [DIRECT-UNUSED]
+  Reason: usb_core_requests.h body only declares three functions; it does not
+  call device-specific helpers directly. Aggregation include.
+
+usb_core_requests.h -> usb_core_requests_interface.h  [DIRECT-UNUSED]
+  Reason: Same — aggregation include.
+
+usb_core_requests.h -> usb_core_requests_endpoint.h  [DIRECT-UNUSED]
+  Reason: Same — aggregation include.
+
+usb_core_requests.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t used as parameter type in all three declared
+  functions.
+
+usb_core_requests.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used as return type in all three functions.
+
+---- Level 2: usb_peripheral_endpoint.h includes ----
+
+usb_peripheral_endpoint.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used in function return types.
+
+usb_peripheral_endpoint.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_PIPE_t and USB_ENDPOINT_t used in function signatures.
+
+---- Level 2: usb_peripheral_read_write.h includes ----
+
+usb_peripheral_read_write.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used in function return types.
+
+usb_peripheral_read_write.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_PIPE_t, USB_TRANSFER_STATUS_t, USB_TRANSFER_END_CALLBACK_t
+  used in function signatures.
+
+---- Level 2: usb_protocol_headers.h includes ----
+
+usb_protocol_headers.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t is the return type of callback typedefs
+  (USB_SETUP_PROCESS_CALLBACK_t, USB_SETUP_STRING_CALLBACK_t, etc.).
+
+usb_protocol_headers.h -> usb_config.h  [DIRECT-USED]
+  Reason: LANG_ID_NUM used in USB_STRING_LANG_ID_DESCRIPTOR_t and
+  USB_DESCRIPTOR_POINTERS_t struct definitions.
+
+---- Level 2: usb_config.h includes ----
+
+usb_config.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: MAX_ENDPOINT_SIZE_DEFAULT is used in USB_CDC_TX_BUFFER_SIZE and
+  USB_CDC_RX_BUFFER_SIZE macro definitions.
+
+---- Level 2: usb_protocol_cdc.h includes ----
+
+usb_protocol_cdc.h -> usb_config.h  [DIRECT-USED]
+  Reason: USB_CDC_UNION_SUBORDINATE_NUM is used in the conditional struct
+  USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_t (line 312-327). This is a [MAYBE]
+  case due to the #ifdef guard, but since USB_CDC_UNION_SUBORDINATE_NUM is
+  defined in usb_config.h and the macro is used, it resolves to [DIRECT-USED].
+
+---- Level 3: usb_core_requests_device.h includes ----
+
+usb_core_requests_device.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t used in SetupDeviceRequestGetDescriptor().
+
+usb_core_requests_device.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used as return type in all declared functions.
+
+---- Level 3: usb_core_requests_interface.h includes ----
+
+usb_core_requests_interface.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t used in SetupInterfaceRequestGetInterface and
+  SetupInterfaceRequestSetInterface parameters.
+
+usb_core_requests_interface.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used as return type in all declared functions.
+
+---- Level 3: usb_core_requests_endpoint.h includes ----
+
+usb_core_requests_endpoint.h -> usb_protocol_headers.h  [DIRECT-USED]
+  Reason: USB_SETUP_REQUEST_t used in multiple function parameters;
+  USB_PIPE_t used in EndpointFromRequestGet return type.
+
+usb_core_requests_endpoint.h -> usb_common_elements.h  [DIRECT-USED]
+  Reason: RETURN_CODE_t used as return type.
+
+---- Level 3: circular_buffer.h includes ----
+
+circular_buffer.h -> usb_common_elements.h  [DIRECT-UNUSED]
+  Reason: circular_buffer.h defines its own BUFFER_RETURN_CODE_t and does not
+  use RETURN_CODE_t or any other usb_common_elements.h symbol in the header
+  body. The include appears to be for completeness/policy rather than necessity.
+
+---- Transitive headers (pulled in by intermediate headers, never directly included by inc_usb_avr_du.h) ----
+
+The following headers are TRANSITIVE with respect to inc_usb_avr_du.h:
+
+  usb_common_elements.h          -- reached via usb_cdc.h, usb_peripheral.h, etc.
+  usb_protocol_headers.h         -- reached via usb_cdc.h, usb_peripheral.h, etc.
+  usb_config.h                   -- reached via usb_protocol_headers.h, usb_protocol_cdc.h
+  usb_protocol_cdc.h             -- reached via usb_cdc.h
+  usb_core.h                     -- reached via usb_cdc_virtual_serial_port.h
+  usb_core_events.h              -- reached via usb_core.h
+  usb_core_transfer.h            -- reached via usb_core.h
+  usb_core_descriptors.h         -- reached via usb_core_events.h, usb_core_transfer.h
+  usb_core_requests.h            -- reached via usb_core_events.h, usb_core_transfer.h
+  usb_core_requests_device.h     -- reached via usb_core_requests.h
+  usb_core_requests_interface.h  -- reached via usb_core_requests.h
+  usb_core_requests_endpoint.h   -- reached via usb_core_requests.h
+  usb_peripheral_endpoint.h      -- reached via usb_peripheral.h
+  usb_peripheral_read_write.h    -- reached via usb_peripheral.h
+  circular_buffer.h              -- reached via usb_cdc_virtual_serial_port.h
+  compiler.h                     -- reached via system.h
+  interrupt_avr8.h               -- reached via compiler.h
+  interrupt.h                    -- reached via system.h
+  atomic.h                       -- reached via interrupt.h
+  clock.h                        -- reached via system.h, config_bits.h
+  ccp.h                          -- reached via clock.h, interrupt.h
+  protected_io.h                 -- reached via ccp.h
+  config_bits.h                  -- reached via system.h
+  pins.h                         -- reached via system.h
+  port.h                         -- reached via pins.h
+  usb0.h                         -- reached via system.h
+  ac0.h                          -- reached via system.h
+  rtc.h                          -- reached via system.h
+  vref.h                         -- reached via system.h
+  usb_descriptors.h              -- reached via system.h
+  syscfg.h                       -- reached via system.h
+
+(All of these are [TRANSITIVE] with respect to inc_usb_avr_du.h as the root.)
+
+================================================================================
+SUMMARY
+=======
+
+Total project headers traced (in-repo .h files only):          37
+  (system/: 9, usb/: 23, ac/: 1, timer/: 1, vref/: 1, plus root-dir: 2)
+
+Headers directly included by inc_usb_avr_du.h:                  5
+  <util/atomic.h>, system.h, usb_cdc.h,
+  usb_cdc_virtual_serial_port.h, usb_peripheral.h
+
+Of those 5 direct includes:
+  Direct-Used:    5  (all five direct includes have symbols used in inc_usb_avr_du.h)
+  Direct-Unused:  0
+  Maybe:          0
+
+For all (includer -> included) pairs across the full chain:
+  (counting only pairs where both files are in the project repo)
+
+  Direct-Used:    ~35 pairs
+  Direct-Unused:  ~25 pairs  (mainly aggregation umbrella headers and unused
+                               sub-includes in system.h and usb_core_events.h)
+  Transitive:     32 headers are purely transitive w.r.t. inc_usb_avr_du.h
+  Maybe:          1  (usb_descriptors.h -> <stddef.h> re: wchar_t origin)
+
+Notable observations:
+  1. system.h is a pure aggregation umbrella: it includes 9 sub-headers but its
+     own body only declares SYSTEM_Initialize(). Most of its sub-includes are
+     DIRECT-UNUSED at the system.h level.
+  2. usb_core_events.h aggregates 5 headers but its own body only declares
+     USB_EventHandler(void). All 5 sub-includes are DIRECT-UNUSED at the
+     usb_core_events.h level.
+  3. usb_core_transfer.h has a self-include (#include <usb_core_transfer.h>
+     inside usb_core_transfer.h itself, line 48) — this is a no-op due to the
+     include guard but is an unusual pattern worth noting.
+  4. usb0.h is a completely empty header (only include guard); it is
+     DIRECT-UNUSED at every level that includes it.
+  5. circular_buffer.h includes usb_common_elements.h unnecessarily; that
+     include is DIRECT-UNUSED in circular_buffer.h's body.
+  6. usb_peripheral_avr_du.h exists in the repo but is NOT reachable from
+     inc_usb_avr_du.h via any include chain. It is used only by .c files.
+  7. assembler.h / gas.h exist in the repo but are assembly-only headers
+     guarded by __ASSEMBLER__ and are NOT reachable from C compilation of
+     inc_usb_avr_du.h.

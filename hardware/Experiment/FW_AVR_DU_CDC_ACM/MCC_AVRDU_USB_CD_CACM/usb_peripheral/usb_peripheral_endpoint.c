@@ -70,7 +70,7 @@ USB_ENDPOINT_TABLE_t endpointTable __attribute__((aligned(2)));
 void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
 {
     uint8_t endpointConfiguration = 0;
-    ConvertEndpointSizeToMask(endpointSize, endpointType, &endpointConfiguration);
+    ConvertEndpointSizeToMask(endpointSize, &endpointConfiguration);
 
     // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
     if (CONTROL == endpointType)
@@ -274,9 +274,8 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
     return status;
 }
 
-void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr)
+void ConvertEndpointSizeToMask(uint16_t endpointSize, uint8_t *endpointMaskPtr)
 {
-    (void)endpointType;
     if (((uint16_t)MAX_ENDPOINT_SIZE_DEFAULT < endpointSize) || !(IsPowerOfTwo(endpointSize)))
     {
         return;

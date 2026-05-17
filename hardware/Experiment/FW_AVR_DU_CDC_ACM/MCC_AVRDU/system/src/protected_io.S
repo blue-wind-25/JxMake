@@ -40,16 +40,16 @@
     PUBLIC_FUNCTION(protected_write_io)
 
 #if !defined(__GNUC__)
-#  error This file requires GCC assembler
+#error This file requires GCC assembler
 #endif
 
 #ifdef RAMPZ
-    out     _SFR_IO_ADDR(RAMPZ), r1         // Clear bits 23:16 of Z
+    out    _SFR_IO_ADDR(RAMPZ), r1      // Clear bits 23:16 of Z
 #endif
-    movw    r30, r24                // Load addr into Z
-    out     CCP, r22                // Start CCP handshake
-    st      Z, r20                  // Write value to I/O register
-    ret                             // Return to caller
+    movw   r30, r24                // Load addr into Z
+    out    CCP, r22                // Start CCP handshake
+    st     Z, r20                  // Write value to I/O register
+    ret                            // Return to caller
 
     END_FUNC(protected_write_io)
     END_FILE()

@@ -67,42 +67,29 @@ void SetupDeviceAddressCallback(void)
 
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
-    RETURN_CODE_t status = UNINITIALIZED;
-
     uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
     uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xffu);
+    uint8_t *descriptorPtr = NULL;
+    uint16_t descriptorLength = 0;
+    RETURN_CODE_t status;
 
-    if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
+    if (USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
-        // Class (0x20–0x3F) and vendor (0x40+) descriptor types are not requested
-        // via GET_DESCRIPTOR in CDC-ACM — class descriptors are embedded in the
-        // configuration descriptor.
-        status = UNSUPPORTED;
+        status = USB_DescriptorStringPointerGet(descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength);
     }
     else
     {
-        uint8_t *descriptorPtr = NULL;
-        uint16_t descriptorLength = 0;
+        // USB_DescriptorPointerGet returns UNSUPPORTED for class/vendor and other invalid types.
+        status = USB_DescriptorPointerGet(descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength);
+    }
 
-        if (USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t)descriptorType)
+    if (SUCCESS == status)
+    {
+        if (descriptorLength > setupRequestPtr->wLength)
         {
-            status = USB_DescriptorStringPointerGet(descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength);
+            descriptorLength = setupRequestPtr->wLength;
         }
-        else
-        {
-            // USB_DescriptorPointerGet will handle remaining invalid descriptorTypes.
-            status = USB_DescriptorPointerGet(descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength);
-        }
-
-        if (SUCCESS == status)
-        {
-            if (descriptorLength > setupRequestPtr->wLength)
-            {
-                descriptorLength = setupRequestPtr->wLength;
-            }
-
-            USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
-        }
+        USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
     }
 
     return status;

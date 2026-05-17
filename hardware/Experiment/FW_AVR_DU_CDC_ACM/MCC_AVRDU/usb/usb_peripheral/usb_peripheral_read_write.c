@@ -147,55 +147,46 @@ RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe)
 
 USB_TRANSFER_STATUS_t USB_PipeStatusGet(USB_PIPE_t pipe)
 {
-
     return pipeTransfer[PipeTransferIndexGet(pipe)].status;
 }
 
 bool USB_PipeStatusIsBusy(USB_PIPE_t pipe)
 {
-
     return (pipeTransfer[PipeTransferIndexGet(pipe)].status == USB_PIPE_TRANSFER_BUSY);
 }
 
 void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr)
 {
-
     pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr = dataPtr;
 }
 
 uint8_t *USB_PipeDataPtrGet(USB_PIPE_t pipe)
 {
-
     return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr;
 }
 
 void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize)
 {
-
     pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize = dataSize;
 }
 
 uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe)
 {
-
     return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize;
 }
 
 uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe)
 {
-
     return pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred;
 }
 
 void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize)
 {
-
     pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = dataSize;
 }
 
 void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe)
 {
-
     pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = 0;
 }
 

@@ -39,5 +39,5 @@ jobs:
 
             Then create a new git branch, make the requested changes,
             commit them, push the branch, and open a pull request.
-          claude_args: "--allowedTools \"Edit,Write,Read,Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*)\" --effort medium --max-turns 30"
+          claude_args: "--allowedTools \"Edit,Write,Read,Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*)\"" # --effort medium --max-turns 30"
          #show_full_output: true

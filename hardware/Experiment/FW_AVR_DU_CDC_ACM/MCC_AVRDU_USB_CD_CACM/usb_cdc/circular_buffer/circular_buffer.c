@@ -37,7 +37,7 @@
 #include "circular_buffer.h"
 
 
-BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data)
+void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data)
 {
     uint16_t nextHead = buffer->head + 1U;
     if (buffer->maxLength <= nextHead)
@@ -46,11 +46,10 @@ BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data)
     }
     if (buffer->tail == nextHead)
     {
-        return BUFFER_FULL;
+        return;
     }
     buffer->content[buffer->head] = data;
     buffer->head = nextHead;
-    return BUFFER_SUCCESS;
 }
 
 BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data)

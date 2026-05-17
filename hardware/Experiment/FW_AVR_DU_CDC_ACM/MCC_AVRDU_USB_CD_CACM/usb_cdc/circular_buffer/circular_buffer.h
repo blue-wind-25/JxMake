@@ -73,7 +73,7 @@ typedef struct CIRCULAR_BUFFER_struct
  *     data - Intput data
  * return status - Result of the addition process
  */
-BUFFER_RETURN_CODE_t CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
+void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
 
 /*
  * usb_cdc

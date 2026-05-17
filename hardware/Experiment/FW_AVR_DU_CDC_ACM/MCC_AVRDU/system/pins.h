@@ -4,12 +4,12 @@
 
 /*
  * Generated Pins header File
- * 
+ *
  * pins.h
- * 
+ *
  *  pinsdriver Pins Driver
- * 
- * This is generated driver header for pins. 
+ *
+ * This is generated driver header for pins.
  *        This header file provides APIs for all pins selected in the GUI.
  *
  * Driver Version  1.1.0
@@ -18,21 +18,21 @@
 /*
 (C) [2025] Microchip Technology Inc. and its subsidiaries.
 
-    Subject to your compliance with these terms, you may use Microchip 
-    software and any derivatives exclusively with Microchip products. 
-    You are responsible for complying with 3rd party license terms  
-    applicable to your use of 3rd party software (including open source  
-    software) that may accompany Microchip software. SOFTWARE IS ?AS IS.? 
-    NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS 
-    SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,  
-    MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT 
-    WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, 
-    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY 
-    KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF 
-    MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE 
-    FORESEEABLE. TO THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP?S 
-    TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE WILL NOT 
-    EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR 
+    Subject to your compliance with these terms, you may use Microchip
+    software and any derivatives exclusively with Microchip products.
+    You are responsible for complying with 3rd party license terms
+    applicable to your use of 3rd party software (including open source
+    software) that may accompany Microchip software. SOFTWARE IS ?AS IS.?
+    NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS
+    SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,
+    MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT
+    WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE,
+    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY
+    KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF
+    MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE
+    FORESEEABLE. TO THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP?S
+    TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE WILL NOT
+    EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR
     THIS SOFTWARE.
 */
 
@@ -90,9 +90,9 @@ void PIN_MANAGER_Initialize();
 
 /*
  *  pinsdriver
- * Default Interrupt Handler for VBUS pin. 
+ * Default Interrupt Handler for VBUS pin.
  *        This is a predefined interrupt handler to be used together with the VBUS_SetInterruptHandler() method.
- *        This handler is called every time the VBUS ISR is executed. 
+ *        This handler is called every time the VBUS ISR is executed.
  * PIN_MANAGER_Initialize() has been called at least once
  *     none
  * return none
@@ -107,13 +107,13 @@ void VBUS_DefaultInterruptHandler(void);
  *     InterruptHandler function pointer.
  * return none
  */
-void VBUS_SetInterruptHandler(void (* interruptHandler)(void)) ; 
+void VBUS_SetInterruptHandler(void (* interruptHandler)(void));
 
 /*
  *  pinsdriver
- * Default Interrupt Handler for LED pin. 
+ * Default Interrupt Handler for LED pin.
  *        This is a predefined interrupt handler to be used together with the LED_SetInterruptHandler() method.
- *        This handler is called every time the LED ISR is executed. 
+ *        This handler is called every time the LED ISR is executed.
  * PIN_MANAGER_Initialize() has been called at least once
  *     none
  * return none
@@ -128,5 +128,5 @@ void LED_DefaultInterruptHandler(void);
  *     InterruptHandler function pointer.
  * return none
  */
-void LED_SetInterruptHandler(void (* interruptHandler)(void)) ; 
+void LED_SetInterruptHandler(void (* interruptHandler)(void));
 #endif /* PINS_H_INCLUDED */

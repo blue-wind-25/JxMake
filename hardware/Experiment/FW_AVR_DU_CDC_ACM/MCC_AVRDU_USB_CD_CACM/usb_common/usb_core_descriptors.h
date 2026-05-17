@@ -122,7 +122,7 @@ RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURAT
  *     enable - Boolean to enable or disable the endpoint
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable);
+void DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable);
 
 /*
  * usb_core

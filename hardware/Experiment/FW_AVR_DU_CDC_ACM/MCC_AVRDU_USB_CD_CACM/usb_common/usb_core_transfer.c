@@ -82,14 +82,13 @@ RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, US
     return USB_ControlTransferDataSet(dataPtr, dataSize);
 }
 
-RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe)
+void USB_TransferAbort(USB_PIPE_t pipe)
 {
     if (USB_PipeStatusIsBusy(pipe) == true)
     {
         USB_TransactionAbort(pipe);
         USB_PipeTransferEndCallback(pipe);
     }
-    return SUCCESS;
 }
 
 void USB_TransferHandler(void)

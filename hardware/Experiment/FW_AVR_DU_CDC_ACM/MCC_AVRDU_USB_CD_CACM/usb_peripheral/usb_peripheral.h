@@ -296,7 +296,7 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
  *     overunderflow - A value representing overflow or underflow
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow);
+void USB_ControlProcessOverUnderflow(uint8_t overunderflow);
 
 /*
  * usb_peripheral
@@ -304,7 +304,7 @@ RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe);
+void USB_HandleEventStalled(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral

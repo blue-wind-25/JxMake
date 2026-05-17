@@ -276,7 +276,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
     return status;
 }
 
-RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable)
+void DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable)
 {
     // The number of endpoints to enable/disable is found from the interface.
     uint8_t numEndpoints = interfacePtr->bNumEndpoints;
@@ -305,8 +305,6 @@ RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interface
             numEndpoints--;
         }
     }
-
-    return SUCCESS;
 }
 
 RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t **descriptorPtr, uint16_t *descriptorLength)

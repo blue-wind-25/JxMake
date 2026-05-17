@@ -95,7 +95,7 @@ RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, US
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferAbort(USB_PIPE_t pipe);
+void USB_TransferAbort(USB_PIPE_t pipe);
 
 /*
  * usb_core_transfer

@@ -414,7 +414,7 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
 }
 
 
-RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow)
+void USB_ControlProcessOverUnderflow(uint8_t overunderflow)
 {
     if (USB_CONTROL_DATA_IN == controlTransfer.status)
     {
@@ -434,10 +434,9 @@ RETURN_CODE_t USB_ControlProcessOverUnderflow(uint8_t overunderflow)
         }
         // else: host is too eager, let transfer handler deal with it
     }
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe)
+void USB_HandleEventStalled(USB_PIPE_t pipe)
 {
     // Always called with pipe.address == 0 (control endpoint)
     USB_EndpointInStallAck(pipe.address);
@@ -445,7 +444,6 @@ RETURN_CODE_t USB_HandleEventStalled(USB_PIPE_t pipe)
     USB_EndpointInStallClear(pipe.address);
     USB_EndpointOutStallClear(pipe.address);
     USB_ControlTransferReset();
-    return SUCCESS;
 }
 
 void USB_PeripheralInitialize(void)

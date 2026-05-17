@@ -73,15 +73,14 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_Stop(void);
+void USB_Stop(void);
 
 /*
  * usb_core
  * Resets the USB peripheral.
  *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_Reset(void);
+void USB_Reset(void);
 
 
 #endif /* USB_CORE_H */

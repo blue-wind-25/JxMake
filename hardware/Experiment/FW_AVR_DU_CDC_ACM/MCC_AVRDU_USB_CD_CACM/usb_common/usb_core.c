@@ -91,7 +91,7 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
     return status;
 }
 
-RETURN_CODE_t USB_Stop(void)
+void USB_Stop(void)
 {
     USB_BusDetach();
     USB_PeripheralDisable();
@@ -105,16 +105,13 @@ RETURN_CODE_t USB_Stop(void)
         USB_TransferAbort(pipe);
         pipe.address++;
     }
-
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_Reset(void)
+void USB_Reset(void)
 {
     USB_Stop();
     USB_PeripheralInitialize();
     USB_ControlEndpointsInit();
     USB_ControlTransferReset();
     USB_BusAttach();
-    return SUCCESS;
 }

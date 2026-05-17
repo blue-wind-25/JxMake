@@ -82,14 +82,6 @@ void USB_PipeReset(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write
- * Gets the current status of pipe.
- *     pipe - A combination of endpoint address and direction
- * return USB_PIPE_TRANSFER_OK or an Error code according to USB_TRANSFER_STATUS_t
- */
-USB_TRANSFER_STATUS_t USB_PipeStatusGet(USB_PIPE_t pipe);
-
-/*
- * usb_peripheral_read_write
  * Checks if the pipe status is busy.
  *     pipe - A combination of endpoint address and direction
  * 0  -  Pipe status not busy
@@ -105,14 +97,6 @@ bool USB_PipeStatusIsBusy(USB_PIPE_t pipe);
  * return None.
  */
 void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr);
-
-/*
- * usb_peripheral_read_write
- * Gets the current data pointer for a given pipe.
- *     pipe - A combination of endpoint address and direction
- * return The pointer to the data location
- */
-uint8_t *USB_PipeDataPtrGet(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write

@@ -114,11 +114,6 @@ void USB_PipeReset(USB_PIPE_t pipe)
     pipeTransferPtr->ZLPEnable = false;
 }
 
-USB_TRANSFER_STATUS_t USB_PipeStatusGet(USB_PIPE_t pipe)
-{
-    return pipeTransfer[PipeTransferIndexGet(pipe)].status;
-}
-
 bool USB_PipeStatusIsBusy(USB_PIPE_t pipe)
 {
     return (pipeTransfer[PipeTransferIndexGet(pipe)].status == USB_PIPE_TRANSFER_BUSY);
@@ -127,11 +122,6 @@ bool USB_PipeStatusIsBusy(USB_PIPE_t pipe)
 void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr)
 {
     pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr = dataPtr;
-}
-
-uint8_t *USB_PipeDataPtrGet(USB_PIPE_t pipe)
-{
-    return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr;
 }
 
 void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize)

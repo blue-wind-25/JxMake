@@ -53,7 +53,7 @@
  *     endpointType - Type of USB endpoint as defined by usb_endpoint_type
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType);
+void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType);
 
 /*
  * usb_peripheral_endpoint
@@ -61,7 +61,7 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe);
+void USB_EndpointDisable(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_endpoint
@@ -86,7 +86,7 @@ USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_EndpointStall(USB_PIPE_t pipe);
+void USB_EndpointStall(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_endpoint
@@ -96,7 +96,7 @@ RETURN_CODE_t USB_EndpointStall(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_EndpointStallClear(USB_PIPE_t pipe);
+void USB_EndpointStallClear(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_endpoint
@@ -125,7 +125,7 @@ RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DataToggleSet(USB_PIPE_t pipe);
+void USB_DataToggleSet(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_endpoint
@@ -137,7 +137,7 @@ RETURN_CODE_t USB_DataToggleSet(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DataToggleClear(USB_PIPE_t pipe);
+void USB_DataToggleClear(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_endpoint
@@ -160,7 +160,7 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe);
  *     endpointMaskPtr - Pointer to the mask variable to write to
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr);
+void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr);
 
 /*
  * usb_peripheral_endpoint
@@ -169,7 +169,7 @@ RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t en
  *     bufAddress - The pointer to the data buffer the endpoint will use
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress);
+void EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress);
 
 
 #endif /* USB_PERIPHERAL_ENDPOINT_H */

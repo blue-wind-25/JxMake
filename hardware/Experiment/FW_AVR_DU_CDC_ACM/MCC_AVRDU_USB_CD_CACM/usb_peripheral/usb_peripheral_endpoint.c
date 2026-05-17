@@ -67,7 +67,7 @@
  */
 USB_ENDPOINT_TABLE_t endpointTable __attribute__((aligned(2)));
 
-RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
+void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
 {
     uint8_t endpointConfiguration = 0;
     ConvertEndpointSizeToMask(endpointSize, endpointType, &endpointConfiguration);
@@ -105,11 +105,9 @@ RETURN_CODE_t USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_
             USB_EndpointInMultipktEnable(pipe.address);
         }
     }
-
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe)
+void USB_EndpointDisable(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -119,7 +117,6 @@ RETURN_CODE_t USB_EndpointDisable(USB_PIPE_t pipe)
     {
         USB_EndPointInDisable(pipe.address);
     }
-    return SUCCESS;
 }
 
 uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe)
@@ -170,7 +167,7 @@ USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe)
     return endpointType;
 }
 
-RETURN_CODE_t USB_EndpointStall(USB_PIPE_t pipe)
+void USB_EndpointStall(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -180,10 +177,9 @@ RETURN_CODE_t USB_EndpointStall(USB_PIPE_t pipe)
     {
         USB_EndpointInStall(pipe.address);
     }
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_EndpointStallClear(USB_PIPE_t pipe)
+void USB_EndpointStallClear(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -193,7 +189,6 @@ RETURN_CODE_t USB_EndpointStallClear(USB_PIPE_t pipe)
     {
         USB_EndpointInStallClear(pipe.address);
     }
-    return SUCCESS;
 }
 
 bool USB_EndpointIsStalled(USB_PIPE_t pipe)
@@ -230,7 +225,7 @@ RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe)
     return status;
 }
 
-RETURN_CODE_t USB_DataToggleSet(USB_PIPE_t pipe)
+void USB_DataToggleSet(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -240,10 +235,9 @@ RETURN_CODE_t USB_DataToggleSet(USB_PIPE_t pipe)
     {
         USB_EndpointInDataToggleSet(pipe.address);
     }
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_DataToggleClear(USB_PIPE_t pipe)
+void USB_DataToggleClear(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -253,7 +247,6 @@ RETURN_CODE_t USB_DataToggleClear(USB_PIPE_t pipe)
     {
         USB_EndpointInDataToggleClear(pipe.address);
     }
-    return SUCCESS;
 }
 
 RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
@@ -281,12 +274,12 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
     return status;
 }
 
-RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr)
+void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr)
 {
     (void)endpointType;
     if (((uint16_t)MAX_ENDPOINT_SIZE_DEFAULT < endpointSize) || !(IsPowerOfTwo(endpointSize)))
     {
-        return ENDPOINT_SIZE_ERROR;
+        return;
     }
     uint8_t mask = 0;
     uint16_t baseSize = 8;
@@ -296,17 +289,16 @@ RETURN_CODE_t ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t en
         baseSize <<= 1;
     }
     *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
-    return SUCCESS;
 }
 
-RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)
+void EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
         // Errata: Out transactions must be word aligned when using multipacket (always enabled for OUT)
         if (((uint16_t)bufAddress & 0x0001) != 0u)
         {
-            return ENDPOINT_ALIGN_ERROR;
+            return;
         }
         USB_EndpointOutBufferSet(pipe.address, bufAddress);
     }
@@ -314,5 +306,4 @@ RETURN_CODE_t EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)
     {
         USB_EndpointInBufferSet(pipe.address, bufAddress);
     }
-    return SUCCESS;
 }

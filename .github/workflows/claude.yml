@@ -43,7 +43,7 @@ jobs:
               git config user.name "claude[bot]"
               git config user.email "claude[bot]@users.noreply.github.com"
 
-            Then create a new git branch, make the requested changes,
+            Then make the requested changes,
             commit them, push the branch, and open a pull request.
 
           claude_args: >-
@@ -58,7 +58,7 @@ jobs:
             Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),
             Bash(touch:*),Bash(echo:*),Bash(chmod:*),
             Bash(tee:*),Bash(xargs:*),Bash(tr:*)"
-            --effort medium   # change to: low, medium, high, xhigh, max
-            --max-turns 30    # increase if task is large/complex
+            --effort high   # change to: low, medium, high, xhigh, max
+            --max-turns 20    # increase if task is large/complex
 
           # show_full_output: true  # uncomment for debugging

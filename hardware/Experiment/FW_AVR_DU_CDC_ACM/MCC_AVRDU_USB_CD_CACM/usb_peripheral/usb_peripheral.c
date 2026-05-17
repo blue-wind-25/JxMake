@@ -392,8 +392,8 @@ void USB_ControlTransferReset(void)
 
 RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)
 {
-    // NULL callers always pass dataSize=0 (USB_SetupProcess reset path)
-    controlTransfer.transferDataPtr = (dataPtr != NULL) ? dataPtr : controlTransfer.buffer;
+    // transferDataPtr is only read when transferDataSize > 0; NULL is safe for the reset path
+    controlTransfer.transferDataPtr = dataPtr;
     controlTransfer.transferDataSize = dataSize;
     return SUCCESS;
 }

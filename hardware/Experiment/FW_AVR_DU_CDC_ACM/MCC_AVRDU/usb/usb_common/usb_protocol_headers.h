@@ -101,7 +101,7 @@ typedef struct USB_PIPE_struct
 } USB_PIPE_t;
 
 /*
- *READ WRITE LAYER
+ * READ WRITE LAYER
  */
 
 /*

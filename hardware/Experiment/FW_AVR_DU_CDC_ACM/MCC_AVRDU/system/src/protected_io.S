@@ -48,7 +48,7 @@
 #endif
     movw   r30, r24                  // Load addr into Z
     out    CCP, r22                  // Start CCP handshake
-    st     Z, r20                    // Write value to I/O register
+    st     Z  , r20                  // Write value to I/O register
     ret                              // Return to caller
 
     END_FUNC(protected_write_io)

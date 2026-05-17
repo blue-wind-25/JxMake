@@ -247,7 +247,7 @@ void USB_ControlTransactionComplete(USB_PIPE_t pipe);
  *     direction - The endpoint direction to send the ZLP
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction);
+void USB_ControlTransferZLP(uint8_t direction);
 
 /*
  * usb_peripheral
@@ -255,7 +255,7 @@ RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlTransferReset(void);
+void USB_ControlTransferReset(void);
 
 /*
  * usb_peripheral

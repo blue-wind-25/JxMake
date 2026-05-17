@@ -39,21 +39,12 @@
 
 /*
  * usb_peripheral_read_write
- * Starts sending or receiving data on an endpoint by clearing BUSNACK.
- * Used as a final step while setting up a transaction on the bus.
- *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_TransactionStart(USB_PIPE_t pipe);
-
-/*
- * usb_peripheral_read_write
  * Aborts the next transaction on an endpoint by setting BUSNACK.
  * Used to stop exchanging data on an endpoint. The device will start NAKing requests from the host after calling this API.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransactionAbort(USB_PIPE_t pipe);
+void USB_TransactionAbort(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write
@@ -62,7 +53,7 @@ RETURN_CODE_t USB_TransactionAbort(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransactionCompleteAck(USB_PIPE_t pipe);
+void USB_TransactionCompleteAck(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write
@@ -87,7 +78,7 @@ RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe);
+void USB_PipeReset(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write
@@ -197,7 +188,7 @@ void USB_PipeTransferEndCallback(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe);
+void USB_InTransactionRun(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write
@@ -205,7 +196,7 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe);
+void USB_OutTransactionRun(USB_PIPE_t pipe);
 
 /*
  * usb_peripheral_read_write

@@ -52,32 +52,7 @@
 
 STATIC USB_PIPE_TRANSFER_t pipeTransfer[USB_EP_NUM * 2];
 
-RETURN_CODE_t USB_TransactionStart(USB_PIPE_t pipe)
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
-    {
-        status = ENDPOINT_ADDRESS_ERROR;
-    }
-    else
-    {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutNAKClear(pipe.address);
-        }
-        else
-        {
-            USB_EndpointInNAKClear(pipe.address);
-        }
-
-        status = SUCCESS;
-    }
-
-    return status;
-}
-
-RETURN_CODE_t USB_TransactionAbort(USB_PIPE_t pipe)
+void USB_TransactionAbort(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -89,10 +64,9 @@ RETURN_CODE_t USB_TransactionAbort(USB_PIPE_t pipe)
     }
 
     pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_ABORTED;
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_TransactionCompleteAck(USB_PIPE_t pipe)
+void USB_TransactionCompleteAck(USB_PIPE_t pipe)
 {
     if (USB_EP_DIR_OUT == pipe.direction)
     {
@@ -103,7 +77,6 @@ RETURN_CODE_t USB_TransactionCompleteAck(USB_PIPE_t pipe)
         USB_EndpointInTransactionCompleteAck(pipe.address);
     }
     pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_OK;
-    return SUCCESS;
 }
 
 bool USB_TransactionIsCompleted(void)
@@ -130,7 +103,7 @@ RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe)
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe)
+void USB_PipeReset(USB_PIPE_t pipe)
 {
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
     pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
@@ -139,7 +112,6 @@ RETURN_CODE_t USB_PipeReset(USB_PIPE_t pipe)
     pipeTransferPtr->bytesTransferred = 0;
     pipeTransferPtr->transferEndCallback = NULL;
     pipeTransferPtr->ZLPEnable = false;
-    return SUCCESS;
 }
 
 USB_TRANSFER_STATUS_t USB_PipeStatusGet(USB_PIPE_t pipe)
@@ -208,10 +180,9 @@ void USB_PipeTransferEndCallback(USB_PIPE_t pipe)
     }
 }
 
-RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
+void USB_InTransactionRun(USB_PIPE_t pipe)
 {
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
-    RETURN_CODE_t status = UNINITIALIZED;
     uint16_t nextTransactionSize;
 
     pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
@@ -230,7 +201,6 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
         {
             pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
         }
-        status = SUCCESS;
     }
     else
     {
@@ -242,13 +212,10 @@ RETURN_CODE_t USB_InTransactionRun(USB_PIPE_t pipe)
         USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
         USB_NumberBytesSentReset(pipe.address);
         USB_EndpointInNAKClear(pipe.address);
-        status = SUCCESS;
     }
-
-    return status;
 }
 
-RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
+void USB_OutTransactionRun(USB_PIPE_t pipe)
 {
     USB_PIPE_TRANSFER_t *pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet(pipe)];
 
@@ -272,8 +239,6 @@ RETURN_CODE_t USB_OutTransactionRun(USB_PIPE_t pipe)
     USB_NumberBytesReceivedReset(pipe.address);
     USB_NumberBytesToReceiveSet(pipe.address, nextTransactionSize);
     USB_EndpointOutNAKClear(pipe.address);
-
-    return SUCCESS;
 }
 
 void USB_PipeTransactionComplete(USB_PIPE_t pipe)

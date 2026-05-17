@@ -342,7 +342,7 @@ void USB_ControlTransactionComplete(USB_PIPE_t pipe)
     }
 }
 
-RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)
+void USB_ControlTransferZLP(uint8_t direction)
 {
     USB_NumberBytesToSendReset(0);
     USB_NumberBytesSentReset(0);
@@ -366,13 +366,10 @@ RETURN_CODE_t USB_ControlTransferZLP(uint8_t direction)
         USB_EndpointOutNAKClear(0);
         USB_EndpointOutOverUnderflowAck(0);
     }
-
-    return SUCCESS;
 }
 
-RETURN_CODE_t USB_ControlTransferReset(void)
+void USB_ControlTransferReset(void)
 {
-    // USB_TransactionAbort always returns SUCCESS
     USB_PIPE_t controlPipeOut = { .address = 0u, .direction = USB_EP_DIR_OUT };
     USB_TransactionAbort(controlPipeOut);
     USB_TransactionAbort((USB_PIPE_t){ .address = 0u, .direction = USB_EP_DIR_IN });
@@ -393,8 +390,6 @@ RETURN_CODE_t USB_ControlTransferReset(void)
     controlTransfer.endOfRequestCallback = NULL;
     controlTransfer.transferDataSize = 0u;
     controlTransfer.status = USB_CONTROL_SETUP;
-
-    return SUCCESS;
 }
 
 RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)
@@ -475,8 +470,8 @@ void USB_PeripheralInitialize(void)
     USB_PIPE_t pipe;
     for (pipe.address = 0; pipe.address < USB_EP_NUM; pipe.address++)
     {
-        pipe.direction = USB_EP_DIR_OUT; (void)USB_PipeReset(pipe);
-        pipe.direction = USB_EP_DIR_IN;  (void)USB_PipeReset(pipe);
+        pipe.direction = USB_EP_DIR_OUT; USB_PipeReset(pipe);
+        pipe.direction = USB_EP_DIR_IN;  USB_PipeReset(pipe);
     }
 }
 

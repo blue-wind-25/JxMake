@@ -330,15 +330,8 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
             *descriptorLength = localDescriptorPtr.configurationPtr->wTotalLength;
         }
         break;
-    case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
-    case USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION:
-    case USB_DESCRIPTOR_TYPE_BOS:
-        // Not supported: high-speed only or not present
-        status = UNSUPPORTED;
-        break;
     default:
-        // Class/vendor descriptors are filtered before this function is called
-        status = DESCRIPTOR_REQUEST_ERROR;
+        status = UNSUPPORTED;
         break;
     }
 

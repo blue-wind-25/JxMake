@@ -55,7 +55,6 @@ $call(silent_stdxxx_syslib    , true                       )
 PROG_NAME := $call( exe_fpath, main    )
 PROG_OBJS := $call( obj_fpath, {                             \
     main.cpp                                                 \
-    MCC_AVRDU/system/src/protected_io.S                      \
     MCC_AVRDU/usb/usb_descriptors.c                          \
     MCC_AVRDU/usb/src/usb0.c                                 \
     MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.c  \

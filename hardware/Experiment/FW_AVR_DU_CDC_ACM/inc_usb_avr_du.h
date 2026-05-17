@@ -33,10 +33,10 @@
 #include <util/atomic.h>
 
 extern "C" {
-    #include "system.h"
-    #include "usb_cdc.h"
-    #include "usb_cdc_virtual_serial_port.h"
+    #include <usb_descriptors.h>
     #include <usb_peripheral.h>
+    #include <usb_cdc.h>
+    #include <usb_cdc_virtual_serial_port.h>
 }
 
 

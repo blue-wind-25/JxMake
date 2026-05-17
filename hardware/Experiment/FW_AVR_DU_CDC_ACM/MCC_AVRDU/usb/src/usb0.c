@@ -34,7 +34,9 @@
     THIS SOFTWARE.
 */
 
-#include "../../system/utils/compiler.h"
+
+#include "../../system/utils/interrupt_avr8.h"
+
 #include <usb_core_transfer.h>
 #include <usb_core_events.h>
 

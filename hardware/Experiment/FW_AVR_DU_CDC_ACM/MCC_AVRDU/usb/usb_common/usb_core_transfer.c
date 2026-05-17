@@ -11,7 +11,7 @@
  */
 
 /*
-    (c) 2021 Microchip Technology Inc. and its subsidiaries.
+    (C) 2021 Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip software and any
     derivatives exclusively with Microchip products. It is your responsibility to comply with third party
@@ -34,7 +34,15 @@
  */
 
 
+#include <avr/interrupt.h>
+
 #include "usb_core_transfer.h"
+
+
+ISR(USB0_TRNCOMPL_vect)
+{
+    USB_TransferHandler();
+}
 
 
 RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)

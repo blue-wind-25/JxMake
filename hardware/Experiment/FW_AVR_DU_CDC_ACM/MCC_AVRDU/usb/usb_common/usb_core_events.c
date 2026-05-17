@@ -11,7 +11,7 @@
  */
 
 /*
-    (c) 2021 Microchip Technology Inc. and its subsidiaries.
+    (C) 2021 Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip software and any
     derivatives exclusively with Microchip products. It is your responsibility to comply with third party
@@ -35,9 +35,17 @@
 
 
 #include <stddef.h>
+#include <avr/interrupt.h>
 
 #include "usb_core.h"
 #include "usb_core_events.h"
+
+
+
+ISR(USB0_BUSEVENT_vect)
+{
+    USB_EventHandler();
+}
 
 
 void USB_EventHandler(void)

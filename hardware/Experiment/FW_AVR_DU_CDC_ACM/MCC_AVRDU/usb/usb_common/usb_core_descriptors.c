@@ -11,7 +11,7 @@
  */
 
 /*
-    (c) 2021 Microchip Technology Inc. and its subsidiaries.
+    (C) 2021 Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip software and any
     derivatives exclusively with Microchip products. It is your responsibility to comply with third party
@@ -68,7 +68,6 @@
  * ,19.2} Needed for the stack to parse through the configuration descriptors
  * without pointer casting between the different descriptor types and uint8_t.
  */
-// cppcheck-suppress misra-c2012-19.2
 typedef union USB_DESCRIPTOR_PTR_union
 {
     uint8_t *bytePtr;
@@ -85,7 +84,6 @@ USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
 {
-    // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t currentDescriptor;
     RETURN_CODE_t status = SUCCESS;
 
@@ -172,7 +170,6 @@ RETURN_CODE_t NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptorType, USB
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t currentDescriptor = { .headerPtr = *descriptorHeaderPtr };
 
     uint8_t incrementCount = 0u;
@@ -207,7 +204,6 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
     if (NULL != activeConfigurationPtr)
     {
         // Pointer initialized to the address of the active configuration descriptor
-        // cppcheck-suppress misra-c2012-19.2
         USB_DESCRIPTOR_PTR_t currentDescriptor = { .configurationPtr = activeConfigurationPtr };
 
         // Limit to end of configuration to make sure the loop does not overflow
@@ -285,7 +281,6 @@ RETURN_CODE_t DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interface
     // The number of endpoints to enable/disable is found from the interface.
     uint8_t numEndpoints = interfacePtr->bNumEndpoints;
 
-    // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t currentDescriptor = { .interfacePtr = interfacePtr };
 
     while (numEndpoints > 0u)
@@ -318,7 +313,6 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    // cppcheck-suppress misra-c2012-19.2
     USB_DESCRIPTOR_PTR_t localDescriptorPtr;
 
     switch (descriptor)

@@ -12,7 +12,7 @@
  */
 
 /*
-    (c) 2021 Microchip Technology Inc. and its subsidiaries.
+    (C) 2021 Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip software and any
     derivatives exclusively with Microchip products. It is your responsibility to comply with third party
@@ -35,8 +35,7 @@
  */
 
 #ifndef USB_PROTOCOL_HEADERS_H
-// cppcheck-suppress misra-c2012-2.5
-#define	USB_PROTOCOL_HEADERS_H
+#define USB_PROTOCOL_HEADERS_H
 
 
 #include <stdint.h>

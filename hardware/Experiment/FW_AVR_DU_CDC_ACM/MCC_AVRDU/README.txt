@@ -26,7 +26,7 @@ License        : https://github.com/microchip-pic-avr-examples/avr64du32-cnano-u
 
 ----------------------------------------------------------------------------------------------------
 
-(C) 2024 Microchip Technology Inc. and its subsidiaries.
+(C) 2021-2025 Microchip Technology Inc. and its subsidiaries.
 
 Subject to your compliance with these terms, you may use Microchip software
 and any derivatives exclusively with Microchip products. You're responsible

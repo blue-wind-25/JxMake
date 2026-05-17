@@ -79,7 +79,7 @@ typedef union USB_DESCRIPTOR_PTR_union
 
 
 STATIC USB_CONFIGURATION_DESCRIPTOR_t *activeConfigurationPtr = NULL;
-STATIC uint8_t activeInterfaces[USB_INTERFACE_NUM];
+
 USB_DESCRIPTOR_POINTERS_t *applicationPointers = NULL;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
@@ -98,11 +98,8 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
 
             if (SUCCESS == status)
             {
-                if (activeInterfaces[currentDescriptor.interfacePtr->bInterfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting)
-                {
-                    status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, false);
-                    numInterfaces--;
-                }
+                status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, false);
+                numInterfaces--;
             }
         }
     }
@@ -129,11 +126,8 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue)
                     status = NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr);
                     if (SUCCESS == status)
                     {
-                        if (USB_DEFAULT_ALTERNATE_SETTING == currentDescriptor.interfacePtr->bAlternateSetting)
-                        {
-                            status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, true);
-                            numInterfaces--;
-                        }
+                        status = USB_DescriptorInterfaceConfigure(currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, true);
+                        numInterfaces--;
                     }
                 }
             }
@@ -216,12 +210,10 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
         USB_INTERFACE_DESCRIPTOR_t *enableInterfacePtr = NULL;
         while ((SUCCESS == status) && (currentDescriptor.bytePtr < endOfConfiguration))
         {
-            // Check if interface number and alternate setting correspond to the active interface before disabling endpoints
-            if ((interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber) && (activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting))
+            // All interfaces have only bAlternateSetting == 0 — disable if number matches
+            if (interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber)
             {
-                // Disable endpoints for the active alternate interface
                 DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
-                activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
             }
 
             if (enable)
@@ -257,9 +249,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
             {
                 if (NULL != enableInterfacePtr)
                 {
-                    // Enable the endpoints for the activated interface
                     DescriptorEndpointsConfigure(enableInterfacePtr, true);
-                    activeInterfaces[interfaceNumber] = alternateSetting;
                 }
                 else
                 {

@@ -745,3 +745,27 @@ Reason: Leaf callback — resets transmit buffer head/tail to 0 on successful tr
    USB_InTransactionRun, USB_OutTransactionRun, and USB_PipeTransferEndCallback
    at depth 4 from the ISR. These are already documented in Sections 6–7 (via the
    USB_TransferWriteStart / USB_TransferReadStart paths).
+
+==============================================================================
+## BATCH 6: MODULO → BITWISE-AND REPLACEMENT — DONE! (7266 → 7230, −36 bytes)
+==============================================================================
+
+All USB endpoint sizes are always powers of 2 (8, 64, ...) because:
+  - ConvertEndpointSizeToMask validates IsPowerOfTwo(endpointSize) before configuring
+  - USB_EndpointSizeGet returns 8U << sizeCode, always a power of 2
+
+For power-of-2 n: (x % n == 0) ≡ (x & (n-1) == 0). This allows replacing all
+three 16-bit modulo operations with bitwise AND, eliminating the __udivmodhi4
+software division library routine entirely.
+
+USB_InTransactionRun (usb_peripheral_read_write.c):
+  DONE! nextTransactionSize % endpointSize → nextTransactionSize & (endpointSize - 1U)
+
+USB_OutTransactionRun (usb_peripheral_read_write.c):
+  DONE! nextTransactionSize % endpointSize → nextTransactionSize & (endpointSize - 1u)
+
+USB_PipeTransactionComplete (usb_peripheral_read_write.c):
+  DONE! transactionSize % USB_EndpointSizeGet(pipe) → transactionSize & (USB_EndpointSizeGet(pipe) - 1u)
+
+Result: __udivmodhi4 (40 bytes) eliminated by --gc-sections. Each call site grew +2 bytes
+due to the subtraction instruction, but net savings = −36 bytes (7266 → 7230).

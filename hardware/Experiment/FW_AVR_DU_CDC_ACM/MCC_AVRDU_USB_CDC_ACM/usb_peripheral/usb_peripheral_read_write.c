@@ -137,7 +137,8 @@ void USB_InTransactionRun(USB_PIPE_t pipe)
     {
         uint16_t endpointSize = USB_EndpointSizeGet(pipe);
         // InMultipktEnable=1 for all used endpoints (EP0, EP2)
-        pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize % (uint16_t)endpointSize));
+        // Endpoint sizes are always powers of 2, so % endpointSize ≡ & (endpointSize-1)
+        pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize & ((uint16_t)endpointSize - 1U)));
 
         EndpointBufferSet(pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred]);
         USB_NumberBytesToSendSet(pipe.address, nextTransactionSize);
@@ -156,6 +157,7 @@ void USB_OutTransactionRun(USB_PIPE_t pipe)
     uint16_t endpointSize = USB_EndpointSizeGet(pipe);
     uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
     // OutMultipktEnable=1 for all used endpoints (EP0, EP2)
+    // Endpoint sizes are always powers of 2, so % endpointSize ≡ & (endpointSize-1)
 
     if (0u == nextTransactionSize)
     {
@@ -164,7 +166,7 @@ void USB_OutTransactionRun(USB_PIPE_t pipe)
     }
     else
     {
-        pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && (0u == (nextTransactionSize % endpointSize));
+        pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && (0u == (nextTransactionSize & (endpointSize - 1u)));
     }
 
     USB_NumberBytesReceivedReset(pipe.address);
@@ -219,7 +221,7 @@ void USB_PipeTransactionComplete(USB_PIPE_t pipe)
         // Updates bytes transferred and check if we need to run more transactions.
         pipeTransferPtr->bytesTransferred += transactionSize;
 
-        if (((pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize) || pipeTransferPtr->ZLPEnable) && (0u == (transactionSize % USB_EndpointSizeGet(pipe))))
+        if (((pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize) || pipeTransferPtr->ZLPEnable) && (0u == (transactionSize & (USB_EndpointSizeGet(pipe) - 1u))))
         {
             USB_OutTransactionRun(pipe);
         }

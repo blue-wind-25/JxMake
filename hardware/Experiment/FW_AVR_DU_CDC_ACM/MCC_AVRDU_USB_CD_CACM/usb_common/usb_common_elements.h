@@ -36,9 +36,6 @@
 #define USB_COMMON_ELEMENTS_H
 
 
-/* REDUNDANT: STATIC is a direct alias for static — will be removed after all files are updated */
-#define STATIC static
-
 
 /*
  * Describes the different function return reserved codes used by the USB stack.

@@ -35,22 +35,25 @@ jobs:
             ${{ github.event.issue.body }}
 
             The repository is already checked out locally.
+
             All paths are relative to the repo root.
-            Do not use gh CLI for repo info (gh repo, gh api, etc).
-            Use gh only for pull request operations (gh pr create, gh pr view).
+            Use gh only for pull request and issue operations.
 
             Before making any commits, run:
+              git checkout -b claude/issue-${{ github.event.issue.number }}
               git config user.name "claude[bot]"
               git config user.email "claude[bot]@users.noreply.github.com"
 
             Then make the requested changes,
             commit them, push the branch, and open a pull request.
 
+            After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
+
           claude_args: >-
             --allowedTools
             "Edit,Write,Read,
             Bash(git:*),
-            Bash(gh pr:*),
+            Bash(gh pr:*),Bash(gh issue:*),
             Bash(grep:*),Bash(rg:*),Bash(find:*),
             Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),
             Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),

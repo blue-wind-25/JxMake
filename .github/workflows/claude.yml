@@ -82,9 +82,9 @@ jobs:
     env:
       ISSUE_TITLE:  ${{ github.event.issue.title }}
       ISSUE_BODY:   ${{ github.event.issue.body || '' }}
-      MODEL_HAIKU:  ${{ vars.CLAUDE_MODEL_HAIKU  || 'claude-haiku-4-5'  }}
-      MODEL_SONNET: ${{ vars.CLAUDE_MODEL_SONNET || 'claude-sonnet-4-6' }}
-      MODEL_OPUS:   ${{ vars.CLAUDE_MODEL_OPUS   || 'claude-opus-4-7'   }}
+      MODEL_HAIKU:  ${{ vars.CLAUDE_MODEL_HAIKU  || 'haiku'  }}
+      MODEL_SONNET: ${{ vars.CLAUDE_MODEL_SONNET || 'sonnet' }}
+      MODEL_OPUS:   ${{ vars.CLAUDE_MODEL_OPUS   || 'opus'   }}
 
     steps:
       - uses: actions/checkout@v4
@@ -215,7 +215,7 @@ jobs:
             After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
 
           # Changed block scalar to folded (>-) to ensure smooth CLI execution string generation
-          claude_args: >-
+          claude_args: |
             --model ${{ steps.claude_args.outputs.model }}
             --allowedTools "Edit,Write,Read,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*),Bash(tr:*)"
             --effort ${{ steps.claude_args.outputs.effort }}

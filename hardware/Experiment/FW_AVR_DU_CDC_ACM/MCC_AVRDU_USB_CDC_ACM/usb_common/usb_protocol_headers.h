@@ -100,8 +100,8 @@ typedef struct USB_PIPE_struct
  */
 typedef enum USB_TRANSFER_STATUS_enum
 {
-    USB_PIPE_TRANSFER_OK = 0,      /* Successful transfer on the pipe* /
-    USB_PIPE_TRANSFER_BUSY = 1,    /* The pipe is busy* /
+    USB_PIPE_TRANSFER_OK = 0,      /* Successful transfer on the pipe */
+    USB_PIPE_TRANSFER_BUSY = 1,    /* The pipe is busy */
     USB_PIPE_TRANSFER_ABORTED = 2, /* Transfer aborted on the pipe */
     USB_PIPE_TRANSFER_ERROR = 3,   /* Failure during transfer on the pipe */
 } USB_TRANSFER_STATUS_t;

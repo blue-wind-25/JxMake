@@ -64,7 +64,7 @@ void SetupDeviceAddressCallback(void)
 }
 
 #if 0
-// NOTE @Claude : This one (the original code?) is OK
+// NOTE @Claude : This one (the original code) is OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     RETURN_CODE_t status = UNINITIALIZED;
@@ -108,7 +108,7 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
     return status;
 }
 #else
-// NOTE @Claude : This one (your code?) is also OK
+// NOTE @Claude : This one (your code) is also OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);

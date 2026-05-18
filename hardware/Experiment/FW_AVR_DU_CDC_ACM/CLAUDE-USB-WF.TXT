@@ -1,63 +1,27 @@
 Analyze the source codes in:
-    /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM
+    /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/MCC_AVRDU_USB_CDC_ACM
 
-Do not analyze or modify the build system files:
-    JxMakeFile
-    jxmake
-
-Manufacturer SDK files included in scope:
-    MCC_AVRDU/system/src/protected_io.S
-    MCC_AVRDU/system/src/syscfg.c
-    MCC_AVRDU/usb/usb_descriptors.c
-    MCC_AVRDU/usb/usb_device.c
-    MCC_AVRDU/usb/src/usb0.c
-    MCC_AVRDU/usb/usb_cdc/circular_buffer/circular_buffer.c
-    MCC_AVRDU/usb/usb_cdc/usb_cdc.c
-    MCC_AVRDU/usb/usb_cdc/usb_cdc_virtual_serial_port.c
-    MCC_AVRDU/usb/usb_common/usb_core.c
-    MCC_AVRDU/usb/usb_common/usb_core_descriptors.c
-    MCC_AVRDU/usb/usb_common/usb_core_events.c
-    MCC_AVRDU/usb/usb_common/usb_core_requests.c
-    MCC_AVRDU/usb/usb_common/usb_core_requests_device.c
-    MCC_AVRDU/usb/usb_common/usb_core_requests_endpoint.c
-    MCC_AVRDU/usb/usb_common/usb_core_requests_interface.c
-    MCC_AVRDU/usb/usb_common/usb_core_transfer.c
-    MCC_AVRDU/usb/usb_peripheral/usb_peripheral.c
-    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_endpoint.c
-    MCC_AVRDU/usb/usb_peripheral/usb_peripheral_read_write.c
-
-Do not analyze other manufacturer SDK files unless they are directly included from the above.
-
-The project overall goal:
-    Strip down the manufacturer SDK and USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance).
+Project goal:
+    Strip down the manufacturer USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance).
     The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
 
 Workflow:
-1. Analyze and propose changes only within the specified directory.
-2. After each change, run:
+1. Refer to:
+       /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/FCG.txt
+   for the already analyzed callgraph (ignore functions outside the USB stack).
+   Notes in FCG.txt may advise not to inline callees into ISRs; however, you may inline a callee if it is small or not referenced elsewhere.
+2. Analyze and propose changes only within the specified directory.
+3. After each change, run:
        ./jxmake build
-   - If build succeeds, pause and wait for me to upload/test the firmware.
-   - If build fails, stop and annotate suspected causes in comments above the relevant lines; do not attempt fixes until instructed.
-3. Do not strip down to raw register/SFR access yet. First flatten to the lowest‑level manufacturer SDK functions.
-4. If a manufacturer SDK file is no longer needed, propose its removal. Do not run `rm` until I confirm.
-5. Proceed only after I confirm runtime behavior is intact.
-
-
-
-The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance). The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
-
-
-
-
-I have fixed the error, see @Claude in:
-
-    usb_core_descriptors.c
-        Your new code NEW_CODE cause hung.
-
-    usb_core_requests_device.c
-        Both the old code and new code is fine.
-
-But later, keep that first in mind. The quota is finished, we continue later. I may also perform comments cleanup myseef after this.
+   - If the build succeeds, pause and wait for me to upload/test the firmware. Proceed to the next run only after I confirm runtime behavior is intact.
+   - If the build fails, revert the previous changes and add annotations so the same changes will not be attempted again.
+   - Use annotations (e.g., DONE!, FAILED!, etc.) in FCG.txt strictly to mark progress.
+4. Do not strip down to raw register/SFR access yet. First flatten to the lowest‑level manufacturer USB CDC‑ACM functions.
+5. If a manufacturer USB CDC‑ACM file is no longer needed or becomes empty, propose its removal. Do not run `rm` until I confirm.
+6. Example of a failed change from a previous attempt:
+   - usb_core_descriptors.c : if NEW_CODE is defined, the firmware broke; see 'NOTE @Claude' inside for more details.
+7. Example of a successful change from a previous attempt:
+   - usb_core_requests_device.c : see 'NOTE @Claude' inside for more details.
 
 
 

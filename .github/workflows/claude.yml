@@ -192,7 +192,6 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          model:            ${{ steps.claude_args.outputs.model }}
           show_full_output: ${{ steps.claude_args.outputs.show_output }}
 
           prompt: |
@@ -217,6 +216,7 @@ jobs:
 
           # Changed block scalar to folded (>-) to ensure smooth CLI execution string generation
           claude_args: >-
+            --model ${{ steps.claude_args.outputs.model }}
             --allowedTools "Edit,Write,Read,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*),Bash(tr:*)"
             --effort ${{ steps.claude_args.outputs.effort }}
             --max-turns ${{ steps.claude_args.outputs.turns }}

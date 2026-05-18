@@ -52,7 +52,7 @@ RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t
     USB_PipeReset(pipe);
     USB_PipeDataPtrSet(pipe, dataPtr);
     USB_PipeDataToTransferSizeSet(pipe, dataSize);
-    USB_PipeDataTransferredSizeReset(pipe);
+    // USB_PipeReset already zeros bytesTransferred — no need to reset again
     USB_PipeTransferZLP_Enable(pipe);
     USB_PipeTransferEndCallbackRegister(pipe, callback);
     USB_InTransactionRun(pipe);
@@ -68,7 +68,7 @@ RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t 
     USB_PipeReset(pipe);
     USB_PipeDataPtrSet(pipe, dataPtr);
     USB_PipeDataToTransferSizeSet(pipe, dataSize);
-    USB_PipeDataTransferredSizeReset(pipe);
+    // USB_PipeReset already zeros bytesTransferred — no need to reset again
     USB_PipeTransferEndCallbackRegister(pipe, callback);
     USB_OutTransactionRun(pipe);
     return SUCCESS;

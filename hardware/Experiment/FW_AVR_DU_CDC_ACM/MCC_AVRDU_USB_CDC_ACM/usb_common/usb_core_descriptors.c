@@ -229,30 +229,23 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
         USB_INTERFACE_DESCRIPTOR_t *enableInterfacePtr = NULL;
         while ((SUCCESS == status) && (currentDescriptor.bytePtr < endOfConfiguration))
         {
-            // Check if interface number and alternate setting correspond to the active interface before disabling endpoints
-#ifndef NEW_CODE
-            if ((interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber) && (activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting))
-            {
-                // Disable endpoints for the active alternate interface
-                DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
-                activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
-            }
-#else
+            // Check if interface number matches before inspecting alternate settings
             if (interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber)
             {
-                DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
-            }
-#endif
-
-            if (enable)
-            {
-                if (interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber)
+#ifndef NEW_CODE
+                if (activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting)
                 {
-                    if (alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting)
-                    {
-                        // Requested interface found
-                        enableInterfacePtr = currentDescriptor.interfacePtr;
-                    }
+                    // Disable endpoints for the active alternate interface
+                    DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
+                    activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
+                }
+#else
+                DescriptorEndpointsConfigure(currentDescriptor.interfacePtr, false);
+#endif
+                if (enable && (alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting))
+                {
+                    // Requested interface found
+                    enableInterfacePtr = currentDescriptor.interfacePtr;
                 }
             }
 

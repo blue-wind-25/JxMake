@@ -769,3 +769,20 @@ USB_PipeTransactionComplete (usb_peripheral_read_write.c):
 
 Result: __udivmodhi4 (40 bytes) eliminated by --gc-sections. Each call site grew +2 bytes
 due to the subtraction instruction, but net savings = −36 bytes (7266 → 7230).
+
+==============================================================================
+## BATCH 7: REDUNDANT RESET + LOOP CONDITION FACTORING — DONE! (7230 → 7206, −24 bytes)
+==============================================================================
+
+USB_TransferWriteStart and USB_TransferReadStart (usb_core_transfer.c):
+  DONE! Removed USB_PipeDataTransferredSizeReset call from both functions.
+  USB_PipeReset (called just before) already zeros bytesTransferred. The subsequent
+  USB_PipeDataTransferredSizeReset was dead. Saved −4 bytes each (−8 total).
+
+USB_DescriptorInterfaceConfigure loop body (usb_core_descriptors.c):
+  DONE! Factored `interfaceNumber == bInterfaceNumber` into a single outer gate.
+  Previously evaluated in BOTH the disable block (#ifndef NEW_CODE condition)
+  AND the enable block (nested if). After restructuring, both blocks share one
+  outer if, saving one comparison per loop iteration. The #ifndef NEW_CODE guard
+  and activeInterfaces[] logic are preserved intact inside the outer gate.
+  Saved −16 bytes (360 → 344).

@@ -36,11 +36,9 @@
 #define USB_COMMON_ELEMENTS_H
 
 
-
 /*
  * Describes the different function return reserved codes used by the USB stack.
  */
-
 typedef enum RETURN_CODE_enum
 {
     UNSUPPORTED = 2,   /*<Action not supported by the USB Device Stack*/

@@ -46,7 +46,7 @@ $call(silent_stdxxx_syslib    , true                       )
 
 
 PROG_NAME := $call( exe_fpath, main    )
-PROG_OBJS := $call( obj_fpath, {                                    \
+PROG_OBJS := $call( obj_fpath, {                                     \
     main.cpp                                                         \
     MCC_AVRDU_USB_CD_CACM/usb_descriptors.c                          \
     MCC_AVRDU_USB_CD_CACM/usb_cdc/circular_buffer/circular_buffer.c  \
@@ -67,6 +67,7 @@ PROG_OBJS := $call( obj_fpath, {                                    \
 
 (*
 git status -uno
+claude --resume e2a8674c-e1de-4e32-9025-3c612ac10a29
 claude --resume a305c1dd-d8bd-4b62-9476-56042200ca6d
 
 

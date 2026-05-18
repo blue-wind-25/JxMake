@@ -49,6 +49,19 @@ The overall goal is to strip down the manufacturer SDK and USB CDC‑ACM stack t
 
 
 
+I have fixed the error, see @Claude in:
+
+    usb_core_descriptors.c
+        Your new code NEW_CODE cause hung.
+
+    usb_core_requests_device.c
+        Both the old code and new code is fine.
+
+But later, keep that first in mind. The quota is finished, we continue later. I may also perform comments cleanup myseef after this.
+
+
+
+
 
 Do not forget to update:
 tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260518.tar.gz ~/.claude/ ~/.claude.json

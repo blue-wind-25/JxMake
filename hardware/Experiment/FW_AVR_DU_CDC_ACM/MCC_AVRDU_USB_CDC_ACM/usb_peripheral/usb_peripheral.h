@@ -55,6 +55,9 @@ typedef struct USB_CONTROL_TRANSFER_struct
     USB_SETUP_REQUEST_t setupRequest;                       /*<Setup request packet*/
 } USB_CONTROL_TRANSFER_t;
 
+/* Shared control transfer state — defined in usb_peripheral.c */
+extern USB_CONTROL_TRANSFER_t controlTransfer;
+
 /*
  * Detects if the Setup event was received.
  *     None.
@@ -237,7 +240,7 @@ void USB_ControlTransferReset(void);
  *     dataSize - Number of elements in the array
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize);
+static inline RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize) { controlTransfer.transferDataPtr = dataPtr; controlTransfer.transferDataSize = dataSize; return SUCCESS; }
 
 /*
  * Copies data to the transfer buffer and sets the transfer data pointer and size in ControlTransfer.
@@ -252,7 +255,7 @@ RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataS
  *     callback - The function to call for the end of a control request
  * return None.
  */
-void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback);
+static inline void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback) { controlTransfer.endOfRequestCallback = callback; }
 
 /*
  * Sets the callback for a control overrun or underrun.

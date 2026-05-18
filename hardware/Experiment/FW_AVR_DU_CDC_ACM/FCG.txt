@@ -298,14 +298,14 @@ USB_TransferControlDataSet → USB_ControlEndOfRequestCallbackRegister
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: Single assignment of endOfRequestCallback in controlTransfer struct.
 
 USB_TransferControlDataSet → USB_ControlTransferDataSet
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: Sets transferDataPtr and transferDataSize then returns SUCCESS. Two assignments + return — trivially inlineable.
 
 ==============================================================================
@@ -654,7 +654,7 @@ USB_SetupProcess → USB_ControlTransferDataSet
 File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: Resets control data pointer to NULL before request handling. Single assignment pair; called unconditionally at the top of SetupProcess.
 
 USB_SetupProcess → USB_SetupProcessDeviceRequest

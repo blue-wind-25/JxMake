@@ -41,7 +41,7 @@
 
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 
-static USB_CONTROL_TRANSFER_t controlTransfer __attribute__((aligned(2))) = { .transferDataPtr = controlTransfer.buffer };
+USB_CONTROL_TRANSFER_t controlTransfer __attribute__((aligned(2))) = { .transferDataPtr = controlTransfer.buffer };
 
 bool USB_EventSOFIsReceived(void)
 {
@@ -347,13 +347,6 @@ void USB_ControlTransferReset(void)
     controlTransfer.status = USB_CONTROL_SETUP;
 }
 
-RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize)
-{
-    // transferDataPtr is only read when transferDataSize > 0; NULL is safe for the reset path
-    controlTransfer.transferDataPtr = dataPtr;
-    controlTransfer.transferDataSize = dataSize;
-    return SUCCESS;
-}
 
 RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataSize)
 {
@@ -363,10 +356,6 @@ RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataS
     return SUCCESS;
 }
 
-void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback)
-{
-    controlTransfer.endOfRequestCallback = callback;
-}
 
 
 void USB_ControlProcessOverUnderflow(uint8_t overunderflow)

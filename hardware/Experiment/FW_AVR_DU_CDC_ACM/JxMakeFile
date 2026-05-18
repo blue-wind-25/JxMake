@@ -26,11 +26,11 @@ endif
 
 JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
 
-ULIB_BDIRS := MCC_AVRDU_USB_CD_CACM/usb_cdc/circular_buffer \
-              MCC_AVRDU_USB_CD_CACM/usb_common              \
-              MCC_AVRDU_USB_CD_CACM/usb_peripheral
+ULIB_BDIRS := MCC_AVRDU_USB_CDC_ACM/usb_cdc/circular_buffer \
+              MCC_AVRDU_USB_CDC_ACM/usb_common              \
+              MCC_AVRDU_USB_CDC_ACM/usb_peripheral
 
-ULIB_HDIRS := MCC_AVRDU_USB_CD_CACM
+ULIB_HDIRS := MCC_AVRDU_USB_CDC_ACM
 
 $call(init_project            , ${ULIB_BDIRS}              )
 $call(avr_select_part         , ${MCUType}, ${CPUFrequency})
@@ -48,20 +48,20 @@ $call(silent_stdxxx_syslib    , true                       )
 PROG_NAME := $call( exe_fpath, main    )
 PROG_OBJS := $call( obj_fpath, {                                     \
     main.cpp                                                         \
-    MCC_AVRDU_USB_CD_CACM/usb_descriptors.c                          \
-    MCC_AVRDU_USB_CD_CACM/usb_cdc/circular_buffer/circular_buffer.c  \
-    MCC_AVRDU_USB_CD_CACM/usb_cdc/usb_cdc.c                          \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core.c                      \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_descriptors.c          \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_events.c               \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_requests.c             \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_requests_device.c      \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_requests_endpoint.c    \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_requests_interface.c   \
-    MCC_AVRDU_USB_CD_CACM/usb_common/usb_core_transfer.c             \
-    MCC_AVRDU_USB_CD_CACM/usb_peripheral/usb_peripheral.c            \
-    MCC_AVRDU_USB_CD_CACM/usb_peripheral/usb_peripheral_endpoint.c   \
-    MCC_AVRDU_USB_CD_CACM/usb_peripheral/usb_peripheral_read_write.c \
+    MCC_AVRDU_USB_CDC_ACM/usb_descriptors.c                          \
+    MCC_AVRDU_USB_CDC_ACM/usb_cdc/circular_buffer/circular_buffer.c  \
+    MCC_AVRDU_USB_CDC_ACM/usb_cdc/usb_cdc.c                          \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core.c                      \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_descriptors.c          \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_events.c               \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests.c             \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_device.c      \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_endpoint.c    \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_interface.c   \
+    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_transfer.c             \
+    MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral.c            \
+    MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral_endpoint.c   \
+    MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral_read_write.c \
 })
 
 

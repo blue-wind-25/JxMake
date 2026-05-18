@@ -83,9 +83,9 @@ bool USB_TransactionIsCompleted(void)
 
 RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe)
 {
-    // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO
-    // Reading the FIFO Read Pointer will handle the Transaction Complete Interrupt flag
-    // The USB_FifoReadPointerGet is a device-specific function
+    // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO.
+    // Reading the FIFO Read Pointer will handle the Transaction Complete Interrupt flag.
+    // The USB_FifoReadPointerGet is a device-specific function.
     uint8_t fifoEntry = endpointTable.FIFO[(USB_EP_NUM * 2u) + USB_FifoReadPointerGet()];
 
     // The FIFO entry contains the endpoint address and direction of the endpoint to handle next.

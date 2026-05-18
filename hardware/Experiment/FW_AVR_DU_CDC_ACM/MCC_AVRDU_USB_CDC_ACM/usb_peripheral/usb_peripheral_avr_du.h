@@ -38,6 +38,7 @@
 #define USB_PERIPHERAL_AVR_DU_H
 
 
+#include <stdbool.h>
 #include <avr/io.h>
 
 #include "../usb_common/usb_protocol_headers.h"

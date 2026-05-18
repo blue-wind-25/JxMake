@@ -348,21 +348,21 @@ usb_stop → USB_BusDetach
 File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE ⚠️
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: USB_BusDetach is a PASSTHROUGH to USB_ConnectionDetach (single reg write). The name adds documentation value, but the chain is purely transparent. Inline if code-size matters.
 
 USB_BusDetach → USB_ConnectionDetach
 File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_BusDetach static inline)
 Reason: ALWAYS_INLINE register write (USB0.CTRLB clear ATTACH). Pure PASSTHROUGH leaf.
 
 usb_stop → USB_PeripheralDisable
 File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE ⚠️
-Flatten: Keep
+Flatten: Keep — DONE! (converted to static inline in usb_peripheral.h; named function preserved, call overhead eliminated)
 Reason: Groups USB_Disable + USB_DeviceAddressReset into a named operation. Conceptually distinct from bus detach; keep for clarity even though each callee is a one-liner.
 
 USB_PeripheralDisable → USB_Disable
@@ -408,14 +408,14 @@ usb_start → USB_BusAttach
 File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE ⚠️
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH to USB_ConnectionAttach (inline reg set). Could be replaced with a direct call to USB_ConnectionAttach, but naming is documentation. Safe to inline.
 
 USB_BusAttach → USB_ConnectionAttach
 File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_BusAttach static inline)
 Reason: ALWAYS_INLINE register set (USB0.CTRLB |= ATTACH). Pure leaf.
 
 ==============================================================================
@@ -444,14 +444,14 @@ USB_TransferHandler → USB_SetupIsReceived
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH chain: USB_SetupIsReceived → USB_SetupInterruptIs → inline reg read. Zero logic added at either level.
 
 USB_SetupIsReceived → USB_SetupInterruptIs
 File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_SetupIsReceived static inline)
 Reason: ALWAYS_INLINE reg read (USB0.INTFLAGSB & SETUP). Leaf.
 
 USB_TransferHandler → USB_ControlSetupReceived
@@ -465,14 +465,14 @@ USB_TransferHandler → USB_TransactionIsCompleted
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: PASSTHROUGH: USB_TransactionIsCompleted → USB_TransactionCompleteInterruptIs → inline reg read. Zero logic.
 
 USB_TransactionIsCompleted → USB_TransactionCompleteInterruptIs
 File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_TransactionIsCompleted static inline)
 Reason: ALWAYS_INLINE reg read. Leaf.
 
 USB_TransferHandler → USB_TransactionCompletedPipeGet
@@ -519,28 +519,28 @@ USB_EventHandler → USB_EventResetIsReceived
 File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH chain → USB_ResetInterruptIs → inline reg read. Zero logic.
 
 USB_EventResetIsReceived → USB_ResetInterruptIs
 File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_EventResetIsReceived static inline)
 Reason: ALWAYS_INLINE reg read. Leaf.
 
 USB_EventHandler → USB_EventResetClear
 File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH chain → USB_ResetInterruptClear → inline reg write. Zero logic.
 
 USB_EventResetClear → USB_ResetInterruptClear
 File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (body folded into USB_EventResetClear static inline)
 Reason: ALWAYS_INLINE interrupt flag clear. Leaf.
 
 USB_EventHandler → USB_Reset
@@ -601,7 +601,7 @@ USB_EventHandler → USB_EventOverUnderflowClear
 File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: Calls USB_OverflowInterruptClear + USB_UnderflowInterruptClear — both ALWAYS_INLINE reg writes. Pure PASSTHROUGH.
 
 USB_EventHandler → USB_ControlOverUnderflowIsReceived
@@ -622,14 +622,14 @@ USB_EventHandler → USB_EventStalledIsReceived
 File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH chain → USB_StalledInterruptIs → inline reg read.
 
 USB_EventHandler → USB_EventStalledClear
 File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral.h)
 Reason: PASSTHROUGH → USB_StalledInterruptClear → inline reg write.
 
 USB_EventHandler → USB_HandleEventStalled

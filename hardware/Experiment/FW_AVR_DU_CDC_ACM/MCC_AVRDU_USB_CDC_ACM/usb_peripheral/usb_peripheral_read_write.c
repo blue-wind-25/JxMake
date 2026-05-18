@@ -76,11 +76,6 @@ void USB_TransactionCompleteAck(USB_PIPE_t pipe)
     pipeTransfer[PipeTransferIndexGet(pipe)].status = USB_PIPE_TRANSFER_OK;
 }
 
-bool USB_TransactionIsCompleted(void)
-{
-    return USB_TransactionCompleteInterruptIs();
-}
-
 RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe)
 {
     // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO.

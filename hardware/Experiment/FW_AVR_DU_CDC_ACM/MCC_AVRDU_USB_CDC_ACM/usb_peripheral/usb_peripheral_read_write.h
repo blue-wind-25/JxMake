@@ -58,7 +58,7 @@ void USB_TransactionCompleteAck(USB_PIPE_t pipe);
  * 0 - Transaction not complete or pipe address is out of bounds
  * 1 - Transaction is complete
  */
-bool USB_TransactionIsCompleted(void);
+static inline bool USB_TransactionIsCompleted(void) { return USB_TransactionCompleteInterruptIs(); }
 
 /*
  * Returns the pipe address and direction for the latest completed transaction.

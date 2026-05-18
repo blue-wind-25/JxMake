@@ -43,11 +43,6 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 static USB_CONTROL_TRANSFER_t controlTransfer __attribute__((aligned(2))) = { .transferDataPtr = controlTransfer.buffer };
 
-bool USB_SetupIsReceived(void)
-{
-    return USB_SetupInterruptIs();
-}
-
 bool USB_EventSOFIsReceived(void)
 {
     return USB_SOFInterruptIs();
@@ -56,16 +51,6 @@ bool USB_EventSOFIsReceived(void)
 void USB_EventSOFClear(void)
 {
     USB_SOFInterruptClear();
-}
-
-bool USB_EventResetIsReceived(void)
-{
-    return USB_ResetInterruptIs();
-}
-
-void USB_EventResetClear(void)
-{
-    USB_ResetInterruptClear();
 }
 
 uint8_t USB_EventOverUnderflowIsReceived(void)
@@ -98,12 +83,6 @@ uint8_t USB_ControlOverUnderflowIsReceived(void)
     return eventOverUnderflow;
 }
 
-void USB_EventOverUnderflowClear(void)
-{
-    USB_OverflowInterruptClear();
-    USB_UnderflowInterruptClear();
-}
-
 bool USB_EventSuspendIsReceived(void)
 {
     return USB_SuspendInterruptIs();
@@ -122,26 +101,6 @@ bool USB_EventResumeIsReceived(void)
 void USB_EventResumeClear(void)
 {
     USB_ResumeInterruptClear();
-}
-
-bool USB_EventStalledIsReceived(void)
-{
-    return USB_StalledInterruptIs();
-}
-
-void USB_EventStalledClear(void)
-{
-    USB_StalledInterruptClear();
-}
-
-void USB_BusAttach(void)
-{
-    USB_ConnectionAttach();
-}
-
-void USB_BusDetach(void)
-{
-    USB_ConnectionDetach();
 }
 
 bool USB_IsBusAttached(void)
@@ -469,8 +428,3 @@ void USB_PeripheralInitialize(void)
     }
 }
 
-void USB_PeripheralDisable(void)
-{
-    USB_Disable();
-    USB_DeviceAddressReset();
-}

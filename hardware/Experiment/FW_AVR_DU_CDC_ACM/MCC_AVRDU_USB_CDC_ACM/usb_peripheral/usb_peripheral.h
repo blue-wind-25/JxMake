@@ -36,6 +36,7 @@
 #define USB_PERIPHERAL_H
 
 
+#include "usb_peripheral_avr_du.h"
 #include "usb_peripheral_endpoint.h"
 #include "usb_peripheral_read_write.h"
 
@@ -60,7 +61,7 @@ typedef struct USB_CONTROL_TRANSFER_struct
  * 0 - Setup event was not received
  * 1 - Setup event was received
  */
-bool USB_SetupIsReceived(void);
+static inline bool USB_SetupIsReceived(void) { return USB_SetupInterruptIs(); }
 
 /*
  * Detects if the Start-of-Frame (SOF) event was received.
@@ -83,14 +84,14 @@ void USB_EventSOFClear(void);
  * 1 - Reset event was received
  * 0 - Reset event was not received
  */
-bool USB_EventResetIsReceived(void);
+static inline bool USB_EventResetIsReceived(void) { return USB_ResetInterruptIs(); }
 
 /*
  * Clears the Reset event.
  *     None.
  * return None.
  */
-void USB_EventResetClear(void);
+static inline void USB_EventResetClear(void) { USB_ResetInterruptClear(); }
 
 /*
  * Detects if an Overflow and/or Underflow event was received.
@@ -111,7 +112,7 @@ uint8_t USB_ControlOverUnderflowIsReceived(void);
  *     None.
  * return None.
  */
-void USB_EventOverUnderflowClear(void);
+static inline void USB_EventOverUnderflowClear(void) { USB_OverflowInterruptClear(); USB_UnderflowInterruptClear(); }
 
 /*
  * Detects if a Suspend event was received.
@@ -150,28 +151,28 @@ void USB_EventResumeClear(void);
  * 0 - Stalled event was not received
  * 1 - Stalled event was received
  */
-bool USB_EventStalledIsReceived(void);
+static inline bool USB_EventStalledIsReceived(void) { return USB_StalledInterruptIs(); }
 
 /*
  * Clears the Stalled event.
  *     None.
  * return None.
  */
-void USB_EventStalledClear(void);
+static inline void USB_EventStalledClear(void) { USB_StalledInterruptClear(); }
 
 /*
  * Attaches the device to the USB bus.
  *     None.
  * return None.
  */
-void USB_BusAttach(void);
+static inline void USB_BusAttach(void) { USB_ConnectionAttach(); }
 
 /*
  * Detaches the device from the USB bus.
  *     None.
  * return None.
  */
-void USB_BusDetach(void);
+static inline void USB_BusDetach(void) { USB_ConnectionDetach(); }
 
 /*
  * Checks if the device is attached to the USB bus not.
@@ -285,7 +286,7 @@ void USB_PeripheralInitialize(void);
  *     None.
  * return None.
  */
-void USB_PeripheralDisable(void);
+static inline void USB_PeripheralDisable(void) { USB_Disable(); USB_DeviceAddressReset(); }
 
 
 #endif /* USB_PERIPHERAL_H */

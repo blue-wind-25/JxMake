@@ -14,7 +14,7 @@
 #   Param     Values                         Default
 #   --------  -----------------------------  -------
 #   model     haiku, sonnet, opus            sonnet
-#   effort    low, medium, high, xhigh, max  medium
+#   effort    low, medium, high, xhigh, max  high
 #   maxturns  positive integer               20
 #   output    off, on                        off
 #
@@ -36,9 +36,9 @@
 #
 #   To update model strings without editing this file,
 #   set repo/org variables (Settings → Variables):
-#     CLAUDE_MODEL_HAIKU   (default: claude-haiku-4-5)
-#     CLAUDE_MODEL_SONNET  (default: claude-sonnet-4-6)
-#     CLAUDE_MODEL_OPUS    (default: claude-opus-4-7)
+#     CLAUDE_MODEL_HAIKU   (default: haiku)
+#     CLAUDE_MODEL_SONNET  (default: sonnet)
+#     CLAUDE_MODEL_OPUS    (default: opus)
 #
 #   The @Claude mention itself is case-sensitive.
 #   All parameters are case-insensitive.
@@ -149,7 +149,7 @@ jobs:
           # Effort
           case "$EFFORT_RAW" in
             low|medium|high|xhigh|max) EFFORT="$EFFORT_RAW" ;;
-            "")                        EFFORT="medium"      ;;
+            "")                        EFFORT="high"        ;;
             *) ERRORS="${ERRORS}\n  - Unknown effort '${EFFORT_RAW}' (valid: low, medium, high, xhigh, max)" ;;
           esac
 

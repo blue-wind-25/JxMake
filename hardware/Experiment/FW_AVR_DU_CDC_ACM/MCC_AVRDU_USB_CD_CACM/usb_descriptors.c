@@ -4,11 +4,7 @@
 
 /*
  * USB_DEVICE_STACK Generated Driver File
- *
- * usb_descriptors.c
- *
- * usb_device_stack
- *
+ * 
  * Driver implementation file for example application descriptors.
  *
  * USB_DEVICE_STACK Driver Version 1.0.0

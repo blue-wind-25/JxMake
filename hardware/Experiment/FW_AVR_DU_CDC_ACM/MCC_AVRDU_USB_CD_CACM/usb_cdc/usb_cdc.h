@@ -4,8 +4,6 @@
 
 /*
  * USBCDC CDC Header File
- * usb_cdc.h
- * usb_cdc USB Communications Device Class (CDC)
  * This file contains prototypes and data types for a CDC application
  * USB Device Stack Driver Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CDC_H
 #define USB_CDC_H
 
@@ -45,7 +44,6 @@ extern uint16_t usbCDCControlLineState;
 extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 /*
- * usb_cdc
  * Performs handling of control transfers.
  *     setupRequestPtr - Pointer to the Setup Request struct
  * return SUCCESS or an Error code according to RETURN_CODE_t

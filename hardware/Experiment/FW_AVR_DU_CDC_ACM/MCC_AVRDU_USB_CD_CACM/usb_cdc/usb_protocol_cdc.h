@@ -4,8 +4,6 @@
 
 /*
  * USBPROTOCOLCDC CDC Protocol Header File
- * usb_protocol_cdc.h
- * usb_cdc
  * USB Communications Device Class (CDC) protocol definitions
  * USB Device Stack Driver Version 1.0.0
  */
@@ -33,13 +31,12 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PROTOCOL_CDC_H
 #define USB_PROTOCOL_CDC_H
 
 
 /*
- * usb_cdc
- * USB_CDC_INTERFACE_CLASS_t
  * Type define for standard CDC interface class.
  */
 typedef enum USB_CDC_INTERFACE_CLASS_enum
@@ -51,8 +48,6 @@ typedef enum USB_CDC_INTERFACE_CLASS_enum
 } USB_CDC_INTERFACE_CLASS_t;
 
 /*
- * usb_cdc
- * USB_CDC_COMM_SUBCLASS_t
  * Type define for standard CDC communication class subclasses.
  */
 typedef enum USB_CDC_COMM_SUBCLASS_enum
@@ -74,8 +69,6 @@ typedef enum USB_CDC_COMM_SUBCLASS_enum
 } USB_CDC_COMM_SUBCLASS_t;
 
 /*
- * usb_cdc
- * USB_CDC_COMM_PROTOCOL_t
  * Type define for standard CDC communication class protocols.
  */
 typedef enum USB_CDC_COMM_PROTOCOL_enum
@@ -95,8 +88,6 @@ typedef enum USB_CDC_COMM_PROTOCOL_enum
 } USB_CDC_COMM_PROTOCOL_t;
 
 /*
- * usb_cdc
- * USB_CDC_DATA_SUBCLASS_t
  * Type define for standard CDC data class subclasses.
  */
 typedef enum USB_CDC_DATA_SUBCLASS_enum
@@ -105,8 +96,6 @@ typedef enum USB_CDC_DATA_SUBCLASS_enum
 } USB_CDC_DATA_SUBCLASS_t;
 
 /*
- * usb_cdc
- * USB_CDC_DATA_PROTOCOL_t
  * Type define for standard CDC data class protocols.
  */
 typedef enum USB_CDC_DATA_PROTOCOL_enum
@@ -131,8 +120,6 @@ typedef enum USB_CDC_DATA_PROTOCOL_enum
 } USB_CDC_DATA_PROTOCOL_t;
 
 /*
- * usb_cdc
- * USB_CDC_REQUEST_ID_t
  * Type define for standard CDC request types.
  */
 typedef enum USB_CDC_REQUEST_ID_enum
@@ -188,8 +175,6 @@ typedef enum USB_CDC_REQUEST_ID_enum
 } USB_CDC_REQUEST_ID_t;
 
 /*
- * usb_cdc
- * USB_CDC_NOTIFICATION_ID_t
  * Type define for standard CDC notification types.
  */
 typedef enum USB_CDC_NOTIFICATION_ID_enum
@@ -207,8 +192,6 @@ typedef enum USB_CDC_NOTIFICATION_ID_enum
 } USB_CDC_NOTIFICATION_ID_t;
 
 /*
- * usb_cdc
- * USB_CDC_FUNCTIONAL_DESCRIPTOR_t
  * Type define for standard CDC functional descriptors.
  */
 typedef enum USB_CDC_FUNCTIONAL_DESCRIPTOR_enum
@@ -219,8 +202,6 @@ typedef enum USB_CDC_FUNCTIONAL_DESCRIPTOR_enum
 } USB_CDC_FUNCTIONAL_DESCRIPTOR_t;
 
 /*
- * usb_cdc
- * USB_CDC_COMM_FUNCTIONAL_DESCRIPTOR_SUBTYPE_t
  * Type define for standard CDC communication class functional descriptors.
  */
 typedef enum USB_CDC_COMM_FUNCTIONAL_DESCRIPTOR_SUBTYPE_enum
@@ -256,8 +237,6 @@ typedef enum USB_CDC_COMM_FUNCTIONAL_DESCRIPTOR_SUBTYPE_enum
 } USB_CDC_COMM_FUNCTIONAL_DESCRIPTOR_SUBTYPE_t;
 
 /*
- * usb_cdc
- * USB_CDC_DATA_FUNCTIONAL_DESCRIPTOR_SUBTYPE_t
  * Type define for standard CDC data class functional descriptors.
  */
 typedef enum USB_CDC_DATA_FUNCTIONAL_DESCRIPTOR_SUBTYPE_enum
@@ -267,8 +246,6 @@ typedef enum USB_CDC_DATA_FUNCTIONAL_DESCRIPTOR_SUBTYPE_enum
 } USB_CDC_DATA_FUNCTIONAL_DESCRIPTOR_SUBTYPE_t;
 
 /*
- * usb_cdc
- * USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t
  * Type define for the CDC Header functional descriptor subtype.
  */
 typedef struct USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_struct
@@ -281,8 +258,6 @@ typedef struct USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_struct
 } USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t;
 
 /*
- * usb_cdc
- * USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_t
  * Type define for the CDC Abstract Control Management functional descriptor subtype.
  */
 typedef struct USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_struct
@@ -295,8 +270,6 @@ typedef struct USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_struct
 } USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_t;
 
 /*
- * usb_cdc
- * USB_CDC_ACM_FUNCTIONAL_CAPABILITIES_t
  * Type define for the CDC Abstract Control Management functional descriptor capabilities.
  */
 typedef enum USB_CDC_ACM_FUNCTIONAL_CAPABILITIES_enum
@@ -309,8 +282,6 @@ typedef enum USB_CDC_ACM_FUNCTIONAL_CAPABILITIES_enum
 
 #ifdef USB_CDC_UNION_SUBORDINATE_NUM
 /*
- * usb_cdc
- * USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_t
  * Type define for the CDC union functional descriptor subtype.
  */
 typedef struct USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_struct
@@ -325,8 +296,6 @@ typedef struct USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_struct
 #endif
 
 /*
- * usb_cdc
- * USB_CDC_COUNTRY_SELECTION_FUNCTIONAL_DESCRIPTOR_t
  * Type define for the CDC country selection functional descriptor subtype.
  */
 typedef struct USB_CDC_COUNTRY_SELECTION_FUNCTIONAL_DESCRIPTOR_struct
@@ -342,8 +311,6 @@ typedef struct USB_CDC_COUNTRY_SELECTION_FUNCTIONAL_DESCRIPTOR_struct
 // Request:
 
 /*
- * usb_cdc
- * USB_CDC_LINE_CODING_STOP_BITS_t
  * Type define for the CDC Line Encoding stop bits formats.
  */
 typedef enum USB_CDC_LINE_CODING_STOP_BITS_enum
@@ -355,8 +322,6 @@ typedef enum USB_CDC_LINE_CODING_STOP_BITS_enum
 } USB_CDC_LINE_CODING_STOP_BITS_t;
 
 /*
- * usb_cdc
- * USD_CDC_LINE_CODING_PARITY_t
  * Type define for CDC Line Encoding parity.
  */
 typedef enum USD_CDC_LINE_CODING_PARITY_enum
@@ -370,8 +335,6 @@ typedef enum USD_CDC_LINE_CODING_PARITY_enum
 } USD_CDC_LINE_CODING_PARITY_t;
 
 /*
- * usb_cdc
- * USD_CDC_LINE_CODING_DATA_BITS_t
  * Type define for the CDC Line Encoding data bits.
  */
 typedef enum USD_CDC_LINE_CODING_DATA_BITS_enum
@@ -385,8 +348,6 @@ typedef enum USD_CDC_LINE_CODING_DATA_BITS_enum
 } USD_CDC_LINE_CODING_DATA_BITS_t;
 
 /*
- * usb_cdc
- * USB_CDC_LINE_CODING_t
  * Type define for CDC Line Encoding.
  */
 typedef struct USB_CDC_LINE_CODING_struct
@@ -399,8 +360,6 @@ typedef struct USB_CDC_LINE_CODING_struct
 } USB_CDC_LINE_CODING_t;
 
 /*
- * usb_cdc
- * USD_CDC_CONTROL_LINE_STATE_t
  * Type define for CDC Control Line State.
  */
 typedef enum USD_CDC_CONTROL_LINE_STATE_enum

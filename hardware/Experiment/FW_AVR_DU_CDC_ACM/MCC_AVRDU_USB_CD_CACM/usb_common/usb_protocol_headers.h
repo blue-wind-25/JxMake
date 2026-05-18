@@ -4,9 +4,6 @@
 
 /*
  * USBPROTOCOLHEADERS USB Protocol Headers Header File
- * usb_protocol_headers.h
- * usb_protocol USB Protocol
- * usb_core
  * Common data structures, enumerations and macro definitons based on the USB 2.0 base protocol.
  * USB Protocol Version 1.0.0
  */
@@ -34,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PROTOCOL_HEADERS_H
 #define USB_PROTOCOL_HEADERS_H
 
@@ -49,36 +47,30 @@
  */
 
 /*
- * usb_protocol
  * USB_EP_DIR_IN
  * Endpoint direction IN.
  */
 #define USB_EP_DIR_IN 0x01u
 
 /*
- * usb_protocol
  * USB_EP_DIR_OUT
  * Endpoint direction OUT.
  */
 #define USB_EP_DIR_OUT 0x00u
 
 /*
- * usb_protocol
  * OVERFLOW_EVENT
  * Overflow event for the endpoint.
  */
 #define OVERFLOW_EVENT 1u
 
 /*
- * usb_protocol
  * UNDERFLOW_EVENT
  * Underflow event for the endpoint.
  */
 #define UNDERFLOW_EVENT 2u
 
 /*
- * usb_protocol
- * USB_ENDPOINT_enum
  * Defines labels for the different endpoint types as per the USB 2.0 base specification.
  */
 typedef enum USB_ENDPOINT_enum
@@ -91,8 +83,6 @@ typedef enum USB_ENDPOINT_enum
 } USB_ENDPOINT_t;
 
 /*
- * usb_protocol
- * USB_PIPE_struct
  * Structure for a pipe which has an address and direction.
  */
 typedef struct USB_PIPE_struct
@@ -106,8 +96,6 @@ typedef struct USB_PIPE_struct
  */
 
 /*
- * usb_protocol
- * USB_TRANSFER_STATUS_enum
  * Defines the possible states of a configured transfer.
  */
 typedef enum USB_TRANSFER_STATUS_enum
@@ -119,8 +107,6 @@ typedef enum USB_TRANSFER_STATUS_enum
 } USB_TRANSFER_STATUS_t;
 
 /*
- * usb_protocol
- * USB_CONTROL_STATUS_enum
  * Defines the possible states of a configured control transfer.
  */
 typedef enum USB_CONTROL_STATUS_enum
@@ -133,71 +119,60 @@ typedef enum USB_CONTROL_STATUS_enum
 } USB_CONTROL_STATUS_t;
 
 /*
- * usb_protocol
  * USB_V2_0
  * USB Specification version 2.00.
  */
 #define USB_V2_0 0x0200
 
 /*
- * usb_protocol
  * USB_V2_1
  * USB Specification version 2.01.
  */
 #define USB_V2_1 0x0201
 
 /*
- * usb_protocol
  * NO_SUBCLASS
  * No subclass code.
  */
 #define NO_SUBCLASS 0x00
 
 /*
- * usb_protocol
  * NO_PROTOCOL
  * No protocol code.
  */
 #define NO_PROTOCOL 0x00
 
 /*
- * usb_protocol
  * CLASS_IAD
  * IAD class code.
  */
 #define CLASS_IAD 0xEF
 
 /*
- * usb_protocol
  * SUB_CLASS_IAD
  * IAD subclass code.
  */
 #define SUB_CLASS_IAD 0x02
 
 /*
- * usb_protocol
  * PROTOCOL_IAD
  * IAD protocol code.
  */
 #define PROTOCOL_IAD 0x01
 
 /*
- * usb_protocol
  * USB_ENDPOINT_FEATURE_HALT
  * USB endpoint feature halt.
  */
 #define USB_ENDPOINT_FEATURE_HALT 0x00u
 
 /*
- * usb_protocol
  * DESCRIPTOR_STRING_LENGTH
  * Calculates descriptor length of a UTF-16 string descriptor without the null character.
  */
 #define DESCRIPTOR_STRING_LENGTH(wstring) (sizeof(wstring) / sizeof(wchar_t) - 1)
 
 /*
- * usb_protocol
- * USB_DEVICE_CLASS_t
  * Type define for standard device class
  */
 typedef enum USB_DEVICE_CLASS_enum
@@ -231,8 +206,6 @@ typedef enum USB_DEVICE_CLASS_enum
 } USB_DEVICE_CLASS_t;
 
 /*
- * usb_protocol
- * USB_REQUEST_DIR_enum
  * Standard USB enumeration used by setup requests.
  */
 typedef enum USB_REQUEST_DIR_enum
@@ -242,8 +215,6 @@ typedef enum USB_REQUEST_DIR_enum
 } USB_REQUEST_DIR_t;
 
 /*
- * usb_protocol
- * USB_REQUEST_TYPE_enum
  * USB request types (bmRequestType).
  */
 typedef enum USB_REQUEST_TYPE_enum
@@ -254,8 +225,6 @@ typedef enum USB_REQUEST_TYPE_enum
 } USB_REQUEST_TYPE_t;
 
 /*
- * usb_protocol
- * USB_REQUEST_RECIPIENT_enum
  * USB recipient codes (bmRequestType).
  */
 typedef enum USB_REQUEST_RECIPIENT_enum
@@ -267,8 +236,6 @@ typedef enum USB_REQUEST_RECIPIENT_enum
 } USB_REQUEST_RECIPIENT_t;
 
 /*
- * usb_protocol
- * USB_REQUEST_ID_enum
  * Standard USB requests (bRequest).
  */
 typedef enum USB_REQUEST_ID_enum
@@ -287,8 +254,6 @@ typedef enum USB_REQUEST_ID_enum
 } USB_REQUEST_ID_t;
 
 /*
- * usb_protocol
- * USB_DESCRIPTOR_TYPE_enum
  * Standard USB descriptor types.
  */
 typedef enum USB_DESCRIPTOR_TYPE_enum
@@ -309,8 +274,6 @@ typedef enum USB_DESCRIPTOR_TYPE_enum
 } USB_DESCRIPTOR_TYPE_t;
 
 /*
- * usb_protocol
- * USB_SETUP_REQUEST_struct
  * Ch. 9.3 USB Device SETUP request.
  * The data payload of SETUP packets always follows this structure.
  */
@@ -330,8 +293,6 @@ typedef struct USB_SETUP_REQUEST_struct
 } USB_SETUP_REQUEST_t;
 
 /*
- * usb_protocol
- * USB_DESCRIPTOR_HEADER_struct
  * Ch.9.6 Standard USB device descriptor structure.
  */
 typedef struct USB_DESCRIPTOR_HEADER_struct
@@ -341,8 +302,6 @@ typedef struct USB_DESCRIPTOR_HEADER_struct
 } USB_DESCRIPTOR_HEADER_t;
 
 /*
- * usb_protocol
- * USB_DEVICE_DESCRIPTOR_struct
  * Ch.9.6.1 Standard USB device descriptor structure.
  */
 typedef struct USB_DEVICE_DESCRIPTOR_struct
@@ -363,8 +322,6 @@ typedef struct USB_DEVICE_DESCRIPTOR_struct
 } USB_DEVICE_DESCRIPTOR_t;
 
 /*
- * usb_protocol
- * USB_DEV_QUAL_DESC_struct
  * Ch. 9.6.2 Standard USB device qualifier descriptor structure.
  * This descriptor contains information about the device when running at
  * the "other" speed (i.e. if the device is currently operating at high
@@ -384,8 +341,6 @@ typedef struct USB_DEV_QUAL_DESC_struct
 } USB_DEV_QUAL_DESC_t;
 
 /*
- * usb_protocol
- * USB_DEV_BOS_DESC_struct
  * USB Device BOS descriptor structure.
  * The Binary device Object Store (BOS) descriptor defines a root
  * descriptor that is similar to the configuration descriptor, and is
@@ -404,8 +359,6 @@ typedef struct USB_DEV_BOS_DESC_struct
 } USB_DEV_BOS_DESC_t;
 
 /*
- * usb_protocol
- * USB_DEV_CAPA_EXT_DESC_struct
  * USB Device Capabilities - USB 2.0 Extension Descriptor structure.
  * Defines the set of USB 1.1-specific device level capabilities.
  */
@@ -417,8 +370,6 @@ typedef struct USB_DEV_CAPA_EXT_DESC_struct
 } USB_DEV_CAPA_EXT_DESC_t;
 
 /*
- * usb_protocol
- * USB_DEV_LPM_DESC_struct
  * USB Device LPM Descriptor structure.
  * The BOS descriptor and capabilities descriptors for LPM.
  */
@@ -429,8 +380,6 @@ typedef struct USB_DEV_LPM_DESC_struct
 } USB_DEV_LPM_DESC_t;
 
 /*
- * usb_protocol
- * USB_ASSOCIATION_DESC_struct
  * Standard USB Interface Association Descriptor structure.
  */
 typedef struct USB_ASSOCIATION_DESC_struct
@@ -445,8 +394,6 @@ typedef struct USB_ASSOCIATION_DESC_struct
 } USB_ASSOCIATION_DESC_t;
 
 /*
- * usb_protocol
- * USB_CONFIGURATION_DESCRIPTOR_struct
  * Ch. 9.6.3 Standard USB configuration descriptor structure.
  */
 typedef struct USB_CONFIGURATION_DESCRIPTOR_struct
@@ -461,64 +408,54 @@ typedef struct USB_CONFIGURATION_DESCRIPTOR_struct
 } USB_CONFIGURATION_DESCRIPTOR_t;
 
 /*
- * usb_protocol
  * USB_CONFIG_ATTR_MUST_SET
  * USB Attribute bitfield for the configuration descriptor.
  */
 #define USB_CONFIG_ATTR_MUST_SET (1u << 7u) /*< Must always be set*/
 
 /*
- * usb_protocol
  * USB_CONFIG_ATTR_BUS_POWERED
  * USB Attribute Bus Powered bitfield for the configuration descriptor.
  */
 #define USB_CONFIG_ATTR_BUS_POWERED (0u << 6u) /*< Bus-Powered*/
 
 /*
- * usb_protocol
  * USB_CONFIG_ATTR_SELF_POWERED
  * USB Attribute Self Powered bitfield for the configuration descriptor.
  */
 #define USB_CONFIG_ATTR_SELF_POWERED (1u << 6u) /*< Self-Powered*/
 
 /*
- * usb_protocol
  * USB_CONFIG_ATTR_REMOTE_WAKEUP
  * USB Attribute Remote Wakeup bitfield for the configuration descriptor.
  */
 #define USB_CONFIG_ATTR_REMOTE_WAKEUP (1u << 5u) /*< Remote wakeup supported*/
 
 /*
- * usb_protocol
  * USB_CONFIG_MAX_POWER
  * USB Max Power bitfield for the configuration descriptor.
  */
 #define USB_CONFIG_MAX_POWER(ma) (((ma) + 1u) / 2u) /*< Maximum power in mA*/
 
 /*
- * usb_protocol
  * USB_REQUEST_DEVICE_SELF_POWERED
  * USB Self Powered bitfield for the configuration descriptor.
  */
 #define USB_REQUEST_DEVICE_SELF_POWERED (1u << 0u) /*< Self-Powered*/
 
 /*
- * usb_protocol
  * USB_REQUEST_DEVICE_REMOTE_WAKEUP
  * USB Remote Wake-up bitfield for the configuration descriptor.
  */
 #define USB_REQUEST_DEVICE_REMOTE_WAKEUP (1u << 1u) /*< Remote Wake-up supported*/
 
 /*
- * usb_protocol
  * USB_REQUEST_DEVICE_DISABLE_CONFIGURATION
  * Disable any enabled configuration.
  */
 #define USB_REQUEST_DEVICE_DISABLE_CONFIGURATION (0u)
 
 /*
- * usb_protocol
- * USB_IAD_DESC_struct
  * Standard USB association descriptor structure.
  */
 typedef struct USB_IAD_DESC_struct
@@ -533,8 +470,6 @@ typedef struct USB_IAD_DESC_struct
 } USB_IAD_DESC_t;
 
 /*
- * usb_protocol
- * USB_INTERFACE_DESCRIPTOR_struct
  * Ch. 9.6.5 Standard USB interface descriptor structure.
  */
 typedef struct USB_INTERFACE_DESCRIPTOR_struct
@@ -550,8 +485,6 @@ typedef struct USB_INTERFACE_DESCRIPTOR_struct
 } USB_INTERFACE_DESCRIPTOR_t;
 
 /*
- * usb_protocol
- * USB_ENDPOINT_DESCRIPTOR_struct
  * Ch. 9.6.6 Standard USB endpoint descriptor structure.
  */
 typedef struct USB_ENDPOINT_DESCRIPTOR_struct
@@ -570,8 +503,6 @@ typedef struct USB_ENDPOINT_DESCRIPTOR_struct
 } USB_ENDPOINT_DESCRIPTOR_t;
 
 /*
- * usb_protocol
- * USB_STRING_LANG_ID_DESCRIPTOR_struct
  * Structure for the USB string Language ID descriptor.
  */
 typedef struct USB_STRING_LANG_ID_DESCRIPTOR_struct
@@ -581,8 +512,6 @@ typedef struct USB_STRING_LANG_ID_DESCRIPTOR_struct
 } USB_STRING_LANG_ID_DESCRIPTOR_t;
 
 /*
- * usb_protocol
- * USB_STRING_DESCRIPTOR_struct
  * Structure with pointers to the standard USB descriptors.
  */
 typedef struct USB_DESCRIPTOR_POINTERS_struct
@@ -594,8 +523,6 @@ typedef struct USB_DESCRIPTOR_POINTERS_struct
 } USB_DESCRIPTOR_POINTERS_t;
 
 /*
- * usb_protocol
- * Function callback type USB_TRANSFER_END_CALLBACK_t.
  * Callback type used for transfer complete notifications.
  *     pipe - Address and direction of the pipe used for the transfer
  *     status - Status of the completed transfer, USB_PIPE_TRANSFER_OK when successful
@@ -605,8 +532,6 @@ typedef struct USB_DESCRIPTOR_POINTERS_struct
 typedef void (*USB_TRANSFER_END_CALLBACK_t)(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
 
 /*
- * usb_protocol
- * Function callback type USB_SETUP_PROCESS_CALLBACK_t.
  * Callback type used for setup request processing, with a return code to let the stack know to proceed.
  *     *setupRequestPtr - Pointer to the current setup request data structure
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -614,8 +539,6 @@ typedef void (*USB_TRANSFER_END_CALLBACK_t)(USB_PIPE_t pipe, USB_TRANSFER_STATUS
 typedef RETURN_CODE_t (*USB_SETUP_PROCESS_CALLBACK_t)(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_protocol
- * Function callback type USB_SETUP_STRING_CALLBACK_t.
  * Callback type used for setup request processing a string descriptor, with a return code to let the stack know to proceed.
  *     stringIndex - Specifies which string of device information is requested
  *     langID - Which language the string requested must be in
@@ -626,8 +549,6 @@ typedef RETURN_CODE_t (*USB_SETUP_PROCESS_CALLBACK_t)(USB_SETUP_REQUEST_t *setup
 typedef RETURN_CODE_t (*USB_SETUP_STRING_CALLBACK_t)(uint8_t stringIndex, uint16_t langID, uint8_t **descriptorAddressPtr, uint16_t *descriptorLength);
 
 /*
- * usb_protocol
- * Function callback type USB_SETUP_EVENT_CALLBACK_t.
  * Callback type used for setup request notifications.
  *     *setupRequestPtr -  Pointer to the current setup request data structure
  * return None.
@@ -635,8 +556,6 @@ typedef RETURN_CODE_t (*USB_SETUP_STRING_CALLBACK_t)(uint8_t stringIndex, uint16
 typedef void (*USB_SETUP_EVENT_CALLBACK_t)(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_protocol
- * Function callback type USB_SETUP_OVERUNDERRUN_CALLBACK_t.
  * Callback type used for USB Overrun and Underrun event processing on the control endpoints, with a return code to let the stack know to proceed.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -644,8 +563,6 @@ typedef void (*USB_SETUP_EVENT_CALLBACK_t)(USB_SETUP_REQUEST_t *setupRequestPtr)
 typedef RETURN_CODE_t (*USB_SETUP_OVERUNDERRUN_CALLBACK_t)(void);
 
 /*
- * usb_protocol
- * Function callback type USB_SETUP_ENDOFREQUEST_CALLBACK_t.
  * Callback type used for setup request complete notifications.
  *     None.
  * return None.
@@ -653,8 +570,6 @@ typedef RETURN_CODE_t (*USB_SETUP_OVERUNDERRUN_CALLBACK_t)(void);
 typedef void (*USB_SETUP_ENDOFREQUEST_CALLBACK_t)(void);
 
 /*
- * usb_protocol
- * Function callback type USB_EVENT_CALLBACK_t.
  * Callback type used for USB event notifications.
  *     None.
  * return None.

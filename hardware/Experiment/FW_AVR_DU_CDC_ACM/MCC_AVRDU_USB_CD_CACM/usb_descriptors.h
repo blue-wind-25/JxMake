@@ -5,10 +5,6 @@
 /*
  * USB_DEVICE_STACK Generated API Header File
  *
- * usb_descriptors.h
- *
- * usb_device_stack
- *
  * Header file for example application descriptors.
  *
  * USB_DEVICE_STACK Driver Version 1.0.0
@@ -19,7 +15,7 @@
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
     You are responsible for complying with 3rd party license terms
-    applicable to your use of 3rd party software (including open source
+    applicable to your use of third party software (including open source
     software) that may accompany Microchip software. SOFTWARE IS "AS IS".
 
     NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS
@@ -35,6 +31,7 @@
     THIS SOFTWARE.
  */
 
+
 #ifndef USB_DESCRIPTORS_H
 #define USB_DESCRIPTORS_H
 
@@ -46,36 +43,30 @@
 
 
 /*
- * usb_device_stack
  * LANG_EN_US
  * Language ID String Descriptor, for English (US).
  */
 #define LANG_EN_US 0x0409U
 
 /*
- * usb_device_stack
  * STRING_MANUFACTURER
  * Manufacturer String descriptor.
  */
 #define STRING_MANUFACTURER L"Microchip Technology Inc."
 
 /*
- * usb_device_stack
  * STRING_PRODUCT
  * Product String descriptor.
  */
 #define STRING_PRODUCT      L"CDC Class Demo"
 
 /*
- * usb_device_stack
  * STRING_SERIAL
  * Serial Number String descriptor.
  */
 #define STRING_SERIAL       L"1"
 
 /*
- * usb_device_stack
- * USB_APPLICATION_CONFIGURATION1_struct
  * USB Configuration, Interface and Endpoint descriptors for Config1.
  */
 typedef struct USB_APPLICATION_CONFIGURATION1_struct
@@ -92,8 +83,6 @@ typedef struct USB_APPLICATION_CONFIGURATION1_struct
 } USB_APPLICATION_CONFIGURATION1_t;
 
 /*
- * usb_device_stack
- * USB_APPLICATION_CONFIGURATION_struct
  * USB Configuration, Interface and Endpoint descriptors.
  */
 typedef struct USB_APPLICATION_CONFIGURATION_struct
@@ -102,8 +91,6 @@ typedef struct USB_APPLICATION_CONFIGURATION_struct
 } USB_APPLICATION_CONFIGURATION_t;
 
 /*
- * usb_device_stack
- * USB_APPLICATION_STRING_DESCRIPTORS_struct
  * USB String descriptors.
  */
 typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
@@ -117,11 +104,9 @@ typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
 } USB_APPLICATION_STRING_DESCRIPTORS_t;
 
 /*
- * usb_device_stack
- * descriptorPointers
  * Pointers to the standard USB descriptors.
  */
 extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 
-#endif // USB_DESCRIPTORS_H
+#endif /* USB_DESCRIPTORS_H */

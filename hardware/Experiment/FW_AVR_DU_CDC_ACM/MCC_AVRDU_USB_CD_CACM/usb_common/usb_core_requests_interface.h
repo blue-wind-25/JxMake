@@ -4,8 +4,6 @@
 
 /*
  * USBCOREREQUESTSINTERFACE USB Core Requests Interface Header File
- * usb_core_requests_interface.h
- * usb_core_requests
  * USB Interface Core Requests handling.
  * USB Device Core Version 1.0.0
  */
@@ -33,12 +31,12 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_REQUESTS_INTERFACE_H
 #define USB_CORE_REQUESTS_INTERFACE_H
 
 
 /*
- * usb_core_requests
  * Returns status for the specified interface.
  *
  * Get status from interface request according to USB 2.0 specification Ch. 9.4.5.
@@ -52,7 +50,6 @@
 RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
 
 /*
- * usb_core_requests
  * Returns the alternate setting for the specified interface.
  *
  * Format for GET_INTERFACE request according to USB 2.0 specification Ch 9.4.4.
@@ -67,7 +64,6 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
 RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Setup function for the interface request to select the alternate setting.
  *
  * A request to set interface according to USB 2.0 specification Ch. 9.4.10.
@@ -82,4 +78,4 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
 RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 
-#endif	/* USB_CORE_REQUESTS_INTERFACE_H */
+#endif /* USB_CORE_REQUESTS_INTERFACE_H */

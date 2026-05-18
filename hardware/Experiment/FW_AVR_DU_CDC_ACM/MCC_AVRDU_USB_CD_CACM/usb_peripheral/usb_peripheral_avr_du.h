@@ -3,10 +3,7 @@
  */
 
 /*
- * USBPERIPHERALAVRDU Peripheral AVR DU Specific Header File
- * usb_peripheral_avr_du.h
- * usb_peripheral_avr_du USB Peripheral AVR DU
- * usb_peripheral
+ * Peripheral AVR DU Specific Header File
  * This file encompasses all the register settings of the AVR DU device in the form of inline functions.
  * It also abstracts the Read-Modify-Write loop for STATUS registers, which is required, as the hardware and software can both write
  * into the STATUS register.
@@ -36,6 +33,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PERIPHERAL_AVR_DU_H
 #define USB_PERIPHERAL_AVR_DU_H
 
@@ -46,15 +44,12 @@
 
 
 /*
- * usb_peripheral_avr_du
  * ALWAYS_INLINE
  * Alias that makes always inline function definitions more readable.
  */
 #define ALWAYS_INLINE __attribute__((always_inline)) inline
 
 /*
- * usb_peripheral_avr_du
- * USB_ENDPOINT_TABLE_struct
  * Represents the endpoint configuration table based on the number of endpoints in use.
  * The table data structure is defined by USB_EP_TABLE_struct in the device header file,
  * modified to support configuration of size from USB_EP_NUM.
@@ -69,8 +64,6 @@ typedef struct USB_ENDPOINT_TABLE_struct
 extern USB_ENDPOINT_TABLE_t endpointTable;
 
 /*
- * usb_peripheral_avr_du
- * USB_PIPE_TRANSFER_struct
  * Represents a transfer created for a pipe, either IN or OUT.
  */
 typedef struct USB_PIPE_TRANSFER_struct
@@ -85,7 +78,6 @@ typedef struct USB_PIPE_TRANSFER_struct
 } USB_PIPE_TRANSFER_t;
 
 /*
- * usb_peripheral_avr_du
  * Waits until a Read-Modify-Write operation is done.
  * This blocking wait operation is expected to complete within 14 clock cycles.
  *     None.
@@ -100,7 +92,6 @@ static ALWAYS_INLINE void WaitUntilRMWDone(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the OUT endpoint with the given address.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -111,7 +102,6 @@ static ALWAYS_INLINE void USB_EndPointOutDisable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the IN endpoint with the given address.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -122,7 +112,6 @@ static ALWAYS_INLINE void USB_EndPointInDisable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the OUT endpoint at the given address is enabled.
  *     endpointAddress - Address of the endpoint
  * 0 Endpoint not enabled
@@ -134,7 +123,6 @@ static ALWAYS_INLINE bool USB_EndPointOutIsEnabled(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the IN endpoint at the given address is enabled.
  *     None.
  * 0 Endpoint not enabled
@@ -146,7 +134,6 @@ static ALWAYS_INLINE bool USB_EndPointInIsEnabled(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the OUT endpoint configuration at the given address.
  *     endpointAddress - Address of the endpoint
  * return Endpoint configuration type
@@ -157,7 +144,6 @@ static ALWAYS_INLINE uint8_t USB_EndPointOutTypeConfigGet(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the IN endpoint configuration at the given address.
  *     endpointAddress - Address of the endpoint
  * return Endpoint configuration type
@@ -168,7 +154,6 @@ static ALWAYS_INLINE uint8_t USB_EndPointInTypeConfigGet(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets endpoint control OUT.
  *     endpointAddress - Address of the endpoint
  *     value - Register bitmask
@@ -180,7 +165,6 @@ static ALWAYS_INLINE void USB_EndpointOutControlSet(uint8_t endpointAddress, uin
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets endpoint control IN.
  *     endpointAddress - Address of the endpoint
  *     value - Register bitmask
@@ -192,7 +176,6 @@ static ALWAYS_INLINE void USB_EndpointInControlSet(uint8_t endpointAddress, uint
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears OUT endpoint status.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -204,7 +187,6 @@ static ALWAYS_INLINE void USB_EndpointOutStatusClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears IN endpoint status.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -216,7 +198,6 @@ static ALWAYS_INLINE void USB_EndpointInStatusClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the endpoint size for a default type OUT endpoint.
  *     endpointAddress - Address of the endpoint
  *     endpointSizeConfig - Size of endpoint to set
@@ -228,7 +209,6 @@ static ALWAYS_INLINE void USB_EndpointOutDefaultSizeSet(uint8_t endpointAddress,
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the endpoint size for a default type IN endpoint.
  *     endpointAddress - Address of the endpoint
  *     endpointSizeConfig - Size of endpoint to set
@@ -240,7 +220,6 @@ static ALWAYS_INLINE void USB_EndpointInDefaultSizeSet(uint8_t endpointAddress, 
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the endpoint size for an isochronous OUT endpoint.
  *     endpointAddress - Address of the endpoint
  *     endpointSizeConfig - Size of endpoint to set
@@ -252,7 +231,6 @@ static ALWAYS_INLINE void USB_EndpointOutIsoSizeSet(uint8_t endpointAddress, uin
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the endpoint size for an isochronous IN endpoint.
  *     endpointAddress - Address of the endpoint
  *     endpointSizeConfig - Size of endpoint to set
@@ -264,7 +242,6 @@ static ALWAYS_INLINE void USB_EndpointInIsoSizeSet(uint8_t endpointAddress, uint
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the size of a default type OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return OUT endpoint size
@@ -275,7 +252,6 @@ static ALWAYS_INLINE uint8_t USB_EndpointOutDefaultSizeGet(uint8_t endpointAddre
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the size of a default type IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return IN endpoint size
@@ -286,7 +262,6 @@ static ALWAYS_INLINE uint8_t USB_EndpointInDefaultSizeGet(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the size of an isochronous OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return OUT endpoint size
@@ -297,7 +272,6 @@ static ALWAYS_INLINE uint8_t USB_EndpointOutIsoSizeGet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the size of an isochronous IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return IN endpoint size
@@ -308,7 +282,6 @@ static ALWAYS_INLINE uint8_t USB_EndpointInIsoSizeGet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables transaction complete interrupt for the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -319,7 +292,6 @@ static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptEnable(uint
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables transaction complete interrupt for the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -330,7 +302,6 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteInterruptEnable(uint8
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables transaction complete interrupt for the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -341,7 +312,6 @@ static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptDisable(uin
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables transaction complete interrupt for the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -352,7 +322,6 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteDisable(uint8_t endpo
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables multipacket for the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -363,7 +332,6 @@ static ALWAYS_INLINE void USB_EndpointOutMultipktEnable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables multipacket for the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -374,7 +342,6 @@ static ALWAYS_INLINE void USB_EndpointInMultipktEnable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables multipacket for the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -385,7 +352,6 @@ static ALWAYS_INLINE void USB_EndpointOutMultipktDisable(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables multipacket for the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -396,7 +362,6 @@ static ALWAYS_INLINE void USB_EndpointInMultipktDisable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if multipacket is enabled on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * 0 - Multipacket disabled
@@ -408,7 +373,6 @@ static ALWAYS_INLINE bool USB_EndpointOutMultipktIsEnabled(uint8_t endpointAddre
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if multipacket is enabled on the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * 0 - Multipacket disabled
@@ -420,7 +384,6 @@ static ALWAYS_INLINE bool USB_EndpointInMultipktIsEnabled(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables Auto Zero Length Packet (AZLP) on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -431,7 +394,6 @@ static ALWAYS_INLINE void USB_EndpointOutAzlpEnable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables AZLP on the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -442,7 +404,6 @@ static ALWAYS_INLINE void USB_EndpointInAlzpEnable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables AZLP on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -453,7 +414,6 @@ static ALWAYS_INLINE void USB_EndpointOutAzlpDisable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables AZLP on the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -464,7 +424,6 @@ static ALWAYS_INLINE void USB_EndpointInAzlpDisable(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Stalls the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -475,7 +434,6 @@ static ALWAYS_INLINE void USB_EndpointOutStall(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Stalls the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -486,7 +444,6 @@ static ALWAYS_INLINE void USB_EndpointInStall(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Stops stalling the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -497,7 +454,6 @@ static ALWAYS_INLINE void USB_EndpointOutStallClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Stops stalling the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -508,7 +464,6 @@ static ALWAYS_INLINE void USB_EndpointInStallClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the specified OUT endpoint is stalled.
  *     endpointAddress - Address of the endpoint
  * 0 - Endpoint is not stalled
@@ -520,7 +475,6 @@ static ALWAYS_INLINE bool USB_EndpointOutIsStalled(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the specified IN endpoint is stalled.
  *     endpointAddress - Address of the endpoint
  * 0 - Endpoint is not stalled
@@ -532,7 +486,6 @@ static ALWAYS_INLINE bool USB_EndpointInIsStalled(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges that an OUT endpoint is stalled and Clears the USB STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -544,7 +497,6 @@ static ALWAYS_INLINE void USB_EndpointOutStallAck(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges that an IN endpoint is stalled and Clears the USB STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -556,7 +508,6 @@ static ALWAYS_INLINE void USB_EndpointInStallAck(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets OUT endpoint status to NAK.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -568,7 +519,6 @@ static ALWAYS_INLINE void USB_EndpointOutNAKSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets IN endpoint status to NAK.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -580,7 +530,6 @@ static ALWAYS_INLINE void USB_EndpointInNAKSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB NAK status from the OUT endpoint STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -592,7 +541,6 @@ static ALWAYS_INLINE void USB_EndpointOutNAKClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB NAK status from the IN endpoint STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -604,7 +552,6 @@ static ALWAYS_INLINE void USB_EndpointInNAKClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks the OUT endpoint STATUS register for the NAK status.
  *     endpointAddress - Address of the endpoint
  * 0 - Endpoint is not NAKed
@@ -616,7 +563,6 @@ static ALWAYS_INLINE bool USB_EndpointOutNAKIsSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks the OUT endpoint STATUS register for the NAK status.
  *     endpointAddress - Address of the endpoint
  * 0 - Endpoint is not NAKed
@@ -628,7 +574,6 @@ static ALWAYS_INLINE bool USB_EndpointInNAKIsSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges the transaction complete status on a specified OUT endpoint and Clears the USB STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -640,7 +585,6 @@ static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteAck(uint8_t endpoint
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges the transaction complete status on a specified IN endpoint and Clears the USB STATUS register.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -652,7 +596,6 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteAck(uint8_t endpointA
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB OUT endpoint has the Transaction Complete status.
  *     endpointAddress - Address of the endpoint
  * 0 - Transaction incomplete
@@ -664,7 +607,6 @@ static ALWAYS_INLINE bool USB_EndpointOutTransactionIsComplete(uint8_t endpointA
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB IN endpoint has the Transaction Complete status.
  *     endpointAddress - Address of the endpoint
  * 0 - Transaction incomplete
@@ -676,7 +618,6 @@ static ALWAYS_INLINE bool USB_EndpointInTransactionIsComplete(uint8_t endpointAd
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges the Setup Received status on a specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -688,7 +629,6 @@ static ALWAYS_INLINE void USB_EndpointOutSetupReceivedAck(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges the Setup Received status on a specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -700,7 +640,6 @@ static ALWAYS_INLINE void USB_EndpointInSetupCompleteAck(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB OUT endpoint has the Setup Received status.
  *     endpointAddress - Address of the endpoint
  * 0 - No setup received
@@ -712,7 +651,6 @@ static ALWAYS_INLINE bool USB_EndpointOutSetupIsReceived(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB IN endpoint has the Setup Received status.
  *     endpointAddress - Address of the endpoint
  * 0 - No setup received
@@ -724,7 +662,6 @@ static ALWAYS_INLINE bool USB_EndpointInSetupIsReceived(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets OUT endpoint data toggle.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -736,7 +673,6 @@ static ALWAYS_INLINE void USB_EndpointOutDataToggleSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets IN endpoint data toggle.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -748,7 +684,6 @@ static ALWAYS_INLINE void USB_EndpointInDataToggleSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears OUT endpoint data toggle.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -760,7 +695,6 @@ static ALWAYS_INLINE void USB_EndpointOutDataToggleClear(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears IN endpoint data toggle.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -772,7 +706,6 @@ static ALWAYS_INLINE void USB_EndpointInDataToggleClear(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if data toggle is set on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * 0 - Data toggle is not set
@@ -784,7 +717,6 @@ static ALWAYS_INLINE bool USB_EndpointOutDataToggleIsSet(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if data toggle is set on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * 0 - Data toggle is not set
@@ -796,7 +728,6 @@ static ALWAYS_INLINE bool USB_EndpointInDataToggleIsSet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets endpoint buffer OUT.
  *     endpointAddress - Address of the endpoint
  *     bufAddress - Address pointer to buffer
@@ -811,7 +742,6 @@ static ALWAYS_INLINE void USB_EndpointOutBufferSet(uint8_t endpointAddress, uint
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets endpoint buffer IN.
  *     endpointAddress - Address of the endpoint
  *     bufAddress - Address pointer to buffer
@@ -826,7 +756,6 @@ static ALWAYS_INLINE void USB_EndpointInBufferSet(uint8_t endpointAddress, uint8
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets how many bytes of data are intended to be sent from the specified endpoint.
  *     endpointAddress - Address of the endpoint
  *     numberBytes - Amount of bytes to send
@@ -838,7 +767,6 @@ static ALWAYS_INLINE void USB_NumberBytesToSendSet(uint8_t endpointAddress, uint
 }
 
 /*
- * usb_peripheral_avr_du
  * Reads out the CNT register to know how many bytes of data are intended to be sent from the specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return Amount of bytes to send
@@ -849,7 +777,6 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesToSendGet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the CNT register to tell the peripheral no data is intended to be sent from the specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -860,7 +787,6 @@ static ALWAYS_INLINE void USB_NumberBytesToSendReset(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Reads out how many bytes have been sent from the specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return Amount of bytes that have been sent
@@ -871,7 +797,6 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesSentGet(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the MCNT register that keeps track of how many bytes of data have been sent.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -882,7 +807,6 @@ static ALWAYS_INLINE void USB_NumberBytesSentReset(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets how many bytes of data are expected to be received on a specified endpoint.
  *     endpointAddress - Address of the endpoint
  *     numberBytes - The amount of bytes to receive
@@ -894,7 +818,6 @@ static ALWAYS_INLINE void USB_NumberBytesToReceiveSet(uint8_t endpointAddress, u
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets how many bytes of data are expected to be received on a specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return Amount of bytes expected
@@ -905,7 +828,6 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesToReceiveGet(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the MCNT register to tell the peripheral no data is intended to be received on the specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -916,7 +838,6 @@ static ALWAYS_INLINE void USB_NumberBytesToReceiveReset(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets how many bytes of data have been received on a specified endpoint.
  *     endpointAddress - Address of the endpoint
  * return Amount of bytes expected
@@ -927,7 +848,6 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesReceivedGet(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Resets the counter that counts amount of bytes of data received on a specific endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -938,7 +858,6 @@ static ALWAYS_INLINE void USB_NumberBytesReceivedReset(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if OUT endpoint has overflowed.
  *     endpointAddress - Address of the endpoint
  * 0 - No overflow on endpoint
@@ -950,7 +869,6 @@ static ALWAYS_INLINE bool USB_EndpointOutOverUnderflowIsSet(uint8_t endpointAddr
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if IN endpoint has underflowed.
  *     endpointAddress - Address of the endpoint
  * 0 - No underflow on endpoint
@@ -962,7 +880,6 @@ static ALWAYS_INLINE bool USB_EndpointInOverUnderflowIsSet(uint8_t endpointAddre
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges overflow on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -974,7 +891,6 @@ static ALWAYS_INLINE void USB_EndpointOutOverUnderflowAck(uint8_t endpointAddres
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges underflow on the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -986,7 +902,6 @@ static ALWAYS_INLINE void USB_EndpointInOverUnderflowAck(uint8_t endpointAddress
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the specified OUT endpoint has a Cyclic Redundancy Check (CRC) failure.
  *     endpointAddress - Address of the endpoint
  * 0 - No CRC failure on endpoint
@@ -998,7 +913,6 @@ static ALWAYS_INLINE bool USB_EndpointOutCRCHasFailed(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the specified IN endpoint has a CRC failure.
  *     endpointAddress - Address of the endpoint
  * 0 - No CRC failure on endpoint
@@ -1010,7 +924,6 @@ static ALWAYS_INLINE bool USB_EndpointInCRCHasFailed(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges a CRC failure on the specified OUT endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -1022,7 +935,6 @@ static ALWAYS_INLINE void USB_EndpointOutCRCAck(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Acknowledges a CRC failure on the specified IN endpoint.
  *     endpointAddress - Address of the endpoint
  * return None.
@@ -1034,7 +946,6 @@ static ALWAYS_INLINE void USB_EndpointInCRCAck(uint8_t endpointAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables global NAK.
  *     None.
  * return None.
@@ -1045,7 +956,6 @@ static ALWAYS_INLINE void USB_GlobalNAKEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables global NAK.
  *     None.
  * return None.
@@ -1056,7 +966,6 @@ static ALWAYS_INLINE void USB_GlobalNAKDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks the global NAK setting.
  *     None.
  * 0 - Global NAK is disabled
@@ -1068,7 +977,6 @@ static ALWAYS_INLINE bool USB_GlobalNAKIsEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Tells the USB peripheral to attach.
  *     None.
  * return None.
@@ -1079,7 +987,6 @@ static ALWAYS_INLINE void USB_ConnectionAttach(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Tells the USB peripheral to detach.
  *     None.
  * return None.
@@ -1090,7 +997,6 @@ static ALWAYS_INLINE void USB_ConnectionDetach(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB connection is attached.
  *     None.
  * 0 - USB connection is not attached
@@ -1102,7 +1008,6 @@ static ALWAYS_INLINE bool USB_ConnectionIsAttach(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB peripheral.
  *     None.
  * return None.
@@ -1113,7 +1018,6 @@ static ALWAYS_INLINE void USB_Enable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB peripheral.
  *     None.
  * return None.
@@ -1124,7 +1028,6 @@ static ALWAYS_INLINE void USB_Disable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB peripheral is enabled.
  *     None.
  * 0 - USB peripheral not enabled
@@ -1136,7 +1039,6 @@ static ALWAYS_INLINE bool USB_IsEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables USB FIFO.
  *
  * This is a device-specific function.
@@ -1149,7 +1051,6 @@ static ALWAYS_INLINE void USB_FifoEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables USB FIFO.
  *
  * This is a device-specific function.
@@ -1162,7 +1063,6 @@ static ALWAYS_INLINE void USB_FifoDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if USB FIFO has been enabled.
  *
  * This is a device-specific function.
@@ -1176,7 +1076,6 @@ static ALWAYS_INLINE bool USB_FifoIsEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables automatic global NAK for the USB peripheral.
  *     None.
  * return None.
@@ -1187,7 +1086,6 @@ static ALWAYS_INLINE void USB_AutomaticGlobalNAKEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables automatic global NAK for the USB peripheral.
  *     None.
  * return None.
@@ -1198,7 +1096,6 @@ static ALWAYS_INLINE void USB_AutomaticGlobalNAKDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if automatic global NAK has been enabled.
  *     None.
  * 0 - Automatic global NAK is not enabled
@@ -1210,7 +1107,6 @@ static ALWAYS_INLINE bool USB_AutomaticGlobalNAKIsEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables storing the last SOF token frame number in FRAMENUM.
  * This is a device-specific function.
  *     None.
@@ -1222,7 +1118,6 @@ static ALWAYS_INLINE void USB_FrameNumEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables storing the last SOF token frame number in FRAMENUM.
  * This is a device-specific function.
  *     None.
@@ -1234,7 +1129,6 @@ static ALWAYS_INLINE void USB_FrameNumDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if storing of the last SOF token frame number is enabled.
  * This is a device-specific function.
  *     None.
@@ -1247,7 +1141,6 @@ static ALWAYS_INLINE bool USB_FrameNumIsEnable(void)
 }
 
 /*
- * usb_peripheral
  * Gets the current frame number.
  *     None.
  * return 15-bit frame number
@@ -1258,7 +1151,6 @@ static ALWAYS_INLINE uint16_t USB_FrameNumGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets maximum number of endpoint addresses used by the USB peripheral.
  *     maxEndpoint - Last accessible endpoint
  * return None.
@@ -1269,7 +1161,6 @@ static ALWAYS_INLINE void USB_MaxEndpointsSet(uint8_t maxEndpoint)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB endpoint maximum, setting the maximum endpoint to EP0.
  *     None.
  * return None.
@@ -1280,7 +1171,6 @@ static ALWAYS_INLINE void USB_MaxEndpointsReset(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks what the maximum number of endpoint addresses is.
  *     None.
  * return Last accessible endpoint
@@ -1291,7 +1181,6 @@ static ALWAYS_INLINE uint8_t USB_MaxEndpointsGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the address of the endpoint table.
  * This is a device-specific function.
  *     endpointTableAddress - Address of the endpoint table
@@ -1303,7 +1192,6 @@ static ALWAYS_INLINE void USB_EndpointTableAddressSet(USB_EP_PAIR_t *endpointTab
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the address of the endpoint table to 0.
  * This is a device-specific function.
  *     None.
@@ -1315,7 +1203,6 @@ static ALWAYS_INLINE void USB_EndpointTableAddressReset(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the address of the endpoint table.
  * This is a device-specific function.
  *     None.
@@ -1327,7 +1214,6 @@ static ALWAYS_INLINE uint16_t USB_EndpointTableAddressGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Resets the read FIFO pointer.
  * This is a device-specific function.
  *     None.
@@ -1339,7 +1225,6 @@ static ALWAYS_INLINE void USB_FifoReadPointerReset(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the read FIFO pointer.
  * This is a device-specific function.
  *     None.
@@ -1351,7 +1236,6 @@ static ALWAYS_INLINE int8_t USB_FifoReadPointerGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Resets the write FIFO pointer.
  * This is a device-specific function.
  *     None.
@@ -1363,7 +1247,6 @@ static ALWAYS_INLINE void USB_FifoWritePointerReset(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the write FIFO pointer.
  * This is a device-specific function.
  *     None.
@@ -1375,7 +1258,6 @@ static ALWAYS_INLINE int8_t USB_FifoWritePointerGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Sets the device address.
  *     usbAddress - The device address to set
  * return None.
@@ -1386,7 +1268,6 @@ static ALWAYS_INLINE void USB_DeviceAddressSet(uint8_t usbAddress)
 }
 
 /*
- * usb_peripheral_avr_du
  * Resets the device address.
  *     None.
  * return None.
@@ -1397,7 +1278,6 @@ static ALWAYS_INLINE void USB_DeviceAddressReset(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the device address.
  *     None.
  * return The device address
@@ -1408,7 +1288,6 @@ static ALWAYS_INLINE uint8_t USB_DeviceAddressGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables an upstream resume to be initated.
  *     None.
  * return None.
@@ -1419,7 +1298,6 @@ static ALWAYS_INLINE void USB_UpstreamResumeEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if upstream resume is enabled, but not yet initiated.
  *     None.
  * 0 - Upstream resume initiated or not enabled
@@ -1431,7 +1309,6 @@ static ALWAYS_INLINE bool USB_UpstreamResumeIsEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Gets the USB bus state.
  *     None.
  * return The state of the USB bus
@@ -1442,7 +1319,6 @@ static ALWAYS_INLINE uint8_t USB_BusStateGet(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB bus has any specific status flags set.
  *     bus_state_bm - The bitmap of the specific status flags to check
  * 0 - No status flags set
@@ -1454,7 +1330,6 @@ static ALWAYS_INLINE bool USB_BusStateIs(uint8_t bus_state_bm)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Start-Of-Frame interrupt.
  *     None.
  * return None.
@@ -1465,7 +1340,6 @@ static ALWAYS_INLINE void USB_SOFInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Start-Of-Frame interrupt.
  *     None.
  * return None.
@@ -1476,7 +1350,6 @@ static ALWAYS_INLINE void USB_SOFInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Start-Of-Frame Interrupt flag.
  *     None.
  * return None.
@@ -1487,7 +1360,6 @@ static ALWAYS_INLINE void USB_SOFInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Start-Of-Frame interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1499,7 +1371,6 @@ static ALWAYS_INLINE bool USB_SOFInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Suspend interrupt.
  *     None.
  * return None.
@@ -1510,7 +1381,6 @@ static ALWAYS_INLINE void USB_SuspendInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Suspend interrupt.
  *     None.
  * return None.
@@ -1521,7 +1391,6 @@ static ALWAYS_INLINE void USB_SuspendInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Suspend Interrupt flag.
  *     None.
  * return None.
@@ -1532,7 +1401,6 @@ static ALWAYS_INLINE void USB_SuspendInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Suspend interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1544,7 +1412,6 @@ static ALWAYS_INLINE bool USB_SuspendInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Resume interrupt.
  *     None.
  * return None.
@@ -1555,7 +1422,6 @@ static ALWAYS_INLINE void USB_ResumeInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Resume interrupt.
  *     None.
  * return None.
@@ -1566,7 +1432,6 @@ static ALWAYS_INLINE void USB_ResumeInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Resume Interrupt flag.
  *     None.
  * return None.
@@ -1577,7 +1442,6 @@ static ALWAYS_INLINE void USB_ResumeInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Resume interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1589,7 +1453,6 @@ static ALWAYS_INLINE bool USB_ResumeInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Reset interrupt.
  *     None.
  * return None.
@@ -1600,7 +1463,6 @@ static ALWAYS_INLINE void USB_ResetInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Reset interrupt.
  *     None.
  * return None.
@@ -1611,7 +1473,6 @@ static ALWAYS_INLINE void USB_ResetInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Reset Interrupt flag.
  *     None.
  * return None.
@@ -1622,7 +1483,6 @@ static ALWAYS_INLINE void USB_ResetInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Reset interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1634,7 +1494,6 @@ static ALWAYS_INLINE bool USB_ResetInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Stalled interrupt.
  *     None.
  * return None.
@@ -1645,7 +1504,6 @@ static ALWAYS_INLINE void USB_StalledInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Stalled interrupt.
  *     None.
  * return None.
@@ -1656,7 +1514,6 @@ static ALWAYS_INLINE void USB_StalledInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Stalled Interrupt flag.
  *     None.
  * return None.
@@ -1667,7 +1524,6 @@ static ALWAYS_INLINE void USB_StalledInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Stalled interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1679,7 +1535,6 @@ static ALWAYS_INLINE bool USB_StalledInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Underflow interrupt.
  *     None.
  * return None.
@@ -1690,7 +1545,6 @@ static ALWAYS_INLINE void USB_UnderflowInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Underflow interrupt.
  *     None.
  * return None.
@@ -1701,7 +1555,6 @@ static ALWAYS_INLINE void USB_UnderflowInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Underflow Interrupt flag.
  *     None.
  * return None.
@@ -1712,7 +1565,6 @@ static ALWAYS_INLINE void USB_UnderflowInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if an Underflow interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1724,7 +1576,6 @@ static ALWAYS_INLINE bool USB_UnderflowInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Overflow interrupt.
  *     None.
  * return None.
@@ -1735,7 +1586,6 @@ static ALWAYS_INLINE void USB_OverflowInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Overflow interrupt.
  *     None.
  * return None.
@@ -1746,7 +1596,6 @@ static ALWAYS_INLINE void USB_OverflowInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Overflow Interrupt flag.
  *     None.
  * return None.
@@ -1757,7 +1606,6 @@ static ALWAYS_INLINE void USB_OverflowInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if an Overflow interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1769,7 +1617,6 @@ static ALWAYS_INLINE bool USB_OverflowInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Transaction Complete interrupt.
  *     None.
  * return None.
@@ -1780,7 +1627,6 @@ static ALWAYS_INLINE void USB_TransactionCompleteInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Transaction Complete interrupt.
  *     None.
  * return None.
@@ -1791,7 +1637,6 @@ static ALWAYS_INLINE void USB_TransactionCompleteInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Transaction Complete Interrupt flag.
  *     None.
  * return None.
@@ -1802,7 +1647,6 @@ static ALWAYS_INLINE void USB_TransactionCompleteInterruptAck(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if a Transaction Complete interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1814,7 +1658,6 @@ static ALWAYS_INLINE bool USB_TransactionCompleteInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Read-Modify-Write Interrupt is enabled.
  *     None.
  * 0 - Interrupt not enabled
@@ -1826,7 +1669,6 @@ static ALWAYS_INLINE bool USB_ReadModifyWriteInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Global NAK Done interrupt.
  *     None.
  * return None.
@@ -1837,7 +1679,6 @@ static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Global NAK Done interrupt.
  *     None.
  * return None.
@@ -1848,7 +1689,6 @@ static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Global NAK Done Interrupt flag.
  *     None.
  * return None.
@@ -1859,7 +1699,6 @@ static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptAck(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if the USB Global NAK Done interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1871,7 +1710,6 @@ static ALWAYS_INLINE bool USB_GlobalNAKDoneInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Enables the USB Setup interrupt.
  *     None.
  * return None.
@@ -1882,7 +1720,6 @@ static ALWAYS_INLINE void USB_SetupInterruptEnable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Disables the USB Setup interrupt.
  *     None.
  * return None.
@@ -1893,7 +1730,6 @@ static ALWAYS_INLINE void USB_SetupInterruptDisable(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears the USB Setup Interrupt flag.
  *     None.
  * return None.
@@ -1904,7 +1740,6 @@ static ALWAYS_INLINE void USB_SetupInterruptClear(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Checks if a USB Setup interrupt has been triggered.
  *     None.
  * 0 - Interrupt not triggered
@@ -1916,7 +1751,6 @@ static ALWAYS_INLINE bool USB_SetupInterruptIs(void)
 }
 
 /*
- * usb_peripheral_avr_du
  * Clears all the USB Interrupt flags.
  *     None.
  * return None.

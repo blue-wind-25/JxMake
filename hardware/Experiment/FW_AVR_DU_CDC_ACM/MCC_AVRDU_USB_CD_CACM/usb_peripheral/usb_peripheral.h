@@ -4,8 +4,6 @@
 
 /*
  * USBPERIPHERAL Peripheral Header File
- * usb_peripheral.h
- * usb_peripheral USB Peripheral Hardware Abstraction Layer (HAL)
  * Interface for a USB peripheral module that needs to be implemented by a device-specific USB module driver.
  * USB Device Stack HAL Driver Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PERIPHERAL_H
 #define USB_PERIPHERAL_H
 
@@ -42,8 +41,6 @@
 
 
 /*
- * usb_peripheral
- * USB_CONTROL_TRANSFER_t
  * The data structure for internally handling control transfers, either IN or OUT.
  */
 typedef struct USB_CONTROL_TRANSFER_struct
@@ -58,7 +55,6 @@ typedef struct USB_CONTROL_TRANSFER_struct
 } USB_CONTROL_TRANSFER_t;
 
 /*
- * usb_peripheral
  * Detects if the Setup event was received.
  *     None.
  * 0 - Setup event was not received
@@ -67,7 +63,6 @@ typedef struct USB_CONTROL_TRANSFER_struct
 bool USB_SetupIsReceived(void);
 
 /*
- * usb_peripheral
  * Detects if the Start-of-Frame (SOF) event was received.
  *     None.
  * 0 - SOF event was not received
@@ -76,7 +71,6 @@ bool USB_SetupIsReceived(void);
 bool USB_EventSOFIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the SOF event.
  *     None.
  * return None.
@@ -84,7 +78,6 @@ bool USB_EventSOFIsReceived(void);
 void USB_EventSOFClear(void);
 
 /*
- * usb_peripheral
  * Detects if the Reset event was received.
  *     None.
  * 1 - Reset event was received
@@ -93,7 +86,6 @@ void USB_EventSOFClear(void);
 bool USB_EventResetIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the Reset event.
  *     None.
  * return None.
@@ -101,7 +93,6 @@ bool USB_EventResetIsReceived(void);
 void USB_EventResetClear(void);
 
 /*
- * usb_peripheral
  * Detects if an Overflow and/or Underflow event was received.
  *     None.
  * return A value representing the events received
@@ -109,7 +100,6 @@ void USB_EventResetClear(void);
 uint8_t USB_EventOverUnderflowIsReceived(void);
 
 /*
- * usb_peripheral
  * Detects if an Overflow and/or Underflow event was received on the control endpoints.
  *     None.
  * return A value representing the events received
@@ -117,7 +107,6 @@ uint8_t USB_EventOverUnderflowIsReceived(void);
 uint8_t USB_ControlOverUnderflowIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the Over/Underflow event.
  *     None.
  * return None.
@@ -125,7 +114,6 @@ uint8_t USB_ControlOverUnderflowIsReceived(void);
 void USB_EventOverUnderflowClear(void);
 
 /*
- * usb_peripheral
  * Detects if a Suspend event was received.
  *     None.
  * return A boolean value representing the Suspend event received condition
@@ -135,7 +123,6 @@ void USB_EventOverUnderflowClear(void);
 bool USB_EventSuspendIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the Suspend event.
  *     None.
  * return None.
@@ -143,7 +130,6 @@ bool USB_EventSuspendIsReceived(void);
 void USB_EventSuspendClear(void);
 
 /*
- * usb_peripheral
  * Detects if a Resume event was received.
  *     None.
  * 0 - Resume event was not received
@@ -152,7 +138,6 @@ void USB_EventSuspendClear(void);
 bool USB_EventResumeIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the Resume event.
  *     None.
  * return None.
@@ -160,7 +145,6 @@ bool USB_EventResumeIsReceived(void);
 void USB_EventResumeClear(void);
 
 /*
- * usb_peripheral
  * Detects if a Stalled event was received.
  *     None.
  * 0 - Stalled event was not received
@@ -169,7 +153,6 @@ void USB_EventResumeClear(void);
 bool USB_EventStalledIsReceived(void);
 
 /*
- * usb_peripheral
  * Clears the Stalled event.
  *     None.
  * return None.
@@ -177,7 +160,6 @@ bool USB_EventStalledIsReceived(void);
 void USB_EventStalledClear(void);
 
 /*
- * usb_peripheral
  * Attaches the device to the USB bus.
  *     None.
  * return None.
@@ -185,7 +167,6 @@ void USB_EventStalledClear(void);
 void USB_BusAttach(void);
 
 /*
- * usb_peripheral
  * Detaches the device from the USB bus.
  *     None.
  * return None.
@@ -193,7 +174,6 @@ void USB_BusAttach(void);
 void USB_BusDetach(void);
 
 /*
- * usb_peripheral
  * Checks if the device is attached to the USB bus not.
  *     None.
  * 0 - USB bus is not attached
@@ -202,7 +182,6 @@ void USB_BusDetach(void);
 bool USB_IsBusAttached(void);
 
 /*
- * usb_peripheral
  * Sets the device address.
  *     deviceAddress - Device address to set
  * return None.
@@ -210,7 +189,6 @@ bool USB_IsBusAttached(void);
 void USB_DeviceAddressConfigure(uint8_t deviceAddress);
 
 /*
- * usb_peripheral
  * Gets the current frame number.
  *     None.
  * return 15-bit frame number
@@ -218,7 +196,6 @@ void USB_DeviceAddressConfigure(uint8_t deviceAddress);
 uint16_t USB_FrameNumberGet(void);
 
 /*
- * usb_peripheral
  * Ensures correct control endpoint initialization.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -226,7 +203,6 @@ uint16_t USB_FrameNumberGet(void);
 void USB_ControlEndpointsInit(void);
 
 /*
- * usb_peripheral
  * Verifies the received control setup.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -234,7 +210,6 @@ void USB_ControlEndpointsInit(void);
 void USB_ControlSetupReceived(void);
 
 /*
- * usb_peripheral
  * Handles completed transactions on the control endpoints. Checks and verifies data OUT, data IN, ZLP OUT and ZLP IN.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -242,7 +217,6 @@ void USB_ControlSetupReceived(void);
 void USB_ControlTransactionComplete(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral
  * Sends ZLP OUT and ZLP IN transactions on the control endpoints.
  *     direction - The endpoint direction to send the ZLP
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -250,7 +224,6 @@ void USB_ControlTransactionComplete(USB_PIPE_t pipe);
 void USB_ControlTransferZLP(uint8_t direction);
 
 /*
- * usb_peripheral
  * Ensures correct control transfer reset.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -258,7 +231,6 @@ void USB_ControlTransferZLP(uint8_t direction);
 void USB_ControlTransferReset(void);
 
 /*
- * usb_peripheral
  * Updates the transfer data pointer and size in ControlTransfer.
  *     *dataPtr - Pointer to new data
  *     dataSize - Number of elements in the array
@@ -267,7 +239,6 @@ void USB_ControlTransferReset(void);
 RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize);
 
 /*
- * usb_peripheral
  * Copies data to the transfer buffer and sets the transfer data pointer and size in ControlTransfer.
  *     *dataPtr - Pointer to data to copy
  *     dataSize - Number of elements in the array
@@ -276,7 +247,6 @@ RETURN_CODE_t USB_ControlTransferDataSet(uint8_t *dataPtr, uint16_t dataSize);
 RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataSize);
 
 /*
- * usb_peripheral
  * Sets the callback for end of a control request.
  *     callback - The function to call for the end of a control request
  * return None.
@@ -284,14 +254,12 @@ RETURN_CODE_t USB_ControlTransferDataWriteBuffer(uint8_t *dataPtr, uint8_t dataS
 void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t callback);
 
 /*
- * usb_peripheral
  * Sets the callback for a control overrun or underrun.
  *     callback - The function to call on a control overrun or underrun
  * return None.
  */
 
 /*
- * usb_peripheral
  * Handles the control Over/Underflow events.
  *     overunderflow - A value representing overflow or underflow
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -299,7 +267,6 @@ void USB_ControlEndOfRequestCallbackRegister(USB_SETUP_ENDOFREQUEST_CALLBACK_t c
 void USB_ControlProcessOverUnderflow(uint8_t overunderflow);
 
 /*
- * usb_peripheral
  * Handles the Stall events.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -307,7 +274,6 @@ void USB_ControlProcessOverUnderflow(uint8_t overunderflow);
 void USB_HandleEventStalled(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral
  * Enables the peripheral and the frame number, enables and resets FIFO, sets the endpoint table address and max endpoints.
  *     None.
  * return None.
@@ -315,7 +281,6 @@ void USB_HandleEventStalled(USB_PIPE_t pipe);
 void USB_PeripheralInitialize(void);
 
 /*
- * usb_peripheral
  * Disables the USB peripheral and aborts any ongoing transaction.
  *     None.
  * return None.

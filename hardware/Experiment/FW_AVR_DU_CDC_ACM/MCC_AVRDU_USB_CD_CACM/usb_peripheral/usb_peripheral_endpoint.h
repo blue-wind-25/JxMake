@@ -4,9 +4,6 @@
 
 /*
  * USBPERIPHERALENDPOINT Peripheral Endpoint Header File
- * usb_peripheral_endpoint.h
- * usb_peripheral_endpoint USB Peripheral Endpoint
- * usb_peripheral
  * API module for usb_peripheral_endpoint covering endpoint-related functions.
  * USB Device Stack HAL Driver Version 1.0.0
  */
@@ -34,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PERIPHERAL_ENDPOINT_H
 #define USB_PERIPHERAL_ENDPOINT_H
 
@@ -44,7 +42,6 @@
 
 
 /*
- * usb_peripheral_endpoint
  * Configures the endpoint with the desired settings using the Control and Status Register.
  * Used to set up an endpoint before using it in an application.
  * Sets up all the control register settings by looking up the usb_config.h file and clears the count registers.
@@ -56,7 +53,6 @@
 void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType);
 
 /*
- * usb_peripheral_endpoint
  * Disables the endpoint by setting the endpoint type to 0x00.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -64,7 +60,6 @@ void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_
 void USB_EndpointDisable(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Helper function to return the endpoint size.
  *     pipe - A combination of endpoint address and direction
  * return The size of the endpoint
@@ -72,7 +67,6 @@ void USB_EndpointDisable(USB_PIPE_t pipe);
 uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Helper function to return the endpoint type.
  *     pipe - A combination of endpoint address and direction
  * return The endpoint type
@@ -80,7 +74,6 @@ uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe);
 USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Helps stall an endpoint when a command received from the host is invalid or unrecognizable.
  * Used if the host sends data that is not supported by the device.
  *     pipe - A combination of endpoint address and direction
@@ -89,7 +82,6 @@ USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe);
 void USB_EndpointStall(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Helps clear the Stall condition after the device has recovered from an unsupported command from the host.
  * Used to reset stall before the next USB transfer.
  * Used when the host issues a clear HALT/Feature request to reset stall.
@@ -99,7 +91,6 @@ void USB_EndpointStall(USB_PIPE_t pipe);
 void USB_EndpointStallClear(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Helper function to return the endpoint Stall condition.
  *     pipe - A combination of endpoint address and direction
  * return A boolean value representing the Stall condition. If the pipe address is out of bounds, the function will always return false
@@ -107,7 +98,6 @@ void USB_EndpointStallClear(USB_PIPE_t pipe);
 bool USB_EndpointIsStalled(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Acknowledges the stall status condition by clearing the Stall Status bit.
  * Used to clear the Stall Status bit after a stall has been detected.
  *     pipe - A combination of endpoint address and direction
@@ -116,7 +106,6 @@ bool USB_EndpointIsStalled(USB_PIPE_t pipe);
 RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Sets the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
  * Only used if hardware data toggling is not available.
  * After a successful transaction, toggle the Data Toggle bit.
@@ -128,7 +117,6 @@ RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe);
 void USB_DataToggleSet(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Clears the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
  * Only used if hardware data toggling is not available.
  * After a successful transaction, toggle the Data Toggle bit.
@@ -140,7 +128,6 @@ void USB_DataToggleSet(USB_PIPE_t pipe);
 void USB_DataToggleClear(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Toggles the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
  * Only used if hardware data toggling is not available.
  * After a successful transaction, toggle the Data Toggle bit.
@@ -152,7 +139,6 @@ void USB_DataToggleClear(USB_PIPE_t pipe);
 RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_endpoint
  * Converts an endpoint size in number of bytes into a register setting.
  * Converts the endpoint size bit mask based on the EP_BUFSIZE setting of the endpoint control register.
  *     endpointSize - The size to convert
@@ -163,7 +149,6 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe);
 void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr);
 
 /*
- * usb_peripheral_endpoint
  * Configures the endpoint data buffer to a location in RAM for the next transaction.
  *     pipe - A combination of endpoint address and direction
  *     bufAddress - The pointer to the data buffer the endpoint will use

@@ -4,10 +4,7 @@
 
 /*
  * USBCOREDESCRIPTOR Core Descriptors Header File
- * usb_core_descriptors.h
- * usb_core_descriptors USB Descriptor Definitions
- * usb_core
- *  In this file the active configuration and interfaces can be changed.
+ * In this file the active configuration and interfaces can be changed.
  * The active configuration and active interface is referenced by a pointer as two global variables.
  * USB Device Core Version 1.0.0
  */
@@ -35,6 +32,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_DESCRIPTORS_H
 #define USB_CORE_DESCRIPTORS_H
 
@@ -42,7 +40,6 @@
 extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
 
 /*
- * usb_core
  * Enables endpoint configuration descriptor.
  *
  * The USB Device Enable Endpoint function, from USB 2.0 Specification Ch. 9.6.6.
@@ -60,7 +57,6 @@ extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
 RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue);
 
 /*
- * usb_core
  * Gets the active configuration value.
  *     None.
  * return The active configuration value
@@ -68,7 +64,6 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue);
 uint8_t USB_DescriptorActiveConfigurationValueGet(void);
 
 /*
- * usb_core
  * Enables or Disables an Interface Descriptor.
  *
  * The USB Device Enable Interface Descriptor, from USB 2.0 Specification Ch. 9.6.5.
@@ -85,7 +80,6 @@ uint8_t USB_DescriptorActiveConfigurationValueGet(void);
 RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t alternateSetting, bool enable);
 
 /*
- * usb_core
  * Gets the pointer to the descriptor.
  *     descriptor - Descriptor type
  *     attribute - Attribute type
@@ -96,7 +90,6 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
 RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t **descriptorPtr, uint16_t *descriptorLength);
 
 /*
- * usb_core
  * Gets the pointer to the string descriptor.
  *     stringIndex - Index of the string
  *     langID - Language ID
@@ -107,7 +100,6 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
 RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langID, uint8_t **descriptorAddressPtr, uint16_t *descriptorLength);
 
 /*
- * usb_core
  * Collects the configuration pointer.
  *     configurationValue - Value of the referenced configuration
  *     **configurationPtr - Pointer to the configuration
@@ -116,7 +108,6 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
 RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t **configurationPtr);
 
 /*
- * usb_core
  * Configures the endpoints as given in the descriptor.
  *     *interfacePtr - Pointer to an interface
  *     enable - Boolean to enable or disable the endpoint
@@ -125,7 +116,6 @@ RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURAT
 void DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable);
 
 /*
- * usb_core
  * Gets the next descriptor.
  *     descriptorType - Selected descriptor type
  *     **descriptorHeaderPtr - Pointer to the descriptor header

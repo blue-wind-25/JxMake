@@ -4,8 +4,6 @@
 
 /*
  * USBCORETRANSFER USB Core Transfer Source File
- * usb_core_transfer.c
- * usb_core_transfer
  * USB core layer implementation file.
  * USB Core Version 1.0.0
  */

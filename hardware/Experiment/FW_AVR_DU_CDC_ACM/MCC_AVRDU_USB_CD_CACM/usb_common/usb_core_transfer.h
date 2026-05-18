@@ -4,9 +4,6 @@
 
 /*
  * USBCORETRANSFER USB Core Transfer Header File
- * usb_core_transfer.h
- * usb_core_transfer USB Core Transfer
- * usb_core
  * USB core layer implementation file.
  * USB Core Version 1.0.0
  */
@@ -34,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_TRANSFER_H
 #define	USB_CORE_TRANSFER_H
 
@@ -44,7 +42,6 @@
 
 
 /*
- * usb_core_transfer
  * Sets up the pipe for the write transfers.
  *
  * Sets up the pipe for the write transfers and checks to see if it is busy. If it is not busy, then the routine resets the pipe, setting it up for write transfer, then starts the transfer.
@@ -59,7 +56,6 @@
 RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
 
 /*
- * usb_core_transfer
  * Sets up the pipe for the read transfers.
  *
  * Sets up the pipe for the write transfers and checks to see if it is busy. If it is not busy, then the routine resets the pipe, setting it up for read transfer, then starts the transfer.
@@ -74,7 +70,6 @@ RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t
 RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
 
 /*
- * usb_core_transfer
  * Sets up vendor or class control request data transfers.
  *
  * Sets up the pointer and size of the read or write trnasfer in the control data stage.
@@ -87,7 +82,6 @@ RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t 
 RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback);
 
 /*
- * usb_core_transfer
  * Aborts an ongoing transfer.
  *
  * Will call the pipe transferEndCallback with the abort status, if configured.
@@ -98,7 +92,6 @@ RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, US
 void USB_TransferAbort(USB_PIPE_t pipe);
 
 /*
- * usb_core_transfer
  * Handles the different types of packages received or transferred.
  *
  * Checks if a setup package is received or if a transaction is completed and which pipe has a completed transaction, then it handles them accordingly.

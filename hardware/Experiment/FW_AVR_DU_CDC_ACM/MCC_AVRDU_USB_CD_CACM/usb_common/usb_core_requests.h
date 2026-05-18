@@ -4,9 +4,6 @@
 
 /*
  * USBCOREREQUESTS USB Core Requests Header File
- * usb_core_requests.h
- * usb_core_requests USB Core Requests
- * usb_core
  * USB Device Core Requests handling.
  * USB Device Core Version 1.0.0
  */
@@ -45,7 +42,6 @@
 
 
 /*
- * usb_core_requests
  * Setup function for the device requests
  *
  * USB 2.0 Specification Ch 9.4.
@@ -66,7 +62,6 @@
 RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Setup function for the endpoint requests
  *
  * USB 2.0 Specification Ch. 9.4.
@@ -83,7 +78,6 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
 RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Setup function for the interface requests
  *
  * USB 2.0 Specification Ch 9.4.
@@ -102,4 +96,4 @@ RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestP
 RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 
-#endif	/* USB_CORE_REQUESTS_H */
+#endif /* USB_CORE_REQUESTS_H */

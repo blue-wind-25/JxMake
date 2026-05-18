@@ -4,8 +4,6 @@
 
 /*
  * USBCOREDESCRIPTOR Core Descriptors Source File
- * usb_core_descriptors.h
- * usb_core_descriptors
  * descriptors for the USB Core Stack.
  * USB Device Core Version 1.0.0
  */
@@ -42,30 +40,26 @@
 
 
 /*
- * usb_core_descriptors
  * USB_DEFAULT_INTERFACE
  * Default interface number.
  */
 #define USB_DEFAULT_INTERFACE 0u
 
 /*
- * usb_core_descriptors
  * USB_DEFAULT_ALTERNATE_SETTING
  * Default alternate setting.
  */
 #define USB_DEFAULT_ALTERNATE_SETTING 0u
 
 /*
- * usb_core_descriptors
  * USB_DESCRIPTOR_SEARCH_LIMIT
  * The number of descriptors NextDescriptorPointerGet will search through before returning an error.
  */
 #define USB_DESCRIPTOR_SEARCH_LIMIT 30u
 
 /*
- *  USB_DESCRIPTOR_PTR_t
  * Union of a uint8_t pointer and pointers to the different descriptor types.
- * ,19.2} Needed for the stack to parse through the configuration descriptors
+ * Needed for the stack to parse through the configuration descriptors (advisory 9.2)
  * without pointer casting between the different descriptor types and uint8_t.
  */
 typedef union USB_DESCRIPTOR_PTR_union

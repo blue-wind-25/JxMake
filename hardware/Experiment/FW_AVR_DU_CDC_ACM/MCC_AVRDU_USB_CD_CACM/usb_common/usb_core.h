@@ -4,8 +4,6 @@
 
 /*
  * USBCORE CORE Header File
- * usb_core.h
- * usb_core USB Core Layer
  * Core functionality for the USB stack.
  * USB Device Core Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_H
 #define USB_CORE_H
 
@@ -41,7 +40,6 @@
 
 
 /*
- * usb_core
  * Setup function for the Standard Device Request USB 2.0 Specification Ch 9.4.
  * | bRequest          | wValue                                | wIndex                  | wLength           | Data                                |
  * |-------------------|---------------------------------------|-------------------------|-------------------|-------------------------------------|
@@ -68,7 +66,6 @@
 RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core
  * Stops the USB peripheral and detaches it from the bus.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -76,7 +73,6 @@ RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
 void USB_Stop(void);
 
 /*
- * usb_core
  * Resets the USB peripheral.
  *     None.
  */

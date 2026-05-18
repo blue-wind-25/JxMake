@@ -4,12 +4,10 @@
 
 /*
  * USBPERIPHERALREADWRITE Peripheral Read/Write Header File
- * usb_peripheral_read_write.h
- * usb_peripheral_read_write USB Peripheral Read/Write
- * usb_peripheral
  * API module for usb_peripheral covering low-level USB transaction functions.
  * USB Device Stack HAL Driver Version 1.0.0
  */
+
 /*
     (C) 2021 Microchip Technology Inc. and its subsidiaries.
 
@@ -33,12 +31,12 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_PERIPHERAL_READ_WRITE_H
 #define USB_PERIPHERAL_READ_WRITE_H
 
 
 /*
- * usb_peripheral_read_write
  * Aborts the next transaction on an endpoint by setting BUSNACK.
  * Used to stop exchanging data on an endpoint. The device will start NAKing requests from the host after calling this API.
  *     pipe - A combination of endpoint address and direction
@@ -47,7 +45,6 @@
 void USB_TransactionAbort(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Acknowledges the Transaction Complete status condition by clearing the Transaction Complete status bit.
  * Used to clear the Transaction Complete status bit after a transaction has successfully completed.
  *     pipe - A combination of endpoint address and direction
@@ -56,7 +53,6 @@ void USB_TransactionAbort(USB_PIPE_t pipe);
 void USB_TransactionCompleteAck(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Helper function to return the endpoint transaction complete condition.
  *     None.
  * 0 - Transaction not complete or pipe address is out of bounds
@@ -65,7 +61,6 @@ void USB_TransactionCompleteAck(USB_PIPE_t pipe);
 bool USB_TransactionIsCompleted(void);
 
 /*
- * usb_peripheral_read_write
  * Returns the pipe address and direction for the latest completed transaction.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -73,7 +68,6 @@ bool USB_TransactionIsCompleted(void);
 RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe);
 
 /*
- * usb_peripheral_read_write
  * Resets the pipe.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -81,7 +75,6 @@ RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe);
 void USB_PipeReset(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Checks if the pipe status is busy.
  *     pipe - A combination of endpoint address and direction
  * 0  -  Pipe status not busy
@@ -90,7 +83,6 @@ void USB_PipeReset(USB_PIPE_t pipe);
 bool USB_PipeStatusIsBusy(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Configures the pointer for the data transfer in a given pipe.
  *     pipe - A combination of endpoint address and direction
  *     *dataPtr - The pointer to the data location
@@ -99,7 +91,6 @@ bool USB_PipeStatusIsBusy(USB_PIPE_t pipe);
 void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr);
 
 /*
- * usb_peripheral_read_write
  * Sets the size of pipe data to transfer.
  *     pipe - A combination of endpoint address and direction
  *     dataSize - The size of pipe data to transfer
@@ -108,7 +99,6 @@ void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr);
 void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
 
 /*
- * usb_peripheral_read_write
  * Gets the size of pipe data to transfer.
  *     pipe - A combination of endpoint address and direction
  * return The size of pipe data to transfer
@@ -116,7 +106,6 @@ void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
 uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Gets the size of the transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  * return The size of transferred pipe data
@@ -124,7 +113,6 @@ uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe);
 uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Sets the size of the transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  *     dataSize - The size of pipe data transferred
@@ -133,7 +121,6 @@ uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe);
 void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
 
 /*
- * usb_peripheral_read_write
  * Resets the size of transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  * return None.
@@ -141,7 +128,6 @@ void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
 void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Enables a ZLP on a transfer.
  * It is enabled by default if the AZLP static config is enabled for the pipe.
  *     pipe - A combination of endpoint address and direction
@@ -150,7 +136,6 @@ void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe);
 void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Sets the callback for transfer end.
  *     pipe - A combination of endpoint address and direction
  *     callback - A combination of pipe, status and transferred bytes
@@ -159,7 +144,6 @@ void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe);
 void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback);
 
 /*
- * usb_peripheral_read_write
  * Calls the callback for transfer end.
  *     pipe - A combination of endpoint address and direction
  * return None.
@@ -167,7 +151,6 @@ void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLB
 void USB_PipeTransferEndCallback(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Checks the correctness of IN transactions and runs them.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -175,7 +158,6 @@ void USB_PipeTransferEndCallback(USB_PIPE_t pipe);
 void USB_InTransactionRun(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Checks the correctness OUT transactions and runs them.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -183,7 +165,6 @@ void USB_InTransactionRun(USB_PIPE_t pipe);
 void USB_OutTransactionRun(USB_PIPE_t pipe);
 
 /*
- * usb_peripheral_read_write
  * Handles completed IN and OUT transactions.
  * Processes the completed transaction and either completes the transfer or runs the next transaction.
  * Will call the pipe transferEndCallback at the end of transfer, if configured.

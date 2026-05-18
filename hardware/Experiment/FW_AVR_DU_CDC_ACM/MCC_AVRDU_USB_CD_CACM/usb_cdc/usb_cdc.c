@@ -4,8 +4,6 @@
 
 /*
  * USBCDC CDC Source File
- * usb_cdc.c
- * usb_cdc
  * This file contains implementation for CDC
  * USB Device Stack Driver Version 1.0.0
  */

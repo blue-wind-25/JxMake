@@ -5,10 +5,6 @@
 /*
  * USB_CONFIG Generated Config Header File
  *
- * usb_config.h
- *
- * usb_device_stack USB_DEVICE_STACK
- *
  * This is a device-specific USB static configuration file that will be editable
  * through a code composer tool, build script or manual entry by a user.
  *
@@ -22,7 +18,7 @@
     Subject to your compliance with these terms, you may use Microchip
     software and any derivatives exclusively with Microchip products.
     You are responsible for complying with 3rd party license terms
-    applicable to your use of 3rd party software (including open source
+    applicable to your use of third party software (including open source
     software) that may accompany Microchip software. SOFTWARE IS "AS IS".
 
     NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS
@@ -38,6 +34,7 @@
     THIS SOFTWARE.
  */
 
+
 #ifndef USB_CONFIG_H
 #define USB_CONFIG_H
 
@@ -48,7 +45,6 @@
 
 
 /*
- * usb_device_stack
  * USB_EP_NUM
  * Limits the size of the endpoint table and transfer array in the RAM
  * to 1 + the highest endpoint address used by the application.
@@ -56,21 +52,18 @@
 #define USB_EP_NUM 3U
 
 /*
- * usb_device_stack
  * USB_EP0_SIZE
  * Controls the packet size of endpoint 0 and must correspond to bMaxPacketSize0 in the device descriptor.
  */
 #define USB_EP0_SIZE 64U
 
 /*
- * usb_device_stack
  * LANG_ID_NUM
  * Controls the number of language IDs supported by the application.
  */
 #define LANG_ID_NUM 1U
 
 /*
- * usb_device_stack
  * USB Endpoint Addresses
  * Macros for the endpoint addresses.
  */
@@ -81,7 +74,6 @@
 //
 
 /*
- * usb_device_stack
  * USB Endpoint Packet Sizes
  * Macros for the endpoint packet sizes.
  */
@@ -92,67 +84,58 @@
 //
 
 /*
- * usb_device_stack
  * USB_CDC_INTERRUPT_EP
  * The address for the Communication Device Class (CDC) interrupt notification endpoint.
  */
 #define USB_CDC_INTERRUPT_EP CDC_COMMUNICATION_INTERFACE_INTERRUPT_EP1_IN
 
 /*
- * usb_device_stack
  * USB_CDC_BULK_EP_IN
  * The address for the CDC bulk IN endpoint.
  */
 #define USB_CDC_BULK_EP_IN CDC_DATA_INTERFACE_BULK_EP2_IN
 
 /*
- * usb_device_stack
  * USB_CDC_BULK_EP_OUT
  * The address for the CDC bulk OUT endpoint.
  */
 #define USB_CDC_BULK_EP_OUT CDC_DATA_INTERFACE_BULK_EP2_OUT
 
 /*
- * usb_device_stack
  * USB_CDC_DATA_ENDPOINT_SIZE
  * Controls the size of the CDC data endpoints.
  */
 #define USB_CDC_DATA_ENDPOINT_SIZE CDC_DATA_INTERFACE_BULK_EP2_OUT_SIZE
 
 /*
- * usb_device_stack
  * USB_CDC_TX_BUFFER_SIZE
  * Macro for the transmit buffer size.
  */
 #define USB_CDC_TX_BUFFER_SIZE (2*MAX_ENDPOINT_SIZE_DEFAULT)
 
 /*
- * usb_device_stack
  * USB_CDC_RX_BUFFER_SIZE
  * Macro for the receive buffer size.
  */
 #define USB_CDC_RX_BUFFER_SIZE (2*MAX_ENDPOINT_SIZE_DEFAULT)
 
 /*
- * usb_device_stack
  * USB_CDC_RX_PACKET_SIZE
  * Macro for the receive packet size.
  */
 #define USB_CDC_RX_PACKET_SIZE USB_CDC_DATA_ENDPOINT_SIZE
 
 /*
- * usb_device_stack
  * USB_CDC_UNION_SUBORDINATE_NUM
  * Macro for the maximum number of configured subordinate interfaces of union functional descriptors.
  */
 #define USB_CDC_UNION_SUBORDINATE_NUM 1u
 
 /*
- * usb_device_stack
  * USB_INTERFACE_NUM
  * The number of interfaces used by a configuration, excluding alternate interfaces.
  */
 #define USB_INTERFACE_NUM 2U
 
 
-#endif // USB_CONFIG_H
+#endif /* USB_CONFIG_H */

@@ -4,8 +4,6 @@
 
 /*
  * USBPERIPHERALENDPOINT Peripheral Endpoint Source File
- * usb_peripheral_endpoint.c
- * usb_peripheral_endpoint
  * API module for usb_peripheral covering endpoint related functions.
  * USB Device Stack HAL Driver Version 1.0.0
  */
@@ -49,7 +47,6 @@
 #endif
 
 /*
- * usb_peripheral_endpoint
  * Algorithm to detect if a given number is a power of two.
  * A number is a power of two if it has exactly one '1' in its binary representation. This is true if subtracting '1' from the number
  * and doing an AND operation on the result with the number itself returns 0.
@@ -60,7 +57,6 @@
 #define IsPowerOfTwo(number) ((0u != (number)) && (((number) & ((number)-1u)) == 0u))
 
 /*
- * usb_peripheral_endpoint
  * SRAM tables for the FIFO and endpoint registers, as well as the FRAMENUM register.
  * Represents the endpoint configuration table based on the number of endpoints in use.
  * This line instantiates an object using the data structure type.

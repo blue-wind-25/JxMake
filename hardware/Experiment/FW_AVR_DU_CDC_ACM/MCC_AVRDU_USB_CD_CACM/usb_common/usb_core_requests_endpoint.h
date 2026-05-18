@@ -4,8 +4,6 @@
 
 /*
  * USBCOREREQUESTSENDPOINT USB Core Requests Endpoint Header File
- * usb_core_requests_endpoint.h
- * usb_core_requests
  * USB Endpoint Core Requests handling.
  * USB Device Core Version USB 1.0.0
  */
@@ -33,12 +31,12 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_REQUESTS_ENDPOINT_H
 #define USB_CORE_REQUESTS_ENDPOINT_H
 
 
 /*
- * usb_core_requests
  * Gets the endpoint status.
  *     wIndex - Endpoint address and direction
  * return A structure with the endpoint status
@@ -46,7 +44,6 @@
 USB_PIPE_t EndpointFromRequestGet(uint16_t wIndex);
 
 /*
- * usb_core_requests
  * Gets the endpoint status.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -54,7 +51,6 @@ USB_PIPE_t EndpointFromRequestGet(uint16_t wIndex);
 RETURN_CODE_t SetupEndpointRequestGetStatus(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Clears the endpoint feature.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -62,7 +58,6 @@ RETURN_CODE_t SetupEndpointRequestGetStatus(USB_SETUP_REQUEST_t *setupRequestPtr
 RETURN_CODE_t SetupEndpointRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Sets the endpoint feature.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -70,7 +65,6 @@ RETURN_CODE_t SetupEndpointRequestClearFeature(USB_SETUP_REQUEST_t *setupRequest
 RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Gets the current frame number.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -78,4 +72,4 @@ RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPt
 RETURN_CODE_t SetupEndpointRequestSynchFrame(void);
 
 
-#endif	/* USB_CORE_REQUESTS_ENDPOINT_H */
+#endif /* USB_CORE_REQUESTS_ENDPOINT_H */

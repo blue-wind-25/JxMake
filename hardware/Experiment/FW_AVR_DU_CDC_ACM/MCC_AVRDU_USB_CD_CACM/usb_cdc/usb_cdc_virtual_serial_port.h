@@ -4,8 +4,6 @@
 
 /*
  * USBCDCVIRTUALSERIAL CDC Virtual Serial Port Header File
- * usb_cdc_virtual_serial_port.h
- * usb_cdc
  * This file contains prototypes and datatypes for a CDC application
  * USB Device Stack Driver Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CDC_VIRTUAL_SERIAL_PORT_H
 #define USB_CDC_VIRTUAL_SERIAL_PORT_H
 
@@ -42,8 +41,6 @@
 
 
 /*
- * usb_cdc
- * CDC_RETURN_CODE_t
  * Type define for the CDC return codes.
  */
 typedef enum CDC_RETURN_CODE_enum
@@ -60,7 +57,6 @@ extern CIRCULAR_BUFFER_t usbCDCReceiveBuffer;
 extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
 
 /*
- * usb_cdc
  * Callback function called after the USB IN transaction started.
  *     pipe - USB pipe used for the started transaction
  *     status - Transfer status
@@ -70,7 +66,6 @@ extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
 void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
 
 /*
- * usb_cdc
  * Callback function called after the USB OUT transaction started.
  *     pipe - USB pipe used for the started transaction
  *     status - Transfer status

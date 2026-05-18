@@ -4,9 +4,6 @@
 
 /*
  * USBCOREEVENTS USB Core Events Header File
- * usb_core_events.h
- * usb_core_events USB Core Events
- * usb_core
  * Event handling for the USB Core Stack.
  * USB Device Core Version 1.0.0
  */
@@ -34,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_EVENTS_H
 #define USB_CORE_EVENTS_H
 
@@ -42,7 +40,6 @@
 
 
 /*
- * usb_core
  * Handles the different types of events.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t

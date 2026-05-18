@@ -4,9 +4,6 @@
 
 /*
  * USBCOMMONELEMENTS Common Elements Header File
- * usb_common_elements.h
- * usb_common USB Common Elements
- * usb_core
  * Common elements for the USB stack.
  * USB Common Elements Version 1.0.0
  */
@@ -34,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_COMMON_ELEMENTS_H
 #define USB_COMMON_ELEMENTS_H
 
@@ -42,8 +40,6 @@
 
 
 /*
- * usb_common
- * RETURN_CODE_enum
  * Describes the different function return reserved codes used by the USB stack.
  */
 
@@ -84,14 +80,12 @@ typedef enum RETURN_CODE_enum
 } RETURN_CODE_t;
 
 /*
- * usb_common
  * MAX_ENDPOINT_SIZE_DEFAULT
  * The maximum endpoint packet size for the default endpoint types (control, bulk, interrupt).
  */
 #define MAX_ENDPOINT_SIZE_DEFAULT (64)
 
 /*
- * usb_common
  * MAX_ENDPOINT_SIZE_ISO
  * The maximum endpoint packet size for the isochronous endpoint type.
  */

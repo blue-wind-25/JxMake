@@ -4,8 +4,6 @@
 
 /*
  * USBPERIPHERAL Peripheral Source File
- * usb_peripheral.c
- * usb_peripheral
  * Interface for a usb_peripheral module that needs to be implemented by a device specific USB module driver.
  * USB Device Stack HAL Driver Version 1.0.0
  */

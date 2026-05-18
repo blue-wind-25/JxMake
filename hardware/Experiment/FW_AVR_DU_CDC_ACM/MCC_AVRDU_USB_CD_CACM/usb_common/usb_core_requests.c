@@ -4,8 +4,6 @@
 
 /*
  * USBCOREREQUESTS USB Core Requests Source File
- * usb_core_requests.c
- * usb_core_requests
  * USB Device Core Requests handling.
  * USB Device Core Version 1.0.0
  */

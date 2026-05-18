@@ -4,8 +4,6 @@
 
 /*
  * CIRCULARBUFFER CDC Circular Buffer Header File
- * circular_buffer.h
- * usb_cdc
  * This file contains prototypes and datatypes for a circular buffer.
  * USB Device Stack Driver Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef CIRCULAR_BUFFER_H_
 #define CIRCULAR_BUFFER_H_
 
@@ -42,8 +41,6 @@
 
 
 /*
- * usb_cdc
- * BUFFER_RETURN_CODE_t
  * Type define for circular buffer return codes.
  */
 typedef enum BUFFER_RETURN_CODE_enum
@@ -54,8 +51,6 @@ typedef enum BUFFER_RETURN_CODE_enum
 } BUFFER_RETURN_CODE_t;
 
 /*
- * usb_cdc
- * CIRCULAR_BUFFER_t
  * Type define for circular buffers of varying length.
  */
 typedef struct CIRCULAR_BUFFER_struct
@@ -67,7 +62,6 @@ typedef struct CIRCULAR_BUFFER_struct
 } CIRCULAR_BUFFER_t;
 
 /*
- * usb_cdc
  * Adds input data to circular buffer if there is space available.
  *     buffer - Circular buffer address
  *     data - Intput data
@@ -76,7 +70,6 @@ typedef struct CIRCULAR_BUFFER_struct
 void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
 
 /*
- * usb_cdc
  * Pulls data from the circular buffer if it's available.
  *     buffer - Circular buffer address
  *     data - Output data variable address
@@ -85,7 +78,6 @@ void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
 BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
 
 /*
- * usb_cdc
  * Checks if the circular buffer is empty.
  *     buffer - Circular buffer address
  * 0 - Buffer not full
@@ -94,7 +86,6 @@ BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
 bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer);
 
 /*
- * usb_cdc
  * Checks if the circular buffer is full.
  *     buffer - Circular buffer address
  * 0 - Buffer not full
@@ -103,7 +94,6 @@ bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer);
 bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer);
 
 /*
- * usb_cdc
  * Returns the number of available bytes in the circular buffer.
  *     buffer - Circular buffer address
  * return freeSpace - Available bytes

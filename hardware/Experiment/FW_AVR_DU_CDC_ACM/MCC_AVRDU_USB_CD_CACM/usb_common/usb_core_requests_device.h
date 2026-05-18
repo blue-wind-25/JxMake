@@ -4,8 +4,6 @@
 
 /*
  * USBCOREREQUESTSDEVICE USB Core Requests Device Header File
- * usb_core_requests_device.h
- * usb_core_requests
  * USB Device Core Requests handling.
  * USB Device Core Version 1.0.0
  */
@@ -33,6 +31,7 @@
     SOFTWARE.
  */
 
+
 #ifndef USB_CORE_REQUESTS_DEVICE_H
 #define USB_CORE_REQUESTS_DEVICE_H
 
@@ -41,7 +40,6 @@
 
 
 /*
- * usb_core_requests
  * Returns the status of the device features.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -49,7 +47,6 @@
 RETURN_CODE_t SetupDeviceRequestGetStatus(void);
 
 /*
- * usb_core_requests
  * Sets the device address.
  *     address - Address to be set
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -57,7 +54,6 @@ RETURN_CODE_t SetupDeviceRequestGetStatus(void);
 RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address);
 
 /*
- * usb_core_requests
  * Callback function for the address.
  *     None.
  * return None.
@@ -65,7 +61,6 @@ RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address);
 void SetupDeviceAddressCallback(void);
 
 /*
- * usb_core_requests
  * Gets the device descriptor.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -73,7 +68,6 @@ void SetupDeviceAddressCallback(void);
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr);
 
 /*
- * usb_core_requests
  * Gets the device configuration.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -81,7 +75,6 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
 RETURN_CODE_t SetupDeviceRequestGetConfiguration(void);
 
 /*
- * usb_core_requests
  * Sets the device configuration.
  *     configurationValue - Configuration value to be set
  * return SUCCESS or an Error code according to RETURN_CODE_t
@@ -89,5 +82,5 @@ RETURN_CODE_t SetupDeviceRequestGetConfiguration(void);
 RETURN_CODE_t SetupDeviceRequestSetConfiguration(uint8_t configurationValue);
 
 
-#endif	/* USB_CORE_REQUESTS_DEVICE_H */
+#endif /* USB_CORE_REQUESTS_DEVICE_H */
 

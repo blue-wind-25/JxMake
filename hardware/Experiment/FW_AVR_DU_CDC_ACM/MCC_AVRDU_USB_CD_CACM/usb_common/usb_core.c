@@ -4,8 +4,6 @@
 
 /*
  * USBCORE CORE Source File
- * usb_core.h
- * usb_core
  * Core functionality for the USB stack.
  * USB Device Core Version 1.0.0
  */

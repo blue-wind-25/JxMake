@@ -4,8 +4,6 @@
 
 /*
  * USBCOREEVENTS USB Core Events Source File
- * usb_core_events.h
- * usb_core_events
  * Event handling for the USB Core Stack.
  * USB Device Core Version 1.0.0
  */
@@ -39,7 +37,6 @@
 
 #include "usb_core.h"
 #include "usb_core_events.h"
-
 
 
 ISR(USB0_BUSEVENT_vect)

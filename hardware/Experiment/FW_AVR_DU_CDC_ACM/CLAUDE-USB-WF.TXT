@@ -88,3 +88,35 @@ Rules:
 3. Preserve indentation, spacing, and brace placement exactly as in the original code.
 4. Do NOT alter code outside comments.
 5. Output ONLY raw source code. No markdown, no explanations.
+
+
+
+
+
+
+Act as a precise source-code transformation engine.
+Scope:
+- Browse the current working directory and its sub directory.
+- Process all .c and .h files.
+
+Rules:
+1. Locate all multiline comments (/* ... */).
+2. Remove any lines that contain only:
+   - A bare file name (any .c or .h file present in the project).
+   - A bare identifier that matches another file stem (e.g., usb_core_requests, usb_peripheral_avr_du).
+   - A bare type or struct name repeated redundantly (e.g., USB_DESCRIPTOR_PTR_t, USB_ENDPOINT_TABLE_struct).
+3. Keep descriptive sentences, parameter explanations, and meaningful documentation.
+4. Preserve indentation, spacing, and brace placement exactly as in the original code.
+5. Do NOT alter code outside comments.
+6. Output ONLY raw source code. No markdown, no explanations.
+
+Confirmation:
+- For each file, generate a unified diff showing proposed deletions.
+- Ask for one confirmation before applying all changes in that file.
+- Do not ask for confirmation per line.
+
+Constraints:
+- Single pass over all files.
+- Spaces remain spaces, tabs remain tabs.
+- Do not introduce new formatting conventions.
+

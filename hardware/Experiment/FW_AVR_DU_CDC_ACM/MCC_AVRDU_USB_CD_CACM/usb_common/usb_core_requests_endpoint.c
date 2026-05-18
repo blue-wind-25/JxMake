@@ -4,8 +4,6 @@
 
 /*
  * USBCOREREQUESTSENDPOINT USB Core Requests Endpoint Source  File
- * usb_core_requests_endpoint.c
- * usb_core_requests
  * USB Endpoint Core Requests handling.
  * USB Device Core Version USB 1.0.0
  */
@@ -40,21 +38,18 @@
 
 
 /*
- * usb_core_requests
  * GET_STATUS_ENDPOINT_STALLED
  * Mask for the endpoint stall status in the first byte of the data stage of the setup request.
  */
 #define GET_STATUS_ENDPOINT_STALLED (1u << 0u)
 
 /*
- * usb_core_requests
  * ENDPOINT_ADDRESS_MASK
  * Mask for the endpoint address in the wIndex field of the setup request.
  */
 #define ENDPOINT_ADDRESS_MASK (0x7fu)
 
 /*
- * usb_core_requests
  * ENDPOINT_DIRECTION_BITPOSITION
  * Bit position for the endpoint direction in the wIndex field of the setup request.
  */

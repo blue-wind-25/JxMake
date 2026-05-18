@@ -1,0 +1,2 @@
+Model: Claude Sonnet 4.6
+Version: claude-sonnet-4-6

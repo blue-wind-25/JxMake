@@ -66,37 +66,3 @@ BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data)
     return BUFFER_SUCCESS;
 }
 
-bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer)
-{
-    // Checks if buffer is empty
-    return (buffer->head == buffer->tail);
-}
-
-bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer)
-{
-    // Finds next buffer head
-    uint16_t nextHead = buffer->head + 1U;
-
-    // Checks if next head at end of array reached, wraps around
-    if (buffer->maxLength <= nextHead)
-    {
-        nextHead = 0;
-    }
-
-    // Returns if buffer is full
-    return (buffer->tail == nextHead);
-}
-
-uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer)
-{
-    uint16_t freeSpace = 0;
-    if (buffer->head >= buffer->tail)
-    {
-        freeSpace = buffer->tail + buffer->maxLength - buffer->head - 1U;
-    }
-    else // Tail > head: buffer wrapped around
-    {
-        freeSpace = buffer->tail - buffer->head - 1U;
-    }
-    return freeSpace;
-}

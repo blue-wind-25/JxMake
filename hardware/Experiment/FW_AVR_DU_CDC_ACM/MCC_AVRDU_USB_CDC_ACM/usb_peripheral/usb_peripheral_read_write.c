@@ -40,14 +40,7 @@
 #include "usb_peripheral_read_write.h"
 
 
-/*
- * Calculates from pipe address and direction to location in a transfer array.
- *     pipe - A combination of endpoint address and direction
- * return The pipe transaction index for this pipe in pipe_transfer[]
- */
-#define PipeTransferIndexGet(pipe) (((pipe).address * 2) + (pipe).direction)
-
-static USB_PIPE_TRANSFER_t pipeTransfer[USB_EP_NUM * 2];
+USB_PIPE_TRANSFER_t pipeTransfer[USB_EP_NUM * 2];
 
 void USB_TransactionAbort(USB_PIPE_t pipe)
 {
@@ -106,20 +99,6 @@ void USB_PipeReset(USB_PIPE_t pipe)
     pipeTransferPtr->ZLPEnable = false;
 }
 
-bool USB_PipeStatusIsBusy(USB_PIPE_t pipe)
-{
-    return (pipeTransfer[PipeTransferIndexGet(pipe)].status == USB_PIPE_TRANSFER_BUSY);
-}
-
-void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr)
-{
-    pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr = dataPtr;
-}
-
-void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize)
-{
-    pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize = dataSize;
-}
 
 uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe)
 {
@@ -136,21 +115,6 @@ void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize)
     pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = dataSize;
 }
 
-void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe)
-{
-    pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = 0;
-}
-
-void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe)
-{
-    // InAzlpEnable=0 and OutAzlpEnable=0 for all endpoints — always use manual ZLP
-    pipeTransfer[PipeTransferIndexGet(pipe)].ZLPEnable = true;
-}
-
-void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback)
-{
-    pipeTransfer[PipeTransferIndexGet(pipe)].transferEndCallback = callback;
-}
 
 void USB_PipeTransferEndCallback(USB_PIPE_t pipe)
 {

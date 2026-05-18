@@ -40,14 +40,14 @@ USBDevice_CDCACMHandler → CIRCBUF_Empty
 File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in circular_buffer.h)
 Reason: CIRCBUF_Empty is a single head==tail comparison. Zero callees. Safe to open-code.
 
 USBDevice_CDCACMHandler → USB_PipeStatusIsBusy
 File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single pipeTransfer[] array-index comparison. No side effects. Trivially inlineable.
 
 USBDevice_CDCACMHandler → USB_TransferWriteStart
@@ -61,7 +61,7 @@ USBDevice_CDCACMHandler → CIRCBUF_FreeSpace
 File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in circular_buffer.h)
 Reason: Simple arithmetic (head/tail difference). No side effects or callees.
 
 USBDevice_CDCACMHandler → USB_TransferReadStart
@@ -75,7 +75,7 @@ USBDevice_CDCACMHandler → CIRCBUF_Full
 File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in circular_buffer.h)
 Reason: Single head+1==tail comparison with wrap. No callees. Safe to open-code.
 
 USBDevice_CDCACMHandler → CIRCBUF_Dequeue
@@ -100,7 +100,7 @@ USB_TransferWriteStart → USB_PipeStatusIsBusy
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Guard check; single comparison. Inlining removes one level of indirection in the hot transfer path.
 
 USB_TransferWriteStart → USB_PipeReset
@@ -114,35 +114,35 @@ USB_TransferWriteStart → USB_PipeDataPtrSet
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment to pipeTransfer[idx].transferDataPtr. No logic.
 
 USB_TransferWriteStart → USB_PipeDataToTransferSizeSet
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment to pipeTransfer[idx].transferDataSize. No logic.
 
 USB_TransferWriteStart → USB_PipeDataTransferredSizeReset
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Sets bytesTransferred to 0. Single assignment.
 
 USB_TransferWriteStart → USB_PipeTransferZLP_Enable
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Sets ZLPEnable flag. Single assignment.
 
 USB_TransferWriteStart → USB_PipeTransferEndCallbackRegister
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment of function pointer. No logic.
 
 USB_TransferWriteStart → USB_InTransactionRun
@@ -160,7 +160,7 @@ USB_TransferReadStart → USB_PipeStatusIsBusy
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Same as above; guard check, single comparison.
 
 USB_TransferReadStart → USB_PipeReset
@@ -174,28 +174,28 @@ USB_TransferReadStart → USB_PipeDataPtrSet
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment.
 
 USB_TransferReadStart → USB_PipeDataToTransferSizeSet
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment.
 
 USB_TransferReadStart → USB_PipeDataTransferredSizeReset
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single assignment.
 
 USB_TransferReadStart → USB_PipeTransferEndCallbackRegister
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Single function-pointer assignment.
 
 USB_TransferReadStart → USB_OutTransactionRun
@@ -323,7 +323,7 @@ USB_TransferAbort → USB_PipeStatusIsBusy
 File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (static inline in usb_peripheral_read_write.h)
 Reason: Guard check; single comparison. Inlining removes overhead in abort path.
 
 USB_TransferAbort → USB_TransactionAbort

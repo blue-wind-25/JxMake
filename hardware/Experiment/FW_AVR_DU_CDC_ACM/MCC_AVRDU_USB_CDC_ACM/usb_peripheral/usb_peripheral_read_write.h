@@ -36,6 +36,13 @@
 #define USB_PERIPHERAL_READ_WRITE_H
 
 
+/* Pipe transfer index: (address * 2) + direction */
+#define PipeTransferIndexGet(pipe) (((pipe).address * 2) + (pipe).direction)
+
+/* Shared pipe transfer state array — defined in usb_peripheral_read_write.c */
+extern USB_PIPE_TRANSFER_t pipeTransfer[];
+
+
 /*
  * Aborts the next transaction on an endpoint by setting BUSNACK.
  * Used to stop exchanging data on an endpoint. The device will start NAKing requests from the host after calling this API.
@@ -80,7 +87,7 @@ void USB_PipeReset(USB_PIPE_t pipe);
  * 0  -  Pipe status not busy
  * 1  -  Pipe status is busy
  */
-bool USB_PipeStatusIsBusy(USB_PIPE_t pipe);
+static inline bool USB_PipeStatusIsBusy(USB_PIPE_t pipe) { return (pipeTransfer[PipeTransferIndexGet(pipe)].status == USB_PIPE_TRANSFER_BUSY); }
 
 /*
  * Configures the pointer for the data transfer in a given pipe.
@@ -88,7 +95,7 @@ bool USB_PipeStatusIsBusy(USB_PIPE_t pipe);
  *     *dataPtr - The pointer to the data location
  * return None.
  */
-void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr);
+static inline void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr) { pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr = dataPtr; }
 
 /*
  * Sets the size of pipe data to transfer.
@@ -96,7 +103,7 @@ void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr);
  *     dataSize - The size of pipe data to transfer
  * return None.
  */
-void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
+static inline void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize) { pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize = dataSize; }
 
 /*
  * Gets the size of pipe data to transfer.
@@ -125,7 +132,7 @@ void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
  *     pipe - A combination of endpoint address and direction
  * return None.
  */
-void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe);
+static inline void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe) { pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = 0; }
 
 /*
  * Enables a ZLP on a transfer.
@@ -133,7 +140,8 @@ void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return None.
  */
-void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe);
+/* InAzlpEnable=0 and OutAzlpEnable=0 for all endpoints — always use manual ZLP */
+static inline void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe) { pipeTransfer[PipeTransferIndexGet(pipe)].ZLPEnable = true; }
 
 /*
  * Sets the callback for transfer end.
@@ -141,7 +149,7 @@ void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe);
  *     callback - A combination of pipe, status and transferred bytes
  * return None.
  */
-void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback);
+static inline void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback) { pipeTransfer[PipeTransferIndexGet(pipe)].transferEndCallback = callback; }
 
 /*
  * Calls the callback for transfer end.

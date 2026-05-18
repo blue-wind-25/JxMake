@@ -83,7 +83,7 @@ BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
  * 0 - Buffer not full
  * 1 - Buffer full
  */
-bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer);
+static inline bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer) { return (buffer->head == buffer->tail); }
 
 /*
  * Checks if the circular buffer is full.
@@ -91,14 +91,24 @@ bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer);
  * 0 - Buffer not full
  * 1 - Buffer full
  */
-bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer);
+static inline bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer)
+{
+    uint16_t nextHead = buffer->head + 1U;
+    if (buffer->maxLength <= nextHead) { nextHead = 0; }
+    return (buffer->tail == nextHead);
+}
 
 /*
  * Returns the number of available bytes in the circular buffer.
  *     buffer - Circular buffer address
  * return freeSpace - Available bytes
  */
-uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer);
+static inline uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer)
+{
+    if (buffer->head >= buffer->tail)
+        return buffer->tail + buffer->maxLength - buffer->head - 1U;
+    return buffer->tail - buffer->head - 1U;
+}
 
 
 #endif /* CIRCULAR_BUFFER_H_ */

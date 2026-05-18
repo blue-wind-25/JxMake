@@ -1,0 +1,2 @@
+Model: Claude Sonnet 4.6
+Model ID: claude-sonnet-4-6

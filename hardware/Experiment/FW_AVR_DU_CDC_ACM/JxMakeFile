@@ -67,8 +67,7 @@ PROG_OBJS := $call( obj_fpath, {                                     \
 
 (*
 git status -uno
-claude --resume e2a8674c-e1de-4e32-9025-3c612ac10a29
-claude --resume a305c1dd-d8bd-4b62-9476-56042200ca6d
+claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
 
 
 yes it is intact

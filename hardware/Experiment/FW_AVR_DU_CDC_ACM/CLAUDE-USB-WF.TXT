@@ -26,61 +26,11 @@ Workflow:
 
 
 
-
-Do not forget to update:
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260518.tar.gz ~/.claude/ ~/.claude.json
-
-
-
-firmware intact, continue
-firmware intact, commit and continue
-firmware intact, commit and stop for now; we'll continue later
-firmware intact, but usage quota is almost up; commit and we'll continue later
+/opt/uncrustify-0.83.0/bin/uncrustify -c ../../../z/defaults-2.cfg -f FW_AVR_DU_CDC_ACM/inc_usb_avr_du.h | more
+/opt/uncrustify-0.83.0/bin/uncrustify -c ../../../z/defaults-2.cfg -f FW_AVR_DU_CDC_ACM/MCC_AVRDU_USB_CDC_ACM/usb_common/usb_protocol_headers.h | more
 
 
 
-Act as a precise source-code transformation engine for all .h and .c files in this directory.
-Rules:
-1. Convert all Doxygen-style comments (/** */, ///, //!<) into normal comments:
-   - /** ... */ → /* ... */
-   - /// → //
-   - //!< → //
-2. Remove all Doxygen tags (@ingroup, @brief, @param, @return, @def, etc.).
-   - Keep only the descriptive text following them.
-   - Indent parameter descriptions by 4 spaces for readability.
-   - Replace "@return" with "return" (no @).
-3. Preserve indentation, spacing, and brace placement exactly as in the original code.
-4. Do NOT alter code outside comments.
-5. Output ONLY raw source code. No markdown, no explanations.
-
-
-
-
-
-
-Act as a precise source-code transformation engine.
-Scope:
-- Browse the current working directory and its sub directory.
-- Process all .c and .h files.
-
-Rules:
-1. Locate all multiline comments (/* ... */).
-2. Remove any lines that contain only:
-   - A bare file name (any .c or .h file present in the project).
-   - A bare identifier that matches another file stem (e.g., usb_core_requests, usb_peripheral_avr_du).
-   - A bare type or struct name repeated redundantly (e.g., USB_DESCRIPTOR_PTR_t, USB_ENDPOINT_TABLE_struct).
-3. Keep descriptive sentences, parameter explanations, and meaningful documentation.
-4. Preserve indentation, spacing, and brace placement exactly as in the original code.
-5. Do NOT alter code outside comments.
-6. Output ONLY raw source code. No markdown, no explanations.
-
-Confirmation:
-- For each file, generate a unified diff showing proposed deletions.
-- Ask for one confirmation before applying all changes in that file.
-- Do not ask for confirmation per line.
-
-Constraints:
-- Single pass over all files.
-- Spaces remain spaces, tabs remain tabs.
-- Do not introduce new formatting conventions.
+Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260519.tar.gz ~/.claude/ ~/.claude.json
 

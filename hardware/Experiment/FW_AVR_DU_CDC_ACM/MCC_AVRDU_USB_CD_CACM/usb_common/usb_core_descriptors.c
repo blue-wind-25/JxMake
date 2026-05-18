@@ -72,7 +72,7 @@ typedef union USB_DESCRIPTOR_PTR_union
 } USB_DESCRIPTOR_PTR_t;
 
 
-// NOTE: Defining this will cause the CDC-ACM to hang
+// NOTE @Claude : Defining this will cause the CDC-ACM to hang
 /*
 #define NEW_CODE
 //*/
@@ -374,7 +374,7 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
     }
 
 #if 0
-    // NOTE: This is the old code
+    // NOTE @Claude : This is the old code
     // LANG_ID_NUM == 1: only id_array[0] exists
     if (langID != applicationPointers->langIDptr->id_array[0])
     {
@@ -392,7 +392,7 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
     *descriptorLength = (uint16_t)stringHeader->bLength;
     return SUCCESS;
 #else
-    // NOTE: This is the new code (it seems to work fine)
+    // NOTE @Claude : This is the new code (it seems to work fine)
     // LANG_ID_NUM == 1: only id_array[0] exists
     if (langID != applicationPointers->langIDptr->id_array[0])
     {

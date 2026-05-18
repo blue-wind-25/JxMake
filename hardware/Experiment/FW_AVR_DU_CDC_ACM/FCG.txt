@@ -786,3 +786,24 @@ USB_DescriptorInterfaceConfigure loop body (usb_core_descriptors.c):
   outer if, saving one comparison per loop iteration. The #ifndef NEW_CODE guard
   and activeInterfaces[] logic are preserved intact inside the outer gate.
   Saved −16 bytes (360 → 344).
+
+==============================================================================
+## BATCH 8: ConvertEndpointSizeToMask — STATIC INLINE + DEAD CODE REMOVAL — DONE! (7206 → 7132, −74 bytes)
+==============================================================================
+
+ConvertEndpointSizeToMask (usb_peripheral_endpoint.c / usb_peripheral_endpoint.h):
+  DONE! Made static inline; dead validation removed; unused endpointType param removed.
+
+Removed validation block (both conditions always false for CDC-ACM):
+  - MAX_ENDPOINT_SIZE_DEFAULT < endpointSize: all sizes are 8 or 64, both ≤ 64
+  - !IsPowerOfTwo(endpointSize): all sizes are powers of 2 by construction
+
+Removed unused endpointType parameter (was cast to void immediately).
+
+Made static inline: only one call site in the same TU (USB_EndpointConfigure).
+  GCC inlined the simplified body and eliminated the function symbol entirely.
+  Declaration removed from usb_peripheral_endpoint.h.
+
+Result: USB_EndpointConfigure absorbed ConvertEndpointSizeToMask's body inline.
+  Former symbol (44 bytes) gone. USB_EndpointConfigure: 250 → 220 bytes.
+  Net: −74 bytes (7206 → 7132).

@@ -139,16 +139,6 @@ void USB_DataToggleClear(USB_PIPE_t pipe);
 RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe);
 
 /*
- * Converts an endpoint size in number of bytes into a register setting.
- * Converts the endpoint size bit mask based on the EP_BUFSIZE setting of the endpoint control register.
- *     endpointSize - The size to convert
- *     endpointType - The endpoint type
- *     endpointMaskPtr - Pointer to the mask variable to write to
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr);
-
-/*
  * Configures the endpoint data buffer to a location in RAM for the next transaction.
  *     pipe - A combination of endpoint address and direction
  *     bufAddress - The pointer to the data buffer the endpoint will use

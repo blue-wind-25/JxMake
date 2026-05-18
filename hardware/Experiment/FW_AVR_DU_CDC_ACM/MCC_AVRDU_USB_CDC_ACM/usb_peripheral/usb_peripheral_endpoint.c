@@ -63,10 +63,23 @@
  */
 USB_ENDPOINT_TABLE_t endpointTable __attribute__((aligned(2)));
 
+// Endpoint sizes are always powers of 2 and ≤ MAX_ENDPOINT_SIZE_DEFAULT — no validation needed
+static inline void ConvertEndpointSizeToMask(uint16_t endpointSize, uint8_t *endpointMaskPtr)
+{
+    uint8_t mask = 0;
+    uint16_t baseSize = 8;
+    while (baseSize < endpointSize)
+    {
+        mask++;
+        baseSize <<= 1;
+    }
+    *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
+}
+
 void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
 {
     uint8_t endpointConfiguration = 0;
-    ConvertEndpointSizeToMask(endpointSize, endpointType, &endpointConfiguration);
+    ConvertEndpointSizeToMask(endpointSize, &endpointConfiguration);
 
     // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
     if (CONTROL == endpointType)
@@ -114,6 +127,7 @@ void USB_EndpointDisable(USB_PIPE_t pipe)
         USB_EndPointInDisable(pipe.address);
     }
 }
+
 
 uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe)
 {
@@ -268,23 +282,6 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
     }
 
     return status;
-}
-
-void ConvertEndpointSizeToMask(uint16_t endpointSize, USB_ENDPOINT_t endpointType, uint8_t *endpointMaskPtr)
-{
-    (void)endpointType;
-    if (((uint16_t)MAX_ENDPOINT_SIZE_DEFAULT < endpointSize) || !(IsPowerOfTwo(endpointSize)))
-    {
-        return;
-    }
-    uint8_t mask = 0;
-    uint16_t baseSize = 8;
-    while (baseSize < endpointSize)
-    {
-        mask++;
-        baseSize <<= 1;
-    }
-    *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
 }
 
 void EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)

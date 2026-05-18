@@ -75,11 +75,11 @@
  */
 typedef enum USB_ENDPOINT_enum
 {
-    CONTROL = 0,     /*<Control transfer type*/
-    ISOCHRONOUS = 1, /*<Isochronous transfer type*/
-    BULK = 2,        /*<Bulk transfer type*/
-    INTERRUPT = 3,   /*<Interrupt transfer type*/
-    DISABLED = 0xFF, /*<Endpoint disabled*/
+    CONTROL = 0,     /* Control transfer type */
+    ISOCHRONOUS = 1, /* Isochronous transfer type */
+    BULK = 2,        /* Bulk transfer type */
+    INTERRUPT = 3,   /* Interrupt transfer type */
+    DISABLED = 0xFF, /* Endpoint disabled */
 } USB_ENDPOINT_t;
 
 /*

@@ -174,7 +174,6 @@ void USB_ControlSetupReceived(void)
         else
         {
             // Sends or Receives data in next stage of request.
-            controlTransfer.totalBytesTransferred = 0;
             USB_PIPE_t controlPipe = { .address = 0u, .direction = USB_EP_DIR_IN };
             if ((controlTransfer.setupRequest.bmRequestType.dataPhaseTransferDirection) == USB_REQUEST_DIR_IN)
             {
@@ -221,21 +220,11 @@ void USB_ControlTransactionComplete(USB_PIPE_t pipe)
             // Checks remaining data to send.
             if (0U == (transferDataSize - bytesSent))
             {
-                controlTransfer.totalBytesTransferred += bytesSent;
-                if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
-                {
-                    // Data stage is complete, sends an OUT ZLP for status stage.
-                    USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
-                }
-                else
-                {
-                    // No overUnderRunCallback registered — send ZLP for data stage.
-                    USB_InTransactionRun(pipe);
-                }
+                // Data stage complete — send OUT ZLP for status stage.
+                USB_ControlTransferZLP(USB_REQUEST_DIR_OUT);
             }
             else
             {
-                // Starts next transaction in data stage.
                 USB_InTransactionRun(pipe);
             }
 
@@ -254,23 +243,11 @@ void USB_ControlTransactionComplete(USB_PIPE_t pipe)
 
             if (0U == (transferDataSize - bytesReceived))
             {
-                controlTransfer.totalBytesTransferred += bytesReceived;
-                if (controlTransfer.transferDataSize == controlTransfer.totalBytesTransferred)
-                {
-                    // Data stage is complete, sends an IN ZLP for status stage.
-                    USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
-                }
-                else
-                {
-                    // No overUnderRunCallback registered — stall.
-                    controlTransfer.status = USB_CONTROL_STALL_REQ;
-                    USB_EndpointInStall(0);
-                    USB_EndpointOutStall(0);
-                }
+                // Data stage complete — send IN ZLP for status stage.
+                USB_ControlTransferZLP(USB_REQUEST_DIR_IN);
             }
             else
             {
-                // Starts next transaction in data stage.
                 USB_OutTransactionRun(pipe);
             }
 

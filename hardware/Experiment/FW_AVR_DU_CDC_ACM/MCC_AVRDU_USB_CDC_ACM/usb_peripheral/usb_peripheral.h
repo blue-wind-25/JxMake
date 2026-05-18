@@ -50,7 +50,6 @@ typedef struct USB_CONTROL_TRANSFER_struct
     volatile USB_CONTROL_STATUS_t status;                   /*<The status of a transfer on this pipe*/
     uint8_t *transferDataPtr;                               /*<Location in RAM to send or fill during transfer*/
     uint16_t transferDataSize;                              /*<Number of bytes to transfer to or from RAM location*/
-    uint16_t totalBytesTransferred;                         /*<Number of data transfered last transaction*/
     USB_SETUP_ENDOFREQUEST_CALLBACK_t endOfRequestCallback; /*<Callback to call when a setup request is complete*/
     USB_SETUP_REQUEST_t setupRequest;                       /*<Setup request packet*/
 } USB_CONTROL_TRANSFER_t;

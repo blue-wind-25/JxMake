@@ -1,0 +1,67 @@
+name: Claude
+
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.assignee.login == 'blue-wind-25' &&
+      github.event.sender.login == 'blue-wind-25' &&
+      (contains(github.event.issue.title, '@Claude') ||
+      contains(github.event.issue.body, '@Claude'))
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          prompt: |
+            ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
+
+            The repository is already checked out locally.
+
+            All paths are relative to the repo root.
+            Use gh only for pull request and issue operations.
+
+            Before making any commits, run:
+              git checkout -b claude/issue-${{ github.event.issue.number }}
+              git config user.name "claude[bot]"
+              git config user.email "claude[bot]@users.noreply.github.com"
+
+            Then make the requested changes,
+            commit them, push the branch, and open a pull request.
+
+            After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
+
+          claude_args: >-
+            --allowedTools
+            "Edit,Write,Read,
+            Bash(git:*),
+            Bash(gh pr:*),Bash(gh issue:*),
+            Bash(grep:*),Bash(rg:*),Bash(find:*),
+            Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),
+            Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),
+            Bash(diff:*),Bash(patch:*),
+            Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),
+            Bash(touch:*),Bash(echo:*),Bash(chmod:*),
+            Bash(tee:*),Bash(xargs:*),Bash(tr:*)"
+            --effort medium   # change to: low, medium, high, xhigh, max
+            --max-turns 20    # increase if task is large/complex
+
+          # show_full_output: true  # uncomment for debugging

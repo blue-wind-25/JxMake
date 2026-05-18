@@ -100,10 +100,10 @@ typedef struct USB_PIPE_struct
  */
 typedef enum USB_TRANSFER_STATUS_enum
 {
-    USB_PIPE_TRANSFER_OK = 0,      /*<Successful transfer on the pipe*/
-    USB_PIPE_TRANSFER_BUSY = 1,    /*<The pipe is busy*/
-    USB_PIPE_TRANSFER_ABORTED = 2, /*<Transfer aborted on the pipe*/
-    USB_PIPE_TRANSFER_ERROR = 3,   /*<Failure during transfer on the pipe*/
+    USB_PIPE_TRANSFER_OK = 0,      /* Successful transfer on the pipe* /
+    USB_PIPE_TRANSFER_BUSY = 1,    /* The pipe is busy* /
+    USB_PIPE_TRANSFER_ABORTED = 2, /* Transfer aborted on the pipe */
+    USB_PIPE_TRANSFER_ERROR = 3,   /* Failure during transfer on the pipe */
 } USB_TRANSFER_STATUS_t;
 
 /*
@@ -111,11 +111,11 @@ typedef enum USB_TRANSFER_STATUS_enum
  */
 typedef enum USB_CONTROL_STATUS_enum
 {
-    USB_CONTROL_SETUP = 0,     /*< Wait a SETUP packet*/
-    USB_CONTROL_DATA_OUT = 1,  /*< Wait an OUT data packet*/
-    USB_CONTROL_DATA_IN = 2,   /*< Wait an IN data packet*/
-    USB_CONTROL_ZLP = 3,       /*< Wait an IN or OUT ZLP packet*/
-    USB_CONTROL_STALL_REQ = 4, /*< STALL enabled on IN and OUT packets*/
+    USB_CONTROL_SETUP = 0,     /* Wait a SETUP packet */
+    USB_CONTROL_DATA_OUT = 1,  /* Wait an OUT data packet */
+    USB_CONTROL_DATA_IN = 2,   /* Wait an IN data packet */
+    USB_CONTROL_ZLP = 3,       /* Wait an IN or OUT ZLP packet */
+    USB_CONTROL_STALL_REQ = 4, /* STALL enabled on IN and OUT packets */
 } USB_CONTROL_STATUS_t;
 
 /*

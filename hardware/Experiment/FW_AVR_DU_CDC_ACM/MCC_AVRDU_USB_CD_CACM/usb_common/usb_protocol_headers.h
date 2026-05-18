@@ -79,7 +79,7 @@ typedef enum USB_ENDPOINT_enum
     ISOCHRONOUS = 1, /*<Isochronous transfer type*/
     BULK = 2,        /*<Bulk transfer type*/
     INTERRUPT = 3,   /*<Interrupt transfer type*/
-    DISABLED = 0xff, /*<Endpoint disabled*/
+    DISABLED = 0xFF, /*<Endpoint disabled*/
 } USB_ENDPOINT_t;
 
 /*
@@ -269,8 +269,8 @@ typedef enum USB_DESCRIPTOR_TYPE_enum
     USB_DESCRIPTOR_TYPE_IAD = 11,                      /*<Interface Association Descriptor which associates a group of interfaces that form a single function, helping to manage composite devices*/
     USB_DESCRIPTOR_TYPE_BOS = 15,                      /*<Binary Object Store Descriptor which provides information about the capabilities of the device*/
     USB_DESCRIPTOR_TYPE_DEVICE_CAPABILITY = 16,        /*<Describes specific capabilities and features supported by the device, such as USB Power Delivery or USB 2.0 features*/
-    USB_DESCRIPTOR_TYPE_CLASS = 0x20,                  /*<Class descriptor types are from 0x20 to 0x3f*/
-    USB_DESCRIPTOR_TYPE_VENDOR = 0x40,                 /*<Vendor descriptor types are from 0x40 to 0x5f*/
+    USB_DESCRIPTOR_TYPE_CLASS = 0x20,                  /*<Class descriptor types are from 0x20 to 0x3F*/
+    USB_DESCRIPTOR_TYPE_VENDOR = 0x40,                 /*<Vendor descriptor types are from 0x40 to 0x5F*/
 } USB_DESCRIPTOR_TYPE_t;
 
 /*

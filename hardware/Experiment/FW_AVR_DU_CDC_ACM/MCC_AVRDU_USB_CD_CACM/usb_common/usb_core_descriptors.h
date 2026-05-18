@@ -74,7 +74,7 @@ uint8_t USB_DescriptorActiveConfigurationValueGet(void);
  *
  *     interfaceNumber - Interface number value
  *     alternateSetting - Alternative settings value, ignored if enable is false
- .     enable - Enable or disable the interface.
+ *     enable - Enable or disable the interface
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t alternateSetting, bool enable);

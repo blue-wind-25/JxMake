@@ -39,7 +39,7 @@
 #include "usb_core_requests_device.h"
 
 
-STATIC uint8_t deviceAddress = 0;
+static uint8_t deviceAddress = 0;
 
 RETURN_CODE_t SetupDeviceRequestGetStatus(void)
 {
@@ -64,13 +64,13 @@ void SetupDeviceAddressCallback(void)
 }
 
 #if 0
-// NOTE @Claude : This one (the original code?) is OK
+// NOTE: This one (the original code?) is OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
     uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
-    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xffu);
+    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xFFu);
 
     if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
     {
@@ -108,11 +108,11 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestP
     return status;
 }
 #else
-// NOTE @Claude : This one (your code?) is also OK
+// NOTE: This one (your code?) is also OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
 {
     uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
-    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xffu);
+    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xFFu);
     uint8_t *descriptorPtr = NULL;
     uint16_t descriptorLength = 0;
     RETURN_CODE_t status;

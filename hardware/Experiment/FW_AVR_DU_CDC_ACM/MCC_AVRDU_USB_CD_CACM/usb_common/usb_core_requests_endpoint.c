@@ -47,7 +47,7 @@
  * ENDPOINT_ADDRESS_MASK
  * Mask for the endpoint address in the wIndex field of the setup request.
  */
-#define ENDPOINT_ADDRESS_MASK (0x7fu)
+#define ENDPOINT_ADDRESS_MASK (0x7Fu)
 
 /*
  * ENDPOINT_DIRECTION_BITPOSITION

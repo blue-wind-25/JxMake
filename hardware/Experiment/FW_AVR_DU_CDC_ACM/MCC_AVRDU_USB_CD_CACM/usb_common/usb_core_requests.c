@@ -60,7 +60,7 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
     }
     case USB_REQUEST_SET_ADDRESS:
     {
-        status = SetupDeviceRequestSetAddress((uint8_t)setupRequestPtr->wValue & 0xffu);
+        status = SetupDeviceRequestSetAddress((uint8_t)setupRequestPtr->wValue & 0xFFu);
         break;
     }
     case USB_REQUEST_GET_DESCRIPTOR:
@@ -81,7 +81,7 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
     }
     case USB_REQUEST_SET_CONFIGURATION:
     {
-        status = SetupDeviceRequestSetConfiguration((uint8_t)(setupRequestPtr->wValue & 0xffu));
+        status = SetupDeviceRequestSetConfiguration((uint8_t)(setupRequestPtr->wValue & 0xFFu));
         break;
     }
     default:

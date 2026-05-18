@@ -55,7 +55,7 @@ USB_PIPE_t CDCRxPipe = {
 
 // RX Buffer
 uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
-STATIC uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
+static uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .content = usbCDCReceiveArray,
     .head = 0,
@@ -63,7 +63,7 @@ CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .maxLength = USB_CDC_RX_BUFFER_SIZE,
 };
 // TX Buffer
-STATIC uint8_t usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
+static uint8_t usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .content = usbCDCTransmitArray,
     .head = 0,

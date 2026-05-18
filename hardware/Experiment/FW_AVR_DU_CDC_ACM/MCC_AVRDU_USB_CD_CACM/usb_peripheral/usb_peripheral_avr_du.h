@@ -1757,8 +1757,8 @@ static ALWAYS_INLINE bool USB_SetupInterruptIs(void)
  */
 static ALWAYS_INLINE void USB_InterruptFlagsClear(void)
 {
-    USB0.INTFLAGSA = 0xff;
-    USB0.INTFLAGSB = 0xff;
+    USB0.INTFLAGSA = 0xFF;
+    USB0.INTFLAGSB = 0xFF;
 }
 
 

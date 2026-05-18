@@ -40,7 +40,7 @@
  * GET_INTERFACE_REQUEST_NUMBER_MASK
  * Mask for the interface number in the wIndex field of the setup request.
  */
-#define GET_INTERFACE_REQUEST_NUMBER_MASK (0xffu)
+#define GET_INTERFACE_REQUEST_NUMBER_MASK (0xFFu)
 
 /*
  * GET_INTERFACE_REQUEST_WVALUE

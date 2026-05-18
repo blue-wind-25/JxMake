@@ -214,7 +214,6 @@ jobs:
 
             After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
 
-          # Changed block scalar to folded (>-) to ensure smooth CLI execution string generation
           claude_args: |
             --model ${{ steps.claude_args.outputs.model }}
             --allowedTools "Edit,Write,Read,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*),Bash(tr:*)"

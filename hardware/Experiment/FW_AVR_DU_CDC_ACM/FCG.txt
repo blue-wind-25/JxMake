@@ -1,0 +1,747 @@
+## CALL GRAPH ANALYSIS
+Entry Point: hardware/Experiment/FW_AVR_DU_CDC_ACM/inc_usb_avr_du.h
+Scope: USB CDC-ACM stack for AVR DU (MCC_AVRDU_USB_CDC_ACM)
+Depth limit: 3 levels (extended through PASSTHROUGH chains)
+
+==============================================================================
+== SECTION 1: APPLICATION TIMER ISR (inc_usb_avr_du.h)
+==============================================================================
+
+ISR(TCA0_OVF_vect) → [no codebase calls]
+File: inc_usb_avr_du.h
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Leaf ISR — increments millisCnt and clears hardware flag directly. No callees in this codebase; all work is register-level. Keep the ISR structure for clarity.
+
+==============================================================================
+== SECTION 2: TIMING HELPERS (inc_usb_avr_du.h)
+==============================================================================
+
+delayMS → millis
+File: inc_usb_avr_du.h
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: millis() is a two-line ATOMIC_BLOCK read with no side effects; inlining removes the call overhead inside the busy-wait loop. Only used by delayMS.
+
+delayMS → USBDevice_CDCACMHandler
+File: inc_usb_avr_du.h
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: delayMS drives the CDC pump while blocking; keeping the handler as a named function preserves intent and reuse surface.
+
+==============================================================================
+== SECTION 3: CDC-ACM HANDLER (inc_usb_avr_du.h)
+==============================================================================
+
+USBDevice_CDCACMHandler → CIRCBUF_Empty
+File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: CIRCBUF_Empty is a single head==tail comparison. Zero callees. Safe to open-code.
+
+USBDevice_CDCACMHandler → USB_PipeStatusIsBusy
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single pipeTransfer[] array-index comparison. No side effects. Trivially inlineable.
+
+USBDevice_CDCACMHandler → USB_TransferWriteStart
+File: inc_usb_avr_du.h → usb_common/usb_core_transfer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Orchestrates busy check, pipe reset, data pointer setup, ZLP enable, callback registration, and IN transaction launch. Complex sequence; keep for readability and reuse.
+
+USBDevice_CDCACMHandler → CIRCBUF_FreeSpace
+File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Simple arithmetic (head/tail difference). No side effects or callees.
+
+USBDevice_CDCACMHandler → USB_TransferReadStart
+File: inc_usb_avr_du.h → usb_common/usb_core_transfer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Same complexity as USB_TransferWriteStart — pipe setup sequence for OUT direction. Keep.
+
+USBDevice_CDCACMHandler → CIRCBUF_Full
+File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single head+1==tail comparison with wrap. No callees. Safe to open-code.
+
+USBDevice_CDCACMHandler → CIRCBUF_Dequeue
+File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Returns BUFFER_EMPTY vs BUFFER_SUCCESS; caller uses the return code. The logic is non-trivial (tail advance with wrap). Keep.
+
+USBDevice_CDCACMHandler → CIRCBUF_Enqueue
+File: inc_usb_avr_du.h → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Silent-drop-if-full policy is subtle. Inlining the logic in multiple callers would risk divergence. Keep.
+
+==============================================================================
+== SECTION 4: USB_TransferWriteStart CALLEES (usb_common/usb_core_transfer.c)
+==============================================================================
+
+USB_TransferWriteStart → USB_PipeStatusIsBusy
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Guard check; single comparison. Inlining removes one level of indirection in the hot transfer path.
+
+USB_TransferWriteStart → USB_PipeReset
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Resets five fields; used by both TransferWriteStart and TransferReadStart. Keep to avoid duplication.
+
+USB_TransferWriteStart → USB_PipeDataPtrSet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment to pipeTransfer[idx].transferDataPtr. No logic.
+
+USB_TransferWriteStart → USB_PipeDataToTransferSizeSet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment to pipeTransfer[idx].transferDataSize. No logic.
+
+USB_TransferWriteStart → USB_PipeDataTransferredSizeReset
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Sets bytesTransferred to 0. Single assignment.
+
+USB_TransferWriteStart → USB_PipeTransferZLP_Enable
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Sets ZLPEnable flag. Single assignment.
+
+USB_TransferWriteStart → USB_PipeTransferEndCallbackRegister
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment of function pointer. No logic.
+
+USB_TransferWriteStart → USB_InTransactionRun
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Hardware-timing-sensitive: computes transaction size, sets endpoint buffer, clears NAK to release bus. Non-trivial logic; shared between TransferWriteStart and ControlTransactionComplete. Keep.
+
+==============================================================================
+== SECTION 5: USB_TransferReadStart CALLEES (usb_common/usb_core_transfer.c)
+==============================================================================
+
+USB_TransferReadStart → USB_PipeStatusIsBusy
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Same as above; guard check, single comparison.
+
+USB_TransferReadStart → USB_PipeReset
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Shared reset helper; same as USB_TransferWriteStart → USB_PipeReset.
+
+USB_TransferReadStart → USB_PipeDataPtrSet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment.
+
+USB_TransferReadStart → USB_PipeDataToTransferSizeSet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment.
+
+USB_TransferReadStart → USB_PipeDataTransferredSizeReset
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment.
+
+USB_TransferReadStart → USB_PipeTransferEndCallbackRegister
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Single function-pointer assignment.
+
+USB_TransferReadStart → USB_OutTransactionRun
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Hardware-timing-sensitive: sets receive buffer, receive count, clears NAK. Shared with ControlTransactionComplete. Keep.
+
+==============================================================================
+== SECTION 6: USB_InTransactionRun CALLEES (usb_peripheral/usb_peripheral_read_write.c)
+==============================================================================
+
+USB_InTransactionRun → USB_EndpointSizeGet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: USB_EndpointSizeGet dispatches to USB_EndpointInDefaultSizeGet (inline reg read). Pure PASSTHROUGH chain; zero added logic.
+
+USB_InTransactionRun → EndpointBufferSet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
+Type: LOGIC
+Risk: MAYBE ⚠️
+Flatten: Keep
+Reason: Contains an alignment guard for OUT direction (silently returns on misaligned buffer — errata workaround). Inlining this errata workaround in multiple callers risks silently ignoring misalignment. Keep.
+
+USB_InTransactionRun → USB_NumberBytesToSendSet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register write (EP.IN.CNT). Already inlined by compiler attribute.
+
+USB_InTransactionRun → USB_NumberBytesSentReset
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register clear (EP.IN.MCNT). Already inlined.
+
+USB_InTransactionRun → USB_EndpointInNAKClear
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: MAYBE ⚠️
+Flatten: Keep
+Reason: Contains WaitUntilRMWDone() spin-wait before clearing NAK. Interrupt-path; if RMW is slow the spin could delay the ISR. Flag for review but do not inline the spin into multiple callers.
+
+==============================================================================
+== SECTION 7: USB_OutTransactionRun CALLEES (usb_peripheral/usb_peripheral_read_write.c)
+==============================================================================
+
+USB_OutTransactionRun → USB_EndpointSizeGet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: Same PASSTHROUGH chain as in USB_InTransactionRun.
+
+USB_OutTransactionRun → EndpointBufferSet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
+Type: LOGIC
+Risk: MAYBE ⚠️
+Flatten: Keep
+Reason: Same alignment errata guard as in USB_InTransactionRun. Keep.
+
+USB_OutTransactionRun → USB_NumberBytesReceivedReset
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE clear of EP.OUT.CNT. Already inlined.
+
+USB_OutTransactionRun → USB_NumberBytesToReceiveSet
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE set of EP.OUT.MCNT. Already inlined.
+
+USB_OutTransactionRun → USB_EndpointOutNAKClear
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: MAYBE ⚠️
+Flatten: Keep
+Reason: Contains WaitUntilRMWDone() spin-wait. Same concern as USB_EndpointInNAKClear. Keep.
+
+==============================================================================
+== SECTION 8: USB_TransferControlDataSet CALLEES (usb_common/usb_core_transfer.c)
+==============================================================================
+
+USB_CDCRequestHandler → USB_TransferControlDataSet
+File: usb_cdc/usb_cdc.c → usb_common/usb_core_transfer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: USB_CDCRequestHandler is the CDC class request dispatcher; USB_TransferControlDataSet wires the control transfer data pointer. The indirection is intentional — Keep.
+
+USB_TransferControlDataSet → USB_ControlEndOfRequestCallbackRegister
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: Single assignment of endOfRequestCallback in controlTransfer struct.
+
+USB_TransferControlDataSet → USB_ControlTransferDataSet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: Sets transferDataPtr and transferDataSize then returns SUCCESS. Two assignments + return — trivially inlineable.
+
+==============================================================================
+== SECTION 9: USB_TransferAbort CALLEES (usb_common/usb_core_transfer.c)
+==============================================================================
+
+usb_stop → USB_TransferAbort
+File: inc_usb_avr_du.h → usb_common/usb_core_transfer.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Called in a loop over all pipe addresses; usb_stop has additional bus-detach logic before the loop. USB_TransferAbort is also called from SetupEndpointRequestSetFeature. Keep — reused.
+
+USB_TransferAbort → USB_PipeStatusIsBusy
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Guard check; single comparison. Inlining removes overhead in abort path.
+
+USB_TransferAbort → USB_TransactionAbort
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Manipulates hardware NAK bits and sets pipe status. Interrupt-sensitive; keep distinct.
+
+USB_TransferAbort → USB_PipeTransferEndCallback
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: MAYBE ⚠️
+Flatten: Keep
+Reason: Dispatches to a registered callback (USB_CDCDataTransmitted or USB_CDCDataReceived). Callback behavior is context-dependent and must not be inlined. Test the abort path before any refactoring.
+
+==============================================================================
+== SECTION 10: usb_stop CALLEES (inc_usb_avr_du.h)
+==============================================================================
+
+usb_stop → USB_BusDetach
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Inline
+Reason: USB_BusDetach is a PASSTHROUGH to USB_ConnectionDetach (single reg write). The name adds documentation value, but the chain is purely transparent. Inline if code-size matters.
+
+USB_BusDetach → USB_ConnectionDetach
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register write (USB0.CTRLB clear ATTACH). Pure PASSTHROUGH leaf.
+
+usb_stop → USB_PeripheralDisable
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Groups USB_Disable + USB_DeviceAddressReset into a named operation. Conceptually distinct from bus detach; keep for clarity even though each callee is a one-liner.
+
+USB_PeripheralDisable → USB_Disable
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register write (USB0.CTRLA clear ENABLE). Leaf.
+
+USB_PeripheralDisable → USB_DeviceAddressReset
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register clear. Leaf.
+
+==============================================================================
+== SECTION 11: usb_start CALLEES (inc_usb_avr_du.h)
+==============================================================================
+
+usb_start → USB_PeripheralInitialize
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Initializes hardware registers (FIFO, endpoint table, interrupt flags) and resets all pipe software state in a loop. Order-sensitive hardware setup — must keep isolated.
+
+usb_start → USB_ControlEndpointsInit
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Configures EP0 IN/OUT (CONTROL type, size, buffer, data toggle). Distinct responsibility from peripheral init. Keep.
+
+usb_start → USB_ControlTransferReset
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Resets control transfer state machine (aborts, clears status, resets counters). Called from multiple sites (usb_start, USB_ControlSetupReceived, USB_HandleEventStalled). Keep.
+
+usb_start → USB_BusAttach
+File: inc_usb_avr_du.h → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Inline
+Reason: PASSTHROUGH to USB_ConnectionAttach (inline reg set). Could be replaced with a direct call to USB_ConnectionAttach, but naming is documentation. Safe to inline.
+
+USB_BusAttach → USB_ConnectionAttach
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE register set (USB0.CTRLB |= ATTACH). Pure leaf.
+
+==============================================================================
+== SECTION 12: usb_init (inc_usb_avr_du.h)
+==============================================================================
+
+usb_init → usb_start
+File: inc_usb_avr_du.h → inc_usb_avr_du.h
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: usb_init performs clock reconfiguration and interrupt register setup before calling usb_start. Separating init-time configuration from the start sequence that is also used for reconnect is correct design. Keep.
+
+==============================================================================
+== SECTION 13: ISR(USB0_TRNCOMPL_vect) (usb_common/usb_core_transfer.c)
+==============================================================================
+
+ISR(USB0_TRNCOMPL_vect) → USB_TransferHandler
+File: usb_common/usb_core_transfer.c → usb_common/usb_core_transfer.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: ISR is a single delegation to USB_TransferHandler. USB_TransferHandler contains non-trivial branching (setup vs. transaction complete, pipe dispatch). It is only called from this ISR, but inlining a ~20-line function into the ISR body would obscure the interrupt entry point. Keep.
+
+USB_TransferHandler → USB_SetupIsReceived
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH chain: USB_SetupIsReceived → USB_SetupInterruptIs → inline reg read. Zero logic added at either level.
+
+USB_SetupIsReceived → USB_SetupInterruptIs
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE reg read (USB0.INTFLAGSB & SETUP). Leaf.
+
+USB_TransferHandler → USB_ControlSetupReceived
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Handles control setup packet — memcpy, USB_SetupProcess dispatch, ZLP/stall decisions, state transitions. Critical control-path function; do not flatten.
+
+USB_TransferHandler → USB_TransactionIsCompleted
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH: USB_TransactionIsCompleted → USB_TransactionCompleteInterruptIs → inline reg read. Zero logic.
+
+USB_TransactionIsCompleted → USB_TransactionCompleteInterruptIs
+File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE reg read. Leaf.
+
+USB_TransferHandler → USB_TransactionCompletedPipeGet
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Reads hardware FIFO read pointer to determine completed pipe. Hardware-specific logic; reading FIFO also clears the interrupt condition. Do not inline.
+
+USB_TransferHandler → USB_TransactionCompleteAck
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Clears hardware TRNCOMPL status bit (via WaitUntilRMWDone) and sets software pipe status to OK. Timing-sensitive; must occur before pipe dispatch. Keep distinct.
+
+USB_TransferHandler → USB_ControlTransactionComplete
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: State machine for control transfer stages (DATA_IN, DATA_OUT, ZLP, SETUP). Large function; shared between USB_TransferHandler and USB_ControlSetupReceived. Do not inline.
+
+USB_TransferHandler → USB_PipeTransactionComplete
+File: usb_common/usb_core_transfer.c → usb_peripheral/usb_peripheral_read_write.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Handles bulk/interrupt transfer completion, overflow detection, ZLP logic, and calls USB_PipeTransferEndCallback (→ user callback). Complex; keep isolated.
+TraceStopped: Depth limit reached; USB_PipeTransactionComplete itself calls USB_InTransactionRun, USB_OutTransactionRun, USB_PipeTransferEndCallback.
+
+==============================================================================
+== SECTION 14: ISR(USB0_BUSEVENT_vect) (usb_common/usb_core_events.c)
+==============================================================================
+
+ISR(USB0_BUSEVENT_vect) → USB_EventHandler
+File: usb_common/usb_core_events.c → usb_common/usb_core_events.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: ISR delegates to USB_EventHandler, which handles reset, over/underflow, and stall events — a large multi-branch function. Inlining into the ISR would obscure interrupt entry. Keep.
+
+USB_EventHandler → USB_EventResetIsReceived
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH chain → USB_ResetInterruptIs → inline reg read. Zero logic.
+
+USB_EventResetIsReceived → USB_ResetInterruptIs
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE reg read. Leaf.
+
+USB_EventHandler → USB_EventResetClear
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH chain → USB_ResetInterruptClear → inline reg write. Zero logic.
+
+USB_EventResetClear → USB_ResetInterruptClear
+File: usb_peripheral/usb_peripheral.c → usb_peripheral/usb_peripheral_avr_du.h
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: ALWAYS_INLINE interrupt flag clear. Leaf.
+
+USB_EventHandler → USB_Reset
+File: usb_common/usb_core_events.c → usb_common/usb_core.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Full USB stack reset: stop, reinitialize peripheral, reconfigure control endpoints, reattach. Called only from the bus-reset ISR path. Critical sequence; keep isolated.
+
+USB_Reset → USB_Stop
+File: usb_common/usb_core.c → usb_common/usb_core.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Detaches bus, disables peripheral, aborts all pending transfers. Shared with usb_stop() in inc_usb_avr_du.h. Keep.
+TraceStopped: Depth limit reached (L3 from ISR via EventHandler → Reset → Stop).
+
+USB_Reset → USB_PeripheralInitialize
+File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Hardware re-initialization. Same call as in usb_start(); keep consistent.
+TraceStopped: Depth limit reached.
+
+USB_Reset → USB_ControlEndpointsInit
+File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Re-configures EP0 after reset.
+TraceStopped: Depth limit reached.
+
+USB_Reset → USB_ControlTransferReset
+File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Resets control transfer state after bus reset.
+TraceStopped: Depth limit reached.
+
+USB_Reset → USB_BusAttach
+File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Inline
+Reason: PASSTHROUGH to USB_ConnectionAttach (inline reg write). Bus-timing-sensitive but structurally trivial.
+TraceStopped: Depth limit reached.
+
+USB_EventHandler → USB_EventOverUnderflowIsReceived
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Checks both overflow and underflow interrupt flags and combines into a bitmask. Two conditions — not trivially inlineable without duplicating the bitmask logic.
+
+USB_EventHandler → USB_EventOverUnderflowClear
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: Calls USB_OverflowInterruptClear + USB_UnderflowInterruptClear — both ALWAYS_INLINE reg writes. Pure PASSTHROUGH.
+
+USB_EventHandler → USB_ControlOverUnderflowIsReceived
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Checks and ACKs over/underflow status on EP0 in/out — has hardware side effects (ACK clears flag). Do not inline; the ACK-on-read behavior must remain explicit.
+
+USB_EventHandler → USB_ControlProcessOverUnderflow
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: Decides ZLP direction based on control transfer state and overflow/underflow type. Control-flow decision with hardware side effect (calls USB_ControlTransferZLP). Keep.
+
+USB_EventHandler → USB_EventStalledIsReceived
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH chain → USB_StalledInterruptIs → inline reg read.
+
+USB_EventHandler → USB_EventStalledClear
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: PASSTHROUGH
+Risk: SAFE
+Flatten: Inline
+Reason: PASSTHROUGH → USB_StalledInterruptClear → inline reg write.
+
+USB_EventHandler → USB_HandleEventStalled
+File: usb_common/usb_core_events.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: ACKs and clears stall on both EP0 IN and OUT, then resets control transfer state. Multi-step hardware sequence; keep isolated.
+
+==============================================================================
+== SECTION 15: USB_SetupProcess DISPATCH (usb_common/usb_core.c)
+==============================================================================
+
+USB_ControlSetupReceived → USB_SetupProcess
+File: usb_peripheral/usb_peripheral.c → usb_common/usb_core.c
+Type: PASSTHROUGH
+Risk: SAFE ⚠️
+Flatten: Keep
+Reason: USB_SetupProcess is the central request router — dispatches to device/endpoint/interface handlers and the CDC class handler. Although USB_ControlSetupReceived calls it directly, USB_SetupProcess is large and should remain a named function.
+
+USB_SetupProcess → USB_ControlTransferDataSet
+File: usb_common/usb_core.c → usb_peripheral/usb_peripheral.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Inline
+Reason: Resets control data pointer to NULL before request handling. Single assignment pair; called unconditionally at the top of SetupProcess.
+
+USB_SetupProcess → USB_SetupProcessDeviceRequest
+File: usb_common/usb_core.c → usb_common/usb_core_requests.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Device request dispatcher (GET_DESCRIPTOR, SET_ADDRESS, GET_CONFIGURATION, etc.). Non-trivial switch; keep.
+TraceStopped: Depth limit reached.
+
+USB_SetupProcess → USB_SetupProcessEndpointRequest
+File: usb_common/usb_core.c → usb_common/usb_core_requests.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Endpoint request dispatcher (GET_STATUS, CLEAR_FEATURE, SET_FEATURE). Keep.
+TraceStopped: Depth limit reached.
+
+USB_SetupProcess → USB_SetupProcessInterfaceRequest
+File: usb_common/usb_core.c → usb_common/usb_core_requests.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Interface request dispatcher. Keep.
+TraceStopped: Depth limit reached.
+
+USB_SetupProcess → USB_CDCRequestHandler
+File: usb_common/usb_core.c → usb_cdc/usb_cdc.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: CDC class request handler — GET_LINE_CODING, SET_LINE_CODING, SET_CONTROL_LINE_STATE. Keep as a separate CDC-layer function.
+TraceStopped: Depth limit reached.
+
+==============================================================================
+== SECTION 16: USB_CDCDataReceived / USB_CDCDataTransmitted CALLBACKS
+==============================================================================
+
+USB_CDCDataReceived → CIRCBUF_Enqueue
+File: usb_cdc/usb_cdc.c → usb_cdc/circular_buffer/circular_buffer.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Loops over received bytes and enqueues each. Loop logic wraps CIRCBUF_Enqueue; inlining would expand the loop body unnecessarily.
+
+USB_CDCDataTransmitted → [no function calls]
+File: usb_cdc/usb_cdc.c
+Type: LOGIC
+Risk: SAFE
+Flatten: Keep
+Reason: Leaf callback — resets transmit buffer head/tail to 0 on successful transmission. No callees. Keep as the named callback.
+
+==============================================================================
+## NOTES
+
+1. WaitUntilRMWDone() spin-loop: Several inline functions in usb_peripheral_avr_du.h call
+   WaitUntilRMWDone() before STATUS register writes. This spin runs in interrupt context
+   (ISR(USB0_TRNCOMPL_vect) path). The errata says it completes within 14 cycles, but
+   any function that touches STATUS registers should be flagged MAYBE ⚠️ for latency
+   analysis on congested paths.
+
+2. EndpointBufferSet alignment guard (errata): EndpointBufferSet silently returns without
+   setting the buffer pointer if the OUT buffer address is odd. This is a known AVR DU
+   errata workaround. All callers must ensure word-aligned OUT buffers; the silence makes
+   this a latent bug if alignment is ever violated.
+
+3. usb_stop() vs USB_Stop(): inc_usb_avr_du.h defines usb_stop() (static, lowercase) which
+   duplicates most of USB_Stop() (usb_core.c). usb_stop() is taken by address via
+   (void) usb_stop; in usb_init() to avoid an unused-function warning — it is never
+   actually called at runtime in the loopback demo. USB_Stop() is the live path called
+   from USB_Reset().
+
+4. USB_CDCRequestHandler called from USB_SetupProcess (usb_core.c), not from
+   inc_usb_avr_du.h directly. The USB0_TRNCOMPL_vect ISR → USB_TransferHandler →
+   USB_ControlSetupReceived → USB_SetupProcess → USB_CDCRequestHandler is the live
+   CDC control path.
+
+5. SetupDeviceRequestGetDescriptor has two implementations guarded by #if 0 / #else.
+   The active implementation (else branch) is the simplified version. The #if 0 block is
+   dead code; it does not affect the call graph but adds maintenance confusion.
+
+6. Depth stops for USB_Reset callees (USB_Stop, USB_PeripheralInitialize,
+   USB_ControlEndpointsInit, USB_ControlTransferReset) are all due to the 3-level limit
+   from the ISR entry. Their internal call graphs are documented in Sections 8–11 via
+   the usb_start / usb_stop paths which share the same callees.
+
+7. USB_PipeTransactionComplete (called from USB_TransferHandler) calls
+   USB_InTransactionRun, USB_OutTransactionRun, and USB_PipeTransferEndCallback
+   at depth 4 from the ISR. These are already documented in Sections 6–7 (via the
+   USB_TransferWriteStart / USB_TransferReadStart paths).

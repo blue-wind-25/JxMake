@@ -110,14 +110,14 @@ static inline void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataS
  *     pipe - A combination of endpoint address and direction
  * return The size of pipe data to transfer
  */
-uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe);
+static inline uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe) { return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize; }
 
 /*
  * Gets the size of the transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  * return The size of transferred pipe data
  */
-uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe);
+static inline uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe) { return pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred; }
 
 /*
  * Sets the size of the transferred pipe data.
@@ -125,7 +125,7 @@ uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe);
  *     dataSize - The size of pipe data transferred
  * return None.
  */
-void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize);
+static inline void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize) { pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = dataSize; }
 
 /*
  * Resets the size of transferred pipe data.

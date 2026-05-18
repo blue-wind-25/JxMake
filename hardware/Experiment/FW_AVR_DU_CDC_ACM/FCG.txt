@@ -22,7 +22,7 @@ delayMS → millis
 File: inc_usb_avr_du.h
 Type: LOGIC
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — DONE! (already static inline at definition; no change needed)
 Reason: millis() is a two-line ATOMIC_BLOCK read with no side effects; inlining removes the call overhead inside the busy-wait loop. Only used by delayMS.
 
 delayMS → USBDevice_CDCACMHandler
@@ -213,7 +213,7 @@ USB_InTransactionRun → USB_EndpointSizeGet
 File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — FAILED! (7454 → 7460; called from both InTransactionRun and OutTransactionRun — inlining duplicates branch+read+shift at two sites, net +6 bytes; keep as shared out-of-line function)
 Reason: USB_EndpointSizeGet dispatches to USB_EndpointInDefaultSizeGet (inline reg read). Pure PASSTHROUGH chain; zero added logic.
 
 USB_InTransactionRun → EndpointBufferSet
@@ -252,7 +252,7 @@ USB_OutTransactionRun → USB_EndpointSizeGet
 File: usb_peripheral/usb_peripheral_read_write.c → usb_peripheral/usb_peripheral_endpoint.c
 Type: PASSTHROUGH
 Risk: SAFE
-Flatten: Inline
+Flatten: Inline — FAILED! (see USB_InTransactionRun → USB_EndpointSizeGet above)
 Reason: Same PASSTHROUGH chain as in USB_InTransactionRun.
 
 USB_OutTransactionRun → EndpointBufferSet

@@ -100,21 +100,6 @@ void USB_PipeReset(USB_PIPE_t pipe)
 }
 
 
-uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe)
-{
-    return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize;
-}
-
-uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe)
-{
-    return pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred;
-}
-
-void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize)
-{
-    pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = dataSize;
-}
-
 
 void USB_PipeTransferEndCallback(USB_PIPE_t pipe)
 {

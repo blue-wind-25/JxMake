@@ -17,7 +17,7 @@ for complying with 3rd party license terms applicable to your use of 3rd
 party software (including open source software) that may accompany Microchip
 software.
 
-SOFTWARE IS "AS IS." NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY,
+SOFTWARE IS "AS IS". NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY,
 APPLY TO THIS SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,
 MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 

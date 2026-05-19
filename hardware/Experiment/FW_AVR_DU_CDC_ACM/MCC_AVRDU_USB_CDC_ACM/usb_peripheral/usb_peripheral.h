@@ -202,7 +202,23 @@ uint16_t USB_FrameNumberGet( void );
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_ControlEndpointsInit( void );
+static inline void USB_ControlEndpointsInit( void )
+{
+    USB_PIPE_t controlPipeOut;
+    controlPipeOut.address   = 0u;
+    controlPipeOut.direction = USB_EP_DIR_OUT;
+    USB_PIPE_t controlPipeIn;
+    controlPipeIn.address   = 0u;
+    controlPipeIn.direction = USB_EP_DIR_IN;
+
+    USB_EndpointConfigure( controlPipeOut, USB_EP0_SIZE, CONTROL );
+    USB_EndpointConfigure( controlPipeIn,  USB_EP0_SIZE, CONTROL );
+    EndpointBufferSet( controlPipeOut, controlTransfer.buffer );
+    EndpointBufferSet( controlPipeIn,  controlTransfer.buffer );
+    USB_DataToggleClear( controlPipeOut );
+    USB_DataToggleSet( controlPipeIn );
+    controlTransfer.status = USB_CONTROL_SETUP;
+}
 
 /*
  * Verifies the received control setup.

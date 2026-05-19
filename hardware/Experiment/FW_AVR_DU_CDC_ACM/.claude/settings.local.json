@@ -5,7 +5,10 @@
       "Bash(git commit -m ' *)",
       "Bash(grep -v \"^--$\")",
       "Bash(avr-nm --size-sort build/main.elf)",
-      "Bash(avr-nm --size-sort -S /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/build/main.elf)"
+      "Bash(avr-nm --size-sort -S /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/build/main.elf)",
+      "Bash(avr-nm --size-sort -S /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/build/MCC_AVRDU_USB_CDC_ACM.elf)",
+      "Bash(sort -k2 -rn)",
+      "Bash(awk '{print $2, $4}')"
     ]
   }
 }

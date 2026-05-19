@@ -41,59 +41,87 @@
 #include "usb_core_requests_interface.h"
 
 
-/*
- * Setup function for the device requests
- *
- * USB 2.0 Specification Ch 9.4.
- * | bRequest          | wValue            | wIndex     | wLength | Data                |
- * |-------------------|-------------------|------------|---------|---------------------|
- * | CLEAR_FEATURE     | Feature selector  | Zero       | Zero    | None                |
- * | GET_CONFIGURATION | Zero              | Zero       | One     | Config value        |
- * | GET_DESCRIPTOR    | Type and index    | Zero or ID | Length  | Descriptor          |
- * | GET_STATUS        | Zero              | Endpoint   | Two     | Device status       |
- * | SET_ADDRESS       | Device address    | Zero       | Zero    | None                |
- * | SET_CONFIGURATION | Config value      | Zero       | Zero    | None                |
- * | SET_DESCRIPTOR    | Type and index    | Zero or ID | Length  | Descriptor          |
- * | SET_FEATURE       | Feature selector  | Zero       | Zero    | None                |
- *
- *     setupRequestPtr - Pointer to the setup request and its data
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    RETURN_CODE_t status = UNINITIALIZED;
+    switch( setupRequestPtr->bRequest ) {
+        case USB_REQUEST_GET_STATUS:
+            status = SetupDeviceRequestGetStatus();
+            break;
+        case USB_REQUEST_CLEAR_FEATURE:
+        case USB_REQUEST_SET_FEATURE:
+        case USB_REQUEST_SET_DESCRIPTOR:
+            status = UNSUPPORTED;
+            break;
+        case USB_REQUEST_SET_ADDRESS:
+            status = SetupDeviceRequestSetAddress( (uint8_t) setupRequestPtr->wValue & 0xFFu );
+            break;
+        case USB_REQUEST_GET_DESCRIPTOR:
+            status = SetupDeviceRequestGetDescriptor( setupRequestPtr );
+            break;
+        case USB_REQUEST_GET_CONFIGURATION:
+            status = SetupDeviceRequestGetConfiguration();
+            break;
+        case USB_REQUEST_SET_CONFIGURATION:
+            status = SetupDeviceRequestSetConfiguration( (uint8_t) ( setupRequestPtr->wValue & 0xFFu ) );
+            break;
+        default:
+            status = UNSUPPORTED;
+            break;
+    }
+    return status;
+}
 
-/*
- * Setup function for the endpoint requests
- *
- * USB 2.0 Specification Ch. 9.4.
- * | bRequest      | wValue           | wIndex   | wLength | Data            |
- * |---------------|------------------|----------|---------|-----------------|
- * | CLEAR_FEATURE | Feature selector | Endpoint | Zero    | None            |
- * | GET_STATUS    | Zero             | Endpoint | Two     | Endpoint status |
- * | SET_FEATURE   | Feature selector | Endpoint | Zero    | None            |
- * | SYNCH_FRAME   | Zero             | Endpoint | Two     | Frame number    |
- *
- *     *setupRequestPtr - Pointer to the request and its data
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    RETURN_CODE_t status = UNINITIALIZED;
+    USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
+    if( endpoint.address >= (uint8_t) USB_EP_NUM ) {
+        status = ENDPOINT_ADDRESS_ERROR;
+    }
+    else {
+        switch( setupRequestPtr->bRequest ) {
+            case USB_REQUEST_GET_STATUS:
+                status = SetupEndpointRequestGetStatus( setupRequestPtr );
+                break;
+            case USB_REQUEST_CLEAR_FEATURE:
+                status = SetupEndpointRequestClearFeature( setupRequestPtr );
+                break;
+            case USB_REQUEST_SET_FEATURE:
+                status = SetupEndpointRequestSetFeature( setupRequestPtr );
+                break;
+            default:
+                status = UNSUPPORTED;
+                break;
+        }
+    }
+    return status;
+}
 
-/*
- * Setup function for the interface requests
- *
- * USB 2.0 Specification Ch 9.4.
- * | bRequest        | wValue            | wIndex    | wLength | Data                |
- * |-----------------|-------------------|-----------|---------|---------------------|
- * | CLEAR_FEATURE   | Feature selector  | Interface | Zero    | None                |
- * | GET_INTERFACE   | Zero              | Interface | One     | Alternate interface |
- * | GET_STATUS      | Zero              | Interface | Two     | Interface           |
- * | SET_FEATURE     | Feature selector  | Interface | Zero    | None                |
- * | SET_INTERFACE   | Alternate setting | Interface | Zero    | None                |
- * | GET_DESCRIPTOR  | Type and index    | Zero      | Length  | Descriptor          |
- *
- *     setupRequestPtr - Pointer to the setup request and its data
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_SetupProcessInterfaceRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_SetupProcessInterfaceRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    RETURN_CODE_t status = UNINITIALIZED;
+    switch( setupRequestPtr->bRequest ) {
+        case USB_REQUEST_GET_STATUS:
+            status = USB_SetupInterfaceRequestGetStatus();
+            break;
+        case USB_REQUEST_CLEAR_FEATURE:
+        case USB_REQUEST_SET_FEATURE:
+        case USB_REQUEST_GET_DESCRIPTOR:
+            status = UNSUPPORTED;
+            break;
+        case USB_REQUEST_GET_INTERFACE:
+            status = USB_SetupInterfaceRequestGetInterface( setupRequestPtr );
+            break;
+        case USB_REQUEST_SET_INTERFACE:
+            status = USB_SetupInterfaceRequestSetInterface( setupRequestPtr );
+            break;
+        default:
+            status = UNSUPPORTED;
+            break;
+    }
+    return status;
+}
 
 
 #endif // USB_CORE_REQUESTS_H

@@ -39,7 +39,7 @@
 #include "usb_peripheral_avr_du.h"
 
 
-RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestPtr );
+#include "../usb_common/usb_core.h"
 
 USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) ) = {
     .transferDataPtr = controlTransfer.buffer
@@ -110,24 +110,6 @@ void USB_DeviceAddressConfigure( uint8_t deviceAddress )
 uint16_t USB_FrameNumberGet( void )
 {
     return USB_FrameNumGet();
-}
-
-void USB_ControlEndpointsInit( void )
-{
-    USB_PIPE_t controlPipeOut = {
-        .address = 0, .direction = USB_EP_DIR_OUT
-    };
-    USB_PIPE_t controlPipeIn  = {
-        .address = 0, .direction = USB_EP_DIR_IN
-    };
-
-    USB_EndpointConfigure( controlPipeOut, USB_EP0_SIZE, CONTROL );
-    USB_EndpointConfigure( controlPipeIn,  USB_EP0_SIZE, CONTROL );
-    EndpointBufferSet( controlPipeOut, controlTransfer.buffer );
-    EndpointBufferSet( controlPipeIn,  controlTransfer.buffer );
-    USB_DataToggleClear( controlPipeOut );
-    USB_DataToggleSet( controlPipeIn );
-    controlTransfer.status = USB_CONTROL_SETUP;
 }
 
 void USB_ControlSetupReceived( void )

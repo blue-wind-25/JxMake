@@ -53,4 +53,3 @@ BUFFER_RETURN_CODE_t CIRCBUF_Dequeue( CIRCULAR_BUFFER_t* buffer, uint8_t* data )
     buffer->tail = nextTail;
     return BUFFER_SUCCESS;
 }
-

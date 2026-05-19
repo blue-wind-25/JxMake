@@ -49,8 +49,8 @@ PROG_NAME := $call( exe_fpath, main    )
 PROG_OBJS := $call( obj_fpath, {                                     \
     main.cpp                                                         \
     MCC_AVRDU_USB_CDC_ACM/usb_descriptors.c                          \
-    MCC_AVRDU_USB_CDC_ACM/usb_cdc/circular_buffer/circular_buffer.c  \
     MCC_AVRDU_USB_CDC_ACM/usb_cdc/usb_cdc.c                          \
+    MCC_AVRDU_USB_CDC_ACM/usb_cdc/circular_buffer/circular_buffer.c  \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_descriptors.c          \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_events.c               \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_device.c      \

@@ -38,17 +38,48 @@
 
 #include "../usb_common/usb_protocol_headers.h"
 #include "../usb_cdc/usb_protocol_cdc.h"
+#include "../usb_common/usb_core_transfer.h"
 
 
 extern uint16_t              usbCDCControlLineState;
 extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
-/*
- * Performs handling of control transfers.
- *     setupRequestPtr - Pointer to the Setup Request struct
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    RETURN_CODE_t status = UNINITIALIZED;
+
+    if( USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t) setupRequestPtr->bmRequestType.recipient ) {
+        if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
+            switch( setupRequestPtr->bRequest ) {
+                case USB_CDC_REQUEST_GET_LINE_CODING:
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    break;
+                default:
+                    status = UNSUPPORTED;
+                    break;
+            }
+        }
+        else {
+            switch( setupRequestPtr->bRequest ) {
+                case USB_CDC_REQUEST_SET_LINE_CODING:
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    break;
+                case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
+                    usbCDCControlLineState = setupRequestPtr->wValue;
+                    status = SUCCESS;
+                    break;
+                default:
+                    status = UNSUPPORTED;
+                    break;
+            }
+        }
+    }
+    else {
+        status = UNSUPPORTED;
+    }
+
+    return status;
+}
 
 
 #endif // USB_CDC_H

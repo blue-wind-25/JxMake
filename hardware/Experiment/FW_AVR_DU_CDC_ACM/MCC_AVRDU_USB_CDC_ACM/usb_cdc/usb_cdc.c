@@ -71,46 +71,6 @@ CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .maxLength = USB_CDC_TX_BUFFER_SIZE,
 };
 
-RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if( USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t) setupRequestPtr->bmRequestType.recipient ) {
-        if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
-            switch( setupRequestPtr->bRequest ) {
-                case USB_CDC_REQUEST_GET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
-                    break;
-
-                default:
-                    status = UNSUPPORTED;
-                    break;
-            } // switch
-        }
-        else {
-            switch( setupRequestPtr->bRequest ) {
-                case USB_CDC_REQUEST_SET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
-                    break;
-
-                case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
-                    usbCDCControlLineState = setupRequestPtr->wValue;
-                    status = SUCCESS;
-                    break;
-
-                default:
-                    status = UNSUPPORTED;
-                    break;
-            } // switch
-        }
-    }
-    else {
-        status = UNSUPPORTED;
-    }
-
-    return status;
-}
-
 void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )
 {
     (void) ( pipe );

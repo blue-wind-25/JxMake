@@ -2,6 +2,8 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Complete the FW_AVR_DU_CDC_ACM experiment.
+
 # Further verify, improve and cleanups:
       src/jxm/tool/SSLTrustAll.java
       src/jxm/tool/TLAuthenticator.java

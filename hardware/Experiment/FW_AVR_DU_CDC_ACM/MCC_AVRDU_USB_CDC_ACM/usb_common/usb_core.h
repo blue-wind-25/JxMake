@@ -76,18 +76,28 @@ static inline RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestP
     return status;
 }
 
-/*
- * Stops the USB peripheral and detaches it from the bus.
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-void USB_Stop( void );
+static inline void USB_Stop( void )
+{
+    USB_BusDetach();
+    USB_PeripheralDisable();
+    USB_PIPE_t pipe;
+    pipe.address   = 0;
+    pipe.direction = 0;
+    while( pipe.address < USB_EP_NUM ) {
+        pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort( pipe );
+        pipe.direction = USB_EP_DIR_IN;  USB_TransferAbort( pipe );
+        pipe.address++;
+    }
+}
 
-/*
- * Resets the USB peripheral.
- *     None.
- */
-void USB_Reset( void );
+static inline void USB_Reset( void )
+{
+    USB_Stop();
+    USB_PeripheralInitialize();
+    USB_ControlEndpointsInit();
+    USB_ControlTransferReset();
+    USB_BusAttach();
+}
 
 
 #endif // USB_CORE_H

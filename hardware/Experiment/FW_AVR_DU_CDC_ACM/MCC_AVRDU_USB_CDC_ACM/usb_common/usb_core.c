@@ -33,30 +33,3 @@
 
 
 #include "usb_core.h"
-
-
-void USB_Stop( void )
-{
-    USB_BusDetach();
-    USB_PeripheralDisable();
-
-    USB_PIPE_t pipe = {
-        .address = 0
-    };
-    while( pipe.address < USB_EP_NUM ) {
-        pipe.direction = USB_EP_DIR_OUT;
-        USB_TransferAbort( pipe );
-        pipe.direction = USB_EP_DIR_IN;
-        USB_TransferAbort( pipe );
-        pipe.address++;
-    }
-}
-
-void USB_Reset( void )
-{
-    USB_Stop();
-    USB_PeripheralInitialize();
-    USB_ControlEndpointsInit();
-    USB_ControlTransferReset();
-    USB_BusAttach();
-}

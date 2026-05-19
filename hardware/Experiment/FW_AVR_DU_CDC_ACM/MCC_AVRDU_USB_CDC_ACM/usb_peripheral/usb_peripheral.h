@@ -167,8 +167,8 @@ static inline void USB_ControlEndpointsInit( void )
     controlPipeOut.address   = 0u;
     controlPipeOut.direction = USB_EP_DIR_OUT;
     USB_PIPE_t controlPipeIn;
-    controlPipeIn.address   = 0u;
-    controlPipeIn.direction = USB_EP_DIR_IN;
+    controlPipeIn.address    = 0u;
+    controlPipeIn.direction  = USB_EP_DIR_IN;
 
     USB_EndpointConfigure( controlPipeOut, USB_EP0_SIZE, CONTROL );
     USB_EndpointConfigure( controlPipeIn,  USB_EP0_SIZE, CONTROL );
@@ -250,12 +250,10 @@ static inline void USB_ControlEndOfRequestCallbackRegister( USB_SETUP_ENDOFREQUE
 static inline void USB_ControlProcessOverUnderflow( uint8_t overunderflow )
 {
     if( USB_CONTROL_DATA_IN == controlTransfer.status ) {
-        if( OVERFLOW_EVENT == overunderflow )
-            USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
+        if( OVERFLOW_EVENT == overunderflow ) USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
     }
     else if( USB_CONTROL_DATA_OUT == controlTransfer.status ) {
-        if( UNDERFLOW_EVENT == overunderflow )
-            USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
+        if( UNDERFLOW_EVENT == overunderflow ) USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
     }
 }
 

@@ -64,7 +64,7 @@ static inline USB_PIPE_t EndpointFromRequestGet( uint16_t wIndex )
 static inline RETURN_CODE_t SetupEndpointRequestGetStatus( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
-    uint8_t data[] = { 0, 0 };
+    uint8_t    data[]   = { 0, 0 };
     if( USB_EndpointIsStalled( endpoint ) == true ) data[0] |= GET_STATUS_ENDPOINT_STALLED;
     return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
 }

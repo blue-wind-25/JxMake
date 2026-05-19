@@ -55,16 +55,19 @@ static inline RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestP
                 case USB_REQUEST_RECIPIENT_DEVICE:
                     status = USB_SetupProcessDeviceRequest( setupRequestPtr );
                     break;
+
                 case USB_REQUEST_RECIPIENT_ENDPOINT:
                     status = USB_SetupProcessEndpointRequest( setupRequestPtr );
                     break;
+
                 case USB_REQUEST_RECIPIENT_INTERFACE:
                     status = USB_SetupProcessInterfaceRequest( setupRequestPtr );
                     break;
+
                 default:
                     status = UNSUPPORTED;
                     break;
-            }
+            } // switch
         }
     }
     else if( USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t) setupRequestPtr->bmRequestType.type ) {
@@ -81,7 +84,7 @@ static inline void USB_Stop( void )
     USB_BusDetach();
     USB_PeripheralDisable();
     USB_PIPE_t pipe;
-    pipe.address   = 0;
+    pipe.address = 0;
     pipe.direction = 0;
     while( pipe.address < USB_EP_NUM ) {
         pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort( pipe );

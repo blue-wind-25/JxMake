@@ -48,34 +48,40 @@ static inline RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* 
         case USB_REQUEST_GET_STATUS:
             status = SetupDeviceRequestGetStatus();
             break;
+
         case USB_REQUEST_CLEAR_FEATURE:
         case USB_REQUEST_SET_FEATURE:
         case USB_REQUEST_SET_DESCRIPTOR:
             status = UNSUPPORTED;
             break;
+
         case USB_REQUEST_SET_ADDRESS:
             status = SetupDeviceRequestSetAddress( (uint8_t) setupRequestPtr->wValue & 0xFFu );
             break;
+
         case USB_REQUEST_GET_DESCRIPTOR:
             status = SetupDeviceRequestGetDescriptor( setupRequestPtr );
             break;
+
         case USB_REQUEST_GET_CONFIGURATION:
             status = SetupDeviceRequestGetConfiguration();
             break;
+
         case USB_REQUEST_SET_CONFIGURATION:
             status = SetupDeviceRequestSetConfiguration( (uint8_t) ( setupRequestPtr->wValue & 0xFFu ) );
             break;
+
         default:
             status = UNSUPPORTED;
             break;
-    }
+    } // switch
     return status;
 }
 
 static inline RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
-    USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
+    USB_PIPE_t    endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
     if( endpoint.address >= (uint8_t) USB_EP_NUM ) {
         status = ENDPOINT_ADDRESS_ERROR;
     }
@@ -84,16 +90,19 @@ static inline RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t
             case USB_REQUEST_GET_STATUS:
                 status = SetupEndpointRequestGetStatus( setupRequestPtr );
                 break;
+
             case USB_REQUEST_CLEAR_FEATURE:
                 status = SetupEndpointRequestClearFeature( setupRequestPtr );
                 break;
+
             case USB_REQUEST_SET_FEATURE:
                 status = SetupEndpointRequestSetFeature( setupRequestPtr );
                 break;
+
             default:
                 status = UNSUPPORTED;
                 break;
-        }
+        } // switch
     }
     return status;
 }
@@ -105,21 +114,25 @@ static inline RETURN_CODE_t USB_SetupProcessInterfaceRequest( USB_SETUP_REQUEST_
         case USB_REQUEST_GET_STATUS:
             status = USB_SetupInterfaceRequestGetStatus();
             break;
+
         case USB_REQUEST_CLEAR_FEATURE:
         case USB_REQUEST_SET_FEATURE:
         case USB_REQUEST_GET_DESCRIPTOR:
             status = UNSUPPORTED;
             break;
+
         case USB_REQUEST_GET_INTERFACE:
             status = USB_SetupInterfaceRequestGetInterface( setupRequestPtr );
             break;
+
         case USB_REQUEST_SET_INTERFACE:
             status = USB_SetupInterfaceRequestSetInterface( setupRequestPtr );
             break;
+
         default:
             status = UNSUPPORTED;
             break;
-    }
+    } // switch
     return status;
 }
 

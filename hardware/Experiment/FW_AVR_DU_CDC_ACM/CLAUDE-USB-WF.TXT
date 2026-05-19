@@ -33,7 +33,7 @@ claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
 Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
 tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260520.tar.gz ~/.claude/ ~/.claude.json
 
-continue with batch 13
+continue with batch 21
 
 
 

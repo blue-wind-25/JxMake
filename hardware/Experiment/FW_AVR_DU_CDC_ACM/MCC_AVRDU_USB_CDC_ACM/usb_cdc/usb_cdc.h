@@ -54,24 +54,31 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                 case USB_CDC_REQUEST_GET_LINE_CODING:
                     status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
                     break;
+
                 default:
                     status = UNSUPPORTED;
                     break;
-            }
+            } // switch
         }
         else {
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_SET_LINE_CODING:
                     status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    // Baudrate check test
+                    if(usbCDCLineCoding.dwDTERate == 300) {
+                        for(;;); // Hung on purpose
+                    }
                     break;
+
                 case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
                     usbCDCControlLineState = setupRequestPtr->wValue;
                     status = SUCCESS;
                     break;
+
                 default:
                     status = UNSUPPORTED;
                     break;
-            }
+            } // switch
         }
     }
     else {

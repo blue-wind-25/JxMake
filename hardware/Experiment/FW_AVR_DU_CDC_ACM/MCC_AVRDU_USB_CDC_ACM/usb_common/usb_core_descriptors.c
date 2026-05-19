@@ -219,7 +219,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
                     DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
                     activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
                 }
-#else
+#else  /* ifndef NEW_CODE */
                 DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
 #endif // ifndef NEW_CODE
                 if( enable && ( alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting ) )

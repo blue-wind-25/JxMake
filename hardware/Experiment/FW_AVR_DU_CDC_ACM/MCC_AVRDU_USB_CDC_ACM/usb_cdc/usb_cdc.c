@@ -62,6 +62,7 @@ CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .tail = 0,
     .maxLength = USB_CDC_RX_BUFFER_SIZE,
 };
+
 // TX Buffer
 static uint8_t    usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {

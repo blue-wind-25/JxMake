@@ -73,8 +73,8 @@ typedef union USB_DESCRIPTOR_PTR_union {
 
 // NOTE @Claude : Defining this will cause the CDC-ACM to hang
 /*
- #define NEW_CODE
-   //*/
+#define NEW_CODE
+//*/
 
 static USB_CONFIGURATION_DESCRIPTOR_t* activeConfigurationPtr = NULL;
 
@@ -215,7 +215,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
                     DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
                     activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
                 }
-#else  // ifndef NEW_CODE
+#else
                 DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
 #endif // ifndef NEW_CODE
                 if( enable && ( alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting ) )
@@ -245,7 +245,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
                     activeInterfaces[interfaceNumber] = alternateSetting;
 #else
                     DescriptorEndpointsConfigure( enableInterfacePtr, true );
-#endif
+#endif // ifndef NEW_CODE
 
                 }
                 else {

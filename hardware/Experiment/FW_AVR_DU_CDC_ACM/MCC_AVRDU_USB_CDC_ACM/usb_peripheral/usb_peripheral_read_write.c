@@ -32,9 +32,6 @@
  */
 
 
-#include <stdbool.h>
-#include <stddef.h>
-
 #include "usb_peripheral_avr_du.h"
 #include "usb_peripheral_endpoint.h"
 #include "usb_peripheral_read_write.h"
@@ -50,7 +47,6 @@ void USB_TransactionAbort( USB_PIPE_t pipe )
     else {
         USB_EndpointInNAKSet( pipe.address );
     }
-
     pipeTransfer[PipeTransferIndexGet( pipe )].status = USB_PIPE_TRANSFER_ABORTED;
 }
 
@@ -68,7 +64,6 @@ void USB_PipeReset( USB_PIPE_t pipe )
 void USB_PipeTransferEndCallback( USB_PIPE_t pipe )
 {
     USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];
-
     if( NULL != pipeTransferPtr->transferEndCallback ) pipeTransferPtr->transferEndCallback( pipe, pipeTransferPtr->status, pipeTransferPtr->bytesTransferred );
 }
 

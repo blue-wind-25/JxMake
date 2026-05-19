@@ -36,6 +36,8 @@
 #define USB_PERIPHERAL_READ_WRITE_H
 
 
+#include <stddef.h>
+
 #include "usb_peripheral_avr_du.h"
 
 // Pipe transfer index: (address * 2) + direction
@@ -47,9 +49,7 @@ extern USB_PIPE_TRANSFER_t pipeTransfer[];
 
 /*
  * Aborts the next transaction on an endpoint by setting BUSNACK.
- * Used to stop exchanging data on an endpoint. The device will start NAKing requests from the host after calling this API.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 void USB_TransactionAbort( USB_PIPE_t pipe );
 
@@ -99,7 +99,6 @@ static inline RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe )
 /*
  * Resets the pipe.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 void USB_PipeReset( USB_PIPE_t pipe );
 
@@ -176,7 +175,6 @@ static inline void USB_PipeTransferEndCallbackRegister( USB_PIPE_t pipe, USB_TRA
 /*
  * Calls the callback for transfer end.
  *     pipe - A combination of endpoint address and direction
- * return None.
  */
 void USB_PipeTransferEndCallback( USB_PIPE_t pipe );
 

@@ -72,17 +72,8 @@ static inline void USB_EndpointDisable( USB_PIPE_t pipe )
 uint16_t USB_EndpointSizeGet( USB_PIPE_t pipe );
 
 /*
- * Helper function to return the endpoint type.
- *     pipe - A combination of endpoint address and direction
- * return The endpoint type
- */
-USB_ENDPOINT_t USB_EndpointTypeGet( USB_PIPE_t pipe );
-
-/*
  * Helps stall an endpoint when a command received from the host is invalid or unrecognizable.
- * Used if the host sends data that is not supported by the device.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 static inline void USB_EndpointStall( USB_PIPE_t pipe )
 {
@@ -92,10 +83,7 @@ static inline void USB_EndpointStall( USB_PIPE_t pipe )
 
 /*
  * Helps clear the Stall condition after the device has recovered from an unsupported command from the host.
- * Used to reset stall before the next USB transfer.
- * Used when the host issues a clear HALT/Feature request to reset stall.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 static inline void USB_EndpointStallClear( USB_PIPE_t pipe )
 {
@@ -106,7 +94,6 @@ static inline void USB_EndpointStallClear( USB_PIPE_t pipe )
 /*
  * Helper function to return the endpoint Stall condition.
  *     pipe - A combination of endpoint address and direction
- * return A boolean value representing the Stall condition. If the pipe address is out of bounds, the function will always return false
  */
 static inline bool USB_EndpointIsStalled( USB_PIPE_t pipe )
 {
@@ -115,21 +102,8 @@ static inline bool USB_EndpointIsStalled( USB_PIPE_t pipe )
 }
 
 /*
- * Acknowledges the stall status condition by clearing the Stall Status bit.
- * Used to clear the Stall Status bit after a stall has been detected.
+ * Sets the Data Toggle bit on an endpoint.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_EndpointStalledConditionAck( USB_PIPE_t pipe );
-
-/*
- * Sets the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
- * Only used if hardware data toggling is not available.
- * After a successful transaction, toggle the Data Toggle bit.
- * For SETUP transactions, ensure that the SETUP stage clears the Data Toggle bit,
- * while the data stage and status stage set the Data Toggle bit.
- *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 static inline void USB_DataToggleSet( USB_PIPE_t pipe )
 {
@@ -138,13 +112,8 @@ static inline void USB_DataToggleSet( USB_PIPE_t pipe )
 }
 
 /*
- * Clears the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
- * Only used if hardware data toggling is not available.
- * After a successful transaction, toggle the Data Toggle bit.
- * For SETUP transactions, ensure that the SETUP stage clears the Data Toggle bit,
- * while the data stage and status stage set the Data Toggle bit.
+ * Clears the Data Toggle bit on an endpoint.
  *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 static inline void USB_DataToggleClear( USB_PIPE_t pipe )
 {
@@ -153,21 +122,9 @@ static inline void USB_DataToggleClear( USB_PIPE_t pipe )
 }
 
 /*
- * Toggles the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
- * Only used if hardware data toggling is not available.
- * After a successful transaction, toggle the Data Toggle bit.
- * For SETUP transactions, ensure that the SETUP stage clears the Data Toggle bit,
- * while the data stage and status stage set the Data Toggle bit.
- *     pipe - A combination of endpoint address and direction
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t USB_DataToggle( USB_PIPE_t pipe );
-
-/*
  * Configures the endpoint data buffer to a location in RAM for the next transaction.
  *     pipe - A combination of endpoint address and direction
  *     bufAddress - The pointer to the data buffer the endpoint will use
- * return SUCCESS or an Error code according to RETURN_CODE_t
  */
 void EndpointBufferSet( USB_PIPE_t pipe, uint8_t* bufAddress );
 

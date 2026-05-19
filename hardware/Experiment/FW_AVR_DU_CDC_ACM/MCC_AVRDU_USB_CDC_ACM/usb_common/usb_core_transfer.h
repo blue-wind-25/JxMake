@@ -95,16 +95,5 @@ static inline RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16
  */
 void USB_TransferAbort( USB_PIPE_t pipe );
 
-/*
- * Handles the different types of packages received or transferred.
- *
- * Checks if a setup package is received or if a transaction is completed and which pipe has a completed transaction, then it handles them accordingly.
- * Sends an ACK upon completed transaction confirmation.
- *
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-void USB_TransferHandler( void );
-
 
 #endif // USB_CORE_TRANSFER_H

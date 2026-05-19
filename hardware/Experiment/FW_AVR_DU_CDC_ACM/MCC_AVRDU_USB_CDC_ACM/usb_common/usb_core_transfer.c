@@ -37,12 +37,6 @@
 #include "usb_core_transfer.h"
 
 
-ISR( USB0_TRNCOMPL_vect )
-{
-    USB_TransferHandler();
-}
-
-
 RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
 {
     if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
@@ -76,7 +70,7 @@ void USB_TransferAbort( USB_PIPE_t pipe )
     }
 }
 
-void USB_TransferHandler( void )
+static void USB_TransferHandler( void )
 {
     // If it's the initial setup packet, handle that separately.
     if( USB_SetupIsReceived() == true ) {
@@ -95,4 +89,9 @@ void USB_TransferHandler( void )
             }
         }
     }
+}
+
+ISR( USB0_TRNCOMPL_vect )
+{
+    USB_TransferHandler();
 }

@@ -39,13 +39,7 @@
 #include "usb_core_events.h"
 
 
-ISR( USB0_BUSEVENT_vect )
-{
-    USB_EventHandler();
-}
-
-
-void USB_EventHandler( void )
+static void USB_EventHandler( void )
 {
     if( USB_EventResetIsReceived() == true ) {
         USB_EventResetClear();
@@ -61,4 +55,9 @@ void USB_EventHandler( void )
         USB_EventStalledClear();
         USB_HandleEventStalled( (USB_PIPE_t) { .address = 0x00, .direction = USB_EP_DIR_OUT } );
     }
+}
+
+ISR( USB0_BUSEVENT_vect )
+{
+    USB_EventHandler();
 }

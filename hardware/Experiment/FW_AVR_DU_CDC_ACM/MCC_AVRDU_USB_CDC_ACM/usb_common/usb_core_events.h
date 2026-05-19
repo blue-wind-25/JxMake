@@ -39,12 +39,5 @@
 #include "usb_core_transfer.h"
 
 
-/*
- * Handles the different types of events.
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-void USB_EventHandler( void );
-
 
 #endif // USB_CORE_EVENTS_H

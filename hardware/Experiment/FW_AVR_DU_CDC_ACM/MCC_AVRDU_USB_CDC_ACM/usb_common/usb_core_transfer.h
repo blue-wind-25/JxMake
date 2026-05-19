@@ -53,7 +53,18 @@
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback );
+static inline RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
+{
+    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
+    USB_PipeReset( pipe );
+    USB_PipeDataPtrSet( pipe, dataPtr );
+    USB_PipeDataToTransferSizeSet( pipe, dataSize );
+    // USB_PipeReset already zeros bytesTransferred — no need to reset again
+    USB_PipeTransferZLP_Enable( pipe );
+    USB_PipeTransferEndCallbackRegister( pipe, callback );
+    USB_InTransactionRun( pipe );
+    return SUCCESS;
+}
 
 /*
  * Sets up the pipe for the read transfers.
@@ -67,7 +78,17 @@ RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback );
+static inline RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
+{
+    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
+    USB_PipeReset( pipe );
+    USB_PipeDataPtrSet( pipe, dataPtr );
+    USB_PipeDataToTransferSizeSet( pipe, dataSize );
+    // USB_PipeReset already zeros bytesTransferred — no need to reset again
+    USB_PipeTransferEndCallbackRegister( pipe, callback );
+    USB_OutTransactionRun( pipe );
+    return SUCCESS;
+}
 
 /*
  * Sets up vendor or class control request data transfers.

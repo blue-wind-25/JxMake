@@ -37,31 +37,6 @@
 #include "usb_core_transfer.h"
 
 
-RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
-{
-    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
-    USB_PipeReset( pipe );
-    USB_PipeDataPtrSet( pipe, dataPtr );
-    USB_PipeDataToTransferSizeSet( pipe, dataSize );
-    // USB_PipeReset already zeros bytesTransferred — no need to reset again
-    USB_PipeTransferZLP_Enable( pipe );
-    USB_PipeTransferEndCallbackRegister( pipe, callback );
-    USB_InTransactionRun( pipe );
-    return SUCCESS;
-}
-
-RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
-{
-    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
-    USB_PipeReset( pipe );
-    USB_PipeDataPtrSet( pipe, dataPtr );
-    USB_PipeDataToTransferSizeSet( pipe, dataSize );
-    // USB_PipeReset already zeros bytesTransferred — no need to reset again
-    USB_PipeTransferEndCallbackRegister( pipe, callback );
-    USB_OutTransactionRun( pipe );
-    return SUCCESS;
-}
-
 void USB_TransferAbort( USB_PIPE_t pipe )
 {
     if( USB_PipeStatusIsBusy( pipe ) == true ) {

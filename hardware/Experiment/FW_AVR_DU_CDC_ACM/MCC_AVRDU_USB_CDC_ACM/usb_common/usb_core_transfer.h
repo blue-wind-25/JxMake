@@ -33,7 +33,7 @@
 
 
 #ifndef USB_CORE_TRANSFER_H
-#define	USB_CORE_TRANSFER_H
+#define USB_CORE_TRANSFER_H
 
 
 #include "../usb_peripheral/usb_peripheral.h"
@@ -53,7 +53,7 @@
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
+RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback );
 
 /*
  * Sets up the pipe for the read transfers.
@@ -67,7 +67,7 @@ RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t
  *     callback - A combination of pipe, status and transferred bytes
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback);
+RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback );
 
 /*
  * Sets up vendor or class control request data transfers.
@@ -79,7 +79,7 @@ RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t 
  *     callback - Pointer to a function to be called at the end of the control request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback);
+RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback );
 
 /*
  * Aborts an ongoing transfer.
@@ -89,7 +89,7 @@ RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, US
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_TransferAbort(USB_PIPE_t pipe);
+void USB_TransferAbort( USB_PIPE_t pipe );
 
 /*
  * Handles the different types of packages received or transferred.
@@ -100,7 +100,7 @@ void USB_TransferAbort(USB_PIPE_t pipe);
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_TransferHandler(void);
+void USB_TransferHandler( void );
 
 
-#endif /* USB_CORE_TRANSFER_H */
+#endif // USB_CORE_TRANSFER_H

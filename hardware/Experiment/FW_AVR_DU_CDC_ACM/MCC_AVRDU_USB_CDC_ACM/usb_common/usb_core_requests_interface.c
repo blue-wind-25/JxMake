@@ -40,7 +40,7 @@
  * GET_INTERFACE_REQUEST_NUMBER_MASK
  * Mask for the interface number in the wIndex field of the setup request.
  */
-#define GET_INTERFACE_REQUEST_NUMBER_MASK (0xFFu)
+#define GET_INTERFACE_REQUEST_NUMBER_MASK ( 0xFFu )
 
 /*
  * GET_INTERFACE_REQUEST_WVALUE
@@ -54,22 +54,24 @@
  */
 #define GET_INTERFACE_RESPONSE_SIZE 1u
 
-RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void)
+RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void )
 {
-    uint8_t data[] = {0, 0};
+    uint8_t data[] = {
+        0, 0
+    };
 
-    return USB_ControlTransferDataWriteBuffer(data, sizeof (data));
+    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
 }
 
-RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     // All interfaces have only alternate setting 0
-    (void)setupRequestPtr;
+    (void) setupRequestPtr;
     uint8_t alternateSetting = 0;
-    return USB_ControlTransferDataWriteBuffer(&alternateSetting, sizeof(alternateSetting));
+    return USB_ControlTransferDataWriteBuffer( &alternateSetting, sizeof( alternateSetting ) );
 }
 
-RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupInterfaceRequestSetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
-    return USB_DescriptorInterfaceConfigure(setupRequestPtr->wIndex, setupRequestPtr->wValue, true);
+    return USB_DescriptorInterfaceConfigure( setupRequestPtr->wIndex, setupRequestPtr->wValue, true );
 }

@@ -41,35 +41,35 @@
  *     wIndex - Endpoint address and direction
  * return A structure with the endpoint status
  */
-USB_PIPE_t EndpointFromRequestGet(uint16_t wIndex);
+USB_PIPE_t EndpointFromRequestGet( uint16_t wIndex );
 
 /*
  * Gets the endpoint status.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestGetStatus(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t SetupEndpointRequestGetStatus( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Clears the endpoint feature.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestClearFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t SetupEndpointRequestClearFeature( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Sets the endpoint feature.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestSetFeature(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t SetupEndpointRequestSetFeature( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Gets the current frame number.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestSynchFrame(void);
+RETURN_CODE_t SetupEndpointRequestSynchFrame( void );
 
 
-#endif /* USB_CORE_REQUESTS_ENDPOINT_H */
+#endif // USB_CORE_REQUESTS_ENDPOINT_H

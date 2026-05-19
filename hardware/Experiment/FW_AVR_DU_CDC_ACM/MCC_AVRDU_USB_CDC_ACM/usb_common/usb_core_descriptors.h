@@ -37,7 +37,7 @@
 #define USB_CORE_DESCRIPTORS_H
 
 
-extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
+extern USB_DESCRIPTOR_POINTERS_t* applicationPointers;
 
 /*
  * Enables endpoint configuration descriptor.
@@ -54,14 +54,14 @@ extern USB_DESCRIPTOR_POINTERS_t *applicationPointers;
  *     configurationValue - The value of the configuration to be enabled
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DescriptorConfigurationEnable(uint8_t configurationValue);
+RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue );
 
 /*
  * Gets the active configuration value.
  *     None.
  * return The active configuration value
  */
-uint8_t USB_DescriptorActiveConfigurationValueGet(void);
+uint8_t USB_DescriptorActiveConfigurationValueGet( void );
 
 /*
  * Enables or Disables an Interface Descriptor.
@@ -77,7 +77,7 @@ uint8_t USB_DescriptorActiveConfigurationValueGet(void);
  *     enable - Enable or disable the interface
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t alternateSetting, bool enable);
+RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t alternateSetting, bool enable );
 
 /*
  * Gets the pointer to the descriptor.
@@ -87,7 +87,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure(uint8_t interfaceNumber, uint8_t 
  *     *descriptorLength - Length of the descriptor
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t **descriptorPtr, uint16_t *descriptorLength);
+RETURN_CODE_t USB_DescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t** descriptorPtr, uint16_t* descriptorLength );
 
 /*
  * Gets the pointer to the string descriptor.
@@ -97,7 +97,7 @@ RETURN_CODE_t USB_DescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptor, uint8_t
  *     *descriptorLength - Length of the descriptor
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langID, uint8_t **descriptorAddressPtr, uint16_t *descriptorLength);
+RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t langID, uint8_t** descriptorAddressPtr, uint16_t* descriptorLength );
 
 /*
  * Collects the configuration pointer.
@@ -105,7 +105,7 @@ RETURN_CODE_t USB_DescriptorStringPointerGet(uint8_t stringIndex, uint16_t langI
  *     **configurationPtr - Pointer to the configuration
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t **configurationPtr);
+RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t** configurationPtr );
 
 /*
  * Configures the endpoints as given in the descriptor.
@@ -113,7 +113,7 @@ RETURN_CODE_t ConfigurationPointerGet(uint8_t configurationValue, USB_CONFIGURAT
  *     enable - Boolean to enable or disable the endpoint
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool enable);
+void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable );
 
 /*
  * Gets the next descriptor.
@@ -121,7 +121,7 @@ void DescriptorEndpointsConfigure(USB_INTERFACE_DESCRIPTOR_t *interfacePtr, bool
  *     **descriptorHeaderPtr - Pointer to the descriptor header
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t NextDescriptorPointerGet(USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t **descriptorHeaderPtr);
+RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr );
 
 
-#endif /* USB_CORE_DESCRIPTORS_H */
+#endif // USB_CORE_DESCRIPTORS_H

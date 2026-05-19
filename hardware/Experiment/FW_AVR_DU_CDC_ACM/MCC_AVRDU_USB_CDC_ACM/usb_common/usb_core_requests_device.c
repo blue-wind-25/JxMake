@@ -41,124 +41,110 @@
 
 static uint8_t deviceAddress = 0;
 
-RETURN_CODE_t SetupDeviceRequestGetStatus(void)
+RETURN_CODE_t SetupDeviceRequestGetStatus( void )
 {
     // Bus-powered, no remote wakeup — both bits always 0
-    uint8_t data[] = {0, 0};
-    return USB_ControlTransferDataWriteBuffer(data, sizeof(data));
+    uint8_t data[] = {
+        0, 0
+    };
+    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
 }
 
-RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address)
+RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address )
 {
     // Must register the callback here since device address must be set after completion of status stage.
     deviceAddress = address;
-    USB_ControlEndOfRequestCallbackRegister(&SetupDeviceAddressCallback);
+    USB_ControlEndOfRequestCallbackRegister( &SetupDeviceAddressCallback );
 
     return SUCCESS;
 }
 
-void SetupDeviceAddressCallback(void)
+void SetupDeviceAddressCallback( void )
 {
-    USB_DeviceAddressConfigure(deviceAddress);
-    USB_ControlEndOfRequestCallbackRegister(NULL);
+    USB_DeviceAddressConfigure( deviceAddress );
+    USB_ControlEndOfRequestCallbackRegister( NULL );
 }
 
 #if 0
 // NOTE @Claude : This one (the original code) is OK
-RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
-    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xFFu);
+    uint8_t descriptorType  = (uint8_t) ( setupRequestPtr->wValue >> 8u );
+    uint8_t descriptorIndex = (uint8_t) ( setupRequestPtr->wValue & 0xFFu );
 
-    if (USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t)descriptorType)
-    {
+    if( USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
         // Class (0x20–0x3F) and vendor (0x40+) descriptor types are not requested
         // via GET_DESCRIPTOR in CDC-ACM — class descriptors are embedded in the
         // configuration descriptor.
         status = UNSUPPORTED;
     }
-    else
-    {
-        uint8_t *descriptorPtr = NULL;
+    else {
+        uint8_t* descriptorPtr = NULL;
         uint16_t descriptorLength = 0;
 
-        if (USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t)descriptorType)
-        {
-            status = USB_DescriptorStringPointerGet(descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength);
+        if( USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
+            status = USB_DescriptorStringPointerGet( descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength );
         }
-        else
-        {
+        else {
             // USB_DescriptorPointerGet will handle remaining invalid descriptorTypes.
-            status = USB_DescriptorPointerGet(descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength);
+            status = USB_DescriptorPointerGet( descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength );
         }
 
-        if (SUCCESS == status)
-        {
-            if (descriptorLength > setupRequestPtr->wLength)
-            {
-                descriptorLength = setupRequestPtr->wLength;
-            }
+        if( SUCCESS == status ) {
+            if( descriptorLength > setupRequestPtr->wLength ) descriptorLength = setupRequestPtr->wLength;
 
-            USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
+            USB_ControlTransferDataSet( descriptorPtr, descriptorLength );
         }
     }
 
     return status;
 }
-#else
+#else  /* if 0 */
 // NOTE @Claude : This one (your code) is also OK
-RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
-    uint8_t descriptorType = (uint8_t)(setupRequestPtr->wValue >> 8u);
-    uint8_t descriptorIndex = (uint8_t)(setupRequestPtr->wValue & 0xFFu);
-    uint8_t *descriptorPtr = NULL;
-    uint16_t descriptorLength = 0;
+    uint8_t       descriptorType   = (uint8_t) ( setupRequestPtr->wValue >> 8u );
+    uint8_t       descriptorIndex  = (uint8_t) ( setupRequestPtr->wValue & 0xFFu );
+    uint8_t*      descriptorPtr = NULL;
+    uint16_t      descriptorLength = 0;
     RETURN_CODE_t status;
 
-    if (USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t)descriptorType)
-    {
-        status = USB_DescriptorStringPointerGet(descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength);
+    if( USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
+        status = USB_DescriptorStringPointerGet( descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength );
     }
-    else
-    {
+    else {
         // USB_DescriptorPointerGet returns UNSUPPORTED for class/vendor and other invalid types.
-        status = USB_DescriptorPointerGet(descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength);
+        status = USB_DescriptorPointerGet( descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength );
     }
 
-    if (SUCCESS == status)
-    {
-        if (descriptorLength > setupRequestPtr->wLength)
-        {
-            descriptorLength = setupRequestPtr->wLength;
-        }
-        USB_ControlTransferDataSet(descriptorPtr, descriptorLength);
+    if( SUCCESS == status ) {
+        if( descriptorLength > setupRequestPtr->wLength ) descriptorLength = setupRequestPtr->wLength;
+        USB_ControlTransferDataSet( descriptorPtr, descriptorLength );
     }
 
     return status;
 }
-#endif
+#endif // if 0
 
-RETURN_CODE_t SetupDeviceRequestGetConfiguration(void)
+RETURN_CODE_t SetupDeviceRequestGetConfiguration( void )
 {
     uint8_t configurationValue = USB_DescriptorActiveConfigurationValueGet();
 
-    return USB_ControlTransferDataWriteBuffer(&configurationValue, sizeof(configurationValue));
+    return USB_ControlTransferDataWriteBuffer( &configurationValue, sizeof( configurationValue ) );
 }
 
-RETURN_CODE_t SetupDeviceRequestSetConfiguration(uint8_t configurationValue)
+RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if ((deviceAddress == 0u))
-    {
+    if( ( deviceAddress == 0u ) ) {
         status = USB_CONNECTION_ERROR;
     }
-    else
-    {
+    else {
         // Enables configuration, clears it if configurationValue is zero.
-        status = USB_DescriptorConfigurationEnable(configurationValue);
+        status = USB_DescriptorConfigurationEnable( configurationValue );
     }
 
     return status;

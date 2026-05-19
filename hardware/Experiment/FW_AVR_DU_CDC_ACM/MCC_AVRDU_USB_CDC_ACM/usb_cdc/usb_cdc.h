@@ -40,7 +40,7 @@
 #include "../usb_cdc/usb_protocol_cdc.h"
 
 
-extern uint16_t usbCDCControlLineState;
+extern uint16_t              usbCDCControlLineState;
 extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 /*
@@ -48,7 +48,7 @@ extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
  *     setupRequestPtr - Pointer to the Setup Request struct
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 
-#endif /* USB_CDC_H */
+#endif // USB_CDC_H

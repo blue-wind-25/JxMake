@@ -26,11 +26,30 @@ Workflow:
 
 
 
-/opt/uncrustify-0.83.0/bin/uncrustify -c ../../../z/defaults-2.cfg -f FW_AVR_DU_CDC_ACM/inc_usb_avr_du.h | more
-/opt/uncrustify-0.83.0/bin/uncrustify -c ../../../z/defaults-2.cfg -f FW_AVR_DU_CDC_ACM/MCC_AVRDU_USB_CDC_ACM/usb_common/usb_protocol_headers.h | more
-
-
 
 Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
 tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260519.tar.gz ~/.claude/ ~/.claude.json
 
+
+
+
+
+export unc="/opt/uncrustify-0.83.0/bin/uncrustify -c $HOME/Projects/JxMake/0_excluded_directory/personal/uncrustify.cfg"
+
+$unc -f inc_usb_avr_du.h | more
+$unc -f MCC_AVRDU_USB_CDC_ACM/usb_common/usb_protocol_headers.h | more
+$unc -f MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral_avr_du.h | more
+
+
+find . -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -print0 |
+while IFS= read -r -d '' f; do
+    echo "Processing $f"
+    $unc -f "$f"
+done
+
+
+find . -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -print0 |
+while IFS= read -r -d '' f; do
+    echo "Processing $f"
+    $unc --replace "$f"
+done

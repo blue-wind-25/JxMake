@@ -39,32 +39,26 @@
 #include "usb_core_events.h"
 
 
-ISR(USB0_BUSEVENT_vect)
+ISR( USB0_BUSEVENT_vect )
 {
     USB_EventHandler();
 }
 
 
-void USB_EventHandler(void)
+void USB_EventHandler( void )
 {
-    if (USB_EventResetIsReceived() == true)
-    {
+    if( USB_EventResetIsReceived() == true ) {
         USB_EventResetClear();
         USB_Reset();
     }
     uint8_t eventOverUnderflow = USB_EventOverUnderflowIsReceived();
-    if (0u < eventOverUnderflow)
-    {
+    if( 0u < eventOverUnderflow ) {
         USB_EventOverUnderflowClear();
         uint8_t controlOverUnderflow = USB_ControlOverUnderflowIsReceived();
-        if (0u < controlOverUnderflow)
-        {
-            USB_ControlProcessOverUnderflow(controlOverUnderflow);
-        }
+        if( 0u < controlOverUnderflow ) USB_ControlProcessOverUnderflow( controlOverUnderflow );
     }
-    if (USB_EventStalledIsReceived() == true)
-    {
+    if( USB_EventStalledIsReceived() == true ) {
         USB_EventStalledClear();
-        USB_HandleEventStalled((USB_PIPE_t){ .address = 0x00, .direction = USB_EP_DIR_OUT });
+        USB_HandleEventStalled( (USB_PIPE_t) { .address = 0x00, .direction = USB_EP_DIR_OUT } );
     }
 }

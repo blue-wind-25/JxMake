@@ -8,7 +8,7 @@
  * Header file for example application descriptors.
  *
  * USB_DEVICE_STACK Driver Version 1.0.0
-*/
+ */
 /*
     (C) 2025 Microchip Technology Inc. and its subsidiaries.
 
@@ -69,8 +69,7 @@
 /*
  * USB Configuration, Interface and Endpoint descriptors for Config1.
  */
-typedef struct USB_APPLICATION_CONFIGURATION1_struct
-{
+typedef struct USB_APPLICATION_CONFIGURATION1_struct {
     USB_CONFIGURATION_DESCRIPTOR_t Configuration;
     USB_INTERFACE_DESCRIPTOR_t CDC_Communication_Interface;
     USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t CDC_Communication_Interface_Header;
@@ -85,22 +84,20 @@ typedef struct USB_APPLICATION_CONFIGURATION1_struct
 /*
  * USB Configuration, Interface and Endpoint descriptors.
  */
-typedef struct USB_APPLICATION_CONFIGURATION_struct
-{
+typedef struct USB_APPLICATION_CONFIGURATION_struct {
     USB_APPLICATION_CONFIGURATION1_t Config1;
 } USB_APPLICATION_CONFIGURATION_t;
 
 /*
  * USB String descriptors.
  */
-typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
-{
+typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct {
     USB_DESCRIPTOR_HEADER_t manufacturer_header;
-    wchar_t manufacturer[DESCRIPTOR_STRING_LENGTH(STRING_MANUFACTURER)];
+    wchar_t manufacturer[DESCRIPTOR_STRING_LENGTH( STRING_MANUFACTURER )];
     USB_DESCRIPTOR_HEADER_t product_header;
-    wchar_t product[DESCRIPTOR_STRING_LENGTH(STRING_PRODUCT)];
+    wchar_t product[DESCRIPTOR_STRING_LENGTH( STRING_PRODUCT )];
     USB_DESCRIPTOR_HEADER_t serial_header;
-    wchar_t serial[DESCRIPTOR_STRING_LENGTH(STRING_SERIAL)];
+    wchar_t serial[DESCRIPTOR_STRING_LENGTH( STRING_SERIAL )];
 } USB_APPLICATION_STRING_DESCRIPTORS_t;
 
 /*
@@ -109,4 +106,4 @@ typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct
 extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 
-#endif /* USB_DESCRIPTORS_H */
+#endif // USB_DESCRIPTORS_H

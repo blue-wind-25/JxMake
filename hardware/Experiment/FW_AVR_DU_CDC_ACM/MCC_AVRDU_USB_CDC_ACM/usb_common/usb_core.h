@@ -63,20 +63,20 @@
  *     *setupRequestPtr - Pointer to the setup request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Stops the USB peripheral and detaches it from the bus.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_Stop(void);
+void USB_Stop( void );
 
 /*
  * Resets the USB peripheral.
  *     None.
  */
-void USB_Reset(void);
+void USB_Reset( void );
 
 
-#endif /* USB_CORE_H */
+#endif // USB_CORE_H

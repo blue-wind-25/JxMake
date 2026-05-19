@@ -59,7 +59,7 @@
  *     setupRequestPtr - Pointer to the setup request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Setup function for the endpoint requests
@@ -75,7 +75,7 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
  *     *setupRequestPtr - Pointer to the request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Setup function for the interface requests
@@ -93,7 +93,7 @@ RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestP
  *     setupRequestPtr - Pointer to the setup request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupProcessInterfaceRequest( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 
-#endif /* USB_CORE_REQUESTS_H */
+#endif // USB_CORE_REQUESTS_H

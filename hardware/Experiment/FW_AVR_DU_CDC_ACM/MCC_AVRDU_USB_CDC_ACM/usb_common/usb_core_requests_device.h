@@ -44,43 +44,43 @@
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupDeviceRequestGetStatus(void);
+RETURN_CODE_t SetupDeviceRequestGetStatus( void );
 
 /*
  * Sets the device address.
  *     address - Address to be set
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupDeviceRequestSetAddress(uint8_t address);
+RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address );
 
 /*
  * Callback function for the address.
  *     None.
  * return None.
  */
-void SetupDeviceAddressCallback(void);
+void SetupDeviceAddressCallback( void );
 
 /*
  * Gets the device descriptor.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupDeviceRequestGetDescriptor(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Gets the device configuration.
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupDeviceRequestGetConfiguration(void);
+RETURN_CODE_t SetupDeviceRequestGetConfiguration( void );
 
 /*
  * Sets the device configuration.
  *     configurationValue - Configuration value to be set
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupDeviceRequestSetConfiguration(uint8_t configurationValue);
+RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue );
 
 
-#endif /* USB_CORE_REQUESTS_DEVICE_H */
+#endif // USB_CORE_REQUESTS_DEVICE_H
 

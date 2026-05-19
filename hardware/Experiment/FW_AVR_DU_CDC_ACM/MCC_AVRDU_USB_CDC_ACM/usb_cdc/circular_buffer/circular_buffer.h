@@ -43,22 +43,20 @@
 /*
  * Type define for circular buffer return codes.
  */
-typedef enum BUFFER_RETURN_CODE_enum
-{
-    BUFFER_SUCCESS = 0, /*<Action successfully executed*/
-    BUFFER_FULL = -1,   /*<Error triggered by full buffer*/
-    BUFFER_EMPTY = -2   /*<Error triggered by empty buffer*/
+typedef enum BUFFER_RETURN_CODE_enum {
+    BUFFER_SUCCESS = 0,  // Action successfully executed
+    BUFFER_FULL    = -1, // Error triggered by full buffer
+    BUFFER_EMPTY   = -2  // Error triggered by empty buffer
 } BUFFER_RETURN_CODE_t;
 
 /*
  * Type define for circular buffers of varying length.
  */
-typedef struct CIRCULAR_BUFFER_struct
-{
-    uint8_t *content;         /*<Actual buffer data*/
-    uint16_t head;            /*<Index of first empty slot in buffer*/
-    uint16_t tail;            /*<Index of first occupied buffer slot*/
-    const uint16_t maxLength; /*<Maximum length of buffer*/
+typedef struct CIRCULAR_BUFFER_struct {
+    uint8_t* content;         // Actual buffer data
+    uint16_t head;            // Index of first empty slot in buffer
+    uint16_t tail;            // Index of first occupied buffer slot
+    const uint16_t maxLength; // Maximum length of buffer
 } CIRCULAR_BUFFER_t;
 
 /*
@@ -67,7 +65,7 @@ typedef struct CIRCULAR_BUFFER_struct
  *     data - Intput data
  * return status - Result of the addition process
  */
-void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
+void CIRCBUF_Enqueue( CIRCULAR_BUFFER_t* buffer, uint8_t data );
 
 /*
  * Pulls data from the circular buffer if it's available.
@@ -75,7 +73,7 @@ void CIRCBUF_Enqueue(CIRCULAR_BUFFER_t *buffer, uint8_t data);
  *     data - Output data variable address
  * return status - Result of the retrieval process
  */
-BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
+BUFFER_RETURN_CODE_t CIRCBUF_Dequeue( CIRCULAR_BUFFER_t* buffer, uint8_t* data );
 
 /*
  * Checks if the circular buffer is empty.
@@ -83,7 +81,7 @@ BUFFER_RETURN_CODE_t CIRCBUF_Dequeue(CIRCULAR_BUFFER_t *buffer, uint8_t *data);
  * 0 - Buffer not full
  * 1 - Buffer full
  */
-static inline bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer) { return (buffer->head == buffer->tail); }
+static inline bool CIRCBUF_Empty( CIRCULAR_BUFFER_t* buffer ) { return buffer->head == buffer->tail; }
 
 /*
  * Checks if the circular buffer is full.
@@ -91,11 +89,11 @@ static inline bool CIRCBUF_Empty(CIRCULAR_BUFFER_t *buffer) { return (buffer->he
  * 0 - Buffer not full
  * 1 - Buffer full
  */
-static inline bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer)
+static inline bool CIRCBUF_Full( CIRCULAR_BUFFER_t* buffer )
 {
     uint16_t nextHead = buffer->head + 1U;
-    if (buffer->maxLength <= nextHead) { nextHead = 0; }
-    return (buffer->tail == nextHead);
+    if( buffer->maxLength <= nextHead ) nextHead = 0;
+    return buffer->tail == nextHead;
 }
 
 /*
@@ -103,12 +101,11 @@ static inline bool CIRCBUF_Full(CIRCULAR_BUFFER_t *buffer)
  *     buffer - Circular buffer address
  * return freeSpace - Available bytes
  */
-static inline uint16_t CIRCBUF_FreeSpace(CIRCULAR_BUFFER_t *buffer)
+static inline uint16_t CIRCBUF_FreeSpace( CIRCULAR_BUFFER_t* buffer )
 {
-    if (buffer->head >= buffer->tail)
-        return buffer->tail + buffer->maxLength - buffer->head - 1U;
+    if( buffer->head >= buffer->tail ) return buffer->tail + buffer->maxLength - buffer->head - 1U;
     return buffer->tail - buffer->head - 1U;
 }
 
 
-#endif /* CIRCULAR_BUFFER_H_ */
+#endif // CIRCULAR_BUFFER_H_

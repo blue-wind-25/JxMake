@@ -37,79 +37,67 @@
 #include "usb_core_transfer.h"
 
 
-ISR(USB0_TRNCOMPL_vect)
+ISR( USB0_TRNCOMPL_vect )
 {
     USB_TransferHandler();
 }
 
 
-RETURN_CODE_t USB_TransferWriteStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
+RETURN_CODE_t USB_TransferWriteStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
 {
-    if (USB_PipeStatusIsBusy(pipe) == true)
-    {
-        return PIPE_BUSY_ERROR;
-    }
-    USB_PipeReset(pipe);
-    USB_PipeDataPtrSet(pipe, dataPtr);
-    USB_PipeDataToTransferSizeSet(pipe, dataSize);
+    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
+    USB_PipeReset( pipe );
+    USB_PipeDataPtrSet( pipe, dataPtr );
+    USB_PipeDataToTransferSizeSet( pipe, dataSize );
     // USB_PipeReset already zeros bytesTransferred — no need to reset again
-    USB_PipeTransferZLP_Enable(pipe);
-    USB_PipeTransferEndCallbackRegister(pipe, callback);
-    USB_InTransactionRun(pipe);
+    USB_PipeTransferZLP_Enable( pipe );
+    USB_PipeTransferEndCallbackRegister( pipe, callback );
+    USB_InTransactionRun( pipe );
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_TransferReadStart(USB_PIPE_t pipe, uint8_t *dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback)
+RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t dataSize, USB_TRANSFER_END_CALLBACK_t callback )
 {
-    if (USB_PipeStatusIsBusy(pipe) == true)
-    {
-        return PIPE_BUSY_ERROR;
-    }
-    USB_PipeReset(pipe);
-    USB_PipeDataPtrSet(pipe, dataPtr);
-    USB_PipeDataToTransferSizeSet(pipe, dataSize);
+    if( USB_PipeStatusIsBusy( pipe ) == true ) return PIPE_BUSY_ERROR;
+    USB_PipeReset( pipe );
+    USB_PipeDataPtrSet( pipe, dataPtr );
+    USB_PipeDataToTransferSizeSet( pipe, dataSize );
     // USB_PipeReset already zeros bytesTransferred — no need to reset again
-    USB_PipeTransferEndCallbackRegister(pipe, callback);
-    USB_OutTransactionRun(pipe);
+    USB_PipeTransferEndCallbackRegister( pipe, callback );
+    USB_OutTransactionRun( pipe );
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_TransferControlDataSet(uint8_t *dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback)
+RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback )
 {
-    USB_ControlEndOfRequestCallbackRegister(callback);
-    return USB_ControlTransferDataSet(dataPtr, dataSize);
+    USB_ControlEndOfRequestCallbackRegister( callback );
+    return USB_ControlTransferDataSet( dataPtr, dataSize );
 }
 
-void USB_TransferAbort(USB_PIPE_t pipe)
+void USB_TransferAbort( USB_PIPE_t pipe )
 {
-    if (USB_PipeStatusIsBusy(pipe) == true)
-    {
-        USB_TransactionAbort(pipe);
-        USB_PipeTransferEndCallback(pipe);
+    if( USB_PipeStatusIsBusy( pipe ) == true ) {
+        USB_TransactionAbort( pipe );
+        USB_PipeTransferEndCallback( pipe );
     }
 }
 
-void USB_TransferHandler(void)
+void USB_TransferHandler( void )
 {
     // If it's the initial setup packet, handle that separately.
-    if (USB_SetupIsReceived() == true)
-    {
+    if( USB_SetupIsReceived() == true ) {
         USB_ControlSetupReceived();
     }
     // If a transaction is complete, handle that one.
-    else if (USB_TransactionIsCompleted() == true)
-    {
+    else if( USB_TransactionIsCompleted() == true ) {
         USB_PIPE_t pipe;
-        if (SUCCESS == USB_TransactionCompletedPipeGet(&pipe))
-        {
-            USB_TransactionCompleteAck(pipe);
-            if (pipe.address == 0U)
-            {
-                USB_ControlTransactionComplete(pipe);
+        if( SUCCESS == USB_TransactionCompletedPipeGet( &pipe ) ) {
+            USB_TransactionCompleteAck( pipe );
+            if( pipe.address == 0U ) {
+                USB_ControlTransactionComplete( pipe );
             }
-            else
-            {
-                USB_PipeTransactionComplete(pipe);
+            else {
+                USB_PipeTransactionComplete( pipe );
             }
         }
     }

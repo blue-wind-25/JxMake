@@ -36,10 +36,10 @@
 #define USB_PERIPHERAL_READ_WRITE_H
 
 
-/* Pipe transfer index: (address * 2) + direction */
-#define PipeTransferIndexGet(pipe) (((pipe).address * 2) + (pipe).direction)
+// Pipe transfer index: (address * 2) + direction
+#define PipeTransferIndexGet( pipe ) ( ( ( pipe ).address * 2 ) + ( pipe ).direction )
 
-/* Shared pipe transfer state array — defined in usb_peripheral_read_write.c */
+// Shared pipe transfer state array — defined in usb_peripheral_read_write.c
 extern USB_PIPE_TRANSFER_t pipeTransfer[];
 
 
@@ -49,7 +49,7 @@ extern USB_PIPE_TRANSFER_t pipeTransfer[];
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_TransactionAbort(USB_PIPE_t pipe);
+void USB_TransactionAbort( USB_PIPE_t pipe );
 
 /*
  * Acknowledges the Transaction Complete status condition by clearing the Transaction Complete status bit.
@@ -57,7 +57,7 @@ void USB_TransactionAbort(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_TransactionCompleteAck(USB_PIPE_t pipe);
+void USB_TransactionCompleteAck( USB_PIPE_t pipe );
 
 /*
  * Helper function to return the endpoint transaction complete condition.
@@ -65,21 +65,21 @@ void USB_TransactionCompleteAck(USB_PIPE_t pipe);
  * 0 - Transaction not complete or pipe address is out of bounds
  * 1 - Transaction is complete
  */
-static inline bool USB_TransactionIsCompleted(void) { return USB_TransactionCompleteInterruptIs(); }
+static inline bool USB_TransactionIsCompleted( void ) { return USB_TransactionCompleteInterruptIs(); }
 
 /*
  * Returns the pipe address and direction for the latest completed transaction.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransactionCompletedPipeGet(USB_PIPE_t *pipe);
+RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe );
 
 /*
  * Resets the pipe.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_PipeReset(USB_PIPE_t pipe);
+void USB_PipeReset( USB_PIPE_t pipe );
 
 /*
  * Checks if the pipe status is busy.
@@ -87,7 +87,7 @@ void USB_PipeReset(USB_PIPE_t pipe);
  * 0  -  Pipe status not busy
  * 1  -  Pipe status is busy
  */
-static inline bool USB_PipeStatusIsBusy(USB_PIPE_t pipe) { return (pipeTransfer[PipeTransferIndexGet(pipe)].status == USB_PIPE_TRANSFER_BUSY); }
+static inline bool USB_PipeStatusIsBusy( USB_PIPE_t pipe ) { return pipeTransfer[PipeTransferIndexGet( pipe )].status == USB_PIPE_TRANSFER_BUSY; }
 
 /*
  * Configures the pointer for the data transfer in a given pipe.
@@ -95,7 +95,7 @@ static inline bool USB_PipeStatusIsBusy(USB_PIPE_t pipe) { return (pipeTransfer[
  *     *dataPtr - The pointer to the data location
  * return None.
  */
-static inline void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr) { pipeTransfer[PipeTransferIndexGet(pipe)].transferDataPtr = dataPtr; }
+static inline void USB_PipeDataPtrSet( USB_PIPE_t pipe, uint8_t* dataPtr ) { pipeTransfer[PipeTransferIndexGet( pipe )].transferDataPtr = dataPtr; }
 
 /*
  * Sets the size of pipe data to transfer.
@@ -103,21 +103,21 @@ static inline void USB_PipeDataPtrSet(USB_PIPE_t pipe, uint8_t *dataPtr) { pipeT
  *     dataSize - The size of pipe data to transfer
  * return None.
  */
-static inline void USB_PipeDataToTransferSizeSet(USB_PIPE_t pipe, uint16_t dataSize) { pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize = dataSize; }
+static inline void USB_PipeDataToTransferSizeSet( USB_PIPE_t pipe, uint16_t dataSize ) { pipeTransfer[PipeTransferIndexGet( pipe )].transferDataSize = dataSize; }
 
 /*
  * Gets the size of pipe data to transfer.
  *     pipe - A combination of endpoint address and direction
  * return The size of pipe data to transfer
  */
-static inline uint16_t USB_PipeDataToTransferSizeGet(USB_PIPE_t pipe) { return pipeTransfer[PipeTransferIndexGet(pipe)].transferDataSize; }
+static inline uint16_t USB_PipeDataToTransferSizeGet( USB_PIPE_t pipe ) { return pipeTransfer[PipeTransferIndexGet( pipe )].transferDataSize; }
 
 /*
  * Gets the size of the transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  * return The size of transferred pipe data
  */
-static inline uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe) { return pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred; }
+static inline uint16_t USB_PipeDataTransferredSizeGet( USB_PIPE_t pipe ) { return pipeTransfer[PipeTransferIndexGet( pipe )].bytesTransferred; }
 
 /*
  * Sets the size of the transferred pipe data.
@@ -125,14 +125,14 @@ static inline uint16_t USB_PipeDataTransferredSizeGet(USB_PIPE_t pipe) { return 
  *     dataSize - The size of pipe data transferred
  * return None.
  */
-static inline void USB_PipeDataTransferredSizeSet(USB_PIPE_t pipe, uint16_t dataSize) { pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = dataSize; }
+static inline void USB_PipeDataTransferredSizeSet( USB_PIPE_t pipe, uint16_t dataSize ) { pipeTransfer[PipeTransferIndexGet( pipe )].bytesTransferred = dataSize; }
 
 /*
  * Resets the size of transferred pipe data.
  *     pipe - A combination of endpoint address and direction
  * return None.
  */
-static inline void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe) { pipeTransfer[PipeTransferIndexGet(pipe)].bytesTransferred = 0; }
+static inline void USB_PipeDataTransferredSizeReset( USB_PIPE_t pipe ) { pipeTransfer[PipeTransferIndexGet( pipe )].bytesTransferred = 0; }
 
 /*
  * Enables a ZLP on a transfer.
@@ -140,8 +140,8 @@ static inline void USB_PipeDataTransferredSizeReset(USB_PIPE_t pipe) { pipeTrans
  *     pipe - A combination of endpoint address and direction
  * return None.
  */
-/* InAzlpEnable=0 and OutAzlpEnable=0 for all endpoints — always use manual ZLP */
-static inline void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe) { pipeTransfer[PipeTransferIndexGet(pipe)].ZLPEnable = true; }
+// InAzlpEnable=0 and OutAzlpEnable=0 for all endpoints — always use manual ZLP
+static inline void USB_PipeTransferZLP_Enable( USB_PIPE_t pipe ) { pipeTransfer[PipeTransferIndexGet( pipe )].ZLPEnable = true; }
 
 /*
  * Sets the callback for transfer end.
@@ -149,28 +149,28 @@ static inline void USB_PipeTransferZLP_Enable(USB_PIPE_t pipe) { pipeTransfer[Pi
  *     callback - A combination of pipe, status and transferred bytes
  * return None.
  */
-static inline void USB_PipeTransferEndCallbackRegister(USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback) { pipeTransfer[PipeTransferIndexGet(pipe)].transferEndCallback = callback; }
+static inline void USB_PipeTransferEndCallbackRegister( USB_PIPE_t pipe, USB_TRANSFER_END_CALLBACK_t callback ) { pipeTransfer[PipeTransferIndexGet( pipe )].transferEndCallback = callback; }
 
 /*
  * Calls the callback for transfer end.
  *     pipe - A combination of endpoint address and direction
  * return None.
  */
-void USB_PipeTransferEndCallback(USB_PIPE_t pipe);
+void USB_PipeTransferEndCallback( USB_PIPE_t pipe );
 
 /*
  * Checks the correctness of IN transactions and runs them.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_InTransactionRun(USB_PIPE_t pipe);
+void USB_InTransactionRun( USB_PIPE_t pipe );
 
 /*
  * Checks the correctness OUT transactions and runs them.
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_OutTransactionRun(USB_PIPE_t pipe);
+void USB_OutTransactionRun( USB_PIPE_t pipe );
 
 /*
  * Handles completed IN and OUT transactions.
@@ -179,7 +179,7 @@ void USB_OutTransactionRun(USB_PIPE_t pipe);
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_PipeTransactionComplete(USB_PIPE_t pipe);
+void USB_PipeTransactionComplete( USB_PIPE_t pipe );
 
 
-#endif /* USB_PERIPHERAL_READ_WRITE_H */
+#endif // USB_PERIPHERAL_READ_WRITE_H

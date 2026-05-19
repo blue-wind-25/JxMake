@@ -44,7 +44,7 @@ static void USBDevice_CDCACMHandler();
 
 volatile uint32_t millisCnt = 0;
 
-ISR(TCA0_OVF_vect)
+ISR( TCA0_OVF_vect )
 {
     ++millisCnt;
     TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
@@ -54,7 +54,7 @@ static inline uint32_t millis()
 {
     uint32_t m;
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    ATOMIC_BLOCK( ATOMIC_RESTORESTATE )
     {
         m = millisCnt;
     }
@@ -62,32 +62,26 @@ static inline uint32_t millis()
     return m;
 }
 
-static inline void delayMS(uint32_t mS)
+static inline void delayMS( uint32_t mS )
 {
     const uint32_t start = millis();
 
-    while( millis() - start < mS ) {
-        USBDevice_CDCACMHandler();
-    }
+    while( millis() - start < mS ) USBDevice_CDCACMHandler();
 }
 
 
 static void USBDevice_CDCACMHandler()
 {
-    if (!CIRCBUF_Empty(&usbCDCTransmitBuffer)) {
-        if (!USB_PipeStatusIsBusy(CDCTxPipe))
-            USB_TransferWriteStart(CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted);
-    }
-    if (USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace(&usbCDCReceiveBuffer)) {
-        if (!USB_PipeStatusIsBusy(CDCRxPipe))
-            USB_TransferReadStart(CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived);
-    }
-    if (!(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm)) return;
-    if (CIRCBUF_Full(&usbCDCTransmitBuffer) || USB_PipeStatusIsBusy(CDCTxPipe)) return;
+    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) )
+        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
+    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) )
+        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
+    if( !( usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm ) ) return;
+    if( CIRCBUF_Full( &usbCDCTransmitBuffer ) || USB_PipeStatusIsBusy( CDCTxPipe ) ) return;
 
     // Loopback test
     static uint8_t cdcData;
-    if (CIRCBUF_Dequeue(&usbCDCReceiveBuffer, &cdcData) == BUFFER_SUCCESS) CIRCBUF_Enqueue(&usbCDCTransmitBuffer, cdcData);
+    if( CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
 }
 
 static void usb_stop()
@@ -98,9 +92,9 @@ static void usb_stop()
     USB_PIPE_t pipe;
     pipe.address = 0;
 
-    while(pipe.address < USB_EP_NUM) {
-        pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort(pipe);
-        pipe.direction = USB_EP_DIR_IN ; USB_TransferAbort(pipe);
+    while( pipe.address < USB_EP_NUM ) {
+        pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort( pipe );
+        pipe.direction = USB_EP_DIR_IN; USB_TransferAbort( pipe );
         ++pipe.address;
     }
 }
@@ -119,45 +113,45 @@ static void usb_init()
     (void) usb_stop;
 
     // Reinitialize OSCHF
-    _PROTECTED_WRITE(CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc);
-    _PROTECTED_WRITE(CLKCTRL.OSCHFTUNE , 0x00                                                                );
+    _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc );
+    _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE,  0x00                                                                );
 
-    while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
+    while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
 
     // Start USB
-    SYSCFG.VUSBCTRL = 0;             // USBVREG disable (was SYSCFG_Initialize)
-    USB0.INTCTRLA   = 0;             // disable all bus-event interrupts  (was USB0_Initialize)
-    USB0.INTCTRLB   = 0;             // disable all transaction interrupts (was USB0_Initialize)
-    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm; // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
-    applicationPointers = &descriptorPointers;      // was USB_DescriptorPointersSet (was USBDevice_Initialize)
-    usbCDCControlLineState       = 0;               // was USB_CDCInitialize()
-    usbCDCLineCoding.dwDTERate   = 0;
+    SYSCFG.VUSBCTRL = 0;                       // USBVREG disable (was SYSCFG_Initialize)
+    USB0.INTCTRLA = 0;                         // disable all bus-event interrupts  (was USB0_Initialize)
+    USB0.INTCTRLB = 0;                         // disable all transaction interrupts (was USB0_Initialize)
+    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
+    applicationPointers = &descriptorPointers; // was USB_DescriptorPointersSet (was USBDevice_Initialize)
+    usbCDCControlLineState = 0;                // was USB_CDCInitialize()
+    usbCDCLineCoding.dwDTERate = 0;
     usbCDCLineCoding.bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT;
     usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
-    usbCDCLineCoding.bDataBits   = USB_CDC_LINE_CODING_8_DATA_BITS;
+    usbCDCLineCoding.bDataBits = USB_CDC_LINE_CODING_8_DATA_BITS;
 
-    USB0.INTCTRLA |= USB_RESET_bm;    // Enable RESET    interrupt
-    USB0.INTCTRLA |= USB_STALLED_bm;  // Enable STALLED  interrupt
-    USB0.INTCTRLA |= USB_UNF_bm;      // Enable UNF      interrupt
-    USB0.INTCTRLA |= USB_OVF_bm;      // Enable OVF      interrupt
+    USB0.INTCTRLA |= USB_RESET_bm;       // Enable RESET    interrupt
+    USB0.INTCTRLA |= USB_STALLED_bm;     // Enable STALLED  interrupt
+    USB0.INTCTRLA |= USB_UNF_bm;         // Enable UNF      interrupt
+    USB0.INTCTRLA |= USB_OVF_bm;         // Enable OVF      interrupt
 
-    USB0.INTCTRLB |= USB_TRNCOMPL_bm; // Enable TRNCOMPL interrupt
-    USB0.INTCTRLB |= USB_GNDONE_bm;   // Enable GNDONE   interrupt
-    USB0.INTCTRLB |= USB_SETUP_bm;    // Enable SETUP    interrupt
+    USB0.INTCTRLB |= USB_TRNCOMPL_bm;    // Enable TRNCOMPL interrupt
+    USB0.INTCTRLB |= USB_GNDONE_bm;      // Enable GNDONE   interrupt
+    USB0.INTCTRLB |= USB_SETUP_bm;       // Enable SETUP    interrupt
 
     SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
 
     usb_start();
 
     // Enable TCA0 in normal mode
-    TCA0.SINGLE.CTRLA   = 0;
-    TCA0.SINGLE.CNT     = 0;
-    TCA0.SINGLE.PER     = (F_CPU / 64 / 1000) - 1;
+    TCA0.SINGLE.CTRLA = 0;
+    TCA0.SINGLE.CNT = 0;
+    TCA0.SINGLE.PER = ( F_CPU / 64 / 1000 ) - 1;
     TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
-    TCA0.SINGLE.CTRLA   = TCA_SINGLE_CLKSEL_DIV64_gc | TCA_SINGLE_ENABLE_bm;
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc | TCA_SINGLE_ENABLE_bm;
 
     // Initialize interrupt
-    _PROTECTED_WRITE(CPUINT.CTRLA, 0x00);
+    _PROTECTED_WRITE( CPUINT.CTRLA, 0x00 );
 
     CPUINT.LVL0PRI = 0x00;
     CPUINT.LVL1VEC = 0x00;

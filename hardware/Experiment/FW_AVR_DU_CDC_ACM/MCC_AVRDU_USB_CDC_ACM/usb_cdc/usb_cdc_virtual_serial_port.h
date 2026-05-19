@@ -43,16 +43,15 @@
 /*
  * Type define for the CDC return codes.
  */
-typedef enum CDC_RETURN_CODE_enum
-{
-    CDC_SUCCESS = 0,      /*<Action successfully executed*/
-    CDC_BUFFER_FULL = -1, /*<Error triggered by full CDC buffer*/
-    CDC_BUFFER_EMPTY = -2 /*<Error triggered by empty CDC buffer*/
+typedef enum CDC_RETURN_CODE_enum {
+    CDC_SUCCESS      = 0,  // Action successfully executed
+    CDC_BUFFER_FULL  = -1, // Error triggered by full CDC buffer
+    CDC_BUFFER_EMPTY = -2  // Error triggered by empty CDC buffer
 } CDC_RETURN_CODE_t;
 
-extern USB_PIPE_t CDCTxPipe;
-extern USB_PIPE_t CDCRxPipe;
-extern uint8_t usbCDCReceiveTempBuffer[];
+extern USB_PIPE_t        CDCTxPipe;
+extern USB_PIPE_t        CDCRxPipe;
+extern uint8_t           usbCDCReceiveTempBuffer[];
 extern CIRCULAR_BUFFER_t usbCDCReceiveBuffer;
 extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
 
@@ -63,7 +62,7 @@ extern CIRCULAR_BUFFER_t usbCDCTransmitBuffer;
  *     bytesTransferred - Number of bytes transmitted in the transaction
  * return None.
  */
-void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
+void USB_CDCDataTransmitted( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred );
 
 /*
  * Callback function called after the USB OUT transaction started.
@@ -72,7 +71,7 @@ void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint1
  *     bytesTransferred - Number of bytes received in the transaction
  * return None.
  */
-void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred);
+void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred );
 
 
-#endif /* USB_CDC_VIRTUAL_SERIAL_PORT_H */
+#endif // USB_CDC_VIRTUAL_SERIAL_PORT_H

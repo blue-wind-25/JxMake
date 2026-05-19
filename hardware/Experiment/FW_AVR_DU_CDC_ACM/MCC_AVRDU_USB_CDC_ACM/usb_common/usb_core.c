@@ -38,74 +38,70 @@
 #include "usb_core.h"
 
 
-RETURN_CODE_t USB_SetupProcess(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if (USB_REQUEST_TYPE_STANDARD == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
-    {
+    if( USB_REQUEST_TYPE_STANDARD == (USB_REQUEST_TYPE_t) setupRequestPtr->bmRequestType.type ) {
         // Checks that an IN request actually requests data.
-        if ((USB_REQUEST_DIR_IN == (USB_REQUEST_DIR_t)setupRequestPtr->bmRequestType.dataPhaseTransferDirection) && (0u == setupRequestPtr->wLength))
-        {
+        if( ( USB_REQUEST_DIR_IN == (USB_REQUEST_DIR_t) setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) && ( 0u == setupRequestPtr->wLength ) ) {
             status = CONTROL_SETUP_DIRECTION_ERROR;
         }
-        else
-        {
+        else {
             // Makes sure the data out transfer is reset before handling requests.
-            USB_ControlTransferDataSet(NULL, 0u);
+            USB_ControlTransferDataSet( NULL, 0u );
 
-            switch (setupRequestPtr->bmRequestType.recipient)
+            switch( setupRequestPtr->bmRequestType.recipient )
             {
             case USB_REQUEST_RECIPIENT_DEVICE:
             {
-                status = USB_SetupProcessDeviceRequest(setupRequestPtr);
+                status = USB_SetupProcessDeviceRequest( setupRequestPtr );
                 break;
             }
             case USB_REQUEST_RECIPIENT_ENDPOINT:
             {
-                status = USB_SetupProcessEndpointRequest(setupRequestPtr);
+                status = USB_SetupProcessEndpointRequest( setupRequestPtr );
                 break;
             }
             case USB_REQUEST_RECIPIENT_INTERFACE:
             {
-                status = USB_SetupProcessInterfaceRequest(setupRequestPtr);
+                status = USB_SetupProcessInterfaceRequest( setupRequestPtr );
                 break;
             }
             default:
                 status = UNSUPPORTED;
                 break;
-            }
+            } // switch
         }
     }
-    else if (USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t)setupRequestPtr->bmRequestType.type)
-    {
-        status = USB_CDCRequestHandler(setupRequestPtr);
+    else if( USB_REQUEST_TYPE_CLASS == (USB_REQUEST_TYPE_t) setupRequestPtr->bmRequestType.type ) {
+        status = USB_CDCRequestHandler( setupRequestPtr );
     }
-    else
-    {
+    else {
         status = UNSUPPORTED;
     }
 
     return status;
 }
 
-void USB_Stop(void)
+void USB_Stop( void )
 {
     USB_BusDetach();
     USB_PeripheralDisable();
 
-    USB_PIPE_t pipe = { .address = 0 };
-    while (pipe.address < USB_EP_NUM)
-    {
+    USB_PIPE_t pipe = {
+        .address = 0
+    };
+    while( pipe.address < USB_EP_NUM ) {
         pipe.direction = USB_EP_DIR_OUT;
-        USB_TransferAbort(pipe);
+        USB_TransferAbort( pipe );
         pipe.direction = USB_EP_DIR_IN;
-        USB_TransferAbort(pipe);
+        USB_TransferAbort( pipe );
         pipe.address++;
     }
 }
 
-void USB_Reset(void)
+void USB_Reset( void )
 {
     USB_Stop();
     USB_PeripheralInitialize();

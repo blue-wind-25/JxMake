@@ -47,7 +47,7 @@
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
+RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void );
 
 /*
  * Returns the alternate setting for the specified interface.
@@ -61,7 +61,7 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetStatus(void);
  *     *setupRequestPtr - Pointer to the request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 /*
  * Setup function for the interface request to select the alternate setting.
@@ -75,7 +75,7 @@ RETURN_CODE_t USB_SetupInterfaceRequestGetInterface(USB_SETUP_REQUEST_t *setupRe
  *     *setupRequestPtr - Pointer to the request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestSetInterface(USB_SETUP_REQUEST_t *setupRequestPtr);
+RETURN_CODE_t USB_SetupInterfaceRequestSetInterface( USB_SETUP_REQUEST_t* setupRequestPtr );
 
 
-#endif /* USB_CORE_REQUESTS_INTERFACE_H */
+#endif // USB_CORE_REQUESTS_INTERFACE_H

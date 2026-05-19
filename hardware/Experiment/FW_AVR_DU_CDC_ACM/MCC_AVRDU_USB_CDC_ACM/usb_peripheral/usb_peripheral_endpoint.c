@@ -38,7 +38,7 @@
 #include "usb_peripheral_endpoint.h"
 
 
-#if defined(USB_EP_NUM) && defined(USB_MAX_ENDPOINTS)
+#if defined( USB_EP_NUM ) && defined( USB_MAX_ENDPOINTS )
     #if USB_EP_NUM > USB_MAX_ENDPOINTS
         #error "USB_EP_NUM is too large, max is USB_MAX_ENDPOINTS"
     #endif
@@ -54,110 +54,96 @@
  * True - The given number is a power of two
  * False - The given number is not a power of two
  */
-#define IsPowerOfTwo(number) ((0u != (number)) && (((number) & ((number)-1u)) == 0u))
+#define IsPowerOfTwo( number ) ( ( 0u != ( number ) ) && ( ( ( number ) & ( ( number ) - 1u ) ) == 0u ) )
 
 /*
  * SRAM tables for the FIFO and endpoint registers, as well as the FRAMENUM register.
  * Represents the endpoint configuration table based on the number of endpoints in use.
  * This line instantiates an object using the data structure type.
  */
-USB_ENDPOINT_TABLE_t endpointTable __attribute__((aligned(2)));
+USB_ENDPOINT_TABLE_t endpointTable __attribute__( ( aligned( 2 ) ) );
 
 // Endpoint sizes are always powers of 2 and ≤ MAX_ENDPOINT_SIZE_DEFAULT — no validation needed
-static inline void ConvertEndpointSizeToMask(uint16_t endpointSize, uint8_t *endpointMaskPtr)
+static inline void ConvertEndpointSizeToMask( uint16_t endpointSize, uint8_t* endpointMaskPtr )
 {
-    uint8_t mask = 0;
+    uint8_t  mask = 0;
     uint16_t baseSize = 8;
-    while (baseSize < endpointSize)
-    {
+    while( baseSize < endpointSize ) {
         mask++;
         baseSize <<= 1;
     }
     *endpointMaskPtr = mask << USB_BUFSIZE_DEFAULT_gp;
 }
 
-void USB_EndpointConfigure(USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType)
+void USB_EndpointConfigure( USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT_t endpointType )
 {
     uint8_t endpointConfiguration = 0;
-    ConvertEndpointSizeToMask(endpointSize, &endpointConfiguration);
+    ConvertEndpointSizeToMask( endpointSize, &endpointConfiguration );
 
     // No ISO or invalid types used — CONTROL vs BULK/INTERRUPT only
-    if (CONTROL == endpointType)
-    {
+    if( CONTROL == endpointType ) {
         endpointConfiguration |= USB_TYPE_CONTROL_gc;
     }
-    else
-    {
+    else {
         endpointConfiguration |= USB_TYPE_BULKINT_gc;
     }
 
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndpointOutNAKSet(pipe.address);
-        USB_EndpointOutStatusClear(pipe.address);
-        USB_NumberBytesReceivedReset(pipe.address);
-        USB_EndpointOutControlSet(pipe.address, endpointConfiguration);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutNAKSet( pipe.address );
+        USB_EndpointOutStatusClear( pipe.address );
+        USB_NumberBytesReceivedReset( pipe.address );
+        USB_EndpointOutControlSet( pipe.address, endpointConfiguration );
 
         // OutAzlpEnable=0 for all endpoints; OutTrncInterruptEnable=1 for all; OutMultipkt=1 for all configured OUT
-        USB_EndpointOutMultipktEnable(pipe.address);
+        USB_EndpointOutMultipktEnable( pipe.address );
     }
-    else
-    {
-        USB_EndpointInNAKSet(pipe.address);
-        USB_EndpointInStatusClear(pipe.address);
-        USB_NumberBytesToSendReset(pipe.address);
-        USB_EndpointInControlSet(pipe.address, endpointConfiguration);
+    else {
+        USB_EndpointInNAKSet( pipe.address );
+        USB_EndpointInStatusClear( pipe.address );
+        USB_NumberBytesToSendReset( pipe.address );
+        USB_EndpointInControlSet( pipe.address, endpointConfiguration );
 
         // EP1 IN (interrupt) has InMultipktEnable=0; all others=1
-        if (pipe.address != 1u)
-        {
-            USB_EndpointInMultipktEnable(pipe.address);
-        }
+        if( pipe.address != 1u ) USB_EndpointInMultipktEnable( pipe.address );
     }
 }
 
-void USB_EndpointDisable(USB_PIPE_t pipe)
+void USB_EndpointDisable( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndPointOutDisable(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndPointOutDisable( pipe.address );
     }
-    else
-    {
-        USB_EndPointInDisable(pipe.address);
+    else {
+        USB_EndPointInDisable( pipe.address );
     }
 }
 
 
-uint16_t USB_EndpointSizeGet(USB_PIPE_t pipe)
+uint16_t USB_EndpointSizeGet( USB_PIPE_t pipe )
 {
     // No ISO endpoints — always use default size register
     uint8_t endpointSizeConfig;
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        endpointSizeConfig = USB_EndpointOutDefaultSizeGet(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        endpointSizeConfig = USB_EndpointOutDefaultSizeGet( pipe.address );
     }
-    else
-    {
-        endpointSizeConfig = USB_EndpointInDefaultSizeGet(pipe.address);
+    else {
+        endpointSizeConfig = USB_EndpointInDefaultSizeGet( pipe.address );
     }
-    return 8U << (uint16_t)endpointSizeConfig;
+    return 8U << (uint16_t) endpointSizeConfig;
 }
 
-USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe)
+USB_ENDPOINT_t USB_EndpointTypeGet( USB_PIPE_t pipe )
 {
     USB_TYPE_t endpointConfigType;
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        endpointConfigType = USB_EndPointOutTypeConfigGet(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        endpointConfigType = USB_EndPointOutTypeConfigGet( pipe.address );
     }
-    else // USB_EP_DIR_IN
-    {
-        endpointConfigType = USB_EndPointInTypeConfigGet(pipe.address);
+    else { // USB_EP_DIR_IN
+        endpointConfigType = USB_EndPointInTypeConfigGet( pipe.address );
     }
 
     USB_ENDPOINT_t endpointType = DISABLED;
-    switch (endpointConfigType)
+    switch( endpointConfigType )
     {
     case USB_TYPE_CONTROL_gc:
         endpointType = CONTROL;
@@ -172,61 +158,50 @@ USB_ENDPOINT_t USB_EndpointTypeGet(USB_PIPE_t pipe)
     default:
         // endpointType = DISABLED;
         break;
-    }
+    } // switch
 
     return endpointType;
 }
 
-void USB_EndpointStall(USB_PIPE_t pipe)
+void USB_EndpointStall( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndpointOutStall(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutStall( pipe.address );
     }
-    else
-    {
-        USB_EndpointInStall(pipe.address);
+    else {
+        USB_EndpointInStall( pipe.address );
     }
 }
 
-void USB_EndpointStallClear(USB_PIPE_t pipe)
+void USB_EndpointStallClear( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndpointOutStallClear(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutStallClear( pipe.address );
     }
-    else
-    {
-        USB_EndpointInStallClear(pipe.address);
+    else {
+        USB_EndpointInStallClear( pipe.address );
     }
 }
 
-bool USB_EndpointIsStalled(USB_PIPE_t pipe)
+bool USB_EndpointIsStalled( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        return USB_EndpointOutIsStalled(pipe.address);
-    }
-    return USB_EndpointInIsStalled(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) return USB_EndpointOutIsStalled( pipe.address );
+    return USB_EndpointInIsStalled( pipe.address );
 }
 
-RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe)
+RETURN_CODE_t USB_EndpointStalledConditionAck( USB_PIPE_t pipe )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
-    {
+    if( (uint8_t) USB_EP_NUM <= pipe.address ) {
         status = ENDPOINT_ADDRESS_ERROR;
     }
-    else
-    {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            USB_EndpointOutStallAck(pipe.address);
+    else {
+        if( USB_EP_DIR_OUT == pipe.direction ) {
+            USB_EndpointOutStallAck( pipe.address );
         }
-        else
-        {
-            USB_EndpointInStallAck(pipe.address);
+        else {
+            USB_EndpointInStallAck( pipe.address );
         }
 
         status = SUCCESS;
@@ -235,47 +210,39 @@ RETURN_CODE_t USB_EndpointStalledConditionAck(USB_PIPE_t pipe)
     return status;
 }
 
-void USB_DataToggleSet(USB_PIPE_t pipe)
+void USB_DataToggleSet( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndpointOutDataToggleSet(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutDataToggleSet( pipe.address );
     }
-    else
-    {
-        USB_EndpointInDataToggleSet(pipe.address);
+    else {
+        USB_EndpointInDataToggleSet( pipe.address );
     }
 }
 
-void USB_DataToggleClear(USB_PIPE_t pipe)
+void USB_DataToggleClear( USB_PIPE_t pipe )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
-        USB_EndpointOutDataToggleClear(pipe.address);
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutDataToggleClear( pipe.address );
     }
-    else
-    {
-        USB_EndpointInDataToggleClear(pipe.address);
+    else {
+        USB_EndpointInDataToggleClear( pipe.address );
     }
 }
 
-RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
+RETURN_CODE_t USB_DataToggle( USB_PIPE_t pipe )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if ((uint8_t)USB_EP_NUM <= pipe.address)
-    {
+    if( (uint8_t) USB_EP_NUM <= pipe.address ) {
         status = ENDPOINT_ADDRESS_ERROR;
     }
-    else
-    {
-        if (USB_EP_DIR_OUT == pipe.direction)
-        {
-            (USB_EndpointOutDataToggleIsSet(pipe.address)) ? USB_DataToggleClear(pipe) : USB_DataToggleSet(pipe);
+    else {
+        if( USB_EP_DIR_OUT == pipe.direction ) {
+            ( USB_EndpointOutDataToggleIsSet( pipe.address ) ) ? USB_DataToggleClear( pipe ) : USB_DataToggleSet( pipe );
         }
-        else
-        {
-            (USB_EndpointInDataToggleIsSet(pipe.address)) ? USB_DataToggleClear(pipe) : USB_DataToggleSet(pipe);
+        else {
+            ( USB_EndpointInDataToggleIsSet( pipe.address ) ) ? USB_DataToggleClear( pipe ) : USB_DataToggleSet( pipe );
         }
 
         status = SUCCESS;
@@ -284,19 +251,14 @@ RETURN_CODE_t USB_DataToggle(USB_PIPE_t pipe)
     return status;
 }
 
-void EndpointBufferSet(USB_PIPE_t pipe, uint8_t *bufAddress)
+void EndpointBufferSet( USB_PIPE_t pipe, uint8_t* bufAddress )
 {
-    if (USB_EP_DIR_OUT == pipe.direction)
-    {
+    if( USB_EP_DIR_OUT == pipe.direction ) {
         // Errata: Out transactions must be word aligned when using multipacket (always enabled for OUT)
-        if (((uint16_t)bufAddress & 0x0001) != 0u)
-        {
-            return;
-        }
-        USB_EndpointOutBufferSet(pipe.address, bufAddress);
+        if( ( (uint16_t) bufAddress & 0x0001 ) != 0u ) return;
+        USB_EndpointOutBufferSet( pipe.address, bufAddress );
     }
-    else
-    {
-        USB_EndpointInBufferSet(pipe.address, bufAddress);
+    else {
+        USB_EndpointInBufferSet( pipe.address, bufAddress );
     }
 }

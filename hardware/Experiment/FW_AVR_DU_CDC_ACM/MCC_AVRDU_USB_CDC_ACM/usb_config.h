@@ -11,7 +11,7 @@
  * The file encompasses static settings like number of endpoints, features to be enabled, etc.
  *
  * USB_DEVICE_STACK Driver Version 1.0.0
-*/
+ */
 /*
     (C) 2025 Microchip Technology Inc. and its subsidiaries.
 
@@ -111,13 +111,13 @@
  * USB_CDC_TX_BUFFER_SIZE
  * Macro for the transmit buffer size.
  */
-#define USB_CDC_TX_BUFFER_SIZE (2*MAX_ENDPOINT_SIZE_DEFAULT)
+#define USB_CDC_TX_BUFFER_SIZE ( 2 * MAX_ENDPOINT_SIZE_DEFAULT )
 
 /*
  * USB_CDC_RX_BUFFER_SIZE
  * Macro for the receive buffer size.
  */
-#define USB_CDC_RX_BUFFER_SIZE (2*MAX_ENDPOINT_SIZE_DEFAULT)
+#define USB_CDC_RX_BUFFER_SIZE ( 2 * MAX_ENDPOINT_SIZE_DEFAULT )
 
 /*
  * USB_CDC_RX_PACKET_SIZE
@@ -138,4 +138,4 @@
 #define USB_INTERFACE_NUM 2U
 
 
-#endif /* USB_CONFIG_H */
+#endif // USB_CONFIG_H

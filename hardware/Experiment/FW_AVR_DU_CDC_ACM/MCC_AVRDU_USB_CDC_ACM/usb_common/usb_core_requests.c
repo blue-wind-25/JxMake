@@ -35,11 +35,11 @@
 #include "usb_core_requests.h"
 
 
-RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    switch (setupRequestPtr->bRequest)
+    switch( setupRequestPtr->bRequest )
     {
     case USB_REQUEST_GET_STATUS:
     {
@@ -60,12 +60,12 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
     }
     case USB_REQUEST_SET_ADDRESS:
     {
-        status = SetupDeviceRequestSetAddress((uint8_t)setupRequestPtr->wValue & 0xFFu);
+        status = SetupDeviceRequestSetAddress( (uint8_t) setupRequestPtr->wValue & 0xFFu );
         break;
     }
     case USB_REQUEST_GET_DESCRIPTOR:
     {
-        status = SetupDeviceRequestGetDescriptor(setupRequestPtr);
+        status = SetupDeviceRequestGetDescriptor( setupRequestPtr );
         break;
     }
     case USB_REQUEST_SET_DESCRIPTOR:
@@ -81,67 +81,65 @@ RETURN_CODE_t USB_SetupProcessDeviceRequest(USB_SETUP_REQUEST_t *setupRequestPtr
     }
     case USB_REQUEST_SET_CONFIGURATION:
     {
-        status = SetupDeviceRequestSetConfiguration((uint8_t)(setupRequestPtr->wValue & 0xFFu));
+        status = SetupDeviceRequestSetConfiguration( (uint8_t) ( setupRequestPtr->wValue & 0xFFu ) );
         break;
     }
     default:
         // Invalid request, please STALL
         status = UNSUPPORTED;
         break;
-    }
+    } // switch
 
     return status;
 }
 
-RETURN_CODE_t USB_SetupProcessEndpointRequest(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
     // Gets the requested endpoint, endpoint address and its direction
-    USB_PIPE_t endpoint = EndpointFromRequestGet(setupRequestPtr->wIndex);
+    USB_PIPE_t endpoint  = EndpointFromRequestGet( setupRequestPtr->wIndex );
 
     // Checks if the request is for a valid endpoint
-    if (endpoint.address >= (uint8_t)USB_EP_NUM)
-    {
+    if( endpoint.address >= (uint8_t) USB_EP_NUM ) {
         status = ENDPOINT_ADDRESS_ERROR;
     }
-    else
-    {
+    else {
         // Handles the actual endpoint requests
-        switch (setupRequestPtr->bRequest)
+        switch( setupRequestPtr->bRequest )
         {
         case USB_REQUEST_GET_STATUS:
         {
-            status = SetupEndpointRequestGetStatus(setupRequestPtr);
+            status = SetupEndpointRequestGetStatus( setupRequestPtr );
             break;
         }
         case USB_REQUEST_CLEAR_FEATURE:
         {
-            status = SetupEndpointRequestClearFeature(setupRequestPtr);
+            status = SetupEndpointRequestClearFeature( setupRequestPtr );
             break;
         }
         case USB_REQUEST_SET_FEATURE:
         {
-            status = SetupEndpointRequestSetFeature(setupRequestPtr);
+            status = SetupEndpointRequestSetFeature( setupRequestPtr );
             break;
         }
         default:
             // Invalid request, please STALL
             status = UNSUPPORTED;
             break;
-        }
+        } // switch
     }
 
     return status;
 }
 
-RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_SetupProcessInterfaceRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
     // Gets the requested interface number
     // Handles the actual interface requests
-    switch (setupRequestPtr->bRequest)
+    switch( setupRequestPtr->bRequest )
     {
     case USB_REQUEST_GET_STATUS:
     {
@@ -162,12 +160,12 @@ RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequest
     }
     case USB_REQUEST_GET_INTERFACE:
     {
-        status = USB_SetupInterfaceRequestGetInterface(setupRequestPtr);
+        status = USB_SetupInterfaceRequestGetInterface( setupRequestPtr );
         break;
     }
     case USB_REQUEST_SET_INTERFACE:
     {
-        status = USB_SetupInterfaceRequestSetInterface(setupRequestPtr);
+        status = USB_SetupInterfaceRequestSetInterface( setupRequestPtr );
         break;
     }
     case USB_REQUEST_GET_DESCRIPTOR:
@@ -180,7 +178,7 @@ RETURN_CODE_t USB_SetupProcessInterfaceRequest(USB_SETUP_REQUEST_t *setupRequest
         // Invalid request, please STALL
         status = UNSUPPORTED;
         break;
-    }
+    } // switch
 
     return status;
 }

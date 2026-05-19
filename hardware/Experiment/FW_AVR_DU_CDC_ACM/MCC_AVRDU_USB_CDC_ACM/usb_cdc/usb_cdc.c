@@ -39,7 +39,7 @@
 
 
 // Line state and setup
-uint16_t usbCDCControlLineState;
+uint16_t              usbCDCControlLineState;
 USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 // USB Pipes
@@ -54,8 +54,8 @@ USB_PIPE_t CDCRxPipe = {
 };
 
 // RX Buffer
-uint8_t usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__((aligned(2)));
-static uint8_t usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
+uint8_t           usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__( ( aligned( 2 ) ) );
+static uint8_t    usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .content = usbCDCReceiveArray,
     .head = 0,
@@ -63,7 +63,7 @@ CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
     .maxLength = USB_CDC_RX_BUFFER_SIZE,
 };
 // TX Buffer
-static uint8_t usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
+static uint8_t    usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .content = usbCDCTransmitArray,
     .head = 0,
@@ -71,30 +71,27 @@ CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
     .maxLength = USB_CDC_TX_BUFFER_SIZE,
 };
 
-RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
+RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
-    if (USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t)setupRequestPtr->bmRequestType.recipient)
-    {
-        if (USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection)
-        {
-            switch (setupRequestPtr->bRequest)
+    if( USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t) setupRequestPtr->bmRequestType.recipient ) {
+        if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
+            switch( setupRequestPtr->bRequest )
             {
             case USB_CDC_REQUEST_GET_LINE_CODING:
-                status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
+                status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
                 break;
             default:
                 status = UNSUPPORTED;
                 break;
-            }
+            } // switch
         }
-        else
-        {
-            switch (setupRequestPtr->bRequest)
+        else {
+            switch( setupRequestPtr->bRequest )
             {
             case USB_CDC_REQUEST_SET_LINE_CODING:
-                status = USB_TransferControlDataSet((uint8_t *)&usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL);
+                status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
                 break;
             case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
                 usbCDCControlLineState = setupRequestPtr->wValue;
@@ -103,37 +100,31 @@ RETURN_CODE_t USB_CDCRequestHandler(USB_SETUP_REQUEST_t *setupRequestPtr)
             default:
                 status = UNSUPPORTED;
                 break;
-            }
+            } // switch
         }
     }
-    else
-    {
+    else {
         status = UNSUPPORTED;
     }
 
     return status;
 }
 
-void USB_CDCDataReceived(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)
+void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )
 {
-    (void)(pipe);
+    (void) ( pipe );
 
-    if (USB_PIPE_TRANSFER_OK == status)
-    {
-        for (uint16_t i = 0; i < bytesTransferred; i++)
-        {
-            CIRCBUF_Enqueue(&usbCDCReceiveBuffer, usbCDCReceiveTempBuffer[i]);
-        }
+    if( USB_PIPE_TRANSFER_OK == status ) {
+        for( uint16_t i = 0; i < bytesTransferred; i++ ) CIRCBUF_Enqueue( &usbCDCReceiveBuffer, usbCDCReceiveTempBuffer[i] );
     }
 }
 
-void USB_CDCDataTransmitted(USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred)
+void USB_CDCDataTransmitted( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )
 {
-    (void)(pipe);
-    (void)(bytesTransferred);
+    (void) ( pipe );
+    (void) ( bytesTransferred );
 
-    if (USB_PIPE_TRANSFER_OK == status)
-    {
+    if( USB_PIPE_TRANSFER_OK == status ) {
         usbCDCTransmitBuffer.head = 0;
         usbCDCTransmitBuffer.tail = 0;
     }

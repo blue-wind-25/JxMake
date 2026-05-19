@@ -331,20 +331,6 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
         return SUCCESS;
     }
 
-#if 0
-    // NOTE @Claude : This is the old code
-    // LANG_ID_NUM == 1: only id_array[0] exists
-    if( langID != applicationPointers->langIDptr->id_array[0] ) return UNSUPPORTED;
-
-    // LANG_ID_NUM == 1: only stringPtrs[0] exists (index 1 = manufacturer string)
-    if( stringIndex > 1u ) return UNSUPPORTED;
-
-    USB_DESCRIPTOR_HEADER_t* stringHeader = applicationPointers->stringPtrs[0];
-    *descriptorAddressPtr = (uint8_t*) stringHeader;
-    *descriptorLength = (uint16_t) stringHeader->bLength;
-    return SUCCESS;
-#else  // if 0
-    // NOTE @Claude : This is the new code (it seems to work fine)
     // LANG_ID_NUM == 1: only id_array[0] exists
     if( langID != applicationPointers->langIDptr->id_array[0] ) return UNSUPPORTED;
 
@@ -358,5 +344,4 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
     *descriptorAddressPtr = (uint8_t*) stringHeader;
     *descriptorLength = (uint16_t) stringHeader->bLength;
     return SUCCESS;
-#endif // if 0
 }

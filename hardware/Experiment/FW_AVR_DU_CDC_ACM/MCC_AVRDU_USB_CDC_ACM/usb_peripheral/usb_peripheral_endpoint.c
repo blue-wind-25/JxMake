@@ -108,17 +108,6 @@ void USB_EndpointConfigure( USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT
     }
 }
 
-void USB_EndpointDisable( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndPointOutDisable( pipe.address );
-    }
-    else {
-        USB_EndPointInDisable( pipe.address );
-    }
-}
-
-
 uint16_t USB_EndpointSizeGet( USB_PIPE_t pipe )
 {
     // No ISO endpoints — always use default size register
@@ -163,32 +152,6 @@ USB_ENDPOINT_t USB_EndpointTypeGet( USB_PIPE_t pipe )
     return endpointType;
 }
 
-void USB_EndpointStall( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndpointOutStall( pipe.address );
-    }
-    else {
-        USB_EndpointInStall( pipe.address );
-    }
-}
-
-void USB_EndpointStallClear( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndpointOutStallClear( pipe.address );
-    }
-    else {
-        USB_EndpointInStallClear( pipe.address );
-    }
-}
-
-bool USB_EndpointIsStalled( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) return USB_EndpointOutIsStalled( pipe.address );
-    return USB_EndpointInIsStalled( pipe.address );
-}
-
 RETURN_CODE_t USB_EndpointStalledConditionAck( USB_PIPE_t pipe )
 {
     RETURN_CODE_t status = UNINITIALIZED;
@@ -208,26 +171,6 @@ RETURN_CODE_t USB_EndpointStalledConditionAck( USB_PIPE_t pipe )
     }
 
     return status;
-}
-
-void USB_DataToggleSet( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndpointOutDataToggleSet( pipe.address );
-    }
-    else {
-        USB_EndpointInDataToggleSet( pipe.address );
-    }
-}
-
-void USB_DataToggleClear( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndpointOutDataToggleClear( pipe.address );
-    }
-    else {
-        USB_EndpointInDataToggleClear( pipe.address );
-    }
 }
 
 RETURN_CODE_t USB_DataToggle( USB_PIPE_t pipe )

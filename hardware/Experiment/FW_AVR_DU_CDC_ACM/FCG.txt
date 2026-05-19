@@ -807,3 +807,34 @@ Made static inline: only one call site in the same TU (USB_EndpointConfigure).
 Result: USB_EndpointConfigure absorbed ConvertEndpointSizeToMask's body inline.
   Former symbol (44 bytes) gone. USB_EndpointConfigure: 250 → 220 bytes.
   Net: −74 bytes (7206 → 7132).
+
+==============================================================================
+## BATCH 9: 6 ENDPOINT FUNCTIONS → STATIC INLINE — DONE! (7132 → 7098, −34 bytes)
+==============================================================================
+
+Moved 6 functions from usb_peripheral_endpoint.c bodies to static inline in
+usb_peripheral_endpoint.h (added #include "usb_peripheral_avr_du.h" to header):
+
+  USB_DataToggleClear   (56B) — 1 live call site: USB_ControlEndpointsInit with
+    constant {.addr=0, .dir=OUT} → compiler constant-folds to
+    USB_EndpointOutDataToggleClear(0), symbol eliminated entirely. Best win.
+
+  USB_DataToggleSet     (56B) — 2 live call sites:
+    1. USB_ControlEndpointsInit constant {.addr=0, .dir=IN} → constant-folded
+    2. USB_ControlTransactionComplete runtime pipe → GCC emitted static local
+       copy (appears as 't' in nm, same 56B size). Net: ~0B change for this fn.
+
+  USB_EndpointDisable   (36B) — 1 call site: DescriptorEndpointsConfigure,
+    runtime pipe. Net: -36B symbol +36B inline +2B saved call ≈ +2B.
+
+  USB_EndpointStall     (36B) — 1 call site: SetupEndpointRequestSetFeature,
+    runtime pipe. SetupEndpointRequestSetFeature grew 36→86B. Net: small loss.
+
+  USB_EndpointStallClear(36B) — 1 call site: SetupEndpointRequestClearFeature,
+    runtime pipe. Net: approximately neutral.
+
+  USB_EndpointIsStalled (36B) — 1 call site: SetupEndpointRequestGetStatus,
+    runtime pipe. SetupEndpointRequestGetStatus 48→78B. Net: small savings.
+
+Overall: USB_DataToggleClear full elimination dominates the savings (+50B net).
+The four runtime-expansion functions partially offset with inline body cost.

@@ -38,6 +38,7 @@
 
 #include <stdbool.h>
 
+#include "usb_peripheral_avr_du.h"
 #include "../usb_common/usb_protocol_headers.h"
 
 
@@ -57,7 +58,11 @@ void USB_EndpointConfigure( USB_PIPE_t pipe, uint16_t endpointSize, USB_ENDPOINT
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_EndpointDisable( USB_PIPE_t pipe );
+static inline void USB_EndpointDisable( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) { USB_EndPointOutDisable( pipe.address ); }
+    else { USB_EndPointInDisable( pipe.address ); }
+}
 
 /*
  * Helper function to return the endpoint size.
@@ -79,7 +84,11 @@ USB_ENDPOINT_t USB_EndpointTypeGet( USB_PIPE_t pipe );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_EndpointStall( USB_PIPE_t pipe );
+static inline void USB_EndpointStall( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) { USB_EndpointOutStall( pipe.address ); }
+    else { USB_EndpointInStall( pipe.address ); }
+}
 
 /*
  * Helps clear the Stall condition after the device has recovered from an unsupported command from the host.
@@ -88,14 +97,22 @@ void USB_EndpointStall( USB_PIPE_t pipe );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_EndpointStallClear( USB_PIPE_t pipe );
+static inline void USB_EndpointStallClear( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) { USB_EndpointOutStallClear( pipe.address ); }
+    else { USB_EndpointInStallClear( pipe.address ); }
+}
 
 /*
  * Helper function to return the endpoint Stall condition.
  *     pipe - A combination of endpoint address and direction
  * return A boolean value representing the Stall condition. If the pipe address is out of bounds, the function will always return false
  */
-bool USB_EndpointIsStalled( USB_PIPE_t pipe );
+static inline bool USB_EndpointIsStalled( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) return USB_EndpointOutIsStalled( pipe.address );
+    return USB_EndpointInIsStalled( pipe.address );
+}
 
 /*
  * Acknowledges the stall status condition by clearing the Stall Status bit.
@@ -114,7 +131,11 @@ RETURN_CODE_t USB_EndpointStalledConditionAck( USB_PIPE_t pipe );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_DataToggleSet( USB_PIPE_t pipe );
+static inline void USB_DataToggleSet( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) { USB_EndpointOutDataToggleSet( pipe.address ); }
+    else { USB_EndpointInDataToggleSet( pipe.address ); }
+}
 
 /*
  * Clears the Data Toggle bit on an endpoint which is used to ensure correct data sequence.
@@ -125,7 +146,11 @@ void USB_DataToggleSet( USB_PIPE_t pipe );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_DataToggleClear( USB_PIPE_t pipe );
+static inline void USB_DataToggleClear( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) { USB_EndpointOutDataToggleClear( pipe.address ); }
+    else { USB_EndpointInDataToggleClear( pipe.address ); }
+}
 
 /*
  * Toggles the Data Toggle bit on an endpoint which is used to ensure correct data sequence.

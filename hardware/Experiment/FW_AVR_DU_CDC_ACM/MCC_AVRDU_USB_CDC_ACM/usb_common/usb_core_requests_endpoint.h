@@ -36,26 +36,49 @@
 #define USB_CORE_REQUESTS_ENDPOINT_H
 
 
+#include "../usb_peripheral/usb_peripheral.h"
+
+#define GET_STATUS_ENDPOINT_STALLED ( 1u << 0u )
+
 /*
- * Gets the endpoint status.
+ * Gets the endpoint pipe from the wIndex field of the setup request.
  *     wIndex - Endpoint address and direction
- * return A structure with the endpoint status
+ * return A structure with the endpoint address and direction
  */
-USB_PIPE_t EndpointFromRequestGet( uint16_t wIndex );
+static inline USB_PIPE_t EndpointFromRequestGet( uint16_t wIndex )
+{
+    USB_PIPE_t endpoint;
+    endpoint.address   = (uint8_t) wIndex & 0x7Fu;
+    endpoint.direction = (uint8_t) wIndex >> 7u;
+    return endpoint;
+}
 
 /*
  * Gets the endpoint status.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestGetStatus( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t SetupEndpointRequestGetStatus( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
+    uint8_t data[] = { 0, 0 };
+    if( USB_EndpointIsStalled( endpoint ) == true ) data[0] |= GET_STATUS_ENDPOINT_STALLED;
+    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
+}
 
 /*
  * Clears the endpoint feature.
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestClearFeature( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t SetupEndpointRequestClearFeature( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    if( setupRequestPtr->wValue == USB_ENDPOINT_FEATURE_HALT ) {
+        USB_EndpointStallClear( EndpointFromRequestGet( setupRequestPtr->wIndex ) );
+        return SUCCESS;
+    }
+    return UNSUPPORTED;
+}
 
 /*
  * Sets the endpoint feature.

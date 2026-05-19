@@ -54,24 +54,6 @@ void USB_TransactionAbort( USB_PIPE_t pipe )
     pipeTransfer[PipeTransferIndexGet( pipe )].status = USB_PIPE_TRANSFER_ABORTED;
 }
 
-RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe )
-{
-    // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO.
-    // Reading the FIFO Read Pointer will handle the Transaction Complete Interrupt flag.
-    // The USB_FifoReadPointerGet is a device-specific function.
-    uint8_t fifoEntry = endpointTable.FIFO[( USB_EP_NUM * 2u ) + USB_FifoReadPointerGet()];
-
-    // The FIFO entry contains the endpoint address and direction of the endpoint to handle next.
-    USB_PIPE_t returnPipe = {
-        .direction = ( fifoEntry & USB_DIR_bm ) >> USB_DIR_bp, .address = ( fifoEntry & USB_EPNUM_gm ) >> USB_EPNUM_gp
-    };
-
-    if( (uint8_t) USB_EP_NUM <= returnPipe.address ) return ENDPOINT_ADDRESS_ERROR;
-    pipe->address = returnPipe.address;
-    pipe->direction = returnPipe.direction;
-    return SUCCESS;
-}
-
 void USB_PipeReset( USB_PIPE_t pipe )
 {
     USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];

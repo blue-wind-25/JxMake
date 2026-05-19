@@ -54,15 +54,6 @@
  */
 #define GET_INTERFACE_RESPONSE_SIZE 1u
 
-RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void )
-{
-    uint8_t data[] = {
-        0, 0
-    };
-
-    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
-}
-
 RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     // All interfaces have only alternate setting 0

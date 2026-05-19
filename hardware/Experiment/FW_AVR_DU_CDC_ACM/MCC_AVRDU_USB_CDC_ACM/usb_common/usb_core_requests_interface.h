@@ -36,6 +36,8 @@
 #define USB_CORE_REQUESTS_INTERFACE_H
 
 
+#include "../usb_peripheral/usb_peripheral.h"
+
 /*
  * Returns status for the specified interface.
  *
@@ -47,7 +49,11 @@
  *     None.
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void );
+static inline RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void )
+{
+    uint8_t data[] = { 0, 0 };
+    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
+}
 
 /*
  * Returns the alternate setting for the specified interface.

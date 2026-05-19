@@ -83,7 +83,18 @@ static inline bool USB_TransactionIsCompleted( void ) { return USB_TransactionCo
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe );
+static inline RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe )
+{
+    uint8_t fifoEntry = endpointTable.FIFO[( USB_EP_NUM * 2u ) + USB_FifoReadPointerGet()];
+    USB_PIPE_t returnPipe = {
+        .address   = (uint8_t) (( fifoEntry & USB_EPNUM_gm ) >> USB_EPNUM_gp),
+        .direction = (uint8_t) (( fifoEntry & USB_DIR_bm ) >> USB_DIR_bp)
+    };
+    if( (uint8_t) USB_EP_NUM <= returnPipe.address ) return ENDPOINT_ADDRESS_ERROR;
+    pipe->address   = returnPipe.address;
+    pipe->direction = returnPipe.direction;
+    return SUCCESS;
+}
 
 /*
  * Resets the pipe.

@@ -65,44 +65,6 @@ void SetupDeviceAddressCallback( void )
     USB_ControlEndOfRequestCallbackRegister( NULL );
 }
 
-#if 0
-// NOTE @Claude : This one (the original code) is OK
-RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    uint8_t descriptorType  = (uint8_t) ( setupRequestPtr->wValue >> 8u );
-    uint8_t descriptorIndex = (uint8_t) ( setupRequestPtr->wValue & 0xFFu );
-
-    if( USB_DESCRIPTOR_TYPE_CLASS <= (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
-        // Class (0x20–0x3F) and vendor (0x40+) descriptor types are not requested
-        // via GET_DESCRIPTOR in CDC-ACM — class descriptors are embedded in the
-        // configuration descriptor.
-        status = UNSUPPORTED;
-    }
-    else {
-        uint8_t* descriptorPtr = NULL;
-        uint16_t descriptorLength = 0;
-
-        if( USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
-            status = USB_DescriptorStringPointerGet( descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength );
-        }
-        else {
-            // USB_DescriptorPointerGet will handle remaining invalid descriptorTypes.
-            status = USB_DescriptorPointerGet( descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength );
-        }
-
-        if( SUCCESS == status ) {
-            if( descriptorLength > setupRequestPtr->wLength ) descriptorLength = setupRequestPtr->wLength;
-
-            USB_ControlTransferDataSet( descriptorPtr, descriptorLength );
-        }
-    }
-
-    return status;
-}
-#else  // if 0
-// NOTE @Claude : This one (your code) is also OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     uint8_t       descriptorType   = (uint8_t) ( setupRequestPtr->wValue >> 8u );
@@ -126,7 +88,6 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequest
 
     return status;
 }
-#endif // if 0
 
 RETURN_CODE_t SetupDeviceRequestGetConfiguration( void )
 {

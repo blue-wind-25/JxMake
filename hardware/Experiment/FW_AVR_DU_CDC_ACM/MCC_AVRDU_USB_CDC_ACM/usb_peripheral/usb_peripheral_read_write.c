@@ -65,8 +65,6 @@ void USB_PipeReset( USB_PIPE_t pipe )
     pipeTransferPtr->ZLPEnable = false;
 }
 
-
-
 void USB_PipeTransferEndCallback( USB_PIPE_t pipe )
 {
     USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];

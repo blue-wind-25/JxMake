@@ -36,24 +36,6 @@
 #include "usb_core_requests_interface.h"
 
 
-/*
- * GET_INTERFACE_REQUEST_NUMBER_MASK
- * Mask for the interface number in the wIndex field of the setup request.
- */
-#define GET_INTERFACE_REQUEST_NUMBER_MASK ( 0xFFu )
-
-/*
- * GET_INTERFACE_REQUEST_WVALUE
- * Value for the wValue field of the setup request.
- */
-#define GET_INTERFACE_REQUEST_WVALUE 0u
-
-/*
- * GET_INTERFACE_RESPONSE_SIZE
- * Size of the response to the Get Interface request.
- */
-#define GET_INTERFACE_RESPONSE_SIZE 1u
-
 RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     // All interfaces have only alternate setting 0

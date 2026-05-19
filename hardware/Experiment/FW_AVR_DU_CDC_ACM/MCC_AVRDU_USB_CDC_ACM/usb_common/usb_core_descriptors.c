@@ -76,6 +76,10 @@ typedef union USB_DESCRIPTOR_PTR_union {
 #define NEW_CODE
 //*/
 
+static RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t** configurationPtr );
+static RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr );
+static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable );
+
 static USB_CONFIGURATION_DESCRIPTOR_t* activeConfigurationPtr = NULL;
 
 #ifndef NEW_CODE
@@ -153,7 +157,7 @@ uint8_t USB_DescriptorActiveConfigurationValueGet( void )
     return configurationValue;
 }
 
-RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t** configurationPtr )
+static RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t** configurationPtr )
 {
     // Single configuration device (bNumConfigurations == 1)
     if( configurationValue > 1u ) return DESCRIPTOR_CONFIGURATIONS_ERROR;
@@ -161,7 +165,7 @@ RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURA
     return SUCCESS;
 }
 
-RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr )
+static RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
 
@@ -261,7 +265,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
     return status;
 }
 
-void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable )
+static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable )
 {
     // The number of endpoints to enable/disable is found from the interface.
     uint8_t numEndpoints = interfacePtr->bNumEndpoints;

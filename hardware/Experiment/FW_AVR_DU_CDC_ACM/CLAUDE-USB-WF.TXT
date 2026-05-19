@@ -27,11 +27,11 @@ Workflow:
 
 
 
+git status -uno
+claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
+
 Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260519-2.tar.gz ~/.claude/ ~/.claude.json
-
-
-there should be enough quota to perform some light cleanup on all the files. however, batch 13 will have to wait for the next session
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260520.tar.gz ~/.claude/ ~/.claude.json
 
 continue with batch 13
 

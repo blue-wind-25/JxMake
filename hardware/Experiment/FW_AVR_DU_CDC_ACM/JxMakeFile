@@ -61,16 +61,6 @@ PROG_OBJS := $call( obj_fpath, {                                     \
 })
 
 
-(*
-git status -uno
-claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
-
-
-yes it is intact
-yes it is intact, git commit with your signature before continuing
-*)
-
-
 target .PHONY
 endtarget
 

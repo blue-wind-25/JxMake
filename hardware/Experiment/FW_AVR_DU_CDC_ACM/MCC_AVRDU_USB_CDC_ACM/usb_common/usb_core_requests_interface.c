@@ -32,19 +32,4 @@
  */
 
 
-#include "usb_core.h"
 #include "usb_core_requests_interface.h"
-
-
-RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    // All interfaces have only alternate setting 0
-    (void) setupRequestPtr;
-    uint8_t alternateSetting = 0;
-    return USB_ControlTransferDataWriteBuffer( &alternateSetting, sizeof( alternateSetting ) );
-}
-
-RETURN_CODE_t USB_SetupInterfaceRequestSetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    return USB_DescriptorInterfaceConfigure( setupRequestPtr->wIndex, setupRequestPtr->wValue, true );
-}

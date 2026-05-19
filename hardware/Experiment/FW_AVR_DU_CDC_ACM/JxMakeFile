@@ -55,8 +55,6 @@ PROG_OBJS := $call( obj_fpath, {                                     \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_descriptors.c          \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_events.c               \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_device.c      \
-    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_endpoint.c    \
-    MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests_interface.c   \
     MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_transfer.c             \
     MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral.c            \
     MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral_endpoint.c   \

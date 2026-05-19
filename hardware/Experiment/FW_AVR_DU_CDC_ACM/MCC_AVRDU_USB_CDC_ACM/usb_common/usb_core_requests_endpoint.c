@@ -33,16 +33,3 @@
 
 
 #include "usb_core_requests_endpoint.h"
-#include "usb_core_transfer.h"
-
-
-RETURN_CODE_t SetupEndpointRequestSetFeature( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    if( setupRequestPtr->wValue == USB_ENDPOINT_FEATURE_HALT ) {
-        USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
-        USB_TransferAbort( endpoint );
-        USB_EndpointStall( endpoint );
-        return SUCCESS;
-    }
-    return UNSUPPORTED;
-}

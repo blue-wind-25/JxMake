@@ -36,6 +36,8 @@
 #define USB_PERIPHERAL_H
 
 
+#include <string.h>
+
 #include "usb_peripheral_avr_du.h"
 #include "usb_peripheral_endpoint.h"
 #include "usb_peripheral_read_write.h"
@@ -65,21 +67,6 @@ extern USB_CONTROL_TRANSFER_t controlTransfer;
 static inline bool USB_SetupIsReceived( void ) { return USB_SetupInterruptIs(); }
 
 /*
- * Detects if the Start-of-Frame (SOF) event was received.
- *     None.
- * 0 - SOF event was not received
- * 1 - SOF event was received
- */
-bool USB_EventSOFIsReceived( void );
-
-/*
- * Clears the SOF event.
- *     None.
- * return None.
- */
-void USB_EventSOFClear( void );
-
-/*
  * Detects if the Reset event was received.
  *     None.
  * 1 - Reset event was received
@@ -99,14 +86,32 @@ static inline void USB_EventResetClear( void ) { USB_ResetInterruptClear(); }
  *     None.
  * return A value representing the events received
  */
-uint8_t USB_EventOverUnderflowIsReceived( void );
+static inline uint8_t USB_EventOverUnderflowIsReceived( void )
+{
+    uint8_t eventOverUnderflow = 0;
+    if( USB_OverflowInterruptIs() == true ) eventOverUnderflow |= (uint8_t) OVERFLOW_EVENT;
+    if( USB_UnderflowInterruptIs() == true ) eventOverUnderflow |= (uint8_t) UNDERFLOW_EVENT;
+    return eventOverUnderflow;
+}
 
 /*
  * Detects if an Overflow and/or Underflow event was received on the control endpoints.
  *     None.
  * return A value representing the events received
  */
-uint8_t USB_ControlOverUnderflowIsReceived( void );
+static inline uint8_t USB_ControlOverUnderflowIsReceived( void )
+{
+    uint8_t eventOverUnderflow = 0;
+    if( USB_EndpointOutOverUnderflowIsSet( 0 ) == true ) {
+        eventOverUnderflow |= (uint8_t) OVERFLOW_EVENT;
+        USB_EndpointOutOverUnderflowAck( 0 );
+    }
+    if( USB_EndpointInOverUnderflowIsSet( 0 ) == true ) {
+        eventOverUnderflow |= (uint8_t) UNDERFLOW_EVENT;
+        USB_EndpointInOverUnderflowAck( 0 );
+    }
+    return eventOverUnderflow;
+}
 
 /*
  * Clears the Over/Underflow event.
@@ -114,37 +119,6 @@ uint8_t USB_ControlOverUnderflowIsReceived( void );
  * return None.
  */
 static inline void USB_EventOverUnderflowClear( void ) { USB_OverflowInterruptClear(); USB_UnderflowInterruptClear(); }
-
-/*
- * Detects if a Suspend event was received.
- *     None.
- * return A boolean value representing the Suspend event received condition
- * 0 - Suspend event was not received
- * 1 - Suspend event was received
- */
-bool USB_EventSuspendIsReceived( void );
-
-/*
- * Clears the Suspend event.
- *     None.
- * return None.
- */
-void USB_EventSuspendClear( void );
-
-/*
- * Detects if a Resume event was received.
- *     None.
- * 0 - Resume event was not received
- * 1 - Resume event was received
- */
-bool USB_EventResumeIsReceived( void );
-
-/*
- * Clears the Resume event.
- *     None.
- * return None.
- */
-void USB_EventResumeClear( void );
 
 /*
  * Detects if a Stalled event was received.
@@ -176,26 +150,11 @@ static inline void USB_BusAttach( void ) { USB_ConnectionAttach(); }
 static inline void USB_BusDetach( void ) { USB_ConnectionDetach(); }
 
 /*
- * Checks if the device is attached to the USB bus not.
- *     None.
- * 0 - USB bus is not attached
- * 1 - USB bus is attached
- */
-bool USB_IsBusAttached( void );
-
-/*
  * Sets the device address.
  *     deviceAddress - Device address to set
  * return None.
  */
-void USB_DeviceAddressConfigure( uint8_t deviceAddress );
-
-/*
- * Gets the current frame number.
- *     None.
- * return 15-bit frame number
- */
-uint16_t USB_FrameNumberGet( void );
+static inline void USB_DeviceAddressConfigure( uint8_t deviceAddress ) { USB_DeviceAddressSet( deviceAddress ); }
 
 /*
  * Ensures correct control endpoint initialization.
@@ -262,7 +221,13 @@ static inline RETURN_CODE_t USB_ControlTransferDataSet( uint8_t* dataPtr, uint16
  *     dataSize - Number of elements in the array
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_ControlTransferDataWriteBuffer( uint8_t* dataPtr, uint8_t dataSize );
+static inline RETURN_CODE_t USB_ControlTransferDataWriteBuffer( uint8_t* dataPtr, uint8_t dataSize )
+{
+    (void) memcpy( controlTransfer.buffer, dataPtr, dataSize );
+    controlTransfer.transferDataPtr  = controlTransfer.buffer;
+    controlTransfer.transferDataSize = dataSize;
+    return SUCCESS;
+}
 
 /*
  * Sets the callback for end of a control request.
@@ -282,7 +247,17 @@ static inline void USB_ControlEndOfRequestCallbackRegister( USB_SETUP_ENDOFREQUE
  *     overunderflow - A value representing overflow or underflow
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_ControlProcessOverUnderflow( uint8_t overunderflow );
+static inline void USB_ControlProcessOverUnderflow( uint8_t overunderflow )
+{
+    if( USB_CONTROL_DATA_IN == controlTransfer.status ) {
+        if( OVERFLOW_EVENT == overunderflow )
+            USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
+    }
+    else if( USB_CONTROL_DATA_OUT == controlTransfer.status ) {
+        if( UNDERFLOW_EVENT == overunderflow )
+            USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
+    }
+}
 
 /*
  * Handles the Stall events.

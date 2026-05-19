@@ -36,50 +36,52 @@
 #define USB_CORE_REQUESTS_DEVICE_H
 
 
-#include "usb_protocol_headers.h"
+#include <stddef.h>
+
+#include "../usb_peripheral/usb_peripheral.h"
+#include "usb_core_descriptors.h"
 
 
-/*
- * Returns the status of the device features.
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestGetStatus( void );
-
-/*
- * Sets the device address.
- *     address - Address to be set
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address );
-
-/*
- * Callback function for the address.
- *     None.
- * return None.
- */
 void SetupDeviceAddressCallback( void );
-
-/*
- * Gets the device descriptor.
- *     *setupRequestPtr - Pointer to the setup request
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr );
-
-/*
- * Gets the device configuration.
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupDeviceRequestGetConfiguration( void );
-
-/*
- * Sets the device configuration.
- *     configurationValue - Configuration value to be set
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
+RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address );
 RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue );
+
+
+static inline RETURN_CODE_t SetupDeviceRequestGetStatus( void )
+{
+    uint8_t data[] = { 0, 0 };
+    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
+}
+
+static inline RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    uint8_t       descriptorType   = (uint8_t) ( setupRequestPtr->wValue >> 8u );
+    uint8_t       descriptorIndex  = (uint8_t) ( setupRequestPtr->wValue & 0xFFu );
+    uint8_t*      descriptorPtr = NULL;
+    uint16_t      descriptorLength = 0;
+    RETURN_CODE_t status;
+
+    if( USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
+        status = USB_DescriptorStringPointerGet( descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength );
+    }
+    else {
+        // USB_DescriptorPointerGet returns UNSUPPORTED for class/vendor and other invalid types.
+        status = USB_DescriptorPointerGet( (USB_DESCRIPTOR_TYPE_t) descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength );
+    }
+
+    if( SUCCESS == status ) {
+        if( descriptorLength > setupRequestPtr->wLength ) descriptorLength = setupRequestPtr->wLength;
+        USB_ControlTransferDataSet( descriptorPtr, descriptorLength );
+    }
+
+    return status;
+}
+
+static inline RETURN_CODE_t SetupDeviceRequestGetConfiguration( void )
+{
+    uint8_t configurationValue = USB_DescriptorActiveConfigurationValueGet();
+    return USB_ControlTransferDataWriteBuffer( &configurationValue, sizeof( configurationValue ) );
+}
 
 
 #endif // USB_CORE_REQUESTS_DEVICE_H

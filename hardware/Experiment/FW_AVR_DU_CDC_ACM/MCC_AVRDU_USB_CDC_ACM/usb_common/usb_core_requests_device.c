@@ -32,23 +32,10 @@
  */
 
 
-#include <stddef.h>
-
-#include "../usb_peripheral/usb_peripheral.h"
-#include "usb_core_descriptors.h"
 #include "usb_core_requests_device.h"
 
 
 static uint8_t deviceAddress = 0;
-
-RETURN_CODE_t SetupDeviceRequestGetStatus( void )
-{
-    // Bus-powered, no remote wakeup — both bits always 0
-    uint8_t data[] = {
-        0, 0
-    };
-    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
-}
 
 RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address )
 {
@@ -63,37 +50,6 @@ void SetupDeviceAddressCallback( void )
 {
     USB_DeviceAddressConfigure( deviceAddress );
     USB_ControlEndOfRequestCallbackRegister( NULL );
-}
-
-RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
-{
-    uint8_t       descriptorType   = (uint8_t) ( setupRequestPtr->wValue >> 8u );
-    uint8_t       descriptorIndex  = (uint8_t) ( setupRequestPtr->wValue & 0xFFu );
-    uint8_t*      descriptorPtr = NULL;
-    uint16_t      descriptorLength = 0;
-    RETURN_CODE_t status;
-
-    if( USB_DESCRIPTOR_TYPE_STRING == (USB_DESCRIPTOR_TYPE_t) descriptorType ) {
-        status = USB_DescriptorStringPointerGet( descriptorIndex, setupRequestPtr->wIndex, &descriptorPtr, &descriptorLength );
-    }
-    else {
-        // USB_DescriptorPointerGet returns UNSUPPORTED for class/vendor and other invalid types.
-        status = USB_DescriptorPointerGet( descriptorType, descriptorIndex, &descriptorPtr, &descriptorLength );
-    }
-
-    if( SUCCESS == status ) {
-        if( descriptorLength > setupRequestPtr->wLength ) descriptorLength = setupRequestPtr->wLength;
-        USB_ControlTransferDataSet( descriptorPtr, descriptorLength );
-    }
-
-    return status;
-}
-
-RETURN_CODE_t SetupDeviceRequestGetConfiguration( void )
-{
-    uint8_t configurationValue = USB_DescriptorActiveConfigurationValueGet();
-
-    return USB_ControlTransferDataWriteBuffer( &configurationValue, sizeof( configurationValue ) );
 }
 
 RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue )

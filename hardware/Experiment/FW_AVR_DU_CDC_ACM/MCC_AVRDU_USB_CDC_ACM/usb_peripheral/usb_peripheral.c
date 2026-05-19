@@ -33,7 +33,6 @@
 
 
 #include <stddef.h>
-#include <string.h>
 
 #include "usb_peripheral.h"
 #include "usb_peripheral_avr_du.h"
@@ -44,73 +43,6 @@
 USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) ) = {
     .transferDataPtr = controlTransfer.buffer
 };
-
-bool USB_EventSOFIsReceived( void )
-{
-    return USB_SOFInterruptIs();
-}
-
-void USB_EventSOFClear( void )
-{
-    USB_SOFInterruptClear();
-}
-
-uint8_t USB_EventOverUnderflowIsReceived( void )
-{
-    uint8_t eventOverUnderflow = 0;
-    if( USB_OverflowInterruptIs() == true ) eventOverUnderflow |= (uint8_t) OVERFLOW_EVENT;
-    if( USB_UnderflowInterruptIs() == true ) eventOverUnderflow |= (uint8_t) UNDERFLOW_EVENT;
-    return eventOverUnderflow;
-}
-
-uint8_t USB_ControlOverUnderflowIsReceived( void )
-{
-    uint8_t eventOverUnderflow = 0;
-    if( USB_EndpointOutOverUnderflowIsSet( 0 ) == true ) {
-        eventOverUnderflow |= (uint8_t) OVERFLOW_EVENT;
-        USB_EndpointOutOverUnderflowAck( 0 );
-    }
-    if( USB_EndpointInOverUnderflowIsSet( 0 ) == true ) {
-        eventOverUnderflow |= (uint8_t) UNDERFLOW_EVENT;
-        USB_EndpointInOverUnderflowAck( 0 );
-    }
-    return eventOverUnderflow;
-}
-
-bool USB_EventSuspendIsReceived( void )
-{
-    return USB_SuspendInterruptIs();
-}
-
-void USB_EventSuspendClear( void )
-{
-    USB_SuspendInterruptClear();
-}
-
-bool USB_EventResumeIsReceived( void )
-{
-    return USB_ResumeInterruptIs();
-}
-
-void USB_EventResumeClear( void )
-{
-    USB_ResumeInterruptClear();
-}
-
-bool USB_IsBusAttached( void )
-{
-    return USB_ConnectionIsAttach();
-}
-
-void USB_DeviceAddressConfigure( uint8_t deviceAddress )
-{
-    USB_DeviceAddressSet( deviceAddress );
-}
-
-uint16_t USB_FrameNumberGet( void )
-{
-    return USB_FrameNumGet();
-}
 
 void USB_ControlSetupReceived( void )
 {
@@ -290,32 +222,6 @@ void USB_ControlTransferReset( void )
     controlTransfer.status = USB_CONTROL_SETUP;
 }
 
-
-RETURN_CODE_t USB_ControlTransferDataWriteBuffer( uint8_t* dataPtr, uint8_t dataSize )
-{
-    (void) memcpy( controlTransfer.buffer, dataPtr, dataSize );
-    controlTransfer.transferDataPtr  = controlTransfer.buffer;
-    controlTransfer.transferDataSize = dataSize;
-    return SUCCESS;
-}
-
-
-
-void USB_ControlProcessOverUnderflow( uint8_t overunderflow )
-{
-    if( USB_CONTROL_DATA_IN == controlTransfer.status ) {
-        if( OVERFLOW_EVENT == overunderflow )
-            // Host is done with the data stage and expects an OUT ZLP
-            USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
-        // else: host is too eager, let transfer handler deal with it
-    }
-    else if( USB_CONTROL_DATA_OUT == controlTransfer.status ) {
-        if( UNDERFLOW_EVENT == overunderflow )
-            // Host is done with the data stage and expects an IN ZLP
-            USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
-        // else: host is too eager, let transfer handler deal with it
-    }
-}
 
 void USB_PeripheralInitialize( void )
 {

@@ -38,6 +38,9 @@
 
 #include "../usb_peripheral/usb_peripheral.h"
 
+// Forward declaration to avoid circular include with usb_core_transfer.h
+void USB_TransferAbort( USB_PIPE_t pipe );
+
 #define GET_STATUS_ENDPOINT_STALLED ( 1u << 0u )
 
 /*
@@ -85,14 +88,16 @@ static inline RETURN_CODE_t SetupEndpointRequestClearFeature( USB_SETUP_REQUEST_
  *     *setupRequestPtr - Pointer to the setup request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t SetupEndpointRequestSetFeature( USB_SETUP_REQUEST_t* setupRequestPtr );
-
-/*
- * Gets the current frame number.
- *     None.
- * return SUCCESS or an Error code according to RETURN_CODE_t
- */
-RETURN_CODE_t SetupEndpointRequestSynchFrame( void );
+static inline RETURN_CODE_t SetupEndpointRequestSetFeature( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    if( setupRequestPtr->wValue == USB_ENDPOINT_FEATURE_HALT ) {
+        USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
+        USB_TransferAbort( endpoint );
+        USB_EndpointStall( endpoint );
+        return SUCCESS;
+    }
+    return UNSUPPORTED;
+}
 
 
 #endif // USB_CORE_REQUESTS_ENDPOINT_H

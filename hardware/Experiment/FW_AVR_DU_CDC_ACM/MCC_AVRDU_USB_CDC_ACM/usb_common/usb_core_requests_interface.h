@@ -37,6 +37,7 @@
 
 
 #include "../usb_peripheral/usb_peripheral.h"
+#include "usb_core_descriptors.h"
 
 /*
  * Returns status for the specified interface.
@@ -57,31 +58,26 @@ static inline RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void )
 
 /*
  * Returns the alternate setting for the specified interface.
- *
- * Format for GET_INTERFACE request according to USB 2.0 specification Ch 9.4.4.
- * Document: Universal Serial Bus Specification for USB 2.0.
- * | bRequest      | wValue | wIndex    | wLength | Data              |
- * |---------------|--------|-----------|---------|-------------------|
- * | GET_INTERFACE | Zero   | Interface | One     | Alternate setting |
- *
  *     *setupRequestPtr - Pointer to the request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    // All interfaces have only alternate setting 0
+    (void) setupRequestPtr;
+    uint8_t alternateSetting = 0;
+    return USB_ControlTransferDataWriteBuffer( &alternateSetting, sizeof( alternateSetting ) );
+}
 
 /*
  * Setup function for the interface request to select the alternate setting.
- *
- * A request to set interface according to USB 2.0 specification Ch. 9.4.10.
- * Document: Universal Serial Bus Specification for USB 2.0
- * | bRequest      | wValue            | wIndex    | wLength | Data |
- * |---------------|-------------------|-----------|---------|------|
- * | SET_INTERFACE | Alternate setting | Interface | Zero    | None |
- *
  *     *setupRequestPtr - Pointer to the request and its data
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_SetupInterfaceRequestSetInterface( USB_SETUP_REQUEST_t* setupRequestPtr );
+static inline RETURN_CODE_t USB_SetupInterfaceRequestSetInterface( USB_SETUP_REQUEST_t* setupRequestPtr )
+{
+    return USB_DescriptorInterfaceConfigure( setupRequestPtr->wIndex, setupRequestPtr->wValue, true );
+}
 
 
 #endif // USB_CORE_REQUESTS_INTERFACE_H

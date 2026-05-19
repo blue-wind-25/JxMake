@@ -42,9 +42,22 @@
 #include "usb_core_descriptors.h"
 
 
+extern uint8_t deviceAddress;
 void SetupDeviceAddressCallback( void );
-RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address );
-RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue );
+
+static inline RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address )
+{
+    // Must register the callback here since device address must be set after completion of status stage.
+    deviceAddress = address;
+    USB_ControlEndOfRequestCallbackRegister( &SetupDeviceAddressCallback );
+    return SUCCESS;
+}
+
+static inline RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue )
+{
+    if( ( deviceAddress == 0u ) ) return USB_CONNECTION_ERROR;
+    return USB_DescriptorConfigurationEnable( configurationValue );
+}
 
 
 static inline RETURN_CODE_t SetupDeviceRequestGetStatus( void )

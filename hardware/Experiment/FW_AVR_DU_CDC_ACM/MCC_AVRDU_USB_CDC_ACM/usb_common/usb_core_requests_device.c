@@ -35,16 +35,7 @@
 #include "usb_core_requests_device.h"
 
 
-static uint8_t deviceAddress = 0;
-
-RETURN_CODE_t SetupDeviceRequestSetAddress( uint8_t address )
-{
-    // Must register the callback here since device address must be set after completion of status stage.
-    deviceAddress = address;
-    USB_ControlEndOfRequestCallbackRegister( &SetupDeviceAddressCallback );
-
-    return SUCCESS;
-}
+uint8_t deviceAddress = 0;
 
 void SetupDeviceAddressCallback( void )
 {
@@ -52,17 +43,3 @@ void SetupDeviceAddressCallback( void )
     USB_ControlEndOfRequestCallbackRegister( NULL );
 }
 
-RETURN_CODE_t SetupDeviceRequestSetConfiguration( uint8_t configurationValue )
-{
-    RETURN_CODE_t status = UNINITIALIZED;
-
-    if( ( deviceAddress == 0u ) ) {
-        status = USB_CONNECTION_ERROR;
-    }
-    else {
-        // Enables configuration, clears it if configurationValue is zero.
-        status = USB_DescriptorConfigurationEnable( configurationValue );
-    }
-
-    return status;
-}

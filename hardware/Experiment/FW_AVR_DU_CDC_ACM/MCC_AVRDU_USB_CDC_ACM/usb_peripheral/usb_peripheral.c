@@ -197,65 +197,64 @@ void USB_ControlTransactionComplete( USB_PIPE_t pipe )
     // Always called with pipe.address == 0 (control endpoint)
     USB_DataToggleSet( pipe );
 
-    switch( controlTransfer.status )
-    {
-    case USB_CONTROL_DATA_IN:
-    {
-        pipe.direction = USB_EP_DIR_IN;
+    switch( controlTransfer.status ) {
+        case USB_CONTROL_DATA_IN: {
+            pipe.direction = USB_EP_DIR_IN;
 
-        // Updates bytes sent and to be sent.
-        uint16_t bytesSent = USB_PipeDataTransferredSizeGet( pipe );
-        bytesSent += USB_NumberBytesSentGet( pipe.address );
-        USB_PipeDataTransferredSizeSet( pipe, bytesSent );
-        uint16_t transferDataSize = USB_PipeDataToTransferSizeGet( pipe );
+            // Updates bytes sent and to be sent.
+            uint16_t bytesSent = USB_PipeDataTransferredSizeGet( pipe );
+            bytesSent += USB_NumberBytesSentGet( pipe.address );
+            USB_PipeDataTransferredSizeSet( pipe, bytesSent );
+            uint16_t transferDataSize = USB_PipeDataToTransferSizeGet( pipe );
 
-        // Checks remaining data to send.
-        if( 0U == ( transferDataSize - bytesSent ) ) {
-            // Data stage complete — send OUT ZLP for status stage.
-            USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
-        }
-        else {
-            USB_InTransactionRun( pipe );
-        }
+            // Checks remaining data to send.
+            if( 0U == ( transferDataSize - bytesSent ) ) {
+                // Data stage complete — send OUT ZLP for status stage.
+                USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
+            }
+            else {
+                USB_InTransactionRun( pipe );
+            }
 
-        USB_EndpointInOverUnderflowAck( 0 );
-        break;
-    }
-    case USB_CONTROL_DATA_OUT:
-    {
-        pipe.direction = USB_EP_DIR_OUT;
-
-        // Updates bytes received and to be received.
-        uint16_t bytesReceived = USB_PipeDataTransferredSizeGet( pipe );
-        bytesReceived += USB_NumberBytesReceivedGet( pipe.address );
-        USB_PipeDataTransferredSizeSet( pipe, bytesReceived );
-        uint16_t transferDataSize = USB_PipeDataToTransferSizeGet( pipe );
-
-        if( 0U == ( transferDataSize - bytesReceived ) ) {
-            // Data stage complete — send IN ZLP for status stage.
-            USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
-        }
-        else {
-            USB_OutTransactionRun( pipe );
+            USB_EndpointInOverUnderflowAck( 0 );
+            break;
         }
 
-        USB_EndpointOutOverUnderflowAck( 0 );
-        break;
-    }
-    case USB_CONTROL_ZLP:
-    {
-        // Valid end of setup request.
-        if( controlTransfer.endOfRequestCallback != NULL ) controlTransfer.endOfRequestCallback();
-        USB_ControlTransferReset();
-        break;
-    }
-    case USB_CONTROL_SETUP:
-    {
-        USB_ControlTransferReset();
-        break;
-    }
-    default:
-        break;
+        case USB_CONTROL_DATA_OUT: {
+            pipe.direction = USB_EP_DIR_OUT;
+
+            // Updates bytes received and to be received.
+            uint16_t bytesReceived = USB_PipeDataTransferredSizeGet( pipe );
+            bytesReceived += USB_NumberBytesReceivedGet( pipe.address );
+            USB_PipeDataTransferredSizeSet( pipe, bytesReceived );
+            uint16_t transferDataSize = USB_PipeDataToTransferSizeGet( pipe );
+
+            if( 0U == ( transferDataSize - bytesReceived ) ) {
+                // Data stage complete — send IN ZLP for status stage.
+                USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
+            }
+            else {
+                USB_OutTransactionRun( pipe );
+            }
+
+            USB_EndpointOutOverUnderflowAck( 0 );
+            break;
+        }
+
+        case USB_CONTROL_ZLP: {
+            // Valid end of setup request.
+            if( controlTransfer.endOfRequestCallback != NULL ) controlTransfer.endOfRequestCallback();
+            USB_ControlTransferReset();
+            break;
+        }
+
+        case USB_CONTROL_SETUP: {
+            USB_ControlTransferReset();
+            break;
+        }
+
+        default:
+            break;
     } // switch
 }
 

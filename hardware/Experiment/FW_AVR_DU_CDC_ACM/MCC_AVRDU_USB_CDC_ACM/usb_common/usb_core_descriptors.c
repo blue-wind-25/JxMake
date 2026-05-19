@@ -181,7 +181,7 @@ RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, US
         }
         else
         // If it has looped through too many descriptors, it is assumed that the descriptor structure is set up incorrectly and the loop is exited.
-        if( incrementCount++ > USB_DESCRIPTOR_SEARCH_LIMIT ) status = DESCRIPTOR_SEARCH_ERROR;
+        if( incrementCount++ > USB_DESCRIPTOR_SEARCH_LIMIT ) {status = DESCRIPTOR_SEARCH_ERROR;}
 
     }
 
@@ -215,7 +215,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
                     DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
                     activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
                 }
-#else  /* ifndef NEW_CODE */
+#else  // ifndef NEW_CODE
                 DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
 #endif // ifndef NEW_CODE
                 if( enable && ( alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting ) )
@@ -296,25 +296,27 @@ RETURN_CODE_t USB_DescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptor, uint8_
 
     USB_DESCRIPTOR_PTR_t localDescriptorPtr;
 
-    switch( descriptor )
-    {
-    case USB_DESCRIPTOR_TYPE_DEVICE:
-        *descriptorPtr = (uint8_t*) applicationPointers->devicePtr;
-        *descriptorLength = (uint16_t) applicationPointers->devicePtr->header.bLength;
-        status = SUCCESS;
-        break;
-    case USB_DESCRIPTOR_TYPE_CONFIGURATION:;
-        // Returns pointer to configuration, with the total length.
+    switch( descriptor ) {
+        case USB_DESCRIPTOR_TYPE_DEVICE:
+            *descriptorPtr = (uint8_t*) applicationPointers->devicePtr;
+            *descriptorLength = (uint16_t) applicationPointers->devicePtr->header.bLength;
+            status = SUCCESS;
+            break;
 
-        status = ConfigurationPointerGet( attribute, &localDescriptorPtr.configurationPtr );
-        if( SUCCESS == status ) {
-            *descriptorPtr = localDescriptorPtr.bytePtr;
-            *descriptorLength = localDescriptorPtr.configurationPtr->wTotalLength;
-        }
-        break;
-    default:
-        status = UNSUPPORTED;
-        break;
+        case USB_DESCRIPTOR_TYPE_CONFIGURATION:
+            ;
+            // Returns pointer to configuration, with the total length.
+
+            status = ConfigurationPointerGet( attribute, &localDescriptorPtr.configurationPtr );
+            if( SUCCESS == status ) {
+                *descriptorPtr = localDescriptorPtr.bytePtr;
+                *descriptorLength = localDescriptorPtr.configurationPtr->wTotalLength;
+            }
+            break;
+
+        default:
+            status = UNSUPPORTED;
+            break;
     } // switch
 
     return status;
@@ -341,7 +343,7 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
     *descriptorAddressPtr = (uint8_t*) stringHeader;
     *descriptorLength = (uint16_t) stringHeader->bLength;
     return SUCCESS;
-#else  /* if 0 */
+#else  // if 0
     // NOTE @Claude : This is the new code (it seems to work fine)
     // LANG_ID_NUM == 1: only id_array[0] exists
     if( langID != applicationPointers->langIDptr->id_array[0] ) return UNSUPPORTED;

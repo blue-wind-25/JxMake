@@ -51,26 +51,25 @@ RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestPtr )
             // Makes sure the data out transfer is reset before handling requests.
             USB_ControlTransferDataSet( NULL, 0u );
 
-            switch( setupRequestPtr->bmRequestType.recipient )
-            {
-            case USB_REQUEST_RECIPIENT_DEVICE:
-            {
-                status = USB_SetupProcessDeviceRequest( setupRequestPtr );
-                break;
-            }
-            case USB_REQUEST_RECIPIENT_ENDPOINT:
-            {
-                status = USB_SetupProcessEndpointRequest( setupRequestPtr );
-                break;
-            }
-            case USB_REQUEST_RECIPIENT_INTERFACE:
-            {
-                status = USB_SetupProcessInterfaceRequest( setupRequestPtr );
-                break;
-            }
-            default:
-                status = UNSUPPORTED;
-                break;
+            switch( setupRequestPtr->bmRequestType.recipient ) {
+                case USB_REQUEST_RECIPIENT_DEVICE: {
+                    status = USB_SetupProcessDeviceRequest( setupRequestPtr );
+                    break;
+                }
+
+                case USB_REQUEST_RECIPIENT_ENDPOINT: {
+                    status = USB_SetupProcessEndpointRequest( setupRequestPtr );
+                    break;
+                }
+
+                case USB_REQUEST_RECIPIENT_INTERFACE: {
+                    status = USB_SetupProcessInterfaceRequest( setupRequestPtr );
+                    break;
+                }
+
+                default:
+                    status = UNSUPPORTED;
+                    break;
             } // switch
         }
     }

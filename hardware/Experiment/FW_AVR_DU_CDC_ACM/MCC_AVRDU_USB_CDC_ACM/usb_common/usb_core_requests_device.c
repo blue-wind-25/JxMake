@@ -101,7 +101,7 @@ RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequest
 
     return status;
 }
-#else  /* if 0 */
+#else  // if 0
 // NOTE @Claude : This one (your code) is also OK
 RETURN_CODE_t SetupDeviceRequestGetDescriptor( USB_SETUP_REQUEST_t* setupRequestPtr )
 {

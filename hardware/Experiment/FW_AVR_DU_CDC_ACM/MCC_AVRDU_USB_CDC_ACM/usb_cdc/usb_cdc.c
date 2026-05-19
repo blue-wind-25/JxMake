@@ -77,29 +77,30 @@ RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
 
     if( USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t) setupRequestPtr->bmRequestType.recipient ) {
         if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
-            switch( setupRequestPtr->bRequest )
-            {
-            case USB_CDC_REQUEST_GET_LINE_CODING:
-                status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
-                break;
-            default:
-                status = UNSUPPORTED;
-                break;
+            switch( setupRequestPtr->bRequest ) {
+                case USB_CDC_REQUEST_GET_LINE_CODING:
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    break;
+
+                default:
+                    status = UNSUPPORTED;
+                    break;
             } // switch
         }
         else {
-            switch( setupRequestPtr->bRequest )
-            {
-            case USB_CDC_REQUEST_SET_LINE_CODING:
-                status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
-                break;
-            case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
-                usbCDCControlLineState = setupRequestPtr->wValue;
-                status = SUCCESS;
-                break;
-            default:
-                status = UNSUPPORTED;
-                break;
+            switch( setupRequestPtr->bRequest ) {
+                case USB_CDC_REQUEST_SET_LINE_CODING:
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    break;
+
+                case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
+                    usbCDCControlLineState = setupRequestPtr->wValue;
+                    status = SUCCESS;
+                    break;
+
+                default:
+                    status = UNSUPPORTED;
+                    break;
             } // switch
         }
     }
@@ -114,9 +115,8 @@ void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_
 {
     (void) ( pipe );
 
-    if( USB_PIPE_TRANSFER_OK == status ) {
+    if( USB_PIPE_TRANSFER_OK == status )
         for( uint16_t i = 0; i < bytesTransferred; i++ ) CIRCBUF_Enqueue( &usbCDCReceiveBuffer, usbCDCReceiveTempBuffer[i] );
-    }
 }
 
 void USB_CDCDataTransmitted( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )

@@ -132,21 +132,23 @@ USB_ENDPOINT_t USB_EndpointTypeGet( USB_PIPE_t pipe )
     }
 
     USB_ENDPOINT_t endpointType = DISABLED;
-    switch( endpointConfigType )
-    {
-    case USB_TYPE_CONTROL_gc:
-        endpointType = CONTROL;
-        break;
-    case USB_TYPE_BULKINT_gc:
-        // Peripheral does not distinguish between BULK and INTERRUPT, returning BULK
-        endpointType = BULK;
-        break;
-    case USB_TYPE_ISO_gc:
-        endpointType = ISOCHRONOUS;
-        break;
-    default:
-        // endpointType = DISABLED;
-        break;
+    switch( endpointConfigType ) {
+        case USB_TYPE_CONTROL_gc:
+            endpointType = CONTROL;
+            break;
+
+        case USB_TYPE_BULKINT_gc:
+            // Peripheral does not distinguish between BULK and INTERRUPT, returning BULK
+            endpointType = BULK;
+            break;
+
+        case USB_TYPE_ISO_gc:
+            endpointType = ISOCHRONOUS;
+            break;
+
+        default:
+            // endpointType = DISABLED;
+            break;
     } // switch
 
     return endpointType;

@@ -4,7 +4,8 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(grep -v \"^--$\")",
-      "Bash(avr-nm --size-sort build/main.elf)"
+      "Bash(avr-nm --size-sort build/main.elf)",
+      "Bash(avr-nm --size-sort -S /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/build/main.elf)"
     ]
   }
 }

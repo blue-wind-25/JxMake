@@ -36,6 +36,8 @@
 #define USB_PERIPHERAL_READ_WRITE_H
 
 
+#include "usb_peripheral_avr_du.h"
+
 // Pipe transfer index: (address * 2) + direction
 #define PipeTransferIndexGet( pipe ) ( ( ( pipe ).address * 2 ) + ( pipe ).direction )
 
@@ -57,7 +59,16 @@ void USB_TransactionAbort( USB_PIPE_t pipe );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_TransactionCompleteAck( USB_PIPE_t pipe );
+static inline void USB_TransactionCompleteAck( USB_PIPE_t pipe )
+{
+    if( USB_EP_DIR_OUT == pipe.direction ) {
+        USB_EndpointOutTransactionCompleteAck( pipe.address );
+    }
+    else {
+        USB_EndpointInTransactionCompleteAck( pipe.address );
+    }
+    pipeTransfer[PipeTransferIndexGet( pipe )].status = USB_PIPE_TRANSFER_OK;
+}
 
 /*
  * Helper function to return the endpoint transaction complete condition.

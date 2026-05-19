@@ -54,17 +54,6 @@ void USB_TransactionAbort( USB_PIPE_t pipe )
     pipeTransfer[PipeTransferIndexGet( pipe )].status = USB_PIPE_TRANSFER_ABORTED;
 }
 
-void USB_TransactionCompleteAck( USB_PIPE_t pipe )
-{
-    if( USB_EP_DIR_OUT == pipe.direction ) {
-        USB_EndpointOutTransactionCompleteAck( pipe.address );
-    }
-    else {
-        USB_EndpointInTransactionCompleteAck( pipe.address );
-    }
-    pipeTransfer[PipeTransferIndexGet( pipe )].status = USB_PIPE_TRANSFER_OK;
-}
-
 RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe )
 {
     // Finds FIFO entry by adding (subtracting) the signed read pointer to the size of the FIFO.

@@ -335,16 +335,6 @@ void USB_ControlProcessOverUnderflow( uint8_t overunderflow )
     }
 }
 
-void USB_HandleEventStalled( USB_PIPE_t pipe )
-{
-    // Always called with pipe.address == 0 (control endpoint)
-    USB_EndpointInStallAck( pipe.address );
-    USB_EndpointOutStallAck( pipe.address );
-    USB_EndpointInStallClear( pipe.address );
-    USB_EndpointOutStallClear( pipe.address );
-    USB_ControlTransferReset();
-}
-
 void USB_PeripheralInitialize( void )
 {
     USB_Enable();

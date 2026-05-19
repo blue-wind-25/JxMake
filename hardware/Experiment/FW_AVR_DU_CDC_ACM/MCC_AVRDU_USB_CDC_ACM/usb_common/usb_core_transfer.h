@@ -79,7 +79,11 @@ RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t
  *     callback - Pointer to a function to be called at the end of the control request
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback );
+static inline RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback )
+{
+    USB_ControlEndOfRequestCallbackRegister( callback );
+    return USB_ControlTransferDataSet( dataPtr, dataSize );
+}
 
 /*
  * Aborts an ongoing transfer.

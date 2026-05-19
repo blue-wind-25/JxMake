@@ -68,12 +68,6 @@ RETURN_CODE_t USB_TransferReadStart( USB_PIPE_t pipe, uint8_t* dataPtr, uint16_t
     return SUCCESS;
 }
 
-RETURN_CODE_t USB_TransferControlDataSet( uint8_t* dataPtr, uint16_t dataSize, USB_SETUP_ENDOFREQUEST_CALLBACK_t callback )
-{
-    USB_ControlEndOfRequestCallbackRegister( callback );
-    return USB_ControlTransferDataSet( dataPtr, dataSize );
-}
-
 void USB_TransferAbort( USB_PIPE_t pipe )
 {
     if( USB_PipeStatusIsBusy( pipe ) == true ) {

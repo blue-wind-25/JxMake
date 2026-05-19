@@ -273,7 +273,14 @@ void USB_ControlProcessOverUnderflow( uint8_t overunderflow );
  *     pipe - A combination of endpoint address and direction
  * return SUCCESS or an Error code according to RETURN_CODE_t
  */
-void USB_HandleEventStalled( USB_PIPE_t pipe );
+static inline void USB_HandleEventStalled( USB_PIPE_t pipe )
+{
+    USB_EndpointInStallAck( pipe.address );
+    USB_EndpointOutStallAck( pipe.address );
+    USB_EndpointInStallClear( pipe.address );
+    USB_EndpointOutStallClear( pipe.address );
+    USB_ControlTransferReset();
+}
 
 /*
  * Enables the peripheral and the frame number, enables and resets FIFO, sets the endpoint table address and max endpoints.

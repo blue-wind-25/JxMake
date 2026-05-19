@@ -28,7 +28,10 @@ Workflow:
 
 
 Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260519.tar.gz ~/.claude/ ~/.claude.json
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260519-2.tar.gz ~/.claude/ ~/.claude.json
+
+
+there should be enough quota to perform some light cleanup on all the files. hwoever, batch 13 will have to wait for the next session
 
 
 

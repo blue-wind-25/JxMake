@@ -225,13 +225,11 @@ void USB_ControlTransferReset( void )
 
 void USB_PeripheralInitialize( void )
 {
-    USB_Enable();
-    USB_FrameNumEnable();
-    USB_FifoEnable();
+    // Single write sets ENABLE, STFRNUM, FIFOEN, and MAXEP — avoids 4 separate volatile RMW ops
+    USB0.CTRLA = USB_ENABLE_bm | USB_STFRNUM_bm | USB_FIFOEN_bm | (((USB_EP_NUM - 1u) << USB_MAXEP_gp) & USB_MAXEP_gm);
     USB_FifoReadPointerReset();
     USB_FifoWritePointerReset();
     USB_EndpointTableAddressSet( endpointTable.EP );
-    USB_MaxEndpointsSet( USB_EP_NUM - 1u );
     USB_InterruptFlagsClear();
     // Reset endpoints table (CTRL, STATUS, DATAPTR, CNT all zero; endpoints disabled until USB_EndpointConfigure)
     memset( endpointTable.EP, 0, sizeof( endpointTable.EP ) );

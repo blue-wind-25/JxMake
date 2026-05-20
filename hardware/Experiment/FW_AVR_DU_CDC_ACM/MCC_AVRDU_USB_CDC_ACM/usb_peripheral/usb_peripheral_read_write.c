@@ -32,6 +32,8 @@
  */
 
 
+#include <string.h>
+
 #include "usb_peripheral_avr_du.h"
 #include "usb_peripheral_endpoint.h"
 #include "usb_peripheral_read_write.h"
@@ -52,13 +54,7 @@ void USB_TransactionAbort( USB_PIPE_t pipe )
 
 void USB_PipeReset( USB_PIPE_t pipe )
 {
-    USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];
-    pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
-    pipeTransferPtr->transferDataPtr  = NULL;
-    pipeTransferPtr->transferDataSize = 0;
-    pipeTransferPtr->bytesTransferred = 0;
-    pipeTransferPtr->transferEndCallback = NULL;
-    pipeTransferPtr->ZLPEnable = false;
+    memset( &pipeTransfer[PipeTransferIndexGet( pipe )], 0, sizeof( USB_PIPE_TRANSFER_t ) );
 }
 
 void USB_PipeTransferEndCallback( USB_PIPE_t pipe )

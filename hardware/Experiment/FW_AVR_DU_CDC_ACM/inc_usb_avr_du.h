@@ -84,21 +84,6 @@ static void USBDevice_CDCACMHandler()
     if( CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
 }
 
-static void usb_stop()
-{
-    USB_BusDetach();
-    USB_PeripheralDisable();
-
-    USB_PIPE_t pipe;
-    pipe.address = 0;
-
-    while( pipe.address < USB_EP_NUM ) {
-        pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort( pipe );
-        pipe.direction = USB_EP_DIR_IN; USB_TransferAbort( pipe );
-        ++pipe.address;
-    }
-}
-
 static void usb_start()
 {
     USB_PeripheralInitialize();
@@ -110,8 +95,6 @@ static void usb_start()
 
 static void usb_init()
 {
-    (void) usb_stop;
-
     // Reinitialize OSCHF
     _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc );
     _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE,  0x00                                                                );
@@ -119,8 +102,7 @@ static void usb_init()
     while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
 
     // Start USB
-    SYSCFG.VUSBCTRL = 0;                       // USBVREG disable (was SYSCFG_Initialize)
-    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
+    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable
     applicationPointers = &descriptorPointers; // was USB_DescriptorPointersSet (was USBDevice_Initialize)
     usbCDCControlLineState = 0;                // was USB_CDCInitialize()
     usbCDCLineCoding.dwDTERate = 0;

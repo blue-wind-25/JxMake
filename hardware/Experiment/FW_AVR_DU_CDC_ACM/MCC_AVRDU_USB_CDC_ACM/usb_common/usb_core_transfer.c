@@ -45,7 +45,7 @@ void USB_TransferAbort( USB_PIPE_t pipe )
     }
 }
 
-static void USB_TransferHandler( void )
+static inline ALWAYS_INLINE void USB_TransferHandler( void )
 {
     // If it's the initial setup packet, handle that separately.
     if( USB_SetupIsReceived() == true ) {

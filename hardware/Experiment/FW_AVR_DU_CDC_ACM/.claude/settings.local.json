@@ -10,7 +10,9 @@
       "Bash(sort -k2 -rn)",
       "Bash(awk '{print $2, $4}')",
       "Bash(git -C /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM add JxMakeFile MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core.c MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core.h MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests.c MCC_AVRDU_USB_CDC_ACM/usb_common/usb_core_requests.h MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral.c MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral.h)",
-      "Bash(git -C /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM commit -m ' *)"
+      "Bash(git -C /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM commit -m ' *)",
+      "Bash(avr-objdump -S -d build/main.elf)",
+      "Bash(avr-objdump -d build/main.elf)"
     ]
   }
 }

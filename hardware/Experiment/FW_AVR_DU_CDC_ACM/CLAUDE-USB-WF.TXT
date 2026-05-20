@@ -3,7 +3,7 @@ Analyze the source codes in:
 
 Project goal:
     Strip down the manufacturer USB CDC‑ACM stack to the minimum required functionality, reducing code‑bloat and improving optimization (size and performance).
-    The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
+    The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as USB_CDC_REQUEST_SET_LINE_CODING, USB_CDC_REQUEST_SET_CONTROL_LINE_STATE, etc.
 
 Workflow:
 1. Analyze and propose changes only within the specified directory.
@@ -11,10 +11,8 @@ Workflow:
        ./jxmake build
    - If the build succeeds, pause and wait for me to upload/test the firmware. Proceed to the next run only after I confirm runtime behavior is intact.
    - If the build fails, revert the previous changes and add annotations so the same changes will not be attempted again.
-3. Do not strip down to raw register/SFR access yet. First flatten to the lowest‑level manufacturer USB CDC‑ACM functions.
-4. If a manufacturer USB CDC‑ACM file is no longer needed or becomes empty, propose its removal.
-5. Example of a failed change from a previous attempt:
-   - usb_core_descriptors.c : if NEW_CODE is defined, the firmware broke; see 'NOTE @Claude' inside for more details.
+3. Be very careful when striping down to raw register/SFR access.
+4. If a manufacturer USB stack file is no longer needed or becomes empty, propose its removal.
 
 
 
@@ -24,9 +22,9 @@ git status -uno
 claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
 
 Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260520.tar.gz ~/.claude/ ~/.claude.json
+tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260521.tar.gz ~/.claude/ ~/.claude.json
 
-continue with batch 21
+continue with batch 28
 
 
 

@@ -40,9 +40,7 @@
 
 #include "../usb_common/usb_core.h"
 
-USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) ) = {
-    .transferDataPtr = controlTransfer.buffer
-};
+USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) );
 
 void USB_ControlSetupReceived( void )
 {

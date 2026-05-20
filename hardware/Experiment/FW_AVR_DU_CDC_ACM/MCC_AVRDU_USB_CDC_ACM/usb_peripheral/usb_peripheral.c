@@ -233,18 +233,9 @@ void USB_PeripheralInitialize( void )
     USB_EndpointTableAddressSet( endpointTable.EP );
     USB_MaxEndpointsSet( USB_EP_NUM - 1u );
     USB_InterruptFlagsClear();
-    // Reset endpoints table
-    for( uint8_t endpoint = 0; endpoint < (uint8_t) USB_EP_NUM; endpoint++ ) {
-        endpointTable.EP[endpoint].OUT.CTRL   = 0;
-        endpointTable.EP[endpoint].OUT.STATUS = 0;
-        endpointTable.EP[endpoint].IN.CTRL    = 0;
-        endpointTable.EP[endpoint].IN.STATUS  = 0;
-    }
-    // Reset software pipe transfer state
-    USB_PIPE_t pipe;
-    for( pipe.address = 0; pipe.address < USB_EP_NUM; pipe.address++ ) {
-        pipe.direction = USB_EP_DIR_OUT; USB_PipeReset( pipe );
-        pipe.direction = USB_EP_DIR_IN;  USB_PipeReset( pipe );
-    }
+    // Reset endpoints table (CTRL, STATUS, DATAPTR, CNT all zero; endpoints disabled until USB_EndpointConfigure)
+    memset( endpointTable.EP, 0, sizeof( endpointTable.EP ) );
+    // Reset software pipe transfer state (USB_PIPE_TRANSFER_OK == 0, all pointer/size fields NULL/0)
+    memset( pipeTransfer, 0, USB_EP_NUM * 2u * sizeof( USB_PIPE_TRANSFER_t ) );
 }
 

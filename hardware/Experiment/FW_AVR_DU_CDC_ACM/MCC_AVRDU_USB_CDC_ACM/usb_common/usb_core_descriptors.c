@@ -77,7 +77,7 @@ static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfaceP
 
 static USB_CONFIGURATION_DESCRIPTOR_t* activeConfigurationPtr = NULL;
 static uint8_t activeInterfaces[USB_INTERFACE_NUM];
-USB_DESCRIPTOR_POINTERS_t* applicationPointers = NULL;
+extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
 {
@@ -142,7 +142,7 @@ static RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CO
 {
     // Single configuration device (bNumConfigurations == 1)
     if( configurationValue > 1u ) return DESCRIPTOR_CONFIGURATIONS_ERROR;
-    *configurationPtr = applicationPointers->configurationsPtr;
+    *configurationPtr = descriptorPointers.configurationsPtr;
     return SUCCESS;
 }
 
@@ -274,8 +274,8 @@ RETURN_CODE_t USB_DescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptor, uint8_
 
     switch( descriptor ) {
         case USB_DESCRIPTOR_TYPE_DEVICE:
-            *descriptorPtr = (uint8_t*) applicationPointers->devicePtr;
-            *descriptorLength = (uint16_t) applicationPointers->devicePtr->header.bLength;
+            *descriptorPtr = (uint8_t*) descriptorPointers.devicePtr;
+            *descriptorLength = (uint16_t) descriptorPointers.devicePtr->header.bLength;
             status = SUCCESS;
             break;
 
@@ -302,15 +302,15 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
 {
     if( stringIndex == 0u ) {
         // Index 0 returns the language ID descriptor
-        *descriptorAddressPtr = (uint8_t*) applicationPointers->langIDptr;
-        *descriptorLength = (uint16_t) applicationPointers->langIDptr->header.bLength;
+        *descriptorAddressPtr = (uint8_t*) descriptorPointers.langIDptr;
+        *descriptorLength = (uint16_t) descriptorPointers.langIDptr->header.bLength;
         return SUCCESS;
     }
 
     // LANG_ID_NUM == 1: only id_array[0] exists
-    if( langID != applicationPointers->langIDptr->id_array[0] ) return UNSUPPORTED;
+    if( langID != descriptorPointers.langIDptr->id_array[0] ) return UNSUPPORTED;
 
-    USB_DESCRIPTOR_HEADER_t* stringHeader = applicationPointers->stringPtrs[0];
+    USB_DESCRIPTOR_HEADER_t* stringHeader = descriptorPointers.stringPtrs[0];
     if( stringIndex > 1u ) {
         RETURN_CODE_t status = UNINITIALIZED;
         for( uint8_t i = 1u; i < stringIndex; i++ ) status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_STRING, &stringHeader );

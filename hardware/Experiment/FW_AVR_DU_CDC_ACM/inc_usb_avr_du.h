@@ -103,7 +103,6 @@ static void usb_init()
 
     // Start USB
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable
-    applicationPointers = &descriptorPointers; // was USB_DescriptorPointersSet (was USBDevice_Initialize)
     usbCDCControlLineState = 0;                // was USB_CDCInitialize()
     usbCDCLineCoding.dwDTERate = 0;
     usbCDCLineCoding.bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT;

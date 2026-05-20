@@ -37,8 +37,6 @@
 #define USB_CORE_DESCRIPTORS_H
 
 
-extern USB_DESCRIPTOR_POINTERS_t* applicationPointers;
-
 /*
  * Enables endpoint configuration descriptor.
  *

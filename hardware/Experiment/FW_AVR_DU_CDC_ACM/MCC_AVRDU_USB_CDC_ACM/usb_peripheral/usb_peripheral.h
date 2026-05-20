@@ -237,12 +237,6 @@ static inline RETURN_CODE_t USB_ControlTransferDataWriteBuffer( uint8_t* dataPtr
 static inline void USB_ControlEndOfRequestCallbackRegister( USB_SETUP_ENDOFREQUEST_CALLBACK_t callback ) { controlTransfer.endOfRequestCallback = callback; }
 
 /*
- * Sets the callback for a control overrun or underrun.
- *     callback - The function to call on a control overrun or underrun
- * return None.
- */
-
-/*
  * Handles the control Over/Underflow events.
  *     overunderflow - A value representing overflow or underflow
  * return SUCCESS or an Error code according to RETURN_CODE_t

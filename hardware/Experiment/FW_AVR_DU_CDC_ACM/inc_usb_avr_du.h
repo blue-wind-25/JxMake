@@ -103,7 +103,7 @@ static void usb_init()
 
     // Start USB
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable
-    usbCDCControlLineState = 0;                // was USB_CDCInitialize()
+    usbCDCControlLineState = 0;
     usbCDCLineCoding.dwDTERate = 0;
     usbCDCLineCoding.bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT;
     usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
@@ -112,7 +112,7 @@ static void usb_init()
     USB0.INTCTRLA = USB_RESET_bm | USB_STALLED_bm | USB_UNF_bm | USB_OVF_bm;
     USB0.INTCTRLB = USB_TRNCOMPL_bm | USB_GNDONE_bm | USB_SETUP_bm;
 
-    SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
+    SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm;
 
     usb_start();
 

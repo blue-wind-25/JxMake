@@ -1,7 +1,7 @@
 :::include <ArduinoXBuildTool>
 
 
-# export ARDUINO_CLI_PATH=/opt/arduino-cli_1.4.1_Linux_64bit
+# export ARDUINO_CLI_PATH=/opt/arduino-cli_1.5.0_Linux_64bit
 #     ${ARDUINO_CLI_PATH}/arduino-cli board listall
 #     ${ARDUINO_CLI_PATH}/arduino-cli board details --fqbn arduino:avr:mega
 #     ${ARDUINO_CLI_PATH}/arduino-cli board details --fqbn arduino:avr:lilypad
@@ -43,11 +43,11 @@ endif
 
 
 if __os_windows__
-    ARDUINO_CLI_PATH := 'Z:/xsdk/arduino-cli_1.4.1_Windows_64bit'
+    ARDUINO_CLI_PATH := 'Z:/xsdk/arduino-cli_1.5.0_Windows_64bit'
 elif __os_mac__
-    ARDUINO_CLI_PATH := '/usr/local/opt/arduino-cli_1.4.1_macOS_ARM64'
+    ARDUINO_CLI_PATH := '/usr/local/opt/arduino-cli_1.5.0_macOS_ARM64'
 else
-    ARDUINO_CLI_PATH := '/opt/arduino-cli_1.4.1_Linux_64bit'
+    ARDUINO_CLI_PATH := '/opt/arduino-cli_1.5.0_Linux_64bit'
 endif
 
 

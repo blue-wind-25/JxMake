@@ -6,22 +6,15 @@ Project goal:
     The CDC‑ACM stack must remain configurable (single, dual, etc.) and must preserve handling of control signals such as SetStopBits, USB_CDCSetBaud, LINE_CODING, etc.
 
 Workflow:
-1. Refer to:
-       /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/FCG.txt
-   for the already analyzed callgraph (ignore functions outside the USB stack).
-   Notes in FCG.txt may advise not to inline callees into ISRs; however, you may inline a callee if it is small or not referenced elsewhere.
-2. Analyze and propose changes only within the specified directory.
-3. After each change, run:
+1. Analyze and propose changes only within the specified directory.
+2. After each change, run:
        ./jxmake build
    - If the build succeeds, pause and wait for me to upload/test the firmware. Proceed to the next run only after I confirm runtime behavior is intact.
    - If the build fails, revert the previous changes and add annotations so the same changes will not be attempted again.
-   - Use annotations (e.g., DONE!, FAILED!, etc.) in FCG.txt strictly to mark progress.
-4. Do not strip down to raw register/SFR access yet. First flatten to the lowest‑level manufacturer USB CDC‑ACM functions.
-5. If a manufacturer USB CDC‑ACM file is no longer needed or becomes empty, propose its removal. Do not run `rm` until I confirm.
-6. Example of a failed change from a previous attempt:
+3. Do not strip down to raw register/SFR access yet. First flatten to the lowest‑level manufacturer USB CDC‑ACM functions.
+4. If a manufacturer USB CDC‑ACM file is no longer needed or becomes empty, propose its removal.
+5. Example of a failed change from a previous attempt:
    - usb_core_descriptors.c : if NEW_CODE is defined, the firmware broke; see 'NOTE @Claude' inside for more details.
-7. Example of a successful change from a previous attempt:
-   - usb_core_requests_device.c : see 'NOTE @Claude' inside for more details.
 
 
 

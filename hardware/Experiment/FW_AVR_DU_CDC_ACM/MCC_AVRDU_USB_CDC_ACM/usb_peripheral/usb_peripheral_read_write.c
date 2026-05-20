@@ -70,33 +70,26 @@ void USB_PipeTransferEndCallback( USB_PIPE_t pipe )
 void USB_InTransactionRun( USB_PIPE_t pipe )
 {
     USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];
-    uint16_t             nextTransactionSize;
-
     pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
 
-    nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
+    uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
     if( 0U == nextTransactionSize ) {
-        if( true == pipeTransferPtr->ZLPEnable ) {
-            USB_NumberBytesToSendSet( pipe.address, 0u );
-            USB_NumberBytesSentReset( pipe.address );
-            USB_EndpointInNAKClear( pipe.address );
-            pipeTransferPtr->ZLPEnable = false;
-        }
-        else {
+        if( false == pipeTransferPtr->ZLPEnable ) {
             pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
+            return;
         }
+        pipeTransferPtr->ZLPEnable = false;
     }
     else {
         uint16_t endpointSize = USB_EndpointSizeGet( pipe );
         // InMultipktEnable=1 for all used endpoints (EP0, EP2)
         // Endpoint sizes are always powers of 2, so % endpointSize ≡ & (endpointSize-1)
         pipeTransferPtr->ZLPEnable = ( pipeTransferPtr->ZLPEnable ) && ( 0U == ( nextTransactionSize & ( (uint16_t) endpointSize - 1U ) ) );
-
         EndpointBufferSet( pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred] );
-        USB_NumberBytesToSendSet( pipe.address, nextTransactionSize );
-        USB_NumberBytesSentReset( pipe.address );
-        USB_EndpointInNAKClear( pipe.address );
     }
+    USB_NumberBytesToSendSet( pipe.address, nextTransactionSize );
+    USB_NumberBytesSentReset( pipe.address );
+    USB_EndpointInNAKClear( pipe.address );
 }
 
 void USB_OutTransactionRun( USB_PIPE_t pipe )

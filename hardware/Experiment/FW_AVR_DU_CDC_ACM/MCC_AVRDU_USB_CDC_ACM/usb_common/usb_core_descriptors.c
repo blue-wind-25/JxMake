@@ -71,21 +71,12 @@ typedef union USB_DESCRIPTOR_PTR_union {
 } USB_DESCRIPTOR_PTR_t;
 
 
-// NOTE @Claude : Defining this will cause the CDC-ACM to hang
-/*
-#define NEW_CODE
-//*/
-
 static RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CONFIGURATION_DESCRIPTOR_t** configurationPtr );
 static RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr );
 static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable );
 
 static USB_CONFIGURATION_DESCRIPTOR_t* activeConfigurationPtr = NULL;
-
-#ifndef NEW_CODE
 static uint8_t activeInterfaces[USB_INTERFACE_NUM];
-#endif
-
 USB_DESCRIPTOR_POINTERS_t* applicationPointers = NULL;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
@@ -101,15 +92,10 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
             status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr );
 
             if( SUCCESS == status ) {
-#ifndef NEW_CODE
                 if( activeInterfaces[currentDescriptor.interfacePtr->bInterfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting ) {
                     status = USB_DescriptorInterfaceConfigure( currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, false );
                     numInterfaces--;
                 }
-#else
-                DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
-                numInterfaces--;
-#endif // ifndef NEW_CODE
             }
         }
     }
@@ -130,15 +116,10 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
                 while( ( SUCCESS == status ) && ( numInterfaces > 0u ) ) {
                     status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr );
                     if( SUCCESS == status ) {
-#ifndef NEW_CODE
                         if( USB_DEFAULT_ALTERNATE_SETTING == currentDescriptor.interfacePtr->bAlternateSetting ) {
                             status = USB_DescriptorInterfaceConfigure( currentDescriptor.interfacePtr->bInterfaceNumber, USB_DEFAULT_ALTERNATE_SETTING, true );
                             numInterfaces--;
                         }
-#else
-                        DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, true );
-                        numInterfaces--;
-#endif // ifndef NEW_CODE
                     }
                 }
             }
@@ -213,15 +194,11 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
         while( ( SUCCESS == status ) && ( currentDescriptor.bytePtr < endOfConfiguration ) ) {
             // Check if interface number matches before inspecting alternate settings
             if( interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber ) {
-#ifndef NEW_CODE
                 if( activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting ) {
                     // Disable endpoints for the active alternate interface
                     DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
                     activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
                 }
-#else  /* ifndef NEW_CODE */
-                DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
-#endif // ifndef NEW_CODE
                 if( enable && ( alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting ) )
                     // Requested interface found
                     enableInterfacePtr = currentDescriptor.interfacePtr;
@@ -243,14 +220,9 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
         if( SUCCESS == status ) {
             if( true == enable ) {
                 if( NULL != enableInterfacePtr ) {
-#ifndef NEW_CODE
                     // Enable the endpoints for the activated interface
                     DescriptorEndpointsConfigure( enableInterfacePtr, true );
                     activeInterfaces[interfaceNumber] = alternateSetting;
-#else
-                    DescriptorEndpointsConfigure( enableInterfacePtr, true );
-#endif // ifndef NEW_CODE
-
                 }
                 else {
                     status = DESCRIPTOR_SEARCH_ERROR;

@@ -105,5 +105,32 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
     return status;
 }
 
+static inline void USB_CDCSendSerialState(uint16_t uartStateBitmap)
+{
+    // Use static because buffer must outlive the async DMA transfer
+    static uint8_t packet[10] = {
+        0xA1,                       // bmRequestType: Notification, Class, Interface
+        0x20,                       // bNotification: SERIAL_STATE
+        0x00,                       // wValue  LSB
+        0x00,                       // wValue  MSB
+        USB_CDC_COMM_INTERFACE_NUM, // wIndex  LSB (communication interface)
+        0x00,                       // wIndex  MSB
+        0x02,                       // wLength LSB
+        0x00,                       // wLength MSB
+        0x00,                       // uartStateBitmap LSB (filled below)
+        0x00,                       // uartStateBitmap MSB (filled below)
+    };
+
+    packet[8] = (uint8_t) (uartStateBitmap & 0xFF);
+    packet[9] = (uint8_t) (uartStateBitmap >> 8);
+
+    USB_PIPE_t notifPipe = {
+        .address   = USB_CDC_INTERRUPT_EP,
+        .direction = USB_EP_DIR_IN,
+    };
+
+    (void) USB_TransferWriteStart( notifPipe, packet, sizeof(packet), NULL );
+}
+
 
 #endif // USB_CDC_H

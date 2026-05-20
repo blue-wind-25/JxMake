@@ -84,6 +84,12 @@
 //
 
 /*
+ * USB_CDC_COMM_INTERFACE_NUM
+ * The interface number for the CDC communication (control) interface.
+ */
+#define USB_CDC_COMM_INTERFACE_NUM 0U
+
+/*
  * USB_CDC_INTERRUPT_EP
  * The address for the Communication Device Class (CDC) interrupt notification endpoint.
  */

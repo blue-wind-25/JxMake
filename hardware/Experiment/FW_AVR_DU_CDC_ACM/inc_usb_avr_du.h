@@ -120,8 +120,6 @@ static void usb_init()
 
     // Start USB
     SYSCFG.VUSBCTRL = 0;                       // USBVREG disable (was SYSCFG_Initialize)
-    USB0.INTCTRLA = 0;                         // disable all bus-event interrupts  (was USB0_Initialize)
-    USB0.INTCTRLB = 0;                         // disable all transaction interrupts (was USB0_Initialize)
     SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable              (was USB0_Initialize → SYSCFG_UsbVregDisable)
     applicationPointers = &descriptorPointers; // was USB_DescriptorPointersSet (was USBDevice_Initialize)
     usbCDCControlLineState = 0;                // was USB_CDCInitialize()
@@ -130,14 +128,8 @@ static void usb_init()
     usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
     usbCDCLineCoding.bDataBits = USB_CDC_LINE_CODING_8_DATA_BITS;
 
-    USB0.INTCTRLA |= USB_RESET_bm;       // Enable RESET    interrupt
-    USB0.INTCTRLA |= USB_STALLED_bm;     // Enable STALLED  interrupt
-    USB0.INTCTRLA |= USB_UNF_bm;         // Enable UNF      interrupt
-    USB0.INTCTRLA |= USB_OVF_bm;         // Enable OVF      interrupt
-
-    USB0.INTCTRLB |= USB_TRNCOMPL_bm;    // Enable TRNCOMPL interrupt
-    USB0.INTCTRLB |= USB_GNDONE_bm;      // Enable GNDONE   interrupt
-    USB0.INTCTRLB |= USB_SETUP_bm;       // Enable SETUP    interrupt
+    USB0.INTCTRLA = USB_RESET_bm | USB_STALLED_bm | USB_UNF_bm | USB_OVF_bm;
+    USB0.INTCTRLB = USB_TRNCOMPL_bm | USB_GNDONE_bm | USB_SETUP_bm;
 
     SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm; // USBVREG enable (was SYSCFG_UsbVregEnable)
 

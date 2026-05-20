@@ -44,12 +44,12 @@ USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
 // USB Pipes
 USB_PIPE_t CDCTxPipe = {
-    .address = USB_CDC_BULK_EP_IN,
+    .address   = USB_CDC_BULK_EP_IN,
     .direction = USB_EP_DIR_IN,
 };
 
 USB_PIPE_t CDCRxPipe = {
-    .address = USB_CDC_BULK_EP_OUT,
+    .address   = USB_CDC_BULK_EP_OUT,
     .direction = USB_EP_DIR_OUT,
 };
 

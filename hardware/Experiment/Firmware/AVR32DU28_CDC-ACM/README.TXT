@@ -5,6 +5,8 @@ NOTE : Do not forget to remove these from repository later:
            # The subdirectory '.claude'?
 
 ===================================================================================================
+===================================================================================================
+===================================================================================================
 
 Analyze the source codes in:
     /home/aloysius/Projects/JxMake/hardware/Experiment/FW_AVR_DU_CDC_ACM/MCC_AVRDU_USB_CDC_ACM
@@ -27,10 +29,8 @@ Workflow:
 git status -uno
 claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
 
-Do not forget to update (from inside hardware/Experiment/FW_AVR_DU_CDC_ACM):
-tar -cjvpf ../../../0_excluded_directory/_0_claude-mem-20260521.tar.gz ~/.claude/ ~/.claude.json
-
-continue with batch 28
+Do not forget to update (from inside hardware/Experiment/MCC_AVRDU_USB_CDC_ACM):
+tar -cjvpf ../../../../0_excluded_directory/_0_claude-mem-20260522.tar.gz ~/.claude/ ~/.claude.json
 
 ---------------------------------------------------------------------------------------------------
 
@@ -55,3 +55,5 @@ while IFS= read -r -d '' f; do
     echo "Processing $f"
     $unc -f "$f"
 done
+
+===================================================================================================

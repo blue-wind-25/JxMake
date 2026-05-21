@@ -2,7 +2,7 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Complete the FW_AVR_DU_CDC_ACM experiment.
+# Further improve and verify the 'hardware/Experiment/Firmware/AVR32DU28_CDC-ACM' experiment.
 
 # Further verify, improve and cleanups:
       src/jxm/tool/SSLTrustAll.java

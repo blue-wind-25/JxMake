@@ -19,15 +19,19 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 ### Primary Application
 
-+ The ProgUPDI class has been improved and tested with newer AVR MCU series.
-
 + The development of the JxMake Script Editor, which features syntax highlighting, code folding, and a simple console, is almost complete. Most of the editor's features should be usable, though they may still be unstable and not fully functional. The console supports many ANSI escape sequences and employs custom Unicode handling in the ANSI buffer for cursor positioning and character operations.
 
 + Support for basic **i18n** has been added, but no **l10n** translation files are available yet.
 
 + Support for Zstandard compression and decompression has been added.
 
++ The ProgUPDI class has been improved and tested with newer AVR MCU series.
+
 + The implementations of `org.kamranzafar.jtar` and `org.itadaki.bzip2` have been improved.
+
++ Initiated experiment with USB-based programmer devices outside the CDC-ACM class; resulting programmer class(es) from this effort will not be officially included as usable programmer classes until the minimum Java SDK requirement is raised to version 23 or later.
+
++ Added experimental firmware `hardware/Experiment/Firmware/AVR32DU28_CDC-ACM`. This experiment aims to flatten the AVR DU USB CDC-ACM stack and its related SDK to minimize bloat and optimize speed with the help of **Claude Code CLI**.
 
 + Added the command-line option `--en-headless`, which is useful on Linux when the **DISPLAY** environment variable has an invalid value or the X server is not accessible.
 

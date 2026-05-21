@@ -6,7 +6,7 @@ The firmware source code in this directory uses the VID and PID from the origina
 'STMicroelectronics Virtual COM Port' demo firmware (0x0483 and 0x5740).
 
 While this is acceptable for private use or limited distribution, commercial or public reuse of
-this VID and PID by others may be prohibited by USB-IF, even if this firmware technically still
+these VID and PID values may be prohibited by USB-IF, even if this firmware technically still
 implements a 'STMicroelectronics Virtual COM Port' device.
 
 Please edit '__package__/device_cdc/usbd_desc.c' and replace them with your own VID and PID as

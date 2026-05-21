@@ -6,7 +6,8 @@ The bootloader source code in this directory uses the VID and PID from the offic
 bootloader from Arduino (0x2341 and 0x0037).
 
 While this is acceptable for private use or limited distribution, commercial or public reuse of
-this VID and PID by others may be prohibited by USB-IF.
+these VID and PID values may be prohibited by USB-IF, even if this firmware is technically still
+a 'Caterina' bootloader.
 
 Please edit 'Bootloader/Makefile' and replace them with your own VID and PID as required.
 

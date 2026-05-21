@@ -941,7 +941,7 @@ clean: jxmlib_clean kicad8_clean
 	@rm  -vf tmp.xml
 	@rm  -vf *.log.txt
 	@rm -rvf ~/.jSerialComm /tmp/jSerialComm
-	@rm -rvf ../hardware/Experiment/FW_AVR_DU_CDC_ACM/build
+	@rm -rvf ../hardware/Experiment/Firmware/AVR32DU28_CDC-ACM/build
 	@rm -rvf ../test/src/cpp/build
 	@rm  -vf ../test/src/cpp/*.pdb
 	@rm  -vf ../test/src/cpp/*.stackdump

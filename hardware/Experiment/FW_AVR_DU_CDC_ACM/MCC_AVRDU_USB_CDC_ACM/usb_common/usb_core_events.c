@@ -39,7 +39,7 @@
 #include "usb_core_events.h"
 
 
-static inline ALWAYS_INLINE void USB_EventHandler( void )
+static ALWAYS_INLINE void USB_EventHandler( void )
 {
     if( USB_EventResetIsReceived() == true ) {
         USB_EventResetClear();

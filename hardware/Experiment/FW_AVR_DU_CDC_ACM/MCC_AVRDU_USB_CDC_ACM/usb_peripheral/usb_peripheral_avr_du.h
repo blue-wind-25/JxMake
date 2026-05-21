@@ -51,6 +51,12 @@
 #define ALWAYS_INLINE __attribute__( ( always_inline ) ) inline
 
 /*
+ * NO_INLINE
+ * Alias that makes noinline function definitions more readable.
+ */
+#define NO_INLINE __attribute__( ( noinline ) )
+
+/*
  * Represents the endpoint configuration table based on the number of endpoints in use.
  * The table data structure is defined by USB_EP_TABLE_struct in the device header file,
  * modified to support configuration of size from USB_EP_NUM.

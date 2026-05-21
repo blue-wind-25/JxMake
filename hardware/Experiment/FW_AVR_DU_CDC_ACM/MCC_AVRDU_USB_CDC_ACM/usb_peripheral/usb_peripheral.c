@@ -42,6 +42,14 @@
 
 USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) );
 
+static NO_INLINE void USB_EP0CountersReset( void )
+{
+    USB_NumberBytesToSendReset( 0u );
+    USB_NumberBytesSentReset( 0u );
+    USB_NumberBytesToReceiveReset( 0u );
+    USB_NumberBytesReceivedReset( 0u );
+}
+
 void USB_ControlSetupReceived( void )
 {
     USB_SetupInterruptClear();
@@ -55,10 +63,7 @@ void USB_ControlSetupReceived( void )
     USB_EndpointInSetupCompleteAck( 0u );
 
     // Clears bytes received and sent
-    USB_NumberBytesToSendReset( 0u );
-    USB_NumberBytesSentReset( 0u );
-    USB_NumberBytesToReceiveReset( 0u );
-    USB_NumberBytesReceivedReset( 0u );
+    USB_EP0CountersReset();
 
     // Copies setup packet out of buffer to make it available for a data stage.
     (void) memcpy( (uint8_t*) ( &controlTransfer.setupRequest ), controlTransfer.buffer, sizeof( USB_SETUP_REQUEST_t ) );
@@ -172,10 +177,7 @@ void USB_ControlTransactionComplete( USB_PIPE_t pipe )
 
 void USB_ControlTransferZLP( uint8_t direction )
 {
-    USB_NumberBytesToSendReset( 0 );
-    USB_NumberBytesSentReset( 0 );
-    USB_NumberBytesToReceiveReset( 0u );
-    USB_NumberBytesReceivedReset( 0u );
+    USB_EP0CountersReset();
 
     // Prepare to receive a new setup package in case the host decides to ignore the ZLP stage
     USB_PipeDataPtrSet( (USB_PIPE_t) { .address = 0, .direction = USB_REQUEST_DIR_OUT }, controlTransfer.buffer );
@@ -209,10 +211,7 @@ void USB_ControlTransferReset( void )
     USB_PipeDataPtrSet( controlPipeOut, controlTransfer.buffer );
     USB_PipeDataToTransferSizeSet( controlPipeOut, sizeof( USB_SETUP_REQUEST_t ) );
 
-    USB_NumberBytesToSendReset( 0u );
-    USB_NumberBytesSentReset( 0u );
-    USB_NumberBytesToReceiveReset( 0u );
-    USB_NumberBytesReceivedReset( 0u );
+    USB_EP0CountersReset();
 
     memset( (uint8_t*)&controlTransfer.status, 0, 8u );
 }

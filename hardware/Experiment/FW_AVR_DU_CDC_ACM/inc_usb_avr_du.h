@@ -72,16 +72,55 @@ static inline void delayMS( uint32_t mS )
 
 static void USBDevice_CDCACMHandler()
 {
-    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) )
-        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
-    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) )
-        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
+    // TX service
+    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) ) {
+        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) {
+            USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
+        }
+    }
+
+    // RX service
+    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) ) {
+        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) {
+            USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
+        }
+    }
+
+    // Honor DTR
     if( !( usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm ) ) return;
     if( CIRCBUF_Full( &usbCDCTransmitBuffer ) || USB_PipeStatusIsBusy( CDCTxPipe ) ) return;
 
     // Loopback test
     static uint8_t cdcData;
-    if( CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
+
+    while( !CIRCBUF_Full( &usbCDCTransmitBuffer ) && CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) {
+        CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
+    }
+
+    // SerialState notification
+    // ##### !!! TODO : Implement it later if needed !!! #####
+    /*
+        Bit | Mask                       | Meaning              | Typical Source
+        ----+----------------------------+----------------------+------------------------------
+        0   | CDC_SERIAL_STATE_RXCARRIER | Carrier detect / CTS | GPIO pin or UART modem status
+        1   | CDC_SERIAL_STATE_TXCARRIER | DSR (Data Set Ready) | GPIO pin or UART modem status
+        2   | CDC_SERIAL_STATE_BREAK     | Break received       | UART break detect flag
+        3   | CDC_SERIAL_STATE_RING      | Ring indicator       | Modem RI pin
+        4   | CDC_SERIAL_STATE_FRAMING   | Framing error        | UART error flag
+        5   | CDC_SERIAL_STATE_PARITY    | Parity error         | UART error flag
+        6   | CDC_SERIAL_STATE_OVERRUN   | Overrun error        | UART error flag
+        7-15| Reserved                   | Not used             | -
+     */
+    static uint16_t lastState = 0;
+           uint16_t uartState = 0;
+    /*
+    if( gpio_cts_active() ) uartState |= CDC_SERIAL_STATE_RXCARRIER; // CTS
+    if( gpio_dsr_active() ) uartState |= CDC_SERIAL_STATE_TXCARRIER; // DSR
+    */
+    if( uartState != lastState ) {
+        USB_CDCSendSerialState(uartState);
+        lastState = uartState;
+    }
 }
 
 

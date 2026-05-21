@@ -263,7 +263,7 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCI
 			case CDC_PARITY_Space: hwuxrt_deferSetParityMode(UXRT_Parity_None);
 			                       CDCInterfaceInfo->State.LineEncoding.ParityType = CDC_PARITY_None;
 			                       break;
-		} // case
+		} // switch
 
 		// Handle number of stop bits
 		switch(CDCInterfaceInfo->State.LineEncoding.CharFormat) {
@@ -273,7 +273,7 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCI
 			case CDC_LINEENCODING_TwoStopBits         : hwuxrt_deferSetNumStopBit(UXRT_StopBit_2);
 			                                            CDCInterfaceInfo->State.LineEncoding.CharFormat = CDC_LINEENCODING_TwoStopBits;
 			                                            break;
-		} // case
+		} // switch
 
 		// Handle number of data bits
 		switch(CDCInterfaceInfo->State.LineEncoding.DataBits) {
@@ -287,7 +287,7 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCI
 			case 9 : hwuxrt_deferSetCharacterSize(UXRT_CharSize_8);
 			         CDCInterfaceInfo->State.LineEncoding.DataBits = 8;
 			         break;
-		} // case
+		} // switch
 
 		// Apply the new configuration if the UART/USRT is enabled
 		if( hwuxrt_isEnabled() ) {

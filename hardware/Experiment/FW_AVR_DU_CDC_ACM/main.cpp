@@ -1,10 +1,11 @@
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
 
-#include <util/delay.h>
 
-#include "inc_usb_avr_du.h"
+#include <usb_cdc_acm.h>
 
 
 // The LED is connected to PD.5
@@ -15,13 +16,13 @@
 int main()
 {
     // Set OSCHF as main clock source
-    // NOTE : This is not actually required on the AVR Dx/Ex/Sx series, but it is retained for clarity
+    // NOTE : This is not actually required on the AVR DU series, but it is retained for clarity
     _PROTECTED_WRITE( CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_OSCHF_gc );
 
     while( CLKCTRL.MCLKSTATUS & CLKCTRL_SOSC_bm );
 
     // Disable the prescaler
-    // NOTE : This is not actually required on the AVR Dx/Sx series, but it is retained for clarity
+    // NOTE : This is not actually required on the AVR DU series, but it is retained for clarity
     _PROTECTED_WRITE( CLKCTRL_MCLKCTRLB,  0x00 );
 
     // Set the OSCHF frequency to 24MHz
@@ -29,8 +30,8 @@ int main()
 
     while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
 
-    // Initialize USB
-    usb_init();
+    // Initialize system and USB
+    system_usb_init();
 
     // Initialize the LED pin
     LED_PORT.DIRSET = LED_PIN;
@@ -46,4 +47,3 @@ int main()
 
     return 0;
 }
-

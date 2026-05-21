@@ -1,8 +1,11 @@
 /*
- * Standard USB enums and structs in this file follow the USB 2.0 specification.
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
  *
- * Other enums, structs, SFR usages, and most of the code flow in this file are adapted from
- * Microchip examples:
+ * This file is part of the JxMake program, see LICENSE file for the license details.
+ */
+
+/*
+ * Most of the code flow in this file are adapted from Microchip examples:
  *
  *     USB Communication Device Class (CDC) Data Logger with AVR DU
  *     https://github.com/microchip-pic-avr-examples/avr64du32-cnano-usb-cdc-datalogger-mplab-mcc
@@ -70,6 +73,12 @@ static inline void delayMS( uint32_t mS )
 }
 
 
+/*
+ * NOTE : USB_CDC_REQUEST_SET_LINE_CODING and USB_CDC_REQUEST_SET_CONTROL_LINE_STATE are handled
+ *        by 'USB_CDCRequestHandler()' in 'usb_cdc/usb_cdc.h'
+ */
+
+
 static void USBDevice_CDCACMHandler()
 {
     // TX service
@@ -124,7 +133,7 @@ static void USBDevice_CDCACMHandler()
 }
 
 
-static void usb_init()
+static void system_usb_init()
 {
     // Reinitialize OSCHF
     _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc );
@@ -133,12 +142,12 @@ static void usb_init()
     while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
 
     // Start USB
-    SYSCFG.VUSBCTRL = ~SYSCFG_USBVREG_bm;      // USBVREG disable
-    usbCDCControlLineState = 0;
-    usbCDCLineCoding.dwDTERate = 0;
+    SYSCFG.VUSBCTRL              = ~SYSCFG_USBVREG_bm; // USBVREG disable
+    usbCDCControlLineState       = 0;
+    usbCDCLineCoding.dwDTERate   = 0;
     usbCDCLineCoding.bCharFormat = USB_CDC_LINE_CODING_ONE_STOP_BIT;
     usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
-    usbCDCLineCoding.bDataBits = USB_CDC_LINE_CODING_8_DATA_BITS;
+    usbCDCLineCoding.bDataBits   = USB_CDC_LINE_CODING_8_DATA_BITS;
 
     USB0.INTCTRLA = USB_RESET_bm | USB_STALLED_bm | USB_UNF_bm | USB_OVF_bm;
     USB0.INTCTRLB = USB_TRNCOMPL_bm | USB_GNDONE_bm | USB_SETUP_bm;
@@ -148,11 +157,11 @@ static void usb_init()
     USB_Start();
 
     // Enable TCA0 in normal mode
-    TCA0.SINGLE.CTRLA = 0;
-    TCA0.SINGLE.CNT = 0;
-    TCA0.SINGLE.PER = ( F_CPU / 64 / 1000 ) - 1;
+    TCA0.SINGLE.CTRLA   = 0;
+    TCA0.SINGLE.CNT     = 0;
+    TCA0.SINGLE.PER     = ( F_CPU / 64 / 1000 ) - 1;
     TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
-    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc | TCA_SINGLE_ENABLE_bm;
+    TCA0.SINGLE.CTRLA   = TCA_SINGLE_CLKSEL_DIV64_gc | TCA_SINGLE_ENABLE_bm;
 
     // Initialize interrupt
     _PROTECTED_WRITE( CPUINT.CTRLA, 0x00 );

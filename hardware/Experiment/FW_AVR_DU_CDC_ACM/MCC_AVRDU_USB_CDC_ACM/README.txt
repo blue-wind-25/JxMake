@@ -7,8 +7,9 @@ The flattening process, designed to minimize bloat and improve execution speed, 
 the assistance of Claude Sonnet 4.6, using high‑effort runs via the Claude Code CLI.
 
 Each source file includes a marker at the top indicating that it has been modified by the JxMake
-project. To conserve space, files and directories not essential for program execution have been
-omitted.
+project.
+
+To conserve space, files and directories not essential for program execution have been omitted.
 
 This streamlined USB CDC‑ACM stack does not support advanced USB events (e.g., suspend, wake‑up,
 etc.) and is restricted to compilation with AVR‑GCC.

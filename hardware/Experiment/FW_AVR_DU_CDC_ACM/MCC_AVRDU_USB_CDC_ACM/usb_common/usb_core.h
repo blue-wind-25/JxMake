@@ -79,6 +79,14 @@ static inline RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestP
     return status;
 }
 
+static inline void USB_Start()
+{
+    USB_PeripheralInitialize();
+    USB_ControlEndpointsInit();
+    USB_ControlTransferReset();
+    USB_BusAttach();
+}
+
 static inline void USB_Stop( void )
 {
     USB_BusDetach();
@@ -96,10 +104,7 @@ static inline void USB_Stop( void )
 static inline void USB_Reset( void )
 {
     USB_Stop();
-    USB_PeripheralInitialize();
-    USB_ControlEndpointsInit();
-    USB_ControlTransferReset();
-    USB_BusAttach();
+    USB_Start();
 }
 
 

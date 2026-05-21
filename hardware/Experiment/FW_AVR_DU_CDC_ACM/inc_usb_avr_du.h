@@ -84,14 +84,6 @@ static void USBDevice_CDCACMHandler()
     if( CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
 }
 
-static void usb_start()
-{
-    USB_PeripheralInitialize();
-    USB_ControlEndpointsInit();
-    USB_ControlTransferReset();
-    USB_BusAttach();
-}
-
 
 static void usb_init()
 {
@@ -114,7 +106,7 @@ static void usb_init()
 
     SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm;
 
-    usb_start();
+    USB_Start();
 
     // Enable TCA0 in normal mode
     TCA0.SINGLE.CTRLA = 0;

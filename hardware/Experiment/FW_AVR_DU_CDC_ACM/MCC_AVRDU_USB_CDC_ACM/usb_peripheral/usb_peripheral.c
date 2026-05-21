@@ -205,19 +205,16 @@ void USB_ControlTransferReset( void )
     USB_EndpointOutStatusClear( 0u );
     USB_EndpointInStatusClear( 0u );
 
+    USB_PipeReset( controlPipeOut );
     USB_PipeDataPtrSet( controlPipeOut, controlTransfer.buffer );
     USB_PipeDataToTransferSizeSet( controlPipeOut, sizeof( USB_SETUP_REQUEST_t ) );
-    USB_PipeDataTransferredSizeReset( controlPipeOut );
-    USB_PipeTransferEndCallbackRegister( controlPipeOut, NULL );
 
     USB_NumberBytesToSendReset( 0u );
     USB_NumberBytesSentReset( 0u );
     USB_NumberBytesToReceiveReset( 0u );
     USB_NumberBytesReceivedReset( 0u );
 
-    controlTransfer.endOfRequestCallback = NULL;
-    controlTransfer.transferDataSize = 0u;
-    controlTransfer.status = USB_CONTROL_SETUP;
+    memset( (uint8_t*)&controlTransfer.status, 0, 8u );
 }
 
 

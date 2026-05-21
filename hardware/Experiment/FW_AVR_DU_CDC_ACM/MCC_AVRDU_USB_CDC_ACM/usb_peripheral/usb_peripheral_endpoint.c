@@ -38,7 +38,7 @@
 #include "usb_peripheral_endpoint.h"
 
 
-#if defined( USB_EP_NUM ) && defined( USB_MAX_ENDPOINTS )
+#if defined(USB_EP_NUM) && defined(USB_MAX_ENDPOINTS)
     #if USB_EP_NUM > USB_MAX_ENDPOINTS
         #error "USB_EP_NUM is too large, max is USB_MAX_ENDPOINTS"
     #endif
@@ -54,19 +54,19 @@
  * True - The given number is a power of two
  * False - The given number is not a power of two
  */
-#define IsPowerOfTwo( number ) ( ( 0u != ( number ) ) && ( ( ( number ) & ( ( number ) - 1u ) ) == 0u ) )
+#define IsPowerOfTwo( number ) ( (0u != (number) ) && ( ( (number) & ( (number) - 1u) ) == 0u) )
 
 /*
  * SRAM tables for the FIFO and endpoint registers, as well as the FRAMENUM register.
  * Represents the endpoint configuration table based on the number of endpoints in use.
  * This line instantiates an object using the data structure type.
  */
-USB_ENDPOINT_TABLE_t endpointTable __attribute__( ( aligned( 2 ) ) );
+USB_ENDPOINT_TABLE_t endpointTable __attribute__( (aligned( 2 ) ) );
 
 // Endpoint sizes are always powers of 2 and ≤ MAX_ENDPOINT_SIZE_DEFAULT — no validation needed
 static inline void ConvertEndpointSizeToMask( uint16_t endpointSize, uint8_t* endpointMaskPtr )
 {
-    uint8_t  mask = 0;
+    uint8_t  mask     = 0;
     uint16_t baseSize = 8;
     while( baseSize < endpointSize ) {
         mask++;
@@ -91,7 +91,7 @@ void EndpointBufferSet( USB_PIPE_t pipe, uint8_t* bufAddress )
 {
     if( USB_EP_DIR_OUT == pipe.direction ) {
         // Errata: Out transactions must be word aligned when using multipacket (always enabled for OUT)
-        if( ( (uint16_t) bufAddress & 0x0001 ) != 0u ) return;
+        if( ( (uint16_t) bufAddress & 0x0001) != 0u ) return;
         USB_EndpointOutBufferSet( pipe.address, bufAddress );
     }
     else {

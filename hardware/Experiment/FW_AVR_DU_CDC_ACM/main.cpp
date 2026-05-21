@@ -28,7 +28,7 @@ int main()
     // Set the OSCHF frequency to 24MHz
     _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL_FRQSEL_24M_gc );
 
-    while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
+    while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
 
     // Initialize system and USB
     system_usb_init();

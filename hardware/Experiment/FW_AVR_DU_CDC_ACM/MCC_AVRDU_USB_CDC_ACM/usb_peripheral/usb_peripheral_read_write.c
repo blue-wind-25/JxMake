@@ -54,7 +54,7 @@ void USB_TransactionAbort( USB_PIPE_t pipe )
 
 void USB_PipeReset( USB_PIPE_t pipe )
 {
-    memset( &pipeTransfer[PipeTransferIndexGet( pipe )], 0, sizeof( USB_PIPE_TRANSFER_t ) );
+    memset( &pipeTransfer[PipeTransferIndexGet( pipe )], 0, sizeof(USB_PIPE_TRANSFER_t) );
 }
 
 void USB_PipeTransferEndCallback( USB_PIPE_t pipe )
@@ -68,7 +68,7 @@ void USB_InTransactionRun( USB_PIPE_t pipe )
     USB_PIPE_TRANSFER_t* pipeTransferPtr = &pipeTransfer[PipeTransferIndexGet( pipe )];
     pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
 
-    uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
+    uint16_t nextTransactionSize         = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
     if( 0U == nextTransactionSize ) {
         if( false == pipeTransferPtr->ZLPEnable ) {
             pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
@@ -80,7 +80,7 @@ void USB_InTransactionRun( USB_PIPE_t pipe )
         uint16_t endpointSize = USB_EndpointSizeGet( pipe );
         // InMultipktEnable=1 for all used endpoints (EP0, EP2)
         // Endpoint sizes are always powers of 2, so % endpointSize ≡ & (endpointSize-1)
-        pipeTransferPtr->ZLPEnable = ( pipeTransferPtr->ZLPEnable ) && ( 0U == ( nextTransactionSize & ( (uint16_t) endpointSize - 1U ) ) );
+        pipeTransferPtr->ZLPEnable = (pipeTransferPtr->ZLPEnable) && (0U == (nextTransactionSize & ( (uint16_t) endpointSize - 1U) ) );
         EndpointBufferSet( pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred] );
     }
     USB_NumberBytesToSendSet( pipe.address, nextTransactionSize );
@@ -95,17 +95,17 @@ void USB_OutTransactionRun( USB_PIPE_t pipe )
     pipeTransferPtr->status = USB_PIPE_TRANSFER_BUSY;
     EndpointBufferSet( pipe, &pipeTransferPtr->transferDataPtr[pipeTransferPtr->bytesTransferred] );
 
-    uint16_t endpointSize = USB_EndpointSizeGet( pipe );
+    uint16_t endpointSize        = USB_EndpointSizeGet( pipe );
     uint16_t nextTransactionSize = pipeTransferPtr->transferDataSize - pipeTransferPtr->bytesTransferred;
     // OutMultipktEnable=1 for all used endpoints (EP0, EP2)
     // Endpoint sizes are always powers of 2, so % endpointSize ≡ & (endpointSize-1)
 
     if( 0u == nextTransactionSize ) {
         pipeTransferPtr->ZLPEnable = false;
-        pipeTransferPtr->status = USB_PIPE_TRANSFER_OK;
+        pipeTransferPtr->status    = USB_PIPE_TRANSFER_OK;
     }
     else {
-        pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && ( 0u == ( nextTransactionSize & ( endpointSize - 1u ) ) );
+        pipeTransferPtr->ZLPEnable = pipeTransferPtr->ZLPEnable && (0u == (nextTransactionSize & (endpointSize - 1u) ) );
     }
 
     USB_NumberBytesReceivedReset( pipe.address );
@@ -120,11 +120,11 @@ void USB_PipeTransactionComplete( USB_PIPE_t pipe )
 
     if( USB_EP_DIR_IN == pipe.direction ) {
         // Transaction complete on IN — InMultipktEnable=1 for EP0 and EP2.
-        transactionSize = USB_NumberBytesSentGet( pipe.address );
+        transactionSize                    = USB_NumberBytesSentGet( pipe.address );
 
         // Check if we need to send more data, or ZLP.
         pipeTransferPtr->bytesTransferred += transactionSize;
-        if( ( pipeTransferPtr->bytesTransferred != pipeTransferPtr->transferDataSize ) || ( pipeTransferPtr->ZLPEnable ) ) {
+        if( (pipeTransferPtr->bytesTransferred != pipeTransferPtr->transferDataSize) || (pipeTransferPtr->ZLPEnable) ) {
             USB_InTransactionRun( pipe );
         }
         else {
@@ -153,7 +153,7 @@ void USB_PipeTransactionComplete( USB_PIPE_t pipe )
         // Updates bytes transferred and check if we need to run more transactions.
         pipeTransferPtr->bytesTransferred += transactionSize;
 
-        if( ( ( pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize ) || pipeTransferPtr->ZLPEnable ) && ( 0u == ( transactionSize & ( USB_EndpointSizeGet( pipe ) - 1u ) ) ) ) {
+        if( ( (pipeTransferPtr->bytesTransferred < pipeTransferPtr->transferDataSize) || pipeTransferPtr->ZLPEnable) && (0u == (transactionSize & (USB_EndpointSizeGet( pipe ) - 1u) ) ) ) {
             USB_OutTransactionRun( pipe );
         }
         else {

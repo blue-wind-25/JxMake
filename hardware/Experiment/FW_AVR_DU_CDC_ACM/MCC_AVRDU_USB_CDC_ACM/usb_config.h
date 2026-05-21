@@ -117,13 +117,13 @@
  * USB_CDC_TX_BUFFER_SIZE
  * Macro for the transmit buffer size.
  */
-#define USB_CDC_TX_BUFFER_SIZE ( 2 * MAX_ENDPOINT_SIZE_DEFAULT )
+#define USB_CDC_TX_BUFFER_SIZE (2 * MAX_ENDPOINT_SIZE_DEFAULT)
 
 /*
  * USB_CDC_RX_BUFFER_SIZE
  * Macro for the receive buffer size.
  */
-#define USB_CDC_RX_BUFFER_SIZE ( 2 * MAX_ENDPOINT_SIZE_DEFAULT )
+#define USB_CDC_RX_BUFFER_SIZE (2 * MAX_ENDPOINT_SIZE_DEFAULT)
 
 /*
  * USB_CDC_RX_PACKET_SIZE

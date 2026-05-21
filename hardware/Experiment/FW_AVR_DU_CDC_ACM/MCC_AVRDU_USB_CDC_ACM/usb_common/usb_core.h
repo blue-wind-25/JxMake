@@ -46,7 +46,7 @@ static inline RETURN_CODE_t USB_SetupProcess( USB_SETUP_REQUEST_t* setupRequestP
 {
     RETURN_CODE_t status = UNINITIALIZED;
     if( USB_REQUEST_TYPE_STANDARD == (USB_REQUEST_TYPE_t) setupRequestPtr->bmRequestType.type ) {
-        if( ( USB_REQUEST_DIR_IN == (USB_REQUEST_DIR_t) setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) && ( 0u == setupRequestPtr->wLength ) ) {
+        if( (USB_REQUEST_DIR_IN == (USB_REQUEST_DIR_t) setupRequestPtr->bmRequestType.dataPhaseTransferDirection) && (0u == setupRequestPtr->wLength) ) {
             status = CONTROL_SETUP_DIRECTION_ERROR;
         }
         else {
@@ -92,7 +92,7 @@ static inline void USB_Stop( void )
     USB_BusDetach();
     USB_PeripheralDisable();
     USB_PIPE_t pipe;
-    pipe.address = 0;
+    pipe.address   = 0;
     pipe.direction = 0;
     while( pipe.address < USB_EP_NUM ) {
         pipe.direction = USB_EP_DIR_OUT; USB_TransferAbort( pipe );

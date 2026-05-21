@@ -34,7 +34,9 @@ continue with batch 28
 
 ---------------------------------------------------------------------------------------------------
 
-export unc="/opt/uncrustify-0.83.0/bin/uncrustify -c $HOME/Projects/JxMake/0_excluded_directory/personal/uncrustify.cfg"
+export unc="/opt/uncrustify-0.83.0/bin/uncrustify -c $HOME/Projects/JxMake/tmp/uncrustify.cfg"
+export unc="/opt/uncrustify-0.83.0/bin/uncrustify -c $HOME/Projects/JxMake/0_excluded_directory/personal/0-Uncrustify.cfg"
+
 
 $unc -f inc_usb_avr_du.h | more
 $unc -f MCC_AVRDU_USB_CDC_ACM/usb_common/usb_protocol_headers.h | more
@@ -44,12 +46,12 @@ $unc -f MCC_AVRDU_USB_CDC_ACM/usb_peripheral/usb_peripheral_avr_du.h | more
 find . -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -print0 |
 while IFS= read -r -d '' f; do
     echo "Processing $f"
-    $unc -f "$f"
+    $unc --replace --no-backup "$f"
 done
 
 
 find . -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -print0 |
 while IFS= read -r -d '' f; do
     echo "Processing $f"
-    $unc --replace "$f"
+    $unc -f "$f"
 done

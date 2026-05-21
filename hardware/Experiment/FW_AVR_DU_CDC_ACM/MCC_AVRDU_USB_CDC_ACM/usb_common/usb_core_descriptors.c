@@ -63,10 +63,10 @@
  * without pointer casting between the different descriptor types and uint8_t.
  */
 typedef union USB_DESCRIPTOR_PTR_union {
-    uint8_t* bytePtr;
-    USB_DESCRIPTOR_HEADER_t* headerPtr;
-    USB_ENDPOINT_DESCRIPTOR_t* endpointPtr;
-    USB_INTERFACE_DESCRIPTOR_t* interfacePtr;
+    uint8_t*                        bytePtr;
+    USB_DESCRIPTOR_HEADER_t*        headerPtr;
+    USB_ENDPOINT_DESCRIPTOR_t*      endpointPtr;
+    USB_INTERFACE_DESCRIPTOR_t*     interfacePtr;
     USB_CONFIGURATION_DESCRIPTOR_t* configurationPtr;
 } USB_DESCRIPTOR_PTR_t;
 
@@ -76,8 +76,8 @@ static RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorT
 static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable );
 
 static USB_CONFIGURATION_DESCRIPTOR_t* activeConfigurationPtr = NULL;
-static uint8_t activeInterfaces[USB_INTERFACE_NUM];
-extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
+static uint8_t                         activeInterfaces[USB_INTERFACE_NUM];
+extern USB_DESCRIPTOR_POINTERS_t       descriptorPointers;
 
 RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
 {
@@ -88,7 +88,7 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
         // Disable all endpoints in the current configuration directly
         currentDescriptor.configurationPtr = activeConfigurationPtr;
         uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
-        while( ( SUCCESS == status ) && ( numInterfaces > 0u ) ) {
+        while( (SUCCESS == status) && (numInterfaces > 0u) ) {
             status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr );
 
             if( SUCCESS == status ) {
@@ -113,7 +113,7 @@ RETURN_CODE_t USB_DescriptorConfigurationEnable( uint8_t configurationValue )
                 // Find and enable all interfaces in the set configuration with bAlternateSetting == 0
                 currentDescriptor.configurationPtr = activeConfigurationPtr;
                 uint8_t numInterfaces = activeConfigurationPtr->bNumInterfaces;
-                while( ( SUCCESS == status ) && ( numInterfaces > 0u ) ) {
+                while( (SUCCESS == status) && (numInterfaces > 0u) ) {
                     status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr );
                     if( SUCCESS == status ) {
                         if( USB_DEFAULT_ALTERNATE_SETTING == currentDescriptor.interfacePtr->bAlternateSetting ) {
@@ -148,20 +148,20 @@ static RETURN_CODE_t ConfigurationPointerGet( uint8_t configurationValue, USB_CO
 
 static RETURN_CODE_t NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptorType, USB_DESCRIPTOR_HEADER_t** descriptorHeaderPtr )
 {
-    RETURN_CODE_t status = UNINITIALIZED;
+    RETURN_CODE_t        status            = UNINITIALIZED;
 
     USB_DESCRIPTOR_PTR_t currentDescriptor = {
         .headerPtr = *descriptorHeaderPtr
     };
 
-    uint8_t incrementCount = 0u;
+    uint8_t              incrementCount = 0u;
     while( UNINITIALIZED == status ) {
         // Advance by the current descriptor's own length (CONFIGURATION type never passed by callers)
         currentDescriptor.bytePtr = &currentDescriptor.bytePtr[currentDescriptor.headerPtr->bLength];
 
         // Checks whether it has found the correct descriptor type or if it needs to continue looping.
         if( descriptorType == (USB_DESCRIPTOR_TYPE_t) currentDescriptor.headerPtr->bDescriptorType ) {
-            status = SUCCESS;
+            status               = SUCCESS;
             *descriptorHeaderPtr = currentDescriptor.headerPtr;
         }
         else
@@ -191,7 +191,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
 
         // Loop through all the descriptors in the current configuration
         USB_INTERFACE_DESCRIPTOR_t* enableInterfacePtr = NULL;
-        while( ( SUCCESS == status ) && ( currentDescriptor.bytePtr < endOfConfiguration ) ) {
+        while( (SUCCESS == status) && (currentDescriptor.bytePtr < endOfConfiguration) ) {
             // Check if interface number matches before inspecting alternate settings
             if( interfaceNumber == currentDescriptor.interfacePtr->bInterfaceNumber ) {
                 if( activeInterfaces[interfaceNumber] == currentDescriptor.interfacePtr->bAlternateSetting ) {
@@ -199,7 +199,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
                     DescriptorEndpointsConfigure( currentDescriptor.interfacePtr, false );
                     activeInterfaces[interfaceNumber] = USB_DEFAULT_ALTERNATE_SETTING;
                 }
-                if( enable && ( alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting ) )
+                if( enable && (alternateSetting == currentDescriptor.interfacePtr->bAlternateSetting) )
                     // Requested interface found
                     enableInterfacePtr = currentDescriptor.interfacePtr;
             }
@@ -207,9 +207,9 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
             status = NextDescriptorPointerGet( USB_DESCRIPTOR_TYPE_INTERFACE, &currentDescriptor.headerPtr );
             if( DESCRIPTOR_SEARCH_ERROR == status ) {
                 // Search error from NextDescriptorPointerGet means search is complete
-                if( ( false == enable ) || ( NULL != enableInterfacePtr ) ) {
+                if( (false == enable) || (NULL != enableInterfacePtr) ) {
                     // Search was successful, correcting status
-                    status = SUCCESS;
+                    status                    = SUCCESS;
 
                     // Set byte pointer to end of config to exit loop
                     currentDescriptor.bytePtr = endOfConfiguration;
@@ -240,7 +240,7 @@ RETURN_CODE_t USB_DescriptorInterfaceConfigure( uint8_t interfaceNumber, uint8_t
 static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfacePtr, bool enable )
 {
     // The number of endpoints to enable/disable is found from the interface.
-    uint8_t numEndpoints = interfacePtr->bNumEndpoints;
+    uint8_t              numEndpoints      = interfacePtr->bNumEndpoints;
 
     USB_DESCRIPTOR_PTR_t currentDescriptor = {
         .interfacePtr = interfacePtr
@@ -268,15 +268,15 @@ static void DescriptorEndpointsConfigure( USB_INTERFACE_DESCRIPTOR_t* interfaceP
 
 RETURN_CODE_t USB_DescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptor, uint8_t attribute, uint8_t** descriptorPtr, uint16_t* descriptorLength )
 {
-    RETURN_CODE_t status = UNINITIALIZED;
+    RETURN_CODE_t        status = UNINITIALIZED;
 
     USB_DESCRIPTOR_PTR_t localDescriptorPtr;
 
     switch( descriptor ) {
         case USB_DESCRIPTOR_TYPE_DEVICE:
-            *descriptorPtr = (uint8_t*) descriptorPointers.devicePtr;
+            *descriptorPtr    = (uint8_t*) descriptorPointers.devicePtr;
             *descriptorLength = (uint16_t) descriptorPointers.devicePtr->header.bLength;
-            status = SUCCESS;
+            status            = SUCCESS;
             break;
 
         case USB_DESCRIPTOR_TYPE_CONFIGURATION:
@@ -285,7 +285,7 @@ RETURN_CODE_t USB_DescriptorPointerGet( USB_DESCRIPTOR_TYPE_t descriptor, uint8_
 
             status = ConfigurationPointerGet( attribute, &localDescriptorPtr.configurationPtr );
             if( SUCCESS == status ) {
-                *descriptorPtr = localDescriptorPtr.bytePtr;
+                *descriptorPtr    = localDescriptorPtr.bytePtr;
                 *descriptorLength = localDescriptorPtr.configurationPtr->wTotalLength;
             }
             break;
@@ -303,7 +303,7 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
     if( stringIndex == 0u ) {
         // Index 0 returns the language ID descriptor
         *descriptorAddressPtr = (uint8_t*) descriptorPointers.langIDptr;
-        *descriptorLength = (uint16_t) descriptorPointers.langIDptr->header.bLength;
+        *descriptorLength     = (uint16_t) descriptorPointers.langIDptr->header.bLength;
         return SUCCESS;
     }
 
@@ -318,6 +318,6 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
     }
 
     *descriptorAddressPtr = (uint8_t*) stringHeader;
-    *descriptorLength = (uint16_t) stringHeader->bLength;
+    *descriptorLength     = (uint16_t) stringHeader->bLength;
     return SUCCESS;
 }

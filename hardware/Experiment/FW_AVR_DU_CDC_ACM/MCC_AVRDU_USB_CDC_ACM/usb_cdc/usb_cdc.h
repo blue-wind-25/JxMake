@@ -52,7 +52,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
         if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_GET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
                     break;
 
                 default:
@@ -63,7 +63,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
         else {
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_SET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof( USB_CDC_LINE_CODING_t ), NULL );
+                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
                     {
                         // Line coding get test
                         const uint32_t baud     = usbCDCLineCoding.dwDTERate;
@@ -74,15 +74,14 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                         (void) parity;
                         (void) dataBits;
                         // Special baudrate check test
-                        if(baud == 300) {
-                            for(;;); // Hung on purpose
-                        }
+                        if( baud == 300 )
+                            for(;;);  // Hung on purpose
                     }
                     break;
 
                 case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
                     usbCDCControlLineState = setupRequestPtr->wValue;
-                    status = SUCCESS;
+                    status                 = SUCCESS;
                     {
                         // Line state get test
                         const bool dtr = (usbCDCControlLineState & 0x01) != 0;
@@ -105,7 +104,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
     return status;
 }
 
-static inline void USB_CDCSendSerialState(uint16_t uartStateBitmap)
+static inline void USB_CDCSendSerialState( uint16_t uartStateBitmap )
 {
     // Use static because buffer must outlive the async DMA transfer
     static uint8_t packet[10] = {
@@ -121,8 +120,8 @@ static inline void USB_CDCSendSerialState(uint16_t uartStateBitmap)
         0x00,                       // uartStateBitmap MSB (filled below)
     };
 
-    packet[8] = (uint8_t) (uartStateBitmap & 0xFF);
-    packet[9] = (uint8_t) (uartStateBitmap >> 8);
+    packet[8]      = (uint8_t) (uartStateBitmap & 0xFF);
+    packet[9]      = (uint8_t) (uartStateBitmap >> 8);
 
     USB_PIPE_t notifPipe = {
         .address   = USB_CDC_INTERRUPT_EP,

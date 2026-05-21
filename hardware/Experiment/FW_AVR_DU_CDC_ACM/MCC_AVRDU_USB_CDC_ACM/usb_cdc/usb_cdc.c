@@ -54,27 +54,27 @@ USB_PIPE_t CDCRxPipe = {
 };
 
 // RX Buffer
-uint8_t           usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__( ( aligned( 2 ) ) );
+uint8_t           usbCDCReceiveTempBuffer[USB_CDC_RX_PACKET_SIZE] __attribute__( (aligned( 2 ) ) );
 static uint8_t    usbCDCReceiveArray[USB_CDC_RX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCReceiveBuffer = {
-    .content = usbCDCReceiveArray,
-    .head = 0,
-    .tail = 0,
+    .content   = usbCDCReceiveArray,
+    .head      =                      0,
+    .tail      =                      0,
     .maxLength = USB_CDC_RX_BUFFER_SIZE,
 };
 
 // TX Buffer
 static uint8_t    usbCDCTransmitArray[USB_CDC_TX_BUFFER_SIZE];
 CIRCULAR_BUFFER_t usbCDCTransmitBuffer = {
-    .content = usbCDCTransmitArray,
-    .head = 0,
-    .tail = 0,
+    .content   = usbCDCTransmitArray,
+    .head      =                      0,
+    .tail      =                      0,
     .maxLength = USB_CDC_TX_BUFFER_SIZE,
 };
 
 void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )
 {
-    (void) ( pipe );
+    (void) (pipe);
 
     if( USB_PIPE_TRANSFER_OK == status )
         for( uint16_t i = 0; i < bytesTransferred; i++ ) CIRCBUF_Enqueue( &usbCDCReceiveBuffer, usbCDCReceiveTempBuffer[i] );
@@ -82,8 +82,8 @@ void USB_CDCDataReceived( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_
 
 void USB_CDCDataTransmitted( USB_PIPE_t pipe, USB_TRANSFER_STATUS_t status, uint16_t bytesTransferred )
 {
-    (void) ( pipe );
-    (void) ( bytesTransferred );
+    (void) (pipe);
+    (void) (bytesTransferred);
 
     if( USB_PIPE_TRANSFER_OK == status ) {
         usbCDCTransmitBuffer.head = 0;

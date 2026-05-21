@@ -239,10 +239,10 @@ typedef enum USB_CDC_DATA_FUNCTIONAL_DESCRIPTOR_SUBTYPE_enum {
  * Type define for the CDC Header functional descriptor subtype.
  */
 typedef struct USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_struct {
-    uint8_t bLength;            // Size of this descriptor in bytes
-    uint8_t bDescriptorType;    // CDC functional descriptor type
-    uint8_t bDescriptorSubtype; // CDC functional descriptor subtype
-    uint16_t bcdCDC;            // USB Class Definitions for Communications Devices Specification release number in binary-coded decimal
+    uint8_t  bLength;            // Size of this descriptor in bytes
+    uint8_t  bDescriptorType;    // CDC functional descriptor type
+    uint8_t  bDescriptorSubtype; // CDC functional descriptor subtype
+    uint16_t bcdCDC;             // USB Class Definitions for Communications Devices Specification release number in binary-coded decimal
 
 } USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t;
 
@@ -285,11 +285,11 @@ typedef struct USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_struct {
  * Type define for the CDC country selection functional descriptor subtype.
  */
 typedef struct USB_CDC_COUNTRY_SELECTION_FUNCTIONAL_DESCRIPTOR_struct {
-    uint8_t bLength;             // Size of this descriptor in bytes
-    uint8_t bDescriptorType;     // CDC functional descriptor type
-    uint8_t bDescriptorSubtype;  // CDC functional descriptor subtype
-    uint8_t iCountryCodeRelDate; // Index of the release date in ISO 3166 Country Codes
-    uint16_t wCountryCode0;      // First country code
+    uint8_t  bLength;             // Size of this descriptor in bytes
+    uint8_t  bDescriptorType;     // CDC functional descriptor type
+    uint8_t  bDescriptorSubtype;  // CDC functional descriptor subtype
+    uint8_t  iCountryCodeRelDate; // Index of the release date in ISO 3166 Country Codes
+    uint16_t wCountryCode0;       // First country code
 
 } USB_CDC_COUNTRY_SELECTION_FUNCTIONAL_DESCRIPTOR_t;
 
@@ -333,9 +333,9 @@ typedef enum USD_CDC_LINE_CODING_DATA_BITS_enum {
  * Type define for CDC Line Encoding.
  */
 typedef struct USB_CDC_LINE_CODING_struct {
-    uint32_t dwDTERate;                          // Data terminal rate, in bits per second
+    uint32_t                        dwDTERate;   // Data terminal rate, in bits per second
     USB_CDC_LINE_CODING_STOP_BITS_t bCharFormat; // Number of stop bits
-    USD_CDC_LINE_CODING_PARITY_t bParityType;    // Parity control mode
+    USD_CDC_LINE_CODING_PARITY_t    bParityType; // Parity control mode
     USD_CDC_LINE_CODING_DATA_BITS_t bDataBits;   // Number of data bits
 
 } USB_CDC_LINE_CODING_t;

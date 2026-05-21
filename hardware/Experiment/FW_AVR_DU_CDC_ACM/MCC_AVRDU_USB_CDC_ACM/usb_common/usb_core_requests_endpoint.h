@@ -41,7 +41,7 @@
 // Forward declaration to avoid circular include with usb_core_transfer.h
 void USB_TransferAbort( USB_PIPE_t pipe );
 
-#define GET_STATUS_ENDPOINT_STALLED ( 1u << 0u )
+#define GET_STATUS_ENDPOINT_STALLED (1u << 0u)
 
 /*
  * Gets the endpoint pipe from the wIndex field of the setup request.
@@ -66,7 +66,7 @@ static inline RETURN_CODE_t SetupEndpointRequestGetStatus( USB_SETUP_REQUEST_t* 
     USB_PIPE_t endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
     uint8_t    data[]   = { 0, 0 };
     if( USB_EndpointIsStalled( endpoint ) == true ) data[0] |= GET_STATUS_ENDPOINT_STALLED;
-    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
+    return USB_ControlTransferDataWriteBuffer( data, sizeof(data) );
 }
 
 /*

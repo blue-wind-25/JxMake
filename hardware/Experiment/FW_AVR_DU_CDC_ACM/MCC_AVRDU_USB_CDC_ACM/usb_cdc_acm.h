@@ -42,6 +42,7 @@ extern "C" {
     #include <usb_cdc/usb_cdc_virtual_serial_port.h>
 }
 
+
 static void USBDevice_CDCACMHandler();
 
 
@@ -82,29 +83,21 @@ static inline void delayMS( uint32_t mS )
 static void USBDevice_CDCACMHandler()
 {
     // TX service
-    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) ) {
-        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) {
-            USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
-        }
-    }
+    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) )
+        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
 
     // RX service
-    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) ) {
-        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) {
-            USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
-        }
-    }
+    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) )
+        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
 
     // Honor DTR
-    if( !( usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm ) ) return;
+    if( !(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm) ) return;
     if( CIRCBUF_Full( &usbCDCTransmitBuffer ) || USB_PipeStatusIsBusy( CDCTxPipe ) ) return;
 
     // Loopback test
     static uint8_t cdcData;
 
-    while( !CIRCBUF_Full( &usbCDCTransmitBuffer ) && CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) {
-        CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
-    }
+    while( !CIRCBUF_Full( &usbCDCTransmitBuffer ) && CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
 
     // SerialState notification
     // ##### !!! TODO : Implement it later if needed !!! #####
@@ -121,13 +114,13 @@ static void USBDevice_CDCACMHandler()
         7-15| Reserved                   | Not used             | -
      */
     static uint16_t lastState = 0;
-           uint16_t uartState = 0;
+    uint16_t        uartState = 0;
     /*
-    if( gpio_cts_active() ) uartState |= CDC_SERIAL_STATE_RXCARRIER; // CTS
-    if( gpio_dsr_active() ) uartState |= CDC_SERIAL_STATE_TXCARRIER; // DSR
-    */
+       if( gpio_cts_active() ) uartState |= CDC_SERIAL_STATE_RXCARRIER; // CTS
+       if( gpio_dsr_active() ) uartState |= CDC_SERIAL_STATE_TXCARRIER; // DSR
+     */
     if( uartState != lastState ) {
-        USB_CDCSendSerialState(uartState);
+        USB_CDCSendSerialState( uartState );
         lastState = uartState;
     }
 }
@@ -137,9 +130,9 @@ static void system_usb_init()
 {
     // Reinitialize OSCHF
     _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc );
-    _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE,  0x00                                                                );
+    _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE,  0x00 );
 
-    while( !( CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm ) );
+    while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
 
     // Start USB
     SYSCFG.VUSBCTRL              = ~SYSCFG_USBVREG_bm; // USBVREG disable
@@ -149,17 +142,17 @@ static void system_usb_init()
     usbCDCLineCoding.bParityType = USB_CDC_LINE_CODING_PARITY_NONE;
     usbCDCLineCoding.bDataBits   = USB_CDC_LINE_CODING_8_DATA_BITS;
 
-    USB0.INTCTRLA = USB_RESET_bm | USB_STALLED_bm | USB_UNF_bm | USB_OVF_bm;
-    USB0.INTCTRLB = USB_TRNCOMPL_bm | USB_GNDONE_bm | USB_SETUP_bm;
+    USB0.INTCTRLA                = USB_RESET_bm | USB_STALLED_bm | USB_UNF_bm | USB_OVF_bm;
+    USB0.INTCTRLB                = USB_TRNCOMPL_bm | USB_GNDONE_bm | USB_SETUP_bm;
 
-    SYSCFG.VUSBCTRL = SYSCFG_USBVREG_bm;
+    SYSCFG.VUSBCTRL              = SYSCFG_USBVREG_bm;
 
     USB_Start();
 
     // Enable TCA0 in normal mode
     TCA0.SINGLE.CTRLA   = 0;
     TCA0.SINGLE.CNT     = 0;
-    TCA0.SINGLE.PER     = ( F_CPU / 64 / 1000 ) - 1;
+    TCA0.SINGLE.PER     = (F_CPU / 64 / 1000) - 1;
     TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
     TCA0.SINGLE.CTRLA   = TCA_SINGLE_CLKSEL_DIV64_gc | TCA_SINGLE_ENABLE_bm;
 

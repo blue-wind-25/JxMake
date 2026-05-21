@@ -68,7 +68,7 @@ static inline RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* 
             break;
 
         case USB_REQUEST_SET_CONFIGURATION:
-            status = SetupDeviceRequestSetConfiguration( (uint8_t) ( setupRequestPtr->wValue & 0xFFu ) );
+            status = SetupDeviceRequestSetConfiguration( (uint8_t) (setupRequestPtr->wValue & 0xFFu) );
             break;
 
         default:
@@ -80,7 +80,7 @@ static inline RETURN_CODE_t USB_SetupProcessDeviceRequest( USB_SETUP_REQUEST_t* 
 
 static inline RETURN_CODE_t USB_SetupProcessEndpointRequest( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
-    RETURN_CODE_t status = UNINITIALIZED;
+    RETURN_CODE_t status   = UNINITIALIZED;
     USB_PIPE_t    endpoint = EndpointFromRequestGet( setupRequestPtr->wIndex );
     if( endpoint.address >= (uint8_t) USB_EP_NUM ) {
         status = ENDPOINT_ADDRESS_ERROR;

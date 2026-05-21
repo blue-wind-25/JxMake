@@ -53,7 +53,7 @@
 static inline RETURN_CODE_t USB_SetupInterfaceRequestGetStatus( void )
 {
     uint8_t data[] = { 0, 0 };
-    return USB_ControlTransferDataWriteBuffer( data, sizeof( data ) );
+    return USB_ControlTransferDataWriteBuffer( data, sizeof(data) );
 }
 
 /*
@@ -66,7 +66,7 @@ static inline RETURN_CODE_t USB_SetupInterfaceRequestGetInterface( USB_SETUP_REQ
     // All interfaces have only alternate setting 0
     (void) setupRequestPtr;
     uint8_t alternateSetting = 0;
-    return USB_ControlTransferDataWriteBuffer( &alternateSetting, sizeof( alternateSetting ) );
+    return USB_ControlTransferDataWriteBuffer( &alternateSetting, sizeof(alternateSetting) );
 }
 
 /*

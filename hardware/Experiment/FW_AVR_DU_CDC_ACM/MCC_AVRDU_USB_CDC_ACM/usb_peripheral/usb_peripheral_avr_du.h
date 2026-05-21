@@ -48,13 +48,13 @@
  * ALWAYS_INLINE
  * Alias that makes always inline function definitions more readable.
  */
-#define ALWAYS_INLINE __attribute__( ( always_inline ) ) inline
+#define ALWAYS_INLINE __attribute__( (always_inline) ) inline
 
 /*
  * NO_INLINE
  * Alias that makes noinline function definitions more readable.
  */
-#define NO_INLINE __attribute__( ( noinline ) )
+#define NO_INLINE __attribute__( (noinline) )
 
 /*
  * Represents the endpoint configuration table based on the number of endpoints in use.
@@ -62,9 +62,9 @@
  * modified to support configuration of size from USB_EP_NUM.
  */
 typedef struct USB_ENDPOINT_TABLE_struct {
-    register8_t FIFO[USB_EP_NUM * 2u]; // FIFO Entry
-    USB_EP_PAIR_t EP[USB_EP_NUM];      // USB Endpoint Register Pairs
-    register16_t FRAMENUM;             // Frame Number
+    register8_t   FIFO[USB_EP_NUM * 2u]; // FIFO Entry
+    USB_EP_PAIR_t EP[USB_EP_NUM];        // USB Endpoint Register Pairs
+    register16_t  FRAMENUM;              // Frame Number
 } USB_ENDPOINT_TABLE_t;
 
 extern USB_ENDPOINT_TABLE_t endpointTable;
@@ -73,12 +73,12 @@ extern USB_ENDPOINT_TABLE_t endpointTable;
  * Represents a transfer created for a pipe, either IN or OUT.
  */
 typedef struct USB_PIPE_TRANSFER_struct {
-    USB_TRANSFER_STATUS_t status;                    // The status of a transfer on this pipe
-    uint8_t ZLPEnable : 1;                           // A Zero Length Packet (ZLP) is enabled for the end of this transfer if the transfer size is a multiple of endpoint size
-    uint8_t reserved : 7;                            // These bits are unused
-    uint8_t* transferDataPtr;                        // Location in RAM to send or fill during transfer
-    uint16_t transferDataSize;                       // Number of bytes to transfer to or from the RAM location
-    uint16_t bytesTransferred;                       // Total number of data transfered
+    USB_TRANSFER_STATUS_t       status;              // The status of a transfer on this pipe
+    uint8_t                     ZLPEnable : 1;       // A Zero Length Packet (ZLP) is enabled for the end of this transfer if the transfer size is a multiple of endpoint size
+    uint8_t                     reserved  : 7;       // These bits are unused
+    uint8_t*                    transferDataPtr;     // Location in RAM to send or fill during transfer
+    uint16_t                    transferDataSize;    // Number of bytes to transfer to or from the RAM location
+    uint16_t                    bytesTransferred;    // Total number of data transfered
     USB_TRANSFER_END_CALLBACK_t transferEndCallback; // Callback to call at the end of transfer when transfer_data_size == bytes_transfered, NULL if not used
 } USB_PIPE_TRANSFER_t;
 
@@ -90,7 +90,7 @@ typedef struct USB_PIPE_TRANSFER_struct {
  */
 static ALWAYS_INLINE void WaitUntilRMWDone( void )
 {
-    while( ( USB0.INTFLAGSB & USB_RMWBUSY_bm ) != 0u );
+    while( (USB0.INTFLAGSB & USB_RMWBUSY_bm) != 0u );
 }
 
 /*
@@ -100,7 +100,7 @@ static ALWAYS_INLINE void WaitUntilRMWDone( void )
  */
 static ALWAYS_INLINE void USB_EndPointOutDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL &= ( ~USB_TYPE_gm ) );
+    (endpointTable.EP[endpointAddress].OUT.CTRL &= (~USB_TYPE_gm) );
 }
 
 /*
@@ -110,7 +110,7 @@ static ALWAYS_INLINE void USB_EndPointOutDisable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndPointInDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL &= ( ~USB_TYPE_gm ) );
+    (endpointTable.EP[endpointAddress].IN.CTRL &= (~USB_TYPE_gm) );
 }
 
 /*
@@ -121,7 +121,7 @@ static ALWAYS_INLINE void USB_EndPointInDisable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndPointOutIsEnabled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.CTRL & USB_TYPE_gm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.CTRL & USB_TYPE_gm) != 0u;
 }
 
 /*
@@ -132,7 +132,7 @@ static ALWAYS_INLINE bool USB_EndPointOutIsEnabled( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndPointInIsEnabled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.CTRL & USB_TYPE_gm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.CTRL & USB_TYPE_gm) != 0u;
 }
 
 /*
@@ -163,7 +163,7 @@ static ALWAYS_INLINE uint8_t USB_EndPointInTypeConfigGet( uint8_t endpointAddres
  */
 static ALWAYS_INLINE void USB_EndpointOutControlSet( uint8_t endpointAddress, uint8_t value )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL = ( value ) );
+    (endpointTable.EP[endpointAddress].OUT.CTRL = (value) );
 }
 
 /*
@@ -174,7 +174,7 @@ static ALWAYS_INLINE void USB_EndpointOutControlSet( uint8_t endpointAddress, ui
  */
 static ALWAYS_INLINE void USB_EndpointInControlSet( uint8_t endpointAddress, uint8_t value )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL = ( value ) );
+    (endpointTable.EP[endpointAddress].IN.CTRL = (value) );
 }
 
 /*
@@ -207,7 +207,7 @@ static ALWAYS_INLINE void USB_EndpointInStatusClear( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointOutDefaultSizeSet( uint8_t endpointAddress, uint8_t endpointSizeConfig )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL = ( endpointTable.EP[endpointAddress].OUT.CTRL & ( ~USB_BUFSIZE_DEFAULT_gm ) ) | ( ( endpointSizeConfig ) & USB_BUFSIZE_DEFAULT_gm ) );
+    (endpointTable.EP[endpointAddress].OUT.CTRL = (endpointTable.EP[endpointAddress].OUT.CTRL & (~USB_BUFSIZE_DEFAULT_gm) ) | ( (endpointSizeConfig) & USB_BUFSIZE_DEFAULT_gm) );
 }
 
 /*
@@ -218,7 +218,7 @@ static ALWAYS_INLINE void USB_EndpointOutDefaultSizeSet( uint8_t endpointAddress
  */
 static ALWAYS_INLINE void USB_EndpointInDefaultSizeSet( uint8_t endpointAddress, uint8_t endpointSizeConfig )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL = ( endpointTable.EP[endpointAddress].IN.CTRL & ( ~USB_BUFSIZE_DEFAULT_gm ) ) | ( ( endpointSizeConfig ) & USB_BUFSIZE_DEFAULT_gm ) );
+    (endpointTable.EP[endpointAddress].IN.CTRL = (endpointTable.EP[endpointAddress].IN.CTRL & (~USB_BUFSIZE_DEFAULT_gm) ) | ( (endpointSizeConfig) & USB_BUFSIZE_DEFAULT_gm) );
 }
 
 /*
@@ -229,7 +229,7 @@ static ALWAYS_INLINE void USB_EndpointInDefaultSizeSet( uint8_t endpointAddress,
  */
 static ALWAYS_INLINE void USB_EndpointOutIsoSizeSet( uint8_t endpointAddress, uint8_t endpointSizeConfig )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL = ( endpointTable.EP[endpointAddress].OUT.CTRL & ( ~USB_BUFSIZE_ISO_gm ) ) | ( ( endpointSizeConfig ) & USB_BUFSIZE_ISO_gm ) );
+    (endpointTable.EP[endpointAddress].OUT.CTRL = (endpointTable.EP[endpointAddress].OUT.CTRL & (~USB_BUFSIZE_ISO_gm) ) | ( (endpointSizeConfig) & USB_BUFSIZE_ISO_gm) );
 }
 
 /*
@@ -240,7 +240,7 @@ static ALWAYS_INLINE void USB_EndpointOutIsoSizeSet( uint8_t endpointAddress, ui
  */
 static ALWAYS_INLINE void USB_EndpointInIsoSizeSet( uint8_t endpointAddress, uint8_t endpointSizeConfig )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL = ( endpointTable.EP[endpointAddress].IN.CTRL & ( ~USB_BUFSIZE_ISO_gm ) ) | ( ( endpointSizeConfig ) & USB_BUFSIZE_ISO_gm ) );
+    (endpointTable.EP[endpointAddress].IN.CTRL = (endpointTable.EP[endpointAddress].IN.CTRL & (~USB_BUFSIZE_ISO_gm) ) | ( (endpointSizeConfig) & USB_BUFSIZE_ISO_gm) );
 }
 
 /*
@@ -290,7 +290,7 @@ static ALWAYS_INLINE uint8_t USB_EndpointInIsoSizeGet( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_TCDSBL_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_TCDSBL_bm);
 }
 
 /*
@@ -300,7 +300,7 @@ static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptEnable( uin
  */
 static ALWAYS_INLINE void USB_EndpointInTransactionCompleteInterruptEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_TCDSBL_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_TCDSBL_bm);
 }
 
 /*
@@ -310,7 +310,7 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteInterruptEnable( uint
  */
 static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL |= USB_TCDSBL_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL |= USB_TCDSBL_bm);
 }
 
 /*
@@ -320,7 +320,7 @@ static ALWAYS_INLINE void USB_EndpointOutTransactionCompleteInterruptDisable( ui
  */
 static ALWAYS_INLINE void USB_EndpointInTransactionCompleteDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL |= USB_TCDSBL_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL |= USB_TCDSBL_bm);
 }
 
 /*
@@ -330,7 +330,7 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteDisable( uint8_t endp
  */
 static ALWAYS_INLINE void USB_EndpointOutMultipktEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL |= USB_MULTIPKT_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL |= USB_MULTIPKT_bm);
 }
 
 /*
@@ -340,7 +340,7 @@ static ALWAYS_INLINE void USB_EndpointOutMultipktEnable( uint8_t endpointAddress
  */
 static ALWAYS_INLINE void USB_EndpointInMultipktEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL |= USB_MULTIPKT_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL |= USB_MULTIPKT_bm);
 }
 
 /*
@@ -350,7 +350,7 @@ static ALWAYS_INLINE void USB_EndpointInMultipktEnable( uint8_t endpointAddress 
  */
 static ALWAYS_INLINE void USB_EndpointOutMultipktDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_MULTIPKT_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_MULTIPKT_bm);
 }
 
 /*
@@ -360,7 +360,7 @@ static ALWAYS_INLINE void USB_EndpointOutMultipktDisable( uint8_t endpointAddres
  */
 static ALWAYS_INLINE void USB_EndpointInMultipktDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_MULTIPKT_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_MULTIPKT_bm);
 }
 
 /*
@@ -371,7 +371,7 @@ static ALWAYS_INLINE void USB_EndpointInMultipktDisable( uint8_t endpointAddress
  */
 static ALWAYS_INLINE bool USB_EndpointOutMultipktIsEnabled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.CTRL & USB_MULTIPKT_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.CTRL & USB_MULTIPKT_bm) != 0u;
 }
 
 /*
@@ -382,7 +382,7 @@ static ALWAYS_INLINE bool USB_EndpointOutMultipktIsEnabled( uint8_t endpointAddr
  */
 static ALWAYS_INLINE bool USB_EndpointInMultipktIsEnabled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.CTRL & USB_MULTIPKT_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.CTRL & USB_MULTIPKT_bm) != 0u;
 }
 
 /*
@@ -392,7 +392,7 @@ static ALWAYS_INLINE bool USB_EndpointInMultipktIsEnabled( uint8_t endpointAddre
  */
 static ALWAYS_INLINE void USB_EndpointOutAzlpEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL |= USB_AZLP_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL |= USB_AZLP_bm);
 }
 
 /*
@@ -402,7 +402,7 @@ static ALWAYS_INLINE void USB_EndpointOutAzlpEnable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointInAlzpEnable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL |= USB_AZLP_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL |= USB_AZLP_bm);
 }
 
 /*
@@ -412,7 +412,7 @@ static ALWAYS_INLINE void USB_EndpointInAlzpEnable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointOutAzlpDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_AZLP_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_AZLP_bm);
 }
 
 /*
@@ -422,7 +422,7 @@ static ALWAYS_INLINE void USB_EndpointOutAzlpDisable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointInAzlpDisable( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_AZLP_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_AZLP_bm);
 }
 
 /*
@@ -432,7 +432,7 @@ static ALWAYS_INLINE void USB_EndpointInAzlpDisable( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointOutStall( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL |= USB_DOSTALL_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL |= USB_DOSTALL_bm);
 }
 
 /*
@@ -442,7 +442,7 @@ static ALWAYS_INLINE void USB_EndpointOutStall( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointInStall( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL |= USB_DOSTALL_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL |= USB_DOSTALL_bm);
 }
 
 /*
@@ -452,7 +452,7 @@ static ALWAYS_INLINE void USB_EndpointInStall( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointOutStallClear( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_DOSTALL_bm );
+    (endpointTable.EP[endpointAddress].OUT.CTRL &= ~USB_DOSTALL_bm);
 }
 
 /*
@@ -462,7 +462,7 @@ static ALWAYS_INLINE void USB_EndpointOutStallClear( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_EndpointInStallClear( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_DOSTALL_bm );
+    (endpointTable.EP[endpointAddress].IN.CTRL &= ~USB_DOSTALL_bm);
 }
 
 /*
@@ -473,7 +473,7 @@ static ALWAYS_INLINE void USB_EndpointInStallClear( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndpointOutIsStalled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.CTRL & USB_DOSTALL_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.CTRL & USB_DOSTALL_bm) != 0u;
 }
 
 /*
@@ -484,7 +484,7 @@ static ALWAYS_INLINE bool USB_EndpointOutIsStalled( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndpointInIsStalled( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.CTRL & USB_DOSTALL_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.CTRL & USB_DOSTALL_bm) != 0u;
 }
 
 /*
@@ -561,7 +561,7 @@ static ALWAYS_INLINE void USB_EndpointInNAKClear( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndpointOutNAKIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_BUSNAK_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_BUSNAK_bm) != 0u;
 }
 
 /*
@@ -572,7 +572,7 @@ static ALWAYS_INLINE bool USB_EndpointOutNAKIsSet( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndpointInNAKIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_BUSNAK_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_BUSNAK_bm) != 0u;
 }
 
 /*
@@ -605,7 +605,7 @@ static ALWAYS_INLINE void USB_EndpointInTransactionCompleteAck( uint8_t endpoint
  */
 static ALWAYS_INLINE bool USB_EndpointOutTransactionIsComplete( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_TRNCOMPL_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_TRNCOMPL_bm) != 0u;
 }
 
 /*
@@ -616,7 +616,7 @@ static ALWAYS_INLINE bool USB_EndpointOutTransactionIsComplete( uint8_t endpoint
  */
 static ALWAYS_INLINE bool USB_EndpointInTransactionIsComplete( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_TRNCOMPL_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_TRNCOMPL_bm) != 0u;
 }
 
 /*
@@ -649,7 +649,7 @@ static ALWAYS_INLINE void USB_EndpointInSetupCompleteAck( uint8_t endpointAddres
  */
 static ALWAYS_INLINE bool USB_EndpointOutSetupIsReceived( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_EPSETUP_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_EPSETUP_bm) != 0u;
 }
 
 /*
@@ -660,7 +660,7 @@ static ALWAYS_INLINE bool USB_EndpointOutSetupIsReceived( uint8_t endpointAddres
  */
 static ALWAYS_INLINE bool USB_EndpointInSetupIsReceived( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_EPSETUP_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_EPSETUP_bm) != 0u;
 }
 
 /*
@@ -715,7 +715,7 @@ static ALWAYS_INLINE void USB_EndpointInDataToggleClear( uint8_t endpointAddress
  */
 static ALWAYS_INLINE bool USB_EndpointOutDataToggleIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_TOGGLE_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_TOGGLE_bm) != 0u;
 }
 
 /*
@@ -726,7 +726,7 @@ static ALWAYS_INLINE bool USB_EndpointOutDataToggleIsSet( uint8_t endpointAddres
  */
 static ALWAYS_INLINE bool USB_EndpointInDataToggleIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_TOGGLE_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_TOGGLE_bm) != 0u;
 }
 
 /*
@@ -765,7 +765,7 @@ static ALWAYS_INLINE void USB_EndpointInBufferSet( uint8_t endpointAddress, uint
  */
 static ALWAYS_INLINE void USB_NumberBytesToSendSet( uint8_t endpointAddress, uint16_t numberBytes )
 {
-    ( endpointTable.EP[endpointAddress].IN.CNT = ( numberBytes ) );
+    (endpointTable.EP[endpointAddress].IN.CNT = (numberBytes) );
 }
 
 /*
@@ -805,7 +805,7 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesSentGet( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_NumberBytesSentReset( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].IN.MCNT = ( 0x0000 ) );
+    (endpointTable.EP[endpointAddress].IN.MCNT = (0x0000) );
 }
 
 /*
@@ -816,7 +816,7 @@ static ALWAYS_INLINE void USB_NumberBytesSentReset( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE void USB_NumberBytesToReceiveSet( uint8_t endpointAddress, uint16_t numberBytes )
 {
-    ( endpointTable.EP[( endpointAddress )].OUT.MCNT = ( numberBytes ) );
+    (endpointTable.EP[(endpointAddress)].OUT.MCNT = (numberBytes) );
 }
 
 /*
@@ -856,7 +856,7 @@ static ALWAYS_INLINE uint16_t USB_NumberBytesReceivedGet( uint8_t endpointAddres
  */
 static ALWAYS_INLINE void USB_NumberBytesReceivedReset( uint8_t endpointAddress )
 {
-    ( endpointTable.EP[endpointAddress].OUT.CNT = ( 0x0000 ) );
+    (endpointTable.EP[endpointAddress].OUT.CNT = (0x0000) );
 }
 
 /*
@@ -867,7 +867,7 @@ static ALWAYS_INLINE void USB_NumberBytesReceivedReset( uint8_t endpointAddress 
  */
 static ALWAYS_INLINE bool USB_EndpointOutOverUnderflowIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_UNFOVF_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_UNFOVF_bm) != 0u;
 }
 
 /*
@@ -878,7 +878,7 @@ static ALWAYS_INLINE bool USB_EndpointOutOverUnderflowIsSet( uint8_t endpointAdd
  */
 static ALWAYS_INLINE bool USB_EndpointInOverUnderflowIsSet( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_UNFOVF_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_UNFOVF_bm) != 0u;
 }
 
 /*
@@ -911,7 +911,7 @@ static ALWAYS_INLINE void USB_EndpointInOverUnderflowAck( uint8_t endpointAddres
  */
 static ALWAYS_INLINE bool USB_EndpointOutCRCHasFailed( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].OUT.STATUS & USB_CRC_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].OUT.STATUS & USB_CRC_bm) != 0u;
 }
 
 /*
@@ -922,7 +922,7 @@ static ALWAYS_INLINE bool USB_EndpointOutCRCHasFailed( uint8_t endpointAddress )
  */
 static ALWAYS_INLINE bool USB_EndpointInCRCHasFailed( uint8_t endpointAddress )
 {
-    return ( endpointTable.EP[endpointAddress].IN.STATUS & USB_CRC_bm ) != 0u;
+    return (endpointTable.EP[endpointAddress].IN.STATUS & USB_CRC_bm) != 0u;
 }
 
 /*
@@ -964,7 +964,7 @@ static ALWAYS_INLINE void USB_GlobalNAKEnable( void )
  */
 static ALWAYS_INLINE void USB_GlobalNAKDisable( void )
 {
-    USB0.CTRLB &= ~( USB_GNAK_bm );
+    USB0.CTRLB &= ~(USB_GNAK_bm);
 }
 
 /*
@@ -975,7 +975,7 @@ static ALWAYS_INLINE void USB_GlobalNAKDisable( void )
  */
 static ALWAYS_INLINE bool USB_GlobalNAKIsEnable( void )
 {
-    return ( USB0.CTRLB & USB_GNAK_bm ) != 0u;
+    return (USB0.CTRLB & USB_GNAK_bm) != 0u;
 }
 
 /*
@@ -995,7 +995,7 @@ static ALWAYS_INLINE void USB_ConnectionAttach( void )
  */
 static ALWAYS_INLINE void USB_ConnectionDetach( void )
 {
-    USB0.CTRLB &= ~( USB_ATTACH_bm );
+    USB0.CTRLB &= ~(USB_ATTACH_bm);
 }
 
 /*
@@ -1006,7 +1006,7 @@ static ALWAYS_INLINE void USB_ConnectionDetach( void )
  */
 static ALWAYS_INLINE bool USB_ConnectionIsAttach( void )
 {
-    return ( USB0.CTRLB & USB_ATTACH_bm ) != 0u;
+    return (USB0.CTRLB & USB_ATTACH_bm) != 0u;
 }
 
 /*
@@ -1026,7 +1026,7 @@ static ALWAYS_INLINE void USB_Enable( void )
  */
 static ALWAYS_INLINE void USB_Disable( void )
 {
-    USB0.CTRLA &= ~( USB_ENABLE_bm );
+    USB0.CTRLA &= ~(USB_ENABLE_bm);
 }
 
 /*
@@ -1037,7 +1037,7 @@ static ALWAYS_INLINE void USB_Disable( void )
  */
 static ALWAYS_INLINE bool USB_IsEnable( void )
 {
-    return ( USB0.CTRLA & USB_ENABLE_bm ) != 0u;
+    return (USB0.CTRLA & USB_ENABLE_bm) != 0u;
 }
 
 /*
@@ -1061,7 +1061,7 @@ static ALWAYS_INLINE void USB_FifoEnable( void )
  */
 static ALWAYS_INLINE void USB_FifoDisable( void )
 {
-    USB0.CTRLA &= ~( USB_FIFOEN_bm );
+    USB0.CTRLA &= ~(USB_FIFOEN_bm);
 }
 
 /*
@@ -1074,7 +1074,7 @@ static ALWAYS_INLINE void USB_FifoDisable( void )
  */
 static ALWAYS_INLINE bool USB_FifoIsEnable( void )
 {
-    return ( USB0.CTRLA & USB_FIFOEN_bm ) != 0u;
+    return (USB0.CTRLA & USB_FIFOEN_bm) != 0u;
 }
 
 /*
@@ -1094,7 +1094,7 @@ static ALWAYS_INLINE void USB_AutomaticGlobalNAKEnable( void )
  */
 static ALWAYS_INLINE void USB_AutomaticGlobalNAKDisable( void )
 {
-    USB0.CTRLB &= ~( USB_GNAUTO_bm );
+    USB0.CTRLB &= ~(USB_GNAUTO_bm);
 }
 
 /*
@@ -1105,7 +1105,7 @@ static ALWAYS_INLINE void USB_AutomaticGlobalNAKDisable( void )
  */
 static ALWAYS_INLINE bool USB_AutomaticGlobalNAKIsEnable( void )
 {
-    return ( USB0.CTRLB & USB_GNAUTO_bm ) != 0u;
+    return (USB0.CTRLB & USB_GNAUTO_bm) != 0u;
 }
 
 /*
@@ -1127,7 +1127,7 @@ static ALWAYS_INLINE void USB_FrameNumEnable( void )
  */
 static ALWAYS_INLINE void USB_FrameNumDisable( void )
 {
-    USB0.CTRLA &= ~( USB_STFRNUM_bm );
+    USB0.CTRLA &= ~(USB_STFRNUM_bm);
 }
 
 /*
@@ -1139,7 +1139,7 @@ static ALWAYS_INLINE void USB_FrameNumDisable( void )
  */
 static ALWAYS_INLINE bool USB_FrameNumIsEnable( void )
 {
-    return ( USB0.CTRLA & USB_STFRNUM_bm ) != 0u;
+    return (USB0.CTRLA & USB_STFRNUM_bm) != 0u;
 }
 
 /*
@@ -1159,7 +1159,7 @@ static ALWAYS_INLINE uint16_t USB_FrameNumGet( void )
  */
 static ALWAYS_INLINE void USB_MaxEndpointsSet( uint8_t maxEndpoint )
 {
-    USB0.CTRLA = ( ( USB0.CTRLA & ~USB_MAXEP_gm ) | ( ( ( maxEndpoint ) << USB_MAXEP_gp ) & USB_MAXEP_gm ) );
+    USB0.CTRLA = ( (USB0.CTRLA & ~USB_MAXEP_gm) | ( ( (maxEndpoint) << USB_MAXEP_gp) & USB_MAXEP_gm) );
 }
 
 /*
@@ -1169,7 +1169,7 @@ static ALWAYS_INLINE void USB_MaxEndpointsSet( uint8_t maxEndpoint )
  */
 static ALWAYS_INLINE void USB_MaxEndpointsReset( void )
 {
-    USB0.CTRLA &= ~( USB_MAXEP_gm );
+    USB0.CTRLA &= ~(USB_MAXEP_gm);
 }
 
 /*
@@ -1179,7 +1179,7 @@ static ALWAYS_INLINE void USB_MaxEndpointsReset( void )
  */
 static ALWAYS_INLINE uint8_t USB_MaxEndpointsGet( void )
 {
-    return ( USB0.CTRLA & USB_MAXEP_gm ) >> USB_MAXEP_gp;
+    return (USB0.CTRLA & USB_MAXEP_gm) >> USB_MAXEP_gp;
 }
 
 /*
@@ -1223,7 +1223,7 @@ static ALWAYS_INLINE uint16_t USB_EndpointTableAddressGet( void )
  */
 static ALWAYS_INLINE void USB_FifoReadPointerReset( void )
 {
-    USB0.FIFORP |= ( USB_FIFORP_gm );
+    USB0.FIFORP |= (USB_FIFORP_gm);
 }
 
 /*
@@ -1234,7 +1234,7 @@ static ALWAYS_INLINE void USB_FifoReadPointerReset( void )
  */
 static ALWAYS_INLINE int8_t USB_FifoReadPointerGet( void )
 {
-    return (int8_t) ( USB0.FIFORP );
+    return (int8_t) (USB0.FIFORP);
 }
 
 /*
@@ -1245,7 +1245,7 @@ static ALWAYS_INLINE int8_t USB_FifoReadPointerGet( void )
  */
 static ALWAYS_INLINE void USB_FifoWritePointerReset( void )
 {
-    USB0.FIFOWP |= ( USB_FIFOWP_gm );
+    USB0.FIFOWP |= (USB_FIFOWP_gm);
 }
 
 /*
@@ -1256,7 +1256,7 @@ static ALWAYS_INLINE void USB_FifoWritePointerReset( void )
  */
 static ALWAYS_INLINE int8_t USB_FifoWritePointerGet( void )
 {
-    return (int8_t) ( USB0.FIFOWP );
+    return (int8_t) (USB0.FIFOWP);
 }
 
 /*
@@ -1266,7 +1266,7 @@ static ALWAYS_INLINE int8_t USB_FifoWritePointerGet( void )
  */
 static ALWAYS_INLINE void USB_DeviceAddressSet( uint8_t usbAddress )
 {
-    USB0.ADDR = ( ( USB0.ADDR & ~USB_ADDR_gm ) | ( ( ( usbAddress ) << USB_ADDR_gp ) & USB_ADDR_gm ) );
+    USB0.ADDR = ( (USB0.ADDR & ~USB_ADDR_gm) | ( ( (usbAddress) << USB_ADDR_gp) & USB_ADDR_gm) );
 }
 
 /*
@@ -1276,7 +1276,7 @@ static ALWAYS_INLINE void USB_DeviceAddressSet( uint8_t usbAddress )
  */
 static ALWAYS_INLINE void USB_DeviceAddressReset( void )
 {
-    USB0.ADDR &= ~( USB_ADDR_gm );
+    USB0.ADDR &= ~(USB_ADDR_gm);
 }
 
 /*
@@ -1286,7 +1286,7 @@ static ALWAYS_INLINE void USB_DeviceAddressReset( void )
  */
 static ALWAYS_INLINE uint8_t USB_DeviceAddressGet( void )
 {
-    return ( USB0.ADDR & USB_ADDR_gm ) >> USB_ADDR_gp;
+    return (USB0.ADDR & USB_ADDR_gm) >> USB_ADDR_gp;
 }
 
 /*
@@ -1307,7 +1307,7 @@ static ALWAYS_INLINE void USB_UpstreamResumeEnable( void )
  */
 static ALWAYS_INLINE bool USB_UpstreamResumeIsEnable( void )
 {
-    return ( USB0.CTRLB & USB_URESUME_bm ) != 0u;
+    return (USB0.CTRLB & USB_URESUME_bm) != 0u;
 }
 
 /*
@@ -1328,7 +1328,7 @@ static ALWAYS_INLINE uint8_t USB_BusStateGet( void )
  */
 static ALWAYS_INLINE bool USB_BusStateIs( uint8_t bus_state_bm )
 {
-    return ( USB0.BUSSTATE & ( bus_state_bm ) ) != 0u;
+    return (USB0.BUSSTATE & (bus_state_bm) ) != 0u;
 }
 
 /*
@@ -1348,7 +1348,7 @@ static ALWAYS_INLINE void USB_SOFInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_SOFInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_SOF_bm );
+    USB0.INTCTRLA &= ~(USB_SOF_bm);
 }
 
 /*
@@ -1369,7 +1369,7 @@ static ALWAYS_INLINE void USB_SOFInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_SOFInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_SOF_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_SOF_bm) != 0u;
 }
 
 /*
@@ -1389,7 +1389,7 @@ static ALWAYS_INLINE void USB_SuspendInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_SuspendInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_SUSPEND_bm );
+    USB0.INTCTRLA &= ~(USB_SUSPEND_bm);
 }
 
 /*
@@ -1410,7 +1410,7 @@ static ALWAYS_INLINE void USB_SuspendInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_SuspendInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_SUSPEND_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_SUSPEND_bm) != 0u;
 }
 
 /*
@@ -1430,7 +1430,7 @@ static ALWAYS_INLINE void USB_ResumeInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_ResumeInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_RESUME_bm );
+    USB0.INTCTRLA &= ~(USB_RESUME_bm);
 }
 
 /*
@@ -1451,7 +1451,7 @@ static ALWAYS_INLINE void USB_ResumeInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_ResumeInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_RESUME_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_RESUME_bm) != 0u;
 }
 
 /*
@@ -1471,7 +1471,7 @@ static ALWAYS_INLINE void USB_ResetInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_ResetInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_RESET_bm );
+    USB0.INTCTRLA &= ~(USB_RESET_bm);
 }
 
 /*
@@ -1492,7 +1492,7 @@ static ALWAYS_INLINE void USB_ResetInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_ResetInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_RESET_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_RESET_bm) != 0u;
 }
 
 /*
@@ -1512,7 +1512,7 @@ static ALWAYS_INLINE void USB_StalledInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_StalledInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_STALLED_bm );
+    USB0.INTCTRLA &= ~(USB_STALLED_bm);
 }
 
 /*
@@ -1533,7 +1533,7 @@ static ALWAYS_INLINE void USB_StalledInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_StalledInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_STALLED_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_STALLED_bm) != 0u;
 }
 
 /*
@@ -1553,7 +1553,7 @@ static ALWAYS_INLINE void USB_UnderflowInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_UnderflowInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_UNF_bm );
+    USB0.INTCTRLA &= ~(USB_UNF_bm);
 }
 
 /*
@@ -1574,7 +1574,7 @@ static ALWAYS_INLINE void USB_UnderflowInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_UnderflowInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_UNF_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_UNF_bm) != 0u;
 }
 
 /*
@@ -1594,7 +1594,7 @@ static ALWAYS_INLINE void USB_OverflowInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_OverflowInterruptDisable( void )
 {
-    USB0.INTCTRLA &= ~( USB_OVF_bm );
+    USB0.INTCTRLA &= ~(USB_OVF_bm);
 }
 
 /*
@@ -1615,7 +1615,7 @@ static ALWAYS_INLINE void USB_OverflowInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_OverflowInterruptIs( void )
 {
-    return ( USB0.INTFLAGSA & USB_OVF_bm ) != 0u;
+    return (USB0.INTFLAGSA & USB_OVF_bm) != 0u;
 }
 
 /*
@@ -1635,7 +1635,7 @@ static ALWAYS_INLINE void USB_TransactionCompleteInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_TransactionCompleteInterruptDisable( void )
 {
-    USB0.INTCTRLB &= ~( USB_TRNCOMPL_bm );
+    USB0.INTCTRLB &= ~(USB_TRNCOMPL_bm);
 }
 
 /*
@@ -1656,7 +1656,7 @@ static ALWAYS_INLINE void USB_TransactionCompleteInterruptAck( void )
  */
 static ALWAYS_INLINE bool USB_TransactionCompleteInterruptIs( void )
 {
-    return ( USB0.INTFLAGSB & USB_TRNCOMPL_bm ) != 0u;
+    return (USB0.INTFLAGSB & USB_TRNCOMPL_bm) != 0u;
 }
 
 /*
@@ -1667,7 +1667,7 @@ static ALWAYS_INLINE bool USB_TransactionCompleteInterruptIs( void )
  */
 static ALWAYS_INLINE bool USB_ReadModifyWriteInterruptIs( void )
 {
-    return ( USB0.INTFLAGSB & USB_RMWBUSY_bm ) != 0u;
+    return (USB0.INTFLAGSB & USB_RMWBUSY_bm) != 0u;
 }
 
 /*
@@ -1687,7 +1687,7 @@ static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptDisable( void )
 {
-    USB0.INTCTRLB &= ~( USB_GNDONE_bm );
+    USB0.INTCTRLB &= ~(USB_GNDONE_bm);
 }
 
 /*
@@ -1708,7 +1708,7 @@ static ALWAYS_INLINE void USB_GlobalNAKDoneInterruptAck( void )
  */
 static ALWAYS_INLINE bool USB_GlobalNAKDoneInterruptIs( void )
 {
-    return ( USB0.INTFLAGSB & USB_GNDONE_bm ) != 0u;
+    return (USB0.INTFLAGSB & USB_GNDONE_bm) != 0u;
 }
 
 /*
@@ -1728,7 +1728,7 @@ static ALWAYS_INLINE void USB_SetupInterruptEnable( void )
  */
 static ALWAYS_INLINE void USB_SetupInterruptDisable( void )
 {
-    USB0.INTCTRLB &= ~( USB_SETUP_bm );
+    USB0.INTCTRLB &= ~(USB_SETUP_bm);
 }
 
 /*
@@ -1749,7 +1749,7 @@ static ALWAYS_INLINE void USB_SetupInterruptClear( void )
  */
 static ALWAYS_INLINE bool USB_SetupInterruptIs( void )
 {
-    return ( USB0.INTFLAGSB & USB_SETUP_bm ) != 0u;
+    return (USB0.INTFLAGSB & USB_SETUP_bm) != 0u;
 }
 
 /*

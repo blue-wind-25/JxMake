@@ -40,7 +40,7 @@
 
 #include "../usb_common/usb_core.h"
 
-USB_CONTROL_TRANSFER_t controlTransfer __attribute__( ( aligned( 2 ) ) );
+USB_CONTROL_TRANSFER_t controlTransfer __attribute__( (aligned( 2 ) ) );
 
 static NO_INLINE void USB_ControlDataStageAdvance( USB_PIPE_t pipe )
 {
@@ -48,19 +48,23 @@ static NO_INLINE void USB_ControlDataStageAdvance( USB_PIPE_t pipe )
     if( USB_EP_DIR_IN == pipe.direction ) {
         bytes += USB_NumberBytesSentGet( pipe.address );
         USB_PipeDataTransferredSizeSet( pipe, bytes );
-        if( 0U == ( USB_PipeDataToTransferSizeGet( pipe ) - bytes ) )
+        if( 0U == (USB_PipeDataToTransferSizeGet( pipe ) - bytes) ) {
             USB_ControlTransferZLP( USB_REQUEST_DIR_OUT );
-        else
+        }
+        else {
             USB_InTransactionRun( pipe );
+        }
         USB_EndpointInOverUnderflowAck( 0 );
     }
     else {
         bytes += USB_NumberBytesReceivedGet( pipe.address );
         USB_PipeDataTransferredSizeSet( pipe, bytes );
-        if( 0U == ( USB_PipeDataToTransferSizeGet( pipe ) - bytes ) )
+        if( 0U == (USB_PipeDataToTransferSizeGet( pipe ) - bytes) ) {
             USB_ControlTransferZLP( USB_REQUEST_DIR_IN );
-        else
+        }
+        else {
             USB_OutTransactionRun( pipe );
+        }
         USB_EndpointOutOverUnderflowAck( 0 );
     }
 }
@@ -89,7 +93,7 @@ void USB_ControlSetupReceived( void )
     USB_EP0CountersReset();
 
     // Copies setup packet out of buffer to make it available for a data stage.
-    (void) memcpy( (uint8_t*) ( &controlTransfer.setupRequest ), controlTransfer.buffer, sizeof( USB_SETUP_REQUEST_t ) );
+    (void) memcpy( (uint8_t*) (&controlTransfer.setupRequest), controlTransfer.buffer, sizeof(USB_SETUP_REQUEST_t) );
 
     RETURN_CODE_t setup_status = USB_SetupProcess( &controlTransfer.setupRequest );
 
@@ -109,7 +113,7 @@ void USB_ControlSetupReceived( void )
             USB_PIPE_t controlPipe = {
                 .address = 0u, .direction = USB_EP_DIR_IN
             };
-            if( ( controlTransfer.setupRequest.bmRequestType.dataPhaseTransferDirection ) == USB_REQUEST_DIR_IN ) {
+            if( (controlTransfer.setupRequest.bmRequestType.dataPhaseTransferDirection) == USB_REQUEST_DIR_IN ) {
                 controlTransfer.status = USB_CONTROL_DATA_IN;
             }
             else {
@@ -199,25 +203,25 @@ void USB_ControlTransferReset( void )
 
     USB_PipeReset( controlPipeOut );
     USB_PipeDataPtrSet( controlPipeOut, controlTransfer.buffer );
-    USB_PipeDataToTransferSizeSet( controlPipeOut, sizeof( USB_SETUP_REQUEST_t ) );
+    USB_PipeDataToTransferSizeSet( controlPipeOut, sizeof(USB_SETUP_REQUEST_t) );
 
     USB_EP0CountersReset();
 
-    memset( (uint8_t*)&controlTransfer.status, 0, 8u );
+    memset( (uint8_t*) &controlTransfer.status, 0, 8u );
 }
 
 
 void USB_PeripheralInitialize( void )
 {
     // Single write sets ENABLE, STFRNUM, FIFOEN, and MAXEP — avoids 4 separate volatile RMW ops
-    USB0.CTRLA = USB_ENABLE_bm | USB_STFRNUM_bm | USB_FIFOEN_bm | (((USB_EP_NUM - 1u) << USB_MAXEP_gp) & USB_MAXEP_gm);
+    USB0.CTRLA = USB_ENABLE_bm | USB_STFRNUM_bm | USB_FIFOEN_bm | ( ( (USB_EP_NUM - 1u) << USB_MAXEP_gp) & USB_MAXEP_gm);
     USB_FifoReadPointerReset();
     USB_FifoWritePointerReset();
     USB_EndpointTableAddressSet( endpointTable.EP );
     USB_InterruptFlagsClear();
     // Reset endpoints table (CTRL, STATUS, DATAPTR, CNT all zero; endpoints disabled until USB_EndpointConfigure)
-    memset( endpointTable.EP, 0, sizeof( endpointTable.EP ) );
+    memset( endpointTable.EP, 0, sizeof(endpointTable.EP) );
     // Reset software pipe transfer state (USB_PIPE_TRANSFER_OK == 0, all pointer/size fields NULL/0)
-    memset( pipeTransfer, 0, USB_EP_NUM * 2u * sizeof( USB_PIPE_TRANSFER_t ) );
+    memset( pipeTransfer,     0, USB_EP_NUM * 2u * sizeof(USB_PIPE_TRANSFER_t) );
 }
 

@@ -78,13 +78,13 @@ typedef enum RETURN_CODE_enum {
  * MAX_ENDPOINT_SIZE_DEFAULT
  * The maximum endpoint packet size for the default endpoint types (control, bulk, interrupt).
  */
-#define MAX_ENDPOINT_SIZE_DEFAULT ( 64 )
+#define MAX_ENDPOINT_SIZE_DEFAULT (64)
 
 /*
  * MAX_ENDPOINT_SIZE_ISO
  * The maximum endpoint packet size for the isochronous endpoint type.
  */
-#define MAX_ENDPOINT_SIZE_ISO ( 1023 )
+#define MAX_ENDPOINT_SIZE_ISO (1023)
 
 
 #endif // USB_COMMON_ELEMENTS_H

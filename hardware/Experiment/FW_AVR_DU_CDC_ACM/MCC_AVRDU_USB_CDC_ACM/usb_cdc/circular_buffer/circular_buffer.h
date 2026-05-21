@@ -53,9 +53,9 @@ typedef enum BUFFER_RETURN_CODE_enum {
  * Type define for circular buffers of varying length.
  */
 typedef struct CIRCULAR_BUFFER_struct {
-    uint8_t* content;         // Actual buffer data
-    uint16_t head;            // Index of first empty slot in buffer
-    uint16_t tail;            // Index of first occupied buffer slot
+    uint8_t*       content;   // Actual buffer data
+    uint16_t       head;      // Index of first empty slot in buffer
+    uint16_t       tail;      // Index of first occupied buffer slot
     const uint16_t maxLength; // Maximum length of buffer
 } CIRCULAR_BUFFER_t;
 
@@ -68,10 +68,10 @@ typedef struct CIRCULAR_BUFFER_struct {
 static inline void CIRCBUF_Enqueue( CIRCULAR_BUFFER_t* buffer, uint8_t data )
 {
     // maxLength is always a power of 2 (128); bitwise-AND replaces branch+compare
-    uint16_t nextHead = ( buffer->head + 1U ) & ( buffer->maxLength - 1U );
+    uint16_t nextHead = (buffer->head + 1U) & (buffer->maxLength - 1U);
     if( buffer->tail == nextHead ) return;
     buffer->content[buffer->head] = data;
-    buffer->head = nextHead;
+    buffer->head                  = nextHead;
 }
 
 /*
@@ -84,8 +84,8 @@ static inline BUFFER_RETURN_CODE_t CIRCBUF_Dequeue( CIRCULAR_BUFFER_t* buffer, u
 {
     if( buffer->head == buffer->tail ) return BUFFER_EMPTY;
     // maxLength is always a power of 2 (128); bitwise-AND replaces branch+compare
-    uint16_t nextTail = ( buffer->tail + 1U ) & ( buffer->maxLength - 1U );
-    *data = buffer->content[buffer->tail];
+    uint16_t nextTail = (buffer->tail + 1U) & (buffer->maxLength - 1U);
+    *data        = buffer->content[buffer->tail];
     buffer->tail = nextTail;
     return BUFFER_SUCCESS;
 }
@@ -107,7 +107,7 @@ static inline bool CIRCBUF_Empty( CIRCULAR_BUFFER_t* buffer ) { return buffer->h
 static inline bool CIRCBUF_Full( CIRCULAR_BUFFER_t* buffer )
 {
     // maxLength is always a power of 2 (128); bitwise-AND replaces branch+compare
-    uint16_t nextHead = ( buffer->head + 1U ) & ( buffer->maxLength - 1U );
+    uint16_t nextHead = (buffer->head + 1U) & (buffer->maxLength - 1U);
     return buffer->tail == nextHead;
 }
 

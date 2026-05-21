@@ -41,7 +41,7 @@
 #include "usb_peripheral_avr_du.h"
 
 // Pipe transfer index: (address * 2) + direction
-#define PipeTransferIndexGet( pipe ) ( ( ( pipe ).address * 2 ) + ( pipe ).direction )
+#define PipeTransferIndexGet( pipe ) ( ( (pipe).address * 2) + (pipe).direction)
 
 // Shared pipe transfer state array — defined in usb_peripheral_read_write.c
 extern USB_PIPE_TRANSFER_t pipeTransfer[];
@@ -85,10 +85,10 @@ static inline bool USB_TransactionIsCompleted( void ) { return USB_TransactionCo
  */
 static inline RETURN_CODE_t USB_TransactionCompletedPipeGet( USB_PIPE_t* pipe )
 {
-    uint8_t    fifoEntry  = endpointTable.FIFO[( USB_EP_NUM * 2u ) + USB_FifoReadPointerGet()];
+    uint8_t    fifoEntry  = endpointTable.FIFO[(USB_EP_NUM * 2u) + USB_FifoReadPointerGet()];
     USB_PIPE_t returnPipe = {
-        .address   = (uint8_t) ( ( fifoEntry & USB_EPNUM_gm ) >> USB_EPNUM_gp ),
-        .direction = (uint8_t) ( ( fifoEntry & USB_DIR_bm ) >> USB_DIR_bp )
+        .address    = (uint8_t) ( (fifoEntry & USB_EPNUM_gm) >> USB_EPNUM_gp),
+        .direction  = (uint8_t) ( (fifoEntry & USB_DIR_bm) >> USB_DIR_bp)
     };
     if( (uint8_t) USB_EP_NUM <= returnPipe.address ) return ENDPOINT_ADDRESS_ERROR;
     pipe->address   = returnPipe.address;

@@ -70,15 +70,15 @@
  * USB Configuration, Interface and Endpoint descriptors for Config1.
  */
 typedef struct USB_APPLICATION_CONFIGURATION1_struct {
-    USB_CONFIGURATION_DESCRIPTOR_t Configuration;
-    USB_INTERFACE_DESCRIPTOR_t CDC_Communication_Interface;
+    USB_CONFIGURATION_DESCRIPTOR_t         Configuration;
+    USB_INTERFACE_DESCRIPTOR_t             CDC_Communication_Interface;
     USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR_t CDC_Communication_Interface_Header;
-    USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_t CDC_Communication_Interface_ACM;
-    USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_t CDC_Communication_Interface_Union;
-    USB_ENDPOINT_DESCRIPTOR_t CDC_Communication_Interface_Endpoint1IN;
-    USB_INTERFACE_DESCRIPTOR_t CDC_Data_Interface;
-    USB_ENDPOINT_DESCRIPTOR_t CDC_Data_Interface_Endpoint2IN;
-    USB_ENDPOINT_DESCRIPTOR_t CDC_Data_Interface_Endpoint2OUT;
+    USB_CDC_ACM_FUNCTIONAL_DESCRIPTOR_t    CDC_Communication_Interface_ACM;
+    USB_CDC_UNION_FUNCTIONAL_DESCRIPTOR_t  CDC_Communication_Interface_Union;
+    USB_ENDPOINT_DESCRIPTOR_t              CDC_Communication_Interface_Endpoint1IN;
+    USB_INTERFACE_DESCRIPTOR_t             CDC_Data_Interface;
+    USB_ENDPOINT_DESCRIPTOR_t              CDC_Data_Interface_Endpoint2IN;
+    USB_ENDPOINT_DESCRIPTOR_t              CDC_Data_Interface_Endpoint2OUT;
 } USB_APPLICATION_CONFIGURATION1_t;
 
 /*
@@ -93,11 +93,11 @@ typedef struct USB_APPLICATION_CONFIGURATION_struct {
  */
 typedef struct USB_APPLICATION_STRING_DESCRIPTORS_struct {
     USB_DESCRIPTOR_HEADER_t manufacturer_header;
-    wchar_t manufacturer[DESCRIPTOR_STRING_LENGTH( STRING_MANUFACTURER )];
+    wchar_t                 manufacturer[DESCRIPTOR_STRING_LENGTH( STRING_MANUFACTURER )];
     USB_DESCRIPTOR_HEADER_t product_header;
-    wchar_t product[DESCRIPTOR_STRING_LENGTH( STRING_PRODUCT )];
+    wchar_t                 product[DESCRIPTOR_STRING_LENGTH( STRING_PRODUCT )];
     USB_DESCRIPTOR_HEADER_t serial_header;
-    wchar_t serial[DESCRIPTOR_STRING_LENGTH( STRING_SERIAL )];
+    wchar_t                 serial[DESCRIPTOR_STRING_LENGTH( STRING_SERIAL )];
 } USB_APPLICATION_STRING_DESCRIPTORS_t;
 
 /*

@@ -35,6 +35,7 @@
 #define UART_PORTMUX_GC PORTMUX_USART0_ALT3_gc
 #define UART_PORT       PORTD
 #define UART_TXD_PIN    PIN4_bm
+#define UART_TXD_CTRL   PIN4CTRL
 #define UART_RXD_PIN    PIN5_bm
 
 // The UART DTR pin is connected to PC.3
@@ -45,7 +46,7 @@
 #define UART_RTS_PORT   PORTD
 #define UART_RTS_PIN    PIN6_bm
 
-// The UART CTS pin is connected to PD.7
+// The UART CTS pin is connected to PD.7 (the note CTS bits is routed to the DCD, DSR, and RI bits)
 #define UART_CTS_PORT   PORTD
 #define UART_CTS_PIN    PIN7_bm
 #define UART_CTS_CTRL   PIN7CTRL

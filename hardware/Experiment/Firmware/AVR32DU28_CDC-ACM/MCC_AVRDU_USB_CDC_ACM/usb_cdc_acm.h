@@ -81,49 +81,104 @@ static inline void delayMS( uint32_t mS )
 }
 
 
-/*
- * NOTE : USB_CDC_REQUEST_SET_LINE_CODING and USB_CDC_REQUEST_SET_CONTROL_LINE_STATE are handled
- *        by 'USB_CDCRequestHandler()' in 'usb_cdc/usb_cdc.h'
- */
+static volatile bool txActivityFlag = false;
+static volatile bool rxActivityFlag = false;
+
 static void USBDevice_CDCACMHandler()
 {
-    // TX service
-    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) )
-        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
-
-    // RX service
-    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) )
-        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
-
-    // Honor DTR
-    if( !(usbCDCControlLineState & USB_CDC_DATA_TERMINAL_READY_bm) ) return;
-    if( CIRCBUF_Full( &usbCDCTransmitBuffer ) || USB_PipeStatusIsBusy( CDCTxPipe ) ) return;
-
-    // Loopback test
-    static uint8_t cdcData;
-
-    while( !CIRCBUF_Full( &usbCDCTransmitBuffer ) && CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
-
-    // SerialState notification
-    // ##### !!! TODO : Implement it later if needed !!! #####
     /*
-        Bit | Mask                       | Meaning              | Typical Source
-        ----+----------------------------+----------------------+------------------------------
-        0   | CDC_SERIAL_STATE_RXCARRIER | Carrier detect / CTS | GPIO pin or UART modem status
-        1   | CDC_SERIAL_STATE_TXCARRIER | DSR (Data Set Ready) | GPIO pin or UART modem status
-        2   | CDC_SERIAL_STATE_BREAK     | Break received       | UART break detect flag
-        3   | CDC_SERIAL_STATE_RING      | Ring indicator       | Modem RI pin
-        4   | CDC_SERIAL_STATE_FRAMING   | Framing error        | UART error flag
-        5   | CDC_SERIAL_STATE_PARITY    | Parity error         | UART error flag
-        6   | CDC_SERIAL_STATE_OVERRUN   | Overrun error        | UART error flag
-        7-15| Reserved                   | Not used             | -
+     * NOTE : USB_CDC_REQUEST_SET_LINE_CODING and USB_CDC_REQUEST_SET_CONTROL_LINE_STATE are handled
+     *        by 'USB_CDCRequestHandler()' in 'usb_cdc/usb_cdc.h'
      */
+
+    // USB CDC-ACM TX service (device to host)
+    if( !CIRCBUF_Empty( &usbCDCTransmitBuffer ) ) {
+        if( !USB_PipeStatusIsBusy( CDCTxPipe ) ) {
+            USB_TransferWriteStart( CDCTxPipe, usbCDCTransmitBuffer.content, usbCDCTransmitBuffer.head, USB_CDCDataTransmitted );
+        }
+    }
+
+    // USB CDC-ACM RX service (host to device)
+    if( USB_CDC_RX_PACKET_SIZE <= CIRCBUF_FreeSpace( &usbCDCReceiveBuffer ) ) {
+        if( !USB_PipeStatusIsBusy( CDCRxPipe ) ) {
+            USB_TransferReadStart( CDCRxPipe, usbCDCReceiveTempBuffer, USB_CDC_RX_PACKET_SIZE, USB_CDCDataReceived );
+        }
+    }
+
+    // Break state handling
+    static uint32_t breakStartTime = 0;
+    static bool     breakInflight  = false;
+
+    if( usbCdcBreakActive ) {
+        // If it is a timed break, check if time has run out
+        if( usbCdcBreakDuration != 0xFFFF ) {
+            if( !breakInflight ) {
+                breakStartTime = millis();
+                breakInflight  = true;
+            }
+            else if( millis() - breakStartTime >= usbCdcBreakDuration ) {
+                // Timer expired - turn off break state
+                usbCdcBreakActive = false;
+                breakInflight     = false;
+            }
+        }
+        // If the break state is still supposed to be active, force the hardware line low
+        if(usbCdcBreakActive) {
+            UART_DEVICE.CTRLB   &= ~USART_TXEN_bm;
+            UART_PORT  .DIRSET   =  UART_TXD_PIN;
+            UART_PORT  .OUTCLR   =  UART_TXD_PIN;
+        }
+        else {
+            UART_DEVICE  .CTRLB |=  USART_TXEN_bm;
+        }
+    }
+    else {
+        breakInflight = false;
+    }
+
+    // USB receive buffer -> physical UART TX wire
+    uint8_t cdcData;
+
+    if( !usbCdcBreakActive) {
+        while(    ( UART_DEVICE.STATUS & USART_DREIF_bm )
+               && ( CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS)
+        ) {
+            UART_DEVICE.TXDATAL = cdcData;
+            txActivityFlag      = true;
+        }
+    }
+
+    // Physical UART RX wire -> USB transmit buffer
+    while( !CIRCBUF_Full( &usbCDCTransmitBuffer) ) {
+        if( (UART_DEVICE.STATUS & USART_RXCIF_bm) ) {
+            cdcData        = UART_DEVICE.RXDATAL;
+            rxActivityFlag = true;
+            CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
+        }
+        else {
+            break;
+        }
+    }
+
+    // Handle CTS pin
     static uint16_t lastState = 0;
     uint16_t        uartState = 0;
+
     /*
-       if( gpio_cts_active() ) uartState |= CDC_SERIAL_STATE_RXCARRIER; // CTS
-       if( gpio_dsr_active() ) uartState |= CDC_SERIAL_STATE_TXCARRIER; // DSR
+     *  Bit | Mask                       | Meaning
+     *  ----+----------------------------+--------------------
+     *  0   | CDC_SERIAL_STATE_RXCARRIER | Data Carrier Detect
+     *  1   | CDC_SERIAL_STATE_TXCARRIER | Data Set Ready
+     *  2   | CDC_SERIAL_STATE_BREAK     | Break Signal State
+     *  3   | CDC_SERIAL_STATE_RING      | Ring Indicator
+     *  4   | CDC_SERIAL_STATE_FRAMING   | Framing Error
+     *  5   | CDC_SERIAL_STATE_PARITY    | Parity Error
+     *  6   | CDC_SERIAL_STATE_OVERRUN   | Overrun Error
+     *  7-15| Reserved                   | Unused
      */
+    if( !(UART_CTS_PORT.IN & UART_CTS_PIN) ) uartState |= 0b00001011; // Set   all to   DCD, DSR, and RI
+    else                                     uartState &= 0b11110100; // Clear all from DCD, DSR, and RI
+
     if( uartState != lastState ) {
         if( USB_CDCSendSerialState( uartState ) == SUCCESS ) lastState = uartState;
     }

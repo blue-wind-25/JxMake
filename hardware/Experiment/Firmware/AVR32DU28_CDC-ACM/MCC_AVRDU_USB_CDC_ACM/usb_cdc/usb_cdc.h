@@ -44,6 +44,9 @@
 extern uint16_t              usbCDCControlLineState;
 extern USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
+extern uint16_t              usbCdcBreakDuration;
+extern bool                  usbCdcBreakActive;
+
 static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
     RETURN_CODE_t status = UNINITIALIZED;
@@ -69,6 +72,12 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                 case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
                     usbCDCControlLineState = setupRequestPtr->wValue;
                     status                 = SUCCESS;
+                    break;
+
+                case USB_CDC_REQUEST_SEND_BREAK:
+                    usbCdcBreakDuration = setupRequestPtr->wValue;
+                    if(usbCdcBreakDuration > 0) usbCdcBreakActive = true;
+                    else                        usbCdcBreakActive = false;
                     break;
 
                 default:

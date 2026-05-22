@@ -1,7 +1,7 @@
 ====================================================================================================
 
-This directory contains a flattened and simplified AVR DU Series USB CDC‑ACM stack, configured for
-a single CDC‑ACM interface.
+This directory contains a flattened and simplified AVR DU Series USB CDC‑ACM stack, configured as
+a single CDC‑ACM interface for a USB‑to‑serial converter.
 
 The flattening process, designed to minimize bloat and improve execution speed, was performed with
 the assistance of Claude Sonnet 4.6, using high‑effort runs via the Claude Code CLI.

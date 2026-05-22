@@ -8,6 +8,15 @@
 #include <usb_cdc_acm.h>
 
 
+#define LED_BLINK_DURATION_MS 50
+
+static bool                  txLedActive    = false;
+static uint32_t              txLastActivity = 0;
+
+static bool                  rxLedActive    = false;
+static uint32_t              rxLastActivity = 0;
+
+static USB_CDC_LINE_CODING_t lastUSBCDCLineCoding;
 
 
 static inline void UART_config()
@@ -49,6 +58,9 @@ static inline void UART_config()
     UART_DEVICE.BAUD = (uint16_t) baudReg;
 
     usbCDCLineCoding.dwDTERate = baudRate;
+
+    // Copy the configuration data
+    memcpy( &lastUSBCDCLineCoding, &usbCDCLineCoding, sizeof(usbCDCLineCoding) );
 }
 
 
@@ -58,8 +70,10 @@ static inline void UART_init()
     PORTMUX.USARTROUTEA = (PORTMUX.USARTROUTEA & ~UART_PORTMUX_GM) | UART_PORTMUX_GC;
 
     // Configure TXD pin to output and RXD pin to input
-    UART_PORT.DIRSET = UART_TXD_PIN;
-    UART_PORT.DIRCLR = UART_RXD_PIN;
+    UART_PORT.DIRSET        = UART_TXD_PIN;
+    UART_PORT.UART_TXD_CTRL = PORT_PULLUPEN_bm;
+
+    UART_PORT.DIRCLR        = UART_RXD_PIN;
 
     // Configure the uart
     UART_config();
@@ -80,24 +94,6 @@ static inline void UART_init()
     UART_CTS_PORT.UART_CTS_CTRL = PORT_INLVL_TTL_gc | PORT_PULLUPEN_bm;
 }
 
-/*
-void UART_sendChar(char c)
-{
-    // Wait until the transmit data register empty flag is high
-    while (!(USART0.STATUS & USART_DREIF_bm));
-
-    // Put data into the data register
-    USART0.TXDATAL = c;
-}
-
-void USART0_sendString(const char *str)
-{
-    while (*str)
-    {
-        USART0_sendChar(*str++);
-    }
-}
-*/
 
 int main()
 {
@@ -129,35 +125,53 @@ int main()
 
     // Animate the LEDs
     for(;;) {
-        /*
-        for( unsigned i = 0; i < 3; ++i ) {
-            LED_PORT.OUTSET = LED_PIN; delayMS( 100 );
-            LED_PORT.OUTCLR = LED_PIN; delayMS( 100 );
+
+        // Call USB CDC-ACM handler
+        USBDevice_CDCACMHandler();
+
+        // Set DTR and RTS pins
+        const bool dtr = (usbCDCControlLineState & 0x01) != 0;
+        const bool rts = (usbCDCControlLineState & 0x02) != 0;
+
+        if(dtr) UART_DTR_PORT.OUTCLR = UART_DTR_PIN; // DTR is active low
+        else    UART_DTR_PORT.OUTSET = UART_DTR_PIN;
+
+        if(rts) UART_RTS_PORT.OUTCLR = UART_RTS_PIN; // RTS is active low
+        else    UART_RTS_PORT.OUTSET = UART_RTS_PIN;
+
+        // Animate the LED
+        const uint32_t curTime = millis();
+
+        if( txActivityFlag ) {
+                txActivityFlag      = false;
+            if( !txLedActive ) {
+                TXD_LED_PORT.OUTSET = TXD_LED_PIN;
+                txLastActivity      = curTime;
+                txLedActive         = true;
+            }
         }
-        delayMS( 300 );
-        */
+        else if( txLedActive && (curTime - txLastActivity >= LED_BLINK_DURATION_MS) ) {
+                TXD_LED_PORT.OUTCLR = TXD_LED_PIN;
+                txLedActive         = false;
+        }
 
-        /*
-                        // Line coding get test
-                        const uint32_t baud     = usbCDCLineCoding.dwDTERate;
-                        const uint8_t  stopBits = usbCDCLineCoding.bCharFormat;
-                        const uint8_t  parity   = usbCDCLineCoding.bParityType;
-                        const uint8_t  dataBits = usbCDCLineCoding.bDataBits;
-                        (void) stopBits;
-                        (void) parity;
-                        (void) dataBits;
-                        // Special baudrate check test
-                        if( baud == 300 )
-                            for(;;);  // Hung on purpose
+        if( rxActivityFlag ) {
+                rxActivityFlag      = false;
+            if( !rxLedActive ) {
+                RXD_LED_PORT.OUTSET = RXD_LED_PIN;
+                rxLastActivity      = curTime;
+                rxLedActive         = true;
+            }
+        }
+        else if( rxLedActive && (curTime - rxLastActivity >= LED_BLINK_DURATION_MS) ) {
+                RXD_LED_PORT.OUTCLR = RXD_LED_PIN;
+                rxLedActive         = false;
+        }
 
-                        // Line state get test
-                        const bool dtr = (usbCDCControlLineState & 0x01) != 0;
-                        const bool rts = (usbCDCControlLineState & 0x02) != 0;
-                        (void) dtr;
-                        (void) rts;
+        // Reconfigure the UART as needed
+        if( memcmp( &lastUSBCDCLineCoding, &usbCDCLineCoding, sizeof(usbCDCLineCoding) ) != 0 ) UART_config();
 
-        */
-    }
+    } // for
 
     return 0;
 }

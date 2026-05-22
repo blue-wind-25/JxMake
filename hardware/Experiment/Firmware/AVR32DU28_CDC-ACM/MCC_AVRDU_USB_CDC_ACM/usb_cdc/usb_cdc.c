@@ -42,6 +42,9 @@
 uint16_t              usbCDCControlLineState;
 USB_CDC_LINE_CODING_t usbCDCLineCoding;
 
+uint16_t              usbCdcBreakDuration = 0;
+bool                  usbCdcBreakActive   = false;
+
 // USB Pipes
 USB_PIPE_t CDCTxPipe = {
     .address   = USB_CDC_BULK_EP_IN,

@@ -13,6 +13,28 @@
 #define LED_PIN  PIN5_bm
 
 
+/*
+ * ##### !!! TODO !!! #####
+ *
+ * AVR16/32/64DU14/28
+ *
+ * SSOP-28                     SOIC-14
+ *
+ *  5   PC.3   DTR    (OUT)   DTR    9
+ *
+ * 10   PD.4   TXD0   (OUT)   RTS   10
+ * 11   PD.5   RXD0   (INP)   CTS   11
+ * 12   PD.6   RTS    (OUT)   TXD1  12
+ * 13   PD.7   CTS    (INP)   RXD1  13
+ *
+ * 22   PA.0   LED    (OUT)   PA.0   4
+ * 23   PA.1   LED    (OUT)   PA.1   5
+ *
+ * USART0 -> ALT3
+ * USART1 -> ALT1
+ */
+
+
 int main()
 {
     // Set OSCHF as main clock source

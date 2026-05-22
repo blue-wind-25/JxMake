@@ -44,16 +44,34 @@
 static inline void UART_config()
 {
    // const uint32_t baud     = usbCDCLineCoding.dwDTERate;
-   // const uint8_t  stopBits = usbCDCLineCoding.bCharFormat;
-  //  const uint8_t  parity   = usbCDCLineCoding.bParityType;
- //   const uint8_t  dataBits = usbCDCLineCoding.bDataBits;
 
-    // 4. Configure Frame Format
-    // Asynchronous mode, No Parity, 1 Stop Bit, 8 Data Bits (8N1)
-//    USART0.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | USART_PMODE_DISABLED_gc | USART_SBMODE_1BIT_gc | USART_CHSIZE_8BIT_gc;
+    uint8_t frameFormat = 0;
 
+    switch(usbCDCLineCoding.bParityType) {
+        case USB_CDC_LINE_CODING_PARITY_NONE               : frameFormat |= USART_PMODE_DISABLED_gc; break;
+        case USB_CDC_LINE_CODING_PARITY_ODD                : frameFormat |= USART_PMODE_ODD_gc     ; break;
+        case USB_CDC_LINE_CODING_PARITY_EVEN               : frameFormat |= USART_PMODE_EVEN_gc    ; break;
+        case USB_CDC_LINE_CODING_PARITY_MARK               : frameFormat |= USART_PMODE_DISABLED_gc; break;
+        case USB_CDC_LINE_CODING_PARITY_SPACE              : frameFormat |= USART_PMODE_DISABLED_gc; break;
+    }
+
+    switch(usbCDCLineCoding.bCharFormat) {
+        case USB_CDC_LINE_CODING_ONE_STOP_BIT              : frameFormat |= USART_SBMODE_1BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_ONE_AND_ONE_HALF_STOP_BIT : frameFormat |= USART_SBMODE_2BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_TWO_STOP_BITS             : frameFormat |= USART_SBMODE_2BIT_gc   ; break;
+    }
+
+    switch(usbCDCLineCoding.bDataBits) {
+        case USB_CDC_LINE_CODING_5_DATA_BITS               : frameFormat |= USART_CHSIZE_5BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_6_DATA_BITS               : frameFormat |= USART_CHSIZE_6BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_7_DATA_BITS               : frameFormat |= USART_CHSIZE_7BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_8_DATA_BITS               : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
+        case USB_CDC_LINE_CODING_16_DATA_BITS              : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
+        default                                            : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
+    }
+
+    UART_DEVICE.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | frameFormat;
 }
-
 
 static inline void UART_init()
 {

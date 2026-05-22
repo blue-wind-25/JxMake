@@ -24,6 +24,9 @@
  *  5         23       PA.1   LED           OUT
  */
 
+// The CPU is always run at 24MHz
+#define F_CPU           24000000UL
+
 // The UART is connected to USART0 at PD.4 and PD.5
 #define UART_DEVICE     USART0
 #define UART_PORTMUX_GM PORTMUX_USART0_gm
@@ -43,8 +46,7 @@
 
 static inline void UART_config()
 {
-   // const uint32_t baud     = usbCDCLineCoding.dwDTERate;
-
+    // Configure the frame format
     uint8_t frameFormat = 0;
 
     switch(usbCDCLineCoding.bParityType) {
@@ -71,7 +73,18 @@ static inline void UART_config()
     }
 
     UART_DEVICE.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | frameFormat;
+
+    // Configure the baud rate
+    const uint32_t baudRate = (usbCDCLineCoding.dwDTERate < 2400UL   ) ? 2400UL
+                            : (usbCDCLineCoding.dwDTERate > 2000000UL) ? 2000000UL
+                            :  usbCDCLineCoding.dwDTERate;
+    const uint32_t baudReg  = ( (4UL * F_CPU) + (baudRate / 2) ) / baudRate;
+
+    UART_DEVICE.BAUD = (uint16_t) baudReg;
+
+    usbCDCLineCoding.dwDTERate = baudRate;
 }
+
 
 static inline void UART_init()
 {
@@ -85,19 +98,8 @@ static inline void UART_init()
     // Configure the uart
     UART_config();
 
-    /*
-
-    // 3. Set Baud Rate
-    // The modern AVR architecture uses a 16-bit baud register with a fractional component
-    USART0.BAUD = (uint16_t)USART0_BAUD_RATE(baud);
-
-    // 4. Configure Frame Format
-    // Asynchronous mode, No Parity, 1 Stop Bit, 8 Data Bits (8N1)
-    USART0.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | USART_PMODE_DISABLED_gc | USART_SBMODE_1BIT_gc | USART_CHSIZE_8BIT_gc;
-
-    // 5. Enable Transmitter and Receiver
-    USART0.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
-    */
+    // Enable Transmitter and Receiver
+    UART_DEVICE.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
 }
 
 

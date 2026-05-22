@@ -78,8 +78,6 @@ static inline void delayMS( uint32_t mS )
  * NOTE : USB_CDC_REQUEST_SET_LINE_CODING and USB_CDC_REQUEST_SET_CONTROL_LINE_STATE are handled
  *        by 'USB_CDCRequestHandler()' in 'usb_cdc/usb_cdc.h'
  */
-
-
 static void USBDevice_CDCACMHandler()
 {
     // TX service
@@ -129,7 +127,7 @@ static void system_usb_init()
 {
     // Reinitialize OSCHF
     _PROTECTED_WRITE( CLKCTRL.OSCHFCTRLA, CLKCTRL.OSCHFCTRLA | CLKCTRL_ALGSEL_BIN_gc | CLKCTRL_AUTOTUNE_SOF_gc );
-    _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE,  0x00 );
+    _PROTECTED_WRITE( CLKCTRL.OSCHFTUNE , 0x00                                                                 );
 
     while( !(CLKCTRL.MCLKSTATUS & CLKCTRL_OSCHFS_bm) );
 

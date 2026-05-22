@@ -64,31 +64,11 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_SET_LINE_CODING:
                     status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
-                    {
-                        // Line coding get test
-                        const uint32_t baud     = usbCDCLineCoding.dwDTERate;
-                        const uint8_t  stopBits = usbCDCLineCoding.bCharFormat;
-                        const uint8_t  parity   = usbCDCLineCoding.bParityType;
-                        const uint8_t  dataBits = usbCDCLineCoding.bDataBits;
-                        (void) stopBits;
-                        (void) parity;
-                        (void) dataBits;
-                        // Special baudrate check test
-                        if( baud == 300 )
-                            for(;;);  // Hung on purpose
-                    }
                     break;
 
                 case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
                     usbCDCControlLineState = setupRequestPtr->wValue;
                     status                 = SUCCESS;
-                    {
-                        // Line state get test
-                        const bool dtr = (usbCDCControlLineState & 0x01) != 0;
-                        const bool rts = (usbCDCControlLineState & 0x02) != 0;
-                        (void) dtr;
-                        (void) rts;
-                    }
                     break;
 
                 default:

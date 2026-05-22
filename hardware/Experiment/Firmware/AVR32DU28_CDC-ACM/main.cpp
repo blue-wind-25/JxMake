@@ -10,16 +10,14 @@
 
 #define LED_BLINK_DURATION_MS 50
 
-static bool                  txLedActive    = false;
-static uint32_t              txLastActivity = 0;
+static bool     txLedActive    = false;
+static uint32_t txLastActivity = 0;
 
-static bool                  rxLedActive    = false;
-static uint32_t              rxLastActivity = 0;
-
-static USB_CDC_LINE_CODING_t lastUSBCDCLineCoding;
+static bool     rxLedActive    = false;
+static uint32_t rxLastActivity = 0;
 
 
-static inline void UART_config()
+static void UART_config()
 {
     // Configure the frame format
     uint8_t frameFormat = 0;
@@ -71,7 +69,7 @@ static inline void UART_config()
     UART_DEVICE.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | frameFormat;
 
     // Configure the baud rate
-    const uint32_t baudRate = (usbCDCLineCoding.dwDTERate < 2400UL   ) ? 2400UL
+    const uint32_t baudRate = (usbCDCLineCoding.dwDTERate <    2400UL) ?    2400UL
                             : (usbCDCLineCoding.dwDTERate > 2000000UL) ? 2000000UL
                             :  usbCDCLineCoding.dwDTERate;
     const uint32_t baudReg  = ( (4UL * F_CPU) + (baudRate / 2) ) / baudRate;
@@ -82,11 +80,7 @@ static inline void UART_config()
 
     // Re-enable RXD always; re-enable TXD only if not in a break
     UART_DEVICE.CTRLB = USART_RXEN_bm | (usbCdcBreakActive ? 0 : USART_TXEN_bm);
-
-    // Copy the configuration data
-    memcpy( &lastUSBCDCLineCoding, &usbCDCLineCoding, sizeof(usbCDCLineCoding) );
 }
-
 
 static inline void UART_init()
 {
@@ -117,6 +111,9 @@ static inline void UART_init()
     // Initialize the CTS pin to input with pullup
     UART_CTS_PORT.DIRCLR        = UART_CTS_PIN;
     UART_CTS_PORT.UART_CTS_CTRL = PORT_INLVL_TTL_gc | PORT_PULLUPEN_bm;
+
+    // Register UART_config as the SET_LINE_CODING completion callback
+    usbCdcSetLineCodingCallback = UART_config;
 }
 
 
@@ -192,9 +189,6 @@ int main()
                 RXD_LED_PORT.OUTCLR = RXD_LED_PIN;
                 rxLedActive         = false;
         }
-
-        // Reconfigure the UART as needed
-        if( memcmp( &lastUSBCDCLineCoding, &usbCDCLineCoding, sizeof(usbCDCLineCoding) ) != 0 ) UART_config();
 
     } // for
 

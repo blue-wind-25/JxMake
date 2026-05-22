@@ -41,13 +41,13 @@
 #include "../usb_common/usb_core_transfer.h"
 
 
-extern uint16_t                          usbCDCControlLineState;
-extern USB_CDC_LINE_CODING_t             usbCDCLineCoding;
+extern volatile uint16_t                          usbCDCControlLineState;
+extern volatile USB_CDC_LINE_CODING_t             usbCDCLineCoding;
 
-extern uint16_t                          usbCdcBreakDuration;
-extern bool                              usbCdcBreakActive;
+extern volatile uint16_t                          usbCdcBreakDuration;
+extern volatile bool                              usbCdcBreakActive;
 
-extern USB_SETUP_ENDOFREQUEST_CALLBACK_t usbCdcSetLineCodingCallback;
+extern volatile USB_SETUP_ENDOFREQUEST_CALLBACK_t usbCdcSetLineCodingCallback;
 
 static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupRequestPtr )
 {
@@ -57,7 +57,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
         if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_GET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
+                    status = USB_TransferControlDataSet( (uint8_t*) (volatile void*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
                     break;
 
                 default:
@@ -68,7 +68,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
         else {
             switch( setupRequestPtr->bRequest ) {
                 case USB_CDC_REQUEST_SET_LINE_CODING:
-                    status = USB_TransferControlDataSet( (uint8_t*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), usbCdcSetLineCodingCallback );
+                    status = USB_TransferControlDataSet( (uint8_t*) (volatile void*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), usbCdcSetLineCodingCallback );
                     break;
 
                 case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:

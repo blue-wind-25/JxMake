@@ -39,13 +39,13 @@
 
 
 // Line state and setup
-uint16_t                          usbCDCControlLineState;
-USB_CDC_LINE_CODING_t             usbCDCLineCoding;
+volatile uint16_t                          usbCDCControlLineState;
+volatile USB_CDC_LINE_CODING_t             usbCDCLineCoding;
 
-uint16_t                          usbCdcBreakDuration         = 0;
-bool                              usbCdcBreakActive           = false;
+volatile uint16_t                          usbCdcBreakDuration         = 0;
+volatile bool                              usbCdcBreakActive           = false;
 
-USB_SETUP_ENDOFREQUEST_CALLBACK_t usbCdcSetLineCodingCallback = NULL;
+volatile USB_SETUP_ENDOFREQUEST_CALLBACK_t usbCdcSetLineCodingCallback = NULL;
 
 // USB Pipes
 USB_PIPE_t CDCTxPipe = {

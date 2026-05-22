@@ -104,7 +104,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
     return status;
 }
 
-static inline void USB_CDCSendSerialState( uint16_t uartStateBitmap )
+static inline RETURN_CODE_t USB_CDCSendSerialState( uint16_t uartStateBitmap )
 {
     // Use static because buffer must outlive the async DMA transfer
     static uint8_t packet[10] = {
@@ -128,7 +128,7 @@ static inline void USB_CDCSendSerialState( uint16_t uartStateBitmap )
         .direction = USB_EP_DIR_IN,
     };
 
-    (void) USB_TransferWriteStart( notifPipe, packet, sizeof(packet), NULL );
+    return USB_TransferWriteStart( notifPipe, packet, sizeof(packet), NULL );
 }
 
 

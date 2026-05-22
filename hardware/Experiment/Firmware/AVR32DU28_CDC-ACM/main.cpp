@@ -8,40 +8,6 @@
 #include <usb_cdc_acm.h>
 
 
-/*
- * AVR16/32/64DU14/28
- *
- * SOIC-14   SSOP-28   PORT   Function      Direction
- *  9          5       PC.3   DTR           OUT
- *
- * 10         10       PD.4   TXD0 (ALT3)   OUT
- * 11         11       PD.5   RXD0 (ALT3)   INP
- *
- * 12         12       PD.6   RTS           OUT
- * 13         13       PD.7   CTS           INP
- *
- *  4         22       PA.0   LED           OUT
- *  5         23       PA.1   LED           OUT
- */
-
-// The CPU is always run at 24MHz
-#define F_CPU           24000000UL
-
-// The UART is connected to USART0 at PD.4 and PD.5
-#define UART_DEVICE     USART0
-#define UART_PORTMUX_GM PORTMUX_USART0_gm
-#define UART_PORTMUX_GC PORTMUX_USART0_ALT3_gc
-#define UART_PORT       PORTD
-#define UART_TXD_PIN    PIN4_bm
-#define UART_RXD_PIN    PIN5_bm
-
-// The TXD LED is connected to PA.0
-#define TXD_LED_PORT    PORTA
-#define TXD_LED_PIN     PIN0_bm
-
-// The RXD LED is connected to PA.1
-#define RXD_LED_PORT    PORTA
-#define RXD_LED_PIN     PIN1_bm
 
 
 static inline void UART_config()
@@ -91,7 +57,7 @@ static inline void UART_init()
     // Configure the port multiplexer
     PORTMUX.USARTROUTEA = (PORTMUX.USARTROUTEA & ~UART_PORTMUX_GM) | UART_PORTMUX_GC;
 
-    // Configure pin directions
+    // Configure TXD pin to output and RXD pin to input
     UART_PORT.DIRSET = UART_TXD_PIN;
     UART_PORT.DIRCLR = UART_RXD_PIN;
 
@@ -100,11 +66,22 @@ static inline void UART_init()
 
     // Enable Transmitter and Receiver
     UART_DEVICE.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
+
+    // Initialize the DTR pin to output
+    UART_DTR_PORT.DIRSET = UART_DTR_PIN;
+    UART_DTR_PORT.OUTSET = UART_DTR_PIN;
+
+    // Initialize the RTS pin to output
+    UART_RTS_PORT.DIRSET = UART_RTS_PIN;
+    UART_RTS_PORT.OUTSET = UART_RTS_PIN;
+
+    // Initialize the CTS pin to input with pullup
+    UART_CTS_PORT.DIRCLR        = UART_CTS_PIN;
+    UART_CTS_PORT.UART_CTS_CTRL = PORT_INLVL_TTL_gc | PORT_PULLUPEN_bm;
 }
 
-
 /*
-void USART0_sendChar(char c)
+void UART_sendChar(char c)
 {
     // Wait until the transmit data register empty flag is high
     while (!(USART0.STATUS & USART_DREIF_bm));
@@ -120,30 +97,16 @@ void USART0_sendString(const char *str)
         USART0_sendChar(*str++);
     }
 }
-
-int main(void)
-{
-    // Initialize USART0 at 9600 baud rate on PD4/PD5
-    USART0_init(9600);
-
-    while (1)
-    {
-        USART0_sendString("Hello from AVR32DU28 on PD4/PD5!\r\n");
-        _delay_ms(1000);
-    }
-}
 */
 
 int main()
 {
-    // Set OSCHF as main clock source
-    // NOTE : This is not actually required on the AVR DU series, but it is retained for clarity
+    // Set OSCHF as main clock source (NOTE : this is not actually required on the AVR DU series, but it is retained for clarity)
     _PROTECTED_WRITE( CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_OSCHF_gc );
 
     while( CLKCTRL.MCLKSTATUS & CLKCTRL_SOSC_bm );
 
-    // Disable the prescaler
-    // NOTE : This is not actually required on the AVR DU series, but it is retained for clarity
+    // Disable the prescaler (NOTE : this is not actually required on the AVR DU series, but it is retained for clarity)
     _PROTECTED_WRITE( CLKCTRL_MCLKCTRLB,  0x00 );
 
     // Set the OSCHF frequency to 24MHz
@@ -154,8 +117,15 @@ int main()
     // Initialize system and USB
     system_usb_init();
 
-    // Initialize the LED pin
-  //  LED_PORT.DIRSET = LED_PIN;
+    // Initialize LED pins to output
+    TXD_LED_PORT.DIRSET = TXD_LED_PIN;
+    TXD_LED_PORT.OUTCLR = TXD_LED_PIN;
+
+    RXD_LED_PORT.DIRSET = RXD_LED_PIN;
+    RXD_LED_PORT.OUTCLR = RXD_LED_PIN;
+
+    // Initialize UART
+    UART_init();
 
     // Animate the LEDs
     for(;;) {
@@ -187,27 +157,6 @@ int main()
                         (void) rts;
 
         */
-
-/*
- * ##### !!! TODO !!! #####
- *
- * AVR16/32/64DU14/28
- *
- * SSOP-28                     SOIC-14
- *
- *  5   PC.3   DTR    (OUT)   DTR    9
- *
- * 10   PD.4   TXD0   (OUT)   RTS   10
- * 11   PD.5   RXD0   (INP)   CTS   11
- * 12   PD.6   RTS    (OUT)   TXD1  12
- * 13   PD.7   CTS    (INP)   RXD1  13
- *
- * 22   PA.0   LED    (OUT)   PA.0   4
- * 23   PA.1   LED    (OUT)   PA.1   5
- *
- * USART0 -> ALT3
- * USART1 -> ALT1
- */
     }
 
     return 0;

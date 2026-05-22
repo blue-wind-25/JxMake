@@ -33,7 +33,14 @@
  */
 
 
+
+#ifndef USB_CDC_ACM_H
+#define USB_CDC_ACM_H
+
+
 #include <util/atomic.h>
+
+#include "../config.h"
 
 
 extern "C" {
@@ -161,3 +168,6 @@ static void system_usb_init()
 
     sei();
 }
+
+
+#endif // USB_CDC_ACM_H

@@ -120,8 +120,7 @@ static void USBDevice_CDCACMHandler()
        if( gpio_dsr_active() ) uartState |= CDC_SERIAL_STATE_TXCARRIER; // DSR
      */
     if( uartState != lastState ) {
-        USB_CDCSendSerialState( uartState );
-        lastState = uartState;
+        if( USB_CDCSendSerialState( uartState ) == SUCCESS ) lastState = uartState;
     }
 }
 

@@ -25,28 +25,49 @@ static inline void UART_config()
     uint8_t frameFormat = 0;
 
     switch(usbCDCLineCoding.bParityType) {
-        case USB_CDC_LINE_CODING_PARITY_NONE               : frameFormat |= USART_PMODE_DISABLED_gc; break;
-        case USB_CDC_LINE_CODING_PARITY_ODD                : frameFormat |= USART_PMODE_ODD_gc     ; break;
-        case USB_CDC_LINE_CODING_PARITY_EVEN               : frameFormat |= USART_PMODE_EVEN_gc    ; break;
-        case USB_CDC_LINE_CODING_PARITY_MARK               : frameFormat |= USART_PMODE_DISABLED_gc; break;
-        case USB_CDC_LINE_CODING_PARITY_SPACE              : frameFormat |= USART_PMODE_DISABLED_gc; break;
-    }
+
+        case USB_CDC_LINE_CODING_PARITY_NONE  : frameFormat |= USART_PMODE_DISABLED_gc; break;
+        case USB_CDC_LINE_CODING_PARITY_ODD   : frameFormat |= USART_PMODE_ODD_gc;      break;
+        case USB_CDC_LINE_CODING_PARITY_EVEN  : frameFormat |= USART_PMODE_EVEN_gc;     break;
+
+        default :
+            // USB_CDC_LINE_CODING_PARITY_MARK, USB_CDC_LINE_CODING_PARITY_SPACE, and any unknown - fall back to USB_CDC_LINE_CODING_PARITY_NONE
+            frameFormat                  |= USART_PMODE_DISABLED_gc;
+            usbCDCLineCoding.bParityType  = USB_CDC_LINE_CODING_PARITY_NONE;
+            break;
+
+    } // switch
 
     switch(usbCDCLineCoding.bCharFormat) {
-        case USB_CDC_LINE_CODING_ONE_STOP_BIT              : frameFormat |= USART_SBMODE_1BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_ONE_AND_ONE_HALF_STOP_BIT : frameFormat |= USART_SBMODE_2BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_TWO_STOP_BITS             : frameFormat |= USART_SBMODE_2BIT_gc   ; break;
-    }
+
+        case USB_CDC_LINE_CODING_ONE_STOP_BIT : frameFormat |= USART_SBMODE_1BIT_gc; break;
+        case USB_CDC_LINE_CODING_TWO_STOP_BITS: frameFormat |= USART_SBMODE_2BIT_gc; break;
+
+        default:
+            // ONE_AND_ONE_HALF - no hardware support, approximate as 2USB_CDC_LINE_CODING_TWO_STOP_BITS
+            frameFormat                  |= USART_SBMODE_2BIT_gc;
+            usbCDCLineCoding.bCharFormat  = USB_CDC_LINE_CODING_TWO_STOP_BITS;
+            break;
+
+    } // switch
 
     switch(usbCDCLineCoding.bDataBits) {
-        case USB_CDC_LINE_CODING_5_DATA_BITS               : frameFormat |= USART_CHSIZE_5BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_6_DATA_BITS               : frameFormat |= USART_CHSIZE_6BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_7_DATA_BITS               : frameFormat |= USART_CHSIZE_7BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_8_DATA_BITS               : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
-        case USB_CDC_LINE_CODING_16_DATA_BITS              : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
-        default                                            : frameFormat |= USART_CHSIZE_8BIT_gc   ; break;
-    }
 
+        case USB_CDC_LINE_CODING_5_DATA_BITS  : frameFormat |= USART_CHSIZE_5BIT_gc; break;
+        case USB_CDC_LINE_CODING_6_DATA_BITS  : frameFormat |= USART_CHSIZE_6BIT_gc; break;
+        case USB_CDC_LINE_CODING_7_DATA_BITS  : frameFormat |= USART_CHSIZE_7BIT_gc; break;
+        case USB_CDC_LINE_CODING_8_DATA_BITS  : frameFormat |= USART_CHSIZE_8BIT_gc; break;
+
+        default :
+            // 16-bit and any unknown - fall back to 8-bit
+            frameFormat                |= USART_CHSIZE_8BIT_gc;
+            usbCDCLineCoding.bDataBits  = USB_CDC_LINE_CODING_8_DATA_BITS;
+            break;
+
+    } // switch
+
+    // Disable TXD and RXD before changing frame format, as required by the datasheet
+    UART_DEVICE.CTRLB = 0;
     UART_DEVICE.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | frameFormat;
 
     // Configure the baud rate
@@ -55,9 +76,12 @@ static inline void UART_config()
                             :  usbCDCLineCoding.dwDTERate;
     const uint32_t baudReg  = ( (4UL * F_CPU) + (baudRate / 2) ) / baudRate;
 
-    UART_DEVICE.BAUD = (uint16_t) baudReg;
+    UART_DEVICE.BAUD  = (uint16_t) baudReg;
 
     usbCDCLineCoding.dwDTERate = baudRate;
+
+    // Re-enable RXD always; re-enable TXD only if not in a break
+    UART_DEVICE.CTRLB = USART_RXEN_bm | (usbCdcBreakActive ? 0 : USART_TXEN_bm);
 
     // Copy the configuration data
     memcpy( &lastUSBCDCLineCoding, &usbCDCLineCoding, sizeof(usbCDCLineCoding) );
@@ -74,11 +98,12 @@ static inline void UART_init()
     UART_PORT.UART_TXD_CTRL = PORT_PULLUPEN_bm;
 
     UART_PORT.DIRCLR        = UART_RXD_PIN;
+    UART_PORT.UART_RXD_CTRL = PORT_PULLUPEN_bm;
 
     // Configure the uart
     UART_config();
 
-    // Enable Transmitter and Receiver
+    // Enable TXD and RXD
     UART_DEVICE.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
 
     // Initialize the DTR pin to output

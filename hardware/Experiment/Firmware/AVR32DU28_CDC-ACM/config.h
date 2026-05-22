@@ -43,6 +43,7 @@
 #define UART_TXD_PIN    PIN4_bm
 #define UART_TXD_CTRL   PIN4CTRL
 #define UART_RXD_PIN    PIN5_bm
+#define UART_RXD_CTRL   PIN5CTRL
 
 // The UART DTR pin is connected to PC.3
 #define UART_DTR_PORT   PORTC

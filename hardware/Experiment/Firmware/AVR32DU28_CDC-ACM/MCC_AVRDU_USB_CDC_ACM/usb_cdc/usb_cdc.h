@@ -78,6 +78,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                     usbCdcBreakDuration = setupRequestPtr->wValue;
                     if(usbCdcBreakDuration > 0) usbCdcBreakActive = true;
                     else                        usbCdcBreakActive = false;
+                    status = SUCCESS;
                     break;
 
                 default:
@@ -109,13 +110,16 @@ static inline RETURN_CODE_t USB_CDCSendSerialState( uint16_t uartStateBitmap )
         0x00,                       // uartStateBitmap MSB (filled below)
     };
 
-    packet[8]      = (uint8_t) (uartStateBitmap & 0xFF);
-    packet[9]      = (uint8_t) (uartStateBitmap >> 8);
-
     USB_PIPE_t notifPipe = {
         .address   = USB_CDC_INTERRUPT_EP,
         .direction = USB_EP_DIR_IN,
     };
+
+    // Guard - do not touch the static buffer while a prior transfer is still in flight
+    if( USB_PipeStatusIsBusy( notifPipe ) ) return UNINITIALIZED;
+
+    packet[8] = (uint8_t) (uartStateBitmap & 0xFF);
+    packet[9] = (uint8_t) (uartStateBitmap >> 8);
 
     return USB_TransferWriteStart( notifPipe, packet, sizeof(packet), NULL );
 }

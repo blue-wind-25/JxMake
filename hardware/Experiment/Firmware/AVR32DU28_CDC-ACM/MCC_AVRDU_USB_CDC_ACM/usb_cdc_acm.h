@@ -162,7 +162,7 @@ static void USBDevice_CDCACMHandler()
 
     // Handle CTS pin
     static uint16_t lastState = 0;
-    uint16_t        uartState = 0;
+           uint16_t uartState = 0;
 
     /*
      *  Bit | Mask                       | Meaning
@@ -176,8 +176,7 @@ static void USBDevice_CDCACMHandler()
      *  6   | CDC_SERIAL_STATE_OVERRUN   | Overrun Error
      *  7-15| Reserved                   | Unused
      */
-    if( !(UART_CTS_PORT.IN & UART_CTS_PIN) ) uartState |= 0b00001011; // Set   all to   DCD, DSR, and RI
-    else                                     uartState &= 0b11110100; // Clear all from DCD, DSR, and RI
+    if( !(UART_CTS_PORT.IN & UART_CTS_PIN) ) uartState |= 0b00001011; // DCD, DSR, and RI (active-low)
 
     if( uartState != lastState ) {
         if( USB_CDCSendSerialState( uartState ) == SUCCESS ) lastState = uartState;

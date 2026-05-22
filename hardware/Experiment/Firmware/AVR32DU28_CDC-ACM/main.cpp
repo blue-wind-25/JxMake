@@ -24,14 +24,95 @@
  *  5         23       PA.1   LED           OUT
  */
 
+// The UART is connected to USART0 at PD.4 and PD.5
+#define UART_DEVICE     USART0
+#define UART_PORTMUX_GM PORTMUX_USART0_gm
+#define UART_PORTMUX_GC PORTMUX_USART0_ALT3_gc
+#define UART_PORT       PORTD
+#define UART_TXD_PIN    PIN4_bm
+#define UART_RXD_PIN    PIN5_bm
+
 // The TXD LED is connected to PA.0
-#define TXD_PORT PORTA
-#define TXD_PIN  PIN0_bm
+#define TXD_LED_PORT    PORTA
+#define TXD_LED_PIN     PIN0_bm
 
 // The RXD LED is connected to PA.1
-#define RXD_PORT PORTA
-#define RXD_PIN  PIN1_bm
+#define RXD_LED_PORT    PORTA
+#define RXD_LED_PIN     PIN1_bm
 
+
+static inline void UART_config()
+{
+   // const uint32_t baud     = usbCDCLineCoding.dwDTERate;
+   // const uint8_t  stopBits = usbCDCLineCoding.bCharFormat;
+  //  const uint8_t  parity   = usbCDCLineCoding.bParityType;
+ //   const uint8_t  dataBits = usbCDCLineCoding.bDataBits;
+
+    // 4. Configure Frame Format
+    // Asynchronous mode, No Parity, 1 Stop Bit, 8 Data Bits (8N1)
+//    USART0.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | USART_PMODE_DISABLED_gc | USART_SBMODE_1BIT_gc | USART_CHSIZE_8BIT_gc;
+
+}
+
+
+static inline void UART_init()
+{
+    // Configure the port multiplexer
+    PORTMUX.USARTROUTEA = (PORTMUX.USARTROUTEA & ~UART_PORTMUX_GM) | UART_PORTMUX_GC;
+
+    // Configure pin directions
+    UART_PORT.DIRSET = UART_TXD_PIN;
+    UART_PORT.DIRCLR = UART_RXD_PIN;
+
+    // Configure the uart
+    UART_config();
+
+    /*
+
+    // 3. Set Baud Rate
+    // The modern AVR architecture uses a 16-bit baud register with a fractional component
+    USART0.BAUD = (uint16_t)USART0_BAUD_RATE(baud);
+
+    // 4. Configure Frame Format
+    // Asynchronous mode, No Parity, 1 Stop Bit, 8 Data Bits (8N1)
+    USART0.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | USART_PMODE_DISABLED_gc | USART_SBMODE_1BIT_gc | USART_CHSIZE_8BIT_gc;
+
+    // 5. Enable Transmitter and Receiver
+    USART0.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
+    */
+}
+
+
+/*
+void USART0_sendChar(char c)
+{
+    // Wait until the transmit data register empty flag is high
+    while (!(USART0.STATUS & USART_DREIF_bm));
+
+    // Put data into the data register
+    USART0.TXDATAL = c;
+}
+
+void USART0_sendString(const char *str)
+{
+    while (*str)
+    {
+        USART0_sendChar(*str++);
+    }
+}
+
+int main(void)
+{
+    // Initialize USART0 at 9600 baud rate on PD4/PD5
+    USART0_init(9600);
+
+    while (1)
+    {
+        USART0_sendString("Hello from AVR32DU28 on PD4/PD5!\r\n");
+        _delay_ms(1000);
+    }
+}
+*/
 
 int main()
 {

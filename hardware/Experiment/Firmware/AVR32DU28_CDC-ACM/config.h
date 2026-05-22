@@ -25,6 +25,12 @@
  *  5         23       PA.1   LED           OUT
  */
 
+/*
+ * NOTE : # This firmware does not support hardware flow control.
+ *        # It attempts to emulate direct access to DTR, RTS, and CTS, as well as the break condition,
+ *          as accurately as possible so it can be used to program Arduinos, AVR MCUs, and Espressif MCUs.
+ */
+
 
 // The CPU is always run at 24MHz
 #define F_CPU           24000000UL

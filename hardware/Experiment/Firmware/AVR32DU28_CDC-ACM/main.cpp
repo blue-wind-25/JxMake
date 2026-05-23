@@ -8,14 +8,10 @@
 #include <usb_cdc_acm.h>
 
 
-#define LED_BLINK_DURATION_MS 50
+static volatile bool usbCdcLineCodingChanged = false;
 
-static bool     txLedActive    = false;
-static uint32_t txLastActivity = 0;
-
-static bool     rxLedActive    = false;
-static uint32_t rxLastActivity = 0;
-
+static void onLineCodingChanged()
+{ usbCdcLineCodingChanged = true; }
 
 static void UART_config()
 {
@@ -65,7 +61,11 @@ static void UART_config()
     } // switch
 
     // Disable TXD and RXD before changing frame format, as required by the datasheet
-    UART_DEVICE.CTRLB = 0;
+    UART_DEVICE.CTRLB  = 0;
+    UART_PORT  .OUTSET = UART_TXD_PIN;
+    UART_PORT  .DIRSET = UART_TXD_PIN;
+
+    // Change the frame format
     UART_DEVICE.CTRLC = USART_CMODE_ASYNCHRONOUS_gc | frameFormat;
 
     // Configure the baud rate
@@ -74,12 +74,18 @@ static void UART_config()
                             :  usbCDCLineCoding.dwDTERate;
     const uint32_t baudReg  = ( (4UL * F_CPU) + (baudRate / 2) ) / baudRate;
 
-    UART_DEVICE.BAUD  = (uint16_t) baudReg;
-
+    UART_DEVICE.BAUD           = (uint16_t) baudReg;
     usbCDCLineCoding.dwDTERate = baudRate;
 
     // Re-enable RXD always; re-enable TXD only if not in a break
-    UART_DEVICE.CTRLB = USART_RXEN_bm | (usbCdcBreakActive ? 0 : USART_TXEN_bm);
+    UART_DEVICE.CTRLB = USART_RXEN_bm;
+
+    if(!usbCdcBreakActive) {
+        UART_DEVICE.CTRLB  |= USART_TXEN_bm;
+    }
+    else {
+        UART_PORT  .OUTCLR  = UART_TXD_PIN; // OUTSET above briefly released break — restore LOW
+    }
 }
 
 static inline void UART_init()
@@ -87,7 +93,8 @@ static inline void UART_init()
     // Configure the port multiplexer
     PORTMUX.USARTROUTEA = (PORTMUX.USARTROUTEA & ~UART_PORTMUX_GM) | UART_PORTMUX_GC;
 
-    // Configure TXD pin to output and RXD pin to input
+    // Configure TXD pin to output HIGH (idle) and RXD pin to input
+    UART_PORT.OUTSET        = UART_TXD_PIN;
     UART_PORT.DIRSET        = UART_TXD_PIN;
     UART_PORT.UART_TXD_CTRL = PORT_PULLUPEN_bm;
 
@@ -96,9 +103,6 @@ static inline void UART_init()
 
     // Configure the uart
     UART_config();
-
-    // Enable TXD and RXD
-    UART_DEVICE.CTRLB = USART_TXEN_bm | USART_RXEN_bm;
 
     // Initialize the DTR pin to output
     UART_DTR_PORT.DIRSET = UART_DTR_PIN;
@@ -112,10 +116,18 @@ static inline void UART_init()
     UART_CTS_PORT.DIRCLR        = UART_CTS_PIN;
     UART_CTS_PORT.UART_CTS_CTRL = PORT_INLVL_TTL_gc | PORT_PULLUPEN_bm;
 
-    // Register UART_config as the SET_LINE_CODING completion callback
-    usbCdcSetLineCodingCallback = UART_config;
+    // Register the ISR-safe flag-setter; UART_config() runs from the main loop
+    usbCdcSetLineCodingCallback = onLineCodingChanged;
 }
 
+
+#define LED_BLINK_DURATION_MS 50
+
+static bool     txLedActive    = false;
+static uint32_t txLastActivity = 0;
+
+static bool     rxLedActive    = false;
+static uint32_t rxLastActivity = 0;
 
 int main()
 {
@@ -150,6 +162,12 @@ int main()
 
         // Call USB CDC-ACM handler
         USBDevice_CDCACMHandler();
+
+        // Apply line coding changes requested by the host (deferred from ISR context)
+        if( usbCdcLineCodingChanged ) {
+            usbCdcLineCodingChanged = false;
+            UART_config();
+        }
 
         // Set DTR and RTS pins
         const bool dtr = (usbCDCControlLineState & 0x01) != 0;

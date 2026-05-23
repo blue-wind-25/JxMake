@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 
-# Translated and bug‑fixed by JxMake project from 'colordiff.pl', using
-# Claude Sonnet 4.6.
+# This Python script was translated and corrected by Claude Sonnet 4.6.
+# Fixes the original's bug with long/oddly-spaced/uncommon-whitespace
+# filenames in the "Binary files … differ" line by using a more precise
+# regex.
+#
+# Refined by Gemini 3.5 Flash to restore original Perl pipeline behavior,
+# ensuring ANSI colors persist when piping to pager utilities like 'more'
+# or 'less'.
+
+# This file is a derivative work of 'colordiff.pl' by Dave Ewart.
+# Original copyright and GPL terms are retained below.
 
 ########################################################################
 #                                                                      #
@@ -23,13 +32,10 @@
 # GNU General Public License for more details.                         #
 #                                                                      #
 ########################################################################
-#
-# Python translation of colordiff.pl (colordiff 1.0.21) by Claude Sonnet 4.6.
-# Fixes the original's bug with long/oddly-spaced/uncommon-whitespace filenames
-# in the "Binary files … differ" line by using a more precise regex.
 
 import os
 import re
+import stat
 import sys
 import subprocess
 
@@ -333,9 +339,17 @@ def main():
         color_patch = True
         show_banner = False
 
+    """
     stdout_is_file = os.path.isfile('/dev/stdout') if sys.stdout.fileno() >= 0 else False
     try:
         stdout_is_file = not os.isatty(sys.stdout.fileno()) and not sys.stdout.isatty()
+    except Exception:
+        stdout_is_file = False
+    """
+
+    try:
+        mode = os.fstat(sys.stdout.fileno()).st_mode
+        stdout_is_file = stat.S_ISREG(mode)
     except Exception:
         stdout_is_file = False
 

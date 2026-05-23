@@ -13,8 +13,8 @@ The colordiff script in this directory is downloaded from:
 
 This colordiff script is included in the JxMake distribution package for convenience.
 
-A bug‑fixed Python translation of 'colordiff.pl' has been added as 'colordiff.py'. This translation
-was generated and bug‑fixed by Claude Sonnet 4.6
+A bug‑fixed Python translation of 'colordiff.pl' is available as 'colordiff.py'. This Python script
+was translated and corrected by Claude Sonnet 4.6, with pipeline refinements by Gemini 3.5 Flash.
 
 ----------------------------------------------------------------------------------------------------
 colordiff is licensed under term of the GNU GPL License. Please refer to 'colordiff-License.txt'

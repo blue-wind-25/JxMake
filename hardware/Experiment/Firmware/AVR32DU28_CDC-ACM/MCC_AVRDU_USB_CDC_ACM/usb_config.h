@@ -116,14 +116,23 @@
 /*
  * USB_CDC_TX_BUFFER_SIZE
  * Macro for the transmit buffer size.
+ *
+ * NOTE : Sized for sustained high-baud UART→USB throughput. The TX buffer accumulates bytes from
+ *        the UART RX pin while a USB IN transfer is in flight. At 2 Mbps, ~200 bytes arrive per
+ *        1 ms USB polling interval; 256 bytes gives a comfortable margin. The original 128 bytes
+ *        (2 × MAX_ENDPOINT_SIZE_DEFAULT) was tight at 921600 baud and insufficient at 2 Mbps.
  */
-#define USB_CDC_TX_BUFFER_SIZE (2 * MAX_ENDPOINT_SIZE_DEFAULT)
+#define USB_CDC_TX_BUFFER_SIZE 256U
 
 /*
  * USB_CDC_RX_BUFFER_SIZE
  * Macro for the receive buffer size.
+ *
+ * NOTE : Sized to absorb burst USB OUT traffic (4 full 64-byte packets) while the UART TX drains
+ *        it. Matched to USB_CDC_TX_BUFFER_SIZE so the bridge is symmetric under heavy bidirectional
+ *        load. The original 128 bytes could stall the host at sustained 2 Mbps rates.
  */
-#define USB_CDC_RX_BUFFER_SIZE (2 * MAX_ENDPOINT_SIZE_DEFAULT)
+#define USB_CDC_RX_BUFFER_SIZE 256U
 
 /*
  * USB_CDC_RX_PACKET_SIZE

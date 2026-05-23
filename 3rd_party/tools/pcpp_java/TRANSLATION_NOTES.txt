@@ -1,0 +1,11 @@
+TRANSLATION NOTES
+-----------------
+This directory contains a Java translation of the original Python sources.
+
+Original license terms are preserved in license.txt:
+(C) 2018-2019 Niall Douglas (http://www.nedproductions.biz)
+(C) 2007-2019 David Beazley (http://www.dabeaz.com)
+
+All rights reserved under the BSD 3-Clause license.
+
+This translation was done by using Claude Sonnet 4.6.

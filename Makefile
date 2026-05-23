@@ -99,7 +99,8 @@ sstat:
 	@svn status | grep -v '^\?'
 
 sdiff:
-	@svn diff | perl 3rd_party/tools/colordiff/colordiff.pl | more
+#	@svn diff | perl    3rd_party/tools/colordiff/colordiff.pl | more
+	@svn diff | python3 3rd_party/tools/colordiff/colordiff.py | less -R
 
 xdiff: sclean
 	@diff -ru ../Shadow/jxmake . | grep -v '^Only in' | perl 3rd_party/tools/colordiff/colordiff.pl | more

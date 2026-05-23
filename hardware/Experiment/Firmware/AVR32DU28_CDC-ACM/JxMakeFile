@@ -26,8 +26,9 @@ endif
 
 JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG := 'v0.9.0'
 
-ULIB_BDIRS := MCC_AVRDU_USB_CDC_ACM/usb_common    \
-              MCC_AVRDU_USB_CDC_ACM/usb_peripheral
+ULIB_BDIRS := MCC_AVRDU_USB_CDC_ACM/usb_cdc        \
+              MCC_AVRDU_USB_CDC_ACM/usb_common     \
+              MCC_AVRDU_USB_CDC_ACM/usb_peripheral 
 
 ULIB_HDIRS := MCC_AVRDU_USB_CDC_ACM
 

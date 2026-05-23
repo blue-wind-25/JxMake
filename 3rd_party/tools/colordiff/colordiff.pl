@@ -5,7 +5,7 @@
 # ColorDiff - a wrapper/replacement for 'diff' producing               #
 #             colourful output                                         #
 #                                                                      #
-# Copyright (C)2002-2020 Dave Ewart (davee@sungate.co.uk)              #
+# Copyright (C) 2002-2020 Dave Ewart (davee@sungate.co.uk)             #
 #                                                                      #
 ########################################################################
 #                                                                      #
@@ -329,7 +329,7 @@ if ($cfg_color_mode == 0) {
     $color_mode = 0;
 }
 if (defined $cmd_color_mode) {
-    if ($cmd_color_mode eq 'yes' 
+    if ($cmd_color_mode eq 'yes'
             || $cmd_color_mode eq 'always'
             || $cmd_color_mode eq 'auto') {
         $color_mode = 1;
@@ -349,7 +349,7 @@ if (defined $cfg_color_patch) {
     }
 }
 if (defined $cmd_color_patch) {
-    if ($cmd_color_patch eq 'yes' 
+    if ($cmd_color_patch eq 'yes'
             || $cmd_color_patch eq 'always'
             || $cmd_color_patch eq 'auto') {
         $color_patch = 1;

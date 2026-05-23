@@ -2,8 +2,8 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further complete, verify and improve the 'hardware/Experiment/Firmware/AVR32DU28_CDC-ACM' firmware
-  experiment. Add the hardware design too.
+# Further complete, verify, and improve the 'hardware/Experiment/Firmware/AVR32DU28_CDC-ACM'
+  experiment. Also add the hardware design with support for both 3.3V and 5V logic levels.
 
 # Further verify, improve and cleanups:
       src/jxm/tool/SSLTrustAll.java
@@ -14,7 +14,7 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 
-# Further complete, verify and improve the WindowsDriverInstaller class.
+# Further complete, verify, and improve the WindowsDriverInstaller class.
 
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.

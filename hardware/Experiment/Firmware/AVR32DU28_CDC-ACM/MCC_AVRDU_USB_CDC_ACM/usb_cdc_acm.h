@@ -135,12 +135,12 @@ static void USBDevice_CDCACMHandler()
         }
         // If the break state is still supposed to be active, force the hardware line low
         if(usbCdcBreakActive) {
-            UART_DEVICE.CTRLB   &= ~USART_TXEN_bm;
-            UART_PORT  .OUTCLR   =  UART_TXD_PIN;
-            UART_PORT  .DIRSET   =  UART_TXD_PIN;
+            UART_DEVICE.CTRLB  &= ~USART_TXEN_bm;
+            UART_PORT  .OUTCLR  =  UART_TXD_PIN;
+            UART_PORT  .DIRSET  =  UART_TXD_PIN;
         }
         else {
-            UART_DEVICE  .CTRLB |=  USART_TXEN_bm;
+            UART_DEVICE.CTRLB  |=  USART_TXEN_bm;
         }
     }
     else {

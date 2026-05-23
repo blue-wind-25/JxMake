@@ -5,6 +5,11 @@
 #####
 
 
+# git log --graph --oneline --decorate
+# git log --format='%an <%ae>'
+# git shortlog -sne
+
+
 ##### ANSI escape codes for colors
 C_GRAY    = "\\033[90m"
 C_RED     = "\\033[91m"

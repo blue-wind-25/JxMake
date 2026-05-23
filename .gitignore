@@ -1,2 +1,4 @@
 0_excluded_directory
 .svn
+*.tmp
+*.tmp.opt

@@ -9,6 +9,8 @@
 # This edition substantially improves on standards conforming output,
 # getting quite close to what clang or GCC outputs.
 
+# OptimIzed by Claude Sonnet 4.6
+
 from __future__ import generators, print_function, absolute_import, division
 
 import sys, os, re, codecs, time, copy, traceback
@@ -61,7 +63,8 @@ class Preprocessor(PreprocessorHooks):
         self.macros = { }
         self.path = []           # list of -I formal search paths for includes
         self.temp_path = []      # list of temporary search paths for includes
-        self.rewrite_paths = [(re.escape(os.path.abspath('') + os.sep) + '(.*)', '\\1')]
+        self.rewrite_paths = [(re.compile(re.escape(os.path.abspath('') + os.sep) + '(.*)'), '\\1')]
+        self._file_cache = {}
         self.passthru_includes = None
         self.include_once = {}
         self.include_depth = 0
@@ -175,7 +178,7 @@ class Preprocessor(PreprocessorHooks):
         else:
             self.t_LINECONT = tok.type
 
-        self.t_WS = (self.t_SPACE, self.t_NEWLINE, self.t_LINECONT)
+        self.t_WS = frozenset((self.t_SPACE, self.t_NEWLINE, self.t_LINECONT))
 
         self.lexer.input("##")
         tok = self.lexer.token()
@@ -212,7 +215,7 @@ class Preprocessor(PreprocessorHooks):
         else:
             self.t_COMMENT2 = tok.type
             
-        self.t_COMMENT = (self.t_COMMENT1, self.t_COMMENT2)
+        self.t_COMMENT = frozenset((self.t_COMMENT1, self.t_COMMENT2))
 
         # Check for other characters used by the preprocessor
         chars = [ '<','>','#','##','\\','(',')',',','.']
@@ -239,7 +242,7 @@ class Preprocessor(PreprocessorHooks):
             relpath = os.path.relpath(path)
         except: pass
         if relpath is not None:
-            self.rewrite_paths += [(re.escape(os.path.abspath(path) + os.sep) + '(.*)', os.path.join(relpath, '\\1'))]
+            self.rewrite_paths += [(re.compile(re.escape(os.path.abspath(path) + os.sep) + '(.*)'), os.path.join(relpath, '\\1'))]
 
 
     # ----------------------------------------------------------------------
@@ -384,15 +387,16 @@ class Preprocessor(PreprocessorHooks):
         """Examine the macro value (token sequence) and identify patch points
         This is used to speed up macro expansion later on---we'll know
         right away where to apply patches to the value to form the expansion"""
-        macro.patch     = []             # Standard macro arguments 
+        macro.patch     = []             # Standard macro arguments
         macro.str_patch = []             # String conversion expansion
         macro.var_comma_patch = []       # Variadic macro comma patch
+        arglist_index = {v: idx for idx, v in enumerate(macro.arglist)} if macro.arglist else {}
         i = 0
         #print("BEFORE", macro.value)
         #print("BEFORE", [x.value for x in macro.value])
         while i < len(macro.value):
-            if macro.value[i].type == self.t_ID and macro.value[i].value in macro.arglist:
-                argnum = macro.arglist.index(macro.value[i].value)
+            if macro.value[i].type == self.t_ID and macro.value[i].value in arglist_index:
+                argnum = arglist_index[macro.value[i].value]
                 # Conversion of argument to a string
                 j = i - 1
                 while j >= 0 and macro.value[j].type in self.t_WS:
@@ -560,7 +564,7 @@ class Preprocessor(PreprocessorHooks):
         """Given a list of tokens, this function performs macro expansion."""
         # Each token needs to track from which macros it has been expanded from to prevent recursion
         for tok in tokens:
-            if not hasattr(tok, 'expanded_from'):
+            if getattr(tok, 'expanded_from', None) is None:
                 tok.expanded_from = []
         i = 0
         #print("*** EXPAND MACROS in", "".join([t.value for t in tokens]), "expanding_from=", expanding_from)
@@ -630,7 +634,7 @@ class Preprocessor(PreprocessorHooks):
                                 for e in ex:
                                     e.source = t.source
                                     e.lineno = t.lineno
-                                    if not hasattr(e, 'expanded_from'):
+                                    if getattr(e, 'expanded_from', None) is None:
                                         e.expanded_from = []
                                     e.expanded_from.append(t.value)
                                 # A non-conforming extension implemented by the GCC and clang preprocessors
@@ -778,7 +782,7 @@ class Preprocessor(PreprocessorHooks):
         if abssource:
             rewritten_source = abssource
             for rewrite in self.rewrite_paths:
-                temp = re.sub(rewrite[0], rewrite[1], rewritten_source)
+                temp = rewrite[0].sub(rewrite[1], rewritten_source)
                 if temp != abssource:
                     rewritten_source = temp
                     if os.sep != '/':
@@ -1153,9 +1157,11 @@ class Preprocessor(PreprocessorHooks):
                             yield tok
                     return
                 try:
-                    ih = self.on_file_open(is_system_include,fulliname)
-                    data = ih.read()
-                    ih.close()
+                    if fulliname not in self._file_cache:
+                        ih = self.on_file_open(is_system_include,fulliname)
+                        self._file_cache[fulliname] = ih.read()
+                        ih.close()
+                    data = self._file_cache[fulliname]
                     dname = os.path.dirname(fulliname)
                     if dname:
                         self.temp_path.insert(0,dname)
@@ -1381,9 +1387,8 @@ class Preprocessor(PreprocessorHooks):
                 if newlinesneeded > 6 and self.line_directive is not None:
                     emitlinedirective = True
                 else:
-                    while newlinesneeded > 0:
-                        oh.write('\n')
-                        newlinesneeded -= 1
+                    if newlinesneeded > 0:
+                        oh.write('\n' * newlinesneeded)
             lastlineno = toks[0].lineno
             # Account for those newlines in a multiline comment
             if emitlinedirective and self.line_directive is not None:
@@ -1392,11 +1397,7 @@ class Preprocessor(PreprocessorHooks):
                 if tok.type == self.t_COMMENT1:
                     lastlineno += tok.value.count('\n')
             blanklines = 0
-            #print toks[0].lineno, 
-            for tok in toks:
-                #print tok.value,
-                oh.write(tok.value)
-            #print ''
+            oh.write(''.join(tok.value for tok in toks))
 
 if __name__ == "__main__":
     import doctest

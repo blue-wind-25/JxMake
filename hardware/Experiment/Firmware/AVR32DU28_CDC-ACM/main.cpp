@@ -62,7 +62,7 @@ static void UART_config()
 
     // Disable TXD and RXD before changing frame format, as required by the datasheet
     UART_DEVICE.CTRLB  = 0;
-    UART_PORT  .OUTSET = UART_TXD_PIN;
+    UART_PORT  .OUTSET = UART_TXD_PIN; // TXD pin to output HIGH (idle)
     UART_PORT  .DIRSET = UART_TXD_PIN;
 
     // Change the frame format
@@ -80,12 +80,8 @@ static void UART_config()
     // Re-enable RXD always; re-enable TXD only if not in a break
     UART_DEVICE.CTRLB = USART_RXEN_bm;
 
-    if(!usbCdcBreakActive) {
-        UART_DEVICE.CTRLB  |= USART_TXEN_bm;
-    }
-    else {
-        UART_PORT  .OUTCLR  = UART_TXD_PIN; // OUTSET above briefly released break — restore LOW
-    }
+    if(!usbCdcBreakActive) UART_DEVICE.CTRLB  |= USART_TXEN_bm;
+    else                   UART_PORT  .OUTCLR  = UART_TXD_PIN;  // OUTSET above briefly released break - restore LOW
 }
 
 static inline void UART_init()

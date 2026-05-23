@@ -1,9 +1,6 @@
 This experiment aims to flatten the AVR DU USB stack and its related SDK to minimize bloat
 and optimize speed with the help of Claude Code CLI.
 
-NOTE : Do not forget to remove these from repository later:
-           # The subdirectory '.claude'?
-
 ===================================================================================================
 ===================================================================================================
 ===================================================================================================
@@ -20,18 +17,6 @@ Workflow:
    - If the build fails, revert the previous changes and add annotations so the same changes will not be attempted again.
 3. Be very careful when striping down to raw register/SFR access.
 4. If a manufacturer USB stack file is no longer needed or becomes empty, propose its removal.
-
-
-Please check the AVR32DU28 firmware implementation, especially in:
-  main.c:
-    UART_config
-    UART_init
-    main
-  MCC_AVRDU_USB_CDC_ACM/usb_cdc_acm.h
-    USBDevice_CDCACMHandler
-  MCC_AVRDU_USB_CDC_ACM/usb_cdc/usb_cdc.h
-    USB_CDCRequestHandler
-
 
 ---------------------------------------------------------------------------------------------------
 

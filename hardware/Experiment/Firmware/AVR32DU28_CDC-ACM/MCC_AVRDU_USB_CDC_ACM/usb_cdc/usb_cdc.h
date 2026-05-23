@@ -56,6 +56,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
     if( USB_REQUEST_RECIPIENT_INTERFACE == (USB_REQUEST_RECIPIENT_t) setupRequestPtr->bmRequestType.recipient ) {
         if( USB_REQUEST_DIR_IN == setupRequestPtr->bmRequestType.dataPhaseTransferDirection ) {
             switch( setupRequestPtr->bRequest ) {
+                
                 case USB_CDC_REQUEST_GET_LINE_CODING:
                     status = USB_TransferControlDataSet( (uint8_t*) (volatile void*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), NULL );
                     break;
@@ -63,10 +64,12 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                 default:
                     status = UNSUPPORTED;
                     break;
+
             } // switch
         }
         else {
             switch( setupRequestPtr->bRequest ) {
+
                 case USB_CDC_REQUEST_SET_LINE_CODING:
                     status = USB_TransferControlDataSet( (uint8_t*) (volatile void*) &usbCDCLineCoding, sizeof(USB_CDC_LINE_CODING_t), usbCdcSetLineCodingCallback );
                     break;
@@ -86,6 +89,7 @@ static inline RETURN_CODE_t USB_CDCRequestHandler( USB_SETUP_REQUEST_t* setupReq
                 default:
                     status = UNSUPPORTED;
                     break;
+
             } // switch
         }
     }

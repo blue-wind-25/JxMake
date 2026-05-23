@@ -53,7 +53,7 @@
 #define UART_RTS_PORT   PORTD
 #define UART_RTS_PIN    PIN6_bm
 
-// The UART CTS pin is connected to PD.7 (the note CTS bits is routed to the DCD, DSR, and RI bits)
+// The UART CTS pin is connected to PD.7 (NOTE : the CTS bit is routed to the DCD, DSR, and RI bits)
 #define UART_CTS_PORT   PORTD
 #define UART_CTS_PIN    PIN7_bm
 #define UART_CTS_CTRL   PIN7CTRL

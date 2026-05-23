@@ -105,6 +105,17 @@ static void USBDevice_CDCACMHandler()
         }
     }
 
+#if 0
+
+    // Loopback test
+    static uint8_t cdcData;
+
+    while( !CIRCBUF_Full( &usbCDCTransmitBuffer ) && CIRCBUF_Dequeue( &usbCDCReceiveBuffer, &cdcData ) == BUFFER_SUCCESS ) {
+        CIRCBUF_Enqueue( &usbCDCTransmitBuffer, cdcData );
+    }
+
+#else
+
     // Break state handling
     static uint32_t breakStartTime = 0;
     static bool     breakInflight  = false;
@@ -125,8 +136,8 @@ static void USBDevice_CDCACMHandler()
         // If the break state is still supposed to be active, force the hardware line low
         if(usbCdcBreakActive) {
             UART_DEVICE.CTRLB   &= ~USART_TXEN_bm;
-            UART_PORT  .DIRSET   =  UART_TXD_PIN;
             UART_PORT  .OUTCLR   =  UART_TXD_PIN;
+            UART_PORT  .DIRSET   =  UART_TXD_PIN;
         }
         else {
             UART_DEVICE  .CTRLB |=  USART_TXEN_bm;
@@ -181,6 +192,8 @@ static void USBDevice_CDCACMHandler()
     if( uartState != lastState ) {
         if( USB_CDCSendSerialState( uartState ) == SUCCESS ) lastState = uartState;
     }
+
+#endif
 }
 
 

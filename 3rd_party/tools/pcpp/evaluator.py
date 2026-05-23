@@ -3,6 +3,8 @@
 # (C) 2019-2020 Niall Douglas http://www.nedproductions.biz/
 # Started: Apr 2019
 
+# OptimIzed by Claude Sonnet 4.6
+
 from __future__ import generators, print_function, absolute_import, division
 
 import sys, os, re, codecs, copy
@@ -19,6 +21,8 @@ if sys.version_info.major < 3:
     INTBASETYPE = long
 else:
     INTBASETYPE = int
+
+_EVALUATOR_SKIP_TYPES = frozenset(('CPP_WS', 'CPP_LINECONT', 'CPP_COMMENT1', 'CPP_COMMENT2'))
 
 # Precompile the regular expression for correctly expanding unicode escape
 # sequences in Python 2 and 3. See https://stackoverflow.com/questions/4020539/process-escape-sequences-in-a-string-in-python
@@ -685,7 +689,7 @@ class Evaluator(object):
             self.__identifiers = identifiers
 
         def input(self, toks):
-            self.__toks = [tok for tok in toks if tok.type != 'CPP_WS' and tok.type != 'CPP_LINECONT' and tok.type != 'CPP_COMMENT1' and tok.type != 'CPP_COMMENT2']
+            self.__toks = [tok for tok in toks if tok.type not in _EVALUATOR_SKIP_TYPES]
             self.__idx = 0
 
         def token(self):

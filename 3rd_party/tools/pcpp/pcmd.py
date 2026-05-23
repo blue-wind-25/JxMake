@@ -3,6 +3,8 @@
 # (C) 2017-2020 Niall Douglas http://www.nedproductions.biz/
 # Started: March 2017
 
+# OptimIzed by Claude Sonnet 4.6
+
 from __future__ import generators, print_function, absolute_import, division
 
 import sys, argparse, traceback, os, copy, io, re
@@ -221,7 +223,7 @@ class CmdPreprocessor(Preprocessor):
     def on_directive_handle(self,directive,toks,ifpassthru,precedingtoks):
         if ifpassthru:
             if directive.value == 'if' or directive.value == 'elif' or directive == 'else' or directive.value == 'endif':
-                self.bypass_ifpassthru = len([tok for tok in toks if tok.value == '__PCPP_ALWAYS_FALSE__' or tok.value == '__PCPP_ALWAYS_TRUE__']) > 0
+                self.bypass_ifpassthru = any(tok.value in ('__PCPP_ALWAYS_FALSE__', '__PCPP_ALWAYS_TRUE__') for tok in toks)
             if not self.bypass_ifpassthru and (directive.value == 'define' or directive.value == 'undef'):
                 if toks[0].value != self.potential_include_guard:
                     raise OutputDirective(Action.IgnoreAndPassThrough)  # Don't execute anything with effects when inside an #if expr with undefined macro

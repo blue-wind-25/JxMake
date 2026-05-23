@@ -37,7 +37,7 @@
 
 
 #include "../usb_common/usb_core.h"
-#include "circular_buffer/circular_buffer.h"
+#include "circular_buffer.h"
 
 
 /*

@@ -36,7 +36,8 @@
 
 #include "../usb_peripheral/usb_peripheral.h"
 #include "usb_core_descriptors.h"
-#include "usb_core_events.h"
+#include "usb_core_requests_device.h"
+#include "usb_core_transfer.h"
 
 
 /*
@@ -320,4 +321,12 @@ RETURN_CODE_t USB_DescriptorStringPointerGet( uint8_t stringIndex, uint16_t lang
     *descriptorAddressPtr = (uint8_t*) stringHeader;
     *descriptorLength     = (uint16_t) stringHeader->bLength;
     return SUCCESS;
+}
+
+uint8_t deviceAddress = 0;
+
+void SetupDeviceAddressCallback( void )
+{
+    USB_DeviceAddressConfigure( deviceAddress );
+    USB_ControlEndOfRequestCallbackRegister( NULL );
 }

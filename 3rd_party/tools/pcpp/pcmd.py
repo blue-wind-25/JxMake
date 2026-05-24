@@ -3,7 +3,7 @@
 # (C) 2017-2020 Niall Douglas http://www.nedproductions.biz/
 # Started: March 2017
 
-# Optimized by Claude Sonnet 4.6
+# Optimized using Claude Sonnet 4.6
 
 from __future__ import generators, print_function, absolute_import, division
 

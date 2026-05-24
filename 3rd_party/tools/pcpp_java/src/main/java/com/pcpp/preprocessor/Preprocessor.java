@@ -987,7 +987,7 @@ public class Preprocessor extends PreprocessorHooks {
                     String         name      = "";
                     List<LexToken> args      = new ArrayList<>();
 
-                    Boolean handling = null;
+                    Boolean        handling  = null;
                     if( !dirtokens.isEmpty() ) {
                         name = (String) dirtokens.get( 0 ).value;
                         args = tokenstrip( new ArrayList<>( dirtokens.subList( 1, dirtokens.size() ) ) );

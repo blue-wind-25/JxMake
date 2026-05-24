@@ -90,13 +90,13 @@ public class CppLexer {
     // String literal  "..." (may contain escaped chars or line continuations)
     // *+ (possessive) uses Curly (iterative) instead of Loop (recursive) in Java's
     // regex engine, preventing StackOverflowError on long string literals.
-    private static final String PAT_STRING        = "\"(?:[^\"\\\\\\n]|\\\\.)*+\"";
+    private static final String PAT_STRING   = "\"(?:[^\"\\\\\\n]|\\\\.)*+\"";
     // Char literal  'c' or L'c'
-    private static final String PAT_CHAR          = "(?:L)?'(?:[^'\\\\\\n]|\\\\.)*+'";
+    private static final String PAT_CHAR     = "(?:L)?'(?:[^'\\\\\\n]|\\\\.)*+'";
     // Block comment — possessive *+ avoids Java regex stack overflow on long comments.
-    private static final String PAT_COMMENT1      = "/\\*(?:[^*]|\\*+(?!/))*+\\*/";
+    private static final String PAT_COMMENT1 = "/\\*(?:[^*]|\\*+(?!/))*+\\*/";
     // Line comment
-    private static final String PAT_COMMENT2      = "//[^\\n]*";
+    private static final String PAT_COMMENT2 = "//[^\\n]*";
 
     // -----------------------------------------------------------------------
     // Master pattern

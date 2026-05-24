@@ -119,7 +119,7 @@ public final class Value {
         if( s.isEmpty() ) s = "0";
         // Try to parse as BigInteger first to handle out-of-range literals correctly
         BigInteger big = new BigInteger( s );
-        long       v   = big.longValue(); // may wrap – we then clamp
+        long       v   = big.longValue(); // may wrap -- we then clamp
         return new Value( v, unsigned );
     }
 
@@ -142,7 +142,7 @@ public final class Value {
     private static long sclamp( long v )
     {
         // Two's complement wrap: same as (long)(v & 0xFFFFF...F) then sign-extend
-        return v; // Java longs are already 64-bit two's complement – no extra work needed
+        return v; // Java longs are already 64-bit two's complement -- no extra work needed
     }
 
     private static long uclamp( long v )
@@ -328,7 +328,7 @@ public final class Value {
     {
         Value   e      = propagate( other ); if( e != null ) return e;
         boolean u      = unsigned || other.unsigned;
-        boolean result = raw == other.raw; // same bit pattern → equal for both signed and unsigned
+        boolean result = raw == other.raw; // same bit pattern -> equal for both signed and unsigned
         return new Value( result ? 1L : 0L, u );
     }
 
@@ -410,7 +410,7 @@ public final class Value {
                     out.append( '\t' ); i += 2; break;
 
                 case 'a':
-                    out.append( '' ); i  += 2; break;
+                    out.append( '\u0007' ); i  += 2; break;
 
                 case 'b':
                     out.append( '\b' ); i += 2; break;
@@ -419,7 +419,7 @@ public final class Value {
                     out.append( '\f' ); i += 2; break;
 
                 case 'v':
-                    out.append( '' ); i  += 2; break;
+                    out.append( '\u000B' ); i  += 2; break;
 
                 case '\\':
                     out.append( '\\' ); i += 2; break;

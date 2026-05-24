@@ -22,35 +22,36 @@ import java.util.*;
  *   var_comma_patch - Variadic comma patches [i]
  */
 public class Macro {
-    public final String name;
-    public List<LexToken> value;
+    public final String       name;
+    public List<LexToken>     value;
     public final List<String> arglist;
-    public final boolean variadic;
-    public String vararg;
-    public String source;
-    public int lineno;
+    public final boolean      variadic;
+    public String             vararg;
+    public String             source;
+    public int                lineno;
 
     // Filled in by macro_prescan()
-    public List<Object[]> patch;         // Each entry: {String type, Integer argnum, Integer i}
-    public List<int[]> str_patch;        // Each entry: {argnum, i}
-    public List<Integer> var_comma_patch;
+    public List<Object[]>     patch;     // Each entry: {String type, Integer argnum, Integer i}
+    public List<int[]>        str_patch; // Each entry: {argnum, i}
+    public List<Integer>      var_comma_patch;
 
-    public Macro(String name, List<LexToken> value) {
+    public Macro( String name, List<LexToken> value )
+    {
         this(name, value, null, false);
     }
 
-    public Macro(String name, List<LexToken> value, List<String> arglist, boolean variadic) {
-        this.name = name;
-        this.value = value;
-        this.arglist = arglist;
+    public Macro( String name, List<LexToken> value, List<String> arglist, boolean variadic )
+    {
+        this.name     = name;
+        this.value    = value;
+        this.arglist  = arglist;
         this.variadic = variadic;
-        if (variadic && arglist != null && !arglist.isEmpty()) {
-            this.vararg = arglist.get(arglist.size() - 1);
-        }
+        if( variadic && arglist != null && !arglist.isEmpty() ) this.vararg = arglist.get( arglist.size() - 1 );
     }
 
     @Override
-    public String toString() {
-        return String.format("%s(%s)=%s", name, arglist, value);
+    public String toString()
+    {
+        return String.format( "%s(%s)=%s", name, arglist, value );
     }
-}
+} // class Macro

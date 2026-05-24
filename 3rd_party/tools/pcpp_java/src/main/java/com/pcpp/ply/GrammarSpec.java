@@ -4,8 +4,8 @@ package com.pcpp.ply;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.function.Consumer;
+import java.util.List;
 
 /**
  * Complete specification for a grammar to be compiled into an LALR parser.
@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 public class GrammarSpec {
 
     /** Terminal token names (must not contain "error"). */
-    public final List<String> tokens;
+    public final List<String>      tokens;
 
     /** Grammar rules in declaration order. */
     public final List<GrammarRule> rules;
@@ -63,10 +63,11 @@ public class GrammarSpec {
     // Construction
     // -------------------------------------------------------------------------
 
-    private GrammarSpec(Builder b) {
-        this.tokens     = Collections.unmodifiableList(new ArrayList<>(b.tokens));
-        this.rules      = Collections.unmodifiableList(new ArrayList<>(b.rules));
-        this.precedence = Collections.unmodifiableList(new ArrayList<>(b.precedence));
+    private GrammarSpec( Builder b )
+    {
+        this.tokens     = Collections.unmodifiableList( new ArrayList<>( b.tokens ) );
+        this.rules      = Collections.unmodifiableList( new ArrayList<>( b.rules ) );
+        this.precedence = Collections.unmodifiableList( new ArrayList<>( b.precedence ) );
         this.start      = b.start;
         this.errorFunc  = b.errorFunc;
     }
@@ -75,39 +76,45 @@ public class GrammarSpec {
     // Builder
     // -------------------------------------------------------------------------
 
-    public static Builder builder() {
+    public static Builder builder()
+    {
         return new Builder();
     }
 
     public static final class Builder {
-        private List<String>      tokens     = new ArrayList<>();
-        private List<GrammarRule> rules      = new ArrayList<>();
-        private List<String[]>    precedence = new ArrayList<>();
-        private String            start      = null;
-        private Consumer<YaccSymbol> errorFunc = null;
+        private List<String>         tokens     = new ArrayList<>();
+        private List<GrammarRule>    rules      = new ArrayList<>();
+        private List<String[]>       precedence = new ArrayList<>();
+        private String               start      = null;
+        private Consumer<YaccSymbol> errorFunc  = null;
 
-        public Builder tokens(String... names) {
-            tokens.addAll(Arrays.asList(names));
+        public Builder tokens( String... names )
+        {
+            tokens.addAll( Arrays.asList( names ) );
             return this;
         }
 
-        public Builder tokens(List<String> names) {
-            tokens.addAll(names);
+        public Builder tokens( List<String> names )
+        {
+            tokens.addAll( names );
             return this;
         }
 
-        public Builder rule(GrammarRule rule) {
-            rules.add(rule);
+        public Builder rule( GrammarRule rule )
+        {
+            rules.add( rule );
             return this;
         }
 
-        public Builder rule(String name, String pattern, Consumer<YaccProduction> action) {
-            rules.add(new GrammarRule(name, pattern, action));
+        public Builder rule( String name, String pattern, Consumer<YaccProduction> action )
+        {
+            rules.add( new GrammarRule( name, pattern, action ) );
             return this;
         }
 
-        public Builder rule(String name, String pattern) {
-            rules.add(new GrammarRule(name, pattern, null));
+        public Builder rule( String name, String pattern )
+        {
+            rules.add( new GrammarRule( name, pattern, null ) );
             return this;
         }
 
@@ -116,32 +123,32 @@ public class GrammarSpec {
          * @param assoc  "left", "right", or "nonassoc"
          * @param terms  terminal names at this precedence level
          */
-        public Builder prec(String assoc, String... terms) {
+        public Builder prec( String assoc, String... terms )
+        {
             String[] entry = new String[terms.length + 1];
             entry[0] = assoc;
-            System.arraycopy(terms, 0, entry, 1, terms.length);
-            precedence.add(entry);
+            System.arraycopy( terms, 0, entry, 1, terms.length );
+            precedence.add( entry );
             return this;
         }
 
-        public Builder start(String startSymbol) {
+        public Builder start( String startSymbol )
+        {
             this.start = startSymbol;
             return this;
         }
 
-        public Builder errorFunc(Consumer<YaccSymbol> errorHandler) {
+        public Builder errorFunc( Consumer<YaccSymbol> errorHandler )
+        {
             this.errorFunc = errorHandler;
             return this;
         }
 
-        public GrammarSpec build() {
-            if (tokens.isEmpty()) {
-                throw new YaccError("GrammarSpec requires at least one token");
-            }
-            if (rules.isEmpty()) {
-                throw new YaccError("GrammarSpec requires at least one grammar rule");
-            }
-            return new GrammarSpec(this);
+        public GrammarSpec build()
+        {
+            if( tokens.isEmpty() ) throw new YaccError( "GrammarSpec requires at least one token" );
+            if( rules.isEmpty() ) throw new YaccError( "GrammarSpec requires at least one grammar rule" );
+            return new GrammarSpec( this );
         }
-    }
-}
+    } // class Builder
+}     // class GrammarSpec

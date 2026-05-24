@@ -7,18 +7,18 @@ package com.pcpp;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class LexTab {
 
-    public static final String TAB_VERSION = "3.10";
+    public static final String      TAB_VERSION = "3.10";
 
     // All token names recognised by the lexer
-    public static final Set<String> LEX_TOKENS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    public static final Set<String> LEX_TOKENS  = Collections.unmodifiableSet( new HashSet<>( Arrays.asList(
         "CPP_AMPERSAND",
         "CPP_ANDEQUAL",
         "CPP_BAR",
@@ -78,19 +78,19 @@ public class LexTab {
         "CPP_TILDE",
         "CPP_WS",
         "CPP_XOREQUAL"
-    )));
+        ) ) );
 
     /** re.MULTILINE flag value used when the table was generated (64 = re.DOTALL in Python). */
-    public static final int LEX_REFLAGS = 64;
+    public static final int                 LEX_REFLAGS  = 64;
 
-    public static final String LEX_LITERALS = "+-*/%|&~^<>=!?()[]{}.,;:\\'\"";
+    public static final String              LEX_LITERALS = "+-*/%|&~^<>=!?()[]{}.,;:\\'\"";
 
     // Lexer state info: state name -> state type ('inclusive' or 'exclusive')
     public static final Map<String, String> LEX_STATE_INFO;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("INITIAL", "inclusive");
-        LEX_STATE_INFO = Collections.unmodifiableMap(m);
+        m.put( "INITIAL", "inclusive" );
+        LEX_STATE_INFO = Collections.unmodifiableMap( m );
     }
 
     /**
@@ -163,92 +163,210 @@ public class LexTab {
      * Each entry is a String[2]: {functionName, tokenType}, either of which may be null.
      * This mirrors the Python list of (func, type) tuples associated with the compiled regex.
      */
-    public static final String[][] LEX_STATE_RE_INITIAL_FUNCS = {
-        null,                                        // group 0: full match (unused)
-        {"t_CPP_WS",      "CPP_WS"},
+    public static final String[][]          LEX_STATE_RE_INITIAL_FUNCS = {
+        null, // group 0: full match (unused)
+        {
+            "t_CPP_WS", "CPP_WS"
+        },
         null,
-        {"t_CPP_LINECONT","CPP_LINECONT"},
-        {"t_CPP_INTEGER", "CPP_INTEGER"},
+        {
+            "t_CPP_LINECONT", "CPP_LINECONT"
+        },
+        {
+            "t_CPP_INTEGER", "CPP_INTEGER"
+        },
         null, null, null, null, null, null, null, null,
-        {"t_CPP_STRING",  "CPP_STRING"},
+        {
+            "t_CPP_STRING", "CPP_STRING"
+        },
         null, null, null,
-        {"t_CPP_CHAR",    "CPP_CHAR"},
+        {
+            "t_CPP_CHAR", "CPP_CHAR"
+        },
         null, null, null, null,
-        {"t_CPP_COMMENT1","CPP_COMMENT1"},
+        {
+            "t_CPP_COMMENT1", "CPP_COMMENT1"
+        },
         null, null,
-        {"t_CPP_COMMENT2","CPP_COMMENT2"},
+        {
+            "t_CPP_COMMENT2", "CPP_COMMENT2"
+        },
         null,
-        {null,            "CPP_FLOAT"},
+        {
+            null, "CPP_FLOAT"
+        },
         null, null, null, null, null, null, null, null, null,
-        {null,            "CPP_ID"},
-        {null,            "CPP_LOGICALOR"},
-        {null,            "CPP_PLUSPLUS"},
-        {null,            "CPP_DPOUND"},
-        {null,            "CPP_LSHIFTEQUAL"},
-        {null,            "CPP_OREQUAL"},
-        {null,            "CPP_PLUSEQUAL"},
-        {null,            "CPP_RSHIFTEQUAL"},
-        {null,            "CPP_MULTIPLYEQUAL"},
-        {null,            "CPP_BAR"},
-        {null,            "CPP_DIVIDEEQUAL"},
-        {null,            "CPP_POUND"},
-        {null,            "CPP_PERCENTEQUAL"},
-        {null,            "CPP_DEREFERENCE"},
-        {null,            "CPP_RPAREN"},
-        {null,            "CPP_ANDEQUAL"},
-        {null,            "CPP_RBRACKET"},
-        {null,            "CPP_LPAREN"},
-        {null,            "CPP_RSHIFT"},
-        {null,            "CPP_LESSEQUAL"},
-        {null,            "CPP_HAT"},
-        {null,            "CPP_LOGICALAND"},
-        {null,            "CPP_EQUALITY"},
-        {null,            "CPP_GREATEREQUAL"},
-        {null,            "CPP_BSLASH"},
-        {null,            "CPP_MINUSEQUAL"},
-        {null,            "CPP_DOT"},
-        {null,            "CPP_MINUSMINUS"},
-        {null,            "CPP_LBRACKET"},
-        {null,            "CPP_PLUS"},
-        {null,            "CPP_XOREQUAL"},
-        {null,            "CPP_STAR"},
-        {null,            "CPP_QUESTION"},
-        {null,            "CPP_LSHIFT"},
-        {null,            "CPP_INEQUALITY"},
-        {null,            "CPP_DQUOTE"},
-        {null,            "CPP_MINUS"},
-        {null,            "CPP_RCURLY"},
-        {null,            "CPP_GREATER"},
-        {null,            "CPP_LESS"},
-        {null,            "CPP_SQUOTE"},
-        {null,            "CPP_EXCLAMATION"},
-        {null,            "CPP_LCURLY"},
-        {null,            "CPP_EQUAL"},
-        {null,            "CPP_FSLASH"},
-        {null,            "CPP_COLON"},
-        {null,            "CPP_AMPERSAND"},
-        {null,            "CPP_COMMA"},
-        {null,            "CPP_TILDE"},
-        {null,            "CPP_SEMICOLON"},
-        {null,            "CPP_PERCENT"},
+        {
+            null, "CPP_ID"
+        },
+        {
+            null, "CPP_LOGICALOR"
+        },
+        {
+            null, "CPP_PLUSPLUS"
+        },
+        {
+            null, "CPP_DPOUND"
+        },
+        {
+            null, "CPP_LSHIFTEQUAL"
+        },
+        {
+            null, "CPP_OREQUAL"
+        },
+        {
+            null, "CPP_PLUSEQUAL"
+        },
+        {
+            null, "CPP_RSHIFTEQUAL"
+        },
+        {
+            null, "CPP_MULTIPLYEQUAL"
+        },
+        {
+            null, "CPP_BAR"
+        },
+        {
+            null, "CPP_DIVIDEEQUAL"
+        },
+        {
+            null, "CPP_POUND"
+        },
+        {
+            null, "CPP_PERCENTEQUAL"
+        },
+        {
+            null, "CPP_DEREFERENCE"
+        },
+        {
+            null, "CPP_RPAREN"
+        },
+        {
+            null, "CPP_ANDEQUAL"
+        },
+        {
+            null, "CPP_RBRACKET"
+        },
+        {
+            null, "CPP_LPAREN"
+        },
+        {
+            null, "CPP_RSHIFT"
+        },
+        {
+            null, "CPP_LESSEQUAL"
+        },
+        {
+            null, "CPP_HAT"
+        },
+        {
+            null, "CPP_LOGICALAND"
+        },
+        {
+            null, "CPP_EQUALITY"
+        },
+        {
+            null, "CPP_GREATEREQUAL"
+        },
+        {
+            null, "CPP_BSLASH"
+        },
+        {
+            null, "CPP_MINUSEQUAL"
+        },
+        {
+            null, "CPP_DOT"
+        },
+        {
+            null, "CPP_MINUSMINUS"
+        },
+        {
+            null, "CPP_LBRACKET"
+        },
+        {
+            null, "CPP_PLUS"
+        },
+        {
+            null, "CPP_XOREQUAL"
+        },
+        {
+            null, "CPP_STAR"
+        },
+        {
+            null, "CPP_QUESTION"
+        },
+        {
+            null, "CPP_LSHIFT"
+        },
+        {
+            null, "CPP_INEQUALITY"
+        },
+        {
+            null, "CPP_DQUOTE"
+        },
+        {
+            null, "CPP_MINUS"
+        },
+        {
+            null, "CPP_RCURLY"
+        },
+        {
+            null, "CPP_GREATER"
+        },
+        {
+            null, "CPP_LESS"
+        },
+        {
+            null, "CPP_SQUOTE"
+        },
+        {
+            null, "CPP_EXCLAMATION"
+        },
+        {
+            null, "CPP_LCURLY"
+        },
+        {
+            null, "CPP_EQUAL"
+        },
+        {
+            null, "CPP_FSLASH"
+        },
+        {
+            null, "CPP_COLON"
+        },
+        {
+            null, "CPP_AMPERSAND"
+        },
+        {
+            null, "CPP_COMMA"
+        },
+        {
+            null, "CPP_TILDE"
+        },
+        {
+            null, "CPP_SEMICOLON"
+        },
+        {
+            null, "CPP_PERCENT"
+        },
     };
 
     // Ignore patterns per state (empty string means nothing is ignored)
     public static final Map<String, String> LEX_STATE_IGNORE;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("INITIAL", "");
-        LEX_STATE_IGNORE = Collections.unmodifiableMap(m);
+        m.put( "INITIAL", "" );
+        LEX_STATE_IGNORE = Collections.unmodifiableMap( m );
     }
 
     // Error function names per state
     public static final Map<String, String> LEX_STATE_ERRORF;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("INITIAL", "t_error");
-        LEX_STATE_ERRORF = Collections.unmodifiableMap(m);
+        m.put( "INITIAL", "t_error" );
+        LEX_STATE_ERRORF = Collections.unmodifiableMap( m );
     }
 
     // End-of-file function names per state (empty map = no eof handlers)
     public static final Map<String, String> LEX_STATE_EOFF = Collections.emptyMap();
-}
+} // class LexTab

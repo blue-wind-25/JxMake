@@ -1,8 +1,8 @@
 // Translated using Claude Sonnet 4.6
 package com.pcpp.parser;
 
-import com.pcpp.ply.LexToken;
 import com.pcpp.ply.Lexer;
+import com.pcpp.ply.LexToken;
 
 import java.util.*;
 import java.util.regex.*;
@@ -23,11 +23,11 @@ public class CppLexer {
     // -----------------------------------------------------------------------
 
     // Whitespace (not past end of line)
-    private static final String PAT_WS        = "[ \\t]+|\\n";
+    private static final String PAT_WS            = "[ \\t]+|\\n";
     // Line continuation  \\[ \t]*\n
-    private static final String PAT_LINECONT  = "\\\\[ \\t]*\\n";
+    private static final String PAT_LINECONT      = "\\\\[ \\t]*\\n";
     // ##
-    private static final String PAT_DPOUND    = "##";
+    private static final String PAT_DPOUND        = "##";
     // Compound operators (longest first)
     private static final String PAT_LSHIFTEQUAL   = "<<=";
     private static final String PAT_RSHIFTEQUAL   = ">>=";
@@ -51,50 +51,50 @@ public class CppLexer {
     private static final String PAT_PERCENTEQUAL  = "%=";
     private static final String PAT_DEREFERENCE   = "->";
     // Single-char operators
-    private static final String PAT_POUND     = "#";
-    private static final String PAT_PLUS      = "\\+";
-    private static final String PAT_MINUS     = "-";
-    private static final String PAT_STAR      = "\\*";
-    private static final String PAT_FSLASH    = "/";
-    private static final String PAT_PERCENT   = "%";
-    private static final String PAT_BAR       = "\\|";
-    private static final String PAT_AMPERSAND = "&";
-    private static final String PAT_TILDE     = "~";
-    private static final String PAT_HAT       = "\\^";
-    private static final String PAT_LESS      = "<";
-    private static final String PAT_GREATER   = ">";
-    private static final String PAT_EQUAL     = "=";
-    private static final String PAT_EXCL      = "!";
-    private static final String PAT_QUESTION  = "\\?";
-    private static final String PAT_LPAREN    = "\\(";
-    private static final String PAT_RPAREN    = "\\)";
-    private static final String PAT_LBRACKET  = "\\[";
-    private static final String PAT_RBRACKET  = "\\]";
-    private static final String PAT_LCURLY    = "\\{";
-    private static final String PAT_RCURLY    = "\\}";
-    private static final String PAT_DOT       = "\\.";
-    private static final String PAT_COMMA     = ",";
-    private static final String PAT_SEMICOLON = ";";
-    private static final String PAT_COLON     = ":";
-    private static final String PAT_BSLASH    = "\\\\";
-    private static final String PAT_SQUOTE    = "'";
-    private static final String PAT_DQUOTE    = "\"";
+    private static final String PAT_POUND         = "#";
+    private static final String PAT_PLUS          = "\\+";
+    private static final String PAT_MINUS         = "-";
+    private static final String PAT_STAR          = "\\*";
+    private static final String PAT_FSLASH        = "/";
+    private static final String PAT_PERCENT       = "%";
+    private static final String PAT_BAR           = "\\|";
+    private static final String PAT_AMPERSAND     = "&";
+    private static final String PAT_TILDE         = "~";
+    private static final String PAT_HAT           = "\\^";
+    private static final String PAT_LESS          = "<";
+    private static final String PAT_GREATER       = ">";
+    private static final String PAT_EQUAL         = "=";
+    private static final String PAT_EXCL          = "!";
+    private static final String PAT_QUESTION      = "\\?";
+    private static final String PAT_LPAREN        = "\\(";
+    private static final String PAT_RPAREN        = "\\)";
+    private static final String PAT_LBRACKET      = "\\[";
+    private static final String PAT_RBRACKET      = "\\]";
+    private static final String PAT_LCURLY        = "\\{";
+    private static final String PAT_RCURLY        = "\\}";
+    private static final String PAT_DOT           = "\\.";
+    private static final String PAT_COMMA         = ",";
+    private static final String PAT_SEMICOLON     = ";";
+    private static final String PAT_COLON         = ":";
+    private static final String PAT_BSLASH        = "\\\\";
+    private static final String PAT_SQUOTE        = "'";
+    private static final String PAT_DQUOTE        = "\"";
     // Identifiers
-    private static final String PAT_ID        = "[A-Za-z_][\\w_]*";
+    private static final String PAT_ID            = "[A-Za-z_][\\w_]*";
     // Integer literal
-    private static final String PAT_INTEGER   =
-            "(((0x|0X)[0-9a-fA-F]+)|\\d+)([uU][lL]|[lL][uU]|[uU]|[lL])?";
+    private static final String PAT_INTEGER       =
+        "(((0x|0X)[0-9a-fA-F]+)|\\d+)([uU][lL]|[lL][uU]|[uU]|[lL])?";
     // Float literal
-    private static final String PAT_FLOAT     =
-            "((\\d+)(\\.\\d+)(e(\\+|-)?\\d+)?|(\\d+)e(\\+|-)?\\d+)([lLfF])?";
+    private static final String PAT_FLOAT         =
+        "((\\d+)(\\.\\d+)(e(\\+|-)?\\d+)?|(\\d+)e(\\+|-)?\\d+)([lLfF])?";
     // String literal  "..." (may contain escaped chars or line continuations)
-    private static final String PAT_STRING    = "\"([^\\\\\\n]|(\\\\(.|\\n)))*?\"";
+    private static final String PAT_STRING        = "\"([^\\\\\\n]|(\\\\(.|\\n)))*?\"";
     // Char literal  'c' or L'c'
-    private static final String PAT_CHAR      = "(L)?'([^\\\\\\n]|(\\\\(.|\\n)))*?'";
+    private static final String PAT_CHAR          = "(L)?'([^\\\\\\n]|(\\\\(.|\\n)))*?'";
     // Block comment
-    private static final String PAT_COMMENT1  = "/\\*(.|\\n)*?\\*/";
+    private static final String PAT_COMMENT1      = "/\\*(.|\\n)*?\\*/";
     // Line comment
-    private static final String PAT_COMMENT2  = "//[^\\n]*";
+    private static final String PAT_COMMENT2      = "//[^\\n]*";
 
     // -----------------------------------------------------------------------
     // Master pattern
@@ -102,7 +102,7 @@ public class CppLexer {
     // -----------------------------------------------------------------------
 
     private static final String[] RULE_NAMES = {
-        CppTokens.CPP_COMMENT1,    // longest, must come first
+        CppTokens.CPP_COMMENT1, // longest, must come first
         CppTokens.CPP_COMMENT2,
         CppTokens.CPP_LINECONT,
         CppTokens.CPP_WS,
@@ -226,55 +226,58 @@ public class CppLexer {
     };
 
     // Pattern to strip line-continuations from string literals
-    private static final Pattern STRING_LINECONT_PAT = Pattern.compile("\\\\[ \\t]*\\n");
+    private static final Pattern  STRING_LINECONT_PAT = Pattern.compile( "\\\\[ \\t]*\\n" );
 
-    private static final Pattern MASTER;
+    private static final Pattern  MASTER;
     static {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < RULE_NAMES.length; i++) {
-            if (i > 0) sb.append('|');
-            sb.append("(?<G").append(i).append('>');
-            sb.append(RULE_PATTERNS[i]);
-            sb.append(')');
+        for( int i = 0; i < RULE_NAMES.length; i++ ) {
+            if( i > 0 ) sb.append( '|' );
+            sb.append( "(?<G" ).append( i ).append( '>' );
+            sb.append( RULE_PATTERNS[i] );
+            sb.append( ')' );
         }
-        MASTER = Pattern.compile(sb.toString(), Pattern.DOTALL);
+        MASTER = Pattern.compile( sb.toString(), Pattern.DOTALL );
     }
 
     // -----------------------------------------------------------------------
     // Instance state
     // -----------------------------------------------------------------------
     private String inputData;
-    private int lexpos;
-    private int lexlen;
-    public int lineno;
+    private int    lexpos;
+    private int    lexlen;
+    public int     lineno;
 
-    public CppLexer() {
+    public CppLexer()
+    {
         lineno = 1;
     }
 
-    public void input(String text) {
+    public void input( String text )
+    {
         this.inputData = text;
-        this.lexpos = 0;
-        this.lexlen = text.length();
-        this.lineno = 1;
+        this.lexpos    = 0;
+        this.lexlen    = text.length();
+        this.lineno    = 1;
     }
 
     /**
      * Return the next token, or null at EOF.
      * Mirrors PLY Lexer.token() with the custom t_XXX functions from parser.py.
      */
-    public LexToken token() {
-        if (inputData == null || lexpos >= lexlen) return null;
+    public LexToken token()
+    {
+        if( inputData == null || lexpos >= lexlen ) return null;
 
-        while (lexpos < lexlen) {
-            Matcher m = MASTER.matcher(inputData);
-            m.region(lexpos, lexlen);
-            if (!m.lookingAt()) {
+        while( lexpos < lexlen ) {
+            Matcher m = MASTER.matcher( inputData );
+            m.region( lexpos, lexlen );
+            if( !m.lookingAt() ) {
                 // Error: consume one character and return it as a token of its own type
-                char c = inputData.charAt(lexpos);
+                char     c   = inputData.charAt( lexpos );
                 LexToken tok = new LexToken();
-                tok.type = String.valueOf(c);
-                tok.value = String.valueOf(c);
+                tok.type   = String.valueOf( c );
+                tok.value  = String.valueOf( c );
                 tok.lineno = lineno;
                 tok.lexpos = lexpos;
                 lexpos++;
@@ -282,49 +285,53 @@ public class CppLexer {
             }
 
             // Find which group matched
-            for (int i = 0; i < RULE_NAMES.length; i++) {
+            for( int i = 0; i < RULE_NAMES.length; i++ ) {
                 String gname = "G" + i;
                 String matched;
-                try { matched = m.group(gname); } catch (IllegalArgumentException e) { continue; }
-                if (matched == null) continue;
+                try {
+                    matched = m.group( gname );
+                } catch( IllegalArgumentException e ) {
+                    continue;
+                }
+                if( matched == null ) continue;
 
-                String tokType = RULE_NAMES[i];
-                LexToken tok = new LexToken();
-                tok.type = tokType;
-                tok.value = matched;
+                String   tokType = RULE_NAMES[i];
+                LexToken tok     = new LexToken();
+                tok.type   = tokType;
+                tok.value  = matched;
                 tok.lineno = lineno;
                 tok.lexpos = lexpos;
-                lexpos += matched.length();
+                lexpos    += matched.length();
 
                 // Apply per-token actions (mirrors the t_XXX function bodies in parser.py)
-                switch (tokType) {
+                switch( tokType ) {
                     case CppTokens.CPP_WS:
-                        lineno += countNewlines(matched);
+                        lineno += countNewlines( matched );
                         return tok;
 
                     case CppTokens.CPP_LINECONT:
                         // Strip the leading backslash and trailing newline; keep only middle whitespace
-                        tok.value = matched.substring(1, matched.length() - 1);
-                        lineno += 1;
+                        tok.value = matched.substring( 1, matched.length() - 1 );
+                        lineno   += 1;
                         return tok;
 
                     case CppTokens.CPP_STRING:
                         // Collapse line continuations inside the string literal
-                        Matcher lc = STRING_LINECONT_PAT.matcher(matched);
-                        StringBuffer sb2 = new StringBuffer();
-                        int subs = 0;
-                        while (lc.find()) { lc.appendReplacement(sb2, ""); subs++; }
-                        lc.appendTail(sb2);
+                        Matcher      lc   = STRING_LINECONT_PAT.matcher( matched );
+                        StringBuffer sb2  = new StringBuffer();
+                        int          subs = 0;
+                        while( lc.find() ) { lc.appendReplacement( sb2, "" ); subs++; }
+                        lc.appendTail( sb2 );
                         tok.value = sb2.toString();
-                        lineno += subs + countNewlines(tok.value.toString());
+                        lineno   += subs + countNewlines( tok.value.toString() );
                         return tok;
 
                     case CppTokens.CPP_CHAR:
-                        lineno += countNewlines(matched);
+                        lineno += countNewlines( matched );
                         return tok;
 
                     case CppTokens.CPP_COMMENT1:
-                        lineno += countNewlines(matched);
+                        lineno += countNewlines( matched );
                         return tok;
 
                     case CppTokens.CPP_COMMENT2:
@@ -332,32 +339,34 @@ public class CppLexer {
 
                     default:
                         return tok;
-                }
+                } // switch
             }
         }
         return null;
     }
 
     /** Return a clone with independent cursor but sharing no mutable state. */
-    public CppLexer clone() {
+    public CppLexer clone()
+    {
         CppLexer c = new CppLexer();
         c.inputData = this.inputData;
-        c.lexpos = this.lexpos;
-        c.lexlen = this.lexlen;
-        c.lineno = this.lineno;
+        c.lexpos    = this.lexpos;
+        c.lexlen    = this.lexlen;
+        c.lineno    = this.lineno;
         return c;
     }
 
     /** Skip n characters (used in error handlers). */
-    public void skip(int n) {
-        lexpos = Math.min(lexpos + n, lexlen);
+    public void skip( int n )
+    {
+        lexpos = Math.min( lexpos + n, lexlen );
     }
 
-    private static int countNewlines(String s) {
+    private static int countNewlines( String s )
+    {
         int count = 0;
-        for (int i = 0; i < s.length(); i++) {
-            if (s.charAt(i) == '\n') count++;
-        }
+        for( int i = 0; i < s.length(); i++ )
+            if( s.charAt( i ) == '\n' ) count++;
         return count;
     }
-}
+} // class CppLexer

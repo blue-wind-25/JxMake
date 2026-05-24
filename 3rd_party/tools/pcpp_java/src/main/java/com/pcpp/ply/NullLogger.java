@@ -8,25 +8,28 @@ package com.pcpp.ply;
 public class NullLogger extends PlyLogger {
 
     public NullLogger() {
-        super(new java.io.PrintWriter(new java.io.Writer() {
-            @Override public void write(char[] buf, int off, int len) { /* discard */ }
-            @Override public void flush() { /* discard */ }
-            @Override public void close() { /* discard */ }
-        }));
+        super(new java.io.PrintWriter( new java.io.Writer() {
+            @Override public void write( char[] buf, int off, int len ) { // discard
+            }
+            @Override public void flush() {                               // discard
+            }
+            @Override public void close() {                               // discard
+            }
+        } ) );
     }
 
     @Override
-    public void critical(String msg, Object... args) { /* discard */ }
+    public void critical( String msg, Object... args ) { /* discard */ }
 
     @Override
-    public void warning(String msg, Object... args) { /* discard */ }
+    public void warning( String msg, Object... args ) { /* discard */ }
 
     @Override
-    public void error(String msg, Object... args) { /* discard */ }
+    public void error( String msg, Object... args ) { /* discard */ }
 
     @Override
-    public void info(String msg, Object... args) { /* discard */ }
+    public void info( String msg, Object... args ) { /* discard */ }
 
     @Override
-    public void debug(String msg, Object... args) { /* discard */ }
-}
+    public void debug( String msg, Object... args ) { /* discard */ }
+} // class NullLogger

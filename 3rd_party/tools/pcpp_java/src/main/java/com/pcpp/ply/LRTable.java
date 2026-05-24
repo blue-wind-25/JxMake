@@ -2,9 +2,9 @@
 package com.pcpp.ply;
 
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 /**
  * Base class holding precomputed LR parsing tables.
@@ -30,12 +30,12 @@ public class LRTable {
      * action == 0 → accept
      * no entry     → syntax error
      */
-    public Map<Integer, Map<String, Integer>> lr_action;
+    public Map<Integer, Map<String, Integer> > lr_action;
 
     /**
      * Goto table: state (int) → (non-terminal → next state).
      */
-    public Map<Integer, Map<String, Integer>> lr_goto;
+    public Map<Integer, Map<String, Integer> > lr_goto;
 
     /**
      * Production list.  Index 0 is the augmented start rule S' -> start.
@@ -44,7 +44,7 @@ public class LRTable {
     public List<MiniProduction> lr_productions;
 
     /** "LALR" or "SLR". */
-    public String lr_method;
+    public String               lr_method;
 
     public LRTable() {}
 
@@ -56,10 +56,11 @@ public class LRTable {
      * Populate from raw data structures produced by a table generator.
      * This is the direct-assignment path (no file I/O).
      */
-    public void setTables(Map<Integer, Map<String, Integer>> action,
-                          Map<Integer, Map<String, Integer>> gotoTable,
-                          List<MiniProduction> productions,
-                          String method) {
+    public void setTables( Map<Integer, Map<String, Integer> > action,
+        Map<Integer, Map<String, Integer> >                    gotoTable,
+        List<MiniProduction>                                   productions,
+        String                                                 method )
+    {
         this.lr_action      = action;
         this.lr_goto        = gotoTable;
         this.lr_productions = productions;
@@ -80,21 +81,22 @@ public class LRTable {
      * @param tab the parse table data
      * @return the signature stored in the table data
      */
-    public String readTable(ParseTabData tab) {
-        this.lr_action = tab.getAction();
-        this.lr_goto   = tab.getGoto();
-        this.lr_method = tab.getMethod();
+    public String readTable( ParseTabData tab )
+    {
+        this.lr_action      = tab.getAction();
+        this.lr_goto        = tab.getGoto();
+        this.lr_method      = tab.getMethod();
 
         this.lr_productions = new ArrayList<>();
-        for (Object[] row : tab.getProductions()) {
+        for( Object[] row : tab.getProductions() ) {
             // row = [str, name, len, func, file, line]  (same layout as Python tuple)
-            String str   = (String)  row[0];
-            String name  = (String)  row[1];
-            int    len   = (Integer) row[2];
-            String func  = row[3] != null ? (String)  row[3] : null;
-            String file  = row[4] != null ? (String)  row[4] : null;
-            int    line  = row[5] != null ? (Integer) row[5] : 0;
-            this.lr_productions.add(new MiniProduction(str, name, len, func, file, line));
+            String str  = (String) row[0];
+            String name = (String) row[1];
+            int    len  = (Integer) row[2];
+            String func = row[3] != null ? (String) row[3] : null;
+            String file = row[4] != null ? (String) row[4] : null;
+            int    line = row[5] != null ? (Integer) row[5] : 0;
+            this.lr_productions.add( new MiniProduction( str, name, len, func, file, line ) );
         }
         return tab.getSignature();
     }
@@ -108,9 +110,8 @@ public class LRTable {
      *
      * @param pdict map from function name to Consumer&lt;YaccProduction&gt; action
      */
-    public void bindCallables(Map<String, Consumer<YaccProduction>> pdict) {
-        for (MiniProduction p : lr_productions) {
-            p.bind(pdict);
-        }
+    public void bindCallables( Map<String, Consumer<YaccProduction> > pdict )
+    {
+        for( MiniProduction p : lr_productions ) p.bind( pdict );
     }
-}
+} // class LRTable

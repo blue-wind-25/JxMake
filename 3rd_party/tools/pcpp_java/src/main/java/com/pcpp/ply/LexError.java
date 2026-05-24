@@ -8,8 +8,8 @@ package com.pcpp.ply;
 public class LexError extends RuntimeException {
     public final String text;
 
-    public LexError(String message, String text) {
+    public              LexError( String message, String text ) {
         super(message);
         this.text = text;
     }
-}
+} // class LexError

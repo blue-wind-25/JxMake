@@ -37,18 +37,18 @@ import java.util.Map;
  *   lr0_added  - Internal counter used during LR(0) closure computation
  */
 public class LRItem {
-    public final String name;
-    public final List<String> prod;   // includes "." at lr_index
-    public final int number;
-    public final int lr_index;
-    public final int len;
-    public final List<String> usyms;
+    public final String                      name;
+    public final List<String>                prod; // includes "." at lr_index
+    public final int                         number;
+    public final int                         lr_index;
+    public final int                         len;
+    public final List<String>                usyms;
 
     /** LALR lookahead sets: state → list of lookahead terminal symbols. */
-    public final Map<Integer, List<String>> lookaheads;
+    public final Map<Integer, List<String> > lookaheads;
 
     /** Next LR item (dot shifted right by one). Null at the end of the rule. */
-    public LRItem lr_next;
+    public LRItem                            lr_next;
 
     /**
      * List of all productions whose LHS immediately follows the dot.
@@ -63,28 +63,28 @@ public class LRItem {
     public String lr_before;
 
     /** Internal counter used during LR(0) closure; mirrors Python's lr0_added attribute. */
-    public int lr0_added;
+    public int    lr0_added;
 
-    public LRItem(Production p, int n) {
-        this.name      = p.name;
-        this.number    = p.number;
-        this.lr_index  = n;
-        this.usyms     = p.usyms;
+    public LRItem( Production p, int n )
+    {
+        this.name       = p.name;
+        this.number     = p.number;
+        this.lr_index   = n;
+        this.usyms      = p.usyms;
         this.lookaheads = new HashMap<>();
         this.lr_after   = new ArrayList<>();
 
         // Build prod with "." inserted at position n
-        List<String> withDot = new ArrayList<>(p.prod);
-        withDot.add(n, ".");
+        List<String> withDot = new ArrayList<>( p.prod );
+        withDot.add( n, "." );
         this.prod = withDot;
         this.len  = withDot.size();
     }
 
     @Override
-    public String toString() {
-        if (prod.isEmpty()) {
-            return name + " -> <empty>";
-        }
-        return name + " -> " + String.join(" ", prod);
+    public String toString()
+    {
+        if( prod.isEmpty() ) return name + " -> <empty>";
+        return name + " -> " + String.join( " ", prod );
     }
-}
+} // class LRItem

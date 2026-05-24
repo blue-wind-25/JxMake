@@ -19,5 +19,5 @@ public interface TokenCallback {
      * @return the token to emit (may be {@code tok} itself, a different token,
      *         or {@code null} to silently discard the token).
      */
-    LexToken apply(LexToken tok);
+    LexToken apply( LexToken tok );
 }

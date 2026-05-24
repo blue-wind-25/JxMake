@@ -21,10 +21,10 @@ import java.util.Map;
  */
 public interface ParseTabData {
     /** The action table: state → (token → action integer). */
-    Map<Integer, Map<String, Integer>> getAction();
+    Map<Integer, Map<String, Integer> > getAction();
 
     /** The goto table: state → (non-terminal → next state). */
-    Map<Integer, Map<String, Integer>> getGoto();
+    Map<Integer, Map<String, Integer> > getGoto();
 
     /** Raw production tuples. */
     List<Object[]> getProductions();
@@ -34,4 +34,4 @@ public interface ParseTabData {
 
     /** Grammar signature used to validate table freshness. */
     String getSignature();
-}
+} // interface ParseTabData

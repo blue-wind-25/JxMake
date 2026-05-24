@@ -41,11 +41,12 @@ public class LexRule {
      * @param pattern  regex pattern
      * @param callback function invoked on match
      */
-    public LexRule(String name, String pattern, TokenCallback callback) {
-        this.name = name;
-        this.pattern = pattern;
+    public LexRule( String name, String pattern, TokenCallback callback )
+    {
+        this.name     = name;
+        this.pattern  = pattern;
         this.callback = callback;
-        this.ignore = false;
+        this.ignore   = false;
     }
 
     /**
@@ -55,11 +56,12 @@ public class LexRule {
      * @param pattern regex pattern
      * @param ignore  if {@code true} matched text is discarded silently
      */
-    public LexRule(String name, String pattern, boolean ignore) {
-        this.name = name;
-        this.pattern = pattern;
+    public LexRule( String name, String pattern, boolean ignore )
+    {
+        this.name     = name;
+        this.pattern  = pattern;
         this.callback = null;
-        this.ignore = ignore;
+        this.ignore   = ignore;
     }
 
     /**
@@ -68,17 +70,20 @@ public class LexRule {
      * @param name    symbolic name
      * @param pattern regex pattern
      */
-    public LexRule(String name, String pattern) {
+    public LexRule( String name, String pattern )
+    {
         this(name, pattern, false);
     }
 
     /** Returns {@code true} if this is a function rule (has a callback). */
-    public boolean isFunction() {
+    public boolean isFunction()
+    {
         return callback != null;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "LexRule{name='" + name + "', pattern='" + pattern + "'}";
     }
-}
+} // class LexRule

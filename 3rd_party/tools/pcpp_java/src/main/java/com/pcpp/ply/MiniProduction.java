@@ -24,10 +24,10 @@ import java.util.function.Consumer;
 public class MiniProduction {
     public final String str;
     public final String name;
-    public final int len;
+    public final int    len;
     public final String func;
     public final String file;
-    public final int line;
+    public final int    line;
 
     /**
      * The grammar action to call on reduction.
@@ -36,7 +36,8 @@ public class MiniProduction {
      */
     public Consumer<YaccProduction> callable;
 
-    public MiniProduction(String str, String name, int len, String func, String file, int line) {
+    public MiniProduction( String str, String name, int len, String func, String file, int line )
+    {
         this.str  = str;
         this.name = name;
         this.len  = len;
@@ -46,14 +47,14 @@ public class MiniProduction {
     }
 
     /** Bind the named action to its callable from the spec's action map. */
-    public void bind(java.util.Map<String, Consumer<YaccProduction>> pdict) {
-        if (func != null) {
-            this.callable = pdict.get(func);
-        }
+    public void bind( java.util.Map<String, Consumer<YaccProduction> > pdict )
+    {
+        if( func != null ) this.callable = pdict.get( func );
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return str;
     }
-}
+} // class MiniProduction

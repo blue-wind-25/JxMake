@@ -50,4 +50,11 @@ while IFS= read -r -d '' f; do
     $unc -f "$f"
 done
 
+
+find . -type f \( -name "*.java" \) -print0 |
+while IFS= read -r -d '' f; do
+    echo "Processing $f"
+    $unc --replace --no-backup "$f"
+done
+
 ===================================================================================================

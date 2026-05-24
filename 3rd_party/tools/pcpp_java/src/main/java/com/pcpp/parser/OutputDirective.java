@@ -9,8 +9,8 @@ package com.pcpp.parser;
 public class OutputDirective extends RuntimeException {
     public final int action;
 
-    public OutputDirective(int action) {
+    public           OutputDirective( int action ) {
         super("OutputDirective: " + action);
         this.action = action;
     }
-}
+} // class OutputDirective

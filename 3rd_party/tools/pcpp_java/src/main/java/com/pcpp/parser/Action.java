@@ -12,5 +12,5 @@ public final class Action {
     public static final int IgnoreAndPassThrough = 0;
 
     /** Abort processing (don't execute), and remove from output. */
-    public static final int IgnoreAndRemove = 1;
-}
+    public static final int IgnoreAndRemove      = 1;
+} // class Action

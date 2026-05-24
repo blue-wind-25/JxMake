@@ -122,13 +122,52 @@ com/pcpp/
 
 ## Build
 
+### Maven
 ```bash
 cd 3rd_party/tools/pcpp_java
 mvn compile
-mvn package   # produces pcpp-java-1.30.jar with main class com.pcpp.pcmd.CmdPreprocessor
+mvn package   # produces target/pcpp-java-1.30.jar
+```
+
+### Makefile (alternative to Maven; no mvn required)
+```bash
+cd 3rd_party/tools/pcpp_java
+make          # produces target/pcpp-java-1.30.jar
+make JAVAC=/path/to/javac   # use a specific JDK
+make clean
 ```
 
 Run:
 ```bash
 java -jar target/pcpp-java-1.30.jar input.c -o output.c -DFOO=1
+
+# Multi-file mode (equal number of inputs and outputs):
+java -jar target/pcpp-java-1.30.jar --line-directive '' --passthru-comments \
+    {src1.in,src2.in} -o {out1.tmp,out2.tmp}
+
+# If the shell does not expand braces, the program performs expansion itself.
 ```
+
+---
+
+## 2026-05-24 — Stage 2 updates
+
+- **Java 8 compatibility**: replaced all Java 11+ APIs with Java 8 equivalents:
+  - `var` → explicit types (`FileInclusionTime`, `Map.Entry<...>`)
+  - `String.repeat(n)` → `spaces(n)` helper (StringBuilder loop)
+  - `String.strip()` → `String.trim()` in `YGen.java`
+  - `String.stripTrailing()` → `rtrim()` helper in `YGen.java`
+  - `List.of()` → `Collections.<T>emptyList()` in `LexerBuilder.java`
+  - Added `import java.util.Collections` to `LexerBuilder.java`
+  - `pom.xml`: `maven.compiler.source/target` changed from 11 to 8
+
+- **Multi-file support** in `CmdPreprocessor`:
+  - New `expandBraces(String[] argv)`: expands `{a,b,c}` single-arg into multiple args
+  - `-o` now accepts multiple consecutive non-flag values (one per input)
+  - When N inputs + N outputs (N ≥ 2), the program processes each pair independently with a fresh `CmdPreprocessor` instance
+  - `singlePairArgs(Args, int)` helper clones the flag state for one pair
+  - Backward-compatible: original single-file invocation unchanged
+
+- **Makefile**: added `Makefile` with configurable `JAVAC` variable (top of file); supports `all` (builds JAR) and `clean` targets; mirrors pom.xml layout.
+
+- **`# OptimIzed by Claude Sonnet 4.6` comment**: this exact line was not found in any Java source file (the prior session used `// Translated by Claude Sonnet 4.6` instead). No removal was performed.

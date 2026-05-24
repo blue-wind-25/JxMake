@@ -38,14 +38,14 @@ public class YGen {
         int endIndex   = -1;
 
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).strip().startsWith(startTag)) {
+            if (lines.get(i).trim().startsWith(startTag)) {
                 startIndex = i;
                 break;
             }
         }
 
         for (int i = startIndex + 1; i < lines.size(); i++) {
-            if (lines.get(i).strip().endsWith(endTag)) {
+            if (lines.get(i).trim().endsWith(endTag)) {
                 endIndex = i;
                 break;
             }
@@ -69,7 +69,7 @@ public class YGen {
         String tagText = "#--! " + tag;
 
         for (String line : lines) {
-            if (line.strip().startsWith(tagText)) {
+            if (line.trim().startsWith(tagText)) {
                 include = !include;
             } else if (include) {
                 filteredLines.add(line);
@@ -147,11 +147,17 @@ public class YGen {
         // Normalise line endings (strip trailing whitespace, re-add newline)
         List<String> normalised = new ArrayList<>(lines.size());
         for (String line : lines) {
-            normalised.add(line.stripTrailing() + "\n");
+            normalised.add(rtrim(line) + "\n");
         }
 
         Files.write(yaccPath, normalised, StandardCharsets.UTF_8);
 
         System.out.println("Updated yacc.py");
+    }
+
+    private static String rtrim(String s) {
+        int end = s.length();
+        while (end > 0 && s.charAt(end - 1) <= ' ') end--;
+        return s.substring(0, end);
     }
 }

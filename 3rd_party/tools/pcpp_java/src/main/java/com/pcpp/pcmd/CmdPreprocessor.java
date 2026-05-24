@@ -3,6 +3,7 @@ package com.pcpp.pcmd;
 
 import com.pcpp.parser.*;
 import com.pcpp.ply.LexToken;
+import com.pcpp.preprocessor.FileInclusionTime;
 import com.pcpp.preprocessor.Preprocessor;
 
 import java.io.*;
@@ -30,7 +31,7 @@ public class CmdPreprocessor extends Preprocessor {
     // Parsed arguments
     private static class Args {
         List<String> inputPaths = new ArrayList<>();
-        String outputPath = null;
+        List<String> outputPaths = new ArrayList<>();
         List<String> defines = new ArrayList<>();
         List<String> undefines = new ArrayList<>();
         List<String> nevers = new ArrayList<>();
@@ -52,9 +53,90 @@ public class CmdPreprocessor extends Preprocessor {
         boolean write_bom = false;
     }
 
-    public CmdPreprocessor(String[] argv) {
-        args = parseArgs(argv);
+    /** Creates a single-pair Args copy for the given index. */
+    private static Args singlePairArgs(Args base, int idx) {
+        Args a = new Args();
+        a.inputPaths = Collections.singletonList(base.inputPaths.get(idx));
+        a.outputPaths = Collections.singletonList(base.outputPaths.get(idx));
+        a.defines = base.defines;
+        a.undefines = base.undefines;
+        a.nevers = base.nevers;
+        a.includes = base.includes;
+        a.passthru_defines = base.passthru_defines;
+        a.passthru_unfound_includes = base.passthru_unfound_includes;
+        a.passthru_undefined_exprs = base.passthru_undefined_exprs;
+        a.passthru_comments = base.passthru_comments;
+        a.passthru_magic_macros = base.passthru_magic_macros;
+        a.passthru_includes = base.passthru_includes;
+        a.auto_pragma_once_disabled = base.auto_pragma_once_disabled;
+        a.line_directive = base.line_directive;
+        a.debug = base.debug;
+        a.time_report = base.time_report;
+        a.filetimes = base.filetimes;
+        a.compress = base.compress;
+        a.assume_input_encoding = base.assume_input_encoding;
+        a.output_encoding = base.output_encoding;
+        a.write_bom = base.write_bom;
+        return a;
+    }
 
+    /**
+     * Expands brace-list arguments of the form {@code {a,b,...}} into separate arguments.
+     * This handles the case where the shell did not expand them (e.g. when called from Java).
+     */
+    private static String[] expandBraces(String[] argv) {
+        List<String> expanded = new ArrayList<>();
+        for (String arg : argv) {
+            if (arg.startsWith("{") && arg.endsWith("}") && arg.indexOf(',') >= 0) {
+                String inner = arg.substring(1, arg.length() - 1);
+                for (String part : inner.split(",", -1)) {
+                    expanded.add(part);
+                }
+            } else {
+                expanded.add(arg);
+            }
+        }
+        return expanded.toArray(new String[0]);
+    }
+
+    private static String spaces(int n) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) sb.append(' ');
+        return sb.toString();
+    }
+
+    public CmdPreprocessor(String[] argv) {
+        args = parseArgs(expandBraces(argv));
+
+        // Multi-file mode: equal number of inputs and outputs, both >= 2
+        if (args.inputPaths.size() >= 2 && args.outputPaths.size() == args.inputPaths.size()) {
+            for (int idx = 0; idx < args.inputPaths.size(); idx++) {
+                Args single = singlePairArgs(args, idx);
+                CmdPreprocessor pair = new CmdPreprocessor(single);
+                if (pair.return_code != 0) this.return_code = pair.return_code;
+            }
+            return;
+        }
+
+        // Validate mismatch
+        if (args.outputPaths.size() > 1 && args.outputPaths.size() != args.inputPaths.size()) {
+            System.err.println("pcpp: error: number of output files (" + args.outputPaths.size() +
+                    ") does not match number of input files (" + args.inputPaths.size() + ")");
+            System.exit(1);
+        }
+
+        // Single-file mode (original behaviour)
+        setupAndProcess();
+    }
+
+    /** Private constructor used by multi-file mode for each file pair. */
+    private CmdPreprocessor(Args singleArgs) {
+        this.args = singleArgs;
+        setupAndProcess();
+    }
+
+    /** Shared setup and processing logic (single input/output pair). */
+    private void setupAndProcess() {
         // Override Preprocessor instance variables (mirrors pcmd.py __init__)
         define("__PCPP_VERSION__ " + VERSION);
         define("__PCPP_ALWAYS_FALSE__ 0");
@@ -116,14 +198,16 @@ public class CmdPreprocessor extends Preprocessor {
             add_path(d);
         }
 
+        String outputPath = args.outputPaths.isEmpty() ? null : args.outputPaths.get(0);
+
         // Parse and write
         Writer output;
         try {
-            if (args.outputPath != null) {
+            if (outputPath != null) {
                 if (args.output_encoding != null) {
-                    output = new OutputStreamWriter(new FileOutputStream(args.outputPath), args.output_encoding);
+                    output = new OutputStreamWriter(new FileOutputStream(outputPath), args.output_encoding);
                 } else {
-                    output = new FileWriter(args.outputPath);
+                    output = new FileWriter(outputPath);
                 }
                 if (args.write_bom) {
                     output.write('﻿');
@@ -187,7 +271,7 @@ public class CmdPreprocessor extends Preprocessor {
             System.out.println("\nTime report:");
             System.out.println("============");
             for (int n = 0; n < include_times.size(); n++) {
-                var it = include_times.get(n);
+                FileInclusionTime it = include_times.get(n);
                 if (n == 0) {
                     System.out.printf("top level: %f seconds%n", it.elapsed);
                 } else if (it.depth == 1) {
@@ -196,7 +280,7 @@ public class CmdPreprocessor extends Preprocessor {
                             100.0 * it.elapsed / include_times.get(0).elapsed);
                 } else {
                     System.out.printf("%s%s: %f seconds%n",
-                            " ".repeat(it.depth), it.included_path, it.elapsed);
+                            spaces(it.depth), it.included_path, it.elapsed);
                 }
             }
         }
@@ -206,7 +290,7 @@ public class CmdPreprocessor extends Preprocessor {
                 fw.println("\"Total seconds\",\"Self seconds\",\"File size\",\"File path\"");
                 Map<String, double[]> filetimesMap = new LinkedHashMap<>();
                 List<String> currentfiles = new ArrayList<>();
-                for (var it : include_times) {
+                for (FileInclusionTime it : include_times) {
                     while (it.depth < currentfiles.size()) currentfiles.remove(currentfiles.size() - 1);
                     if (it.depth > currentfiles.size() - 1) currentfiles.add(it.included_abspath);
                     String path2 = currentfiles.isEmpty() ? null : currentfiles.get(currentfiles.size() - 1);
@@ -223,7 +307,7 @@ public class CmdPreprocessor extends Preprocessor {
                     }
                 }
                 List<double[]> sorted = new ArrayList<>();
-                for (var entry : filetimesMap.entrySet()) {
+                for (Map.Entry<String, double[]> entry : filetimesMap.entrySet()) {
                     double[] v = {entry.getValue()[0], entry.getValue()[1], 0};
                     sorted.add(v);
                 }
@@ -346,7 +430,6 @@ public class CmdPreprocessor extends Preprocessor {
             printHelp();
             System.exit(0);
         }
-        List<String> unknown = new ArrayList<>();
         int i = 0;
         while (i < argv.length) {
             String arg = argv[i];
@@ -354,7 +437,13 @@ public class CmdPreprocessor extends Preprocessor {
                 case "--help": case "-h": printHelp(); System.exit(0); break;
                 case "--version": System.out.println("pcpp " + VERSION); System.exit(0); break;
                 case "-o":
-                    if (++i < argv.length) a.outputPath = argv[i];
+                    // Accept one or more consecutive non-flag arguments as output paths
+                    if (i + 1 < argv.length) {
+                        a.outputPaths.add(argv[++i]);
+                        while (i + 1 < argv.length && !argv[i + 1].startsWith("-")) {
+                            a.outputPaths.add(argv[++i]);
+                        }
+                    }
                     break;
                 case "-D":
                     if (++i < argv.length) a.defines.add(argv[i]);
@@ -410,7 +499,7 @@ public class CmdPreprocessor extends Preprocessor {
 
     private static void printHelp() {
         System.out.println(
-                "usage: pcpp [-h] [-o [path]] [-D macro[=val]] [-U macro] [-N macro] [-I path]\n" +
+                "usage: pcpp [-h] [-o [path [path ...]]] [-D macro[=val]] [-U macro] [-N macro] [-I path]\n" +
                 "            [--passthru-defines] [--passthru-unfound-includes]\n" +
                 "            [--passthru-unknown-exprs] [--passthru-comments]\n" +
                 "            [--passthru-magic-macros] [--passthru-includes <regex>]\n" +
@@ -419,7 +508,9 @@ public class CmdPreprocessor extends Preprocessor {
                 "            [--assume-input-encoding <encoding>] [--output-encoding <encoding>]\n" +
                 "            [--write-bom] [--version]\n" +
                 "            [input ...]\n\n" +
-                "A pure universal Java C (pre-)preprocessor implementation."
+                "A pure universal Java C (pre-)preprocessor implementation.\n\n" +
+                "Multi-file mode: supply equal numbers of input and output files.\n" +
+                "  Brace expansion is supported: {a,b,c} is expanded to separate arguments."
         );
     }
 

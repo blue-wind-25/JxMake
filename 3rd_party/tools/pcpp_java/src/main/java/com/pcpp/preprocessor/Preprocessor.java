@@ -1483,12 +1483,12 @@ public class Preprocessor extends PreprocessorHooks {
     {
         this.ignore = new HashSet<>();
         String absSource = source != null ? Paths.get( source ).toAbsolutePath().toString() : null;
-        this.parser = parsegen( input, source, absSource ).iterator();
         if( source != null ) {
             String dname = Paths.get( source ).getParent() != null ?
                            Paths.get( source ).getParent().toString() : "";
             temp_path.add( 0, dname );
         }
+        this.parser = parsegen( input, source, absSource ).iterator();
     }
 
     public void parse( Reader input ) throws IOException

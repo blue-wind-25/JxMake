@@ -1,8 +1,10 @@
 // Translated using Claude Sonnet 4.6
 package com.pcpp.parser;
 
+import com.pcpp.evaluator.Value;
 import com.pcpp.ply.LexToken;
 import java.io.*;
+import java.util.function.Function;
 
 /**
  * Override these in your subclass of Preprocessor to customise preprocessing.
@@ -87,9 +89,9 @@ public class PreprocessorHooks {
      * Return a lambda, or null to pass through mostly expanded.
      * The default returns a lambda returning 0 (as per the C standard).
      */
-    public java.util.function.Function<Object, Integer> on_unknown_macro_function_in_expr( String ident )
+    public Function<Value, Value> on_unknown_macro_function_in_expr( String ident )
     {
-        return x -> 0;
+        return x -> new Value( 0L );
     }
 
     /**

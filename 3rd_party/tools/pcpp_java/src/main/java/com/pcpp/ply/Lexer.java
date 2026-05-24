@@ -329,7 +329,7 @@ public class Lexer {
                 LexToken tok = new LexToken();
                 tok.value   = String.valueOf( ch );
                 tok.lineno  = this.lineno;
-                tok.type    = tok.value;
+                tok.type    = (String) tok.value;
                 tok.lexpos  = pos;
                 this.lexpos = pos + 1;
                 return tok;

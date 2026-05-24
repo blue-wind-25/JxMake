@@ -987,6 +987,7 @@ public class Preprocessor extends PreprocessorHooks {
                     String         name      = "";
                     List<LexToken> args      = new ArrayList<>();
 
+                    Boolean handling = null;
                     if( !dirtokens.isEmpty() ) {
                         name = (String) dirtokens.get( 0 ).value;
                         args = tokenstrip( new ArrayList<>( dirtokens.subList( 1, dirtokens.size() ) ) );
@@ -1000,7 +1001,7 @@ public class Preprocessor extends PreprocessorHooks {
                                 dirtokens.get( 0 ).value, sb );
                         }
 
-                        Boolean handling = on_directive_handle( dirtokens.get( 0 ), args, ifpassthru, precedingtoks );
+                        handling = on_directive_handle( dirtokens.get( 0 ), args, ifpassthru, precedingtoks );
                         assert handling == null || handling;
                     }
                     else {
@@ -1379,10 +1380,6 @@ public class Preprocessor extends PreprocessorHooks {
 
     public void define( List<LexToken> tokens )
     {
-        tokens = new ArrayList<>();
-        for( LexToken t : tokens ) tokens.add( t.copy() );
-
-        // This method reuses the local variable 'tokens'
         List<LexToken> linetok = new ArrayList<>();
         for( LexToken t : tokens ) linetok.add( t.copy() );
 

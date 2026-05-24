@@ -536,9 +536,9 @@ public class CmdPreprocessor extends Preprocessor {
     // Entry point
     // -----------------------------------------------------------------------
 
-    public static int main( String[] argv )
+    public static void main( String[] argv )
     {
         CmdPreprocessor p = new CmdPreprocessor( argv );
-        return p.return_code;
+        System.exit( p.return_code );
     }
 } // class CmdPreprocessor

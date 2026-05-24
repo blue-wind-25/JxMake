@@ -745,7 +745,10 @@ $(1): $(1).in
 #	@gcc   -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 #	@clang -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 	@python3 ../3rd_party/tools/pcpp/pcmd.py --line-directive '' --passthru-comments $(1).in -o $(1).tmp
-	@cat $(1).tmp | sed -r '/\/\*{5} PCPP_END \*{5}\//{n;N;d}' | sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' | sed 's/__NL__/\n   /g' > $(1)
+	@cat $(1).tmp                                                             \
+		| sed -r '/\/\*{5} PCPP_END \*{5}\//{n;N;d}'                      \
+		| sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' \
+		| sed 's/__NL__/\n   /g' > $(1)
 	@rm -f $(1).tmp
 endef
 
@@ -757,7 +760,40 @@ define PB_DEP
 jxm/ugc/Prog$(strip $(1)).java : $(wildcard jxm/ugc/Prog$(strip $(2))_*.java.inc)
 endef
 
-$(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI,$(I))))
+PP_JSI_MULTI_OUTPUTS :=
+define PP_JSI_MULTI
+PP_JSI_MULTI_OUTPUTS += $(1).tmp
+$(1): PP_JSI_MULTI_RUN
+	@cat $(1).tmp                                                             \
+		| sed -r '/\/\*{5} PCPP_END \*{5}\//{n;N;d}'                      \
+		| sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' \
+		| sed 's/__NL__/\n   /g' > $(1)
+endef
+
+PP_JSI_MULTI_CHK = $(if $(wildcard $(1)),$(if $(filter-out $(1),$(shell find $(1).in -newer $(1) 2>/dev/null)),,$(1).in),$(1).in)
+PP_JSI_MULTI_RUN:
+	$(eval _DIRTY_IN := $(strip $(foreach O,$(patsubst %.tmp,%,$(PP_JSI_MULTI_OUTPUTS)),$(call PP_JSI_MULTI_CHK,$(O)))))
+	$(eval _DIRTY_OUT := $(patsubst %.java.in,%.tmp,$(_DIRTY_IN)))
+	@if [ -n "$(_DIRTY_IN)" ]; then                                                                    \
+		echo "[PCPP] Processing $(words $(_DIRTY_IN)) file(s):";                          \
+		for I in $(_DIRTY_IN); do echo "    $$I"; done; \
+		for I in $(_DIRTY_IN); do \
+		echo $$I; \
+		 python3 ../3rd_party/tools/pcpp/pcmd.py --line-directive '' --passthru-comments $$I -o /tmp/x.res; \
+		done	    ;\
+	else                                                                                               \
+	    echo "[PCPP] All files up to date";                                        \
+	fi
+#		for I in $(_DIRTY_IN); do \
+#		echo $$I; \
+#		 java -jar ../3rd_party/tools/pcpp_java/target/pcpp-java-1.30.jar --line-directive '' --passthru-comments $$I -o /tmp/x.res || exit 1; \
+#		done	    ;\
+#		 java -jar ../3rd_party/tools/pcpp_java/target/pcpp-java-1.30.jar --line-directive '' --passthru-comments $$I -o /tmp/x.res; \
+#	    java -jar ../3rd_party/tools/pcpp_java/target/pcpp-java-1.30.jar --line-directive '' --passthru-comments $(_DIRTY_IN) -o $(_DIRTY_OUT); \
+
+#$(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI,$(I))))
+
+$(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_MULTI,$(I))))
 
 build_classes: $(JAVA_SOURCES_PP) $(MAIN_CLASS) $(JAVA_CLASSES)
 	@echo > /dev/null

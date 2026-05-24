@@ -787,11 +787,11 @@ endef
 USE_MULTI := 1
 ifeq ($(USE_MULTI),1)
     # Batch preprocessing via PCPP_JAVA
-    PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp-java-1.30.jar --line-directive '' --passthru-comments
+    PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp_java/pcpp-java-1.30.jar --line-directive '' --passthru-comments
     $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_MULTI,$(I))))
 else
     # One-by-one preprocessing via PCPP_PYTHON
-    PCPP_PYTHON = python3                ../3rd_party/tools/pcpp/pcmd.py       --line-directive '' --passthru-comments
+    PCPP_PYTHON = python3                ../3rd_party/tools/pcpp/pcmd.py                 --line-directive '' --passthru-comments
     $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_SNGLE,$(I))))
 endif
 

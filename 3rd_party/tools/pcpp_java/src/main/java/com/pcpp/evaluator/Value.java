@@ -401,34 +401,34 @@ public final class Value {
             char next = s.charAt( i + 1 );
             switch( next ) {
                 case 'n':
-                    out.append( '\n' ); i += 2; break;
+                    out.append( '\n' ); i     += 2; break;
 
                 case 'r':
-                    out.append( '\r' ); i += 2; break;
+                    out.append( '\r' ); i     += 2; break;
 
                 case 't':
-                    out.append( '\t' ); i += 2; break;
+                    out.append( '\t' ); i     += 2; break;
 
                 case 'a':
-                    out.append( '\u0007' ); i  += 2; break;
+                    out.append( '\u0007' ); i += 2; break;
 
                 case 'b':
-                    out.append( '\b' ); i += 2; break;
+                    out.append( '\b' ); i     += 2; break;
 
                 case 'f':
-                    out.append( '\f' ); i += 2; break;
+                    out.append( '\f' ); i     += 2; break;
 
                 case 'v':
-                    out.append( '\u000B' ); i  += 2; break;
+                    out.append( '\u000B' ); i += 2; break;
 
                 case '\\':
-                    out.append( '\\' ); i += 2; break;
+                    out.append( '\\' ); i     += 2; break;
 
                 case '\'':
-                    out.append( '\'' ); i += 2; break;
+                    out.append( '\'' ); i     += 2; break;
 
                 case '"':
-                    out.append( '"' );  i += 2; break;
+                    out.append( '"' );  i     += 2; break;
 
                 case 'x': {
                     // \ xHH

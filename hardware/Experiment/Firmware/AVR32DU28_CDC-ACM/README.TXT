@@ -21,7 +21,6 @@ Workflow:
 ---------------------------------------------------------------------------------------------------
 
 git status -uno
-claude --resume a4c940fe-0f05-438b-86c1-258ace39c0f9
 
 Do not forget to update (from inside hardware/Experiment/MCC_AVRDU_USB_CDC_ACM):
 tar -cjvpf ../../../../0_excluded_directory/_0_claude-mem-20260522.tar.gz ~/.claude/ ~/.claude.json

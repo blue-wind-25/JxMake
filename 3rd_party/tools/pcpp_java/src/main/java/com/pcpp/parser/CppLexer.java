@@ -230,7 +230,7 @@ public class CppLexer {
     private static final Pattern  STRING_LINECONT_PAT = Pattern.compile( "\\\\[ \\t]*\\n" );
 
     private static final Pattern  MASTER;
-    private static final String[] GROUP_NAMES = new String[RULE_NAMES.length];
+    private static final String[] GROUP_NAMES         = new String[RULE_NAMES.length];
     static {
         StringBuilder sb = new StringBuilder();
         for( int i = 0; i < RULE_NAMES.length; i++ ) {
@@ -250,7 +250,7 @@ public class CppLexer {
     private String  inputData;
     private int     lexpos;
     private int     lexlen;
-    public  int     lineno;
+    public int      lineno;
     private Matcher masterMatcher;
 
     public CppLexer()
@@ -292,7 +292,7 @@ public class CppLexer {
 
             // Find which group matched
             for( int i = 0; i < RULE_NAMES.length; i++ ) {
-                String matched = m.group( GROUP_NAMES[i] );
+                String matched   = m.group( GROUP_NAMES[i] );
                 if( matched == null ) continue;
 
                 String   tokType = RULE_NAMES[i];

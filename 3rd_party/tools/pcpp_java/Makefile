@@ -11,9 +11,11 @@ ARTIFACT      = pcpp-java-$(VERSION)
 MAIN_CLASS    = com.pcpp.pcmd.CmdPreprocessor
 
 SRC_DIR       = src/main/java
-BUILD_DIR     = target/classes
-JAR_FILE      = target/$(ARTIFACT).jar
-MANIFEST      = $(BUILD_DIR)/MANIFEST.MF
+
+BUILD_DIR     = target
+CLASS_DIR     = $(BUILD_DIR)/classes
+JAR_FILE      = $(BUILD_DIR)/$(ARTIFACT).jar
+MANIFEST      = $(CLASS_DIR)/MANIFEST.MF
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
@@ -21,14 +23,14 @@ SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 all: $(JAR_FILE)
 
-$(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
+$(CLASS_DIR):
+	@mkdir -p $(CLASS_DIR)
 
-$(JAR_FILE): $(SOURCES) | $(BUILD_DIR)
-	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(BUILD_DIR) $(SOURCES)
+$(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
 	@printf 'Main-Class: %s\n' '$(MAIN_CLASS)' > $(MANIFEST)
-	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(BUILD_DIR) .
-	@cp $(JAR_FILE) ..
+	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
+	@cp $(JAR_FILE) .
 
 clean:
-	@rm -rf $(BUILD_DIR) $(JAR_FILE)
+	@rm -rvf $(BUILD_DIR)

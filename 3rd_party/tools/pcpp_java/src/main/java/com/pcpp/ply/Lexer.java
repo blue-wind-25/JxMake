@@ -245,7 +245,7 @@ public class Lexer {
 
         while( pos < len ) {
             // Skip ignored characters (short-circuit path)
-            if( ignore.indexOf( data.charAt( pos ) ) >= 0 ) {
+            if( !ignore.isEmpty() && ignore.indexOf( data.charAt( pos ) ) >= 0 ) {
                 pos++;
                 continue;
             }
@@ -325,7 +325,7 @@ public class Lexer {
 
             // No regex matched — check literals
             char ch = data.charAt( pos );
-            if( lexliterals.indexOf( ch ) >= 0 ) {
+            if( !lexliterals.isEmpty() && lexliterals.indexOf( ch ) >= 0 ) {
                 LexToken tok = new LexToken();
                 tok.value   = String.valueOf( ch );
                 tok.lineno  = this.lineno;

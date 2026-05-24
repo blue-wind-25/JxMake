@@ -1,7 +1,6 @@
 // Translated using Claude Sonnet 4.6
 package com.pcpp.parser;
 
-import com.pcpp.ply.Lexer;
 import com.pcpp.ply.LexToken;
 
 import java.util.*;
@@ -231,11 +230,14 @@ public class CppLexer {
     private static final Pattern  STRING_LINECONT_PAT = Pattern.compile( "\\\\[ \\t]*\\n" );
 
     private static final Pattern  MASTER;
+    private static final String[] GROUP_NAMES = new String[RULE_NAMES.length];
     static {
         StringBuilder sb = new StringBuilder();
         for( int i = 0; i < RULE_NAMES.length; i++ ) {
             if( i > 0 ) sb.append( '|' );
-            sb.append( "(?<G" ).append( i ).append( '>' );
+            String gname = "G" + i;
+            GROUP_NAMES[i] = gname;
+            sb.append( "(?<" ).append( gname ).append( '>' );
             sb.append( RULE_PATTERNS[i] );
             sb.append( ')' );
         }
@@ -245,10 +247,11 @@ public class CppLexer {
     // -----------------------------------------------------------------------
     // Instance state
     // -----------------------------------------------------------------------
-    private String inputData;
-    private int    lexpos;
-    private int    lexlen;
-    public int     lineno;
+    private String  inputData;
+    private int     lexpos;
+    private int     lexlen;
+    public  int     lineno;
+    private Matcher masterMatcher;
 
     public CppLexer()
     {
@@ -257,10 +260,11 @@ public class CppLexer {
 
     public void input( String text )
     {
-        this.inputData = text;
-        this.lexpos    = 0;
-        this.lexlen    = text.length();
-        this.lineno    = 1;
+        this.inputData     = text;
+        this.lexpos        = 0;
+        this.lexlen        = text.length();
+        this.lineno        = 1;
+        this.masterMatcher = MASTER.matcher( text );
     }
 
     /**
@@ -271,8 +275,8 @@ public class CppLexer {
     {
         if( inputData == null || lexpos >= lexlen ) return null;
 
+        Matcher m = masterMatcher;
         while( lexpos < lexlen ) {
-            Matcher m = MASTER.matcher( inputData );
             m.region( lexpos, lexlen );
             if( !m.lookingAt() ) {
                 // Error: consume one character and return it as a token of its own type
@@ -288,13 +292,7 @@ public class CppLexer {
 
             // Find which group matched
             for( int i = 0; i < RULE_NAMES.length; i++ ) {
-                String gname = "G" + i;
-                String matched;
-                try {
-                    matched = m.group( gname );
-                } catch( IllegalArgumentException e ) {
-                    continue;
-                }
+                String matched = m.group( GROUP_NAMES[i] );
                 if( matched == null ) continue;
 
                 String   tokType = RULE_NAMES[i];
@@ -351,10 +349,11 @@ public class CppLexer {
     public CppLexer clone()
     {
         CppLexer c = new CppLexer();
-        c.inputData = this.inputData;
-        c.lexpos    = this.lexpos;
-        c.lexlen    = this.lexlen;
-        c.lineno    = this.lineno;
+        c.inputData     = this.inputData;
+        c.lexpos        = this.lexpos;
+        c.lexlen        = this.lexlen;
+        c.lineno        = this.lineno;
+        c.masterMatcher = this.inputData != null ? MASTER.matcher( this.inputData ) : null;
         return c;
     }
 

@@ -1,4 +1,4 @@
-// Translated by Claude Sonnet 4.6
+// Translated using Claude Sonnet 4.6
 package com.pcpp.ply;
 
 import java.lang.annotation.ElementType;

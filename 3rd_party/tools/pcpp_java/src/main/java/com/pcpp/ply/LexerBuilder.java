@@ -3,6 +3,7 @@ package com.pcpp.ply;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -141,8 +142,8 @@ public final class LexerBuilder {
         // ----------------------------------------------------------------
         for (String state : lexobj.lexstateinfo.keySet()) {
             List<LexRule> ordered = new ArrayList<>();
-            ordered.addAll(funcRules.getOrDefault(state, List.of()));
-            ordered.addAll(strRules.getOrDefault(state, List.of()));
+            ordered.addAll(funcRules.getOrDefault(state, Collections.<LexRule>emptyList()));
+            ordered.addAll(strRules.getOrDefault(state, Collections.<LexRule>emptyList()));
 
             List<String>         tokenNames = new ArrayList<>();
             for (LexRule r : ordered) {
@@ -162,8 +163,8 @@ public final class LexerBuilder {
         // 8. For inclusive states, extend with INITIAL state's regexes
         //    Mirrors the stateinfo loop near the bottom of lex().
         // ----------------------------------------------------------------
-        List<Lexer.CompiledLexRe> initialRe   = lexobj.lexstatere.getOrDefault("INITIAL", List.of());
-        List<String>              initialText  = lexobj.lexstateretext.getOrDefault("INITIAL", List.of());
+        List<Lexer.CompiledLexRe> initialRe   = lexobj.lexstatere.getOrDefault("INITIAL", Collections.<Lexer.CompiledLexRe>emptyList());
+        List<String>              initialText  = lexobj.lexstateretext.getOrDefault("INITIAL", Collections.<String>emptyList());
 
         for (Map.Entry<String, String> e : lexobj.lexstateinfo.entrySet()) {
             String state = e.getKey();

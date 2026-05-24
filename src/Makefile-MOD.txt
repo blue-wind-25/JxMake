@@ -37,3 +37,12 @@ PP_JSI_RUN:
 	fi
 
 .PHONY: PP_JSI_RUN
+
+
+# USAGE #
+
+# Replace this:
+$(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI,$(I))))
+
+# With this:
+$(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_MULTI,$(I))))

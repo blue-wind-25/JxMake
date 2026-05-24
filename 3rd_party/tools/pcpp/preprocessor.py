@@ -9,7 +9,7 @@
 # This edition substantially improves on standards conforming output,
 # getting quite close to what clang or GCC outputs.
 
-# OptimIzed by Claude Sonnet 4.6
+# Optimized by Claude Sonnet 4.6
 
 from __future__ import generators, print_function, absolute_import, division
 

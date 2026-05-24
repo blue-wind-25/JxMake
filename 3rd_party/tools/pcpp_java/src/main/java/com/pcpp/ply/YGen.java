@@ -1,4 +1,4 @@
-// Translated by Claude Sonnet 4.6
+// Translated using Claude Sonnet 4.6
 // ply: YGen.java
 //
 // This is a support program that auto-generates different versions of the YACC parsing

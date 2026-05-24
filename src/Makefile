@@ -739,9 +739,9 @@ $(eval $(call GEN_DBUILD_RULE, 8952          , APP    , ../test/src/cpp_at89s52 
 	@echo $@
 	@$(JC) $(JFLAGS) $<
 
-define PP_JSI
+define PP_JSI_SNGLE
 $(1): $(1).in
-	@echo $(1)
+	@echo "[PCPP] $(1).in"
 #	@gcc   -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 #	@clang -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 	@$(PCPP_PYTHON) $(1).in -o $(1).tmp
@@ -784,16 +784,19 @@ define PB_DEP
 jxm/ugc/Prog$(strip $(1)).java : $(wildcard jxm/ugc/Prog$(strip $(2))_*.java.inc)
 endef
 
-USE_MULTI ?= 0
+USE_MULTI := 1
 ifeq ($(USE_MULTI),1)
     # Batch preprocessing via PCPP_JAVA
     PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp-java-1.30.jar --line-directive '' --passthru-comments
     $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_MULTI,$(I))))
 else
-    # One-by-obe preprocessing via PCPP_PYTHON
+    # One-by-one preprocessing via PCPP_PYTHON
     PCPP_PYTHON = python3                ../3rd_party/tools/pcpp/pcmd.py       --line-directive '' --passthru-comments
-    $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI,$(I))))
+    $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_SNGLE,$(I))))
 endif
+
+pcpp: $(JAVA_SOURCES_PP)
+	@echo > /dev/null
 
 build_classes: $(JAVA_SOURCES_PP) $(MAIN_CLASS) $(JAVA_CLASSES)
 	@echo > /dev/null

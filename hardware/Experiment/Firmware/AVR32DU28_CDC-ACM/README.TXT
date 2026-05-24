@@ -58,3 +58,26 @@ while IFS= read -r -d '' f; do
 done
 
 ===================================================================================================
+
+Inside the directory pcpp is the original PCPP Python program. Its reference result has already been produced in '/tmp/ref.java' using the command:
+
+python3 pcpp/pcmd.py --line-directive '' --passthru-comments ../../src/jxm/ugc/ARMCortexMThumbC.java.in -o /tmp/ref.java
+
+Inside the directory pcpp_java is the Java translation of Python program. Please fix the compile error in pcpp_java:
+
+make -C pcpp_java
+
+Then ensure it produces the same output as the Python program when executed:
+
+java -jar pcpp_java/target/pcpp-java-1.30.jar --line-directive '' --passthru-comments ../../src/jxm/ugc/ARMCortexMThumbC.java.in -o /tmp/chk.java2
+
+Do not attempt to read /tmp/ref.java and /tmp/chk.java, used diff to check if they are the same or not.
+
+
+The Java version java.lang.StackOverflowError:
+
+python3 pcpp/pcmd.py --line-directive '' --passthru-comments ../../src/jxm/ugc/ProgSWIM.java.in -o /tmp/ref.java
+
+and then check the Java one:
+
+java -jar pcpp_java/target/pcpp-java-1.30.jar --line-directive '' --passthru-comments ../../src/jxm/ugc/ProgSWIM.java.in -o /tmp/chk.java

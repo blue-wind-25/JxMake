@@ -10,8 +10,22 @@ import java.util.concurrent.atomic.*;
  * Persistent Java compilation daemon.
  *
  * Protocol (per connection, newline-delimited):
- *   Client sends:  <arg1>\n<arg2>\n...<argN>\nEND\n
- *   Server replies: <compiler stderr/stdout output lines>\nEXIT:<code>\n
+ *   Client sends:  arg1\narg2\n...\n\u0000ENDINP\u0000\n
+ *   Server replies:
+ *     \u0000STDOUT\u0000\n
+ *     stdout lines  -- or one empty line when stdout is empty
+ *     \u0000STDERR\u0000\n
+ *     stderr lines  -- or one empty line when stderr is empty
+ *     \u0000EXTCOD\u0000\n
+ *     exit-code\n
+ *
+ * Sentinel lines contain actual NUL bytes (U+0000) before and after the
+ * tag word, making them unambiguous framing tokens that never appear in
+ * normal javac output.
+ *
+ * If port argument is 0, the listening port is derived from the Java
+ * major version: major * 1000
+ * (JDK 8->8000, JDK 11->11000, JDK 17->17000, JDK 21->21000).
  *
  * Self-terminates after IDLE_TIMEOUT_MS of no compilation activity.
  */
@@ -19,13 +33,23 @@ public class CompileServer {
 
     static final long IDLE_TIMEOUT_MS = 3L * 60 * 60 * 1000; // 3 hours
 
+    // NUL-wrapped sentinel tags.
+    // \u0000 is the Java Unicode escape for U+0000 (the NUL character).
+    // These escapes are resolved before tokenisation, so at runtime each
+    // constant begins and ends with an actual NUL byte (0x00).
+    static final String SENTINEL_ENDINP = "\u0000ENDINP\u0000";
+    static final String SENTINEL_STDOUT = "\u0000STDOUT\u0000";
+    static final String SENTINEL_STDERR = "\u0000STDERR\u0000";
+    static final String SENTINEL_EXTCOD = "\u0000EXTCOD\u0000";
+
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.err.println("Usage: java -jar compile-server.jar <port>");
             System.exit(1);
         }
 
-        int port = Integer.parseInt(args[0]);
+        // resolvePort handles port==0 by deriving from the Java major version
+        final int port = resolvePort(Integer.parseInt(args[0]));
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -34,8 +58,7 @@ public class CompileServer {
             System.exit(2);
         }
 
-        // Write PID file so kill script can find us
-        String pidFile = System.getProperty("java.io.tmpdir") +
+        final String pidFile = System.getProperty("java.io.tmpdir") +
             "/javac-daemon-" + port + ".pid";
         long pid = detectPid();
         try (PrintWriter pw = new PrintWriter(pidFile)) {
@@ -60,12 +83,12 @@ public class CompileServer {
         ExecutorService pool = Executors.newCachedThreadPool();
         AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
 
-        // Idle watchdog thread — shuts down if no compilation for IDLE_TIMEOUT_MS
+        // Idle watchdog -- shuts down after IDLE_TIMEOUT_MS with no activity
         Thread watchdog = new Thread(new Runnable() {
             public void run() {
                 while (true) {
                     try {
-                        Thread.sleep(60_000); // check every minute
+                        Thread.sleep(60_000);
                     } catch (InterruptedException e) {
                         return;
                     }
@@ -81,7 +104,6 @@ public class CompileServer {
         watchdog.setDaemon(true);
         watchdog.start();
 
-        // Register shutdown hook to clean up PID file on any exit
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 new File(pidFile).delete();
@@ -111,17 +133,39 @@ public class CompileServer {
     }
 
     /**
-     * Determine PID using ProcessHandle (Java 9+) via reflection,
-     * falling back to RuntimeMXBean (Java 8). Returns -1 if unavailable.
+     * Returns requestedPort unchanged, or derives a port from the JDK major
+     * version when requestedPort == 0: major * 1000.
+     * java.specification.version is "1.8" for JDK 8; bare number for JDK 9+.
+     */
+    static int resolvePort(int requestedPort) {
+        if (requestedPort != 0) return requestedPort;
+        String spec = System.getProperty("java.specification.version", "8");
+        int major;
+        if (spec.startsWith("1.")) {
+            major = Integer.parseInt(spec.substring(2));
+        } else {
+            try {
+                major = Integer.parseInt(spec.split("\\.")[0]);
+            } catch (NumberFormatException e) {
+                major = 8;
+            }
+        }
+        int derived = major * 1000;
+        System.err.println("Port 0 requested -- auto-derived " + derived +
+            " from Java major version " + major);
+        return derived;
+    }
+
+    /**
+     * Determine PID via ProcessHandle (Java 9+, reflected to avoid a
+     * compile-time dependency) or RuntimeMXBean name parsing (Java 8).
      */
     private static long detectPid() {
-        // Java 9+: ProcessHandle via reflection to avoid compile-time dependency
         try {
             Class<?> cls = Class.forName("java.lang.ProcessHandle");
             Object current = cls.getMethod("current").invoke(null);
             return (Long) cls.getMethod("pid").invoke(current);
         } catch (Exception ignored) {}
-        // Java 8 fallback: RuntimeMXBean name is "pid@hostname"
         try {
             String name = ManagementFactory.getRuntimeMXBean().getName();
             return Long.parseLong(name.split("@")[0]);
@@ -136,19 +180,20 @@ public class CompileServer {
             PrintWriter out = new PrintWriter(
                 new OutputStreamWriter(conn.getOutputStream(), "UTF-8"), true)
         ) {
-            // Read javac arguments until END sentinel
+            // Read javac args until ENDINP sentinel (or connection close)
             List<String> javacArgs = new ArrayList<String>();
             String line;
-            while ((line = in.readLine()) != null && !line.equals("END")) {
+            while ((line = in.readLine()) != null
+                    && !line.equals(SENTINEL_ENDINP)) {
                 javacArgs.add(line);
             }
 
             if (javacArgs.isEmpty()) {
-                out.println("EXIT:0");
+                sendFramedResponse(out, "", "", 0);
                 return;
             }
 
-            // Each connection gets its own FileManager — required for thread safety
+            // Each connection gets its own FileManager -- required for thread safety
             ByteArrayOutputStream outBuf = new ByteArrayOutputStream();
             ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
             PrintStream outStream = new PrintStream(outBuf, true, "UTF-8");
@@ -157,26 +202,52 @@ public class CompileServer {
             int exitCode;
             try (StandardJavaFileManager fm =
                     compiler.getStandardFileManager(null, null, null)) {
-
                 exitCode = compiler.run(
-                    null,       // stdin  (unused)
-                    outStream,  // stdout
-                    errStream,  // stderr
+                    null,
+                    outStream,
+                    errStream,
                     javacArgs.toArray(new String[0])
                 );
             }
-
-            // Flush and send output
             outStream.flush();
             errStream.flush();
 
-            String outStr = outBuf.toString("UTF-8");
-            String errStr = errBuf.toString("UTF-8");
-
-            if (!outStr.isEmpty()) out.print(outStr);
-            if (!errStr.isEmpty()) out.print(errStr);
-
-            out.println("EXIT:" + exitCode);
+            sendFramedResponse(
+                out,
+                outBuf.toString("UTF-8"),
+                errBuf.toString("UTF-8"),
+                exitCode
+            );
         }
+    }
+
+    /**
+     * Write a complete framed response to the client.
+     * Each section is preceded by its NUL-wrapped sentinel tag.
+     * An empty section emits one blank line to prevent client parser hangs.
+     */
+    private static void sendFramedResponse(PrintWriter out,
+            String outStr, String errStr, int exitCode) {
+        // stdout section
+        out.println(SENTINEL_STDOUT);
+        if (outStr.isEmpty()) {
+            out.println(); // dummy empty line -- prevents hang when section is empty
+        } else {
+            out.print(outStr);
+            if (!outStr.endsWith("\n")) out.println();
+        }
+
+        // stderr section
+        out.println(SENTINEL_STDERR);
+        if (errStr.isEmpty()) {
+            out.println(); // dummy empty line -- prevents hang when section is empty
+        } else {
+            out.print(errStr);
+            if (!errStr.endsWith("\n")) out.println();
+        }
+
+        // exit code section
+        out.println(SENTINEL_EXTCOD);
+        out.println(exitCode);
     }
 }

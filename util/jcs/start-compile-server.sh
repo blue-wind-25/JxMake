@@ -5,10 +5,12 @@
 #
 # Usage:
 #   start-compile-server.sh <port> [/path/to/java]
+#   start-compile-server.sh 0      [/path/to/java]   # port derived from JDK version
 #
 # Examples:
-#   start-compile-server.sh 62650
-#   start-compile-server.sh 62651 /usr/lib/jvm/java-11/bin/java
+#   start-compile-server.sh 21000
+#   start-compile-server.sh 0 /usr/lib/jvm/java-21/bin/java
+#   start-compile-server.sh 0                         # uses java from PATH
 set -euo pipefail
 
 # Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
@@ -22,6 +24,24 @@ if [[ -z "$PORT" ]]; then
     exit 1
 fi
 
+# ── Port resolution ───────────────────────────────────────────────────────────
+
+if [[ "$PORT" == "0" ]]; then
+    VER_STR=$("$JAVA_BIN" -version 2>&1 | head -1)
+    if [[ "$VER_STR" =~ \"1\.([0-9]+) ]]; then
+        JAVA_MAJOR="${BASH_REMATCH[1]}"
+    elif [[ "$VER_STR" =~ \"([0-9]+) ]]; then
+        JAVA_MAJOR="${BASH_REMATCH[1]}"
+    else
+        echo "ERROR: Cannot parse Java version from: $VER_STR" >&2
+        exit 1
+    fi
+    PORT=$((JAVA_MAJOR * 1000))
+    echo "Auto-derived port $PORT from Java major version $JAVA_MAJOR."
+fi
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JAR="$SCRIPT_DIR/compile-server.jar"
 PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
@@ -32,7 +52,6 @@ if [[ ! -f "$JAR" ]]; then
     exit 1
 fi
 
-# Check if already running via PID file
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
     if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
@@ -44,7 +63,6 @@ if [[ -f "$PID_FILE" ]]; then
     fi
 fi
 
-# Also check via nc in case PID file is missing
 if nc -z localhost "$PORT" 2>/dev/null; then
     echo "Something is already listening on port $PORT (not our daemon?)" >&2
     exit 1
@@ -52,14 +70,13 @@ fi
 
 echo "Starting javac daemon on port $PORT using $("$JAVA_BIN" -version 2>&1 | head -1)..."
 
-nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" > "$LOG_FILE" 2>&1 &
+nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" \
+    > "$LOG_FILE" 2>&1 &
 JAVA_PID=$!
 
-# Wait up to 5 seconds for it to become ready
 for i in $(seq 1 10); do
     sleep 0.5
     if nc -z localhost "$PORT" 2>/dev/null; then
-        # Replace -1 placeholder with actual PID from the backgrounded process
         PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
         if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
             echo "$JAVA_PID" > "$PID_FILE"

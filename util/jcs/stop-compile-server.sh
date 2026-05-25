@@ -3,12 +3,32 @@
 # Stops a running javac daemon on the given port.
 #
 # Usage:
-#   stop-compile-server.sh <port>
-#   stop-compile-server.sh         (stops all running javac daemons)
+#   stop-compile-server.sh <port>             # stop daemon on this port
+#   stop-compile-server.sh 0 [/path/to/java]  # port derived from JDK version
+#   stop-compile-server.sh                    # stop ALL running javac daemons
 set -euo pipefail
 
 # Editable: directory where PID files are stored (must match start-compile-server.sh)
 TMPDIR_JVM=/tmp
+
+# ── Port resolution ───────────────────────────────────────────────────────────
+
+resolve_port_from_java() {
+    local java_bin="$1"
+    local ver_str major
+    ver_str=$("$java_bin" -version 2>&1 | head -1)
+    if [[ "$ver_str" =~ \"1\.([0-9]+) ]]; then
+        major="${BASH_REMATCH[1]}"
+    elif [[ "$ver_str" =~ \"([0-9]+) ]]; then
+        major="${BASH_REMATCH[1]}"
+    else
+        echo "ERROR: Cannot parse Java version from: $ver_str" >&2
+        return 1
+    fi
+    echo $((major * 1000))
+}
+
+# ── Stop one daemon ───────────────────────────────────────────────────────────
 
 stop_one() {
     local PORT="$1"
@@ -31,7 +51,6 @@ stop_one() {
     if kill -0 "$PID" 2>/dev/null; then
         echo "Stopping javac daemon on port $PORT (PID $PID)..."
         kill "$PID"
-        # Wait up to 3 seconds for clean exit
         for i in $(seq 1 6); do
             sleep 0.5
             kill -0 "$PID" 2>/dev/null || { echo "Stopped."; return 0; }
@@ -46,8 +65,9 @@ stop_one() {
     fi
 }
 
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 if [[ $# -eq 0 ]]; then
-    # Stop all
     FOUND=0
     for f in "${TMPDIR_JVM}/javac-daemon-"*.pid; do
         [[ -f "$f" ]] || continue
@@ -58,6 +78,10 @@ if [[ $# -eq 0 ]]; then
     if [[ $FOUND -eq 0 ]]; then
         echo "No running javac daemons found."
     fi
+elif [[ "$1" == "0" ]]; then
+    JAVA_BIN="${2:-java}"
+    PORT=$(resolve_port_from_java "$JAVA_BIN")
+    stop_one "$PORT"
 else
     stop_one "$1"
 fi

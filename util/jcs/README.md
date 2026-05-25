@@ -35,7 +35,8 @@ Runs on **Linux/macOS** (Bash) and **Windows** (PowerShell 5.1+, PowerShell 7+).
 
 ## Protocol
 
-Each client connection uses a newline-delimited, NUL-wrapped sentinel framing:
+Each client connection uses a newline-delimited framing with Unit Separator
+(U+001F, 0x1F) wrapped sentinel tokens:
 
 **Client → Server**
 ```
@@ -48,22 +49,38 @@ arg2
 **Server → Client**
 ```
 \u001FSTDOUT\u001F
-<javac stdout — one blank line emitted if stdout is empty>
+<javac stdout lines — section omitted when empty>
 \u001FSTDERR\u001F
-<javac stderr — one blank line emitted if stderr is empty>
+<javac stderr lines — section omitted when empty>
 \u001FEXTCOD\u001F
 <exit code>
 ```
 
-`\u001F` denotes the NUL byte (0x00).  Sentinel lines are NUL-prefixed and
-NUL-suffixed, making them unambiguous — javac output never contains NUL bytes.
+`\u001F` is the Unit Separator character (U+001F, decimal 31).  It never
+appears in normal javac output, making framing unambiguous without escaping.
 
-**Bash parsing**: `tr -d '\000'` strips NUL bytes from the response (they
-only appear in sentinel lines), leaving plain keywords `STDOUT`, `STDERR`,
-`EXTCOD` that `awk` or `grep -E` can match trivially.
+**Bash parsing**: `awk` matches sentinel lines via the `\037` octal literal
+(0x1F) directly from the raw response; no preprocessing is required.
 
-**PowerShell parsing**: PowerShell strings are UTF-16 and handle NUL (`[char]0`)
-natively; sentinel comparison uses exact string equality.
+**PowerShell parsing**: `[char]0x1F` produces the Unit Separator natively;
+sentinel comparison uses exact string equality.
+
+### Path handling
+
+All path arguments are absolutized by the client before being sent to the
+server.  The server runs in a fixed working directory (wherever it was first
+started), so relative paths would otherwise fail when `make` runs from a
+different directory.  The client resolves:
+
+- Source files (bare arguments) — absolutized against the client's CWD
+- Output / generated-source dirs (`-d`, `-s`, `-h`) — absolutized
+- Classpath-style flags (`-cp`, `-classpath`, `-sourcepath`, `-modulepath`,
+  etc.) — each `:` (Linux/macOS) or `;` (Windows) separated entry absolutized
+- `@argfile` paths — absolutized
+
+Flag-only arguments (e.g. `-verbose`, `-source`, `-target`) pass through
+unchanged.  This makes all client scripts work correctly from any directory
+regardless of where the daemon was started.
 
 ---
 

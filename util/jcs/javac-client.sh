@@ -62,14 +62,46 @@ if ! (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
     exit 1
 fi
 
+# ── Absolutize path arguments relative to client's working directory ──────────
+# The server daemon runs in a fixed CWD; convert all relative paths to absolute
+# so the server can locate source files, output dirs, and classpath entries.
+
+CLIENT_CWD="$(pwd)"
+_abs()    { [[ "$1" == /* ]] && printf '%s' "$1" || printf '%s/%s' "$CLIENT_CWD" "$1"; }
+_abs_cp() { local r="" s="" e; local IFS=':'; for e in $1; do r+="${s}$(_abs "$e")"; s=":"; done; printf '%s' "$r"; }
+
+process_javac_args() {
+    local nxt="" out=()
+    for a; do
+        if [[ -n "$nxt" ]]; then
+            [[ "$nxt" == cp ]] && out+=("$(_abs_cp "$a")") || out+=("$(_abs "$a")")
+            nxt=""
+        else
+            case "$a" in
+                -d|-s|-h)
+                    out+=("$a"); nxt=single ;;
+                -cp|-classpath|--class-path|-sourcepath|--source-path|\
+                -processorpath|--processor-path|-bootclasspath|--boot-class-path|\
+                -extdirs|-endorseddirs|-modulepath|--module-path|-mp|-p|\
+                --upgrade-module-path)
+                    out+=("$a"); nxt=cp ;;
+                @*)  out+=("@$(_abs "${a:1}")") ;;
+                -*)  out+=("$a") ;;
+                *)   out+=("$(_abs "$a")") ;;
+            esac
+        fi
+    done
+    printf '%s\n' "${out[@]}"
+}
+
 # ── Send request, receive framed response ─────────────────────────────────────
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Send javac args line-by-line, then the US-wrapped ENDINP sentinel.
+# Send absolutized javac args line-by-line, then the US-wrapped ENDINP sentinel.
 # Receive the full framed response into a temp file (binary-safe).
-{ printf '%s\n' "$@"; printf '\x1FENDINP\x1F\n'; } \
+{ process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } \
     | nc -w 30 localhost "$PORT" > "$WORK/response"
 
 # awk matches the US-wrapped sentinel lines directly and routes each

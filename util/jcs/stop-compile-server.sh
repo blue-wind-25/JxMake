@@ -3,9 +3,9 @@
 # Stops a running javac daemon on the given port.
 #
 # Usage:
-#   stop-compile-server.sh <port>             # stop daemon on this port
-#   stop-compile-server.sh 0 [/path/to/java]  # port derived from JDK version
-#   stop-compile-server.sh                    # stop ALL running javac daemons
+#    stop-compile-server.sh <port>             # stop daemon on this port
+#    stop-compile-server.sh 0 [/path/to/java]  # port derived from JDK version
+#    stop-compile-server.sh                    # stop ALL running javac daemons
 set -euo pipefail
 
 # Editable: directory where PID files are stored (must match start-compile-server.sh)
@@ -69,19 +69,28 @@ stop_one() {
 
 if [[ $# -eq 0 ]]; then
     FOUND=0
-    for f in "${TMPDIR_JVM}/javac-daemon-"*.pid; do
-        [[ -f "$f" ]] || continue
-        PORT="${f#${TMPDIR_JVM}/javac-daemon-}"
-        PORT="${PORT%.pid}"
-        stop_one "$PORT" && FOUND=$((FOUND + 1))
-    done
+
+    # Enable nullglob so empty wildcard arrays collapse cleanly
+    shopt -s nullglob
+    PID_FILES=("${TMPDIR_JVM}/javac-daemon-"*.pid)
+    shopt -u nullglob
+
+    # Guard against set -u by checking if the array size is greater than 0
+    if [[ ${#PID_FILES[@]} -gt 0 ]]; then
+        for f in "${PID_FILES[@]}"; do
+            PORT="${f#${TMPDIR_JVM}/javac-daemon-}"
+            PORT="${PORT%.pid}"
+            stop_one "$PORT" && FOUND=$((FOUND + 1)) || true
+        done
+    fi
+
     if [[ $FOUND -eq 0 ]]; then
         echo "No running javac daemons found."
     fi
 elif [[ "$1" == "0" ]]; then
     JAVA_BIN="${2:-java}"
     PORT=$(resolve_port_from_java "$JAVA_BIN")
-    stop_one "$PORT"
+    stop_one "$PORT" || true
 else
-    stop_one "$1"
+    stop_one "$1" || true
 fi

@@ -87,7 +87,7 @@ start_daemon() {
         rm -f "$PID_FILE"
     fi
 
-    if nc -z localhost "$PORT" 2>/dev/null; then
+    if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
         return 0
     fi
 
@@ -98,7 +98,7 @@ start_daemon() {
 
     for i in $(seq 1 10); do
         sleep 0.5
-        if nc -z localhost "$PORT" 2>/dev/null; then
+        if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
             local PID
             PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
             if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
@@ -121,8 +121,28 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 run_via_daemon() {
-    { printf '%s\n' "$@"; printf '\x1FENDINP\x1F\n'; } \
-        | nc -w 30 localhost "$PORT" > "$WORK/response"
+    # Dynamically build the arguments for netcat based on the operating system
+    local NC_ARGS=("-w" "30")
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        NC_ARGS+=("-G" "1") # Apply macOS-only connection timeout flag safely
+    fi
+
+    # Inner helper payload generator
+    payload_func() {
+        printf '%s\n' "$@"
+        printf '\x1FENDINP\x1F\n'
+    }
+
+    # Route content via native network descriptors or dynamic netcat flags
+    if command -v nc >/dev/null 2>&1; then
+        payload_func "$@" | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
+    else
+        # Native safe fallback if netcat behaves erratically or isn't installed
+        exec 3<>/dev/tcp/localhost/"$PORT"
+        payload_func "$@" >&3
+        cat <&3 > "$WORK/response"
+        exec 3>&-
+    fi
 
     awk '
         /\x1FSTDOUT\x1F/ { mode="stdout"; next }

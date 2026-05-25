@@ -4,13 +4,13 @@
 # Does nothing if a daemon for that port is already running.
 #
 # Usage:
-#   start-compile-server.sh <port> [/path/to/java]
-#   start-compile-server.sh 0      [/path/to/java]   # port derived from JDK version
+#    start-compile-server.sh <port> [/path/to/java]
+#    start-compile-server.sh 0      [/path/to/java]   # port derived from JDK version
 #
 # Examples:
-#   start-compile-server.sh 21000
-#   start-compile-server.sh 0 /usr/lib/jvm/java-21/bin/java
-#   start-compile-server.sh 0                         # uses java from PATH
+#    start-compile-server.sh 21000
+#    start-compile-server.sh 0 /usr/lib/jvm/java-21/bin/java
+#    start-compile-server.sh 0                         # uses java from PATH
 set -euo pipefail
 
 # Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
@@ -57,14 +57,18 @@ if [[ -f "$PID_FILE" ]]; then
     if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
         echo "Daemon already running on port $PORT (PID $PID)"
         exit 0
-    else
-        echo "Stale PID file found, removing."
-        rm -f "$PID_FILE"
     fi
+    # If a socket connection works here, the process is active even if the PID is dead/stale
+    if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
+        echo "Daemon already running on port $PORT (recovered from stale PID reference)"
+        exit 0
+    fi
+    echo "Stale PID file found, removing."
+    rm -f "$PID_FILE"
 fi
 
-if nc -z localhost "$PORT" 2>/dev/null; then
-    echo "Something is already listening on port $PORT (not our daemon?)" >&2
+if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
+    echo "Something else is already listening on port $PORT (not our daemon?)" >&2
     exit 1
 fi
 
@@ -76,7 +80,7 @@ JAVA_PID=$!
 
 for i in $(seq 1 10); do
     sleep 0.5
-    if nc -z localhost "$PORT" 2>/dev/null; then
+    if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
         PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
         if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
             echo "$JAVA_PID" > "$PID_FILE"

@@ -12,11 +12,12 @@
 #
 # Usage from shell:
 #    javac-client.sh 62650 -cp libs/*.jar -d out src/Main.java
-#    javac-client.sh 0      ...             # port auto-derived from active JDK
+#    javac-client.sh 0     ...    # port auto-derived from active JDK
 #
 # Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
 # awk matches \x1FTAG\x1F directly; no tr stripping needed.
 set -euo pipefail
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,32 +67,10 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Construct the payload
-payload_func() {
-    printf '%s\n' "$@"
-    printf '\x1FENDINP\x1F\n'
-}
-
-# Determine correct netcat timeout flags based on the OS
-NC_ARGS=("-w" "30")
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS Netcat requires -G for connection timeout
-    NC_ARGS+=("-G" "1")
-fi
-
-# Send/Receive logic optimized for cross-platform compatibility
-if command -v nc >/dev/null 2>&1; then
-    # Pass dynamically assigned platform flags.
-    # Standard input redirection (< /dev/null) is avoided here since payload_func
-    # explicitly feeds stdin via the pipe and terminates with EOF.
-    payload_func "$@" | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
-else
-    # Fallback: Pure Bash network redirection if 'nc' isn't available at all
-    exec 3<>/dev/tcp/localhost/"$PORT"
-    payload_func "$@" >&3
-    cat <&3 > "$WORK/response"
-    exec 3>&-
-fi
+# Send javac args line-by-line, then the US-wrapped ENDINP sentinel.
+# Receive the full framed response into a temp file (binary-safe).
+{ printf '%s\n' "$@"; printf '\x1FENDINP\x1F\n'; } \
+    | nc -w 30 localhost "$PORT" > "$WORK/response"
 
 # awk matches the US-wrapped sentinel lines directly and routes each
 # section to the appropriate temp file.
@@ -99,9 +78,11 @@ awk '
     /\x1FSTDOUT\x1F/ { mode="stdout"; next }
     /\x1FSTDERR\x1F/ { mode="stderr"; next }
     /\x1FEXTCOD\x1F/ { mode="extcod"; next }
-    mode == "stdout" { print > (wdir "/stdout") }
-    mode == "stderr" { print > (wdir "/stderr") }
-    mode == "extcod" { print > (wdir "/exitcode") }
+
+    # Explicit matching guards prevent structural tags from leaking into files
+    mode == "stdout" && !/\x1F/ { print > (wdir "/stdout"  ); mode="" }
+    mode == "stderr" && !/\x1F/ { print > (wdir "/stderr"  ); mode="" }
+    mode == "extcod" && !/\x1F/ { print > (wdir "/exitcode"); mode="" }
 ' wdir="$WORK" "$WORK/response"
 
 # Emit stdout to stdout and stderr to stderr, preserving javac's separation.

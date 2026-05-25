@@ -6,18 +6,18 @@
 #
 # Port is derived from the Java major version (major * 1000), so each
 # JDK major version gets its own daemon automatically:
-#   JDK 8 -> 8000, JDK 11 -> 11000, JDK 17 -> 17000, JDK 21 -> 21000.
+#    JDK 8 -> 8000, JDK 11 -> 11000, JDK 17 -> 17000, JDK 21 -> 21000.
 #
 # Installation as a Makefile JAVAC override (no JDK surgery needed):
-#   JAVAC     = /path/to/javac-daemon-wrapper.sh
-#   JAVA_HOME = /usr/lib/jvm/java-21
+#    JAVAC     = /path/to/javac-daemon-wrapper.sh
+#    JAVA_HOME = /usr/lib/jvm/java-21
 #
 # Installation as a drop-in javac (rename the real javac first):
-#   mv $JAVA_HOME/bin/javac $JAVA_HOME/bin/javac.real
-#   cp javac-daemon-wrapper.sh $JAVA_HOME/bin/javac
-#   chmod +x $JAVA_HOME/bin/javac
-#   # compile-server.jar must be in the same directory
-#   cp compile-server.jar $JAVA_HOME/bin/
+#    mv $JAVA_HOME/bin/javac $JAVA_HOME/bin/javac.real
+#    cp javac-daemon-wrapper.sh $JAVA_HOME/bin/javac
+#    chmod +x $JAVA_HOME/bin/javac
+#    # compile-server.jar must be in the same directory
+#    cp compile-server.jar $JAVA_HOME/bin/
 #
 # Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
 # awk matches \x1FTAG\x1F directly; no tr stripping needed.
@@ -148,9 +148,11 @@ run_via_daemon() {
         /\x1FSTDOUT\x1F/ { mode="stdout"; next }
         /\x1FSTDERR\x1F/ { mode="stderr"; next }
         /\x1FEXTCOD\x1F/ { mode="extcod"; next }
-        mode == "stdout" { print > (wdir "/stdout") }
-        mode == "stderr" { print > (wdir "/stderr") }
-        mode == "extcod" { print > (wdir "/exitcode") }
+
+        # Explicit matching guards prevent structural tags from leaking into files
+        mode == "stdout" && !/\x1F/ { print > (wdir "/stdout"  ); mode="" }
+        mode == "stderr" && !/\x1F/ { print > (wdir "/stderr"  ); mode="" }
+        mode == "extcod" && !/\x1F/ { print > (wdir "/exitcode"); mode="" }
     ' wdir="$WORK" "$WORK/response"
 
     cat "$WORK/stdout"  2>/dev/null || true

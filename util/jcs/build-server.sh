@@ -2,6 +2,7 @@
 # build-server.sh
 # Compiles CompileServer.java into compile-server.jar
 # Run this once with any JDK >= 8.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,7 +14,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 echo "Compiling CompileServer.java..."
 #javac --release 8 -d "$TMP" "$SRC"
-javac -source 8 -target 8 -d "$TMP" "$SRC" 
+javac -source 8 -target 8 -d "$TMP" "$SRC"
 
 echo "Packaging compile-server.jar..."
 jar cfe "$JAR" CompileServer -C "$TMP" .

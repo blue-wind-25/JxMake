@@ -106,7 +106,7 @@ Formula: `port = major_version × 1000`.
 ### 1. Build the jar (once, any JDK ≥ 8)
 
 ```bash
-cd util/jcs
+cd util/JCS
 bash build-server.sh
 # → produces compile-server.jar
 ```
@@ -127,9 +127,9 @@ bash start-compile-server.sh 21000 /usr/lib/jvm/java-21/bin/java
 
 In your Makefile:
 ```makefile
-JAVAC = /path/to/util/jcs/javac-client.sh 0
+JAVAC = /path/to/util/JCS/javac-client.sh 0
 # or with explicit port:
-JAVAC = /path/to/util/jcs/javac-client.sh 21000
+JAVAC = /path/to/util/JCS/javac-client.sh 21000
 ```
 
 **Windows**
@@ -140,7 +140,7 @@ start-compile-server.cmd 0
 
 In your Makefile / build script:
 ```makefile
-JAVAC = C:\path\to\util\jcs\javac-client.cmd 0
+JAVAC = C:\path\to\util\JCS\javac-client.cmd 0
 ```
 
 Stop when done:
@@ -158,7 +158,7 @@ No manual daemon management.  The wrapper starts the daemon on first use.
 **Linux/macOS (no JDK surgery)**
 
 ```makefile
-JAVAC     = /path/to/util/jcs/javac-daemon-wrapper.sh
+JAVAC     = /path/to/util/JCS/javac-daemon-wrapper.sh
 JAVA_HOME = /usr/lib/jvm/java-21
 ```
 

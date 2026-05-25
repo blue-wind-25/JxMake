@@ -99,8 +99,8 @@ JC	 = $(if $(strip $(JPATH)),$(JPATH)/bin/javac,javac)                          
 JVM	 = $(if $(strip $(JPATH)),$(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java),java) $(CP_RUN) $(EN_NAA_FLAG)
 
 ##### !!! TODO !!! #####
-#JC	 = ../util/jcs/javac-daemon-wrapper.sh      $(CP_CPL)
-#JC	 = ../util/jcs/javac-client.sh         8000 $(CP_CPL)
+#JC	 = ../util/JCS/javac-daemon-wrapper.sh      $(CP_CPL)
+#JC	 = ../util/JCS/javac-client.sh         8000 $(CP_CPL)
 
 # Only for Java 17 and later
 xlint:

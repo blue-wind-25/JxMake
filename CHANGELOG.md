@@ -54,7 +54,7 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 + Added a Java implementation of `PCPP` in `3rd_party/tools/pcpp_java/*`.
 
-+ Added an experimental Java compiler server in `util/jcs/*`.
++ Added an experimental Java compiler server in `util/JCS/*`.
 
 ****
 

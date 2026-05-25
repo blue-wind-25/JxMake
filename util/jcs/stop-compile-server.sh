@@ -51,7 +51,7 @@ stop_one() {
     if kill -0 "$PID" 2>/dev/null; then
         echo "Stopping javac daemon on port $PORT (PID $PID)..."
         kill "$PID"
-        for i in $(seq 1 6); do
+        for i in {1..6}; do
             sleep 0.5
             kill -0 "$PID" 2>/dev/null || { echo "Stopped."; return 0; }
         done

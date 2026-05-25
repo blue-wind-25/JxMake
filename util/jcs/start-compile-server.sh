@@ -78,7 +78,7 @@ nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" \
     > "$LOG_FILE" 2>&1 &
 JAVA_PID=$!
 
-for i in $(seq 1 10); do
+for i in {1..10}; do
     sleep 0.5
     if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
         PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")

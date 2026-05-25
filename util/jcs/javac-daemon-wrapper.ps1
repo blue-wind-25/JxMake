@@ -148,6 +148,52 @@ function Start-Daemon {
     return $false
 }
 
+# ── Absolutize path arguments relative to client's working directory ──────────
+# The server daemon runs in a fixed CWD; convert all relative paths to absolute
+# so the server can locate source files, output dirs, and classpath entries.
+
+$ClientCwd = $PWD.Path
+
+function Abs-Path([string]$p) {
+    if ([System.IO.Path]::IsPathRooted($p)) { return $p }
+    return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ClientCwd, $p))
+}
+
+function Abs-Cp([string]$cp) {
+    return ($cp -split ';' | ForEach-Object { Abs-Path $_ }) -join ';'
+}
+
+function Process-JavacArgs([string[]]$javacArgs) {
+    $out      = [System.Collections.Generic.List[string]]::new()
+    $nextMode = ''
+    $cpFlags  = @('-cp','-classpath','--class-path','-sourcepath','--source-path',
+                  '-processorpath','--processor-path','-bootclasspath','--boot-class-path',
+                  '-extdirs','-endorseddirs','-modulepath','--module-path',
+                  '-mp','-p','--upgrade-module-path')
+    $dirFlags = @('-d','-s','-h')
+
+    foreach ($a in $javacArgs) {
+        if ($nextMode -ne '') {
+            if ($nextMode -eq 'cp')     { $out.Add((Abs-Cp   $a)) }
+            else                         { $out.Add((Abs-Path $a)) }
+            $nextMode = ''
+        } elseif ($dirFlags -contains $a) {
+            $out.Add($a); $nextMode = 'single'
+        } elseif ($cpFlags -contains $a) {
+            $out.Add($a); $nextMode = 'cp'
+        } elseif ($a -match '^@(.+)') {
+            $out.Add('@' + (Abs-Path $Matches[1]))
+        } elseif ($a -match '^-') {
+            $out.Add($a)
+        } else {
+            $out.Add((Abs-Path $a))
+        }
+    }
+    return $out.ToArray()
+}
+
+$ProcessedArgs = Process-JavacArgs $CompileArgs
+
 # ── Compilation ───────────────────────────────────────────────────────────────
 
 function Invoke-ViaDaemon {
@@ -161,7 +207,7 @@ function Invoke-ViaDaemon {
         $writer.AutoFlush = $true
         $reader  = New-Object System.IO.StreamReader($stream, $enc)
 
-        foreach ($arg in $CompileArgs) { $writer.WriteLine($arg) }
+        foreach ($arg in $ProcessedArgs) { $writer.WriteLine($arg) }
         $writer.WriteLine($SEN_ENDINP)
         $writer.Flush()
         $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)

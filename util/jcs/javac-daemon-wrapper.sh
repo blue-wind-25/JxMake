@@ -96,7 +96,7 @@ start_daemon() {
         > "$LOG" 2>&1 &
     local JAVA_PID=$!
 
-    for i in $(seq 1 10); do
+    for i in {1..10}; do
         sleep 0.5
         if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
             local PID
@@ -111,6 +111,42 @@ start_daemon() {
     echo "WARNING: javac daemon failed to start on port $PORT." >&2
     echo "         Check ${TMPDIR_JVM}/javac-daemon-${PORT}.log" >&2
     return 1
+}
+
+# ── Absolutize path arguments relative to client's working directory ──────────
+# The server daemon runs in a fixed CWD; convert all relative paths to absolute
+# so the server can locate source files, output dirs, and classpath entries.
+
+CLIENT_CWD="$(pwd)"
+_abs()    { [[ "$1" == /* ]] && printf '%s' "$1" || printf '%s/%s' "$CLIENT_CWD" "$1"; }
+_abs_cp() { local r="" s="" e; local IFS=':'; for e in $1; do r+="${s}$(_abs "$e")"; s=":"; done; printf '%s' "$r"; }
+
+process_javac_args() {
+    local nxt="" out=()
+    for a; do
+        if [[ -n "$nxt" ]]; then
+            if [[ "$nxt" == cp ]]; then
+                out+=("$(_abs_cp "$a")")
+            else
+                out+=("$(_abs "$a")")
+            fi
+            nxt=""
+        else
+            case "$a" in
+                -d|-s|-h)
+                    out+=("$a"); nxt=single ;;
+                -cp|-classpath|--class-path|-sourcepath|--source-path|\
+                -processorpath|--processor-path|-bootclasspath|--boot-class-path|\
+                -extdirs|-endorseddirs|-modulepath|--module-path|-mp|-p|\
+                --upgrade-module-path)
+                    out+=("$a"); nxt=cp ;;
+                @*)  out+=("@$(_abs "${a:1}")") ;;
+                -*)  out+=("$a") ;;
+                *)   out+=("$(_abs "$a")") ;;
+            esac
+        fi
+    done
+    if [[ ${#out[@]} -gt 0 ]]; then printf '%s\n' "${out[@]}"; fi
 }
 
 # ── Compilation helpers ───────────────────────────────────────────────────────
@@ -129,7 +165,7 @@ run_via_daemon() {
 
     # Inner helper payload generator
     payload_func() {
-        printf '%s\n' "$@"
+        process_javac_args "$@"
         printf '\x1FENDINP\x1F\n'
     }
 

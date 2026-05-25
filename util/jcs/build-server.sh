@@ -13,7 +13,6 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "Compiling CompileServer.java..."
-#javac --release 8 -d "$TMP" "$SRC"
 javac -source 8 -target 8 -d "$TMP" "$SRC"
 
 echo "Packaging compile-server.jar..."

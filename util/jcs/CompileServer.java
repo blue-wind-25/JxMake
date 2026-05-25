@@ -244,27 +244,18 @@ public class CompileServer {
      */
     private static void sendFramedResponse( final PrintWriter out, final String outStr, final String errStr, final int exitCode )
     {
-        // stdout section
         out.println( SENTINEL_STDOUT );
-        if( outStr.isEmpty() ) {
-            //out.println(); // dummy empty line - prevents hang when section is empty
-        }
-        else {
+        if( !outStr.isEmpty() ) {
             out.print( outStr );
             if( !outStr.endsWith( "\n" ) ) out.println();
         }
 
-        // stderr section
         out.println( SENTINEL_STDERR );
-        if( errStr.isEmpty() ) {
-            //out.println(); // dummy empty line - prevents hang when section is empty
-        }
-        else {
+        if( !errStr.isEmpty() ) {
             out.print( errStr );
             if( !errStr.endsWith( "\n" ) ) out.println();
         }
 
-        // exit code section
         out.println( SENTINEL_EXTCOD );
         out.println( exitCode );
     }

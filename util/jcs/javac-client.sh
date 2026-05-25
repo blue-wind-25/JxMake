@@ -74,7 +74,11 @@ process_javac_args() {
     local nxt="" out=()
     for a; do
         if [[ -n "$nxt" ]]; then
-            [[ "$nxt" == cp ]] && out+=("$(_abs_cp "$a")") || out+=("$(_abs "$a")")
+            if [[ "$nxt" == cp ]]; then
+                out+=("$(_abs_cp "$a")")
+            else
+                out+=("$(_abs "$a")")
+            fi
             nxt=""
         else
             case "$a" in
@@ -91,7 +95,7 @@ process_javac_args() {
             esac
         fi
     done
-    printf '%s\n' "${out[@]}"
+    if [[ ${#out[@]} -gt 0 ]]; then printf '%s\n' "${out[@]}"; fi
 }
 
 # ── Send request, receive framed response ─────────────────────────────────────

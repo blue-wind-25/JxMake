@@ -41,11 +41,9 @@ $ErrorActionPreference = 'Stop'
 $TmpDir = $env:TEMP
 
 # ── Sentinel constants ────────────────────────────────────────────────────────
-$NUL        = [char]0
-$SEN_ENDINP = "${NUL}ENDINP${NUL}"
-$SEN_STDOUT = "${NUL}STDOUT${NUL}"
-$SEN_STDERR = "${NUL}STDERR${NUL}"
-$SEN_EXTCOD = "${NUL}EXTCOD${NUL}"
+# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively.
+$US         = [char]0x1F
+$SEN_ENDINP = "${US}ENDINP${US}"
 
 # ── Locate JDK ────────────────────────────────────────────────────────────────
 
@@ -175,10 +173,10 @@ function Invoke-ViaDaemon {
 
         $line = $null
         while ($null -ne ($line = $reader.ReadLine())) {
-            switch ($line) {
-                $SEN_STDOUT { $mode = 'stdout'; break }
-                $SEN_STDERR { $mode = 'stderr'; break }
-                $SEN_EXTCOD { $mode = 'extcod'; break }
+            switch -Regex ($line) {
+                "\u001FSTDOUT\u001F" { $mode = 'stdout'; break }
+                "\u001FSTDERR\u001F" { $mode = 'stderr'; break }
+                "\u001FEXTCOD\u001F" { $mode = 'extcod'; break }
                 default {
                     switch ($mode) {
                         'stdout' { $stdoutLines.Add($line) }

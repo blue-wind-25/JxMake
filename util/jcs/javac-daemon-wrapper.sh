@@ -19,9 +19,8 @@
 #   # compile-server.jar must be in the same directory
 #   cp compile-server.jar $JAVA_HOME/bin/
 #
-# Protocol: NUL-wrapped (\x00TAG\x00) sentinel lines separate sections.
-# tr strips NUL bytes before awk parses; grep -E / awk can then match
-# plain keywords.
+# Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
+# awk matches \x1FTAG\x1F directly; no tr stripping needed.
 
 set -euo pipefail
 
@@ -122,17 +121,17 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 run_via_daemon() {
-    { printf '%s\n' "$@"; printf '\x00ENDINP\x00\n'; } \
+    { printf '%s\n' "$@"; printf '\x1FENDINP\x1F\n'; } \
         | nc -w 30 localhost "$PORT" > "$WORK/response"
 
-    tr -d '\000' < "$WORK/response" | awk '
-        /^STDOUT$/ { mode="stdout"; next }
-        /^STDERR$/ { mode="stderr"; next }
-        /^EXTCOD$/ { mode="extcod"; next }
+    awk '
+        /\x1FSTDOUT\x1F/ { mode="stdout"; next }
+        /\x1FSTDERR\x1F/ { mode="stderr"; next }
+        /\x1FEXTCOD\x1F/ { mode="extcod"; next }
         mode == "stdout" { print > (wdir "/stdout") }
         mode == "stderr" { print > (wdir "/stderr") }
         mode == "extcod" { print > (wdir "/exitcode") }
-    ' wdir="$WORK"
+    ' wdir="$WORK" "$WORK/response"
 
     cat "$WORK/stdout"  2>/dev/null || true
     cat "$WORK/stderr" >&2 2>/dev/null || true

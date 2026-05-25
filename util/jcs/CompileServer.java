@@ -1,4 +1,5 @@
 import javax.tools.*;
+import java.lang.management.*;
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -36,14 +37,16 @@ public class CompileServer {
         // Write PID file so kill script can find us
         String pidFile = System.getProperty("java.io.tmpdir") +
             "/javac-daemon-" + port + ".pid";
-        try {
-            long pid = ProcessHandle.current().pid();
-            try (PrintWriter pw = new PrintWriter(pidFile)) {
-                pw.println(pid);
-            }
-            System.err.println("PID " + pid + " written to " + pidFile);
+        long pid = detectPid();
+        try (PrintWriter pw = new PrintWriter(pidFile)) {
+            pw.println(pid);
         } catch (Exception e) {
             System.err.println("Warning: could not write PID file: " + e.getMessage());
+        }
+        if (pid == -1) {
+            System.err.println("Warning: could not determine PID, wrote -1 to " + pidFile);
+        } else {
+            System.err.println("PID " + pid + " written to " + pidFile);
         }
 
         ServerSocket server = new ServerSocket(port);
@@ -58,18 +61,20 @@ public class CompileServer {
         AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
 
         // Idle watchdog thread — shuts down if no compilation for IDLE_TIMEOUT_MS
-        Thread watchdog = new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(60_000); // check every minute
-                } catch (InterruptedException e) {
-                    return;
-                }
-                long idle = System.currentTimeMillis() - lastActivity.get();
-                if (idle >= IDLE_TIMEOUT_MS) {
-                    System.err.println("Idle timeout reached, shutting down.");
-                    new File(pidFile).delete();
-                    System.exit(0);
+        Thread watchdog = new Thread(new Runnable() {
+            public void run() {
+                while (true) {
+                    try {
+                        Thread.sleep(60_000); // check every minute
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                    long idle = System.currentTimeMillis() - lastActivity.get();
+                    if (idle >= IDLE_TIMEOUT_MS) {
+                        System.err.println("Idle timeout reached, shutting down.");
+                        new File(pidFile).delete();
+                        System.exit(0);
+                    }
                 }
             }
         });
@@ -77,21 +82,26 @@ public class CompileServer {
         watchdog.start();
 
         // Register shutdown hook to clean up PID file on any exit
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            new File(pidFile).delete();
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            public void run() {
+                new File(pidFile).delete();
+            }
         }));
 
         while (true) {
             try {
                 Socket conn = server.accept();
                 lastActivity.set(System.currentTimeMillis());
-                pool.submit(() -> {
-                    try {
-                        handleConnection(compiler, conn);
-                    } catch (Exception e) {
-                        System.err.println("Connection error: " + e.getMessage());
-                    } finally {
-                        lastActivity.set(System.currentTimeMillis());
+                pool.submit(new Runnable() {
+                    public void run() {
+                        try {
+                            handleConnection(compiler, conn);
+                        } catch (Exception e) {
+                            System.err.println("Connection error: " + e.getMessage());
+                        } finally {
+                            lastActivity.set(System.currentTimeMillis());
+                            try { conn.close(); } catch (Exception ignored) {}
+                        }
                     }
                 });
             } catch (Exception e) {
@@ -100,15 +110,34 @@ public class CompileServer {
         }
     }
 
+    /**
+     * Determine PID using ProcessHandle (Java 9+) via reflection,
+     * falling back to RuntimeMXBean (Java 8). Returns -1 if unavailable.
+     */
+    private static long detectPid() {
+        // Java 9+: ProcessHandle via reflection to avoid compile-time dependency
+        try {
+            Class<?> cls = Class.forName("java.lang.ProcessHandle");
+            Object current = cls.getMethod("current").invoke(null);
+            return (Long) cls.getMethod("pid").invoke(current);
+        } catch (Exception ignored) {}
+        // Java 8 fallback: RuntimeMXBean name is "pid@hostname"
+        try {
+            String name = ManagementFactory.getRuntimeMXBean().getName();
+            return Long.parseLong(name.split("@")[0]);
+        } catch (Exception ignored) {}
+        return -1;
+    }
+
     static void handleConnection(JavaCompiler compiler, Socket conn) throws Exception {
         try (
             BufferedReader in  = new BufferedReader(
-                new InputStreamReader(conn.getInputStream()));
+                new InputStreamReader(conn.getInputStream(), "UTF-8"));
             PrintWriter out = new PrintWriter(
-                new OutputStreamWriter(conn.getOutputStream()), true)
+                new OutputStreamWriter(conn.getOutputStream(), "UTF-8"), true)
         ) {
             // Read javac arguments until END sentinel
-            List<String> javacArgs = new ArrayList<>();
+            List<String> javacArgs = new ArrayList<String>();
             String line;
             while ((line = in.readLine()) != null && !line.equals("END")) {
                 javacArgs.add(line);
@@ -122,8 +151,8 @@ public class CompileServer {
             // Each connection gets its own FileManager — required for thread safety
             ByteArrayOutputStream outBuf = new ByteArrayOutputStream();
             ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
-            PrintStream outStream = new PrintStream(outBuf);
-            PrintStream errStream = new PrintStream(errBuf);
+            PrintStream outStream = new PrintStream(outBuf, true, "UTF-8");
+            PrintStream errStream = new PrintStream(errBuf, true, "UTF-8");
 
             int exitCode;
             try (StandardJavaFileManager fm =
@@ -141,8 +170,8 @@ public class CompileServer {
             outStream.flush();
             errStream.flush();
 
-            String outStr = outBuf.toString();
-            String errStr = errBuf.toString();
+            String outStr = outBuf.toString("UTF-8");
+            String errStr = errBuf.toString("UTF-8");
 
             if (!outStr.isEmpty()) out.print(outStr);
             if (!errStr.isEmpty()) out.print(errStr);

@@ -7,9 +7,12 @@
 #   stop-compile-server.sh         (stops all running javac daemons)
 set -euo pipefail
 
+# Editable: directory where PID files are stored (must match start-compile-server.sh)
+TMPDIR_JVM=/tmp
+
 stop_one() {
     local PORT="$1"
-    local PID_FILE="/tmp/javac-daemon-${PORT}.pid"
+    local PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 
     if [[ ! -f "$PID_FILE" ]]; then
         echo "No PID file found for port $PORT ($PID_FILE). Daemon may not be running."
@@ -18,6 +21,12 @@ stop_one() {
 
     local PID
     PID=$(cat "$PID_FILE")
+
+    if ! [[ "$PID" =~ ^[0-9]+$ ]]; then
+        echo "Invalid PID '$PID' in $PID_FILE for port $PORT. Removing stale PID file."
+        rm -f "$PID_FILE"
+        return 1
+    fi
 
     if kill -0 "$PID" 2>/dev/null; then
         echo "Stopping javac daemon on port $PORT (PID $PID)..."
@@ -40,9 +49,9 @@ stop_one() {
 if [[ $# -eq 0 ]]; then
     # Stop all
     FOUND=0
-    for f in /tmp/javac-daemon-*.pid; do
+    for f in "${TMPDIR_JVM}/javac-daemon-"*.pid; do
         [[ -f "$f" ]] || continue
-        PORT="${f#/tmp/javac-daemon-}"
+        PORT="${f#${TMPDIR_JVM}/javac-daemon-}"
         PORT="${PORT%.pid}"
         stop_one "$PORT" && FOUND=$((FOUND + 1))
     done

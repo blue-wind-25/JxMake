@@ -10,7 +10,7 @@
 # Examples:
 #    start-compile-server.sh 21000
 #    start-compile-server.sh 0 /usr/lib/jvm/java-21/bin/java
-#    start-compile-server.sh 0                         # uses java from PATH
+#    start-compile-server.sh 0                        # uses java from PATH
 set -euo pipefail
 
 # Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)

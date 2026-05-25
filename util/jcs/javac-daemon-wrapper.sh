@@ -145,14 +145,15 @@ run_via_daemon() {
     fi
 
     awk '
-        /\x1FSTDOUT\x1F/ { mode="stdout"; next }
-        /\x1FSTDERR\x1F/ { mode="stderr"; next }
-        /\x1FEXTCOD\x1F/ { mode="extcod"; next }
+        # Match and consume sentinel lines (Unit Separator = \037)
+        /^\037STDOUT\037$/ { mode="stdout"; next }
+        /^\037STDERR\037$/ { mode="stderr"; next }
+        /^\037EXTCOD\037$/ { mode="extcod"; next }
 
-        # Explicit matching guards prevent structural tags from leaking into files
-        mode == "stdout" && !/\x1F/ { print > (wdir "/stdout"  ); mode="" }
-        mode == "stderr" && !/\x1F/ { print > (wdir "/stderr"  ); mode="" }
-        mode == "extcod" && !/\x1F/ { print > (wdir "/exitcode"); mode="" }
+        # Route all subsequent lines until the next sentinel
+        mode == "stdout" { print > (wdir "/stdout"); next }
+        mode == "stderr" { print > (wdir "/stderr"); next }
+        mode == "extcod" { print > (wdir "/exitcode"); next }
     ' wdir="$WORK" "$WORK/response"
 
     cat "$WORK/stdout"  2>/dev/null || true

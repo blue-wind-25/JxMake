@@ -12,7 +12,7 @@
 #
 # Usage from shell:
 #    javac-client.sh 62650 -cp libs/*.jar -d out src/Main.java
-#    javac-client.sh 0     ...    # port auto-derived from active JDK
+#    javac-client.sh 0     ...   # port auto-derived from active JDK
 #
 # Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
 # awk matches \x1FTAG\x1F directly; no tr stripping needed.
@@ -75,14 +75,15 @@ trap 'rm -rf "$WORK"' EXIT
 # awk matches the US-wrapped sentinel lines directly and routes each
 # section to the appropriate temp file.
 awk '
-    /\x1FSTDOUT\x1F/ { mode="stdout"; next }
-    /\x1FSTDERR\x1F/ { mode="stderr"; next }
-    /\x1FEXTCOD\x1F/ { mode="extcod"; next }
+    # Match and consume sentinel lines (Unit Separator = \037)
+    /^\037STDOUT\037$/ { mode="stdout"; next }
+    /^\037STDERR\037$/ { mode="stderr"; next }
+    /^\037EXTCOD\037$/ { mode="extcod"; next }
 
-    # Explicit matching guards prevent structural tags from leaking into files
-    mode == "stdout" && !/\x1F/ { print > (wdir "/stdout"  ); mode="" }
-    mode == "stderr" && !/\x1F/ { print > (wdir "/stderr"  ); mode="" }
-    mode == "extcod" && !/\x1F/ { print > (wdir "/exitcode"); mode="" }
+    # Route all subsequent lines until the next sentinel
+    mode == "stdout" { print > (wdir "/stdout"); next }
+    mode == "stderr" { print > (wdir "/stderr"); next }
+    mode == "extcod" { print > (wdir "/exitcode"); next }
 ' wdir="$WORK" "$WORK/response"
 
 # Emit stdout to stdout and stderr to stderr, preserving javac's separation.

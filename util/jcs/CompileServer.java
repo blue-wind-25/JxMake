@@ -10,13 +10,13 @@ import java.util.concurrent.atomic.*;
  * Persistent Java compilation daemon.
  *
  * Protocol (per connection, newline-delimited):
- *   Client sends:  arg1\narg2\n...\nENDINP\n
+ *   Client sends:  arg1\narg2\n...\n\u001FENDINP\u001F\n
  *   Server replies:
- *     STDOUT\n
+ *     \u001FSTDOUT\u001F\n
  *     stdout lines  -- or one empty line when stdout is empty
- *     STDERR\n
+ *     \u001FSTDERR\u001F\n
  *     stderr lines  -- or one empty line when stderr is empty
- *     EXTCOD\n
+ *     \u001FEXTCOD\u001F\n
  *     exit-code\n
  *
  * Sentinel lines contain actual Unit Separator bytes (U+001F, ASCII 31)
@@ -37,10 +37,10 @@ public class CompileServer {
     // \u001F is the Java Unicode escape for U+001F (the Unit Separator character).
     // These escapes are resolved before tokenisation, so at runtime each
     // constant begins and ends with an actual US byte (0x1F).
-    static final String SENTINEL_ENDINP = "ENDINP";
-    static final String SENTINEL_STDOUT = "STDOUT";
-    static final String SENTINEL_STDERR = "STDERR";
-    static final String SENTINEL_EXTCOD = "EXTCOD";
+    static final String SENTINEL_ENDINP = "\u001FENDINP\u001F";
+    static final String SENTINEL_STDOUT = "\u001FSTDOUT\u001F";
+    static final String SENTINEL_STDERR = "\u001FSTDERR\u001F";
+    static final String SENTINEL_EXTCOD = "\u001FEXTCOD\u001F";
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {

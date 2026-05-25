@@ -11,6 +11,9 @@
 #   start-compile-server.sh 62651 /usr/lib/jvm/java-11/bin/java
 set -euo pipefail
 
+# Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
+TMPDIR_JVM=/tmp
+
 PORT="${1:-}"
 JAVA_BIN="${2:-java}"
 
@@ -21,8 +24,8 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JAR="$SCRIPT_DIR/compile-server.jar"
-PID_FILE="/tmp/javac-daemon-${PORT}.pid"
-LOG_FILE="/tmp/javac-daemon-${PORT}.log"
+PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
+LOG_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.log"
 
 if [[ ! -f "$JAR" ]]; then
     echo "ERROR: $JAR not found. Run build-server.sh first." >&2
@@ -32,7 +35,7 @@ fi
 # Check if already running via PID file
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
-    if kill -0 "$PID" 2>/dev/null; then
+    if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
         echo "Daemon already running on port $PORT (PID $PID)"
         exit 0
     else
@@ -49,13 +52,19 @@ fi
 
 echo "Starting javac daemon on port $PORT using $("$JAVA_BIN" -version 2>&1 | head -1)..."
 
-nohup "$JAVA_BIN" -jar "$JAR" "$PORT" > "$LOG_FILE" 2>&1 &
+nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" > "$LOG_FILE" 2>&1 &
+JAVA_PID=$!
 
 # Wait up to 5 seconds for it to become ready
 for i in $(seq 1 10); do
     sleep 0.5
     if nc -z localhost "$PORT" 2>/dev/null; then
-        PID=$(cat "$PID_FILE" 2>/dev/null || echo "?")
+        # Replace -1 placeholder with actual PID from the backgrounded process
+        PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
+        if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
+            echo "$JAVA_PID" > "$PID_FILE"
+            PID="$JAVA_PID"
+        fi
         echo "Daemon started (PID $PID), listening on port $PORT"
         echo "Log: $LOG_FILE"
         exit 0

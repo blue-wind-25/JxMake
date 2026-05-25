@@ -22,6 +22,12 @@
 
 set -euo pipefail
 
+# Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
+TMPDIR_JVM=/tmp
+
+# Ensure stdout is not empty to avoid hangs
+echo "" >/dev/stdout
+
 # ── Locate the JDK ──────────────────────────────────────────────────────────
 
 # If we are installed inside a JDK bin dir, use that.
@@ -58,13 +64,13 @@ start_daemon() {
         return 1
     fi
 
-    local PID_FILE="/tmp/javac-daemon-${PORT}.pid"
+    local PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 
     # Already running?
     if [[ -f "$PID_FILE" ]]; then
         local PID
         PID=$(cat "$PID_FILE")
-        if kill -0 "$PID" 2>/dev/null; then
+        if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
             return 0
         fi
         rm -f "$PID_FILE"
@@ -74,13 +80,22 @@ start_daemon() {
         return 0  # something is already listening
     fi
 
-    local LOG="/tmp/javac-daemon-${PORT}.log"
-    nohup "$JAVA_BIN" -jar "$JAR" "$PORT" > "$LOG" 2>&1 &
+    local LOG="${TMPDIR_JVM}/javac-daemon-${PORT}.log"
+    nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" > "$LOG" 2>&1 &
+    local JAVA_PID=$!
 
     # Wait up to 5 seconds
     for i in $(seq 1 10); do
         sleep 0.5
-        nc -z localhost "$PORT" 2>/dev/null && return 0
+        if nc -z localhost "$PORT" 2>/dev/null; then
+            # Replace -1 placeholder with actual PID from the backgrounded process
+            local PID
+            PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
+            if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
+                echo "$JAVA_PID" > "$PID_FILE"
+            fi
+            return 0
+        fi
     done
 
     echo "WARNING: javac daemon failed to start on port $PORT." >&2

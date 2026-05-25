@@ -15,6 +15,9 @@
 #   javac-client.sh 62650 -cp libs/*.jar -d out src/Main.java
 set -euo pipefail
 
+# Ensure stdout is not empty to avoid hangs
+echo "" >/dev/stdout
+
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <port> [javac args...]" >&2
     exit 1

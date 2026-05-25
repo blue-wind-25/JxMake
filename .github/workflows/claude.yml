@@ -216,6 +216,6 @@ jobs:
 
           claude_args: |
             --model ${{ steps.claude_args.outputs.model }}
-            --allowedTools "Edit,Write,Read,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(pwd:*),Bash(which:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),Bash(wc:*),Bash(diff:*),Bash(patch:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(rm:*),Bash(touch:*),Bash(echo:*),Bash(chmod:*),Bash(tee:*),Bash(xargs:*),Bash(tr:*),Bash(python3:*),Bash(diff:*),Bash(patch:*),Bash(hexdump:*),Bash(xxd:*),Bash(od:*)"
+            --allowedTools "Edit,Write,Read,Bash(awk:*),Bash(basename:*),Bash(cat:*),Bash(chmod:*),Bash(cp:*),Bash(curl:*),Bash(cut:*),Bash(date:*),Bash(diff:*),Bash(dirname:*),Bash(echo:*),Bash(expr:*),Bash(file:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(hexdump:*),Bash(jq:*),Bash(ls:*),Bash(mkdir:*),Bash(mv:*),Bash(od:*),Bash(patch:*),Bash(printf:*),Bash(printenv:*),Bash(pwd:*),Bash(python3:*),Bash(realpath:*),Bash(rg:*),Bash(rm:*),Bash(sed:*),Bash(sleep:*),Bash(sort:*),Bash(stat:*),Bash(strings:*),Bash(tail:*),Bash(tar:*),Bash(tee:*),Bash(test:*),Bash(touch:*),Bash(tr:*),Bash(uniq:*),Bash(unzip:*),Bash(wc:*),Bash(which:*),Bash(xargs:*),Bash(xxd:*),Bash(zip:*),Bash(gh:*),Bash(git:*)"
             --effort ${{ steps.claude_args.outputs.effort }}
             --max-turns ${{ steps.claude_args.outputs.turns }}

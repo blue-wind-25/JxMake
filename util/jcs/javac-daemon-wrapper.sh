@@ -4,40 +4,38 @@
 # Transparent javac replacement that auto-starts the compile daemon
 # for the current JDK on demand, then routes the compile request to it.
 #
-# Intended to be placed alongside (or symlinked from) the JDK bin dir,
-# with the real javac renamed to javac.real in the same directory.
-# Can also be used standalone via JAVAC= in your Makefile.
+# Port is derived from the Java major version (major * 1000), so each
+# JDK major version gets its own daemon automatically:
+#   JDK 8 -> 8000, JDK 11 -> 11000, JDK 17 -> 17000, JDK 21 -> 21000.
 #
-# Port is derived deterministically from the JDK bin path so each JDK
-# version gets its own daemon automatically — no manual port management.
+# Installation as a Makefile JAVAC override (no JDK surgery needed):
+#   JAVAC     = /path/to/javac-daemon-wrapper.sh
+#   JAVA_HOME = /usr/lib/jvm/java-21
 #
-# Usage as Makefile JAVAC override (no JDK surgery needed):
-#   JAVAC      = /path/to/javac-daemon-wrapper.sh
-#   JAVA_HOME  = /usr/lib/jvm/java-21    # tells wrapper which JDK to use
-#
-# Usage as drop-in javac (rename real javac first):
+# Installation as a drop-in javac (rename the real javac first):
 #   mv $JAVA_HOME/bin/javac $JAVA_HOME/bin/javac.real
 #   cp javac-daemon-wrapper.sh $JAVA_HOME/bin/javac
 #   chmod +x $JAVA_HOME/bin/javac
+#   # compile-server.jar must be in the same directory
+#   cp compile-server.jar $JAVA_HOME/bin/
+#
+# Protocol: NUL-wrapped (\x00TAG\x00) sentinel lines separate sections.
+# tr strips NUL bytes before awk parses; grep -E / awk can then match
+# plain keywords.
 
 set -euo pipefail
 
-# Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
+# Editable: directory used for PID and log files (also passed to JVM)
 TMPDIR_JVM=/tmp
 
-# Ensure stdout is not empty to avoid hangs
-echo "" >/dev/stdout
+# ── Locate the JDK ───────────────────────────────────────────────────────────
 
-# ── Locate the JDK ──────────────────────────────────────────────────────────
-
-# If we are installed inside a JDK bin dir, use that.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [[ -x "$SCRIPT_DIR/java" ]]; then
     JDK_BIN="$SCRIPT_DIR"
 elif [[ -n "${JAVA_HOME:-}" && -x "$JAVA_HOME/bin/java" ]]; then
     JDK_BIN="$JAVA_HOME/bin"
 else
-    # Fall back to whatever java is on PATH
     JAVA_PATH="$(command -v java 2>/dev/null || true)"
     if [[ -z "$JAVA_PATH" ]]; then
         echo "ERROR: Cannot locate JDK. Set JAVA_HOME or install a JDK." >&2
@@ -51,9 +49,24 @@ JAVAC_REAL="$JDK_BIN/javac.real"   # real javac after rename
 JAR_DIR="$(cd "$(dirname "$0")" && pwd)"
 JAR="$JAR_DIR/compile-server.jar"
 
-# ── Derive a stable port from JDK bin path ──────────────────────────────────
-# cksum gives a stable 32-bit hash; map into ephemeral port range 49152-65535
-PORT=$(echo "$JDK_BIN" | cksum | awk '{print 49152 + ($1 % 16383)}')
+# ── Derive port from Java major version ──────────────────────────────────────
+
+derive_port() {
+    local java_bin="$1"
+    local ver_str major
+    ver_str=$("$java_bin" -version 2>&1 | head -1)
+    if [[ "$ver_str" =~ \"1\.([0-9]+) ]]; then
+        major="${BASH_REMATCH[1]}"
+    elif [[ "$ver_str" =~ \"([0-9]+) ]]; then
+        major="${BASH_REMATCH[1]}"
+    else
+        echo "ERROR: Cannot parse Java version from: $ver_str" >&2
+        return 1
+    fi
+    echo $((major * 1000))
+}
+
+PORT=$(derive_port "$JAVA_BIN")
 
 # ── Ensure daemon is running ─────────────────────────────────────────────────
 
@@ -66,7 +79,6 @@ start_daemon() {
 
     local PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 
-    # Already running?
     if [[ -f "$PID_FILE" ]]; then
         local PID
         PID=$(cat "$PID_FILE")
@@ -77,18 +89,17 @@ start_daemon() {
     fi
 
     if nc -z localhost "$PORT" 2>/dev/null; then
-        return 0  # something is already listening
+        return 0
     fi
 
     local LOG="${TMPDIR_JVM}/javac-daemon-${PORT}.log"
-    nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" > "$LOG" 2>&1 &
+    nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" \
+        > "$LOG" 2>&1 &
     local JAVA_PID=$!
 
-    # Wait up to 5 seconds
     for i in $(seq 1 10); do
         sleep 0.5
         if nc -z localhost "$PORT" 2>/dev/null; then
-            # Replace -1 placeholder with actual PID from the backgrounded process
             local PID
             PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
             if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
@@ -99,18 +110,35 @@ start_daemon() {
     done
 
     echo "WARNING: javac daemon failed to start on port $PORT." >&2
-    echo "         Check $LOG" >&2
+    echo "         Check ${TMPDIR_JVM}/javac-daemon-${PORT}.log" >&2
     return 1
 }
 
-# ── Run compilation ──────────────────────────────────────────────────────────
+# ── Compilation helpers ───────────────────────────────────────────────────────
+
+# WORK dir is created at script scope so the EXIT trap always cleans it up,
+# even when run_via_daemon calls 'exit' directly.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 
 run_via_daemon() {
-    local RESPONSE
-    RESPONSE=$(printf '%s\n' "$@" 'END' | nc localhost "$PORT")
-    echo "$RESPONSE" | grep -v '^EXIT:' >&2 || true
+    { printf '%s\n' "$@"; printf '\x00ENDINP\x00\n'; } \
+        | nc -w 30 localhost "$PORT" > "$WORK/response"
+
+    tr -d '\000' < "$WORK/response" | awk '
+        /^STDOUT$/ { mode="stdout"; next }
+        /^STDERR$/ { mode="stderr"; next }
+        /^EXTCOD$/ { mode="extcod"; next }
+        mode == "stdout" { print > (wdir "/stdout") }
+        mode == "stderr" { print > (wdir "/stderr") }
+        mode == "extcod" { print > (wdir "/exitcode") }
+    ' wdir="$WORK"
+
+    cat "$WORK/stdout"  2>/dev/null || true
+    cat "$WORK/stderr" >&2 2>/dev/null || true
+
     local EXIT_CODE
-    EXIT_CODE=$(echo "$RESPONSE" | grep '^EXIT:' | tail -1 | cut -d: -f2)
+    EXIT_CODE=$(cat "$WORK/exitcode" 2>/dev/null | head -1 | tr -d '[:space:]')
     exit "${EXIT_CODE:-1}"
 }
 
@@ -123,7 +151,8 @@ fallback_to_real() {
     fi
 }
 
-# Try to ensure daemon is up; fall back to real javac if we can't
+# ── Main ─────────────────────────────────────────────────────────────────────
+
 if start_daemon; then
     run_via_daemon "$@"
 else

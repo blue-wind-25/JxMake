@@ -14,9 +14,8 @@
 #   javac-client.sh 62650 -cp libs/*.jar -d out src/Main.java
 #   javac-client.sh 0      ...           # port auto-derived from active JDK
 #
-# Protocol: NUL-wrapped (\x00TAG\x00) sentinel lines separate sections.
-# tr strips NUL bytes before awk parses, so grep -E / awk can match
-# plain keywords after stripping.
+# Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
+# awk matches \x1FTAG\x1F directly; no tr stripping needed.
 set -euo pipefail
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,22 +66,21 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Send javac args line-by-line, then the NUL-wrapped ENDINP sentinel.
+# Send javac args line-by-line, then the US-wrapped ENDINP sentinel.
 # Receive the full framed response into a temp file (binary-safe).
-{ printf '%s\n' "$@"; printf '\x00ENDINP\x00\n'; } \
+{ printf '%s\n' "$@"; printf '\x1FENDINP\x1F\n'; } \
     | nc -w 30 localhost "$PORT" > "$WORK/response"
 
-# Strip NUL bytes (they only appear in sentinel lines; javac never outputs NUL).
-# Sentinel lines then become plain keywords: STDOUT, STDERR, EXTCOD.
-# awk routes each section to the appropriate temp file.
-tr -d '\000' < "$WORK/response" | awk '
-    /^STDOUT$/ { mode="stdout"; next }
-    /^STDERR$/ { mode="stderr"; next }
-    /^EXTCOD$/ { mode="extcod"; next }
+# awk matches the US-wrapped sentinel lines directly and routes each
+# section to the appropriate temp file.
+awk '
+    /\x1FSTDOUT\x1F/ { mode="stdout"; next }
+    /\x1FSTDERR\x1F/ { mode="stderr"; next }
+    /\x1FEXTCOD\x1F/ { mode="extcod"; next }
     mode == "stdout" { print > (wdir "/stdout") }
     mode == "stderr" { print > (wdir "/stderr") }
     mode == "extcod" { print > (wdir "/exitcode") }
-' wdir="$WORK"
+' wdir="$WORK" "$WORK/response"
 
 # Emit stdout to stdout and stderr to stderr, preserving javac's separation.
 cat "$WORK/stdout"  2>/dev/null || true

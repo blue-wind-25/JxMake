@@ -10,18 +10,18 @@ import java.util.concurrent.atomic.*;
  * Persistent Java compilation daemon.
  *
  * Protocol (per connection, newline-delimited):
- *   Client sends:  arg1\narg2\n...\n\u0000ENDINP\u0000\n
+ *   Client sends:  arg1\narg2\n...\nENDINP\n
  *   Server replies:
- *     \u0000STDOUT\u0000\n
+ *     STDOUT\n
  *     stdout lines  -- or one empty line when stdout is empty
- *     \u0000STDERR\u0000\n
+ *     STDERR\n
  *     stderr lines  -- or one empty line when stderr is empty
- *     \u0000EXTCOD\u0000\n
+ *     EXTCOD\n
  *     exit-code\n
  *
- * Sentinel lines contain actual NUL bytes (U+0000) before and after the
- * tag word, making them unambiguous framing tokens that never appear in
- * normal javac output.
+ * Sentinel lines contain actual Unit Separator bytes (U+001F, ASCII 31)
+ * before and after the tag word, making them unambiguous framing tokens
+ * that never appear in normal javac output.
  *
  * If port argument is 0, the listening port is derived from the Java
  * major version: major * 1000
@@ -33,14 +33,14 @@ public class CompileServer {
 
     static final long IDLE_TIMEOUT_MS = 3L * 60 * 60 * 1000; // 3 hours
 
-    // NUL-wrapped sentinel tags.
-    // \u0000 is the Java Unicode escape for U+0000 (the NUL character).
+    // US-wrapped sentinel tags.
+    // \u001F is the Java Unicode escape for U+001F (the Unit Separator character).
     // These escapes are resolved before tokenisation, so at runtime each
-    // constant begins and ends with an actual NUL byte (0x00).
-    static final String SENTINEL_ENDINP = "\u0000ENDINP\u0000";
-    static final String SENTINEL_STDOUT = "\u0000STDOUT\u0000";
-    static final String SENTINEL_STDERR = "\u0000STDERR\u0000";
-    static final String SENTINEL_EXTCOD = "\u0000EXTCOD\u0000";
+    // constant begins and ends with an actual US byte (0x1F).
+    static final String SENTINEL_ENDINP = "ENDINP";
+    static final String SENTINEL_STDOUT = "STDOUT";
+    static final String SENTINEL_STDERR = "STDERR";
+    static final String SENTINEL_EXTCOD = "EXTCOD";
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
@@ -223,7 +223,7 @@ public class CompileServer {
 
     /**
      * Write a complete framed response to the client.
-     * Each section is preceded by its NUL-wrapped sentinel tag.
+     * Each section is preceded by its US-wrapped sentinel tag.
      * An empty section emits one blank line to prevent client parser hangs.
      */
     private static void sendFramedResponse(PrintWriter out,

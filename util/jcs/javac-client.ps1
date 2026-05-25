@@ -8,9 +8,9 @@
     The daemon must already be running (use start-compile-server.ps1).
     Does NOT auto-start the server -- fails clearly if the daemon is down.
 
-    Protocol: NUL-wrapped sentinel lines (NUL+TAG+NUL) separate stdout,
+    Protocol: US-wrapped sentinel lines (US+TAG+US) separate stdout,
     stderr, and exit-code sections in the server response.  PowerShell
-    strings handle NUL (U+0000) natively via [char]0.
+    strings handle US (U+001F) natively via [char]0x1F.
 
 .PARAMETER Port
     TCP port the daemon is listening on.  Pass 0 to auto-derive from the
@@ -35,12 +35,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ── Sentinel constants ────────────────────────────────────────────────────────
-# PowerShell strings are UTF-16 and can contain NUL (char 0) natively.
-$NUL          = [char]0
-$SEN_ENDINP   = "${NUL}ENDINP${NUL}"
-$SEN_STDOUT   = "${NUL}STDOUT${NUL}"
-$SEN_STDERR   = "${NUL}STDERR${NUL}"
-$SEN_EXTCOD   = "${NUL}EXTCOD${NUL}"
+# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively.
+$US           = [char]0x1F
+$SEN_ENDINP   = "${US}ENDINP${US}"
 
 # ── Port resolution ───────────────────────────────────────────────────────────
 
@@ -99,7 +96,8 @@ try {
     # Signal end of sending so the server's readLine() sees EOF-after-sentinel
     $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
 
-    # Read framed response sections
+    # Read framed response sections.
+    # switch -Regex: \u001F in a .NET regex pattern matches U+001F (Unit Separator).
     $mode        = 'none'
     $stdoutLines = [System.Collections.Generic.List[string]]::new()
     $stderrLines = [System.Collections.Generic.List[string]]::new()
@@ -107,10 +105,10 @@ try {
 
     $line = $null
     while ($null -ne ($line = $reader.ReadLine())) {
-        switch ($line) {
-            $SEN_STDOUT { $mode = 'stdout'; break }
-            $SEN_STDERR { $mode = 'stderr'; break }
-            $SEN_EXTCOD { $mode = 'extcod'; break }
+        switch -Regex ($line) {
+            "\u001FSTDOUT\u001F" { $mode = 'stdout'; break }
+            "\u001FSTDERR\u001F" { $mode = 'stderr'; break }
+            "\u001FEXTCOD\u001F" { $mode = 'extcod'; break }
             default {
                 switch ($mode) {
                     'stdout' { $stdoutLines.Add($line) }
@@ -124,7 +122,7 @@ try {
     if ($client) { $client.Dispose() }
 }
 
-# ── Output — preserve javac's stdout/stderr separation ───────────────────────
+# ── Output -- preserve javac's stdout/stderr separation ───────────────────────
 
 foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l)   }
 foreach ($l in $stderrLines) { [Console]::Error.WriteLine($l) }

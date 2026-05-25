@@ -97,6 +97,8 @@ JDS	:= /opt/openjdk-21_linux-x64_bin/jdk-21/bin/jdeprscan                    --r
 JDS	:= /opt/openjdk-25_linux-x64_bin/jdk-25/bin/jdeprscan                    --release 25 $(CP_JDS)
 JC	 = $(if $(strip $(JPATH)),$(JPATH)/bin/javac,javac)                                                         $(CP_CPL)
 JVM	 = $(if $(strip $(JPATH)),$(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java),java) $(CP_RUN) $(EN_NAA_FLAG)
+
+##### !!! TODO !!! #####
 #JC	 = ../util/jcs/javac-daemon-wrapper.sh      $(CP_CPL)
 #JC	 = ../util/jcs/javac-client.sh         8000 $(CP_CPL)
 

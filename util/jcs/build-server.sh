@@ -19,3 +19,5 @@ echo "Packaging compile-server.jar..."
 jar cfe "$JAR" CompileServer -C "$TMP" .
 
 echo "Done: $JAR"
+
+# claude --resume 1e020d79-9b7d-4394-bea9-2dab4c071fb7

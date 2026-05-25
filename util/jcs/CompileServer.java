@@ -1,21 +1,22 @@
-import javax.tools.*;
+import java.io.*;
 import java.lang.management.*;
 import java.net.*;
-import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
+import javax.tools.*;
 
-/**
+
+/*
  * Persistent Java compilation daemon.
  *
  * Protocol (per connection, newline-delimited):
  *   Client sends:  arg1\narg2\n...\n\u001FENDINP\u001F\n
  *   Server replies:
  *     \u001FSTDOUT\u001F\n
- *     stdout lines  -- or one empty line when stdout is empty
+ *     stdout lines - or one empty line when stdout is empty
  *     \u001FSTDERR\u001F\n
- *     stderr lines  -- or one empty line when stderr is empty
+ *     stderr lines - or one empty line when stderr is empty
  *     \u001FEXTCOD\u001F\n
  *     exit-code\n
  *
@@ -42,212 +43,230 @@ public class CompileServer {
     static final String SENTINEL_STDERR = "\u001FSTDERR\u001F";
     static final String SENTINEL_EXTCOD = "\u001FEXTCOD\u001F";
 
-    public static void main(String[] args) throws Exception {
-        if (args.length < 1) {
-            System.err.println("Usage: java -jar compile-server.jar <port>");
-            System.exit(1);
+    public static void main( final String[] args ) throws Exception
+    {
+        if( args.length < 1 ) {
+            System.err.println( "Usage: java -jar compile-server.jar <port>" );
+            System.exit( 1 );
         }
 
         // resolvePort handles port==0 by deriving from the Java major version
-        final int port = resolvePort(Integer.parseInt(args[0]));
+        final int          port     = resolvePort( Integer.parseInt( args[0] ) );
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            System.err.println("ERROR: No JavaCompiler available. " +
-                "Make sure you are running a JDK, not a JRE.");
-            System.exit(2);
+        if( compiler == null ) {
+            System.err.println( "ERROR: No JavaCompiler available. Make sure you are running a JDK, not a JRE." );
+            System.exit( 2 );
         }
 
-        final String pidFile = System.getProperty("java.io.tmpdir") +
-            "/javac-daemon-" + port + ".pid";
-        long pid = detectPid();
-        try (PrintWriter pw = new PrintWriter(pidFile)) {
-            pw.println(pid);
-        } catch (Exception e) {
-            System.err.println("Warning: could not write PID file: " + e.getMessage());
+        final String pidFile = System.getProperty( "java.io.tmpdir" ) + "/javac-daemon-" + port + ".pid";
+        final long   pid     = detectPid();
+
+        try(
+            final PrintWriter pw = new PrintWriter( pidFile )
+        ) {
+            pw.println( pid );
         }
-        if (pid == -1) {
-            System.err.println("Warning: could not determine PID, wrote -1 to " + pidFile);
-        } else {
-            System.err.println("PID " + pid + " written to " + pidFile);
+        catch( final Exception e ) {
+            System.err.println( "Warning: could not write PID file: " + e.getMessage() );
+        }
+        if( pid == -1 ) {
+            System.err.println( "Warning: could not determine PID, wrote -1 to " + pidFile );
+        }
+        else {
+            System.err.println( "PID " + pid + " written to " + pidFile );
         }
 
-        ServerSocket server = new ServerSocket(port);
-        server.setReuseAddress(true);
+        final ServerSocket server = new ServerSocket( port );
+        server.setReuseAddress( true );
 
-        System.err.println("javac daemon ready");
-        System.err.println("  JDK : " + System.getProperty("java.home"));
-        System.err.println("  Port: " + port);
-        System.err.println("  Idle timeout: 3 hours");
+        System.err.println( "javac daemon ready" );
+        System.err.println( "  JDK : " + System.getProperty( "java.home" ) );
+        System.err.println( "  Port: " + port );
+        System.err.println( "  Idle timeout: 3 hours" );
 
-        ExecutorService pool = Executors.newCachedThreadPool();
-        AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
+        final ExecutorService pool         = Executors.newCachedThreadPool();
+        final AtomicLong      lastActivity = new AtomicLong( System.currentTimeMillis() );
 
-        // Idle watchdog -- shuts down after IDLE_TIMEOUT_MS with no activity
-        Thread watchdog = new Thread(new Runnable() {
+        // Idle watchdog - shuts down after IDLE_TIMEOUT_MS with no activity
+        final Thread watchdog = new Thread( new Runnable() {
+
             public void run() {
-                while (true) {
+                while( true ) {
                     try {
-                        Thread.sleep(60_000);
-                    } catch (InterruptedException e) {
+                        Thread.sleep( 60_000 );
+                    }
+                    catch( final InterruptedException e ) {
                         return;
                     }
-                    long idle = System.currentTimeMillis() - lastActivity.get();
-                    if (idle >= IDLE_TIMEOUT_MS) {
-                        System.err.println("Idle timeout reached, shutting down.");
-                        new File(pidFile).delete();
-                        System.exit(0);
+                    final long idle = System.currentTimeMillis() - lastActivity.get();
+                    if( idle >= IDLE_TIMEOUT_MS ) {
+                        System.err.println( "Idle timeout reached, shutting down." );
+                        new File( pidFile ).delete();
+                        System.exit( 0 );
                     }
                 }
             }
-        });
-        watchdog.setDaemon(true);
+
+        } );
+
+        watchdog.setDaemon( true );
         watchdog.start();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+        Runtime.getRuntime().addShutdownHook( new Thread( new Runnable() {
             public void run() {
-                new File(pidFile).delete();
+                new File( pidFile ).delete();
             }
-        }));
+        } ) );
 
-        while (true) {
+        while( true ) {
+
             try {
-                Socket conn = server.accept();
-                lastActivity.set(System.currentTimeMillis());
-                pool.submit(new Runnable() {
+                final Socket conn = server.accept();
+                lastActivity.set( System.currentTimeMillis() );
+                pool.submit( new Runnable() {
                     public void run() {
                         try {
-                            handleConnection(compiler, conn);
-                        } catch (Exception e) {
-                            System.err.println("Connection error: " + e.getMessage());
-                        } finally {
-                            lastActivity.set(System.currentTimeMillis());
-                            try { conn.close(); } catch (Exception ignored) {}
+                            handleConnection( compiler, conn );
+                        }
+                        catch( final Exception e ) {
+                            System.err.println( "Connection error: " + e.getMessage() );
+                        }
+                        finally {
+                            lastActivity.set( System.currentTimeMillis() );
+                            try {
+                                conn.close();
+                            }
+                            catch( final Exception ignored ) {}
                         }
                     }
-                });
-            } catch (Exception e) {
-                System.err.println("Accept error: " + e.getMessage());
+                } );
             }
-        }
+            catch( final Exception e ) {
+                System.err.println( "Accept error: " + e.getMessage() );
+            }
+
+        } // while
     }
 
-    /**
+    /*
      * Returns requestedPort unchanged, or derives a port from the JDK major
      * version when requestedPort == 0: major * 1000.
      * java.specification.version is "1.8" for JDK 8; bare number for JDK 9+.
      */
-    static int resolvePort(int requestedPort) {
-        if (requestedPort != 0) return requestedPort;
-        String spec = System.getProperty("java.specification.version", "8");
-        int major;
-        if (spec.startsWith("1.")) {
-            major = Integer.parseInt(spec.substring(2));
-        } else {
+    static int resolvePort( final int requestedPort )
+    {
+        if( requestedPort != 0 ) return requestedPort;
+
+        final String spec = System.getProperty( "java.specification.version", "8" );
+              int    major;
+
+        if( spec.startsWith( "1." ) ) {
+            major = Integer.parseInt( spec.substring( 2 ) );
+        }
+        else {
             try {
-                major = Integer.parseInt(spec.split("\\.")[0]);
-            } catch (NumberFormatException e) {
+                major = Integer.parseInt( spec.split( "\\." )[0] );
+            }
+            catch( final NumberFormatException e ) {
                 major = 8;
             }
         }
-        int derived = major * 1000;
-        System.err.println("Port 0 requested -- auto-derived " + derived +
-            " from Java major version " + major);
+
+        final int derived = major * 1000;
+        System.err.println( "Port 0 requested - auto-derived " + derived + " from Java major version " + major );
+
         return derived;
     }
 
-    /**
+    /*
      * Determine PID via ProcessHandle (Java 9+, reflected to avoid a
      * compile-time dependency) or RuntimeMXBean name parsing (Java 8).
      */
-    private static long detectPid() {
+    private static long detectPid()
+    {
         try {
-            Class<?> cls = Class.forName("java.lang.ProcessHandle");
-            Object current = cls.getMethod("current").invoke(null);
-            return (Long) cls.getMethod("pid").invoke(current);
-        } catch (Exception ignored) {}
+            final Class<?> cls     = Class.forName( "java.lang.ProcessHandle" );
+            final Object   current = cls.getMethod( "current" ).invoke( null );
+            return (Long) cls.getMethod( "pid" ).invoke( current );
+        }
+        catch( final Exception ignored ) {}
+
         try {
-            String name = ManagementFactory.getRuntimeMXBean().getName();
-            return Long.parseLong(name.split("@")[0]);
-        } catch (Exception ignored) {}
+            final String name = ManagementFactory.getRuntimeMXBean().getName();
+            return Long.parseLong( name.split( "@" )[0] );
+        }
+        catch( final Exception ignored ) {}
+
         return -1;
     }
 
-    static void handleConnection(JavaCompiler compiler, Socket conn) throws Exception {
+    static void handleConnection( final JavaCompiler compiler, final Socket conn ) throws Exception
+    {
         try (
-            BufferedReader in  = new BufferedReader(
-                new InputStreamReader(conn.getInputStream(), "UTF-8"));
-            PrintWriter out = new PrintWriter(
-                new OutputStreamWriter(conn.getOutputStream(), "UTF-8"), true)
+            final BufferedReader in  = new BufferedReader( new InputStreamReader( conn.getInputStream(), "UTF-8" ) );
+            final PrintWriter    out = new PrintWriter( new OutputStreamWriter( conn.getOutputStream(), "UTF-8" ), true );
         ) {
             // Read javac args until ENDINP sentinel (or connection close)
-            List<String> javacArgs = new ArrayList<String>();
-            String line;
-            while ((line = in.readLine()) != null
-                    && !line.equals(SENTINEL_ENDINP)) {
-                javacArgs.add(line);
-            }
+            final List<String> javacArgs = new ArrayList<String>();
+                  String       line;
+            while( ( line = in.readLine() ) != null && !line.equals( SENTINEL_ENDINP ) ) javacArgs.add( line );
 
-            if (javacArgs.isEmpty()) {
-                sendFramedResponse(out, "", "", 0);
+            if( javacArgs.isEmpty() ) {
+                sendFramedResponse( out, "", "", 0 );
                 return;
             }
 
-            // Each connection gets its own FileManager -- required for thread safety
-            ByteArrayOutputStream outBuf = new ByteArrayOutputStream();
-            ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
-            PrintStream outStream = new PrintStream(outBuf, true, "UTF-8");
-            PrintStream errStream = new PrintStream(errBuf, true, "UTF-8");
+            // Each connection gets its own FileManager - required for thread safety
+            final ByteArrayOutputStream outBuf    = new ByteArrayOutputStream();
+            final ByteArrayOutputStream errBuf    = new ByteArrayOutputStream();
+            final PrintStream           outStream = new PrintStream( outBuf, true, "UTF-8" );
+            final PrintStream           errStream = new PrintStream( errBuf, true, "UTF-8" );
+            final int                   exitCode;
 
-            int exitCode;
-            try (StandardJavaFileManager fm =
-                    compiler.getStandardFileManager(null, null, null)) {
-                exitCode = compiler.run(
-                    null,
-                    outStream,
-                    errStream,
-                    javacArgs.toArray(new String[0])
-                );
+            try(
+                final StandardJavaFileManager fm = compiler.getStandardFileManager( null, null, null )
+            ) {
+                exitCode = compiler.run( null, outStream, errStream, javacArgs.toArray( new String[0] ) );
             }
+
             outStream.flush();
             errStream.flush();
 
-            sendFramedResponse(
-                out,
-                outBuf.toString("UTF-8"),
-                errBuf.toString("UTF-8"),
-                exitCode
-            );
+            sendFramedResponse( out, outBuf.toString( "UTF-8" ), errBuf.toString( "UTF-8" ), exitCode );
         }
     }
 
-    /**
+    /*
      * Write a complete framed response to the client.
      * Each section is preceded by its US-wrapped sentinel tag.
      * An empty section emits one blank line to prevent client parser hangs.
      */
-    private static void sendFramedResponse(PrintWriter out,
-            String outStr, String errStr, int exitCode) {
+    private static void sendFramedResponse( final PrintWriter out, final String outStr, final String errStr, final int exitCode )
+    {
         // stdout section
-        out.println(SENTINEL_STDOUT);
-        if (outStr.isEmpty()) {
-            out.println(); // dummy empty line -- prevents hang when section is empty
-        } else {
-            out.print(outStr);
-            if (!outStr.endsWith("\n")) out.println();
+        out.println( SENTINEL_STDOUT );
+        if( outStr.isEmpty() ) {
+            out.println(); // dummy empty line - prevents hang when section is empty
+        }
+        else {
+            out.print( outStr );
+            if( !outStr.endsWith( "\n" ) ) out.println();
         }
 
         // stderr section
-        out.println(SENTINEL_STDERR);
-        if (errStr.isEmpty()) {
-            out.println(); // dummy empty line -- prevents hang when section is empty
-        } else {
-            out.print(errStr);
-            if (!errStr.endsWith("\n")) out.println();
+        out.println( SENTINEL_STDERR );
+        if( errStr.isEmpty() ) {
+            out.println(); // dummy empty line - prevents hang when section is empty
+        }
+        else {
+            out.print( errStr );
+            if( !errStr.endsWith( "\n" ) ) out.println();
         }
 
         // exit code section
-        out.println(SENTINEL_EXTCOD);
-        out.println(exitCode);
+        out.println( SENTINEL_EXTCOD );
+        out.println( exitCode );
     }
-}
+
+} // class CompileServer

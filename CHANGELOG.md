@@ -49,6 +49,13 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 + Initiated development of the `JxMake Serial-WiFi Bridge` system, covering firmware and program components.
 
+### Tools & Utilities
++ Added a Python implementation of `colordiff` in `3rd_party/tools/colordiff/colordiff.py`.
+
++ Added a Java implementation of `PCPP` in `3rd_party/tools/pcpp_java/*`.
+
++ Added an experimental Java compiler server in `util/jcs/*`.
+
 ****
 
 

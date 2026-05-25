@@ -247,7 +247,7 @@ public class CompileServer {
         // stdout section
         out.println( SENTINEL_STDOUT );
         if( outStr.isEmpty() ) {
-            out.println(); // dummy empty line - prevents hang when section is empty
+            //out.println(); // dummy empty line - prevents hang when section is empty
         }
         else {
             out.print( outStr );
@@ -257,7 +257,7 @@ public class CompileServer {
         // stderr section
         out.println( SENTINEL_STDERR );
         if( errStr.isEmpty() ) {
-            out.println(); // dummy empty line - prevents hang when section is empty
+            //out.println(); // dummy empty line - prevents hang when section is empty
         }
         else {
             out.print( errStr );

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build-server.sh
 # Compiles CompileServer.java into compile-server.jar
-# Run this once with any JDK >= 11.
+# Run this once with any JDK >= 8.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -35,8 +35,8 @@
 const     GitHub_API_Token := $getenv('GITHUB_TOKEN', '')
 const Has_GitHub_API_Token := $and( $cmp(${GitHub_API_Token}, '&!=', ''), $cmp(${GitHub_API_Token}, '&!=', 'null') )
 
-if !$getenv('GITHUB_2026', '') ; const GitHub_API_Version := '2022-11-28'
-else                           ; const GitHub_API_Version := '2026-03-10'
+if $getenv('GITHUB_2022', '') ; const GitHub_API_Version := '2022-11-28'
+else                          ; const GitHub_API_Version := '2026-03-10'
 endif
                              const GitHub_API_CHeaders0 :=                         'Accept'               'application/vnd.github+json'
 

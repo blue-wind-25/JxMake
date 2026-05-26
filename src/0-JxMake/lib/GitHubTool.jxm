@@ -37,14 +37,19 @@ const Has_GitHub_API_Token := $and( $cmp(${GitHub_API_Token}, '&!=', ''), $cmp($
 if ${Has_GitHub_API_Token} ; const GitHub_API_CHeaders1 := ${GitHub_API_CHeaders0} 'Authorization'        :"Bearer ${GitHub_API_Token}"
 else                       ; const GitHub_API_CHeaders1 := ${GitHub_API_CHeaders0}
 endif
-                             const GitHub_API_CHeaders2 := ${GitHub_API_CHeaders1} 'X-GitHub-Api-Version' '2022-11-28'
 
 ##### !!! TODO : How if the API version changes? !!! #####
-##### !!! TODO : 2026-03-10 !!! #####
+if 0
+                             const GitHub_API_CHeaders2 := ${GitHub_API_CHeaders1} 'X-GitHub-Api-Version' '2022-11-28'
+else
+                             const GitHub_API_CHeaders2 := ${GitHub_API_CHeaders1} 'X-GitHub-Api-Version' '2026-03-10'
+endif
 
-#echoln $ftlines(${GitHub_API_CHeaders2})
-#echoln
-#$exit(0)
+#(*
+echoln $ftlines(${GitHub_API_CHeaders2})
+echoln
+$exit(0)
+#*)
 
 
 ##### Function to check the GitHub REST API call result
@@ -151,25 +156,6 @@ endfunction
  *           built-in functions if JxMake provides a newer version that matches 2026-03-10.
  *)
 
-(*
- * NOTE: This function currently extracts the "rate" object from /rate_limit.
- *
- * Breaking change in API version 2026-03-10:
- *   - The top-level "rate" field was removed.
- *   - New location: "resources.core" object.
- *   - Field names remain the same: limit, remaining, used, reset.
- *
- * Proposed fix:
- *   - Extract "resources" first, then "core":
- *       local core := $map_get(${nmh}, 'resources')
- *       core := $map_get(${core}, 'core')
- *       $map_put(${mh}, 'limit',     $map_get(${core}, 'limit'))
- *       $map_put(${mh}, 'remaining', $map_get(${core}, 'remaining'))
- *       $map_put(${mh}, 'used',      $map_get(${core}, 'used'))
- *       $map_put(${mh}, 'reset',     $map_get(${core}, 'reset'))
- *)
-
-
 ##### Function to get the JSON data for tags
 function gh_get_json_data_tags(owner, repo)
     local url := :"https://api.github.com/repos/${owner}/${repo}/tags"
@@ -255,7 +241,9 @@ function gh_get_api_versions()
     return ${ver}
 endfunction
 (*
-$call( dump_nmap_object_and_exit, $call(gh_get_api_versions) )
+foreach V in $call(gh_get_api_versions)
+    echoln ${V}
+endforeach
 #*)
 
 
@@ -297,6 +285,16 @@ function gh_get_tags(owner, repo)
     if !&${Res}<1> : return ${Res}
     return $gh_get_tags(${Res})
 endfunction
+#(*
+$call( dump_nmap_object_and_exit, $call(gh_get_tags, 'arduino', 'rp2040tools') )
+#*)
+(*
+$
+curl https://api.github.com/repos/arduino/rp2040tools/tags \
+-X GET -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json"
+curl https://api.github.com/repos/arduino/rp2040tools/tags \
+-X GET -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json"
+*)
 
 
 ##### Function to get assets from all releases

@@ -52,6 +52,10 @@ GitHubTool
 
     This library reads and uses the 'GITHUB_TOKEN' environment variable.
 
+    This library reads and uses the 'GITHUB_2022' environment variable. If the environment variable
+    is not defined, the default value is 0. If the value is non‑zero, the library will use the old
+    '2022-11-28' REST API; otherwise, it will use the new '2026-03-10' REST API.
+
 
 SourceForgeTool
     A library of SourceForge related tools.

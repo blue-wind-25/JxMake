@@ -28,13 +28,15 @@
  *)
 
 
-##### !!! TODO : Recheck whenever API version changes !!! #####
-
-
 ##### Common headers for GitHub REST API
 const     GitHub_API_Token := $getenv('GITHUB_TOKEN', '')
 const Has_GitHub_API_Token := $and( $cmp(${GitHub_API_Token}, '&!=', ''), $cmp(${GitHub_API_Token}, '&!=', 'null') )
 
+(*
+ * ##### !!! TODO !!! #####
+ *     - Recheck whenever API version changes.
+ *     - Do not forget to update '../../../docs/txt/en_US/13-Loadable-Libraries.txt'
+ *)
 if $getenv('GITHUB_2022', '') ; const GitHub_API_Version := '2022-11-28'
 else                          ; const GitHub_API_Version := '2026-03-10'
 endif
@@ -227,7 +229,7 @@ function gh_get_tags(owner, repo)
     if !&${Res}<1> : return ${Res}
     return $gh_get_tags(${Res})
 endfunction
-(*
+#(*
 $call( dump_nmap_object_and_exit, $call(gh_get_tags, 'arduino', 'rp2040tools') )
 #*)
 (*

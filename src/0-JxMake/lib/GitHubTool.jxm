@@ -370,7 +370,7 @@ function gh_get_latest_commit_date_by_path(owner, repo, path)
     return ${adate}
 endfunction
 (*
-$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_release_by_tag_name, 'arduino', 'rp2040tools', '1.0.5') )
+echoln $call(gh_get_latest_commit_date_by_path, 'earlephilhower', 'arduino-pico', 'tools/uf2conv.py')
 #*)
 
 
@@ -390,3 +390,8 @@ function gh_get_tag_object_type_and_hash_by_tag_name(owner, repo, tag)
     # Return the tag type and hash
     return { ${type} ${sha} }
 endfunction
+(*
+foreach V in $call(gh_get_tag_object_type_and_hash_by_tag_name, 'earlephilhower', 'arduino-pico', '5.2.1')
+    echoln ${V}
+endforeach
+#*)

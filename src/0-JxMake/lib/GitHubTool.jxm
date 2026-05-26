@@ -254,6 +254,9 @@ function gh_get_api_versions()
     # Return the versions
     return ${ver}
 endfunction
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_api_versions) )
+#*)
 
 
 ##### Function to get the rate limit
@@ -266,7 +269,8 @@ function gh_get_rate_limit()
     # Create a nested map object using the JSON string
     local nmh := $nmap_from_json(${Res})
     # Extract and store the data
-    local rmh := $map_get(${nmh}, 'rate')
+    local rmh := $map_get(${nmh}, 'resources')
+          rmh := $map_get(${rmh}, 'core'     )
     $map_put( ${mh}, 'limit'    , $map_get(${rmh}, 'limit'    ) )
     $map_put( ${mh}, 'used'     , $map_get(${rmh}, 'used'     ) )
     $map_put( ${mh}, 'remaining', $map_get(${rmh}, 'remaining') )
@@ -276,7 +280,16 @@ function gh_get_rate_limit()
     # Return the map handle
     return ${mh}
 endfunction
-
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_rate_limit) )
+#*)
+(*
+$
+curl https://api.github.com/rate_limit \
+-X GET -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json"
+curl https://api.github.com/rate_limit \
+-X GET -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json"
+*)
 
 ##### Function to get all tags
 function gh_get_tags(owner, repo)

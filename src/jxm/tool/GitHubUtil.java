@@ -163,6 +163,9 @@ public class GitHubUtil {
     { return extractAssetsFromString( SysUtil.readTextFileAsString(jsonFilePath) ); }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     /*
      * API VERSION MIGRATION: 2022-11-28 → 2026-03-10
      *
@@ -199,6 +202,8 @@ public class GitHubUtil {
      *   Alternative — pass the API version string down from the HTTP layer and branch on it:
      *     boolean useV2026 = "2026-03-10".compareTo(apiVersion) <= 0;
      */
+
+    /*
 
     private static void _extractTag_v2026(final String mapHandle, final JSONDecoder.JSONObject jsonObject)
     {
@@ -361,5 +366,7 @@ public class GitHubUtil {
 
     public static String extractAssetsFromFile_v2026(final String jsonFilePath) throws Exception
     { return extractAssetsFromString_v2026( SysUtil.readTextFileAsString(jsonFilePath) ); }
+
+    //*/
 
 } // class GitHubUtil

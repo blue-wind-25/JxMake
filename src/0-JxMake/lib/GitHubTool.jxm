@@ -170,7 +170,6 @@ endfunction
  *)
 
 
-
 ##### Function to get the JSON data for tags
 function gh_get_json_data_tags(owner, repo)
     local url := :"https://api.github.com/repos/${owner}/${repo}/tags"

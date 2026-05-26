@@ -279,13 +279,14 @@ curl https://api.github.com/rate_limit \
 -X GET -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json"
 *)
 
+
 ##### Function to get all tags
 function gh_get_tags(owner, repo)
     local Res := $call(gh_get_json_data_tags, ${owner}, ${repo})
     if !&${Res}<1> : return ${Res}
     return $gh_get_tags(${Res})
 endfunction
-#(*
+(*
 $call( dump_nmap_object_and_exit, $call(gh_get_tags, 'arduino', 'rp2040tools') )
 #*)
 (*
@@ -303,7 +304,9 @@ function gh_get_assets_from_all_releases(owner, repo)
     if !&${Res}<1> : return ${Res}
     return $gh_get_assets(${Res})
 endfunction
-
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_all_releases, 'arduino', 'rp2040tools') )
+#*)
 
 ##### Function to get assets from the latest release
 function gh_get_assets_from_latest_release(owner, repo)
@@ -311,6 +314,9 @@ function gh_get_assets_from_latest_release(owner, repo)
     if !&${Res}<1> : return ${Res}
     return $gh_get_assets(${Res})
 endfunction
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_latest_release, 'arduino', 'rp2040tools') )
+#*)
 
 
 ##### Function to get assets from the specified release (by ID)
@@ -319,6 +325,9 @@ function gh_get_assets_from_release_by_id(owner, repo, id)
     if !&${Res}<1> : return ${Res}
     return $gh_get_assets(${Res})
 endfunction
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_release_by_id, 'arduino', 'rp2040tools', 72014276) )
+#*)
 
 
 ##### Function to get assets from the specified release (by tag name)
@@ -327,6 +336,9 @@ function gh_get_assets_from_release_by_tag_name(owner, repo, tag)
     if !&${Res}<1> : return ${Res}
     return $gh_get_assets(${Res})
 endfunction
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_release_by_tag_name, 'arduino', 'rp2040tools', '1.0.5') )
+#*)
 
 
 ##### Function to get the commit date for the latest specified commit (by path)
@@ -357,6 +369,9 @@ function gh_get_latest_commit_date_by_path(owner, repo, path)
     # Return the author date
     return ${adate}
 endfunction
+(*
+$call( dump_nmap_object_and_exit, $call(gh_get_assets_from_release_by_tag_name, 'arduino', 'rp2040tools', '1.0.5') )
+#*)
 
 
 ##### Function to get the type and hash for the specified tag object (by tag name)

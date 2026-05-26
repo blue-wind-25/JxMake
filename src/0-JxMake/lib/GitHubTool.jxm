@@ -150,6 +150,27 @@ endfunction
  *           against the new API schema, and update the $gh_get_tags / $gh_get_assets
  *           built-in functions if JxMake provides a newer version that matches 2026-03-10.
  *)
+
+(*
+ * NOTE: This function currently extracts the "rate" object from /rate_limit.
+ *
+ * Breaking change in API version 2026-03-10:
+ *   - The top-level "rate" field was removed.
+ *   - New location: "resources.core" object.
+ *   - Field names remain the same: limit, remaining, used, reset.
+ *
+ * Proposed fix:
+ *   - Extract "resources" first, then "core":
+ *       local core := $map_get(${nmh}, 'resources')
+ *       core := $map_get(${core}, 'core')
+ *       $map_put(${mh}, 'limit',     $map_get(${core}, 'limit'))
+ *       $map_put(${mh}, 'remaining', $map_get(${core}, 'remaining'))
+ *       $map_put(${mh}, 'used',      $map_get(${core}, 'used'))
+ *       $map_put(${mh}, 'reset',     $map_get(${core}, 'reset'))
+ *)
+
+
+
 ##### Function to get the JSON data for tags
 function gh_get_json_data_tags(owner, repo)
     local url := :"https://api.github.com/repos/${owner}/${repo}/tags"

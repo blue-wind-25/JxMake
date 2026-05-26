@@ -262,7 +262,7 @@ function gh_get_assets_from_latest_release(owner, repo)
     if !&${Res}<1> : return ${Res}
     return $gh_get_assets(${Res})
 endfunction
-#(*
+(*
 $call( dump_nmap_object_and_exit, $call(gh_get_assets_from_latest_release, 'arduino', 'rp2040tools') )
 #*)
 (*

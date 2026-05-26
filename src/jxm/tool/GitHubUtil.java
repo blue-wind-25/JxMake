@@ -31,13 +31,6 @@ public class GitHubUtil {
         // Get and put the 'commit.sha'
         final String commit_sha = jsonObject.get("commit").getObject().get("sha").getString(true);
         MapList.mapPut(mapHandle, name + ":commit.sha", commit_sha, true, true);
-
-        // Get and put the 'digest' - new in 2026-03-10 (sha256:<hex>)
-        final JSONDecoder.JSONValue digestVal = jsonObject.get("digest");
-        if( digestVal != null && !digestVal.isNull() ) {
-            final String digest = digestVal.getString(true);
-            MapList.mapPut(mapHandle, name + ":digest", digest, true, true);
-        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,6 +48,13 @@ public class GitHubUtil {
         // Get and put the 'browser_download_url'
         final String browser_download_url = jsonObject.get("browser_download_url").getString(true);
         MapList.mapPut(mapHandle, id + ":browser_download_url", browser_download_url, true, true);
+
+        // Get and put the 'digest' - new string field in 2026-03-10 ('sha256:<hex>')
+        final JSONDecoder.JSONValue digestVal = jsonObject.get("digest");
+        if( digestVal != null && !digestVal.isNull() ) {
+            final String digest = digestVal.getString(true);
+            MapList.mapPut(mapHandle, id + ":digest", digest, true, true);
+        }
     }
 
     private static void _extractAssets(final String mapHandle, final JSONDecoder.JSONObject jsonObject) throws Exception

@@ -12,6 +12,18 @@ Runs on **Linux/macOS** (Bash) and **Windows** (PowerShell 5.1+, PowerShell 7+).
 
 ---
 
+## Attribution
+
+This program was developed with significant assistance from Claude Sonnet 4.6.
+
+## License
+
+JCS is free software; you can redistribute it and/or modify it under the terms of the
+GNU Lesser General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+---
+
 ## Files
 
 | File | Purpose |

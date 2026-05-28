@@ -21,3 +21,6 @@ GNU Lesser General Public License as published by the Free Software Foundation, 
 version 3 of the License, or (at your option) any later version.
 
 ====================================================================================================
+
+##### !!! TODO !!! #####
+claude --resume 0f062210-7598-42dd-9193-b2ef1864ac0c

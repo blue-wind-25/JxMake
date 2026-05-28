@@ -2,9 +2,6 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
-  files.
-
 # Further verify, improve and cleanups 'util/JCS/*'.
 # Further verify, improve and cleanups 'util/MDRender/*'.
 
@@ -14,13 +11,16 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
       src/jxm/tool/HTTPDownloader.java
       src/com/intellectualsites/http/*
 
+# Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
+  files.
+
 # Further complete, verify, and improve the 'hardware/Experiment/Firmware/AVR32DU28_CDC-ACM'
   experiment. Also add the hardware design with support for both 3.3V and 5V logic levels.
 
-# Further complete, verify, and improve the WindowsDriverInstaller class.
-
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
+
+# Further complete, verify, and improve the WindowsDriverInstaller class.
 
 # Further verify and improve the firmwares for these modules:
       'JxMake USB Serial Hub GLST'

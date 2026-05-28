@@ -15,14 +15,42 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from markdown_it import MarkdownIt
 from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
+from pygments import highlight as _hl
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, TextLexer
+from pygments.util import ClassNotFound
+
+# Single formatter instance shared by the MD highlight callback and _serve_source.
+_formatter = HtmlFormatter(style="default", nowrap=True)
+
+# Pygments CSS, brace-escaped so it survives str.format() calls on _TEMPLATE.
+_PYGMENTS_CSS = (
+    _formatter.get_style_defs(".highlight")
+    .replace("{", "{{")
+    .replace("}", "}}")
+)
+
+
+def _md_highlight(code: str, lang: str, attrs: str) -> str:
+    """Highlight callback for markdown-it fenced code blocks."""
+    if not lang:
+        return ""
+    try:
+        lexer = get_lexer_by_name(lang, stripall=True)
+    except ClassNotFound:
+        return ""
+    return f'<pre class="highlight"><code>{_hl(code, lexer, _formatter)}</code></pre>'
+
 
 _md = (
-    MarkdownIt()
+    MarkdownIt(options_update={"highlight": _md_highlight})
     .use(gfm_plugin)
     .use(tasklists_plugin)
 )
 
-_TEMPLATE = """\
+# Template is built once at import time so the Pygments CSS is inlined.
+_TEMPLATE = (
+    """\
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,6 +121,9 @@ blockquote {{
   padding: 0 1em;
   color: #57606a;
 }}
+"""
+    + _PYGMENTS_CSS
+    + """
 </style>
 </head>
 <body>
@@ -100,6 +131,7 @@ blockquote {{
 </body>
 </html>
 """
+)
 
 
 class MDRHandler(SimpleHTTPRequestHandler):
@@ -138,9 +170,14 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self._serve_directory(fs_path)
             return
 
-        if fs_path.endswith(".md") and os.path.isfile(fs_path):
-            self._serve_markdown(fs_path)
-            return
+        if os.path.isfile(fs_path):
+            if fs_path.endswith(".md"):
+                self._serve_markdown(fs_path)
+                return
+            lexer = self._lexer_for_file(fs_path)
+            if lexer is not None:
+                self._serve_source(fs_path, lexer)
+                return
 
         super().do_GET()
 
@@ -149,9 +186,13 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if fs_path is None:
             self.send_error(403, "Forbidden")
             return
-        if os.path.isdir(fs_path) or (fs_path.endswith(".md") and os.path.isfile(fs_path)):
-            self.do_GET()  # _send_html omits body when command is HEAD
+        if os.path.isdir(fs_path):
+            self.do_GET()
             return
+        if os.path.isfile(fs_path):
+            if fs_path.endswith(".md") or self._lexer_for_file(fs_path) is not None:
+                self.do_GET()  # _send_html omits body for HEAD
+                return
         super().do_HEAD()
 
     def _serve_directory(self, dir_path: str) -> None:
@@ -199,6 +240,33 @@ class MDRHandler(SimpleHTTPRequestHandler):
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
 
+    def _serve_source(self, file_path: str, lexer) -> None:
+        try:
+            stat = os.stat(file_path)
+            with open(file_path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+
+        url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
+        crumb = self._breadcrumb(url_path)
+        inner = _hl(text, lexer, _formatter)
+        body = (
+            f'<nav class="breadcrumb">{crumb}</nav>\n'
+            f'<pre class="highlight"><code>{inner}</code></pre>'
+        )
+        title = html.escape(os.path.basename(file_path))
+        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
+
+    def _lexer_for_file(self, path: str):
+        """Return a Pygments lexer for path, or None if the type is unknown/plain text."""
+        try:
+            lexer = get_lexer_for_filename(os.path.basename(path), stripall=True)
+        except ClassNotFound:
+            return None
+        return None if isinstance(lexer, TextLexer) else lexer
+
     def _breadcrumb(self, url_path: str) -> str:
         parts = [p for p in url_path.strip("/").split("/") if p]
         crumbs = ['<a href="/">~</a>']
@@ -241,7 +309,6 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(data)
 
-    # MIME types browsers render inline without prompting a download.
     _INLINE_MIME = frozenset({
         "application/pdf",
         "application/json",
@@ -251,16 +318,12 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
     def guess_type(self, path: str) -> str:  # type: ignore[override]
         mime, _ = mimetypes.guess_type(path)
-        # Already browser-renderable: text/*, image/*, or known inline app types.
         if mime and (
             mime.startswith("text/")
             or mime.startswith("image/")
             or mime in self._INLINE_MIME
         ):
             return mime
-        # Unknown extension or non-renderable type (e.g. application/x-sh):
-        # sniff the first 8 KB for null bytes.
-        # No nulls + valid UTF-8 → serve as text/plain so the browser shows it inline.
         try:
             with open(path, "rb") as f:
                 sample = f.read(8192)

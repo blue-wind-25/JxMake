@@ -10,7 +10,7 @@ Install requirements first:
     pip3.12 install --user -r requirements.txt
 
 Test the server:
-    python3.12 mdr_server.py -p 8080 -C ../JCS
+    python3.12 mdr_server.py -p 8080 -C ../..
 
 You may adjust 'pip3.12' and 'python3.12' according to your requirements.
 

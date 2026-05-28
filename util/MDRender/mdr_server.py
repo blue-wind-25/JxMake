@@ -2,6 +2,9 @@
 """Minimal Markdown-rendering HTTP server."""
 
 import argparse
+import email.utils
+import hashlib
+import html
 import os
 import posixpath
 import sys
@@ -12,7 +15,6 @@ from markdown_it import MarkdownIt
 from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
 
-# gfm_plugin enables tables and strikethrough (GFM extensions).
 _md = (
     MarkdownIt()
     .use(gfm_plugin)
@@ -35,6 +37,15 @@ body {{
   line-height: 1.6;
   color: #1f2328;
 }}
+nav.breadcrumb {{
+  font-size: 0.875em;
+  color: #57606a;
+  margin-bottom: 1.5rem;
+  padding: 0.4em 0.8em;
+  background: #f6f8fa;
+  border-radius: 6px;
+}}
+nav.breadcrumb a {{ color: #0969da; }}
 pre {{
   background: #f6f8fa;
   padding: 1em;
@@ -94,12 +105,23 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path: str) -> str:
         path = urllib.parse.unquote(path).split("?", 1)[0].split("#", 1)[0]
-        # Filter out empty segments and ".." to block directory traversal.
         parts = [p for p in posixpath.normpath(path).split("/") if p and p != ".."]
         return os.path.join(self.server.web_root, *parts) if parts else self.server.web_root  # type: ignore[attr-defined]
 
+    def _safe_path(self) -> str | None:
+        """Resolve URL to FS path; return None if it escapes the web root via a symlink."""
+        fs = self.translate_path(self.path)
+        real = os.path.realpath(fs)
+        root = os.path.realpath(self.server.web_root)  # type: ignore[attr-defined]
+        if real != root and not real.startswith(root + os.sep):
+            return None
+        return fs
+
     def do_GET(self) -> None:
-        fs_path = self.translate_path(self.path)
+        fs_path = self._safe_path()
+        if fs_path is None:
+            self.send_error(403, "Forbidden")
+            return
 
         if os.path.isdir(fs_path):
             url_part = self.path.split("?", 1)[0]
@@ -107,6 +129,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 self.send_response(301)
                 self.send_header("Location", url_part + "/")
                 self.end_headers()
+                return
+            index_md = os.path.join(fs_path, "index.md")
+            if os.path.isfile(index_md):
+                self._serve_markdown(index_md)
                 return
             self._serve_directory(fs_path)
             return
@@ -118,11 +144,12 @@ class MDRHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_HEAD(self) -> None:
-        fs_path = self.translate_path(self.path)
+        fs_path = self._safe_path()
+        if fs_path is None:
+            self.send_error(403, "Forbidden")
+            return
         if os.path.isdir(fs_path) or (fs_path.endswith(".md") and os.path.isfile(fs_path)):
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
+            self.do_GET()  # _send_html omits body when command is HEAD
             return
         super().do_HEAD()
 
@@ -132,6 +159,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 os.listdir(dir_path),
                 key=lambda n: (not os.path.isdir(os.path.join(dir_path, n)), n.lower()),
             )
+            mtime = os.stat(dir_path).st_mtime
         except OSError:
             self.send_error(403, "Permission denied")
             return
@@ -144,36 +172,73 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
         for name in entries:
             href = urllib.parse.quote(name)
+            safe = html.escape(name)
             if os.path.isdir(os.path.join(dir_path, name)):
-                items.append(f'<li><a href="{href}/">{name}/</a></li>')
+                items.append(f'<li><a href="{href}/">{safe}/</a></li>')
             else:
-                items.append(f'<li><a href="{href}">{name}</a></li>')
+                items.append(f'<li><a href="{href}">{safe}</a></li>')
 
-        body = (
-            f"<h1>Index of {url_path}</h1>\n"
-            "<ul>\n" + "\n".join(items) + "\n</ul>"
-        )
-        self._send_html(_TEMPLATE.format(title=f"Index of {url_path}", body=body))
+        safe_url = html.escape(url_path)
+        body = f"<h1>Index of {safe_url}</h1>\n<ul>\n" + "\n".join(items) + "\n</ul>"
+        self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=mtime)
 
     def _serve_markdown(self, file_path: str) -> None:
         try:
+            stat = os.stat(file_path)
             with open(file_path, encoding="utf-8") as f:
                 text = f.read()
         except OSError:
             self.send_error(404, "File not found")
             return
 
+        url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         rendered = _md.render(text)
-        title = os.path.basename(file_path)
-        self._send_html(_TEMPLATE.format(title=title, body=rendered))
+        crumb = self._breadcrumb(url_path)
+        body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
+        title = html.escape(os.path.basename(file_path))
+        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
 
-    def _send_html(self, html: str) -> None:
-        data = html.encode("utf-8")
+    def _breadcrumb(self, url_path: str) -> str:
+        parts = [p for p in url_path.strip("/").split("/") if p]
+        crumbs = ['<a href="/">~</a>']
+        for i, part in enumerate(parts):
+            href = "/" + "/".join(urllib.parse.quote(p) for p in parts[: i + 1])
+            safe = html.escape(part)
+            if i == len(parts) - 1:
+                crumbs.append(safe)
+            else:
+                crumbs.append(f'<a href="{href}/">{safe}</a>')
+        return " / ".join(crumbs)
+
+    def _send_html(self, html_text: str, mtime: float | None = None) -> None:
+        data = html_text.encode("utf-8")
+        etag = f'"{hashlib.md5(data).hexdigest()}"'
+
+        if mtime is not None:
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(304)
+                self.end_headers()
+                return
+            ims = self.headers.get("If-Modified-Since")
+            if ims:
+                try:
+                    ims_ts = email.utils.parsedate_to_datetime(ims).timestamp()
+                    if mtime <= ims_ts + 1:
+                        self.send_response(304)
+                        self.end_headers()
+                        return
+                except Exception:
+                    pass
+
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        if mtime is not None:
+            self.send_header("Last-Modified", email.utils.formatdate(mtime, usegmt=True))
+            self.send_header("ETag", etag)
         self.end_headers()
-        self.wfile.write(data)
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def log_message(self, fmt: str, *args) -> None:
         print(f"[{self.address_string()}] {fmt % args}")
@@ -193,17 +258,23 @@ def main() -> None:
         default=8080,
         help="port to listen on (default: 8080)",
     )
+    parser.add_argument(
+        "-b", "--bind",
+        default="127.0.0.1",
+        metavar="ADDR",
+        help="address to bind to (default: 127.0.0.1)",
+    )
     args = parser.parse_args()
 
     web_root = os.path.realpath(args.directory)
     if not os.path.isdir(web_root):
         sys.exit(f"error: {web_root!r} is not a directory")
 
-    server = HTTPServer(("127.0.0.1", args.port), MDRHandler)
+    server = HTTPServer((args.bind, args.port), MDRHandler)
     server.web_root = web_root  # type: ignore[attr-defined]
 
     print(f"Serving {web_root}")
-    print(f"Listening on http://localhost:{args.port}/")
+    print(f"Listening on http://{args.bind}:{args.port}/")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

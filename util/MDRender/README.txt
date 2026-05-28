@@ -16,4 +16,6 @@ Install requirements first:
 Test the server:
     python3.12 mdr_server.py -p 8080 -C ../JCS
 
+You may adjust 'pip3.12' and 'python3.12' according to your requirements.
+
 ====================================================================================================

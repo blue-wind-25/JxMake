@@ -53,12 +53,14 @@ _MAKEFILE_FILENAMES = frozenset({
 })
 _MAKEFILE_LANGS = frozenset({"makefile", "make", "mk"})
 
-# Single formatter instance shared by the MD highlight callback and _serve_source.
+# nowrap=True: used in MD fenced-block highlight callback (manual <pre> wrapper).
 _formatter = HtmlFormatter(style="default", nowrap=True)
+# linenos="table": used for full source-file views.
+_src_formatter = HtmlFormatter(style="default", linenos="table")
 
-# Pygments CSS, brace-escaped so it survives str.format() calls on _TEMPLATE.
+# Pygments CSS (includes linenos td rules), brace-escaped for str.format().
 _PYGMENTS_CSS = (
-    _formatter.get_style_defs(".highlight")
+    _src_formatter.get_style_defs(".highlight")
     .replace("{", "{{")
     .replace("}", "}}")
 )
@@ -157,6 +159,11 @@ blockquote {{
   padding: 0 1em;
   color: #57606a;
 }}
+.highlighttable {{ width: 100%; border-spacing: 0; }}
+td.linenos {{ width: 1%; white-space: nowrap; vertical-align: top; user-select: none; }}
+td.linenos .linenodiv pre {{ margin: 0; padding: 0; border-radius: 6px 0 0 6px; }}
+td.code {{ padding: 0; }}
+td.code .highlight pre {{ margin: 0; border-radius: 0 6px 6px 0; padding: 0.8em 1em; }}
 """
     + _PYGMENTS_CSS
     + """
@@ -199,10 +206,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 self.send_header("Location", url_part + "/")
                 self.end_headers()
                 return
-            index_md = os.path.join(fs_path, "index.md")
-            if os.path.isfile(index_md):
-                self._serve_markdown(index_md)
-                return
+            for idx_name in ("index.md", "README.md"):
+                idx = os.path.join(fs_path, idx_name)
+                if os.path.isfile(idx):
+                    self._serve_markdown(idx)
+                    return
             self._serve_directory(fs_path)
             return
 
@@ -287,11 +295,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         crumb = self._breadcrumb(url_path)
-        inner = _hl(text, lexer, _formatter)
-        body = (
-            f'<nav class="breadcrumb">{crumb}</nav>\n'
-            f'<pre class="highlight"><code>{inner}</code></pre>'
-        )
+        inner = _hl(text, lexer, _src_formatter)
+        body = f'<nav class="breadcrumb">{crumb}</nav>\n{inner}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
 
@@ -318,13 +323,15 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 crumbs.append(f'<a href="{href}/">{safe}</a>')
         return " / ".join(crumbs)
 
-    def _send_html(self, html_text: str, mtime: float | None = None) -> None:
+    def _send_html(self, html_text: str, mtime: float | None = None, status: int = 200) -> None:
         data = html_text.encode("utf-8")
         etag = f'"{hashlib.md5(data).hexdigest()}"'
 
         if mtime is not None:
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("ETag", etag)
                 self.end_headers()
                 return
             ims = self.headers.get("If-Modified-Since")
@@ -333,14 +340,17 @@ class MDRHandler(SimpleHTTPRequestHandler):
                     ims_ts = email.utils.parsedate_to_datetime(ims).timestamp()
                     if mtime <= ims_ts + 1:
                         self.send_response(304)
+                        self.send_header("Cache-Control", "no-cache")
+                        self.send_header("ETag", etag)
                         self.end_headers()
                         return
                 except Exception:
                     pass
 
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
         if mtime is not None:
             self.send_header("Last-Modified", email.utils.formatdate(mtime, usegmt=True))
             self.send_header("ETag", etag)
@@ -375,6 +385,27 @@ class MDRHandler(SimpleHTTPRequestHandler):
             except UnicodeDecodeError:
                 pass
         return mime or "application/octet-stream"
+
+    def end_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        super().end_headers()
+
+    def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
+        self.log_error("%s %s", code, message or "")
+        title = f"{code} {message or 'Error'}"
+        body_parts: list[str] = []
+        try:
+            url_path = urllib.parse.unquote(getattr(self, "path", "/").split("?", 1)[0])
+            body_parts.append(f'<nav class="breadcrumb">{self._breadcrumb(url_path)}</nav>')
+        except Exception:
+            pass
+        body_parts.append(f"<h1>{html.escape(title)}</h1>")
+        if explain:
+            body_parts.append(f"<p>{html.escape(explain)}</p>")
+        self._send_html(
+            _TEMPLATE.format(title=html.escape(title), body="\n".join(body_parts)),
+            status=code,
+        )
 
     def log_message(self, fmt: str, *args) -> None:
         print(f"[{self.address_string()}] {fmt % args}")

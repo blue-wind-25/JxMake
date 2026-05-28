@@ -5,6 +5,7 @@ import argparse
 import email.utils
 import hashlib
 import html
+import mimetypes
 import os
 import posixpath
 import sys
@@ -239,6 +240,39 @@ class MDRHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)
+
+    # MIME types browsers render inline without prompting a download.
+    _INLINE_MIME = frozenset({
+        "application/pdf",
+        "application/json",
+        "application/javascript",
+        "application/xhtml+xml",
+    })
+
+    def guess_type(self, path: str) -> str:  # type: ignore[override]
+        mime, _ = mimetypes.guess_type(path)
+        # Already browser-renderable: text/*, image/*, or known inline app types.
+        if mime and (
+            mime.startswith("text/")
+            or mime.startswith("image/")
+            or mime in self._INLINE_MIME
+        ):
+            return mime
+        # Unknown extension or non-renderable type (e.g. application/x-sh):
+        # sniff the first 8 KB for null bytes.
+        # No nulls + valid UTF-8 → serve as text/plain so the browser shows it inline.
+        try:
+            with open(path, "rb") as f:
+                sample = f.read(8192)
+        except OSError:
+            return mime or "application/octet-stream"
+        if b"\x00" not in sample:
+            try:
+                sample.decode("utf-8")
+                return "text/plain; charset=utf-8"
+            except UnicodeDecodeError:
+                pass
+        return mime or "application/octet-stream"
 
     def log_message(self, fmt: str, *args) -> None:
         print(f"[{self.address_string()}] {fmt % args}")

@@ -17,8 +17,41 @@ from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
 from pygments import highlight as _hl
 from pygments.formatters import HtmlFormatter
+from pygments.lexer import RegexLexer, bygroups
 from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, TextLexer
+from pygments.token import Comment, Keyword, Name, Operator, Punctuation, Text
 from pygments.util import ClassNotFound
+
+class _MakefileLexer(RegexLexer):
+    name = "Makefile"
+    aliases = ["makefile", "make"]
+    filenames = ["Makefile", "makefile"]
+
+    tokens = {
+        "root": [
+            (r"#.*$", Comment),
+            (r"^\s*(include|sinclude|ifdef|ifndef|ifeq|ifneq|else|endif)\b", Keyword),
+            (
+                r"^\s*(\.(PHONY|SUFFIXES|DEFAULT|PRECIOUS|INTERMEDIATE|SECONDARY"
+                r"|SECONDEXPANSION|DELETE_ON_ERROR|EXPORT_ALL_VARIABLES"
+                r"|NOTPARALLEL|ONESHELL))(:)",
+                bygroups(Name.Constant, Name.Constant, Operator),
+            ),
+            (r"^([^\s:]+)(:)", bygroups(Name.Label, Operator)),
+            (r"^\s*([A-Za-z0-9_]+)(\s*)([:+?]?=)", bygroups(Name.Variable, Text, Operator)),
+            (r"\$[@<\^\?\*]", Name.Variable),
+            (r"\$\([A-Za-z0-9_\-]+(?: [^)]*)?\)", Name.Variable),
+            (r"\$\$", Text),
+            (r"^\t.*$", Keyword),
+            (r".", Text),
+        ]
+    }
+
+
+_MAKEFILE_FILENAMES = frozenset({
+    "Makefile", "makefile", "GNUmakefile", "BSDmakefile",
+})
+_MAKEFILE_LANGS = frozenset({"makefile", "make", "mk"})
 
 # Single formatter instance shared by the MD highlight callback and _serve_source.
 _formatter = HtmlFormatter(style="default", nowrap=True)
@@ -35,10 +68,13 @@ def _md_highlight(code: str, lang: str, attrs: str) -> str:
     """Highlight callback for markdown-it fenced code blocks."""
     if not lang:
         return ""
-    try:
-        lexer = get_lexer_by_name(lang, stripall=True)
-    except ClassNotFound:
-        return ""
+    if lang.lower() in _MAKEFILE_LANGS:
+        lexer = _MakefileLexer(stripall=True)
+    else:
+        try:
+            lexer = get_lexer_by_name(lang, stripall=True)
+        except ClassNotFound:
+            return ""
     return f'<pre class="highlight"><code>{_hl(code, lexer, _formatter)}</code></pre>'
 
 
@@ -261,8 +297,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
     def _lexer_for_file(self, path: str):
         """Return a Pygments lexer for path, or None if the type is unknown/plain text."""
+        name = os.path.basename(path)
+        if name in _MAKEFILE_FILENAMES or name.endswith((".mk", ".mak")):
+            return _MakefileLexer(stripall=True)
         try:
-            lexer = get_lexer_for_filename(os.path.basename(path), stripall=True)
+            lexer = get_lexer_for_filename(name, stripall=True)
         except ClassNotFound:
             return None
         return None if isinstance(lexer, TextLexer) else lexer

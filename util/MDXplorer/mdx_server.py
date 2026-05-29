@@ -1,5 +1,12 @@
 #!/usr/bin/env python3.12
+#
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake program, see LICENSE file for the license details.
+#
+
 """Minimal Markdown-rendering HTTP server."""
+
 
 import argparse
 import datetime
@@ -13,6 +20,7 @@ import sys
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
+
 from markdown_it import MarkdownIt
 from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
@@ -22,6 +30,7 @@ from pygments.lexer import RegexLexer, bygroups
 from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, TextLexer
 from pygments.token import Comment, Keyword, Name, Operator, Text
 from pygments.util import ClassNotFound
+
 
 class _MakefileLexer(RegexLexer):
     name = "Makefile"
@@ -387,7 +396,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 crumbs.append(safe)
             else:
                 crumbs.append(f'<a href="{href}/">{safe}</a>')
-        return " / ".join(crumbs)
+        return "/".join(crumbs)
 
     @staticmethod
     def _nav_bar(crumb_html: str, right_html: str = "") -> str:

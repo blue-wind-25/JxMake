@@ -51,7 +51,7 @@ No individual language dictionary ***.zip** files have been released yet for the
 
 ### Utilities & Tools
 
-+ Added an experimental Python-based simple Markdown renderer server in `util/MDRender`.
++ Added a Python-based documentation server in `util/MDXplorer`, supporting Markdown rendering, directory listings, and syntax-highlighted source files.
 
 + Added an experimental Java compiler server in `util/JCS/*`.
 

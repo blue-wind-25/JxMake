@@ -70,6 +70,12 @@ _DARK_PYGMENTS_CSS = (
     .replace("}", "}}")
 )
 
+_TOGGLE_HTML = (
+    '<button class="theme-toggle" title="Toggle dark mode"'
+    " onclick=\"(function(){var d=document.documentElement.classList.toggle('dark');"
+    "localStorage.setItem('theme',d?'dark':'light')})()\"></button>"
+)
+
 
 def _md_highlight(code: str, lang: str, attrs: str) -> str:
     if not lang:
@@ -128,7 +134,8 @@ body {{
   line-height: 1.6; background: var(--bg); color: var(--text);
 }}
 nav.breadcrumb {{
-  font-size: 0.875em; color: var(--muted); margin-bottom: 1.5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1em;
+  font-size: 1rem; color: var(--muted); margin-bottom: 1.5rem;
   padding: 0.4em 0.8em; background: var(--code-bg); border-radius: 6px;
 }}
 nav.breadcrumb a {{ color: var(--link); }}
@@ -154,18 +161,15 @@ blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; c
 .highlighttable td.code {{ padding: 0; }}
 .highlighttable td.code .highlight pre {{ margin: 0; padding: 0.8em 1em; }}
 .theme-toggle {{
-  position: fixed; top: 1rem; right: 1rem; z-index: 9999;
-  background: var(--code-bg); border: 1px solid var(--border);
-  border-radius: 6px; cursor: pointer; font-size: 1rem;
-  padding: 0.3em 0.6em; color: var(--text); line-height: 1;
+  flex-shrink: 0; background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; font-size: 0.875em;
+  padding: 0.2em 0.5em; color: var(--text); line-height: 1;
 }}
 .theme-toggle::before {{ content: "🌙"; }}
 html.dark .theme-toggle::before {{ content: "☀️"; }}
 </style>
 </head>
 <body>
-<button class="theme-toggle" title="Toggle dark mode"
-  onclick="(function(){{var d=document.documentElement.classList.toggle('dark');localStorage.setItem('theme',d?'dark':'light')}})()"></button>
 {body}
 </body>
 </html>
@@ -279,10 +283,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
             safe = html.escape(name)
             full = os.path.join(dir_path, name)
             try:
-                st = os.stat(full)
-                mod = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y/%m/%d %H:%M")
+                entry_st = os.stat(full)
+                mod = datetime.datetime.fromtimestamp(entry_st.st_mtime).strftime("%Y/%m/%d %H:%M")
             except OSError:
-                st = None
+                entry_st = None
                 mod = ""
             if os.path.isdir(full):
                 rows.append(
@@ -291,7 +295,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                     f'<td>{mod}</td></tr>'
                 )
             else:
-                size = f'{st.st_size:,}' if st is not None else ""
+                size = f'{entry_st.st_size:,}' if entry_st is not None else ""
                 rows.append(
                     f'<tr><td><a href="{href}">{safe}</a></td>'
                     f'<td style="text-align:right">{size}</td>'
@@ -299,8 +303,9 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 )
 
         safe_url = html.escape(url_path)
+        crumb = self._breadcrumb(url_path)
         body = (
-            f"<h1>Index of {safe_url}</h1>\n"
+            self._nav_bar(crumb, f"Index of {safe_url}") + "\n"
             '<table>\n'
             '<thead><tr><th>Name</th>'
             '<th style="text-align:right">Size (bytes)</th>'
@@ -333,7 +338,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if dir_url:
             safe_url = html.escape(dir_url)
             crumb += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
-        body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
+        body = f'{self._nav_bar(crumb)}\n{rendered}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
 
@@ -358,7 +363,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         crumb = self._breadcrumb(url_path)
         inner = _hl(text, lexer, _src_formatter)
-        body = f'<nav class="breadcrumb">{crumb}</nav>\n{inner}'
+        body = f'{self._nav_bar(crumb)}\n{inner}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
 
@@ -383,6 +388,16 @@ class MDRHandler(SimpleHTTPRequestHandler):
             else:
                 crumbs.append(f'<a href="{href}/">{safe}</a>')
         return " / ".join(crumbs)
+
+    @staticmethod
+    def _nav_bar(crumb_html: str, right_html: str = "") -> str:
+        right = (f"{right_html} " if right_html else "") + _TOGGLE_HTML
+        return (
+            f'<nav class="breadcrumb">'
+            f'<span>{crumb_html}</span>'
+            f'<span style="display:flex;align-items:center;gap:0.6em">{right}</span>'
+            f'</nav>'
+        )
 
     @staticmethod
     def _etag(st: os.stat_result) -> str:
@@ -455,13 +470,15 @@ class MDRHandler(SimpleHTTPRequestHandler):
     def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
         self.log_error("%s %s", code, message or "")
         title = f"{code} {message or 'Error'}"
-        body_parts: list[str] = []
         try:
             url_path = urllib.parse.unquote(getattr(self, "path", "/").split("?", 1)[0])
-            body_parts.append(f'<nav class="breadcrumb">{self._breadcrumb(url_path)}</nav>')
+            crumb = self._breadcrumb(url_path)
         except Exception:
-            pass
-        body_parts.append(f"<h1>{html.escape(title)}</h1>")
+            crumb = '<a href="/">~</a>'
+        body_parts = [
+            self._nav_bar(crumb),
+            f"<h1>{html.escape(title)}</h1>",
+        ]
         if explain:
             body_parts.append(f"<p>{html.escape(explain)}</p>")
         self._send_html(

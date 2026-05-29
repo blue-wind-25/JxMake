@@ -200,17 +200,18 @@ class MDRHandler(SimpleHTTPRequestHandler):
             return
 
         if os.path.isdir(fs_path):
-            url_part = self.path.split("?", 1)[0]
+            url_part, _, qs = self.path.partition("?")
             if not url_part.endswith("/"):
                 self.send_response(301)
                 self.send_header("Location", url_part + "/")
                 self.end_headers()
                 return
-            for idx_name in ("index.md", "README.md"):
-                idx = os.path.join(fs_path, idx_name)
-                if os.path.isfile(idx):
-                    self._serve_markdown(idx)
-                    return
+            if "listing" not in qs.split("&"):
+                for idx_name in ("index.md", "README.md"):
+                    idx = os.path.join(fs_path, idx_name)
+                    if os.path.isfile(idx):
+                        self._serve_markdown(idx, dir_url=url_part + "?listing")
+                        return
             self._serve_directory(fs_path)
             return
 
@@ -268,7 +269,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         body = f"<h1>Index of {safe_url}</h1>\n<ul>\n" + "\n".join(items) + "\n</ul>"
         self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=mtime)
 
-    def _serve_markdown(self, file_path: str) -> None:
+    def _serve_markdown(self, file_path: str, dir_url: str | None = None) -> None:
         try:
             stat = os.stat(file_path)
             with open(file_path, encoding="utf-8") as f:
@@ -280,6 +281,12 @@ class MDRHandler(SimpleHTTPRequestHandler):
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         rendered = _md.render(text)
         crumb = self._breadcrumb(url_path)
+        if dir_url:
+            safe_url = html.escape(dir_url)
+            crumb += (
+                f' · <a href="{safe_url}">directory listing</a>'
+                f' <small>(<a href="{safe_url}"><code>?listing</code></a>)</small>'
+            )
         body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)

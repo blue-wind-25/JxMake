@@ -193,7 +193,25 @@ class MDRHandler(SimpleHTTPRequestHandler):
             return None
         return fs
 
+    _FAVICON_SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+        '<rect width="12" height="14" x="2" y="1" rx="1" fill="#0969da"/>'
+        '<rect width="6" height="1.5" x="4" y="4" rx="0.5" fill="white"/>'
+        '<rect width="6" height="1.5" x="4" y="7" rx="0.5" fill="white"/>'
+        '<rect width="4" height="1.5" x="4" y="10" rx="0.5" fill="white"/>'
+        '</svg>'
+    ).encode()
+
     def do_GET(self) -> None:
+        if self.path == "/favicon.ico":
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(self._FAVICON_SVG)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            self.wfile.write(self._FAVICON_SVG)
+            return
+
         fs_path = self._safe_path()
         if fs_path is None:
             self.send_error(403, "Forbidden")

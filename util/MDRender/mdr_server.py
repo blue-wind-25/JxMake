@@ -265,9 +265,13 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 os.listdir(dir_path),
                 key=lambda n: (not os.path.isdir(os.path.join(dir_path, n)), n.lower()),
             )
-            mtime = os.stat(dir_path).st_mtime
+            st = os.stat(dir_path)
         except OSError:
             self.send_error(403, "Permission denied")
+            return
+
+        etag = self._etag(st)
+        if self._check_not_modified(etag, st.st_mtime):
             return
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
@@ -309,11 +313,20 @@ class MDRHandler(SimpleHTTPRequestHandler):
             '<th>Modified</th></tr></thead>\n'
             '<tbody>\n' + "\n".join(rows) + '\n</tbody>\n</table>'
         )
-        self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=mtime)
+        self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=st.st_mtime, etag=etag)
 
     def _serve_markdown(self, file_path: str, dir_url: str | None = None) -> None:
         try:
-            stat = os.stat(file_path)
+            st = os.stat(file_path)
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+
+        etag = self._etag(st)
+        if self._check_not_modified(etag, st.st_mtime):
+            return
+
+        try:
             with open(file_path, encoding="utf-8") as f:
                 text = f.read()
         except OSError:
@@ -331,11 +344,20 @@ class MDRHandler(SimpleHTTPRequestHandler):
             )
         body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
+        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
 
     def _serve_source(self, file_path: str, lexer) -> None:
         try:
-            stat = os.stat(file_path)
+            st = os.stat(file_path)
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+
+        etag = self._etag(st)
+        if self._check_not_modified(etag, st.st_mtime):
+            return
+
+        try:
             with open(file_path, encoding="utf-8", errors="replace") as f:
                 text = f.read()
         except OSError:
@@ -347,7 +369,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         inner = _hl(text, lexer, _src_formatter)
         body = f'<nav class="breadcrumb">{crumb}</nav>\n{inner}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=stat.st_mtime)
+        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
 
     def _lexer_for_file(self, path: str):
         """Return a Pygments lexer for path, or None if the type is unknown/plain text."""
@@ -372,37 +394,38 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 crumbs.append(f'<a href="{href}/">{safe}</a>')
         return " / ".join(crumbs)
 
-    def _send_html(self, html_text: str, mtime: float | None = None, status: int = 200) -> None:
-        data = html_text.encode("utf-8")
-        etag = f'"{hashlib.md5(data).hexdigest()}"'
+    @staticmethod
+    def _etag(st: os.stat_result) -> str:
+        return f'"{int(st.st_mtime * 1_000_000):x}-{st.st_size:x}"'
 
-        if mtime is not None:
-            if self.headers.get("If-None-Match") == etag:
-                self.send_response(304)
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("ETag", etag)
-                self.end_headers()
-                return
+    def _check_not_modified(self, etag: str, mtime: float) -> bool:
+        """Send 304 and return True when the client's cached copy is still fresh."""
+        matched = self.headers.get("If-None-Match") == etag
+        if not matched:
             ims = self.headers.get("If-Modified-Since")
             if ims:
                 try:
-                    ims_ts = email.utils.parsedate_to_datetime(ims).timestamp()
-                    if mtime <= ims_ts + 1:
-                        self.send_response(304)
-                        self.send_header("Cache-Control", "no-cache")
-                        self.send_header("ETag", etag)
-                        self.end_headers()
-                        return
+                    matched = mtime <= email.utils.parsedate_to_datetime(ims).timestamp() + 1
                 except Exception:
                     pass
+        if matched:
+            self.send_response(304)
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("ETag", etag)
+            self.end_headers()
+        return matched
 
+    def _send_html(self, html_text: str, mtime: float | None = None, status: int = 200, etag: str | None = None) -> None:
+        data = html_text.encode("utf-8")
+        if etag is None:
+            etag = f'"{hashlib.md5(data).hexdigest()}"'
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache")
         if mtime is not None:
             self.send_header("Last-Modified", email.utils.formatdate(mtime, usegmt=True))
-            self.send_header("ETag", etag)
+        self.send_header("ETag", etag)
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)

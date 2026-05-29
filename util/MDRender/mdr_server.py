@@ -2,6 +2,7 @@
 """Minimal Markdown-rendering HTTP server."""
 
 import argparse
+import datetime
 import email.utils
 import hashlib
 import html
@@ -270,21 +271,44 @@ class MDRHandler(SimpleHTTPRequestHandler):
             return
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
-        items: list[str] = []
+        rows: list[str] = []
 
         if url_path not in ("/", ""):
-            items.append('<li><a href="../">../</a></li>')
+            rows.append('<tr><td><a href="../">../</a></td><td></td><td></td></tr>')
 
         for name in entries:
             href = urllib.parse.quote(name)
             safe = html.escape(name)
-            if os.path.isdir(os.path.join(dir_path, name)):
-                items.append(f'<li><a href="{href}/">{safe}/</a></li>')
+            full = os.path.join(dir_path, name)
+            try:
+                st = os.stat(full)
+                mod = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y/%m/%d %H:%M")
+            except OSError:
+                st = None
+                mod = ""
+            if os.path.isdir(full):
+                rows.append(
+                    f'<tr><td><a href="{href}/">{safe}/</a></td>'
+                    f'<td style="text-align:right">—</td>'
+                    f'<td>{mod}</td></tr>'
+                )
             else:
-                items.append(f'<li><a href="{href}">{safe}</a></li>')
+                size = f'{st.st_size:,}' if st is not None else ""
+                rows.append(
+                    f'<tr><td><a href="{href}">{safe}</a></td>'
+                    f'<td style="text-align:right">{size}</td>'
+                    f'<td>{mod}</td></tr>'
+                )
 
         safe_url = html.escape(url_path)
-        body = f"<h1>Index of {safe_url}</h1>\n<ul>\n" + "\n".join(items) + "\n</ul>"
+        body = (
+            f"<h1>Index of {safe_url}</h1>\n"
+            '<table>\n'
+            '<thead><tr><th>Name</th>'
+            '<th style="text-align:right">Size (bytes)</th>'
+            '<th>Modified</th></tr></thead>\n'
+            '<tbody>\n' + "\n".join(rows) + '\n</tbody>\n</table>'
+        )
         self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=mtime)
 
     def _serve_markdown(self, file_path: str, dir_url: str | None = None) -> None:

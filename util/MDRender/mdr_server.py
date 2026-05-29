@@ -284,8 +284,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if dir_url:
             safe_url = html.escape(dir_url)
             crumb += (
-                f' · <a href="{safe_url}">directory listing</a>'
-                f' <small>(<a href="{safe_url}"><code>?listing</code></a>)</small>'
+                f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
+               #f' <small>(<a href="{safe_url}"><code>?listing</code></a>)</small>'
             )
         body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
         title = html.escape(os.path.basename(file_path))

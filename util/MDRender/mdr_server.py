@@ -305,7 +305,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         safe_url = html.escape(url_path)
         crumb = self._breadcrumb(url_path)
         body = (
-            self._nav_bar(crumb, f"Index of {safe_url}") + "\n"
+            self._nav_bar(crumb) + "\n"
             '<table>\n'
             '<thead><tr><th>Name</th>'
             '<th style="text-align:right">Size (bytes)</th>'

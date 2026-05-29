@@ -20,7 +20,7 @@ from pygments import highlight as _hl
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import RegexLexer, bygroups
 from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, TextLexer
-from pygments.token import Comment, Keyword, Name, Operator, Punctuation, Text
+from pygments.token import Comment, Keyword, Name, Operator, Text
 from pygments.util import ClassNotFound
 
 class _MakefileLexer(RegexLexer):
@@ -54,9 +54,7 @@ _MAKEFILE_FILENAMES = frozenset({
 })
 _MAKEFILE_LANGS = frozenset({"makefile", "make", "mk"})
 
-# nowrap=True: used in MD fenced-block highlight callback (manual <pre> wrapper).
 _formatter = HtmlFormatter(style="default", nowrap=True)
-# linenos="table": used for full source-file views.
 _src_formatter = HtmlFormatter(style="default", linenos="table")
 
 # Pygments CSS (includes linenos td rules), brace-escaped for str.format().
@@ -65,10 +63,15 @@ _PYGMENTS_CSS = (
     .replace("{", "{{")
     .replace("}", "}}")
 )
+# Dark-mode token CSS scoped under .dark, using monokai palette.
+_DARK_PYGMENTS_CSS = (
+    HtmlFormatter(style="monokai").get_style_defs(".dark .highlight")
+    .replace("{", "{{")
+    .replace("}", "}}")
+)
 
 
 def _md_highlight(code: str, lang: str, attrs: str) -> str:
-    """Highlight callback for markdown-it fenced code blocks."""
     if not lang:
         return ""
     if lang.lower() in _MAKEFILE_LANGS:
@@ -87,7 +90,6 @@ _md = (
     .use(tasklists_plugin)
 )
 
-# Template is built once at import time so the Pygments CSS is inlined.
 _TEMPLATE = (
     """\
 <!DOCTYPE html>
@@ -96,81 +98,74 @@ _TEMPLATE = (
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{title}</title>
+<script>
+(function(){{
+  var t = localStorage.getItem('theme');
+  if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches))
+    document.documentElement.classList.add('dark');
+}})();
+</script>
 <style>
-body {{
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  line-height: 1.6;
-  color: #1f2328;
-}}
-nav.breadcrumb {{
-  font-size: 0.875em;
-  color: #57606a;
-  margin-bottom: 1.5rem;
-  padding: 0.4em 0.8em;
-  background: #f6f8fa;
-  border-radius: 6px;
-}}
-nav.breadcrumb a {{ color: #0969da; }}
-pre {{
-  background: #f6f8fa;
-  padding: 1em;
-  overflow-x: auto;
-  border-radius: 6px;
-}}
-code {{
-  background: #f6f8fa;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-size: 0.875em;
-}}
-pre > code {{
-  background: none;
-  padding: 0;
-  font-size: 1em;
-}}
-table {{
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1em 0;
-}}
-th, td {{
-  border: 1px solid #d0d7de;
-  padding: 0.4em 0.8em;
-  text-align: left;
-}}
-th {{ background: #f6f8fa; }}
-li.task-list-item {{
-  list-style: none;
-  margin-left: -1.5em;
-}}
-a {{ color: #0969da; text-decoration: none; }}
-a:hover {{ text-decoration: underline; }}
-h1, h2, h3 {{
-  border-bottom: 1px solid #d0d7de;
-  padding-bottom: 0.3em;
-  margin-top: 1.5em;
-}}
-img {{ max-width: 100%; height: auto; }}
-blockquote {{
-  border-left: 4px solid #d0d7de;
-  margin: 0;
-  padding: 0 1em;
-  color: #57606a;
-}}
-.highlighttable {{ width: 100%; border-spacing: 0; }}
-td.linenos {{ width: 1%; white-space: nowrap; vertical-align: top; user-select: none; }}
-td.linenos .linenodiv pre {{ margin: 0; padding: 0; border-radius: 6px 0 0 6px; }}
-td.code {{ padding: 0; }}
-td.code .highlight pre {{ margin: 0; border-radius: 0 6px 6px 0; padding: 0.8em 1em; }}
 """
     + _PYGMENTS_CSS
-    + """
+    + "\n"
+    + _DARK_PYGMENTS_CSS
+    + """\
+
+:root {{
+  --bg: #fff; --text: #1f2328; --border: #d0d7de; --muted: #57606a;
+  --link: #0969da; --code-bg: #f6f8fa;
+  --ln-bg: #f0f2f4; --ln-border: #d0d7de; --ln-text: #8c959f;
+}}
+html.dark {{
+  --bg: #0d1117; --text: #e6edf3; --border: #30363d; --muted: #8b949e;
+  --link: #58a6ff; --code-bg: #161b22;
+  --ln-bg: #1c2128; --ln-border: #30363d; --ln-text: #6e7681;
+}}
+body {{
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  max-width: 900px; margin: 2rem auto; padding: 0 1rem;
+  line-height: 1.6; background: var(--bg); color: var(--text);
+}}
+nav.breadcrumb {{
+  font-size: 0.875em; color: var(--muted); margin-bottom: 1.5rem;
+  padding: 0.4em 0.8em; background: var(--code-bg); border-radius: 6px;
+}}
+nav.breadcrumb a {{ color: var(--link); }}
+pre {{ background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
+code {{ background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }}
+pre > code {{ background: none; padding: 0; font-size: 1em; }}
+table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
+th, td {{ border: 1px solid var(--border); padding: 0.4em 0.8em; text-align: left; }}
+th {{ background: var(--code-bg); }}
+li.task-list-item {{ list-style: none; margin-left: -1.5em; }}
+a {{ color: var(--link); text-decoration: none; }}
+a:hover {{ text-decoration: underline; }}
+h1, h2, h3 {{ border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }}
+img {{ max-width: 100%; height: auto; }}
+blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; color: var(--muted); }}
+.highlighttable {{ width: 100%; border-spacing: 0; }}
+.highlighttable td.linenos {{
+  width: 1%; white-space: nowrap; vertical-align: top; user-select: none;
+  background: var(--ln-bg); color: var(--ln-text);
+  border-right: 1px solid var(--ln-border); padding: 0.8em 1em;
+}}
+.highlighttable td.linenos .linenodiv pre {{ margin: 0; padding: 0; }}
+.highlighttable td.code {{ padding: 0; }}
+.highlighttable td.code .highlight pre {{ margin: 0; padding: 0.8em 1em; }}
+.theme-toggle {{
+  position: fixed; top: 1rem; right: 1rem; z-index: 9999;
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; font-size: 1rem;
+  padding: 0.3em 0.6em; color: var(--text); line-height: 1;
+}}
+.theme-toggle::before {{ content: "🌙"; }}
+html.dark .theme-toggle::before {{ content: "☀️"; }}
 </style>
 </head>
 <body>
+<button class="theme-toggle" title="Toggle dark mode"
+  onclick="(function(){{var d=document.documentElement.classList.toggle('dark');localStorage.setItem('theme',d?'dark':'light')}})()"></button>
 {body}
 </body>
 </html>
@@ -186,7 +181,6 @@ class MDRHandler(SimpleHTTPRequestHandler):
         return os.path.join(self.server.web_root, *parts) if parts else self.server.web_root  # type: ignore[attr-defined]
 
     def _safe_path(self) -> str | None:
-        """Resolve URL to FS path; return None if it escapes the web root via a symlink."""
         fs = self.translate_path(self.path)
         real = os.path.realpath(fs)
         root = os.path.realpath(self.server.web_root)  # type: ignore[attr-defined]
@@ -338,10 +332,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         crumb = self._breadcrumb(url_path)
         if dir_url:
             safe_url = html.escape(dir_url)
-            crumb += (
-                f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
-               #f' <small>(<a href="{safe_url}"><code>?listing</code></a>)</small>'
-            )
+            crumb += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
         body = f'<nav class="breadcrumb">{crumb}</nav>\n{rendered}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
@@ -372,7 +363,6 @@ class MDRHandler(SimpleHTTPRequestHandler):
         self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
 
     def _lexer_for_file(self, path: str):
-        """Return a Pygments lexer for path, or None if the type is unknown/plain text."""
         name = os.path.basename(path)
         if name in _MAKEFILE_FILENAMES or name.endswith((".mk", ".mak")):
             return _MakefileLexer(stripall=True)

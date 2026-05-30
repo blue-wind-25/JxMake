@@ -34,24 +34,17 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── Includes ──────────────────────────────────────────────────────────────────
+
+. "$PSScriptRoot\_port.ps1"
+. "$PSScriptRoot\_javac_args.ps1"
+
 # ── Sentinel constants ────────────────────────────────────────────────────────
 # PowerShell strings are UTF-16 and can contain US (char 0x1F) natively.
 $US           = [char]0x1F
 $SEN_ENDINP   = "${US}ENDINP${US}"
 
 # ── Port resolution ───────────────────────────────────────────────────────────
-
-function Get-JavaMajorPort {
-    param([string]$JavaBin = 'java')
-    $verLines = & $JavaBin '-version' 2>&1
-    $verStr   = $verLines[0].ToString()
-    if ($verStr -match '"1\.(\d+)') {
-        return [int]$Matches[1] * 1000
-    } elseif ($verStr -match '"(\d+)') {
-        return [int]$Matches[1] * 1000
-    }
-    throw "Cannot parse Java version from: $verStr"
-}
 
 $resolvedPort = [int]$Port
 if ($resolvedPort -eq 0) {
@@ -80,44 +73,6 @@ try {
 
 $ClientCwd = $PWD.Path
 
-function Abs-Path([string]$p) {
-    if ([System.IO.Path]::IsPathRooted($p)) { return $p }
-    return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ClientCwd, $p))
-}
-
-function Abs-Cp([string]$cp) {
-    return ($cp -split ';' | ForEach-Object { Abs-Path $_ }) -join ';'
-}
-
-function Process-JavacArgs([string[]]$javacArgs) {
-    $out      = [System.Collections.Generic.List[string]]::new()
-    $nextMode = ''
-    $cpFlags  = @('-cp','-classpath','--class-path','-sourcepath','--source-path',
-                  '-processorpath','--processor-path','-bootclasspath','--boot-class-path',
-                  '-extdirs','-endorseddirs','-modulepath','--module-path',
-                  '-mp','-p','--upgrade-module-path')
-    $dirFlags = @('-d','-s','-h')
-
-    foreach ($a in $javacArgs) {
-        if ($nextMode -ne '') {
-            if ($nextMode -eq 'cp')     { $out.Add((Abs-Cp   $a)) }
-            else                         { $out.Add((Abs-Path $a)) }
-            $nextMode = ''
-        } elseif ($dirFlags -contains $a) {
-            $out.Add($a); $nextMode = 'single'
-        } elseif ($cpFlags -contains $a) {
-            $out.Add($a); $nextMode = 'cp'
-        } elseif ($a -match '^@(.+)') {
-            $out.Add('@' + (Abs-Path $Matches[1]))
-        } elseif ($a -match '^-') {
-            $out.Add($a)
-        } else {
-            $out.Add((Abs-Path $a))
-        }
-    }
-    return $out.ToArray()
-}
-
 $processedArgs = Process-JavacArgs $CompileArgs
 
 # ── Send request and receive framed response ──────────────────────────────────
@@ -143,7 +98,7 @@ try {
     $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
 
     # Read framed response sections.
-    # switch -Regex: \u001F in a .NET regex pattern matches U+001F (Unit Separator).
+    # switch -Regex:  in a .NET regex pattern matches U+001F (Unit Separator).
     $mode        = 'none'
     $stdoutLines = [System.Collections.Generic.List[string]]::new()
     $stderrLines = [System.Collections.Generic.List[string]]::new()
@@ -152,9 +107,9 @@ try {
     $line = $null
     while ($null -ne ($line = $reader.ReadLine())) {
         switch -Regex ($line) {
-            "\u001FSTDOUT\u001F" { $mode = 'stdout'; break }
-            "\u001FSTDERR\u001F" { $mode = 'stderr'; break }
-            "\u001FEXTCOD\u001F" { $mode = 'extcod'; break }
+            "STDOUT" { $mode = 'stdout'; break }
+            "STDERR" { $mode = 'stderr'; break }
+            "EXTCOD" { $mode = 'extcod'; break }
             default {
                 switch ($mode) {
                     'stdout' { $stdoutLines.Add($line) }

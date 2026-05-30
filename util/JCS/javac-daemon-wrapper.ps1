@@ -37,6 +37,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── Includes ──────────────────────────────────────────────────────────────────
+
+. "$PSScriptRoot\_port.ps1"
+. "$PSScriptRoot\_javac_args.ps1"
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 $TmpDir = $env:TEMP
 
@@ -70,16 +75,7 @@ $JarPath    = Join-Path $ScriptDir 'compile-server.jar'
 
 # ── Port derivation ───────────────────────────────────────────────────────────
 
-function Get-MajorPort {
-    param([string]$Java)
-    $verLines = & $Java '-version' 2>&1
-    $verStr   = $verLines[0].ToString()
-    if ($verStr -match '"1\.(\d+)') { return [int]$Matches[1] * 1000 }
-    if ($verStr -match '"(\d+)')    { return [int]$Matches[1] * 1000 }
-    throw "Cannot parse Java version from: $verStr"
-}
-
-$Port = Get-MajorPort -Java $JavaBin
+$Port = Get-JavaMajorPort -JavaBin $JavaBin
 
 # ── Daemon management ─────────────────────────────────────────────────────────
 
@@ -154,44 +150,6 @@ function Start-Daemon {
 
 $ClientCwd = $PWD.Path
 
-function Abs-Path([string]$p) {
-    if ([System.IO.Path]::IsPathRooted($p)) { return $p }
-    return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ClientCwd, $p))
-}
-
-function Abs-Cp([string]$cp) {
-    return ($cp -split ';' | ForEach-Object { Abs-Path $_ }) -join ';'
-}
-
-function Process-JavacArgs([string[]]$javacArgs) {
-    $out      = [System.Collections.Generic.List[string]]::new()
-    $nextMode = ''
-    $cpFlags  = @('-cp','-classpath','--class-path','-sourcepath','--source-path',
-                  '-processorpath','--processor-path','-bootclasspath','--boot-class-path',
-                  '-extdirs','-endorseddirs','-modulepath','--module-path',
-                  '-mp','-p','--upgrade-module-path')
-    $dirFlags = @('-d','-s','-h')
-
-    foreach ($a in $javacArgs) {
-        if ($nextMode -ne '') {
-            if ($nextMode -eq 'cp')     { $out.Add((Abs-Cp   $a)) }
-            else                         { $out.Add((Abs-Path $a)) }
-            $nextMode = ''
-        } elseif ($dirFlags -contains $a) {
-            $out.Add($a); $nextMode = 'single'
-        } elseif ($cpFlags -contains $a) {
-            $out.Add($a); $nextMode = 'cp'
-        } elseif ($a -match '^@(.+)') {
-            $out.Add('@' + (Abs-Path $Matches[1]))
-        } elseif ($a -match '^-') {
-            $out.Add($a)
-        } else {
-            $out.Add((Abs-Path $a))
-        }
-    }
-    return $out.ToArray()
-}
-
 $ProcessedArgs = Process-JavacArgs $CompileArgs
 
 # ── Compilation ───────────────────────────────────────────────────────────────
@@ -220,9 +178,9 @@ function Invoke-ViaDaemon {
         $line = $null
         while ($null -ne ($line = $reader.ReadLine())) {
             switch -Regex ($line) {
-                "\u001FSTDOUT\u001F" { $mode = 'stdout'; break }
-                "\u001FSTDERR\u001F" { $mode = 'stderr'; break }
-                "\u001FEXTCOD\u001F" { $mode = 'extcod'; break }
+                "STDOUT" { $mode = 'stdout'; break }
+                "STDERR" { $mode = 'stderr'; break }
+                "EXTCOD" { $mode = 'extcod'; break }
                 default {
                     switch ($mode) {
                         'stdout' { $stdoutLines.Add($line) }

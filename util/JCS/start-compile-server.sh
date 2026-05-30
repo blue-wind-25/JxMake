@@ -16,6 +16,13 @@ set -euo pipefail
 # Editable: directory used for PID and log files (also passed to JVM as java.io.tmpdir)
 TMPDIR_JVM=/tmp
 
+# ── Includes ──────────────────────────────────────────────────────────────────
+
+_JCS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_JCS_DIR/_port.sh"
+
+# ── Argument parsing ──────────────────────────────────────────────────────────
+
 PORT="${1:-}"
 JAVA_BIN="${2:-java}"
 
@@ -27,22 +34,13 @@ fi
 # ── Port resolution ───────────────────────────────────────────────────────────
 
 if [[ "$PORT" == "0" ]]; then
-    VER_STR=$("$JAVA_BIN" -version 2>&1 | head -1)
-    if [[ "$VER_STR" =~ \"1\.([0-9]+) ]]; then
-        JAVA_MAJOR="${BASH_REMATCH[1]}"
-    elif [[ "$VER_STR" =~ \"([0-9]+) ]]; then
-        JAVA_MAJOR="${BASH_REMATCH[1]}"
-    else
-        echo "ERROR: Cannot parse Java version from: $VER_STR" >&2
-        exit 1
-    fi
-    PORT=$((JAVA_MAJOR * 1000))
-    echo "Auto-derived port $PORT from Java major version $JAVA_MAJOR."
+    PORT=$(derive_port "$JAVA_BIN")
+    echo "Auto-derived port $PORT from Java version $("$JAVA_BIN" -version 2>&1 | head -1)."
 fi
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$_JCS_DIR"
 JAR="$SCRIPT_DIR/compile-server.jar"
 PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 LOG_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.log"

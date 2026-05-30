@@ -50,10 +50,10 @@ default:
 ##### Configuration
 REPO_ROOT         := $(abspath $(CURDIR)/..)
 
-##### !!! TODO : Update JGit and SLF4J later !!! #####
 CUSTOM_JARS_DIR   := $(HOME)/0-JxMake/custom_jars
 CUSTOM_DIR_EXISTS := $(shell test -d "$(CUSTOM_JARS_DIR)" && echo true)
 JGIT_JARS         := org.eclipse.jgit-5.13.0.202109080827-r.jar slf4j-simple-2.0.13.jar
+##### !!! TODO : Update JGit and SLF4J later !!! #####
 
 VENDOR_JARS_DIR   := $(REPO_ROOT)/3rd_party/jars
 VENDOR_DIR_EXISTS := $(shell test -d "$(VENDOR_JARS_DIR)" && echo true)
@@ -71,15 +71,20 @@ CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix
 CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
 CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
-CP_CPL            := -cp .:$(CP_ALL)
+CP_COMPILE        := -cp .$(CP_ALL)
 CP_RUN            := -cp .$(CP_ALL)
-CP_JDS            := --class-path .:$(CP_ALL)
+CP_JDS            := --class-path .$(CP_ALL)
 
 JDK_PATH_8        := /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
-JDK_PATH_11       := /usr/java/jdk-11.0.16.1
+JDK_PATH_11       := /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
 JDK_PATH_17       := /usr/java/jdk-17.0.5
 JDK_PATH_21       := /opt/openjdk-21_linux-x64_bin/jdk-21
 JDK_PATH_25       := /opt/openjdk-25_linux-x64_bin/jdk-25
+
+JDS_PATH_11       := $(JDK_PATH_11)/bin/jdeprscan --release 11 $(CP_JDS)
+JDS_PATH_17       := $(JDK_PATH_17)/bin/jdeprscan --release 17 $(CP_JDS)
+JDS_PATH_21       := $(JDK_PATH_21)/bin/jdeprscan --release 21 $(CP_JDS)
+JDS_PATH_25       := $(JDK_PATH_25)/bin/jdeprscan --release 25 $(CP_JDS)
 
 JCS_PORT_8        :=  8000
 JCS_PORT_11       := 11000
@@ -99,13 +104,12 @@ JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
 
-JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_CPL),$(JPATH)/bin/javac $(CP_CPL))
+JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_COMPILE),$(JPATH)/bin/javac $(CP_COMPILE))
 JVM               := $(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN) $(EN_NAA_FLAG)
-JDS               := $(JPATH)/bin/jdeprscan --release $(JDS_REL) $(CP_JDS)
+JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_11),$(JDS_PATH_$(JDK_VER)))
 JFLAGS            := -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
 
-# Only for Java 17 and later
-xlint:
+xlint: # Only for Java 17 and later
 	@$(JC) -Xlint --help-lint
 
 

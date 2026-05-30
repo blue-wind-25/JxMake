@@ -98,8 +98,8 @@ JDS_REL_17        := 17
 JDS_REL_21        := 21
 JDS_REL_25        := 25
 
-USE_JCS           := 0
-JDK_VER           := $(JDK_PATH_8)
+USE_JCS           := 1
+JDK_VER           := $(JDS_REL_25)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
@@ -126,6 +126,24 @@ JAVA_SOURCES_RM := $(JAVA_SOURCES_PP)
 ##### Get the Java version
 JAVA_VERSION := $(shell $(JVM) -XshowSettings:properties -version 2>&1 | awk -F '=' '/java.specification.version/ { print $$2 }' | xargs)
 JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
+
+ifeq ($(USE_JCS),1)
+    JCS_MAJOR_VERSION := $(shell                                                    \
+                     OUT=$$(../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1); \
+                     if echo "$$OUT" | grep -q '^ERROR'; then                       \
+                         echo "ERR";                                                \
+                     else                                                           \
+                         echo "$$OUT"                                               \
+                         | awk '{print $$2}'                                        \
+                         | sed -E 's/^1\.([0-9]+).*/\1/; s/^([0-9]+).*/\1/';        \
+                     fi                                                             \
+                 )
+    EXPECTED_PORT := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
+    ifneq ($(EXPECTED_PORT),$(JCS_PORT))
+        $(error JCS_PORT $(JCS_PORT) does not match JDK version $(JCS_MAJOR_VERSION) → expected $(EXPECTED_PORT))
+    endif
+endif
+
 
 ##### Check if "--enable-native-access=ALL-UNNAMED" is required (for Java versions 22 and above)
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 22 && echo true), true)

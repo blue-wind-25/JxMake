@@ -19,8 +19,8 @@
 #    # compile-server.jar must be in the same directory
 #    cp compile-server.jar $JAVA_HOME/bin/
 #
-# Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
-# awk matches \x1FTAG\x1F directly; no tr stripping needed.
+# Protocol: US-wrapped (\u001FTAG\u001F) sentinel lines separate sections.
+# awk matches \u001FTAG\u001F directly; no tr stripping needed.
 
 set -euo pipefail
 

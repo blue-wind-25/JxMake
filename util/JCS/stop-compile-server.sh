@@ -11,22 +11,10 @@ set -euo pipefail
 # Editable: directory where PID files are stored (must match start-compile-server.sh)
 TMPDIR_JVM=/tmp
 
-# ── Port resolution ───────────────────────────────────────────────────────────
+# ── Includes ──────────────────────────────────────────────────────────────────
 
-resolve_port_from_java() {
-    local java_bin="$1"
-    local ver_str major
-    ver_str=$("$java_bin" -version 2>&1 | head -1)
-    if [[ "$ver_str" =~ \"1\.([0-9]+) ]]; then
-        major="${BASH_REMATCH[1]}"
-    elif [[ "$ver_str" =~ \"([0-9]+) ]]; then
-        major="${BASH_REMATCH[1]}"
-    else
-        echo "ERROR: Cannot parse Java version from: $ver_str" >&2
-        return 1
-    fi
-    echo $((major * 1000))
-}
+_JCS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_JCS_DIR/_port.sh"
 
 # ── Stop one daemon ───────────────────────────────────────────────────────────
 
@@ -89,7 +77,7 @@ if [[ $# -eq 0 ]]; then
     fi
 elif [[ "$1" == "0" ]]; then
     JAVA_BIN="${2:-java}"
-    PORT=$(resolve_port_from_java "$JAVA_BIN")
+    PORT=$(derive_port "$JAVA_BIN")
     stop_one "$PORT" || true
 else
     stop_one "$1" || true

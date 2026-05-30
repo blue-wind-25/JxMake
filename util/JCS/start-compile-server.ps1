@@ -27,6 +27,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── Includes ──────────────────────────────────────────────────────────────────
+
+. "$PSScriptRoot\_port.ps1"
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 $TmpDir = $env:TEMP
 
@@ -44,15 +48,8 @@ if (-not $JavaBin) {
 
 $resolvedPort = [int]$Port
 if ($resolvedPort -eq 0) {
-    $verLines = & $JavaBin '-version' 2>&1
-    $verStr   = $verLines[0].ToString()
-    if ($verStr -match '"1\.(\d+)') {
-        $resolvedPort = [int]$Matches[1] * 1000
-    } elseif ($verStr -match '"(\d+)') {
-        $resolvedPort = [int]$Matches[1] * 1000
-    } else {
-        throw "Cannot parse Java version from: $verStr"
-    }
+    $resolvedPort = Get-JavaMajorPort -JavaBin $JavaBin
+    $verStr = (& $JavaBin '-version' 2>&1)[0].ToString()
     Write-Host "Auto-derived port $resolvedPort from Java version: $verStr"
 }
 

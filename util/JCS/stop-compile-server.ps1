@@ -28,22 +28,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── Includes ──────────────────────────────────────────────────────────────────
+
+. "$PSScriptRoot\_port.ps1"
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 $TmpDir = $env:TEMP
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-function Resolve-JavaPort {
-    param([string]$Java)
-    if (-not $Java) {
-        $Java = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
-    }
-    $verLines = & $Java '-version' 2>&1
-    $verStr   = $verLines[0].ToString()
-    if ($verStr -match '"1\.(\d+)') { return [int]$Matches[1] * 1000 }
-    if ($verStr -match '"(\d+)')    { return [int]$Matches[1] * 1000 }
-    throw "Cannot parse Java version from: $verStr"
-}
 
 function Stop-OneDaemon {
     param([int]$P)
@@ -97,7 +89,10 @@ if ($Port -eq '') {
     }
     if ($stopped -eq 0) { Write-Host 'No running javac daemons found.' }
 } elseif ([int]$Port -eq 0) {
-    $p = Resolve-JavaPort -Java $JavaBin
+    if (-not $JavaBin) {
+        $JavaBin = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
+    }
+    $p = Get-JavaMajorPort -JavaBin $JavaBin
     Stop-OneDaemon -P $p
 } else {
     Stop-OneDaemon -P ([int]$Port)

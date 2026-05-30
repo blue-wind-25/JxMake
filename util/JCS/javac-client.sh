@@ -18,25 +18,11 @@
 # awk matches \x1FTAG\x1F directly; no tr stripping needed.
 set -euo pipefail
 
+# ── Includes ──────────────────────────────────────────────────────────────────
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-# Derive port from Java major version: major * 1000
-# Usage: derive_port <java-binary>
-derive_port() {
-    local java_bin="$1"
-    local ver_str major
-    ver_str=$("$java_bin" -version 2>&1 | head -1)
-    if [[ "$ver_str" =~ \"1\.([0-9]+) ]]; then
-        major="${BASH_REMATCH[1]}"
-    elif [[ "$ver_str" =~ \"([0-9]+) ]]; then
-        major="${BASH_REMATCH[1]}"
-    else
-        echo "ERROR: Cannot parse Java version from: $ver_str" >&2
-        return 1
-    fi
-    echo $((major * 1000))
-}
+_JCS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_JCS_DIR/_port.sh"
+. "$_JCS_DIR/_javac_args.sh"
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -67,36 +53,6 @@ fi
 # so the server can locate source files, output dirs, and classpath entries.
 
 CLIENT_CWD="$(pwd)"
-_abs()    { [[ "$1" == /* ]] && printf '%s' "$1" || printf '%s/%s' "$CLIENT_CWD" "$1"; }
-_abs_cp() { local r="" s="" e; local IFS=':'; for e in $1; do r+="${s}$(_abs "$e")"; s=":"; done; printf '%s' "$r"; }
-
-process_javac_args() {
-    local nxt="" out=()
-    for a; do
-        if [[ -n "$nxt" ]]; then
-            if [[ "$nxt" == cp ]]; then
-                out+=("$(_abs_cp "$a")")
-            else
-                out+=("$(_abs "$a")")
-            fi
-            nxt=""
-        else
-            case "$a" in
-                -d|-s|-h)
-                    out+=("$a"); nxt=single ;;
-                -cp|-classpath|--class-path|-sourcepath|--source-path|\
-                -processorpath|--processor-path|-bootclasspath|--boot-class-path|\
-                -extdirs|-endorseddirs|-modulepath|--module-path|-mp|-p|\
-                --upgrade-module-path)
-                    out+=("$a"); nxt=cp ;;
-                @*)  out+=("@$(_abs "${a:1}")") ;;
-                -*)  out+=("$a") ;;
-                *)   out+=("$(_abs "$a")") ;;
-            esac
-        fi
-    done
-    if [[ ${#out[@]} -gt 0 ]]; then printf '%s\n' "${out[@]}"; fi
-}
 
 # ── Send request, receive framed response ─────────────────────────────────────
 

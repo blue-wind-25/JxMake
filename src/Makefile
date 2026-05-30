@@ -130,17 +130,20 @@ JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
 
 ##### Check the Java Compile Server (JCS) version as needed
 ifeq ($(USE_JCS),1)
-    JCS_MAJOR_VERSION := $(shell                                                    \
-                     OUT=$$(../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1); \
-                     if echo "$$OUT" | grep -q '^ERROR'; then                       \
-                         echo "ERR";                                                \
-                     else                                                           \
-                         echo "$$OUT"                                               \
-                         | awk '{print $$2}'                                        \
-                         | sed -E 's/^1\.([0-9]+).*/\1/; s/^([0-9]+).*/\1/';        \
-                     fi                                                             \
-                 )
-    EXPECTED_PORT := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
+    JCS_OUT_RAW := $(shell ../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1 | awk '{printf "%s_NEWLINE_", $$0}')
+    ifneq ($(findstring ERROR,$(JCS_OUT_RAW)),)
+        define _NEWLINE_
+
+
+        endef
+        # Restore the actual newline characters using Make's $(subst ...) function
+        JCS_OUT := $(subst _NEWLINE_,$(_NEWLINE_),$(JCS_OUT_RAW))
+        $(warning $(_NEWLINE_)$()$(JCS_OUT))
+        $(error )
+    endif
+    JCS_OUT           := $(subst _NEWLINE_, ,$(JCS_OUT_RAW))
+    JCS_MAJOR_VERSION := $(shell echo "$(JCS_OUT)" | awk '{print $$2}' | sed -E 's/^1\.([0-9]+).*/\1/; s/^([0-9]+).*/\1/')
+    EXPECTED_PORT     := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
     ifneq ($(EXPECTED_PORT),$(JCS_PORT))
         $(error JCS_PORT $(JCS_PORT) does not match the selected JDK version $(JCS_MAJOR_VERSION) (expected $(EXPECTED_PORT)))
     endif

@@ -48,59 +48,61 @@ default:
 
 
 ##### Configuration
-JFLAGS	:= -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
+REPO_ROOT         := $(abspath $(CURDIR)/..)
 
 ##### !!! TODO : Update JGit and SLF4J later !!! #####
-CF_PDIR	:= $(HOME)/0-JxMake/manual
-CF_PTST	:= $(shell test -d "$(CF_PDIR)" && echo true)
-CF_JGIT	:= org.eclipse.jgit-5.13.0.202109080827-r.jar slf4j-simple-2.0.13.jar
+CUSTOM_JARS_DIR   := $(HOME)/0-JxMake/custom_jars
+CUSTOM_DIR_EXISTS := $(shell test -d "$(CUSTOM_JARS_DIR)" && echo true)
+JGIT_JARS         := org.eclipse.jgit-5.13.0.202109080827-r.jar slf4j-simple-2.0.13.jar
 
-CF_LDIR	:= $(HOME)/Projects/JxMake/3rd_party/jars
-CF_LTST	:= $(shell test -d "$(CF_LDIR)" && echo true)
-CF_ANSI	:= jansi.jar
-CF_JSCM	:= jSerialComm.jar
-CF_ZSTD	:= zstd-jni.jar
-CF_RSTA	:= spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar
-CF_JUSB	:= java-does-usb.jar
-CF_PTYJ	:= pty4j.jar annotations.jar kotlin-stdlib.jar slf4j-api.jar jna.jar jna-platform.jar
-CF_ALLS	:= $(CF_ANSI) $(CF_JSCM) $(CF_ZSTD) $(CF_RSTA) $(CF_JUSB) $(CF_PTYJ)
+VENDOR_JARS_DIR   := $(REPO_ROOT)/3rd_party/jars
+VENDOR_DIR_EXISTS := $(shell test -d "$(VENDOR_JARS_DIR)" && echo true)
+ANSI_JAR          := jansi.jar
+SERIALCOMM_JAR    := jSerialComm.jar
+ZSTD_JAR          := zstd-jni.jar
+RSTEXT_JARS       := spellchecker.jar rstaui.jar rsyntaxtextarea.jar autocomplete.jar
+USB_JAR           := java-does-usb.jar
+PTY_MISC_JARS     := pty4j.jar annotations.jar kotlin-stdlib.jar slf4j-api.jar jna.jar jna-platform.jar
+ALL_VENDOR_JARS   := $(ANSI_JAR) $(SERIALCOMM_JAR) $(ZSTD_JAR) $(RSTEXT_JARS) $(USB_JAR) $(PTY_MISC_JARS)
 
-CP_MANL	:= $(if $(CF_PTST),:$(subst $(__EMPTY__) $(__EMPTY__),:,$(addprefix $(CF_PDIR)/,$(CF_JGIT))),)
-CP_LOCL	:= $(if $(CF_LTST),:$(subst $(__EMPTY__) $(__EMPTY__),:,$(addprefix $(CF_LDIR)/,$(CF_ALLS))),)
-CP_EXTR	:= $(CP_MANL)$(CP_LOCL)
+_SPACE_           :=
+_SPACE_           +=
+CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
+CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
+CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
-CP_CPL	:= -cp .
-CP_CPL	:= -cp .:$(CP_EXTR)
+CP_CPL            := -cp .:$(CP_ALL)
+CP_RUN            := -cp .$(CP_ALL)
+CP_JDS            := --class-path .:$(CP_ALL)
 
-CP_RUN	:= -cp .
-CP_RUN	:= -cp .$(CP_EXTR)
+JDK_PATH_8        := /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
+JDK_PATH_11       := /usr/java/jdk-11.0.16.1
+JDK_PATH_17       := /usr/java/jdk-17.0.5
+JDK_PATH_21       := /opt/openjdk-21_linux-x64_bin/jdk-21
+JDK_PATH_25       := /opt/openjdk-25_linux-x64_bin/jdk-25
 
-CP_JDS	:= --class-path .
-CP_JDS	:= --class-path .:$(CP_EXTR)
+JCS_PORT_8        :=  8000
+JCS_PORT_11       := 11000
+JCS_PORT_17       := 17000
+JCS_PORT_21       := 21000
+JCS_PORT_25       := 25000
 
-# make funtest
-# JPATH=/usr/java/jdk-11.0.16.1 make funtest
-# JPATH=/usr/java/jdk-17.0.5 make funtest
-# JPATH=/opt/openjdk-25_linux-x64_bin/jdk-25 make funtest
-#JPATH	?=
-#JPATH	?= /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
-#JPATH	?= /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
-#JPATH	?= /usr/java/jdk-11.0.16.1
-#JPATH	?= /usr/java/jdk-17.0.5
-#JPATH	?= /opt/openjdk-21_linux-x64_bin/jdk-21
-#JPATH	?= /opt/openjdk-25_linux-x64_bin/jdk-25
+JDS_REL_8         := 8
+JDS_REL_11        := 11
+JDS_REL_17        := 17
+JDS_REL_21        := 21
+JDS_REL_25        := 25
 
-JDS	:= /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64/bin/jdeprscan --release 11 $(CP_JDS)
-JDS	:= /usr/java/jdk-11.0.16.1/bin/jdeprscan                                 --release 11 $(CP_JDS)
-JDS	:= /usr/java/jdk-17.0.5/bin/jdeprscan                                    --release 17 $(CP_JDS)
-JDS	:= /opt/openjdk-21_linux-x64_bin/jdk-21/bin/jdeprscan                    --release 21 $(CP_JDS)
-JDS	:= /opt/openjdk-25_linux-x64_bin/jdk-25/bin/jdeprscan                    --release 25 $(CP_JDS)
-JC	 = $(if $(strip $(JPATH)),$(JPATH)/bin/javac,javac)                                                         $(CP_CPL)
-JVM	 = $(if $(strip $(JPATH)),$(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java),java) $(CP_RUN) $(EN_NAA_FLAG)
+USE_JCS           := 0
+JDK_VER           := 8
+JPATH             := $(JDK_PATH_$(JDK_VER))
+JCS_PORT          := $(JCS_PORT_$(JDK_VER))
+JDS_REL           := $(JDS_REL_$(JDK_VER))
 
-##### !!! TODO !!! #####
-#JC	 = ../util/JCS/javac-daemon-wrapper.sh      $(CP_CPL)
-#JC	 = ../util/JCS/javac-client.sh         8000 $(CP_CPL)
+JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_CPL),$(JPATH)/bin/javac $(CP_CPL))
+JVM               := $(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN) $(EN_NAA_FLAG)
+JDS               := $(JPATH)/bin/jdeprscan --release $(JDS_REL) $(CP_JDS)
+JFLAGS            := -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
 
 # Only for Java 17 and later
 xlint:

@@ -51,12 +51,12 @@ default:
 REPO_ROOT         := $(abspath $(CURDIR)/..)
 
 CUSTOM_JARS_DIR   := $(HOME)/0-JxMake/custom_jars
-CUSTOM_DIR_EXISTS := $(shell test -d "$(CUSTOM_JARS_DIR)" && echo true)
+CUSTOM_DIR_EXISTS := $(if $(wildcard $(CUSTOM_JARS_DIR)/),true)
 JGIT_JARS         := org.eclipse.jgit-5.13.0.202109080827-r.jar slf4j-simple-2.0.13.jar
 ##### !!! TODO : Update JGit and SLF4J later !!! #####
 
 VENDOR_JARS_DIR   := $(REPO_ROOT)/3rd_party/jars
-VENDOR_DIR_EXISTS := $(shell test -d "$(VENDOR_JARS_DIR)" && echo true)
+VENDOR_DIR_EXISTS := $(if $(wildcard $(VENDOR_JARS_DIR)/),true)
 ANSI_JAR          := jansi.jar
 SERIALCOMM_JAR    := jSerialComm.jar
 ZSTD_JAR          := zstd-jni.jar
@@ -98,19 +98,44 @@ JDS_REL_17        := 17
 JDS_REL_21        := 21
 JDS_REL_25        := 25
 
-USE_JCS           := 1
-JDK_VER           := $(JDS_REL_25)
+USE_JCS           := 0
+JDK_VER           := $(JDS_REL_11)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
 
 JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_COMPILE),$(JPATH)/bin/javac $(CP_COMPILE))
-JVM               := $(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN) $(EN_NAA_FLAG)
+JVM               := $(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN)
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_11),$(JDS_PATH_$(JDK_VER)))
+JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_25),$(JDS_PATH_25))
 JFLAGS            := -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
 
-xlint: # Only for Java 17 and later
+xlint: # This target requires Java 17 or later
 	@$(JC) -Xlint --help-lint
+
+
+##### Check the Java Compile Server (JCS) version as needed
+define _NEWLINE_
+
+
+endef
+ifeq ($(USE_JCS),1)
+    JCS_OUT_RAW := $(shell ../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1 | awk '{printf "%s_NEWLINE_", $$0}')
+    ifneq ($(findstring ERROR,$(JCS_OUT_RAW)),)
+        JCS_OUT := $(subst _NEWLINE_,$(_NEWLINE_),$(JCS_OUT_RAW))
+        $(warning $(_NEWLINE_)$(_NEWLINE_)$(JCS_OUT))
+        $(error )
+    endif
+    JCS_OUT           := $(subst _NEWLINE_, ,$(JCS_OUT_RAW))
+    JCS_MAJOR_VERSION := $(shell echo "$(JCS_OUT)" | awk '{print $$2}' | sed -E 's/^1\.([0-9]+).*/\1/; s/^([0-9]+).*/\1/')
+    EXPECTED_PORT     := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
+    ifneq ($(EXPECTED_PORT),$(JCS_PORT))
+        $(warning $(_NEWLINE_))
+        $(warning JCS_PORT $(JCS_PORT) does not match the selected JDK version $(JCS_MAJOR_VERSION) (expected $(EXPECTED_PORT)))
+        $(warning $(_NEWLINE_))
+        $(error )
+    endif
+endif
 
 
 ##### Subdirectory and class file list
@@ -127,34 +152,11 @@ JAVA_SOURCES_RM := $(JAVA_SOURCES_PP)
 JAVA_VERSION := $(shell $(JVM) -XshowSettings:properties -version 2>&1 | awk -F '=' '/java.specification.version/ { print $$2 }' | xargs)
 JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
 
-
-##### Check the Java Compile Server (JCS) version as needed
-ifeq ($(USE_JCS),1)
-    JCS_OUT_RAW := $(shell ../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1 | awk '{printf "%s_NEWLINE_", $$0}')
-    ifneq ($(findstring ERROR,$(JCS_OUT_RAW)),)
-        define _NEWLINE_
-
-
-        endef
-        # Restore the actual newline characters using Make's $(subst ...) function
-        JCS_OUT := $(subst _NEWLINE_,$(_NEWLINE_),$(JCS_OUT_RAW))
-        $(warning $(_NEWLINE_)$()$(JCS_OUT))
-        $(error )
-    endif
-    JCS_OUT           := $(subst _NEWLINE_, ,$(JCS_OUT_RAW))
-    JCS_MAJOR_VERSION := $(shell echo "$(JCS_OUT)" | awk '{print $$2}' | sed -E 's/^1\.([0-9]+).*/\1/; s/^([0-9]+).*/\1/')
-    EXPECTED_PORT     := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
-    ifneq ($(EXPECTED_PORT),$(JCS_PORT))
-        $(error JCS_PORT $(JCS_PORT) does not match the selected JDK version $(JCS_MAJOR_VERSION) (expected $(EXPECTED_PORT)))
-    endif
-endif
-
-
 ##### Check if "--enable-native-access=ALL-UNNAMED" is required (for Java versions 22 and above)
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 22 && echo true), true)
     EN_NAA_FLAG := --enable-native-access=ALL-UNNAMED
+    JVM         += $(EN_NAA_FLAG)
 endif
-
 
 ##### Check if "-Xlint:-dangling-doc-comments" is required (for Java versions 25 and above)
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 25 && echo true), true)

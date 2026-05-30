@@ -178,9 +178,9 @@ function Invoke-ViaDaemon {
         $line = $null
         while ($null -ne ($line = $reader.ReadLine())) {
             switch -Regex ($line) {
-                "STDOUT" { $mode = 'stdout'; break }
-                "STDERR" { $mode = 'stderr'; break }
-                "EXTCOD" { $mode = 'extcod'; break }
+                "`u{001F}STDOUT`u{001F}" { $mode = 'stdout'; break }
+                "`u{001F}STDERR`u{001F}" { $mode = 'stderr'; break }
+                "`u{001F}EXTCOD`u{001F}" { $mode = 'extcod'; break }
                 default {
                     switch ($mode) {
                         'stdout' { $stdoutLines.Add($line) }

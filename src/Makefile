@@ -127,6 +127,8 @@ JAVA_SOURCES_RM := $(JAVA_SOURCES_PP)
 JAVA_VERSION := $(shell $(JVM) -XshowSettings:properties -version 2>&1 | awk -F '=' '/java.specification.version/ { print $$2 }' | xargs)
 JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
 
+
+##### Check the Java Compile Server (JCS) version as needed
 ifeq ($(USE_JCS),1)
     JCS_MAJOR_VERSION := $(shell                                                    \
                      OUT=$$(../util/JCS/javac-client.sh $(JCS_PORT) -version 2>&1); \
@@ -140,7 +142,7 @@ ifeq ($(USE_JCS),1)
                  )
     EXPECTED_PORT := $(shell echo $$(( $(JCS_MAJOR_VERSION) * 1000 )))
     ifneq ($(EXPECTED_PORT),$(JCS_PORT))
-        $(error JCS_PORT $(JCS_PORT) does not match JDK version $(JCS_MAJOR_VERSION) → expected $(EXPECTED_PORT))
+        $(error JCS_PORT $(JCS_PORT) does not match the selected JDK version $(JCS_MAJOR_VERSION) (expected $(EXPECTED_PORT)))
     endif
 endif
 

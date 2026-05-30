@@ -24,6 +24,38 @@ version 3 of the License, or (at your option) any later version.
 
 ---
 
+## Recent Improvements
+
+The following changes were applied to `CompileServer.java` in the 2026 refactor:
+
+- **`ServerSocket` in try-with-resources** — the listening socket is now declared
+  inside a `try(...)` block, ensuring it is closed on any unexpected exit from
+  `main`.
+
+- **Named worker threads** — the cached thread pool is created with a custom
+  `ThreadFactory` that names threads `javac-worker-1`, `javac-worker-2`, etc.,
+  making heap and thread dumps easier to read.
+
+- **`ScheduledExecutorService` watchdog** — the idle-timeout watchdog loop
+  (`Thread.sleep` + manual loop) is replaced by
+  `Executors.newSingleThreadScheduledExecutor` with a named daemon thread
+  (`javac-watchdog`).  The semantics are identical; the implementation is
+  simpler and more idiomatic.
+
+- **Named shutdown-hook thread** — the JVM shutdown hook thread is named
+  `javac-shutdown-hook` for clarity in thread dumps.
+
+- **Stack traces on connection/accept errors** — errors caught in the
+  connection handler and the accept loop now call `e.printStackTrace(System.err)`
+  in addition to printing the message, so the full cause is visible in the log
+  without restarting with extra flags.
+
+- **Comment accuracy** — the `sendFramedResponse` Javadoc now correctly states
+  that empty stdout/stderr sections emit *no* content lines (the old text
+  incorrectly said "one blank line").
+
+---
+
 ## Files
 
 | File | Purpose |

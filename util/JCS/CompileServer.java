@@ -21,9 +21,9 @@ import javax.tools.*;
  *   Client sends:  arg1\narg2\n...\n\u001FENDINP\u001F\n
  *   Server replies:
  *     \u001FSTDOUT\u001F\n
- *     stdout lines - or one empty line when stdout is empty
+ *     stdout lines - or nothing when stdout is empty
  *     \u001FSTDERR\u001F\n
- *     stderr lines - or one empty line when stderr is empty
+ *     stderr lines - or nothing when stderr is empty
  *     \u001FEXTCOD\u001F\n
  *     exit-code\n
  *
@@ -84,76 +84,87 @@ public class CompileServer {
             System.err.println( "PID " + pid + " written to " + pidFile );
         }
 
-        final ServerSocket server = new ServerSocket( port );
-        server.setReuseAddress( true );
+        try(
+            final ServerSocket server = new ServerSocket( port )
+        ) {
+            server.setReuseAddress( true );
 
-        System.err.println( "javac daemon ready" );
-        System.err.println( "  JDK : " + System.getProperty( "java.home" ) );
-        System.err.println( "  Port: " + port );
-        System.err.println( "  Idle timeout: 3 hours" );
+            System.err.println( "javac daemon ready" );
+            System.err.println( "  JDK : " + System.getProperty( "java.home" ) );
+            System.err.println( "  Port: " + port );
+            System.err.println( "  Idle timeout: 3 hours" );
 
-        final ExecutorService pool         = Executors.newCachedThreadPool();
-        final AtomicLong      lastActivity = new AtomicLong( System.currentTimeMillis() );
+            // Named ThreadFactory so worker threads appear as "javac-worker-N" in thread dumps
+            final ThreadFactory workerFactory = new ThreadFactory() {
+                private final AtomicInteger count = new AtomicInteger( 0 );
+                public Thread newThread( final Runnable r ) {
+                    return new Thread( r, "javac-worker-" + count.incrementAndGet() );
+                }
+            };
+            final ExecutorService pool         = Executors.newCachedThreadPool( workerFactory );
+            final AtomicLong      lastActivity = new AtomicLong( System.currentTimeMillis() );
 
-        // Idle watchdog - shuts down after IDLE_TIMEOUT_MS with no activity
-        final Thread watchdog = new Thread( new Runnable() {
-
-            public void run() {
-                while( true ) {
-                    try {
-                        Thread.sleep( 60_000 );
-                    }
-                    catch( final InterruptedException e ) {
-                        return;
-                    }
-                    final long idle = System.currentTimeMillis() - lastActivity.get();
-                    if( idle >= IDLE_TIMEOUT_MS ) {
-                        System.err.println( "Idle timeout reached, shutting down." );
-                        new File( pidFile ).delete();
-                        System.exit( 0 );
+            // Idle watchdog - shuts down after IDLE_TIMEOUT_MS with no activity
+            final ScheduledExecutorService watchdogExec = Executors.newSingleThreadScheduledExecutor(
+                new ThreadFactory() {
+                    public Thread newThread( final Runnable r ) {
+                        final Thread t = new Thread( r, "javac-watchdog" );
+                        t.setDaemon( true );
+                        return t;
                     }
                 }
-            }
-
-        } );
-
-        watchdog.setDaemon( true );
-        watchdog.start();
-
-        Runtime.getRuntime().addShutdownHook( new Thread( new Runnable() {
-            public void run() {
-                new File( pidFile ).delete();
-            }
-        } ) );
-
-        while( true ) {
-
-            try {
-                final Socket conn = server.accept();
-                lastActivity.set( System.currentTimeMillis() );
-                pool.submit( new Runnable() {
+            );
+            watchdogExec.scheduleAtFixedRate(
+                new Runnable() {
                     public void run() {
-                        try {
-                            handleConnection( compiler, conn );
-                        }
-                        catch( final Exception e ) {
-                            System.err.println( "Connection error: " + e.getMessage() );
-                        }
-                        finally {
-                            lastActivity.set( System.currentTimeMillis() );
-                            try {
-                                conn.close();
-                            }
-                            catch( final Exception ignored ) {}
+                        final long idle = System.currentTimeMillis() - lastActivity.get();
+                        if( idle >= IDLE_TIMEOUT_MS ) {
+                            System.err.println( "Idle timeout reached, shutting down." );
+                            new File( pidFile ).delete();
+                            System.exit( 0 );
                         }
                     }
-                } );
-            }
-            catch( final Exception e ) {
-                System.err.println( "Accept error: " + e.getMessage() );
-            }
+                },
+                60, 60, TimeUnit.SECONDS
+            );
 
-        } // while
+            Runtime.getRuntime().addShutdownHook( new Thread( new Runnable() {
+                public void run() {
+                    new File( pidFile ).delete();
+                }
+            }, "javac-shutdown-hook" ) );
+
+            while( true ) {
+
+                try {
+                    final Socket conn = server.accept();
+                    lastActivity.set( System.currentTimeMillis() );
+                    pool.submit( new Runnable() {
+                        public void run() {
+                            try {
+                                handleConnection( compiler, conn );
+                            }
+                            catch( final Exception e ) {
+                                System.err.println( "Connection error: " + e.getMessage() );
+                                e.printStackTrace( System.err );
+                            }
+                            finally {
+                                lastActivity.set( System.currentTimeMillis() );
+                                try {
+                                    conn.close();
+                                }
+                                catch( final Exception ignored ) {}
+                            }
+                        }
+                    } );
+                }
+                catch( final Exception e ) {
+                    System.err.println( "Accept error: " + e.getMessage() );
+                    e.printStackTrace( System.err );
+                }
+
+            } // while
+        }
     }
 
     /*
@@ -247,7 +258,7 @@ public class CompileServer {
     /*
      * Write a complete framed response to the client.
      * Each section is preceded by its US-wrapped sentinel tag.
-     * An empty section emits one blank line to prevent client parser hangs.
+     * An empty section emits no content lines.
      */
     private static void sendFramedResponse( final PrintWriter out, final String outStr, final String errStr, final int exitCode )
     {

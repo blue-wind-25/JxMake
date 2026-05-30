@@ -14,8 +14,8 @@
 #    javac-client.sh 62650 -cp libs/*.jar -d out src/Main.java
 #    javac-client.sh 0     ...   # port auto-derived from active JDK
 #
-# Protocol: US-wrapped (\x1FTAG\x1F) sentinel lines separate sections.
-# awk matches \x1FTAG\x1F directly; no tr stripping needed.
+# Protocol: US-wrapped (\u001FTAG\u001F) sentinel lines separate sections.
+# awk matches \u001FTAG\u001F directly; no tr stripping needed.
 set -euo pipefail
 
 # ── Includes ──────────────────────────────────────────────────────────────────

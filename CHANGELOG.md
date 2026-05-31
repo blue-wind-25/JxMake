@@ -10,6 +10,19 @@ JxMake Release Changelog
 ***
 
 
+Technical Preview 3 (TP3)
+-------------------------
+
+### Primary Application
++ Various enhancements, bug fixes, and cleanups.
+
+### Hardware (Schematics, PCB Designs, Bootloaders, and Firmwares)
++ Various enhancements, bug fixes, and cleanups.
+
+### Utilities & Tools
++ Various enhancements, bug fixes, and cleanups.
+
+
 Technical Preview 2 (TP2)
 -------------------------
 

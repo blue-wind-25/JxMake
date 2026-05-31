@@ -106,7 +106,7 @@ public class SysUtil {
     private static final long   _JXM_Ver_Minor   = 9;
     private static final long   _JXM_Ver_Patch   = 9;
     private static final long   _JXM_Ver_Value   = (_JXM_Ver_Major << 16) | (_JXM_Ver_Minor << 8) | _JXM_Ver_Patch;
-    private static final String _JXM_Ver_Devel   = "tp2";
+    private static final String _JXM_Ver_Devel   = "tp3";
 
     private static final String _JXM_Copyright   = "Copyright (C) 2022-2026 Aloysius Indrayanto\n\n"
                                                  + "License LGPLv3+ : GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>\n\n"

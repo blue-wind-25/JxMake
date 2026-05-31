@@ -291,7 +291,7 @@ dist: jar
 	@cp -v jxmake.bat             $(DIST_DIR)/jxmake.bat
 	@(                                                                   \
 		cd $(DIST_DIR)  ;                                            \
-		zip -r jxmake-$(DIST_VER).zip jxmake_dist jxmake jxmake.bat; \
+		zip -r JxMake-$(DIST_VER).zip jxmake_dist jxmake jxmake.bat; \
 	)
 
 dist_clean:

@@ -162,7 +162,15 @@ SECTION 2 -- COMPILER DIRECTIVES (:::  prefix)
     include-target ::= <LIBRARY-NAME>        (* bare name, no quotes, resolved as library *)
                      | single-string         (* file path; must be plain text, no variable expansion *)
 
-    (* NOTE: 'once' variants are tracked independently from non-once variants *)
+    (* NOTES on 'once' variants:
+       - The 'once' guard applies GLOBALLY for the entire compilation run -- across the main
+         JxMakeFile and all files it includes recursively.
+       - Tracking is by RESOLVED ABSOLUTE PATH of the library file, not by the raw argument
+         string.  Two argument strings that resolve to the same file are treated as one.
+       - ':::include_once' and ':::include' track INDEPENDENTLY of each other.  Having already
+         loaded a file via ':::include' does NOT suppress a subsequent ':::include_once' on
+         its first invocation, and vice versa.
+       - The skip message is printed to stdout when a 'once' load is suppressed. *)
 
 
 ====================================================================================================
@@ -181,8 +189,8 @@ A "term" is any syntactic unit that produces a value (one or more set members).
                      | double-string
                      | single-string
                      | raw-string
-                     | combining-string       (* ."..." -- SUGAR, see Section 9.1 *)
-                     | flattening-string      (* :"..." -- SUGAR, see Section 9.2 *)
+                     | combining-string       (* ."..." -- always lazy, combines to one member; see Section 9.1 *)
+                     | flattening-string      (* :"..." -- always direct, flattens to one member; see Section 9.2 *)
                      | special-ident          (* __xxx__ bare shortcut, no $ or ${} *)
                      | bare-word
                      | integer-lit
@@ -713,13 +721,26 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
 
     combining-string  ::= '.' double-string       [WS-NONE between '.' and '"']
 
-    (* SUGAR: expands to a direct-evaluated double-quoted string whose multiple set members
-       are COMBINED (joined) into a single set member before being used.
-       Equivalent to storing in a temporary variable with ':=' and then using ${tmp}.
-       May be used as a function argument or in assignment RHS.
+    (* SUGAR: a double-quoted string prefixed with '.' whose set members are COMBINED
+       (joined with no separator) into a single set member.
+
+       Evaluation timing: ALWAYS LAZY, regardless of whether the assignment operator is '='
+       or ':='.  The string is re-evaluated every time the variable that stores it is read.
+
+       Effect on members: the multiple set members that a plain "..." would produce are
+       combined into one member on each evaluation.
 
        Example:
-         ."${A}|${B}"   ->  (evaluate "${A}|${B}" directly, combine to one member) *)
+         A = 10
+         B = 11
+         C = ."${A} ${B}"   (* lazy; combines members to '10 11' *)
+         A = 20
+         echoln ${C}        (* prints '20 11' -- re-evaluated, A is now 20 *)
+
+       Contrast with plain "..." assigned with '=':
+         C = "${A} ${B}"    (* also lazy, but result is THREE members: '20', ' ', '11' *)
+
+       Use ."..." when you need a single-member lazy string. *)
 
 ----------------------------------------------------------------------------------------------------
 9.2  Flattening Operator  [SUGAR]
@@ -727,12 +748,26 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
 
     flattening-string ::= ':' double-string       [WS-NONE between ':' and '"']
 
-    (* SUGAR: expands to a DIRECTLY EVALUATED double-quoted string whose set members are
-       FLATTENED (joined with no separator) into a single string member.
-       Implies direct (not lazy) evaluation of the enclosed term.
+    (* SUGAR: a double-quoted string prefixed with ':' whose set members are FLATTENED
+       (joined with no separator) into a single set member.
+
+       Evaluation timing: ALWAYS DIRECT (immediate), regardless of whether the assignment
+       operator is '=' or ':='.  The string is evaluated ONCE at assignment time and frozen.
+
+       Effect on members: the multiple set members that a plain "..." would produce are
+       flattened into one member at the moment of assignment.
 
        Example:
-         :"${A}.${B}"   ->  (evaluate immediately, flatten to one member "AB") *)
+         A = 10
+         B = 11
+         D = :"${A} ${B}"   (* direct; freezes to '10 11' immediately *)
+         A = 20
+         echoln ${D}        (* prints '10 11' -- D was frozen at assignment time *)
+
+       Contrast with ."...":
+         C = ."${A} ${B}"   (* lazy; re-evaluates on each read, tracks A and B *)
+
+       Use :"..." when you need a single-member string evaluated immediately. *)
 
 ----------------------------------------------------------------------------------------------------
 9.3  Array-Like Access Shortcuts for $partn / $partnm  [SUGAR]
@@ -863,8 +898,8 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
            - Write: '^var-name assign-op term+' as a statement
        - The 'modifier' prefix ('local', 'const') is NOT valid on indirect assignment LHS.
        - 'unset ^var' is a SYNTAX ERROR; 'unset' only accepts plain var-names.
-       - ${^V} is NOT evaluated when placed inside a plain double-quoted string;
-         use ."${^V}" or :"${^V}" if immediate evaluation inside a string is needed. *)
+       - ${^V} is NOT evaluated when placed inside a plain double-quoted string "...".
+         Use ."${^V}" or :"${^V}" as standalone terms (replacing the plain "...") instead. *)
 
 
 ====================================================================================================

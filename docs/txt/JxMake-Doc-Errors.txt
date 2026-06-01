@@ -108,21 +108,29 @@ CORRECT  : The correct form (consistent with all other .option examples and with
 SEVERITY : ERROR
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 6
+ISSUE 6 [DONE]
 ----------------------------------------------------------------------------------------------------
 
-FILE     : docs/txt/en_US/01-Introduction.txt
-LOCATION : Section "Including Other JxMake Files"
-ISSUE    : The manual documents four include directives:
-               :::include, :::sinclude, :::include_once, :::sinclude_once
-           but does not explicitly explain whether 'once' is tracked globally across all include
-           calls in a session or per-file.  The manual note says "These 'once' variations are
-           executed independently from the normal variations."  This phrasing is ambiguous --
-           it is unclear whether 'once' means "once per compilation unit", "once globally", or
-           "once per include site".
-CORRECT  : From the note "Please refer to the examples for more details" and the general behaviour
-           of include guards, the intent appears to be "once globally per named target across the
-           whole compilation."  The manual should state this explicitly.
+ISSUE    : The manual says "These 'once' variations are executed independently from the normal
+           variations" but does not state what scope "once" applies to -- per-file, per-include
+           site, or globally for the whole compilation.
+CORRECT  : The runtime tracks included file paths in a single '_onceList' that lives on the
+           object responsible for the entire compilation run.  It is populated on the first
+           successful load of a library path and checked before every subsequent load attempt.
+           Therefore "once" means ONCE PER ENTIRE COMPILATION -- across the main JxMakeFile
+           and all files it includes recursively, for the whole execution of jxmake.
+           An additional implementation detail worth documenting: the 'once' list stores the
+           RESOLVED ABSOLUTE path of the library file, not the raw argument string.  Two
+           different argument strings that resolve to the same file will therefore be treated
+           as the same include for '_once' purposes.
+           The manual note about "executed independently from the normal variations" means that
+           ':::include_once' and ':::include' each have their own separate tracking; calling
+           ':::include' for a file does NOT prevent ':::include_once' from loading it on its
+           first invocation, and vice versa.
+           The manual should be updated to state these three things explicitly:
+             1. The 'once' guard applies globally for the entire compilation run.
+             2. Tracking is by resolved absolute path.
+             3. The 'once' and non-once variants track independently of each other.
 SEVERITY : AMBIGUITY
 
 ====================================================================================================
@@ -130,7 +138,7 @@ FILE: docs/txt/en_US/07-Built-In-Functions.txt
 ====================================================================================================
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 7
+ISSUE 7 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/07-Built-In-Functions.txt
@@ -141,15 +149,31 @@ ISSUE    : The manual states the '$partn' and '$partnm' shortcuts "will not be e
            section): "unlike calling functions from within double-quoted strings which is not
            supported, using those [path] shortcuts from inside double-quoted strings is actually
            supported and evaluated."  This creates a two-tier rule with no unified statement.
-CORRECT  : The rule should be stated once, clearly:
-               - Standard function calls ('$func(...)') inside "" are NOT evaluated (treated
-                 as plain text).
-               - Path shortcuts (~, ^, -) inside "" ARE evaluated.
-               - partn/partnm shortcuts ('${V}<n>') inside "" are NOT evaluated.
-               - {{ }} and { } inside "" are NOT evaluated (treated as literal text).
-               - combining ."..." and flattening :"..." operators force evaluation even inside
-                 a larger "" string context.
-           Each relevant section should cross-reference this unified rule.
+           A reader must visit two separate sections to understand the complete picture.
+CORRECT  : The rule governing what is and is not evaluated inside a plain double-quoted string
+           ("...") should be stated once, clearly, and each relevant section should cross-reference
+           it.  The complete rule, drawn from all relevant sections, is:
+
+               INSIDE a plain double-quoted string "...":
+               - Variable evaluations '${V}' and '$[V]'          ARE evaluated.
+               - Standard function calls '$func(...)'             are NOT evaluated (plain text).
+               - Path shortcuts '~${V}', '^${V}', '-${V}'        ARE evaluated.
+               - partn/partnm shortcuts '${V}<n>'                 are NOT evaluated (plain text).
+               - stack shortcuts '{{ ... }}'                      are NOT evaluated (plain text).
+               - set creation operator '{ ... }'                  are NOT evaluated (plain text).
+
+               SEPARATE term forms (not used inside "..."; they replace it):
+               - The combining  operator ."..." is a standalone term.
+                 Evaluation: ALWAYS LAZY regardless of '=' vs ':='.
+                 Members: combined into one member on each evaluation.
+               - The flattening operator :"..." is a standalone term.
+                 Evaluation: ALWAYS DIRECT regardless of '=' vs ':='.
+                 Members: flattened into one member, frozen at assignment time.
+
+               The key distinction confirmed by runtime behaviour:
+                 A = 10 ; B = 11
+                 C = ."${A} ${B}"   (* lazy  -- tracks A,B; prints '20 11' after A=20 *)
+                 D = :"${A} ${B}"   (* direct -- frozen; still prints '10 11' after A=20 *)
 SEVERITY : INCONSISTENCY
 
 ----------------------------------------------------------------------------------------------------

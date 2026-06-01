@@ -99,7 +99,7 @@ JDS_REL_21        := 21
 JDS_REL_25        := 25
 
 USE_JCS           := 0
-JDK_VER           := $(JDS_REL_11)
+JDK_VER           := $(JDS_REL_8)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
@@ -218,7 +218,8 @@ $(strip $(1)):
 $(strip $(2)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) JAR_FILE=$($(strip $(4))) build_jar
-	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
+#	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
+	@$(JVM):$($(strip $(4))) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
 	@echo
 endef
 GEN_FBUILD_RULE = $(eval $(call GEN_FBUILD_RULE_IMPL, build_exec_jxm_$(strip $(1))test, build_exec_jxm_j$(strip $(1))test, $(strip $(2))_CLASS , $(strip $(2))_JAR , $(strip $(3))))
@@ -234,7 +235,8 @@ $(strip $(1)):
 $(strip $(2)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) JAR_FILE=$($(strip $(4))) build_jar
-	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
+#	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
+	@$(JVM):$($(strip $(4))) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
 	@echo
 endef
 GEN_DBUILD_RULE = $(call GEN_DBUILD_RULE_IMPL, build_exec_jxm_$(strip $(1))test, build_exec_jxm_j$(strip $(1))test, $(strip $(2))_CLASS , $(strip $(2))_JAR , $(strip $(3)))
@@ -333,13 +335,14 @@ xlib:
 jxmlib:
 	@$(MAKE) -s MAIN_CLASS=$(APP_CLASS) JAR_FILE=$(APP_JAR) build_jar
 	@$(MAKE) -s jxmlib_clean
-	@(                                                           \
-		for I in $(LIB_FILES); do                            \
-			FILE=$(LIB_DIR)/$$I.jxm;                     \
-			$(JVM) -jar jxm.jar --__compile__ -f $$FILE; \
-			echo "compiled ‘$$FILE.bin’";                \
-		done                                                 \
+	@(                                                                                  \
+		for I in $(LIB_FILES); do                                                   \
+			FILE=$(LIB_DIR)/$$I.jxm;                                            \
+			$(JVM):jxmake.jar -ea $(APP_CLASS:.class=) --__compile__ -f $$FILE; \
+			echo "compiled ‘$$FILE.bin’";                                       \
+		done                                                                        \
 	)
+#			$(JVM) -jar jxm.jar --__compile__ -f $$FILE; \
 
 jxmlib_clean:
 	@rm  -vf $(LIB_DIR)/*.bin

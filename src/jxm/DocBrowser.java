@@ -125,7 +125,9 @@ public class DocBrowser extends SwingApp {
     protected void _initializeAll() throws Exception
     {
         // Get the documentation files
-        _docFiles = SysUtil.getJARResFilePaths( SysUtil.get_JxMakeJARResDocTXTRoot() );
+        final String jarResDocTXTRoot = SysUtil.get_JxMakeJARResDocTXTRoot();
+
+        _docFiles = (jarResDocTXTRoot != null) ? SysUtil.getJARResFilePaths(jarResDocTXTRoot) : null;
 
         if(_docFiles != null) {
             final List<String> res = new ArrayList<String>();

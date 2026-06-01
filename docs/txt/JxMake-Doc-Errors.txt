@@ -1,0 +1,408 @@
+====================================================================================================
+JXMAKE DOCUMENTATION ERROR REPORT
+====================================================================================================
+
+This report lists every inconsistency, error, or ambiguity found in the JxMake manual files.
+Resolution priority: valid script files (ground truth) > manual files.
+
+Format per entry:
+    FILE     : which manual file
+    LOCATION : section heading or approximate line/area
+    ISSUE    : what the manual says
+    CORRECT  : what the scripts or internal consistency shows it should be
+    SEVERITY : ERROR (factually wrong) | INCONSISTENCY (contradicts script or other doc) | AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/04-Defining-Variables.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 1
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/04-Defining-Variables.txt
+LOCATION : Section "Defining Variables" -- assignment operators description
+ISSUE    : The manual lists concatenation assignments as:
+               Concatenation assignments (+=) and (:+= or +:=)
+           It presents the two direct-concatenation forms as '(:+= or +:=)' but does NOT make
+           clear which is the canonical form and which is an alternate spelling.
+CORRECT  : Both ':+=' and '+=:' (and '+:=') are accepted.  Scripts exclusively use ':+=' as the
+           direct form (e.g. 'CppArchFlags +:= ...' in C++BuildTool_MSVC.jxm and many others).
+           The manual's parenthetical '(:+= or +:=)' is internally correct but misleadingly terse.
+           The description should explicitly state: ':+=' and '+:=' are equivalent alternates for
+           direct concatenation; '+=:' is NOT a documented form and should not be confused with them.
+SEVERITY : AMBIGUITY
+
+----------------------------------------------------------------------------------------------------
+ISSUE 2
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/04-Defining-Variables.txt
+LOCATION : Section "Defining Variables" -- incomplete sentence
+ISSUE    : The text reads: "Command line arguments are automatically converted to variables.
+           All variables values" -- the sentence "All variables values" is TRUNCATED; it ends
+           abruptly without completing the thought.
+CORRECT  : Based on context and the next sentence ("All variable values that come from command line
+           arguments are assumed to be constants"), the truncated sentence should read:
+           "All variable values that come from command line arguments are assumed to be constants."
+           The existing text appears to be a duplicated sentence fragment with its beginning lost.
+SEVERITY : ERROR
+
+----------------------------------------------------------------------------------------------------
+ISSUE 3
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/04-Defining-Variables.txt
+LOCATION : Section "Reference (Indirect) Variables"
+ISSUE    : The manual states that to mark a variable as an indirect (reference) variable, use
+           the '^' prefix, but it does not document whether '^' can be used as a prefix in
+           assignment targets (LHS of assignment) at the statement level.  The manual examples
+           show '^RefB = 20' without any grammar rule covering this.
+CORRECT  : Script files (test/VarRefTest.jxm) confirm that '^var-name' on the LHS of an
+           assignment statement is valid:
+               ^LRefA := 11
+               ^DRefA := 12
+               ^RefB = 20
+           The manual should include a formal grammar rule for indirect assignment.
+           It also should clarify that 'unset ^DRefC' is a SYNTAX ERROR (confirmed by a comment
+           in the test file: "# This will cause 'syntax error'").
+SEVERITY : AMBIGUITY
+
+----------------------------------------------------------------------------------------------------
+ISSUE 4
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/04-Defining-Variables.txt
+LOCATION : Section "Defining Variables" -- const modifier
+ISSUE    : The manual states "A 'const' prefix can be used to define a constant (assign-once)
+           variable. In this case only ':=' is supported."  This is correct for the assignment
+           operator, but the manual does not document whether 'local const' (combining both
+           prefixes) is supported.
+CORRECT  : Scripts use 'local const' in library files (e.g. C++XBuildTool_RP2040_Pico.jxm:
+               'local const RangeMarker := ...')
+           The grammar should explicitly state that 'local const' is a valid combined modifier.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/01-Introduction.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 5
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/01-Introduction.txt
+LOCATION : Section "Using Options" -- example code
+ISSUE    : In the second example block under ".option", the closing single-quote in the
+           specification string contains a stray double-quote:
+               .option warning enable 'var-not-exist"'
+           The closing delimiter is '"' instead of the correct "'".
+CORRECT  : The correct form (consistent with all other .option examples and with script usage
+           in test/VarRefTest.jxm) is:
+               .option warning enable 'var-not-exist'
+           The extra '"' before the closing apostrophe is a typographical error in the manual.
+SEVERITY : ERROR
+
+----------------------------------------------------------------------------------------------------
+ISSUE 6
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/01-Introduction.txt
+LOCATION : Section "Including Other JxMake Files"
+ISSUE    : The manual documents four include directives:
+               :::include, :::sinclude, :::include_once, :::sinclude_once
+           but does not explicitly explain whether 'once' is tracked globally across all include
+           calls in a session or per-file.  The manual note says "These 'once' variations are
+           executed independently from the normal variations."  This phrasing is ambiguous --
+           it is unclear whether 'once' means "once per compilation unit", "once globally", or
+           "once per include site".
+CORRECT  : From the note "Please refer to the examples for more details" and the general behaviour
+           of include guards, the intent appears to be "once globally per named target across the
+           whole compilation."  The manual should state this explicitly.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/07-Built-In-Functions.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 7
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/07-Built-In-Functions.txt
+LOCATION : Section "Function call shortcuts for '$partn' and '$partnm'" -- note about double-quoted
+           strings
+ISSUE    : The manual states the '$partn' and '$partnm' shortcuts "will not be evaluated when
+           placed inside double-quoted strings."  However, it also states (in the path shortcuts
+           section): "unlike calling functions from within double-quoted strings which is not
+           supported, using those [path] shortcuts from inside double-quoted strings is actually
+           supported and evaluated."  This creates a two-tier rule with no unified statement.
+CORRECT  : The rule should be stated once, clearly:
+               - Standard function calls ('$func(...)') inside "" are NOT evaluated (treated
+                 as plain text).
+               - Path shortcuts (~, ^, -) inside "" ARE evaluated.
+               - partn/partnm shortcuts ('${V}<n>') inside "" are NOT evaluated.
+               - {{ }} and { } inside "" are NOT evaluated (treated as literal text).
+               - combining ."..." and flattening :"..." operators force evaluation even inside
+                 a larger "" string context.
+           Each relevant section should cross-reference this unified rule.
+SEVERITY : INCONSISTENCY
+
+----------------------------------------------------------------------------------------------------
+ISSUE 8
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/07-Built-In-Functions.txt
+LOCATION : Near the set creation operator '{ }' description
+ISSUE    : The manual states: "DO NOT separate the terms within it using ','."  However, the
+           manual immediately contrasts it with '{{ }}' which DOES use commas.  A programmer
+           reading quickly may confuse the two delimiters.  The manual does not include a
+           side-by-side comparison table.
+CORRECT  : The distinction is technically documented but should be made more prominent.
+           Script usage confirms the rule: e.g. '{ main l1 l2 lib/lib }' (no commas) vs.
+           '{{ 'tc1', 'tc2' }}' (with commas) in test files.
+SEVERITY : AMBIGUITY
+
+----------------------------------------------------------------------------------------------------
+ISSUE 9
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/07-Built-In-Functions.txt
+LOCATION : $add_target description
+ISSUE    : The parameter signature shown is:
+               $add_target( <ref_name>, <new_name>, [<prerequisites], [extra_deps] )
+           The '[<prerequisites]' has a mismatched bracket: the opening '<' is present but the
+           closing '>' is missing from the angle-bracket notation.  It should be '[<prerequisites>]'.
+CORRECT  : $add_target( <ref_name>, <new_name>, [<prerequisites>], [<extra_deps>] )
+SEVERITY : ERROR
+
+----------------------------------------------------------------------------------------------------
+ISSUE 10
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/07-Built-In-Functions.txt
+LOCATION : NOTE section at the bottom of the built-in functions list
+ISSUE    : The note says "Some functions will internally flatten the set members into one string
+           before using them as call argument(s)."  The note is mentioned only at the bottom of
+           the function list without specifying WHICH functions flatten their input.
+CORRECT  : Individual function descriptions should note when flattening occurs.  Scripts rely on
+           this behaviour (e.g. $strlen, $strim, $valid_path always receive a single string).
+           Without per-function annotation this is an AMBIGUITY.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/08-User-Defined-Function.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 11
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/08-User-Defined-Function.txt
+LOCATION : Section "User-Defined Function" -- NOTE on $call vs $exec restrictions
+ISSUE    : The manual states "A user-defined function called using 'exec' contains commands to
+           be executed by the shell/operating system and cannot call other functions."  This is
+           slightly overstated -- the restriction is on calling OTHER JxMake FUNCTIONS from
+           within '@' command lines, not on calling JxMake statement-level constructs.  The
+           manual itself documents that 'exec' functions CAN contain assignment statements, if
+           blocks, loops, and other JxMake statements; they just cannot use '$call' or '$exec'
+           INSIDE '@' command argument lists.
+CORRECT  : The restriction should be stated as: "Within an $exec function, JxMake function
+           calls ($call, $exec) are not permitted INSIDE '@' command arguments.  Other JxMake
+           statements (assignment, if, loop, etc.) are permitted.  Use temporary/'local'
+           variables to pass computed values to '@' commands."
+           Scripts confirm: 'exec' functions in the library files freely use if-blocks, local
+           variables, and $call outside of '@' lines.
+SEVERITY : INCONSISTENCY
+
+----------------------------------------------------------------------------------------------------
+ISSUE 12
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/08-User-Defined-Function.txt
+LOCATION : Section "Special Shell/Operating System Commands"
+ISSUE    : The '@jxmake' special command is listed under "Special Shell/Operating System
+           Commands" but the NOTE says it "will create a new process" while the regular 'jxmake'
+           keyword "uses the same thread or multithreading."  The NOTE spells the word as
+           "multithreding" (missing the second 'a').
+CORRECT  : Should read "multithreading."  This is a typographical error.
+SEVERITY : ERROR
+
+====================================================================================================
+FILE: docs/txt/en_US/09-Targets.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 13
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/09-Targets.txt
+LOCATION : Section "Defining Targets" -- first NOTE
+ISSUE    : The NOTE states: "The characters '? and '%' can be used to create pattern rules..."
+           The opening single quote before '?' is orphaned (no matching closing quote before
+           'and'), making the typography inconsistent.  The surrounding text suggests both
+           characters should be quoted: '?' and '%'.
+CORRECT  : Should read: "The characters '?' and '%' can be used to create pattern rules..."
+SEVERITY : ERROR
+
+----------------------------------------------------------------------------------------------------
+ISSUE 14
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/09-Targets.txt
+LOCATION : Section "Defining Targets" -- target name expression NOTE
+ISSUE    : The manual states target names can be defined using "a plain text, a variable
+           evaluation, a function call, a single-quoted string, and a flattened double-quoted
+           string; in case it is defined using a function call, then only one function call is
+           allowed."  The manual does not say whether a COMBINING double-quoted string (."...")
+           is also allowed (as distinct from flattening :"...").
+CORRECT  : Scripts use both forms in target names (e.g. '."${TNames/(.+).out/$1.src/}"' in
+           test/TargetTest.jxm).  The manual should explicitly list combining ."..." alongside
+           flattening :"..." as valid target name forms.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/10-Flow-Control.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 15
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/10-Flow-Control.txt
+LOCATION : Section "Conditional Statements" -- one-liner if restriction
+ISSUE    : The manual states "The right hand side of a one-line if statement can only contain
+           simple expressions."  "Simple expressions" is not defined anywhere in the manual.
+CORRECT  : From script evidence (test/IfTest.jxm, test/CacheTest.jxm etc.), the RHS of a
+           one-line if may contain: assignment statements, function calls, 'return', 'break',
+           'continue', 'echo', 'echoln', arithmetic statements, and 'jxmake'.  Complex nested
+           constructs (another if, a loop block) are not permitted.
+           The manual should enumerate or define "simple expressions."
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/11-Loop.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 16
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/11-Loop.txt
+LOCATION : Section "Loop" -- foreach description
+ISSUE    : The manual does not document the optional '[<index_var_name>,]' syntax in the
+           foreach header when using the 'local' prefix.  The description in the manual reads:
+               'foreach [local] [<index_var_name>,] <value_var_name> in <set_var_name>...'
+           but the explanation paragraph only says "The 'local' prefix can be used to restrict
+           the variables for the current function/target only" without clarifying that 'local'
+           applies to BOTH the index variable AND the value variable.
+CORRECT  : Scripts confirm that 'foreach local I, V in ...' declares BOTH I and V as local.
+           The manual should state this explicitly.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/12-Numerical-Operations.txt
+====================================================================================================
+
+No errors found in this file.
+
+The content is internally consistent and consistent with script usage in test/CacheTest.jxm and
+library files.  The operator precedence table, eval syntax, and arithmetic statement descriptions
+all match observed script behaviour.
+
+====================================================================================================
+FILE: docs/txt/en_US/03-Defining-Dependency-List.txt
+====================================================================================================
+
+No errors found in this file.
+
+Content is consistent with script usage (test/src/cpp/JxMakeFile, test/src/java/JxMakeFile,
+test/CacheTest.jxm).  The depload/sdepload behaviour, extradep semantics, and gdl_* function
+descriptions are consistent.
+
+====================================================================================================
+FILE: docs/txt/en_US/02-Defining-Strings.txt
+====================================================================================================
+
+No errors found in this file.
+
+The raw/single/double quote semantics, escape sequences, and combining/flattening operators are
+all internally consistent and match observed behaviour in test/VarTest.jxm.
+
+====================================================================================================
+FILE: docs/txt/en_US/05-Special-Variables.txt
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+ISSUE 17
+----------------------------------------------------------------------------------------------------
+
+FILE     : docs/txt/en_US/05-Special-Variables.txt
+LOCATION : Section "Special Variables" -- $[lserr] behaviour note
+ISSUE    : The manual says assigning '$[lserr]' via lazy '=' is silently treated as ':=' (direct):
+           "it is as if 'Err = $[lserr]' has been silently replaced by 'Err := $[lserr]'".
+           This is documented as an example in the NOTES section, but the phenomenon is not
+           explained as a GENERAL RULE for all automatic variables.
+CORRECT  : This behaviour applies to ALL automatic $[...] variables (not just $[lserr]) because
+           "the contents of the above variables are automatic and thus always direct."  The
+           introductory paragraph does state this, but a cross-reference or explicit restatement
+           in the NOTE for $[lserr] would prevent confusion.
+SEVERITY : AMBIGUITY
+
+====================================================================================================
+FILE: docs/txt/en_US/06-Regular-Expression-In-Variable.txt
+====================================================================================================
+
+No errors found in this file.
+
+Content is internally consistent and consistent with script usage in test/VarTest.jxm and
+library files.  The regex replacement syntax and Java regex note are accurate.
+
+====================================================================================================
+FILE: docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt
+====================================================================================================
+
+No errors found that relate to the core grammar.  The appendix documents firmware/programmer
+backend parameters which are domain-specific and not contradicted by any script evidence available
+in the project.
+
+====================================================================================================
+FILE: docs/txt/en_US/00-System-Configuration.txt
+====================================================================================================
+
+No errors found in this file.
+
+This file contains only environment variable names and platform setup instructions; no grammar
+or language semantics are described.
+
+====================================================================================================
+SUMMARY
+====================================================================================================
+
+Total issues found: 17
+
+Files with issues:
+  - docs/txt/en_US/01-Introduction.txt      : 2 issues (ISSUE 5, ISSUE 6)
+  - docs/txt/en_US/04-Defining-Variables.txt: 4 issues (ISSUE 1, ISSUE 2, ISSUE 3, ISSUE 4)
+  - docs/txt/en_US/05-Special-Variables.txt : 1 issue  (ISSUE 17)
+  - docs/txt/en_US/07-Built-In-Functions.txt: 4 issues (ISSUE 7, ISSUE 8, ISSUE 9, ISSUE 10)
+  - docs/txt/en_US/08-User-Defined-Function.txt: 2 issues (ISSUE 11, ISSUE 12)
+  - docs/txt/en_US/09-Targets.txt           : 2 issues (ISSUE 13, ISSUE 14)
+  - docs/txt/en_US/10-Flow-Control.txt      : 1 issue  (ISSUE 15)
+  - docs/txt/en_US/11-Loop.txt              : 1 issue  (ISSUE 16)
+  - docs/txt/en_US/12-Numerical-Operations.txt: no issues
+  - docs/txt/en_US/03-Defining-Dependency-List.txt: no issues
+  - docs/txt/en_US/02-Defining-Strings.txt  : no issues
+  - docs/txt/en_US/06-Regular-Expression-In-Variable.txt: no issues
+  - docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt: no issues
+  - docs/txt/en_US/00-System-Configuration.txt: no issues
+
+Severity breakdown:
+  ERROR          : 5  (ISSUE 2, ISSUE 5, ISSUE 9, ISSUE 12, ISSUE 13)
+  INCONSISTENCY  : 3  (ISSUE 7, ISSUE 8, ISSUE 11)
+  AMBIGUITY      : 9  (ISSUE 1, ISSUE 3, ISSUE 4, ISSUE 6, ISSUE 10, ISSUE 14,
+                       ISSUE 15, ISSUE 16, ISSUE 17)
+
+====================================================================================================
+END OF ERROR REPORT
+====================================================================================================

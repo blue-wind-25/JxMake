@@ -1,0 +1,1205 @@
+====================================================================================================
+JXMAKE SCRIPTING LANGUAGE -- FORMAL GRAMMAR
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+SECTION 0 -- HEADER: NOTATION, SUGAR CONVENTION, WHITESPACE CONVENTION
+----------------------------------------------------------------------------------------------------
+
+NOTATION USED
+-------------
+This file uses a variant of EBNF with the following conventions:
+
+    rule-name  ::=  definition
+
+    A B           -- A followed by B (concatenation)
+    A | B         -- A or B (alternation)
+    [ A ]         -- A is optional (zero or one)
+    { A }         -- A repeated zero or more times  (Kleene star)
+    A+            -- A repeated one or more times
+    ( A )         -- grouping
+    'literal'     -- literal text (case-sensitive)
+    <token>       -- a terminal class described in prose below the rule
+    (* comment *) -- explanatory comment inside a rule
+
+    Lowercase names are non-terminals.
+    ALL-CAPS names in angle brackets are terminal classes (e.g. <IDENT>, <STRING>).
+
+SUGAR-EXPANSION CONVENTION
+--------------------------
+Several syntactic forms are "syntactic sugar" -- they have a canonical expansion to a longer but
+equivalent form using core language constructs.  Each such rule is annotated:
+
+    (* SUGAR: expands to ... *)
+
+The language documentation states that these are currently sugar but MAY become first-class
+(independently parsed) constructs in a future version.  They are grouped in
+SECTION 9 (Shortcut / Sugar Operators) below.
+
+WHITESPACE CONVENTION ANNOTATIONS
+----------------------------------
+Each rule and production is annotated with one of:
+
+    [WS-SEP]   -- At least one whitespace is REQUIRED between tokens in this production.
+                  Tokens are defined as the smallest units the lexer recognises.
+    [WS-OPT]   -- Whitespace between these specific tokens is optional.
+    [WS-NONE]  -- No whitespace is allowed between these specific tokens (they must be adjacent).
+    [WS-SIG]   -- Whitespace is structurally significant here (e.g. inside {{ }} or { }).
+    [WS-INNER] -- Whitespace inside quoted strings is literal (part of the string value).
+
+The global default is [WS-SEP]: in almost all cases each token/expression must be separated by
+at least one whitespace (per the language specification).
+
+INDEXING NOTE
+-------------
+JxMake indices start from 1.  Zero represents an invalid or not-found index.
+
+
+====================================================================================================
+SECTION 1 -- LEXICAL BASICS
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+1.1  Encoding and Case
+----------------------------------------------------------------------------------------------------
+
+    encoding       ::= (* UTF-8 encoding, case-sensitive *)
+
+----------------------------------------------------------------------------------------------------
+1.2  Line Structure
+----------------------------------------------------------------------------------------------------
+
+    physical-line  ::= <LINE-CONTENT> [ '#' <comment-text> ] <NEWLINE>
+
+    logical-line   ::= physical-line
+                     | physical-line '\' <NEWLINE> logical-line
+                       (* A backslash at end of physical line joins the next physical line *)
+
+    statement-sep  ::= <NEWLINE> | ';'
+                       (* Semicolon forces a new logical line; multiple statements may share
+                          one physical line when separated by ';'  [WS-OPT around ';'] *)
+
+    empty-line     ::= <NEWLINE>
+                       (* Empty lines are ignored *)
+
+----------------------------------------------------------------------------------------------------
+1.3  Comments
+----------------------------------------------------------------------------------------------------
+
+    line-comment   ::= '#' <comment-text>
+                       (* From '#' to end of physical line; '#' in shell '@' commands is end-of-args *)
+
+    block-comment  ::= '(*' <any-text> '*)'
+                       (* Multiline; may span many lines *)
+
+----------------------------------------------------------------------------------------------------
+1.4  Identifiers
+----------------------------------------------------------------------------------------------------
+
+    ident          ::= <LETTER-OR-UNDERSCORE> { <LETTER-DIGIT-UNDERSCORE-DOT-SLASH-...> }
+                       (* Plain symbol name; must not start with digit; may contain '.' and '/'
+                          in some contexts (e.g. target names, file paths used as identifiers);
+                          exact character set is context-dependent *)
+
+    special-ident  ::= '__' <IDENT-BODY> '__'
+                       (* Double-underscore-bracketed names are special variable shortcuts *)
+
+----------------------------------------------------------------------------------------------------
+1.5  Literal Terminals
+----------------------------------------------------------------------------------------------------
+
+    raw-string     ::= '`' <raw-chars> '`'
+                       (* No variable evaluation, no escape sequences at all  [WS-INNER] *)
+
+    single-string  ::= "'" <sq-chars> "'"
+                       [WS-INNER]
+                       (* Only '\\' -> backslash and "\'" -> apostrophe are recognised;
+                          all other \X sequences stored literally as \X *)
+
+    double-string  ::= '"' <dq-chars> '"'
+                       [WS-INNER]
+                       (* Full variable and escape sequence evaluation;
+                          function calls inside "" are NOT evaluated (treated as plain text);
+                          the combining operator ."..." and flattening operator :"..." ARE
+                          evaluated and force immediate evaluation of the string;
+                          see Section 3.3 for escape sequence details *)
+
+    integer-lit    ::= ['-'] <DIGITS>
+                     | '0x' <HEX-DIGITS>
+                     | '0o' <OCT-DIGITS>
+
+    bare-word      ::= <IDENT>
+                       (* An unquoted non-keyword token used as a value, file name, or var name *)
+
+
+====================================================================================================
+SECTION 2 -- COMPILER DIRECTIVES (:::  prefix)
+====================================================================================================
+
+    [WS-SEP throughout this section]
+
+----------------------------------------------------------------------------------------------------
+2.1  Pragmas
+----------------------------------------------------------------------------------------------------
+
+    pragma-stmt    ::= ':::pragma' 'jxmake_compile_minimum_version' version-spec
+                     | ':::pragma' 'jxmake_compile_maximum_version' version-spec
+
+    version-spec   ::= <DIGITS> '.' <DIGITS> '.' <DIGITS>
+                       (* e.g. 1.0.1  -- no spaces around dots  [WS-NONE within version-spec] *)
+
+----------------------------------------------------------------------------------------------------
+2.2  Includes
+----------------------------------------------------------------------------------------------------
+
+    include-stmt   ::= include-kw include-target
+
+    include-kw     ::= ':::include'
+                     | ':::sinclude'         (* safe include: no error if not found *)
+                     | ':::include_once'     (* include only once per compilation unit *)
+                     | ':::sinclude_once'    (* safe + once *)
+
+    include-target ::= <LIBRARY-NAME>        (* bare name, no quotes, resolved as library *)
+                     | single-string         (* file path; must be plain text, no variable expansion *)
+
+    (* NOTE: 'once' variants are tracked independently from non-once variants *)
+
+
+====================================================================================================
+SECTION 3 -- TERMS, VALUES, AND EXPRESSIONS
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+3.1  Term (Value Expression)
+----------------------------------------------------------------------------------------------------
+
+A "term" is any syntactic unit that produces a value (one or more set members).
+
+    term           ::= var-eval               (* ${...} *)
+                     | auto-var-eval          (* $[...] *)
+                     | func-call              (* $func(...) *)
+                     | double-string
+                     | single-string
+                     | raw-string
+                     | combining-string       (* ."..." -- SUGAR, see Section 9.1 *)
+                     | flattening-string      (* :"..." -- SUGAR, see Section 9.2 *)
+                     | special-ident          (* __xxx__ bare shortcut, no $ or ${} *)
+                     | bare-word
+                     | integer-lit
+                     | set-creation-op        (* { ... } -- SUGAR, see Section 9.5 *)
+                     | stack-shortcut         (* {{ ... }} -- SUGAR, see Section 9.4 *)
+                     | partn-shortcut         (* ${x}<n> etc. -- SUGAR, see Section 9.3 *)
+                     | path-shortcut          (* ~${x} etc. -- SUGAR, see Section 9.6 *)
+                     | ref-var-eval           (* ${^x} -- reference/indirect eval *)
+
+----------------------------------------------------------------------------------------------------
+3.2  Variable Evaluation
+----------------------------------------------------------------------------------------------------
+
+    var-eval       ::= '${' var-name '}'               [WS-NONE inside braces]
+                     | '${' var-name '/' regexp-str '/' [ replace-str ] '/' '}'
+                       (* in-variable regex replacement -- see Section 6 *)
+
+    auto-var-eval  ::= '$[' auto-var-name ']'          [WS-NONE inside brackets]
+                     | '$[' auto-var-name '/' regexp-str '/' [ replace-str ] '/' ']'
+
+    ref-var-eval   ::= '${' '^' var-name '}'           [WS-NONE -- ^ must be adjacent to var-name]
+                       (* SUGAR: expands to the VALUE of the variable NAMED BY var-name;
+                          i.e. indirect / reference dereference *)
+
+    var-name       ::= ident | special-ident
+
+    auto-var-name  ::= 'cmdecho' | 'cmdstreaming' | 'lserr' | 'jxmakefile'
+                     | 'function' | 'cmdtargets' | 'usn' | 'target'
+                     | 'preq^' | 'preq*' | 'preq?'
+                     | 'preq1' | 'preq2' | 'preqN'    (* N is any positive integer *)
+                     | 'preq:' <IDENT>                 (* ${V}-th prerequisite; V is plain var name *)
+                     | 'preq+' | 'preq%' | 'preq~'
+                     | 'excode' | 'stderr' | 'stdout'
+
+----------------------------------------------------------------------------------------------------
+3.3  String Escape Sequences (double-quoted strings only)
+----------------------------------------------------------------------------------------------------
+
+    dq-escape      ::= '\t'          (* horizontal tab      0x09 *)
+                     | '\v'          (* vertical tab        0x0B *)
+                     | '\r'          (* carriage return     0x0D *)
+                     | '\n'          (* line feed           0x0A *)
+                     | '\f'          (* form feed           0x0C *)
+                     | '\b'          (* backspace           0x08 *)
+                     | '\''          (* apostrophe *)
+                     | '\"'          (* double quote *)
+                     | '\\'          (* backslash *)
+                     | '\$'          (* dollar sign *)
+                     | '\~'          (* tilde *)
+                     | '\`'          (* backtick *)
+                     | '\-'          (* hyphen *)
+                     | '\+'          (* plus *)
+                     | '\?'          (* question mark *)
+                     | '\o' <3-OCTAL-DIGITS>     (* octal character value 000-377 *)
+                     | '\d' <3-DECIMAL-DIGITS>   (* decimal character value 000-255 *)
+                     | '\x' <2-HEX-DIGITS>       (* hexadecimal character value 00-FF *)
+                     | '\u' <4-HEX-DIGITS>       (* Unicode codepoint U+NNNN *)
+                     | '\U' <6-HEX-DIGITS>       (* Unicode codepoint U+NNNNNN *)
+                     (* All other \X: X is stored (backslash stripped) *)
+
+    (* Single-quoted strings: only '\'' and '\\' are recognised escape sequences;
+       all other sequences stored literally including the backslash *)
+    (* Raw-quoted strings: no escape sequences at all; content stored verbatim *)
+
+----------------------------------------------------------------------------------------------------
+3.4  Function Calls
+----------------------------------------------------------------------------------------------------
+
+    func-call      ::= [ error-suppress ] '$' func-name '(' [ arg-list ] ')'
+                       [WS-NONE between '$' and func-name, between func-name and '(']
+                       [WS-OPT between '(' and first arg, between last arg and ')']
+
+    error-suppress ::= '-'
+                       (* Prefixing '-' to a function call suppresses runtime errors;
+                          error message is printed to stderr *)
+
+    func-name      ::= ident
+                       (* Built-in functions start with '$'; user-defined via 'function' keyword *)
+
+    arg-list       ::= term { ',' term }
+                       [WS-OPT around commas; WS-SEP between tokens within each arg term]
+                       (* '?' alone (unquoted) passes the default value for an optional parameter *)
+
+
+====================================================================================================
+SECTION 4 -- VARIABLE ASSIGNMENT STATEMENTS
+====================================================================================================
+
+    [WS-SEP between all tokens in assignment statements unless noted otherwise]
+
+----------------------------------------------------------------------------------------------------
+4.1  Assignment Operators
+----------------------------------------------------------------------------------------------------
+
+    assignment-stmt ::= [ modifier ] var-name assign-op term+
+
+    modifier        ::= 'local'
+                      | 'const'
+                      | 'local' 'const'
+                        (* 'local' restricts the variable to the current function or target scope;
+                           'const' makes it assign-once; 'const' only supports ':=' operator *)
+
+    assign-op       ::= '='          (* lazy assignment: evaluated when read *)
+                      | ':='         (* direct assignment: evaluated immediately *)
+                      | '+='         (* concatenation (lazy): appends new member(s) to set *)
+                      | ':+='        (* concatenation (direct); also written '+=:' -- see error report *)
+                      | '+:='        (* concatenation (direct); alternate spelling *)
+                      | '?='         (* if-not-set (lazy): only assigns if var is not yet defined *)
+                      | ':?='        (* if-not-set (direct); also written '?:=' *)
+                      | '?:='        (* if-not-set (direct); alternate spelling *)
+
+    (* NOTES:
+       - ':+=' and '+:=' are documented as equivalent alternates; ground truth scripts use both.
+       - 'const' only supports ':=' (direct).
+       - Command-line arguments are automatically converted to variables and treated as constants.
+       - Not all statements support lazy variable assignment ('=').
+       - $[...] automatic variables behave as always-direct even when assigned with '='.
+       - Lazy assignment of a function call result is NOT supported.
+       - By convention all non-existent variables evaluate to empty string / 0. *)
+
+----------------------------------------------------------------------------------------------------
+4.2  Unset Statement
+----------------------------------------------------------------------------------------------------
+
+    unset-stmt     ::= 'unset' var-name
+                       (* Deletes (un-defines) the named variable.
+                          Note: 'unset ^var' is a syntax error; only plain var-names allowed *)
+
+----------------------------------------------------------------------------------------------------
+4.3  Deprecate Statement
+----------------------------------------------------------------------------------------------------
+
+    deprecate-stmt ::= 'deprecate' var-name [ 'by' var-name ]
+                       (* Marks a variable as deprecated; optional replacement name *)
+
+
+====================================================================================================
+SECTION 5 -- SPECIAL VARIABLE SHORTCUTS (__xxx__)
+====================================================================================================
+
+    (* These are bare tokens used without ${} in many expression contexts.
+       They are read-only unless listed under "Writable" below.
+       Using them inside 'eval' statements is NOT supported; use a temporary variable. *)
+
+----------------------------------------------------------------------------------------------------
+5.1  Read-Only Special Variable Shortcuts
+----------------------------------------------------------------------------------------------------
+
+    -- JxMake version --
+    __jxm_ver_major__     JxMake major version (0x0000 to 0xFFFF)
+    __jxm_ver_minor__     JxMake minor version (0x00   to 0xFF  )
+    __jxm_ver_patch__     JxMake patch version (0x00   to 0xFF  )
+    __jxm_ver_value__     JxMake numerical version (0xJJJJNNPP  )
+    __jxm_ver_devel__     JxMake development tag ('alpha1', 'beta1', 'rc1', ...)
+
+    -- Operating system --
+    __os_windows__        1 if Windows,  else 0
+    __os_linux__          1 if Linux,    else 0
+    __os_mac__            1 if macOS,    else 0
+    __os_posix__          1 if POSIX OS, else 0
+    __os_posix_compat__   1 if POSIX-compatible (e.g. Cygwin), else 0
+    __os_cygwin__         1 if Cygwin,   else 0
+    __os_64bit__          1 if 64-bit OS,else 0
+    __os_32bit__          1 if 32-bit OS,else 0
+    __os_dsep_char__      native directory separator character
+    __os_psep_char__      native path list separator character
+
+    -- ANSI colour codes --
+    __c_clrscr__          clear screen escape code
+    __c_red__             red     foreground
+    __c_green__           green   foreground
+    __c_yellow__          yellow  foreground
+    __c_blue__            blue    foreground
+    __c_magenta__         magenta foreground
+    __c_cyan__            cyan    foreground
+    __c_black__           black   foreground (or black-on-white in light themes)
+    __c_dgray__           dark-grey foreground
+    __c_lgray__           light-grey foreground
+    __c_white__           white   foreground (or black-on-white in light themes)
+    __c_reset__           reset all attributes
+
+    (* Other library-defined __xxx__ names follow the same pattern; the above are the
+       built-in ones guaranteed by the runtime *)
+
+----------------------------------------------------------------------------------------------------
+5.2  Writable Special Variables
+----------------------------------------------------------------------------------------------------
+
+    __include_paths__     [C/C++] search paths for header dependency auto-detection
+    __class_paths__       [Java]  search paths for class dependency auto-detection
+
+    (* 'local' prefix is supported on these to restrict modification to current scope.
+       Modifications used for dependency auto-detection must occur before other statements
+       in the target body, after 'extradep' statements if any, and NOT inside conditionals
+       or loops. *)
+
+
+====================================================================================================
+SECTION 6 -- IN-VARIABLE REGULAR EXPRESSION SUBSTITUTION
+====================================================================================================
+
+    regex-subst-var   ::= '${' var-name '/' regexp-str '/' [ replace-str ] '/' '}'
+                        | '$[' auto-var-name '/' regexp-str '/' [ replace-str ] '/' ']'
+                          [WS-NONE throughout -- no spaces inside the braces/brackets]
+
+    (* regexp-str and replace-str must use Java regular expression syntax.
+       In replace-str, '\${plain-var-name}' references the current value of that variable.
+       Using '(.+)' is preferred over '(.*)' to avoid empty-match artefacts.
+       Only plain variable names are allowed in '\${...}' inside replace-str.
+       Special variable names are NOT supported in '\${...}' inside replace-str. *)
+
+
+====================================================================================================
+SECTION 7 -- BUILT-IN FUNCTIONS (REFERENCE SUMMARY)
+====================================================================================================
+
+    (* Full signatures are in the manual file 07-Built-In-Functions.txt and Appendix X.
+       This section lists the function names grouped by category.
+       All function calls: '$func_name( [arg, ...] )'  [WS-OPT inside parens] *)
+
+----------------------------------------------------------------------------------------------------
+7.1  User Function and Target Invocation
+----------------------------------------------------------------------------------------------------
+
+    $call   ( func-name [, arg...] )     -- call user function (no OS commands)
+    $exec   ( func-name [, arg...] )     -- call user function that runs OS commands
+
+----------------------------------------------------------------------------------------------------
+7.2  Target Management (programmatic)
+----------------------------------------------------------------------------------------------------
+
+    $add_target   ( ref-name, new-name [, prerequisites] [, extra-deps] )
+    $add_extradep ( trg-name, extra-deps [, global-fb] )
+
+----------------------------------------------------------------------------------------------------
+7.3  Variable Inspection
+----------------------------------------------------------------------------------------------------
+
+    $has_var  ( var-name )            -- check if a variable is defined; returns 'g', 'a', 'l', ''
+    $get_var  ( var-name )            -- get the value of a variable by name (string)
+
+----------------------------------------------------------------------------------------------------
+7.4  String Operations
+----------------------------------------------------------------------------------------------------
+
+    $ucase    ( value )               -- uppercase
+    $lcase    ( value )               -- lowercase
+    $strlen   ( value )               -- string length
+    $strim    ( value [, chars] )     -- trim whitespace (or specified chars) from both ends
+    $ltrim    ( value [, chars] )     -- trim from left
+    $rtrim    ( value [, chars] )     -- trim from right
+    $substr   ( value, start [, len] )-- substring
+    $str_fidx ( value, search [, from] ) -- first index of search in value
+    $str_lidx ( value, search [, from] ) -- last  index of search in value
+    $str_replace ( value, search, replacement ) -- replace (all occurrences)
+    $series   ( value... )            -- concatenate multiple values
+
+----------------------------------------------------------------------------------------------------
+7.5  Set (Multi-Member) Operations
+----------------------------------------------------------------------------------------------------
+
+    $part_count ( value )                          -- number of set members
+    $partn      ( value, index [, offset] )        -- get member at index (+offset) [1-based]
+    $partnm     ( value, beg-index, end-index )    -- get members beg..end [1-based]
+    $part_fidx  ( value, search [, from] )         -- first occurrence index [1-based]
+    $part_lidx  ( value, search [, from] )         -- last  occurrence index [1-based]
+    $part_remove  ( value, index )                 -- remove member at index
+    $part_insert  ( value, index, inserted )       -- insert member at index
+    $part_replace ( value, index, replacement )    -- replace member at index
+    $contains  ( value, search )                   -- 0 or 1
+    $lookup    ( key, input-keys, input-values )   -- lookup value by key
+    $unique    ( value )                           -- deduplicate set members
+    $stack     ( value... )                        -- combine values into a set (one member each)
+    $flatten   ( value )                           -- implode with empty separator
+    $implode   ( value [, sep] )                   -- join set members with separator (default: ' ')
+    $explode   ( value [, sep] )                   -- split string into set members (default: ' ')
+    $erase_ifempty  ( value )                      -- remove empty set members
+    $erase_ifnot    ( value, pattern [, is-regex] )-- remove members not matching pattern
+
+    (* Shortcut implode functions *)
+    $ftchars   ( value )    -- implode with ''           (flatten to chars)
+    $ftspaces  ( value )    -- implode with ' '
+    $ftdots    ( value )    -- implode with '.'
+    $ftpipes   ( value )    -- implode with '|'
+    $ftlines   ( value )    -- implode with '\n'
+    $ftdseps   ( value )    -- implode with __os_dsep_char__
+    $ftpseps   ( value )    -- implode with __os_psep_char__
+
+    (* Shortcut explode functions *)
+    $sfchars   ( value )    -- explode by ''
+    $sfspaces  ( value )    -- explode by ' '
+    $sfdots    ( value )    -- explode by '.'
+    $sfpipes   ( value )    -- explode by '|'
+    $sflines   ( value )    -- explode by '\n'
+    $sfdseps   ( value )    -- explode by __os_dsep_char__
+    $sfpseps   ( value )    -- explode by __os_psep_char__
+
+----------------------------------------------------------------------------------------------------
+7.6  Regular Expression Functions
+----------------------------------------------------------------------------------------------------
+
+    $re_match        ( value, regexp )             -- 0 or 1
+    $re_split        ( value, regexp )             -- split into set members
+    $re_replace      ( value, regexp, replacement )-- replace all occurrences
+    $re_quote        ( value )                     -- escape value as literal regexp pattern
+    $re_quote_repval ( replacement )               -- escape replacement string for use in $re_replace
+    $glob_to_re      ( value )                     -- convert glob ('?' -> single, '%' -> multi) to regex
+
+----------------------------------------------------------------------------------------------------
+7.7  Path and File System Functions
+----------------------------------------------------------------------------------------------------
+
+    -- Directories --
+    $cwd  ()                        -- current working directory
+    $ptd  ()                        -- project temporary directory
+    $uhd  ()                        -- user home directory
+    $jdd  ()                        -- JxMake user data directory
+    $jtd  ()                        -- JxMake user tools directory
+    $jxd  ()                        -- JxMake executable directory
+
+    -- Path manipulation --
+    $cat_path    ( path1, path2 )
+    $cat_paths   ( path1, path2 [, ...] )
+    $abs_path    ( path )           -- absolute path relative to cwd
+    $rel_path    ( path )           -- relative path relative to cwd
+    $path_ndsep  ( path )           -- convert to OS-native directory separators
+    $path_last_part    ( path )
+    $path_rm_last_part ( path )
+    $dir_name    ( path )
+    $file_name   ( path [, no-ext] )
+    $file_ext    ( path )
+
+    -- Path queries --
+    $valid_path      ( path )
+    $uptodate_path   ( path )
+    $newer_path      ( path-chk, path-ref )
+    $same_path       ( path-chk, path-ref )
+    $path_is_abs     ( path )
+    $path_is_rel     ( path )
+    $path_is_file    ( path )
+    $path_is_directory ( path )
+    $path_is_symlink ( path )
+    $path_is_readable   ( path )
+    $path_is_writable   ( path )
+    $path_is_executable ( path )
+    $file_mime_type  ( path )
+
+    -- Symlinks --
+    $symlink_target       ( path )
+    $symlink_real_apath   ( path )
+    $symlink_resolve      ( path )
+
+    -- File and directory manipulation --
+    $mkdir      ( path )
+    $mkdir_rec  ( path )
+    $rmdir      ( path )
+    $rmdir_rec  ( path )
+    $touch      ( path )
+    $rmfile     ( path )
+    $rmfiles     ( dir, regexp )
+    $rmfiles_rec ( dir, regexp )
+    $mvfile     ( src, dst )
+    $cpfile     ( src, dst )
+    $set_rwx3   ( path, rwxrwxrwx )
+    $lsdir      ( dir [, regexp] )
+    $lsdir_rec  ( dir [, regexp] )
+
+----------------------------------------------------------------------------------------------------
+7.8  Numeric / Boolean Utilities
+----------------------------------------------------------------------------------------------------
+
+    $cmp   ( value1, op, value2 )   -- compare; op is '==','!=','<','<=','>','>=','&==','&!='
+    $csel  ( condition, true-val, false-val )   -- conditional select
+    $or    ( value... )             -- logical OR of values
+    $not   ( value )                -- logical NOT
+    $and   ( value... )             -- logical AND
+
+----------------------------------------------------------------------------------------------------
+7.9  I/O and Output Functions
+----------------------------------------------------------------------------------------------------
+
+    $printf  ( format [, arg...] )  -- printf-style output
+    $sprintf ( format [, arg...] )  -- printf-style into string
+    $exit    ( code )               -- exit program with code
+
+    (* 'echo' and 'echoln' are statements, not functions -- see Section 10.4 *)
+
+----------------------------------------------------------------------------------------------------
+7.10  Miscellaneous / Advanced Functions (partial list)
+----------------------------------------------------------------------------------------------------
+
+    $getenv    ( name [, default] )
+    $setenv    ( name, value )
+
+    $sleep     ( milliseconds )
+    $millis    ()
+    $micros    ()
+
+    $get_file  ( path )             -- read file into set (one member per line, each with '\n')
+    $put_file  ( path, content )    -- write set members to file
+    $app_file  ( path, content )    -- append to file
+
+    $flatten   ( value )            -- see Section 7.5
+    $map_new   ()
+    $map_add   ( handle, key, value )
+    $map_put   ( handle, key, value )
+    $map_get   ( handle, key )
+    $map_keys  ( handle )
+    $map_delete( handle )
+
+    $gdl_cpp_include ( dep-file, src-path, obj-ext, build-dir )
+    $gdl_cpp_module  ( dep-file, src-path, obj-ext )
+    $gdl_java_import ( dep-file, src-path, build-dir )
+    $pp_java_scf     ( inp-path, out-path, cond-flags, sval-map-handle )
+
+    $cmd_echo_off ()
+    $cmd_echo_on  ()
+    $cmd_streaming_off ()
+    $cmd_streaming_on  ()
+    $clear_project ()
+
+    (* Functions for MCU programming, firmware, serial ports, GUI dialogs, Arduino etc.
+       are listed in the manual and Appendix X; not reproduced here for brevity *)
+
+
+====================================================================================================
+SECTION 8 -- USER-DEFINED FUNCTIONS
+====================================================================================================
+
+    [WS-SEP between all tokens unless noted]
+
+----------------------------------------------------------------------------------------------------
+8.1  Function Definition
+----------------------------------------------------------------------------------------------------
+
+    func-def       ::= 'function' func-name '(' [ param-list ] ')' func-modifiers
+                           { statement }
+                           [ 'return' term+ ]
+                       'endfunction'
+
+    param-list     ::= param { ',' param }
+
+    param          ::= ident               (* required parameter *)
+                     | '?' ident           (* optional parameter; all subsequent params must also be optional *)
+
+    func-modifiers ::= [ 'supersede' ] [ 'deprecated' [ 'by' func-name ] ]
+
+    (* NOTES:
+       - 'supersede' replaces any previously defined function of the same name.
+       - Inside a superseding function, calling '$call(__origin__, ...)' invokes the
+         previous definition in the chain.
+       - A superseding function may have different parameter specifications.
+       - When calling, use '?' (bare, unquoted) to skip an optional argument and use its default.
+       - e.g.: $call(my_function, 'arg1', 'arg2', ?, ?, 'arg5')
+       - Local variables declared inside a function take precedence over global variables
+         and function parameters with the same name.
+       - The caller's parameters and local variables are IMPLICITLY INHERITED by the callee
+         as extra by-value arguments, unless the callee has parameters with the same names.
+       - 'return' without a value returns an empty string. *)
+
+----------------------------------------------------------------------------------------------------
+8.2  Shell / OS Command Execution (inside $exec functions)
+----------------------------------------------------------------------------------------------------
+
+    exec-func-def  ::= 'function' func-name '(' [ param-list ] ')' func-modifiers
+                           { exec-stmt | statement }
+                       'endfunction'
+
+    exec-stmt      ::= '@' <shell-command-and-args>       (* execute OS command *)
+                     | '-@' <shell-command-and-args>      (* execute, suppress runtime error *)
+                     | '+@' <shell-command-and-args>      (* execute + print command before running *)
+                     | '-+@' <shell-command-and-args>     (* execute + print + suppress error *)
+                     | '?@' <shell-command-and-args>      (* print command only, do not execute *)
+
+    (* NOTE: All text after '@' until end-of-line or '#' is the command.
+       Consecutive '@' commands are buffered and executed as a group.
+       Accessing $[excode], $[stderr], or $[stdout] flushes the buffer.
+       '@' commands cannot call JxMake functions; use temporary variables.
+       '$call' and '$exec' cannot be prefixed with '-'. *)
+
+----------------------------------------------------------------------------------------------------
+8.3  Special Shell Environment Modifiers (inside @-sequences)
+----------------------------------------------------------------------------------------------------
+
+    env-modifier   ::= '@clrenv'
+                     | '@delenv' <ENV-VAR-NAME>
+                     | '@setenv' <ENV-VAR-NAME> term+
+                     | '@addenv' <ENV-VAR-NAME> term+
+                     | '@sstdin' term+
+                     | '@jxmake' arg-list
+
+    (* These modifiers affect only the immediately following command group.
+       '@jxmake' spawns a new JxMake process (unlike the 'jxmake' target keyword). *)
+
+
+====================================================================================================
+SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
+====================================================================================================
+
+    (* Currently syntactic sugar; may become first-class constructs in a future version.
+       Each entry documents: surface syntax -> canonical expansion *)
+
+----------------------------------------------------------------------------------------------------
+9.1  Combining Operator  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    combining-string  ::= '.' double-string       [WS-NONE between '.' and '"']
+
+    (* SUGAR: expands to a direct-evaluated double-quoted string whose multiple set members
+       are COMBINED (joined) into a single set member before being used.
+       Equivalent to storing in a temporary variable with ':=' and then using ${tmp}.
+       May be used as a function argument or in assignment RHS.
+
+       Example:
+         ."${A}|${B}"   ->  (evaluate "${A}|${B}" directly, combine to one member) *)
+
+----------------------------------------------------------------------------------------------------
+9.2  Flattening Operator  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    flattening-string ::= ':' double-string       [WS-NONE between ':' and '"']
+
+    (* SUGAR: expands to a DIRECTLY EVALUATED double-quoted string whose set members are
+       FLATTENED (joined with no separator) into a single string member.
+       Implies direct (not lazy) evaluation of the enclosed term.
+
+       Example:
+         :"${A}.${B}"   ->  (evaluate immediately, flatten to one member "AB") *)
+
+----------------------------------------------------------------------------------------------------
+9.3  Array-Like Access Shortcuts for $partn / $partnm  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    partn-shortcut    ::= partn-operand '<' index-spec '>'
+                          [WS-NONE between operand and '<'; WS-OPT between index tokens]
+
+    partn-operand     ::= '${' var-name '}'
+                        | '$[' auto-var-name ']'
+
+    index-spec        ::= index-val                              (* single index *)
+                        | index-val ',' offset-val              (* index + offset *)
+                        | beg-val   ':' end-val                 (* range *)
+
+    index-val         ::= integer-lit | '${' var-name '}'
+    offset-val        ::= integer-lit | '${' var-name '}'
+    beg-val           ::= integer-lit | '${' var-name '}'
+    end-val           ::= integer-lit | '${' var-name '}'
+
+    SUGAR EXPANSIONS:
+      ${V}<N>          ->  $partn ( ${V}, N )
+      ${V}<VN>         ->  $partn ( ${V}, ${VN} )
+      ${V}<N, O>       ->  $partn ( ${V}, N, O )
+      ${V}<VN, VO>     ->  $partn ( ${V}, ${VN}, ${VO} )
+      ${V}<B:E>        ->  $partnm( ${V}, B, E )
+      ${V}<VB:VE>      ->  $partnm( ${V}, ${VB}, ${VE} )
+      (same forms for $[V])
+
+    (* NOTE: These shortcuts do NOT generate temporary variables; they expand to direct
+       function calls and thus are subject to all placement restrictions on function calls.
+       They are NOT evaluated when placed inside double-quoted strings.
+       They CAN be evaluated when placed inside combining ."..." or flattening :"..." strings. *)
+
+----------------------------------------------------------------------------------------------------
+9.4  Stack Shortcut  {{ ... }}  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    stack-shortcut    ::= '{{' WS term { ',' WS term } WS '}}'
+                          [WS-SIG: whitespace between {{ and }} is MANDATORY]
+
+    SUGAR EXPANSION:
+      {{ v1, v2, v3 }}    ->    $stack( v1, v2, v3 )
+
+    (* NOTE: No temporary variables; expands to a direct $stack() call.
+       Subject to all function call placement restrictions.
+       NOT evaluated inside plain double-quoted strings (is evaluated inside ."..." or :"...").
+       Inside strings, '{{' and '}}' are treated as literal text. *)
+
+----------------------------------------------------------------------------------------------------
+9.5  Set Creation Operator  { ... }  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    set-creation-op   ::= '{' WS term+ WS '}'
+                          [WS-SIG: whitespace between { and } is MANDATORY]
+                          [WS-SEP between terms; do NOT use commas here]
+
+    SUGAR EXPANSION:
+      { v1 v2 v3 }    ->    (tmp := v1 v2 v3) and then ${tmp}
+
+    (* NOTE: Uses an auto-generated temporary variable.
+       Valid ONLY as an operand in these contexts:
+         - return statement
+         - extradep statement
+         - prerequisite names in a target definition
+         - input set of a foreach statement
+         - arguments of built-in and user-defined function calls
+       Using in other contexts may cause unexpected results or compile errors.
+       Inside strings, '{' and '}' are treated as literal text. *)
+
+----------------------------------------------------------------------------------------------------
+9.6  Path Shortcuts  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    path-shortcut     ::= '~' var-or-auto-var      [WS-NONE between '~' and operand]
+                        | '^' var-or-auto-var      [WS-NONE between '^' and operand]
+                        | '-' var-or-auto-var      [WS-NONE between '-' and operand]
+
+    var-or-auto-var   ::= '${' var-name '}'
+                        | '$[' auto-var-name ']'
+
+    SUGAR EXPANSIONS (each uses auto-generated temporary variables):
+      ~${V}    ->    $path_ndsep( $cat_path( $cwd(), ${V} ) )
+      ~$[V]    ->    $path_ndsep( $cat_path( $cwd(), $[V] ) )
+      ^${V}    ->    $path_ndsep( $cat_path( $ptd(), ${V} ) )
+      ^$[V]    ->    $path_ndsep( $cat_path( $ptd(), $[V] ) )
+      -${V}    ->    $path_ndsep( $rel_path( ${V} ) )
+      -$[V]    ->    $path_ndsep( $rel_path( $[V] ) )
+
+    (* NOTE: These shortcuts USE auto-generated temporary variables and therefore:
+       - If you store the result via lazy '=' assignment the temp var's content may be
+         overwritten later; use ':=' (direct) assignment to store results safely.
+       - UNLIKE most function calls, these shortcuts ARE evaluated inside double-quoted strings.
+       - Must use ':=' when storing results, never lazy '='. *)
+
+----------------------------------------------------------------------------------------------------
+9.7  Reference (Indirect) Variable Operator  ${^var}  [SUGAR]
+----------------------------------------------------------------------------------------------------
+
+    ref-var-eval      ::= '${' '^' var-name '}'     [WS-NONE throughout]
+    ref-var-assign    ::= '^' var-name assign-op term+
+                          [WS-SEP; '^' must immediately precede var-name with no space]
+
+    SUGAR EXPANSION:
+      ${^RefVar}   ->   read the variable NAMED BY the current value of RefVar
+      ^RefVar :=   ->   assign to the variable NAMED BY the current value of RefVar
+
+    (* NOTE: Indirect/reference variables can only be used in much more limited contexts
+       than normal variables. Supported in: assignment LHS, foreach iterand, ${^V}<n> partn
+       shortcuts. *)
+
+
+====================================================================================================
+SECTION 10 -- STATEMENTS
+====================================================================================================
+
+    [WS-SEP between all tokens unless noted]
+
+----------------------------------------------------------------------------------------------------
+10.1  Dependency List Statements
+----------------------------------------------------------------------------------------------------
+
+    depload-stmt   ::= ( 'depload' | 'sdepload' ) term
+                       (* 'sdepload' = safe depload: no error if file not found *)
+                       (* Loads a GNU-Make-format dependency file globally.
+                          Auto-detection is disabled for targets whose deps are loaded this way.
+                          Relative paths are resolved against the dep file's own location. *)
+
+----------------------------------------------------------------------------------------------------
+10.2  Target Definition
+----------------------------------------------------------------------------------------------------
+
+    target-def     ::= 'target' target-name-expr [ ':' prereq-list ]
+                           { extradep-stmt }
+                           { statement }
+                       'endtarget'
+
+    target-name-expr ::= term      (* plain text, var-eval, func-call, single-string, or
+                                      flattening double-string; at most ONE function call *)
+
+    prereq-list    ::= prereq-expr { prereq-expr }
+
+    prereq-expr    ::= term        (* plain text, var-eval, single-string, flattening-string;
+                                     '%' and '?' are glob wildcards in target names;
+                                     '%' in prereq names refers back to the captured portion *)
+
+    extradep-stmt  ::= 'extradep' [ specific-target ':' ] { dep-path }
+    specific-target ::= target-name-expr
+    dep-path        ::= [ '!' ] term
+                        (* '!' prefix: include even if path is non-existent at statement time *)
+
+    (* NOTES:
+       - A target without prerequisites is always re-executed (unless a same-named file/dir exists).
+       - Pattern characters: '?' matches one character; '%' matches multiple characters.
+       - '%1' to '%9' in prereq names reference specific captured groups.
+       - extradep statements must come before all other statements in the target body.
+       - A target named '.PHONY' (or any target that lists .PHONY as a prerequisite) is
+         always executed.
+       - Target and prereq names support variable evals and function calls; only ONE function
+         call is allowed per name expression. *)
+
+----------------------------------------------------------------------------------------------------
+10.3  Running Other Targets
+----------------------------------------------------------------------------------------------------
+
+    run-target-stmt ::= 'jxmake'  target-name-expr { target-name-expr }
+                      | '+jxmake' target-name-expr { target-name-expr }
+                      | 'jxwait'
+
+    (* 'jxmake'  -- sequential execution *)
+    (* '+jxmake' -- parallel execution (queues target) *)
+    (* 'jxwait'  -- wait for all queued '+jxmake' targets to complete *)
+
+----------------------------------------------------------------------------------------------------
+10.4  Output Statements
+----------------------------------------------------------------------------------------------------
+
+    echo-stmt      ::= 'echo'   term+      (* print terms concatenated; no newline appended *)
+    echoln-stmt    ::= 'echoln' [ term+ ]  (* print terms then newline; no args prints only newline *)
+
+    (* 'echo' and 'echoln' flatten all arguments into one string before printing *)
+
+----------------------------------------------------------------------------------------------------
+10.5  Numeric / Arithmetic Statements
+----------------------------------------------------------------------------------------------------
+
+    arith-stmt     ::= [ 'local' ] arith-op var-name [ ',' term [ ',' term ] ]
+
+    arith-op       ::= 'inc'   (* dst++           *)
+                     | 'dec'   (* dst--           *)
+                     | 'add'   (* dst = v1 + v2   *)
+                     | 'sub'   (* dst = v1 - v2   *)
+                     | 'mul'   (* dst = v1 * v2   *)
+                     | 'div'   (* dst = v1 / v2   *)
+                     | 'mod'   (* dst = v1 % v2   *)
+                     | 'abs'   (* dst = |v1|       *)
+                     | 'neg'   (* dst = -v1        *)
+                     | 'shl'   (* dst = v1 << v2  *)
+                     | 'shr'   (* dst = v1 >> v2  *)
+                     | 'min'   (* dst = min(v1,v2)*)
+                     | 'max'   (* dst = max(v1,v2)*)
+                     | 'not'   (* dst = ~v1        *)
+                     | 'and'   (* dst = v1 & v2   *)
+                     | 'or'    (* dst = v1 | v2   *)
+                     | 'xor'   (* dst = v1 ^ v2   *)
+
+    eval-stmt      ::= [ 'local' ] 'eval' var-name ':=' eval-expr
+
+    eval-expr      ::= eval-term+
+
+    eval-term      ::= eval-operand
+                     | eval-unary-op eval-operand     [WS-NONE between unary-op and operand]
+                     | eval-binary-op                 [WS-SEP on both sides of binary-op]
+                     | eval-inline-func
+
+    eval-operand   ::= var-eval | integer-lit | '(' eval-expr ')'
+
+    eval-unary-op  ::= '+' | '-' | '@' | '~' | '!'
+
+    eval-binary-op ::= '**' | '*' | '/' | '%'
+                     | '+' | '-'
+                     | '<<' | '>>'
+                     | '<=>'
+                     | '<' | '<=' | '>' | '>='
+                     | '==' | '!='
+                     | '&' | '^' | '|'
+                     | '&&' | '||'
+                     | '?' | ':'
+
+    eval-inline-func ::= inline-fname '[' WS eval-operand { ',' WS eval-operand } WS ']'
+                         [WS-SIG: format must match examples exactly]
+
+    inline-fname   ::= 'sgn' | 'min' | 'max'
+
+    (* OPERATOR PRECEDENCE (highest to lowest):
+         +  -  @           unary plus, minus, absolute         right-to-left
+         ~  !              bitwise NOT, logical NOT            right-to-left
+         **                power                               left-to-right
+         *  /  %           mul, div, remainder                 left-to-right
+         +  -              add, sub                            left-to-right
+         <<  >>            bitwise shifts                      left-to-right
+         <=>               three-way comparison                left-to-right
+         <  <=  >  >=      relational                          left-to-right
+         ==  !=            equality                            left-to-right
+         &                 bitwise AND                         left-to-right
+         ^                 bitwise XOR                         left-to-right
+         |                 bitwise OR                          left-to-right
+         &&                logical AND                         left-to-right
+         ||                logical OR                          left-to-right
+         ? :               ternary conditional                 right-to-left
+
+       NOTES:
+         - Unary operators must NOT be separated from their operand by whitespace.
+         - Binary operators MUST be separated from operands by whitespace.
+         - Inline functions (sgn/min/max) must be written exactly as: fname[ a , b ]
+         - '__xxx__' special vars are NOT supported in eval; use temporary locals.
+         - Non-inline '$func(...)' calls are NOT supported in eval; use temporary locals.
+         - All numbers are signed integers; 'true'/'false' are not keywords in eval context. *)
+
+----------------------------------------------------------------------------------------------------
+10.6  Macro Definition and Invocation
+----------------------------------------------------------------------------------------------------
+
+    macro-def      ::= '.macro' macro-name
+                           { statement }
+                       '.endmacro'
+
+    macro-call     ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
+                     | '.' macro-name               [WS-NONE between '.' and macro-name]
+
+    macro-undef    ::= '.undefmacro' macro-name
+
+    macro-name     ::= ident
+
+    (* NOTES:
+       - Macros have NO parameters; they are text-substitution (like C '#define').
+       - Macros are NOT scoped by conditional blocks; a program cannot have multiple macros
+         with the same name selected conditionally.
+       - Macro definitions are saved in precompiled library files when using '--__compile__'.
+       - In cache files, all macro usages are stored already-expanded.
+       - It is recommended to use macros sparingly and undefine them after use. *)
+
+----------------------------------------------------------------------------------------------------
+10.7  Options Directive
+----------------------------------------------------------------------------------------------------
+
+    option-stmt    ::= '.option' 'warning' option-mode [ option-spec ]
+
+    option-mode    ::= 'push' | 'pop' | 'disable' | 'enable'
+
+    option-spec    ::= single-string
+                       (* Valid values: 'inv-ref-var', 'var-not-exist', 'cnv-integer', 'cnv-boolean' *)
+
+    (* 'push' saves the current warning state; 'pop' restores the previous saved state *)
+
+----------------------------------------------------------------------------------------------------
+10.8  Deprecate Statement  (see also Section 4.3)
+----------------------------------------------------------------------------------------------------
+
+    (* see Section 4.3 *)
+
+
+====================================================================================================
+SECTION 11 -- FLOW CONTROL
+====================================================================================================
+
+    [WS-SEP between all tokens unless noted]
+
+----------------------------------------------------------------------------------------------------
+11.1  Conditional Statements
+----------------------------------------------------------------------------------------------------
+
+    if-stmt        ::= if-oneliner
+                     | if-block
+
+    if-oneliner    ::= 'if' condition ':' simple-stmt+
+                       (* RHS after ':' may only contain simple expressions; [WS-OPT around ':'] *)
+
+    if-block       ::= 'if' condition
+                           { statement }
+                       { 'elif' condition
+                           { statement } }
+                       [ 'else'
+                           { statement } ]
+                       'endif'
+
+    condition      ::= val '&==' val     (* string equality *)
+                     | val '&!=' val     (* string inequality *)
+                     | val '=='  val     (* integer equality *)
+                     | val '!='  val     (* integer inequality *)
+                     | val '<'   val     (* integer less-than *)
+                     | val '<='  val     (* integer less-or-equal *)
+                     | val '>'   val     (* integer greater-than *)
+                     | val '>='  val     (* integer greater-or-equal *)
+                     | val                (* shortcut: val != 0 *)
+                     | '!' val            (* shortcut: val == 0   [WS-NONE between '!' and val] *)
+                     | '&' val            (* shortcut: val &!= '' [WS-NONE between '&' and val] *)
+                     | '!' '&' val        (* shortcut: val &== '' [WS-NONE between '!', '&', val] *)
+
+    val            ::= term
+
+    (* NOTE: Condition evaluation flattens multi-member sets into one string first.
+       'true' and 'false' are translated to 1 and 0 in conditions. *)
+
+----------------------------------------------------------------------------------------------------
+11.2  Loop Statements
+----------------------------------------------------------------------------------------------------
+
+    for-stmt       ::= 'for' [ 'local' ] var-name ':=' term 'to' term 'step' term
+                           { statement }
+                       'endfor'
+                       (* Control values evaluated ONCE before loop starts *)
+
+    foreach-stmt   ::= 'foreach' [ 'local' ] [ var-name ',' ] var-name 'in' term
+                           [ 'skip' term ] [ 'step' term ]
+                           { statement }
+                       'endforeach'
+                       (* If index-var is given, it holds the current 1-based index.
+                          Subject and control values evaluated ONCE before loop starts. *)
+
+    while-stmt     ::= 'while' condition
+                           { statement }
+                       'endwhile'
+                       (* Condition function calls evaluated ONCE before loop starts *)
+
+    do-whilst-stmt ::= 'do'
+                           { statement }
+                       'whilst' condition
+                       (* Condition function calls evaluated each iteration *)
+
+    repeat-until-stmt ::= 'repeat'
+                              { statement }
+                          'until' condition
+                          (* Condition function calls evaluated each iteration *)
+
+    loop-stmt      ::= 'loop'
+                           { statement }
+                       'endloop'
+                       (* Infinite loop; only exits via 'break' *)
+
+    loop-control   ::= 'continue'    (* jump to next iteration *)
+                     | 'break'       (* exit the loop *)
+
+    (* NOTE: 'true' and 'false' are translated to 1 and 0 in loop conditions. *)
+
+----------------------------------------------------------------------------------------------------
+11.3  Label and Goto
+----------------------------------------------------------------------------------------------------
+
+    label-stmt     ::= 'label' label-spec ':'    [WS-OPT around ':']
+
+    goto-stmt      ::= ( 'goto' | 'sgoto' ) label-spec
+                       (* 'sgoto' = safe goto: no error if label does not exist *)
+
+    label-spec     ::= ident
+                     | single-string
+                     (* In goto: also double-string (combined/flattened), var-eval, func-call *)
+
+    (* Labels and goto can only be used inside user-defined functions and targets *)
+
+
+====================================================================================================
+SECTION 12 -- TOP-LEVEL PROGRAM STRUCTURE
+====================================================================================================
+
+    program        ::= { top-level-stmt }
+
+    top-level-stmt ::= pragma-stmt
+                     | include-stmt
+                     | macro-def
+                     | option-stmt
+                     | func-def
+                     | target-def
+                     | depload-stmt
+                     | assignment-stmt
+                     | unset-stmt
+                     | deprecate-stmt
+                     | arith-stmt
+                     | eval-stmt
+                     | if-stmt            (* conditional at file scope *)
+                     | for-stmt           (* loop at file scope *)
+                     | foreach-stmt
+                     | while-stmt
+                     | do-whilst-stmt
+                     | repeat-until-stmt
+                     | loop-stmt
+                     | echo-stmt
+                     | echoln-stmt
+                     | func-call-stmt     (* $func(...) as a standalone statement *)
+                     | run-target-stmt    (* jxmake / +jxmake / jxwait at top level *)
+                     | label-stmt         (* only meaningful inside func/target but lexically valid *)
+                     | goto-stmt
+
+    func-call-stmt ::= [ error-suppress ] '$' func-name '(' [ arg-list ] ')'
+                       (* Same as func-call in term position but used as a statement for side effects *)
+
+    (* NOTE: All constructs valid inside functions/targets are also valid at top (global) scope,
+       except label/goto which are only meaningful inside functions and targets. *)
+
+
+====================================================================================================
+SECTION 13 -- GRAMMAR EXTENSION NOTES
+====================================================================================================
+
+This section records constructs that appear in scripts but have limited or ambiguous manual
+documentation, and thus may need revisiting when the language is formalised further.
+
+----------------------------------------------------------------------------------------------------
+13.1  Negated depload path prefix
+----------------------------------------------------------------------------------------------------
+
+    In scripts, function arguments to $gdl_* functions use '-' prefix on a path argument:
+        $gdl_cpp_include( ~${DLST_INAME}, '.', ${ObjFileExt}, -${CppBuildDir} )
+    The '-' before ${CppBuildDir} is the PATH SHORTCUT sugar (Section 9.6):
+        -${V}  ->  $path_ndsep( $rel_path( ${V} ) )
+    This is NOT a sign operator; it is a path-to-relative conversion shortcut.
+
+----------------------------------------------------------------------------------------------------
+13.2  Argument placeholder '?' in function calls
+----------------------------------------------------------------------------------------------------
+
+    $call(func, 'a', ?, ?, 'e')
+    The bare '?' (unquoted, single character) tells the caller to use the parameter's default.
+    This is a distinct token from the string '?' (which is the literal question-mark character).
+
+----------------------------------------------------------------------------------------------------
+13.3  Compile-time conditional blocks at file scope
+----------------------------------------------------------------------------------------------------
+
+    'if __os_windows__' and similar at the top level behave as compile-time conditionals when
+    the condition involves special variable shortcuts.  The grammar is identical to runtime 'if';
+    the distinction is semantic only.
+
+----------------------------------------------------------------------------------------------------
+13.4  Function definition inside conditional blocks
+----------------------------------------------------------------------------------------------------
+
+    Scripts define functions inside 'if __os_*__' blocks to provide platform-specific
+    implementations.  This is valid; the grammar allows function definitions anywhere a
+    top-level statement is permitted (including inside if blocks at file scope).
+
+----------------------------------------------------------------------------------------------------
+13.5  Tilde ($rmfile(~${V})) vs. path shortcut
+----------------------------------------------------------------------------------------------------
+
+    '~' ALWAYS means the path shortcut (Section 9.6) when immediately preceding '${' or '$['.
+    It does NOT mean the user home directory (unlike POSIX shell).  In JxMake, $uhd() gives the
+    home directory.
+
+====================================================================================================
+END OF GRAMMAR
+====================================================================================================

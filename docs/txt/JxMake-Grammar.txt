@@ -76,8 +76,12 @@ SECTION 1 -- LEXICAL BASICS
                        (* A backslash at end of physical line joins the next physical line *)
 
     statement-sep  ::= <NEWLINE> | ';'
-                       (* Semicolon forces a new logical line; multiple statements may share
-                          one physical line when separated by ';'  [WS-OPT around ';'] *)
+                       (* ';' is a GLOBAL statement separator that unconditionally forces a
+                          new logical line at any point in the source, with no exceptions.
+                          It has the same effect as a physical newline everywhere, including
+                          after the RHS of a one-liner if statement.  There is no context
+                          in which ';' is "consumed" by a surrounding construct -- it always
+                          ends the current statement and begins the next one independently. *)
 
     empty-line     ::= <NEWLINE>
                        (* Empty lines are ignored *)
@@ -1147,8 +1151,34 @@ SECTION 11 -- FLOW CONTROL
     if-stmt        ::= if-oneliner
                      | if-block
 
-    if-oneliner    ::= 'if' condition ':' simple-stmt+
-                       (* RHS after ':' may only contain simple expressions; [WS-OPT around ':'] *)
+    if-oneliner    ::= 'if' condition ':' oneliner-stmt
+                       [WS-OPT around ':']
+
+    oneliner-stmt  ::= assignment-stmt
+                     | indirect-assignment-stmt
+                     | arith-stmt
+                     | eval-stmt
+                     | echo-stmt
+                     | echoln-stmt
+                     | func-call-stmt
+                     | 'return' [ term+ ]
+                     | 'break'
+                     | 'continue'
+                     | run-target-stmt
+                     | unset-stmt
+
+    (* SEMICOLON NOTE: ';' is a global statement separator (see Section 1.2) that forces
+       a new logical line at any point.  The one-liner takes exactly the first statement
+       after ':', which ends at the next newline or ';'.  Any statement after ';' is simply
+       a new independent statement on the same physical line -- it has no relationship to
+       the if condition and always executes.  Example:
+           if ${A} : echoln 123 ; echo 456
+       is identical in meaning to:
+           if ${A} : echoln 123
+           echo 456
+
+       NOT permitted as oneliner-stmt: block/compound constructs (if, elif, else, endif,
+       loop blocks, function definitions, target definitions). *)
 
     if-block       ::= 'if' condition
                            { statement }

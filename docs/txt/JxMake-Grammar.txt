@@ -277,7 +277,15 @@ SECTION 4 -- VARIABLE ASSIGNMENT STATEMENTS
 4.1  Assignment Operators
 ----------------------------------------------------------------------------------------------------
 
-    assignment-stmt ::= [ modifier ] var-name assign-op term+
+    (* Two forms of assignment statement exist: direct-variable and indirect-variable. *)
+
+    assignment-stmt        ::= direct-assignment-stmt
+                             | indirect-assignment-stmt
+
+    -- Direct assignment (the normal case) --
+
+    direct-assignment-stmt ::= [ modifier ] var-name assign-op term+
+                                [WS-SEP between all tokens]
 
     modifier        ::= 'local'
                       | 'const'
@@ -288,13 +296,25 @@ SECTION 4 -- VARIABLE ASSIGNMENT STATEMENTS
     assign-op       ::= '='          (* lazy assignment: evaluated when read *)
                       | ':='         (* direct assignment: evaluated immediately *)
                       | '+='         (* concatenation (lazy): appends new member(s) to set *)
-                      | ':+='        (* concatenation (direct); also written '+=:' -- see error report *)
-                      | '+:='        (* concatenation (direct); alternate spelling *)
+                      | ':+='        (* concatenation (direct); also written '+:=' *)
+                      | '+:='        (* concatenation (direct); alternate spelling of ':+=' *)
                       | '?='         (* if-not-set (lazy): only assigns if var is not yet defined *)
                       | ':?='        (* if-not-set (direct); also written '?:=' *)
-                      | '?:='        (* if-not-set (direct); alternate spelling *)
+                      | '?:='        (* if-not-set (direct); alternate spelling of ':?=' *)
 
-    (* NOTES:
+    -- Indirect (reference) assignment --
+
+    indirect-assignment-stmt ::= '^' var-name assign-op term+
+                                  [WS-NONE between '^' and var-name; WS-SEP elsewhere]
+                                  (* Assigns to the variable NAMED BY the current value of var-name.
+                                     Example:
+                                       RefA = VOrg      (* RefA holds the string 'VOrg' *)
+                                       ^RefA := 20      (* sets VOrg := 20, not RefA   *)
+                                     The 'modifier' prefix ('local', 'const') is NOT supported
+                                     on indirect assignments.
+                                     'unset ^var' is a SYNTAX ERROR; indirect unset is not supported. *)
+
+    (* GENERAL ASSIGNMENT NOTES:
        - ':+=' and '+:=' are documented as equivalent alternates; ground truth scripts use both.
        - 'const' only supports ':=' (direct).
        - Command-line arguments are automatically converted to variables and treated as constants.
@@ -309,7 +329,9 @@ SECTION 4 -- VARIABLE ASSIGNMENT STATEMENTS
 
     unset-stmt     ::= 'unset' var-name
                        (* Deletes (un-defines) the named variable.
-                          Note: 'unset ^var' is a syntax error; only plain var-names allowed *)
+                          Only plain var-names are accepted; 'unset ^var' is a SYNTAX ERROR.
+                          To unset the variable pointed to by a reference, first read the reference
+                          name into a plain variable, then call 'unset' on that name. *)
 
 ----------------------------------------------------------------------------------------------------
 4.3  Deprecate Statement
@@ -810,17 +832,39 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
 9.7  Reference (Indirect) Variable Operator  ${^var}  [SUGAR]
 ----------------------------------------------------------------------------------------------------
 
+    (* READ side -- used as a term / value expression *)
+
     ref-var-eval      ::= '${' '^' var-name '}'     [WS-NONE throughout]
-    ref-var-assign    ::= '^' var-name assign-op term+
-                          [WS-SEP; '^' must immediately precede var-name with no space]
 
-    SUGAR EXPANSION:
-      ${^RefVar}   ->   read the variable NAMED BY the current value of RefVar
-      ^RefVar :=   ->   assign to the variable NAMED BY the current value of RefVar
+    SUGAR EXPANSION (read):
+      ${^RefVar}   ->   evaluate the variable NAMED BY the current value of RefVar
 
-    (* NOTE: Indirect/reference variables can only be used in much more limited contexts
-       than normal variables. Supported in: assignment LHS, foreach iterand, ${^V}<n> partn
-       shortcuts. *)
+    (* WRITE side -- used as an assignment statement; see also Section 4.1 *)
+
+    (* The grammar rule for indirect assignment is:
+           indirect-assignment-stmt  (Section 4.1)
+       Repeated here for convenience:
+
+       '^' var-name assign-op term+
+       [WS-NONE between '^' and var-name]
+
+    SUGAR EXPANSION (write):
+      ^RefVar := 20   ->   (lookup the name stored in RefVar, e.g. 'VOrg') then  VOrg := 20
+
+    USAGE EXAMPLE (from the manual):
+      RefA = VOrg          (* RefA holds the string 'VOrg' *)
+      ^RefA := 20          (* assigns 20 to VOrg, not to RefA *)
+      ${^RefA}             (* reads VOrg, yields '20' *)
+    *)
+
+    (* CONSTRAINTS:
+       - Indirect/reference variables can only be used in limited contexts:
+           - Read:  ${^V} as a term; ${^V}<n> in partn shortcuts; foreach iterand
+           - Write: '^var-name assign-op term+' as a statement
+       - The 'modifier' prefix ('local', 'const') is NOT valid on indirect assignment LHS.
+       - 'unset ^var' is a SYNTAX ERROR; 'unset' only accepts plain var-names.
+       - ${^V} is NOT evaluated when placed inside a plain double-quoted string;
+         use ."${^V}" or :"${^V}" if immediate evaluation inside a string is needed. *)
 
 
 ====================================================================================================

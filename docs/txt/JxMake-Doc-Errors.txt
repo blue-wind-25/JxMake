@@ -17,7 +17,7 @@ FILE: docs/txt/en_US/04-Defining-Variables.txt
 ====================================================================================================
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 1
+ISSUE 1 [NOT AN ISSUE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/04-Defining-Variables.txt
@@ -32,6 +32,7 @@ CORRECT  : Both ':+=' and '+=:' (and '+:=') are accepted.  Scripts exclusively u
            The description should explicitly state: ':+=' and '+:=' are equivalent alternates for
            direct concatenation; '+=:' is NOT a documented form and should not be confused with them.
 SEVERITY : AMBIGUITY
+NOTE     : Both forms are canonical and accepted; they are provided to cater to user preference.
 
 ----------------------------------------------------------------------------------------------------
 ISSUE 2 [DONE]
@@ -49,38 +50,41 @@ CORRECT  : Based on context and the next sentence ("All variable values that com
 SEVERITY : ERROR
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 3
+ISSUE 3 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/04-Defining-Variables.txt
 LOCATION : Section "Reference (Indirect) Variables"
-ISSUE    : The manual states that to mark a variable as an indirect (reference) variable, use
-           the '^' prefix, but it does not document whether '^' can be used as a prefix in
-           assignment targets (LHS of assignment) at the statement level.  The manual examples
-           show '^RefB = 20' without any grammar rule covering this.
-CORRECT  : Script files (test/VarRefTest.jxm) confirm that '^var-name' on the LHS of an
-           assignment statement is valid:
-               ^LRefA := 11
-               ^DRefA := 12
-               ^RefB = 20
-           The manual should include a formal grammar rule for indirect assignment.
-           It also should clarify that 'unset ^DRefC' is a SYNTAX ERROR (confirmed by a comment
-           in the test file: "# This will cause 'syntax error'").
+ISSUE    : The manual documents indirect assignment via an example ('`^RefB = 20`') and states
+           "indirect (reference) variables can only be used in much more limited contexts than
+           normal variables", but it never provides a FORMAL GRAMMAR RULE for indirect assignment.
+           Specifically, it does not state:
+             (a) which assignment operators are valid on an indirect LHS (all of them, or a subset?);
+             (b) that the 'modifier' prefix ('local', 'const') is NOT permitted on an indirect LHS;
+             (c) that 'unset ^var' is a SYNTAX ERROR (the test file confirms this with the comment
+                 "# This will cause 'syntax error'" before '#unset ^DRefC').
+           The example alone is insufficient for a complete grammar specification.
+CORRECT  : A formal grammar rule should be added, clarifying all three points above.
+           This has been done in the accompanying JxMake-Grammar.txt at Section 4.1
+           (indirect-assignment-stmt rule) and Section 9.7 (cross-reference and constraints).
+           The manual text is not factually wrong, but it is incomplete as a specification.
 SEVERITY : AMBIGUITY
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 4
+ISSUE 4 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/04-Defining-Variables.txt
 LOCATION : Section "Defining Variables" -- const modifier
-ISSUE    : The manual states "A 'const' prefix can be used to define a constant (assign-once)
-           variable. In this case only ':=' is supported."  This is correct for the assignment
-           operator, but the manual does not document whether 'local const' (combining both
-           prefixes) is supported.
-CORRECT  : Scripts use 'local const' in library files (e.g. C++XBuildTool_RP2040_Pico.jxm:
-               'local const RangeMarker := ...')
-           The grammar should explicitly state that 'local const' is a valid combined modifier.
+ISSUE    : The manual describes 'local' and 'const' only in separate sentences and never
+           explicitly states that combining them as 'local const' in a single statement is valid.
+CORRECT  : 'local const' is a valid combined modifier, confirmed by script usage in library files
+           (e.g. C++XBuildTool_RP2040_Pico.jxm: 'local const RangeMarker := ...').
+           The manual should add one sentence: "The 'local' and 'const' prefixes may be combined
+           as 'local const' to define a variable that is both scoped to the current function or
+           target AND assign-once."
+           The accompanying jxmake_grammar.txt already captures this at Section 4.1:
+               modifier ::= 'local' | 'const' | 'local' 'const'
 SEVERITY : AMBIGUITY
 
 ====================================================================================================

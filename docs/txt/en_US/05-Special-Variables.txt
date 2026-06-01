@@ -85,6 +85,10 @@ has been silently replaced by:
 
     Err := $[lserr]
 
+This behaviour applies to all $[...] automatic variables, not just $[lserr]. Because automatic
+variables reflect instantaneous runtime state, lazy assignment ('=') is silently treated as direct
+assignment (':=') for all of them.
+
 
 ----------------------------------------------------------------------------------------------------
 Special Variable Shortcuts

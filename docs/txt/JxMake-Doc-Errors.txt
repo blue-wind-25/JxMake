@@ -384,7 +384,7 @@ FILE: docs/txt/en_US/11-Loop.txt
 ====================================================================================================
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 16
+ISSUE 16 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/11-Loop.txt
@@ -440,12 +440,27 @@ FILE     : docs/txt/en_US/05-Special-Variables.txt
 LOCATION : Section "Special Variables" -- $[lserr] behaviour note
 ISSUE    : The manual says assigning '$[lserr]' via lazy '=' is silently treated as ':=' (direct):
            "it is as if 'Err = $[lserr]' has been silently replaced by 'Err := $[lserr]'".
-           This is documented as an example in the NOTES section, but the phenomenon is not
-           explained as a GENERAL RULE for all automatic variables.
-CORRECT  : This behaviour applies to ALL automatic $[...] variables (not just $[lserr]) because
-           "the contents of the above variables are automatic and thus always direct."  The
-           introductory paragraph does state this, but a cross-reference or explicit restatement
-           in the NOTE for $[lserr] would prevent confusion.
+           This is documented as a $[lserr]-specific example but the underlying reason -- which
+           applies to ALL $[...] automatic variables -- is not stated.
+CORRECT  : ALL $[...] automatic variables are always direct regardless of '=' vs ':=', because
+           their values only exist at the exact moment they are read.  Lazy evaluation is
+           physically impossible for them:
+               $[cmdecho]      -- reflects the current state of $cmd_echo_off/$cmd_echo_on
+                                  at the instant of reading; calling $cmd_echo_on later
+                                  cannot retroactively change a previously read value.
+               $[preq1]..$[preqN] -- prerequisites are fully resolved before the target
+                                  body executes; there is no later state to defer to.
+               $[excode], $[stderr], $[stdout] -- are the output of the preceding '@'
+                                  command block; once that block has run, those values
+                                  are fixed.  There is no deferred state to capture.
+           The introductory paragraph does state "the contents of the above variables are
+           automatic and thus always direct", but this reason is not carried through into the
+           $[lserr] example NOTE where a reader is most likely to be confused.
+           The manual should add after the $[lserr] example:
+               "This behaviour applies to all $[...] automatic variables, not just $[lserr].
+                Because automatic variables reflect instantaneous runtime state, lazy
+                assignment ('=') is silently treated as direct assignment (':=') for all
+                of them."
 SEVERITY : AMBIGUITY
 
 ====================================================================================================

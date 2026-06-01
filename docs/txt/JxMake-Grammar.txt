@@ -215,6 +215,18 @@ A "term" is any syntactic unit that produces a value (one or more set members).
     auto-var-eval  ::= '$[' auto-var-name ']'          [WS-NONE inside brackets]
                      | '$[' auto-var-name '/' regexp-str '/' [ replace-str ] '/' ']'
 
+    (* ALL $[...] automatic variables are ALWAYS DIRECT regardless of whether the
+       enclosing assignment uses '=' or ':='.  Lazy evaluation is physically impossible
+       for them because their values only exist at the instant they are read:
+         $[cmdecho/$[cmdstreaming] -- reflect current $cmd_echo_off/on state at read time;
+                                      a later call to $cmd_echo_on cannot change a past read.
+         $[preq*], $[preq1] etc.  -- prerequisites are fully resolved before the target
+                                      body runs; there is no deferred state to capture.
+         $[excode/$[stderr]/$[stdout] -- are the output of the preceding '@' block;
+                                      once that block has executed those values are fixed.
+         $[lserr]                 -- cleared after each read; impossible to defer.
+       Assigning with '=' is silently treated as ':=' for all $[...] variables. *)
+
     ref-var-eval   ::= '${' '^' var-name '}'           [WS-NONE -- ^ must be adjacent to var-name]
                        (* SUGAR: expands to the VALUE of the variable NAMED BY var-name;
                           i.e. indirect / reference dereference *)

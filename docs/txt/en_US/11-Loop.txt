@@ -20,6 +20,7 @@ foreach [local] [<index_var_name>,] <value_var_name> in <set_var_name> [skip <sk
 endforeach
 
     The 'local' prefix can be used to restrict the variables for the current function/target only.
+    When both an index variable and a value variable are specified, 'local' applies to both of them.
 
     The subject and control values are only evaluated *once* just before the loop body is executed.
 

@@ -26,6 +26,9 @@ A 'local' prefix can be used to define a variable for the current function or ta
 A 'const' prefix can be used to define a constant (assign-once) variable. In this case only ':=' is
 supported.
 
+The 'local' and 'const' prefixes may be combined as 'local const' to define a variable that is both
+scoped to the current function or target AND assign-once.
+
 Variables are automatically converted between strings and integers as needed.
 
 The value of a variable is stored internally as a set of member strings. Most operations on

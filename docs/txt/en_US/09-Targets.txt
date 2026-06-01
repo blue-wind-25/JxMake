@@ -21,9 +21,15 @@ The characters '?' and '%' can be used to create pattern rules (glob):
 
 NOTE : # A target without any prerequisites will always be executed (unless there is a file or
          directory with the same name as the target).
-       # The <target_name> and [prerequisite_name] can be defined using a plain text, a variable
-         evaluation, a function call, a single-quoted string, and a flattened double-quoted string;
-         in case it is defined using a function call, then only one function call is allowed.
+       # The <target_name> can be defined using a plain text, a variable evaluation, a function
+         call, a single-quoted string, a flattened double-quoted string (:"..."), or a combining
+         double-quoted string (."..."); in case it is defined using a function call, then only
+         one function call is allowed.
+       # The [prerequisite_name] can be defined using a plain text, a variable evaluation, a
+         function call, a single-quoted string, or a flattened double-quoted string (:"...) only;
+         combining double-quoted strings (."...") and plain double-quoted strings ("...") are NOT
+         permitted in prerequisite name position, including as function call arguments; in case it
+         is defined using a function call, then only one function call is allowed.
        # Without the '!' prefix, non-existent files/paths will not actually be included by the
          'extradep' statements.
 

@@ -690,7 +690,14 @@ SECTION 8 -- USER-DEFINED FUNCTIONS
     (* NOTE: All text after '@' until end-of-line or '#' is the command.
        Consecutive '@' commands are buffered and executed as a group.
        Accessing $[excode], $[stderr], or $[stdout] flushes the buffer.
-       '@' commands cannot call JxMake functions; use temporary variables.
+       Passing function call results inside '@' argument text is not supported;
+       use temporary variables to pre-compute values before the '@' line.
+       An '$exec' function CANNOT invoke any other user-defined function via '$call'
+       or '$exec' ANYWHERE in its body -- this is enforced at runtime and raises:
+           "RUNTIME ERROR: a user-defined function called using '$exec()' is not
+            allowed to call other user-defined functions"
+       Assignment statements, conditionals, loops, and other JxMake statements
+       that are not user-defined function calls ARE permitted inside an '$exec' body.
        '$call' and '$exec' cannot be prefixed with '-'. *)
 
 ----------------------------------------------------------------------------------------------------
@@ -823,12 +830,19 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
 
     set-creation-op   ::= '{' WS term+ WS '}'
                           [WS-SIG: whitespace between { and } is MANDATORY]
-                          [WS-SEP between terms; do NOT use commas here]
+                          [WS-SEP between terms; commas are NOT separators here]
 
     SUGAR EXPANSION:
       { v1 v2 v3 }    ->    (tmp := v1 v2 v3) and then ${tmp}
 
-    (* NOTE: Uses an auto-generated temporary variable.
+    (* CRITICAL: commas inside '{ }' are treated as LITERAL BARE-WORD MEMBERS, not separators.
+       '{ A, B, C }' produces 5 members (A  ,  B  ,  C), NOT 3.
+       Use only whitespace to separate terms.
+
+       Contrast with '{{ }}' where commas ARE argument separators:
+         { A B C }     ->  3 members  (set creation operator -- no commas)
+         {{ A, B, C }} ->  $stack(A, B, C)  ->  3 members  (stack shortcut -- commas required)
+
        Valid ONLY as an operand in these contexts:
          - return statement
          - extradep statement
@@ -836,7 +850,7 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
          - input set of a foreach statement
          - arguments of built-in and user-defined function calls
        Using in other contexts may cause unexpected results or compile errors.
-       Inside strings, '{' and '}' are treated as literal text. *)
+       Inside plain double-quoted strings, '{' and '}' are treated as literal text. *)
 
 ----------------------------------------------------------------------------------------------------
 9.6  Path Shortcuts  [SUGAR]

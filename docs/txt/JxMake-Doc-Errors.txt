@@ -17,7 +17,7 @@ FILE: docs/txt/en_US/04-Defining-Variables.txt
 ====================================================================================================
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 1 [NOT AN ISSUE]
+ISSUE 1 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/04-Defining-Variables.txt
@@ -177,18 +177,31 @@ CORRECT  : The rule governing what is and is not evaluated inside a plain double
 SEVERITY : INCONSISTENCY
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 8
+ISSUE 8 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/07-Built-In-Functions.txt
 LOCATION : Near the set creation operator '{ }' description
-ISSUE    : The manual states: "DO NOT separate the terms within it using ','."  However, the
-           manual immediately contrasts it with '{{ }}' which DOES use commas.  A programmer
-           reading quickly may confuse the two delimiters.  The manual does not include a
-           side-by-side comparison table.
-CORRECT  : The distinction is technically documented but should be made more prominent.
-           Script usage confirms the rule: e.g. '{ main l1 l2 lib/lib }' (no commas) vs.
-           '{{ 'tc1', 'tc2' }}' (with commas) in test files.
+ISSUE    : The manual states "DO NOT separate the terms within it using ','." but does not
+           explain WHY or what actually happens if you do.  A programmer may read this as a
+           style suggestion rather than a semantic rule.  The manual immediately contrasts
+           '{ }' with '{{ }}' which DOES use commas, making the distinction easy to miss.
+CORRECT  : A comma inside '{ }' is NOT a separator -- it is treated as a literal bare-word
+           token and becomes its own set member.  Confirmed by runtime:
+
+               echoln $part_count({ A B C })    # prints 3
+               echoln $part_count({ A, B, C })  # prints 5  (commas are members)
+
+           So '{ A, B, C }' produces 5 members: A  ,  B  ,  C  -- the two commas are
+           extra string members with value ','.
+
+           The manual should replace "DO NOT separate the terms within it using ','" with
+           an explicit statement of the consequence:
+               "Commas inside '{ }' are treated as literal set members, not separators.
+                '{ A, B, C }' produces 5 members, not 3.  Use spaces only."
+
+           The contrast with '{{ }}' (where commas ARE separators) should also be made
+           explicit in a side-by-side note.
 SEVERITY : AMBIGUITY
 
 ----------------------------------------------------------------------------------------------------
@@ -205,17 +218,23 @@ CORRECT  : $add_target( <ref_name>, <new_name>, [<prerequisites>], [<extra_deps>
 SEVERITY : ERROR
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 10
+ISSUE 10 [DONE]
 ----------------------------------------------------------------------------------------------------
 
-FILE     : docs/txt/en_US/07-Built-In-Functions.txt
-LOCATION : NOTE section at the bottom of the built-in functions list
-ISSUE    : The note says "Some functions will internally flatten the set members into one string
-           before using them as call argument(s)."  The note is mentioned only at the bottom of
-           the function list without specifying WHICH functions flatten their input.
-CORRECT  : Individual function descriptions should note when flattening occurs.  Scripts rely on
-           this behaviour (e.g. $strlen, $strim, $valid_path always receive a single string).
-           Without per-function annotation this is an AMBIGUITY.
+ISSUE    : The NOTE at the end of the function catalogue says:
+               "Some functions will internally flatten the set members into one string before
+                using them as call argument(s)."
+           This NOTE does not say WHERE the per-function list is located, so a reader scanning
+           the NOTE section may not realise that the complete list appears immediately below it,
+           under its own heading:
+               "# Some functions will internally flatten the set members into one string before
+                  using them as call argument(s). Those functions and their argument names are:"
+           The two pieces of text are separated and the NOTE does not cross-reference the list.
+CORRECT  : The NOTE should be updated to say:
+               "Some functions will internally flatten the set members into one string before
+                using them as call argument(s); see the per-function list below for details."
+           No content is missing -- the per-function list with argument names is already
+           present and complete in the manual.  This is purely a cross-reference omission.
 SEVERITY : AMBIGUITY
 
 ====================================================================================================
@@ -223,25 +242,30 @@ FILE: docs/txt/en_US/08-User-Defined-Function.txt
 ====================================================================================================
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 11
+ISSUE 11 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/08-User-Defined-Function.txt
 LOCATION : Section "User-Defined Function" -- NOTE on $call vs $exec restrictions
 ISSUE    : The manual states "A user-defined function called using 'exec' contains commands to
-           be executed by the shell/operating system and cannot call other functions."  This is
-           slightly overstated -- the restriction is on calling OTHER JxMake FUNCTIONS from
-           within '@' command lines, not on calling JxMake statement-level constructs.  The
-           manual itself documents that 'exec' functions CAN contain assignment statements, if
-           blocks, loops, and other JxMake statements; they just cannot use '$call' or '$exec'
-           INSIDE '@' command argument lists.
-CORRECT  : The restriction should be stated as: "Within an $exec function, JxMake function
-           calls ($call, $exec) are not permitted INSIDE '@' command arguments.  Other JxMake
-           statements (assignment, if, loop, etc.) are permitted.  Use temporary/'local'
-           variables to pass computed values to '@' commands."
-           Scripts confirm: 'exec' functions in the library files freely use if-blocks, local
-           variables, and $call outside of '@' lines.
-SEVERITY : INCONSISTENCY
+           be executed by the shell/operating system and cannot call other functions."  The
+           phrasing "cannot call other functions" is correct as a runtime rule, but the manual
+           does not clarify WHERE in the function body the restriction applies, nor does it
+           explain that other JxMake statements (assignments, if blocks, loops, local variables)
+           ARE permitted freely inside an 'exec' function body.  A reader may interpret "cannot
+           call other functions" as meaning the entire function body is restricted to '@' lines.
+CORRECT  : The runtime enforces this rule: an '$exec' function that calls '$call' or '$exec'
+           anywhere in its body -- even outside of '@' lines -- raises a runtime error:
+               "RUNTIME ERROR: a user-defined function called using '$exec()' is not allowed
+                to call other user-defined functions"
+           The manual's core restriction is therefore accurate.  What is missing is the
+           clarification that non-function JxMake statements (assignment, if, loop, etc.)
+           ARE permitted inside an 'exec' function body, and that the ban is specifically on
+           '$call' and '$exec' invocations.  The manual should add:
+               "Note that assignment statements, conditionals, loops, and other JxMake
+                statements are permitted inside an 'exec' function.  Only invocations of
+                user-defined functions via '$call' or '$exec' are prohibited."
+SEVERITY : AMBIGUITY
 
 ----------------------------------------------------------------------------------------------------
 ISSUE 12 [DONE]

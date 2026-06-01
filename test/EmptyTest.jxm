@@ -2,9 +2,21 @@
  ********** This is a multiline comment **********
  *************************************************)
 
-echoln { A B C }
+function A()
+endfunction
 
-echoln { A, B, C }
+function B()
+    $exec(A)
+    @echo 123
+    echo $[stdout]
+endfunction
+
+function C()
+    $call(A)
+    $exec(B)
+endfunction
+
+$call(C)
 
 (*
 :::pragma jxmake_compile_minimum_version 0.9.9

@@ -941,8 +941,36 @@ SECTION 10 -- STATEMENTS
                            { statement }
                        'endtarget'
 
-    target-name-expr ::= term      (* plain text, var-eval, func-call, single-string, or
-                                      flattening double-string; at most ONE function call *)
+    target-name-expr ::= target-plain-term { target-plain-term }
+                         (* at most ONE function call allowed; see constraint below *)
+
+    target-plain-term ::= bare-word
+                        | var-eval              (* ${V} *)
+                        | single-string         (* '...' *)
+                        | flattening-string     (* :"..." *)
+                        | combining-string      (* ."..." -- valid for TARGET NAME only *)
+
+    prereq-expr    ::= prereq-term { prereq-term }
+
+    prereq-term    ::= bare-word
+                     | var-eval                 (* ${V} *)
+                     | single-string            (* '...' *)
+                     | flattening-string        (* :"..." -- valid *)
+                     (* INVALID in prereq position: plain "..." and combining ."..."  *)
+                     (* "non-flattened double-quoted string is not allowed here"      *)
+
+    (* FUNCTION CALL CONSTRAINT (applies to BOTH target name and prereq name):
+       - At most ONE function call is permitted per name expression.
+       - When a function call is used, no other term may follow it.
+       - In a prereq position: '$func(:"...")' is valid;
+                                '$func(."...")' is invalid (same "non-flattened" error).
+       - '$func(...) $func(...)' is invalid in both positions
+         ("function call cannot be followed by more expression(s)").
+
+       SUMMARY OF ASYMMETRY:
+         ."..." in TARGET name   -- VALID
+         ."..." in PREREQ name   -- INVALID
+         ."..." as func argument in either position -- INVALID *)
 
     prereq-list    ::= prereq-expr { prereq-expr }
 

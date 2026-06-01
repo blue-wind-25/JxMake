@@ -298,19 +298,43 @@ CORRECT  : Should read: "The characters '?' and '%' can be used to create patter
 SEVERITY : ERROR
 
 ----------------------------------------------------------------------------------------------------
-ISSUE 14
+ISSUE 14 [DONE]
 ----------------------------------------------------------------------------------------------------
 
 FILE     : docs/txt/en_US/09-Targets.txt
 LOCATION : Section "Defining Targets" -- target name expression NOTE
 ISSUE    : The manual states target names can be defined using "a plain text, a variable
            evaluation, a function call, a single-quoted string, and a flattened double-quoted
-           string; in case it is defined using a function call, then only one function call is
-           allowed."  The manual does not say whether a COMBINING double-quoted string (."...")
-           is also allowed (as distinct from flattening :"...").
-CORRECT  : Scripts use both forms in target names (e.g. '."${TNames/(.+).out/$1.src/}"' in
-           test/TargetTest.jxm).  The manual should explicitly list combining ."..." alongside
-           flattening :"..." as valid target name forms.
+           string."  It does not say whether the combining operator ."..." is also valid, and
+           it applies the same list to both target names AND prerequisite names without
+           distinguishing between them, even though the rules differ.
+CORRECT  : Confirmed by runtime testing, the rules are ASYMMETRIC:
+
+               TARGET NAME -- valid forms:
+               - plain text (bare word)
+               - variable evaluation  '${V}'
+               - single-quoted string  '...'
+               - flattening string  :"..."
+               - combining string   ."..."          (valid for target name)
+               - one function call  '$func(...)'    (at most one)
+
+               PREREQUISITE NAME -- valid forms:
+               - plain text (bare word)
+               - variable evaluation  '${V}'
+               - single-quoted string  '...'
+               - flattening string  :"..."
+               - one function call  '$func(:"...")'  (at most one; argument must be :"...")
+               INVALID in prereq position:
+               - combining string  ."..."           ("non-flattened double-quoted string
+                                                      is not allowed here")
+               - plain double-quoted string  "..."  (same error)
+               - ."..." as a function argument      (same error)
+               - more than one function call        ("function call cannot be followed
+                                                      by more expression(s)")
+
+           The manual should explicitly distinguish target name forms from prerequisite name
+           forms, and state that ."..." is valid only for target names, not for prerequisite
+           names or their function arguments.
 SEVERITY : AMBIGUITY
 
 ====================================================================================================

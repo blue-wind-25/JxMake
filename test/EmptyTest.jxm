@@ -2,21 +2,6 @@
  ********** This is a multiline comment **********
  *************************************************)
 
-function A()
-endfunction
-
-function B()
-    $exec(A)
-    @echo 123
-    echo $[stdout]
-endfunction
-
-function C()
-    $call(A)
-    $exec(B)
-endfunction
-
-$call(C)
 
 (*
 :::pragma jxmake_compile_minimum_version 0.9.9

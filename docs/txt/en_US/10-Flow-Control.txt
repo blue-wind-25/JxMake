@@ -37,8 +37,9 @@ if <condition1> : ...
 
     Compound/block constructs (another if, elif, else, endif, loop blocks, function definitions,
     target definitions) are NOT permitted on the right hand side.
-    
-    Multiple statements separated by ';' are also NOT permitted on the right hand side.
+
+    Note that ';' after the RHS statement is the global statement separator and starts a new
+    independent statement that always executes, regardless of the if condition.
 
 
 if <condition1>

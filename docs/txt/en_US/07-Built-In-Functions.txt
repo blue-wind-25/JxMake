@@ -14,7 +14,7 @@ Available built-in functions:
     <output_value> $call              ( <user_function_name>, [argument...] )                      # Call a user-defined function
     <output_value> $exec              ( <user_function_name>, [argument...] )                      # Call a user-defined function that can execute shell/operating system commands
 
-                   $add_target        ( <ref_name>, <new_name>, [<prerequisites], [extra_deps] )   # Add a new target programmatically with the specified new name, prerequisites,
+                   $add_target        ( <ref_name>, <new_name>, [prerequisites], [extra_deps] )    # Add a new target programmatically with the specified new name, prerequisites,
                                                                                                    # and extra dependencies but using the body of the reference target <ref_name>;
                                                                                                    # the <ref_name> must not contains pattern rules (glob)
 

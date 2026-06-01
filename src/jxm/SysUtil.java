@@ -101,7 +101,7 @@ import jxm.xioe.*;
 //
 public class SysUtil {
 
-    // ##### !!! NOTE : Synchronize with '../Makefile' !!!
+    // ##### !!! NOTE : Synchronize with '../Makefile' !!! #####
     private static final long   _JXM_Ver_Major   = 0;
     private static final long   _JXM_Ver_Minor   = 9;
     private static final long   _JXM_Ver_Patch   = 9;

@@ -8,9 +8,8 @@ Defining Variables
 
 Whitespaces outside quotes are ignored (because they are token/expression separators).
 
-Command line arguments are automatically converted to variables. All variables values
-
-All variable values that come from command line arguments are assumed to be constants.
+Command line arguments are automatically converted to variables. All variable values that come from
+command line arguments are assumed to be constants.
 
 Lazy   assignment ( =) means the variables are evaluated when they are used.
 Direct assignment (:=) means the variables are evaluated when they are assigned.

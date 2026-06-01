@@ -127,7 +127,7 @@ internal script buffer as long as these conditions are met:
 
 
 NOTE : # Unlike running other targets using the keywords 'jxmake', '+jxmake', and 'jxwait' that
-         uses the same thread or multithreding, the special shell/operating system command '@jxmake'
+         uses the same thread or multithreading, the special shell/operating system command '@jxmake'
          will create a new process.
        # Of all the original argument(s) from the primary JxMake program execution, only '--dct' and
          '--lct' will be automatically passed to '@jxmake' command (you can override it if needed).

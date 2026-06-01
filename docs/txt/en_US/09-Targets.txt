@@ -12,7 +12,7 @@ target <target_name> [: prerequisite_name...]
 endtarget
 
 
-The characters '? and '%' can be used to create pattern rules (glob):
+The characters '?' and '%' can be used to create pattern rules (glob):
     # For a target       name : '?' match one character while '%' match multiple characters.
     # For a prerequisite name : '%' evaluates to the captured part of '?' and '%' in the target name
                                 sequentially. It is possible to directly refer to the specific part

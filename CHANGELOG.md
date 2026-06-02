@@ -23,7 +23,7 @@ Technical Preview 3 (TP3)
 
 ### Utilities & Tools
 
-+ Not yet.
++ The Python‑based documentation server in `util/MDXplorer` has been enhanced.
 
 
 Technical Preview 2 (TP2)

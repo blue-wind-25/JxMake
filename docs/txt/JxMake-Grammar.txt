@@ -216,55 +216,20 @@ A "term" is any syntactic unit that produces a value (one or more set members).
                      | '$[' auto-var-name '/' regexp-str '/' [ replace-str ] '/' ']'
 
     (* ALL $[...] automatic variables are ALWAYS DIRECT regardless of whether the
-       enclosing assignment uses '=' or ':='.  Lazy evaluation is physically impossible
-       for them because their values only exist at the instant they are read:
-         $[cmdecho/$[cmdstreaming] -- reflect current $cmd_echo_off/on state at read time;
-                                      a later call to $cmd_echo_on cannot change a past read.
-         $[preq*], $[preq1] etc.  -- prerequisites are fully resolved before the target
-                                      body runs; there is no deferred state to capture.
-         $[excode/$[stderr]/$[stdout] -- are the output of the preceding '@' block;
-                                      once that block has executed those values are fixed.
-         $[lserr]                 -- cleared after each read; impossible to defer.
-       Assigning with '=' is silently treated as ':=' for all $[...] variables. *)
-
-    ref-var-eval   ::= '${' '^' var-name '}'           [WS-NONE -- ^ must be adjacent to var-name]
-                       (* SUGAR: expands to the VALUE of the variable NAMED BY var-name;
-                          i.e. indirect / reference dereference *)
-
-    var-name       ::= ident | special-ident
-
-    auto-var-name  ::= 'cmdecho' | 'cmdstreaming' | 'lserr' | 'jxmakefile'
-                     | 'function' | 'cmdtargets' | 'usn' | 'target'
-                     | 'preq^' | 'preq*' | 'preq?'
-                     | 'preq1' | 'preq2' | 'preqN'    (* N is any positive integer *)
-                     | 'preq:' <IDENT>                 (* ${V}-th prerequisite; V is plain var name *)
-                     | 'preq+' | 'preq%' | 'preq~'
-                     | 'excode' | 'stderr' | 'stdout'
+       enclosing assignment uses '=' or ':='. *)
 
 ----------------------------------------------------------------------------------------------------
-3.3  String Escape Sequences (double-quoted strings only)
+3.3  String Escape Sequences
 ----------------------------------------------------------------------------------------------------
 
-    dq-escape      ::= '\t'          (* horizontal tab      0x09 *)
-                     | '\v'          (* vertical tab        0x0B *)
-                     | '\r'          (* carriage return     0x0D *)
-                     | '\n'          (* line feed           0x0A *)
-                     | '\f'          (* form feed           0x0C *)
-                     | '\b'          (* backspace           0x08 *)
-                     | '\''          (* apostrophe *)
-                     | '\"'          (* double quote *)
-                     | '\\'          (* backslash *)
-                     | '\$'          (* dollar sign *)
-                     | '\~'          (* tilde *)
-                     | '\`'          (* backtick *)
-                     | '\-'          (* hyphen *)
-                     | '\+'          (* plus *)
-                     | '\?'          (* question mark *)
-                     | '\o' <3-OCTAL-DIGITS>     (* octal character value 000-377 *)
-                     | '\d' <3-DECIMAL-DIGITS>   (* decimal character value 000-255 *)
-                     | '\x' <2-HEX-DIGITS>       (* hexadecimal character value 00-FF *)
-                     | '\u' <4-HEX-DIGITS>       (* Unicode codepoint U+NNNN *)
-                     | '\U' <6-HEX-DIGITS>       (* Unicode codepoint U+NNNNNN *)
+    escape-seq     ::= '\\' | '\n' | '\r' | '\t' | '\a' | '\b' | '\f' | '\v'
+                     | '\'' | '\"'
+                     | '\?'                             (* question mark *)
+                     | '\o' <3-OCTAL-DIGITS>            (* octal character value 000-377 *)
+                     | '\d' <3-DECIMAL-DIGITS>          (* decimal character value 000-255 *)
+                     | '\x' <2-HEX-DIGITS>              (* hexadecimal character value 00-FF *)
+                     | '\u' <4-HEX-DIGITS>              (* Unicode codepoint U+NNNN *)
+                     | '\U' <6-HEX-DIGITS>              (* Unicode codepoint U+NNNNNN *)
                      (* All other \X: X is stored (backslash stripped) *)
 
     (* Single-quoted strings: only '\'' and '\\' are recognised escape sequences;
@@ -286,9 +251,23 @@ A "term" is any syntactic unit that produces a value (one or more set members).
     func-name      ::= ident
                        (* Built-in functions start with '$'; user-defined via 'function' keyword *)
 
-    arg-list       ::= term { ',' term }
-                       [WS-OPT around commas; WS-SEP between tokens within each arg term]
-                       (* '?' alone (unquoted) passes the default value for an optional parameter *)
+    arg-list       ::= arg { ',' arg }
+                       [WS-OPT around commas; WS-SEP between tokens within each arg]
+
+    arg            ::= term
+                     | '?'
+                       (* '?' alone (bare, unquoted single character) passes the default value
+                          for an optional parameter.  It is a distinct token from the
+                          single-character string '?' (which is the literal question-mark).
+                          Example: $call(func, 'a', ?, ?, 'e')
+                          uses defaults for the 2nd and 3rd optional parameters.
+                          '???' or any other repetition is treated as a plain bare-word string,
+                          not as multiple defaults. *)
+
+    (* DISAMBIGUATION: The '-' in '[ error-suppress ] '$' func-name' is the error-suppression
+       prefix on a function call, not the path shortcut sugar (Section 9.6).
+       The path shortcut '-' applies ONLY when immediately preceding '${' or '$['.
+       It never appears before '$func_name(...)'. *)
 
 
 ====================================================================================================
@@ -512,167 +491,24 @@ SECTION 7 -- BUILT-IN FUNCTIONS (REFERENCE SUMMARY)
     $ftchars   ( value )    -- implode with ''           (flatten to chars)
     $ftspaces  ( value )    -- implode with ' '
     $ftdots    ( value )    -- implode with '.'
-    $ftpipes   ( value )    -- implode with '|'
-    $ftlines   ( value )    -- implode with '\n'
-    $ftdseps   ( value )    -- implode with __os_dsep_char__
-    $ftpseps   ( value )    -- implode with __os_psep_char__
-
-    (* Shortcut explode functions *)
-    $sfchars   ( value )    -- explode by ''
-    $sfspaces  ( value )    -- explode by ' '
-    $sfdots    ( value )    -- explode by '.'
-    $sfpipes   ( value )    -- explode by '|'
-    $sflines   ( value )    -- explode by '\n'
-    $sfdseps   ( value )    -- explode by __os_dsep_char__
-    $sfpseps   ( value )    -- explode by __os_psep_char__
-
-----------------------------------------------------------------------------------------------------
-7.6  Regular Expression Functions
-----------------------------------------------------------------------------------------------------
-
-    $re_match        ( value, regexp )             -- 0 or 1
-    $re_split        ( value, regexp )             -- split into set members
-    $re_replace      ( value, regexp, replacement )-- replace all occurrences
-    $re_quote        ( value )                     -- escape value as literal regexp pattern
-    $re_quote_repval ( replacement )               -- escape replacement string for use in $re_replace
-    $glob_to_re      ( value )                     -- convert glob ('?' -> single, '%' -> multi) to regex
-
-----------------------------------------------------------------------------------------------------
-7.7  Path and File System Functions
-----------------------------------------------------------------------------------------------------
-
-    -- Directories --
-    $cwd  ()                        -- current working directory
-    $ptd  ()                        -- project temporary directory
-    $uhd  ()                        -- user home directory
-    $jdd  ()                        -- JxMake user data directory
-    $jtd  ()                        -- JxMake user tools directory
-    $jxd  ()                        -- JxMake executable directory
-
-    -- Path manipulation --
-    $cat_path    ( path1, path2 )
-    $cat_paths   ( path1, path2 [, ...] )
-    $abs_path    ( path )           -- absolute path relative to cwd
-    $rel_path    ( path )           -- relative path relative to cwd
-    $path_ndsep  ( path )           -- convert to OS-native directory separators
-    $path_last_part    ( path )
-    $path_rm_last_part ( path )
-    $dir_name    ( path )
-    $file_name   ( path [, no-ext] )
-    $file_ext    ( path )
-
-    -- Path queries --
-    $valid_path      ( path )
-    $uptodate_path   ( path )
-    $newer_path      ( path-chk, path-ref )
-    $same_path       ( path-chk, path-ref )
-    $path_is_abs     ( path )
-    $path_is_rel     ( path )
-    $path_is_file    ( path )
-    $path_is_directory ( path )
-    $path_is_symlink ( path )
-    $path_is_readable   ( path )
-    $path_is_writable   ( path )
-    $path_is_executable ( path )
-    $file_mime_type  ( path )
-
-    -- Symlinks --
-    $symlink_target       ( path )
-    $symlink_real_apath   ( path )
-    $symlink_resolve      ( path )
-
-    -- File and directory manipulation --
-    $mkdir      ( path )
-    $mkdir_rec  ( path )
-    $rmdir      ( path )
-    $rmdir_rec  ( path )
-    $touch      ( path )
-    $rmfile     ( path )
-    $rmfiles     ( dir, regexp )
-    $rmfiles_rec ( dir, regexp )
-    $mvfile     ( src, dst )
-    $cpfile     ( src, dst )
-    $set_rwx3   ( path, rwxrwxrwx )
-    $lsdir      ( dir [, regexp] )
-    $lsdir_rec  ( dir [, regexp] )
-
-----------------------------------------------------------------------------------------------------
-7.8  Numeric / Boolean Utilities
-----------------------------------------------------------------------------------------------------
-
-    $cmp   ( value1, op, value2 )   -- compare; op is '==','!=','<','<=','>','>=','&==','&!='
-    $csel  ( condition, true-val, false-val )   -- conditional select
-    $or    ( value... )             -- logical OR of values
-    $not   ( value )                -- logical NOT
-    $and   ( value... )             -- logical AND
-
-----------------------------------------------------------------------------------------------------
-7.9  I/O and Output Functions
-----------------------------------------------------------------------------------------------------
-
-    $printf  ( format [, arg...] )  -- printf-style output
-    $sprintf ( format [, arg...] )  -- printf-style into string
-    $exit    ( code )               -- exit program with code
-
-    (* 'echo' and 'echoln' are statements, not functions -- see Section 10.4 *)
-
-----------------------------------------------------------------------------------------------------
-7.10  Miscellaneous / Advanced Functions (partial list)
-----------------------------------------------------------------------------------------------------
-
-    $getenv    ( name [, default] )
-    $setenv    ( name, value )
-
-    $sleep     ( milliseconds )
-    $millis    ()
-    $micros    ()
-
-    $get_file  ( path )             -- read file into set (one member per line, each with '\n')
-    $put_file  ( path, content )    -- write set members to file
-    $app_file  ( path, content )    -- append to file
-
-    $flatten   ( value )            -- see Section 7.5
-    $map_new   ()
-    $map_add   ( handle, key, value )
-    $map_put   ( handle, key, value )
-    $map_get   ( handle, key )
-    $map_keys  ( handle )
-    $map_delete( handle )
-
-    $gdl_cpp_include ( dep-file, src-path, obj-ext, build-dir )
-    $gdl_cpp_module  ( dep-file, src-path, obj-ext )
-    $gdl_java_import ( dep-file, src-path, build-dir )
-    $pp_java_scf     ( inp-path, out-path, cond-flags, sval-map-handle )
-
-    $cmd_echo_off ()
-    $cmd_echo_on  ()
-    $cmd_streaming_off ()
-    $cmd_streaming_on  ()
-    $clear_project ()
-
-    (* Functions for MCU programming, firmware, serial ports, GUI dialogs, Arduino etc.
-       are listed in the manual and Appendix X; not reproduced here for brevity *)
 
 
 ====================================================================================================
-SECTION 8 -- USER-DEFINED FUNCTIONS
+SECTION 8 -- USER-DEFINED FUNCTIONS AND SHELL EXECUTION
 ====================================================================================================
 
-    [WS-SEP between all tokens unless noted]
-
 ----------------------------------------------------------------------------------------------------
-8.1  Function Definition
+8.1  Function Definition ($call functions)
 ----------------------------------------------------------------------------------------------------
 
     func-def       ::= 'function' func-name '(' [ param-list ] ')' func-modifiers
                            { statement }
-                           [ 'return' term+ ]
                        'endfunction'
 
-    param-list     ::= param { ',' param }
+    param-list     ::= param-name { ',' param-name }
 
-    param          ::= ident               (* required parameter *)
-                     | '?' ident           (* optional parameter; all subsequent params must also be optional *)
+    param-name     ::= ident              (* required parameter *)
+                     | '?' ident          (* optional parameter; all subsequent params must also be optional *)
 
     func-modifiers ::= [ 'supersede' ] [ 'deprecated' [ 'by' func-name ] ]
 
@@ -893,6 +729,17 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
        - UNLIKE most function calls, these shortcuts ARE evaluated inside double-quoted strings.
        - Must use ':=' when storing results, never lazy '='. *)
 
+    (* DISAMBIGUATION: The '-' path shortcut ('-${V}' or '-$[V]') is a path-to-relative
+       conversion shortcut, NOT a sign or negation operator.  It applies ONLY when '-'
+       immediately precedes '${' or '$['.
+         Example: -${CppBuildDir}  ->  $path_ndsep( $rel_path( ${CppBuildDir} ) )
+       Do not confuse with the error-suppression '-' prefix on function calls (Section 3.4),
+       which precedes '$func_name(...)'. *)
+
+    (* DISAMBIGUATION: '~' immediately preceding '${' or '$[' ALWAYS means this cwd-relative
+       path shortcut.  It does NOT mean the user home directory (unlike POSIX shell).
+       Use $uhd() to obtain the home directory in JxMake. *)
+
 ----------------------------------------------------------------------------------------------------
 9.7  Reference (Indirect) Variable Operator  ${^var}  [SUGAR]
 ----------------------------------------------------------------------------------------------------
@@ -1067,55 +914,15 @@ SECTION 10 -- STATEMENTS
 
     eval-unary-op  ::= '+' | '-' | '@' | '~' | '!'
 
-    eval-binary-op ::= '**' | '*' | '/' | '%'
-                     | '+' | '-'
-                     | '<<' | '>>'
-                     | '<=>'
-                     | '<' | '<=' | '>' | '>='
-                     | '==' | '!='
-                     | '&' | '^' | '|'
-                     | '&&' | '||'
-                     | '?' | ':'
-
-    eval-inline-func ::= inline-fname '[' WS eval-operand { ',' WS eval-operand } WS ']'
-                         [WS-SIG: format must match examples exactly]
-
-    inline-fname   ::= 'sgn' | 'min' | 'max'
-
-    (* OPERATOR PRECEDENCE (highest to lowest):
-         +  -  @           unary plus, minus, absolute         right-to-left
-         ~  !              bitwise NOT, logical NOT            right-to-left
-         **                power                               left-to-right
-         *  /  %           mul, div, remainder                 left-to-right
-         +  -              add, sub                            left-to-right
-         <<  >>            bitwise shifts                      left-to-right
-         <=>               three-way comparison                left-to-right
-         <  <=  >  >=      relational                          left-to-right
-         ==  !=            equality                            left-to-right
-         &                 bitwise AND                         left-to-right
-         ^                 bitwise XOR                         left-to-right
-         |                 bitwise OR                          left-to-right
-         &&                logical AND                         left-to-right
-         ||                logical OR                          left-to-right
-         ? :               ternary conditional                 right-to-left
-
-       NOTES:
-         - Unary operators must NOT be separated from their operand by whitespace.
-         - Binary operators MUST be separated from operands by whitespace.
-         - Inline functions (sgn/min/max) must be written exactly as: fname[ a , b ]
-         - '__xxx__' special vars are NOT supported in eval; use temporary locals.
-         - Non-inline '$func(...)' calls are NOT supported in eval; use temporary locals.
-         - All numbers are signed integers; 'true'/'false' are not keywords in eval context. *)
-
 ----------------------------------------------------------------------------------------------------
-10.6  Macro Definition and Invocation
+10.6  Macro Definition
 ----------------------------------------------------------------------------------------------------
 
-    macro-def      ::= '.macro' macro-name
-                           { statement }
+    macro-def      ::= '.defmacro' macro-name
+                           <macro-body-lines>
                        '.endmacro'
 
-    macro-call     ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
+    macro-use      ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
                      | '.' macro-name               [WS-NONE between '.' and macro-name]
 
     macro-undef    ::= '.undefmacro' macro-name
@@ -1182,7 +989,7 @@ SECTION 11 -- FLOW CONTROL
     (* SEMICOLON NOTE: ';' is a global statement separator (see Section 1.2) that forces
        a new logical line at any point.  The one-liner takes exactly the first statement
        after ':', which ends at the next newline or ';'.  Any statement after ';' is simply
-       a new independent statement on the same physical line -- it has no relationship to
+       a new independent statement on the same physical line with no relationship to
        the if condition and always executes.  Example:
            if ${A} : echoln 123 ; echo 456
        is identical in meaning to:
@@ -1218,6 +1025,13 @@ SECTION 11 -- FLOW CONTROL
     (* NOTE: Condition evaluation flattens multi-member sets into one string first.
        'true' and 'false' are translated to 1 and 0 in conditions. *)
 
+    (* DISAMBIGUATION: 'if __os_windows__' and similar constructs at the top level (file scope)
+       behave as compile-time conditionals when the condition involves special variable shortcuts
+       (__os_*__, __jxm_ver_*__, etc.).  The grammar is identical to runtime 'if'; the
+       distinction is purely semantic.  Function definitions inside such 'if __os_*__' blocks
+       are valid -- the grammar allows func-def anywhere a top-level statement is permitted,
+       including inside if-blocks at file scope, enabling platform-specific implementations. *)
+
 ----------------------------------------------------------------------------------------------------
 11.2  Loop Statements
 ----------------------------------------------------------------------------------------------------
@@ -1232,6 +1046,7 @@ SECTION 11 -- FLOW CONTROL
                            { statement }
                        'endforeach'
                        (* If index-var is given, it holds the current 1-based index.
+                          'local' applies to BOTH the index variable AND the value variable.
                           Subject and control values evaluated ONCE before loop starts. *)
 
     while-stmt     ::= 'while' condition
@@ -1313,55 +1128,10 @@ SECTION 12 -- TOP-LEVEL PROGRAM STRUCTURE
     (* NOTE: All constructs valid inside functions/targets are also valid at top (global) scope,
        except label/goto which are only meaningful inside functions and targets. *)
 
+    (* DISAMBIGUATION: func-def inside an if-block at file scope is valid and is the standard
+       pattern for platform-specific function implementations (e.g. inside 'if __os_windows__').
+       See also Section 11.1. *)
 
-====================================================================================================
-SECTION 13 -- GRAMMAR EXTENSION NOTES
-====================================================================================================
-
-This section records constructs that appear in scripts but have limited or ambiguous manual
-documentation, and thus may need revisiting when the language is formalised further.
-
-----------------------------------------------------------------------------------------------------
-13.1  Negated depload path prefix
-----------------------------------------------------------------------------------------------------
-
-    In scripts, function arguments to $gdl_* functions use '-' prefix on a path argument:
-        $gdl_cpp_include( ~${DLST_INAME}, '.', ${ObjFileExt}, -${CppBuildDir} )
-    The '-' before ${CppBuildDir} is the PATH SHORTCUT sugar (Section 9.6):
-        -${V}  ->  $path_ndsep( $rel_path( ${V} ) )
-    This is NOT a sign operator; it is a path-to-relative conversion shortcut.
-
-----------------------------------------------------------------------------------------------------
-13.2  Argument placeholder '?' in function calls
-----------------------------------------------------------------------------------------------------
-
-    $call(func, 'a', ?, ?, 'e')
-    The bare '?' (unquoted, single character) tells the caller to use the parameter's default.
-    This is a distinct token from the string '?' (which is the literal question-mark character).
-
-----------------------------------------------------------------------------------------------------
-13.3  Compile-time conditional blocks at file scope
-----------------------------------------------------------------------------------------------------
-
-    'if __os_windows__' and similar at the top level behave as compile-time conditionals when
-    the condition involves special variable shortcuts.  The grammar is identical to runtime 'if';
-    the distinction is semantic only.
-
-----------------------------------------------------------------------------------------------------
-13.4  Function definition inside conditional blocks
-----------------------------------------------------------------------------------------------------
-
-    Scripts define functions inside 'if __os_*__' blocks to provide platform-specific
-    implementations.  This is valid; the grammar allows function definitions anywhere a
-    top-level statement is permitted (including inside if blocks at file scope).
-
-----------------------------------------------------------------------------------------------------
-13.5  Tilde ($rmfile(~${V})) vs. path shortcut
-----------------------------------------------------------------------------------------------------
-
-    '~' ALWAYS means the path shortcut (Section 9.6) when immediately preceding '${' or '$['.
-    It does NOT mean the user home directory (unlike POSIX shell).  In JxMake, $uhd() gives the
-    home directory.
 
 ====================================================================================================
 END OF GRAMMAR

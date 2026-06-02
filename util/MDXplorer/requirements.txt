@@ -1,6 +1,10 @@
-attrs==21.4.0
+# Direct dependencies required by mdx_server.py
 markdown-it-py==4.2.0
 mdit-py-plugins==0.6.1
-mdurl==0.1.2
 pygments>=2.17
-typing-extensions==4.1.1
+
+# Transitive dependencies pinned for reproducibility
+# (pip will install these automatically; listed here to lock versions)
+#attrs==21.4.0          # not used by mdx_server.py directly
+mdurl==0.1.2
+#typing-extensions==4.1.1  # not needed on Python 3.12 (typing built-in)

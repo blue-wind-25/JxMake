@@ -10,8 +10,6 @@
 
 import argparse
 import datetime
-import email.utils
-import hashlib
 import html
 import mimetypes
 import os
@@ -27,10 +25,17 @@ from mdit_py_plugins.tasklists import tasklists_plugin
 from pygments import highlight as _hl
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import RegexLexer, bygroups
-from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, TextLexer
-from pygments.token import Comment, Keyword, Name, Operator, Text
+from pygments.lexers import get_lexer_for_filename, TextLexer
+from pygments.token import (
+    Comment, Error, Keyword, Name, Number, Operator,
+    Punctuation, String, Text,
+)
 from pygments.util import ClassNotFound
 
+
+# ---------------------------------------------------------------------------
+# GNU Makefile lexer (kept as before)
+# ---------------------------------------------------------------------------
 
 class _MakefileLexer(RegexLexer):
     name = "Makefile"
@@ -61,12 +66,366 @@ class _MakefileLexer(RegexLexer):
 _MAKEFILE_FILENAMES = frozenset({
     "Makefile", "makefile", "GNUmakefile", "BSDmakefile",
 })
-_MAKEFILE_LANGS = frozenset({"makefile", "make", "mk"})
 
-_formatter = HtmlFormatter(style="default", nowrap=True)
+# ---------------------------------------------------------------------------
+# JxMake lexer
+# ---------------------------------------------------------------------------
+
+class _JxMakeLexer(RegexLexer):
+    """Syntax lexer for the JxMake scripting language (.jxm / JxMakeFile)."""
+
+    name = "JxMake"
+    aliases = ["jxmake", "jxm"]
+    filenames = ["JxMakeFile", "*.jxm"]
+
+    # -- Token type aliases for readability --
+    _KW   = Keyword
+    _KWD  = Keyword.Declaration   # block-opening keywords (target, function, …)
+    _KWE  = Keyword.Reserved      # block-closing keywords (endtarget, endfunction, …)
+    _KWC  = Keyword.Pseudo        # compiler directives (:::include, :::pragma, …)
+    _OP   = Operator
+    _CM   = Comment
+    _CMB  = Comment.Multiline
+    _STR  = String
+    _STS  = String.Single
+    _STD  = String.Double
+    _STR_ = String.Backtick       # raw / backtick string
+    _STX  = String.Interpol       # ${…} / $[…] inside strings
+    _NUM  = Number
+    _VAR  = Name.Variable
+    _SPV  = Name.Constant         # __special_var__
+    _FUN  = Name.Function
+    _BIF  = Name.Builtin          # built-in $func(…)
+    _SHC  = Name.Label            # @ shell-command lines
+    _ERR  = Error
+
+    # Block/flow keywords (statement-level, not block-openers/closers)
+    _KEYWORDS = (
+        "local", "const", "unset", "deprecate", "by",
+        "depload", "sdepload",
+        "extradep",
+        "echo", "echoln",
+        "return", "break", "continue",
+        "jxwait",
+        "inc", "dec", "add", "sub", "mul", "div", "mod",
+        "abs", "neg", "shl", "shr", "min", "max",
+        "not", "and", "or", "xor",
+        "eval",
+        "label", "goto", "sgoto",
+        "if", "elif", "else", "endif",
+        "for", "endfor", "to", "step",
+        "foreach", "endforeach", "in", "skip",
+        "while", "endwhile",
+        "do", "whilst",
+        "repeat", "until",
+        "loop", "endloop",
+        "jxmake",
+    )
+
+    # Block-opening keywords
+    _BLOCK_OPEN = ("target", "function")
+
+    # Block-closing keywords
+    _BLOCK_CLOSE = ("endtarget", "endfunction")
+
+    # Assignment operators (order matters: longer first)
+    _ASSIGN_OPS = (
+        r":?\+:?=",   # :+=  +:=  (concatenation direct)
+        r"\?:?=",     # ?=  ?:=  :?=
+        r":?=",       # := =
+    )
+
+    # Condition operators
+    _COND_OPS = (
+        r"&[!=]=",    # &== &!=
+        r"[<>]=?",    # < <= > >=
+        r"[!=]=",     # == !=
+        r"!&?",       # ! !&
+        r"&",         # &
+    )
+
+    # -----------------------------------------------------------------------
+    # Shared helper patterns
+    # -----------------------------------------------------------------------
+
+    # Variable / auto-var inside strings: ${…} and $[…]
+    _VAR_IN_STR = [
+        (r"\$\{\^?[\w./]+(?:/[^}]*)?\}", _STX),     # ${var}  ${^ref}  ${var/re/repl/}
+        (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _STX),   # $[auto]  $[auto/re/repl/]
+    ]
+
+    # Path shortcuts: ~${V}  ^${V}  -${V}  and same for $[V]
+    _PATH_SHORTCUTS = [
+        (r"[-~^]\$\{[\w./]+\}", _VAR),
+        (r"[-~^]\$\[[\w^*?+%~:]+\]", _VAR),
+    ]
+
+    # Partn/partnm shortcuts: ${V}<…>  $[V]<…>
+    _PARTN_SHORTCUTS = [
+        (r"\$\{[\w./]+\}<[^>]+>", _VAR),
+        (r"\$\[[\w^*?+%~:]+\]<[^>]+>", _VAR),
+    ]
+
+    # Stack shortcut {{ … }}  and set-creation { … }
+    _STACK_SET = [
+        (r"\{\{", Punctuation, "stack_shortcut"),
+        (r"\{",   Punctuation, "set_creation"),
+    ]
+
+    tokens = {
+
+        # ===================================================================
+        # root state
+        # ===================================================================
+        "root": [
+            # Line continuation
+            (r"\\\n", Text),
+
+            # Block comments  (* … *)
+            (r"\(\*", _CMB, "block_comment"),
+
+            # Line comments
+            (r"#.*$", _CM),
+
+            # Compiler directives  :::pragma  :::include[_once]  :::sinclude[_once]
+            (r":::(?:s?include(?:_once)?|pragma)\b", _KWC),
+
+            # Shell-command prefixes: -+@  ?@  +@  -@  @
+            # Special named @-commands: @clrenv @delenv @setenv @addenv @sstdin @jxmake
+            (r"(?:-\+|[?+\-])?@(?=\s*(clrenv|delenv|setenv|addenv|sstdin|jxmake)\b)",
+             _SHC, "at_named"),
+            (r"(?:-\+|[?+\-])?@", _SHC, "at_command"),
+
+            # +jxmake keyword (must precede generic operator matching)
+            (r"\+jxmake\b", _KW),
+
+            # Block-opening keywords
+            (r"\b(" + "|".join(_BLOCK_OPEN) + r")\b", _KWD),
+
+            # Block-closing keywords
+            (r"\b(" + "|".join(_BLOCK_CLOSE) + r")\b", _KWE),
+
+            # Other keywords
+            (r"\b(" + "|".join(_KEYWORDS) + r")\b", _KW),
+
+            # .macro  .endmacro  .undefmacro  .option  .PHONY etc.
+            (r"\.(macro|endmacro|undefmacro|option)\b", _KWC),
+            (r"\.[A-Z][A-Z_]+\b", Name.Constant),
+
+            # __special_var__
+            (r"__[A-Za-z0-9_]+__", _SPV),
+
+            # Combining  ."…"  and flattening  :"…"  strings
+            (r'[.:](?=")', _OP, "double_string"),
+
+            # String literals
+            (r"`", _STR_, "raw_string"),
+            (r"'",  _STS,  "single_string"),
+            (r'"',  _STD,  "double_string"),
+
+            # Path shortcuts ~${V}  ^${V}  -${V}
+            *_PATH_SHORTCUTS,
+
+            # Partn shortcuts ${V}<n>
+            *_PARTN_SHORTCUTS,
+
+            # Indirect ref  ${^var}
+            (r"\$\{\^[\w./]+\}", _VAR),
+
+            # Auto-vars  $[auto]
+            (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR),
+
+            # Var-eval  ${var}
+            (r"\$\{[\w./]+(?:/[^}]*)?\}", _VAR),
+
+            # Built-in / user function calls  -$func(  or  $func(
+            (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
+
+            # Integers: hex, octal, decimal
+            (r"0x[0-9A-Fa-f]+", _NUM),
+            (r"0o[0-7]+", _NUM),
+            (r"-?\d+", _NUM),
+
+            # Assignment operators (longer first)
+            (r":?\+:?=|\?:?=|:?=", _OP),
+
+            # Condition operators
+            (r"&[!=]=|[<>]=?|[!=]=|!&?|&", _OP),
+
+            # Other operators / punctuation
+            (r"[,:()\[\]<>]", Punctuation),
+            (r"[.;\\]", Punctuation),
+
+            # Stack {{ }} and set { }
+            *_STACK_SET,
+
+            # Whitespace
+            (r"\s+", Text),
+
+            # Identifiers / bare-words
+            (r"[A-Za-z_][\w./\-]*", Name),
+
+            # Catch-all
+            (r".", Text),
+        ],
+
+        # ===================================================================
+        # block_comment  (*  … *)  — may be nested
+        # Depth is tracked via a mutable list on the lexer instance so that
+        # (* (* inner *) outer *) is highlighted correctly as one comment.
+        # ===================================================================
+        "block_comment": [
+            (r"\(\*", _CMB, "block_comment"),   # nested open → push another level
+            (r"\*\)", _CMB, "#pop"),             # close → pop one level
+            (r"[^(*\n]+", _CMB),
+            (r"[(*]",     _CMB),
+            (r"\n",       _CMB),
+        ],
+
+        # ===================================================================
+        # at_command — all text after @ until # or end-of-line is the command
+        # ===================================================================
+        "at_command": [
+            (r"#.*$", _CM, "#pop"),          # # = end-of-args / comment
+            (r"\\\n", _SHC),                 # line continuation
+            (r"\n",   Text, "#pop"),
+            # Variable interpolation inside @-lines
+            *_PATH_SHORTCUTS,
+            *_PARTN_SHORTCUTS,
+            (r"\$\{\^[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+\]", _VAR),
+            (r"\$\{[\w./]+\}", _VAR),
+            (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
+            (r"[^\\\n#$]+", _SHC),
+            (r"\$", _SHC),
+        ],
+
+        # ===================================================================
+        # at_named — named @-modifiers: @clrenv @delenv @setenv @addenv @sstdin @jxmake
+        # ===================================================================
+        "at_named": [
+            (r"\b(clrenv|delenv|setenv|addenv|sstdin|jxmake)\b", Keyword.Pseudo),
+            (r"#.*$", _CM, "#pop"),
+            (r"\\\n", _SHC),
+            (r"\n",   Text, "#pop"),
+            *_PATH_SHORTCUTS,
+            *_PARTN_SHORTCUTS,
+            (r"\$\{\^[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+\]", _VAR),
+            (r"\$\{[\w./]+\}", _VAR),
+            (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
+            (r"[^\\\n#$]+", _SHC),
+            (r"\$", _SHC),
+        ],
+
+        # ===================================================================
+        # raw_string  `…`  — no escapes, no variable expansion
+        # ===================================================================
+        "raw_string": [
+            (r"`", _STR_, "#pop"),
+            (r"[^`\n]+", _STR_),
+            (r"\n", _STR_),
+        ],
+
+        # ===================================================================
+        # single_string  '…'  — only \' and \\ recognised
+        # ===================================================================
+        "single_string": [
+            (r"'",      _STS, "#pop"),
+            (r"\\'",    String.Escape),
+            (r"\\\\",   String.Escape),
+            (r"[^'\\\n]+", _STS),
+            (r"\\.",    _STS),   # other \X stored literally
+            (r"\n",     _STS),
+        ],
+
+        # ===================================================================
+        # double_string  "…"  — variable expansion + full escape sequences
+        # (also used for ."…" and :"…" — the prefix operator is consumed in root)
+        # ===================================================================
+        "double_string": [
+            (r'"',      _STD, "#pop"),
+            # Escape sequences
+            (r'\\[tvrnfb\'"\\$~`\-+?]', String.Escape),
+            (r'\\[oO]\d{3}',            String.Escape),
+            (r'\\d\d{3}',               String.Escape),
+            (r'\\x[0-9A-Fa-f]{2}',      String.Escape),
+            (r'\\u[0-9A-Fa-f]{4}',      String.Escape),
+            (r'\\U[0-9A-Fa-f]{6}',      String.Escape),
+            # Variable / auto-var interpolation
+            *_VAR_IN_STR,
+            # Everything else
+            (r'[^"\\$\n]+', _STD),
+            (r'\$',         _STD),
+            (r'\n',         _STD),
+        ],
+
+        # ===================================================================
+        # stack_shortcut  {{ term, … }}
+        # ===================================================================
+        "stack_shortcut": [
+            (r"\}\}", Punctuation, "#pop"),
+            (r",",    Punctuation),
+            # Nest same constructs as root (simplified — no block keywords)
+            (r"\(\*",  _CMB, "block_comment"),
+            (r"#.*$",  _CM),
+            *_PATH_SHORTCUTS,
+            *_PARTN_SHORTCUTS,
+            (r"\$\{\^[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+\]", _VAR),
+            (r"\$\{[\w./]+\}", _VAR),
+            (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
+            (r'[.:](?=")', _OP, "double_string"),
+            (r"`", _STR_, "raw_string"),
+            (r"'",  _STS,  "single_string"),
+            (r'"',  _STD,  "double_string"),
+            (r"__[A-Za-z0-9_]+__", _SPV),
+            (r"-?\d+|0x[0-9A-Fa-f]+|0o[0-7]+", _NUM),
+            (r"\s+", Text),
+            (r"[A-Za-z_][\w./\-]*", Name),
+            (r".", Text),
+        ],
+
+        # ===================================================================
+        # set_creation  { term … }
+        # ===================================================================
+        "set_creation": [
+            (r"\}", Punctuation, "#pop"),
+            (r"\(\*",  _CMB, "block_comment"),
+            (r"#.*$",  _CM),
+            *_PATH_SHORTCUTS,
+            *_PARTN_SHORTCUTS,
+            (r"\$\{\^[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+\]", _VAR),
+            (r"\$\{[\w./]+\}", _VAR),
+            (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
+            (r'[.:](?=")', _OP, "double_string"),
+            (r"`", _STR_, "raw_string"),
+            (r"'",  _STS,  "single_string"),
+            (r'"',  _STD,  "double_string"),
+            (r"__[A-Za-z0-9_]+__", _SPV),
+            (r"-?\d+|0x[0-9A-Fa-f]+|0o[0-7]+", _NUM),
+            (r"\s+", Text),
+            (r"[A-Za-z_][\w./\-]*", Name),
+            (r".", Text),
+        ],
+    }
+
+
+_MAKEFILE_FILENAMES = frozenset({
+    "Makefile", "makefile", "GNUmakefile", "BSDmakefile",
+})
+
+_JXMAKE_FILENAMES = frozenset({"JxMakeFile"})
+
+# ---------------------------------------------------------------------------
+# Pygments formatters + CSS
+# ---------------------------------------------------------------------------
+
+_formatter     = HtmlFormatter(style="default", nowrap=True)
 _src_formatter = HtmlFormatter(style="default", linenos="table")
 
-# Pygments CSS (includes linenos td rules), brace-escaped for str.format().
+# Light-mode Pygments CSS, brace-escaped for str.format().
 _PYGMENTS_CSS = (
     _src_formatter.get_style_defs(".highlight")
     .replace("{", "{{")
@@ -82,55 +441,43 @@ _DARK_PYGMENTS_CSS = (
 _TOGGLE_HTML = (
     '<button class="theme-toggle" title="Toggle dark mode"'
     " onclick=\"(function(){var d=document.documentElement.classList.toggle('dark');"
-    "localStorage.setItem('theme',d?'dark':'light')})()\"></button>"
+    "localStorage.setItem('theme',d?'dark':'light');})()\""
+    "></button>"
 )
 
-
-def _md_highlight(code: str, lang: str, attrs: str) -> str:
-    if not lang:
-        return ""
-    if lang.lower() in _MAKEFILE_LANGS:
-        lexer = _MakefileLexer(stripall=True)
-    else:
-        try:
-            lexer = get_lexer_by_name(lang, stripall=True)
-        except ClassNotFound:
-            return ""
-    return f'<pre class="highlight"><code>{_hl(code, lexer, _formatter)}</code></pre>'
-
+# ---------------------------------------------------------------------------
+# Markdown renderer
+# ---------------------------------------------------------------------------
 
 _md = (
-    MarkdownIt(options_update={"highlight": _md_highlight})
+    MarkdownIt("commonmark")
     .use(gfm_plugin)
     .use(tasklists_plugin)
 )
 
-_TEMPLATE = (
-    """\
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title}</title>
-<script>
-(function(){{
-  var t = localStorage.getItem('theme');
-  if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches))
-    document.documentElement.classList.add('dark');
-}})();
-</script>
-<style>
-"""
-    + _PYGMENTS_CSS
-    + "\n"
-    + _DARK_PYGMENTS_CSS
-    + """\
+# ---------------------------------------------------------------------------
+# HTML page template
+# ---------------------------------------------------------------------------
 
+_TEMPLATE = (
+    "<!DOCTYPE html>\n"
+    '<html lang="en">\n'
+    "<head>\n"
+    '<meta charset="utf-8"/>\n'
+    '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n'
+    "<title>{title}</title>\n"
+    "<script>\n"
+    "(function(){var t=localStorage.getItem('theme');"
+    "if(t==='dark')document.documentElement.classList.add('dark');})()\n"
+    "</script>\n"
+    "<style>\n"
+    + _PYGMENTS_CSS + "\n"
+    + _DARK_PYGMENTS_CSS + "\n"
+    """
 :root {{
-  --bg: #fff; --text: #1f2328; --border: #d0d7de; --muted: #57606a;
+  --bg: #ffffff; --text: #24292f; --border: #d0d7de; --muted: #656d76;
   --link: #0969da; --code-bg: #f6f8fa;
-  --ln-bg: #f0f2f4; --ln-border: #d0d7de; --ln-text: #8c959f;
+  --ln-bg: #f6f8fa; --ln-border: #d0d7de; --ln-text: #8c959f;
 }}
 html.dark {{
   --bg: #0d1117; --text: #e6edf3; --border: #30363d; --muted: #8b949e;
@@ -186,17 +533,36 @@ html.dark .theme-toggle::before {{ content: "☀️"; }}
 )
 
 
+# ---------------------------------------------------------------------------
+# MDRServer — typed subclass to avoid monkey-patching web_root
+# ---------------------------------------------------------------------------
+
+class MDRServer(HTTPServer):
+    def __init__(
+        self,
+        server_address: tuple[str, int],
+        handler_class: type,
+        web_root: str,
+    ) -> None:
+        super().__init__(server_address, handler_class)
+        self.web_root: str = web_root
+
+
+# ---------------------------------------------------------------------------
+# Request handler
+# ---------------------------------------------------------------------------
+
 class MDRHandler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path: str) -> str:
         path = urllib.parse.unquote(path).split("?", 1)[0].split("#", 1)[0]
         parts = [p for p in posixpath.normpath(path).split("/") if p and p != ".."]
-        return os.path.join(self.server.web_root, *parts) if parts else self.server.web_root  # type: ignore[attr-defined]
+        return os.path.join(self.server.web_root, *parts) if parts else self.server.web_root
 
     def _safe_path(self) -> str | None:
         fs = self.translate_path(self.path)
         real = os.path.realpath(fs)
-        root = os.path.realpath(self.server.web_root)  # type: ignore[attr-defined]
+        root = os.path.realpath(self.server.web_root)
         if real != root and not real.startswith(root + os.sep):
             return None
         return fs
@@ -268,18 +634,15 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
     def _serve_directory(self, dir_path: str) -> None:
         try:
-            entries = sorted(
-                os.listdir(dir_path),
-                key=lambda n: (not os.path.isdir(os.path.join(dir_path, n)), n.lower()),
-            )
+            # os.scandir caches is_dir() and stat() results — avoids a second
+            # stat() call per entry compared to os.listdir() + os.path.isdir().
+            with os.scandir(dir_path) as it:
+                entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
             st = os.stat(dir_path)
         except OSError:
             self.send_error(403, "Permission denied")
             return
 
-        etag = self._etag(st)
-        if self._check_not_modified(etag, st.st_mtime):
-            return
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         rows: list[str] = []
@@ -287,17 +650,16 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if url_path not in ("/", ""):
             rows.append('<tr><td><a href="../">../</a></td><td></td><td></td></tr>')
 
-        for name in entries:
-            href = urllib.parse.quote(name)
-            safe = html.escape(name)
-            full = os.path.join(dir_path, name)
+        for entry in entries:
+            href = urllib.parse.quote(entry.name)
+            safe = html.escape(entry.name)
             try:
-                entry_st = os.stat(full)
+                entry_st = entry.stat()
                 mod = datetime.datetime.fromtimestamp(entry_st.st_mtime).strftime("%Y/%m/%d %H:%M")
             except OSError:
                 entry_st = None
                 mod = ""
-            if os.path.isdir(full):
+            if entry.is_dir():
                 rows.append(
                     f'<tr><td><a href="{href}/">{safe}/</a></td>'
                     f'<td style="text-align:right">—</td>'
@@ -321,7 +683,9 @@ class MDRHandler(SimpleHTTPRequestHandler):
             '<th>Modified</th></tr></thead>\n'
             '<tbody>\n' + "\n".join(rows) + '\n</tbody>\n</table>'
         )
-        self._send_html(_TEMPLATE.format(title=f"Index of {safe_url}", body=body), mtime=st.st_mtime, etag=etag)
+        self._send_html(
+            _TEMPLATE.format(title=f"Index of {safe_url}", body=body),
+        )
 
     def _serve_markdown(self, file_path: str, dir_url: str | None = None) -> None:
         try:
@@ -330,9 +694,6 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
 
-        etag = self._etag(st)
-        if self._check_not_modified(etag, st.st_mtime):
-            return
 
         try:
             with open(file_path, encoding="utf-8") as f:
@@ -349,7 +710,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             crumb += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
         body = f'{self._nav_bar(crumb)}\n{rendered}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
+        self._send_html(_TEMPLATE.format(title=title, body=body))
 
     def _serve_source(self, file_path: str, lexer) -> None:
         try:
@@ -358,9 +719,6 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
 
-        etag = self._etag(st)
-        if self._check_not_modified(etag, st.st_mtime):
-            return
 
         try:
             with open(file_path, encoding="utf-8", errors="replace") as f:
@@ -374,10 +732,12 @@ class MDRHandler(SimpleHTTPRequestHandler):
         inner = _hl(text, lexer, _src_formatter)
         body = f'{self._nav_bar(crumb)}\n{inner}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body), mtime=st.st_mtime, etag=etag)
+        self._send_html(_TEMPLATE.format(title=title, body=body))
 
     def _lexer_for_file(self, path: str):
         name = os.path.basename(path)
+        if name in _JXMAKE_FILENAMES or name.endswith(".jxm"):
+            return _JxMakeLexer(stripall=True)
         if name in _MAKEFILE_FILENAMES or name.endswith((".mk", ".mak")):
             return _MakefileLexer(stripall=True)
         try:
@@ -408,38 +768,15 @@ class MDRHandler(SimpleHTTPRequestHandler):
             f'</nav>'
         )
 
-    @staticmethod
-    def _etag(st: os.stat_result) -> str:
-        return f'"{int(st.st_mtime * 1_000_000):x}-{st.st_size:x}"'
-
-    def _check_not_modified(self, etag: str, mtime: float) -> bool:
-        """Send 304 and return True when the client's cached copy is still fresh."""
-        matched = self.headers.get("If-None-Match") == etag
-        if not matched:
-            ims = self.headers.get("If-Modified-Since")
-            if ims:
-                try:
-                    matched = mtime <= email.utils.parsedate_to_datetime(ims).timestamp() + 1
-                except Exception:
-                    pass
-        if matched:
-            self.send_response(304)
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("ETag", etag)
-            self.end_headers()
-        return matched
-
-    def _send_html(self, html_text: str, mtime: float | None = None, status: int = 200, etag: str | None = None) -> None:
+    def _send_html(self, html_text: str, status: int = 200) -> None:
+        """Send an HTML response.  Cache-Control: no-store prevents all browsers
+        (including Firefox bfcache) from serving stale content after file edits.
+        """
         data = html_text.encode("utf-8")
-        if etag is None:
-            etag = f'"{hashlib.md5(data).hexdigest()}"'
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
-        if mtime is not None:
-            self.send_header("Last-Modified", email.utils.formatdate(mtime, usegmt=True))
-        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)
@@ -499,6 +836,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
         print(f"[{self.address_string()}] {fmt % args}")
 
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Markdown-rendering HTTP server")
     parser.add_argument(
@@ -525,8 +866,7 @@ def main() -> None:
     if not os.path.isdir(web_root):
         sys.exit(f"error: {web_root!r} is not a directory")
 
-    server = HTTPServer((args.bind, args.port), MDRHandler)
-    server.web_root = web_root  # type: ignore[attr-defined]
+    server = MDRServer((args.bind, args.port), MDRHandler, web_root)
 
     print(f"Serving {web_root}")
     print(f"Listening on http://{args.bind}:{args.port}/")

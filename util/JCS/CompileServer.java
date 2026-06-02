@@ -8,6 +8,7 @@
 import java.io.*;
 import java.lang.management.*;
 import java.net.*;
+import java.nio.charset.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -85,14 +86,15 @@ public class CompileServer {
         }
 
         try(
-            final ServerSocket server = new ServerSocket( port )
+            final ServerSocket server = new ServerSocket()
         ) {
             server.setReuseAddress( true );
+            server.bind( new InetSocketAddress( port ) );
 
             System.err.println( "javac daemon ready" );
             System.err.println( "  JDK : " + System.getProperty( "java.home" ) );
             System.err.println( "  Port: " + port );
-            System.err.println( "  Idle timeout: 3 hours" );
+            System.err.println( "  Idle timeout: " + (IDLE_TIMEOUT_MS / 3_600_000L) + " hours" );
 
             // Named ThreadFactory so worker threads appear as "javac-worker-N" in thread dumps
             final ThreadFactory workerFactory = new ThreadFactory() {
@@ -120,7 +122,6 @@ public class CompileServer {
                         final long idle = System.currentTimeMillis() - lastActivity.get();
                         if( idle >= IDLE_TIMEOUT_MS ) {
                             System.err.println( "Idle timeout reached, shutting down." );
-                            new File( pidFile ).delete();
                             System.exit( 0 );
                         }
                     }
@@ -222,11 +223,11 @@ public class CompileServer {
     static void handleConnection( final JavaCompiler compiler, final Socket conn ) throws Exception
     {
         try (
-            final BufferedReader in  = new BufferedReader( new InputStreamReader( conn.getInputStream(), "UTF-8" ) );
-            final PrintWriter    out = new PrintWriter( new OutputStreamWriter( conn.getOutputStream(), "UTF-8" ), true );
+            final BufferedReader in  = new BufferedReader( new InputStreamReader( conn.getInputStream(), StandardCharsets.UTF_8 ) );
+            final PrintWriter    out = new PrintWriter( new OutputStreamWriter( conn.getOutputStream(), StandardCharsets.UTF_8 ), true );
         ) {
             // Read javac args until ENDINP sentinel (or connection close)
-            final List<String> javacArgs = new ArrayList<String>();
+            final List<String> javacArgs = new ArrayList<>();
                   String       line;
             while( ( line = in.readLine() ) != null && !line.equals( SENTINEL_ENDINP ) ) javacArgs.add( line );
 
@@ -247,9 +248,6 @@ public class CompileServer {
             ) {
                 exitCode = compiler.run( null, outStream, errStream, javacArgs.toArray( new String[0] ) );
             }
-
-            outStream.flush();
-            errStream.flush();
 
             sendFramedResponse( out, outBuf.toString( "UTF-8" ), errBuf.toString( "UTF-8" ), exitCode );
         }

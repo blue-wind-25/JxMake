@@ -18,9 +18,8 @@ Test the server:
 You may adjust 'pip3.12' and 'python3.12' according to your requirements.
 
 ----------------------------------------------------------------------------------------------------
-
 Highlighted file types
-----------------------
+----------------------------------------------------------------------------------------------------
 
 Markdown     : .md files are rendered as HTML with GFM and task-list extensions.
 
@@ -33,15 +32,14 @@ GNU Make     : Makefile, GNUmakefile, BSDmakefile, makefile, .mk, .mak
 All others   : any file type recognised by Pygments (C, C++, Python, Java, shell, …).
 
 ----------------------------------------------------------------------------------------------------
-
 Caching
--------
+----------------------------------------------------------------------------------------------------
 
 All HTML responses are sent with Cache-Control: no-store.  This ensures that every browser
 (including Firefox's back-forward cache) always fetches the current version of a file from disk
 rather than serving a stale cached copy after edits.
 
-----------------------------------------------------------------------------------------------------
+====================================================================================================
 
 MDXplorer is free software; you can redistribute it and/or modify it under the terms of the
 GNU Lesser General Public License as published by the Free Software Foundation, either

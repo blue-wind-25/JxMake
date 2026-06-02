@@ -46,3 +46,5 @@ GNU Lesser General Public License as published by the Free Software Foundation, 
 version 3 of the License, or (at your option) any later version.
 
 ====================================================================================================
+
+claude --resume 03366e06-435f-4499-b317-c8f17539a7a9

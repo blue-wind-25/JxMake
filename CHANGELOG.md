@@ -23,9 +23,9 @@ Technical Preview 3 (TP3)
 
 ### Utilities & Tools
 
-+ The Python‑based documentation server in `util/MDXplorer` has been enhanced.
++ Enhanced and bug‑fixed the Python‑based documentation server in `util/MDXplorer`.
 
-+ The Java compiler server in `util/JCS/*` has been enhanced.
++ Enhanced and bug‑fixed the Java compiler server and its shell scripts (`.sh`, `.ps1`, `.cmd`) in `util/JCS/*`.
 
 
 Technical Preview 2 (TP2)

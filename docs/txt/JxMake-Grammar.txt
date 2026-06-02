@@ -961,7 +961,7 @@ SECTION 10 -- STATEMENTS
                            { statement }
                        '.endmacro'
 
-    macro-call     ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
+    macro-use      ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
                      | '.' macro-name               [WS-NONE between '.' and macro-name]
 
     macro-undef    ::= '.undefmacro' macro-name
@@ -1138,6 +1138,7 @@ SECTION 12 -- TOP-LEVEL PROGRAM STRUCTURE
     top-level-stmt ::= pragma-stmt
                      | include-stmt
                      | macro-def
+                     | macro-use
                      | option-stmt
                      | func-def
                      | target-def

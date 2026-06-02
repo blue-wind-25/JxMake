@@ -710,7 +710,7 @@ nav.breadcrumb {{
   padding: 0.4em 0.8em; background: var(--code-bg); border-radius: 6px;
 }}
 nav.breadcrumb a {{ color: var(--link); }}
-pre {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; tab-size: 4; background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
+pre {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.875em; tab-size: 4; background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
 code {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }}
 pre > code {{ background: none; padding: 0; font-size: 1em; }}
 table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}

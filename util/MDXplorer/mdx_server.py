@@ -9,14 +9,17 @@
 
 
 import argparse
+import calendar
 import datetime
+import email.utils
 import html
 import mimetypes
 import os
 import posixpath
+import re
 import sys
 import urllib.parse
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
 from markdown_it import MarkdownIt
@@ -27,7 +30,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexer import RegexLexer, bygroups
 from pygments.lexers import get_lexer_for_filename, TextLexer
 from pygments.token import (
-    Comment, Error, Keyword, Name, Number, Operator,
+    Comment, Keyword, Name, Number, Operator,
     Punctuation, String, Text,
 )
 from pygments.util import ClassNotFound
@@ -74,8 +77,8 @@ class _MakefileLexer(RegexLexer):
              bygroups(Text, Keyword)),
             (r"^(\s*)(ifdef|ifndef|ifeq|ifneq|else|endif)\b",
              bygroups(Text, Keyword)),
-            (r"^(\s*)(define|endef)\b",
-             bygroups(Text, Keyword)),
+            (r"^(\s*)(define)\b",  bygroups(Text, Keyword), "define_block"),
+            (r"^(\s*)(endef)\b",   bygroups(Text, Keyword)),
 
             # Special targets  .PHONY: …
             (
@@ -88,6 +91,10 @@ class _MakefileLexer(RegexLexer):
             # Variable assignment — push assign_value so the RHS gets String colour
             (r"^(\s*[A-Za-z0-9_][A-Za-z0-9_.-]*)(\s*)([:+?!]?=)",
              bygroups(Name.Variable, Text, Operator), "assign_value"),
+
+            # Target-specific variable: TARGET: VAR [:+?!]= value
+            (r"^([^\s:#=]+)(:\s*)([A-Za-z0-9_][A-Za-z0-9_.-]*)(\s*)([:+?!]?=)",
+             bygroups(Name.Label, Operator, Name.Variable, Text, Operator), "assign_value"),
 
             # Target / pattern rule  name:  or  %.o:
             (r"^([^\s:]+)(:+)", bygroups(Name.Label, Operator)),
@@ -188,6 +195,20 @@ class _MakefileLexer(RegexLexer):
             (r"[^$(),{}\n]+",       String),
             (r".",                  String),
         ],
+
+        # =======================================================================
+        # define_block — multi-line variable body between define … endef
+        # =======================================================================
+        "define_block": [
+            (r"^(\s*)(endef)\b",     bygroups(Text, Keyword), "#pop"),
+            (r"\$\$",               Text),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\(",               Operator, "make_expr"),
+            (r"\$\{",               Operator, "make_expr_brace"),
+            (r"[^\$\n]+",           String),
+            (r"\n",                 Text),
+            (r".",                  String),
+        ],
     }
 
 
@@ -214,18 +235,15 @@ class _JxMakeLexer(RegexLexer):
     _OP   = Operator
     _CM   = Comment
     _CMB  = Comment.Multiline
-    _STR  = String
     _STS  = String.Single
     _STD  = String.Double
     _STR_ = String.Backtick       # raw / backtick string
-    _STX  = String.Interpol       # ${…} / $[…] inside strings
     _NUM  = Number
     _VAR  = Name.Variable
     _SPV  = Name.Constant         # __special_var__
     _FUN  = Name.Function
     _BIF  = Name.Builtin          # built-in $func(…)
     _SHC  = Name.Label            # @ shell-command lines
-    _ERR  = Error
 
     # Block/flow keywords (statement-level, not block-openers/closers)
     _KEYWORDS = (
@@ -334,6 +352,9 @@ class _JxMakeLexer(RegexLexer):
             # +jxmake keyword (must precede generic operator matching)
             (r"\+jxmake\b", _KW),
 
+            # Highlight function definition names
+            (r"\b(function)\b(\s+)([A-Za-z_][\w./\-]*)", bygroups(_KWD, Text, _FUN)),
+
             # Block-opening keywords
             (r"\b(" + "|".join(_BLOCK_OPEN) + r")\b", _KWD),
 
@@ -387,10 +408,10 @@ class _JxMakeLexer(RegexLexer):
             (r"-?\d+", _NUM),
 
             # Assignment operators (longer first)
-            (r":?\+:?=|:?\?:?=|:?=", _OP),
+            (r"|".join(_ASSIGN_OPS), _OP),
 
             # Condition operators
-            (r"&[!=]=|[<>]=?|[!=]=|!&?|&", _OP),
+            (r"|".join(_COND_OPS), _OP),
 
             # Other operators / punctuation
             (r"[,:()\[\]<>]", Punctuation),
@@ -596,12 +617,15 @@ _MAKEFILE_FILENAMES = frozenset({
 
 _JXMAKE_FILENAMES = frozenset({"JxMakeFile"})
 
+_MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger than this
+
 # ---------------------------------------------------------------------------
 # Pygments formatters + CSS
 # ---------------------------------------------------------------------------
 
 _formatter     = HtmlFormatter(style="default", nowrap=True)
-_src_formatter = HtmlFormatter(style="default", linenos="table")
+_src_formatter = HtmlFormatter(style="default", linenos="table",
+                                anchorlinenos=True, lineanchors="n")
 
 # Light-mode Pygments CSS, brace-escaped for str.format().
 _PYGMENTS_CSS = (
@@ -687,8 +711,8 @@ nav.breadcrumb {{
   padding: 0.4em 0.8em; background: var(--code-bg); border-radius: 6px;
 }}
 nav.breadcrumb a {{ color: var(--link); }}
-pre {{ background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
-code {{ background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }}
+pre {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; tab-size: 4; background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
+code {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }}
 pre > code {{ background: none; padding: 0; font-size: 1em; }}
 table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
 th, td {{ border: 1px solid var(--border); padding: 0.4em 0.8em; text-align: left; }}
@@ -701,6 +725,7 @@ img {{ max-width: 100%; height: auto; }}
 blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; color: var(--muted); }}
 .code-wrap {{ overflow-x: auto; border-radius: 6px; margin: 0.5em 0; }}
 .code-wrap.has-top-scroll {{ border-radius: 0 0 6px 6px; }}
+.code-wrap pre {{ overflow-x: visible; }}
 .code-scroll-top {{
   overflow-x: auto; overflow-y: hidden; height: 16px;
   background: var(--code-bg); border-radius: 6px 6px 0 0;
@@ -741,7 +766,7 @@ html.dark .theme-toggle::before {{ content: "☀️"; }}
 # MDRServer — typed subclass to avoid monkey-patching web_root
 # ---------------------------------------------------------------------------
 
-class MDRServer(HTTPServer):
+class MDRServer(ThreadingHTTPServer):
     def __init__(
         self,
         server_address: tuple[str, int],
@@ -836,6 +861,21 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 return
         super().do_HEAD()
 
+    def _not_modified(self, mtime: float) -> bool:
+        """Return True (and send 304) when If-Modified-Since covers mtime."""
+        ims = self.headers.get("If-Modified-Since")
+        if ims:
+            try:
+                parsed = email.utils.parsedate(ims)
+                if parsed and int(mtime) <= calendar.timegm(parsed):
+                    self.send_response(304)
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    return True
+            except Exception:
+                pass
+        return False
+
     def _serve_directory(self, dir_path: str) -> None:
         try:
             # os.scandir caches is_dir() and stat() results — avoids a second
@@ -846,7 +886,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(403, "Permission denied")
             return
-
+        if self._not_modified(st.st_mtime):
+            return
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         rows: list[str] = []
@@ -889,6 +930,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         )
         self._send_html(
             _TEMPLATE.format(title=f"Index of {safe_url}", body=body),
+            last_modified=st.st_mtime,
         )
 
     def _serve_markdown(self, file_path: str, dir_url: str | None = None) -> None:
@@ -897,8 +939,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(404, "File not found")
             return
-
-
+        if self._not_modified(st.st_mtime):
+            return
         try:
             with open(file_path, encoding="utf-8") as f:
                 text = f.read()
@@ -908,13 +950,19 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         rendered = _md.render(text)
+        # Wrap fenced code blocks for dual-scrollbar support
+        rendered = re.sub(r'<pre><code([^>]*)>',
+                          r'<div class="code-wrap"><pre><code\1>', rendered)
+        rendered = re.sub(r'</code></pre>',
+                          r'</code></pre></div>', rendered)
         crumb = self._breadcrumb(url_path)
         if dir_url:
             safe_url = html.escape(dir_url)
             crumb += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
         body = f'{self._nav_bar(crumb)}\n{rendered}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body))
+        self._send_html(_TEMPLATE.format(title=title, body=body),
+                        last_modified=st.st_mtime)
 
     def _serve_source(self, file_path: str, lexer) -> None:
         try:
@@ -922,8 +970,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(404, "File not found")
             return
-
-
+        if st.st_size > _MAX_HIGHLIGHT_BYTES:
+            super().do_GET()
+            return
+        if self._not_modified(st.st_mtime):
+            return
         try:
             with open(file_path, encoding="utf-8", errors="replace") as f:
                 text = f.read()
@@ -936,7 +987,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
         inner = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
         body = f'{self._nav_bar(crumb)}\n{inner}'
         title = html.escape(os.path.basename(file_path))
-        self._send_html(_TEMPLATE.format(title=title, body=body))
+        self._send_html(_TEMPLATE.format(title=title, body=body),
+                        last_modified=st.st_mtime)
 
     def _lexer_for_file(self, path: str):
         name = os.path.basename(path)
@@ -972,15 +1024,16 @@ class MDRHandler(SimpleHTTPRequestHandler):
             f'</nav>'
         )
 
-    def _send_html(self, html_text: str, status: int = 200) -> None:
-        """Send an HTML response.  Cache-Control: no-store prevents all browsers
-        (including Firefox bfcache) from serving stale content after file edits.
-        """
+    def _send_html(self, html_text: str, status: int = 200, *,
+                   last_modified: float | None = None) -> None:
         data = html_text.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "no-cache")
+        if last_modified is not None:
+            self.send_header("Last-Modified",
+                             email.utils.formatdate(last_modified, usegmt=True))
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)

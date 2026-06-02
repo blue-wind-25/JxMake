@@ -45,7 +45,7 @@ class _MakefileLexer(RegexLexer):
     tokens = {
         "root": [
             (r"#.*$", Comment),
-            (r"^\s*(include|sinclude|ifdef|ifndef|ifeq|ifneq|else|endif)\b", Keyword),
+            (r"^\s*(include|sinclude|ifdef|ifndef|ifeq|ifneq|else|endif|define|endef)\b", Keyword),
             (
                 r"^\s*(\.(PHONY|SUFFIXES|DEFAULT|PRECIOUS|INTERMEDIATE|SECONDARY"
                 r"|SECONDEXPANSION|DELETE_ON_ERROR|EXPORT_ALL_VARIABLES"
@@ -150,9 +150,14 @@ class _JxMakeLexer(RegexLexer):
     # -----------------------------------------------------------------------
 
     # Variable / auto-var inside strings: ${…} and $[…]
+    # Use _VAR (not _STX) so string interpolations render identically to root-context vars.
+    # Partn shortcuts must come first so the opening '<' triggers the partn_index sub-state
+    # before the plain ${var} pattern consumes the token.
     _VAR_IN_STR = [
-        (r"\$\{\^?[\w./]+(?:/[^}]*)?\}", _STX),     # ${var}  ${^ref}  ${var/re/repl/}
-        (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _STX),   # $[auto]  $[auto/re/repl/]
+        (r"(\$\{[\w./]+\})(<)",          bygroups(_VAR, Punctuation), "partn_index"),
+        (r"(\$\[[\w^*?+%~:]+\])(<)",     bygroups(_VAR, Punctuation), "partn_index"),
+        (r"\$\{\^?[\w./]+(?:/[^}]*)?\}", _VAR),   # ${var}  ${^ref}  ${var/re/repl/}
+        (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR), # $[auto]  $[auto/re/repl/]
     ]
 
     # Path shortcuts: ~${V}  ^${V}  -${V}  and same for $[V]
@@ -162,9 +167,10 @@ class _JxMakeLexer(RegexLexer):
     ]
 
     # Partn/partnm shortcuts: ${V}<…>  $[V]<…>
+    # Emit the var part as _VAR and the opening '<' as Punctuation, then enter partn_index.
     _PARTN_SHORTCUTS = [
-        (r"\$\{[\w./]+\}<[^>]+>", _VAR),
-        (r"\$\[[\w^*?+%~:]+\]<[^>]+>", _VAR),
+        (r"(\$\{[\w./]+\})(<)",      bygroups(_VAR, Punctuation), "partn_index"),
+        (r"(\$\[[\w^*?+%~:]+\])(<)", bygroups(_VAR, Punctuation), "partn_index"),
     ]
 
     # Stack shortcut {{ … }}  and set-creation { … }
@@ -364,6 +370,22 @@ class _JxMakeLexer(RegexLexer):
             (r'[^"\\$\n]+', _STD),
             (r'\$',         _STD),
             (r'\n',         _STD),
+        ],
+
+        # ===================================================================
+        # partn_index  — content of <…> in ${V}<…> / $[V]<…> shortcuts
+        # Numbers → _NUM, identifiers → _VAR; shared by root and string states.
+        # ===================================================================
+        "partn_index": [
+            (r">",               Punctuation, "#pop"),
+            (r",",               Punctuation),
+            (r":",               Punctuation),
+            (r"0x[0-9A-Fa-f]+",  _NUM),
+            (r"0o[0-7]+",        _NUM),
+            (r"-?\d+",           _NUM),
+            (r"[A-Za-z_][\w.]*", _VAR),
+            (r"\s+",             Text),
+            (r".",               Text, "#pop"),   # bail gracefully on unexpected input
         ],
 
         # ===================================================================

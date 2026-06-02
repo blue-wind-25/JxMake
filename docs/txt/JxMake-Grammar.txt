@@ -216,20 +216,55 @@ A "term" is any syntactic unit that produces a value (one or more set members).
                      | '$[' auto-var-name '/' regexp-str '/' [ replace-str ] '/' ']'
 
     (* ALL $[...] automatic variables are ALWAYS DIRECT regardless of whether the
-       enclosing assignment uses '=' or ':='. *)
+       enclosing assignment uses '=' or ':='.  Lazy evaluation is physically impossible
+       for them because their values only exist at the instant they are read:
+         $[cmdecho]/$[cmdstreaming] -- reflect current $cmd_echo_off/on state at read time;
+                                       a later call to $cmd_echo_on cannot change a past read.
+         $[preq*], $[preq1] etc.   -- prerequisites are fully resolved before the target
+                                       body runs; there is no deferred state to capture.
+         $[excode]/$[stderr]/$[stdout] -- are the output of the preceding '@' block;
+                                       once that block has executed those values are fixed.
+         $[lserr]                  -- cleared after each read; impossible to defer.
+       Assigning with '=' is silently treated as ':=' for all $[...] variables. *)
+
+    ref-var-eval   ::= '${' '^' var-name '}'           [WS-NONE -- ^ must be adjacent to var-name]
+                       (* SUGAR: expands to the VALUE of the variable NAMED BY var-name;
+                          i.e. indirect / reference dereference *)
+
+    var-name       ::= ident | special-ident
+
+    auto-var-name  ::= 'cmdecho' | 'cmdstreaming' | 'lserr' | 'jxmakefile'
+                     | 'function' | 'cmdtargets' | 'usn' | 'target'
+                     | 'preq^' | 'preq*' | 'preq?'
+                     | 'preq1' | 'preq2' | 'preqN'    (* N is any positive integer *)
+                     | 'preq:' <IDENT>                 (* ${V}-th prerequisite; V is plain var name *)
+                     | 'preq+' | 'preq%' | 'preq~'
+                     | 'excode' | 'stderr' | 'stdout'
 
 ----------------------------------------------------------------------------------------------------
-3.3  String Escape Sequences
+3.3  String Escape Sequences (double-quoted strings only)
 ----------------------------------------------------------------------------------------------------
 
-    escape-seq     ::= '\\' | '\n' | '\r' | '\t' | '\a' | '\b' | '\f' | '\v'
-                     | '\'' | '\"'
-                     | '\?'                             (* question mark *)
-                     | '\o' <3-OCTAL-DIGITS>            (* octal character value 000-377 *)
-                     | '\d' <3-DECIMAL-DIGITS>          (* decimal character value 000-255 *)
-                     | '\x' <2-HEX-DIGITS>              (* hexadecimal character value 00-FF *)
-                     | '\u' <4-HEX-DIGITS>              (* Unicode codepoint U+NNNN *)
-                     | '\U' <6-HEX-DIGITS>              (* Unicode codepoint U+NNNNNN *)
+    dq-escape      ::= '\t'          (* horizontal tab      0x09 *)
+                     | '\v'          (* vertical tab        0x0B *)
+                     | '\r'          (* carriage return     0x0D *)
+                     | '\n'          (* line feed           0x0A *)
+                     | '\f'          (* form feed           0x0C *)
+                     | '\b'          (* backspace           0x08 *)
+                     | '\''          (* apostrophe *)
+                     | '\"'          (* double quote *)
+                     | '\\'          (* backslash *)
+                     | '\$'          (* dollar sign *)
+                     | '\~'          (* tilde *)
+                     | '\`'          (* backtick *)
+                     | '\-'          (* hyphen *)
+                     | '\+'          (* plus *)
+                     | '\?'          (* question mark *)
+                     | '\o' <3-OCTAL-DIGITS>     (* octal character value 000-377 *)
+                     | '\d' <3-DECIMAL-DIGITS>   (* decimal character value 000-255 *)
+                     | '\x' <2-HEX-DIGITS>       (* hexadecimal character value 00-FF *)
+                     | '\u' <4-HEX-DIGITS>       (* Unicode codepoint U+NNNN *)
+                     | '\U' <6-HEX-DIGITS>       (* Unicode codepoint U+NNNNNN *)
                      (* All other \X: X is stored (backslash stripped) *)
 
     (* Single-quoted strings: only '\'' and '\\' are recognised escape sequences;
@@ -914,15 +949,55 @@ SECTION 10 -- STATEMENTS
 
     eval-unary-op  ::= '+' | '-' | '@' | '~' | '!'
 
+    eval-binary-op ::= '**' | '*' | '/' | '%'
+                     | '+' | '-'
+                     | '<<' | '>>'
+                     | '<=>'
+                     | '<' | '<=' | '>' | '>='
+                     | '==' | '!='
+                     | '&' | '^' | '|'
+                     | '&&' | '||'
+                     | '?' | ':'
+
+    eval-inline-func ::= inline-fname '[' WS eval-operand { ',' WS eval-operand } WS ']'
+                         [WS-SIG: format must match examples exactly]
+
+    inline-fname   ::= 'sgn' | 'min' | 'max'
+
+    (* OPERATOR PRECEDENCE (highest to lowest):
+         +  -  @           unary plus, minus, absolute         right-to-left
+         ~  !              bitwise NOT, logical NOT            right-to-left
+         **                power                               left-to-right
+         *  /  %           mul, div, remainder                 left-to-right
+         +  -              add, sub                            left-to-right
+         <<  >>            bitwise shifts                      left-to-right
+         <=>               three-way comparison                left-to-right
+         <  <=  >  >=      relational                          left-to-right
+         ==  !=            equality                            left-to-right
+         &                 bitwise AND                         left-to-right
+         ^                 bitwise XOR                         left-to-right
+         |                 bitwise OR                          left-to-right
+         &&                logical AND                         left-to-right
+         ||                logical OR                          left-to-right
+         ? :               ternary conditional                 right-to-left
+
+       NOTES:
+         - Unary operators must NOT be separated from their operand by whitespace.
+         - Binary operators MUST be separated from operands by whitespace.
+         - Inline functions (sgn/min/max) must be written exactly as: fname[ a , b ]
+         - '__xxx__' special vars are NOT supported in eval; use temporary locals.
+         - Non-inline '$func(...)' calls are NOT supported in eval; use temporary locals.
+         - All numbers are signed integers; 'true'/'false' are not keywords in eval context. *)
+
 ----------------------------------------------------------------------------------------------------
-10.6  Macro Definition
+10.6  Macro Definition and Invocation
 ----------------------------------------------------------------------------------------------------
 
-    macro-def      ::= '.defmacro' macro-name
-                           <macro-body-lines>
+    macro-def      ::= '.macro' macro-name
+                           { statement }
                        '.endmacro'
 
-    macro-use      ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
+    macro-call     ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
                      | '.' macro-name               [WS-NONE between '.' and macro-name]
 
     macro-undef    ::= '.undefmacro' macro-name

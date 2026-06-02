@@ -42,24 +42,123 @@ class _MakefileLexer(RegexLexer):
     aliases = ["makefile", "make"]
     filenames = ["Makefile", "makefile"]
 
+    # GNU Make built-in functions — sorted longest-first so e.g. filter-out
+    # is tried before filter and findstring before find.
+    _BUILTIN_FUNCS = (
+        "findstring", "filter-out", "firstword",  "addprefix",  "addsuffix",
+        "patsubst",   "wordlist",   "lastword",    "realpath",   "basename",
+        "wildcard",   "abspath",    "foreach",     "warning",    "origin",
+        "notdir",     "flavor",     "suffix",      "filter",     "subst",
+        "strip",      "words",      "value",       "shell",      "error",
+        "guile",      "sort",       "word",        "join",       "info",
+        "call",       "eval",       "file",        "dir",        "and",
+        "let",        "if",         "or",
+    )
+    _FUNC_RE = (
+        r"(?:" + "|".join(_BUILTIN_FUNCS) + r")"
+        r"(?=[ \t,])"
+    )
+
     tokens = {
+
+        # =======================================================================
+        # root — top-level file context
+        # =======================================================================
         "root": [
             (r"#.*$", Comment),
-            (r"^\s*(include|sinclude|ifdef|ifndef|ifeq|ifneq|else|endif|define|endef)\b", Keyword),
+
+            # Line-start directives
+            (r"^(\s*)(-?include|sinclude)\b",
+             bygroups(Text, Keyword)),
+            (r"^(\s*)(override|export|unexport|undefine|vpath)\b",
+             bygroups(Text, Keyword)),
+            (r"^(\s*)(ifdef|ifndef|ifeq|ifneq|else|endif)\b",
+             bygroups(Text, Keyword)),
+            (r"^(\s*)(define|endef)\b",
+             bygroups(Text, Keyword)),
+
+            # Special targets  .PHONY: …
             (
                 r"^\s*(\.(PHONY|SUFFIXES|DEFAULT|PRECIOUS|INTERMEDIATE|SECONDARY"
                 r"|SECONDEXPANSION|DELETE_ON_ERROR|EXPORT_ALL_VARIABLES"
                 r"|NOTPARALLEL|ONESHELL))(:)",
                 bygroups(Name.Constant, Name.Constant, Operator),
             ),
-            (r"^([^\s:]+)(:)", bygroups(Name.Label, Operator)),
-            (r"^\s*([A-Za-z0-9_]+)(\s*)([:+?]?=)", bygroups(Name.Variable, Text, Operator)),
-            (r"\$[@<\^\?\*]", Name.Variable),
-            (r"\$\([A-Za-z0-9_\-]+(?: [^)]*)?\)", Name.Variable),
-            (r"\$\$", Text),
-            (r"^\t.*$", Keyword),
-            (r".", Text),
-        ]
+
+            # Variable assignment  VAR [:+?!]= value  (before target rule)
+            (r"^(\s*[A-Za-z0-9_][A-Za-z0-9_.-]*)(\s*)([:+?!]?=)",
+             bygroups(Name.Variable, Text, Operator)),
+
+            # Target / pattern rule  name:  or  %.o:
+            (r"^([^\s:]+)(:+)", bygroups(Name.Label, Operator)),
+
+            # Recipe line (leading tab)
+            (r"^\t", Keyword, "recipe"),
+
+            # Expansions
+            (r"\$\$",               Text),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\(",               Punctuation, "make_expr"),
+            (r"\$\{",               Punctuation, "make_expr_brace"),
+
+            # Whitespace — keep \n separate so ^\t can match on the next iteration
+            (r"[^\S\n]+",  Text),
+            (r"\n",        Text),
+            (r".",         Text),
+        ],
+
+        # =======================================================================
+        # recipe — text after a leading tab; Make expansions still active
+        # =======================================================================
+        "recipe": [
+            (r"\n",   Text, "#pop"),
+            (r"\\\n", Text),               # line continuation
+            (r"\$\$",               Text),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\(",               Punctuation, "make_expr"),
+            (r"\$\{",               Punctuation, "make_expr_brace"),
+            (r"[^\$\\\n]+",         Keyword),
+            (r".",                  Keyword),
+        ],
+
+        # =======================================================================
+        # make_expr — inside $(…)
+        # =======================================================================
+        "make_expr": [
+            # Automatic-var directional suffixes: $(@D) $(@F) $(<F) …
+            (r"[@<\^\?\*\+\|%][DF]", Name.Variable),
+            # Built-in function name followed by space/comma
+            (_FUNC_RE, Name.Builtin),
+            # Variable / parameter reference
+            (r"[A-Za-z0-9_@<\^\?\*\+\|%][A-Za-z0-9_.-]*", Name.Variable),
+            # Nested $(…) and ${…}
+            (r"\$\(",               Punctuation, "#push"),
+            (r"\$\{",               Punctuation, "make_expr_brace"),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\$",               Text),
+            # Closing
+            (r"\)",                 Punctuation, "#pop"),
+            (r",",                  Punctuation),
+            (r"[^$(),{}\n]+",       Text),
+            (r".",                  Text),
+        ],
+
+        # =======================================================================
+        # make_expr_brace — inside ${…}  (same logic, closes with })
+        # =======================================================================
+        "make_expr_brace": [
+            (r"[@<\^\?\*\+\|%][DF]", Name.Variable),
+            (_FUNC_RE, Name.Builtin),
+            (r"[A-Za-z0-9_@<\^\?\*\+\|%][A-Za-z0-9_.-]*", Name.Variable),
+            (r"\$\(",               Punctuation, "make_expr"),
+            (r"\$\{",               Punctuation, "#push"),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\$",               Text),
+            (r"\}",                 Punctuation, "#pop"),
+            (r",",                  Punctuation),
+            (r"[^$(),{}\n]+",       Text),
+            (r".",                  Text),
+        ],
     }
 
 

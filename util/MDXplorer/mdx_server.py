@@ -624,8 +624,7 @@ _MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger 
 # ---------------------------------------------------------------------------
 
 _formatter     = HtmlFormatter(style="default", nowrap=True)
-_src_formatter = HtmlFormatter(style="default", linenos="table",
-                                anchorlinenos=True, lineanchors="n")
+_src_formatter = HtmlFormatter(style="default", linenos="table")
 
 # Light-mode Pygments CSS, brace-escaped for str.format().
 _PYGMENTS_CSS = (
@@ -741,7 +740,7 @@ blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; c
   margin: 0; padding: 0; background: transparent; border-radius: 0;
 }}
 .highlighttable td.code {{ padding: 0; background: var(--code-bg); }}
-.highlighttable td.code .highlight pre {{
+.highlighttable td.code div pre {{
   margin: 0; padding: 0.8em 1em;
   background: transparent; border-radius: 0; overflow-x: visible;
 }}

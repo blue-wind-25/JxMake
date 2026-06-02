@@ -58,8 +58,16 @@ public class CompileServer {
             System.exit( 1 );
         }
 
-        // resolvePort handles port==0 by deriving from the Java major version
-        final int          port     = resolvePort( Integer.parseInt( args[0] ) );
+        final int port;
+        try {
+            port = resolvePort( Integer.parseInt( args[0] ) );
+        }
+        catch( final NumberFormatException e ) {
+            System.err.println( "ERROR: Invalid port '" + args[0] + "'. Expected an integer." );
+            System.exit( 1 );
+            return; // unreachable - satisfies definite assignment
+        }
+
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
         if( compiler == null ) {

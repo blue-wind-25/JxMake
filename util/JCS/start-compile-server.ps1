@@ -46,10 +46,10 @@ if (-not $JavaBin) {
 
 # ── Port resolution ───────────────────────────────────────────────────────────
 
+$verStr       = (& $JavaBin '-version' 2>&1)[0].ToString()
 $resolvedPort = [int]$Port
 if ($resolvedPort -eq 0) {
     $resolvedPort = Get-JavaMajorPort -JavaBin $JavaBin
-    $verStr = (& $JavaBin '-version' 2>&1)[0].ToString()
     Write-Host "Auto-derived port $resolvedPort from Java version: $verStr"
 }
 
@@ -93,7 +93,6 @@ try {
 
 # ── Start daemon ──────────────────────────────────────────────────────────────
 
-$verStr = (& $JavaBin '-version' 2>&1)[0].ToString()
 Write-Host "Starting javac daemon on port $resolvedPort using $verStr..."
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo

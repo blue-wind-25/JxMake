@@ -85,9 +85,9 @@ class _MakefileLexer(RegexLexer):
                 bygroups(Name.Constant, Name.Constant, Operator),
             ),
 
-            # Variable assignment  VAR [:+?!]= value  (before target rule)
+            # Variable assignment — push assign_value so the RHS gets String colour
             (r"^(\s*[A-Za-z0-9_][A-Za-z0-9_.-]*)(\s*)([:+?!]?=)",
-             bygroups(Name.Variable, Text, Operator)),
+             bygroups(Name.Variable, Text, Operator), "assign_value"),
 
             # Target / pattern rule  name:  or  %.o:
             (r"^([^\s:]+)(:+)", bygroups(Name.Label, Operator)),
@@ -98,8 +98,8 @@ class _MakefileLexer(RegexLexer):
             # Expansions
             (r"\$\$",               Text),
             (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
-            (r"\$\(",               Punctuation, "make_expr"),
-            (r"\$\{",               Punctuation, "make_expr_brace"),
+            (r"\$\(",               Operator, "make_expr"),
+            (r"\$\{",               Operator, "make_expr_brace"),
 
             # Whitespace — keep \n separate so ^\t can match on the next iteration
             (r"[^\S\n]+",  Text),
@@ -108,17 +108,42 @@ class _MakefileLexer(RegexLexer):
         ],
 
         # =======================================================================
+        # assign_value — right-hand side of VAR := …
+        # Text is String so it looks different from unrelated root-level text.
+        # =======================================================================
+        "assign_value": [
+            (r"\n",    Text, "#pop"),
+            (r"\\\n",  Text),
+            (r"\$\$",               Text),
+            (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
+            (r"\$\(",               Operator, "make_expr"),
+            (r"\$\{",               Operator, "make_expr_brace"),
+            (r"[^\$\\\n]+",         String),
+            (r".",                  String),
+        ],
+
+        # =======================================================================
         # recipe — text after a leading tab; Make expansions still active
         # =======================================================================
         "recipe": [
             (r"\n",   Text, "#pop"),
-            (r"\\\n", Text),               # line continuation
+            (r"\\\n", Text),
             (r"\$\$",               Text),
             (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
-            (r"\$\(",               Punctuation, "make_expr"),
-            (r"\$\{",               Punctuation, "make_expr_brace"),
+            (r"\$\(",               Operator, "make_expr"),
+            (r"\$\{",               Operator, "make_expr_brace"),
             (r"[^\$\\\n]+",         Keyword),
             (r".",                  Keyword),
+        ],
+
+        # =======================================================================
+        # make_call_name — the callee identifier right after $(call …
+        # Highlighted as Name.Function so it stands out from plain variables.
+        # =======================================================================
+        "make_call_name": [
+            (r"[ \t]+",                        Text),
+            (r"[A-Za-z0-9_][A-Za-z0-9_.-]*",  Name.Function, "#pop"),
+            (r".",                             String, "#pop"),   # bail gracefully
         ],
 
         # =======================================================================
@@ -127,20 +152,23 @@ class _MakefileLexer(RegexLexer):
         "make_expr": [
             # Automatic-var directional suffixes: $(@D) $(@F) $(<F) …
             (r"[@<\^\?\*\+\|%][DF]", Name.Variable),
-            # Built-in function name followed by space/comma
+            # call needs special treatment: its first arg is the callee name
+            (r"call(?=[ \t,])", Name.Builtin, "make_call_name"),
+            # Other built-in function names
             (_FUNC_RE, Name.Builtin),
             # Variable / parameter reference
             (r"[A-Za-z0-9_@<\^\?\*\+\|%][A-Za-z0-9_.-]*", Name.Variable),
             # Nested $(…) and ${…}
-            (r"\$\(",               Punctuation, "#push"),
-            (r"\$\{",               Punctuation, "make_expr_brace"),
+            (r"\$\(",               Operator, "#push"),
+            (r"\$\{",               Operator, "make_expr_brace"),
             (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
             (r"\$\$",               Text),
-            # Closing
-            (r"\)",                 Punctuation, "#pop"),
+            # Closing and separators
+            (r"\)",                 Operator, "#pop"),
             (r",",                  Punctuation),
-            (r"[^$(),{}\n]+",       Text),
-            (r".",                  Text),
+            # Argument text — String so it differs from outside-expansion Text
+            (r"[^$(),{}\n]+",       String),
+            (r".",                  String),
         ],
 
         # =======================================================================
@@ -148,16 +176,17 @@ class _MakefileLexer(RegexLexer):
         # =======================================================================
         "make_expr_brace": [
             (r"[@<\^\?\*\+\|%][DF]", Name.Variable),
+            (r"call(?=[ \t,])", Name.Builtin, "make_call_name"),
             (_FUNC_RE, Name.Builtin),
             (r"[A-Za-z0-9_@<\^\?\*\+\|%][A-Za-z0-9_.-]*", Name.Variable),
-            (r"\$\(",               Punctuation, "make_expr"),
-            (r"\$\{",               Punctuation, "#push"),
+            (r"\$\(",               Operator, "make_expr"),
+            (r"\$\{",               Operator, "#push"),
             (r"\$[@<\^\?\*\+\|%]",  Name.Variable),
             (r"\$\$",               Text),
-            (r"\}",                 Punctuation, "#pop"),
+            (r"\}",                 Operator, "#pop"),
             (r",",                  Punctuation),
-            (r"[^$(),{}\n]+",       Text),
-            (r".",                  Text),
+            (r"[^$(),{}\n]+",       String),
+            (r".",                  String),
         ],
     }
 

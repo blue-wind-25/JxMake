@@ -82,5 +82,5 @@ awk '
 cat "$WORK/stdout"  2>/dev/null || true
 cat "$WORK/stderr" >&2 2>/dev/null || true
 
-EXIT_CODE=$(cat "$WORK/exitcode" 2>/dev/null | head -1 | tr -d '[:space:]')
+read -r EXIT_CODE < "$WORK/exitcode" 2>/dev/null || true
 exit "${EXIT_CODE:-1}"

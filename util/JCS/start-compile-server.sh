@@ -33,9 +33,11 @@ fi
 
 # ── Port resolution ───────────────────────────────────────────────────────────
 
+JAVA_VER=$("$JAVA_BIN" -version 2>&1 | head -1)
+
 if [[ "$PORT" == "0" ]]; then
     PORT=$(derive_port "$JAVA_BIN")
-    echo "Auto-derived port $PORT from Java version $("$JAVA_BIN" -version 2>&1 | head -1)."
+    echo "Auto-derived port $PORT from Java version $JAVA_VER."
 fi
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
     exit 1
 fi
 
-echo "Starting javac daemon on port $PORT using $("$JAVA_BIN" -version 2>&1 | head -1)..."
+echo "Starting javac daemon on port $PORT using $JAVA_VER..."
 
 nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" \
     > "$LOG_FILE" 2>&1 &

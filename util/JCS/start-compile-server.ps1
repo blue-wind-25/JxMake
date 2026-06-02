@@ -109,6 +109,7 @@ $proc = [System.Diagnostics.Process]::Start($psi)
 # Drain output asynchronously to log file
 $logWriter = [System.IO.StreamWriter]::new($LogFile, $false,
     [System.Text.Encoding]::UTF8)
+$logWriter.AutoFlush = $true
 $proc.OutputDataReceived += { param($s,$e); if ($e.Data) { $logWriter.WriteLine($e.Data) } }
 $proc.ErrorDataReceived  += { param($s,$e); if ($e.Data) { $logWriter.WriteLine($e.Data) } }
 $proc.BeginOutputReadLine()

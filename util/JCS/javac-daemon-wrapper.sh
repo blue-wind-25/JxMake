@@ -157,7 +157,7 @@ run_via_daemon() {
     cat "$WORK/stderr" >&2 2>/dev/null || true
 
     local EXIT_CODE
-    EXIT_CODE=$(cat "$WORK/exitcode" 2>/dev/null | head -1 | tr -d '[:space:]')
+    read -r EXIT_CODE < "$WORK/exitcode" 2>/dev/null || true
     exit "${EXIT_CODE:-1}"
 }
 

@@ -125,6 +125,7 @@ function Start-Daemon {
     # Asynchronously drain output to the log file (fire-and-forget)
     $logStream = [System.IO.StreamWriter]::new($LogFile, $false,
         [System.Text.Encoding]::UTF8)
+    $logStream.AutoFlush = $true
     $proc.OutputDataReceived += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
     $proc.ErrorDataReceived  += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
     $proc.BeginOutputReadLine()

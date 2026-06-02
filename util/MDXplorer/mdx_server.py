@@ -120,6 +120,7 @@ class _JxMakeLexer(RegexLexer):
         "repeat", "until",
         "loop", "endloop",
         "jxmake",
+        "supersede", "deprecated",
     )
 
     # Block-opening keywords
@@ -130,9 +131,9 @@ class _JxMakeLexer(RegexLexer):
 
     # Assignment operators (order matters: longer first)
     _ASSIGN_OPS = (
-        r":?\+:?=",   # :+=  +:=  (concatenation direct)
-        r"\?:?=",     # ?=  ?:=  :?=
-        r":?=",       # := =
+        r":?\+:?=",   # +=  :+=  +:=  (concatenation lazy / direct)
+        r":?\?:?=",   # ?=  ?:=  :?=  (if-not-set lazy / direct)
+        r":?=",       # =  :=
     )
 
     # Condition operators
@@ -216,15 +217,20 @@ class _JxMakeLexer(RegexLexer):
             (r"__[A-Za-z0-9_]+__", _SPV),
 
             # Combining  ."…"  and flattening  :"…"  strings
-            (r'[.:](?=")', _OP, "double_string"),
+            # Emit the prefix operator only; the '"' rule below handles the opening quote
+            (r'[.:](?=")', _OP),
 
-            # String literals
+            # String literals  (multiline [["…"]] must precede plain ")
+            (r'\[\["', _STD, "multiline_double_string"),
             (r"`", _STR_, "raw_string"),
             (r"'",  _STS,  "single_string"),
             (r'"',  _STD,  "double_string"),
 
             # Path shortcuts ~${V}  ^${V}  -${V}
             *_PATH_SHORTCUTS,
+
+            # Indirect assignment LHS  ^var-name  (§4.1 / §9.7)
+            (r"\^[A-Za-z_][\w.]*", _VAR),
 
             # Partn shortcuts ${V}<n>
             *_PARTN_SHORTCUTS,
@@ -247,7 +253,7 @@ class _JxMakeLexer(RegexLexer):
             (r"-?\d+", _NUM),
 
             # Assignment operators (longer first)
-            (r":?\+:?=|\?:?=|:?=", _OP),
+            (r":?\+:?=|:?\?:?=|:?=", _OP),
 
             # Condition operators
             (r"&[!=]=|[<>]=?|[!=]=|!&?|&", _OP),
@@ -293,8 +299,8 @@ class _JxMakeLexer(RegexLexer):
             *_PATH_SHORTCUTS,
             *_PARTN_SHORTCUTS,
             (r"\$\{\^[\w./]+\}", _VAR),
-            (r"\$\[[\w^*?+%~:]+\]", _VAR),
-            (r"\$\{[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR),
+            (r"\$\{[\w./]+(?:/[^}]*)?\}", _VAR),
             (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
             (r"[^\\\n#$]+", _SHC),
             (r"\$", _SHC),
@@ -311,8 +317,8 @@ class _JxMakeLexer(RegexLexer):
             *_PATH_SHORTCUTS,
             *_PARTN_SHORTCUTS,
             (r"\$\{\^[\w./]+\}", _VAR),
-            (r"\$\[[\w^*?+%~:]+\]", _VAR),
-            (r"\$\{[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR),
+            (r"\$\{[\w./]+(?:/[^}]*)?\}", _VAR),
             (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
             (r"[^\\\n#$]+", _SHC),
             (r"\$", _SHC),
@@ -347,7 +353,7 @@ class _JxMakeLexer(RegexLexer):
             (r'"',      _STD, "#pop"),
             # Escape sequences
             (r'\\[tvrnfb\'"\\$~`\-+?]', String.Escape),
-            (r'\\[oO]\d{3}',            String.Escape),
+            (r'\\o[0-7]{3}',            String.Escape),
             (r'\\d\d{3}',               String.Escape),
             (r'\\x[0-9A-Fa-f]{2}',      String.Escape),
             (r'\\u[0-9A-Fa-f]{4}',      String.Escape),
@@ -358,6 +364,28 @@ class _JxMakeLexer(RegexLexer):
             (r'[^"\\$\n]+', _STD),
             (r'\$',         _STD),
             (r'\n',         _STD),
+        ],
+
+        # ===================================================================
+        # multiline_double_string  [["…"]]
+        # Opened by [["; closed by "]] alone on a line.
+        # Newlines are content; same variable expansion as double_string.
+        # ===================================================================
+        "multiline_double_string": [
+            (r'"]]',    _STD, "#pop"),
+            # Escape sequences (same as double_string)
+            (r'\\[tvrnfb\'"\\$~`\-+?]', String.Escape),
+            (r'\\o[0-7]{3}',            String.Escape),
+            (r'\\d\d{3}',               String.Escape),
+            (r'\\x[0-9A-Fa-f]{2}',      String.Escape),
+            (r'\\u[0-9A-Fa-f]{4}',      String.Escape),
+            (r'\\U[0-9A-Fa-f]{6}',      String.Escape),
+            # Variable / auto-var interpolation
+            *_VAR_IN_STR,
+            # Body — newlines preserved; lone " (not "]]") is plain content
+            (r'[^"\\$]+',    _STD),
+            (r'"(?!\]\])',   _STD),
+            (r'\$',          _STD),
         ],
 
         # ===================================================================
@@ -372,10 +400,10 @@ class _JxMakeLexer(RegexLexer):
             *_PATH_SHORTCUTS,
             *_PARTN_SHORTCUTS,
             (r"\$\{\^[\w./]+\}", _VAR),
-            (r"\$\[[\w^*?+%~:]+\]", _VAR),
-            (r"\$\{[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR),
+            (r"\$\{[\w./]+(?:/[^}]*)?\}", _VAR),
             (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
-            (r'[.:](?=")', _OP, "double_string"),
+            (r'[.:](?=")', _OP),
             (r"`", _STR_, "raw_string"),
             (r"'",  _STS,  "single_string"),
             (r'"',  _STD,  "double_string"),
@@ -396,10 +424,10 @@ class _JxMakeLexer(RegexLexer):
             *_PATH_SHORTCUTS,
             *_PARTN_SHORTCUTS,
             (r"\$\{\^[\w./]+\}", _VAR),
-            (r"\$\[[\w^*?+%~:]+\]", _VAR),
-            (r"\$\{[\w./]+\}", _VAR),
+            (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR),
+            (r"\$\{[\w./]+(?:/[^}]*)?\}", _VAR),
             (r"-?\$[A-Za-z_]\w*(?=\s*\()", _BIF),
-            (r'[.:](?=")', _OP, "double_string"),
+            (r'[.:](?=")', _OP),
             (r"`", _STR_, "raw_string"),
             (r"'",  _STS,  "single_string"),
             (r'"',  _STD,  "double_string"),
@@ -467,8 +495,8 @@ _TEMPLATE = (
     '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n'
     "<title>{title}</title>\n"
     "<script>\n"
-    "(function(){var t=localStorage.getItem('theme');"
-    "if(t==='dark')document.documentElement.classList.add('dark');})()\n"
+    "(function(){{var t=localStorage.getItem('theme');"
+    "if(t==='dark')document.documentElement.classList.add('dark');}})()\n"
     "</script>\n"
     "<style>\n"
     + _PYGMENTS_CSS + "\n"

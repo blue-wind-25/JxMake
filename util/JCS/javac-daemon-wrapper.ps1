@@ -52,7 +52,7 @@ $SEN_ENDINP = "${US}ENDINP${US}"
 
 # ── Locate JDK ────────────────────────────────────────────────────────────────
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = $PSScriptRoot
 
 # Prefer the JDK that contains this script (installed in bin dir),
 # then JAVA_HOME, then whatever java is on PATH.

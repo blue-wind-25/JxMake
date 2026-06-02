@@ -55,7 +55,7 @@ if ($resolvedPort -eq 0) {
 
 # ── Locate compile-server.jar ─────────────────────────────────────────────────
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = $PSScriptRoot
 $JarPath   = Join-Path $ScriptDir 'compile-server.jar'
 
 if (-not (Test-Path $JarPath)) {

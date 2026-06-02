@@ -19,7 +19,7 @@ import posixpath
 import re
 import sys
 import urllib.parse
-from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
 from markdown_it import MarkdownIt
@@ -37,7 +37,7 @@ from pygments.util import ClassNotFound
 
 
 # ---------------------------------------------------------------------------
-# GNU Makefile lexer (kept as before)
+# GNU Makefile lexer
 # ---------------------------------------------------------------------------
 
 class _MakefileLexer(RegexLexer):
@@ -295,17 +295,6 @@ class _JxMakeLexer(RegexLexer):
     # Shared helper patterns
     # -----------------------------------------------------------------------
 
-    # Variable / auto-var inside strings: ${…} and $[…]
-    # Use _VAR (not _STX) so string interpolations render identically to root-context vars.
-    # Partn shortcuts must come first so the opening '<' triggers the partn_index sub-state
-    # before the plain ${var} pattern consumes the token.
-    _VAR_IN_STR = [
-        (r"(\$\{[\w./]+\})(<)",          bygroups(_VAR, Punctuation), "partn_index"),
-        (r"(\$\[[\w^*?+%~:]+\])(<)",     bygroups(_VAR, Punctuation), "partn_index"),
-        (r"\$\{\^?[\w./]+(?:/[^}]*)?\}", _VAR),   # ${var}  ${^ref}  ${var/re/repl/}
-        (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR), # $[auto]  $[auto/re/repl/]
-    ]
-
     # Path shortcuts: ~${V}  ^${V}  -${V}  and same for $[V]
     _PATH_SHORTCUTS = [
         (r"[-~^]\$\{[\w./]+\}", _VAR),
@@ -317,6 +306,15 @@ class _JxMakeLexer(RegexLexer):
     _PARTN_SHORTCUTS = [
         (r"(\$\{[\w./]+\})(<)",      bygroups(_VAR, Punctuation), "partn_index"),
         (r"(\$\[[\w^*?+%~:]+\])(<)", bygroups(_VAR, Punctuation), "partn_index"),
+    ]
+
+    # Variable / auto-var inside strings: ${…} and $[…]
+    # Use _VAR so string interpolations render identically to root-context vars.
+    # Partn shortcuts are reused directly so the definition isn't duplicated.
+    _VAR_IN_STR = [
+        *_PARTN_SHORTCUTS,
+        (r"\$\{\^?[\w./]+(?:/[^}]*)?\}", _VAR),   # ${var}  ${^ref}  ${var/re/repl/}
+        (r"\$\[[\w^*?+%~:]+(?:/[^]]*)?\]", _VAR), # $[auto]  $[auto/re/repl/]
     ]
 
     # Stack shortcut {{ … }}  and set-creation { … }
@@ -432,8 +430,7 @@ class _JxMakeLexer(RegexLexer):
 
         # ===================================================================
         # block_comment  (*  … *)  — may be nested
-        # Depth is tracked via a mutable list on the lexer instance so that
-        # (* (* inner *) outer *) is highlighted correctly as one comment.
+        # Each (* pushes this state again; *) pops one level.
         # ===================================================================
         "block_comment": [
             (r"\(\*", _CMB, "block_comment"),   # nested open → push another level
@@ -877,15 +874,19 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
     def _serve_directory(self, dir_path: str) -> None:
         try:
-            # os.scandir caches is_dir() and stat() results — avoids a second
-            # stat() call per entry compared to os.listdir() + os.path.isdir().
-            with os.scandir(dir_path) as it:
-                entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
             st = os.stat(dir_path)
         except OSError:
             self.send_error(403, "Permission denied")
             return
         if self._not_modified(st.st_mtime):
+            return
+        try:
+            # os.scandir caches is_dir() and stat() results — avoids a second
+            # stat() call per entry compared to os.listdir() + os.path.isdir().
+            with os.scandir(dir_path) as it:
+                entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
+        except OSError:
+            self.send_error(403, "Permission denied")
             return
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])

@@ -456,76 +456,40 @@ SECTION 6 -- IN-VARIABLE REGULAR EXPRESSION SUBSTITUTION
 
 
 ====================================================================================================
-SECTION 7 -- BUILT-IN FUNCTIONS (REFERENCE SUMMARY)
+SECTION 7 -- BUILT-IN FUNCTIONS REFERENCED BY SUGAR EXPANSIONS
 ====================================================================================================
 
-    (* Full signatures are in the manual file 07-Built-In-Functions.txt and Appendix X.
-       This section lists the function names grouped by category.
+    (* This section lists only the built-in functions directly referenced in sugar expansion
+       rules elsewhere in this grammar (Sections 9.3, 9.4, 9.6).
+       Full function signatures and the complete catalogue are in the manual files
+       07-Built-In-Functions.txt and Appendix X.
        All function calls: '$func_name( [arg, ...] )'  [WS-OPT inside parens] *)
 
 ----------------------------------------------------------------------------------------------------
-7.1  User Function and Target Invocation
+7.1  User Function Invocation (referenced in grammar examples)
 ----------------------------------------------------------------------------------------------------
 
     $call   ( func-name [, arg...] )     -- call user function (no OS commands)
     $exec   ( func-name [, arg...] )     -- call user function that runs OS commands
 
 ----------------------------------------------------------------------------------------------------
-7.2  Target Management (programmatic)
+7.2  Sugar-Referenced Built-Ins
 ----------------------------------------------------------------------------------------------------
 
-    $add_target   ( ref-name, new-name [, prerequisites] [, extra-deps] )
-    $add_extradep ( trg-name, extra-deps [, global-fb] )
+    -- Used by path shortcuts (Section 9.6) --
+    $path_ndsep  ( path )           -- convert to OS-native directory separators
+    $cat_path    ( path1, path2 )   -- concatenate two path segments
+    $rel_path    ( path )           -- convert to relative path (relative to cwd)
+    $cwd  ()                        -- current working directory
+    $ptd  ()                        -- project temporary directory
+    $uhd  ()                        -- user home directory (see Section 9.6 DISAMBIGUATION)
 
-----------------------------------------------------------------------------------------------------
-7.3  Variable Inspection
-----------------------------------------------------------------------------------------------------
+    -- Used by partn/partnm shortcuts (Section 9.3) --
+    $partn   ( value, index [, offset] )       -- get member at index (+offset) [1-based]
+    $partnm  ( value, beg-index, end-index )   -- get members beg..end [1-based]
 
-    $has_var  ( var-name )            -- check if a variable is defined; returns 'g', 'a', 'l', ''
-    $get_var  ( var-name )            -- get the value of a variable by name (string)
-
-----------------------------------------------------------------------------------------------------
-7.4  String Operations
-----------------------------------------------------------------------------------------------------
-
-    $ucase    ( value )               -- uppercase
-    $lcase    ( value )               -- lowercase
-    $strlen   ( value )               -- string length
-    $strim    ( value [, chars] )     -- trim whitespace (or specified chars) from both ends
-    $ltrim    ( value [, chars] )     -- trim from left
-    $rtrim    ( value [, chars] )     -- trim from right
-    $substr   ( value, start [, len] )-- substring
-    $str_fidx ( value, search [, from] ) -- first index of search in value
-    $str_lidx ( value, search [, from] ) -- last  index of search in value
-    $str_replace ( value, search, replacement ) -- replace (all occurrences)
-    $series   ( value... )            -- concatenate multiple values
-
-----------------------------------------------------------------------------------------------------
-7.5  Set (Multi-Member) Operations
-----------------------------------------------------------------------------------------------------
-
-    $part_count ( value )                          -- number of set members
-    $partn      ( value, index [, offset] )        -- get member at index (+offset) [1-based]
-    $partnm     ( value, beg-index, end-index )    -- get members beg..end [1-based]
-    $part_fidx  ( value, search [, from] )         -- first occurrence index [1-based]
-    $part_lidx  ( value, search [, from] )         -- last  occurrence index [1-based]
-    $part_remove  ( value, index )                 -- remove member at index
-    $part_insert  ( value, index, inserted )       -- insert member at index
-    $part_replace ( value, index, replacement )    -- replace member at index
-    $contains  ( value, search )                   -- 0 or 1
-    $lookup    ( key, input-keys, input-values )   -- lookup value by key
-    $unique    ( value )                           -- deduplicate set members
-    $stack     ( value... )                        -- combine values into a set (one member each)
-    $flatten   ( value )                           -- implode with empty separator
-    $implode   ( value [, sep] )                   -- join set members with separator (default: ' ')
-    $explode   ( value [, sep] )                   -- split string into set members (default: ' ')
-    $erase_ifempty  ( value )                      -- remove empty set members
-    $erase_ifnot    ( value, pattern [, is-regex] )-- remove members not matching pattern
-
-    (* Shortcut implode functions *)
-    $ftchars   ( value )    -- implode with ''           (flatten to chars)
-    $ftspaces  ( value )    -- implode with ' '
-    $ftdots    ( value )    -- implode with '.'
+    -- Used by stack shortcut (Section 9.4) --
+    $stack   ( value... )                      -- combine values into a set (one member each)
 
 
 ====================================================================================================

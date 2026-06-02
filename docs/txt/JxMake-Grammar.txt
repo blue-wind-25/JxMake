@@ -112,28 +112,37 @@ SECTION 1 -- LEXICAL BASICS
 1.5  Literal Terminals
 ----------------------------------------------------------------------------------------------------
 
-    raw-string     ::= '`' <raw-chars> '`'
-                       (* No variable evaluation, no escape sequences at all  [WS-INNER] *)
+    raw-string       ::= '`' <raw-chars> '`'
+                         (* No variable evaluation, no escape sequences at all  [WS-INNER] *)
 
-    single-string  ::= "'" <sq-chars> "'"
-                       [WS-INNER]
-                       (* Only '\\' -> backslash and "\'" -> apostrophe are recognised;
-                          all other \X sequences stored literally as \X *)
+    single-string    ::= "'" <sq-chars> "'"
+                         [WS-INNER]
+                         (* Only '\\' -> backslash and "\'" -> apostrophe are recognised;
+                            all other \X sequences stored literally as \X *)
 
-    double-string  ::= '"' <dq-chars> '"'
-                       [WS-INNER]
-                       (* Full variable and escape sequence evaluation;
-                          function calls inside "" are NOT evaluated (treated as plain text);
-                          the combining operator ."..." and flattening operator :"..." ARE
-                          evaluated and force immediate evaluation of the string;
-                          see Section 3.3 for escape sequence details *)
+    double-string    ::= '"' <dq-chars> '"'
+                         [WS-INNER]
+                         (* Full variable and escape sequence evaluation;
+                            function calls inside "" are NOT evaluated (treated as plain text);
+                            the combining operator ."..." and flattening operator :"..." ARE
+                            evaluated and force immediate evaluation of the string;
+                            see Section 3.3 for escape sequence details *)
 
-    integer-lit    ::= ['-'] <DIGITS>
-                     | '0x' <HEX-DIGITS>
-                     | '0o' <OCT-DIGITS>
+    multiline-string ::= '[["' <NEWLINE> <ml-chars> <NEWLINE> '"]]'
+                         [WS-SIG: all whitespace inside is preserved verbatim]
+                         (* Same variable evaluation and escape sequences as double-string.
+                            Function calls inside are NOT evaluated (treated as plain text).
+                            The opening token '[["' must appear alone on its line (no tokens follow).
+                            The closing token '"]]' must appear alone on its line (nothing before
+                            or after it).
+                            Not all statement contexts support multiline strings. *)
 
-    bare-word      ::= <IDENT>
-                       (* An unquoted non-keyword token used as a value, file name, or var name *)
+    integer-lit      ::= ['-'] <DIGITS>
+                       | '0x' <HEX-DIGITS>
+                       | '0o' <OCT-DIGITS>
+
+    bare-word        ::= <IDENT>
+                         (* An unquoted non-keyword token used as a value, file name, or var name *)
 
 
 ====================================================================================================
@@ -191,6 +200,7 @@ A "term" is any syntactic unit that produces a value (one or more set members).
                      | auto-var-eval          (* $[...] *)
                      | func-call              (* $func(...) *)
                      | double-string
+                     | multiline-string       (* [["..."]] -- same evaluation as double-string; see Section 1.5 *)
                      | single-string
                      | raw-string
                      | combining-string       (* ."..." -- always lazy, combines to one member; see Section 9.1 *)

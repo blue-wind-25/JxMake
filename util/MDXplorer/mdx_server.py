@@ -645,8 +645,22 @@ _TEMPLATE = (
     '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n'
     "<title>{title}</title>\n"
     "<script>\n"
-    "(function(){{var t=localStorage.getItem('theme');"
-    "if(t==='dark')document.documentElement.classList.add('dark');}})()\n"
+    "(function(){{\n"
+    "var t=localStorage.getItem('theme');\n"
+    "if(t==='dark')document.documentElement.classList.add('dark');\n"
+    "document.addEventListener('DOMContentLoaded',function(){{\n"
+    "document.querySelectorAll('.code-wrap').forEach(function(w){{\n"
+    "var ts=document.createElement('div');ts.className='code-scroll-top';\n"
+    "var si=document.createElement('div');ts.appendChild(si);\n"
+    "w.parentNode.insertBefore(ts,w);w.classList.add('has-top-scroll');\n"
+    "function upd(){{si.style.width=w.scrollWidth+'px';}}\n"
+    "upd();\n"
+    "ts.addEventListener('scroll',function(){{w.scrollLeft=ts.scrollLeft;}});\n"
+    "w.addEventListener('scroll',function(){{ts.scrollLeft=w.scrollLeft;}});\n"
+    "if(window.ResizeObserver)new ResizeObserver(upd).observe(w);\n"
+    "}});\n"
+    "}});\n"
+    "}})()\n"
     "</script>\n"
     "<style>\n"
     + _PYGMENTS_CSS + "\n"
@@ -685,15 +699,27 @@ a:hover {{ text-decoration: underline; }}
 h1, h2, h3 {{ border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }}
 img {{ max-width: 100%; height: auto; }}
 blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; color: var(--muted); }}
-.highlighttable {{ width: 100%; border-spacing: 0; }}
+.code-wrap {{ overflow-x: auto; border-radius: 6px; margin: 0.5em 0; }}
+.code-wrap.has-top-scroll {{ border-radius: 0 0 6px 6px; }}
+.code-scroll-top {{
+  overflow-x: auto; overflow-y: hidden; height: 16px;
+  background: var(--code-bg); border-radius: 6px 6px 0 0;
+}}
+.code-scroll-top > div {{ height: 1px; }}
+.highlighttable {{ border-spacing: 0; width: max-content; min-width: 100%; }}
 .highlighttable td.linenos {{
   width: 1%; white-space: nowrap; vertical-align: top; user-select: none;
   background: var(--ln-bg); color: var(--ln-text);
   border-right: 1px solid var(--ln-border); padding: 0.8em 1em;
 }}
-.highlighttable td.linenos .linenodiv pre {{ margin: 0; padding: 0; }}
-.highlighttable td.code {{ padding: 0; }}
-.highlighttable td.code .highlight pre {{ margin: 0; padding: 0.8em 1em; }}
+.highlighttable td.linenos .linenodiv pre {{
+  margin: 0; padding: 0; background: transparent; border-radius: 0;
+}}
+.highlighttable td.code {{ padding: 0; background: var(--code-bg); }}
+.highlighttable td.code .highlight pre {{
+  margin: 0; padding: 0.8em 1em;
+  background: transparent; border-radius: 0; overflow-x: visible;
+}}
 .theme-toggle {{
   flex-shrink: 0; background: transparent; border: 1px solid var(--border);
   border-radius: 6px; cursor: pointer; font-size: 0.875em;
@@ -907,7 +933,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
         url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
         crumb = self._breadcrumb(url_path)
-        inner = _hl(text, lexer, _src_formatter)
+        inner = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
         body = f'{self._nav_bar(crumb)}\n{inner}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body))

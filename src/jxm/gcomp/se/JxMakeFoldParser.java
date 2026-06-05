@@ -111,6 +111,11 @@ class JxMakeFoldParser implements FoldParser {
                         case TType.Comment: {
                             // Get token text
                             final String chk = t.getLexeme();
+                            /*
+                             * NOTE : The naive approach below only handles single-level nesting: it pushes a fold on '(*' and
+                             *        pops on the first '*)' found, which causes premature fold closure for nested block comments
+                             */
+                            /*
                             // Checking for opening marker '(*'
                             if( chk.trim().startsWith("(*") ) {
                                 _push(textArea, FoldType.COMMENT, t, "*)");
@@ -121,6 +126,27 @@ class JxMakeFoldParser implements FoldParser {
                                 && chk.trim().endsWith("*)") && _expectedStack.peek().equals("*)")
                             ) {
                                 _pop(t);
+                            }
+                            */
+                            /* Instead, count all '(*' and '*)' occurrences within the token text so that nested block comments
+                             * are handled correctly. A fold is only closed when the open/close count truly reaches zero. Note
+                             * that RSyntaxTextArea delivers the entire content of a block comment as TType.Comment tokens, so
+                             * scanning the text for '(*' / '*)' is safe — there is no risk of false matches from string literals
+                             * or other constructs inside a comment.
+                             */
+                            int opens  = 0;
+                            int closes = 0;
+                            int idx    = 0;
+                            while( (idx = chk.indexOf("(*", idx)) != -1 ) { ++opens;  idx += 2; }
+                            idx = 0;
+                            while( (idx = chk.indexOf("*)", idx)) != -1 ) { ++closes; idx += 2; }
+                            // Process opens before closes so that a token containing both (e.g. a single-line (* ... *) comment)
+                            // correctly pushes and then pops the fold
+                            for(int n = 0; n < opens;  ++n) _push(textArea, FoldType.COMMENT, t, "*)");
+                            for(int n = 0; n < closes; ++n) {
+                                if(    _currentFold != null && !_expectedStack.isEmpty()
+                                    && _expectedStack.peek().equals("*)")
+                                ) _pop(t);
                             }
                         }
                         break;

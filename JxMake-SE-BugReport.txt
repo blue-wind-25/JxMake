@@ -369,6 +369,7 @@ Description:
 
 Fix:
   Rename _inEvalStatment to _inEvalStatement everywhere in the file.
+[DONE]
 
 
 [TM-WORKAROUND-1] Multi-line comments (*...*) fold incorrectly when nested
@@ -395,6 +396,7 @@ Workaround (light):
 
   Note: this won't produce nested fold markers (nested comment folds will look
   flat) but it prevents premature fold closure.
+[DONE]
 
 
 [TM-WORKAROUND-2] One-liner 'if' with ':' is folded identically to block 'if'
@@ -423,6 +425,7 @@ Workaround (light):
   non-whitespace token appeared between the 'if' and the ':' on the current
   line (i.e. the ':' is the immediate token after the condition expression).
   This requires tracking a "last keyword was 'if'" flag per line in getFolds().
+[NOT WORTH DOING]
 
 
 [TM-NOTE-1] Context stack is not preserved across lines (by design, documented)
@@ -449,6 +452,7 @@ Workaround potential:
   already partially done for _inStringML. Extending it to the full context
   stack would require reserving token type ranges per context — feasible for
   the 2-3 most important contexts but not for the full stack depth.
+[NOT APPLICABLE - ALREADY DONE IN PREVIOUS _inEvalStatment FIXES]
 
 
 ================================================================================

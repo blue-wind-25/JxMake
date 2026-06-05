@@ -65,8 +65,8 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
     private boolean _gtl_lineContinue;
     private int     _gtl_nestedMLComment;
 
-    private boolean _inStringML     = false;
-    private int     _inEvalStatment = -1;
+    private boolean _inStringML      = false;
+    private int     _inEvalStatement = -1;
 
     private void _gtl_curTokReset()  // WARNING : Internally invoked by '_ctxPop()' and '_ctxClear()'!
     { _gtl_curTok = TType.Null; }
@@ -705,7 +705,7 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
         if( _wwChar(';') ) {
             _addTokenCP_DP(_gtl_curPos, _gtl_detPos - 1, TType.ForceNL);
             if(!stay) {
-                _inEvalStatment = -1;
+                _inEvalStatement = -1;
                 _ctxClear();
             }
             return true;
@@ -888,7 +888,7 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
 
     private boolean _ctxTask_Keyword()
     {
-        if(_inEvalStatment != -1) return false;
+        if(_inEvalStatement != -1) return false;
 
         /*
         <context name="NormalText" attribute="NormalText" lineEndContext="#pop">
@@ -949,7 +949,7 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
             // NOTE : Only partially implemented because of inherent tokenizer limitations!
             <RegExpr String="\beval\b" attribute="Keyword" context="EvalStatement1"/>
             */
-            if( "eval".equals(wwWord) ) _inEvalStatment = 0;
+            if( "eval".equals(wwWord) ) _inEvalStatement = 0;
 
             return true;
         }
@@ -1403,7 +1403,7 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
 
     private boolean _ctxTask_EvalStatement()
     {
-        if(_inEvalStatment == -1) return false;
+        if(_inEvalStatement == -1) return false;
 
         /*
         <context name="EvalStatement1" lineEndContext="#pop">
@@ -1455,8 +1455,8 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
             final String wwOper = _wwOperSv(i);
 
             if( ":=".equals(wwOper) ) {
-                if(_inEvalStatment != 0) return _wwLenRestore();
-                _inEvalStatment = 1;
+                if(_inEvalStatement != 0) return _wwLenRestore();
+                _inEvalStatement = 1;
                 _addTokenCP_DP(_gtl_curPos, _gtl_detPos - 1, TType.ROperator);
                 _gtl_curTokReset();
                 return true;
@@ -2275,29 +2275,29 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
         // Clear the context as needed
         /*
         if(startTokenType == TType.Null) {
-            _inStringML     = false;
-            _inEvalStatment = -1;
+            _inStringML      = false;
+            _inEvalStatement = -1;
             _ctxClear();
         }
         //*/
         //*
         if(startTokenType == TType.Null) {
-            _inStringML     = false;
-            _inEvalStatment = -1;
+            _inStringML      = false;
+            _inEvalStatement = -1;
             _ctxClear();
         }
         else if(startTokenType == TType.EvalContPre) {
-            _inStringML     = false;
-            _inEvalStatment = 0;
+            _inStringML      = false;
+            _inEvalStatement = 0;
             // Do NOT call' _ctxClear()' - the eval context stack is still active
         }
         else if(startTokenType == TType.EvalContPost) {
-            _inStringML     = false;
-            _inEvalStatment = 1;
+            _inStringML      = false;
+            _inEvalStatement = 1;
             // Do NOT call '_ctxClear()' - the eval context stack is still active
         }
 
-        // For all other non-Null startTokenTypes (e.g. TType.Comment, TType.String), '_inStringML' and '_inEvalStatment'
+        // For all other non-Null startTokenTypes (e.g. TType.Comment, TType.String), '_inStringML' and '_inEvalStatement'
         // carry forward from the previous call // as before (sequential parsing assumption, documented in TM-NOTE-1).
         //*/
 
@@ -2450,16 +2450,16 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
 
         // Inform the caller that the last token on the current line is either a single‑line token or a multi‑line token
         /*
-        if(_inStringML || _inEvalStatment != -1) _addEmptyTokenEP();
-        else                                     addNullToken    ();
+        if(_inStringML || _inEvalStatement != -1) _addEmptyTokenEP();
+        else                                      addNullToken    ();
         //*/
         //*
-        if(!_gtl_lineContinue) _inEvalStatment = -1;
+        if(!_gtl_lineContinue) _inEvalStatement = -1;
 
-             if(_inStringML         ) { _addEmptyToken(TType.String      , _gtl_newOfs + _gtl_endPos); }
-        else if(_inEvalStatment == 0) { _addEmptyToken(TType.EvalContPre , _gtl_newOfs + _gtl_endPos); }
-        else if(_inEvalStatment == 1) { _addEmptyToken(TType.EvalContPost, _gtl_newOfs + _gtl_endPos); }
-        else                          { addNullToken();                                                }
+             if(_inStringML          ) { _addEmptyToken(TType.String      , _gtl_newOfs + _gtl_endPos); }
+        else if(_inEvalStatement == 0) { _addEmptyToken(TType.EvalContPre , _gtl_newOfs + _gtl_endPos); }
+        else if(_inEvalStatement == 1) { _addEmptyToken(TType.EvalContPost, _gtl_newOfs + _gtl_endPos); }
+        else                           { addNullToken();                                                }
 
         //*/
 

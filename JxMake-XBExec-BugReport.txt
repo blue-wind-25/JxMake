@@ -348,6 +348,7 @@ What     : The switch dispatches on curExecBlock.execute(execData).
 Fix      : Add an explicit arm treating Done_NoUpdate the same as Done:
                case Done_NoUpdate:
                    break;   // treat as Done at this level
+[NOT APPLICABLE]
 
 
 CLEANUP-6  Target.executeBody() – _targetNameEvaled not cleared on all error
@@ -379,6 +380,7 @@ Fix      : Wrap the body in a try/finally and always call popTargetNameEvaled()
                    popTargetNameEvaled(execData);
                    _targetNameEvaled = null;
                }
+[NOT APPLICABLE]
 
 
 CLEANUP-7  Target._executeBody_execPrerequisites() – 'SuppressedError' case
@@ -407,6 +409,7 @@ Fix      : Only reset to Done if xres was already Done; leave Done_NoUpdate
                    if (xres != XCom.ExecuteResult.Done_NoUpdate)
                        xres = XCom.ExecuteResult.Done;
                    break;
+[NOT APPLICABLE]
 
 
 CLEANUP-8  XBExec.execute() – Target.ExecTargetResult check is asymmetric and
@@ -444,6 +447,7 @@ Fix      : Distinguish between ProgramExit (intended success) and Error with
                } else if (etr.errExecBlock != null) {
                    _errorBlock = etr.errExecBlock;
                }
+[NOT APPLICABLE]
 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -466,6 +470,7 @@ What     : _primaryXBExec is set to 'this' only when it is null, and is never
 Pending  : Confirm that XBExec is constructed exactly once per JVM lifetime.
            If not, the field should either be reset on each construction or
            managed externally.
+[NOT APPLICABLE]
 
 
 PENDING-2  LoopBlock.execute() – 'updtLoopCondition' is called on LoopContinue
@@ -486,6 +491,7 @@ Pending  : Verify that all concrete LoopBlock subclasses have
            updtLoopCondition() correctly implemented for their semantics (e.g.
            'while' should always return true, 'for' should advance the iterator)
            and that a 'continue' inside a 'foreach'-style loop is tested.
+[NOT APPLICABLE]
 
 
 PENDING-3  ContainerBlock.executeBody() – GoTo label resolution modifies the
@@ -504,6 +510,7 @@ Pending  : Confirm that backward GoTo is either disallowed by the grammar or
            is deliberately supported and tested.  If backward jumps are
            disallowed, add a runtime assertion that the resolved index is
            always > current idx.
+[NOT APPLICABLE]
 
 
 ================================================================================

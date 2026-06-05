@@ -534,9 +534,9 @@ public class Target extends ContainerBlock implements XCom.LabelMapOwner {
                 // Execute the execution block
                 try {
                     switch( varAssign.execute(execData) ) {
-                        case Done            :                                                    break;
-                        case Error           : setErrorBlock(item)                              ; break;
-                        case SuppressedError : item.printSuppressedError()                      ; break;
+                        case Done            :                                                     break;
+                        case Error           : setErrorBlock(item)                               ; break;
+                        case SuppressedError : item.printSuppressedError()                       ; break;
                         default              : setErrorFromString(Texts.EMsg_UnknownRuntimeError); break; // NOTE : This should never got executed!
                     }
                 }
@@ -547,6 +547,7 @@ public class Target extends ContainerBlock implements XCom.LabelMapOwner {
                     setErrorBlock(item);
                     if( !getErrorBlock().isErrorStringSet() ) getErrorBlock().setErrorFromString( e.toString() );
                 }
+                if( isErrorBlockSet() || isErrorStringSet() ) break;
             } // for
 
             // Get the values of the '__include_paths__' and '__class_paths__' variables
@@ -784,6 +785,7 @@ public class Target extends ContainerBlock implements XCom.LabelMapOwner {
 
                     case Error:
                         setErrorFromString( XCom.errorString( Texts.EMsg_TargetPreqExecError, targetNameEvaled(), curProcName, preqTarget.sprintError() ) );
+                        xres = XCom.ExecuteResult.Error;
                         break;
 
                     case SuppressedError:

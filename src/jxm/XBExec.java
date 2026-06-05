@@ -72,7 +72,7 @@ public class XBExec {
                 // Execute the execution block
                 switch( item.execute(_execData) ) {
                     case Done            :                              break       ;
-                    case Error           : _errorBlock = item;        ; break       ;
+                    case Error           : _errorBlock = item;          break       ;
                     case SuppressedError : item.printSuppressedError(); break       ;
                     case ProgramExit     :                              return true ;
                     default              : _errorBlock = item;          break       ; // NOTE : This should never got executed!

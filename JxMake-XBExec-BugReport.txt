@@ -29,6 +29,7 @@ Why      : No functional impact today, but it is a signal that the Error path
 
 Fix      : Remove the extra semicolon:
                case Error : _errorBlock = item; break;
+[DONE]
 
 
 BUG-2  Missing early-exit after Error in XBExec.execute() root loop
@@ -66,6 +67,7 @@ Fix      : Move the break into the Error case directly, matching all other
            Alternatively, replace the assignment-plus-break with a direct
            'return false' inside the case (after setting the exit code), which
            is the cleanest approach and makes the post-switch guard redundant.
+[NOT A BUG]
 
 
 BUG-3  _executeCallback_impl_gen() – original error overwritten when delete
@@ -114,6 +116,7 @@ Fix      : Use a try/finally pattern so deletion always runs and the first
                            _execData.execState.delCBVar(name);
                    } catch (JXMException ignored) { /* log if needed */ }
                }
+[NOT A BUG]
 
 
 BUG-4  Target._executeBody_execPrerequisites() – ProgramExit accounting runs
@@ -161,6 +164,7 @@ Fix      : Either add a comment explaining why the fall-through is intentional:
                    return new EPRes(XCom.ExecuteResult.ProgramExit, preqExecCount);
            (If this is done, the popProgState() call below the switch should
            be moved inside the other cases or guarded to avoid a double pop.)
+[NOT A BUG]
 
 
 BUG-5  Target._executeBody_execPrerequisites() – Error case does not set xres,
@@ -192,6 +196,7 @@ Fix      : Add the missing assignment inside the Error case:
                    break;
            Note: setErrorFromString() is already present in the source; only
            the xres assignment is missing.
+[DONE]
 
 
 BUG-6  Target._executeBody_getGlobalOrAutoDependencies() – loop continues
@@ -225,6 +230,7 @@ Fix      : Break out of the for-loop immediately on error:
                    break;   // exits switch only; add post-switch loop break:
            Then, after the switch inside the loop body, add:
                if (isErrorBlockSet() || isErrorStringSet()) break;
+[DONE]
 
 
 ────────────────────────────────────────────────────────────────────────────────

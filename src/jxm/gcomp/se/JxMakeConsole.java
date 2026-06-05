@@ -437,6 +437,10 @@ class JxMakeConsole extends ANSIScreenBuffer {
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
         }
+
+        // All document offsets have shifted; discard stale blink entries -  '_renderRow()' will
+        // repopulate _blinkMap as dirty rows are re-rendered
+        _blinkMap.clear();
     }
 
     @Override
@@ -464,6 +468,10 @@ class JxMakeConsole extends ANSIScreenBuffer {
             // Print the stack trace if requested
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
         }
+
+        // All document offsets have shifted; discard stale blink entries -  '_renderRow()' will
+        // repopulate _blinkMap as dirty rows are re-rendered
+        _blinkMap.clear();
     }
 
     @Override

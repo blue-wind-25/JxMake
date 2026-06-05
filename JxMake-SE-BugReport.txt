@@ -73,6 +73,7 @@ Fix:
   removed/added. The simplest safe approach is to call _blinkMap.clear() after
   every scroll and let _renderRow() repopulate it for the now-dirty rows. The
   added re-render cost is acceptable because scrolls already mark rows dirty.
+[DONE]
 
 
 [BUG-3] ED 'J' type-1 (clear to beginning of screen) uses exclusive loop bound,

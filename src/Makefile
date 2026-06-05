@@ -155,7 +155,6 @@ JAVA_MAJOR   := $(shell echo "$(JAVA_VERSION)" | awk -F. '{ print $$1 }')
 ##### Check if "--enable-native-access=ALL-UNNAMED" is required (for Java versions 22 and above)
 ifeq ($(shell test "$(JAVA_MAJOR)" -ge 22 && echo true), true)
     EN_NAA_FLAG := --enable-native-access=ALL-UNNAMED
-    JVM         += $(EN_NAA_FLAG)
 endif
 
 ##### Check if "-Xlint:-dangling-doc-comments" is required (for Java versions 25 and above)
@@ -212,14 +211,14 @@ define GEN_FBUILD_RULE_IMPL
 $(strip $(1)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) build_classes
-	@$(JVM) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)) -f $(strip $$(JXM_SFILE)).jxm, )
+	@$(JVM) $(EN_NAA_FLAG) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)) -f $(strip $$(JXM_SFILE)).jxm, )
 	@echo
 
 $(strip $(2)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) JAR_FILE=$($(strip $(4))) build_jar
-#	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
-	@$(JVM):$($(strip $(4))) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
+#	@$(JVM) $(EN_NAA_FLAG) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
+	@$(JVM):$($(strip $(4))) $(EN_NAA_FLAG) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -f $(strip $(5))/$(strip $$(JXM_SFILE)).jxm, )
 	@echo
 endef
 GEN_FBUILD_RULE = $(eval $(call GEN_FBUILD_RULE_IMPL, build_exec_jxm_$(strip $(1))test, build_exec_jxm_j$(strip $(1))test, $(strip $(2))_CLASS , $(strip $(2))_JAR , $(strip $(3))))
@@ -229,14 +228,14 @@ define GEN_DBUILD_RULE_IMPL
 $(strip $(1)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) build_classes
-	@$(JVM) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
+	@$(JVM) $(EN_NAA_FLAG) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
 	@echo
 
 $(strip $(2)):
 	@echo
 	@$(MAKE) -s MAIN_CLASS=$($(strip $(3))) JAR_FILE=$($(strip $(4))) build_jar
-#	@$(JVM) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
-	@$(JVM):$($(strip $(4))) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
+#	@$(JVM) $(EN_NAA_FLAG) -ea -jar $($(strip $(4))) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
+	@$(JVM):$($(strip $(4))) $(EN_NAA_FLAG) -ea $($(strip $(3)):.class=) $(if $(strip $(5)), $$(OPT_ARG) -C $(strip $(5)), )
 	@echo
 endef
 GEN_DBUILD_RULE = $(call GEN_DBUILD_RULE_IMPL, build_exec_jxm_$(strip $(1))test, build_exec_jxm_j$(strip $(1))test, $(strip $(2))_CLASS , $(strip $(2))_JAR , $(strip $(3)))
@@ -257,22 +256,22 @@ jar:
 	@$(MAKE) -s MAIN_CLASS=$(APP_CLASS) JAR_FILE=$(APP_JAR) build_jar
 
 xjar: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-headless         -h
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-headless         -h
 
 jbd: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --browse-docs
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --browse-docs
 
 jse0: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor
 
 jse1: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/JxMakeTokenMaker_Test.jxm
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/JxMakeTokenMaker_Test.jxm
 
 jse2: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/JxMakeScriptEditor_Test.jxm
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/JxMakeScriptEditor_Test.jxm
 
 jsef: jar
-	@$(subst .:,$(APP_JAR):,$(JVM)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/FunSupTest.jxm
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/FunSupTest.jxm
 
 
 ##### Build distribution
@@ -335,14 +334,14 @@ xlib:
 jxmlib:
 	@$(MAKE) -s MAIN_CLASS=$(APP_CLASS) JAR_FILE=$(APP_JAR) build_jar
 	@$(MAKE) -s jxmlib_clean
-	@(                                                                                  \
-		for I in $(LIB_FILES); do                                                   \
-			FILE=$(LIB_DIR)/$$I.jxm;                                            \
-			$(JVM):jxmake.jar -ea $(APP_CLASS:.class=) --__compile__ -f $$FILE; \
-			echo "compiled ‘$$FILE.bin’";                                       \
-		done                                                                        \
+	@(                                                                                                 \
+		for I in $(LIB_FILES); do                                                                  \
+			FILE=$(LIB_DIR)/$$I.jxm;                                                           \
+			$(JVM):jxmake.jar $(EN_NAA_FLAG) -ea $(APP_CLASS:.class=) --__compile__ -f $$FILE; \
+			echo "compiled ‘$$FILE.bin’";                                                      \
+		done                                                                                       \
 	)
-#			$(JVM) -jar jxm.jar --__compile__ -f $$FILE; \
+#			$(JVM) $(EN_NAA_FLAG) -jar jxm.jar --__compile__ -f $$FILE; \
 
 jxmlib_clean:
 	@rm  -vf $(LIB_DIR)/*.bin

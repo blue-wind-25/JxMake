@@ -234,7 +234,7 @@ public class XBBuilder {
     private String _specFilePathHash = null;
 
     /*
-    // ##### !!! TODO : Remove it later !!! #####
+    // ##### !!! TODO : Remove this later !!! #####
     // This stored last-processed-token should prevent clashes of temporary variable names when compiling
     // library files from sources with combined lines
     private TokenReader.Token _lastProcessedToken = null;
@@ -250,7 +250,7 @@ public class XBBuilder {
     private void _resetTemporaryVarNameCounter(final TokenReader.Token token)
     {
         /*
-        // ##### !!! TODO : Remove it later !!! #####
+        // ##### !!! TODO : Remove this later !!! #####
         final TokenReader.Token prevToken = _lastProcessedToken;
         _lastProcessedToken = token;
 

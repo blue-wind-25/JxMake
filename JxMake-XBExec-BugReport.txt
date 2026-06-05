@@ -307,6 +307,7 @@ What     : A multi-line block of debug printf calls is commented out using a
 Fix      : Remove the block entirely, or replace with a conditional on a
            proper debug flag (e.g. XCom.enableAllExceptionStackTrace() or a
            dedicated static boolean).
+[NOT A BUG]
 
 
 CLEANUP-4  XBExec._executeCallback_impl_ret_* methods are public but should
@@ -326,6 +327,7 @@ Fix      : Change visibility to 'private' to make the encapsulation explicit
            and prevent accidental external calls.  If package-private access
            is needed for tests, use the default (package-private) modifier
            and add a comment explaining the intent.
+[DONE]
 
 
 CLEANUP-5  ContainerBlock.executeBody() – 'Done_NoUpdate' not handled in the

@@ -142,6 +142,7 @@ public class XBExec {
                   XCom.VariableValue vvParamVVal = null;
 
             /*
+            // ##### !!! TODO : Remove this later !!! #####
                  if(isLong  ) SysUtil.stdDbg().printf("@@@ %d LONG\n"  , i);
             else if(isString) SysUtil.stdDbg().printf("@@@ %d STRING\n", i);
             else              SysUtil.stdDbg().printf("@@@ %d ???\n"   , i);
@@ -265,10 +266,10 @@ public class XBExec {
         return retVal;
     }
 
-    public String[] _executeCallback_impl_ret_string_array(final String cbFuncName, final Class<?>[] paramTypes, final Object[] params)
+    private String[] _executeCallback_impl_ret_string_array(final String cbFuncName, final Class<?>[] paramTypes, final Object[] params)
     { return _executeCallback_impl_gen(String.class, cbFuncName, paramTypes, params); }
 
-    public long[] _executeCallback_impl_ret_long_array(final String cbFuncName, final Class<?>[] paramTypes, final Object[] params)
+    private long[] _executeCallback_impl_ret_long_array(final String cbFuncName, final Class<?>[] paramTypes, final Object[] params)
     {
         final Long[] res = _executeCallback_impl_gen(Long.class, cbFuncName, paramTypes, params);
 

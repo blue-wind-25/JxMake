@@ -562,7 +562,7 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
 
     private boolean _ctxTask_CombineNL()
     {
-        if(   ( !_gtl_lineContinue                  )
+        if(   ( !_gtl_lineContinue )
            || (    (_gtl_curPos != _gtl_endPos - 2)
                 && (_gtl_detPos != _gtl_endPos - 1)
               )
@@ -704,7 +704,10 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
 
         if( _wwChar(';') ) {
             _addTokenCP_DP(_gtl_curPos, _gtl_detPos - 1, TType.ForceNL);
-            if(!stay) _ctxClear();
+            if(!stay) {
+                _inEvalStatment = -1;
+                _ctxClear();
+            }
             return true;
         }
 
@@ -923,7 +926,13 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
         final String wwWord = _wwWord();
         if( _Keywords.containsKey(wwWord) ) {
 
+            /*
             for(int i = _gtl_detPos - 1; i > 0; --i) {
+                if(_gtl_array[i] == '\n') break;
+                if( !RSyntaxUtilities.isWhitespace(_gtl_array[i]) ) return false;
+            }
+            */
+            for(int i = _gtl_curPos - 1; i >= _gtl_segment.offset; --i) {
                 if(_gtl_array[i] == '\n') break;
                 if( !RSyntaxUtilities.isWhitespace(_gtl_array[i]) ) return false;
             }
@@ -2252,19 +2261,45 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
         resetTokenList();
 
         // If the segment has zero length, add an empty token and return it
-        //*
+        /*
         if(segment.count == 0) {
             if(startTokenType == TType.Comment && _gtl_nestedMLComment == 0) return _addEmptyToken(TType.Null    , startOffset); // Ensure single-line comment is ended
             else                                                             return _addEmptyToken(startTokenType, startOffset);
         }
-        //*/
+        */
+        if(segment.count == 0) {
+            if(startTokenType == TType.Comment && _gtl_nestedMLComment == 0) return _addEmptyToken(TType.Null    , startOffset); // Ensure single-line comment is ended
+            else                                                             return _addEmptyToken(startTokenType, startOffset); // EvalContPre/Post are passed through unchange
+        }
 
         // Clear the context as needed
+        /*
         if(startTokenType == TType.Null) {
             _inStringML     = false;
             _inEvalStatment = -1;
             _ctxClear();
         }
+        //*/
+        //*
+        if(startTokenType == TType.Null) {
+            _inStringML     = false;
+            _inEvalStatment = -1;
+            _ctxClear();
+        }
+        else if(startTokenType == TType.EvalContPre) {
+            _inStringML     = false;
+            _inEvalStatment = 0;
+            // Do NOT call' _ctxClear()' - the eval context stack is still active
+        }
+        else if(startTokenType == TType.EvalContPost) {
+            _inStringML     = false;
+            _inEvalStatment = 1;
+            // Do NOT call '_ctxClear()' - the eval context stack is still active
+        }
+
+        // For all other non-Null startTokenTypes (e.g. TType.Comment, TType.String), '_inStringML' and '_inEvalStatment'
+        // carry forward from the previous call // as before (sequential parsing assumption, documented in TM-NOTE-1).
+        //*/
 
         // Prepare the variables
         _gtl_segment = segment;
@@ -2414,8 +2449,19 @@ public class JxMakeTokenMaker extends AbstractTokenMaker {
         }
 
         // Inform the caller that the last token on the current line is either a single‑line token or a multi‑line token
+        /*
         if(_inStringML || _inEvalStatment != -1) _addEmptyTokenEP();
         else                                     addNullToken    ();
+        //*/
+        //*
+        if(!_gtl_lineContinue) _inEvalStatment = -1;
+
+             if(_inStringML         ) { _addEmptyToken(TType.String      , _gtl_newOfs + _gtl_endPos); }
+        else if(_inEvalStatment == 0) { _addEmptyToken(TType.EvalContPre , _gtl_newOfs + _gtl_endPos); }
+        else if(_inEvalStatment == 1) { _addEmptyToken(TType.EvalContPost, _gtl_newOfs + _gtl_endPos); }
+        else                          { addNullToken();                                                }
+
+        //*/
 
         // Return the first token in the linked list
         return firstToken;

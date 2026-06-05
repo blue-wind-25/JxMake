@@ -328,6 +328,7 @@ Fix:
   string". At the getTokenList entry point, check for the eval-continuation
   marker and restore _inEvalStatment accordingly, independent of the
   _inStringML restoration path.
+[DONE]
 
 
 [TM-BUG-2] Keyword-at-start-of-line check scans within the token instead of
@@ -353,6 +354,7 @@ Fix:
   Change the scan start to _gtl_curPos - 1 so it actually scans characters
   before the current token:
       for (int i = _gtl_curPos - 1; i >= _gtl_segment.offset; --i) { ... }
+[DONE]
 
 
 [TM-CLEANUP-1] _inEvalStatment field name is a misspelling

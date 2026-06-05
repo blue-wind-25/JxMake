@@ -76,10 +76,8 @@ class JxMakeTheme {
         public static final int RegExpr1       = TokenTypes.REGEX;
         public static final int RegExpr2       = TokenTypes.MARKUP_TAG_NAME;
 
-        /*
-        ERROR_STRING_DOUBLE
-        ERROR_NUMBER_FORMAT
-        */
+        public static final int EvalContPre    = TokenTypes.ERROR_STRING_DOUBLE; // eval continuation, before ':=' (_inEvalStatment == 0)
+        public static final int EvalContPost   = TokenTypes.ERROR_NUMBER_FORMAT; // eval continuation, after  ':=' (_inEvalStatment == 1)
 
     } // class TType
 
@@ -346,6 +344,11 @@ class JxMakeTheme {
         _setStyle(scheme, TType.RegExprM      , darkMode, "#50C0C0", true , true , false, false);
         _setStyle(scheme, TType.RegExpr1      , darkMode, "#5F5FBF", false, true , false, false);
         _setStyle(scheme, TType.RegExpr2      , darkMode, "#BF3FBF", false, true , false, false);
+
+        // Eval-continuation end-of-line markers - same appearance as NormalText
+        // (zero-width invisible tokens; colour is irrelevant but a valid Style is required)
+        _setStyle(scheme, TType.EvalContPre   , darkMode, "#000000", false, false, false, false);
+        _setStyle(scheme, TType.EvalContPost  , darkMode, "#000000", false, false, false, false);
         //*/
 
         applySpellingParser(rootPane, darkMode);

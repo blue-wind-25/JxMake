@@ -594,7 +594,12 @@ public class TokenReader {
                                 // Create a new line token
                                 final Token nlToken = new Token(_path, _curLNum, tokPos, "\n", "", "", null);
                                 // Return the new line token if there is no pending token
-                                if( tStr.isEmpty() ) return nlToken;
+                                if( tStr.isEmpty() ) {
+                                    if(_gotNewL) continue; // Deduplicate consecutive EOLs
+                                    _gotNewL = true;
+                                    _gotEval = false;
+                                    return nlToken;
+                                }
                                 // Otherwise, store the new line token and break
                                 _injectedTokens.add( new Token(_path, _curLNum, tokPos, "\n", "", "", null) );
                                 break;

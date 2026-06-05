@@ -138,6 +138,7 @@ A4. DOUBLE STRAY SEMICOLON PRODUCES TWO CONSECUTIVE EOL TOKENS -- parser then
                    _gotEval = false;
                    return nlToken;
                }
+[DONE]
 
 
 --------------------------------------------------------------------------------

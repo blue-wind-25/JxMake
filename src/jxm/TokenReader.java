@@ -295,9 +295,6 @@ public class TokenReader {
             final String line = _readRawLine();
             if(line == null) break;
 
-         //   // Check if the line is empty
-      //      if( line.length() == 0 ) continue;
-
             // Check if the line is empty
             if( line.length() == 0 ) {
                 // A blank line terminates any in-progress continuation sequence

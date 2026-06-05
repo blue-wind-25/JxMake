@@ -104,7 +104,7 @@ A3. _readLine() SILENTLY DROPS ACCUMULATED CONTENT WHEN AN EMPTY PHYSICAL LINE
                    if (_lineStr.length() > 0) ++cntCombLine; // blank inside continuation
                    continue;
                }
-[DONE?]
+[DONE]
 
 ------------------------------------------------------------------------
 

@@ -75,7 +75,9 @@ public class XBExec {
                     case Error           : _errorBlock = item;          break       ;
                     case SuppressedError : item.printSuppressedError(); break       ;
                     case ProgramExit     :                              return true ;
-                    default              : _errorBlock = item;          break       ; // NOTE : This should never got executed!
+                    default              : _errorBlock = item; // NOTE : This should never got executed!
+                                           if( !_errorBlock.isErrorStringSet() ) _errorBlock.setErrorFromString( XCom.errorString(Texts.EMsg_UnknownRuntimeError) );
+                                           break;
                 } // switch
                 // Check for error
                 if(_errorBlock != null) break;

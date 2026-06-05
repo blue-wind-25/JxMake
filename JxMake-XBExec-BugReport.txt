@@ -261,6 +261,7 @@ Fix      : Mirror ContainerBlock.executeBody and set the fallback message
                        _errorBlock.setErrorFromString(
                            XCom.errorString(Texts.EMsg_UnknownRuntimeError));
                    break;
+[DONE]
 
 
 CLEANUP-2  XBExec.execute() – error exit code set too late
@@ -282,6 +283,7 @@ Fix      : Set the exit code in the Error case of the switch (where _errorBlock
                    if (_execData.execState.getExitCode() == 0)
                        _execData.execState.setExitCode(SysUtil.DefaultExitErrorCode);
                    break;
+[NOT APPLICABLE]
 
 
 CLEANUP-3  XBExec._executeCallback_impl_gen() – debug printf block left in

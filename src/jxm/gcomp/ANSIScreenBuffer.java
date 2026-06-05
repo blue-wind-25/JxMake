@@ -859,7 +859,7 @@ public abstract class ANSIScreenBuffer {
 
             /*
              * ESC[0J    Clear from cursor to end of screen
-             * ESC[1J    Clear from cursor to beginning of screen
+             * ESC[1J    Clear from beginning of screen to cursor (inclusive)
              * ESC[2J    Clear entire screen
              * ESC[3J    Clear entire screen + scrollback buffer
              */
@@ -870,7 +870,8 @@ public abstract class ANSIScreenBuffer {
 
                 switch(type) {
 
-                    case 0: /* FALLTHROUGH */
+                    /*
+                    case 0: /* FALLTHROUGH * /
                     case 1: {
                         // Clear
                         final int   begC = (type == 0) ? _curCol               : 0;
@@ -883,6 +884,31 @@ public abstract class ANSIScreenBuffer {
                                                          _screenBuffer.dirty[_curRow] = true;
                         for(int i = begR; i < endR; ++i) _screenBuffer.dirty[i      ] = true;
                                                          _screenBuffer.anyDirty       = true;
+                        break;
+                    }
+                    */
+
+                    case 0: {
+                        final int begC = _curCol;
+                        final int endC = _screenBuffer.numCols;
+                        final int begR = _curRow + 1;
+                        final int endR = _lastWrittenRow;
+                        for(int i = begC; i < endC; ++i) _screenBuffer.rows[_curRow].cols[i].setSpace(bgc, fgc);
+                        for(int i = begR; i < endR; ++i) _screenBuffer.rows[i].setSpace(bgc, fgc);
+                        // Mark the row(s) as dirty and mark the global dirty flag
+                                                         _screenBuffer.dirty[_curRow] = true;
+                        for(int i = begR; i < endR; ++i) _screenBuffer.dirty[i      ] = true;
+                                                         _screenBuffer.anyDirty       = true;
+                        break;
+                    }
+
+                    case 1: {
+                        for(int r = 0; r <= _curRow; ++r) {
+                            final int endC = (r < _curRow) ? _screenBuffer.numCols : (_curCol + 1);
+                            for(int c = 0; c < endC; ++c) _screenBuffer.rows[r].cols[c].setSpace(bgc, fgc);
+                            _screenBuffer.dirty[r] = true;
+                        }
+                        _screenBuffer.anyDirty = true;
                         break;
                     }
 

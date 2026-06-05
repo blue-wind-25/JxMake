@@ -129,6 +129,7 @@ Fix:
         _screenBuffer.dirty[r] = true;
     }
     _screenBuffer.anyDirty = true;
+[DONE]
 
 
 [BUG-4] Integer.valueOf() used where parseInt() is appropriate

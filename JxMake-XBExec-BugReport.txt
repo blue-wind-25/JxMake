@@ -1,0 +1,440 @@
+================================================================================
+JxMake – Execution-Block Executor: Bug & Cleanup Report
+Scope : XBExec.java and all directly related execution files
+        (ExecBlock.java, ContainerBlock.java, LoopBlock.java,
+         Target.java, TargetRun.java, FuncCall.java)
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 1 – CONFIRMED BUGS  (ordered most-obvious first)
+────────────────────────────────────────────────────────────────────────────────
+
+BUG-1  Stray extra semicolon in XBExec.execute() — harmless but a defect marker
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : execute(String, XCom.ExecBlocks, ArrayList<String>)
+Location : The 'Error' case inside the root-block dispatch switch
+
+What     : The Error arm reads:
+               case Error : _errorBlock = item; ; break ;
+           There is a double semicolon between the assignment and 'break'.
+           In Java a bare ';' is a no-op statement, so this compiles and runs
+           correctly, but it looks like a typo left from an edit where a
+           'return false' was once present after the assignment (mirroring the
+           missing-break issue described in BUG-2 below).
+
+Why      : No functional impact today, but it is a signal that the Error path
+           was edited hastily and should be reviewed together with BUG-2.
+
+Fix      : Remove the extra semicolon:
+               case Error : _errorBlock = item; break;
+
+
+BUG-2  Missing early-exit after Error in XBExec.execute() root loop
+───────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : execute(String, XCom.ExecBlocks, ArrayList<String>)
+Location : The for-loop that iterates the root execution-blocks; the
+           post-switch check "if (_errorBlock != null) break;"
+
+What     : When the switch sets _errorBlock and falls through to 'break'
+           (exiting the switch, not the for-loop), execution continues to the
+           next iteration of the for-loop via the guard
+               if (_errorBlock != null) break;
+           This guard correctly stops the loop eventually, but the guard sits
+           AFTER the switch, not inside the Error case.  The problem is that
+           every other loop in the codebase (ContainerBlock.executeBody,
+           LoopBlock.execute) returns or breaks immediately on Error without
+           relying on a post-switch guard.  The current code is therefore
+           inconsistent and one refactor away from accidentally removing the
+           guard.
+
+Why      : If the guard were accidentally deleted, every block after the first
+           error would still execute at the root level, potentially corrupting
+           the function/target maps that are being populated at that phase.
+
+Fix      : Make the Error case exit the loop directly, matching all other
+           execution loops in the codebase:
+               case Error :
+                   _errorBlock = item;
+                   break;   // exits switch
+           … and directly after the switch (still inside the for-loop):
+               if (_errorBlock != null) break;   // keep the guard too, for safety
+           Alternatively, use 'return false' directly inside the case (after
+           setting the exit code), which is the cleanest approach and would
+           also let you delete the post-switch guard.
+
+
+BUG-3  _executeCallback_impl_gen() leaks CB variables on exception or early-error
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : _executeCallback_impl_gen()
+Location : The three sequential try/catch blocks that (1) set CB vars,
+           (2) execute the FuncCall, (3) delete CB vars
+
+What     : The three operations – set, execute, delete – are each wrapped in
+           their own try/catch.  If the 'set' block succeeds for the first N
+           parameters but throws on parameter N+1, the catch sets
+           executeResult = Error and skips the execute block.  The 'delete'
+           block then runs unconditionally – BUT it iterates over paramNames,
+           which at that point contains only the names that were successfully
+           pushed; so the partial set IS cleaned up in that case.
+
+           However, if the execute block itself returns an error result (not an
+           exception) AND then the delete block itself throws a JXMException,
+           the catch sets executeResult = Error again and the function returns
+           null – which is correct.  The real issue is that if the delete block
+           throws, the catch only records the secondary error and silently
+           discards any error that was already set by the execute block
+           (including an error message in funcCall).  The original error is
+           lost.
+
+Why      : A secondary JXMException during cleanup overwrites the diagnostic
+           that would have told the user what actually went wrong.
+
+Fix      : Use a try/finally pattern so deletion always runs, and preserve the
+           first error:
+               try {
+                   // set vars
+                   ...
+                   // execute
+                   executeResult = funcCall.execute(_execData);
+               } catch (JXMException e) {
+                   ...
+               } finally {
+                   // delete vars – always runs
+                   try {
+                       for (String name : paramNames)
+                           _execData.execState.delCBVar(name);
+                   } catch (JXMException ignored) { /* log if needed */ }
+               }
+
+
+BUG-4  Target._executeBody_execPrerequisites() – ProgramExit does not propagate
+───────────────────────────────────────────────────────────────────────────────
+File     : Target.java
+Function : _executeBody_execPrerequisites()
+Location : The switch on xres after preqTarget.executeBody(execData)
+
+What     : The switch has a 'case ProgramExit: break;' arm.  After breaking
+           out of the switch, the code falls through to
+               execData.execState.popProgState();
+           and then to:
+               if (xres != XCom.ExecuteResult.Done) return new EPRes(xres, ...);
+           So ProgramExit IS returned to the caller.  The popProgState() call
+           before the return is correct.  BUT the case has no comment explaining
+           why it simply breaks rather than returning immediately (unlike every
+           other call site for ProgramExit in the codebase, which returns
+           immediately).  The concern is that the code between the switch and
+           the check – specifically the preqNamesMoreUpToDate accounting – runs
+           for ProgramExit, which makes no sense semantically.
+
+Why      : If the accounting block is ever extended (e.g. a list mutation that
+           can throw), ProgramExit could be silently converted into an Error
+           before the guard check runs.
+
+Fix      : Propagate ProgramExit immediately, mirroring every other site:
+               case ProgramExit:
+                   execData.execState.popProgState();
+                   return new EPRes(XCom.ExecuteResult.ProgramExit, preqExecCount);
+
+
+BUG-5  Target._executeBody_execPrerequisites() – Error case does not set xres
+───────────────────────────────────────────────────────────────────────────────
+File     : Target.java
+Function : _executeBody_execPrerequisites()
+Location : The 'case Error:' arm inside the switch on preqTarget.executeBody()
+
+What     : The Error arm calls setErrorFromString(…) but does NOT assign
+           xres = XCom.ExecuteResult.Error.  After the switch, the guard:
+               if (xres != XCom.ExecuteResult.Done) return new EPRes(xres, …);
+           therefore does NOT trigger, and execution continues as if the
+           prerequisite succeeded (preqExecCount may be incremented, the
+           target's own body may execute).
+
+Why      : A prerequisite that fails silently is a correctness bug: the
+           dependent target runs even though its input was not built correctly.
+           This can produce corrupt build artifacts.
+
+Fix      : Add the missing assignment:
+               case Error:
+                   setErrorFromString( XCom.errorString(
+                       Texts.EMsg_TargetPreqExecError,
+                       targetNameEvaled(), curProcName, preqTarget.sprintError()) );
+                   xres = XCom.ExecuteResult.Error;   // <-- ADD THIS
+                   break;
+
+
+BUG-6  Target._executeBody_getGlobalOrAutoDependencies() – error in pre-target
+       variable execution is not returned to the caller
+───────────────────────────────────────────────────────────────────────────────
+File     : Target.java
+Function : _executeBody_getGlobalOrAutoDependencies()
+Location : The inner loop that executes pre-target VarAssign blocks
+
+What     : When a VarAssign block returns Error or SuppressedError, the code
+           calls setErrorBlock(item) or setErrorFromString(…), but the loop
+           continues iterating rather than breaking.  More importantly, the
+           function signature is 'XCom.ExecuteResult' and ends with
+               if (isErrorStringSet()) return XCom.ExecuteResult.Error;
+               if (isErrorBlockSet())  { setErrorFromBlock(…); return Error; }
+           so the error IS eventually surfaced after the loop.  However, the
+           loop continues executing more VarAssign blocks after a failure, which
+           may produce confusing secondary errors or corrupt state.
+
+Fix      : Break out of the inner loop on error:
+               case Error:
+                   setErrorBlock(item);
+                   break;            // exit the for-loop, not just the switch
+           Add a post-switch check inside the loop body:
+               if (isErrorBlockSet()) break;
+
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 2 – CLEANUP ITEMS
+────────────────────────────────────────────────────────────────────────────────
+
+CLEANUP-1  XBExec.execute() – redundant 'default' arm assigns _errorBlock to
+           item (same as Error), losing the item's own error string
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : execute(String, XCom.ExecBlocks, ArrayList<String>)
+
+What     : The 'default' arm does:
+               default: _errorBlock = item; break;
+           This is identical to the Error arm but without calling
+           item.setErrorFromString().  The post-loop guard later calls
+           setErrorFromString(EMsg_UnknownRuntimeError) only if no error string
+           is set, so the message will be the generic "unknown runtime error"
+           instead of whatever the block actually reported.
+
+Fix      : The default arm should mirror the same fallback message immediately:
+               default:
+                   _errorBlock = item;
+                   if (!_errorBlock.isErrorStringSet())
+                       _errorBlock.setErrorFromString(
+                           XCom.errorString(Texts.EMsg_UnknownRuntimeError));
+                   break;
+           This is consistent with how ContainerBlock.executeBody handles its
+           default case.
+
+
+CLEANUP-2  XBExec.execute() – error exit code set too late
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : execute(String, XCom.ExecBlocks, ArrayList<String>)
+
+What     : The exit code is set to DefaultExitErrorCode only in the final
+           error-check block at the very bottom of the method, after both the
+           root-block loop and the target-execution phase.  If any code between
+           those phases (theoretically impossible today but fragile by design)
+           reads the exit code, it will see 0 even after an error.
+
+Fix      : Set the exit code in the Error case of the switch (where _errorBlock
+           is assigned), consistent with how _executeCallback_impl_gen() sets
+           it immediately when a function-call fails.
+
+
+CLEANUP-3  XBExec._executeCallback_impl_gen() – internal debug code left in
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : _executeCallback_impl_gen()
+
+What     : A multi-line block of debug printf calls is commented out using
+           '/*' and '//' but left in the production source:
+               /*
+                    if(isLong  ) SysUtil.stdDbg().printf("@@@ %d LONG\n"  , i);
+               else if(isString) SysUtil.stdDbg().printf("@@@ %d STRING\n", i);
+               else              SysUtil.stdDbg().printf("@@@ %d ??\n"    , i);
+               //*/
+           The mixed comment style (block open, line-comment close) is
+           intentional to allow quick toggle, but it should not be in a
+           production file.
+
+Fix      : Remove the block entirely, or replace with a proper conditional
+           on XCom.enableAllExceptionStackTrace() / a dedicated debug flag.
+
+
+CLEANUP-4  XBExec._executeCallback_impl_ret_* methods are public but should
+           be package-private or at least clearly marked as internal
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Functions: _executeCallback_impl_ret_string_array(),
+           _executeCallback_impl_ret_long_array(),
+           _executeCallback_impl_gen()
+
+What     : All three methods are 'public', despite their underscore-prefix
+           naming convention which throughout the codebase signals internal
+           helpers.  They are called only from the four public executeCallback()
+           overloads within the same class.
+
+Fix      : Change visibility to 'private' (or package-private) to make the
+           encapsulation explicit and prevent accidental external calls.
+
+
+CLEANUP-5  ContainerBlock.executeBody() – 'Done_NoUpdate' not handled in the
+           switch, causing the default arm to fire for a valid result
+───────────────────────────────────────────────────────────────────────────────
+File     : ContainerBlock.java
+Function : executeBody(XCom.ExecData, int)
+
+What     : The switch dispatches on curExecBlock.execute(execData).
+           ExecuteResult.Done_NoUpdate is defined and used by Target, which is
+           a ContainerBlock subclass.  The base class switch has no
+           'case Done_NoUpdate' arm, so Done_NoUpdate hits 'default', which
+           calls setErrorFromString(EMsg_UnknownRuntimeError) and returns Error.
+           In practice, Target.executeBody() overrides this method entirely, so
+           Done_NoUpdate from a nested Target-in-Target call would be caught
+           here incorrectly.
+
+Fix      : Add an explicit arm treating Done_NoUpdate the same as Done (or
+           returning it directly if the container should propagate it):
+               case Done_NoUpdate:
+                   break;   // treat as Done at this level
+
+
+CLEANUP-6  Target.executeBody() – _targetNameEvaled not cleared on all error
+           exit paths (popTargetNameEvaled not always reached)
+───────────────────────────────────────────────────────────────────────────────
+File     : Target.java
+Function : executeBody(XCom.ExecData, int)
+
+What     : pushTargetNameEvaled() is called early in the method.  The matching
+           popTargetNameEvaled() is called only near the end, just before
+           '_targetNameEvaled = null'.  If any of the intermediate sub-methods
+           (_executeBody_evalPreqNames, _executeBody_getGlobalOrAutoDependencies,
+           etc.) were to throw an uncaught exception rather than returning an
+           error result, popTargetNameEvaled() would never be called, leaving a
+           stale entry on the stack.
+
+           While today all exceptions are caught within those helpers and
+           converted to error results, this is a structural fragility.
+
+Fix      : Wrap the body in a try/finally and always call popTargetNameEvaled()
+           and '_targetNameEvaled = null' in the finally block, mirroring the
+           try/finally already used in FuncCall._execute_call_exec() for
+           popProgState().
+
+
+CLEANUP-7  Target._executeBody_execPrerequisites() – 'SuppressedError' resets
+           xres to Done without using the error
+───────────────────────────────────────────────────────────────────────────────
+File     : Target.java
+Function : _executeBody_execPrerequisites()
+
+What     : The SuppressedError arm does:
+               preqTarget.printSuppressedError();
+               xres = XCom.ExecuteResult.Done;
+           The explicit assignment to Done is not wrong (suppressed errors do
+           not stop execution), but it overrides a Done_NoUpdate that xres might
+           currently hold, effectively 'upgrading' a no-update run of a
+           prerequisite to a full Done.  This means the prerequisite's body
+           could be counted as "up to date" incorrectly, and
+           _preqNamesMoreUpToDate may be updated when it should not be.
+
+Fix      : Only reset to Done if xres was Done_NoUpdate; otherwise leave xres
+           unchanged:
+               case SuppressedError:
+                   preqTarget.printSuppressedError();
+                   if (xres == XCom.ExecuteResult.Done_NoUpdate)
+                       xres = XCom.ExecuteResult.Done;
+                   break;
+
+
+CLEANUP-8  XBExec.execute() – Target.ExecTargetResult check is asymmetric
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : execute(String, XCom.ExecBlocks, ArrayList<String>)
+Location : The line that processes the ExecTargetResult
+
+What     :
+           if (etr.executeResult != XCom.ExecuteResult.Done || etr.errExecBlock != null)
+               _errorBlock = etr.errExecBlock;
+
+           When etr.executeResult == ProgramExit, etr.errExecBlock is null
+           (by design in Target.execTargets).  So _errorBlock is set to null,
+           which is then treated as "no error" by the final check, and the
+           method returns 'true' (success).  That is correct behaviour for
+           ProgramExit.
+
+           However, when etr.executeResult == Error AND etr.errExecBlock is
+           also null (which can happen in the default arm of execTargets),
+           _errorBlock is set to null and the error is silently swallowed,
+           returning 'true' to the caller.
+
+Fix      : Guard against the null case on error:
+               if (etr.executeResult != XCom.ExecuteResult.Done
+                       && etr.executeResult != XCom.ExecuteResult.ProgramExit) {
+                   _errorBlock = (etr.errExecBlock != null)
+                               ? etr.errExecBlock
+                               : new VoidBlock.newErrorVoidBlock00(
+                                     mainJXMSpecFile_absPath,
+                                     XCom.errorString(Texts.EMsg_UnknownRuntimeError));
+               } else if (etr.errExecBlock != null) {
+                   _errorBlock = etr.errExecBlock;
+               }
+
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 3 – PENDING / UNCERTAIN ITEMS
+────────────────────────────────────────────────────────────────────────────────
+
+PENDING-1  _primaryXBExec static field – potential issue in multi-invocation
+           scenarios
+───────────────────────────────────────────────────────────────────────────────
+File     : XBExec.java
+Function : XBExec constructor, primaryXBExec()
+
+What     : _primaryXBExec is set to 'this' when it is null, and is never reset.
+           If XBExec is ever instantiated more than once in the same JVM process
+           (e.g. from tests, or if the GUI invokes execution a second time),
+           the second instance does not become the primary.  Whether this is
+           intentional or a latent bug depends on usage patterns not visible
+           from this file alone.
+
+Pending  : Confirm that XBExec is constructed exactly once per JVM lifetime.
+           If not, the field should either be reset on each construction or
+           managed externally.
+
+
+PENDING-2  LoopBlock.execute() – 'updtLoopCondition' not called on
+           LoopContinue before re-evaluating the condition
+───────────────────────────────────────────────────────────────────────────────
+File     : LoopBlock.java
+Function : execute(XCom.ExecData)
+
+What     : On LoopContinue, the code sets xres = Done and falls through to
+           the updtLoopCondition() call, then re-evaluates evalLoopCondition().
+           This is the correct 'for-loop continue' behaviour (update first,
+           then test).  However, for a 'while'-style loop where there is no
+           meaningful update, calling updtLoopCondition() returning false
+           would terminate the loop even on continue.
+
+Pending  : Verify that all concrete LoopBlock subclasses have
+           updtLoopCondition() correctly implemented for their semantics (e.g.
+           'while' should always return true, 'for' should advance the iterator)
+           and that a 'continue' inside a 'foreach'-style loop is tested.
+
+
+PENDING-3  ContainerBlock.executeBody() – GoTo label resolution modifies the
+           loop index inline; re-entrance safety unclear
+───────────────────────────────────────────────────────────────────────────────
+File     : ContainerBlock.java
+Function : executeBody(XCom.ExecData, int)
+
+What     : The GoTo case resolves the target label index and assigns it back to
+           the loop variable 'idx', allowing the loop to jump forward or
+           backward.  If a GoTo label is inside a nested ContainerBlock that
+           has already been visited, and that block modifies shared state, the
+           jump could replay side-effects.
+
+Pending  : Confirm that backward GoTo is either disallowed by the grammar or
+           is deliberately supported and tested.  If backward jumps are
+           disallowed, add a runtime assertion that the resolved index is
+           always > current idx.
+
+
+================================================================================
+END OF REPORT
+================================================================================

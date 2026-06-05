@@ -35,6 +35,12 @@ public class ScriptEditor extends SwingApp {
 
     @Override
     protected boolean handleWindowClosing()
-    { return ( (JxMakeRootPane) rootPane() ).confirmQuit(); }
+    {
+        if( !( (JxMakeRootPane) rootPane() ).confirmQuit() ) return false;
+
+        ( (JxMakeRootPane) rootPane() )._shutdownSchedulers();
+
+        return true;
+    }
 
 } // class ScriptEditor

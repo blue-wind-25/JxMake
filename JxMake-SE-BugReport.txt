@@ -202,6 +202,7 @@ Fix:
   Declare _instance as volatile, or better, use a proper singleton
   initialization pattern (e.g. initialize-on-demand holder or pass the
   instance explicitly to JxMakeShell instead of relying on the global).
+[DONE]
 
 
 [CLEANUP-2] _renderUpTo() re-renders all rows 0..rowNum unconditionally
@@ -223,6 +224,7 @@ Fix:
   Either iterate only dirty rows (maintain a set or scan the dirty[] array
   for set flags), or only render rows >= _lastRenderedRow when no scroll has
   occurred.
+[NOT A FIX - IT IS A REGRESSION]
 
 
 [CLEANUP-3] Typo in comment: "Dicard" should be "Discard"
@@ -235,6 +237,7 @@ Description:
 
 Fix:
   Correct to "Discard".
+[DONE]
 
 
 [CLEANUP-4] _menuItems HashMap in JxMakeRootPane_Menu is module-level static
@@ -254,6 +257,7 @@ Fix:
   Either accept the single-instance assumption and document it clearly, or
   convert these to instance fields (passed into the static helpers), or reset
   them at the start of createMenuBar().
+[NOT A BUG]
 
 
 [CLEANUP-5] APP_DATA_DIRECTORY and related path strings are non-final statics
@@ -269,6 +273,7 @@ Description:
 Fix:
   Add the final modifier to APP_DATA_DIRECTORY, SCRIPT_EDITOR_STATE,
   SCRIPT_FILE_STATE, CONSOLE_CMD_HIST, CONSOLE_CMD_ALIAS, CONSOLE_ENV_PREFIX.
+[DONE]
 
 
 [CLEANUP-6] _update_scheduler uses newScheduledThreadPool(1) with no shutdown
@@ -286,6 +291,7 @@ Fix:
   Override a dispose/cleanup method (or hook into the window-closing event) to
   call _update_scheduler.shutdown() (and similarly _updateInclude_scheduler if
   it exists).
+[DONE]
 
 
 ================================================================================

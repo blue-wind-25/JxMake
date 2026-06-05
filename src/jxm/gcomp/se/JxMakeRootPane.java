@@ -194,13 +194,13 @@ import static jxm.gcomp.se.JxMakeTokenMaker_Utils.*;
 @SuppressWarnings("serial")
 public class JxMakeRootPane extends JRootPane implements SearchListener {
 
-    private static String APP_DATA_DIRECTORY  = "jxmake_script_editor" + SysUtil._InternalDirSep;
+    private static final String APP_DATA_DIRECTORY  = "jxmake_script_editor" + SysUtil._InternalDirSep;
 
-    private static String SCRIPT_EDITOR_STATE = APP_DATA_DIRECTORY + "script_editor_state";
-    private static String SCRIPT_FILE_STATE   = APP_DATA_DIRECTORY + "script_file_state";
-    private static String CONSOLE_CMD_HIST    = APP_DATA_DIRECTORY + "console_command_history";
-    private static String CONSOLE_CMD_ALIAS   = APP_DATA_DIRECTORY + "console_alias";
-    private static String CONSOLE_ENV_PREFIX  = APP_DATA_DIRECTORY + "console_env_";
+    private static final String SCRIPT_EDITOR_STATE = APP_DATA_DIRECTORY + "script_editor_state";
+    private static final String SCRIPT_FILE_STATE   = APP_DATA_DIRECTORY + "script_file_state";
+    private static final String CONSOLE_CMD_HIST    = APP_DATA_DIRECTORY + "console_command_history";
+    private static final String CONSOLE_CMD_ALIAS   = APP_DATA_DIRECTORY + "console_alias";
+    private static final String CONSOLE_ENV_PREFIX  = APP_DATA_DIRECTORY + "console_env_";
 
     private static void _mkdir_AppDataDir() throws IOException
     { SysUtil.cu_mkdir( SysUtil.resolvePath( APP_DATA_DIRECTORY, SysUtil.getADD() ) ); }
@@ -1218,9 +1218,9 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private static JxMakeRootPane           _instance         = null;
+    private volatile static JxMakeRootPane           _instance         = null;
 
-    private final  ScheduledExecutorService _update_scheduler = Executors.newScheduledThreadPool(1);
+    private          final  ScheduledExecutorService _update_scheduler = Executors.newScheduledThreadPool(1);
 
     @SuppressWarnings("this-escape")
     public JxMakeRootPane(final boolean useDarkColorTheme, final String initialFilePath)
@@ -1350,6 +1350,13 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
 
     public RSyntaxTextArea getTextArea()
     { return _textArea; }
+
+    public void _shutdownSchedulers()
+    {
+        _update_scheduler        .shutdown();
+        _updateInclude_scheduler .shutdown();
+        _console._rbScheduler    .shutdown();
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

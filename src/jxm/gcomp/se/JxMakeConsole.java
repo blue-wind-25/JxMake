@@ -501,9 +501,9 @@ class JxMakeConsole extends ANSIScreenBuffer {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private final AtomicBoolean            _rbPending   = new AtomicBoolean(false);
-    private final AtomicLong               _rbLastRun   = new AtomicLong(0);
-    private final ScheduledExecutorService _rbScheduler = Executors.newSingleThreadScheduledExecutor();
+    private          final AtomicBoolean            _rbPending   = new AtomicBoolean(false);
+    private          final AtomicLong               _rbLastRun   = new AtomicLong(0);
+    @package_private final ScheduledExecutorService _rbScheduler = Executors.newSingleThreadScheduledExecutor();
 
     private synchronized void _renderBuffer_impl()
     {
@@ -3013,7 +3013,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
             // Load and apply the exclusion list for the reference table
             sevs.refTable = JKeyValueTable.convertMap( SysUtil.getAllEnv() );
 
-            final String strRefTable = reader.readLine(); // Dicard the marker
+            final String strRefTable = reader.readLine(); // Discard the marker
             if( !_marker_refTable.equals(strRefTable) ) return sevs;
 
             final String strExclusionCount = reader.readLine();
@@ -3032,12 +3032,12 @@ class JxMakeConsole extends ANSIScreenBuffer {
                 if( exclusionName.contains( entry.getKey() ) ) entry.getValue().checked = false;
             }
 
-            if( reader.readLine() == null ) return sevs; // Dicard the "\n"
+            if( reader.readLine() == null ) return sevs; // Discard the "\n"
 
             // Load the user table
             sevs.usrTable = new JKeyValueTable.StateHashMap();
 
-            final String strUsrTable = reader.readLine(); // Dicard the marker
+            final String strUsrTable = reader.readLine(); // Discard the marker
             if( !_marker_usrTable.equals(strUsrTable) ) return sevs;
 
             final String strUsrCount = reader.readLine();
@@ -3058,12 +3058,12 @@ class JxMakeConsole extends ANSIScreenBuffer {
 
             } // for
 
-            if( reader.readLine() == null ) return sevs; // Dicard the "\n"
+            if( reader.readLine() == null ) return sevs; // Discard the "\n"
 
             // Load the effective table
             sevs.effTable = new HashMap<>();
 
-            final String strEffTable = reader.readLine(); // Dicard the marker
+            final String strEffTable = reader.readLine(); // Discard the marker
             if( !_marker_effTable.equals(strEffTable) ) return sevs;
 
             final String strEffCount = reader.readLine();
@@ -3080,7 +3080,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
 
             } // for
 
-            if( reader.readLine() == null ) return sevs; // Dicard the "\n"
+            if( reader.readLine() == null ) return sevs; // Discard the "\n"
 
             // Done
             return sevs;

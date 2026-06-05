@@ -19,7 +19,7 @@ Where  : _renderBuffer()
 Description:
   When _renderBuffer() is called and the 50 ms cooldown has NOT yet elapsed,
   the method clears _rbPending and returns immediately without scheduling any
-  future render. If no further write arrives after the cooldown expires the
+  future render. If no further write arrives after the cooldown expires, the
   last dirty data is never rendered — the screen appears frozen until the next
   unrelated update.
 
@@ -28,19 +28,25 @@ Why it matters:
   within the 50 ms window is silently lost on screen.
 
 Fix:
-  When the cooldown prevents immediate scheduling, post a delayed invocation
-  (e.g. via ScheduledExecutorService or SwingUtilities with a slight delay) so
-  the render is guaranteed to run once the cooldown expires. Alternatively,
-  use a "pending reschedule" flag rather than simply dropping the request.
+  When the cooldown prevents immediate rendering, post a delayed invocation
+  instead of simply returning, so the render is guaranteed to run once the
+  cooldown expires. The _update_scheduler (already available in JxMakeRootPane)
+  can be used for this, or a separate single-thread scheduler owned by
+  JxMakeConsole:
 
-  Sketch:
     if (now - _rbLastRun.get() < 50) {
         // reschedule instead of dropping
-        _update_scheduler.schedule(() -> SwingUtilities.invokeLater(this::_renderBuffer_impl),
+        _update_scheduler.schedule(
+            () -> SwingUtilities.invokeLater(this::_renderBuffer),
             50 - (now - _rbLastRun.get()), TimeUnit.MILLISECONDS);
         _rbPending.set(false);
         return;
     }
+
+  Note: the rescheduled call will itself check the cooldown flag and proceed
+  normally. Care must be taken to avoid scheduling multiple pending timers if
+  writes continue to arrive during the delay; keeping _rbPending set until
+  the scheduled call fires is sufficient.
 
 
 [BUG-2] _blinkMap holds stale document offsets after scroll
@@ -52,8 +58,8 @@ Description:
   _scrollBufferOneUp() removes the first line from the StyledDocument but does
   NOT prune or adjust the character offsets stored in _blinkMap. On the next
   blink cycle, handleUpdate() applies those now-stale offsets via
-  _textSDoc.setCharacterAttributes(), which either silently corrupts the
-  wrong text range or throws a BadLocationException.
+  _textSDoc.setCharacterAttributes(), which either silently corrupts the wrong
+  text range or throws a BadLocationException.
 
 Why it matters:
   Blink rendering can corrupt visible text or produce spurious exceptions
@@ -62,48 +68,65 @@ Why it matters:
 Fix:
   In _scrollBufferOneUp() (and _scrollBufferOneDown_ifCurRowIsZero()), rebuild
   or adjust _blinkMap: remove entries whose row was scrolled away and shift
-  offsets of surviving entries by the number of characters removed/added.
-  Simplest safe approach: call _blinkMap.clear() after every scroll, then let
-  _renderRow() repopulate it for dirty rows. The added re-render cost is
-  acceptable because scrolls already mark rows dirty.
+  the document offsets of surviving entries by the number of characters
+  removed/added. The simplest safe approach is to call _blinkMap.clear() after
+  every scroll and let _renderRow() repopulate it for the now-dirty rows. The
+  added re-render cost is acceptable because scrolls already mark rows dirty.
 
 
-[BUG-3] ED 'J' type-1 (clear to beginning of screen) uses exclusive end row
+[BUG-3] ED 'J' type-1 (clear to beginning of screen) uses exclusive loop bound,
+        leaving the cursor row only partially marked dirty
 --------------------------------------------------------------------------------
 File   : ANSIScreenBuffer.java
-Where  : _processCSI(), case 'J', type==1
+Where  : _processCSI(), case 'J', shared case 0/1 block
 
 Description:
-  For ESC[1J the VT standard says "clear from cursor to the BEGINNING of the
-  screen, inclusive of the cursor row". The implementation computes:
-      begR = 0;
-      endR = _curRow;          // loop: for (i = begR; i < endR; ...)
-  The cursor row itself is cleared via the column loop, but rows 0.._curRow-1
-  are iterated with strict-less-than, so row _curRow-1 IS cleared – however
-  the issue is the column range for the current row. begC=0, endC=_curCol+1
-  is correct, but then the multi-row loop (begR=0, endR=_curRow exclusive)
-  does NOT include _curRow. That row is cleared separately via the column loop,
-  which is correct for EL. However, the dirty marking only marks _curRow and
-  the range [begR, endR), so if begR == endR (cursor at row 0) no multi-row
-  dirty flags are set and nothing above is marked. This is fine for row 0, but
-  the overall asymmetry means any programmatic audit is confusing, and an
-  off-by-one is easy to introduce on future edits.
+  For ESC[1J the VT standard says "clear from the beginning of the screen to
+  the cursor position, inclusive of the cursor cell". The implementation uses
+  a shared case 0/1 block:
+      begC = 0;          endC = _curCol + 1;      // cursor-row column range
+      begR = 0;          endR = _curRow;           // multi-row range (exclusive)
+  The cursor row is cleared via:
+      for (i = begC; i < endC; ...)  // clears columns 0.._curCol on _curRow
+  The rows above the cursor are cleared via:
+      for (i = begR; i < endR; ...)  // clears rows 0.._curRow-1 (exclusive)
+  Both loops are correct in terms of which cells are erased.
 
-  Separately: the EL 'K' type-1 case uses endC = _curCol+1 with i < endC
-  which correctly includes the cursor cell. The ED type-1 uses begR=0 /
-  endR=_curRow with i < endR, which intentionally excludes _curRow (handled
-  separately). This is technically correct but the two separate clear operations
-  are not atomic in the dirty-flag sense.
+  The issue is the dirty-marking that follows:
+      _screenBuffer.dirty[_curRow] = true;          // marks cursor row
+      for (i = begR; i < endR; ...) dirty[i] = true; // marks rows 0.._curRow-1
+
+  For the type==1 case, endR = _curRow, so dirty is marked for _curRow (via
+  the first line) and for rows 0.._curRow-1 (via the loop). This is correct
+  when _curRow > 0. However, when _curRow == 0, endR == begR == 0, the loop
+  does not execute, and only dirty[0] is set — which is also correct.
+
+  The real concern is structural: the type==1 clear is composed of two
+  independent loops operating on different row ranges (_curRow alone vs.
+  0.._curRow-1), making the logic harder to audit and easy to break in a
+  future refactor. Unlike type==0 (cursor-to-end), where rows above the
+  cursor are a separate range, type==1 should conceptually clear a contiguous
+  block from row 0 to _curRow inclusive.
 
 Why it matters:
-  Borderline correctness issue; behavior diverges from VT spec when dirty flag
-  updates are considered. Low immediate risk but a latent source of off-by-one
-  if the clearing logic is ever refactored.
+  The current behavior is functionally correct for well-formed cursor positions.
+  The risk is maintenance: the asymmetric structure (cursor row handled
+  separately from the range loop) is easy to mis-edit into an off-by-one.
 
 Fix:
-  Unify into a single pass: iterate from row 0 to _curRow (inclusive), clearing
-  columns 0..(numCols-1) for rows < _curRow and 0.._curCol for row == _curRow.
-  Mark all touched rows dirty in one place.
+  Unify into a single pass for type==1: iterate from row 0 to _curRow
+  inclusive, clearing columns 0..(numCols-1) for rows < _curRow and 0.._curCol
+  for row == _curRow. Mark all touched rows dirty in one place:
+
+    // type == 1: clear from beginning of screen to cursor (inclusive)
+    for (int r = 0; r <= _curRow; ++r) {
+        int c0 = 0;
+        int c1 = (r < _curRow) ? _screenBuffer.numCols : (_curCol + 1);
+        for (int c = c0; c < c1; ++c)
+            _screenBuffer.rows[r].cols[c].setSpace(bgc, fgc);
+        _screenBuffer.dirty[r] = true;
+    }
+    _screenBuffer.anyDirty = true;
 
 
 [BUG-4] Integer.valueOf() used where parseInt() is appropriate
@@ -119,8 +142,8 @@ Description:
   avoids unnecessary boxing, and more clearly signals the intent.
 
 Why it matters:
-  Minor style/efficiency issue. NumberFormatException on corrupt file will
-  bubble uncaught and silently truncate the state load (due to early-return
+  Minor style/efficiency issue. NumberFormatException on a corrupt file will
+  bubble uncaught and silently truncate the state load (due to the early-return
   error handling pattern), which is acceptable behavior but the root cause
   would be unclear in a stack trace.
 
@@ -135,21 +158,23 @@ Where  : _saveAllAliases(), _loadAllAliases()
 
 Description:
   new FileWriter(...) and new FileReader(...) use the JVM's default charset,
-  which varies by OS and locale. On Windows with a CJK locale the default may
-  not be UTF-8, corrupting alias names containing non-ASCII characters.
+  which varies by OS and locale. On Windows with a non-UTF-8 locale (e.g.
+  a CJK system locale), alias names containing non-ASCII characters will be
+  corrupted when saved and then loaded.
 
 Why it matters:
-  Alias names with non-ASCII characters will be corrupted when saved/loaded
-  on systems where the default charset is not UTF-8.
+  Alias names with non-ASCII characters will be silently corrupted on systems
+  where the JVM default charset is not UTF-8.
 
 Fix:
   Use the explicit charset variant:
     new OutputStreamWriter(new FileOutputStream(path), StandardCharsets.UTF_8)
     new InputStreamReader(new FileInputStream(path),  StandardCharsets.UTF_8)
+
   The same issue exists in JxMakeRootPane.Config.save() (FileWriter) and
-  _saveTextFile_impl() / _loadTextFile_impl() (FileWriter/FileReader), although
-  for script files the user's intent might be to use the system encoding.
-  The alias/history files should definitely be UTF-8.
+  in _saveTextFile_impl() / _loadTextFile_impl() (FileWriter/FileReader),
+  although for JxMake script files the user's intent may be to use the system
+  encoding. The alias and command-history files should definitely be UTF-8.
 
 
 [CLEANUP-1] JxMakeRootPane._instance is a non-volatile mutable static
@@ -159,18 +184,19 @@ Where  : static field _instance, constructor, static helper methods
 
 Description:
   _instance is assigned in the constructor and read from static methods called
-  from background threads (e.g. JxMakeShell). The field is not volatile and
-  there is no synchronization around its write. In practice a single instance
-  is used, but the JMM does not guarantee visibility without a memory barrier.
+  from background threads (e.g. from JxMakeShell). The field is not volatile
+  and there is no synchronization around its write. In practice a single
+  instance is used, but the Java Memory Model does not guarantee visibility
+  of the assignment to other threads without a memory barrier.
 
 Why it matters:
   Theoretical but real: a background thread could see _instance == null or a
   partially constructed object.
 
 Fix:
-  Declare _instance as volatile, or better, use proper singleton initialization
-  (e.g. initialize-on-demand or pass the instance explicitly to JxMakeShell
-  instead of relying on the global).
+  Declare _instance as volatile, or better, use a proper singleton
+  initialization pattern (e.g. initialize-on-demand holder or pass the
+  instance explicitly to JxMakeShell instead of relying on the global).
 
 
 [CLEANUP-2] _renderUpTo() re-renders all rows 0..rowNum unconditionally
@@ -189,8 +215,9 @@ Why it matters:
   Performance: on large scroll buffers the render path is slower than needed.
 
 Fix:
-  Either iterate only dirty rows (maintain a set or scan the dirty[] array),
-  or only render rows >= _lastRenderedRow when no scroll has occurred.
+  Either iterate only dirty rows (maintain a set or scan the dirty[] array
+  for set flags), or only render rows >= _lastRenderedRow when no scroll has
+  occurred.
 
 
 [CLEANUP-3] Typo in comment: "Dicard" should be "Discard"
@@ -205,7 +232,8 @@ Fix:
   Correct to "Discard".
 
 
-[CLEANUP-4] _menuItems HashMap in JxMakeRootPane_Menu is module-level static state
+[CLEANUP-4] _menuItems HashMap in JxMakeRootPane_Menu is module-level static
+             state
 --------------------------------------------------------------------------------
 File   : JxMakeRootPane_Menu.java
 Where  : static field _menuItems
@@ -215,11 +243,11 @@ Description:
   JxMakeRootPane ever exists this is fine in practice, but it prevents clean
   re-initialization if the editor is ever embedded multiple times. Additionally,
   _usedMnemonic is a static String that accumulates state across calls to
-  _createMenu(), which is also not reset between instances.
+  _createMenu(), and is not reset between instances.
 
 Fix:
   Either accept the single-instance assumption and document it clearly, or
-  convert these to instance fields passed into the static helpers, or reset
+  convert these to instance fields (passed into the static helpers), or reset
   them at the start of createMenuBar().
 
 
@@ -245,13 +273,14 @@ Where  : field _update_scheduler, constructor / doLayout
 
 Description:
   The ScheduledExecutorService created with newScheduledThreadPool(1) is never
-  explicitly shut down. The thread pool holds a non-daemon thread and will keep
-  the JVM alive even after the window is closed if a JVM shutdown hook is not
+  explicitly shut down. The thread pool holds a non-daemon thread that will keep
+  the JVM alive after the window is closed if the JVM shutdown hook is not
   triggered promptly.
 
 Fix:
   Override a dispose/cleanup method (or hook into the window-closing event) to
-  call _update_scheduler.shutdown() (and similarly _updateInclude_scheduler).
+  call _update_scheduler.shutdown() (and similarly _updateInclude_scheduler if
+  it exists).
 
 
 ================================================================================
@@ -260,7 +289,8 @@ PART 2 – JXMAKE SYNTAX HIGHLIGHTER (JxMakeTokenMaker)
 Grammar reference: docs/txt/JxMake-Grammar.txt and related doc files.
 
 
-[TM-BUG-1] _inEvalStatment not restored when startTokenType is not Null or Comment
+[TM-BUG-1] _inEvalStatment not restored when startTokenType is not Null or
+            Comment
 --------------------------------------------------------------------------------
 File   : JxMakeTokenMaker.java
 Where  : getTokenList(), field _inEvalStatment
@@ -269,78 +299,49 @@ Description:
   getTokenList() resets _inStringML and _inEvalStatment only when
   startTokenType == TType.Null. For continuation lines (startTokenType ==
   some multi-line token type), _inEvalStatment retains its value from the
-  previous call, which is correct for _inStringML-style multi-line contexts.
-  However, _inEvalStatment is a per-line piece of state that tracks whether the
-  current line is inside an eval statement (0 = before ':=', 1 = after ':=').
-  An eval statement does NOT naturally span multiple RSyntaxTextArea lines the
-  way a multiline string does (eval ends at ';' or logical line end). If a line
-  continuation (\) is used inside an eval statement, _inEvalStatment is carried
-  forward and the trailing addEmptyTokenEP() causes RSyntaxTextArea to pass a
-  non-Null startTokenType to the next line, but the actual token type encoding
-  for "eval continuation" is overloaded with the _inStringML token type, making
-  the two indistinguishable at the getTokenList entry point.
-
-Why it matters:
-  On a line following a line-continued eval statement the tokenizer enters
-  with a non-Null startTokenType but _inEvalStatment == -1 (reset only for
-  Null), so the eval-operator highlighting is lost for continuation lines.
+  previous call. This is correct for _inStringML-style multi-line contexts.
+  However, _inEvalStatment is a per-line piece of state that tracks whether
+  the current line is inside an eval statement (0 = before ':=', 1 = after
+  ':='). An eval statement does NOT naturally span multiple RSyntaxTextArea
+  lines the way a multiline string does (eval ends at ';' or logical line
+  end). If a line continuation (\) is used inside an eval statement,
+  _inEvalStatment is carried forward and the trailing addEmptyTokenEP() causes
+  RSyntaxTextArea to pass a non-Null startTokenType to the next line, but the
+  actual token type encoding for "eval continuation" is overloaded with the
+  _inStringML token type, making the two indistinguishable at the getTokenList
+  entry point.
 
 Fix:
-  Introduce a dedicated token type (e.g. TType.EvalStatement) to distinguish
-  eval-continuation from string-ML-continuation, and restore _inEvalStatment
-  appropriately when startTokenType == TType.EvalStatement.
+  Introduce a dedicated token type (or a reserved bit in the startTokenType
+  integer) to distinguish "inside eval continuation" from "inside multiline
+  string". At the getTokenList entry point, check for the eval-continuation
+  marker and restore _inEvalStatment accordingly, independent of the
+  _inStringML restoration path.
 
 
-[TM-BUG-2] JxMakeFoldParser._pop() does not guard against empty _expectedStack
---------------------------------------------------------------------------------
-File   : JxMakeFoldParser.java
-Where  : _pop(Token token)
-
-Description:
-  _pop() calls _expectedStack.pop() unconditionally. The call sites check
-  _expectedStack.isEmpty() BEFORE calling _pop(), but the check and pop are not
-  atomic. If future code paths reach _pop() without the guard, or if the guard
-  condition is wrong (e.g. mismatched nesting), EmptyStackException will be
-  thrown at runtime. The exception is caught by the outer try/catch but silently
-  discards the rest of the fold computation for that parse.
-
-Why it matters:
-  Defensive programming: a malformed source file or a tokenizer edge case can
-  cause a silent fold failure with no diagnostic.
-
-Fix:
-  Add a guard at the top of _pop():
-    if (_expectedStack.isEmpty() || _currentFold == null) return;
-
-
-[TM-BUG-3] Keyword highlighting requires preceding whitespace for line-start keywords
+[TM-BUG-2] Keyword-at-start-of-line check scans within the token instead of
+            before it
 --------------------------------------------------------------------------------
 File   : JxMakeTokenMaker.java
-Where  : _ctxTask_Keyword()
+Where  : _ctxTask_Keyword(), the loop that checks for preceding non-whitespace
 
 Description:
-  The keyword detection loop:
-    for (int i = _gtl_detPos - 1; i > 0; --i) {
-        if (isWhitespace(array[i])) continue;
-        if (array[i] == '\n') break;
-        return false;
-    }
-  returns false if any non-whitespace character exists before the keyword on
-  the same line. This correctly implements "keyword must be the first token on
-  the logical line". However, the loop starts at _gtl_detPos - 1 (one before
-  the detected token's end) rather than _gtl_curPos - 1 (one before the
-  token's start), scanning within the token itself instead of before it.
+  The guard that enforces "keyword must be the first token on the logical line"
+  iterates backwards to check whether any non-whitespace character precedes the
+  keyword on the current line. However, the loop starts at _gtl_detPos - 1
+  (one before the detected token's end) rather than _gtl_curPos - 1 (one
+  before the token's start), so it scans within the token itself instead of
+  before it.
 
-  In practice _gtl_curPos == segment.offset at the start of processing so for
-  the very first token on a line the scan is a no-op (loop doesn't execute
-  because i starts at _gtl_detPos-1 which may be >= _gtl_curPos). This appears
-  to work by coincidence for common cases but the intent and the implementation
-  differ.
+  In practice _gtl_curPos == segment.offset at the very start of processing,
+  so for the first token on a line the scan is a no-op (the loop may not
+  execute at all). This appears to work by coincidence for the common case but
+  the intent and the implementation differ.
 
 Fix:
   Change the scan start to _gtl_curPos - 1 so it actually scans characters
-  before the token:
-    for (int i = _gtl_curPos - 1; i >= _gtl_segment.offset; --i) { ... }
+  before the current token:
+      for (int i = _gtl_curPos - 1; i >= _gtl_segment.offset; --i) { ... }
 
 
 [TM-CLEANUP-1] _inEvalStatment field name is a misspelling
@@ -363,23 +364,24 @@ File   : JxMakeFoldParser.java
 Where  : getFolds(), case TType.Comment, opening marker check
 
 Description:
-  The grammar supports nested block comments: (* outer (* inner *) still outer *).
-  JxMakeFoldParser only recognises a single level: it pushes a fold on "(*" and
-  pops on the first "*)". With nested comments the inner "*)" prematurely closes
-  the outer fold.
+  The grammar supports nested block comments: (* outer (* inner *) still
+  outer *). JxMakeFoldParser only recognises a single level: it pushes a fold
+  on "(*" and pops on the first "*)". With nested comments the inner "*)"
+  prematurely closes the outer fold.
 
   This is a known RSyntaxTextArea limitation (the token stream sees a single
-  TType.Comment span for the entire nested comment), but the fold parser could
-  work around it:
+  TType.Comment span for the entire nested comment), so a perfect fix is not
+  possible. However, the fold parser can work around it:
 
 Workaround (light):
-  Maintain a nesting counter in the fold parser (mirroring _gtl_nestedMLComment
-  in the tokenizer). Only actually pop the fold when the counter reaches zero.
-  Track the counter in the getFolds() loop by scanning the token text for
-  occurrences of "(*" and "*)" within each TType.Comment token.
+  Maintain a nesting counter in the fold parser (mirroring
+  _gtl_nestedMLComment in the tokenizer). Only actually pop the fold when the
+  counter reaches zero. Track the counter in the getFolds() loop by scanning
+  the token text for occurrences of "(*" and "*)" within each TType.Comment
+  token.
 
-  Note: this won't be pixel-perfect (nested comment folds look flat) but it
-  prevents premature fold closure.
+  Note: this won't produce nested fold markers (nested comment folds will look
+  flat) but it prevents premature fold closure.
 
 
 [TM-WORKAROUND-2] One-liner 'if' with ':' is folded identically to block 'if'
@@ -389,26 +391,25 @@ Where  : getFolds(), case TType.SOperator, ':' check
 
 Description:
   Grammar: "if <cond> : <stmt>" is a single-line if (no endif).
-  "if <cond>\n  <body>\nendif" is a block if (requires endif).
+           "if <cond>\n  <body>\nendif" is a block if (requires endif).
 
   The fold parser opens a fold on every 'if' keyword token and expects either
   ':' (one-liner) or 'endif' (block) to close it. The ':' close path correctly
   collapses the fold. However, ':' is also a valid operator in other contexts
   (e.g., eval expressions, ternary operators). The current guard checks
-  _expectedStack.peek().equals("endif"), which is correct, but only triggers
+  _expectedStack.peek().equals("endif"), which is correct — it only triggers
   when a fold is open AND the top of the expected stack is "endif". If the ':'
   appears in an eval context on the same line as an 'if', the fold will be
   incorrectly closed.
 
-  RSyntaxTextArea cannot fully distinguish these without a complete context-
-  aware parser, so a perfect fix is not possible.
+  RSyntaxTextArea cannot fully distinguish these cases without a complete
+  context-aware parser, so a perfect fix is not possible.
 
 Workaround (light):
-  In the TType.SOperator ':' handler, additionally verify that the ':' token
-  is followed immediately (on the same line, no intervening keyword/value tokens
-  between the 'if' and ':') by checking that no other non-whitespace token
-  appeared between the 'if' and the ':' on the current line. This requires
-  tracking a "last keyword was 'if'" flag per line in getFolds().
+  In the TType.SOperator ':' handler, additionally verify that no other
+  non-whitespace token appeared between the 'if' and the ':' on the current
+  line (i.e. the ':' is the immediate token after the condition expression).
+  This requires tracking a "last keyword was 'if'" flag per line in getFolds().
 
 
 [TM-NOTE-1] Context stack is not preserved across lines (by design, documented)
@@ -426,15 +427,15 @@ Description:
 
   This is an inherent tokenizer limitation and is not directly fixable without
   a complete rewrite using RSyntaxTextArea's multi-state token type system
-  (encoding full context in the token type int). It is recorded here for
+  (encoding full context in the token type integer). It is recorded here for
   completeness.
 
 Workaround potential:
   Encode the top-of-stack context as part of the returned token type for the
   most common multi-line contexts (StringML, eval continuation). This is
-  already partially done for _inStringML. Extending it to the context stack
-  would require reserving token type ranges per context — feasible for the 2-3
-  most important contexts but not for the full stack.
+  already partially done for _inStringML. Extending it to the full context
+  stack would require reserving token type ranges per context — feasible for
+  the 2-3 most important contexts but not for the full stack depth.
 
 
 ================================================================================

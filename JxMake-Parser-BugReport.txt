@@ -18,52 +18,54 @@ A1. MUTATION OF TOKEN PASSED TO _setError() -- destroys caller's token object
              write directly into the fields of the token that was passed in
              (token.eStr, token.path, token.lNum, token.cNum).  The token
              parameter is not a copy -- it IS the live token object that still
-             sits in _trTokens, in the injection queues, or in the caller's local
-             variable.  Writing to it silently corrupts the token that is still
-             being processed.
+             sits in _trTokens, in the injection queues, or in the caller's
+             local variable.  Writing to it silently corrupts the token that
+             is still being processed.
 
-    Why it matters : If the error is then passed to the outer caller (which reads
-             token.eStr to check whether a token is an error), the next use of
-             that same token object will see unexpected values.  More dangerously,
-             the overload that also overwrites path/lNum/cNum can change the
-             source-location information of an unrelated token that is stored in
-             _trTokens, producing misleading error messages pointing to wrong
-             file/line positions.
+    Why it matters : If the error is then passed to the outer caller (which
+             reads token.eStr to check whether a token is an error), the next
+             use of that same token object will see unexpected values.  More
+             dangerously, the overload that also overwrites path/lNum/cNum can
+             change the source-location information of an unrelated token that
+             is stored in _trTokens, producing misleading error messages
+             pointing to wrong file/line positions.
 
-    Fix    : Do not mutate the incoming token.  Instead, assign _errorToken to a
-             NEW Token that is a copy of the incoming token with the error fields
-             filled in:
+    Fix    : Do not mutate the incoming token.  Instead, assign _errorToken to
+             a NEW Token that is a copy of the incoming token with the error
+             fields filled in:
 
                _errorToken = new TokenReader.Token(token);   // copy constructor
                _errorToken.eStr = XCom.errorString(errMsg, args);
 
              The no-message overload (_setError(token)) can assign _errorToken
-             directly to the token (read-only use) because it does not mutate it
-             -- that overload is already safe.
+             directly to the token (read-only use) because it does not mutate
+             it -- that overload is already safe.
 
 ------------------------------------------------------------------------
 
-A2. _curFOptParam INITIALISED TO "true" -- prevents any required parameter in
-    the first function definition parsed
+A2. _curFOptParam INITIALISED TO "true" -- fragile default allows a required
+    parameter after an optional one to pass silently if reset is skipped
     File   : XBBuilder.java
     Field  : private boolean _curFOptParam = true;
 
     What   : The field is declared with the default value 'true'.  It is
              correctly reset to 'false' inside the FuncDef_Name case when the
              function name is stored and the '(' is about to be processed.
-             However, because it is initialised to 'true' at field level, if the
-             reset code path is somehow bypassed (e.g., future refactoring), the
-             very first required parameter would be incorrectly accepted as a
-             sequence-violation because the guard checks
-             "if (_curFOptParam && !curIsOpt) => error".
+             However, because it is initialised to 'true' at field level, if
+             the reset code path is somehow bypassed (e.g., future refactoring),
+             the very first required parameter after a function definition would
+             be incorrectly accepted.  The guard checks:
+                 "if (_curFOptParam && !curIsOpt) => error"
+             With the default 'true', a required parameter in the first function
+             parsed would falsely appear to follow an optional one, causing the
+             parser to raise a spurious ordering-violation error.
 
-    Why it matters : Currently masked by the reset in FuncDef_Name, but fragile.
-             If the initializer were ever relied upon (before FuncDef_Name resets
-             it), the parser would allow a required parameter after an optional
-             one without raising an error.
+    Why it matters : Currently masked by the reset in FuncDef_Name, but
+             fragile.  The initializer is semantically wrong ("no optional
+             parameter seen yet" should be 'false').
 
-    Fix    : Initialise to 'false' at the declaration site to match the intended
-             "no optional parameter seen yet" semantic:
+    Fix    : Initialise to 'false' at the declaration site to match the
+             intended semantic:
 
                private boolean _curFOptParam = false;
 
@@ -86,14 +88,15 @@ A3. _readLine() SILENTLY DROPS ACCUMULATED CONTENT WHEN AN EMPTY PHYSICAL LINE
 
              Additionally, when an empty line is skipped _cntLNum is incremented
              but cntCombLine is NOT incremented.  If continuations then resume,
-             _curLNum = _cntLNum - cntCombLine is calculated without counting the
-             skipped blank line, yielding an off-by-one line number for the
-             logical line.
+             _curLNum = _cntLNum - cntCombLine is calculated without accounting
+             for the skipped blank line, yielding an off-by-one line number for
+             the logical line.
 
-    Fix    : Either (a) treat an empty physical line as a hard terminator of any
-             in-progress continuation sequence (most conservative), or (b) also
-             increment cntCombLine when skipping blank lines inside a continuation
-             sequence, so the line-number arithmetic remains correct:
+    Fix    : Either (a) treat an empty physical line as a hard terminator of
+             any in-progress continuation sequence (most conservative), or
+             (b) also increment cntCombLine when skipping blank lines inside
+             a continuation sequence, so the line-number arithmetic stays
+             correct:
 
                if (line.length() == 0) {
                    if (_lineStr.length() > 0) ++cntCombLine; // blank inside continuation
@@ -103,25 +106,25 @@ A3. _readLine() SILENTLY DROPS ACCUMULATED CONTENT WHEN AN EMPTY PHYSICAL LINE
 ------------------------------------------------------------------------
 
 A4. DOUBLE STRAY SEMICOLON PRODUCES TWO CONSECUTIVE EOL TOKENS -- parser then
-    sees two statement separators and may emit a misleading "premature EOL" error
-    instead of a more specific one
+    sees two statement separators and may emit a misleading "premature EOL"
+    error instead of a more specific one
     File   : TokenReader.java
     Method : readToken() -- the ';' handling block
 
     What   : When ';' is encountered and tStr is already non-empty, the code
              stores a new EOL token into _injectedTokens and breaks, so the
-             current token is returned first, then the injected EOL follows.
-             But when ';' is encountered with an EMPTY tStr (the first thing on a
-             logical position), it returns an EOL token immediately WITHOUT
-             checking whether _gotNewL is already true (the deduplication flag
-             for consecutive newlines that is checked later in the same method).
-             The result is that ";;" or ";\n" can produce two consecutive EOL
-             tokens, which the parser in XBBuilder then sees as two statement
-             boundaries.  The parser's Begin state treats a lone EOL as a
-             premature-EOL only if _trTokens is non-empty, but the second EOL
-             hits Begin with _trTokens empty, which is silently swallowed.
-             This is a minor behavioural inconsistency rather than a crash, but
-             the ';' fast-return path bypasses the _gotNewL deduplication.
+             current token is returned first and the injected EOL follows.
+             But when ';' is encountered with an EMPTY tStr (the first thing
+             at a logical position), it returns an EOL token immediately
+             WITHOUT checking whether _gotNewL is already true (the
+             deduplication flag for consecutive newlines that is checked later
+             in the same method).  The result is that ";;" or ";\n" can produce
+             two consecutive EOL tokens.  The parser's Begin state treats a
+             lone EOL as "premature EOL" only if _trTokens is non-empty; the
+             second EOL hits Begin with _trTokens empty and is silently
+             swallowed.  This is a minor behavioural inconsistency rather than
+             a crash, but the ';' fast-return path bypasses the _gotNewL
+             deduplication.
 
     Fix    : Before the early return of the nlToken for the empty-tStr case,
              check and set _gotNewL the same way the regular newline path does:
@@ -144,20 +147,20 @@ B1. DUPLICATE MULTILINE-COMMENT COUNTER -- _cntMLComment EXISTS IN BOTH
              XBBuilder.java   (field _cntMLComment)
 
     What   : TokenReader tracks multiline-comment depth internally (used to
-             suppress token classification inside comments) and also updates the
-             counter in the readToken() return path.  XBBuilder has its own
-             independent _cntMLComment and increments/decrements it in
+             suppress token classification inside comments) and also updates
+             the counter in the readToken() return path.  XBBuilder has its
+             own independent _cntMLComment and increments/decrements it in
              processToken() upon seeing "(*" / "*)".  These two counters are
-             updated in separate code paths and must always agree; any divergence
-             would cause one side to think it is inside a comment when the other
-             does not.
+             updated in separate code paths and must always agree; any
+             divergence would cause one side to think it is inside a comment
+             when the other does not.
 
     Cleanup: Expose a getter on TokenReader (or remove the XBBuilder tracking
-             entirely and query the reader's counter through SpecReader) so there
-             is a single source of truth.  The XBBuilder counter is redundant:
-             it is only used to implement inMLComment() which gates the parser
-             body, but the tokens that arrive at processToken() already have the
-             comment tokens filtered or labelled by TokenReader.
+             entirely and query the reader's counter through SpecReader) so
+             there is a single source of truth.  The XBBuilder counter is
+             redundant: it is only used to implement inMLComment() which gates
+             the parser body, but the tokens arriving at processToken() already
+             have comment tokens filtered or labelled by TokenReader.
 
 ------------------------------------------------------------------------
 
@@ -165,12 +168,13 @@ B2. Token.equals() USES REFERENCE EQUALITY (==) FOR STRING FIELDS
     File   : TokenReader.java
     Method : Token.equals(Token)
 
-    What   : The implementation compares tStr, tRX1, tRX2 with '==' instead of
-             .equals().  This works only by coincidence when the strings are
-             interned (literals) or the same object.  For strings produced by
-             concatenation or read from a stream (e.g., loadFromStream), == will
-             return false even for equal content.  The method is used in
-             XBBuilder.addMacroDefs() to detect duplicate macro bodies.
+    What   : The implementation compares tStr, tRX1, tRX2 with '==' instead
+             of .equals().  This works only by coincidence when the strings are
+             interned (string literals) or happen to be the same object.  For
+             strings produced by concatenation or read from a stream (e.g.,
+             loadFromStream), == will return false even for equal content.  The
+             method is used in XBBuilder.addMacroDefs() to detect duplicate
+             macro bodies.
 
     Cleanup: Replace == with .equals() for all String fields in Token.equals():
 
@@ -187,21 +191,23 @@ B3. _readRawLine() IS DEFINED BUT APPARENTLY NEVER CALLED FROM WITHIN
 
     What   : _readRawLine() increments _cntLNum and returns the raw line.
              _readLine() does NOT call _readRawLine(); it calls _bfr.readLine()
-             directly and increments _cntLNum inline.  _readRawLine() appears to
-             be dead code or a leftover from an earlier refactor.
+             directly and increments _cntLNum inline.  _readRawLine() appears
+             to be dead code or a leftover from an earlier refactor.
 
-    Cleanup: Either (a) refactor _readLine() to call _readRawLine() for the
-             actual read (eliminating the duplicated _cntLNum++ in _readLine()),
-             or (b) remove _readRawLine() if it has no other callers.
+    Cleanup: Either (a) refactor _readLine() to delegate the actual read to
+             _readRawLine() (eliminating the duplicated _cntLNum++ in
+             _readLine()), or (b) remove _readRawLine() if it has no other
+             callers.
 
 ------------------------------------------------------------------------
 
 B4. TYPO IN COMMENT: "Check form empty string"
     File   : TokenReader.java
-    Method : readToken() -- inner token-building loop, near the empty-token check
+    Method : readToken() -- inner token-building loop, near the empty-token
+             check
 
-    What   : The comment reads "// Check form empty string" -- 'form' should be
-             'for'.
+    What   : The comment reads "// Check form empty string" -- 'form' should
+             be 'for'.
 
     Cleanup: Change to "// Check for empty string".
 
@@ -212,29 +218,30 @@ B5. COMMENTED-OUT / DEAD CODE BLOCKS LEFT IN PRODUCTION CODE
     Method : _resetTemporaryVarNameCounter() and surrounding area
 
     What   : There are several large commented-out code blocks (delimited by
-             /*   //*/  style toggles) that include old diagnostic logic,
+             '/*' ... '//*/' style toggles) that include old diagnostic logic,
              unused variables (_lastProcessedToken), and an entire alternative
              implementation guarded by the toggle.  These lower readability and
              carry a maintenance risk (the commented code goes stale and may
              mislead future readers).
 
     Cleanup: Remove the dead blocks entirely.  If the diagnostic code is wanted
-             during development, move it behind a proper debug flag or a logging
-             facility.
+             during development, move it behind a proper debug flag or a
+             logging facility.
 
 ------------------------------------------------------------------------
 
 B6. _setError OVERLOADS THAT OVERRIDE path/lNum/cNum ON THE ERROR TOKEN ARE
-    CONFUSINGLY NAMED AND DOCUMENTED
+    CONFUSINGLY NAMED
     File   : XBBuilder.java
     Method : _setError(Token token, Token tokenPLCRef, String errMsg, Object...)
              _setErrorExt(Token, Token, ...)
 
     What   : The second Token parameter (tokenPLCRef) is used to overwrite the
-             source-location fields of the error token.  The name "PLC" (place-
-             holder?) is not explained anywhere.  The intent -- "report this error
-             at a different source position than the token itself" -- is valid but
-             the naming makes the code hard to read.
+             source-location fields of the error token.  The name "PLC" is not
+             explained anywhere; the abbreviation is cryptic (placeholder?
+             place?).  The intent -- "report this error at a different source
+             position than the token itself" -- is valid but the naming makes
+             the code hard to read.
 
     Cleanup: Rename the parameter and add a one-line comment explaining the
              intent:
@@ -250,19 +257,18 @@ B7. VarAssign_AT STATE DOES NOT VALIDATE THAT _trTokens IS NON-EMPTY BEFORE
     File   : XBBuilder.java
     Method : processToken() -- case VarAssign_AT
 
-    What   : When an EOL is received in state VarAssign_AT, the code immediately
-             calls _trTokens.get(rhsSIdx) where rhsSIdx starts at 0, without
-             first checking that _trTokens is non-empty.  In practice the parser
-             should never reach VarAssign_AT with an empty list because a token
-             must have been stored to cause the state transition, but the code
-             path is not guarded and will throw an unchecked
-             IndexOutOfBoundsException if the invariant is ever violated.
+    What   : When an EOL is received in state VarAssign_AT, the code
+             immediately calls _trTokens.get(rhsSIdx) where rhsSIdx starts at
+             0, without first checking that _trTokens is non-empty.  In
+             practice the parser should never reach VarAssign_AT with an empty
+             list because a token must have been stored to cause the state
+             transition, but the code path is not guarded and will throw an
+             unchecked IndexOutOfBoundsException if that invariant is ever
+             violated.
 
-    Cleanup: Add a defensive check:
+    Cleanup: Add a defensive check before the rhsSIdx accesses:
 
                if (_trTokens.isEmpty()) return _setError(token, Texts.EMsg_PrematureEOL);
-
-             before the rhsSIdx accesses.
 
 ------------------------------------------------------------------------
 
@@ -272,50 +278,35 @@ B8. INCONSISTENT STATE TRANSITION AFTER VarUnset/VarDeprecate -- uses Begin
     Method : processToken() -- case VarUnset / VarDeprecate
 
     What   : After successfully processing an 'unset' or 'deprecate' statement,
-             the state is set to State.Begin rather than State.ClearBegin (which
-             is the normal post-statement state used everywhere else).  This means
-             _trTokens is NOT cleared before processing the next statement.
-             Because VarUnset/VarDeprecate consumed all tokens from _trTokens via
-             tokPopFirst/strPopFirst and verified the list is empty before
-             completing, _trTokens will indeed be empty when the next Begin fires,
-             so this does not currently cause a functional bug.  But it is
-             inconsistent and fragile: if any future code path exits the state
-             early (e.g., after adding a warning without consuming all tokens),
-             leftover tokens would contaminate the next statement.
+             the state is set to State.Begin rather than State.ClearBegin (the
+             normal post-statement state used everywhere else).  This means
+             _trTokens is NOT explicitly cleared before processing the next
+             statement.
 
-    Cleanup: Change the final state assignment to State.ClearBegin to match the
-             convention used by every other statement handler.
+             In practice this is harmless: VarUnset/VarDeprecate consume all
+             tokens from _trTokens via tokPopFirst/strPopFirst and verify the
+             list is empty before completing, so _trTokens will be empty when
+             the next Begin fires.  The inconsistency is purely a code-clarity
+             and maintenance issue -- a future reader may miss why Begin is used
+             instead of ClearBegin and introduce a regression.
 
-------------------------------------------------------------------------
+    Cleanup: Change State.Begin to State.ClearBegin after VarUnset/VarDeprecate
+             to make the intent explicit and consistent with all other statement
+             completions.
 
-B9. MAGIC SENTINEL STRING "<__BY__>" USED AS ENUM SUBSTITUTE IN _curFDefDepre
+
+--------------------------------------------------------------------------------
+SECTION C -- PENDING / UNCERTAIN ITEMS
+--------------------------------------------------------------------------------
+
+C1. XBBuilder._buildMacroDefList() -- POSSIBLE DEAD METHOD
     File   : XBBuilder.java
-    Field  : _curFDefDepre (String)
+    Method : _buildMacroDefList()
 
-    What   : The field is used as a three-state value: null = "not deprecated",
-             "<__BY__>" = "deprecated, awaiting replacement name",
-             any other string = "deprecated by <name>".  Using a magic string as
-             a sentinel is fragile (it could theoretically collide with a real
-             function name, though unlikely given the angle brackets) and makes
-             the code intent opaque.
-
-    Cleanup: Replace with a small private enum or two separate fields:
-               private boolean _curFDefDepreFlag = false;
-               private String  _curFDefDepreName = null; // null = no "by" clause yet / not deprecated
-
---------------------------------------------------------------------------------
-SECTION C -- PENDING ITEMS (uncertain / need runtime context to confirm)
---------------------------------------------------------------------------------
-
-C1. injectToken_Colon() IS DEFINED BUT MAY HAVE NO CALLERS
-    File   : TokenReader.java / SpecReader.java
-    Method : injectToken_Colon()
-
-    What   : injectToken_Colon() exists on both TokenReader and SpecReader, and
-             the method is forwarded through SpecReader to the active TokenReader.
-             It is not visibly called anywhere in XBBuilder or SpecReader in the
-             code accessible for this review.  If it truly has no callers it is
-             dead code.
+    What   : This method appears to build a list of macro definitions but its
+             call sites are not visible from a static reading of the class.
+             It may be called via reflection, via a subclass, or it may be
+             dead code left from an earlier design.
 
     Pending: Confirm by searching all call sites.  If unused, remove.
 
@@ -329,9 +320,9 @@ C2. _tmpVarCnt IS RESET TWICE IN _resetTemporaryVarNameCounter()
                _tmpVarCnt = 0;   // inside the live path
                ...
                _tmpVarCnt = 0;   // unconditional assignment at the end
-             (The second one is outside the commented-out block.)  The second
-             assignment is redundant if all paths through the live code already
-             set _tmpVarCnt = 0.
+             (The second assignment is outside the commented-out block.)  The
+             second assignment is redundant if all paths through the live code
+             already set _tmpVarCnt = 0.
 
     Pending: Verify control flow to confirm the second assignment is always
              redundant and remove it if so.
@@ -342,17 +333,18 @@ C3. EMPTY-LINE HANDLING MAY SILENTLY LOSE A FINAL CONTINUATION LINE AT EOF
     File   : TokenReader.java
     Method : _readLine()
 
-    What   : If the file ends with a '\'-terminated line (i.e., the last physical
-             line ends with '\'), the loop reads it, appends to _lineStr, and then
-             calls _bfr.readLine() which returns null, causing the loop to break.
-             _lineStr is non-empty at that point, so _clear() is NOT called and
-             the partial accumulated line is returned as a valid logical line
-             without the expected continuation content.  This would produce a
-             subtly wrong parse rather than a clean "premature EOL" error.
+    What   : If the file ends with a '\'-terminated line (i.e., the last
+             physical line ends with '\'), the loop reads it, appends to
+             _lineStr, and then calls _bfr.readLine() which returns null,
+             causing the loop to break.  _lineStr is non-empty at that point,
+             so _clear() is NOT called and the partial accumulated line is
+             returned as a valid logical line without the expected continuation
+             content.  This produces a subtly wrong parse rather than a clean
+             "premature EOL" error.
 
-    Pending: Confirm expected behaviour for a file ending with '\'.  If it should
-             be an error, add a check: if _lineStr is non-empty after the loop
-             exits via null, flag it as an incomplete continuation.
+    Pending: Confirm expected behaviour for a file ending with '\'.  If it
+             should be an error, add a check: if _lineStr is non-empty after
+             the loop exits via null, flag it as an incomplete continuation.
 
 ================================================================================
 END OF REPORT

@@ -2,6 +2,16 @@
  ********** This is a multiline comment **********
  *************************************************)
 
+$printf("%s %d\n", \
+abc, 123 \
+\
+)
+
+$printf("%s %d\n", \
+\
+abc, 123 \
+)
+
 
 (*
 :::pragma jxmake_compile_minimum_version 0.9.9

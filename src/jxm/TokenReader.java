@@ -271,7 +271,7 @@ public class TokenReader {
 
     private String _readRawLine() throws IOException
     {
-        final String line = _bfr.readLine();
+        final String line = _bfr.readLine(); // NOTE : Do not use 'StringBuilder' here because the chance of '\\' appearing would be quite rare
 
         if(line == null) return null;
 
@@ -292,12 +292,23 @@ public class TokenReader {
         while(true) {
 
             // Read one line
-            final String line = _bfr.readLine(); // NOTE : Do not use 'StringBuilder' here because the chance of '\\' appearing would be quite rare
+            final String line = _readRawLine();
             if(line == null) break;
-            ++_cntLNum;
+
+         //   // Check if the line is empty
+      //      if( line.length() == 0 ) continue;
 
             // Check if the line is empty
-            if( line.length() == 0 ) continue;
+            if( line.length() == 0 ) {
+                // A blank line terminates any in-progress continuation sequence
+                if( _lineStr.length() > 0 ) {
+                    // Treat accumulated content as a complete (erroneous) logical line
+                    _curLNum    = _cntLNum - cntCombLine;
+                    cntCombLine = 0;
+                    break;
+                }
+                continue;
+            }
 
             // Check if the last character is the line continuation character
             if( line.charAt( line.length() - 1 ) == '\\' ) {

@@ -40,6 +40,7 @@ A1. MUTATION OF TOKEN PASSED TO _setError() -- destroys caller's token object
              The no-message overload (_setError(token)) can assign _errorToken
              directly to the token (read-only use) because it does not mutate
              it -- that overload is already safe.
+[DONE]
 
 ------------------------------------------------------------------------
 
@@ -68,6 +69,7 @@ A2. _curFOptParam INITIALISED TO "true" -- fragile default allows a required
              intended semantic:
 
                private boolean _curFOptParam = false;
+[DONE]
 
 ------------------------------------------------------------------------
 
@@ -102,6 +104,7 @@ A3. _readLine() SILENTLY DROPS ACCUMULATED CONTENT WHEN AN EMPTY PHYSICAL LINE
                    if (_lineStr.length() > 0) ++cntCombLine; // blank inside continuation
                    continue;
                }
+[DONE?]
 
 ------------------------------------------------------------------------
 
@@ -198,6 +201,7 @@ B3. _readRawLine() IS DEFINED BUT APPARENTLY NEVER CALLED FROM WITHIN
              _readRawLine() (eliminating the duplicated _cntLNum++ in
              _readLine()), or (b) remove _readRawLine() if it has no other
              callers.
+[DONE]
 
 ------------------------------------------------------------------------
 

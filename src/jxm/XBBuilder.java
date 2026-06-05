@@ -93,7 +93,7 @@ public class XBBuilder {
     private boolean           _curFDefSuper = false;
     private String            _curFDefDepre = null;
     private boolean           _curFDefComma = false;
-    private boolean           _curFOptParam = true;
+    private boolean           _curFOptParam = false;
 
     private TokenReader.Token _curTDefToken = null;
 
@@ -192,7 +192,7 @@ public class XBBuilder {
 
     protected boolean _setError(final TokenReader.Token token, final String errMsg, final Object... args)
     {
-        _errorToken      = token;
+        _errorToken      = new TokenReader.Token(token);
         _errorToken.eStr = XCom.errorString(errMsg, args);
 
         return false;
@@ -200,7 +200,7 @@ public class XBBuilder {
 
     protected boolean _setError(final TokenReader.Token token, final TokenReader.Token tokenPLCRef, final String errMsg, final Object... args)
     {
-        _errorToken      = token;
+        _errorToken      = new TokenReader.Token(token);
         _errorToken.path = tokenPLCRef.path;
         _errorToken.lNum = tokenPLCRef.lNum;
         _errorToken.cNum = tokenPLCRef.cNum;
@@ -211,7 +211,7 @@ public class XBBuilder {
 
     protected boolean _setErrorExt(final TokenReader.Token token, final String errMsg1, final String errMsg2, final Object... args)
     {
-        _errorToken      = token;
+        _errorToken      = new TokenReader.Token(token);
         _errorToken.eStr = XCom.errorString( token.tStr.isEmpty() ? errMsg1 : errMsg2, args );
 
         return false;
@@ -219,7 +219,7 @@ public class XBBuilder {
 
     protected boolean _setErrorExt(final TokenReader.Token token, final TokenReader.Token tokenPLCRef, final String errMsg1, final String errMsg2, final Object... args)
     {
-        _errorToken      = token;
+        _errorToken      = new TokenReader.Token(token);
         _errorToken.path = tokenPLCRef.path;
         _errorToken.lNum = tokenPLCRef.lNum;
         _errorToken.cNum = tokenPLCRef.cNum;

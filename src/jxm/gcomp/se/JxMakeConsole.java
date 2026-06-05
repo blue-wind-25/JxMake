@@ -3019,7 +3019,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
             final String strExclusionCount = reader.readLine();
             if(strExclusionCount == null) return sevs;
 
-            final int             exclusionCount = Integer.valueOf(strExclusionCount);
+            final int             exclusionCount = Integer.parseInt(strExclusionCount);
             final HashSet<String> exclusionName  = new HashSet<>();
 
             for(int i = 0; i < exclusionCount; ++i) {
@@ -3043,7 +3043,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
             final String strUsrCount = reader.readLine();
             if(strUsrCount == null) return sevs;
 
-            final int usrCount = Integer.valueOf(strUsrCount);
+            final int usrCount = Integer.parseInt(strUsrCount);
 
             for(int i = 0; i < usrCount; ++i) {
 
@@ -3053,7 +3053,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
 
                 sevs.usrTable.put(
                     strKey,
-                    new JKeyValueTable.State( ( Integer.valueOf(strChk) != 0 ), XCom.unescapeNewLine(strVal) )
+                    new JKeyValueTable.State( ( Integer.parseInt(strChk) != 0 ), XCom.unescapeNewLine(strVal) )
                 );
 
             } // for
@@ -3069,7 +3069,7 @@ class JxMakeConsole extends ANSIScreenBuffer {
             final String strEffCount = reader.readLine();
             if(strEffCount == null) return sevs;
 
-            final int effCount = Integer.valueOf(strEffCount);
+            final int effCount = Integer.parseInt(strEffCount);
 
             for(int i = 0; i < effCount; ++i) {
 

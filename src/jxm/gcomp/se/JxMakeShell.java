@@ -10,9 +10,13 @@ package jxm.gcomp.se;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -81,7 +85,8 @@ public class JxMakeShell {
     private void _saveAllAliases()
     {
         try(
-            final BufferedWriter bw = new BufferedWriter( new FileWriter( JxMakeRootPane.getPath_consoleAlias() ) )
+          //final BufferedWriter bw = new BufferedWriter( new FileWriter( JxMakeRootPane.getPath_consoleAlias() ) )
+            final BufferedWriter bw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream( JxMakeRootPane.getPath_consoleAlias() ), SysUtil._CharSet ) )
         ) {
 
             for(final Map.Entry< String, ArrayList<String> > entry : _aliasMap.entrySet() ) {
@@ -111,7 +116,8 @@ public class JxMakeShell {
         _aliasMap.clear(); // reset before loading
 
         try (
-            final BufferedReader br = new BufferedReader( new FileReader(JxMakeRootPane.getPath_consoleAlias() ) )
+          //final BufferedReader br = new BufferedReader( new FileReader( JxMakeRootPane.getPath_consoleAlias() ) )
+            final BufferedReader br = new BufferedReader( new InputStreamReader( new FileInputStream( JxMakeRootPane.getPath_consoleAlias() ), SysUtil._CharSet ) )
         ) {
 
             String            currentKey    = null;

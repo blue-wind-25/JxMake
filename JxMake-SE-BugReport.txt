@@ -152,6 +152,7 @@ Why it matters:
 
 Fix:
   Replace Integer.valueOf(str) with Integer.parseInt(str) at both call sites.
+[DONE]
 
 
 [BUG-5] JxMakeShell file I/O uses platform-default charset
@@ -178,6 +179,7 @@ Fix:
   in _saveTextFile_impl() / _loadTextFile_impl() (FileWriter/FileReader),
   although for JxMake script files the user's intent may be to use the system
   encoding. The alias and command-history files should definitely be UTF-8.
+[DONE]
 
 
 [CLEANUP-1] JxMakeRootPane._instance is a non-volatile mutable static

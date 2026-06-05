@@ -46,11 +46,11 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 import java.lang.reflect.Field;
 
@@ -293,7 +293,8 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
         public void save()
         {
             try(
-                final FileWriter writer = new FileWriter( _getPath_scriptEditorState() )
+              //final FileWriter writer = new FileWriter( _getPath_scriptEditorState() )
+                final OutputStreamWriter writer = new OutputStreamWriter( new FileOutputStream( _getPath_scriptEditorState() ), SysUtil._CharSet )
             ) {
                 writer.write( SerializableDeepClone.toJSON(this) );
             }
@@ -306,7 +307,7 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
         public static Config load()
         {
             try {
-                final String content = new String( Files.readAllBytes( Paths.get( _getPath_scriptEditorState() ) ) );
+                final String content = new String( Files.readAllBytes( Paths.get( _getPath_scriptEditorState() ) ), SysUtil._CharSet );
                 final Config inst    = SerializableDeepClone.fromJSON(content, Config.class);
                 if(inst != null) return inst;
             }
@@ -2449,7 +2450,8 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
 
         // Otherwise, load the file
         else {
-            final BufferedReader br = new BufferedReader( new FileReader(absFullFilePath) );
+          //final BufferedReader br = new BufferedReader( new FileReader(absFullFilePath) );
+            final BufferedReader br = new BufferedReader( new InputStreamReader( new FileInputStream(absFullFilePath), SysUtil._CharSet ) );
             _textArea.read(br, null);
             br.close();
         }
@@ -2473,7 +2475,8 @@ public class JxMakeRootPane extends JRootPane implements SearchListener {
 
     private void _saveTextFile_impl(final String absFullFilePath, final String text) throws IOException
     {
-        final BufferedWriter bw = new BufferedWriter( new FileWriter(absFullFilePath) );
+      //final BufferedWriter bw = new BufferedWriter( new FileWriter(absFullFilePath) );
+        final BufferedWriter bw = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(absFullFilePath), SysUtil._CharSet ) );
 
         bw.write( XCom.re_removeAllTrailingSpaces(text) );
 

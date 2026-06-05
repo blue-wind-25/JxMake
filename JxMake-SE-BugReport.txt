@@ -47,6 +47,7 @@ Fix:
   normally. Care must be taken to avoid scheduling multiple pending timers if
   writes continue to arrive during the delay; keeping _rbPending set until
   the scheduled call fires is sufficient.
+[DONE]
 
 
 [BUG-2] _blinkMap holds stale document offsets after scroll

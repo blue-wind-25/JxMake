@@ -84,6 +84,8 @@ import java.util.Set;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -491,8 +493,9 @@ class JxMakeConsole extends ANSIScreenBuffer {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private final AtomicBoolean _rbPending = new AtomicBoolean(false);
-    private final AtomicLong    _rbLastRun = new AtomicLong(0);
+    private final AtomicBoolean            _rbPending   = new AtomicBoolean(false);
+    private final AtomicLong               _rbLastRun   = new AtomicLong(0);
+    private final ScheduledExecutorService _rbScheduler = Executors.newSingleThreadScheduledExecutor();
 
     private synchronized void _renderBuffer_impl()
     {
@@ -516,16 +519,32 @@ class JxMakeConsole extends ANSIScreenBuffer {
     @Override
     protected synchronized void _renderBuffer()
     {
-        // Do not proceed if the request is already scheduled
+        // Do not proceed if a render is already scheduled or running
         if( !_rbPending.compareAndSet(false, true) ) {
             return;
         }
 
-        // Ensure the request is not called more than once every 50mS
+        // # Ensure the render is not called more than once every 50 ms.
+        // # If the cooldown has not elapsed, reschedule instead of dropping the render - this guarantees the
+        //   last dirty frame is always flushed.
         final long now = SysUtil.getMS();
 
+        /*
         if( now - _rbLastRun.get() < 50 ) {
             _rbPending.set(false);
+            return;
+        }
+        */
+
+        if( now - _rbLastRun.get() < 50 ) {
+            final long delay = 50 - ( now - _rbLastRun.get() );
+            _rbScheduler.schedule( () -> {
+                    // Reset the pending flag so the re-entrant call is allowed through the compareAndSet guard at
+                    // the top of '_renderBuffer()'
+                    _rbPending.set(false);
+                    SwingUtilities.invokeLater(this::_renderBuffer);
+                }, delay, TimeUnit.MILLISECONDS
+            );
             return;
         }
 

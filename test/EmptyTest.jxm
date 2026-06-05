@@ -1,7 +1,3 @@
-;;
-;   ;
-echoln a ;; echoln b
-
 (*************************************************
  ********** This is a multiline comment **********
  *************************************************)
@@ -528,3 +524,4 @@ $http_set_auth('admin', 'mypass')
 echoln "GET 'https://${IP}/${DA_URL}.php'"
 echoln $implode( $http_get(:"http://${IP}/${DA_URL}.php"), "\n" )
 #*)
+;

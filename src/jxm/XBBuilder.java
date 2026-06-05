@@ -2036,6 +2036,8 @@ public class XBBuilder {
                     // Set flag
                     check_inOneLineIf = true;
                     // Change state
+                    //     _trTokens is already empty here (fully consumed above), so 'Begin' is equivalent to 'ClearBegin';
+                    //     no need to transition via ClearBegin
                     _state = State.Begin;
                     break;
                 }

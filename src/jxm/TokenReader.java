@@ -323,6 +323,7 @@ public class TokenReader {
 
         } // while true
 
+
         // If the line string length is zero, it means the file has reached EOF
         if( _lineStr.length() == 0 ) _clear();
     }

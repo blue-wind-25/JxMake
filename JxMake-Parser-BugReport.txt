@@ -279,6 +279,7 @@ B7. VarAssign_AT STATE DOES NOT VALIDATE THAT _trTokens IS NON-EMPTY BEFORE
     Cleanup: Add a defensive check before the rhsSIdx accesses:
 
                if (_trTokens.isEmpty()) return _setError(token, Texts.EMsg_PrematureEOL);
+[NOT A BUG]
 
 ------------------------------------------------------------------------
 
@@ -303,6 +304,7 @@ B8. INCONSISTENT STATE TRANSITION AFTER VarUnset/VarDeprecate -- uses Begin
     Cleanup: Change State.Begin to State.ClearBegin after VarUnset/VarDeprecate
              to make the intent explicit and consistent with all other statement
              completions.
+[NOT A BUG]
 
 
 --------------------------------------------------------------------------------
@@ -319,6 +321,7 @@ C1. XBBuilder._buildMacroDefList() -- POSSIBLE DEAD METHOD
              dead code left from an earlier design.
 
     Pending: Confirm by searching all call sites.  If unused, remove.
+[NOT APPLICABLE]
 
 ------------------------------------------------------------------------
 
@@ -336,6 +339,7 @@ C2. _tmpVarCnt IS RESET TWICE IN _resetTemporaryVarNameCounter()
 
     Pending: Verify control flow to confirm the second assignment is always
              redundant and remove it if so.
+[NOT APPLICABLE]
 
 ------------------------------------------------------------------------
 
@@ -355,6 +359,7 @@ C3. EMPTY-LINE HANDLING MAY SILENTLY LOSE A FINAL CONTINUATION LINE AT EOF
     Pending: Confirm expected behaviour for a file ending with '\'.  If it
              should be an error, add a check: if _lineStr is non-empty after
              the loop exits via null, flag it as an incomplete continuation.
+[NOT APPLICABLE]
 
 ================================================================================
 END OF REPORT

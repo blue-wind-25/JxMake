@@ -66,7 +66,6 @@ public class TokenReader {
 
         public Token(final String path_, final int lNum_, final int cNum_, final String tStr_, final String tRX1_, final String tRX2_, final String eStr_, final boolean fPSP_)
         {
-
             path = path_;
             lNum = lNum_;
             cNum = cNum_;
@@ -115,15 +114,15 @@ public class TokenReader {
 
         public boolean equals(final Token token)
         {
-            return (path == token.path) &&
-                   (lNum == token.lNum) &&
-                   (cNum == token.cNum) &&
-                   (tStr == token.tStr) &&
-                   (tRX1 == token.tRX1) &&
-                   (tRX2 == token.tRX2) &&
-                   (mDQP == token.mDQP) &&
-                   (cFCS == token.cFCS) &&
-                   (fPSP == token.fPSP);
+            return ( path == token.path || path.equals(token.path) ) &&
+                   ( lNum == token.lNum                            ) &&
+                   ( cNum == token.cNum                            ) &&
+                   ( tStr == token.tStr || tStr.equals(token.tStr) ) &&
+                   ( tRX1 == token.tRX1 || tRX1.equals(token.tRX1) ) &&
+                   ( tRX2 == token.tRX2 || tRX2.equals(token.tRX2) ) &&
+                   ( mDQP == token.mDQP                            ) &&
+                   ( cFCS == token.cFCS                            ) &&
+                   ( fPSP == token.fPSP                            );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -836,7 +835,7 @@ public class TokenReader {
                 _curCNum -= 2;
             }
 
-            // Check form empty string
+            // Check for empty string
             if( tStr.length() == 0 ) {
                 _lineStr = null;
                 _gotLCmt = false; // Reset the flag

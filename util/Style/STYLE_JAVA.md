@@ -12,11 +12,11 @@ Omit `void` — use empty parens: `void foo()`
 
 ## 2. Function / Method Brace Style
 
-Java conventionally places `{` on the same line as the signature (K&R style).
-This style is preserved — do **not** apply Allman style from STYLE_C_CPP.md here.
+Function definitions always use **Allman style** — opening `{` on its own line
 
 ```java
-void process() {
+void process()
+{
     doSomething();
     doMore();
 }

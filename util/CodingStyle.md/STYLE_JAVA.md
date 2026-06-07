@@ -78,9 +78,9 @@ Applies to methods inside `class`, `interface`, `enum` bodies.
 Same rules as STYLE.md §12.
 
 ```java
-public void setX(int x)  { _x = x;       }
-public int  getX(      ) { return _x;     }
-public bool isValid(   ) { return _x > 0; }
+public void setX   (int x) { _x = x;        }
+public int  getX   (     ) { return _x;     }
+public bool isValid(     ) { return _x > 0; }
 ```
 
 Alignment spans access modifier, return type, method name, parameters, body, and `}`.
@@ -99,7 +99,7 @@ Same rules as STYLE.md §7, applied to Java constructs:
 
 Anonymous classes — no label:
 ```java
-}
+} // class
 ```
 
 ---

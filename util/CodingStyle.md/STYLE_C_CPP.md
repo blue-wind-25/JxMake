@@ -87,12 +87,31 @@ for(int i = 0; i < n; ++i)
 
 ---
 
-## 6. Closing Comments — Additional C/C++ Cases
+## 6. Bitfields Declaration Alignment
+
+```c
+struct DeviceState {
+    static volatile uint8_t  buffer[64];
+                    uint16_t timeout;
+                    uint8_t  flags    : 4; // Status flags
+                    uint8_t  mode     : 2; // Mode bits
+                    uint8_t  reserved : 2;
+                    char     label[MAX];
+}; // struct DeviceState
+```
+
+Rules:
+- `:` are aligned after the field name.
+- `//` and `/* .. */`are aligned after the field name and array/bitfield size.
+
+---
+
+## 7. Closing Comments — Additional C/C++ Cases
 
 Namespace closing comments:
 ```cpp
 } // namespace audio
-}   // unnamed namespace — no label
+} // namespace — unnamed : no label
 ```
 
 Class and struct:
@@ -104,12 +123,12 @@ Class and struct:
 Enum:
 ```cpp
 } // enum Color
-} // enum class State   (C++)
+} // enum class State (C++)
 ```
 
 ---
 
-## 7. Unresolved / Preserve-As-Is Cases
+## 8. Unresolved / Preserve-As-Is Cases
 
 - `uint8_t* const` within a mixed declaration group: align at type column,
   treat `const` as a post-type modifier — exact column behavior is left to

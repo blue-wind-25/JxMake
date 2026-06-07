@@ -659,27 +659,32 @@ _md = (
 
 _TEMPLATE = (
     "<!DOCTYPE html>\n"
-    '<html lang="en">\n'
+    "<html lang=\"en\">\n"
     "<head>\n"
-    '<meta charset="utf-8"/>\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n'
+    "<meta charset=\"utf-8\"/>\n"
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
     "<title>{title}</title>\n"
     "<script>\n"
     "(function(){{\n"
-    "var t=localStorage.getItem('theme');\n"
-    "if(t==='dark')document.documentElement.classList.add('dark');\n"
-    "document.addEventListener('DOMContentLoaded',function(){{\n"
-    "document.querySelectorAll('.code-wrap').forEach(function(w){{\n"
-    "var ts=document.createElement('div');ts.className='code-scroll-top';\n"
-    "var si=document.createElement('div');ts.appendChild(si);\n"
-    "w.parentNode.insertBefore(ts,w);w.classList.add('has-top-scroll');\n"
-    "function upd(){{si.style.width=w.scrollWidth+'px';}}\n"
-    "upd();\n"
-    "ts.addEventListener('scroll',function(){{w.scrollLeft=ts.scrollLeft;}});\n"
-    "w.addEventListener('scroll',function(){{ts.scrollLeft=w.scrollLeft;}});\n"
-    "if(window.ResizeObserver)new ResizeObserver(upd).observe(w);\n"
-    "}});\n"
-    "}});\n"
+    "  var t = localStorage.getItem('theme');\n"
+    "  if(t === 'dark') document.documentElement.classList.add('dark');\n"
+    "  document.addEventListener('DOMContentLoaded', function(){{\n"
+    "    document.querySelectorAll('.code-wrap').forEach(function(w){{\n"
+    "      if(w.scrollWidth > w.clientWidth) {{\n"
+    "        var ts = document.createElement('div');\n"
+    "        ts.className = 'code-scroll-top';\n"
+    "        var si = document.createElement('div');\n"
+    "        ts.appendChild(si);\n"
+    "        w.parentNode.insertBefore(ts, w);\n"
+    "        w.classList.add('has-top-scroll');\n"
+    "        function upd() {{ si.style.width = w.scrollWidth + 'px'; }}\n"
+    "        upd();\n"
+    "        ts.addEventListener('scroll', function() {{ w.scrollLeft = ts.scrollLeft; }});\n"
+    "        w.addEventListener('scroll', function() {{ ts.scrollLeft = w.scrollLeft; }});\n"
+    "        if(window.ResizeObserver) new ResizeObserver(upd).observe(w);\n"
+    "      }}\n"
+    "    }});\n"
+    "  }});\n"
     "}})()\n"
     "</script>\n"
     "<style>\n"
@@ -719,11 +724,11 @@ a:hover {{ text-decoration: underline; }}
 h1, h2, h3 {{ border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }}
 img {{ max-width: 100%; height: auto; }}
 blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; color: var(--muted); }}
-.code-wrap {{ overflow-x: auto; border-radius: 6px; margin: 0.5em 0; }}
+.code-wrap {{ overflow-x: auto; border-radius: 6px; margin: 0; }}
 .code-wrap.has-top-scroll {{ border-radius: 0 0 6px 6px; }}
 .code-wrap pre {{ overflow-x: visible; }}
 .code-scroll-top {{
-  overflow-x: auto; overflow-y: hidden; height: 16px;
+  overflow-x: auto; overflow-y: hidden; height: 16px; margin-bottom: -10px;
   background: var(--code-bg); border-radius: 6px 6px 0 0;
 }}
 .code-scroll-top > div {{ height: 1px; }}

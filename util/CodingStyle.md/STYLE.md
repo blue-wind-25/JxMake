@@ -4,7 +4,7 @@ This file defines **common formatting rules** that apply across all supported la
 Language-specific rules are in separate files — read them after this one:
 
 - C and C++: see [STYLE_C_CPP.md](STYLE_C_CPP.md)
-- Java:       see [STYLE_JAVA.md](STYLE_JAVA.md)
+- Java:      see [STYLE_JAVA.md](STYLE_JAVA.md)
 
 When a language-specific rule conflicts with a common rule, the language-specific rule wins.
 
@@ -35,15 +35,16 @@ When a language-specific rule conflicts with a common rule, the language-specifi
 The decision to pad inside `()`, `[]`, or `{}` depends on the **complexity of the content**,
 evaluated bottom-up from the innermost expression.
 
-| Content inside bracket         | Spacing  | Example                          |
-|-------------------------------|----------|----------------------------------|
-| Atoms, simple binary ops       | tight    | `if(a && b)`                     |
-| Long chain of simple ops       | loose    | `if( a > 0 && b > 0 && c > 0 )` |
-| Contains a function call       | loose    | `if( isReady(x) )`               |
-| Contains nested `()` or `[]`   | loose    | `if( (a == 1) \|\| (b > 2) )`   |
-| Array index with expression    | loose    | `a[ countItems(x, y) ]`          |
-| Array index with nested `[]`   | loose    | `a[ b[i] ]`                      |
-| Array index with constant      | tight    | `a[10]`                          |
+| Content inside bracket        | Spacing  | Example                        |
+|-------------------------------|----------|--------------------------------|
+| Atoms, simple binary ops      | tight    | `if(a && b)`                   |
+| Long chain of simple ops      | tight    | `if(a > 0 && b > 0 && c > 0)`  |
+| Contains a function call      | loose    | `if( isReady(x) )`             |
+| Contains nested `()` or `[]`  | loose    | `if( (a == 1) \|\| (b > 2) )`  |
+| Array index with expression   | loose    | `a[ countItems(x, y) ]`        |
+| Array index with nested `[]`  | loose    | `a[ b[i] ]`                    |
+| Array index with constant     | tight    | `a[10]`                        |
+| Array index with simple ops   | tight    | `a[a + 10]`                    |
 
 Nesting propagates outward: if an inner call makes its bracket loose, the outer bracket
 that contains it is also loose.
@@ -88,23 +89,36 @@ semantics are required by the surrounding expression (e.g. `arr[i++]`, `return i
 ## 5. Variable Declaration Alignment
 
 Declarations in the same logical group are column-aligned across:
-`[modifiers]  [type*]  [name[size]]`
+`[modifiers] [type*] [name[size]]`
 
 ```c
-static volatile uint8_t  buffer[64];
-static          uint16_t timeout;
-                uint8_t  flags;
-static const    char*    name;
-                char     label[MAX];
+static volatile       uint8_t        buffer[64]; /* A Comment */
+static volatile       uint8_t*       buffer;
+static volatile const uint8_t* const buffer;
+static                uint16_t       timeout;    /* Another Comment */
+                      uint8_t        flags;
+static          const char*          name;
+                      char           label[MAX];
+```
+
+```java
+public  static volatile int    buffer[64]; // A Comment
+public  static volatile String buffer;
+private static volatile char   buffer;
+private static          long   timeout;    // Another Comment
+                        int    flags;
+private static          char   name;
+                        char   label[MAX];
 ```
 
 Rules:
-- `*` attaches to the **type**, not the name: `char*  p` not `char *p`.
+- `*` attaches to the **type**, not the name: `char* p` not `char *p`.
 - `const` after `*` stays in place: `uint8_t* const ptr`.
 - **`static` declarations come first** in a group, unless a non-static is needed
   as a size or value dependency for a static — in that case keep the dependency
   immediately before the static that uses it.
 - If reordering safety is unclear, **preserve relative order**.
+- `//` and `/* .. */`are aligned after the field name and array size.
 - A blank line between declaration groups **resets alignment** — each group aligns
   independently.
 
@@ -218,13 +232,15 @@ if(x) break;
 switch(state) {
 
     case A: {
-        doSomething();
-        doMore();
-    }
+            doSomething();
+            doMore();
+        }
+        break;
 
     case B: {
-        ...
-    }
+            ...
+        }
+        break;
 
 } // switch state
 ```
@@ -233,9 +249,9 @@ switch(state) {
 
 ```c
 switch(state) {
-    case A:  doA();  break;
-    case B:  doB();  break;
-    case C:  doC();  break;
+    case A: doA(); break;
+    case B: doB(); break;
+    case C: doC(); break;
 }
 ```
 
@@ -260,7 +276,7 @@ Short functions in a class, struct, or enum body that form a logical group
 - The right `}` of all group members must also align
 
 ```cpp
-void setX(int x)  { _x = x;       }
-int  getX(      ) { return _x;     }
-bool isValid(   ) { return _x > 0; }
+void setX   (int x) { _x = x;        }
+int  getX   (     ) { return _x;     }
+bool isValid(     ) { return _x > 0; }
 ```

@@ -696,63 +696,94 @@ _TEMPLATE = (
   --link: #0969da; --code-bg: #f6f8fa;
   --ln-bg: #f6f8fa; --ln-border: #d0d7de; --ln-text: #8c959f;
 }}
+
 html.dark {{
   --bg: #0d1117; --text: #e6edf3; --border: #30363d; --muted: #8b949e;
   --link: #58a6ff; --code-bg: #161b22;
   --ln-bg: #1c2128; --ln-border: #30363d; --ln-text: #6e7681;
 }}
+
 body {{
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   max-width: 900px; margin: 2rem auto; padding: 0 1rem;
   line-height: 1.6; background: var(--bg); color: var(--text);
 }}
+
 nav.breadcrumb {{
   display: flex; align-items: center; justify-content: space-between; gap: 1em;
   font-size: 1rem; color: var(--muted); margin-bottom: 1.5rem;
   padding: 0.4em 0.8em; background: var(--code-bg); border-radius: 6px;
 }}
+
 nav.breadcrumb a {{ color: var(--link); }}
-pre {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.875em; tab-size: 4; background: var(--code-bg); padding: 1em; overflow-x: auto; border-radius: 6px; }}
-code {{ font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }}
+
+pre {{
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875em; tab-size: 4; background: var(--code-bg);
+  padding: 1em; overflow-x: auto; border-radius: 6px;
+}}
+
+code {{
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 3px;
+  font-size: 0.875em;
+}}
+
 pre > code {{ background: none; padding: 0; font-size: 1em; }}
+
 table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
 th, td {{ border: 1px solid var(--border); padding: 0.4em 0.8em; text-align: left; }}
 th {{ background: var(--code-bg); }}
+
 li.task-list-item {{ list-style: none; margin-left: -1.5em; }}
+
 a {{ color: var(--link); text-decoration: none; }}
 a:hover {{ text-decoration: underline; }}
+
 h1, h2, h3 {{ border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }}
+
 img {{ max-width: 100%; height: auto; }}
+
 blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; color: var(--muted); }}
+
 .code-wrap {{ overflow-x: auto; border-radius: 6px; margin: 0; }}
 .code-wrap.has-top-scroll {{ border-radius: 0 0 6px 6px; }}
 .code-wrap pre {{ overflow-x: visible; }}
+
 .code-scroll-top {{
   overflow-x: auto; overflow-y: hidden; height: 16px; margin-bottom: -10px;
   background: var(--code-bg); border-radius: 6px 6px 0 0;
 }}
 .code-scroll-top > div {{ height: 1px; }}
+
 .highlighttable {{ border-spacing: 0; width: max-content; min-width: 100%; }}
+
 .highlighttable td.linenos {{
   width: 1%; white-space: nowrap; vertical-align: top; user-select: none;
   background: var(--ln-bg); color: var(--ln-text);
   border-right: 1px solid var(--ln-border); padding: 0.8em 1em;
 }}
+
 .highlighttable td.linenos .linenodiv pre {{
   margin: 0; padding: 0; background: transparent; border-radius: 0;
 }}
+
 .highlighttable td.code {{ padding: 0; background: var(--code-bg); }}
+
 .highlighttable td.code div pre {{
   margin: 0; padding: 0.8em 1em;
   background: transparent; border-radius: 0; overflow-x: visible;
 }}
+
 .theme-toggle {{
   flex-shrink: 0; background: transparent; border: 1px solid var(--border);
   border-radius: 6px; cursor: pointer; font-size: 0.875em;
   padding: 0.2em 0.5em; color: var(--text); line-height: 1;
 }}
+
 .theme-toggle::before {{ content: "🌙"; }}
 html.dark .theme-toggle::before {{ content: "☀️"; }}
+
 </style>
 </head>
 <body>

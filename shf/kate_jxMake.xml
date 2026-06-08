@@ -188,7 +188,7 @@
                 <!-- ================================================== Code "Folding End ================================================== -->
                 <LineContinue                                                      attribute="CombineNL"      context="#stay"         />
                 <IncludeRules                                                                                 context="CommentEval"   />
-                <DetectChar   char=";"                                             attribute="ForceNL"        context="#stay"          />
+                <DetectChar   char=";"                                             attribute="ForceNL"        context="#stay"         />
                 <RegExpr      String="\.option\b"                                  attribute="MacroDef"       context="OptionDef"     />
                 <RegExpr      String="\.undefmacro\b"                              attribute="MacroDef"       context="#stay"         />
                 <RegExpr      String="\.\$(?=&symname;\b)"                         attribute="MacroUseMark"   context="MacroUsage"    />
@@ -204,8 +204,8 @@
                 <RegExpr      String=":::s?include(_once)?\b(?=\s+&libname;)"      attribute="SKeyword"       context="IncludeLib"    />
                 <RegExpr      String=":::s?include(_once)?\b"                      attribute="SKeyword"       context="#stay"         />
                 <RegExpr      String=":::pragma\b"                                 attribute="SKeyword"       context="Pragma"        />
-                <RegExpr      String="\b&decnum;\b"                                attribute="Number"         context="#stay"         />
                 <RegExpr      String="\b&octnum;\b"                                attribute="Number"         context="#stay"         />
+                <RegExpr      String="\b&decnum;\b"                                attribute="Number"         context="#stay"         />
                 <RegExpr      String="\b&hexnum;\b"                                attribute="Number"         context="#stay"         />
                 <RegExpr      String="(?:[-+?]|-\+|\+-)(?=@)" firstNonSpace="true" attribute="CommandSpcXDir" context="CommandEvalSE" />
                 <DetectChar   char="@"                        firstNonSpace="true" attribute="Command"        context="CommandEval"   />
@@ -247,7 +247,7 @@
                 <RegExpr      String="\b&hexnum;\b"    attribute="Number"         context="#stay"       />
                 <RegExpr      String="\b&decnum;\b"    attribute="Number"         context="#stay"       />
                 <RegExpr      String=":(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
-                <RegExpr      String=".(?=&quot;)"        attribute="StringDQF"      context="#stay"       />
+                <RegExpr      String=".(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
                 <IncludeRules                                                     context="BoolEval"    />
                 <IncludeRules                                                     context="StringEval"  />
                 <IncludeRules                                                     context="StringMLEval"/>

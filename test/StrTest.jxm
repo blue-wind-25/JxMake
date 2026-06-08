@@ -1,13 +1,6 @@
 echo __c_clrscr__
 
-A := :"dads${A}"
-A := ."dads${A}"
-A := .[["
-dads${A}
-"]]
-A := :[["
-dads${A}
-"]]
+
 
 function printAVRInfo(text)
     for I := 1 to $part_count(${text}) step 1

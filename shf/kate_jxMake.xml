@@ -186,36 +186,36 @@
                 <RegExpr      String="\bloop\b"                            attribute="Keyword"  context="#stay"     beginRegion="LoopForever" />
                 <RegExpr      String="\bendloop\b"                         attribute="Keyword"  context="#stay"       endRegion="LoopForever" />
                 <!-- ================================================== Code "Folding End ================================================== -->
-                <LineContinue                                                      attribute="CombineNL"      context="#stay"         />
-                <IncludeRules                                                                                 context="CommentEval"   />
-                <DetectChar   char=";"                                             attribute="ForceNL"        context="#stay"         />
-                <RegExpr      String="\.option\b"                                  attribute="MacroDef"       context="OptionDef"     />
-                <RegExpr      String="\.undefmacro\b"                              attribute="MacroDef"       context="#stay"         />
-                <RegExpr      String="\.\$(?=&symname;\b)"                         attribute="MacroUseMark"   context="MacroUsage"    />
-                <RegExpr      String="&rvmark;"                                    attribute="RefVarMark"     context="#stay"         />
-                <RegExpr      String="\beval\b"                                    attribute="Keyword"        context="EvalStatement1"/>
-                <RegExpr      String="\blabel(?=\s+&symname;\s+:)"                 attribute="Keyword"        context="LabelEval"     />
-                <RegExpr      String="\blabel(?=\s+&apos;[^&apos;]*&apos;\s+:)"    attribute="Keyword"        context="LabelEval"     />
-                <RegExpr      String="\becho(?:ln)?\b"                             attribute="Keyword"        context="VarAssign"     />
-                <keyword      String="Keywords"                                    attribute="Keyword"        context="#stay"         />
-                <RegExpr      String="\+(?=jxmake\s+)"                             attribute="SKeyword"       context="#stay"         />
-                <keyword      String="SVarShortcuts"                               attribute="SVarShortcut"   context="#stay"         />
-                <keyword      String="ANSIEscapeCodes"                             attribute="ANSIEscapeCode" context="#stay"         />
-                <RegExpr      String=":::s?include(_once)?\b(?=\s+&libname;)"      attribute="SKeyword"       context="IncludeLib"    />
-                <RegExpr      String=":::s?include(_once)?\b"                      attribute="SKeyword"       context="#stay"         />
-                <RegExpr      String=":::pragma\b"                                 attribute="SKeyword"       context="Pragma"        />
-                <RegExpr      String="\b&octnum;\b"                                attribute="Number"         context="#stay"         />
-                <RegExpr      String="\b&decnum;\b"                                attribute="Number"         context="#stay"         />
-                <RegExpr      String="\b&hexnum;\b"                                attribute="Number"         context="#stay"         />
-                <RegExpr      String="(?:[-+?]|-\+|\+-)(?=@)" firstNonSpace="true" attribute="CommandSpcXDir" context="CommandEvalSE" />
-                <DetectChar   char="@"                        firstNonSpace="true" attribute="Command"        context="CommandEval"   />
-                <IncludeRules                                                                                 context="BoolEval"      />
-                <IncludeRules                                                                                 context="StringEval"    />
-                <IncludeRules                                                                                 context="StringMLEval"  />
-                <IncludeRules                                                                                 context="OperatorEval"  />
-                <IncludeRules                                                                                 context="SROperEvalD"   />
-                <IncludeRules                                                                                 context="VariableEval"  />
-                <IncludeRules                                                                                 context="FunctionEval"  />
+                <LineContinue                                                   attribute="CombineNL"      context="#stay"         />
+                <IncludeRules                                                                              context="CommentEval"   />
+                <DetectChar   char=";"                                          attribute="ForceNL"        context="#stay"         />
+                <RegExpr      String="\.option\b"                               attribute="MacroDef"       context="OptionDef"     />
+                <RegExpr      String="\.undefmacro\b"                           attribute="MacroDef"       context="#stay"         />
+                <RegExpr      String="\.\$(?=&symname;\b)"                      attribute="MacroUseMark"   context="MacroUsage"    />
+                <RegExpr      String="&rvmark;"                                 attribute="RefVarMark"     context="#stay"         />
+                <RegExpr      String="\beval\b"                                 attribute="Keyword"        context="EvalStatement1"/>
+                <RegExpr      String="\blabel(?=\s+&symname;\s+:)"              attribute="Keyword"        context="LabelEval"     />
+                <RegExpr      String="\blabel(?=\s+&apos;[^&apos;]*&apos;\s+:)" attribute="Keyword"        context="LabelEval"     />
+                <RegExpr      String="\becho(?:ln)?\b"                          attribute="Keyword"        context="VarAssign"     />
+                <keyword      String="Keywords"                                 attribute="Keyword"        context="#stay"         />
+                <RegExpr      String="\+(?=jxmake\s+)"                          attribute="SKeyword"       context="#stay"         />
+                <keyword      String="SVarShortcuts"                            attribute="SVarShortcut"   context="#stay"         />
+                <keyword      String="ANSIEscapeCodes"                          attribute="ANSIEscapeCode" context="#stay"         />
+                <RegExpr      String=":::s?include(_once)?\b(?=\s+&libname;)"   attribute="SKeyword"       context="IncludeLib"    />
+                <RegExpr      String=":::s?include(_once)?\b"                   attribute="SKeyword"       context="#stay"         />
+                <RegExpr      String=":::pragma\b"                              attribute="SKeyword"       context="Pragma"        />
+                <RegExpr      String="\b&octnum;\b"                             attribute="Number"         context="#stay"         />
+                <RegExpr      String="\b&decnum;\b"                             attribute="Number"         context="#stay"         />
+                <RegExpr      String="\b&hexnum;\b"                             attribute="Number"         context="#stay"         />
+                <RegExpr      String="(?:[-+?]|-\+|\+-)(?=@)"                   attribute="CommandSpcXDir" context="CommandEvalSE" />
+                <DetectChar   char="@"                                          attribute="Command"        context="CommandEval"   />
+                <IncludeRules                                                                              context="BoolEval"      />
+                <IncludeRules                                                                              context="StringEval"    />
+                <IncludeRules                                                                              context="StringMLEval"  />
+                <IncludeRules                                                                              context="OperatorEval"  />
+                <IncludeRules                                                                              context="SROperEvalD"   />
+                <IncludeRules                                                                              context="VariableEval"  />
+                <IncludeRules                                                                              context="FunctionEval"  />
             </context>
             <context name="CommentEval">
                 <StringDetect String="(*" attribute="Comment" context="MLComment" beginRegion="MLComment"/>
@@ -271,15 +271,14 @@
                 <RegExpr String="&libname;" attribute="IncLibName" context="#pop"/>
             </context>
             <context name="Pragma" lineEndContext="#pop">
-                <LineContinue                   attribute="CombineNL" context="#stay"/>
-                <RegExpr String="&symname;" attribute="Keyword" context="#pop"/>
+                <LineContinue               attribute="CombineNL" context="#stay"/>
+                <RegExpr String="&symname;" attribute="Keyword"   context="#pop" />
             </context>
             <context name="MacroUsage" attribute="MacroUse" lineEndContext="#pop">
                 <RegExpr String="&symname;" attribute="MacroUse" context="#pop"/>
             </context>
             <context name="CommandEvalSE" attribute="Command" lineEndContext="#pop">
                 <LineContinue        attribute="CombineNL" context="#stay"           />
-                <IncludeRules                              context="CommentEval"/>
                 <DetectChar char="@" attribute="Command"   context="#pop!CommandEval"/>
             </context>
             <context name="Comment" attribute="Comment" lineEndContext="#pop">

@@ -4,11 +4,11 @@ function cmdTest1(dir)
     if __os_windows__
         path := "C:\\${dir}"
         path := $flatten(${path})
-       -@cmd /C dir ${path}
+        (* comment *) -@cmd /C dir (*comment*) ${path}
     else
         path := "/${dir}"
         path := $flatten(${path})
-       -@ls ${path}
+        (* comment *) -@ls (*comment*) ${path}
     endif
 
     if $[excode]

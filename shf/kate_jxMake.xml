@@ -5,6 +5,7 @@
         <!ENTITY symname   "[_a-zA-Z][_a-zA-Z0-9]*">
         <!ENTITY decnum    "[+-]?[0-9]+"           >
         <!ENTITY hexnum    "[+-]?0[xX][0-9a-fA-F]+">
+        <!ENTITY octnum    "[+-]?0[oO][0-7]+"      >
         <!ENTITY hexchr    "[0-9a-fA-F]"           >
         <!ENTITY unaryoper "[@~!+-]"               >
         <!ENTITY evalifbr  "\[\s+(?=.*\])"         >
@@ -13,11 +14,12 @@
     ]
 >
 <!-- ~/.kde/share/apps/katepart/syntax/ -->
+<!-- ~/.local/share/katepart5/syntax/ (KDE5) -->
 <!-- https://docs.kde.org/stable5/en/kate/katepart/highlight.html -->
 <language
     name="JxMake Specification File"
     section="Other"
-    version="1.0.122"
+    version="1.0.123"
     kateversion="2.4"
     indenter="normal"
     mimetype="text/plain"
@@ -158,7 +160,7 @@
             <item> enable </item>
         </list>
         <contexts>
-            <context name="NormalText" attribute="NormalText" lineEndContext="#pop">
+            <context name="NormalText" attribute="NormalText" lineEndContext="#stay">
                 <!-- ================================================== Code Folding Beg ================================================== -->
                 <RegExpr      String="\.macro\b"                           attribute="MacroDef" context="#stay"     beginRegion="MacroDef"    />
                 <RegExpr      String="\.endmacro\b"                        attribute="MacroDef" context="#stay"       endRegion="MacroDef"    />
@@ -186,22 +188,24 @@
                 <!-- ================================================== Code "Folding End ================================================== -->
                 <LineContinue                                                      attribute="CombineNL"      context="#stay"         />
                 <IncludeRules                                                                                 context="CommentEval"   />
-                <DetectChar   char=";"                                             attribute="ForceNL"        context="#pop"          />
+                <DetectChar   char=";"                                             attribute="ForceNL"        context="#stay"          />
                 <RegExpr      String="\.option\b"                                  attribute="MacroDef"       context="OptionDef"     />
                 <RegExpr      String="\.undefmacro\b"                              attribute="MacroDef"       context="#stay"         />
                 <RegExpr      String="\.\$(?=&symname;\b)"                         attribute="MacroUseMark"   context="MacroUsage"    />
                 <RegExpr      String="&rvmark;"                                    attribute="RefVarMark"     context="#stay"         />
                 <RegExpr      String="\beval\b"                                    attribute="Keyword"        context="EvalStatement1"/>
                 <RegExpr      String="\blabel(?=\s+&symname;\s+:)"                 attribute="Keyword"        context="LabelEval"     />
-                <RegExpr      String="\becho(?:ln)\b"                              attribute="Keyword"        context="VarAssign"     />
+                <RegExpr      String="\blabel(?=\s+&apos;[^&apos;]*&apos;\s+:)"    attribute="Keyword"        context="LabelEval"     />
+                <RegExpr      String="\becho(?:ln)?\b"                             attribute="Keyword"        context="VarAssign"     />
                 <keyword      String="Keywords"                                    attribute="Keyword"        context="#stay"         />
                 <RegExpr      String="\+(?=jxmake\s+)"                             attribute="SKeyword"       context="#stay"         />
                 <keyword      String="SVarShortcuts"                               attribute="SVarShortcut"   context="#stay"         />
                 <keyword      String="ANSIEscapeCodes"                             attribute="ANSIEscapeCode" context="#stay"         />
-                <RegExpr      String=":::s?include(_once)?(?=\s+&libname;)\b"      attribute="SKeyword"       context="IncludeLib"    />
+                <RegExpr      String=":::s?include(_once)?\b(?=\s+&libname;)"      attribute="SKeyword"       context="IncludeLib"    />
                 <RegExpr      String=":::s?include(_once)?\b"                      attribute="SKeyword"       context="#stay"         />
                 <RegExpr      String=":::pragma\b"                                 attribute="SKeyword"       context="Pragma"        />
                 <RegExpr      String="\b&decnum;\b"                                attribute="Number"         context="#stay"         />
+                <RegExpr      String="\b&octnum;\b"                                attribute="Number"         context="#stay"         />
                 <RegExpr      String="\b&hexnum;\b"                                attribute="Number"         context="#stay"         />
                 <RegExpr      String="(?:[-+?]|-\+|\+-)(?=@)" firstNonSpace="true" attribute="CommandSpcXDir" context="CommandEvalSE" />
                 <DetectChar   char="@"                        firstNonSpace="true" attribute="Command"        context="CommandEval"   />
@@ -219,6 +223,7 @@
             </context>
             <context name="OptionDef" lineEndContext="#pop">
                 <LineContinue                  attribute="CombineNL" context="#stay"     />
+                <IncludeRules                                        context="CommentEval"/>
                 <keyword      String="Options" attribute="Keyword"   context="#stay"     />
                 <DetectChar   char="&apos;"    attribute="ODString"  context="ODStringSQ"/>
                 <DetectChar   char="&quot;"    attribute="ODString"  context="ODStringDQ"/>
@@ -238,10 +243,11 @@
                 <keyword      String="Keywords"        attribute="Keyword"        context="#stay"       />
                 <keyword      String="SVarShortcuts"   attribute="SVarShortcut"   context="#stay"       />
                 <keyword      String="ANSIEscapeCodes" attribute="ANSIEscapeCode" context="#stay"       />
-                <RegExpr      String="\b&decnum;\b"    attribute="Number"         context="#stay"       />
+                <RegExpr      String="\b&octnum;\b"    attribute="Number"         context="#stay"       />
                 <RegExpr      String="\b&hexnum;\b"    attribute="Number"         context="#stay"       />
+                <RegExpr      String="\b&decnum;\b"    attribute="Number"         context="#stay"       />
                 <RegExpr      String=":(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
-                <RegExpr      String=".(?=\[\[&quot;)" attribute="StringDQF"      context="#stay"       />
+                <RegExpr      String=".(?=&quot;)"        attribute="StringDQF"      context="#stay"       />
                 <IncludeRules                                                     context="BoolEval"    />
                 <IncludeRules                                                     context="StringEval"  />
                 <IncludeRules                                                     context="StringMLEval"/>
@@ -256,20 +262,24 @@
                 <StringDetect String="*)"      attribute="Comment" context="#pop"      endRegion="MLComment"/>
             </context>
             <context name="LabelEval" attribute="NormalText" lineEndContext="#pop">
-                <LineContinue                        attribute="CombineNL" context="#stay"/>
-                <RegExpr      String="\b&symname;\b"                       context="#stay"/>
-                <RegExpr      String="\s+:\s*"       attribute="ROperator" context="#pop" />
+                <LineContinue                        attribute="CombineNL"  context="#stay"   />
+                <DetectChar   char="&apos;"          attribute="String"     context="SQString"/>
+                <RegExpr      String="\b&symname;\b" attribute="NormalText" context="#stay"   />
+                <RegExpr      String="\s+:\s*"       attribute="ROperator"  context="#pop"    />
             </context>
             <context name="IncludeLib" lineEndContext="#pop">
                 <RegExpr String="&libname;" attribute="IncLibName" context="#pop"/>
             </context>
             <context name="Pragma" lineEndContext="#pop">
+                <LineContinue                   attribute="CombineNL" context="#stay"/>
                 <RegExpr String="&symname;" attribute="Keyword" context="#pop"/>
             </context>
             <context name="MacroUsage" attribute="MacroUse" lineEndContext="#pop">
+                <RegExpr String="&symname;" attribute="MacroUse" context="#pop"/>
             </context>
             <context name="CommandEvalSE" attribute="Command" lineEndContext="#pop">
                 <LineContinue        attribute="CombineNL" context="#stay"           />
+                <IncludeRules                              context="CommentEval"/>
                 <DetectChar char="@" attribute="Command"   context="#pop!CommandEval"/>
             </context>
             <context name="Comment" attribute="Comment" lineEndContext="#pop">
@@ -285,6 +295,7 @@
                 <LineContinue                                                                                 attribute="CombineNL"  context="#stay"           />
                 <IncludeRules                                                                                                        context="CommentEval"     />
                 <DetectChar   char=";"                                                                        attribute="ForceNL"    context="#pop"            />
+                <RegExpr      String="\b&octnum;\b"                                                           attribute="Number"     context="#stay"           />
                 <RegExpr      String="\b&decnum;\b"                                                           attribute="Number"     context="#stay"           />
                 <RegExpr      String="\b&hexnum;\b"                                                           attribute="Number"     context="#stay"           />
                 <keyword      String="SVarShortcuts"                                                          attribute="NormalText" context="#stay"           />
@@ -295,7 +306,7 @@
                 <RegExpr      String="\s+(?:\](?=\s+)|\]$)"                                                   attribute="SOperator"  context="#stay"           />
                 <DetectChar   char=","                                                                        attribute="SOperator"  context="#stay"           />
                 <!-- Unary and Binary Operators -->
-                <RegExpr      String="\s+(?:&lt;=&gt;|&lt;=|&gt;=|==|!=|)(?=\s+)"                             attribute="SOperator"  context="#stay"           />
+                <RegExpr      String="\s+(?:&lt;=&gt;|&lt;=|&gt;=|==|!=)(?=\s+)"                             attribute="SOperator"  context="#stay"           />
                 <RegExpr      String="\s+(?:\*{1,2}|[/%+-]|&lt;{1,2}|&gt;{1,2}|&amp;{1,2}|\^|\|{1,2})(?=\s+)" attribute="SOperator"  context="#stay"           />
                 <RegExpr      String="(?:\s+|\()&unaryoper;+(?=\S+)"                                          attribute="SOperator"  context="#stay"           />
                 <AnyChar      String="()"                                                                     attribute="SOperator"  context="#stay"           />
@@ -342,10 +353,10 @@
                 <RegExpr String="[~\^\-](?=\$[{\[])" attribute="PROperEval" context="#stay"/>
             </context>
             <context name="SROperEvalS" lineEndContext="#pop">
-                <RegExpr String="(?:\{|\})(?=\s+|[,)]|$)" attribute="PROperEval" context="#stay"/>
+                <RegExpr String="(?:\{|\})(?=\s+|[,)]|$)" attribute="SROperEval" context="#stay"/>
             </context>
             <context name="SROperEvalD" lineEndContext="#pop">
-                <RegExpr String="(?:\{\{|\}\})(?=\s+|[,)]|$)" attribute="PROperEval" context="#stay"/>
+                <RegExpr String="(?:\{\{|\}\})(?=\s+|[,)]|$)" attribute="SROperEval" context="#stay"/>
             </context>
             <context name="BoolEval" lineEndContext="#pop">
                 <StringDetect String="true"  attribute="Number" context="#stay"/>
@@ -447,6 +458,7 @@
                 <DetectChar   char="&gt;"           attribute="VariableEvalN" context="#pop" />
                 <DetectChar   char=","              attribute="VariableEvalN" context="#stay"/>
                 <DetectChar   char=":"              attribute="VariableEvalN" context="#stay"/>
+                <RegExpr      String="\b&octnum;\b" attribute="Number"        context="#stay"/>
                 <RegExpr      String="\b&decnum;\b" attribute="Number"        context="#stay"/>
                 <RegExpr      String="\b&hexnum;\b" attribute="Number"        context="#stay"/>
             </context>
@@ -886,6 +898,7 @@
             <itemData name="ODString"       defStyleNum="dsString"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="false" underline="false"/>
             <itemData name="EscapeSeq"      defStyleNum="dsString"   spellChecking="false" color="#005AB3" selColor="#005AB3" bold="true"  italic="false" underline="false"/>
             <itemData name="PROperEval"     defStyleNum="dsString"   spellChecking="false" color="#D08290" selColor="#D08290" bold="true"  italic="false" underline="false"/>
+            <itemData name="SROperEval"     defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="true"  italic="false" underline="false"/>
             <itemData name="RefVarMark"     defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="false" underline="false"/>
             <itemData name="RVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#006A00" selColor="#006A00" bold="false" italic="false" underline="false"/>
             <itemData name="SVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#5A00B3" selColor="#5A00B3" bold="false" italic="false" underline="false"/>

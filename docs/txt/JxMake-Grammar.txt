@@ -650,7 +650,7 @@ SECTION 9 -- SHORTCUT AND SUGAR OPERATORS
     partn-operand     ::= '${' var-name '}'
                         | '$[' auto-var-name ']'
 
-    index-spec        ::= index-val                              (* single index *)
+    index-spec        ::= index-val                             (* single index *)
                         | index-val ',' offset-val              (* index + offset *)
                         | beg-val   ':' end-val                 (* range *)
 
@@ -975,7 +975,6 @@ SECTION 10 -- STATEMENTS
                        '.endmacro'
 
     macro-use      ::= '.' '$' macro-name           [WS-NONE between '.' and '$']
-                     | '.' macro-name               [WS-NONE between '.' and macro-name]
 
     macro-undef    ::= '.undefmacro' macro-name
 
@@ -1023,7 +1022,6 @@ SECTION 11 -- FLOW CONTROL
                      | if-block
 
     if-oneliner    ::= 'if' condition ':' oneliner-stmt
-                       [WS-OPT around ':']
 
     oneliner-stmt  ::= assignment-stmt
                      | indirect-assignment-stmt
@@ -1130,7 +1128,7 @@ SECTION 11 -- FLOW CONTROL
 11.3  Label and Goto
 ----------------------------------------------------------------------------------------------------
 
-    label-stmt     ::= 'label' label-spec ':'    [WS-OPT around ':']
+    label-stmt     ::= 'label' label-spec ':'
 
     goto-stmt      ::= ( 'goto' | 'sgoto' ) label-spec
                        (* 'sgoto' = safe goto: no error if label does not exist *)

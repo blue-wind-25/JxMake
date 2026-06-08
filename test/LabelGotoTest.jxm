@@ -14,10 +14,10 @@ endfunction
 
 function testLabel_b(I)
         echoln 'ENTER FUNCTION \'testLabel_b()\''
-        label _1 :
+        label '_1' :
             echoln ${I}
             dec I
-            if ${I} < 0 : goto _2
+            if ${I} < 0 : goto '_2'
         goto _1
     label _2 :
         echoln 'EXIT FUNCTION \'testLabel_b()\''

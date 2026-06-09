@@ -2,6 +2,9 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
+  and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
+
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 

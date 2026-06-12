@@ -1,0 +1,75 @@
+diff -ru Firmware.ORIG/JxMakeUSBGPPIO.c Firmware/JxMakeUSBGPPIO.c
+--- Firmware.ORIG/JxMakeUSBGPPIO.c	2026-01-03 07:42:36.000000000 +0700
++++ Firmware/JxMakeUSBGPPIO.c	2026-05-22 04:49:14.120971035 +0700
+@@ -263,17 +263,17 @@
+ 			case CDC_PARITY_Space: hwuxrt_deferSetParityMode(UXRT_Parity_None);
+ 			                       CDCInterfaceInfo->State.LineEncoding.ParityType = CDC_PARITY_None;
+ 			                       break;
+-		} // case
++		} // switch
+ 
+ 		// Handle number of stop bits
+ 		switch(CDCInterfaceInfo->State.LineEncoding.CharFormat) {
+-			case CDC_LINEENCODING_OneStopBit          : hwuxrt_deferSetNumStopBit(UXRT_StopBit_1); break;
++			case CDC_LINEENCODING_OneStopBit          : hwuxrt_deferSetNumStopBit(UXRT_StopBit_1);
+ 			                                            break;
+ 			case CDC_LINEENCODING_OneAndAHalfStopBits : /* FALLTHROUGH */
+ 			case CDC_LINEENCODING_TwoStopBits         : hwuxrt_deferSetNumStopBit(UXRT_StopBit_2);
+ 			                                            CDCInterfaceInfo->State.LineEncoding.CharFormat = CDC_LINEENCODING_TwoStopBits;
+ 			                                            break;
+-		} // case
++		} // switch
+ 
+ 		// Handle number of data bits
+ 		switch(CDCInterfaceInfo->State.LineEncoding.DataBits) {
+@@ -287,7 +287,7 @@
+ 			case 9 : hwuxrt_deferSetCharacterSize(UXRT_CharSize_8);
+ 			         CDCInterfaceInfo->State.LineEncoding.DataBits = 8;
+ 			         break;
+-		} // case
++		} // switch
+ 
+ 		// Apply the new configuration if the UART/USRT is enabled
+ 		if( hwuxrt_isEnabled() ) {
+diff -ru Firmware.ORIG/Modules/BB_SWIM.c Firmware/Modules/BB_SWIM.c
+--- Firmware.ORIG/Modules/BB_SWIM.c	2026-01-03 07:42:36.000000000 +0700
++++ Firmware/Modules/BB_SWIM.c	2026-04-27 07:07:49.033698569 +0700
+@@ -753,10 +753,11 @@
+ 		cli();
+ 			uint8_t retryCount = 8;
+ 			while(retryCount--) {
+-				if( __bbswim_tx(*buff++, 8) ) break;
++				if( __bbswim_tx(*buff, 8) ) break;
+ 			}
+-			if(!retryCount) goto bbswim_cmd_wotf_error;
++			if(retryCount == 255) goto bbswim_cmd_wotf_error;
+ 		sei();
++		++buff;
+ 	} // while
+ 
+ 	BBSWIM_BB_LEAVE();
+diff -ru Firmware.ORIG/Modules/HW_UART_USRT.c Firmware/Modules/HW_UART_USRT.c
+--- Firmware.ORIG/Modules/HW_UART_USRT.c	2026-01-03 07:42:36.000000000 +0700
++++ Firmware/Modules/HW_UART_USRT.c	2026-04-27 07:07:36.566733143 +0700
+@@ -325,8 +325,8 @@
+ 
+ 	if(_hwuxrtXMegaPDIMode) {
+ 		// Hold the Txd line and Xck line
+-		HW_UXRT_PORT |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
+-		HW_UXRT_DDR  |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
++		HW_UXRT_PORT |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
++		HW_UXRT_DDR  |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
+ 	}
+ 	else {
+ 		// Release the Txd line
+@@ -341,8 +341,8 @@
+ 		// Delay for a while
+ 		Delay_MS(100);
+ 		// Release the Txd line and Xck line
+-		HW_UXRT_DDR  &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
+-		HW_UXRT_PORT &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_TXD_BIT) );
++		HW_UXRT_DDR  &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
++		HW_UXRT_PORT &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
+ 	}
+ }
+ 

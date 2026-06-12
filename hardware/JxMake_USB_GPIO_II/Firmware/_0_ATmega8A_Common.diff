@@ -1,0 +1,71 @@
+diff -ru ATmega8A_Common.ORIG/tick.h ATmega8A_Common/tick.h
+--- ATmega8A_Common.ORIG/tick.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega8A_Common/tick.h	2026-04-27 07:39:41.126494344 +0700
+@@ -43,7 +43,7 @@
+ 
+ 
+ // Function to perform a delay while regularly resetting the watchdog timer during sufficiently long delays
+-static __force_inline void _delayMS_impl(uint8_t ms)
++static __force_inline void __delayMS_impl(const uint8_t ms)
+ {
+ 	const uint32_t beg = tickGet();
+ 
+@@ -58,16 +58,19 @@
+ 	} // for
+ }
+ 
+-static __force_inline void delayMS(double ms)
++static __force_inline void delayMS(const uint16_t ms)
+ {
+ 	if(ms <= 200) {
+-		_delayMS_impl(ms);
++		__delayMS_impl(ms);
+ 	}
+ 
+ 	else {
+-
+-		for( uint16_t i = 0; i < ( (uint16_t) (ms / 200) ); ++i ) {
+-			_delayMS_impl(200);
++		for( uint16_t i = 0; i < (ms / 200); ++i ) {
++			__delayMS_impl(200);
++		}
++		const uint16_t remainder = ms % 200;
++		if(remainder > 0) {
++			__delayMS_impl(remainder);
+ 		}
+ 	}
+ }
+diff -ru ATmega8A_Common.ORIG/watchdog.h ATmega8A_Common/watchdog.h
+--- ATmega8A_Common.ORIG/watchdog.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega8A_Common/watchdog.h	2026-04-27 07:44:17.977756569 +0700
+@@ -9,17 +9,25 @@
+ void __handleMCUCSR(void) ATTR_INIT_SECTION(3);
+ void __handleMCUCSR(void)
+ {
+-	// Disable watchdog
++	// Disable watchdog with proper sequence per ATmega8A datasheet
+ 	wdt_reset();
+-	WDTCR  = _BV(WDCE);
+ 	MCUCSR = 0;
++	WDTCR  = _BV(WDCE) | _BV(WDE);
++	WDTCR  = 0;
+ }
+ 
+ 
+ // Initialize watchdog timer
+ static __force_inline void wdtInit()
+ {
+-//	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP2)            ; // ~ 250mS
+-	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
+-//	WDTCR = _BV(WDCE) | _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
++	// Enable watchdog with proper sequence per ATmega8A datasheet
++	uint8_t wdt_config;
++
++//	wdt_config = _BV(WDE) | _BV(WDP2);             // ~ 250mS
++	wdt_config = _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
++//	wdt_config = _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
++
++	wdt_reset();
++	WDTCR = _BV(WDCE) | _BV(WDE);
++	WDTCR = wdt_config;
+ }

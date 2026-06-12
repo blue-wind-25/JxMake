@@ -1,0 +1,89 @@
+diff -ru ATmega1284P.ORIG/asw.h ATmega1284P/asw.h
+--- ATmega1284P.ORIG/asw.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega1284P/asw.h	2026-04-27 07:26:17.236648755 +0700
+@@ -68,6 +68,8 @@
+ 	const bool ctl3 = !!( EN_UPDI_HVP_PIN & _BV( EN_UPDI_HVP_BIT) );
+ 	const bool ctl4 = !!( EN_UPDI_UPS_PIN & _BV( EN_UPDI_UPS_BIT) );
+ 
++	// Check if all control pins read the same value (all high or all low) - this indicates which chip variant
++	// is installed : DG411DY (active-low) or DG412DY (active-high)
+ 	const bool aEql = !( (ctl1 ^ ctl2) | (ctl1 ^ ctl3) | (ctl1 ^ ctl4) );
+ 
+ 	/*
+diff -ru ATmega1284P.ORIG/tick.h ATmega1284P/tick.h
+--- ATmega1284P.ORIG/tick.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega1284P/tick.h	2026-04-27 07:27:12.844496018 +0700
+@@ -61,17 +61,20 @@
+ 	} // for
+ }
+ 
+-static __force_inline void delayMS(const double ms)
++static __force_inline void delayMS(const uint16_t ms)
+ {
+ 	if(ms <= 200) {
+ 		__delayMS_impl(ms);
+ 	}
+ 
+ 	else {
+-
+-		for( uint16_t i = 0; i < ( (uint16_t) (ms / 200) ); ++i ) {
++		for( uint16_t i = 0; i < (ms / 200); ++i ) {
+ 			__delayMS_impl(200);
+ 		}
++		const uint16_t remainder = ms % 200;
++		if(remainder > 0) {
++			__delayMS_impl(remainder);
++		}
+ 	}
+ }
+ 
+diff -ru ATmega1284P.ORIG/updi.h ATmega1284P/updi.h
+--- ATmega1284P.ORIG/updi.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega1284P/updi.h	2026-04-27 07:23:31.101105081 +0700
+@@ -15,6 +15,7 @@
+ 	// Update the UPDI tick (no need to disable interrupt here)
+ 	if(__updi_tick != 0) {
+ 		__updi_tick = __timer0_tick;
++		// Prevent tick from becoming zero, as zero indicates disabled state
+ 		if(__updi_tick == 0) __updi_tick = 1;
+ 	}
+ 
+diff -ru ATmega1284P.ORIG/util.h ATmega1284P/util.h
+--- ATmega1284P.ORIG/util.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega1284P/util.h	2026-04-27 07:28:39.792257197 +0700
+@@ -82,9 +82,6 @@
+ 	                        (v100 > max100) ? PSTR(" (OVERVOLTAGE)" ) :
+ 	                                          PSTR(""               );
+ 
+-	const uint16_t ints   = v100 / 100;
+-	const uint16_t frac   = v100 - ints * 100;
+-
+ 	printIMsgln( PSTR("    %S = %s%S."), pstrName, utilV00ToStr02d0d(v100), status );
+ 
+ 	if(v100 < min100) {
+@@ -289,6 +286,7 @@
+ 			// Compare the bit
+ 			const bool ref = (tkch & mask) != 0;
+ 
++			// XOR comparison - if PGD differs from expected bit, the sequence is invalid
+ 			if( (pgd && !ref) || (!pgd && ref) ) {
+ 				wdt_reset();
+ 				return false;
+diff -ru ATmega1284P.ORIG/watchdog.h ATmega1284P/watchdog.h
+--- ATmega1284P.ORIG/watchdog.h	2026-01-03 07:42:36.000000000 +0700
++++ ATmega1284P/watchdog.h	2026-04-27 07:27:40.185420919 +0700
+@@ -32,9 +32,11 @@
+ // Initialize watchdog timer
+ static inline void wdtInit()
+ {
+-//	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP2)            ; // ~ 250mS
+-	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
+-//	WDTCSR = _BV(WDCE) | _BV(WDE) | _BV(WDP2) | _BV(WDP1); // ~1000mS
++	// Configure watchdog - must set WDCE and WDE before changing prescaler
++	WDTCSR = _BV(WDCE) | _BV(WDE );
++//	WDTCSR = _BV(WDE ) | _BV(WDP2)            ; // ~ 250mS
++	WDTCSR = _BV(WDE ) | _BV(WDP1) | _BV(WDP0); // ~ 500mS
++//	WDTCSR = _BV(WDE ) | _BV(WDP2) | _BV(WDP1); // ~1000mS
+ 
+ 	// Print message
+ 	printIMsgDone( PSTR("Watchdog Timer") );

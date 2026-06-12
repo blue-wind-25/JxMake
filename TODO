@@ -8,6 +8,8 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 # Further verify all changes made by AI coding agents, and then delete all '*.ORIG.backup.tar.gz'
   files.
 
+  _0_*.diff
+
 # Further verify, improve and cleanups 'util/MDRender/*'.
 # Further verify, improve and cleanups 'util/JCS/*'.
 

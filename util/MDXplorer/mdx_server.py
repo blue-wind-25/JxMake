@@ -876,8 +876,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
             if lexer is not None:
                 self._serve_source(fs_path, lexer)
                 return
+            self._serve_raw(fs_path)
+            return
 
-        super().do_GET()
+        self.send_error(404, "File not found")
 
     def do_HEAD(self) -> None:
         fs_path = self._safe_path()
@@ -891,7 +893,9 @@ class MDRHandler(SimpleHTTPRequestHandler):
             if fs_path.endswith(".md") or self._lexer_for_file(fs_path) is not None:
                 self.do_GET()  # _send_html omits body for HEAD
                 return
-        super().do_HEAD()
+            self._serve_raw(fs_path)
+            return
+        self.send_error(404, "File not found")
 
     def _not_modified(self, mtime: float) -> bool:
         """Return True (and send 304) when If-Modified-Since covers mtime."""
@@ -1007,26 +1011,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
         if st.st_size > _MAX_HIGHLIGHT_BYTES:
-            if self._not_modified(st.st_mtime):
-                return
-            mime = self.guess_type(file_path)
-            try:
-                f = open(file_path, "rb")
-            except OSError:
-                self.send_error(404, "File not found")
-                return
-            try:
-                self.send_response(200)
-                self.send_header("Content-Type", mime)
-                self.send_header("Content-Length", str(st.st_size))
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Last-Modified",
-                                 email.utils.formatdate(st.st_mtime, usegmt=True))
-                self.end_headers()
-                if self.command != "HEAD":
-                    self.copyfile(f, self.wfile)
-            finally:
-                f.close()
+            self._serve_raw(file_path, st)
             return
         if self._not_modified(st.st_mtime):
             return
@@ -1044,6 +1029,34 @@ class MDRHandler(SimpleHTTPRequestHandler):
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body),
                         last_modified=st.st_mtime)
+
+    def _serve_raw(self, file_path: str, st: os.stat_result | None = None) -> None:
+        try:
+            if st is None:
+                st = os.stat(file_path)
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+        if self._not_modified(st.st_mtime):
+            return
+        mime = self.guess_type(file_path)
+        try:
+            f = open(file_path, "rb")
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(st.st_size))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Last-Modified",
+                             email.utils.formatdate(st.st_mtime, usegmt=True))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.copyfile(f, self.wfile)
+        finally:
+            f.close()
 
     def _lexer_for_file(self, path: str):
         name = os.path.basename(path)

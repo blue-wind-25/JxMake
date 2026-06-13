@@ -105,65 +105,51 @@ public class CompileServer {
             System.err.println( "  Idle timeout: " + (IDLE_TIMEOUT_MS / 3_600_000L) + " hours" );
 
             // Named ThreadFactory so worker threads appear as "javac-worker-N" in thread dumps
-            final ThreadFactory workerFactory = new ThreadFactory() {
-                private final AtomicInteger count = new AtomicInteger( 0 );
-                public Thread newThread( final Runnable r ) {
-                    return new Thread( r, "javac-worker-" + count.incrementAndGet() );
-                }
-            };
+            final AtomicInteger  workerCount  = new AtomicInteger( 0 );
+            final ThreadFactory  workerFactory = r -> new Thread( r, "javac-worker-" + workerCount.incrementAndGet() );
             final ExecutorService pool         = Executors.newCachedThreadPool( workerFactory );
             final AtomicLong      lastActivity = new AtomicLong( System.currentTimeMillis() );
 
             // Idle watchdog - shuts down after IDLE_TIMEOUT_MS with no activity
             final ScheduledExecutorService watchdogExec = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactory() {
-                    public Thread newThread( final Runnable r ) {
-                        final Thread t = new Thread( r, "javac-watchdog" );
-                        t.setDaemon( true );
-                        return t;
-                    }
+                r -> {
+                    final Thread t = new Thread( r, "javac-watchdog" );
+                    t.setDaemon( true );
+                    return t;
                 }
             );
             watchdogExec.scheduleAtFixedRate(
-                new Runnable() {
-                    public void run() {
-                        final long idle = System.currentTimeMillis() - lastActivity.get();
-                        if( idle >= IDLE_TIMEOUT_MS ) {
-                            System.err.println( "Idle timeout reached, shutting down." );
-                            System.exit( 0 );
-                        }
+                () -> {
+                    final long idle = System.currentTimeMillis() - lastActivity.get();
+                    if( idle >= IDLE_TIMEOUT_MS ) {
+                        System.err.println( "Idle timeout reached, shutting down." );
+                        System.exit( 0 );
                     }
                 },
                 60, 60, TimeUnit.SECONDS
             );
 
-            Runtime.getRuntime().addShutdownHook( new Thread( new Runnable() {
-                public void run() {
-                    new File( pidFile ).delete();
-                }
-            }, "javac-shutdown-hook" ) );
+            Runtime.getRuntime().addShutdownHook( new Thread( () -> new File( pidFile ).delete(), "javac-shutdown-hook" ) );
 
             while( true ) {
 
                 try {
                     final Socket conn = server.accept();
                     lastActivity.set( System.currentTimeMillis() );
-                    pool.submit( new Runnable() {
-                        public void run() {
+                    pool.submit( () -> {
+                        try {
+                            handleConnection( compiler, conn );
+                        }
+                        catch( final Exception e ) {
+                            System.err.println( "Connection error: " + e.getMessage() );
+                            e.printStackTrace( System.err );
+                        }
+                        finally {
+                            lastActivity.set( System.currentTimeMillis() );
                             try {
-                                handleConnection( compiler, conn );
+                                conn.close();
                             }
-                            catch( final Exception e ) {
-                                System.err.println( "Connection error: " + e.getMessage() );
-                                e.printStackTrace( System.err );
-                            }
-                            finally {
-                                lastActivity.set( System.currentTimeMillis() );
-                                try {
-                                    conn.close();
-                                }
-                                catch( final Exception ignored ) {}
-                            }
+                            catch( final Exception ignored ) {}
                         }
                     } );
                 }

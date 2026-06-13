@@ -124,19 +124,13 @@ run_via_daemon() {
         NC_ARGS+=("-G" "1") # Apply macOS-only connection timeout flag safely
     fi
 
-    # Inner helper payload generator
-    payload_func() {
-        process_javac_args "$@"
-        printf '\x1FENDINP\x1F\n'
-    }
-
     # Route content via native network descriptors or dynamic netcat flags
     if command -v nc >/dev/null 2>&1; then
-        payload_func "$@" | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
+        { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
     else
         # Native safe fallback if netcat behaves erratically or isn't installed
         exec 3<>/dev/tcp/localhost/"$PORT"
-        payload_func "$@" >&3
+        { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } >&3
         cat <&3 > "$WORK/response"
         exec 3>&-
     fi

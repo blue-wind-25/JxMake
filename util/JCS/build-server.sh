@@ -13,7 +13,15 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "Compiling CompileServer.java..."
-javac -source 8 -target 8 -d "$TMP" "$SRC"
+# Use --release 8 on JDK 9+ (stricter cross-compilation, also checks bootstrap API).
+# Fall back to -source/-target for JDK 8 which predates --release.
+_JAVAC_VER=$(javac -version 2>&1)
+if echo "$_JAVAC_VER" | grep -qE '^javac 1\.'; then
+    javac -source 8 -target 8 -d "$TMP" "$SRC"
+else
+    javac --release 8 -d "$TMP" "$SRC"
+fi
+unset _JAVAC_VER
 
 echo "Packaging compile-server.jar..."
 jar cfe "$JAR" CompileServer -C "$TMP" .

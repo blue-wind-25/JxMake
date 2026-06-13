@@ -59,10 +59,24 @@ CLIENT_CWD="$(pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# Build nc args; macOS nc requires -G for a connection timeout in addition to -w.
+NC_ARGS=("-w" "30")
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    NC_ARGS+=("-G" "1")
+fi
+
 # Send absolutized javac args line-by-line, then the US-wrapped ENDINP sentinel.
 # Receive the full framed response into a temp file (binary-safe).
-{ process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } \
-    | nc -w 30 localhost "$PORT" > "$WORK/response"
+# Falls back to /dev/tcp when nc is not available.
+if command -v nc >/dev/null 2>&1; then
+    { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } \
+        | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
+else
+    exec 3<>/dev/tcp/localhost/"$PORT"
+    { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } >&3
+    cat <&3 > "$WORK/response"
+    exec 3>&-
+fi
 
 # awk matches the US-wrapped sentinel lines directly and routes each
 # section to the appropriate temp file.

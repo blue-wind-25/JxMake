@@ -26,7 +26,7 @@ version 3 of the License, or (at your option) any later version.
 
 ## Recent Improvements
 
-The following changes were applied to `CompileServer.java` in the 2026 refactor:
+### `CompileServer.java`
 
 - **`ServerSocket` in try-with-resources** — the listening socket is now declared
   inside a `try(...)` block, ensuring it is closed on any unexpected exit from
@@ -53,6 +53,45 @@ The following changes were applied to `CompileServer.java` in the 2026 refactor:
 - **Comment accuracy** — the `sendFramedResponse` Javadoc now correctly states
   that empty stdout/stderr sections emit *no* content lines (the old text
   incorrectly said "one blank line").
+
+- **Lambda conversions** — all anonymous `Runnable` and `ThreadFactory`
+  inner classes replaced with lambdas.  The `workerFactory` `AtomicInteger`
+  counter is extracted to a local variable so it can be captured by the lambda.
+  Behaviour is unchanged; the code is more idiomatic Java 8.
+
+### `build-server.sh`
+
+- **`--release 8` on JDK 9+** — `build-server.sh` now detects the javac
+  major version at build time.  On JDK 9 and newer it compiles with
+  `--release 8`, which is stricter than `-source 8 -target 8` because it
+  also cross-checks the bootstrap API against the Java 8 class library.
+  On JDK 8 (which predates `--release`) it falls back to `-source 8 -target 8`.
+
+### `javac-client.sh`
+
+- **macOS `nc` flag** — `javac-client.sh` now builds `NC_ARGS` the same way
+  `javac-daemon-wrapper.sh` already did: adds `-G 1` (connection timeout) on
+  macOS where `nc` requires it in addition to `-w`.
+
+- **`/dev/tcp` fallback** — when `nc` is not on `PATH`, the client script
+  falls back to Bash's built-in `/dev/tcp` pseudo-device, matching the
+  behaviour already present in `javac-daemon-wrapper.sh`.
+
+### `javac-daemon-wrapper.sh`
+
+- **Inlined `payload_func`** — the nested `payload_func` function definition
+  inside `run_via_daemon` was removed.  In Bash, nested function definitions
+  are hoisted to global scope the first time the enclosing function runs,
+  which is a non-obvious side effect.  The payload generation is now inlined
+  as a `{ ... }` command group directly in the `nc` and `/dev/tcp` branches.
+
+### `javac-client.ps1` / `javac-daemon-wrapper.ps1`
+
+- **`switch -Exact` for sentinel matching** — sentinel lines were matched with
+  `switch -Regex`, which performs a *partial* match (no `^`/`$` anchors), so
+  any line *containing* a sentinel substring would have matched.
+  Changed to `switch -Exact` for correct whole-line equality, which also
+  avoids invoking the regex engine on every response line.
 
 ---
 
@@ -106,8 +145,9 @@ appears in normal javac output, making framing unambiguous without escaping.
 **Bash parsing**: `awk` matches sentinel lines via the `\037` octal literal
 (0x1F) directly from the raw response; no preprocessing is required.
 
-**PowerShell parsing**: `[char]0x1F` produces the Unit Separator natively;
-sentinel comparison uses exact string equality.
+**PowerShell parsing**: `` `u{001F} `` in a double-quoted string produces the
+Unit Separator natively; sentinel lines are matched with `switch -Exact` for
+whole-line equality (no regex engine involved).
 
 ### Path handling
 
@@ -289,7 +329,8 @@ own `StandardJavaFileManager` instance.  The thread pool grows on demand
 
 ### Linux / macOS
 - Bash 4.0+ (CentOS 7 and newer)
-- `nc` (netcat), `tr`, `awk` (GNU awk), `nohup` — standard on all distros
+- `awk`, `nohup` — standard on all distros
+- `nc` (netcat) — optional; scripts fall back to Bash's `/dev/tcp` if absent
 
 ### Windows
 - PowerShell 5.1+ (Windows 10 built-in) or PowerShell 7.x

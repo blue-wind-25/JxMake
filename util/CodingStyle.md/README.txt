@@ -26,8 +26,12 @@ Recommended models (minimum):
 Non-Anthropic equivalents at the same tier:
   Gemini 1.5 Pro / 2.0 Pro, GPT-4o (not 4o-mini)
 
-One file at a time is strongly recommended. Feeding an entire directory in
-a single prompt degrades quality and may exceed context limits.
+Context note: each `claude -p` call in a shell loop is a completely independent
+process — context does NOT accumulate between iterations. Each invocation sees
+only the style rules and the current file. The batch script below already handles
+this correctly. "One file at a time" only matters if you try to feed multiple
+files in a single prompt (e.g. `cat *.c | claude -p "..."`), which you should
+avoid.
 
 
 Preparing the System Prompt

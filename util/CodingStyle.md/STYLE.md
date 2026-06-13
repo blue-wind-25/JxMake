@@ -67,17 +67,17 @@ switch(x)
 
 Single-level with content — pad:
 ```c
-int x[] = { 1, 2, 3 }
+int x[] = { 1, 2, 3 };
 ```
 
 Nested `{}` — both levels pad:
 ```c
-int x[][] = { { 1, 2 }, { 3, 4 } }
+int x[][2] = { { 1, 2 }, { 3, 4 } };
 ```
 
 Empty braces — tight:
 ```c
-int x[] = {}
+int x[] = {};
 ```
 
 ---
@@ -238,8 +238,8 @@ if(x) break;
 ## 11. Non-function Block Brace Style
 
 Control-flow and container blocks — `if`, `else`, `else if`, `for`, `while`, `do`, `switch`,
-`try`, `catch`, and class/interface/enum body braces — use **K&R style**: opening `{` on the
-same line as the keyword or declaration, not on its own line.
+`try`, `catch`, `finally`, and class/interface/enum body braces — use **K&R style**: opening
+`{` on the same line as the keyword or declaration, not on its own line.
 
 ```c
 if(x) {
@@ -302,23 +302,32 @@ This blank-line grouping is optional and context-driven; do not apply it mechani
 
 ## 13. `switch` Formatting
 
-**Multi-line cases** — blank line after opening `{`, before closing `}`, and between cases:
+**Multi-line cases** — case body is indented **two levels** inside the `case` label (one for
+the case block, one for the body itself); `}` and `break` share the intermediate level.
+Blank line after opening `{`, before closing `}`, and between cases:
 
 ```c
-switch(state) {
+switch(cmd) {
 
-    case A: {
-            doSomething();
-            doMore();
+    case CMD_READ: {
+            status   = readData(buf, len);
+            bytesRx += len;
         }
         break;
 
-    case B: {
-            ...
+    case CMD_WRITE: {
+            status   = writeData(buf, len);
+            bytesTx += len;
         }
         break;
 
-} // switch state
+    case CMD_RESET: {
+            resetDevice();
+            status = STATUS_OK;
+        }
+        break;
+
+} // switch cmd
 ```
 
 **All one-liner cases** — align `:` and `break;` columns, no blank lines:

@@ -92,7 +92,7 @@ for(int i = 0; i < n; ++i)
 
 ## 6. Bitfields Declaration Alignment
 
-```c
+```cpp
 struct DeviceState {
     static volatile uint8_t  buffer[64];
                     uint16_t timeout;
@@ -111,10 +111,12 @@ Rules:
 
 ## 7. Closing Comments — Additional C/C++ Cases
 
-Namespace closing comments:
+Namespace closing comments — named namespaces include the name; unnamed namespaces get
+no closing comment at all (the `}` stands alone):
 ```cpp
 } // namespace audio
-} // namespace — unnamed : no label
+
+}
 ```
 
 Class and struct:

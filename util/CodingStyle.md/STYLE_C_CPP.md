@@ -13,7 +13,7 @@ Read [STYLE.md](STYLE.md) first. This file extends and overrides it for C and C+
 
 ## 2. Function Brace Style
 
-Function definitions always use **Allman style** — opening `{` on its own line:
+**Function definitions only** use **Allman style** — opening `{` on its own line:
 
 ```c
 void process()
@@ -23,8 +23,11 @@ void process()
 }
 ```
 
-**One-liner exception**: if the entire body is a single statement, write on two lines
-with `{` and `}` on the second line:
+All other blocks (`if`, `else`, `for`, `while`, `switch`, etc.) use **K&R style** — opening
+`{` on the same line as the keyword. See STYLE.md §11.
+
+**One-liner exception**: if the entire function body is a single statement (or a short sequence
+of tightly related statements), write on two lines with `{` and `}` on the second line:
 
 ```c
 void reset()
@@ -136,3 +139,38 @@ Enum:
 - `else`/`else if` closing comment threshold: apply when the branch is long
   **and** contains multiple levels of nested `if`s — exact line count is a
   judgment call.
+
+---
+
+## 9. Section Dividers
+
+Two strengths of divider are used, both full-width at the line-length limit (100 chars).
+
+**Single line** — separates ordinary logical sections within the same context:
+
+```c
+////////////////////////////////////////////////////////////////////////////////////////////////////
+```
+
+**Triple line** — marks a stronger boundary: either immediately before a `#endif` that closes
+a large conditional block, or between parts of a file with fundamentally different attribution
+or origin (different subsystem, different third-party source):
+
+```c
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#endif // SOME_LARGE_CONDITIONAL_BLOCK
+```
+
+```c
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+ * Based on "..." — different attribution / origin section follows
+ */
+```
+
+Use sparingly in both cases — the triple should feel significant, not routine.

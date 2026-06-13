@@ -10,9 +10,9 @@ Omit `void` — use empty parens: `void foo()`
 
 ---
 
-## 2. Function / Method Brace Style
+## 2. Method Brace Style
 
-Function definitions always use **Allman style** — opening `{` on its own line
+**Method definitions only** use **Allman style** — opening `{` on its own line:
 
 ```java
 void process()
@@ -22,7 +22,24 @@ void process()
 }
 ```
 
-One-liner methods follow the getter/setter group rule from STYLE.md §12 when
+Class, interface, and enum body braces, as well as all control-flow blocks (`if`, `for`,
+`while`, `switch`, `try`, etc.), use **K&R style** — opening `{` on the same line. See
+STYLE.md §11.
+
+```java
+public class Foo {
+
+    void process()
+    {
+        if(ready) {
+            doSomething();
+        }
+    }
+
+} // class Foo
+```
+
+One-liner methods follow the getter/setter group rule from STYLE.md §14 when
 they appear as part of an aligned group. Standalone one-liners:
 
 ```java
@@ -75,12 +92,12 @@ Map<String, Integer> m = new HashMap() {{ put("a", 1); }};
 ## 5. Getter/Setter/Checker Group Alignment
 
 Applies to methods inside `class`, `interface`, `enum` bodies.
-Same rules as STYLE.md §12.
+Same rules as STYLE.md §14.
 
 ```java
-public void setX   (int x) { _x = x;        }
-public int  getX   (     ) { return _x;     }
-public bool isValid(     ) { return _x > 0; }
+public void    setX   (int x) { _x = x;        }
+public int     getX   (     ) { return _x;     }
+public boolean isValid(     ) { return _x > 0; }
 ```
 
 Alignment spans access modifier, return type, method name, parameters, body, and `}`.

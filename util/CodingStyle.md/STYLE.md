@@ -14,6 +14,9 @@ When a language-specific rule conflicts with a common rule, the language-specifi
 
 - **4 spaces** per indent level.
 - **Tab display size**: 4 spaces.
+- **Match the project**: if the project or most files in it already use tabs, continue using tabs.
+  When a project mixes tabs and spaces, use whichever style the **majority of files** in
+  that project use.
 - **Do not convert** existing indent style (tabs↔spaces) unless the file is inconsistent
   with surrounding files in the same module/directory. If conversion is needed, convert
   the entire file, not just the lines being edited.
@@ -224,7 +227,72 @@ if(x) break;
 
 ---
 
-## 11. `switch` Formatting
+## 11. Non-function Block Brace Style
+
+Control-flow and container blocks — `if`, `else`, `else if`, `for`, `while`, `do`, `switch`,
+`try`, `catch`, and class/interface/enum body braces — use **K&R style**: opening `{` on the
+same line as the keyword or declaration, not on its own line.
+
+```c
+if(x) {
+    doSomething();
+    doMore();
+}
+
+for(int i = 0; i < n; ++i) {
+    ...
+}
+
+switch(state) {
+    ...
+}
+```
+
+Contrast with **function definitions**, which use Allman style (opening `{` on its own line) —
+see the language-specific files.
+
+---
+
+## 12. `else` / `else if` Placement
+
+`else` and `else if` go on their own line, directly after the closing `}` of the preceding block:
+
+```c
+if(x) {
+    doSomething();
+}
+else if(y) {
+    doOther();
+}
+else {
+    doDefault();
+}
+```
+
+A **blank line** may be inserted between `}` and `else`/`else if` to separate logically
+distinct branches — for example when the preceding branch exits unconditionally (`return`,
+`break`, `continue`) and the next branch opens a clearly separate logical path:
+
+```c
+if(id == 0) {
+    id  = newId;
+    cnt = 1;
+    return true;
+}
+
+else if(id == newId) {
+    ++cnt;
+    return true;
+}
+
+return false;
+```
+
+This blank-line grouping is optional and context-driven; do not apply it mechanically.
+
+---
+
+## 13. `switch` Formatting
 
 **Multi-line cases** — blank line after opening `{`, before closing `}`, and between cases:
 
@@ -264,7 +332,7 @@ switch(state) {
 
 ---
 
-## 12. Getter/Setter/Checker Group Alignment
+## 14. Getter/Setter/Checker Group Alignment
 
 Short functions in a class, struct, or enum body that form a logical group
 (getters, setters, checkers) may be written inline as an aligned group:

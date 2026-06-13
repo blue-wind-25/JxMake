@@ -824,6 +824,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
             return None
         return fs
 
+    @property
+    def _url_path(self) -> str:
+        return urllib.parse.unquote(self.path.split("?", 1)[0])
+
     _FAVICON_SVG = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
         '<rect width="12" height="14" x="2" y="1" rx="1" fill="#0969da"/>'
@@ -921,7 +925,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(403, "Permission denied")
             return
 
-        url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
+        url_path = self._url_path
         rows: list[str] = []
 
         if url_path not in ("/", ""):
@@ -980,7 +984,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
 
-        url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
+        url_path = self._url_path
         rendered = _md.render(text)
         # Wrap fenced code blocks for dual-scrollbar support
         rendered = re.sub(r'<pre><code([^>]*)>',
@@ -1003,7 +1007,26 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
         if st.st_size > _MAX_HIGHLIGHT_BYTES:
-            super().do_GET()
+            if self._not_modified(st.st_mtime):
+                return
+            mime = self.guess_type(file_path)
+            try:
+                f = open(file_path, "rb")
+            except OSError:
+                self.send_error(404, "File not found")
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(st.st_size))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Last-Modified",
+                                 email.utils.formatdate(st.st_mtime, usegmt=True))
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.copyfile(f, self.wfile)
+            finally:
+                f.close()
             return
         if self._not_modified(st.st_mtime):
             return
@@ -1014,7 +1037,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return
 
-        url_path = urllib.parse.unquote(self.path.split("?", 1)[0])
+        url_path = self._url_path
         crumb = self._breadcrumb(url_path)
         inner = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
         body = f'{self._nav_bar(crumb)}\n{inner}'
@@ -1122,7 +1145,8 @@ class MDRHandler(SimpleHTTPRequestHandler):
         )
 
     def log_message(self, fmt: str, *args) -> None:
-        print(f"[{self.address_string()}] {fmt % args}")
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        print(f"[{ts}] [{self.address_string()}] {fmt % args}")
 
 
 # ---------------------------------------------------------------------------
@@ -1155,7 +1179,10 @@ def main() -> None:
     if not os.path.isdir(web_root):
         sys.exit(f"error: {web_root!r} is not a directory")
 
-    server = MDRServer((args.bind, args.port), MDRHandler, web_root)
+    try:
+        server = MDRServer((args.bind, args.port), MDRHandler, web_root)
+    except OSError as e:
+        sys.exit(f"error: cannot bind to {args.bind}:{args.port} — {e.strerror}")
 
     print(f"Serving {web_root}")
     print(f"Listening on http://{args.bind}:{args.port}/")

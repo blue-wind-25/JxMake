@@ -608,10 +608,6 @@ class _JxMakeLexer(RegexLexer):
     }
 
 
-_MAKEFILE_FILENAMES = frozenset({
-    "Makefile", "makefile", "GNUmakefile", "BSDmakefile",
-})
-
 _JXMAKE_FILENAMES = frozenset({"JxMakeFile"})
 
 _MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger than this
@@ -901,7 +897,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 parsed = email.utils.parsedate(ims)
                 if parsed and int(mtime) <= calendar.timegm(parsed):
                     self.send_response(304)
-                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Cache-Control", "no-store")
                     self.end_headers()
                     return True
             except Exception:
@@ -1066,7 +1062,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "no-store")
         if last_modified is not None:
             self.send_header("Last-Modified",
                              email.utils.formatdate(last_modified, usegmt=True))

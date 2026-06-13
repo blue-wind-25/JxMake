@@ -105,18 +105,17 @@ static          const char*          name;
 ```
 
 ```java
-public  static volatile int    buffer[64]; // A Comment
-public  static volatile String buffer;
-private static volatile char   buffer;
+public  static volatile int[]  buffer;     // A Comment
+public  static volatile String data;
+private static volatile char   mode;
 private static          long   timeout;    // Another Comment
                         int    flags;
-private static          char   name;
-                        char   label[MAX];
+private static          String name;
+                        char[] label;
 ```
 
 Rules:
-- `*` attaches to the **type**, not the name: `char* p` not `char *p`.
-- `const` after `*` stays in place: `uint8_t* const ptr`.
+- For pointer and `const` placement in C/C++, see STYLE_C_CPP.md §4.
 - **`static` declarations come first** in a group, unless a non-static is needed
   as a size or value dependency for a static — in that case keep the dependency
   immediately before the static that uses it.
@@ -154,10 +153,20 @@ Add a closing comment after `}` when the **content of the block exceeds 5 lines*
 
 Format:
 - Default: `// block-name` (e.g. `// for`, `// while`, `// MyClass`)
-- When nesting depth > 2: include the key variable — `// for i`, `// while running`
+- When multiple control-flow blocks are nested simultaneously, include the key variable
+  to make clear which block is closing — `// for i`, `// while running`
 
 ```c
 for(int i = 0; i < n; ++i) {
+    for(int j = 0; j < m; ++j) {
+        ...
+        ...
+        ...
+        ...
+        ...
+        ...
+    } // for j
+
     ...
     ...
     ...
@@ -167,14 +176,13 @@ for(int i = 0; i < n; ++i) {
 } // for i
 ```
 
-**Always** include the name for named constructs regardless of nesting depth:
-`class`, `struct`, `enum`, `namespace` (named only — unnamed namespace gets no label).
+**Always** include the name for named constructs regardless of nesting depth.
+`class` and `enum` are universal. See language-specific files for additional
+constructs (`struct`, `namespace` in C/C++; `interface` in Java).
 
-```cpp
+```c
 } // class MyClass
-} // struct Point
 } // enum Color
-} // namespace audio
 ```
 
 **Never** add closing comments on:

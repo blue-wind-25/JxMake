@@ -2,10 +2,9 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further complete, verify, and improve the WindowsDriverInstaller class.
-
 # Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
-  and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
+  and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'. The 'dist' target in the Makefile has been
+  updated to copy these application JARs when creating the distribution directory.
 
 # Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
       hardware/JxMake_USB_GPIO/_0_Firmware.diff

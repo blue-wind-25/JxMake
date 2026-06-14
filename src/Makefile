@@ -110,6 +110,8 @@ JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_11),$(JDS_PATH_$(JDK
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_25),$(JDS_PATH_25))
 JFLAGS            := -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all
 
+PCPP_JAVA_JAR     := pcpp-java-1.30.jar
+
 xlint: # This target requires Java 17 or later
 	@$(JC) -Xlint --help-lint
 
@@ -276,20 +278,26 @@ jsef: jar
 
 ##### Build distribution
 ##### !!! NOTE : Synchronize with 'jxm/SysUtil.java' !!!
-DIST_VER = 0.9.9-tp2
+DIST_VER = 0.9.9-tp3
 DIST_DIR = ../dist_build
 
 dist: jar
 	@rm -rvf $(DIST_DIR)
+	@mkdir -p $(DIST_DIR)/jxmake_dist/apps
 	@mkdir -p $(DIST_DIR)/jxmake_dist/libs
 	@mkdir -p $(DIST_DIR)/jxmake_dist/dics
 	@mkdir -p $(DIST_DIR)/jxmake_dist/unicode
-	@cp -v ../3rd_party/jars/*    $(DIST_DIR)/jxmake_dist/libs
-	@cp -v ../3rd_party/dics/*    $(DIST_DIR)/jxmake_dist/dics
-	@cp -v ../3rd_party/unicode/* $(DIST_DIR)/jxmake_dist/unicode
-	@cp -v $(APP_JAR)             $(DIST_DIR)/jxmake_dist
-	@cp -v jxmake.sh              $(DIST_DIR)/jxmake
-	@cp -v jxmake.bat             $(DIST_DIR)/jxmake.bat
+	@cp -v ../util/JCS/compile-server.jar                     $(DIST_DIR)/jxmake_dist/apps/compile-server.jar
+	@cp -v ../util/JCS/README.md                              $(DIST_DIR)/jxmake_dist/apps/compile-server-README.md
+	@cp -v ../3rd_party/tools/pcpp_java/$(PCPP_JAVA_JAR)      $(DIST_DIR)/jxmake_dist/apps/pcpp-java.jar
+	@cp -v ../3rd_party/tools/pcpp_java/LICENSE.txt           $(DIST_DIR)/jxmake_dist/apps/pcpp-java-LICENSE.txt
+	@cp -v ../3rd_party/tools/pcpp_java/TRANSLATION_NOTES.txt $(DIST_DIR)/jxmake_dist/apps/pcpp-java-TRANSLATION_NOTES.txt
+	@cp -v ../3rd_party/jars/*                                $(DIST_DIR)/jxmake_dist/libs
+	@cp -v ../3rd_party/dics/*                                $(DIST_DIR)/jxmake_dist/dics
+	@cp -v ../3rd_party/unicode/*                             $(DIST_DIR)/jxmake_dist/unicode
+	@cp -v $(APP_JAR)                                         $(DIST_DIR)/jxmake_dist
+	@cp -v jxmake.sh                                          $(DIST_DIR)/jxmake
+	@cp -v jxmake.bat                                         $(DIST_DIR)/jxmake.bat
 	@(                                                                   \
 		cd $(DIST_DIR)  ;                                            \
 		zip -r JxMake-$(DIST_VER).zip jxmake_dist jxmake jxmake.bat; \
@@ -823,11 +831,11 @@ endef
 USE_MULTI := 1
 ifeq ($(USE_MULTI),1)
     # Batch preprocessing via PCPP_JAVA
-    PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp_java/pcpp-java-1.30.jar --line-directive '' --passthru-comments
+    PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp_java/$(PCPP_JAVA_JAR) --line-directive '' --passthru-comments
     $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_MULTI,$(I))))
 else
     # One-by-one preprocessing via PCPP_PYTHON
-    PCPP_PYTHON = python3                ../3rd_party/tools/pcpp/pcmd.py                 --line-directive '' --passthru-comments
+    PCPP_PYTHON = python3                ../3rd_party/tools/pcpp/pcmd.py               --line-directive '' --passthru-comments
     $(foreach I,$(JAVA_SOURCES_PP),$(eval $(call PP_JSI_SNGLE,$(I))))
 endif
 

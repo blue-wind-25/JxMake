@@ -71,16 +71,16 @@ else {
 
 ### §13 — Inline switch alignment
 
-For inline (one-liner) `switch` cases: align the `;` column and the `break;` column across
-all cases. When cases are structurally similar (all simple function calls), also align the
-function-name column and the `(` column — pad shorter names with spaces:
+For inline (one-liner) `switch` cases: pad the `case` label so `:` is at the same column
+across all cases, then align `;` and `break;` columns. When cases are structurally similar
+(all simple function calls), also align the function-name column and the `(` column:
 
 ```c
 switch(state) {
-    case A: doA    (    )       ; break;
-    case B: doLongB(    )       ; break;
-    case C: doC    (d, e)       ; break;
-    case D: x = funcMath(z) + 10; break;
+    case A : doA    (    )       ; break;
+    case B : doLongB(    )       ; break;
+    case C : doC    (d, e)       ; break;
+    case D : x = funcMath(z) + 10; break;
 } // switch state
 ```
 
@@ -106,9 +106,9 @@ When inline comments in an aligned group (declaration groups, getter/setter grou
 all use a separator (`—`, `:`, etc.), align that separator column by padding the label:
 
 ```java
-int[]   x  = { 1, 2, 3 };             // single-level — pad
+int[]   x  = { 1, 2, 3 };            // single-level — pad
 int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested       — both levels pad
-int[]   z  = {};                       // empty        — tight
+int[]   z  = {};                     // empty        — tight
 ```
 
 Single sentence — no period:

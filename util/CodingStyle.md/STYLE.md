@@ -353,24 +353,32 @@ switch(cmd) {
 **Inline** — when every case fits on one line.
 
 No blank lines between cases (preserve any already present in the original). When cases are
-structurally similar (all function calls, or all assignments), align: function-name column,
-`(` column, `)` column, `;` column, and `break;` column. Add a closing comment when the
-total line count exceeds 5 (see §7):
+structurally similar (all function calls, or all assignments), align: `case` label padded so
+`:` is at the same column, then function-name column, `(` column, `)` column, `;` column,
+and `break;` column. Add a closing comment when the total line count exceeds 5 (see §7):
 
 ```c
 switch(state) {
-    case A: doA    (    )       ; break;
-    case B: doLongB(    )       ; break;
-    case C: doC    (d, e)       ; break;
-    case D: x = funcMath(z) + 10; break;
+    case A : doA    (    )       ; break;
+    case B : doLongB(    )       ; break;
+    case C : doC    (d, e)       ; break;
+    case D : x = funcMath(z) + 10; break;
 } // switch state
 ```
 
-**Fallthrough** — mark explicitly, same indentation level as the next case:
+**Fallthrough** — mark explicitly, same indentation level as the next case. In inline
+switches the `:` is aligned as above; in non-inline switches no space before `:`:
 
 ```c
+// Inline:
+    case A : /* FALL-THROUGH */
+    case B : doB(); break;
+
+// Non-inline:
     case A: /* FALL-THROUGH */
-    case B: doB(); break;
+    case B:
+        doB();
+        break;
 ```
 
 ---
@@ -432,7 +440,7 @@ separator character (`—`, `:`, etc.), align that separator across the group by
 the label with spaces:
 
 ```java
-int[]   x  = { 1, 2, 3 };             // single-level — pad
+int[]   x  = { 1, 2, 3 };            // single-level — pad
 int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested       — both levels pad
-int[]   z  = {};                       // empty        — tight
+int[]   z  = {};                     // empty        — tight
 ```

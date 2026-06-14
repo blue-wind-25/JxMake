@@ -172,12 +172,42 @@ Tips and Limitations
 2. Process files that are already mostly correct. AI reformatting works best
    as a consistency pass, not a from-scratch transformation.
 
-3. For very long files (> 500 lines), consider splitting into logical sections
-   (one struct, one class, one group of related functions) and reformatting
-   each section separately.
+3. For very long files (> 500 lines), use reformat_chunks.py (see below) instead
+   of reformat_file.py.  It splits at section dividers automatically.
 
-4. The model may silently drop or alter comments. Always diff against the
-   original to catch unintended content changes, not just formatting changes.
+4. Some comment changes in the diff are intentional: the model applies §15
+   (removes trailing periods from // comments; converts multi-sentence comments
+   to /* */ form).  Watch for unintentional changes — dropped comments or
+   altered wording — which are bugs, not style fixes.
 
 5. Alignment in getter/setter groups (STYLE.md §14) is the hardest rule for
    models to apply correctly. Manually verify those sections.
+
+
+Long Files — Chunk-Based Reformatting  (reformat_chunks.py)
+------------------------------------------------------------
+For files longer than ~500 lines, use reformat_chunks.py.  It splits the file
+at every section divider (single or triple ////) before sending to the model,
+then reassembles in order.
+
+Why splitting at dividers is safe:
+  - The divider block (all 1 or 3 lines) is always placed at the END of the
+    preceding chunk.  No divider is ever split across two API calls.
+  - The next chunk starts cleanly after the divider.
+  - Reassembly is a plain concatenation — no divider is duplicated or lost.
+  - //// divider lines are C line-comments; the model preserves their content
+    and only adjusts whitespace, so they survive chunking intact.
+
+Fallback for files with no internal dividers:
+  If a chunk is still above 500 lines (no dividers inside it), the script
+  falls back to splitting at function-boundary blank lines (a `}` at column 0
+  followed by a blank line).  This heuristic is less reliable — review those
+  chunks carefully in the diff.
+
+Usage (same as reformat_file.py, but handles long files automatically):
+  export ANTHROPIC_API_KEY="sk-ant-..."
+  python3 reformat_chunks.py src/LargeModule.c c
+  python3 reformat_chunks.py src/BigClass.java java
+
+Output:  src/LargeModule.c.reformatted
+Review:  diff src/LargeModule.c src/LargeModule.c.reformatted

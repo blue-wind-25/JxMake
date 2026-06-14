@@ -79,8 +79,11 @@ characters. Keep all remaining members aligned as a group.
 
 When generating or preserving comments:
 - **Never** end a `//` comment with a period.
+- **Always** start a sentence comment with an uppercase letter.
 - If a comment requires two or more sentences, use `/* */` block form instead of
   `//`, and end each sentence with a period.
+- Closing block comments (`// for i`, `// class Foo`) and markers
+  (`/* FALL-THROUGH */`) are labels, not sentences — do not capitalize them.
 
 Single sentence — no period:
 ```c

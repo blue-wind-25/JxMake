@@ -374,12 +374,21 @@ bool isValid(     ) { return _x > 0; }
 
 ## 15. Comment Style
 
-Single-line (`//`) and inline comments must **not** end with a period:
+Single-line (`//`) and inline comments that form a sentence must start with an
+**uppercase** letter and must **not** end with a period:
 
 ```c
 // Select the endpoint address
 // Wait until the endpoint is ready
 Endpoint_SelectEndpoint(addr); // Select endpoint
+```
+
+**Labels, closing comments, and markers** are not sentences — leave their case as-is:
+
+```c
+} // for i
+} // class Foo
+    case A: /* FALL-THROUGH */
 ```
 
 When a comment requires **multiple sentences** — forming a paragraph — switch to

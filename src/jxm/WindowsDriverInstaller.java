@@ -97,7 +97,7 @@ public class WindowsDriverInstaller {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Checks if a certificate with the specified providerName exists in the  Trusted Root and Trusted Publisher stores
+    // Checks if a certificate with the specified providerName exists in the Trusted Root and Trusted Publisher stores
     public static XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
     {
         try {
@@ -181,7 +181,7 @@ public class WindowsDriverInstaller {
         }
         finally {
             // Clean up the temporary certificate file
-            try{
+            try {
                 Files.deleteIfExists(certFile);
             }
             catch(final Exception ignored) {}
@@ -439,8 +439,8 @@ public class WindowsDriverInstaller {
             "DeviceName       = \"CDC-ACM Automated Driver\"                  \r\n" ;
     }
 
-    // Generates a formatted CDC-ACM INF string for a specific hardware ID
-    public static String generateMultiCDCACMInf(final String vid, final String pid, int numInterfaces)
+    // Generates a formatted multi-port CDC-ACM INF string for a specific hardware ID
+    public static String generateMultiCDCACMInf(final String vid, final String pid, final int numInterfaces)
     {
         final String        vidPid = String.format( "VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
         final StringBuilder sb     = new StringBuilder();
@@ -532,7 +532,7 @@ public class WindowsDriverInstaller {
         final String infPath = _saveInfToFile(vid, pid, infText);
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        if( isProviderAlreadyTrusted(PROVIDER_NAME).first() != RETCODE_OK ) {
+        if( isProviderAlreadyTrusted(PROVIDER_NAME).first() == RETCODE_OK ) {
             final XCom.Pair<Integer, String> res = createAndTrustProvider(PROVIDER_NAME);
             if( res.first() != RETCODE_OK ) return res;
         }

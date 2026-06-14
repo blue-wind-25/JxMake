@@ -369,3 +369,29 @@ void setX   (int x) { _x = x;        }
 int  getX   (     ) { return _x;     }
 bool isValid(     ) { return _x > 0; }
 ```
+
+---
+
+## 15. Comment Style
+
+Single-line (`//`) and inline comments must **not** end with a period:
+
+```c
+// Select the endpoint address
+// Wait until the endpoint is ready
+Endpoint_SelectEndpoint(addr); // Select endpoint
+```
+
+When a comment requires **multiple sentences** — forming a paragraph — switch to
+block comment form (`/* */`) and end each sentence with a period:
+
+```c
+/*
+ * Resets the device to its default state.
+ * Must not be called while a transmission is in progress.
+ */
+```
+
+The `/* */` form is triggered by multiple sentences, not by the presence of a
+period in a fragment. A sentence that happens to reference an abbreviation ending
+in `.` still uses `//` if it stands alone.

@@ -75,6 +75,26 @@ Exclude a function from the aligned group (write it normally in Allman style bel
 group) if its body alone — when written inline — would push the full line past 100
 characters. Keep all remaining members aligned as a group.
 
+### §15 — Comment ending and form
+
+When generating or preserving comments:
+- **Never** end a `//` comment with a period.
+- If a comment requires two or more sentences, use `/* */` block form instead of
+  `//`, and end each sentence with a period.
+
+Single sentence — no period:
+```c
+// Wait until the endpoint is ready
+```
+
+Multi-sentence paragraph — block form:
+```c
+/*
+ * Resets the device to its default state.
+ * Must not be called while a transmission is in progress.
+ */
+```
+
 ### Unresolved — `else` / `else if` closing comments
 
 Never add a closing comment after an `else` or `else if` block.

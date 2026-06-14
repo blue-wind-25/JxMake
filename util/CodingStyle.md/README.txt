@@ -6,6 +6,8 @@ Files in this directory
   STYLE.md        Common rules for all languages (read this first)
   STYLE_C_CPP.md  C and C++ extensions/overrides
   STYLE_JAVA.md   Java extensions/overrides
+  AI_PREAMBLE.md  Prepend to any AI prompt — replaces all judgment-call rules
+                  with deterministic defaults so AI output is consistent
   README.txt      This file
 
 
@@ -34,19 +36,19 @@ files in a single prompt (e.g. `cat *.c | claude -p "..."`), which you should
 avoid.
 
 
-Preparing the System Prompt
-----------------------------
-The style rules must be included in the prompt. Build a combined prompt by
-concatenating the relevant style files for the target language:
+Preparing the Style Prompt
+---------------------------
+Build a combined prompt by prepending AI_PREAMBLE.md (which carries the task
+instruction and deterministic defaults) followed by the relevant style files:
 
   For C files:
-    cat STYLE.md STYLE_C_CPP.md > /tmp/style_c.txt
+    cat AI_PREAMBLE.md STYLE.md STYLE_C_CPP.md > /tmp/style_c.txt
 
   For C++ files:
-    cat STYLE.md STYLE_C_CPP.md > /tmp/style_cpp.txt
+    cat AI_PREAMBLE.md STYLE.md STYLE_C_CPP.md > /tmp/style_cpp.txt
 
   For Java files:
-    cat STYLE.md STYLE_JAVA.md > /tmp/style_java.txt
+    cat AI_PREAMBLE.md STYLE.md STYLE_JAVA.md > /tmp/style_java.txt
 
 Store the combined file once and reuse it across multiple reformatting calls.
 
@@ -55,15 +57,11 @@ CLI Mode  (using the `claude` command-line tool)
 ------------------------------------------------
 Non-interactive, single-file reformatting:
 
-  claude -p --model claude-sonnet-4-6 "
-  You are a code formatter. Apply the coding style rules below EXACTLY.
-  Output ONLY the reformatted source code — no explanations, no markdown
-  fences, no commentary.
+  STYLE_DIR=/path/to/CodingStyle.md
+  RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
 
-  === STYLE RULES ===
-  $(cat /path/to/STYLE.md)
-  $(cat /path/to/STYLE_C_CPP.md)
-  === END RULES ===
+  claude -p --model claude-sonnet-4-6 "
+  $RULES
 
   === SOURCE FILE ===
   $(cat /path/to/file.c)
@@ -79,8 +77,9 @@ Batch reformatting a directory (shell script):
   #!/usr/bin/env bash
   set -euo pipefail
 
-  STYLE_RULES=$(cat /path/to/STYLE.md /path/to/STYLE_C_CPP.md)
-  SRC_DIR="$1"          # directory to reformat
+  STYLE_DIR="$(dirname "$0")"   # assumes script lives next to the style files
+  RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
+  SRC_DIR="$1"
   OUT_DIR="${2:-$SRC_DIR/reformatted}"
   mkdir -p "$OUT_DIR"
 
@@ -89,13 +88,7 @@ Batch reformatting a directory (shell script):
       base=$(basename "$f")
       echo "Reformatting $base..."
       claude -p --model claude-sonnet-4-6 "
-  You are a code formatter. Apply the coding style rules below EXACTLY.
-  Output ONLY the reformatted source code — no explanations, no markdown
-  fences, no commentary.
-
-  === STYLE RULES ===
-  $STYLE_RULES
-  === END RULES ===
+  $RULES
 
   === SOURCE FILE: $base ===
   $(cat "$f")
@@ -105,9 +98,9 @@ Batch reformatting a directory (shell script):
   done
 
   echo "Done. Review diffs with:"
-  echo "  diff -r $SRC_DIR $OUT_DIR --exclude='*.reformatted'"
+  echo "  diff -r $SRC_DIR $OUT_DIR"
 
-Save as reformat.sh, make executable (chmod +x reformat.sh), then run:
+Save as reformat.sh next to the style files, make executable (chmod +x reformat.sh):
   ./reformat.sh src/mymodule/
 
 
@@ -133,10 +126,8 @@ Script (reformat_file.py):
           messages=[{
               "role": "user",
               "content": (
-                  "You are a code formatter. Apply the coding style rules below "
-                  "EXACTLY. Output ONLY the reformatted source code — no "
-                  "explanations, no markdown fences, no commentary.\n\n"
-                  f"=== STYLE RULES ===\n{rules_text}\n=== END RULES ===\n\n"
+                  # AI_PREAMBLE.md already contains the task instruction
+                  f"{rules_text}\n\n"
                   f"=== SOURCE FILE: {source_path} ===\n{source}\n=== END SOURCE ==="
               )
           }]
@@ -150,11 +141,12 @@ Script (reformat_file.py):
 
       src, lang = sys.argv[1], sys.argv[2]
       style_dir = pathlib.Path(__file__).parent
+      preamble  = style_dir / "AI_PREAMBLE.md"
 
       if lang in ("c", "cpp"):
-          rules = load_rules(style_dir/"STYLE.md", style_dir/"STYLE_C_CPP.md")
+          rules = load_rules(preamble, style_dir/"STYLE.md", style_dir/"STYLE_C_CPP.md")
       elif lang == "java":
-          rules = load_rules(style_dir/"STYLE.md", style_dir/"STYLE_JAVA.md")
+          rules = load_rules(preamble, style_dir/"STYLE.md", style_dir/"STYLE_JAVA.md")
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 

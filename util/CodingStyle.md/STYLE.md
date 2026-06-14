@@ -105,10 +105,10 @@ static          const char*          name;
 ```
 
 ```java
-public  static volatile int[]  buffer;     // A Comment
+public  static volatile int[]  buffer;  // A Comment
 public  static volatile String data;
 private static volatile char   mode;
-private static          long   timeout;    // Another Comment
+private static          long   timeout; // Another Comment
                         int    flags;
 private static          String name;
                         char[] label;
@@ -158,13 +158,16 @@ Format:
 
 ```c
 for(int i = 0; i < n; ++i) {
+
     for(int j = 0; j < m; ++j) {
+    
         ...
         ...
         ...
         ...
         ...
         ...
+
     } // for j
 
     ...
@@ -173,6 +176,7 @@ for(int i = 0; i < n; ++i) {
     ...
     ...
     ...
+
 } // for i
 ```
 

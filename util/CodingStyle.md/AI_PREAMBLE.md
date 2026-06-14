@@ -22,11 +22,13 @@ other at the same time**. A single block at function scope uses the plain form:
 ```c
 // Two nested loops — variable name in both:
 for(int i = 0; i < n; ++i) {
+
     for(int j = 0; j < m; ++j) {
         ...
     } // for j
 
     ...
+    
 } // for i
 
 // Single loop at function scope — plain form, no variable:

@@ -55,8 +55,8 @@ When an `if` condition is followed by a `{}` block on the same line,
 apply loose padding to the condition — even if the condition alone would be tight:
 
 ```java
-if( list.get(i) ) {}     // call inside () — pad
-if(a == 1) {}            // simple — no pad (condition is tight, no call/nesting)
+if( list.get(i) ) {} // call inside () — pad
+if(a == 1) {}        // simple — no pad (condition is tight, no call/nesting)
 ```
 
 Rule: the presence of `{}` on the same line does **not** by itself trigger padding —
@@ -70,9 +70,9 @@ expression inside the condition triggers padding.
 Same rules as STYLE.md §3.3, with Java array-declaration syntax (`int[] x` not `int x[]`):
 
 ```java
-int[]   x  = { 1, 2, 3 };      // single-level — pad
-int[][] xy = { { 1, 2 }, { 3, 4 } };  // nested — both levels pad
-int[]   z  = {};                // empty — tight
+int[]   x  = { 1, 2, 3 };            // single-level — pad
+int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested — both levels pad
+int[]   z  = {};                     // empty — tight
 ```
 
 **Double-brace initialization** — leave tight; padding would cause visual confusion:

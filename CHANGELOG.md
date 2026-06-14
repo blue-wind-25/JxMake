@@ -27,6 +27,8 @@ Technical Preview 3 (TP3)
 
 + Enhanced and bug‑fixed the Java compiler server and its shell scripts (`.sh`, `.ps1`, `.cmd`) in `util/JCS/*`.
 
++ Added coding‑style rules for human developers and AI CLI/bot formatters in `util/CodingStyle.md/*`.
+
 
 Technical Preview 2 (TP2)
 -------------------------

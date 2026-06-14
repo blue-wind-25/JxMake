@@ -2,8 +2,6 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further verify, improve and cleanups 'util/MDRender/*'.
-
 # Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
   and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
 

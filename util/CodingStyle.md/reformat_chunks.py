@@ -26,7 +26,7 @@ Output
     Review with:  diff <source_file> <source_file>.reformatted
 """
 
-import sys, re, pathlib, textwrap
+import sys, re, pathlib
 import anthropic
 
 # ---- configuration ----------------------------------------------------------
@@ -112,12 +112,20 @@ def split_at_function_boundaries(lines: list[str], target: int) -> list[list[str
         chunks.append(lines[start:])
     return [c for c in chunks if c]  # drop empty
 
-def make_chunks(lines: list[str]) -> list[list[str]]:
-    """Split by dividers, then apply fallback for oversized chunks."""
+def make_chunks(lines: list[str]) -> list[tuple[list[str], bool]]:
+    """Split by dividers, then apply fallback for oversized chunks.
+
+    Returns list of (chunk_lines, is_fallback) pairs.  is_fallback is True for
+    any chunk whose primary divider-split chunk exceeded TARGET_LINES, meaning
+    its boundaries were determined (at least partially) by the heuristic splitter.
+    """
     primary = split_at_dividers(lines)
-    result = []
+    result: list[tuple[list[str], bool]] = []
     for chunk in primary:
-        result.extend(split_at_function_boundaries(chunk, TARGET_LINES))
+        sub = split_at_function_boundaries(chunk, TARGET_LINES)
+        is_fallback = len(chunk) > TARGET_LINES
+        for c in sub:
+            result.append((c, is_fallback))
     return result
 
 # ---- AI reformatting --------------------------------------------------------
@@ -181,14 +189,12 @@ def main():
     total  = len(chunks)
 
     print(f"{src.name}: {len(lines)} lines → {total} chunk(s) (model: {args.model})")
-    for i, chunk in enumerate(chunks, 1):
-        flag = "  [fallback split — review carefully]" if (
-            not DIVIDER_RE.match(chunk[0]) and i > 1
-        ) else ""
+    for i, (chunk, is_fallback) in enumerate(chunks, 1):
+        flag = "  [fallback split — review carefully]" if is_fallback else ""
         print(f"  Chunk {i}/{total}: {len(chunk)} lines{flag}")
 
     reformatted = []
-    for i, chunk in enumerate(chunks, 1):
+    for i, (chunk, is_fallback) in enumerate(chunks, 1):
         print(f"  Reformatting chunk {i}/{total}...", end=" ", flush=True)
         result = reformat_chunk(chunk, rules, src.name, i, total, args.model)
         reformatted.append(result)

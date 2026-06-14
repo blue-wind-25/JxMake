@@ -6,8 +6,8 @@ Files in this directory
   STYLE.md        Common rules for all languages (read this first)
   STYLE_C_CPP.md  C and C++ extensions/overrides
   STYLE_JAVA.md   Java extensions/overrides
-  AI_PREAMBLE.md  Prepend to any AI prompt — replaces all judgment-call rules
-                  with deterministic defaults so AI output is consistent
+  AI_PREAMBLE.md  Prepend to any AI prompt — carries the task instruction and
+                  deterministic defaults that replace all judgment-call language
   README.txt      This file
 
 
@@ -59,14 +59,13 @@ Non-interactive, single-file reformatting:
 
   STYLE_DIR=/path/to/CodingStyle.md
   RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
+  SOURCE=$(cat /path/to/file.c)
 
-  claude -p --model claude-sonnet-4-6 "
-  $RULES
+  claude -p --model claude-sonnet-4-6 "$RULES
 
-  === SOURCE FILE ===
-  $(cat /path/to/file.c)
-  === END SOURCE ===
-  " > /path/to/file.c.reformatted
+=== SOURCE FILE ===
+$SOURCE
+=== END SOURCE ===" > /path/to/file.c.reformatted
 
 Review the diff before accepting:
 
@@ -87,13 +86,12 @@ Batch reformatting a directory (shell script):
       [ -f "$f" ] || continue
       base=$(basename "$f")
       echo "Reformatting $base..."
-      claude -p --model claude-sonnet-4-6 "
-  $RULES
+      source_text=$(cat "$f")
+      claude -p --model claude-sonnet-4-6 "$RULES
 
-  === SOURCE FILE: $base ===
-  $(cat "$f")
-  === END SOURCE ===
-  " > "$OUT_DIR/$base"
+=== SOURCE FILE: $base ===
+$source_text
+=== END SOURCE ===" > "$OUT_DIR/$base"
       echo "  -> $OUT_DIR/$base"
   done
 

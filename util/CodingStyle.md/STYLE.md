@@ -96,8 +96,8 @@ Declarations in the same logical group are column-aligned across:
 
 ```c
 static volatile       uint8_t        buffer[64]; /* A Comment */
-static volatile       uint8_t*       buffer;
-static volatile const uint8_t* const buffer;
+static volatile       uint8_t*       ptr;
+static volatile const uint8_t* const cptr;
 static                uint16_t       timeout;    /* Another Comment */
                       uint8_t        flags;
 static          const char*          name;
@@ -120,7 +120,7 @@ Rules:
   as a size or value dependency for a static — in that case keep the dependency
   immediately before the static that uses it.
 - If reordering safety is unclear, **preserve relative order**.
-- `//` and `/* .. */`are aligned after the field name and array size.
+- `//` and `/* .. */` are aligned after the field name and array size.
 - A blank line between declaration groups **resets alignment** — each group aligns
   independently.
 
@@ -160,7 +160,7 @@ Format:
 for(int i = 0; i < n; ++i) {
 
     for(int j = 0; j < m; ++j) {
-    
+
         ...
         ...
         ...
@@ -179,6 +179,20 @@ for(int i = 0; i < n; ++i) {
 
 } // for i
 ```
+
+**Named constructs** (`class`, `struct`, `enum`, `enum class`, `namespace`, `interface`, etc.)
+always receive a blank line after `{` and before `}`, regardless of content length:
+
+```cpp
+class Foo {
+
+    // ... members ...
+
+} // class Foo
+```
+
+For **control-flow blocks** (`for`, `while`, `if`, `switch`): do not add or remove blank lines
+inside the block — preserve them as-is. They count toward the 5-line threshold.
 
 **Always** include the name for named constructs regardless of nesting depth.
 `class` and `enum` are universal. See language-specific files for additional
@@ -306,9 +320,11 @@ This blank-line grouping is optional and context-driven; do not apply it mechani
 
 ## 13. `switch` Formatting
 
-**Multi-line cases** — case body is indented **two levels** inside the `case` label (one for
-the case block, one for the body itself); `}` and `break` share the intermediate level.
-Blank line after opening `{`, before closing `}`, and between cases:
+**Non-inline** — when any case has a multi-line body.
+
+Blank line after the switch's opening `{`, after each `break;` (between cases), and before
+the switch's closing `}`. Case body indented **two levels** inside the `case` label (one for
+the case `{` block, one for the body inside it); `}` and `break;` share the intermediate level:
 
 ```c
 switch(cmd) {
@@ -334,14 +350,20 @@ switch(cmd) {
 } // switch cmd
 ```
 
-**All one-liner cases** — align `:` and `break;` columns, no blank lines:
+**Inline** — when every case fits on one line.
+
+No blank lines between cases (preserve any already present in the original). When cases are
+structurally similar (all function calls, or all assignments), align: function-name column,
+`(` column, `)` column, `;` column, and `break;` column. Add a closing comment when the
+total line count exceeds 5 (see §7):
 
 ```c
 switch(state) {
-    case A: doA(); break;
-    case B: doB(); break;
-    case C: doC(); break;
-}
+    case A: doA    (    )       ; break;
+    case B: doLongB(    )       ; break;
+    case C: doC    (d, e)       ; break;
+    case D: x = funcMath(z) + 10; break;
+} // switch state
 ```
 
 **Fallthrough** — mark explicitly, same indentation level as the next case:
@@ -404,3 +426,13 @@ block comment form (`/* */`) and end each sentence with a period:
 The `/* */` form is triggered by multiple sentences, not by the presence of a
 period in a fragment. A sentence that happens to reference an abbreviation ending
 in `.` still uses `//` if it stands alone.
+
+**Separator alignment**: when inline comments in an aligned group all use the same
+separator character (`—`, `:`, etc.), align that separator across the group by padding
+the label with spaces:
+
+```java
+int[]   x  = { 1, 2, 3 };             // single-level — pad
+int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested       — both levels pad
+int[]   z  = {};                       // empty        — tight
+```

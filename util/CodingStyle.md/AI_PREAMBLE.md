@@ -28,7 +28,7 @@ for(int i = 0; i < n; ++i) {
     } // for j
 
     ...
-    
+
 } // for i
 
 // Single loop at function scope — plain form, no variable:
@@ -69,6 +69,23 @@ else {
 }
 ```
 
+### §13 — Inline switch alignment
+
+For inline (one-liner) `switch` cases: align the `;` column and the `break;` column across
+all cases. When cases are structurally similar (all simple function calls), also align the
+function-name column and the `(` column — pad shorter names with spaces:
+
+```c
+switch(state) {
+    case A: doA    (    )       ; break;
+    case B: doLongB(    )       ; break;
+    case C: doC    (d, e)       ; break;
+    case D: x = funcMath(z) + 10; break;
+} // switch state
+```
+
+Do not add blank lines between cases; preserve any already present in the source.
+
 ### §14 — Excluding a member from a getter/setter aligned group
 
 Exclude a function from the aligned group (write it normally in Allman style below the
@@ -84,6 +101,15 @@ When generating or preserving comments:
   `//`, and end each sentence with a period.
 - Closing block comments (`// for i`, `// class Foo`) and markers
   (`/* FALL-THROUGH */`) are labels, not sentences — do not capitalize them.
+
+When inline comments in an aligned group (declaration groups, getter/setter groups, etc.)
+all use a separator (`—`, `:`, etc.), align that separator column by padding the label:
+
+```java
+int[]   x  = { 1, 2, 3 };             // single-level — pad
+int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested       — both levels pad
+int[]   z  = {};                       // empty        — tight
+```
 
 Single sentence — no period:
 ```c

@@ -105,7 +105,7 @@ struct DeviceState {
 
 Rules:
 - `:` are aligned after the field name.
-- `//` and `/* .. */`are aligned after the field name and array/bitfield size.
+- `//` and `/* .. */` are aligned after the field name and array/bitfield size.
 
 ---
 

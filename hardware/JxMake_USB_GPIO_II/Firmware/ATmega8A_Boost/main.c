@@ -129,8 +129,7 @@ int main(void)
 		if( gget_nRST() ) {
 			printf_P( PSTR(">>> Reset signal - begin (ADC_Ref = %d)\n"), boostVoltage );
 			enaVppVdd();
-			// Wait for nRST to go high, resetting watchdog without delay
-			while( gget_nRST() ) delayMS(0);
+			while( gget_nRST() ) delayMS(0); // Wait for nRST to go high, resetting watchdog without delay
 			disVppVdd();
 			printf_P( PSTR(">>> Reset signal - end\n\n") );
 		}

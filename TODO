@@ -2,12 +2,20 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further verify, improve, and cleanups 'util/CodingStyle.md/*'.
+# Further complete, verify, and improve the WindowsDriverInstaller class.
 
 # Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
   and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
 
-# Further verify all changes made by AI coding agents, and then delete all '_0_*.diff' files.
+# Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
+      hardware/JxMake_USB_GPIO/_0_Firmware.diff
+      hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega8A_Common.diff
+      hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega1284P.diff
+      hardware/Tools/Firmware/_0_USB_Serial_Hub_GLST.diff
+
+# Further verify and improve the firmwares for these modules:
+      'JxMake USB Serial Hub GLST'
+      'JxMake Power Supply Control'
 
 # Further verify, improve, and cleanups:
       src/jxm/tool/SSLTrustAll.java
@@ -15,17 +23,11 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
       src/jxm/tool/HTTPDownloader.java
       src/com/intellectualsites/http/*
 
-# Further complete, verify, and improve the WindowsDriverInstaller class.
-
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
 
 # Further complete, verify, and improve the 'hardware/Experiment/Firmware/AVR32DU28_CDC-ACM'
   experiment. Also add the hardware design with support for both 3.3V and 5V logic levels.
-
-# Further verify and improve the firmwares for these modules:
-      'JxMake USB Serial Hub GLST'
-      'JxMake Power Supply Control'
 
 # Complete, verify, and improve the 'Alternative Boost Converter for High Voltage Attachment II'
   module.

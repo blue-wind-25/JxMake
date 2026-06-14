@@ -17,73 +17,21 @@ Ignore that language. Apply these deterministic defaults instead.
 
 Include the key variable name in a control-flow closing comment (`// for i`,
 `// while running`) only when **two or more control-flow blocks are nested inside each
-other at the same time**. A single block at function scope uses the plain form:
-
-```c
-// Two nested loops — variable name in both:
-for(int i = 0; i < n; ++i) {
-
-    for(int j = 0; j < m; ++j) {
-        ...
-    } // for j
-
-    ...
-
-} // for i
-
-// Single loop at function scope — plain form, no variable:
-for(int i = 0; i < n; ++i) {
-    ...
-} // for
-```
-
-Named constructs (`class`, `struct`, `enum`, `namespace`, `interface`) always include
-the name, as stated in the main rules.
+other at the same time**. A single block at function scope uses the plain form (`// for`,
+`// while`). Named constructs (`class`, `struct`, `enum`, `namespace`, `interface`) always
+include the name.
 
 ### §12 — Blank line before `else` / `else if`
 
 Add a blank line before `else` or `else if` **only** when the last statement of the
 preceding block is an unconditional exit (`return`, `break`, or `continue`).
-In all other cases, place `else`/`else if` directly after `}` with no blank line:
-
-```c
-// Unconditional exit → blank line:
-if(id == 0) {
-    id  = newId;
-    cnt = 1;
-    return true;        // ← unconditional exit
-}
-
-else if(id == newId) {
-    ++cnt;
-    return true;
-}
-
-// No unconditional exit → no blank line:
-if(x > 0) {
-    doSomething();
-    result = x;         // ← not an exit
-}
-else {
-    result = 0;
-}
-```
+In all other cases, place `else`/`else if` directly after `}` with no blank line.
 
 ### §13 — Inline switch alignment
 
 For inline (one-liner) `switch` cases: pad the `case` label so `:` is at the same column
 across all cases, then align `;` and `break;` columns. When cases are structurally similar
-(all simple function calls), also align the function-name column and the `(` column:
-
-```c
-switch(state) {
-    case A : doA    (    )       ; break;
-    case B : doLongB(    )       ; break;
-    case C : doC    (d, e)       ; break;
-    case D : x = funcMath(z) + 10; break;
-} // switch state
-```
-
+(all simple function calls), also align the function-name column and the `(` column.
 Do not add blank lines between cases; preserve any already present in the source.
 
 ### §14 — Excluding a member from a getter/setter aligned group
@@ -101,28 +49,8 @@ When generating or preserving comments:
   `//`, and end each sentence with a period.
 - Closing block comments (`// for i`, `// class Foo`) and markers
   (`/* FALL-THROUGH */`) are labels, not sentences — do not capitalize them.
-
-When inline comments in an aligned group (declaration groups, getter/setter groups, etc.)
-all use a separator (`—`, `:`, etc.), align that separator column by padding the label:
-
-```java
-int[]   x  = { 1, 2, 3 };            // single-level — pad
-int[][] xy = { { 1, 2 }, { 3, 4 } }; // nested       — both levels pad
-int[]   z  = {};                     // empty        — tight
-```
-
-Single sentence — no period:
-```c
-// Wait until the endpoint is ready
-```
-
-Multi-sentence paragraph — block form:
-```c
-/*
- * Resets the device to its default state.
- * Must not be called while a transmission is in progress.
- */
-```
+- When inline comments in an aligned group all use a separator (`—`, `:`, etc.),
+  align that separator column by padding the label with spaces.
 
 ### Unresolved — `else` / `else if` closing comments
 

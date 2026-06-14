@@ -2,12 +2,14 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
+# Further verify, improve, and cleanups 'util/CodingStyle.md/*'.
+
 # Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
   and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
 
 # Further verify all changes made by AI coding agents, and then delete all '_0_*.diff' files.
 
-# Further verify, improve and cleanups:
+# Further verify, improve, and cleanups:
       src/jxm/tool/SSLTrustAll.java
       src/jxm/tool/TLAuthenticator.java
       src/jxm/tool/HTTPDownloader.java

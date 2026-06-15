@@ -5,7 +5,7 @@
 #####
 
 
-ARDUINO_CLI_PATH := '/opt/arduino-cli_1.2.2_Linux_64bit'
+ARDUINO_CLI_PATH := '/opt/arduino-cli_1.5.1_Linux_64bit'
 AVRRDUDE_PATH    := '/opt/avrdude-8.0-usbasp-pdi/bin/avrdude'
 
 SSD1306ASCII_SRC := '../../../../3rd_party/libs/arduino_library/SSD1306Ascii/'

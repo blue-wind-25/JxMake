@@ -19,8 +19,7 @@ dmesg -w | awk -v start_ts="$START_TS" '
     match($0, /\[\s*([0-9]+\.[0-9]+)\s*\]/, ts)
     line_ts = ts[1]
 
-    if (line_ts <= start_ts)
-        next
+    if(line_ts <= start_ts) next
 }
 
 # Cache VID:PID by USB topology path.
@@ -48,11 +47,9 @@ dmesg -w | awk -v start_ts="$START_TS" '
     hub_usb_path = "usb " hub[2]
 
     printf "\n[%s] Hub detected\n", hub_ts
-    printf "             Path    : %s\n", hub_usb_path
+    printf "    Path    : %s\n", hub_usb_path
 
-    if (hub_usb_path in vidpid_map)
-        printf "             VID:PID : %s\n",
-               vidpid_map[hub_usb_path]
+    if(hub_usb_path in vidpid_map) printf "    VID:PID : %s\n", vidpid_map[hub_usb_path]
 
     fflush()
 }
@@ -68,17 +65,13 @@ dmesg -w | awk -v start_ts="$START_TS" '
     acm_usb_path = "usb " usb[2]
 
     printf "\n[%s] CDC-ACM device appeared\n", acm_ts
-    printf "             Device  : %s\n", acm_dev
-    printf "             Path    : %s\n", acm_usb_path
+    printf "    Device  : %s\n", acm_dev
+    printf "    Path    : %s\n", acm_usb_path
 
-    if (acm_usb_path in vidpid_map)
-        printf "             VID:PID : %s\n",
-               vidpid_map[acm_usb_path]
+    if(acm_usb_path in vidpid_map) printf "    VID:PID : %s\n", vidpid_map[acm_usb_path]
 
-    if (hub_ts != "") {
-        printf "\n>>> Time from hub detection to %s appearance: %.3f s\n\n",
-               acm_dev,
-               acm_ts - hub_ts
+    if(hub_ts != "") {
+        printf "\n>>> Time from hub detection to %s appearance: %.3f s\n\n", acm_dev, acm_ts - hub_ts
     }
 
     fflush()
@@ -90,17 +83,14 @@ dmesg -w | awk -v start_ts="$START_TS" '
     dev_path = dev[1]
 
     printf "\n[%s] USB device disconnected\n", line_ts
-    printf "             Path    : %s\n", dev_path
+    printf "    Path    : %s\n", dev_path
 
-    if (dev_path in vidpid_map) {
-        printf "             VID:PID : %s\n",
-               vidpid_map[dev_path]
-
+    if(dev_path in vidpid_map) {
+        printf "    VID:PID : %s\n", vidpid_map[dev_path]
         delete vidpid_map[dev_path]
     }
 
-    if (dev_path == hub_usb_path)
-        hub_ts = ""
+    if(dev_path == hub_usb_path) hub_ts = ""
 
     fflush()
 }

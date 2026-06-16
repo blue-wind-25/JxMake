@@ -42,7 +42,7 @@
 #define INIT_BM_PORTB  0b00000100
 
 #define nPEn_Pin           PINB
-#define nPEn_BM        _BV(PINB2)  // Input pull-up (active low)
+#define nPEn_BM        _BV(PINB2) // Input pull-up (active low)
 
 
 // Main program entry point

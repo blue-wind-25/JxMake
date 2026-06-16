@@ -219,31 +219,52 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 
 | Baud rate | UART max  | Loopback throughput | Notes                   |
 |-----------|-----------|---------------------|-------------------------|
-| 9600      | 960 B/s   | ~640 B/s            | UART-limited            |
-| 19200     | 1920 B/s  | ~1140 B/s           | UART-limited            |
-| 57600     | 5760 B/s  | ~2580 B/s           | UART-limited            |
-| 115200    | 11520 B/s | ~2800 B/s           | Approaching USB ceiling |
-| 230400    | 23040 B/s | ~3790 B/s           | USB ceiling             |
-| 460800    | 46080 B/s | ~3750 B/s           | USB ceiling             |
-| 921600    | 92160 B/s | ~3420 B/s           | USB ceiling             |
+| 9600      | 960 B/s   | ~655 B/s            | UART-limited            |
+| 19200     | 1920 B/s  | ~1160 B/s           | UART-limited            |
+| 57600     | 5760 B/s  | ~2400 B/s           | UART-limited            |
+| 115200    | 11520 B/s | ~3440 B/s           | Approaching USB ceiling |
+| 230400    | 23040 B/s | ~3220 B/s           | USB ceiling             |
+| 460800    | 46080 B/s | ~3060 B/s           | USB ceiling             |
+| 921600    | 92160 B/s | ~5660 B/s           | USB ceiling             |
 
-The USB FS loopback ceiling of ~4 KB/s is a measurement artefact: TX and RX
-share the same 1 ms USB frame window in a loopback topology, so each direction
-gets roughly half the available bandwidth.  In real use (USB→UART→target device
-→UART→USB) the two directions are independent.  One-directional throughput
-approaches the 64 KB/s USB FS theoretical maximum at high baud rates.
+The USB FS loopback ceiling is a measurement artefact: TX and RX share the same
+1 ms USB frame window in a loopback topology, so each direction gets roughly half
+the available bandwidth.  In real use (USB→UART→target device→UART→USB) the two
+directions are independent.  One-directional throughput approaches the 64 KB/s
+USB FS theoretical maximum at high baud rates.
 
-Note that at 115200 baud and above, loopback throughput in the interrupt-driven
-firmware appears similar to or slightly below the earlier blocking firmware.
-This is also a loopback artefact: the non-blocking TX path returns before the
-UART has finished transmitting, so the loopback echo arrives in a later USB poll
-cycle than it did with blocking TX.  Real-world bridging performance is strictly
-better in all cases because neither direction stalls the other.
+The non-blocking interrupt-driven architecture means neither direction stalls the
+other in real use.  Loopback figures at high baud rates are lower than the bridge's
+actual capacity because the echo arrives in a later USB poll cycle than it did with
+the old blocking TX path.
+
+### Overflow buffering (USB→UART, TXD↔RXD loopback)
+
+The overflow stress test blasts 4096 bytes with no pacing.  The number of bytes
+received during the burst reflects how much data the firmware absorbed before the
+USB CDC RX ring buffer filled:
+
+| Baud rate | Received during 4096 B burst |
+|-----------|------------------------------|
+| 9600      | ~1536 B                      |
+| 19200     | ~1536 B                      |
+| 57600     | ~1536 B                      |
+| 115200    | ~1600 B                      |
+| 230400    | ~1595 B                      |
+| 460800    | ~1283 B                      |
+| 921600    | ~1477 B                      |
+
+The baseline figure of ~1536 B = `rxBuffer` (1024) + `uartTxBuffer` (512) confirms
+that the USB CDC RX ring buffer and the UART TX ring buffer are both fully utilised
+before any data is dropped.  At higher baud rates the UART drains `uartTxBuffer`
+faster during the burst, freeing space for slightly more USB data (or the loopback
+echo fills `uartRxBuffer`, displacing the accounting).  All rates recover cleanly
+after the burst (endpoint never locks up).
 
 
 ## Contributing
 
-Performance improvements contributed by **Claude Sonnet 4.6** (Anthropic), June 2026,
+Improvements contributed by **Claude Sonnet 4.6** (Anthropic), June 2026,
 in collaboration with Aloysius Indrayanto.
 
 The session covered:
@@ -251,7 +272,7 @@ The session covered:
 - Review of the original ST-generated CDC-ACM code and identification of latent
   bugs in `usbd_cdc_if.c` (truncation, off-by-one write, missing
   `USBD_CDC_ReceivePacket` on overflow, and wrong circular-buffer byte-count
-  formula when the buffer is nearly full)
+  formula when the buffer was nearly full)
 - Root-cause analysis of why a loopback test is harder than testing against a
   real target for a bridge with blocking UART I/O
 - Design and implementation of the bare-metal RXNE/TXE interrupt ring buffer
@@ -260,3 +281,15 @@ The session covered:
   HAL state machine corruption under burst load)
 - Development of `loopback_test.py`, including the binary-search limit finder that
   revealed the USB polling ceiling and the loopback artefact at high baud rates
+- GPIO-based `CDC_SEND_BREAK` implementation for host-controlled infinite break
+  (required by UART bootloaders that use break for reset)
+- Fix for the `CDC_SET_LINE_CODING` parity+wordlength mapping (STM32F1 UART word
+  length includes the parity bit; `8E/8O` requires `WORDLENGTH_9B`)
+- Identification and fix of the USB→UART backpressure bug: the drain loop was
+  consuming bytes from the 1024-byte `rxBuffer` even when `uartTxBuffer` was full,
+  silently dropping them; capping the drain by `UART_TX_FreeSpace()` restores the
+  intended 1536-byte two-stage buffer, confirmed by the overflow stress test
+- Reduction of `APP_RX_DATA_SIZE`/`APP_TX_DATA_SIZE` from 1000 to 64 bytes each
+  (the USB stack never uses more than one 64-byte packet at a time; saves 1872 B of BSS)
+- Break test (test 5) added to `loopback_test.py`
+- Code style reformatting of `main.cpp` per the project style guide

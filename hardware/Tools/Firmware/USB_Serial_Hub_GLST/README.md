@@ -9,17 +9,17 @@ a hardware USART3 port with RTS/CTS flow control and DTR output.
 
 ## Hardware
 
-| Signal  | Pin  | Direction      | Notes                              |
-|---------|------|----------------|------------------------------------|
-| TXD     | PB10 | STM32 → target | UART TX (AF push-pull)             |
-| RXD     | PB11 | Target → STM32 | UART RX (AF input, pull-up)        |
-| XCK     | PB12 | STM32 → target | Synchronous clock (optional)       |
-| CTS     | PB13 | Target → STM32 | Flow control input (pull-down)     |
-| RTS     | PB14 | STM32 → target | Flow control output                |
-| DTR     | PB15 | STM32 → target | Data Terminal Ready output         |
-| LED     | PC13 | Output         | Activity/status indicator          |
-| VBUS    | PA9  | Input          | USB VBUS detect                    |
-| DP_PU   | PA10 | Output         | 1.5 kΩ USB D+ pull-up enable       |
+| Signal | Pin  | Direction      | Notes                          |
+|--------|------|----------------|--------------------------------|
+| TXD    | PB10 | STM32 → target | UART TX (AF push-pull)         |
+| RXD    | PB11 | Target → STM32 | UART RX (AF input, pull-up)    |
+| XCK    | PB12 | STM32 → target | Synchronous clock (optional)   |
+| CTS    | PB13 | Target → STM32 | Flow control input (pull-down) |
+| RTS    | PB14 | STM32 → target | Flow control output            |
+| DTR    | PB15 | STM32 → target | Data Terminal Ready output     |
+| LED    | PC13 | Output         | Activity/status indicator      |
+| VBUS   | PA9  | Input          | USB VBUS detect                |
+| DP_PU  | PA10 | Output         | 1.5 kΩ USB D+ pull-up enable   |
 
 CTS is pulled low internally (active = asserted), so the UART transmits freely
 when no external CTS signal is connected.
@@ -27,12 +27,12 @@ when no external CTS signal is connected.
 
 ## Supported Line Coding
 
-| Parameter | Supported values                        |
-|-----------|-----------------------------------------|
-| Baud rate | 1200 – 1843200 bps                      |
-| Data bits | 8, 9                                    |
-| Stop bits | 1, 2                                    |
-| Parity    | None, Odd, Even                         |
+| Parameter | Supported values   |
+|-----------|--------------------|
+| Baud rate | 1200 – 1843200 bps |
+| Data bits | 8, 9               |
+| Stop bits | 1, 2               |
+| Parity    | None, Odd, Even    |
 
 CDC `SEND_BREAK` is supported: `breakDuration = 0xFFFF` asserts the break
 condition; `breakDuration = 0x0000` clears it.  All other durations are rejected.
@@ -41,7 +41,7 @@ condition; `breakDuration = 0x0000` clears it.  All other durations are rejected
 ## Building
 
 ```sh
-./jxmake build    # compile and flash via SWD
+./jxmake build    # compile and link
 ./jxmake uswd     # upload via SWD
 ./jxmake rswd     # reset via SWD
 ./jxmake clean    # clean build artefacts
@@ -144,7 +144,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `CDC_Receive_FS` | `uint8_t len` → `uint32_t len` | Silent truncation if `*Len ≥ 256` (latent on FS, real on HS) |
 | `CDC_Receive_FS` | Check-before-write order | Old code wrote a byte then checked for overflow — off-by-one |
 | `CDC_Receive_FS` | Call `USBD_CDC_ReceivePacket` on overflow path | Old code omitted it, permanently locking the endpoint on buffer-full |
-| `CDC_GetRxBufferBytesAvailable_FS` | Explicit `head >= tail` branch | Original modulo formula gave wrong results on wrap-around |
+| `CDC_GetRxBufferBytesAvailable_FS` | Explicit `head >= tail` branch | Original modulo formula gave wrong results when the buffer was nearly full |
 | `CDC_ReadRxBuffer_FS` / `CDC_PeekRxBuffer_FS` | Loop variable `uint8_t i` → `uint16_t i` | Would wrap at 256 if `Len > 255` |
 
 ### `main.cpp`
@@ -161,21 +161,47 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `CDC_SEND_BREAK` | Unchanged | `SBK` bit in CR1 is independent of `TXEIE`; no interaction |
 
 
-## Performance (loopback, STM32F103CBT6 @ 72 MHz, USB FS behind hub)
+## Performance
 
-| Baud rate | UART max | Loopback throughput | Notes |
-|-----------|----------|---------------------|-------|
-| 9600      | 960 B/s  | ~640 B/s            | UART-limited |
-| 19200     | 1920 B/s | ~1130 B/s           | UART-limited |
-| 57600     | 5760 B/s | ~2580 B/s           | UART-limited |
-| 115200    | 11520 B/s| ~2800 B/s           | Approaching USB ceiling |
-| 230400    | 23040 B/s| ~3800 B/s           | USB ceiling |
-| 460800    | 46080 B/s| ~3750 B/s           | USB ceiling |
-| 921600    | 92160 B/s| ~3420 B/s           | USB ceiling |
+> **Important:** all figures below were measured on a specific test system
+> (CentOS 7, kernel 6.0.0, i5-4460, USB FS hub) using `loopback_test.py`.
+> Actual throughput will vary depending on:
+>
+> - **Host OS and kernel version** — Linux, Windows, and macOS have different
+>   USB CDC-ACM drivers with different polling intervals and transfer batch sizes
+> - **USB topology** — direct connection vs hub, number of hub hops, hub speed
+>   (FS vs HS), and bus contention from other devices on the same controller
+> - **System load** — CPU scheduling latency affects how quickly the host driver
+>   services USB interrupts and how fast userspace reads the virtual COM port
+> - **Application behaviour** — tools that read in large blocks (e.g. `dd`) will
+>   see higher throughput than tools that read one byte at a time
+>
+> The figures here should be treated as a baseline reference, not absolute limits.
 
-The USB FS ceiling in loopback is ~4 KB/s because TX and RX share the same 1 ms
-USB frame window.  One-directional throughput approaches the 64 KB/s USB FS
-theoretical maximum at high baud rates.
+### Loopback throughput (TXD↔RXD, STM32F103CBT6 @ 72 MHz, USB FS behind hub)
+
+| Baud rate | UART max  | Loopback throughput | Notes                   |
+|-----------|-----------|---------------------|-------------------------|
+| 9600      | 960 B/s   | ~640 B/s            | UART-limited            |
+| 19200     | 1920 B/s  | ~1140 B/s           | UART-limited            |
+| 57600     | 5760 B/s  | ~2580 B/s           | UART-limited            |
+| 115200    | 11520 B/s | ~2800 B/s           | Approaching USB ceiling |
+| 230400    | 23040 B/s | ~3790 B/s           | USB ceiling             |
+| 460800    | 46080 B/s | ~3750 B/s           | USB ceiling             |
+| 921600    | 92160 B/s | ~3420 B/s           | USB ceiling             |
+
+The USB FS loopback ceiling of ~4 KB/s is a measurement artefact: TX and RX
+share the same 1 ms USB frame window in a loopback topology, so each direction
+gets roughly half the available bandwidth.  In real use (USB→UART→target device
+→UART→USB) the two directions are independent.  One-directional throughput
+approaches the 64 KB/s USB FS theoretical maximum at high baud rates.
+
+Note that at 115200 baud and above, loopback throughput in the interrupt-driven
+firmware appears similar to or slightly below the earlier blocking firmware.
+This is also a loopback artefact: the non-blocking TX path returns before the
+UART has finished transmitting, so the loopback echo arrives in a later USB poll
+cycle than it did with blocking TX.  Real-world bridging performance is strictly
+better in all cases because neither direction stalls the other.
 
 
 ## Contributing
@@ -185,14 +211,15 @@ in collaboration with Aloysius Indrayanto.
 
 The session covered:
 
-- Review of the original ST-generated CDC-ACM code and identification of four
-  latent bugs in `usbd_cdc_if.c` (truncation, off-by-one write, missing
-  `USBD_CDC_ReceivePacket` on overflow, and wrong circular-buffer byte-count formula)
-- Root-cause analysis of why a loopback test is harder than testing against a real
-  target for a bridge with blocking UART I/O
+- Review of the original ST-generated CDC-ACM code and identification of latent
+  bugs in `usbd_cdc_if.c` (truncation, off-by-one write, missing
+  `USBD_CDC_ReceivePacket` on overflow, and wrong circular-buffer byte-count
+  formula when the buffer is nearly full)
+- Root-cause analysis of why a loopback test is harder than testing against a
+  real target for a bridge with blocking UART I/O
 - Design and implementation of the bare-metal RXNE/TXE interrupt ring buffer
   architecture replacing the original blocking HAL calls
 - Iterative debugging of the ISR chain (missing re-arm after `CDC_SET_LINE_CODING`,
   HAL state machine corruption under burst load)
 - Development of `loopback_test.py`, including the binary-search limit finder that
-  revealed the USB polling ceiling
+  revealed the USB polling ceiling and the loopback artefact at high baud rates

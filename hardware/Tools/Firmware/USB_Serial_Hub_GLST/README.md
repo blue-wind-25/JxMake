@@ -89,6 +89,9 @@ The script performs, at each configured baud rate:
 4. **Overflow stress** — blasts 4096 bytes with no pacing to deliberately fill
    the 1024-byte USB CDC RX ring buffer, then verifies the device recovers cleanly
    (endpoint not locked up).
+5. **Break** — asserts `SEND_BREAK(0xFFFF)` via `port.break_condition = True`,
+   verifies no echo is returned while TXD is held low, then deasserts
+   (`port.break_condition = False`) and verifies that normal echo resumes.
 
 > **Note:** the loopback topology measures the round-trip USB→UART→USB path.
 > The firmware's TX and RX paths run concurrently but share the same USB polling

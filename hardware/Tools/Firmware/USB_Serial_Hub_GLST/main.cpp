@@ -38,7 +38,7 @@
 
 
 // The firmware version string
-const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.2";
+const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.3";
 
 
 extern "C" {
@@ -579,7 +579,10 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             else if(breakDuration == 0x0000) {
                 // End of break: assert idle (high) then restore TXD as USART3 AF.
                 HAL_GPIO_WritePin(UART_TXD_GPIO, UART_TXD_PIN, GPIO_PIN_SET);
-                HAL_Delay(1);
+                // Delay ~1ms at 72MHz
+                const uint32_t start = DWT->CYCCNT;
+                while( (DWT->CYCCNT - start) < 72000 );
+                // Restore TXD functionality
                 GPIO_InitTypeDef cfg = {};
                 cfg.Pin   = UART_TXD_PIN;
                 cfg.Mode  = GPIO_MODE_AF_PP;

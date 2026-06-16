@@ -237,11 +237,13 @@ static void blinkErrorLED()
 
     while(1) {
         for(int i = 0; i < 3; ++i) {
-            setLED(true ); HAL_Delay(100);
-            setLED(false); HAL_Delay(100);
+            setLED(true);
+            HAL_Delay(100);
+            setLED(false);
+            HAL_Delay(100);
         }
         HAL_Delay(200);
-    }
+    } // while
 }
 
 
@@ -252,10 +254,12 @@ typedef union {
     uint8_t lcBuffer[7]; // Raw byte buffer
 
     struct {
+
         uint32_t dwDTERate;   // Data terminal rate, in bits per second
         uint8_t  bCharFormat; // Stop bits : 0=1, 1=1.5, 2=2
         uint8_t  bParityType; // Parity    : 0=None, 1=Odd, 2=Even, 3=Mark, 4=Space
         uint8_t  bDataBits;   // Data bits : 5, 6, 7, 8, 9, 16
+
     } lineCoding;
 
 } CDC_LineCoding;
@@ -317,7 +321,7 @@ static uint16_t UART_TX_Enqueue(const uint8_t* data, uint16_t len)
         uartTxBuffer[head] = data[i];
         head = nextHead;
         ++enqueued;
-    } // for i
+    } // for
 
     uartTxHead = head;
 
@@ -336,8 +340,9 @@ extern "C" void USART3_IRQHandler()
 {
     const uint32_t sr = USART3->SR;
 
-    // RX: a byte has arrived — store it in the ring buffer.
-    // Reading DR clears RXNE and any simultaneously-set ORE/FE/NE flags.
+    /* RX: a byte has arrived — store it in the ring buffer.
+     * Reading DR clears RXNE and any simultaneously-set ORE/FE/NE flags.
+     */
     if( sr & USART_SR_RXNE ) {
         const uint8_t  byte     = (uint8_t ) (USART3->DR);
         const uint16_t nextHead = (uint16_t) ( (uartRxHead + 1) % UART_RX_BUFFER_SIZE );
@@ -347,12 +352,13 @@ extern "C" void USART3_IRQHandler()
             uartRxHead = nextHead;
         }
         // Buffer full — byte is silently dropped to avoid losing stream sync
-    }
+    } // if RXNE
     else if( sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE) ) {
-        // Error without RXNE: read DR to clear the pending error flags.
-        // Using else-if because the RXNE branch already read DR, which clears
-        // simultaneous ORE/FE/NE; a second DR read here would discard the next
-        // incoming byte.
+        /* Error without RXNE: read DR to clear the pending error flags.
+         * Using else-if because the RXNE branch already read DR, which clears
+         * simultaneous ORE/FE/NE; a second DR read here would discard the next
+         * incoming byte.
+         */
         (void) USART3->DR;
     }
 
@@ -366,7 +372,7 @@ extern "C" void USART3_IRQHandler()
             // Buffer empty — disable TXE interrupt until UART_TX_Enqueue re-enables it
             CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE);
         }
-    }
+    } // if TXE
 }
 
 
@@ -487,7 +493,7 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             if(length != 7) return USBD_FAIL;
 
             // Read from pbuf directly — validate BEFORE committing to cdcLineCoding
-            // so a rejected request never leaves cdcLineCoding in a half-updated state.
+            // so a rejected request never leaves cdcLineCoding in a half-updated state
             const uint32_t baudrate = (uint32_t)(pbuf[0])        | ((uint32_t)(pbuf[1]) <<  8)
                                     | ((uint32_t)(pbuf[2]) << 16) | ((uint32_t)(pbuf[3]) << 24);
             const uint8_t  stopBits = pbuf[4];
@@ -509,12 +515,13 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             else if(parity == 2) huart3.Init.Parity = UART_PARITY_EVEN;
             else                 return USBD_FAIL;
 
-            // STM32 UART word length includes the parity bit when parity is enabled.
-            // CDC dataBits counts data bits only (exclusive of parity).
-            //   CDC 8N → WORDLENGTH_8B (8 data)
-            //   CDC 8E/8O → WORDLENGTH_9B (8 data + 1 parity)
-            //   CDC 7E/7O → WORDLENGTH_8B (7 data + 1 parity)
-            //   CDC 9N → WORDLENGTH_9B (9 data)
+            /* STM32 UART word length includes the parity bit when parity is enabled.
+             * CDC dataBits counts data bits only (exclusive of parity).
+             *   CDC 8N  → WORDLENGTH_8B (8 data)
+             *   CDC 8E/8O → WORDLENGTH_9B (8 data + 1 parity)
+             *   CDC 7E/7O → WORDLENGTH_8B (7 data + 1 parity)
+             *   CDC 9N  → WORDLENGTH_9B (9 data)
+             */
             if     (dataBits == 8 && parity == 0) huart3.Init.WordLength = UART_WORDLENGTH_8B;
             else if(dataBits == 8 && parity != 0) huart3.Init.WordLength = UART_WORDLENGTH_9B;
             else if(dataBits == 7 && parity != 0) huart3.Init.WordLength = UART_WORDLENGTH_8B;
@@ -533,13 +540,16 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
              * resets CR1 anyway, but being explicit avoids any ISR race.
              */
             CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE | USART_CR1_RXNEIE);
-            uartTxHead = 0; uartTxTail = 0;
-            uartRxHead = 0; uartRxTail = 0;
+            uartTxHead = 0;
+            uartTxTail = 0;
+            uartRxHead = 0;
+            uartRxTail = 0;
 
             if( HAL_UART_Init(&huart3) != HAL_OK ) blinkErrorLED();
 
-            // Re-enable RXNE — HAL_UART_Init resets CR1
-            // TXEIE is intentionally left disabled; UART_TX_Enqueue re-enables it when new data arrives
+            /* Re-enable RXNE — HAL_UART_Init resets CR1.
+             * TXEIE is intentionally left disabled; UART_TX_Enqueue re-enables it when new data arrives.
+             */
             SET_BIT(USART3->CR1, USART_CR1_RXNEIE);
             break;
         }
@@ -566,9 +576,10 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             const uint16_t breakDuration = hUsbDeviceFS.request.wValue;
 
             if(breakDuration == 0xFFFF) {
-                // Start of break: reconfigure TXD as GPIO output driven low.
-                // This holds the line low indefinitely until wValue=0 is sent,
-                // as required by USB CDC for infinite-break (0xFFFF).
+                /* Start of break: reconfigure TXD as GPIO output driven low.
+                 * This holds the line low indefinitely until wValue=0 is sent,
+                 * as required by USB CDC for infinite-break (0xFFFF).
+                 */
                 GPIO_InitTypeDef cfg = {};
                 cfg.Pin   = UART_TXD_PIN;
                 cfg.Mode  = GPIO_MODE_OUTPUT_PP;
@@ -577,7 +588,7 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
                 HAL_GPIO_WritePin(UART_TXD_GPIO, UART_TXD_PIN, GPIO_PIN_RESET);
             }
             else if(breakDuration == 0x0000) {
-                // End of break: assert idle (high) then restore TXD as USART3 AF.
+                // End of break: assert idle (high) then restore TXD as USART3 AF
                 HAL_GPIO_WritePin(UART_TXD_GPIO, UART_TXD_PIN, GPIO_PIN_SET);
                 // Delay ~1ms at 72MHz
                 const uint32_t start = DWT->CYCCNT;
@@ -597,7 +608,7 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 
         default:
             break;
-    }
+    } // switch cmd
 
     return USBD_OK;
 }
@@ -661,8 +672,9 @@ static void handleUSB_CDC_ACM()
     static uint8_t cdcBuffer[CDC_ACM_BUFFER_SIZE];
 
     // USB -> TXD
-    // Dequeue from the USB CDC RX ring buffer and enqueue into the UART TX ring buffer.
-    // UART_TX_Enqueue returns immediately — the ISR drains the TX buffer via TXEIE.
+    /* Dequeue from the USB CDC RX ring buffer and enqueue into the UART TX ring buffer.
+     * UART_TX_Enqueue returns immediately — the ISR drains the TX buffer via TXEIE.
+     */
     const uint16_t bytesAvailable = CDC_GetRxBufferBytesAvailable_FS();
 
     if(bytesAvailable > 0) {
@@ -689,7 +701,7 @@ static void handleUSB_CDC_ACM()
         while(tail != head && chunkLen < UART_TX_CHUNK_SIZE) {
             uartTxChunk[chunkLen++] = uartRxBuffer[tail];
             tail = (uint16_t)((tail + 1) % UART_RX_BUFFER_SIZE);
-        } // while tail
+        }
 
         while( CDC_Transmit_FS(uartTxChunk, chunkLen) == USBD_BUSY ); // Retry if busy
 
@@ -720,8 +732,10 @@ int main()
 
     // Delay for a while before initializing USB
     for(int i = 0; i < (USB_PRE_INIT_DELAY_MS / 100); ++i) {
-        setLED(true ); HAL_Delay(50);
-        setLED(false); HAL_Delay(50);
+        setLED(true);
+        HAL_Delay(50);
+        setLED(false);
+        HAL_Delay(50);
     }
     setLED(false);
     HAL_Delay(100);

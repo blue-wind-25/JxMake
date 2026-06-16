@@ -14,6 +14,7 @@ Tests per baud rate:
   2. Correctness   — 64 bytes at the found limit delay, verify byte-for-byte
   3. Throughput    — 256 bytes at the found limit delay, measure effective B/s
   4. Overflow      — blast 4096 B, verify endpoint recovers
+  5. Break         — assert infinite break, verify no echo, deassert, verify echo resumes
 """
 
 import sys, os, time, serial
@@ -227,6 +228,48 @@ for baud in BAUD_RATES:
         log_fail("Data corrupted after overflow recovery")
     else:
         log_pass(f"Device recovered — {RECOVERY_BYTES} clean bytes echoed correctly")
+
+    flush_port(port)
+
+    # ------------------------------------------------------------------
+    # 5. Break test
+    # ------------------------------------------------------------------
+    log_test("Break — assert infinite break (0xFFFF), verify no echo, deassert (0x0000), verify recovery")
+
+    # Assert break: firmware reconfigures TXD as GPIO output driven low
+    port.break_condition = True
+    time.sleep(0.2)
+
+    # Flush any noise that arrived before break took effect
+    port.reset_input_buffer()
+
+    # While break is asserted, TXD is held low — no valid UART framing can be received,
+    # so any bytes we send should NOT echo back
+    port.timeout = 0.3
+    port.write(make_pattern(8))
+    port.flush()
+    noise = port.read(8)
+
+    if len(noise) != 0:
+        log_fail(f"Break not working — received {len(noise)} byte(s) while break asserted (expected 0)")
+    else:
+        log_pass("No echo while break asserted — TXD held low correctly")
+
+    # Deassert break: firmware drives TXD high for 1 ms then restores USART3 AF
+    port.break_condition = False
+    time.sleep(0.2)   # Let the 1 ms idle pulse and AF restoration complete
+    flush_port(port)
+
+    # Verify normal echo resumes
+    probe    = make_pattern(RECOVERY_BYTES)
+    returned = send_recv_1by1(port, probe, limit_delay)
+
+    if len(returned) != RECOVERY_BYTES:
+        log_fail(f"After break deassert — {len(returned)}/{RECOVERY_BYTES} bytes echoed")
+    elif returned != probe:
+        log_fail("Data corrupted after break deassert")
+    else:
+        log_pass(f"Echo resumed correctly after break deassert — {RECOVERY_BYTES} bytes match")
 
     port.close()
     time.sleep(0.5)

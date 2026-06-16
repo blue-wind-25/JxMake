@@ -23,7 +23,7 @@ import sys, os, time, serial
 # Config
 # ---------------------------------------------------------------------------
 DEV               = "/dev/ttyACM0"
-BAUD_RATES        = [9600, 19200, 57600, 115200, 230400, 460800, 921600]
+BAUD_RATES        = [1200, 9600, 19200, 57600, 115200, 230400, 460800, 921600, 1843200]
 CORRECTNESS_BYTES = 64
 THROUGHPUT_BYTES  = 256
 OVERFLOW_BURST    = 4096

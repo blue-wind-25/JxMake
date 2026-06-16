@@ -27,30 +27,30 @@ when no external CTS signal is connected.
 
 ## Supported Line Coding
 
-| Parameter | Supported values       |
-|-----------|------------------------|
-| Baud rate | 1200 – 1843200 bps     |
-| Data bits | 7 (with parity), 8, 9  |
-| Stop bits | 1, 2                   |
-| Parity    | None, Odd, Even        |
+| Parameter | Supported values      |
+|-----------|-----------------------|
+| Baud rate | 1200 – 1843200 bps    |
+| Data bits | 7 (with parity), 8, 9 |
+| Stop bits | 1, 2                  |
+| Parity    | None, Odd, Even       |
 
 STM32F1 UART word length includes the parity bit, so the firmware transparently
 adjusts `WordLength` based on the `dataBits`+`parity` combination:
 
-| CDC dataBits | Parity     | STM32 WordLength |
-|:---:|:---:|:---:|
-| 7   | Odd/Even   | 8B (7 data + 1 parity) |
-| 8   | None       | 8B                     |
-| 8   | Odd/Even   | 9B (8 data + 1 parity) |
-| 9   | None       | 9B                     |
+| CDC dataBits | Parity   | STM32 WordLength       |
+|--------------|----------|------------------------|
+| 7            | Odd/Even | 8B (7 data + 1 parity) |
+| 8            | None     | 8B                     |
+| 8            | Odd/Even | 9B (8 data + 1 parity) |
+| 9            | None     | 9B                     |
 
 CDC `SEND_BREAK` is fully host-controlled via GPIO:
 
-| `wValue` | Action |
-|----------|--------|
+| `wValue` | Action                                                                                  |
+|----------|-----------------------------------------------------------------------------------------|
 | `0xFFFF` | Reconfigures TXD (PB10) as GPIO output driven **low** — holds the line low indefinitely |
-| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull |
-| other    | Rejected (`USBD_FAIL`) |
+| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull                       |
+| other    | Rejected (`USBD_FAIL`)                                                                  |
 
 This allows the PC application to start and stop a break condition at will,
 matching the behaviour expected by tools that use break for reset (e.g. some
@@ -60,10 +60,10 @@ UART bootloaders).
 ## Building
 
 ```sh
-./jxmake build    # compile and link
-./jxmake uswd     # upload via SWD
-./jxmake rswd     # reset via SWD
-./jxmake clean    # clean build artefacts
+./jxmake build   # Compile and link
+./jxmake uswd    # Upload via SWD
+./jxmake rswd    # Reset via SWD
+./jxmake clean   # Clean build artefacts
 ```
 
 Requires the JxMake build system and the STM32 GCC toolchain at the paths
@@ -161,7 +161,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 ### `__package__/device_cdc/usbd_cdc_if.h`
 
 | Location | Change | Reason |
-|----------|--------|--------|
+|--------------------|---------|--------|
 | `APP_RX_DATA_SIZE` | 1000 → 64 | `USBD_LL_PrepareReceive` always uses `CDC_DATA_FS_OUT_PACKET_SIZE` (64); the extra 936 bytes were wasted SRAM |
 | `APP_TX_DATA_SIZE` | 1000 → 64 | `UserTxBufferFS` is never used — every `CDC_Transmit_FS` call overrides the buffer pointer; size is irrelevant |
 
@@ -240,7 +240,7 @@ the old blocking TX path.
 
 ### Overflow buffering (USB→UART, TXD↔RXD loopback)
 
-The overflow stress test blasts 4096 bytes with no pacing.  The number of bytes
+The overflow stress test blasts 4096 bytes with no pacing. The number of bytes
 received during the burst reflects how much data the firmware absorbed before the
 USB CDC RX ring buffer filled:
 

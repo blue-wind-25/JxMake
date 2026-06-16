@@ -51,8 +51,8 @@
 /* USER CODE BEGIN EXPORTED_DEFINES */
 /* Define size for the receive and transmit buffer over CDC */
 /* It's up to user to redefine and/or remove those define */
-#define APP_RX_DATA_SIZE  64   // One USB FS packet — the stack never DMA's more than 64 bytes at a time
-#define APP_TX_DATA_SIZE  64   // UserTxBufferFS is overridden by CDC_Transmit_FS callers; size is irrelevant
+#define APP_RX_DATA_SIZE 64 // One USB FS packet — the stack never DMA's more than 64 bytes at a time
+#define APP_TX_DATA_SIZE 64 // UserTxBufferFS is overridden by CDC_Transmit_FS callers; size is irrelevant
 
 /* USER CODE END EXPORTED_DEFINES */
 

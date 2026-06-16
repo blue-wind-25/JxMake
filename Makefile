@@ -92,8 +92,8 @@ clean:
 	@rm -rvf hardware/Test_Firmware/FW_PICO/RP2350/build
 	@ls -d   hardware/Test_Firmware/FW_STM32/* | tr '\n' '\0' | xargs -0 -i -I{} sh -c '$(MAKE) -s -k -C {} clean cleanall 2>/dev/null || true'
 
-dist_clean: clean
-	@$(MAKE) -C $(JXM_SRC_DIR) -s dist_clean
+distclean dist_clean: clean
+	@$(MAKE) -C $(JXM_SRC_DIR) -s distclean
 
 
 ##### Display SVN diff
@@ -113,7 +113,7 @@ xdiff: sclean
 
 
 ##### Archive the whole project
-arcv: dist_clean
+arcv: distclean
 	@(                                                                                                     \
 		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                        \
 		echo;                                                                                          \

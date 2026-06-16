@@ -303,7 +303,7 @@ dist: jar
 		zip -r JxMake-$(DIST_VER).zip jxmake_dist jxmake jxmake.bat; \
 	)
 
-dist_clean:
+distclean dist_clean:
 	@rm -rvf $(DIST_DIR)
 
 

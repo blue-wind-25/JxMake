@@ -27,12 +27,22 @@ when no external CTS signal is connected.
 
 ## Supported Line Coding
 
-| Parameter | Supported values   |
-|-----------|--------------------|
-| Baud rate | 1200 – 1843200 bps |
-| Data bits | 8, 9               |
-| Stop bits | 1, 2               |
-| Parity    | None, Odd, Even    |
+| Parameter | Supported values       |
+|-----------|------------------------|
+| Baud rate | 1200 – 1843200 bps     |
+| Data bits | 7 (with parity), 8, 9  |
+| Stop bits | 1, 2                   |
+| Parity    | None, Odd, Even        |
+
+STM32F1 UART word length includes the parity bit, so the firmware transparently
+adjusts `WordLength` based on the `dataBits`+`parity` combination:
+
+| CDC dataBits | Parity     | STM32 WordLength |
+|:---:|:---:|:---:|
+| 7   | Odd/Even   | 8B (7 data + 1 parity) |
+| 8   | None       | 8B                     |
+| 8   | Odd/Even   | 9B (8 data + 1 parity) |
+| 9   | None       | 9B                     |
 
 CDC `SEND_BREAK` is supported: `breakDuration = 0xFFFF` asserts the break
 condition; `breakDuration = 0x0000` clears it.  All other durations are rejected.
@@ -146,19 +156,25 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `CDC_Receive_FS` | Call `USBD_CDC_ReceivePacket` on overflow path | Old code omitted it, permanently locking the endpoint on buffer-full |
 | `CDC_GetRxBufferBytesAvailable_FS` | Explicit `head >= tail` branch | Original modulo formula gave wrong results when the buffer was nearly full |
 | `CDC_ReadRxBuffer_FS` / `CDC_PeekRxBuffer_FS` | Loop variable `uint8_t i` → `uint16_t i` | Would wrap at 256 if `Len > 255` |
+| `CDC_FlushRxBuffer_FS` | Removed O(N) zero-fill loop | Resetting head/tail pointers is sufficient; zeroing 1024 bytes on every flush was wasteful |
 
 ### `main.cpp`
 
 | Location | Change | Reason |
 |----------|--------|--------|
 | `blinkLED` | Cache `HAL_GetTick()` into `currentTick` | Two separate calls could return different values if a tick fires between them |
-| `UART3_Init` indentation | Fixed spurious extra indent level | Cosmetic — code was at function scope, not inside a nested block |
+| `UART3_Init` — `bDataBits` | `UART_WORDLENGTH_8B` (=0) → `8` | `GET_LINE_CODING` was reporting 0 data bits to the host on initial connect |
+| `UART3_Init` — sync-mode bits | Moved to after `HAL_UART_Init` | `HAL_UART_Init` resets CR2, so bits set before the call were silently discarded |
+| `HAL_UART_MspInit` — XCK write | `UART_TXD_GPIO` → `UART_XCK_GPIO` | Typo; both resolve to GPIOB so was harmless, but corrected for clarity |
 | `UART3_SetBaudrate` / `UART3_WriteBuffer` | Non-blocking ring buffer | See architecture section above |
 | `USART3_IRQHandler` | New — bare-metal RXNE + TXE handler | See architecture section above |
+| `USART3_IRQHandler` — error path | `if(ORE\|FE\|NE)` changed to `else if` | When RXNE+ORE fire together the RXNE branch already reads DR, clearing both flags; a second DR read in the error branch discarded the next incoming byte |
 | `UART_TX_Enqueue` | New | Enqueue helper for the TX ring buffer |
 | `handleUSB_CDC_ACM` | Non-blocking in both directions | Main loop no longer stalls on UART TX |
-| `CDC_SET_LINE_CODING` | Flush TX buffer before `HAL_UART_Init` | Matches FT232/CH34x immediate-apply behaviour |
-| `CDC_SEND_BREAK` | Unchanged | `SBK` bit in CR1 is independent of `TXEIE`; no interaction |
+| `CDC_SET_LINE_CODING` — validate-before-copy | Read from `pbuf`, validate, then copy to `cdcLineCoding` | Old order copied first, so a rejected request left `cdcLineCoding` with invalid values |
+| `CDC_SET_LINE_CODING` — parity+wordlength | Word length now accounts for parity bit | Old code mapped `dataBits=8` → `WORDLENGTH_8B` unconditionally; with parity enabled that gives only 7 effective data bits. Fixed: `8E/8O` → `WORDLENGTH_9B`, `7E/7O` → `WORDLENGTH_8B` |
+| `CDC_SET_LINE_CODING` — UART RX flush | Flush `uartRxBuffer` ring buffer on baud-rate change | TX buffer was already flushed; RX buffer now also cleared so stale bytes at the old baud rate can't be forwarded |
+| `CDC_SEND_BREAK` | `SBK` bit in CR1 asserts/clears break | Fully host-controlled: 0xFFFF asserts, 0x0000 deasserts |
 
 
 ## Performance

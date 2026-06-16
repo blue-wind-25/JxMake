@@ -336,9 +336,10 @@ extern "C" void USART3_IRQHandler()
 {
     const uint32_t sr = USART3->SR;
 
-    // RX: a byte has arrived — store it in the ring buffer
+    // RX: a byte has arrived — store it in the ring buffer.
+    // Reading DR clears RXNE and any simultaneously-set ORE/FE/NE flags.
     if( sr & USART_SR_RXNE ) {
-        const uint8_t  byte     = (uint8_t ) (USART3->DR); // Reading DR clears RXNE
+        const uint8_t  byte     = (uint8_t ) (USART3->DR);
         const uint16_t nextHead = (uint16_t) ( (uartRxHead + 1) % UART_RX_BUFFER_SIZE );
 
         if(nextHead != uartRxTail) {
@@ -346,6 +347,13 @@ extern "C" void USART3_IRQHandler()
             uartRxHead = nextHead;
         }
         // Buffer full — byte is silently dropped to avoid losing stream sync
+    }
+    else if( sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE) ) {
+        // Error without RXNE: read DR to clear the pending error flags.
+        // Using else-if because the RXNE branch already read DR, which clears
+        // simultaneous ORE/FE/NE; a second DR read here would discard the next
+        // incoming byte.
+        (void) USART3->DR;
     }
 
     // TX: transmit register is empty — send the next byte from the ring buffer
@@ -358,12 +366,6 @@ extern "C" void USART3_IRQHandler()
             // Buffer empty — disable TXE interrupt until UART_TX_Enqueue re-enables it
             CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE);
         }
-    }
-
-    // Error flags: clear ORE/FE/NE to prevent the ISR from re-entering indefinitely
-    if( sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE) ) {
-        (void) USART3->SR;
-        (void) USART3->DR;
     }
 }
 
@@ -388,7 +390,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Pull  = GPIO_PULLUP;
     HAL_GPIO_Init(UART_RXD_GPIO, &GPIO_InitStruct);
 
-    HAL_GPIO_WritePin(UART_TXD_GPIO, UART_XCK_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(UART_XCK_GPIO, UART_XCK_PIN, GPIO_PIN_RESET);
     GPIO_InitStruct.Pin   = UART_XCK_PIN;
     GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
@@ -416,11 +418,11 @@ static void UART3_Init(uint32_t baudrate, bool syncMode)
 {
     __HAL_RCC_USART3_CLK_ENABLE();
 
-    // Initialize line coding structure
+    // Initialize line coding structure (CDC values: 0=1-stop, 0=no-parity, 8=data-bits)
     cdcLineCoding.lineCoding.dwDTERate   = baudrate;
-    cdcLineCoding.lineCoding.bCharFormat = UART_STOPBITS_1;
-    cdcLineCoding.lineCoding.bParityType = UART_PARITY_NONE;
-    cdcLineCoding.lineCoding.bDataBits   = UART_WORDLENGTH_8B;
+    cdcLineCoding.lineCoding.bCharFormat = 0; // 1 stop bit
+    cdcLineCoding.lineCoding.bParityType = 0; // no parity
+    cdcLineCoding.lineCoding.bDataBits   = 8; // 8 data bits
 
     // Initialize UART handle
     huart3.Instance          = USART3;
@@ -432,14 +434,15 @@ static void UART3_Init(uint32_t baudrate, bool syncMode)
     huart3.Init.HwFlowCtl    = UART_HWCONTROL_RTS_CTS; // UART_HWCONTROL_NONE
     huart3.Init.OverSampling = UART_OVERSAMPLING_16;
 
+    if( HAL_UART_Init(&huart3) != HAL_OK ) Error_Handler();
+
+    // Sync-mode CR2 bits must be written AFTER HAL_UART_Init resets CR2
     if(syncMode) {
         USART3->CR2 |=  USART_CR2_CLKEN; // Enable synchronous clock
         USART3->CR2 &= ~USART_CR2_CPOL;  // Idle clock low
         USART3->CR2 &= ~USART_CR2_CPHA;  // Capture on first edge
         USART3->CR2 |=  USART_CR2_LBCL;  // Pulse clock for last bit
     }
-
-    if( HAL_UART_Init(&huart3) != HAL_OK ) Error_Handler();
 
     // Enable USART3 RXNE interrupt — bare-metal, no HAL state machine involved
     HAL_NVIC_SetPriority(USART3_IRQn, 1, 0);
@@ -483,44 +486,55 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
         case CDC_SET_LINE_CODING: {
             if(length != 7) return USBD_FAIL;
 
-            // Copy line coding data
-            for(int i = 0; i < 7; ++i) cdcLineCoding.lcBuffer[i] = pbuf[i];
-
-            const uint32_t baudrate = cdcLineCoding.lineCoding.dwDTERate;
-            const uint8_t  stopBits = cdcLineCoding.lineCoding.bCharFormat;
-            const uint8_t  parity   = cdcLineCoding.lineCoding.bParityType;
-            const uint8_t  dataBits = cdcLineCoding.lineCoding.bDataBits;
+            // Read from pbuf directly — validate BEFORE committing to cdcLineCoding
+            // so a rejected request never leaves cdcLineCoding in a half-updated state.
+            const uint32_t baudrate = (uint32_t)(pbuf[0])        | ((uint32_t)(pbuf[1]) <<  8)
+                                    | ((uint32_t)(pbuf[2]) << 16) | ((uint32_t)(pbuf[3]) << 24);
+            const uint8_t  stopBits = pbuf[4];
+            const uint8_t  parity   = pbuf[5];
+            const uint8_t  dataBits = pbuf[6];
 
             // Validate and set baudrate
-            if(baudrate < 1200 || baudrate > 1843200) return USBD_FAIL; // Not supported
+            if(baudrate < 1200 || baudrate > 1843200) return USBD_FAIL;
             huart3.Init.BaudRate = baudrate;
 
             // Validate and set stop bits
-                 if(stopBits == 0) huart3.Init.StopBits   = UART_STOPBITS_1;
-            else if(stopBits == 2) huart3.Init.StopBits   = UART_STOPBITS_2;
-            else                   return USBD_FAIL; // Not supported
+                 if(stopBits == 0) huart3.Init.StopBits = UART_STOPBITS_1;
+            else if(stopBits == 2) huart3.Init.StopBits = UART_STOPBITS_2;
+            else                   return USBD_FAIL;
 
             // Validate and set parity
                  if(parity == 0) huart3.Init.Parity = UART_PARITY_NONE;
             else if(parity == 1) huart3.Init.Parity = UART_PARITY_ODD;
             else if(parity == 2) huart3.Init.Parity = UART_PARITY_EVEN;
-            else                 return USBD_FAIL; // Not supported
+            else                 return USBD_FAIL;
 
-            // Validate and set data bits
-                 if(dataBits == 8) huart3.Init.WordLength = UART_WORDLENGTH_8B;
-            else if(dataBits == 9) huart3.Init.WordLength = UART_WORDLENGTH_9B;
-            else                   return USBD_FAIL; // Not supported
+            // STM32 UART word length includes the parity bit when parity is enabled.
+            // CDC dataBits counts data bits only (exclusive of parity).
+            //   CDC 8N → WORDLENGTH_8B (8 data)
+            //   CDC 8E/8O → WORDLENGTH_9B (8 data + 1 parity)
+            //   CDC 7E/7O → WORDLENGTH_8B (7 data + 1 parity)
+            //   CDC 9N → WORDLENGTH_9B (9 data)
+            if     (dataBits == 8 && parity == 0) huart3.Init.WordLength = UART_WORDLENGTH_8B;
+            else if(dataBits == 8 && parity != 0) huart3.Init.WordLength = UART_WORDLENGTH_9B;
+            else if(dataBits == 7 && parity != 0) huart3.Init.WordLength = UART_WORDLENGTH_8B;
+            else if(dataBits == 9 && parity == 0) huart3.Init.WordLength = UART_WORDLENGTH_9B;
+            else                                   return USBD_FAIL;
+
+            // All validations passed — commit to cdcLineCoding
+            for(int i = 0; i < 7; ++i) cdcLineCoding.lcBuffer[i] = pbuf[i];
 
             /*
-             * Flush the TX ring buffer before reinitialising the UART.
-             * Matches FT232/CH34x behaviour: new line coding is applied immediately
-             * without waiting for pending TX bytes to drain.
+             * Flush both ring buffers before reinitialising the UART.
+             * Matches FT232/CH34x behaviour: new line coding is applied immediately.
              * Programming tools always assert reset before changing baud rate,
-             * so any queued bytes at this point are irrelevant.
+             * so any queued bytes are irrelevant at this point.
+             * Disable RXNEIE before resetting the RX pointers; HAL_UART_Init
+             * resets CR1 anyway, but being explicit avoids any ISR race.
              */
-            CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE); // Disable TXE ISR before touching pointers
-            uartTxHead = 0;
-            uartTxTail = 0;
+            CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE | USART_CR1_RXNEIE);
+            uartTxHead = 0; uartTxTail = 0;
+            uartRxHead = 0; uartRxTail = 0;
 
             if( HAL_UART_Init(&huart3) != HAL_OK ) blinkErrorLED();
 

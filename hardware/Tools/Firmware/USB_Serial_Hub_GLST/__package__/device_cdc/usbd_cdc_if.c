@@ -380,8 +380,6 @@ uint16_t CDC_GetRxBufferBytesAvailable_FS(void)
 
 void CDC_FlushRxBuffer_FS(void)
 {
-  for(int i = 0; i < HL_RX_BUFFER_SIZE; ++i) rxBuffer[i] = 0;
-
   rxBufferHeadPos = 0;
   rxBufferTailPos = 0;
 }

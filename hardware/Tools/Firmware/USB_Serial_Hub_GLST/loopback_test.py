@@ -5,10 +5,9 @@ Hardware: connect STM32 TXD <-> RXD
 Device:   /dev/ttyACM0
 
 Firmware architecture:
-  USB->UART: blocking HAL_UART_Transmit(HAL_MAX_DELAY)
-  UART->USB: polling HAL_UART_Receive(timeout=0)
-  Both run sequentially in the main loop — no concurrency.
-  We must send 1 byte at a time and wait for the echo.
+  USB->UART: non-blocking enqueue into uartTxBuffer[512]; USART3 TXE ISR drains it.
+  UART->USB: USART3 RXNE ISR fills uartRxBuffer[512]; main loop drains in 64-byte chunks.
+  Both directions run concurrently via bare-metal ring buffers — neither blocks the other.
 
 Tests per baud rate:
   1. Limit finder  — binary-search the minimum inter-byte delay for 100% echo
@@ -29,6 +28,7 @@ THROUGHPUT_BYTES  = 256
 OVERFLOW_BURST    = 4096
 RECOVERY_BYTES    = 16
 RECOVERY_WAIT     = 1.5
+HANDSHAKE_WAIT    = 1.5
 
 # Limit finder config
 LIMIT_PROBE_BYTES  = 32    # bytes per probe during binary search
@@ -140,7 +140,7 @@ for baud in BAUD_RATES:
         log_fail(f"Could not open port: {e}"); continue
 
     log_info("Waiting for CDC handshake...")
-    time.sleep(0.5)
+    time.sleep(HANDSHAKE_WAIT)
     flush_port(port)
 
     # ------------------------------------------------------------------

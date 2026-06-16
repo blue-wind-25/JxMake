@@ -158,6 +158,13 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 
 ## Changes from the original STM32CubeMX-generated code
 
+### `__package__/device_cdc/usbd_cdc_if.h`
+
+| Location | Change | Reason |
+|----------|--------|--------|
+| `APP_RX_DATA_SIZE` | 1000 → 64 | `USBD_LL_PrepareReceive` always uses `CDC_DATA_FS_OUT_PACKET_SIZE` (64); the extra 936 bytes were wasted SRAM |
+| `APP_TX_DATA_SIZE` | 1000 → 64 | `UserTxBufferFS` is never used — every `CDC_Transmit_FS` call overrides the buffer pointer; size is irrelevant |
+
 ### `__package__/device_cdc/usbd_cdc_if.c`
 
 | Location | Change | Reason |
@@ -182,7 +189,9 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `USART3_IRQHandler` | New — bare-metal RXNE + TXE handler | See architecture section above |
 | `USART3_IRQHandler` — error path | `if(ORE\|FE\|NE)` changed to `else if` | When RXNE+ORE fire together the RXNE branch already reads DR, clearing both flags; a second DR read in the error branch discarded the next incoming byte |
 | `UART_TX_Enqueue` | New | Enqueue helper for the TX ring buffer |
+| `UART_TX_FreeSpace` | New | Returns available space in `uartTxBuffer`; used by `handleUSB_CDC_ACM` to cap USB→UART draining |
 | `handleUSB_CDC_ACM` | Non-blocking in both directions | Main loop no longer stalls on UART TX |
+| `handleUSB_CDC_ACM` — USB→UART drain cap | Read from `rxBuffer` only up to `UART_TX_FreeSpace()` bytes | Old code consumed bytes from `rxBuffer` even when `uartTxBuffer` was full (e.g. CTS held), silently dropping them; now `rxBuffer` acts as a second-level backpressure buffer, raising effective USB→UART buffering from 512 to 1536 bytes before any loss occurs |
 | `CDC_SET_LINE_CODING` — validate-before-copy | Read from `pbuf`, validate, then copy to `cdcLineCoding` | Old order copied first, so a rejected request left `cdcLineCoding` with invalid values |
 | `CDC_SET_LINE_CODING` — parity+wordlength | Word length now accounts for parity bit | Old code mapped `dataBits=8` → `WORDLENGTH_8B` unconditionally; with parity enabled that gives only 7 effective data bits. Fixed: `8E/8O` → `WORDLENGTH_9B`, `7E/7O` → `WORDLENGTH_8B` |
 | `CDC_SET_LINE_CODING` — UART RX flush | Flush `uartRxBuffer` ring buffer on baud-rate change | TX buffer was already flushed; RX buffer now also cleared so stale bytes at the old baud rate can't be forwarded |

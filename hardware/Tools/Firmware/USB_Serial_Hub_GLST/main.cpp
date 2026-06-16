@@ -331,6 +331,14 @@ static uint16_t UART_TX_Enqueue(const uint8_t* data, uint16_t len)
     return enqueued;
 }
 
+static uint16_t UART_TX_FreeSpace()
+{
+    uint16_t head = uartTxHead;
+    uint16_t tail = uartTxTail;
+    if(head >= tail) return (uint16_t)(UART_TX_BUFFER_SIZE - 1 - (head - tail));
+    return                 (uint16_t)(tail - head - 1);
+}
+
 /*
  * USART3 global interrupt handler — bare-metal RXNE and TXE handling.
  * Bypasses the HAL UART state machine (HAL_UART_IRQHandler) entirely.
@@ -672,16 +680,22 @@ static void handleUSB_CDC_ACM()
     static uint8_t cdcBuffer[CDC_ACM_BUFFER_SIZE];
 
     // USB -> TXD
-    /* Dequeue from the USB CDC RX ring buffer and enqueue into the UART TX ring buffer.
-     * UART_TX_Enqueue returns immediately — the ISR drains the TX buffer via TXEIE.
+    /* Drain the USB CDC RX ring buffer into the UART TX ring buffer, capped by the
+     * available TX space.  Reading only as many bytes as uartTxBuffer can absorb lets
+     * rxBuffer act as a second-level backpressure buffer when CTS is held by the target:
+     * instead of consuming bytes from rxBuffer and silently dropping them, they stay in
+     * rxBuffer until the UART can accept them, giving 1024+512 = 1536 bytes of total
+     * buffering before the host sees any loss.
      */
-    const uint16_t bytesAvailable = CDC_GetRxBufferBytesAvailable_FS();
+    const uint16_t txFree        = UART_TX_FreeSpace();
+    const uint16_t usbAvailable  = CDC_GetRxBufferBytesAvailable_FS();
 
-    if(bytesAvailable > 0) {
-        const uint16_t bytesToRead = ( bytesAvailable >= sizeof(cdcBuffer) ) ? sizeof(cdcBuffer) : bytesAvailable;
+    if(usbAvailable > 0 && txFree > 0) {
+        uint16_t toRead = usbAvailable < txFree ? usbAvailable : txFree;
+        if(toRead > (uint16_t)sizeof(cdcBuffer)) toRead = (uint16_t)sizeof(cdcBuffer);
 
-        if( CDC_ReadRxBuffer_FS(cdcBuffer, bytesToRead) == USB_CDC_RX_BUFFER_OK ) {
-            UART_TX_Enqueue(cdcBuffer, bytesToRead);
+        if( CDC_ReadRxBuffer_FS(cdcBuffer, toRead) == USB_CDC_RX_BUFFER_OK ) {
+            UART_TX_Enqueue(cdcBuffer, toRead);
             blinkLED(true);
         }
     }

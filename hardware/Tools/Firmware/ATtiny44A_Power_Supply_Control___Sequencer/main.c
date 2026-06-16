@@ -49,7 +49,7 @@
 int main(void)
 {
 	// Embed firmware version in flash
-	static const char ATTR_USED PROGMEM __firmware_version__[] = "FW_VERSION=1.0.2";
+	static const char ATTR_USED PROGMEM __firmware_version__[] = "FW_VERSION=1.0.3";
 	asm volatile( "" :: "r"(__firmware_version__) );
 
 	// Initialize watchdog timer
@@ -62,6 +62,14 @@ int main(void)
 	PORTB = INIT_BM_PORTB;
 	DDRB  = INIT_BM_DDRB;
 
+	// Determine whether to apply longer delay
+	delayMS(100);
+
+	const bool longerDelay = !readPin(&nLongDly_Pin, nLongDly_BM);
+
+	// Wait for upstream devices to stabilize before monitoring nPEn
+	delayMS(longerDelay ? 1500 : 1000);
+
 	// The main loop
 	bool powerOn = false;
 
@@ -69,16 +77,12 @@ int main(void)
 
 		wdt_reset();
 
-		// Check if the power should be enabled
 		const bool PEn = !readPinDB(&nPEn_Pin, nPEn_BM);
 
 		wdt_reset();
 
 		if(powerOn == PEn) continue;
 		powerOn = PEn;
-
-		// Determine whether to apply longer delay
-		const bool longerDelay = !readPin(&nLongDly_Pin, nLongDly_BM);
 
 		wdt_reset();
 

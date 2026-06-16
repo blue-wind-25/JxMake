@@ -38,7 +38,7 @@
 
 
 // The firmware version string
-const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.0";
+const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.2";
 
 
 extern "C" {
@@ -263,7 +263,9 @@ typedef union {
 static CDC_LineCoding     cdcLineCoding;
 static UART_HandleTypeDef huart3;
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /*
  * UART interrupt ring buffers — RX and TX.
@@ -293,18 +295,22 @@ static volatile uint8_t  uartTxBuffer[UART_TX_BUFFER_SIZE];
 static volatile uint16_t uartTxHead = 0; // Written by main loop
 static volatile uint16_t uartTxTail = 0; // Read   by ISR
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Enqueue bytes into the UART TX ring buffer and enable TXEIE so the ISR starts draining.
-// Non-blocking — returns the number of bytes actually enqueued (may be less than len if
-// the buffer is full; excess bytes are silently dropped, matching FT232/CH34x FIFO behaviour).
+
+/*
+ * Enqueue bytes into the UART TX ring buffer and enable TXEIE so the ISR starts draining.
+ * Non-blocking — returns the number of bytes actually enqueued (may be less than len if
+ * the buffer is full; excess bytes are silently dropped, matching FT232/CH34x FIFO behaviour).
+ */
 static uint16_t UART_TX_Enqueue(const uint8_t* data, uint16_t len)
 {
     uint16_t enqueued = 0;
     uint16_t head     = uartTxHead;
 
     for(uint16_t i = 0; i < len; ++i) {
-        uint16_t nextHead = (uint16_t)((head + 1) % UART_TX_BUFFER_SIZE);
+        uint16_t nextHead = (uint16_t) ( (head + 1) % UART_TX_BUFFER_SIZE );
 
         if(nextHead == uartTxTail) break; // Buffer full — drop remaining bytes
 
@@ -332,8 +338,8 @@ extern "C" void USART3_IRQHandler()
 
     // RX: a byte has arrived — store it in the ring buffer
     if( sr & USART_SR_RXNE ) {
-        const uint8_t  byte     = (uint8_t)(USART3->DR); // Reading DR clears RXNE
-        const uint16_t nextHead = (uint16_t)((uartRxHead + 1) % UART_RX_BUFFER_SIZE);
+        const uint8_t  byte     = (uint8_t ) (USART3->DR); // Reading DR clears RXNE
+        const uint16_t nextHead = (uint16_t) ( (uartRxHead + 1) % UART_RX_BUFFER_SIZE );
 
         if(nextHead != uartRxTail) {
             uartRxBuffer[uartRxHead] = byte;
@@ -346,7 +352,7 @@ extern "C" void USART3_IRQHandler()
     if( sr & USART_SR_TXE ) {
         if(uartTxTail != uartTxHead) {
             USART3->DR = uartTxBuffer[uartTxTail];
-            uartTxTail = (uint16_t)((uartTxTail + 1) % UART_TX_BUFFER_SIZE);
+            uartTxTail = (uint16_t) ( (uartTxTail + 1) % UART_TX_BUFFER_SIZE );
         }
         else {
             // Buffer empty — disable TXE interrupt until UART_TX_Enqueue re-enables it
@@ -361,7 +367,9 @@ extern "C" void USART3_IRQHandler()
     }
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
@@ -557,10 +565,12 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 
 static bool initUSB()
 {
-    // The 'JxMake USB Serial Hub GLST' module has a pull up resistor on the USB_DP (PA12) pin which
-    // is connected to another GPIO
-    HAL_GPIO_WritePin(DP_EN1K5PU_GPIO, DP_EN1K5PU_PIN, GPIO_PIN_RESET); HAL_Delay(300);
-    HAL_GPIO_WritePin(DP_EN1K5PU_GPIO, DP_EN1K5PU_PIN, GPIO_PIN_SET  ); HAL_Delay(100);
+    // NOTE : The 'JxMake USB Serial Hub GLST' module has a pull up resistor on the USB_DP (PA12) pin which
+    //        is connected to another GPIO
+
+    // Keep D+ pull-up disabled while stack initializes
+    HAL_GPIO_WritePin(DP_EN1K5PU_GPIO, DP_EN1K5PU_PIN, GPIO_PIN_RESET);
+    HAL_Delay(300);
 
     USBD_Interface_fops_FS.Control = CDC_Control_FS;
 
@@ -568,6 +578,11 @@ static bool initUSB()
     if( USBD_RegisterClass        (&hUsbDeviceFS, &USBD_CDC              ) != USBD_OK ) return false;
     if( USBD_CDC_RegisterInterface(&hUsbDeviceFS, &USBD_Interface_fops_FS) != USBD_OK ) return false;
     if( USBD_Start                (&hUsbDeviceFS                         ) != USBD_OK ) return false;
+
+    // Stack is ready, now announce presence to host via D+ pull-up
+    HAL_Delay(10);
+    HAL_GPIO_WritePin(DP_EN1K5PU_GPIO, DP_EN1K5PU_PIN, GPIO_PIN_SET);
+    HAL_Delay(100);
 
     return true;
 }

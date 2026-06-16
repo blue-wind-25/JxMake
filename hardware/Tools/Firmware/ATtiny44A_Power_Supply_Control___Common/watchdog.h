@@ -25,5 +25,5 @@ static __force_inline void wdtInit()
 {
 	// Enable watchdog
 	WDTCSR = _BV(WDCE) | _BV(WDE);
-	WDTCSR = _BV(WDP2);            // ~250mS
+	WDTCSR = _BV(WDP2);            // ~500mS
 }

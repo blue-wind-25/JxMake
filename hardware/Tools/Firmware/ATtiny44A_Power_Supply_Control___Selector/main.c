@@ -37,14 +37,12 @@
 #define EN_VIn2_Port      PORTB
 #define EN_VIn2_BM    _BV(PORTB1) // Output(active high)
 
-#include <avr/io.h>
-
 
 // Main program entry point
 int main(void)
 {
 	// Embed firmware version in flash
-	static const char ATTR_USED PROGMEM __firmware_version__[] = "FW_VERSION=1.0.2";
+	static const char ATTR_USED PROGMEM __firmware_version__[] = "FW_VERSION=1.0.3";
 	asm volatile( "" :: "r"(__firmware_version__) );
 
 	// Initialize watchdog timer
@@ -77,12 +75,31 @@ int main(void)
 		// Select one of the VIn
 		uint8_t vSel = 0;
 
+	/*
+	 * The internal bandgap on ATtiny44A is specified as 1.0V to1.2V (±~9% around 1.1V nominal)
+	 * in the datasheet.
+	 *
+	 * Worst case with bandgap at 1.0V — all readings are 1.0/1.1 = ~9% low.
+	 *     # A 4.5V supply reads as ~4.09V (reported as 409).
+	 *     # A 5.0V supply reads as ~4.55V (reported as 455).
+	 *
+	 * So the supply needs to be genuinely above 420 × (1.1/1.0) = 462 actual centivolt (4.62V)
+	 * to reliably register as present across all bandgap tolerances.
+	 *
+	 * VBus minimum per USB spec is 4.40V (USB 2.0, with cable drop).
+	 *     # At worst-case bandgap (1.0V), 4.40V reads as ~4.00V = 400. At 380 we still have
+	 *       20 counts of margin below that.
+	 *     # On the high bandgap end (1.2V), 380 corresponds to an actual supply of only
+	 *       380 × (1.1/1.2) = 3.48V — low enough that no sane DC supply would still be considered
+	 *       "present". It keeps false negatives away while false positives at 3.48V are irrelevant
+	 *       since the downstream loads won't operate correctly at that voltage anyway.
+	 */
 #if defined(VIN1_PRIMARY)
-		     if(vIn1 >= 420) vSel = 1; // Priority : VIn1
-		else if(vIn2 >= 420) vSel = 2;
+		     if(vIn1 >= 380) vSel = 1; // Priority : VIn1
+		else if(vIn2 >= 380) vSel = 2;
 #elif defined(VIN2_PRIMARY)
-		     if(vIn2 >= 420) vSel = 2; // Priority : VIn2
-		else if(vIn1 >= 420) vSel = 1;
+		     if(vIn2 >= 380) vSel = 2; // Priority : VIn2
+		else if(vIn1 >= 380) vSel = 1;
 #else
 		#error "Please define VIN1_PRIMARY or VIN2_PRIMARY"
 #endif

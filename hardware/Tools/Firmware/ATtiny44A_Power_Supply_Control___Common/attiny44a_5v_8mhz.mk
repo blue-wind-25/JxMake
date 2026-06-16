@@ -50,8 +50,12 @@ upload: main.hex
 	$(AVRDUDE_PATH) -p $(AVRDUDE_MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -B 1 -U flash:w:$<:i
 
 # Set fuses
+#     Internal RC oscilator 8MHz; start-up time 6CK / 14CK + 64mS
+#     Brown-out detection level at 2.7V
+#     Serial program downloading (SPI) enabled
 set_fuses:
-	$(AVRDUDE_PATH) -p $(AVRDUDE_MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -B 10 -U lfuse:w:0xE2:m -U hfuse:w:0xDE:m -U efuse:w:0xFF:m
+	$(AVRDUDE_PATH) -p $(AVRDUDE_MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -B 10 -U lfuse:w:0xE2:m -U hfuse:w:0xDD:m -U efuse:w:0xFF:m
+
 
 # Clean
 clean:

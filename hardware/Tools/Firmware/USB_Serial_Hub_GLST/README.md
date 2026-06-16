@@ -44,8 +44,17 @@ adjusts `WordLength` based on the `dataBits`+`parity` combination:
 | 8   | Odd/Even   | 9B (8 data + 1 parity) |
 | 9   | None       | 9B                     |
 
-CDC `SEND_BREAK` is supported: `breakDuration = 0xFFFF` asserts the break
-condition; `breakDuration = 0x0000` clears it.  All other durations are rejected.
+CDC `SEND_BREAK` is fully host-controlled via GPIO:
+
+| `wValue` | Action |
+|----------|--------|
+| `0xFFFF` | Reconfigures TXD (PB10) as GPIO output driven **low** — holds the line low indefinitely |
+| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull |
+| other    | Rejected (`USBD_FAIL`) |
+
+This allows the PC application to start and stop a break condition at will,
+matching the behaviour expected by tools that use break for reset (e.g. some
+UART bootloaders).
 
 
 ## Building
@@ -174,7 +183,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `CDC_SET_LINE_CODING` — validate-before-copy | Read from `pbuf`, validate, then copy to `cdcLineCoding` | Old order copied first, so a rejected request left `cdcLineCoding` with invalid values |
 | `CDC_SET_LINE_CODING` — parity+wordlength | Word length now accounts for parity bit | Old code mapped `dataBits=8` → `WORDLENGTH_8B` unconditionally; with parity enabled that gives only 7 effective data bits. Fixed: `8E/8O` → `WORDLENGTH_9B`, `7E/7O` → `WORDLENGTH_8B` |
 | `CDC_SET_LINE_CODING` — UART RX flush | Flush `uartRxBuffer` ring buffer on baud-rate change | TX buffer was already flushed; RX buffer now also cleared so stale bytes at the old baud rate can't be forwarded |
-| `CDC_SEND_BREAK` | `SBK` bit in CR1 asserts/clears break | Fully host-controlled: 0xFFFF asserts, 0x0000 deasserts |
+| `CDC_SEND_BREAK` | GPIO-based infinite break | `0xFFFF` reconfigures TXD as GPIO output driven low; `0x0000` drives high for 1 ms then restores USART3 AF — holds the line low for as long as the host requires, unlike the `SBK` bit which only sends a single break frame |
 
 
 ## Performance

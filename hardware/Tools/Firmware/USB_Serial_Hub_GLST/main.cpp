@@ -564,9 +564,31 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
         case CDC_SEND_BREAK: {
             if(length != 0) return USBD_FAIL;
             const uint16_t breakDuration = hUsbDeviceFS.request.wValue;
-                 if(breakDuration == 0xFFFF) SET_BIT  (huart3.Instance->CR1, USART_CR1_SBK);
-            else if(breakDuration == 0x0000) CLEAR_BIT(huart3.Instance->CR1, USART_CR1_SBK);
-            else return USBD_FAIL; // Not supported
+
+            if(breakDuration == 0xFFFF) {
+                // Start of break: reconfigure TXD as GPIO output driven low.
+                // This holds the line low indefinitely until wValue=0 is sent,
+                // as required by USB CDC for infinite-break (0xFFFF).
+                GPIO_InitTypeDef cfg = {};
+                cfg.Pin   = UART_TXD_PIN;
+                cfg.Mode  = GPIO_MODE_OUTPUT_PP;
+                cfg.Speed = GPIO_SPEED_FREQ_LOW;
+                HAL_GPIO_Init(UART_TXD_GPIO, &cfg);
+                HAL_GPIO_WritePin(UART_TXD_GPIO, UART_TXD_PIN, GPIO_PIN_RESET);
+            }
+            else if(breakDuration == 0x0000) {
+                // End of break: assert idle (high) then restore TXD as USART3 AF.
+                HAL_GPIO_WritePin(UART_TXD_GPIO, UART_TXD_PIN, GPIO_PIN_SET);
+                HAL_Delay(1);
+                GPIO_InitTypeDef cfg = {};
+                cfg.Pin   = UART_TXD_PIN;
+                cfg.Mode  = GPIO_MODE_AF_PP;
+                cfg.Speed = GPIO_SPEED_FREQ_HIGH;
+                HAL_GPIO_Init(UART_TXD_GPIO, &cfg);
+            }
+            else {
+                return USBD_FAIL; // Timed break not supported
+            }
             break;
         }
 

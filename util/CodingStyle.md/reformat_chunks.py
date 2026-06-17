@@ -90,14 +90,16 @@ def split_at_function_boundaries(lines: list[str], target: int) -> list[list[str
     if len(lines) <= target:
         return [lines]
 
+    # Collect candidate split positions: blank line after a `}` at col 0
     candidates = []
     for i in range(1, len(lines)):
         if lines[i].strip() == '' and lines[i-1].rstrip() == '}':
-            candidates.append(i + 1)
+            candidates.append(i + 1)  # start of next chunk = line after blank
 
     if not candidates:
-        return [lines]
+        return [lines]  # can't safely split further
 
+    # Pick split points that keep chunks near TARGET_LINES
     chunks = []
     start = 0
     next_target = target
@@ -108,10 +110,15 @@ def split_at_function_boundaries(lines: list[str], target: int) -> list[list[str
             next_target = pos + target
     if start < len(lines):
         chunks.append(lines[start:])
-    return [c for c in chunks if c]
+    return [c for c in chunks if c]  # drop empty
 
 def make_chunks(lines: list[str]) -> list[tuple[list[str], bool]]:
-    """Split by dividers, then apply fallback for oversized chunks."""
+    """Split by dividers, then apply fallback for oversized chunks.
+
+    Returns list of (chunk_lines, is_fallback) pairs.  is_fallback is True for
+    any chunk whose primary divider-split chunk exceeded TARGET_LINES, meaning
+    its boundaries were determined (at least partially) by the heuristic splitter.
+    """
     primary = split_at_dividers(lines)
     result: list[tuple[list[str], bool]] = []
     for chunk in primary:
@@ -151,6 +158,7 @@ def reformat_chunk(
 # ---- reassembly -------------------------------------------------------------
 
 def reassemble(parts: list[str]) -> str:
+    """Join chunks; ensure exactly one newline between them."""
     out = ""
     for part in parts:
         if out and not out.endswith("\n"):

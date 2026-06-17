@@ -131,6 +131,7 @@ re-open them.
 | Output modes | In-place (default), `--diff`, `--check` (CI), `--out DIR` |
 | Build | Makefile (already in project) |
 | `ColumnGrid` flush API | Caller-driven: `addRow(String[] cells)` buffers; explicit `flush()` computes max-width per column, pads, returns padded rows, clears buffer. `ColumnGrid` never inspects tokens/blank lines itself — each rule class (declaration, getter/setter, switch, signature) decides its own group-boundary policy and calls `flush()` accordingly. Ragged rows: a cell is only padded if a later column exists in that same row, so no trailing whitespace is introduced |
+| §3.1 complexity padding algorithm | `isLoose(contentTokens)` = true iff `contentTokens` (the significant tokens strictly between one matching bracket pair, as extracted by the caller) contains any `(` or `[` PUNCT token. This single flat check subsumes the "function call" trigger (a call always introduces a `(` token) and is the only reading consistent with every row in STYLE.md §3.1's table — including `if( (a == 1) \|\| (b > 2) )`, which is loose purely because nested parens are structurally present, not because `a == 1` or `b > 2` would themselves be loose in isolation. FORMATTER_DISCUSSION.md's recursive "propagate only if the inner result is loose" pseudocode would mark that example tight, contradicting the STYLE.md table, so it is treated as informal discussion notes rather than the spec. No recursion is needed inside the evaluator itself — each bracket pair's own looseness is independent and the caller invokes `isLoose` once per pair (bottom-up, if it chooses) using whatever slice it extracts |
 
 ---
 
@@ -152,11 +153,11 @@ re-open them.
 | `ServerMode.java` | NOT STARTED |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
-| `ModifierPriority.java` | IN PROGRESS |
-| `CppModifierPriority.java` | IN PROGRESS |
-| `JavaModifierPriority.java` | IN PROGRESS |
-| `ComplexityPaddingEvaluator.java` | NOT STARTED |
-| `DeclarationAlignmentRule.java` | NOT STARTED |
+| `ModifierPriority.java` | COMPLETE |
+| `CppModifierPriority.java` | COMPLETE |
+| `JavaModifierPriority.java` | COMPLETE |
+| `ComplexityPaddingEvaluator.java` | COMPLETE |
+| `DeclarationAlignmentRule.java` | IN PROGRESS |
 | `BlockStructureRule.java` | NOT STARTED |
 | `SwitchRule.java` | NOT STARTED |
 | `GetterSetterRule.java` | NOT STARTED |
@@ -167,27 +168,41 @@ re-open them.
 
 ---
 
-## Current File: `ModifierPriority.java` + `CppModifierPriority.java` + `JavaModifierPriority.java` — IN PROGRESS
+## Current File: `DeclarationAlignmentRule.java` — IN PROGRESS
 
-> Replace this checklist when these files reach COMPLETE.
-> Grouped together — the base class has no standalone behavior without a subclass.
+> Replace this checklist when this file reaches COMPLETE.
+> Implements STYLE.md §5 and STYLE_C_CPP.md §4/§6, using `ColumnGrid`,
+> `ModifierPriority` (Cpp/Java), and `ComplexityPaddingEvaluator` is NOT needed here
+> (that's §3.1, a different rule). Implement and checkpoint-commit one section below
+> at a time.
 
-### Abstract base — `ModifierPriority.java`
-- [x] `protected abstract Map<String, Integer> priorityMap()` — subclass supplies the
-      modifier-name → column-rank mapping
-- [x] `public final int priorityOf(String modifier)` — returns the rank, or `-1` if
-      `modifier` is not a recognized modifier for this language
-- [x] `public final boolean isModifier(String token)` — convenience check
+### Declaration grouping
+- [ ] Identify a "declaration group": consecutive variable/field declaration
+      statements with no intervening blank line; a blank line resets alignment to a
+      new group (STYLE.md §5)
 
-### `CppModifierPriority.java`
-- [x] Column model per FORMATTER_DISCUSSION.md: `static` < `volatile` < `const`
-      (matches `[static][volatile][const][type][*][const][name][[size]][comment]`)
+### Column grid (modifiers / type / pointer-const / name / size / comment)
+- [ ] Build one row per declaration: `[modifier columns...] [type] [* / const
+      (C/C++)] [name] [[size]] [comment]` using `ColumnGrid`
+- [ ] Order modifiers within a declaration using `ModifierPriority` (Cpp or Java
+      subclass, selected by language) before placing them into grid columns
+- [ ] C/C++ pointer/const placement per STYLE_C_CPP.md §4: `*` attaches to type;
+      `const` before `*` attaches to type; `const` after `*` stays in place
+      (`uint8_t* const p`); pointer-to-const-pointer (`uint8_t* const* pp`)
+- [ ] Comment (`//` or `/* */`) aligned in its own trailing column, after the name
+      and array size
 
-### `JavaModifierPriority.java`
-- [x] Column model per FORMATTER_DISCUSSION.md: `public`/`private`/`protected` share
-      one rank (mutually exclusive access modifiers occupy the same column) < `static`
-      < `volatile` < `final`
-      (matches `[access][static][volatile][final][type][name][[]][comment]`)
+### Static reorder safety (STYLE.md §5)
+- [ ] Within a group, `static` declarations move first, EXCEPT a non-static
+      size/value dependency stays immediately before the `static` that uses it
+- [ ] Dependency-safety scan: before moving a `static` declaration earlier, scan the
+      token stream between its old and new position for any reference to its name (or
+      names it depends on); if reordering safety is unclear, preserve relative order
+
+### C/C++ bitfields (STYLE_C_CPP.md §6)
+- [ ] `:` bitfield-width column aligned after the field name
+- [ ] Comment column aligned after name / array size / bitfield width, consistent
+      with the non-bitfield case
 
 ---
 

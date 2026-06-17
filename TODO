@@ -2,14 +2,14 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
-  and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'. The 'dist' target in the Makefile has been
-  updated to copy these application JARs when creating the distribution directory.
-
 # Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
       hardware/JxMake_USB_GPIO/_0_Firmware.diff
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega8A_Common.diff
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega1284P.diff
+
+# Integrate the build system ('jxm.xb.ShellOper') transparently with 'util/JCS/compile-server.jar'
+  and '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'. The 'dist' target in the Makefile has been
+  updated to copy these application JARs when creating the distribution directory.
 
 # Further verify, improve, and cleanups:
       src/jxm/tool/SSLTrustAll.java

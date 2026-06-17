@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.grid.CppModifierPriority;
 import com.jxmake.formatter.grid.JavaModifierPriority;
 import com.jxmake.formatter.grid.ModifierPriority;
@@ -115,6 +116,157 @@ public class DeclarationAlignmentRule {
             groups.add(current);
         }
         return groups;
+    }
+
+    // ── Column grid rendering ───────────────────────────────────────────────────
+    /**
+     * Renders one declaration group into aligned source lines (STYLE.md §5,
+     * STYLE_C_CPP.md §4): fixed modifier columns (only those actually used
+     * anywhere in the group), the type (with C/C++ pointer attached), an
+     * optional post-pointer `const` column, the name+size+`;`, and an optional
+     * trailing comment column. Columns unused by the whole group are omitted
+     * rather than rendered as dead padding.
+     */
+    public List<String> render(List<Declaration> group) {
+        boolean isJava = "java".equals(language);
+        int modifierColumns = modifierPriority.columnCount();
+        boolean[] modifierActive = new boolean[modifierColumns];
+        boolean postConstActive = false;
+
+        List<TypeSplit> splits = new ArrayList<>(group.size());
+        for (Declaration d : group) {
+            for (Token m : d.modifiers) {
+                int rank = modifierPriority.priorityOf(m.text);
+                if (rank >= 0) {
+                    modifierActive[rank] = true;
+                }
+            }
+            TypeSplit split = isJava ? null : splitCppType(d.typeTokens);
+            if (split != null && !split.postConst.isEmpty()) {
+                postConstActive = true;
+            }
+            splits.add(split);
+        }
+
+        ColumnGrid grid = new ColumnGrid();
+        for (int idx = 0; idx < group.size(); idx++) {
+            Declaration d = group.get(idx);
+            List<String> cells = new ArrayList<>();
+
+            String[] modCells = new String[modifierColumns];
+            Arrays.fill(modCells, "");
+            for (Token m : d.modifiers) {
+                int rank = modifierPriority.priorityOf(m.text);
+                if (rank >= 0) {
+                    modCells[rank] = m.text;
+                }
+            }
+            for (int r = 0; r < modifierColumns; r++) {
+                if (modifierActive[r]) {
+                    cells.add(modCells[r]);
+                }
+            }
+
+            if (isJava) {
+                cells.add(renderTokens(d.typeTokens));
+            } else {
+                TypeSplit split = splits.get(idx);
+                cells.add(split.typeAndStar);
+                if (postConstActive) {
+                    cells.add(split.postConst);
+                }
+            }
+
+            cells.add(renderNameCell(d));
+
+            if (d.trailingComment != null) {
+                cells.add(d.trailingComment.text);
+            }
+
+            grid.addRow(cells.toArray(new String[0]));
+        }
+
+        List<String> lines = new ArrayList<>();
+        for (String[] row : grid.flush()) {
+            lines.add(String.join(" ", row));
+        }
+        return lines;
+    }
+
+    private String renderNameCell(Declaration d) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(d.name.text);
+        sb.append(renderTokens(d.sizeTokens));
+        if (!d.initTokens.isEmpty()) {
+            sb.append(" = ").append(renderTokens(d.initTokens));
+        }
+        sb.append(";");
+        return sb.toString();
+    }
+
+    /** Splits C/C++ type tokens into the base-type(+pointer) cell and an optional post-pointer `const` cell. */
+    private static final class TypeSplit {
+        final String typeAndStar;
+        final String postConst;
+
+        TypeSplit(String typeAndStar, String postConst) {
+            this.typeAndStar = typeAndStar;
+            this.postConst = postConst;
+        }
+    }
+
+    private TypeSplit splitCppType(List<Token> typeTokens) {
+        List<Token> tokens = typeTokens;
+        String postConst = "";
+        int n = tokens.size();
+        if (n >= 2) {
+            Token last = tokens.get(n - 1);
+            Token secondLast = tokens.get(n - 2);
+            if (last.type == TokenType.KEYWORD && "const".equals(last.text)
+                    && isOp(secondLast, "*")) {
+                postConst = "const";
+                tokens = tokens.subList(0, n - 1);
+            }
+        }
+        return new TypeSplit(renderTokens(tokens), postConst);
+    }
+
+    /**
+     * Joins tokens into canonical spaced text: `*`/`&`/`::`/generics/`[`/`]`/`,`
+     * attach tightly per STYLE_C_CPP.md §4 conventions (e.g. `uint8_t*`,
+     * `std::vector<int>`, `buffer[64]`); everything else gets a single space.
+     */
+    private String renderTokens(List<Token> tokens) {
+        StringBuilder sb = new StringBuilder();
+        Token prev = null;
+        for (Token t : tokens) {
+            if (prev != null && needsSpaceBetween(prev, t)) {
+                sb.append(' ');
+            }
+            sb.append(t.text);
+            prev = t;
+        }
+        return sb.toString();
+    }
+
+    private boolean needsSpaceBetween(Token prev, Token cur) {
+        if (isTightToken(cur)) {
+            return false;
+        }
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isPunct(prev, "[")) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isTightToken(Token t) {
+        if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+            return true;
+        }
+        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]")) {
+            return true;
+        }
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::");
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────

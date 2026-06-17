@@ -21,4 +21,13 @@ public abstract class ModifierPriority {
     public final boolean isModifier(String token) {
         return priorityMap().containsKey(token);
     }
+
+    /** Number of fixed modifier columns for this language's grid model (max rank + 1). */
+    public final int columnCount() {
+        int max = -1;
+        for (int rank : priorityMap().values()) {
+            max = Math.max(max, rank);
+        }
+        return max + 1;
+    }
 }

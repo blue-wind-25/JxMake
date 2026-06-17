@@ -221,16 +221,16 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | Baud rate | UART max   | Loopback throughput | Notes                   |
 |-----------|------------|---------------------|-------------------------|
 | 1200      | 120 B/s    | ~109 B/s            | UART-limited            |
-| 2400      | 240 B/s    | ~206 B/s            | UART-limited            |
-| 4800      | 480 B/s    | ~385 B/s            | UART-limited            |
-| 9600      | 960 B/s    | ~665 B/s            | UART-limited            |
-| 19200     | 1920 B/s   | ~1129 B/s           | UART-limited            |
-| 57600     | 5760 B/s   | ~2472 B/s           | UART-limited            |
-| 115200    | 11520 B/s  | ~3551 B/s           | Approaching USB ceiling |
-| 230400    | 23040 B/s  | ~3085 B/s           | USB ceiling             |
+| 2400      | 240 B/s    | ~204 B/s            | UART-limited            |
+| 4800      | 480 B/s    | ~370 B/s            | UART-limited            |
+| 9600      | 960 B/s    | ~640 B/s            | UART-limited            |
+| 19200     | 1920 B/s   | ~1118 B/s           | UART-limited            |
+| 57600     | 5760 B/s   | ~2197 B/s           | UART-limited            |
+| 115200    | 11520 B/s  | ~2792 B/s           | Approaching USB ceiling |
+| 230400    | 23040 B/s  | ~3288 B/s           | USB ceiling             |
 | 460800    | 46080 B/s  | ~3457 B/s           | USB ceiling             |
-| 921600    | 92160 B/s  | ~3038 B/s           | USB ceiling             |
-| 1843200   | 184320 B/s | ~6353 B/s           | USB ceiling             |
+| 921600    | 92160 B/s  | ~3657 B/s           | USB ceiling             |
+| 1843200   | 184320 B/s | ~3857 B/s           | USB ceiling             |
 
 The USB FS loopback ceiling is a measurement artefact: TX and RX share the same
 1 ms USB frame window in a loopback topology, so each direction gets roughly half
@@ -258,10 +258,10 @@ USB CDC RX ring buffer filled:
 | 19200     | ~1536 B                      | Full buffer absorbed               |
 | 57600     | ~1536 B                      | Full buffer absorbed               |
 | 115200    | ~1600 B                      | Full buffer absorbed               |
-| 230400    | ~1656 B                      | Full buffer absorbed               |
+| 230400    | ~1605 B                      | Full buffer absorbed               |
 | 460800    | ~1608 B                      | Full buffer absorbed               |
-| 921600    | ~1608 B                      | Full buffer absorbed               |
-| 1843200   | ~1631 B                      | Full buffer absorbed               |
+| 921600    | ~1631 B                      | Full buffer absorbed               |
+| 1843200   | ~1656 B                      | Full buffer absorbed               |
 
 The baseline figure of ~1536 B = `rxBuffer` (1024) + `uartTxBuffer` (512) confirms
 that the USB CDC RX ring buffer and the UART TX ring buffer are both fully utilised

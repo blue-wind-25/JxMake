@@ -24,7 +24,7 @@ cd util/CodingStyle.md/formatter
 make
 ```
 
-Produces `formatter-1.00.jar` in the `formatter/` directory.
+Produces `code-formatter-1.00.jar` in the `formatter/` directory.
 
 ---
 
@@ -33,9 +33,9 @@ Produces `formatter-1.00.jar` in the `formatter/` directory.
 ### Single file
 
 ```sh
-java -jar formatter-1.00.jar File.java
-java -jar formatter-1.00.jar src/Utils.c
-java -jar formatter-1.00.jar include/Module.h
+java -jar code-formatter-1.00.jar File.java
+java -jar code-formatter-1.00.jar src/Utils.c
+java -jar code-formatter-1.00.jar include/Module.h
 ```
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
@@ -44,18 +44,18 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 ### Output modes
 
 ```sh
-java -jar formatter-1.00.jar File.java              # in-place edit (default)
-java -jar formatter-1.00.jar --diff File.java       # print unified diff, do not edit
-java -jar formatter-1.00.jar --check File.java      # exit 1 if file would change (CI)
-java -jar formatter-1.00.jar --out DIR File.java    # write to DIR/File.java instead
+java -jar code-formatter-1.00.jar File.java              # in-place edit (default)
+java -jar code-formatter-1.00.jar --diff File.java       # print unified diff, do not edit
+java -jar code-formatter-1.00.jar --check File.java      # exit 1 if file would change (CI)
+java -jar code-formatter-1.00.jar --out DIR File.java    # write to DIR/File.java instead
 ```
 
 ### Server mode (faster for batch)
 
 ```sh
-java -jar formatter-1.00.jar --server       # start server in background
-java -jar formatter-1.00.jar File.java      # auto-connects to running server
-java -jar formatter-1.00.jar --stop         # stop server
+java -jar code-formatter-1.00.jar --server       # start server in background
+java -jar code-formatter-1.00.jar File.java      # auto-connects to running server
+java -jar code-formatter-1.00.jar --stop         # stop server
 ```
 
 The server amortizes JVM startup across a batch of files. If no server is running,
@@ -69,11 +69,11 @@ lockfile (PID no longer alive), cleans it up, and starts fresh automatically.
 
 ```makefile
 fmt:
-    java -jar util/CodingStyle.md/formatter/formatter-1.00.jar --server
-    java -jar util/CodingStyle.md/formatter/formatter-1.00.jar $(SRCS)
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.00.jar --server
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.00.jar $(SRCS)
 
 fmt-check:
-    java -jar util/CodingStyle.md/formatter/formatter-1.00.jar --check $(SRCS)
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.00.jar --check $(SRCS)
 ```
 
 ---

@@ -7,7 +7,7 @@ JAR          ?= jar
 JAVA_VERSION ?= 8
 
 VERSION       = 1.00
-ARTIFACT      = formatter-$(VERSION)
+ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter
 
 SRC_DIR       = src

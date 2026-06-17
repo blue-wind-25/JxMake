@@ -106,8 +106,13 @@ public class TokenizerCore {
     private int braceDepth;
     private int parenDepth;
     private int preprocessorDepth;
+    private boolean syntaxError;
     private final Deque<String> nameStack = new LinkedList<>();
     private final Deque<Token> recentSignificant = new ArrayDeque<>();
+
+    public boolean hasSyntaxError() {
+        return syntaxError;
+    }
 
     public TokenizerCore(String language) {
         this.language = language;
@@ -137,6 +142,7 @@ public class TokenizerCore {
         this.braceDepth = 0;
         this.parenDepth = 0;
         this.preprocessorDepth = 0;
+        this.syntaxError = false;
         this.nameStack.clear();
         this.recentSignificant.clear();
 
@@ -157,7 +163,7 @@ public class TokenizerCore {
 
             Token t;
             if (isPreprocessorLanguage() && c == '#' && atLineStart) {
-                t = emitPreprocessor();
+                t = emitPreprocessorOrDefine();
             } else if (c == '/' && peek(1) == '/') {
                 t = emitLineComment();
             } else if (c == '/' && peek(1) == '*') {
@@ -186,6 +192,13 @@ public class TokenizerCore {
 
             addToken(tokens, t);
             atLineStart = false;
+            if (syntaxError) {
+                break;
+            }
+        }
+
+        if (!syntaxError && !"c".equals(language)) {
+            reclassifyAngleBrackets(tokens);
         }
 
         return tokens;
@@ -219,6 +232,10 @@ public class TokenizerCore {
         if (n >= 2) {
             Token kw = arr[n - 2];
             Token name = arr[n - 1];
+            if ("extern".equals(kw.text) && kw.type == TokenType.KEYWORD
+                    && name.type == TokenType.STRING && "\"C\"".equals(name.text)) {
+                return kw.text + " " + name.text;
+            }
             if (kw.type == TokenType.KEYWORD && namedConstructKeywords.contains(kw.text)
                     && name.type == TokenType.IDENTIFIER) {
                 return name.text;
@@ -252,6 +269,9 @@ public class TokenizerCore {
     private Token emitCloseBrace() {
         String name = null;
         if (preprocessorDepth == 0) {
+            if (braceDepth == 0) {
+                syntaxError = true;
+            }
             name = nameStack.isEmpty() ? null : nameStack.pop();
             braceDepth--;
         }
@@ -278,6 +298,103 @@ public class TokenizerCore {
     private Token emitPunct(char c) {
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    }
+
+    private Token emitPreprocessorOrDefine() {
+        int p = pos + 1; // skip '#'
+        while (p < length && (source.charAt(p) == ' ' || source.charAt(p) == '\t')) {
+            p++;
+        }
+        int wordStart = p;
+        while (p < length && isIdentifierPart(source.charAt(p))) {
+            p++;
+        }
+        String directive = source.substring(wordStart, p);
+
+        if ("define".equals(directive)) {
+            return isMultilineDirective(p) ? emitMacroDef() : emitSingleLineDefine();
+        }
+        return emitPreprocessor();
+    }
+
+    private boolean isMultilineDirective(int from) {
+        int p = from;
+        while (p < length && source.charAt(p) != '\n' && source.charAt(p) != '\r') {
+            p++;
+        }
+        int q = p - 1;
+        while (q >= from && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
+            q--;
+        }
+        return q >= from && source.charAt(q) == '\\';
+    }
+
+    private Token emitSingleLineDefine() {
+        pos++; // '#'
+        while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
+            pos++;
+        }
+        pos += "define".length();
+        while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
+            pos++;
+        }
+        int nameStart = pos;
+        while (pos < length && isIdentifierPart(source.charAt(pos))) {
+            pos++;
+        }
+        String name = source.substring(nameStart, pos);
+
+        String paramList = "";
+        if (pos < length && source.charAt(pos) == '(') {
+            int paramStart = pos;
+            int depth = 0;
+            do {
+                char c = source.charAt(pos);
+                if (c == '(') {
+                    depth++;
+                } else if (c == ')') {
+                    depth--;
+                }
+                pos++;
+            } while (pos < length && depth > 0);
+            paramList = source.substring(paramStart, pos);
+        }
+
+        int restStart = pos;
+        while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
+            pos++;
+        }
+        String rest = source.substring(restStart, pos);
+
+        String text = "#define " + name + paramList + rest;
+        return new Token(TokenType.PREPROCESSOR, text, braceDepth, parenDepth, null);
+    }
+
+    private Token emitMacroDef() {
+        int start = pos;
+        while (true) {
+            while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
+                pos++;
+            }
+            int q = pos - 1;
+            while (q >= start && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
+                q--;
+            }
+            boolean continues = q >= start && source.charAt(q) == '\\';
+            if (!continues || pos >= length) {
+                break;
+            }
+            if (source.charAt(pos) == '\r') {
+                pos++;
+                if (pos < length && source.charAt(pos) == '\n') {
+                    pos++;
+                }
+            } else {
+                pos++;
+            }
+        }
+        return new Token(TokenType.MACRO_DEF, source.substring(start, pos), braceDepth,
+                parenDepth, null);
     }
 
     private Token emitPreprocessor() {
@@ -436,6 +553,123 @@ public class TokenizerCore {
         }
         return new Token(TokenType.NEWLINE, source.substring(start, pos), braceDepth, parenDepth,
                 null);
+    }
+
+    // ── Generic/template angle bracket disambiguation ───────────────────────────────
+    private void reclassifyAngleBrackets(List<Token> tokens) {
+        List<Integer> sig = new ArrayList<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
+                    || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK
+                    || ty == TokenType.PREPROCESSOR) {
+                continue;
+            }
+            sig.add(i);
+        }
+
+        Deque<int[]> openStack = new ArrayDeque<>(); // each entry: {tokenIndex, validFlag}
+
+        for (int s = 0; s < sig.size(); s++) {
+            int idx = sig.get(s);
+            Token cur = tokens.get(idx);
+
+            if (cur.type == TokenType.PUNCT
+                    && (";".equals(cur.text) || "{".equals(cur.text) || "}".equals(cur.text))) {
+                openStack.clear();
+                continue;
+            }
+
+            if (cur.type == TokenType.OP && "<".equals(cur.text)) {
+                Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
+                if (prev != null && prev.type == TokenType.IDENTIFIER) {
+                    openStack.push(new int[] {idx, 1});
+                } else if (!openStack.isEmpty()) {
+                    invalidateAll(openStack);
+                }
+                continue;
+            }
+
+            if (cur.type == TokenType.OP && ">".equals(cur.text)) {
+                if (!openStack.isEmpty()) {
+                    int[] open = openStack.pop();
+                    if (open[1] == 1) {
+                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                    }
+                }
+                continue;
+            }
+
+            if (cur.type == TokenType.OP && ">>".equals(cur.text)) {
+                if (openStack.size() >= 2) {
+                    int[] inner = openStack.pop();
+                    int[] outer = openStack.pop();
+                    if (inner[1] == 1 && outer[1] == 1) {
+                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
+                                cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s, idx + 1);
+                    }
+                } else if (openStack.size() == 1) {
+                    int[] open = openStack.pop();
+                    if (open[1] == 1) {
+                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                        tokens.add(idx + 1,
+                                new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s, idx + 1);
+                    }
+                }
+                continue;
+            }
+
+            if (!isGenericSafeToken(cur) && !openStack.isEmpty()) {
+                invalidateAll(openStack);
+            }
+        }
+    }
+
+    private void shiftSigAfter(List<Integer> sig, int afterPos, int newIndex) {
+        for (int j = afterPos + 1; j < sig.size(); j++) {
+            sig.set(j, sig.get(j) + 1);
+        }
+        sig.add(afterPos + 1, newIndex);
+    }
+
+    private void invalidateAll(Deque<int[]> stack) {
+        for (int[] entry : stack) {
+            entry[1] = 0;
+        }
+    }
+
+    private boolean isGenericSafeToken(Token t) {
+        switch (t.type) {
+            case IDENTIFIER:
+            case NUMBER:
+            case STRING:
+            case CHAR:
+            case ANGLE_BRACKET_OPEN:
+            case ANGLE_BRACKET_CLOSE:
+                return true;
+            case KEYWORD:
+                return "extends".equals(t.text) || "super".equals(t.text)
+                        || "const".equals(t.text) || "typename".equals(t.text)
+                        || "class".equals(t.text);
+            case PUNCT:
+                return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text);
+            case OP:
+                return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
+                        || "*".equals(t.text) || "&".equals(t.text);
+            default:
+                return false;
+        }
+    }
+
+    private Token retype(Token t, TokenType newType) {
+        return new Token(newType, t.text, t.braceDepth, t.parenDepth, t.name);
     }
 
     private boolean isPreprocessorLanguage() {

@@ -130,6 +130,7 @@ re-open them.
 | Windows support | Best-effort — `ProcessHandle` and `/` paths work; some path overrides in config may not. Documented in README.md |
 | Output modes | In-place (default), `--diff`, `--check` (CI), `--out DIR` |
 | Build | Makefile (already in project) |
+| `ColumnGrid` flush API | Caller-driven: `addRow(String[] cells)` buffers; explicit `flush()` computes max-width per column, pads, returns padded rows, clears buffer. `ColumnGrid` never inspects tokens/blank lines itself — each rule class (declaration, getter/setter, switch, signature) decides its own group-boundary policy and calls `flush()` accordingly. Ragged rows: a cell is only padded if a later column exists in that same row, so no trailing whitespace is introduced |
 
 ---
 
@@ -137,8 +138,6 @@ re-open them.
 
 - [ ] Rule engine grouping — confirm `MiscRule` does not grow too large; split into
       `WhitespaceRule` + `BraceStyleRule` if needed during implementation
-- [ ] `ColumnGrid` flush API — does the caller pass a blank-line signal, or does
-      `ColumnGrid` detect group boundaries itself from the token stream?
 - [ ] `reformat_chunks.py` — keep as-is (AI-based, for long files) alongside the
       new JAR, or deprecate once JAR handles long files natively?
 
@@ -151,11 +150,11 @@ re-open them.
 | `Main.java` | NOT STARTED |
 | `Config.java` | NOT STARTED |
 | `ServerMode.java` | NOT STARTED |
-| `TokenizerCore.java` | IN PROGRESS |
-| `ColumnGrid.java` | NOT STARTED |
-| `ModifierPriority.java` | NOT STARTED |
-| `CppModifierPriority.java` | NOT STARTED |
-| `JavaModifierPriority.java` | NOT STARTED |
+| `TokenizerCore.java` | COMPLETE |
+| `ColumnGrid.java` | COMPLETE |
+| `ModifierPriority.java` | IN PROGRESS |
+| `CppModifierPriority.java` | IN PROGRESS |
+| `JavaModifierPriority.java` | IN PROGRESS |
 | `ComplexityPaddingEvaluator.java` | NOT STARTED |
 | `DeclarationAlignmentRule.java` | NOT STARTED |
 | `BlockStructureRule.java` | NOT STARTED |
@@ -168,41 +167,27 @@ re-open them.
 
 ---
 
-## Current File: `TokenizerCore.java` — IN PROGRESS
+## Current File: `ModifierPriority.java` + `CppModifierPriority.java` + `JavaModifierPriority.java` — IN PROGRESS
 
-> Replace this checklist when this file reaches COMPLETE.
+> Replace this checklist when these files reach COMPLETE.
+> Grouped together — the base class has no standalone behavior without a subclass.
 
-### Token types
-- [x] `KEYWORD`
-- [x] `IDENTIFIER`
-- [x] `NUMBER`
-- [x] `STRING`
-- [x] `CHAR`
-- [x] `OP`
-- [x] `PUNCT`
-- [x] `COMMENT_LINE`
-- [x] `COMMENT_BLOCK`
-- [x] `WHITESPACE`
-- [x] `NEWLINE`
-- [x] `PREPROCESSOR` (C/C++ only — opaque single-line `#`-directive)
-- [x] `MACRO_DEF` (C/C++ only — opaque multiline `#define` with `\` continuations)
-- [x] `ANGLE_BRACKET_OPEN` (generic/template context)
-- [x] `ANGLE_BRACKET_CLOSE` (generic/template context)
+### Abstract base — `ModifierPriority.java`
+- [x] `protected abstract Map<String, Integer> priorityMap()` — subclass supplies the
+      modifier-name → column-rank mapping
+- [x] `public final int priorityOf(String modifier)` — returns the rank, or `-1` if
+      `modifier` is not a recognized modifier for this language
+- [x] `public final boolean isModifier(String token)` — convenience check
 
-### Core behavior
-- [x] Language parameter at construction (`c`, `cpp`, `java`)
-- [x] Brace/paren depth counter maintained alongside tokenization
-- [x] Preprocessor conditional depth counter (separate from code counter)
-- [x] Braces inside preprocessor conditionals ignored for code depth counter
-- [x] Name stack: push on named construct open `{`, pop on `}`
+### `CppModifierPriority.java`
+- [x] Column model per FORMATTER_DISCUSSION.md: `static` < `volatile` < `const`
+      (matches `[static][volatile][const][type][*][const][name][[size]][comment]`)
 
-### Language edge cases
-- [ ] Java generics disambiguation — content heuristic: no operators inside `<>` → angle bracket, operators present → comparison
-- [ ] `extern "C"` block detection — push `extern "C"` literal onto name stack
-- [ ] Single-line `#define` — normalize spacing around name only, body preserved as-is
-- [ ] Multiline `#define` — collect into opaque `MACRO_DEF` token, preserved character-for-character
-- [ ] Macro invocations in code — treated as function call for §3.1 (identifier + `(` → loose)
-- [ ] Syntax error guard — if brace counter goes negative, abort and leave file untouched
+### `JavaModifierPriority.java`
+- [x] Column model per FORMATTER_DISCUSSION.md: `public`/`private`/`protected` share
+      one rank (mutually exclusive access modifiers occupy the same column) < `static`
+      < `volatile` < `final`
+      (matches `[access][static][volatile][final][type][name][[]][comment]`)
 
 ---
 
@@ -267,3 +252,6 @@ Every `.java` source file must begin with this copyright block, before the `pack
  * See the LICENSE file in the formatter root directory for the full MIT license text.
  */
 ```
+
+## End Goal
+- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that `make` still succeeds after

@@ -184,11 +184,11 @@ re-open them.
 - [x] `ANGLE_BRACKET_CLOSE` (generic/template context)
 
 ### Core behavior
-- [ ] Language parameter at construction (`c`, `cpp`, `java`)
-- [ ] Brace/paren depth counter maintained alongside tokenization
-- [ ] Preprocessor conditional depth counter (separate from code counter)
-- [ ] Braces inside preprocessor conditionals ignored for code depth counter
-- [ ] Name stack: push on named construct open `{`, pop on `}`
+- [x] Language parameter at construction (`c`, `cpp`, `java`)
+- [x] Brace/paren depth counter maintained alongside tokenization
+- [x] Preprocessor conditional depth counter (separate from code counter)
+- [x] Braces inside preprocessor conditionals ignored for code depth counter
+- [x] Name stack: push on named construct open `{`, pop on `}`
 
 ### Language edge cases
 - [ ] Java generics disambiguation — content heuristic: no operators inside `<>` → angle bracket, operators present → comparison

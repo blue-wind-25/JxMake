@@ -3,7 +3,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
 # Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
-      hardware/JxMake_USB_GPIO/_0_Firmware.diff
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega8A_Common.diff
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega1284P.diff
 
@@ -90,9 +89,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
   (maybe for combining user program with other precompiled program for nRF52?).
 
 # Implement JxMake's own PE (programming executive) for PIC24FJxxxG[AB][01]xx MCUs?
-
-# Further improve the SWIM module reliability and speed for the original 'JxMake USB-GPIO' module as
-  much as possible!
 
 # Further verify and improve the documentations.
 

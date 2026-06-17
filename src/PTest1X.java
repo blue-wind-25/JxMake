@@ -80,7 +80,7 @@ public class PTest1X {
 
                     if(true) {
 
-                        final USB_GPIO dev = true ? USB_GPIO.autoConnectFirst() : new USB_GPIO("/dev/ttyACM0", "/dev/ttyACM1");
+                        final USB_GPIO dev = !true ? USB_GPIO.autoConnectFirst() : new USB_GPIO("/dev/ttyACM0", "/dev/ttyACM1");
                         dev.setAutoNotifyErrorMessage(true);
 
                         SysUtil.stdDbg().print("USB-GPIO Ping         = "); SysUtil.stdDbg().printf( "%b\n", dev.ping() );
@@ -990,7 +990,7 @@ public class PTest1X {
             } // if
 
             // Test 'USB2GPIO' and 'ProgUPDI' - ATmega4808/ATtiny3226/AVR128DA/AVR32DU/AVR32EA/AVR32EB/AVR32SD
-            if(!!true) {
+            if(!true) {
 
 /*
 NVM type 0: 16-bit, page oriented write
@@ -1262,7 +1262,7 @@ NVM type 6: 24-bit, word oriented
                  * 1       2        4        8        16
                  * v1      ?        ?        v2       v2
                  */
-                final int bmul = ( (usb2gpio instanceof USB_GPIO) && ( (USB_GPIO) usb2gpio ).isHWv2() ) ? 16 : 2;
+                final int bmul = ( (usb2gpio instanceof USB_GPIO) && ( (USB_GPIO) usb2gpio ).isHWv2() ) ? 16 : 1;
 
                 if( !pdi.begin(57600 * bmul) ) throw XCom.newException("ERR: pdi.begin()");
 

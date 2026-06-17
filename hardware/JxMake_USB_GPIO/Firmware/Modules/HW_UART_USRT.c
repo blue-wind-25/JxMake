@@ -325,7 +325,8 @@ static void _hwxuart_end(void)
 
 	if(_hwuxrtXMegaPDIMode) {
 		// Hold the Txd line and Xck line
-		HW_UXRT_PORT |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
+		HW_UXRT_PORT |=  _BV(HW_UXRT_TXD_BIT); // Hold the Txd line high
+		HW_UXRT_PORT &= ~_BV(HW_UXRT_XCK_BIT); // Hold the Xck line low
 		HW_UXRT_DDR  |= ( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
 	}
 	else {
@@ -345,6 +346,7 @@ static void _hwxuart_end(void)
 		HW_UXRT_PORT &= ~( _BV(HW_UXRT_TXD_BIT) | _BV(HW_UXRT_XCK_BIT) );
 	}
 }
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

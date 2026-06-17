@@ -18,9 +18,9 @@ static const uint8_t PROTOCOL_VERSION_N = 2;
 static const uint8_t PROTOCOL_VERSION_R = 0;
 
 // Firmware version number
-static const uint8_t FIRMWARE_VERSION_M = 1;
-static const uint8_t FIRMWARE_VERSION_N = 0;
-static const uint8_t FIRMWARE_VERSION_R = 9;
+static const uint8_t FIRMWARE_VERSION_M =  1;
+static const uint8_t FIRMWARE_VERSION_N =  0;
+static const uint8_t FIRMWARE_VERSION_R = 10;
 
 
 /*

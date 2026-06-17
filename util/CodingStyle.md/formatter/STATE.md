@@ -24,7 +24,8 @@
   1. Update STATE.md — check off completed items, update File Status table
   2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
   3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -m "<message>"` — use a short descriptive message, no strict format required
+  4. `git commit -m "<message>"` — short descriptive message, no strict format required,
+     trailer ending with `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 - Small related items within a section may be grouped into one commit if they
   are trivially connected — use judgment based on line count (~50 lines threshold)
 - Never let implemented files and STATE.md drift out of sync — STATE.md must
@@ -44,7 +45,12 @@ target/
 3. Commit STATE.md only:
    ```
    git add util/CodingStyle.md/formatter/STATE.md
-   git commit -m "style-fmt: block on <question summary>"
+   git commit -m "$(cat <<'EOF'
+style-fmt: block on <question summary>
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+   )"
    ```
 4. Ask the user and wait for an answer before continuing
 5. Once resolved: record the decision in **Resolved Design Decisions**, remove

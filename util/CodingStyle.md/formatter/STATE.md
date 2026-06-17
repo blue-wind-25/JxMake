@@ -145,7 +145,7 @@ re-open them.
 | `Main.java` | NOT STARTED |
 | `Config.java` | NOT STARTED |
 | `ServerMode.java` | NOT STARTED |
-| `TokenizerCore.java` | NOT STARTED |
+| `TokenizerCore.java` | IN PROGRESS |
 | `ColumnGrid.java` | NOT STARTED |
 | `ModifierPriority.java` | NOT STARTED |
 | `CppModifierPriority.java` | NOT STARTED |
@@ -162,26 +162,26 @@ re-open them.
 
 ---
 
-## Current File: `TokenizerCore.java` — NOT STARTED
+## Current File: `TokenizerCore.java` — IN PROGRESS
 
 > Replace this checklist when this file reaches COMPLETE.
 
 ### Token types
-- [ ] `KEYWORD`
-- [ ] `IDENTIFIER`
-- [ ] `NUMBER`
-- [ ] `STRING`
-- [ ] `CHAR`
-- [ ] `OP`
-- [ ] `PUNCT`
-- [ ] `COMMENT_LINE`
-- [ ] `COMMENT_BLOCK`
-- [ ] `WHITESPACE`
-- [ ] `NEWLINE`
-- [ ] `PREPROCESSOR` (C/C++ only — opaque single-line `#`-directive)
-- [ ] `MACRO_DEF` (C/C++ only — opaque multiline `#define` with `\` continuations)
-- [ ] `ANGLE_BRACKET_OPEN` (generic/template context)
-- [ ] `ANGLE_BRACKET_CLOSE` (generic/template context)
+- [x] `KEYWORD`
+- [x] `IDENTIFIER`
+- [x] `NUMBER`
+- [x] `STRING`
+- [x] `CHAR`
+- [x] `OP`
+- [x] `PUNCT`
+- [x] `COMMENT_LINE`
+- [x] `COMMENT_BLOCK`
+- [x] `WHITESPACE`
+- [x] `NEWLINE`
+- [x] `PREPROCESSOR` (C/C++ only — opaque single-line `#`-directive)
+- [x] `MACRO_DEF` (C/C++ only — opaque multiline `#define` with `\` continuations)
+- [x] `ANGLE_BRACKET_OPEN` (generic/template context)
+- [x] `ANGLE_BRACKET_CLOSE` (generic/template context)
 
 ### Core behavior
 - [ ] Language parameter at construction (`c`, `cpp`, `java`)

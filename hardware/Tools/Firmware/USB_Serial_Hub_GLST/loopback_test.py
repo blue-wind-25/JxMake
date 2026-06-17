@@ -23,7 +23,7 @@ import sys, os, time, serial
 # Config
 # ---------------------------------------------------------------------------
 DEV               = "/dev/ttyACM0"
-BAUD_RATES        = [1200, 9600, 19200, 57600, 115200, 230400, 460800, 921600, 1843200]
+BAUD_RATES        = [1200, 2400, 4800, 9600, 19200, 57600, 115200, 230400, 460800, 921600]
 CORRECTNESS_BYTES = 64
 THROUGHPUT_BYTES  = 256
 OVERFLOW_BURST    = 4096
@@ -215,9 +215,15 @@ for baud in BAUD_RATES:
         if b: drained.extend(b)
     log_info(f"Received {len(drained)} bytes during burst")
 
-    log_info(f"Waiting {RECOVERY_WAIT}s for recovery...")
-    time.sleep(RECOVERY_WAIT)
-    flush_port(port)
+    # At low baud rates the UART pipeline takes much longer to drain than RECOVERY_WAIT;
+    # read and discard until the line has been idle for at least RECOVERY_WAIT seconds
+    byte_time    = 10.0 / baud
+    idle_timeout = max(RECOVERY_WAIT, byte_time * 3)
+    log_info(f"Draining UART pipeline (idle timeout {idle_timeout:.2f}s)...")
+    port.timeout = idle_timeout
+    while port.read(256):
+        pass
+    port.reset_input_buffer()
 
     probe     = make_pattern(RECOVERY_BYTES)
     recovered = send_recv_1by1(port, probe, limit_delay)

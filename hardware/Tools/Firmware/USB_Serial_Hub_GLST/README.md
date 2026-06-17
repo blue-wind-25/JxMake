@@ -46,11 +46,11 @@ adjusts `WordLength` based on the `dataBits`+`parity` combination:
 
 CDC `SEND_BREAK` is fully host-controlled via GPIO:
 
-| `wValue` | Action                                                                                  |
-|----------|-----------------------------------------------------------------------------------------|
-| `0xFFFF` | Reconfigures TXD (PB10) as GPIO output driven **low** — holds the line low indefinitely |
-| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull                       |
-| other    | Rejected (`USBD_FAIL`)                                                                  |
+| `wValue` | Action                                                                                                                                    |
+|----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `0xFFFF` | Flushes UART TX/RX and CDC RX ring buffers, then reconfigures TXD (PB10) as GPIO output driven **low** — holds the line low indefinitely |
+| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull                                                                        |
+| other    | Rejected (`USBD_FAIL`)                                                                                                                    |
 
 This allows the PC application to start and stop a break condition at will,
 matching the behaviour expected by tools that use break for reset (e.g. some
@@ -196,6 +196,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | `CDC_SET_LINE_CODING` — parity+wordlength | Word length now accounts for parity bit | Old code mapped `dataBits=8` → `WORDLENGTH_8B` unconditionally; with parity enabled that gives only 7 effective data bits. Fixed: `8E/8O` → `WORDLENGTH_9B`, `7E/7O` → `WORDLENGTH_8B` |
 | `CDC_SET_LINE_CODING` — UART RX flush | Flush `uartRxBuffer` ring buffer on baud-rate change | TX buffer was already flushed; RX buffer now also cleared so stale bytes at the old baud rate can't be forwarded |
 | `CDC_SEND_BREAK` | GPIO-based infinite break | `0xFFFF` reconfigures TXD as GPIO output driven low; `0x0000` drives high for 1 ms then restores USART3 AF — holds the line low for as long as the host requires, unlike the `SBK` bit which only sends a single break frame |
+| `CDC_SEND_BREAK` — buffer flush on `0xFFFF` | Flush `uartTxBuffer`, `uartRxBuffer`, and `rxBuffer` before asserting break | Stale queued bytes accumulated before break (e.g. from a preceding overflow burst) would be transmitted after break deasserts, corrupting the target's receive stream; flushing on assert matches hardware UART FIFO semantics |
 
 
 ## Performance
@@ -217,15 +218,19 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 
 ### Loopback throughput (TXD↔RXD, STM32F103CBT6 @ 72 MHz, USB FS behind hub)
 
-| Baud rate | UART max  | Loopback throughput | Notes                   |
-|-----------|-----------|---------------------|-------------------------|
-| 9600      | 960 B/s   | ~655 B/s            | UART-limited            |
-| 19200     | 1920 B/s  | ~1160 B/s           | UART-limited            |
-| 57600     | 5760 B/s  | ~2400 B/s           | UART-limited            |
-| 115200    | 11520 B/s | ~3440 B/s           | Approaching USB ceiling |
-| 230400    | 23040 B/s | ~3220 B/s           | USB ceiling             |
-| 460800    | 46080 B/s | ~3060 B/s           | USB ceiling             |
-| 921600    | 92160 B/s | ~5660 B/s           | USB ceiling             |
+| Baud rate | UART max   | Loopback throughput | Notes                   |
+|-----------|------------|---------------------|-------------------------|
+| 1200      | 120 B/s    | ~109 B/s            | UART-limited            |
+| 2400      | 240 B/s    | ~206 B/s            | UART-limited            |
+| 4800      | 480 B/s    | ~385 B/s            | UART-limited            |
+| 9600      | 960 B/s    | ~665 B/s            | UART-limited            |
+| 19200     | 1920 B/s   | ~1129 B/s           | UART-limited            |
+| 57600     | 5760 B/s   | ~2472 B/s           | UART-limited            |
+| 115200    | 11520 B/s  | ~3551 B/s           | Approaching USB ceiling |
+| 230400    | 23040 B/s  | ~3085 B/s           | USB ceiling             |
+| 460800    | 46080 B/s  | ~3457 B/s           | USB ceiling             |
+| 921600    | 92160 B/s  | ~3038 B/s           | USB ceiling             |
+| 1843200   | 184320 B/s | ~3668 B/s           | USB ceiling             |
 
 The USB FS loopback ceiling is a measurement artefact: TX and RX share the same
 1 ms USB frame window in a loopback topology, so each direction gets roughly half
@@ -244,15 +249,18 @@ The overflow stress test blasts 4096 bytes with no pacing. The number of bytes
 received during the burst reflects how much data the firmware absorbed before the
 USB CDC RX ring buffer filled:
 
-| Baud rate | Received during 4096 B burst |
-|-----------|------------------------------|
-| 9600      | ~1536 B                      |
-| 19200     | ~1536 B                      |
-| 57600     | ~1536 B                      |
-| 115200    | ~1600 B                      |
-| 230400    | ~1595 B                      |
-| 460800    | ~1283 B                      |
-| 921600    | ~1477 B                      |
+| Baud rate | Received during 4096 B burst | Notes                              |
+|-----------|------------------------------|------------------------------------|
+| 1200      | ~240 B                       | UART-rate limited (120 B/s × 2 s)  |
+| 2400      | ~512 B                       | UART-rate limited (240 B/s × 2 s)  |
+| 4800      | ~1024 B                      | UART-rate limited (480 B/s × 2 s)  |
+| 9600      | ~1536 B                      | Full buffer absorbed               |
+| 19200     | ~1536 B                      | Full buffer absorbed               |
+| 57600     | ~1536 B                      | Full buffer absorbed               |
+| 115200    | ~1600 B                      | Full buffer absorbed               |
+| 230400    | ~1656 B                      | Full buffer absorbed               |
+| 460800    | ~1608 B                      | Full buffer absorbed               |
+| 921600    | ~1608 B                      | Full buffer absorbed               |
 
 The baseline figure of ~1536 B = `rxBuffer` (1024) + `uartTxBuffer` (512) confirms
 that the USB CDC RX ring buffer and the UART TX ring buffer are both fully utilised
@@ -260,6 +268,12 @@ before any data is dropped.  At higher baud rates the UART drains `uartTxBuffer`
 faster during the burst, freeing space for slightly more USB data (or the loopback
 echo fills `uartRxBuffer`, displacing the accounting).  All rates recover cleanly
 after the burst (endpoint never locks up).
+
+At 1200–4800 baud the UART is so slow that it can only drain `baud/10 × 2` bytes
+during the 2-second burst window before the measurement ends — the internal buffers
+are fully loaded but the loopback echo has not yet returned.  These rates require
+a proportionally longer post-burst drain wait before the next test step, which the
+test script handles with an adaptive read-until-idle loop.
 
 
 ## Contributing
@@ -293,3 +307,11 @@ The session covered:
   (the USB stack never uses more than one 64-byte packet at a time; saves 1872 B of BSS)
 - Break test (test 5) added to `loopback_test.py`
 - Code style reformatting of `main.cpp` per the project style guide
+- Diagnosis and fix of 1200 and 2400 baud test failures, which had two root causes:
+  (1) firmware: `CDC_SEND_BREAK(0xFFFF)` now flushes all UART TX/RX and CDC RX ring
+  buffers before asserting break, so stale overflow bytes cannot contaminate the
+  post-deassert echo window; (2) test: the fixed `RECOVERY_WAIT` sleep after the
+  overflow burst is replaced with an adaptive read-until-idle drain loop, correctly
+  waiting for the UART pipeline to empty at any baud rate (e.g. ~12 s at 1200 baud)
+- Extended `BAUD_RATES` in `loopback_test.py` to cover 1200–921600; all 50 tests
+  across 10 baud rates now pass

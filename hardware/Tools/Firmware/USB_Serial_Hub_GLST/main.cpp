@@ -24,10 +24,10 @@
  */
 
 /*
- * Performance improvements contributed by Claude Sonnet 4.6 (Anthropic), June 2026.
- * Changes replace blocking HAL UART TX/RX with bare-metal interrupt-driven ring buffers,
- * decoupling USB and UART directions so neither blocks the other.
- * See README.md for a full description of the changes and their rationale.
+ * # Performance improvements contributed by Claude Sonnet 4.6 (Anthropic), June 2026.
+ * # Changes replace blocking HAL UART TX/RX with bare-metal interrupt-driven ring buffers,
+ *   decoupling USB and UART directions so neither blocks the other.
+ * # See README.md for a full description of the changes and their rationale.
  */
 
 
@@ -38,7 +38,7 @@
 
 
 // The firmware version string
-const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.3";
+const char FIRMWARE_VERSION[] = "JxMake USB-to-Serial Converter v1.0.5";
 
 
 extern "C" {
@@ -279,10 +279,11 @@ static UART_HandleTypeDef huart3;
  * sequentially. This meant the main loop was stalled during every UART TX, causing all UART
  * RX bytes that arrived during that window to be lost (STM32F1 UART has no hardware FIFO).
  *
- * Replacement: bare-metal RXNE/TXE interrupts drive two independent ring buffers.
- * The main loop enqueues into uartTxBuffer and drains uartRxBuffer without ever blocking.
- * HAL state machine is bypassed entirely — HAL_UART_Receive_IT corrupts RxState under heavy
- * burst load; reading/writing USART3->DR directly in the ISR is immune to this.
+ * Replacement:
+ *     # Bare-metal RXNE/TXE interrupts drive two independent ring buffers.
+ *     # The main loop enqueues into uartTxBuffer and drains uartRxBuffer without ever blocking.
+ *     # HAL state machine is bypassed entirely — HAL_UART_Receive_IT corrupts RxState under heavy
+ *       burst load; reading/writing USART3->DR directly in the ISR is immune to this.
  */
 
 // RX ring buffer — written by ISR (RXNE), read by main loop
@@ -304,9 +305,9 @@ static volatile uint16_t uartTxTail = 0; // Read   by ISR
 
 
 /*
- * Enqueue bytes into the UART TX ring buffer and enable TXEIE so the ISR starts draining.
- * Non-blocking — returns the number of bytes actually enqueued (may be less than len if
- * the buffer is full; excess bytes are silently dropped, matching FT232/CH34x FIFO behaviour).
+ * # Enqueue bytes into the UART TX ring buffer and enable TXEIE so the ISR starts draining.
+ * # Non-blocking — returns the number of bytes actually enqueued (may be less than len if
+ *   the buffer is full; excess bytes are silently dropped, matching FT232/CH34x FIFO behaviour).
  */
 static uint16_t UART_TX_Enqueue(const uint8_t* data, uint16_t len)
 {
@@ -340,16 +341,17 @@ static uint16_t UART_TX_FreeSpace()
 }
 
 /*
- * USART3 global interrupt handler — bare-metal RXNE and TXE handling.
- * Bypasses the HAL UART state machine (HAL_UART_IRQHandler) entirely.
- * All RXNE, TXE, and error-flag processing is done by direct register access.
+ * # USART3 global interrupt handler — bare-metal RXNE and TXE handling.
+ * # Bypasses the HAL UART state machine (HAL_UART_IRQHandler) entirely.
+ * # All RXNE, TXE, and error-flag processing is done by direct register access.
  */
 extern "C" void USART3_IRQHandler()
 {
     const uint32_t sr = USART3->SR;
 
-    /* RX: a byte has arrived — store it in the ring buffer.
-     * Reading DR clears RXNE and any simultaneously-set ORE/FE/NE flags.
+    /*
+     * # RX: a byte has arrived — store it in the ring buffer.
+     * # Reading DR clears RXNE and any simultaneously-set ORE/FE/NE flags.
      */
     if( sr & USART_SR_RXNE ) {
         const uint8_t  byte     = (uint8_t ) (USART3->DR);
@@ -362,10 +364,11 @@ extern "C" void USART3_IRQHandler()
         // Buffer full — byte is silently dropped to avoid losing stream sync
     } // if RXNE
     else if( sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE) ) {
-        /* Error without RXNE: read DR to clear the pending error flags.
-         * Using else-if because the RXNE branch already read DR, which clears
-         * simultaneous ORE/FE/NE; a second DR read here would discard the next
-         * incoming byte.
+        /*
+         * # Error without RXNE: read DR to clear the pending error flags.
+         * # Using else-if because the RXNE branch already read DR, which clears
+         *   simultaneous ORE/FE/NE; a second DR read here would discard the next
+         *   incoming byte.
          */
         (void) USART3->DR;
     }
@@ -523,12 +526,13 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             else if(parity == 2) huart3.Init.Parity = UART_PARITY_EVEN;
             else                 return USBD_FAIL;
 
-            /* STM32 UART word length includes the parity bit when parity is enabled.
-             * CDC dataBits counts data bits only (exclusive of parity).
-             *   CDC 8N  → WORDLENGTH_8B (8 data)
-             *   CDC 8E/8O → WORDLENGTH_9B (8 data + 1 parity)
-             *   CDC 7E/7O → WORDLENGTH_8B (7 data + 1 parity)
-             *   CDC 9N  → WORDLENGTH_9B (9 data)
+            /*
+             * # STM32 UART word length includes the parity bit when parity is enabled.
+             * # CDC dataBits counts data bits only (exclusive of parity).
+             *       CDC 8N    → WORDLENGTH_8B (8 data)
+             *       CDC 8E/8O → WORDLENGTH_9B (8 data + 1 parity)
+             *       CDC 7E/7O → WORDLENGTH_8B (7 data + 1 parity)
+             *       CDC 9N    → WORDLENGTH_9B (9 data)
              */
             if     (dataBits == 8 && parity == 0) huart3.Init.WordLength = UART_WORDLENGTH_8B;
             else if(dataBits == 8 && parity != 0) huart3.Init.WordLength = UART_WORDLENGTH_9B;
@@ -540,12 +544,12 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             for(int i = 0; i < 7; ++i) cdcLineCoding.lcBuffer[i] = pbuf[i];
 
             /*
-             * Flush both ring buffers before reinitialising the UART.
-             * Matches FT232/CH34x behaviour: new line coding is applied immediately.
-             * Programming tools always assert reset before changing baud rate,
-             * so any queued bytes are irrelevant at this point.
-             * Disable RXNEIE before resetting the RX pointers; HAL_UART_Init
-             * resets CR1 anyway, but being explicit avoids any ISR race.
+             * # Flush both ring buffers before reinitialising the UART.
+             * # Matches FT232/CH34x behaviour: new line coding is applied immediately.
+             * # Programming tools always assert reset before changing baud rate,
+             *   so any queued bytes are irrelevant at this point.
+             * # Disable RXNEIE before resetting the RX pointers; HAL_UART_Init
+             *   resets CR1 anyway, but being explicit avoids any ISR race.
              */
             CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE | USART_CR1_RXNEIE);
             uartTxHead = 0;
@@ -555,8 +559,9 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 
             if( HAL_UART_Init(&huart3) != HAL_OK ) blinkErrorLED();
 
-            /* Re-enable RXNE — HAL_UART_Init resets CR1.
-             * TXEIE is intentionally left disabled; UART_TX_Enqueue re-enables it when new data arrives.
+            /*
+             * # Re-enable RXNE — HAL_UART_Init resets CR1.
+             * # TXEIE is intentionally left disabled; UART_TX_Enqueue re-enables it when new data arrives.
              */
             SET_BIT(USART3->CR1, USART_CR1_RXNEIE);
             break;
@@ -584,10 +589,18 @@ int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
             const uint16_t breakDuration = hUsbDeviceFS.request.wValue;
 
             if(breakDuration == 0xFFFF) {
-                /* Start of break: reconfigure TXD as GPIO output driven low.
-                 * This holds the line low indefinitely until wValue=0 is sent,
-                 * as required by USB CDC for infinite-break (0xFFFF).
+                /* Start of break: flush all pending UART TX/RX and USB CDC RX data before
+                 * reconfiguring TXD as GPIO driven low.  Matches hardware UART FIFO semantics
+                 * (break = cancel queued TX) so no stale bytes emerge after break deasserts.
                  */
+                CLEAR_BIT(USART3->CR1, USART_CR1_TXEIE | USART_CR1_RXNEIE);
+                uartTxHead = 0;
+                uartTxTail = 0;
+                uartRxHead = 0;
+                uartRxTail = 0;
+                CDC_FlushRxBuffer_FS();
+                SET_BIT(USART3->CR1, USART_CR1_RXNEIE);
+                // Configure TXD as GPIO
                 GPIO_InitTypeDef cfg = {};
                 cfg.Pin   = UART_TXD_PIN;
                 cfg.Mode  = GPIO_MODE_OUTPUT_PP;
@@ -680,12 +693,14 @@ static void handleUSB_CDC_ACM()
     static uint8_t cdcBuffer[CDC_ACM_BUFFER_SIZE];
 
     // USB -> TXD
-    /* Drain the USB CDC RX ring buffer into the UART TX ring buffer, capped by the
-     * available TX space.  Reading only as many bytes as uartTxBuffer can absorb lets
-     * rxBuffer act as a second-level backpressure buffer when CTS is held by the target:
-     * instead of consuming bytes from rxBuffer and silently dropping them, they stay in
-     * rxBuffer until the UART can accept them, giving 1024+512 = 1536 bytes of total
-     * buffering before the host sees any loss.
+    /*
+     * # Drain the USB CDC RX ring buffer into the UART TX ring buffer, capped by the
+     *   available TX space.
+     * # Reading only as many bytes as uartTxBuffer can absorb lets
+     *   rxBuffer act as a second-level backpressure buffer when CTS is held by the target:
+     *   instead of consuming bytes from rxBuffer and silently dropping them, they stay in
+     *   rxBuffer until the UART can accept them, giving 1024+512 = 1536 bytes of total
+     *   buffering before the host sees any loss.
      */
     const uint16_t txFree        = UART_TX_FreeSpace();
     const uint16_t usbAvailable  = CDC_GetRxBufferBytesAvailable_FS();
@@ -701,8 +716,10 @@ static void handleUSB_CDC_ACM()
     }
 
     // RXD -> USB
-    // Drain the UART RX ring buffer (filled by the RXNE ISR) in chunks of up to
-    // UART_TX_CHUNK_SIZE bytes per USB transaction, reducing USB overhead vs 1 byte at a time.
+    /*
+     * Drain the UART RX ring buffer (filled by the RXNE ISR) in chunks of up to UART_TX_CHUNK_SIZE
+     * bytes per USB transaction, reducing USB overhead vs 1 byte at a time.
+     */
     static uint8_t uartTxChunk[UART_TX_CHUNK_SIZE];
 
     uint16_t head = uartRxHead; // Snapshot — ISR may advance uartRxHead concurrently

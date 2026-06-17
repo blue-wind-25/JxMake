@@ -46,11 +46,11 @@ adjusts `WordLength` based on the `dataBits`+`parity` combination:
 
 CDC `SEND_BREAK` is fully host-controlled via GPIO:
 
-| `wValue` | Action                                                                                                                                    |
-|----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `wValue` | Action |
+|----------|--------|
 | `0xFFFF` | Flushes UART TX/RX and CDC RX ring buffers, then reconfigures TXD (PB10) as GPIO output driven **low** — holds the line low indefinitely |
-| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull                                                                        |
-| other    | Rejected (`USBD_FAIL`)                                                                                                                    |
+| `0x0000` | Drives TXD high for 1 ms, then restores it as USART3 AF push-pull |
+| other    | Rejected (`USBD_FAIL`) |
 
 This allows the PC application to start and stop a break condition at will,
 matching the behaviour expected by tools that use break for reset (e.g. some
@@ -161,7 +161,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 ### `__package__/device_cdc/usbd_cdc_if.h`
 
 | Location | Change | Reason |
-|--------------------|---------|--------|
+|----------|--------|--------|
 | `APP_RX_DATA_SIZE` | 1000 → 64 | `USBD_LL_PrepareReceive` always uses `CDC_DATA_FS_OUT_PACKET_SIZE` (64); the extra 936 bytes were wasted SRAM |
 | `APP_TX_DATA_SIZE` | 1000 → 64 | `UserTxBufferFS` is never used — every `CDC_Transmit_FS` call overrides the buffer pointer; size is irrelevant |
 
@@ -230,7 +230,7 @@ any bytes pending in the TX buffer at that moment are irrelevant.
 | 230400    | 23040 B/s  | ~3085 B/s           | USB ceiling             |
 | 460800    | 46080 B/s  | ~3457 B/s           | USB ceiling             |
 | 921600    | 92160 B/s  | ~3038 B/s           | USB ceiling             |
-| 1843200   | 184320 B/s | ~3668 B/s           | USB ceiling             |
+| 1843200   | 184320 B/s | ~6353 B/s           | USB ceiling             |
 
 The USB FS loopback ceiling is a measurement artefact: TX and RX share the same
 1 ms USB frame window in a loopback topology, so each direction gets roughly half
@@ -261,6 +261,7 @@ USB CDC RX ring buffer filled:
 | 230400    | ~1656 B                      | Full buffer absorbed               |
 | 460800    | ~1608 B                      | Full buffer absorbed               |
 | 921600    | ~1608 B                      | Full buffer absorbed               |
+| 1843200   | ~1631 B                      | Full buffer absorbed               |
 
 The baseline figure of ~1536 B = `rxBuffer` (1024) + `uartTxBuffer` (512) confirms
 that the USB CDC RX ring buffer and the UART TX ring buffer are both fully utilised

@@ -119,6 +119,11 @@ no closing comment at all (the `}` stands alone):
 }
 ```
 
+`extern "C"` blocks — always include the literal text:
+```cpp
+} // extern "C"
+```
+
 Class and struct:
 ```cpp
 } // class MyClass
@@ -176,3 +181,79 @@ or origin (different subsystem, different third-party source):
 ```
 
 Use sparingly in both cases — the triple should feel significant, not routine.
+
+---
+
+## 10. Header File Structure
+
+Header files follow a fixed top-level layout. Each zone is separated from the next
+by **exactly 2 blank lines**.
+
+```cpp
+/*
+ * Copyright (c) ...
+ * ...
+ */
+
+
+#ifndef MY_MODULE_H
+#define MY_MODULE_H
+
+
+// ... body: includes, declarations, definitions ...
+
+
+#endif // MY_MODULE_H
+```
+
+**Zones:**
+1. Copyright block (`/* */` form)
+2. Header guard (`#ifndef` / `#define` pair)
+3. Body
+4. Closing `#endif`
+
+**Guard name:** derived from the filename — uppercase, with `.` and path separators
+replaced by `_` (e.g. `src/audio/Codec.h` → `AUDIO_CODEC_H`). The formatter warns
+if the existing guard name does not match. Renaming is opt-in:
+```
+header-guard-rename = off   # default: warn only, do not rename
+```
+
+**`#pragma once` alternative:** if the file uses `#pragma once` instead of an
+`#ifndef` guard, preserve it as-is. Do not convert between the two forms unless
+explicitly configured:
+```
+header-guard-style = ifndef   # ifndef | pragma-once (default: preserve existing)
+```
+
+The 2-blank-line rule above applies to `#ifndef` guards. For `#pragma once` files,
+the same zone separation applies with `#pragma once` in place of the guard block.
+
+---
+
+## 11. Include Ordering
+
+Includes are arranged in two groups, separated by **exactly 1 blank line**:
+
+```c
+#include <system_header>    // Group 1: system / stdlib (angle brackets)
+#include <another_system>
+
+#include "local_header.h"   // Group 2: project / local (quotes)
+#include "another_local.h"
+```
+
+**Within each group:** alphabetical order. Sorting is opt-in (default off) because
+include order in C/C++ can affect behavior via macro dependencies:
+```
+include-sort = off   # default: preserve order within group, only enforce grouping
+```
+
+**Grouping** (angle bracket vs quote) is always enforced regardless of `include-sort`.
+Mixed groups are split and reordered into the two-group layout.
+
+**Source files** (`.c` / `.cpp`): same two-group rule applies. No header guard.
+
+**The corresponding own header** (e.g. `Foo.cpp` including `Foo.h`) goes at the top
+of group 2, before other local includes — this catches missing self-contained includes
+early. This placement is always enforced, regardless of `include-sort`.

@@ -149,7 +149,8 @@ timeout  = 100;
 
 ## 7. Closing Comments on Blocks
 
-Add a closing comment after `}` when the **content of the block exceeds 5 lines**.
+Add a closing comment after `}` when the **content of the block exceeds the closing
+comment threshold** (default: 5 lines, configurable via `closing-comment-min-lines`).
 
 Format:
 - Default: `// block-name` (e.g. `// for`, `// while`, `// MyClass`)
@@ -192,7 +193,7 @@ class Foo {
 ```
 
 For **control-flow blocks** (`for`, `while`, `if`, `switch`): do not add or remove blank lines
-inside the block — preserve them as-is. They count toward the 5-line threshold.
+inside the block — preserve them as-is. They count toward the closing comment threshold.
 
 **Always** include the name for named constructs regardless of nesting depth.
 `class` and `enum` are universal. See language-specific files for additional
@@ -355,7 +356,8 @@ switch(cmd) {
 No blank lines between cases (preserve any already present in the original). When cases are
 structurally similar (all function calls, or all assignments), align: `case` label padded so
 `:` is at the same column, then function-name column, `(` column, `)` column, `;` column,
-and `break;` column. Add a closing comment when the total line count exceeds 5 (see §7):
+and `break;` column. Add a closing comment when the total line count exceeds the threshold
+(see §7):
 
 ```c
 switch(state) {

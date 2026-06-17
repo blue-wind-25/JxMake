@@ -114,7 +114,45 @@ Anonymous classes — no label:
 
 ---
 
-## 7. Unresolved / Preserve-As-Is Cases
+## 7. Import Ordering
+
+Imports are arranged in groups separated by **exactly 1 blank line**.
+Within each group, imports are sorted alphabetically (configurable).
+
+**Default group order:**
+
+```java
+import static ...;          // Group 1: static imports
+
+import java.*;              // Group 2: java.* and javax.*
+import javax.*;
+
+import org.*;               // Group 3: org.*
+
+import com.*;               // Group 4: com.*
+
+import mycompany.myproject; // Group 5: local / in-project imports
+```
+
+**Local import detection:** the project's root package is read from the `package`
+declaration at the top of the file being formatted. The top two package components
+(e.g. `com.mycompany` from `package com.mycompany.myproject.audio;`) define the
+local prefix. All imports sharing that prefix are placed in group 5.
+
+Configurable:
+```
+java-import-order  = static, java, org, com, local   # group order
+java-import-sort   = on                               # alphabetical within group
+java-import-depth  = 2                               # components defining "local"
+java-import-blank-lines = 1                          # blank lines between groups
+```
+
+**Unused imports** — the formatter does not remove unused imports. That is the
+responsibility of the IDE or a separate lint tool.
+
+---
+
+## 8. Unresolved / Preserve-As-Is Cases
 
 - `else`/`else if` closing comment threshold: same judgment-call rule as C/C++ —
   apply when the branch is long and contains deeply nested `if`s inside.

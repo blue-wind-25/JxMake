@@ -16,6 +16,10 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
       src/jxm/tool/HTTPDownloader.java
       src/com/intellectualsites/http/*
 
+# Further complete, verify, and improve the implementation of the built-in script editor for
+  JxMakeFiles with syntax highlighting, code folding, and console support (including direct script
+  execution).
+
 # Further complete, verify, and improve the 'JxMake Serial-WiFi Bridge' system. It may connect
   unreliably, hung, etc.
 
@@ -37,19 +41,15 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
             # Further verify and improve the converter board that merges ISP and UPDI v1 connectors
               into a UPDI v1 connector with HV-RST and a UPDI v2 connector (also with HV-RST).
 
-# Further complete, verify, and improve the implementation of the built-in script editor for
-  JxMakeFiles with syntax highlighting, code folding, and console support (including direct script
-  execution).
-
-# Further complete, verify, and improve the explanation of the parameters for the built-in functions
-  '$fwc_load_elf_bin()', '$mcu_prog_cfg_json()', '$mcu_prog_cfg_ini()', and '$mcu_prog_exec()' in
-  the documentation!
+# Further verify and improve the ProgPDI     reliability and speed as much as possible.
+# Further verify and improve the ProgBootTSB reliability and speed as much as possible.
 
 # Further replace all 'TreeSet<>' with 'HashSet<>' if ordering is unnecessary.
 # Further replace all 'TreeMap<>' with 'HashMap<>' if ordering is unnecessary.
 
-# Further verify and improve the ProgPDI     reliability and speed as much as possible.
-# Further verify and improve the ProgBootTSB reliability and speed as much as possible.
+# Further complete, verify, and improve the explanation of the parameters for the built-in functions
+  '$fwc_load_elf_bin()', '$mcu_prog_cfg_json()', '$mcu_prog_cfg_ini()', and '$mcu_prog_exec()' in
+  the documentation!
 
 # Further test with Java 11 (it is an LTS version).
 

@@ -72,6 +72,7 @@ clean:
 	@$(MAKE) -C $(JXM_SRC_DIR)                                                      -s clean
 	@$(MAKE) -C 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1             -s clean
 	@$(MAKE) -C 3rd_party/tools/pcpp_java                                           -s clean
+	@$(MAKE) -C util/CodingStyle.md/formatter                                       -s clean
 	@$(MAKE) -C hardware/Tools/Firmware/ATmega328P_4Digit_Voltmeter                 -s clean
 	@$(MAKE) -C hardware/Tools/Firmware/ATmega328P_4Digit_Voltmeter_II              -s clean
 	@$(MAKE) -C hardware/Tools/Firmware/ATtiny44A_Power_Supply_Control___Selector   -s clean

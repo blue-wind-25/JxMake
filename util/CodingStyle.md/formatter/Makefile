@@ -30,7 +30,7 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
 	@printf 'Main-Class: %s\n' '$(MAIN_CLASS)' > $(MANIFEST)
 	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
-	@cp $(JAR_FILE) .
+#	@cp $(JAR_FILE) .
 
 clean:
 	@rm -rvf $(BUILD_DIR)

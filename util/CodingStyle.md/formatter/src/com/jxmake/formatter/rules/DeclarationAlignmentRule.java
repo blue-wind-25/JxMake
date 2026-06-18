@@ -118,6 +118,62 @@ public class DeclarationAlignmentRule {
         return groups;
     }
 
+    // ── Static reorder safety ───────────────────────────────────────────────────
+    /**
+     * Moves `static` declarations to the front of the group (STYLE.md §5),
+     * except where a preceding non-static is a size/value dependency of a
+     * static (its name appears in that static's size or init tokens) -- the
+     * whole run of not-yet-placed non-statics accumulated since the last
+     * flush is kept immediately before such a static, preserving their
+     * relative order, rather than attempting a finer-grained reorder whose
+     * safety would be unclear.
+     */
+    public List<Declaration> reorderStatics(List<Declaration> group) {
+        List<Declaration> output = new ArrayList<>();
+        List<Declaration> pending = new ArrayList<>();
+
+        for (Declaration d : group) {
+            if (isStatic(d)) {
+                if (dependsOnAny(d, pending)) {
+                    output.addAll(pending);
+                    pending.clear();
+                }
+                output.add(d);
+            } else {
+                pending.add(d);
+            }
+        }
+        output.addAll(pending);
+        return output;
+    }
+
+    private boolean isStatic(Declaration d) {
+        for (Token m : d.modifiers) {
+            if ("static".equals(m.text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean dependsOnAny(Declaration d, List<Declaration> candidates) {
+        for (Declaration c : candidates) {
+            if (referencesName(d.sizeTokens, c.name.text) || referencesName(d.initTokens, c.name.text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean referencesName(List<Token> tokens, String name) {
+        for (Token t : tokens) {
+            if (t.type == TokenType.IDENTIFIER && name.equals(t.text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ── Column grid rendering ───────────────────────────────────────────────────
     /**
      * Renders one declaration group into aligned source lines (STYLE.md §5,
@@ -125,9 +181,11 @@ public class DeclarationAlignmentRule {
      * anywhere in the group), the type (with C/C++ pointer attached), an
      * optional post-pointer `const` column, the name+size+`;`, and an optional
      * trailing comment column. Columns unused by the whole group are omitted
-     * rather than rendered as dead padding.
+     * rather than rendered as dead padding. Statics are reordered first
+     * (see `reorderStatics`).
      */
-    public List<String> render(List<Declaration> group) {
+    public List<String> render(List<Declaration> originalGroup) {
+        List<Declaration> group = reorderStatics(originalGroup);
         boolean isJava = "java".equals(language);
         int modifierColumns = modifierPriority.columnCount();
         boolean[] modifierActive = new boolean[modifierColumns];

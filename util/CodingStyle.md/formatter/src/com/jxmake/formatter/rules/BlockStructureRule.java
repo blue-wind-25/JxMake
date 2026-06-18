@@ -10,10 +10,14 @@ package com.jxmake.formatter.rules;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class BlockStructureRule {
@@ -32,10 +36,19 @@ public class BlockStructureRule {
     // STYLE.md §11 K&R list: keywords whose body brace follows the bare keyword, no condition.
     private static final Set<String> BARE_KR_KEYWORDS = setOf("else", "do", "try", "finally");
 
+    // STYLE.md §7 default; overridable via `closing-comment-min-lines` once Config.java exists.
+    private static final int DEFAULT_CLOSING_COMMENT_MIN_LINES = 5;
+
     private final String language;
+    private final int closingCommentMinLines;
 
     public BlockStructureRule(final String language) {
+        this(language, DEFAULT_CLOSING_COMMENT_MIN_LINES);
+    }
+
+    public BlockStructureRule(final String language, final int closingCommentMinLines) {
         this.language = language;
+        this.closingCommentMinLines = closingCommentMinLines;
     }
 
     private static Set<String> setOf(final String... words) {
@@ -492,5 +505,450 @@ public class BlockStructureRule {
             i--;
         }
         return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
+    }
+
+    // ── Named-construct blank lines (STYLE.md §7) ───────────────────────────────
+    /**
+     * Scans a token slice and ensures exactly one blank line immediately follows the `{` and
+     * immediately precedes the `}` of every named construct (`class`/`struct`/`enum`/
+     * `enum class`/`namespace`/`interface`/`extern "C"` -- anything the tokenizer tagged via
+     * `Token.name`), regardless of how short the body is, per STYLE.md §7. A gap that already
+     * has one or more blank lines is left untouched; a gap with exactly one newline gets a
+     * second one inserted right after it; a gap with no newline at all (a same-line `{}` body)
+     * gets `"\n\n"` prepended. Control-flow blocks (`for`/`while`/`if`/`switch`/etc., where
+     * `Token.name` is null) are never touched here -- STYLE.md §7 says their existing blank
+     * lines must be preserved exactly as written, which this method already does simply by
+     * not inspecting them. A comment sitting in the gap blocks the insertion for that occurrence,
+     * since relocating it unambiguously is out of scope, consistent with `enforceKAndRBraceStyle`
+     * and `placeElseOnOwnLine` above.
+     */
+    public String insertNamedConstructBlankLines(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        final Deque<Boolean> namedStack = new ArrayDeque<>();
+        final int n = tokens.size();
+        boolean afterNamedOpen = false;
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGap(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean beforeNamedClose = isPunct(t, "}") && !namedStack.isEmpty()
+                    && namedStack.peek();
+            if (afterNamedOpen || beforeNamedClose) {
+                out.append(ensureBlankLine(gap));
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+
+            if (isPunct(t, "{")) {
+                namedStack.push(t.name != null);
+                afterNamedOpen = t.name != null;
+            } else {
+                afterNamedOpen = false;
+                if (isPunct(t, "}") && !namedStack.isEmpty()) {
+                    namedStack.pop();
+                }
+            }
+            out.append(t.text);
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Renders gap as-is if it contains a comment; otherwise guarantees it contains a blank line. */
+    private String ensureBlankLine(final List<Token> gap) {
+        if (gap.stream().anyMatch(this::isComment)) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token g : gap) {
+                sb.append(g.text);
+            }
+            return sb.toString();
+        }
+
+        int newlineCount = 0;
+        for (final Token g : gap) {
+            if (g.type == TokenType.NEWLINE) {
+                newlineCount++;
+            }
+        }
+
+        final StringBuilder sb = new StringBuilder();
+        if (newlineCount == 0) {
+            sb.append("\n\n");
+        }
+        boolean insertedExtra = newlineCount != 1;
+        for (final Token g : gap) {
+            sb.append(g.text);
+            if (!insertedExtra && g.type == TokenType.NEWLINE) {
+                sb.append('\n');
+                insertedExtra = true;
+            }
+        }
+        return sb.toString();
+    }
+
+    private boolean isGap(final Token t) {
+        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
+                || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
+    }
+
+    // ── Closing comments on blocks (STYLE.md §7) ────────────────────────────────
+    /** What kind of construct a `{` opens, for closing-comment purposes. */
+    private enum Kind { NAMED, FOR, WHILE, IF, SWITCH, EXCLUDED, OTHER }
+
+    /** A currently-open brace's classification, tracked on a stack while scanning forward. */
+    private static final class Frame {
+        final int openIdx;
+        final Kind kind;
+        final String label;       // fixed text, excluding any nested-disambiguation variable
+        final int openParen;      // -1 unless kind is FOR/WHILE/SWITCH
+        final int closeParen;     // -1 unless kind is FOR/WHILE/SWITCH
+        boolean sameKindNested;   // set true if an ancestor (or descendant) of the same kind exists
+
+        private Frame(final int openIdx, final Kind kind, final String label,
+                final int openParen, final int closeParen) {
+            this.openIdx = openIdx;
+            this.kind = kind;
+            this.label = label;
+            this.openParen = openParen;
+            this.closeParen = closeParen;
+        }
+
+        static Frame named(final int openIdx, final String label) {
+            return new Frame(openIdx, Kind.NAMED, label, -1, -1);
+        }
+
+        static Frame control(final int openIdx, final Kind kind, final String label,
+                final int openParen, final int closeParen) {
+            return new Frame(openIdx, kind, label, openParen, closeParen);
+        }
+
+        static Frame excluded(final int openIdx) {
+            return new Frame(openIdx, Kind.EXCLUDED, null, -1, -1);
+        }
+
+        static Frame other(final int openIdx) {
+            return new Frame(openIdx, Kind.OTHER, null, -1, -1);
+        }
+    }
+
+    /**
+     * Scans a token slice and appends a `// label` comment after the `}` of every block that
+     * qualifies per STYLE.md §7: named constructs always (regardless of length), and
+     * `for`/`while`/`if`/`switch` bodies only when their content exceeds
+     * {@code closingCommentMinLines}. When two control-flow blocks of the same kind are nested
+     * simultaneously, both get a disambiguating variable appended (`for i`, `while running`,
+     * `switch opcode`) when one can be extracted -- `if` never gets a variable (no STYLE.md
+     * example shows one, and `if` conditions are typically compound). `case` labels, naked
+     * `{ ... }` blocks, `else`/`else if`, and unnamed namespaces never get a comment, since none
+     * of those braces are ever classified as NAMED/FOR/WHILE/IF/SWITCH by {@link #classifyBrace}.
+     * A trailing `;` right after `}` (C/C++ `struct`/`class`/`enum`/`union` definitions) is
+     * skipped over so the comment lands after it, not before -- landing before it would put the
+     * `;` on a comment line and silently break the statement. If anything other than whitespace
+     * precedes the next newline at the chosen insertion point (more code on the same line, or an
+     * existing trailing comment), the comment is skipped entirely rather than risking corruption
+     * or duplication.
+     */
+    public String addClosingComments(final List<Token> tokens) {
+        final int n = tokens.size();
+        final Deque<Frame> stack = new ArrayDeque<>();
+        final Map<Integer, String> comments = new HashMap<>();
+
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                final Frame f = classifyBrace(tokens, i);
+                if (f.kind == Kind.FOR || f.kind == Kind.WHILE || f.kind == Kind.SWITCH) {
+                    boolean foundAncestor = false;
+                    for (final Frame anc : stack) {
+                        if (anc.kind == f.kind) {
+                            anc.sameKindNested = true;
+                            foundAncestor = true;
+                        }
+                    }
+                    if (foundAncestor) {
+                        f.sameKindNested = true;
+                    }
+                }
+                stack.push(f);
+            } else if (isPunct(t, "}")) {
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                final Frame f = stack.pop();
+                final String comment = decideComment(tokens, f, i);
+                if (comment == null) {
+                    continue;
+                }
+                final int insertAt = commentInsertionIndex(tokens, i);
+                if (safeToCommentAfter(tokens, insertAt)) {
+                    comments.put(insertAt, comment);
+                }
+            }
+        }
+
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            out.append(tokens.get(i).text);
+            final String c = comments.get(i);
+            if (c != null) {
+                out.append(" // ").append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /** Classifies the `{` at braceIdx for closing-comment purposes; see {@link #addClosingComments}. */
+    private Frame classifyBrace(final List<Token> tokens, final int braceIdx) {
+        final Token brace = tokens.get(braceIdx);
+        if (brace.name != null) {
+            return classifyNamed(tokens, braceIdx, brace.name);
+        }
+
+        final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (prevIdx < 0) {
+            return Frame.other(braceIdx);
+        }
+        if (isAnonymousClassBrace(tokens, prevIdx)) {
+            return Frame.named(braceIdx, "class");
+        }
+
+        final Token prev = tokens.get(prevIdx);
+        if (isPunct(prev, ")")) {
+            final int openParen = matchOpenBackward(tokens, prevIdx);
+            final int kwIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
+            if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD) {
+                final String kw = tokens.get(kwIdx).text;
+                if ("if".equals(kw)) {
+                    final int beforeIf = prevSignificantIndex(tokens, kwIdx - 1);
+                    if (beforeIf >= 0 && tokens.get(beforeIf).type == TokenType.KEYWORD
+                            && "else".equals(tokens.get(beforeIf).text)) {
+                        return Frame.excluded(braceIdx);
+                    }
+                    return Frame.control(braceIdx, Kind.IF, "if", -1, -1);
+                }
+                if ("for".equals(kw)) {
+                    return Frame.control(braceIdx, Kind.FOR, "for", openParen, prevIdx);
+                }
+                if ("while".equals(kw)) {
+                    return Frame.control(braceIdx, Kind.WHILE, "while", openParen, prevIdx);
+                }
+                if ("switch".equals(kw)) {
+                    return Frame.control(braceIdx, Kind.SWITCH, "switch", openParen, prevIdx);
+                }
+            }
+        } else if (prev.type == TokenType.KEYWORD && "else".equals(prev.text)) {
+            return Frame.excluded(braceIdx);
+        }
+        return Frame.other(braceIdx);
+    }
+
+    /** Builds the "kind name" label (`class Foo`, `enum class State`, `extern "C"`, ...). */
+    private Frame classifyNamed(final List<Token> tokens, final int braceIdx, final String name) {
+        if (name.indexOf(' ') >= 0) {
+            return Frame.named(braceIdx, name); // already a complete label, e.g. `extern "C"`
+        }
+
+        final int identIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        final int kwIdx = identIdx >= 0 ? prevSignificantIndex(tokens, identIdx - 1) : -1;
+        String label = name;
+        if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD) {
+            final String kw = tokens.get(kwIdx).text;
+            final int beforeKw = prevSignificantIndex(tokens, kwIdx - 1);
+            if ("class".equals(kw) && beforeKw >= 0 && tokens.get(beforeKw).type == TokenType.KEYWORD
+                    && "enum".equals(tokens.get(beforeKw).text)) {
+                label = "enum class " + name;
+            } else {
+                label = kw + " " + name;
+            }
+        }
+        return Frame.named(braceIdx, label);
+    }
+
+    /**
+     * True if the `{` whose immediately preceding significant token is at prevIdx opens a Java
+     * anonymous class body: `new Identifier(args) {` or `new Identifier<T>(args) {`. Qualified
+     * names (`new pkg.Identifier() {`) are not recognized -- out of scope, same bounded-effort
+     * spirit as `isCppTrailingReturnLambda`'s scan cap above.
+     */
+    private boolean isAnonymousClassBrace(final List<Token> tokens, final int prevIdx) {
+        if (!"java".equals(language) || !isPunct(tokens.get(prevIdx), ")")) {
+            return false;
+        }
+        final int openParen = matchOpenBackward(tokens, prevIdx);
+        if (openParen < 0) {
+            return false;
+        }
+        int beforeOpen = prevSignificantIndex(tokens, openParen - 1);
+        if (beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.ANGLE_BRACKET_CLOSE) {
+            beforeOpen = matchAngleOpenBackward(tokens, beforeOpen);
+            beforeOpen = beforeOpen >= 0 ? prevSignificantIndex(tokens, beforeOpen - 1) : -1;
+        }
+        if (beforeOpen < 0 || tokens.get(beforeOpen).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        final int newIdx = prevSignificantIndex(tokens, beforeOpen - 1);
+        return newIdx >= 0 && tokens.get(newIdx).type == TokenType.KEYWORD
+                && "new".equals(tokens.get(newIdx).text);
+    }
+
+    /** Index of the `<` matching the `>` at closeIdx, via local backward depth counting, or -1. */
+    private int matchAngleOpenBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 1;
+        int i = closeIdx - 1;
+        while (i >= 0 && depth > 0) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (ty == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            }
+            i--;
+        }
+        return depth == 0 ? i + 1 : -1;
+    }
+
+    /** Decides the closing-comment text for frame f closing at closeIdx, or null for no comment. */
+    private String decideComment(final List<Token> tokens, final Frame f, final int closeIdx) {
+        switch (f.kind) {
+            case NAMED:
+                return f.label;
+            case FOR:
+            case WHILE:
+            case SWITCH:
+                if (countContentLines(tokens, f.openIdx, closeIdx) <= closingCommentMinLines) {
+                    return null;
+                }
+                final String var = f.sameKindNested ? extractVariable(tokens, f) : null;
+                return var != null ? f.label + " " + var : f.label;
+            case IF:
+                return countContentLines(tokens, f.openIdx, closeIdx) > closingCommentMinLines
+                        ? f.label : null;
+            default:
+                return null;
+        }
+    }
+
+    private int countContentLines(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        int count = 0;
+        for (int k = openIdx + 1; k < closeIdx; k++) {
+            if (tokens.get(k).type == TokenType.NEWLINE) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Index to insert the comment at: the `}`, or a trailing `;` right after it, if present. */
+    private int commentInsertionIndex(final List<Token> tokens, final int closeIdx) {
+        int k = closeIdx + 1;
+        final int n = tokens.size();
+        while (k < n && tokens.get(k).type == TokenType.WHITESPACE) {
+            k++;
+        }
+        return k < n && isPunct(tokens.get(k), ";") ? k : closeIdx;
+    }
+
+    /** True if nothing but whitespace separates idx from the next newline (or end of input). */
+    private boolean safeToCommentAfter(final List<Token> tokens, final int idx) {
+        int k = idx + 1;
+        final int n = tokens.size();
+        while (k < n && tokens.get(k).type == TokenType.WHITESPACE) {
+            k++;
+        }
+        return k >= n || tokens.get(k).type == TokenType.NEWLINE;
+    }
+
+    private String extractVariable(final List<Token> tokens, final Frame f) {
+        if (f.kind == Kind.FOR) {
+            return extractForVariable(tokens, f.openParen, f.closeParen);
+        }
+        return extractSingleIdentifier(tokens.subList(f.openParen + 1, f.closeParen));
+    }
+
+    /**
+     * The loop variable's name: the first identifier in the init clause (declared or not), or
+     * if the init clause is empty, the first identifier in the increment clause, or for a
+     * range-based/for-each `for(... name : ...)`, the identifier immediately before the `:`.
+     * Null if none of those shapes match (e.g. a variable-less `for(;;)`).
+     */
+    private String extractForVariable(final List<Token> tokens, final int openParen,
+            final int closeParen) {
+        final List<Token> body = tokens.subList(openParen + 1, closeParen);
+        int depth = 0;
+        int colonIdx = -1;
+        final List<Integer> semiIdx = new ArrayList<>();
+        for (int k = 0; k < body.size(); k++) {
+            final Token t = body.get(k);
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                semiIdx.add(k);
+            } else if (depth == 0 && colonIdx < 0 && isOp(t, ":")) {
+                colonIdx = k;
+            }
+        }
+
+        if (semiIdx.isEmpty() && colonIdx >= 0) {
+            int k = colonIdx - 1;
+            while (k >= 0 && isGap(body.get(k))) {
+                k--;
+            }
+            return k >= 0 && body.get(k).type == TokenType.IDENTIFIER ? body.get(k).text : null;
+        }
+        if (!semiIdx.isEmpty()) {
+            final String initName = firstIdentifier(body.subList(0, semiIdx.get(0)));
+            if (initName != null) {
+                return initName;
+            }
+            if (semiIdx.size() >= 2) {
+                return firstIdentifier(body.subList(semiIdx.get(1) + 1, body.size()));
+            }
+        }
+        return null;
+    }
+
+    private String firstIdentifier(final List<Token> seg) {
+        for (final Token t : seg) {
+            if (t.type == TokenType.IDENTIFIER) {
+                return t.text;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The `while`/`switch` controlling expression's variable, only when it reduces to one bare
+     * identifier (optionally negated, e.g. `!done`) -- anything more compound has no single
+     * representative variable, so this returns null and the caller falls back to a bare label.
+     */
+    private String extractSingleIdentifier(final List<Token> body) {
+        final List<Token> sig = new ArrayList<>();
+        for (final Token t : body) {
+            if (!isGap(t)) {
+                sig.add(t);
+            }
+        }
+        if (sig.size() == 1 && sig.get(0).type == TokenType.IDENTIFIER) {
+            return sig.get(0).text;
+        }
+        if (sig.size() == 2 && isOp(sig.get(0), "!") && sig.get(1).type == TokenType.IDENTIFIER) {
+            return sig.get(1).text;
+        }
+        return null;
     }
 }

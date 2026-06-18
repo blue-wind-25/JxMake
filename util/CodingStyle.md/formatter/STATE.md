@@ -140,6 +140,9 @@ re-open them.
 | §11 lambda bodies also use K&R | User-requested addition (not originally in STYLE.md/STYLE_C_CPP.md/STYLE_JAVA.md, added to both during this work): a lambda is a value embedded in a larger declaration/call, not a standalone definition, so its body brace follows K&R like other non-function blocks rather than Allman. Detection in `isLambdaBrace`: Java -- preceding significant token is the `->` operator (unambiguous; Java has no other use of bare `->` before `{`). C++ -- preceding token is `]` (capture-only, no params), or `)` whose matching `(` is immediately preceded by `]` (capture list before params), or either of those followed by a trailing `-> Type` (walked backward via `isCppTrailingReturnLambda`, bounded to `MAX_RETURN_TYPE_TOKENS` to avoid runaway scans on unrelated code). The `]`-before-params check is exactly what distinguishes a lambda from a same-shaped trailing-return-type **function** definition (`auto foo() -> int { ... }`, where the token before the param list's `(` is the identifier `foo`, not `]`) -- the latter correctly stays Allman and untouched. STYLE_C_CPP.md §2 and STYLE_JAVA.md §2 were updated with worked examples; per STYLE.md §3.1, `std::sort(...)`/`list.sort(...)` calls wrapping a lambda argument are themselves loose (nested call/paren), so their outer parens are padded in those examples |
 | §12 else/else-if placement | `BlockStructureRule.placeElseOnOwnLine` only acts when `else` is *directly* preceded (skipping a whitespace/newline-only gap) by a `}` -- if any other significant token sits between them, or the gap contains a comment, the occurrence is left untouched. When the gap contains no `NEWLINE` token at all (i.e. `}`/`else` share a line, in any spacing from `}else` to `} else`), it is replaced with one newline plus the `}`'s own line-leading indentation (computed by `indentBefore`, walking backward from the `}` to the nearest preceding `NEWLINE`, or "" if `}` isn't first on its line) so `else` lands directly under `}`. Any gap that already contains a `NEWLINE` -- including a deliberate blank line -- is passed through byte-for-byte unchanged, since STYLE.md §12 says that blank line is an optional, context-driven choice (e.g. the preceding branch exits unconditionally) that must never be mechanically added or removed; this method makes no attempt to detect that condition, by design. This method only repositions `else`; it does not touch brace spacing (`§11`/`enforceKAndRBraceStyle`'s job) -- chaining the two (re-tokenizing between passes) produces fully STYLE.md-compliant output, verified by hand for `if(x){...}else{...}` and Allman-style `if(x)\n{...}\nelse\n{...}` inputs |
 | C/C++ bitfield column (`STYLE_C_CPP.md` §6) | Measured STYLE_C_CPP.md §6's worked example character-by-character: the `:` is aligned only against other bitfield names in the same group (`bitfieldNameWidth` = max name length among declarations that have a bitfield width), not against the full group's name+size column — e.g. `reserved`(8) sets the colon column even though `buffer[64]`/`label[MAX]` are longer. Non-bitfield rows in the same group are unaffected by `bitfieldNameWidth` and keep the existing tight `name[size];` cell. Implementation: `parseDeclaration` scans for a top-level `:` OP token before checking for `=`; if found, delegates to `parseBitfield`, which takes everything before the name as `typeTokens`, the IDENTIFIER immediately before `:` as `name`, and everything after `:` (rendered via the existing `renderTokens`) as the new `Declaration.bitfieldWidth` field (empty list when not a bitfield). `render()` computes `bitfieldNameWidth` once per group (max name length over declarations with a non-empty `bitfieldWidth`) and passes it into `renderNameCell`, which branches: bitfield rows render `name` padded to `bitfieldNameWidth` + `" : "` + width + `;`; non-bitfield rows are unchanged. No `ColumnGrid` changes were needed — the trailing comment column's alignment falls out for free from `ColumnGrid`'s existing per-column max-width-except-ragged-last-cell behavior once the name cell's content is fixed. Verified byte-for-byte against STYLE_C_CPP.md §6's full worked example (`buffer`/`timeout`/`flags : 4`/`mode : 2`/`reserved : 2`/`label` all in one group) |
+| §7 closing comments — key variable on nesting | Asked the user since STYLE.md never defines the extraction algorithm and never shows an `if`/`switch` example. Resolved: the variable is only ever appended when a control-flow block is nested inside another block **of the same kind** (`for` in `for`, `while` in `while`, `switch` in `switch`) — never for a lone block, and never for `if` at all (always bare `// if`). `for`: "simply use the var name" — `extractForVariable` takes the first IDENTIFIER in the init clause, falling back to the first IDENTIFIER in the increment clause if init is empty, or (Java/C++ for-each `for(T x : xs)`) the IDENTIFIER immediately before a top-level `:`; null (bare `// for`) if none of those shapes match (`for(;;)`). `while`/`switch`: "use the var name for one bare identifier... if not just write `// while`" — `extractSingleIdentifier` only matches when the controlling expression's significant tokens are exactly one IDENTIFIER, or `!` + one IDENTIFIER; any more compound condition (`while(i < n)`, `switch(opcode & 0xFF)`) is treated as "not possible to simplify" and falls back to the bare label, per the user's explicit fallback instruction — no further "simplification" heuristic is implemented since none was concretely specified beyond that fallback |
+| §7 closing comments — engine structure | `BlockStructureRule.addClosingComments` does a single forward pass with a `Deque<Frame>` stack (one frame pushed per `{`, popped per `}`, so nesting is tracked for free). `classifyBrace` assigns each `{` a `Kind`: `NAMED` (`Token.name != null`, plus Java anonymous classes — `new Identifier(args) {` / `new Identifier<T>(args) {`, detected the same bounded-lookback way as `isLambdaBrace` above, qualified names like `new pkg.Identifier()` not recognized — out of scope), `FOR`/`WHILE`/`IF`/`SWITCH` (`)` whose matching `(` is preceded by that keyword), `EXCLUDED` (bare `else`, or `else if` — detected by checking the token before the `if` keyword — STYLE_C_CPP.md/STYLE_JAVA.md both flag the "long branch with deeply nested ifs" exception as itself unresolved/preserve-as-is, so the simple always-bare reading is the only actionable one), or `OTHER` (everything else: function bodies, `do`/`try`/`catch`/`finally`, naked `{ }` blocks, `case` blocks, unnamed `namespace { }` since `Token.name` is null there too — none of these ever get a comment). Named-construct labels (`class Foo`, `enum class State`, `extern "C"`) are reconstructed by walking backward from the `{` over the identifier and its keyword(s), since `Token.name` only carries the bare identifier (`extern "C"` is the one exception — it is already a complete, space-containing label, detected via `name.indexOf(' ') >= 0`). A C/C++ trailing `;` right after `}` (struct/class/enum/union definitions) is walked over so the comment lands after it, not before — landing before it would comment out the `;` and break the statement. As a general safety net, `safeToCommentAfter` skips adding a comment entirely (rather than guessing a safe insertion point) whenever anything other than whitespace precedes the next newline after the chosen insertion point — this is what correctly defers commenting an `if` block whose `}` shares a line with `} else {` until `placeElseOnOwnLine` has run, and what prevents corrupting a chained anonymous-class expression (`new Runnable() { ... }.start();`) or re-duplicating an already-present trailing comment on re-runs |
+| §7 closing comments — named-construct blank lines | `BlockStructureRule.insertNamedConstructBlankLines` is a separate pass (chained via re-tokenizing, same precedent as §11/§12 above) that forces exactly one blank line after `{` and before `}` for every brace tagged `Token.name != null`, regardless of body length — using the same gap-buffering technique as `enforceKAndRBraceStyle`/`placeElseOnOwnLine`. A gap with 2+ existing newlines is untouched; exactly 1 gets a second one inserted right after it; 0 (a same-line `{}`) gets `"\n\n"` prepended. A comment in the gap blocks the insertion, consistent with the rest of this file. Anonymous Java classes are intentionally excluded from forced blank lines (only from the "always commented" rule) — `Token.name` is null for them, and STYLE.md's blank-line rule is textually scoped to "named constructs", not anonymous ones. This must run, and be re-tokenized, before `addClosingComments`, since forced blank lines change an enclosing control-flow block's own line count for its threshold check |
 
 ---
 
@@ -166,7 +169,7 @@ re-open them.
 | `JavaModifierPriority.java` | COMPLETE |
 | `ComplexityPaddingEvaluator.java` | COMPLETE |
 | `DeclarationAlignmentRule.java` | COMPLETE |
-| `BlockStructureRule.java` | IN PROGRESS |
+| `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | NOT STARTED |
 | `GetterSetterRule.java` | NOT STARTED |
 | `MiscRule.java` | NOT STARTED |
@@ -176,50 +179,36 @@ re-open them.
 
 ---
 
-## Current File: `BlockStructureRule.java` — NOT STARTED
+## Current File: `SwitchRule.java` — NOT STARTED
 
 > Replace this checklist when this file reaches COMPLETE.
-> Implements STYLE.md §7, §10, §11, §12 — closing comments, single-expression block
-> brace omission, K&R brace style for non-function blocks, and `else`/`else if`
-> placement. Function-definition brace style (Allman) and §13 `switch` formatting are
-> out of scope here (the latter is `SwitchRule.java`). Implement and
-> checkpoint-commit one section below at a time.
+> Implements STYLE.md §13 — `switch` formatting. `BlockStructureRule.java` is COMPLETE
+> (§7 closing comments, §10 single-expression blocks, §11 K&R brace style, §12
+> `else`/`else if` placement); a non-inline `switch`'s overall `// switch <var>` closing
+> comment is already handled by `BlockStructureRule.addClosingComments`/`classifyBrace`
+> (Kind.SWITCH path, see the Resolved Design Decisions rows above) — no separate
+> implementation of that part is needed here. Implement and checkpoint-commit one
+> section below at a time.
 
-### Single-expression blocks (STYLE.md §10)
-- [x] Omit `{}` when the controlled body of `if`/`while`/`for` is a single statement
-      (`if(x) return y;`, `if(x) continue;`, `if(x) break;`)
+### Non-inline switch (STYLE.md §13) — any case has a multi-line body
+- [ ] Blank line after the switch's opening `{`, after each `break;` (between cases),
+      and before the switch's closing `}`
+- [ ] Case body indented two levels inside the `case` label (one for the `case`'s own
+      `{` block, one for the body inside it); the body's own `}` and the trailing
+      `break;` share the intermediate (one-level) indentation
 
-### Non-function block brace style (STYLE.md §11)
-- [x] K&R style for `if`/`else`/`else if`/`for`/`while`/`do`/`switch`/`try`/`catch`/
-      `finally` and class/interface/enum body braces: opening `{` stays on the same
-      line as the keyword/declaration
-- [x] Leave function-definition brace style (Allman) untouched here — that's handled
-      elsewhere (Tier 1, language-specific files)
-- [x] Lambda bodies (Java `(params) -> {`, C++ `[capture](params) {` and the
-      `-> Type {` trailing-return-type form) also use K&R, same as other non-function
-      blocks — added per user request; see STYLE_C_CPP.md §2 / STYLE_JAVA.md §2 and
-      the Resolved Design Decisions row below
+### Inline switch (STYLE.md §13) — every case fits on one line
+- [ ] No blank lines between cases — preserve any already present in the original,
+      don't mechanically add/remove (same judgment-call posture as §12's blank line
+      between `}` and `else`)
+- [ ] When cases are structurally similar (all function calls, or all assignments),
+      align via `ColumnGrid`: `case` label padded so `:` is at the same column, then
+      function-name column, `(` column, `)` column, `;` column, `break;` column
 
-### `else` / `else if` placement (STYLE.md §12)
-- [x] `else`/`else if` on its own line directly after the preceding block's `}`
-- [x] Preserve (don't mechanically add/remove) an optional blank line between `}` and
-      `else`/`else if` when the preceding branch exits unconditionally
-      (`return`/`break`/`continue`) — context-driven, not automatic
-
-### Closing comments on blocks (STYLE.md §7)
-- [ ] Brace counter + name stack: push a name on `class`/`struct`/`enum`/
-      `enum class`/`namespace`/`interface { ... }` and on named control-flow blocks
-      (`for`, `while`, `if`, `switch`); pop on the matching `}`
-- [ ] Add `// block-name` after `}` when block content exceeds the configurable
-      `closing-comment-min-lines` threshold (default 5); named constructs always get
-      a closing comment regardless of length
-- [ ] Include the key variable in the comment when multiple control-flow blocks of
-      the same kind are nested simultaneously (`// for i`, `// while running`)
-- [ ] Named constructs always get a blank line after `{` and before `}` regardless of
-      content length; control-flow blocks preserve existing blank lines as-is (do not
-      add/remove) — blank lines count toward the closing-comment threshold
-- [ ] Never add closing comments on `case` labels, naked compound `{ ... }` blocks, or
-      `else`/`else if` (unless the branch is long *and* contains deeply nested `if`s)
+### Fallthrough (STYLE.md §13)
+- [ ] Mark explicitly (`/* FALL-THROUGH */`), same indentation level as the next case
+- [ ] Inline switches: `:` aligned same as other inline case labels
+- [ ] Non-inline switches: no space before `:`
 
 ---
 
@@ -237,7 +226,7 @@ server-port                = 17173
 # ── Behavior ──────────────────────────────────────────────────────────────────
 closing-comment-min-lines  = 5
 format-macros              = off             # off | on
-line-endings               = lf             # lf | crlf | preserve
+line-endings               = lf              # lf | crlf | preserve
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 include-sort               = off             # off | on

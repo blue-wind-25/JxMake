@@ -6,6 +6,7 @@ JAVAC        ?= javac
 JAR          ?= jar
 JAVA_VERSION ?= 8
 
+# Keep version number consistent with README.md
 VERSION       = 1.00
 ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter

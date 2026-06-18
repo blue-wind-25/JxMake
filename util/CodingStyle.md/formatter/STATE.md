@@ -146,6 +146,7 @@ re-open them.
 | §13 non-inline case brace wrapping | Asked the user since STYLE.md's only non-inline worked example wraps every multi-statement case body in its own `{ }`, and the two-level/one-level indentation rule textually presupposes that shape. Resolved: `SwitchRule` never adds or removes a case's `{ }` wrapper — it only normalizes the two-level (body) / one-level (`}` + trailing `break;`) indentation when a case body is *already* wrapped in `{ }`. A bare (brace-less) multi-statement case body is left completely untouched, same conservative posture as the rest of the formatter (never restructure, only normalize formatting within whatever shape is already present) |
 | §13 nested switch processing order | A nested `switch` inside an outer `case`'s body cannot be fixed by computing one shared `overrides` map across all switches found in a single token-list pass: each switch's body/tail delta-shift is computed from the *original* unshifted token text, so an outer switch's body-shift and an inner switch's own case-shift independently overwrite the same `overrides` map entries for lines inside the inner switch, instead of composing. `SwitchRule.formatNonInlineSwitches` instead loops: each iteration finds all switches, picks the smallest-span (innermost) one that still `needsWork` (`pickInnermostNeedingWork`/`needsWork` — span size is a reliable depth proxy since a nested switch's `[openBrace,closeBrace)` is always strictly contained in its enclosing switch's), fixes only that one switch, renders, and **re-tokenizes** before the next iteration (same re-tokenize-between-passes precedent as §11/§12). Fixing innermost-first means an enclosing switch's later uniform body-shift carries the already-correct nested switch along with it without disturbing its internal correctness. Verified idempotent and correct (byte-exact expected indentation) for a 2-level nested switch via smoke test |
 | §13 inline switch row classification | STYLE.md's worked example mixes a call-shaped row (`doA()`) and a non-call assignment row (`x = funcMath(z) + 10`) in the *same* aligned group, so "structurally similar" is read per-row (is this one case's body a recognizable single statement?), not as a whole-group shape requirement. `SwitchRule.classify` recognizes a case body as alignable only if it is empty (fallthrough), exactly `break;`, or exactly one top-level-`;`-terminated statement optionally followed by `break;` and nothing else; if ANY case in the switch fails this (multiple statements, a brace-wrapped body, a trailing comment), the entire switch is left byte-for-byte untouched — same conservative all-or-nothing posture as the rest of this rule, since STYLE.md gives no worked example for those shapes. A call-shaped statement (`name(args);`, single IDENTIFIER immediately followed by a matching `(...)` with nothing else before the `;`) gets bonus name/`(`/args/`)` sub-column alignment via a nested `ColumnGrid`; everything else contributes its literal statement text as one opaque cell, still aligned against the call-shaped rows' assembled width via the outer `ColumnGrid`. The label cell always carries one baked-in trailing space before grid padding, since `ColumnGrid` only pads cells shorter than the column's widest entry — without it, the single widest label would render with no gap before its `:`. A bare `break;` with no preceding statement (`hasContent=false`, `hasBreak=true`) must still flow through the content+terminator columns (not the label-only branch), otherwise the break is silently dropped — caught via smoke test and fixed |
+| §13 fallthrough marking | `SwitchRule.markFallthrough` only marks a case whose body is completely empty (no real content) and which is not the switch's last case (nothing to fall through into); it inserts `/* FALL-THROUGH */` directly after the case's `:` token, so it works unchanged for both non-inline (no space before `:`) and inline (handled by a later `alignInlineSwitches` pass) switches. Idempotency and "don't clobber an unrelated comment" both reuse the single `findFallthroughMarker` helper (also used by `classify`), which returns -1 for "no comment", an index for "exactly our own marker" (safe to recognize/regenerate), or -2 for "some other comment is present" (bail, leave that case alone) — `markFallthrough` skips already-marked or unrelated-commented cases via the same -1/-2 contract. This also fixed a latent bug: any comment inside a case body would previously have been silently dropped by `classify`'s literal-slice reconstruction; now any non-marker comment forces the whole switch to be left untouched. Verified via smoke test: matches STYLE.md's exact marked+aligned worked example, idempotent on a second pass, and correctly does not mark an empty last case |
 
 ---
 
@@ -173,7 +174,7 @@ re-open them.
 | `ComplexityPaddingEvaluator.java` | COMPLETE |
 | `DeclarationAlignmentRule.java` | COMPLETE |
 | `BlockStructureRule.java` | COMPLETE |
-| `SwitchRule.java` | IN PROGRESS |
+| `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | NOT STARTED |
 | `MiscRule.java` | NOT STARTED |
 | `CppSpecificRule.java` | NOT STARTED |
@@ -182,7 +183,7 @@ re-open them.
 
 ---
 
-## Current File: `SwitchRule.java` — IN PROGRESS
+## Current File: `SwitchRule.java` — COMPLETE (all sections below done; next session: replace this with `GetterSetterRule.java`'s checklist per the note below)
 
 > Replace this checklist when this file reaches COMPLETE.
 > Implements STYLE.md §13 — `switch` formatting. `BlockStructureRule.java` is COMPLETE
@@ -209,9 +210,9 @@ re-open them.
       function-name column, `(` column, `)` column, `;` column, `break;` column
 
 ### Fallthrough (STYLE.md §13)
-- [ ] Mark explicitly (`/* FALL-THROUGH */`), same indentation level as the next case
-- [ ] Inline switches: `:` aligned same as other inline case labels
-- [ ] Non-inline switches: no space before `:`
+- [x] Mark explicitly (`/* FALL-THROUGH */`), same indentation level as the next case
+- [x] Inline switches: `:` aligned same as other inline case labels
+- [x] Non-inline switches: no space before `:`
 
 ---
 

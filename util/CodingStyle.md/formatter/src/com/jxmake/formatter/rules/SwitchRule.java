@@ -478,6 +478,40 @@ public class SwitchRule {
         return render(tokens, overrides, Collections.emptyMap());
     }
 
+    // ── Fallthrough marking (STYLE.md §13) ───────────────────────────────────────
+    /**
+     * Inserts a `/* FALL-THROUGH *<i></i>/` comment right after the `:` of every case whose body is
+     * completely empty and which is not the switch's last case (an empty last case has nothing to
+     * fall through into). Works identically for inline and non-inline switches -- it only touches
+     * the single token immediately after the `:`, never the surrounding spacing -- so non-inline's
+     * existing no-space-before-`:` convention and inline's `:`-column alignment (handled separately
+     * by {@link #alignInlineSwitches}, which recognizes this exact marker on a later pass) both fall
+     * out for free. Already-marked cases are detected via {@link #findFallthroughMarker} and left
+     * alone, making this idempotent; a case with an unrelated comment in its empty body is also left
+     * alone rather than guessing where the marker should go relative to it.
+     */
+    public String markFallthrough(final List<Token> tokens) {
+        final List<SwitchBlock> switches = findSwitches(tokens);
+        final Map<Integer, String> overrides = new HashMap<>();
+
+        for (final SwitchBlock sw : switches) {
+            for (int i = 0; i < sw.cases.size() - 1; i++) {
+                final CaseLabel c = sw.cases.get(i);
+                final int from = c.colonIdx + 1;
+                final int to = c.bodyEnd;
+                if (firstSignificantIndex(tokens, from, to) >= 0) {
+                    continue; // has real content -- not a fallthrough candidate
+                }
+                if (findFallthroughMarker(tokens, from, to) != -1) {
+                    continue; // already marked, or an unrelated comment is present -- leave it alone
+                }
+                overrides.put(c.colonIdx, tokens.get(c.colonIdx).text + " /* FALL-THROUGH */");
+            }
+        }
+
+        return render(tokens, overrides, Collections.emptyMap());
+    }
+
     /** One classified inline case row, ready for column alignment. */
     private static final class CaseRow {
         final int kwIdx;
@@ -489,10 +523,11 @@ public class SwitchRule {
         final String args; // valid iff callShaped
         final String plain; // valid iff hasContent && !callShaped
         final boolean hasBreak;
+        final boolean fallthrough; // empty body, not the switch's last case
 
         CaseRow(final int kwIdx, final int lastIdx, final String label, final boolean hasContent,
                 final boolean callShaped, final String name, final String args, final String plain,
-                final boolean hasBreak) {
+                final boolean hasBreak, final boolean fallthrough) {
             this.kwIdx = kwIdx;
             this.lastIdx = lastIdx;
             this.label = label;
@@ -502,14 +537,15 @@ public class SwitchRule {
             this.args = args;
             this.plain = plain;
             this.hasBreak = hasBreak;
+            this.fallthrough = fallthrough;
         }
     }
 
     /** Classifies every case in sw, or returns null if any one doesn't fit a recognized shape. */
     private List<CaseRow> classifyAll(final List<Token> tokens, final SwitchBlock sw) {
         final List<CaseRow> rows = new ArrayList<>(sw.cases.size());
-        for (final CaseLabel c : sw.cases) {
-            final CaseRow row = classify(tokens, c);
+        for (int i = 0; i < sw.cases.size(); i++) {
+            final CaseRow row = classify(tokens, sw.cases.get(i), i == sw.cases.size() - 1);
             if (row == null) {
                 return null;
             }
@@ -521,19 +557,28 @@ public class SwitchRule {
     /**
      * Recognizes a case body that is either empty (fallthrough), exactly `break;`, or exactly one
      * top-level-`;`-terminated statement optionally followed by `break;` and nothing else --
-     * anything more exotic (multiple statements, a brace-wrapped body, a trailing comment) returns
-     * null so the caller skips the whole switch rather than guessing.
+     * anything more exotic (multiple statements, a brace-wrapped body) returns null so the caller
+     * skips the whole switch rather than guessing. Any comment found in the body other than an
+     * already-present fallthrough marker (see {@link #findFallthroughMarker}) also returns null --
+     * this rule has no way to decide where a user's own comment belongs once the body is rewritten,
+     * so it leaves the whole switch untouched rather than silently dropping it.
      */
-    private CaseRow classify(final List<Token> tokens, final CaseLabel c) {
+    private CaseRow classify(final List<Token> tokens, final CaseLabel c, final boolean isLast) {
         final boolean isDefault = "default".equals(tokens.get(c.kwIdx).text);
         final String label = isDefault ? "default"
                 : "case " + literalSlice(tokens, c.kwIdx + 1, c.colonIdx).trim();
 
         final int from = c.colonIdx + 1;
         final int to = c.bodyEnd;
+        final int markerIdx = findFallthroughMarker(tokens, from, to);
+        if (markerIdx == -2) {
+            return null; // an unrelated comment is present -- don't guess, leave the switch alone
+        }
+
         final int firstSig = firstSignificantIndex(tokens, from, to);
         if (firstSig < 0) {
-            return new CaseRow(c.kwIdx, c.colonIdx, label, false, false, null, null, null, false);
+            final int lastIdx = markerIdx >= 0 ? markerIdx : c.colonIdx;
+            return new CaseRow(c.kwIdx, lastIdx, label, false, false, null, null, null, false, !isLast);
         }
 
         if (isKeyword(tokens.get(firstSig), "break")) {
@@ -542,7 +587,7 @@ public class SwitchRule {
                     || firstSignificantIndex(tokens, semi + 1, to) >= 0) {
                 return null;
             }
-            return new CaseRow(c.kwIdx, semi, label, false, false, null, null, null, true);
+            return new CaseRow(c.kwIdx, semi, label, false, false, null, null, null, true, false);
         }
 
         final int semi = findTopLevelSemicolon(tokens, firstSig, to);
@@ -567,7 +612,7 @@ public class SwitchRule {
 
         final int afterSemi = firstSignificantIndex(tokens, semi + 1, to);
         if (afterSemi < 0) {
-            return new CaseRow(c.kwIdx, semi, label, true, callShaped, name, args, plain, false);
+            return new CaseRow(c.kwIdx, semi, label, true, callShaped, name, args, plain, false, false);
         }
         if (isKeyword(tokens.get(afterSemi), "break")) {
             final int semi2 = skipNonSignificant(tokens, afterSemi + 1);
@@ -575,7 +620,7 @@ public class SwitchRule {
                     || firstSignificantIndex(tokens, semi2 + 1, to) >= 0) {
                 return null;
             }
-            return new CaseRow(c.kwIdx, semi2, label, true, callShaped, name, args, plain, true);
+            return new CaseRow(c.kwIdx, semi2, label, true, callShaped, name, args, plain, true, false);
         }
         return null;
     }
@@ -607,6 +652,27 @@ public class SwitchRule {
 
     private boolean isKeyword(final Token t, final String text) {
         return t.type == TokenType.KEYWORD && text.equals(t.text);
+    }
+
+    /**
+     * Scans [from, to) for a fallthrough marker comment (STYLE.md §13's "FALL-THROUGH" text):
+     * returns its index if found alone, -1 if there is no comment at all, or -2 if a comment is
+     * present that does not match (more than one comment, or text that doesn't contain
+     * "FALL-THROUGH") -- callers treat -2 as "don't guess, leave this case alone" so a user's own
+     * comment is never silently dropped.
+     */
+    private int findFallthroughMarker(final List<Token> tokens, final int from, final int to) {
+        int found = -1;
+        for (int i = from; i < to; i++) {
+            final Token t = tokens.get(i);
+            if (isComment(t)) {
+                if (found >= 0 || !t.text.contains("FALL-THROUGH")) {
+                    return -2;
+                }
+                found = i;
+            }
+        }
+        return found;
     }
 
     /**
@@ -659,7 +725,12 @@ public class SwitchRule {
         for (int i = 0; i < rows.size(); i++) {
             final CaseRow row = rows.get(i);
             final String[] cell = outerPadded.get(i);
-            final String text = cell.length == 1 ? cell[0] + ":" : cell[0] + ":" + " " + cell[1] + cell[2];
+            final String text;
+            if (cell.length == 1) {
+                text = cell[0] + ":" + (row.fallthrough ? " /* FALL-THROUGH */" : "");
+            } else {
+                text = cell[0] + ":" + " " + cell[1] + cell[2];
+            }
             overrides.put(row.kwIdx, text);
             for (int k = row.kwIdx + 1; k <= row.lastIdx; k++) {
                 overrides.put(k, "");

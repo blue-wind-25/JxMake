@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
@@ -443,6 +444,227 @@ public class SwitchRule {
             i--;
         }
         return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
+    }
+
+    // ── Inline switch (STYLE.md §13) ─────────────────────────────────────────────
+    /**
+     * For every switch where every case's body fits on one line, aligns the case label's `:`
+     * column, the statement content column (splitting a bare `name(args);` statement into
+     * name/`(`/args/`)` sub-columns when a row happens to have that shape -- STYLE.md's worked
+     * example mixes call-shaped and non-call-shaped rows in the same aligned group, so only rows
+     * that ARE call-shaped get the sub-column treatment; others contribute their literal statement
+     * text as one opaque cell, still aligned against the call-shaped rows' assembled width), and
+     * the trailing `;`/`break;` column. Blank lines between cases are never touched (STYLE.md says
+     * preserve as-is -- no mechanical add/remove). If any case in a switch does not match the
+     * simple "one statement, optional trailing `break;`" shape this rule can confidently
+     * reconstruct, the entire switch is left byte-for-byte untouched -- same conservative,
+     * no-partial-rewrite posture as the rest of this rule.
+     */
+    public String alignInlineSwitches(final List<Token> tokens) {
+        final List<SwitchBlock> switches = findSwitches(tokens);
+        final Map<Integer, String> overrides = new HashMap<>();
+
+        for (final SwitchBlock sw : switches) {
+            if (sw.cases.isEmpty() || isNonInline(tokens, sw)) {
+                continue;
+            }
+            final List<CaseRow> rows = classifyAll(tokens, sw);
+            if (rows == null) {
+                continue;
+            }
+            applyInlineAlignment(rows, overrides);
+        }
+
+        return render(tokens, overrides, Collections.emptyMap());
+    }
+
+    /** One classified inline case row, ready for column alignment. */
+    private static final class CaseRow {
+        final int kwIdx;
+        final int lastIdx; // last token belonging to this row's content (colonIdx if none)
+        final String label; // "case EXPR" or "default" -- no baked-in trailing space yet
+        final boolean hasContent;
+        final boolean callShaped;
+        final String name; // valid iff callShaped
+        final String args; // valid iff callShaped
+        final String plain; // valid iff hasContent && !callShaped
+        final boolean hasBreak;
+
+        CaseRow(final int kwIdx, final int lastIdx, final String label, final boolean hasContent,
+                final boolean callShaped, final String name, final String args, final String plain,
+                final boolean hasBreak) {
+            this.kwIdx = kwIdx;
+            this.lastIdx = lastIdx;
+            this.label = label;
+            this.hasContent = hasContent;
+            this.callShaped = callShaped;
+            this.name = name;
+            this.args = args;
+            this.plain = plain;
+            this.hasBreak = hasBreak;
+        }
+    }
+
+    /** Classifies every case in sw, or returns null if any one doesn't fit a recognized shape. */
+    private List<CaseRow> classifyAll(final List<Token> tokens, final SwitchBlock sw) {
+        final List<CaseRow> rows = new ArrayList<>(sw.cases.size());
+        for (final CaseLabel c : sw.cases) {
+            final CaseRow row = classify(tokens, c);
+            if (row == null) {
+                return null;
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /**
+     * Recognizes a case body that is either empty (fallthrough), exactly `break;`, or exactly one
+     * top-level-`;`-terminated statement optionally followed by `break;` and nothing else --
+     * anything more exotic (multiple statements, a brace-wrapped body, a trailing comment) returns
+     * null so the caller skips the whole switch rather than guessing.
+     */
+    private CaseRow classify(final List<Token> tokens, final CaseLabel c) {
+        final boolean isDefault = "default".equals(tokens.get(c.kwIdx).text);
+        final String label = isDefault ? "default"
+                : "case " + literalSlice(tokens, c.kwIdx + 1, c.colonIdx).trim();
+
+        final int from = c.colonIdx + 1;
+        final int to = c.bodyEnd;
+        final int firstSig = firstSignificantIndex(tokens, from, to);
+        if (firstSig < 0) {
+            return new CaseRow(c.kwIdx, c.colonIdx, label, false, false, null, null, null, false);
+        }
+
+        if (isKeyword(tokens.get(firstSig), "break")) {
+            final int semi = skipNonSignificant(tokens, firstSig + 1);
+            if (semi >= to || !isPunct(tokens.get(semi), ";")
+                    || firstSignificantIndex(tokens, semi + 1, to) >= 0) {
+                return null;
+            }
+            return new CaseRow(c.kwIdx, semi, label, false, false, null, null, null, true);
+        }
+
+        final int semi = findTopLevelSemicolon(tokens, firstSig, to);
+        if (semi < 0) {
+            return null;
+        }
+        final int realEnd = lastSignificantIndex(tokens, firstSig, semi);
+
+        boolean callShaped = false;
+        String name = null;
+        String args = null;
+        if (tokens.get(firstSig).type == TokenType.IDENTIFIER) {
+            final int openParen = skipNonSignificant(tokens, firstSig + 1);
+            if (openParen < semi && isPunct(tokens.get(openParen), "(")
+                    && matchParen(tokens, openParen) == realEnd) {
+                callShaped = true;
+                name = tokens.get(firstSig).text;
+                args = literalSlice(tokens, openParen + 1, realEnd);
+            }
+        }
+        final String plain = callShaped ? null : literalSlice(tokens, firstSig, realEnd + 1);
+
+        final int afterSemi = firstSignificantIndex(tokens, semi + 1, to);
+        if (afterSemi < 0) {
+            return new CaseRow(c.kwIdx, semi, label, true, callShaped, name, args, plain, false);
+        }
+        if (isKeyword(tokens.get(afterSemi), "break")) {
+            final int semi2 = skipNonSignificant(tokens, afterSemi + 1);
+            if (semi2 >= to || !isPunct(tokens.get(semi2), ";")
+                    || firstSignificantIndex(tokens, semi2 + 1, to) >= 0) {
+                return null;
+            }
+            return new CaseRow(c.kwIdx, semi2, label, true, callShaped, name, args, plain, true);
+        }
+        return null;
+    }
+
+    /** The first top-level (paren/bracket-depth 0) `;` from `from` (inclusive) up to `to`, or -1. */
+    private int findTopLevelSemicolon(final List<Token> tokens, final int from, final int to) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Concatenates raw token text over [from, to), preserving whatever spacing already exists. */
+    private String literalSlice(final List<Token> tokens, final int from, final int to) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = from; i < to; i++) {
+            sb.append(tokens.get(i).text);
+        }
+        return sb.toString();
+    }
+
+    private boolean isKeyword(final Token t, final String text) {
+        return t.type == TokenType.KEYWORD && text.equals(t.text);
+    }
+
+    /**
+     * Builds the aligned replacement text for every row and writes it into overrides: the
+     * call-shaped rows among them are name/`(`/args/`)`-aligned via a nested {@link ColumnGrid}
+     * first, then every row's resulting content cell is aligned against ALL rows (call-shaped or
+     * not) via the outer grid, alongside the label cell -- reproducing STYLE.md §13's mixed
+     * call/assignment worked example exactly. The label cell always carries one baked-in trailing
+     * space before its grid padding is computed, since `ColumnGrid` only adds padding when a cell
+     * is shorter than the column's widest entry -- without that baked-in space, the row with the
+     * single widest label would render with no gap at all before its `:`.
+     */
+    private void applyInlineAlignment(final List<CaseRow> rows, final Map<Integer, String> overrides) {
+        final ColumnGrid callGrid = new ColumnGrid();
+        for (final CaseRow row : rows) {
+            if (row.callShaped) {
+                // Trailing "" keeps args from being the last cell, so ColumnGrid's
+                // ragged-row rule doesn't skip padding it when args is empty (e.g. "doA()").
+                callGrid.addRow(new String[] {row.name, row.args, ""});
+            }
+        }
+        final List<String[]> callPadded = callGrid.flush();
+
+        final String[] content = new String[rows.size()];
+        int callIdx = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            final CaseRow row = rows.get(i);
+            if (row.callShaped) {
+                final String[] cell = callPadded.get(callIdx++);
+                content[i] = cell[0] + "(" + cell[1] + ")";
+            } else if (row.hasContent) {
+                content[i] = row.plain;
+            }
+        }
+
+        final ColumnGrid outerGrid = new ColumnGrid();
+        for (int i = 0; i < rows.size(); i++) {
+            final CaseRow row = rows.get(i);
+            final String label = row.label + " ";
+            if (!row.hasContent && !row.hasBreak) {
+                outerGrid.addRow(new String[] {label});
+            } else {
+                final String terminator = (row.hasContent ? ";" : "") + (row.hasBreak
+                        ? (row.hasContent ? " break;" : "break;") : "");
+                outerGrid.addRow(new String[] {label, row.hasContent ? content[i] : "", terminator});
+            }
+        }
+        final List<String[]> outerPadded = outerGrid.flush();
+
+        for (int i = 0; i < rows.size(); i++) {
+            final CaseRow row = rows.get(i);
+            final String[] cell = outerPadded.get(i);
+            final String text = cell.length == 1 ? cell[0] + ":" : cell[0] + ":" + " " + cell[1] + cell[2];
+            overrides.put(row.kwIdx, text);
+            for (int k = row.kwIdx + 1; k <= row.lastIdx; k++) {
+                overrides.put(k, "");
+            }
+        }
     }
 
     // ── Rendering ──────────────────────────────────────────────────────────────

@@ -44,6 +44,21 @@ void f()
 Note: function bodies do **not** get the blank-line-after-`{` / blank-line-before-`}`
 treatment described in STYLE.md §7, even when the body exceeds 5 lines.
 
+**Lambda expressions** are an exception to Allman: a lambda is a value embedded inside a
+larger declaration or call, not a standalone definition, so its body brace uses **K&R
+style** like other non-function blocks (STYLE.md §11) — same line as the capture/parameter
+list (or the trailing return type, if present):
+
+```cpp
+auto cmp = [](int a, int b) {
+    return a < b;
+};
+
+std::sort( v.begin(), v.end(), [](int a, int b) -> bool {
+    return a < b;
+} );
+```
+
 ---
 
 ## 3. C++ Template Angle Brackets `<>`

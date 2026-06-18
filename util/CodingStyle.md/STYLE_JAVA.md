@@ -47,6 +47,20 @@ void reset()
 { _x = 0; }
 ```
 
+**Lambda expressions** are an exception to Allman: like other non-function blocks
+(STYLE.md §11), a block-bodied lambda's `{` stays on the same line as its parameter
+list and `->`:
+
+```java
+Runnable r = () -> {
+    doSomething();
+};
+
+list.sort( (a, b) -> {
+    return a.compareTo(b);
+} );
+```
+
 ---
 
 ## 3. `if` Spacing When Body is `{}`

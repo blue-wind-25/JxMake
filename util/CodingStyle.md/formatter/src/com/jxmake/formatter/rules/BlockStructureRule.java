@@ -27,6 +27,11 @@ public class BlockStructureRule {
     private static final Set<String> COMPOUND_BODY_KEYWORDS =
             setOf("if", "while", "for", "switch", "do", "try");
 
+    // STYLE.md §11 K&R list: keywords whose body brace is preceded by a `( ... )` condition.
+    private static final Set<String> PAREN_KR_KEYWORDS = setOf("if", "while", "for", "switch", "catch");
+    // STYLE.md §11 K&R list: keywords whose body brace follows the bare keyword, no condition.
+    private static final Set<String> BARE_KR_KEYWORDS = setOf("else", "do", "try", "finally");
+
     private final String language;
 
     public BlockStructureRule(final String language) {
@@ -213,6 +218,200 @@ public class BlockStructureRule {
             sb.append(t.text);
         }
         return sb.toString();
+    }
+
+    // ── Non-function block brace style (STYLE.md §11) ───────────────────────────
+    /**
+     * Scans a token slice and moves every `{` that opens a control-flow body
+     * (`if`/`else`/`else if`/`for`/`while`/`do`/`switch`/`try`/`catch`/`finally`), a named
+     * construct (`class`/`struct`/`enum`/`enum class`/`namespace`/`interface`, already tagged
+     * by the tokenizer's name stack -- see `Token.name`), or a lambda body (Java `(...) -> {`,
+     * C++ `[...](...)  {` or its `-> Type {` trailing-return-type form -- STYLE_C_CPP.md §2 /
+     * STYLE_JAVA.md §2) onto the same line as the preceding keyword/condition/declaration,
+     * separated by exactly one space (K&R). A lambda is treated as a value embedded in a larger
+     * declaration or call rather than a standalone definition, so unlike a named function it
+     * does not get Allman style. Anything in the gap other than whitespace/newlines (i.e. a
+     * comment) blocks the rewrite for that brace, since relocating the comment unambiguously is
+     * out of scope here. A `{` that does not classify as one of those cases -- most importantly
+     * a function/method definition, where the preceding `)`'s matching `(` is preceded by an
+     * identifier rather than a keyword or a lambda's `]` -- is left completely untouched; Allman
+     * function brace style is normalized elsewhere (Tier 1, language-specific files), not by
+     * this method.
+     */
+    public String enforceKAndRBraceStyle(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
+                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            if (isPunct(t, "{") && gap.stream().noneMatch(this::isComment)
+                    && qualifiesForKAndR(tokens, i)) {
+                out.append(' ');
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+            out.append(t.text);
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isComment(final Token t) {
+        return t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
+    }
+
+    /** True if the `{` at braceIdx opens a K&R-styled construct per STYLE.md §11 (see caller doc). */
+    private boolean qualifiesForKAndR(final List<Token> tokens, final int braceIdx) {
+        if (tokens.get(braceIdx).name != null) {
+            return true;
+        }
+
+        final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (prevIdx < 0) {
+            return false;
+        }
+        final Token prev = tokens.get(prevIdx);
+        if (prev.type == TokenType.KEYWORD && BARE_KR_KEYWORDS.contains(prev.text)) {
+            return true;
+        }
+        if (isPunct(prev, ")")) {
+            final int openParenIdx = matchOpenBackward(tokens, prevIdx);
+            if (openParenIdx >= 0) {
+                final int kwIdx = prevSignificantIndex(tokens, openParenIdx - 1);
+                if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
+                        && PAREN_KR_KEYWORDS.contains(tokens.get(kwIdx).text)) {
+                    return true;
+                }
+            }
+        }
+        return isLambdaBrace(tokens, prevIdx);
+    }
+
+    /**
+     * True if the `{` whose immediately preceding significant token is at prevIdx opens a
+     * lambda body: Java `(params) -> {` / `param -> {`, or C++ `[capture](params) {` / bare
+     * `[capture] {` / either form followed by a trailing `-> Type {`.
+     */
+    private boolean isLambdaBrace(final List<Token> tokens, final int prevIdx) {
+        final Token prev = tokens.get(prevIdx);
+        if ("java".equals(language)) {
+            return isOp(prev, "->");
+        }
+        if (isPunct(prev, "]")) {
+            return true;
+        }
+        if (isPunct(prev, ")") && precededByCaptureList(tokens, prevIdx)) {
+            return true;
+        }
+        return isCppTrailingReturnLambda(tokens, prevIdx);
+    }
+
+    /** True if the `)` at closeParenIdx's matching `(` is immediately preceded by a `]`. */
+    private boolean precededByCaptureList(final List<Token> tokens, final int closeParenIdx) {
+        final int openParenIdx = matchOpenBackward(tokens, closeParenIdx);
+        if (openParenIdx < 0) {
+            return false;
+        }
+        final int beforeOpen = prevSignificantIndex(tokens, openParenIdx - 1);
+        return beforeOpen >= 0 && isPunct(tokens.get(beforeOpen), "]");
+    }
+
+    // Bounds the backward walk over a C++ trailing return type (`-> Type`) before giving up --
+    // real return types are short, and this keeps a non-lambda `)` { with unrelated code before
+    // it from causing a runaway scan.
+    private static final int MAX_RETURN_TYPE_TOKENS = 20;
+
+    /** True if `{` at prevIdx+1(gap) is a C++ lambda's `[capture](params) -> Type {` body. */
+    private boolean isCppTrailingReturnLambda(final List<Token> tokens, final int prevIdx) {
+        int j = prevIdx;
+        int steps = 0;
+        while (j >= 0 && steps < MAX_RETURN_TYPE_TOKENS) {
+            final Token cur = tokens.get(j);
+            if (isOp(cur, "->")) {
+                final int beforeArrow = prevSignificantIndex(tokens, j - 1);
+                if (beforeArrow < 0) {
+                    return false;
+                }
+                final Token b = tokens.get(beforeArrow);
+                if (isPunct(b, "]")) {
+                    return true;
+                }
+                return isPunct(b, ")") && precededByCaptureList(tokens, beforeArrow);
+            }
+            if (!isTypeIshToken(cur)) {
+                return false;
+            }
+            j = prevSignificantIndex(tokens, j - 1);
+            steps++;
+        }
+        return false;
+    }
+
+    /** Tokens that can plausibly appear inside a return-type expression before `->`. */
+    private boolean isTypeIshToken(final Token t) {
+        switch (t.type) {
+            case IDENTIFIER:
+            case KEYWORD:
+            case ANGLE_BRACKET_OPEN:
+            case ANGLE_BRACKET_CLOSE:
+                return true;
+            case OP:
+                return "::".equals(t.text) || "*".equals(t.text) || "&".equals(t.text);
+            case PUNCT:
+                return ",".equals(t.text);
+            default:
+                return false;
+        }
+    }
+
+    private boolean isOp(final Token t, final String text) {
+        return t.type == TokenType.OP && text.equals(t.text);
+    }
+
+    /** Index of the nearest significant token at or before `from`, or -1 if none. */
+    private int prevSignificantIndex(final List<Token> tokens, final int from) {
+        int i = from;
+        while (i >= 0) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
+                    || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                i--;
+            } else {
+                break;
+            }
+        }
+        return i;
+    }
+
+    /** Index of the `(` matching the `)` at closeParenIdx, via local backward depth counting, or -1. */
+    private int matchOpenBackward(final List<Token> tokens, final int closeParenIdx) {
+        int depth = 1;
+        int i = closeParenIdx - 1;
+        while (i >= 0 && depth > 0) {
+            final Token tk = tokens.get(i);
+            if (isPunct(tk, ")") || isPunct(tk, "]")) {
+                depth++;
+            } else if (isPunct(tk, "(") || isPunct(tk, "[")) {
+                depth--;
+            }
+            i--;
+        }
+        return depth == 0 ? i + 1 : -1;
     }
 
     private int skipNonSignificant(final List<Token> tokens, final int from) {

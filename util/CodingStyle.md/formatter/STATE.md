@@ -271,5 +271,17 @@ Every `.java` source file must begin with this copyright block, before the `pack
  */
 ```
 
+## Java Coding Convention — `final` Locals and Parameters
+
+Mark every local variable and method/constructor parameter `final` whenever it is
+never reassigned after its initial assignment (i.e., whenever the compiler would
+accept `final` there). This applies to all `.java` files under `src/` in this
+project, including ones already marked COMPLETE — when editing an existing file
+for any reason, bring touched declarations into compliance opportunistically;
+a dedicated pass is not required unless asked. Loop counters and other variables
+that are genuinely reassigned (e.g. a `for` loop's `i`, an accumulator) must NOT
+be marked `final` — let `javac` be the check: if marking something `final` fails
+to compile, it was actually being reassigned, so leave it without `final`.
+
 ## End Goal
 - [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that `make` still succeeds after

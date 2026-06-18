@@ -15,7 +15,7 @@ public class ColumnGrid {
 
     private final List<String[]> buffer = new ArrayList<>();
 
-    public void addRow(String[] cells) {
+    public void addRow(final String[] cells) {
         buffer.add(cells);
     }
 
@@ -25,22 +25,22 @@ public class ColumnGrid {
         }
 
         int maxColumns = 0;
-        for (String[] row : buffer) {
+        for (final String[] row : buffer) {
             maxColumns = Math.max(maxColumns, row.length);
         }
 
-        int[] widths = new int[maxColumns];
-        for (String[] row : buffer) {
+        final int[] widths = new int[maxColumns];
+        for (final String[] row : buffer) {
             for (int c = 0; c < row.length; c++) {
                 widths[c] = Math.max(widths[c], row[c].length());
             }
         }
 
-        List<String[]> result = new ArrayList<>(buffer.size());
-        for (String[] row : buffer) {
-            String[] padded = new String[row.length];
+        final List<String[]> result = new ArrayList<>(buffer.size());
+        for (final String[] row : buffer) {
+            final String[] padded = new String[row.length];
             for (int c = 0; c < row.length; c++) {
-                boolean isLastInRow = c == row.length - 1;
+                final boolean isLastInRow = c == row.length - 1;
                 padded[c] = isLastInRow ? row[c] : padRight(row[c], widths[c]);
             }
             result.add(padded);
@@ -50,11 +50,11 @@ public class ColumnGrid {
         return result;
     }
 
-    private static String padRight(String s, int width) {
+    private static String padRight(final String s, final int width) {
         if (s.length() >= width) {
             return s;
         }
-        StringBuilder sb = new StringBuilder(s);
+        final StringBuilder sb = new StringBuilder(s);
         while (sb.length() < width) {
             sb.append(' ');
         }

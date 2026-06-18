@@ -13,8 +13,8 @@ import java.util.List;
 
 public class ComplexityPaddingEvaluator {
 
-    public boolean isLoose(List<Token> contentTokens) {
-        for (Token t : contentTokens) {
+    public boolean isLoose(final List<Token> contentTokens) {
+        for (final Token t : contentTokens) {
             if (t.type == TokenType.PUNCT && ("(".equals(t.text) || "[".equals(t.text))) {
                 return true;
             }

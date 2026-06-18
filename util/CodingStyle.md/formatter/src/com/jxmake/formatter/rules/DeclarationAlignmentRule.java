@@ -36,7 +36,7 @@ public class DeclarationAlignmentRule {
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
 
-    public DeclarationAlignmentRule(String language) {
+    public DeclarationAlignmentRule(final String language) {
         this.language = language;
         if ("java".equals(language)) {
             this.modifierPriority = new JavaModifierPriority();
@@ -47,12 +47,12 @@ public class DeclarationAlignmentRule {
         }
     }
 
-    private static Set<String> setOf(String... words) {
+    private static Set<String> setOf(final String... words) {
         return new HashSet<>(Arrays.asList(words));
     }
 
-    private static Set<String> union(Set<String> a, Set<String> b) {
-        Set<String> result = new HashSet<>(a);
+    private static Set<String> union(final Set<String> a, final Set<String> b) {
+        final Set<String> result = new HashSet<>(a);
         result.addAll(b);
         return result;
     }
@@ -67,9 +67,9 @@ public class DeclarationAlignmentRule {
         public final Token trailingComment; // nullable
         public final boolean blankLineBefore;
 
-        Declaration(List<Token> modifiers, List<Token> typeTokens, Token name,
-                List<Token> sizeTokens, List<Token> initTokens, Token trailingComment,
-                boolean blankLineBefore) {
+        Declaration(final List<Token> modifiers, final List<Token> typeTokens, final Token name,
+                final List<Token> sizeTokens, final List<Token> initTokens,
+                final Token trailingComment, final boolean blankLineBefore) {
             this.modifiers = modifiers;
             this.typeTokens = typeTokens;
             this.name = name;
@@ -87,15 +87,15 @@ public class DeclarationAlignmentRule {
      * line, or any statement not recognized as a variable/field declaration, breaks
      * the current group (STYLE.md §5).
      */
-    public List<List<Declaration>> groupDeclarations(List<Token> scopeTokens) {
-        List<List<Token>> statements = splitStatements(scopeTokens);
+    public List<List<Declaration>> groupDeclarations(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = splitStatements(scopeTokens);
 
-        List<List<Declaration>> groups = new ArrayList<>();
+        final List<List<Declaration>> groups = new ArrayList<>();
         List<Declaration> current = new ArrayList<>();
 
-        for (List<Token> stmt : statements) {
-            boolean blankBefore = hasBlankLineBefore(stmt);
-            Declaration decl = parseDeclaration(stmt, blankBefore);
+        for (final List<Token> stmt : statements) {
+            final boolean blankBefore = hasBlankLineBefore(stmt);
+            final Declaration decl = parseDeclaration(stmt, blankBefore);
 
             if (decl == null) {
                 if (!current.isEmpty()) {
@@ -128,11 +128,11 @@ public class DeclarationAlignmentRule {
      * relative order, rather than attempting a finer-grained reorder whose
      * safety would be unclear.
      */
-    public List<Declaration> reorderStatics(List<Declaration> group) {
-        List<Declaration> output = new ArrayList<>();
-        List<Declaration> pending = new ArrayList<>();
+    public List<Declaration> reorderStatics(final List<Declaration> group) {
+        final List<Declaration> output = new ArrayList<>();
+        final List<Declaration> pending = new ArrayList<>();
 
-        for (Declaration d : group) {
+        for (final Declaration d : group) {
             if (isStatic(d)) {
                 if (dependsOnAny(d, pending)) {
                     output.addAll(pending);
@@ -147,8 +147,8 @@ public class DeclarationAlignmentRule {
         return output;
     }
 
-    private boolean isStatic(Declaration d) {
-        for (Token m : d.modifiers) {
+    private boolean isStatic(final Declaration d) {
+        for (final Token m : d.modifiers) {
             if ("static".equals(m.text)) {
                 return true;
             }
@@ -156,8 +156,8 @@ public class DeclarationAlignmentRule {
         return false;
     }
 
-    private boolean dependsOnAny(Declaration d, List<Declaration> candidates) {
-        for (Declaration c : candidates) {
+    private boolean dependsOnAny(final Declaration d, final List<Declaration> candidates) {
+        for (final Declaration c : candidates) {
             if (referencesName(d.sizeTokens, c.name.text) || referencesName(d.initTokens, c.name.text)) {
                 return true;
             }
@@ -165,8 +165,8 @@ public class DeclarationAlignmentRule {
         return false;
     }
 
-    private boolean referencesName(List<Token> tokens, String name) {
-        for (Token t : tokens) {
+    private boolean referencesName(final List<Token> tokens, final String name) {
+        for (final Token t : tokens) {
             if (t.type == TokenType.IDENTIFIER && name.equals(t.text)) {
                 return true;
             }
@@ -184,37 +184,37 @@ public class DeclarationAlignmentRule {
      * rather than rendered as dead padding. Statics are reordered first
      * (see `reorderStatics`).
      */
-    public List<String> render(List<Declaration> originalGroup) {
-        List<Declaration> group = reorderStatics(originalGroup);
-        boolean isJava = "java".equals(language);
-        int modifierColumns = modifierPriority.columnCount();
-        boolean[] modifierActive = new boolean[modifierColumns];
+    public List<String> render(final List<Declaration> originalGroup) {
+        final List<Declaration> group = reorderStatics(originalGroup);
+        final boolean isJava = "java".equals(language);
+        final int modifierColumns = modifierPriority.columnCount();
+        final boolean[] modifierActive = new boolean[modifierColumns];
         boolean postConstActive = false;
 
-        List<TypeSplit> splits = new ArrayList<>(group.size());
-        for (Declaration d : group) {
-            for (Token m : d.modifiers) {
-                int rank = modifierPriority.priorityOf(m.text);
+        final List<TypeSplit> splits = new ArrayList<>(group.size());
+        for (final Declaration d : group) {
+            for (final Token m : d.modifiers) {
+                final int rank = modifierPriority.priorityOf(m.text);
                 if (rank >= 0) {
                     modifierActive[rank] = true;
                 }
             }
-            TypeSplit split = isJava ? null : splitCppType(d.typeTokens);
+            final TypeSplit split = isJava ? null : splitCppType(d.typeTokens);
             if (split != null && !split.postConst.isEmpty()) {
                 postConstActive = true;
             }
             splits.add(split);
         }
 
-        ColumnGrid grid = new ColumnGrid();
+        final ColumnGrid grid = new ColumnGrid();
         for (int idx = 0; idx < group.size(); idx++) {
-            Declaration d = group.get(idx);
-            List<String> cells = new ArrayList<>();
+            final Declaration d = group.get(idx);
+            final List<String> cells = new ArrayList<>();
 
-            String[] modCells = new String[modifierColumns];
+            final String[] modCells = new String[modifierColumns];
             Arrays.fill(modCells, "");
-            for (Token m : d.modifiers) {
-                int rank = modifierPriority.priorityOf(m.text);
+            for (final Token m : d.modifiers) {
+                final int rank = modifierPriority.priorityOf(m.text);
                 if (rank >= 0) {
                     modCells[rank] = m.text;
                 }
@@ -228,7 +228,7 @@ public class DeclarationAlignmentRule {
             if (isJava) {
                 cells.add(renderTokens(d.typeTokens));
             } else {
-                TypeSplit split = splits.get(idx);
+                final TypeSplit split = splits.get(idx);
                 cells.add(split.typeAndStar);
                 if (postConstActive) {
                     cells.add(split.postConst);
@@ -244,15 +244,15 @@ public class DeclarationAlignmentRule {
             grid.addRow(cells.toArray(new String[0]));
         }
 
-        List<String> lines = new ArrayList<>();
-        for (String[] row : grid.flush()) {
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
             lines.add(String.join(" ", row));
         }
         return lines;
     }
 
-    private String renderNameCell(Declaration d) {
-        StringBuilder sb = new StringBuilder();
+    private String renderNameCell(final Declaration d) {
+        final StringBuilder sb = new StringBuilder();
         sb.append(d.name.text);
         sb.append(renderTokens(d.sizeTokens));
         if (!d.initTokens.isEmpty()) {
@@ -267,19 +267,19 @@ public class DeclarationAlignmentRule {
         final String typeAndStar;
         final String postConst;
 
-        TypeSplit(String typeAndStar, String postConst) {
+        TypeSplit(final String typeAndStar, final String postConst) {
             this.typeAndStar = typeAndStar;
             this.postConst = postConst;
         }
     }
 
-    private TypeSplit splitCppType(List<Token> typeTokens) {
+    private TypeSplit splitCppType(final List<Token> typeTokens) {
         List<Token> tokens = typeTokens;
         String postConst = "";
-        int n = tokens.size();
+        final int n = tokens.size();
         if (n >= 2) {
-            Token last = tokens.get(n - 1);
-            Token secondLast = tokens.get(n - 2);
+            final Token last = tokens.get(n - 1);
+            final Token secondLast = tokens.get(n - 2);
             if (last.type == TokenType.KEYWORD && "const".equals(last.text)
                     && isOp(secondLast, "*")) {
                 postConst = "const";
@@ -294,10 +294,10 @@ public class DeclarationAlignmentRule {
      * attach tightly per STYLE_C_CPP.md §4 conventions (e.g. `uint8_t*`,
      * `std::vector<int>`, `buffer[64]`); everything else gets a single space.
      */
-    private String renderTokens(List<Token> tokens) {
-        StringBuilder sb = new StringBuilder();
+    private String renderTokens(final List<Token> tokens) {
+        final StringBuilder sb = new StringBuilder();
         Token prev = null;
-        for (Token t : tokens) {
+        for (final Token t : tokens) {
             if (prev != null && needsSpaceBetween(prev, t)) {
                 sb.append(' ');
             }
@@ -307,7 +307,7 @@ public class DeclarationAlignmentRule {
         return sb.toString();
     }
 
-    private boolean needsSpaceBetween(Token prev, Token cur) {
+    private boolean needsSpaceBetween(final Token prev, final Token cur) {
         if (isTightToken(cur)) {
             return false;
         }
@@ -317,7 +317,7 @@ public class DeclarationAlignmentRule {
         return true;
     }
 
-    private boolean isTightToken(Token t) {
+    private boolean isTightToken(final Token t) {
         if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
             return true;
         }
@@ -328,14 +328,14 @@ public class DeclarationAlignmentRule {
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────
-    private List<List<Token>> splitStatements(List<Token> scopeTokens) {
-        List<List<Token>> statements = new ArrayList<>();
+    private List<List<Token>> splitStatements(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = new ArrayList<>();
         List<Token> current = new ArrayList<>();
-        int n = scopeTokens.size();
+        final int n = scopeTokens.size();
         int idx = 0;
 
         while (idx < n) {
-            Token t = scopeTokens.get(idx);
+            final Token t = scopeTokens.get(idx);
             current.add(t);
             idx++;
 
@@ -343,7 +343,7 @@ public class DeclarationAlignmentRule {
                 // Pull in a same-line trailing comment so it stays with this
                 // statement instead of becoming the next statement's leading token.
                 while (idx < n) {
-                    Token next = scopeTokens.get(idx);
+                    final Token next = scopeTokens.get(idx);
                     if (next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
                             || next.type == TokenType.COMMENT_BLOCK) {
                         current.add(next);
@@ -363,9 +363,9 @@ public class DeclarationAlignmentRule {
         return statements;
     }
 
-    private boolean hasBlankLineBefore(List<Token> stmt) {
+    private boolean hasBlankLineBefore(final List<Token> stmt) {
         int newlineRun = 0;
-        for (Token t : stmt) {
+        for (final Token t : stmt) {
             if (t.type == TokenType.NEWLINE) {
                 newlineRun++;
                 if (newlineRun >= 2) {
@@ -383,20 +383,20 @@ public class DeclarationAlignmentRule {
     }
 
     // ── Declaration parsing ──────────────────────────────────────────────────────
-    private Declaration parseDeclaration(List<Token> stmt, boolean blankBefore) {
-        Token trailingComment = findTrailingComment(stmt);
-        List<Token> sig = significantOnly(stmt);
+    private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore) {
+        final Token trailingComment = findTrailingComment(stmt);
+        final List<Token> sig = significantOnly(stmt);
 
         if (sig.isEmpty() || !isPunct(sig.get(sig.size() - 1), ";")) {
             return null;
         }
-        List<Token> body = sig.subList(0, sig.size() - 1);
+        final List<Token> body = sig.subList(0, sig.size() - 1);
         if (body.isEmpty()) {
             return null;
         }
 
         int i = 0;
-        List<Token> modifiers = new ArrayList<>();
+        final List<Token> modifiers = new ArrayList<>();
         while (i < body.size() && body.get(i).type == TokenType.KEYWORD
                 && modifierPriority.isModifier(body.get(i).text)) {
             modifiers.add(body.get(i));
@@ -413,8 +413,8 @@ public class DeclarationAlignmentRule {
                 break;
             }
         }
-        List<Token> initTokens;
-        int end;
+        final List<Token> initTokens;
+        final int end;
         if (eqIdx >= 0) {
             initTokens = new ArrayList<>(body.subList(eqIdx + 1, body.size()));
             end = eqIdx;
@@ -423,12 +423,13 @@ public class DeclarationAlignmentRule {
             end = body.size();
         }
 
-        List<Token> sizeTokens = new ArrayList<>();
-        while (end > i && isPunct(body.get(end - 1), "]")) {
+        final List<Token> sizeTokens = new ArrayList<>();
+        int sizeEnd = end;
+        while (sizeEnd > i && isPunct(body.get(sizeEnd - 1), "]")) {
             int depth = 0;
             int openIdx = -1;
-            for (int k = end - 1; k >= i; k--) {
-                Token t = body.get(k);
+            for (int k = sizeEnd - 1; k >= i; k--) {
+                final Token t = body.get(k);
                 if (isPunct(t, "]")) {
                     depth++;
                 } else if (isPunct(t, "[")) {
@@ -442,22 +443,22 @@ public class DeclarationAlignmentRule {
             if (openIdx < 0) {
                 break; // unbalanced -- bail, don't touch this statement
             }
-            sizeTokens.addAll(0, body.subList(openIdx, end));
-            end = openIdx;
+            sizeTokens.addAll(0, body.subList(openIdx, sizeEnd));
+            sizeEnd = openIdx;
         }
 
-        if (end <= i) {
+        if (sizeEnd <= i) {
             return null;
         }
-        Token name = body.get(end - 1);
+        final Token name = body.get(sizeEnd - 1);
         if (name.type != TokenType.IDENTIFIER) {
             return null;
         }
-        List<Token> typeTokens = new ArrayList<>(body.subList(i, end - 1));
+        final List<Token> typeTokens = new ArrayList<>(body.subList(i, sizeEnd - 1));
         if (typeTokens.isEmpty()) {
             return null;
         }
-        Token firstType = typeTokens.get(0);
+        final Token firstType = typeTokens.get(0);
         if (firstType.type == TokenType.KEYWORD && !typeKeywords.contains(firstType.text)) {
             return null; // e.g. return/throw/assert/break -- not a declaration
         }
@@ -466,9 +467,9 @@ public class DeclarationAlignmentRule {
                 trailingComment, blankBefore);
     }
 
-    private Token findTrailingComment(List<Token> stmt) {
+    private Token findTrailingComment(final List<Token> stmt) {
         for (int k = stmt.size() - 1; k >= 0; k--) {
-            Token t = stmt.get(k);
+            final Token t = stmt.get(k);
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
                 return t;
             }
@@ -479,9 +480,9 @@ public class DeclarationAlignmentRule {
         return null;
     }
 
-    private List<Token> significantOnly(List<Token> stmt) {
-        List<Token> sig = new ArrayList<>();
-        for (Token t : stmt) {
+    private List<Token> significantOnly(final List<Token> stmt) {
+        final List<Token> sig = new ArrayList<>();
+        for (final Token t : stmt) {
             switch (t.type) {
                 case WHITESPACE:
                 case NEWLINE:
@@ -495,11 +496,11 @@ public class DeclarationAlignmentRule {
         return sig;
     }
 
-    private boolean isPunct(Token t, String text) {
+    private boolean isPunct(final Token t, final String text) {
         return t.type == TokenType.PUNCT && text.equals(t.text);
     }
 
-    private boolean isOp(Token t, String text) {
+    private boolean isOp(final Token t, final String text) {
         return t.type == TokenType.OP && text.equals(t.text);
     }
 }

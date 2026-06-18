@@ -43,7 +43,8 @@ public class TokenizerCore {
         public final int parenDepth;
         public final String name; // for `{`/`}` only: pushed/popped construct name, else null
 
-        public Token(TokenType type, String text, int braceDepth, int parenDepth, String name) {
+        public Token(final TokenType type, final String text, final int braceDepth,
+                final int parenDepth, final String name) {
             this.type = type;
             this.text = text;
             this.braceDepth = braceDepth;
@@ -52,7 +53,7 @@ public class TokenizerCore {
         }
     }
 
-    private static Set<String> setOf(String... words) {
+    private static Set<String> setOf(final String... words) {
         return new HashSet<>(Arrays.asList(words));
     }
 
@@ -114,7 +115,7 @@ public class TokenizerCore {
         return syntaxError;
     }
 
-    public TokenizerCore(String language) {
+    public TokenizerCore(final String language) {
         this.language = language;
         switch (language) {
             case "c":
@@ -134,7 +135,7 @@ public class TokenizerCore {
         }
     }
 
-    public List<Token> tokenize(String source) {
+    public List<Token> tokenize(final String source) {
         this.source = source;
         this.pos = 0;
         this.length = source.length();
@@ -146,10 +147,10 @@ public class TokenizerCore {
         this.nameStack.clear();
         this.recentSignificant.clear();
 
-        List<Token> tokens = new ArrayList<>();
+        final List<Token> tokens = new ArrayList<>();
 
         while (pos < length) {
-            char c = source.charAt(pos);
+            final char c = source.charAt(pos);
 
             if (c == '\r' || c == '\n') {
                 addToken(tokens, emitNewline());
@@ -161,7 +162,7 @@ public class TokenizerCore {
                 continue;
             }
 
-            Token t;
+            final Token t;
             if (isPreprocessorLanguage() && c == '#' && atLineStart) {
                 t = emitPreprocessorOrDefine();
             } else if (c == '/' && peek(1) == '/') {
@@ -204,12 +205,12 @@ public class TokenizerCore {
         return tokens;
     }
 
-    private void addToken(List<Token> tokens, Token t) {
+    private void addToken(final List<Token> tokens, final Token t) {
         tokens.add(t);
         trackSignificant(t);
     }
 
-    private void trackSignificant(Token t) {
+    private void trackSignificant(final Token t) {
         switch (t.type) {
             case WHITESPACE:
             case NEWLINE:
@@ -227,11 +228,11 @@ public class TokenizerCore {
 
     // ── Named construct detection (for the `{` name stack) ─────────────────────────
     private String computeConstructName() {
-        Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
-        int n = arr.length;
+        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
+        final int n = arr.length;
         if (n >= 2) {
-            Token kw = arr[n - 2];
-            Token name = arr[n - 1];
+            final Token kw = arr[n - 2];
+            final Token name = arr[n - 1];
             if ("extern".equals(kw.text) && kw.type == TokenType.KEYWORD
                     && name.type == TokenType.STRING && "\"C\"".equals(name.text)) {
                 return kw.text + " " + name.text;
@@ -242,9 +243,9 @@ public class TokenizerCore {
             }
         }
         if (n >= 3) {
-            Token enumKw = arr[n - 3];
-            Token classKw = arr[n - 2];
-            Token name = arr[n - 1];
+            final Token enumKw = arr[n - 3];
+            final Token classKw = arr[n - 2];
+            final Token name = arr[n - 1];
             if ("enum".equals(enumKw.text) && "class".equals(classKw.text)
                     && namedConstructKeywords.contains("enum")
                     && name.type == TokenType.IDENTIFIER) {
@@ -279,7 +280,7 @@ public class TokenizerCore {
         return new Token(TokenType.PUNCT, "}", braceDepth, parenDepth, name);
     }
 
-    private Token emitOpenBracket(char c) {
+    private Token emitOpenBracket(final char c) {
         if (preprocessorDepth == 0) {
             parenDepth++;
         }
@@ -287,7 +288,7 @@ public class TokenizerCore {
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }
 
-    private Token emitCloseBracket(char c) {
+    private Token emitCloseBracket(final char c) {
         if (preprocessorDepth == 0) {
             parenDepth--;
         }
@@ -295,7 +296,7 @@ public class TokenizerCore {
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }
 
-    private Token emitPunct(char c) {
+    private Token emitPunct(final char c) {
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }
@@ -305,11 +306,11 @@ public class TokenizerCore {
         while (p < length && (source.charAt(p) == ' ' || source.charAt(p) == '\t')) {
             p++;
         }
-        int wordStart = p;
+        final int wordStart = p;
         while (p < length && isIdentifierPart(source.charAt(p))) {
             p++;
         }
-        String directive = source.substring(wordStart, p);
+        final String directive = source.substring(wordStart, p);
 
         if ("define".equals(directive)) {
             return isMultilineDirective(p) ? emitMacroDef() : emitSingleLineDefine();
@@ -317,7 +318,7 @@ public class TokenizerCore {
         return emitPreprocessor();
     }
 
-    private boolean isMultilineDirective(int from) {
+    private boolean isMultilineDirective(final int from) {
         int p = from;
         while (p < length && source.charAt(p) != '\n' && source.charAt(p) != '\r') {
             p++;
@@ -338,18 +339,18 @@ public class TokenizerCore {
         while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
             pos++;
         }
-        int nameStart = pos;
+        final int nameStart = pos;
         while (pos < length && isIdentifierPart(source.charAt(pos))) {
             pos++;
         }
-        String name = source.substring(nameStart, pos);
+        final String name = source.substring(nameStart, pos);
 
         String paramList = "";
         if (pos < length && source.charAt(pos) == '(') {
-            int paramStart = pos;
+            final int paramStart = pos;
             int depth = 0;
             do {
-                char c = source.charAt(pos);
+                final char c = source.charAt(pos);
                 if (c == '(') {
                     depth++;
                 } else if (c == ')') {
@@ -360,18 +361,18 @@ public class TokenizerCore {
             paramList = source.substring(paramStart, pos);
         }
 
-        int restStart = pos;
+        final int restStart = pos;
         while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
             pos++;
         }
-        String rest = source.substring(restStart, pos);
+        final String rest = source.substring(restStart, pos);
 
-        String text = "#define " + name + paramList + rest;
+        final String text = "#define " + name + paramList + rest;
         return new Token(TokenType.PREPROCESSOR, text, braceDepth, parenDepth, null);
     }
 
     private Token emitMacroDef() {
-        int start = pos;
+        final int start = pos;
         while (true) {
             while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
                 pos++;
@@ -380,7 +381,7 @@ public class TokenizerCore {
             while (q >= start && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
                 q--;
             }
-            boolean continues = q >= start && source.charAt(q) == '\\';
+            final boolean continues = q >= start && source.charAt(q) == '\\';
             if (!continues || pos >= length) {
                 break;
             }
@@ -398,20 +399,20 @@ public class TokenizerCore {
     }
 
     private Token emitPreprocessor() {
-        int start = pos;
+        final int start = pos;
         pos++; // consume '#'
         while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
             pos++;
         }
-        int wordStart = pos;
+        final int wordStart = pos;
         while (pos < length && isIdentifierPart(source.charAt(pos))) {
             pos++;
         }
-        String directive = source.substring(wordStart, pos);
+        final String directive = source.substring(wordStart, pos);
         while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
             pos++;
         }
-        String text = source.substring(start, pos);
+        final String text = source.substring(start, pos);
 
         if ("if".equals(directive) || "ifdef".equals(directive) || "ifndef".equals(directive)) {
             preprocessorDepth++;
@@ -423,7 +424,7 @@ public class TokenizerCore {
     }
 
     private Token emitLineComment() {
-        int start = pos;
+        final int start = pos;
         pos += 2;
         while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
             pos++;
@@ -433,7 +434,7 @@ public class TokenizerCore {
     }
 
     private Token emitBlockComment() {
-        int start = pos;
+        final int start = pos;
         pos += 2;
         while (pos < length && !(source.charAt(pos) == '*' && peek(1) == '/')) {
             pos++;
@@ -446,10 +447,10 @@ public class TokenizerCore {
     }
 
     private Token emitString() {
-        int start = pos;
+        final int start = pos;
         pos++;
         while (pos < length) {
-            char c = source.charAt(pos);
+            final char c = source.charAt(pos);
             if (c == '\\' && pos + 1 < length) {
                 pos += 2;
                 continue;
@@ -468,10 +469,10 @@ public class TokenizerCore {
     }
 
     private Token emitChar() {
-        int start = pos;
+        final int start = pos;
         pos++;
         while (pos < length) {
-            char c = source.charAt(pos);
+            final char c = source.charAt(pos);
             if (c == '\\' && pos + 1 < length) {
                 pos += 2;
                 continue;
@@ -490,15 +491,15 @@ public class TokenizerCore {
     }
 
     private Token emitNumber() {
-        int start = pos;
+        final int start = pos;
         while (pos < length) {
-            char c = source.charAt(pos);
+            final char c = source.charAt(pos);
             if (Character.isLetterOrDigit(c) || c == '.' || c == '_' || c == '\'') {
                 pos++;
                 continue;
             }
             if ((c == '+' || c == '-') && pos > start) {
-                char prev = source.charAt(pos - 1);
+                final char prev = source.charAt(pos - 1);
                 if (prev == 'e' || prev == 'E' || prev == 'p' || prev == 'P') {
                     pos++;
                     continue;
@@ -511,29 +512,29 @@ public class TokenizerCore {
     }
 
     private Token emitIdentifierOrKeyword() {
-        int start = pos;
+        final int start = pos;
         while (pos < length && isIdentifierPart(source.charAt(pos))) {
             pos++;
         }
-        String text = source.substring(start, pos);
-        TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
+        final String text = source.substring(start, pos);
+        final TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
         return new Token(type, text, braceDepth, parenDepth, null);
     }
 
     private Token emitOperator() {
-        for (String op : MULTI_CHAR_OPS) {
+        for (final String op : MULTI_CHAR_OPS) {
             if (source.startsWith(op, pos)) {
                 pos += op.length();
                 return new Token(TokenType.OP, op, braceDepth, parenDepth, null);
             }
         }
-        char c = source.charAt(pos);
+        final char c = source.charAt(pos);
         pos++;
         return new Token(TokenType.OP, String.valueOf(c), braceDepth, parenDepth, null);
     }
 
     private Token emitWhitespace() {
-        int start = pos;
+        final int start = pos;
         while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
             pos++;
         }
@@ -542,7 +543,7 @@ public class TokenizerCore {
     }
 
     private Token emitNewline() {
-        int start = pos;
+        final int start = pos;
         if (source.charAt(pos) == '\r') {
             pos++;
             if (pos < length && source.charAt(pos) == '\n') {
@@ -556,10 +557,10 @@ public class TokenizerCore {
     }
 
     // ── Generic/template angle bracket disambiguation ───────────────────────────────
-    private void reclassifyAngleBrackets(List<Token> tokens) {
-        List<Integer> sig = new ArrayList<>();
+    private void reclassifyAngleBrackets(final List<Token> tokens) {
+        final List<Integer> sig = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) {
-            TokenType ty = tokens.get(i).type;
+            final TokenType ty = tokens.get(i).type;
             if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
                     || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK
                     || ty == TokenType.PREPROCESSOR) {
@@ -568,11 +569,11 @@ public class TokenizerCore {
             sig.add(i);
         }
 
-        Deque<int[]> openStack = new ArrayDeque<>(); // each entry: {tokenIndex, validFlag}
+        final Deque<int[]> openStack = new ArrayDeque<>(); // each entry: {tokenIndex, validFlag}
 
         for (int s = 0; s < sig.size(); s++) {
-            int idx = sig.get(s);
-            Token cur = tokens.get(idx);
+            final int idx = sig.get(s);
+            final Token cur = tokens.get(idx);
 
             if (cur.type == TokenType.PUNCT
                     && (";".equals(cur.text) || "{".equals(cur.text) || "}".equals(cur.text))) {
@@ -581,7 +582,7 @@ public class TokenizerCore {
             }
 
             if (cur.type == TokenType.OP && "<".equals(cur.text)) {
-                Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
+                final Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
                 if (prev != null && prev.type == TokenType.IDENTIFIER) {
                     openStack.push(new int[] {idx, 1});
                 } else if (!openStack.isEmpty()) {
@@ -592,7 +593,7 @@ public class TokenizerCore {
 
             if (cur.type == TokenType.OP && ">".equals(cur.text)) {
                 if (!openStack.isEmpty()) {
-                    int[] open = openStack.pop();
+                    final int[] open = openStack.pop();
                     if (open[1] == 1) {
                         tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
                         tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
@@ -603,8 +604,8 @@ public class TokenizerCore {
 
             if (cur.type == TokenType.OP && ">>".equals(cur.text)) {
                 if (openStack.size() >= 2) {
-                    int[] inner = openStack.pop();
-                    int[] outer = openStack.pop();
+                    final int[] inner = openStack.pop();
+                    final int[] outer = openStack.pop();
                     if (inner[1] == 1 && outer[1] == 1) {
                         tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
                         tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
@@ -614,7 +615,7 @@ public class TokenizerCore {
                         shiftSigAfter(sig, s, idx + 1);
                     }
                 } else if (openStack.size() == 1) {
-                    int[] open = openStack.pop();
+                    final int[] open = openStack.pop();
                     if (open[1] == 1) {
                         tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
                         tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
@@ -632,20 +633,20 @@ public class TokenizerCore {
         }
     }
 
-    private void shiftSigAfter(List<Integer> sig, int afterPos, int newIndex) {
+    private void shiftSigAfter(final List<Integer> sig, final int afterPos, final int newIndex) {
         for (int j = afterPos + 1; j < sig.size(); j++) {
             sig.set(j, sig.get(j) + 1);
         }
         sig.add(afterPos + 1, newIndex);
     }
 
-    private void invalidateAll(Deque<int[]> stack) {
-        for (int[] entry : stack) {
+    private void invalidateAll(final Deque<int[]> stack) {
+        for (final int[] entry : stack) {
             entry[1] = 0;
         }
     }
 
-    private boolean isGenericSafeToken(Token t) {
+    private boolean isGenericSafeToken(final Token t) {
         switch (t.type) {
             case IDENTIFIER:
             case NUMBER:
@@ -668,7 +669,7 @@ public class TokenizerCore {
         }
     }
 
-    private Token retype(Token t, TokenType newType) {
+    private Token retype(final Token t, final TokenType newType) {
         return new Token(newType, t.text, t.braceDepth, t.parenDepth, t.name);
     }
 
@@ -676,16 +677,16 @@ public class TokenizerCore {
         return !"java".equals(language);
     }
 
-    private boolean isIdentifierStart(char c) {
+    private boolean isIdentifierStart(final char c) {
         return Character.isLetter(c) || c == '_' || c == '$';
     }
 
-    private boolean isIdentifierPart(char c) {
+    private boolean isIdentifierPart(final char c) {
         return Character.isLetterOrDigit(c) || c == '_' || c == '$';
     }
 
-    private char peek(int offset) {
-        int p = pos + offset;
+    private char peek(final int offset) {
+        final int p = pos + offset;
         return p < length ? source.charAt(p) : '\0';
     }
 }

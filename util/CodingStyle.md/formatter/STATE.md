@@ -227,11 +227,6 @@ re-open them.
       brace-style pass touches these methods, same re-tokenize-between-passes precedent used
       throughout `BlockStructureRule`/`SwitchRule`
 
-### Fallthrough (STYLE.md §13)
-- [x] Mark explicitly (`/* FALL-THROUGH */`), same indentation level as the next case
-- [x] Inline switches: `:` aligned same as other inline case labels
-- [x] Non-inline switches: no space before `:`
-
 ---
 
 ## Config Keys and Defaults

@@ -147,6 +147,7 @@ re-open them.
 | §13 nested switch processing order | A nested `switch` inside an outer `case`'s body cannot be fixed by computing one shared `overrides` map across all switches found in a single token-list pass: each switch's body/tail delta-shift is computed from the *original* unshifted token text, so an outer switch's body-shift and an inner switch's own case-shift independently overwrite the same `overrides` map entries for lines inside the inner switch, instead of composing. `SwitchRule.formatNonInlineSwitches` instead loops: each iteration finds all switches, picks the smallest-span (innermost) one that still `needsWork` (`pickInnermostNeedingWork`/`needsWork` — span size is a reliable depth proxy since a nested switch's `[openBrace,closeBrace)` is always strictly contained in its enclosing switch's), fixes only that one switch, renders, and **re-tokenizes** before the next iteration (same re-tokenize-between-passes precedent as §11/§12). Fixing innermost-first means an enclosing switch's later uniform body-shift carries the already-correct nested switch along with it without disturbing its internal correctness. Verified idempotent and correct (byte-exact expected indentation) for a 2-level nested switch via smoke test |
 | §13 inline switch row classification | STYLE.md's worked example mixes a call-shaped row (`doA()`) and a non-call assignment row (`x = funcMath(z) + 10`) in the *same* aligned group, so "structurally similar" is read per-row (is this one case's body a recognizable single statement?), not as a whole-group shape requirement. `SwitchRule.classify` recognizes a case body as alignable only if it is empty (fallthrough), exactly `break;`, or exactly one top-level-`;`-terminated statement optionally followed by `break;` and nothing else; if ANY case in the switch fails this (multiple statements, a brace-wrapped body, a trailing comment), the entire switch is left byte-for-byte untouched — same conservative all-or-nothing posture as the rest of this rule, since STYLE.md gives no worked example for those shapes. A call-shaped statement (`name(args);`, single IDENTIFIER immediately followed by a matching `(...)` with nothing else before the `;`) gets bonus name/`(`/args/`)` sub-column alignment via a nested `ColumnGrid`; everything else contributes its literal statement text as one opaque cell, still aligned against the call-shaped rows' assembled width via the outer `ColumnGrid`. The label cell always carries one baked-in trailing space before grid padding, since `ColumnGrid` only pads cells shorter than the column's widest entry — without it, the single widest label would render with no gap before its `:`. A bare `break;` with no preceding statement (`hasContent=false`, `hasBreak=true`) must still flow through the content+terminator columns (not the label-only branch), otherwise the break is silently dropped — caught via smoke test and fixed |
 | §13 fallthrough marking | `SwitchRule.markFallthrough` only marks a case whose body is completely empty (no real content) and which is not the switch's last case (nothing to fall through into); it inserts `/* FALL-THROUGH */` directly after the case's `:` token, so it works unchanged for both non-inline (no space before `:`) and inline (handled by a later `alignInlineSwitches` pass) switches. Idempotency and "don't clobber an unrelated comment" both reuse the single `findFallthroughMarker` helper (also used by `classify`), which returns -1 for "no comment", an index for "exactly our own marker" (safe to recognize/regenerate), or -2 for "some other comment is present" (bail, leave that case alone) — `markFallthrough` skips already-marked or unrelated-commented cases via the same -1/-2 contract. This also fixed a latent bug: any comment inside a case body would previously have been silently dropped by `classify`'s literal-slice reconstruction; now any non-marker comment forces the whole switch to be left untouched. Verified via smoke test: matches STYLE.md's exact marked+aligned worked example, idempotent on a second pass, and correctly does not mark an empty last case |
+| §14 getter/setter group detection | Asked the user since STYLE.md/STYLE_JAVA.md never define what makes a contiguous run of one-liner methods count as one "logical group", nor a numeric meaning for "significantly longer". Resolved, three answers: (1) Grouping signal — any maximal run of 2+ textually adjacent single-statement one-liner methods counts as a group, regardless of which field(s) they touch or whether they mix getter/setter/checker shapes; broken by a blank line, a comment, or any non-one-liner member in between. The author's choice to write them adjacently is treated as the grouping signal (no field-matching or marker-comment requirement). (2) Minimum size — 2; a run of length 1 is left standalone/Allman, never treated as a one-member "group". (3) Outlier exclusion — a member is excluded from a group's alignment if its body width is more than 2x the next-widest *remaining* member's body width, applied iteratively (exclude, recompute the remaining widths, re-check) so that removing one outlier can correctly reveal and exclude another; an excluded member renders standalone/Allman like a non-grouped one-liner, and a group that drops to 1 member after exclusion stops being a group |
 
 ---
 
@@ -192,32 +193,25 @@ re-open them.
 > existing rule classes' shape (constructor takes `language`; public entry-point method(s)
 > taking `List<Token>` and returning the rendered `String`; reuse `ColumnGrid` for column
 > alignment, same as `DeclarationAlignmentRule`/`SwitchRule`'s inline-case alignment).
-> Implement and checkpoint-commit one section below at a time.
->
-> **Open design question to resolve with the user before/while implementing** (genuine
-> ambiguity, not a guessable detail): STYLE.md §14 says short getter/setter/checker methods
-> "may be written inline as an aligned group" but never defines what makes a contiguous run
-> of one-liner methods count as one "logical group" — e.g. must they be textually adjacent
-> with no blank line or other member between them? Is a minimum group size of 2 required?
-> Does mixing a getter and a setter for different fields still count as one group, or only
-> get/set/is-pairs for the *same* field? STYLE_JAVA.md §3's "one-liner methods follow the
-> group rule ... when they appear as part of an aligned group" implies grouping is something
-> the *author* has already chosen (by writing them inline/adjacently) rather than something
-> this rule should detect/impose by itself — but that reading should be confirmed, not
-> assumed, given this project's "ask, don't guess" protocol for ambiguous STYLE.md rules.
+> Implement and checkpoint-commit one section below at a time. The three design questions
+> that were open here have been resolved with the user — see the "§14 getter/setter group
+> detection" row in the Resolved Design Decisions table above for the full rationale.
 
 ### Column alignment (STYLE.md §14, STYLE_JAVA.md §5)
-- [ ] Resolve the open design question above (what counts as a "group") via `AskUserQuestion`
-- [ ] For an already-identified group of one-line methods, align (left-to-right): access
-      modifier (Java only) → return type → method name → `(` → parameters → `)` → `{` →
-      body → `}` — each column padded to its group's widest entry (worked examples in both
-      STYLE.md §14 and STYLE_JAVA.md §5 show empty parameter lists padded with spaces to
-      match the widest signature, e.g. `getX   (     )` lining up with `setX   (int x)`)
-- [ ] If one group member's body is "significantly longer than the rest", exclude that one
-      method from the group (render it normally/standalone) rather than letting it distort
-      the others' alignment — STYLE.md §14 does not define "significantly longer"
-      numerically; likely needs the same ask-don't-guess treatment as the group-detection
-      question above, unless a simple proportional/absolute-length heuristic is agreed first
+- [ ] Detect groups: a maximal run of 2+ textually adjacent single-statement one-liner
+      methods (any field, any mix of getter/setter/checker), broken by a blank line, a
+      comment, or any non-one-liner member; a lone one-liner (run length 1) is left
+      standalone/Allman, not treated as a one-member group
+- [ ] For each detected group, align (left-to-right): access modifier (Java only) → return
+      type → method name → `(` → parameters → `)` → `{` → body → `}` — each column padded
+      to its group's widest entry (worked examples in both STYLE.md §14 and STYLE_JAVA.md §5
+      show empty parameter lists padded with spaces to match the widest signature, e.g.
+      `getX   (     )` lining up with `setX   (int x)`)
+- [ ] Outlier exclusion: within a group, exclude a member from alignment if its body width is
+      more than 2x the next-widest remaining member's body width; apply iteratively (exclude,
+      recompute widths among what's left, re-check) since removing one outlier can reveal
+      another. An excluded member renders standalone/Allman, same as a non-grouped one-liner.
+      A group that drops to 1 remaining member after exclusion is no longer a group at all.
 - [ ] The closing `}` of every group member must align in the same column (this is really
       the last step of the single left-to-right alignment pass above, called out separately
       in STYLE.md §14's bullet list — confirm it falls out for free rather than needing a

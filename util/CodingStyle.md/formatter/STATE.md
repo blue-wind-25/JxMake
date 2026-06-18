@@ -135,6 +135,7 @@ re-open them.
 | Declaration-statement detection | No AST is available, so a statement (tokens up to a top-level `;`, within a single already-extracted scope slice) is recognized as a variable/field declaration only if: (1) zero or more leading KEYWORD tokens are recognized modifiers — reused directly from `ModifierPriority.isModifier(...)` so the modifier set has one owner, not a duplicated list; (2) the remaining tokens up to the name are non-empty and, if the first one is a KEYWORD, it must be in a small per-language positive list of type-introducing keywords (`void/char/int/.../struct/enum/union` for C, `+bool/auto/class/wchar_t/...` for C++, Java primitives for Java) — this rejects `return x;`, `throw e;`, `assert ready;`, `break label;`, etc., which would otherwise match the same `KEYWORD IDENTIFIER ;` shape; (3) the token immediately before any trailing `[size]` groups / `= init` / `;` is exactly one IDENTIFIER (the name) — this rejects function prototypes/definitions (`void foo();`) and call statements (`doSomething(x);`), both of which end in `)`, not an identifier. A same-line trailing `//` or `/* */` comment is reattached to the statement that precedes it (it would otherwise become the next statement's leading token). Anything that doesn't match this shape is left untouched and breaks the current alignment group, same as a blank line |
 | Column grid rendering | `ModifierPriority` gained a `columnCount()` helper (max rank + 1) so `DeclarationAlignmentRule.render(group)` knows how many fixed modifier columns the language model has. Per group, a column (each modifier rank, and the C/C++ post-pointer `const` column) is only emitted if at least one declaration in that group actually uses it — an all-unmodified group renders with zero leading padding rather than dead blank columns. The `[name][size]` and trailing `;` are concatenated into one tight cell (no AST exists to model them separately, and STYLE.md's worked example shows them touching, e.g. `buffer[64];`); the optional `= init` is appended before the `;` with plain `" = "` spacing — aligning the `=` column itself is STYLE.md §6 (Assignment alignment), out of scope here since no §5 worked example includes an initializer. The trailing comment is added as an extra cell only on rows that have one, which combined with `ColumnGrid`'s existing "pad only if not last in row" rule reproduces per-row raggedness for free. A generic `renderTokens`/`needsSpaceBetween` token-joiner (no AST) handles tight-attachment punctuation: no space before/after `*`, `&`, `::`, generics `< >`, and no space before `,`/`[`/`]` or after `[` — verified to reproduce STYLE.md §5's full C and Java worked examples byte-for-byte at the time this was written (before `reorderStatics` was wired in; see the next row) |
 | Static reorder vs. STYLE.md §5's worked example | STYLE.md's worked C and Java examples place a non-static (`flags`) between two statics (`timeout` and `name`) with no dependency, which directly contradicts the same section's rule text ("static declarations come first in a group"). Asked the user, who chose to trust the rule text: the formatter reorders statics to the front of each group (preserving relative order within the statics block and within the leftover non-statics block), so running the formatter on input matching that exact worked example no longer reproduces it byte-for-byte — it moves `name` ahead of `flags`/`label`. The worked example is treated as an alignment-format illustration only, not a reorder demonstration. `reorderStatics(group)`: walks the group once, holding non-statics in a `pending` buffer; on each static, if any pending declaration's name is referenced in that static's `sizeTokens`/`initTokens`, flush all of `pending` (in order) before placing the static (keeps the whole accumulated dependency run immediately before it, per STYLE.md's "if reordering safety is unclear, preserve relative order"); otherwise the static is placed immediately and `pending` stays held for a possible later flush. Remaining `pending` is flushed at the end. `render()` now calls `reorderStatics` before building the grid |
+| C/C++ bitfield column (`STYLE_C_CPP.md` §6) | Measured STYLE_C_CPP.md §6's worked example character-by-character: the `:` is aligned only against other bitfield names in the same group (`bitfieldNameWidth` = max name length among declarations that have a bitfield width), not against the full group's name+size column — e.g. `reserved`(8) sets the colon column even though `buffer[64]`/`label[MAX]` are longer. Non-bitfield rows in the same group are unaffected by `bitfieldNameWidth` and keep the existing tight `name[size];` cell. Implementation: `parseDeclaration` scans for a top-level `:` OP token before checking for `=`; if found, delegates to `parseBitfield`, which takes everything before the name as `typeTokens`, the IDENTIFIER immediately before `:` as `name`, and everything after `:` (rendered via the existing `renderTokens`) as the new `Declaration.bitfieldWidth` field (empty list when not a bitfield). `render()` computes `bitfieldNameWidth` once per group (max name length over declarations with a non-empty `bitfieldWidth`) and passes it into `renderNameCell`, which branches: bitfield rows render `name` padded to `bitfieldNameWidth` + `" : "` + width + `;`; non-bitfield rows are unchanged. No `ColumnGrid` changes were needed — the trailing comment column's alignment falls out for free from `ColumnGrid`'s existing per-column max-width-except-ragged-last-cell behavior once the name cell's content is fixed. Verified byte-for-byte against STYLE_C_CPP.md §6's full worked example (`buffer`/`timeout`/`flags : 4`/`mode : 2`/`reserved : 2`/`label` all in one group) |
 
 ---
 
@@ -160,7 +161,7 @@ re-open them.
 | `CppModifierPriority.java` | COMPLETE |
 | `JavaModifierPriority.java` | COMPLETE |
 | `ComplexityPaddingEvaluator.java` | COMPLETE |
-| `DeclarationAlignmentRule.java` | IN PROGRESS |
+| `DeclarationAlignmentRule.java` | COMPLETE |
 | `BlockStructureRule.java` | NOT STARTED |
 | `SwitchRule.java` | NOT STARTED |
 | `GetterSetterRule.java` | NOT STARTED |
@@ -171,41 +172,46 @@ re-open them.
 
 ---
 
-## Current File: `DeclarationAlignmentRule.java` — IN PROGRESS
+## Current File: `BlockStructureRule.java` — NOT STARTED
 
 > Replace this checklist when this file reaches COMPLETE.
-> Implements STYLE.md §5 and STYLE_C_CPP.md §4/§6, using `ColumnGrid`,
-> `ModifierPriority` (Cpp/Java), and `ComplexityPaddingEvaluator` is NOT needed here
-> (that's §3.1, a different rule). Implement and checkpoint-commit one section below
-> at a time.
+> Implements STYLE.md §7, §10, §11, §12 — closing comments, single-expression block
+> brace omission, K&R brace style for non-function blocks, and `else`/`else if`
+> placement. Function-definition brace style (Allman) and §13 `switch` formatting are
+> out of scope here (the latter is `SwitchRule.java`). Implement and
+> checkpoint-commit one section below at a time.
 
-### Declaration grouping
-- [x] Identify a "declaration group": consecutive variable/field declaration
-      statements with no intervening blank line; a blank line resets alignment to a
-      new group (STYLE.md §5)
+### Single-expression blocks (STYLE.md §10)
+- [ ] Omit `{}` when the controlled body of `if`/`while`/`for` is a single statement
+      (`if(x) return y;`, `if(x) continue;`, `if(x) break;`)
 
-### Column grid (modifiers / type / pointer-const / name / size / comment)
-- [x] Build one row per declaration: `[modifier columns...] [type] [* / const
-      (C/C++)] [name] [[size]] [comment]` using `ColumnGrid`
-- [x] Order modifiers within a declaration using `ModifierPriority` (Cpp or Java
-      subclass, selected by language) before placing them into grid columns
-- [x] C/C++ pointer/const placement per STYLE_C_CPP.md §4: `*` attaches to type;
-      `const` before `*` attaches to type; `const` after `*` stays in place
-      (`uint8_t* const p`); pointer-to-const-pointer (`uint8_t* const* pp`)
-- [x] Comment (`//` or `/* */`) aligned in its own trailing column, after the name
-      and array size
+### Non-function block brace style (STYLE.md §11)
+- [ ] K&R style for `if`/`else`/`else if`/`for`/`while`/`do`/`switch`/`try`/`catch`/
+      `finally` and class/interface/enum body braces: opening `{` stays on the same
+      line as the keyword/declaration
+- [ ] Leave function-definition brace style (Allman) untouched here — that's handled
+      elsewhere (Tier 1, language-specific files)
 
-### Static reorder safety (STYLE.md §5)
-- [x] Within a group, `static` declarations move first, EXCEPT a non-static
-      size/value dependency stays immediately before the `static` that uses it
-- [x] Dependency-safety scan: before moving a `static` declaration earlier, scan the
-      token stream between its old and new position for any reference to its name (or
-      names it depends on); if reordering safety is unclear, preserve relative order
+### `else` / `else if` placement (STYLE.md §12)
+- [ ] `else`/`else if` on its own line directly after the preceding block's `}`
+- [ ] Preserve (don't mechanically add/remove) an optional blank line between `}` and
+      `else`/`else if` when the preceding branch exits unconditionally
+      (`return`/`break`/`continue`) — context-driven, not automatic
 
-### C/C++ bitfields (STYLE_C_CPP.md §6)
-- [ ] `:` bitfield-width column aligned after the field name
-- [ ] Comment column aligned after name / array size / bitfield width, consistent
-      with the non-bitfield case
+### Closing comments on blocks (STYLE.md §7)
+- [ ] Brace counter + name stack: push a name on `class`/`struct`/`enum`/
+      `enum class`/`namespace`/`interface { ... }` and on named control-flow blocks
+      (`for`, `while`, `if`, `switch`); pop on the matching `}`
+- [ ] Add `// block-name` after `}` when block content exceeds the configurable
+      `closing-comment-min-lines` threshold (default 5); named constructs always get
+      a closing comment regardless of length
+- [ ] Include the key variable in the comment when multiple control-flow blocks of
+      the same kind are nested simultaneously (`// for i`, `// while running`)
+- [ ] Named constructs always get a blank line after `{` and before `}` regardless of
+      content length; control-flow blocks preserve existing blank lines as-is (do not
+      add/remove) — blank lines count toward the closing-comment threshold
+- [ ] Never add closing comments on `case` labels, naked compound `{ ... }` blocks, or
+      `else`/`else if` (unless the branch is long *and* contains deeply nested `if`s)
 
 ---
 

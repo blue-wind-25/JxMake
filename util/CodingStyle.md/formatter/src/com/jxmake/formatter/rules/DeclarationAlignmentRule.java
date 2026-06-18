@@ -64,17 +64,20 @@ public class DeclarationAlignmentRule {
         public final Token name;
         public final List<Token> sizeTokens;
         public final List<Token> initTokens;
+        public final List<Token> bitfieldWidth; // empty if not a bitfield
         public final Token trailingComment; // nullable
         public final boolean blankLineBefore;
 
         Declaration(final List<Token> modifiers, final List<Token> typeTokens, final Token name,
                 final List<Token> sizeTokens, final List<Token> initTokens,
-                final Token trailingComment, final boolean blankLineBefore) {
+                final List<Token> bitfieldWidth, final Token trailingComment,
+                final boolean blankLineBefore) {
             this.modifiers = modifiers;
             this.typeTokens = typeTokens;
             this.name = name;
             this.sizeTokens = sizeTokens;
             this.initTokens = initTokens;
+            this.bitfieldWidth = bitfieldWidth;
             this.trailingComment = trailingComment;
             this.blankLineBefore = blankLineBefore;
         }
@@ -179,7 +182,8 @@ public class DeclarationAlignmentRule {
      * Renders one declaration group into aligned source lines (STYLE.md §5,
      * STYLE_C_CPP.md §4): fixed modifier columns (only those actually used
      * anywhere in the group), the type (with C/C++ pointer attached), an
-     * optional post-pointer `const` column, the name+size+`;`, and an optional
+     * optional post-pointer `const` column, the name+size+`;` (or, for C/C++
+     * bitfields, the name+`:`+width+`;` per STYLE_C_CPP.md §6), and an optional
      * trailing comment column. Columns unused by the whole group are omitted
      * rather than rendered as dead padding. Statics are reordered first
      * (see `reorderStatics`).
@@ -190,9 +194,13 @@ public class DeclarationAlignmentRule {
         final int modifierColumns = modifierPriority.columnCount();
         final boolean[] modifierActive = new boolean[modifierColumns];
         boolean postConstActive = false;
+        int bitfieldNameWidth = 0;
 
         final List<TypeSplit> splits = new ArrayList<>(group.size());
         for (final Declaration d : group) {
+            if (!d.bitfieldWidth.isEmpty()) {
+                bitfieldNameWidth = Math.max(bitfieldNameWidth, d.name.text.length());
+            }
             for (final Token m : d.modifiers) {
                 final int rank = modifierPriority.priorityOf(m.text);
                 if (rank >= 0) {
@@ -235,7 +243,7 @@ public class DeclarationAlignmentRule {
                 }
             }
 
-            cells.add(renderNameCell(d));
+            cells.add(renderNameCell(d, bitfieldNameWidth));
 
             if (d.trailingComment != null) {
                 cells.add(d.trailingComment.text);
@@ -251,8 +259,25 @@ public class DeclarationAlignmentRule {
         return lines;
     }
 
-    private String renderNameCell(final Declaration d) {
+    /**
+     * Renders the name+size+`;` (or, for a bitfield, name+`:`+width+`;`) cell.
+     * Per STYLE_C_CPP.md §6, the bitfield name is padded only against other
+     * bitfield names in the same group (`bitfieldNameWidth`), not against
+     * unrelated declarations' names+sizes in the same group -- the trailing
+     * comment column then falls out of ColumnGrid's normal per-column
+     * max-width padding once this cell's content is fixed.
+     */
+    private String renderNameCell(final Declaration d, final int bitfieldNameWidth) {
         final StringBuilder sb = new StringBuilder();
+        if (!d.bitfieldWidth.isEmpty()) {
+            sb.append(d.name.text);
+            for (int pad = d.name.text.length(); pad < bitfieldNameWidth; pad++) {
+                sb.append(' ');
+            }
+            sb.append(" : ").append(renderTokens(d.bitfieldWidth));
+            sb.append(";");
+            return sb.toString();
+        }
         sb.append(d.name.text);
         sb.append(renderTokens(d.sizeTokens));
         if (!d.initTokens.isEmpty()) {
@@ -406,6 +431,17 @@ public class DeclarationAlignmentRule {
             return null;
         }
 
+        int colonIdx = -1;
+        for (int j = i; j < body.size(); j++) {
+            if (isOp(body.get(j), ":")) {
+                colonIdx = j;
+                break;
+            }
+        }
+        if (colonIdx >= 0) {
+            return parseBitfield(modifiers, body, i, colonIdx, trailingComment, blankBefore);
+        }
+
         int eqIdx = -1;
         for (int j = i; j < body.size(); j++) {
             if (isOp(body.get(j), "=")) {
@@ -464,7 +500,34 @@ public class DeclarationAlignmentRule {
         }
 
         return new Declaration(modifiers, typeTokens, name, sizeTokens, initTokens,
-                trailingComment, blankBefore);
+                new ArrayList<Token>(), trailingComment, blankBefore);
+    }
+
+    /** Parses the `Type name : width` shape of a C/C++ bitfield (STYLE_C_CPP.md §6). */
+    private Declaration parseBitfield(final List<Token> modifiers, final List<Token> body,
+            final int typeStart, final int colonIdx, final Token trailingComment,
+            final boolean blankBefore) {
+        if (colonIdx <= typeStart) {
+            return null;
+        }
+        final Token name = body.get(colonIdx - 1);
+        if (name.type != TokenType.IDENTIFIER) {
+            return null;
+        }
+        final List<Token> typeTokens = new ArrayList<>(body.subList(typeStart, colonIdx - 1));
+        if (typeTokens.isEmpty()) {
+            return null;
+        }
+        final Token firstType = typeTokens.get(0);
+        if (firstType.type == TokenType.KEYWORD && !typeKeywords.contains(firstType.text)) {
+            return null;
+        }
+        final List<Token> widthTokens = new ArrayList<>(body.subList(colonIdx + 1, body.size()));
+        if (widthTokens.isEmpty()) {
+            return null;
+        }
+        return new Declaration(modifiers, typeTokens, name, new ArrayList<Token>(),
+                new ArrayList<Token>(), widthTokens, trailingComment, blankBefore);
     }
 
     private Token findTrailingComment(final List<Token> stmt) {

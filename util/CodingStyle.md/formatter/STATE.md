@@ -183,31 +183,55 @@ re-open them.
 
 ---
 
-## Current File: `SwitchRule.java` — COMPLETE (all sections below done; next session: replace this with `GetterSetterRule.java`'s checklist per the note below)
+## Current File: `GetterSetterRule.java` — NOT STARTED
 
 > Replace this checklist when this file reaches COMPLETE.
-> Implements STYLE.md §13 — `switch` formatting. `BlockStructureRule.java` is COMPLETE
-> (§7 closing comments, §10 single-expression blocks, §11 K&R brace style, §12
-> `else`/`else if` placement); a non-inline `switch`'s overall `// switch <var>` closing
-> comment is already handled by `BlockStructureRule.addClosingComments`/`classifyBrace`
-> (Kind.SWITCH path, see the Resolved Design Decisions rows above) — no separate
-> implementation of that part is needed here. Implement and checkpoint-commit one
-> section below at a time.
+> Implements STYLE.md §14 (Getter/Setter/Checker Group Alignment) and its Java extension
+> in STYLE_JAVA.md §5. `SwitchRule.java` is now COMPLETE (§13, all three sections).
+> `GetterSetterRule.java` does not exist yet — create it from scratch, following the
+> existing rule classes' shape (constructor takes `language`; public entry-point method(s)
+> taking `List<Token>` and returning the rendered `String`; reuse `ColumnGrid` for column
+> alignment, same as `DeclarationAlignmentRule`/`SwitchRule`'s inline-case alignment).
+> Implement and checkpoint-commit one section below at a time.
+>
+> **Open design question to resolve with the user before/while implementing** (genuine
+> ambiguity, not a guessable detail): STYLE.md §14 says short getter/setter/checker methods
+> "may be written inline as an aligned group" but never defines what makes a contiguous run
+> of one-liner methods count as one "logical group" — e.g. must they be textually adjacent
+> with no blank line or other member between them? Is a minimum group size of 2 required?
+> Does mixing a getter and a setter for different fields still count as one group, or only
+> get/set/is-pairs for the *same* field? STYLE_JAVA.md §3's "one-liner methods follow the
+> group rule ... when they appear as part of an aligned group" implies grouping is something
+> the *author* has already chosen (by writing them inline/adjacently) rather than something
+> this rule should detect/impose by itself — but that reading should be confirmed, not
+> assumed, given this project's "ask, don't guess" protocol for ambiguous STYLE.md rules.
 
-### Non-inline switch (STYLE.md §13) — any case has a multi-line body
-- [x] Blank line after the switch's opening `{`, after each `break;` (between cases),
-      and before the switch's closing `}`
-- [x] Case body indented two levels inside the `case` label (one for the `case`'s own
-      `{` block, one for the body inside it); the body's own `}` and the trailing
-      `break;` share the intermediate (one-level) indentation
+### Column alignment (STYLE.md §14, STYLE_JAVA.md §5)
+- [ ] Resolve the open design question above (what counts as a "group") via `AskUserQuestion`
+- [ ] For an already-identified group of one-line methods, align (left-to-right): access
+      modifier (Java only) → return type → method name → `(` → parameters → `)` → `{` →
+      body → `}` — each column padded to its group's widest entry (worked examples in both
+      STYLE.md §14 and STYLE_JAVA.md §5 show empty parameter lists padded with spaces to
+      match the widest signature, e.g. `getX   (     )` lining up with `setX   (int x)`)
+- [ ] If one group member's body is "significantly longer than the rest", exclude that one
+      method from the group (render it normally/standalone) rather than letting it distort
+      the others' alignment — STYLE.md §14 does not define "significantly longer"
+      numerically; likely needs the same ask-don't-guess treatment as the group-detection
+      question above, unless a simple proportional/absolute-length heuristic is agreed first
+- [ ] The closing `}` of every group member must align in the same column (this is really
+      the last step of the single left-to-right alignment pass above, called out separately
+      in STYLE.md §14's bullet list — confirm it falls out for free rather than needing a
+      second pass)
 
-### Inline switch (STYLE.md §13) — every case fits on one line
-- [x] No blank lines between cases — preserve any already present in the original,
-      don't mechanically add/remove (same judgment-call posture as §12's blank line
-      between `}` and `else`)
-- [x] When cases are structurally similar (all function calls, or all assignments),
-      align via `ColumnGrid`: `case` label padded so `:` is at the same column, then
-      function-name column, `(` column, `)` column, `;` column, `break;` column
+### Standalone one-liners (STYLE_JAVA.md §3, cross-referenced from §5)
+- [ ] A one-liner method that is NOT part of a group keeps normal Allman brace style
+      (`{` on its own line) — i.e. this rule must only act on methods already identified as
+      group members; it must never collapse an unrelated standalone one-liner onto one line
+- [ ] Confirm interaction with `BlockStructureRule`'s already-COMPLETE K&R/Allman brace
+      enforcement (§11) — that rule must not fight this one over a group member's brace
+      placement; likely resolved by running `GetterSetterRule` and re-tokenizing before any
+      brace-style pass touches these methods, same re-tokenize-between-passes precedent used
+      throughout `BlockStructureRule`/`SwitchRule`
 
 ### Fallthrough (STYLE.md §13)
 - [x] Mark explicitly (`/* FALL-THROUGH */`), same indentation level as the next case

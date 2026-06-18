@@ -432,4 +432,65 @@ public class BlockStructureRule {
     private boolean isPunct(final Token t, final String text) {
         return t.type == TokenType.PUNCT && text.equals(t.text);
     }
+
+    // ── `else` / `else if` placement (STYLE.md §12) ─────────────────────────────
+    /**
+     * Scans a token slice and ensures every `else`/`else if` that directly follows a block's
+     * closing `}` starts on its own line, inserting a newline (plus the `}`'s own indentation,
+     * so `else` lines up under it) when the two currently share a line. A gap that already
+     * contains a newline -- including a deliberate blank line -- is left exactly as-is: STYLE.md
+     * §12 treats that blank line as an optional, context-driven separator (e.g. the preceding
+     * branch exits unconditionally) that this method must never add or remove on its own. A
+     * comment sitting in the gap blocks the rewrite, since relocating it unambiguously is out of
+     * scope. An `else` not directly preceded by a `}` -- e.g. the previous branch was itself a
+     * brace-less single-statement body per §10 -- is left untouched; §12 only specifies
+     * placement relative to a preceding block's closing brace.
+     */
+    public String placeElseOnOwnLine(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        final int n = tokens.size();
+        int lastSigIdx = -1;
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
+                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lastSigIdx >= 0
+                    && isPunct(tokens.get(lastSigIdx), "}")
+                    && gap.stream().noneMatch(this::isComment)
+                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
+                out.append('\n').append(indentBefore(tokens, lastSigIdx));
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+            out.append(t.text);
+            lastSigIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on its line. */
+    private String indentBefore(final List<Token> tokens, final int idx) {
+        final StringBuilder indent = new StringBuilder();
+        int i = idx - 1;
+        while (i >= 0 && tokens.get(i).type == TokenType.WHITESPACE) {
+            indent.insert(0, tokens.get(i).text);
+            i--;
+        }
+        return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
+    }
 }

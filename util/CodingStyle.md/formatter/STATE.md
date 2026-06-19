@@ -23,6 +23,8 @@ asks. All decisions relevant to implementation are already recorded in the
 history and future planning only — it is large and contains nothing the implementer
 needs that is not already summarized here.
 
+**ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
+
 ### During implementation
 - Implement one checklist section at a time
 - After completing a section (or when the cumulative diff across all changed files

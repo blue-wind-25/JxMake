@@ -7,12 +7,14 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.grid.JavaModifierPriority;
 import com.jxmake.formatter.grid.ModifierPriority;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -94,6 +96,130 @@ public class GetterSetterRule {
             groups.add(current);
         }
         return groups;
+    }
+
+    // ── Outlier exclusion ───────────────────────────────────────────────────────
+    private static final int OUTLIER_RATIO = 2;
+
+    /**
+     * Excludes outliers from a candidate group: a member is excluded if its body width is more
+     * than {@code OUTLIER_RATIO}x the next-widest *remaining* member's body width, applied
+     * iteratively (exclude, recompute among what's left, re-check) so that removing one outlier
+     * can reveal another (STYLE.md §14). An excluded member is left out of the result entirely --
+     * the caller leaves it untouched, same as a non-grouped one-liner. If fewer than 2 members
+     * remain after exclusion, the whole group is no longer a group at all, and an empty list is
+     * returned -- the caller must then leave every original member of this run untouched too.
+     */
+    public List<Member> excludeOutliers(final List<Token> tokens, final List<Member> group) {
+        final List<Member> remaining = new ArrayList<>(group);
+        while (remaining.size() >= 2) {
+            int maxWidth = -1;
+            int secondWidth = -1;
+            int maxIdx = -1;
+            for (int i = 0; i < remaining.size(); i++) {
+                final int w = bodyWidth(tokens, remaining.get(i));
+                if (w > maxWidth) {
+                    secondWidth = maxWidth;
+                    maxWidth = w;
+                    maxIdx = i;
+                } else if (w > secondWidth) {
+                    secondWidth = w;
+                }
+            }
+            if (maxWidth > secondWidth * OUTLIER_RATIO) {
+                remaining.remove(maxIdx);
+            } else {
+                break;
+            }
+        }
+        return remaining.size() >= 2 ? remaining : new ArrayList<Member>();
+    }
+
+    private int bodyWidth(final List<Token> tokens, final Member m) {
+        return cellText(tokens, m.bodyFrom, m.bodyTo).length();
+    }
+
+    // ── Column grid rendering ───────────────────────────────────────────────────
+    /**
+     * Renders one aligned group (already passed through `excludeOutliers`) into source lines
+     * (STYLE.md §14, STYLE_JAVA.md §5): fixed modifier columns (Java only -- only those actually
+     * used anywhere in the group), the return type, a `name(params)` cell (name and params each
+     * padded to the group's widest via a nested {@link ColumnGrid}, same precedent as
+     * `SwitchRule.applyInlineAlignment`'s call-shaped case rows), `{`, the body, and `}`, plus an
+     * optional trailing comment column. The closing `}` column falls out for free since it is just
+     * another fixed cell in this same single left-to-right grid pass -- no second pass is needed.
+     */
+    public List<String> render(final List<Token> tokens, final List<Member> group) {
+        final int modifierColumns = isJava ? modifierPriority.columnCount() : 0;
+        final boolean[] modifierActive = new boolean[modifierColumns];
+        for (final Member m : group) {
+            for (final Token mod : m.modifiers) {
+                final int rank = modifierPriority.priorityOf(mod.text);
+                if (rank >= 0) {
+                    modifierActive[rank] = true;
+                }
+            }
+        }
+
+        final ColumnGrid callGrid = new ColumnGrid();
+        for (final Member m : group) {
+            // Trailing "" keeps params from being the last cell, so ColumnGrid's ragged-row
+            // rule doesn't skip padding it when params is empty (e.g. "getX()").
+            callGrid.addRow(new String[] {cellText(tokens, m.nameIdx, m.nameIdx + 1),
+                    cellText(tokens, m.paramsFrom, m.paramsTo), ""});
+        }
+        final List<String[]> callPadded = callGrid.flush();
+
+        final ColumnGrid grid = new ColumnGrid();
+        for (int idx = 0; idx < group.size(); idx++) {
+            final Member m = group.get(idx);
+            final List<String> cells = new ArrayList<>();
+
+            if (isJava) {
+                final String[] modCells = new String[modifierColumns];
+                Arrays.fill(modCells, "");
+                for (final Token mod : m.modifiers) {
+                    final int rank = modifierPriority.priorityOf(mod.text);
+                    if (rank >= 0) {
+                        modCells[rank] = mod.text;
+                    }
+                }
+                for (int r = 0; r < modifierColumns; r++) {
+                    if (modifierActive[r]) {
+                        cells.add(modCells[r]);
+                    }
+                }
+            }
+
+            cells.add(cellText(tokens, m.returnTypeFrom, m.returnTypeTo));
+
+            final String[] call = callPadded.get(idx);
+            cells.add(call[0] + "(" + call[1] + ")");
+
+            cells.add("{");
+            cells.add(cellText(tokens, m.bodyFrom, m.bodyTo));
+            cells.add("}");
+
+            if (m.trailingComment != null) {
+                cells.add(m.trailingComment.text);
+            }
+
+            grid.addRow(cells.toArray(new String[0]));
+        }
+
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(String.join(" ", row));
+        }
+        return lines;
+    }
+
+    private String cellText(final List<Token> tokens, final int from, final int to) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = from; i < to; i++) {
+            sb.append(tokens.get(i).text);
+        }
+        return sb.toString();
     }
 
     /**

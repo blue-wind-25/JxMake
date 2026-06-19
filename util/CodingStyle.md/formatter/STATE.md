@@ -151,6 +151,7 @@ re-open them.
 | §13 nested switch processing order | A nested `switch` inside an outer `case`'s body cannot be fixed by computing one shared `overrides` map across all switches found in a single token-list pass: each switch's body/tail delta-shift is computed from the *original* unshifted token text, so an outer switch's body-shift and an inner switch's own case-shift independently overwrite the same `overrides` map entries for lines inside the inner switch, instead of composing. `SwitchRule.formatNonInlineSwitches` instead loops: each iteration finds all switches, picks the smallest-span (innermost) one that still `needsWork` (`pickInnermostNeedingWork`/`needsWork` — span size is a reliable depth proxy since a nested switch's `[openBrace,closeBrace)` is always strictly contained in its enclosing switch's), fixes only that one switch, renders, and **re-tokenizes** before the next iteration (same re-tokenize-between-passes precedent as §11/§12). Fixing innermost-first means an enclosing switch's later uniform body-shift carries the already-correct nested switch along with it without disturbing its internal correctness. Verified idempotent and correct (byte-exact expected indentation) for a 2-level nested switch via smoke test |
 | §13 inline switch row classification | STYLE.md's worked example mixes a call-shaped row (`doA()`) and a non-call assignment row (`x = funcMath(z) + 10`) in the *same* aligned group, so "structurally similar" is read per-row (is this one case's body a recognizable single statement?), not as a whole-group shape requirement. `SwitchRule.classify` recognizes a case body as alignable only if it is empty (fallthrough), exactly `break;`, or exactly one top-level-`;`-terminated statement optionally followed by `break;` and nothing else; if ANY case in the switch fails this (multiple statements, a brace-wrapped body, a trailing comment), the entire switch is left byte-for-byte untouched — same conservative all-or-nothing posture as the rest of this rule, since STYLE.md gives no worked example for those shapes. A call-shaped statement (`name(args);`, single IDENTIFIER immediately followed by a matching `(...)` with nothing else before the `;`) gets bonus name/`(`/args/`)` sub-column alignment via a nested `ColumnGrid`; everything else contributes its literal statement text as one opaque cell, still aligned against the call-shaped rows' assembled width via the outer `ColumnGrid`. The label cell always carries one baked-in trailing space before grid padding, since `ColumnGrid` only pads cells shorter than the column's widest entry — without it, the single widest label would render with no gap before its `:`. A bare `break;` with no preceding statement (`hasContent=false`, `hasBreak=true`) must still flow through the content+terminator columns (not the label-only branch), otherwise the break is silently dropped — caught via smoke test and fixed |
 | §13 fallthrough marking | `SwitchRule.markFallthrough` only marks a case whose body is completely empty (no real content) and which is not the switch's last case (nothing to fall through into); it inserts `/* FALL-THROUGH */` directly after the case's `:` token, so it works unchanged for both non-inline (no space before `:`) and inline (handled by a later `alignInlineSwitches` pass) switches. Idempotency and "don't clobber an unrelated comment" both reuse the single `findFallthroughMarker` helper (also used by `classify`), which returns -1 for "no comment", an index for "exactly our own marker" (safe to recognize/regenerate), or -2 for "some other comment is present" (bail, leave that case alone) — `markFallthrough` skips already-marked or unrelated-commented cases via the same -1/-2 contract. This also fixed a latent bug: any comment inside a case body would previously have been silently dropped by `classify`'s literal-slice reconstruction; now any non-marker comment forces the whole switch to be left untouched. Verified via smoke test: matches STYLE.md's exact marked+aligned worked example, idempotent on a second pass, and correctly does not mark an empty last case |
+| §14 getter/setter rendering | `GetterSetterRule.render` reproduces STYLE.md §14's/STYLE_JAVA.md §5's worked examples via one outer `ColumnGrid` pass with cells `[modifier-columns(Java only)..., returnType, name(params), "{", body, "}", trailingComment?]` joined with `" "` -- verified byte-for-byte that this single-space-join + per-column padRight reproduces the doc's worked spacing exactly, including the closing `}` column, which needs no separate pass since it's just another fixed cell. The `name(params)` cell is built from a *nested* `ColumnGrid` over `[name, params, ""]` rows (trailing `""` to dodge the ragged-last-cell skip when params is empty), the same precedent as `SwitchRule.applyInlineAlignment`'s call-shaped case rows. Return type, params, and body text are taken as literal verbatim slices of the original tokens (`cellText` -- raw concatenation, not `renderTokens`-style re-spacing), since these are pre-existing single-line source the rule must not re-space, only pad/align as whole cells. Modifier columns reuse `JavaModifierPriority`/`ModifierPriority.columnCount()` exactly as `DeclarationAlignmentRule` does (only active columns emitted); C/C++ has no modifier column per STATE.md's explicit "Java only," so any leading C/C++ keyword (e.g. `static`) is simply left as part of the literal `returnType` cell text, not parsed into a separate field. Outlier exclusion (`excludeOutliers`) compares `cellText` length of the body slice, removing the current widest while it exceeds `2x` the *current* next-widest among what remains, iterating since removing one outlier can reveal another; if the result drops below 2 members the whole list is discarded (empty result) signaling "not a group," consistent with `groupOneLiners` never emitting size-1 runs. Verified against STYLE.md §14's and STYLE_JAVA.md §5's worked 3-method examples byte-for-byte (Java with `public` modifier column, C++ with no modifier column), plus an outlier-exclusion case and a lone-one-liner (size-1 run, never grouped) case, via a throwaway smoke harness (not committed) |
 | §14 getter/setter group detection | Asked the user since STYLE.md/STYLE_JAVA.md never define what makes a contiguous run of one-liner methods count as one "logical group", nor a numeric meaning for "significantly longer". Resolved, three answers: (1) Grouping signal — any maximal run of 2+ textually adjacent single-statement one-liner methods counts as a group, regardless of which field(s) they touch or whether they mix getter/setter/checker shapes; broken by a blank line, a comment, or any non-one-liner member in between. The author's choice to write them adjacently is treated as the grouping signal (no field-matching or marker-comment requirement). (2) Minimum size — 2; a run of length 1 is left standalone/Allman, never treated as a one-member "group". (3) Outlier exclusion — a member is excluded from a group's alignment if its body width is more than 2x the next-widest *remaining* member's body width, applied iteratively (exclude, recompute the remaining widths, re-check) so that removing one outlier can correctly reveal and exclude another; an excluded member renders standalone/Allman like a non-grouped one-liner, and a group that drops to 1 member after exclusion stops being a group |
 
 ---
@@ -180,7 +181,7 @@ re-open them.
 | `DeclarationAlignmentRule.java` | COMPLETE |
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
-| `GetterSetterRule.java` | NOT STARTED |
+| `GetterSetterRule.java` | COMPLETE |
 | `MiscRule.java` | NOT STARTED |
 | `CppSpecificRule.java` | NOT STARTED |
 | `JavaSpecificRule.java` | NOT STARTED |
@@ -188,44 +189,46 @@ re-open them.
 
 ---
 
-## Current File: `GetterSetterRule.java` — NOT STARTED
+## Current File: `GetterSetterRule.java` — COMPLETE
 
-> Replace this checklist when this file reaches COMPLETE.
-> Implements STYLE.md §14 (Getter/Setter/Checker Group Alignment) and its Java extension
-> in STYLE_JAVA.md §5. `SwitchRule.java` is now COMPLETE (§13, all three sections).
-> `GetterSetterRule.java` does not exist yet — create it from scratch, following the
-> existing rule classes' shape (constructor takes `language`; public entry-point method(s)
-> taking `List<Token>` and returning the rendered `String`; reuse `ColumnGrid` for column
-> alignment, same as `DeclarationAlignmentRule`/`SwitchRule`'s inline-case alignment).
-> Implement and checkpoint-commit one section below at a time. The three design questions
-> that were open here have been resolved with the user — see the "§14 getter/setter group
-> detection" row in the Resolved Design Decisions table above for the full rationale.
+> `GetterSetterRule.java` is now COMPLETE (both checklist sections below, fully checked off).
+> Next file per File Status is `MiscRule.java` — NOT STARTED. Unlike every other rule file,
+> `MiscRule.java` has no pre-seeded checklist of STYLE.md sections/order in this file (it is
+> meant to bundle the smaller remaining generic STYLE.md sections not owned by another rule
+> class -- candidates: §1 Indentation, §2 Line Length, §3.2 Keyword spacing, §3.3 `{}`
+> initializer spacing, §4 Pre/Post Increment, §6 Assignment Alignment, §8 Function Signatures,
+> §9 Blank Line Before `return`, §15 Comment Style -- see the "Rule engine grouping" Open
+> Question above re: possibly splitting into `WhitespaceRule`/`BraceStyleRule`). Per the
+> Instructions for Claude CLI above ("If anything in this file is ambiguous, stop and ask
+> before writing any code"), do not invent this file's checklist unilaterally -- ask the user
+> which sections/order to seed it with, then write the checklist into this section before
+> starting implementation.
 
 ### Column alignment (STYLE.md §14, STYLE_JAVA.md §5)
 - [x] Detect groups: a maximal run of 2+ textually adjacent single-statement one-liner
       methods (any field, any mix of getter/setter/checker), broken by a blank line, a
       comment, or any non-one-liner member; a lone one-liner (run length 1) is left
       standalone/Allman, not treated as a one-member group
-- [ ] For each detected group, align (left-to-right): access modifier (Java only) → return
+- [x] For each detected group, align (left-to-right): access modifier (Java only) → return
       type → method name → `(` → parameters → `)` → `{` → body → `}` — each column padded
       to its group's widest entry (worked examples in both STYLE.md §14 and STYLE_JAVA.md §5
       show empty parameter lists padded with spaces to match the widest signature, e.g.
       `getX   (     )` lining up with `setX   (int x)`)
-- [ ] Outlier exclusion: within a group, exclude a member from alignment if its body width is
+- [x] Outlier exclusion: within a group, exclude a member from alignment if its body width is
       more than 2x the next-widest remaining member's body width; apply iteratively (exclude,
       recompute widths among what's left, re-check) since removing one outlier can reveal
       another. An excluded member renders standalone/Allman, same as a non-grouped one-liner.
       A group that drops to 1 remaining member after exclusion is no longer a group at all.
-- [ ] The closing `}` of every group member must align in the same column (this is really
+- [x] The closing `}` of every group member must align in the same column (this is really
       the last step of the single left-to-right alignment pass above, called out separately
       in STYLE.md §14's bullet list — confirm it falls out for free rather than needing a
       second pass)
 
 ### Standalone one-liners (STYLE_JAVA.md §3, cross-referenced from §5)
-- [ ] A one-liner method that is NOT part of a group keeps normal Allman brace style
+- [x] A one-liner method that is NOT part of a group keeps normal Allman brace style
       (`{` on its own line) — i.e. this rule must only act on methods already identified as
       group members; it must never collapse an unrelated standalone one-liner onto one line
-- [ ] Confirm interaction with `BlockStructureRule`'s already-COMPLETE K&R/Allman brace
+- [x] Confirm interaction with `BlockStructureRule`'s already-COMPLETE K&R/Allman brace
       enforcement (§11) — that rule must not fight this one over a group member's brace
       placement; likely resolved by running `GetterSetterRule` and re-tokenizing before any
       brace-style pass touches these methods, same re-tokenize-between-passes precedent used

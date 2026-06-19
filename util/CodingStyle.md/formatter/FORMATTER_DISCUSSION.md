@@ -103,9 +103,11 @@ Handle locally, deterministically:
 - **§14 Getter/setter group alignment** — column grid, exclude outliers by
   line-length check (> 100 chars when inline → exclude)
 
-### Tier 3 — AI-assisted
+### Tier 3 — AI-assisted (deferred — not implemented in the JAR)
 
-**Nothing.** All rules are covered by Tier 1 and Tier 2.
+The JAR implements only Tier 1 and Tier 2. Tier 3 rules exist but are deliberately
+out of scope for the deterministic formatter. See the **Future: AI-Assisted Formatting**
+section below for the design and rationale.
 
 ---
 
@@ -414,6 +416,74 @@ fmt-check:
 
 ---
 
+## Future: AI-Assisted Formatting (NOT implemented in the JAR)
+
+> **This section is for future reference only. Do not implement any of this in the
+> current JAR.** The JAR is a deterministic, zero-AI tool. Everything here belongs
+> to a separate tool or a future extension pass.
+
+### Why some rules cannot be deterministic
+
+A small class of formatting decisions requires judgment that no token-level rule can
+supply correctly across all code conventions:
+
+- **Function call line-breaking** — whether a multi-line call should be collapsed
+  (it fits in 100 chars) or split further (one argument per line for clarity) depends
+  on what the arguments *mean*, not on their length. The formatter cannot know if the
+  author broke the call intentionally for readability or accidentally because it was
+  long at the time.
+- **Getter/setter group boundaries with non-standard naming** — standard prefixes
+  (`get`, `set`, `is`, `has`, `not`) are recognizable, but projects use arbitrary
+  conventions (`abc()` / `abc(val)`, `xxxHasFeature()`, `notWriteable()`, etc.). Any
+  naming-aware grouping heuristic will be wrong for some project. The current rule
+  (blank line = group break, comment = group break) is the only safe deterministic
+  choice.
+- **Comment placement and blank line intent** — a missing blank line before a comment
+  may be a formatting oversight or intentional. The formatter cannot distinguish the two.
+
+The common thread: these are cases where the author's *intent* is the input, and intent
+is not recoverable from tokens alone.
+
+### SPECIAL_STYLE.md (future)
+
+Rules that require AI assistance will live in `SPECIAL_STYLE.md`, separate from
+`STYLE.md` / `STYLE_C_CPP.md` / `STYLE_JAVA.md`. The boundary is intentional and
+document-level:
+
+- `STYLE.md` and language extensions → mechanical, implemented in the JAR
+- `SPECIAL_STYLE.md` → judgment-call rules, implemented via AI pass only
+
+This keeps the JAR's rule set provably complete and its behavior fully predictable.
+
+### AI extension design (future)
+
+When implemented, the AI pass should be a separate tool or an opt-in flag, not part
+of the default JAR invocation. Suggested config hook (not currently in `Config.java`):
+
+```properties
+# Future — not implemented
+ai-assist   = off                        # off | local | remote
+ai-endpoint = http://localhost:11434     # any OpenAI-compatible endpoint (Ollama, etc.)
+ai-model    = llama3
+```
+
+Using a generic OpenAI-compatible endpoint means the extension works with Ollama
+locally, a self-hosted server, or a remote API without changing the formatter code.
+
+The AI pass operates at **finer granularity** than `reformat_chunks.py` (which sends
+500-line file chunks). For function call line-breaking, the natural unit is a single
+call expression. The AI receives the expression, the surrounding context (a few lines),
+the relevant `SPECIAL_STYLE.md` rules, and the current line-length budget, and returns
+the preferred form.
+
+### Current workaround
+
+For one-off style migration of files with many judgment-call decisions, use
+`reformat_chunks.py` with the Anthropic API. It is already the recommended path for
+files over 500 lines and handles the same class of problem, at coarser granularity.
+
+---
+
 ## Key Decisions
 
 | Decision | Choice | Reason |
@@ -437,8 +507,13 @@ fmt-check:
 | Java import groups | static / java / org / com / local, 1 blank line | Conventional Java ordering |
 | Java local detection | Top-N components of own `package` declaration | No filesystem walk needed |
 | SBC component | Dropped | Was solving a problem that no longer exists |
-| AI provider rotation | Dropped | No Tier 3 rules remain |
-| Ollama | Dropped | §3.1 solved by recursive descent |
+| AI provider rotation | Dropped | No Tier 3 rules in the JAR |
+| Ollama | Dropped (for now) | §3.1 solved by recursive descent; future AI pass uses OpenAI-compatible endpoint |
 | tree-sitter | Dropped | Tokenizer sufficient |
 | Eclipse JDT | Dropped | AST not needed |
 | mDNS discovery | Dropped | Localhost only, lockfile sufficient |
+| Getter/setter group detection | Adjacent one-liners, broken by blank line or comment | Naming conventions are unbounded; author proximity is the only safe signal |
+| Non-standard getter/setter naming | No special handling | `abc()`/`abc(val)`, `xxxHasFeature()`, etc. are all handled by the same adjacent-run rule; no naming-aware heuristic added |
+| Line rejoining (under 100 chars) | Not implemented | 100-char limit is a split trigger only, not a join trigger; intent of manual breaks is unknowable |
+| Function call line-breaking decisions | Deferred to AI pass / `SPECIAL_STYLE.md` | Requires understanding argument meaning, not just token shape; wrong policy in either direction hurts readability |
+| AI extension | Deferred, OpenAI-compatible endpoint | Separate tool / opt-in flag; not part of default JAR; finer granularity than `reformat_chunks.py` |

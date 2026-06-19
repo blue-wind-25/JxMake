@@ -202,7 +202,7 @@ re-open them.
 > detection" row in the Resolved Design Decisions table above for the full rationale.
 
 ### Column alignment (STYLE.md §14, STYLE_JAVA.md §5)
-- [ ] Detect groups: a maximal run of 2+ textually adjacent single-statement one-liner
+- [x] Detect groups: a maximal run of 2+ textually adjacent single-statement one-liner
       methods (any field, any mix of getter/setter/checker), broken by a blank line, a
       comment, or any non-one-liner member; a lone one-liner (run length 1) is left
       standalone/Allman, not treated as a one-member group

@@ -102,7 +102,7 @@ server-port                = 17173
 # ── Behavior ──────────────────────────────────────────────────────────────────
 closing-comment-min-lines  = 5
 format-macros              = off             # off | on
-line-endings               = lf             # lf | crlf | preserve
+line-endings               = lf              # lf | crlf | preserve
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 include-sort               = off             # off | on
@@ -165,7 +165,12 @@ Python script `reformat_chunks.py` uses the Anthropic API to apply the style gui
 via Claude. This is complementary to the JAR formatter — the JAR is the day-to-day
 tool; the Python script is for bulk migration.
 
-See [`../README.txt`](../README.txt) for usage.
+The JAR is intentionally deterministic and AI-free. A small class of judgment-call
+formatting decisions (function call line-breaking, non-standard getter/setter grouping)
+cannot be implemented deterministically and are deferred to a future `SPECIAL_STYLE.md`
++ AI extension pass. See `FORMATTER_DISCUSSION.md` for the design.
+
+See [`../README.txt`](../README.txt) for `reformat_chunks.py` usage.
 
 ---
 

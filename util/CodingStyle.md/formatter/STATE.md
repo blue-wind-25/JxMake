@@ -17,6 +17,12 @@
 3. Check the **Current File** checklist for unchecked items — that is where to resume
 4. If anything in this file is ambiguous, stop and ask before writing any code
 
+**Do NOT read `FORMATTER_DISCUSSION.md` or `README.md`** unless the user explicitly
+asks. All decisions relevant to implementation are already recorded in the
+**Resolved Design Decisions** table in this file. `FORMATTER_DISCUSSION.md` is design
+history and future planning only — it is large and contains nothing the implementer
+needs that is not already summarized here.
+
 ### During implementation
 - Implement one checklist section at a time
 - After completing a section (or when the cumulative diff across all changed files

@@ -85,6 +85,7 @@ util/CodingStyle.md/formatter/
       Main.java
       Config.java
       ServerMode.java
+      IndentationDetector.java  ← whole-project dominant-indent-style walker (for `indent-style = keep`)
       tokenizer/
         TokenizerCore.java
       grid/
@@ -156,6 +157,9 @@ re-open them.
 | §3.2 keyword spacing | `MiscRule.enforceKeywordSpacing` does a single forward gap-buffering pass over the whole token list (same technique as `BlockStructureRule`'s brace-style passes): whitespace/newline/comment tokens accumulate in a `gap` buffer; on reaching a `(` PUNCT token, the gap is collapsed to zero width only if the immediately preceding significant token is a KEYWORD in the fixed `TIGHT_PAREN_KEYWORDS` set (`if`/`while`/`for`/`switch`, exactly STYLE.md §3.2's four) AND the gap contains no comment/newline token; otherwise the gap is emitted verbatim. `(...)`-interior padding (§3.1) is explicitly out of scope for this method, per the checklist note. Verified via a throwaway smoke harness (not committed): collapses `if (x)`/`while   (x)`/`for (...)`/`switch (x)` to tight form, leaves `catch (...)` (not one of the four keywords) and an identifier named `iffy` untouched, and leaves both a comment-in-gap (`if /* c */ (x)`) and a newline-in-gap (`if\n(x)`) case completely unrewritten |
 | §3.3 initializer brace spacing | `MiscRule.enforceInitializerBraceSpacing` tracks a `Deque<Boolean>` (`initStack`) of one entry per currently-open `{`, classifying each as initializer or not when pushed: `isInit` iff the immediately preceding significant token is `=`, or is `{`/`,` while the (still-open) enclosing frame on top of the stack is itself `true` -- exactly the structural signal the checklist proposed. Confirmed against `BlockStructureRule.qualifiesForKAndR` (reviewed, not modified) that an initializer brace's preceding token (`=`/`{`/`,`) never satisfies that method's K&R/lambda criteria, so the two rules never classify the same brace. Rendering is a single forward gap-buffering pass: the gap immediately after an initializer-open `{` and immediately before its matching initializer-close `}` are independently collapsed to exactly one space, unless that side's own gap contains a comment/`NEWLINE` (blocks only that side, not the whole pair) or unless the open and close are directly adjacent (`lastSignificant=="{"` and current token is `}`), which collapses to zero width (empty-braces case) regardless of either side's normal rule. Verified via a throwaway smoke harness (not committed): STYLE.md §3.3's single-level, nested, and empty worked examples byte-for-byte; `{  }` (whitespace-only) also collapses to `{}`; control-flow (`if(x) {...}`) and class-body (`class Foo {...}`) braces are left completely untouched; a comment just inside the open brace blocks only that side while the close side still gets padded independently; a multi-line initializer (`NEWLINE` in the gap) is left untouched on the blocked side |
 | §4 pre-increment rewrite | `MiscRule.enforcePreIncrement` collects a `Map<Integer,Integer>` of `identIdx -> opIdx` spans to swap, from two independent finders, then renders by walking the token list once and substituting `op.text + ident.text` (tight, no gap) wherever a span starts, jumping straight to `opIdx + 1` (discarding the original gap between identifier and operator -- regenerated tight, consistent with `DeclarationAlignmentRule`'s "restructured content is regenerated, not preserved verbatim" precedent, since this rewrite reorders tokens rather than just padding an existing shape). Finder 1 (`collectBareStatementSpans`): a global paren/bracket-depth counter (incremented/decremented on any `(`/`[`/`)`/`]`, regardless of nesting construct) excludes any candidate inside an unclosed call/index/for-header; at depth 0, an IDENTIFIER immediately preceded by a statement boundary (`;`, `{`, `}`, or start-of-scope) and immediately followed by `++`/`--` then `;` qualifies. A brace-less single-statement control-flow body (`if(x) i++;`, preceded by `)` rather than a boundary token) is a documented, deliberate gap -- recognizing arbitrary statement-start positions without an AST was judged out of scope of STYLE.md's own "i++; at statement level" framing, not guessed at. Finder 2 (`collectForIncrementSpans`): locates each `for` keyword's matching parens (`matchParenForward`, local depth counting) and the two top-level `;` inside (local depth-0 scan, same precedent as `BlockStructureRule.extractForVariable`'s clause-splitting); the third clause is added as a span only when it is exactly one IDENTIFIER followed by `++`/`--` and nothing else (`afterOp == closeParen`) -- a comma-separated multi-increment clause or any other shape is left untouched. Both finders require zero comment/`NEWLINE` tokens between the identifier and operator (`noBlockerBetween`) before adding a span. Verified via a throwaway smoke harness (not committed): bare `i++;`/`i--;` at statement level (including directly after `{`), `for(...; ...; i++)` rewritten to `++i`, all value-used exclusions (`arr[i++]`, `return i--`, `x = i++`, `foo(i++)`), a multi-increment for-clause left untouched, the documented brace-less-if-body gap left untouched, and a comment between identifier and operator blocking the rewrite |
+| §1 indentation scope | Asked the user since STYLE.md's "match the project / majority of files" rule is inherently a multi-file decision a single-file token rule cannot make alone. Resolved: three `indent-style` modes, not two. `spaces`/`tabs` are simple, single-file mechanical conversions implemented directly in `MiscRule.java`. `keep` requires a new dedicated file-walking/detection class (name TBD, not yet created -- explicitly NOT `Main.java`/`Config.java` directly, "so not to clutter Main/Config" per the user) that scans the whole project once, determines the dominant existing style, and calls into `MiscRule.java`'s plain converter with that already-resolved choice -- `MiscRule.java` itself never has to interpret "keep". `Config Keys and Defaults`' `indent-style` updated to `spaces \| tabs \| keep`. The new detector class is added to `Project Layout`/`File Status` as `NOT STARTED`; its exact design (e.g. caching, what counts as "majority") is deferred until `Main.java`/`Config.java` orchestration work begins, not blocking `MiscRule.java`'s own `spaces`/`tabs` conversion work now |
+| §6 grouping and rendering | Asked the user for an operational definition of "semantically related" grouping. Resolved: same textually-adjacent-run grouping signal as §14 (any maximal run of assignment statements -- any compound-assignment operator counts as one, regardless of which variable(s) are involved -- broken by a blank line, a comment, or a non-assignment statement). Separately, hand-verified against STYLE.md §6's worked example (`flags = 0x01;` / `flags \|= 0x02;` / `flags &= ~0x04;` / `flags >>= 2;` / `timeout = 100;`, all one group despite two different variable names, confirming the textually-adjacent-run signal is right even across variables) that the rendering is NOT a single `ColumnGrid` left-pad column on the concatenated "name+operator" text -- character-offset analysis shows the `=` of every row lands on the same column only when name and operator-prefix are padded as two *separately* fixed-width fields: `padRight(name, maxNameLen) + padLeft(operatorPrefix, maxPrefixLen) + "=" + " " + value + ";"`, where `operatorPrefix` is the operator's text minus its trailing `=` (empty for plain `=`). `ColumnGrid`'s existing contract is left-justify-only, so this rule renders manually rather than extending `ColumnGrid` with a right-justify mode for one rule's one column. A lone ungrouped variable needs no special case -- with group size 1, both maxes simply equal that row's own widths |
+| §15 comment scope and sentence detection | Asked the user two scope questions, then re-checked against STYLE.md §15's actual current text (which is richer than the checklist's original framing) and corrected accordingly. Resolved (1): the capitalize/no-trailing-period rule applies to every `//` comment this pass sees -- but STYLE.md's pre-existing "labels, closing comments, and markers are not sentences" exemption (`// for i`, `// class Foo`, `/* FALL-THROUGH */`) is kept exactly as written there, achieved via **pipeline ordering**, not an in-rule heuristic: this §15 pass must run before `BlockStructureRule`'s §7 closing-comment-insertion pass and `SwitchRule`'s §13 fallthrough-marking pass in `Main.java`'s eventual orchestration, so label/marker comments simply don't exist in the token stream yet when this pass runs -- nothing to detect or exempt. Recorded as a hard constraint for whoever wires up `Main.java`'s pass order. Resolved (2), refined by the user beyond the original yes/no framing: period-stripping specifically (not capitalization, which always applies) depends on sentence count -- a comment is single-sentence (period stripped) iff the only `.` in its text is its own last non-whitespace character; if a `.` appears anywhere earlier followed by more text, the comment has 2+ sentences and its trailing period is left untouched. (`// Increment index.` → strip; `// Increment index. This index is incremented for XXX.` → leave both periods). `...`/ellipsis is still never touched, per the original checklist note; this whole branch is defensive handling of already-existing non-compliant `//` comments, since STYLE.md's own prescriptive guidance is to write multi-sentence content as a `/* */` block in the first place. Resolved (3): `COMMENT_BLOCK` (`/* ... */`) is in scope for the same capitalize/sentence-aware-period rule, plus a structural precondition the user added: a block comment that already spans multiple lines must have its `/*` and `*/` forced onto their own lines (moved if not already there), matching the shape of STYLE.md's own multi-sentence worked example. Asked a follow-up on how far that structural rule reaches: resolved that only already-multi-line block comments get this banner treatment -- a short single-line `/* note */` (including inline/trailing ones) is left alone, never force-exploded into a 3-line banner, since that would be a large structural change with no STYLE.md worked example to justify it. Resolved (4), newly discovered while re-reading STYLE.md §15 (this rule was entirely missing from the original checklist): STYLE.md also documents a **separator alignment** rule -- when inline trailing `//` comments across an aligned group share a separator character (`—`, `:`, etc.), that separator is aligned across the group by padding the label text before it, per STYLE.md's `int[] x`/`xy`/`z` worked example. Added as a new checklist item; its exact grouping-detection mechanics (reuse §5/§6 groups vs. compute independently) are deferred until that item is implemented. Evaluated whether any of this needed to be written into `STYLE.md` itself (per the user's "add them to STYLE.md too if you think it is necessary, otherwise commit" instruction) and concluded no: the label exemption and separator-alignment rule are already fully documented in STYLE.md (only this checklist was stale/incomplete relative to it), and the pipeline-ordering mechanism plus the §6 rendering algorithm are pure implementation detail, consistent with the §14 precedent of keeping such algorithms out of STYLE.md |
 
 ---
 
@@ -175,6 +179,7 @@ re-open them.
 | `Main.java` | NOT STARTED |
 | `Config.java` | NOT STARTED |
 | `ServerMode.java` | NOT STARTED |
+| `IndentationDetector.java` | NOT STARTED |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
 | `ModifierPriority.java` | COMPLETE |
@@ -244,14 +249,14 @@ re-open them.
 - [ ] 4 spaces per indent level -- for any reformatting this rule or others perform that need to
       *generate* new indentation (e.g. wrapped function signatures in §8), use 4 spaces, tab
       display size 4
-- [ ] Existing indentation in untouched code must never be converted (tabs↔spaces) by this rule
-      in isolation -- STYLE.md's "match the project / majority of files" detection is inherently
-      a multi-file, whole-project decision, not something a single-file token-level rule can
-      determine on its own. Decide and record here whether (a) this is out of scope for
-      `MiscRule.java` entirely and belongs in `Main.java`/`Config.java`'s file-walking
-      orchestration instead, or (b) `MiscRule.java` exposes a pure function that Main.java calls
-      with an externally-supplied "dominant style" parameter -- do not silently guess once this
-      section is reached; ask if unclear
+- [ ] `indent-style = spaces | tabs`: a simple, single-file mechanical conversion of every
+      indentation whitespace run to the specified style -- implement directly in `MiscRule.java`
+      (or a small helper it owns), no project-wide context needed for these two modes
+- [ ] `indent-style = keep` (resolved -- see Resolved Design Decisions: "§1 indentation scope"):
+      requires a new dedicated file-walking/detection class (not yet created, not
+      `Main.java`/`Config.java` directly) that scans the whole project once to determine the
+      dominant existing style, then calls into `MiscRule.java`'s plain spaces/tabs converter with
+      that resolved choice -- `MiscRule.java` itself never has to interpret "keep"
 
 ### §2 Line Length
 - [ ] Confirm scope: STYLE.md §2 states a 100-char soft limit and explicitly defers the only
@@ -263,15 +268,21 @@ re-open them.
       additional line-breaking behavior beyond §8's explicit scope
 
 ### §6 Assignment and Compound Operator Alignment
-- [ ] Detect alignment groups of assignment statements (`=`, `|=`, `&=`, `>>=`, etc. -- any
-      compound-assignment operator) -- "semantically related" grouping per STYLE.md §6 has no
-      mechanical definition given; likely resolve the same way §14's grouping signal was
-      resolved (ask the user for a concrete operational definition before implementing, rather
-      than guessing what "semantically related" means)
-- [ ] Column-align the operator (`=`, `|=`, etc.) across one group via `ColumnGrid`, mirroring
-      `DeclarationAlignmentRule`'s architecture
-- [ ] A lone variable with no group neighbors aligns trivially with itself (i.e. is simply
-      rendered as-is, no padding needed since there's nothing to align against)
+(resolved -- see Resolved Design Decisions: "§6 grouping and rendering")
+- [ ] Detect alignment groups: any maximal run of textually-adjacent assignment statements
+      (`=`, `|=`, `&=`, `>>=`, etc. -- any compound-assignment operator counts), regardless of
+      which variable(s) are involved -- same grouping signal as §14, broken by a blank line, a
+      comment, or a non-assignment statement
+- [ ] Render via two independently-computed fixed widths per group (NOT a single `ColumnGrid`
+      left-pad column -- verified by hand against STYLE.md §6's worked example that this does not
+      reproduce it): `maxNameLen` = max target-name length in the group; `maxPrefixLen` = max
+      length of (operator text minus its trailing `=`) in the group (0 for plain `=`, 1 for
+      `|=`/`&=`/etc., 2 for `>>=`/`<<=`). Each row renders as
+      `padRight(name, maxNameLen) + padLeft(prefix, maxPrefixLen) + "=" + " " + value + ";"` --
+      the `padLeft` on the prefix is what lines up every row's `=` regardless of which operator
+      it uses
+- [ ] A lone variable with no group neighbors aligns trivially with itself -- falls out for free
+      from the same width computation (group of 1 means both maxes equal that row's own widths)
 - [ ] A blank line between groups resets alignment, same precedent as §5
 
 ### §8 Function Signatures
@@ -299,19 +310,41 @@ re-open them.
       least one
 
 ### §15 Comment Style
-- [ ] A single-line (`//`) or inline trailing comment that "forms a sentence" must start with an
-      uppercase letter -- capitalize the first letter of the comment's text if it is currently
-      lowercase and alphabetic; leave non-alphabetic first characters (e.g. a comment starting
-      with a symbol, number, or already-uppercase) untouched
-- [ ] Must NOT end with a period -- strip a single trailing `.` if present (only one; do not
-      touch `...`/ellipsis or any other trailing punctuation like `?`/`!`/`:`)
-- [ ] Confirm scope: does this apply to ALL `//` comments uniformly, or only ones that
-      structurally "form a sentence" (STYLE.md's own qualifier) -- e.g. should a comment that is
-      just a single identifier/label, or a commented-out code line, be exempt? No worked
-      counter-example exists in STYLE.md §15 to settle this -- if it matters once this section is
-      reached, ask rather than guess. `COMMENT_BLOCK` (`/* ... */`) handling is unspecified by
-      §15's own examples (which are all `//`) -- confirm whether block comments are in or out of
-      scope before writing code for them
+(resolved -- see Resolved Design Decisions: "§15 comment scope and sentence detection")
+- [ ] Applies to every `//` comment this pass actually sees. STYLE.md's own "labels, closing
+      comments, and markers are not sentences" exemption (`// for i`, `// class Foo`,
+      `/* FALL-THROUGH */`) is satisfied by **pipeline ordering, not in-rule detection**: this
+      §15 pass must run before `BlockStructureRule.addClosingComments`/
+      `insertNamedConstructBlankLines` (§7) and `SwitchRule.markFallthrough` (§13) in
+      `Main.java`'s eventual pass sequence, so those labels/markers don't exist yet in the token
+      stream when this pass runs and there is nothing to exempt. **Constraint for whoever wires
+      up `Main.java`'s pass order: §15 (`MiscRule`) before §7/§13 (`BlockStructureRule`/
+      `SwitchRule`).** No new "is this a label" heuristic is implemented in `MiscRule.java` itself
+- [ ] Capitalize the first letter if it is currently lowercase and alphabetic; leave
+      non-alphabetic first characters (symbol, number, already-uppercase) untouched -- this
+      applies regardless of single- vs. multi-sentence (see next item)
+- [ ] Strip the trailing `.` only when the comment is a single sentence: i.e. when the only `.`
+      in the comment's text is its own last non-whitespace character. If a `.` appears anywhere
+      else (followed by more text), the comment has 2+ sentences and the trailing period is left
+      untouched (do not strip it). `...`/ellipsis still must never be touched regardless. Exact
+      mechanical detection (e.g. ellipsis disambiguation) is an implementation-time judgment call,
+      not a remaining open question. (STYLE.md's own prescriptive guidance is that multi-sentence
+      content should be written as a `/* */` block comment in the first place -- this branch is
+      defensive handling for already-existing non-compliant `//` comments, not a contradiction of
+      that guidance)
+- [ ] `COMMENT_BLOCK` (`/* ... */`) is in scope, with the same capitalize/single-sentence-period
+      rule as `//`, PLUS a structural precondition: only a block comment that already spans
+      multiple lines gets its `/*` and `*/` forced onto their own lines (moved there if not
+      already) -- matching the shape STYLE.md's own multi-sentence worked example already shows.
+      A short single-line `/* note */` (including inline/trailing ones) is left completely alone
+      -- never force-exploded into a 3-line banner
+- [ ] **Separator alignment** (new item -- STYLE.md §15 has this rule with its own worked example;
+      it was missing from this checklist entirely): when inline trailing `//` comments across an
+      aligned group (e.g. a declaration-alignment or assignment-alignment group from §5/§6) all
+      use the same separator character (`—`, `:`, etc.), align that separator column across the
+      group by padding the label text before it -- mirrors the `int[] x` / `xy` / `z` worked
+      example. Needs its own grouping-detection question (does this reuse §5/§6's groups
+      directly, or compute independently from comment text alone?) when this item is reached
 
 ---
 
@@ -323,7 +356,7 @@ Configurable values with their in-class defaults. All overridable via config fil
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                = 100
 indent-size                = 4
-indent-style               = spaces          # spaces | tabs
+indent-style               = spaces          # spaces | tabs | keep
 server-port                = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────

@@ -189,50 +189,126 @@ re-open them.
 
 ---
 
-## Current File: `GetterSetterRule.java` — COMPLETE
+## Current File: `MiscRule.java` — NOT STARTED
 
-> `GetterSetterRule.java` is now COMPLETE (both checklist sections below, fully checked off).
-> Next file per File Status is `MiscRule.java` — NOT STARTED. Unlike every other rule file,
-> `MiscRule.java` has no pre-seeded checklist of STYLE.md sections/order in this file (it is
-> meant to bundle the smaller remaining generic STYLE.md sections not owned by another rule
-> class -- candidates: §1 Indentation, §2 Line Length, §3.2 Keyword spacing, §3.3 `{}`
-> initializer spacing, §4 Pre/Post Increment, §6 Assignment Alignment, §8 Function Signatures,
-> §9 Blank Line Before `return`, §15 Comment Style -- see the "Rule engine grouping" Open
-> Question above re: possibly splitting into `WhitespaceRule`/`BraceStyleRule`). Per the
-> Instructions for Claude CLI above ("If anything in this file is ambiguous, stop and ask
-> before writing any code"), do not invent this file's checklist unilaterally -- ask the user
-> which sections/order to seed it with, then write the checklist into this section before
-> starting implementation.
+> `GetterSetterRule.java` is COMPLETE. Asked the user how to scope `MiscRule.java` (it had no
+> pre-seeded checklist, unlike every other rule file): resolved as **one file** covering every
+> remaining generic STYLE.md section not owned by another rule class (the "all remaining
+> generic sections" option, not a `WhitespaceRule`/`BraceStyleRule` split and not a smaller
+> subset) -- §1, §2, §3.2, §3.3, §4, §6, §8, §9, §15. `MiscRule.java` does not exist yet --
+> create it from scratch, following the existing rule classes' shape (constructor takes
+> `language`; public entry-point method(s) taking `List<Token>` and returning the rendered
+> `String`; reuse `ColumnGrid` for column alignment where applicable, same as
+> `DeclarationAlignmentRule`). Implement and checkpoint-commit one section below at a time, in
+> the order listed (later sections build on earlier ones: §8's param alignment reuses §6/§5-style
+> column alignment; §9's blank-line insertion reuses the gap-buffering technique from
+> `BlockStructureRule`).
 
-### Column alignment (STYLE.md §14, STYLE_JAVA.md §5)
-- [x] Detect groups: a maximal run of 2+ textually adjacent single-statement one-liner
-      methods (any field, any mix of getter/setter/checker), broken by a blank line, a
-      comment, or any non-one-liner member; a lone one-liner (run length 1) is left
-      standalone/Allman, not treated as a one-member group
-- [x] For each detected group, align (left-to-right): access modifier (Java only) → return
-      type → method name → `(` → parameters → `)` → `{` → body → `}` — each column padded
-      to its group's widest entry (worked examples in both STYLE.md §14 and STYLE_JAVA.md §5
-      show empty parameter lists padded with spaces to match the widest signature, e.g.
-      `getX   (     )` lining up with `setX   (int x)`)
-- [x] Outlier exclusion: within a group, exclude a member from alignment if its body width is
-      more than 2x the next-widest remaining member's body width; apply iteratively (exclude,
-      recompute widths among what's left, re-check) since removing one outlier can reveal
-      another. An excluded member renders standalone/Allman, same as a non-grouped one-liner.
-      A group that drops to 1 remaining member after exclusion is no longer a group at all.
-- [x] The closing `}` of every group member must align in the same column (this is really
-      the last step of the single left-to-right alignment pass above, called out separately
-      in STYLE.md §14's bullet list — confirm it falls out for free rather than needing a
-      second pass)
+### §3.2 Keyword spacing
+- [ ] No space between a control-flow keyword (`if`/`while`/`for`/`switch` -- exactly the four
+      keywords in STYLE.md §3.2's code block, no others) and its following `(`: collapse any
+      gap (spaces only -- a comment or a `NEWLINE` in the gap blocks the rewrite, same
+      conservative posture as `BlockStructureRule`'s brace-style passes) down to zero width.
+      This rule only ever removes whitespace; it never decides whether the *contents* of the
+      `(...)` are padded -- that is §3.1, already implemented in `ComplexityPaddingEvaluator`,
+      and wiring it into an actual rewrite pass is a separate, not-yet-assigned piece of work
+      (flag this gap rather than silently expanding scope here)
 
-### Standalone one-liners (STYLE_JAVA.md §3, cross-referenced from §5)
-- [x] A one-liner method that is NOT part of a group keeps normal Allman brace style
-      (`{` on its own line) — i.e. this rule must only act on methods already identified as
-      group members; it must never collapse an unrelated standalone one-liner onto one line
-- [x] Confirm interaction with `BlockStructureRule`'s already-COMPLETE K&R/Allman brace
-      enforcement (§11) — that rule must not fight this one over a group member's brace
-      placement; likely resolved by running `GetterSetterRule` and re-tokenizing before any
-      brace-style pass touches these methods, same re-tokenize-between-passes precedent used
-      throughout `BlockStructureRule`/`SwitchRule`
+### §3.3 `{}` initializer / block spacing
+- [ ] Empty `{}` -- always tight, no padding, regardless of context
+- [ ] Single-level `{ ... }` with content -- pad with one space inside both braces
+- [ ] Nested `{ { ... }, { ... } }` -- pad at every nesting level, not just the outermost
+- [ ] Scope to brace-initializer lists only (array/struct initializers, `= { ... }` contexts) --
+      must not touch a control-flow or function/class body `{ }` (those are §11/§7's domain,
+      already implemented in `BlockStructureRule`); confirm how to distinguish the two
+      structurally (no AST -- likely: an initializer brace's nearest preceding significant
+      token is `=`, or another `{`/`,` while already inside a recognized initializer) before
+      writing code, and if genuinely ambiguous for some shape, stop and ask rather than guess
+
+### §4 Pre/Post Increment and Decrement
+- [ ] Detect `i++`/`i--` (post) used as a bare expression statement (`i++;` at statement level,
+      not embedded in a larger expression) and rewrite to `++i;`/`--i;`
+- [ ] Leave post-increment/decrement untouched when it is NOT a bare statement -- i.e. whenever
+      its value is actually used (`arr[i++]`, `return i--`, `x = i++`, as a function argument,
+      etc.) -- since STYLE.md §4 explicitly carves out "post-increment semantics required by the
+      surrounding expression" as the exception
+- [ ] Confirm `for(...; ...; i++)` loop increment clauses count as "value not used" (the
+      increment's result is discarded either way) and should also be rewritten to `++i` --
+      STYLE.md's own examples are framed as general "prefer pre" with explicit exceptions only
+      for the value-is-used cases, so a `for` increment clause is not an exception
+
+### §1 Indentation
+- [ ] 4 spaces per indent level -- for any reformatting this rule or others perform that need to
+      *generate* new indentation (e.g. wrapped function signatures in §8), use 4 spaces, tab
+      display size 4
+- [ ] Existing indentation in untouched code must never be converted (tabs↔spaces) by this rule
+      in isolation -- STYLE.md's "match the project / majority of files" detection is inherently
+      a multi-file, whole-project decision, not something a single-file token-level rule can
+      determine on its own. Decide and record here whether (a) this is out of scope for
+      `MiscRule.java` entirely and belongs in `Main.java`/`Config.java`'s file-walking
+      orchestration instead, or (b) `MiscRule.java` exposes a pure function that Main.java calls
+      with an externally-supplied "dominant style" parameter -- do not silently guess once this
+      section is reached; ask if unclear
+
+### §2 Line Length
+- [ ] Confirm scope: STYLE.md §2 states a 100-char soft limit and explicitly defers the only
+      described mechanical fix (breaking) to §8 (Function Signatures). There is no other
+      described mechanical rewrite for an over-length line in STYLE.md. Decide here whether
+      `MiscRule.java` needs anything for §2 beyond what §8 already does (e.g. a `--check`-mode
+      warning emission, out of scope for this rule class which only renders text) -- likely a
+      no-op section beyond documenting the line-length constant for §8 to consume; do not invent
+      additional line-breaking behavior beyond §8's explicit scope
+
+### §6 Assignment and Compound Operator Alignment
+- [ ] Detect alignment groups of assignment statements (`=`, `|=`, `&=`, `>>=`, etc. -- any
+      compound-assignment operator) -- "semantically related" grouping per STYLE.md §6 has no
+      mechanical definition given; likely resolve the same way §14's grouping signal was
+      resolved (ask the user for a concrete operational definition before implementing, rather
+      than guessing what "semantically related" means)
+- [ ] Column-align the operator (`=`, `|=`, etc.) across one group via `ColumnGrid`, mirroring
+      `DeclarationAlignmentRule`'s architecture
+- [ ] A lone variable with no group neighbors aligns trivially with itself (i.e. is simply
+      rendered as-is, no padding needed since there's nothing to align against)
+- [ ] A blank line between groups resets alignment, same precedent as §5
+
+### §8 Function Signatures
+- [ ] Inline when the full signature fits within the 100-char soft limit (§2)
+- [ ] Break to one-parameter-per-line when it does not fit, with parameters column-aligned
+      following the same declaration alignment rules as §5 (reuse `DeclarationAlignmentRule`'s
+      column-alignment approach/helpers where practical rather than re-deriving from scratch)
+- [ ] Confirm exact placement of the closing `)` on a broken signature (STYLE.md's own example
+      shows it on its own line, un-indented, matching the function's own indentation level --
+      verify this against the worked example byte-for-byte)
+
+### §9 Blank Line Before `return`
+- [ ] Insert exactly one blank line before a `return` statement when: the enclosing function
+      body is multi-line, AND the `return` sits at function scope (not inside a nested
+      block/if/for/etc. -- i.e. its brace-depth-relative-to-the-function-body is 0)
+- [ ] Do NOT add a blank line before `return` in a one-liner function body (already excluded
+      from this rule's scope since one-liners are GetterSetterRule's domain and never reach
+      this pass with their body intact in expanded multi-line form) or before a single-expression
+      `if(x) return y;` (the `return` there is not at function scope in the relevant sense --
+      it's the single statement of an `if` body, never standing alone on the function's own top
+      level)
+- [ ] Use the same gap-buffering / "blank line already present is left untouched, never removed"
+      precedent as `BlockStructureRule.insertNamedConstructBlankLines` -- this rule only ever
+      adds a missing blank line, never removes or normalizes an existing one beyond ensuring at
+      least one
+
+### §15 Comment Style
+- [ ] A single-line (`//`) or inline trailing comment that "forms a sentence" must start with an
+      uppercase letter -- capitalize the first letter of the comment's text if it is currently
+      lowercase and alphabetic; leave non-alphabetic first characters (e.g. a comment starting
+      with a symbol, number, or already-uppercase) untouched
+- [ ] Must NOT end with a period -- strip a single trailing `.` if present (only one; do not
+      touch `...`/ellipsis or any other trailing punctuation like `?`/`!`/`:`)
+- [ ] Confirm scope: does this apply to ALL `//` comments uniformly, or only ones that
+      structurally "form a sentence" (STYLE.md's own qualifier) -- e.g. should a comment that is
+      just a single identifier/label, or a commented-out code line, be exempt? No worked
+      counter-example exists in STYLE.md §15 to settle this -- if it matters once this section is
+      reached, ask rather than guess. `COMMENT_BLOCK` (`/* ... */`) handling is unspecified by
+      §15's own examples (which are all `//`) -- confirm whether block comments are in or out of
+      scope before writing code for them
 
 ---
 

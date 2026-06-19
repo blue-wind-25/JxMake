@@ -153,6 +153,7 @@ re-open them.
 | §13 fallthrough marking | `SwitchRule.markFallthrough` only marks a case whose body is completely empty (no real content) and which is not the switch's last case (nothing to fall through into); it inserts `/* FALL-THROUGH */` directly after the case's `:` token, so it works unchanged for both non-inline (no space before `:`) and inline (handled by a later `alignInlineSwitches` pass) switches. Idempotency and "don't clobber an unrelated comment" both reuse the single `findFallthroughMarker` helper (also used by `classify`), which returns -1 for "no comment", an index for "exactly our own marker" (safe to recognize/regenerate), or -2 for "some other comment is present" (bail, leave that case alone) — `markFallthrough` skips already-marked or unrelated-commented cases via the same -1/-2 contract. This also fixed a latent bug: any comment inside a case body would previously have been silently dropped by `classify`'s literal-slice reconstruction; now any non-marker comment forces the whole switch to be left untouched. Verified via smoke test: matches STYLE.md's exact marked+aligned worked example, idempotent on a second pass, and correctly does not mark an empty last case |
 | §14 getter/setter rendering | `GetterSetterRule.render` reproduces STYLE.md §14's/STYLE_JAVA.md §5's worked examples via one outer `ColumnGrid` pass with cells `[modifier-columns(Java only)..., returnType, name(params), "{", body, "}", trailingComment?]` joined with `" "` -- verified byte-for-byte that this single-space-join + per-column padRight reproduces the doc's worked spacing exactly, including the closing `}` column, which needs no separate pass since it's just another fixed cell. The `name(params)` cell is built from a *nested* `ColumnGrid` over `[name, params, ""]` rows (trailing `""` to dodge the ragged-last-cell skip when params is empty), the same precedent as `SwitchRule.applyInlineAlignment`'s call-shaped case rows. Return type, params, and body text are taken as literal verbatim slices of the original tokens (`cellText` -- raw concatenation, not `renderTokens`-style re-spacing), since these are pre-existing single-line source the rule must not re-space, only pad/align as whole cells. Modifier columns reuse `JavaModifierPriority`/`ModifierPriority.columnCount()` exactly as `DeclarationAlignmentRule` does (only active columns emitted); C/C++ has no modifier column per STATE.md's explicit "Java only," so any leading C/C++ keyword (e.g. `static`) is simply left as part of the literal `returnType` cell text, not parsed into a separate field. Outlier exclusion (`excludeOutliers`) compares `cellText` length of the body slice, removing the current widest while it exceeds `2x` the *current* next-widest among what remains, iterating since removing one outlier can reveal another; if the result drops below 2 members the whole list is discarded (empty result) signaling "not a group," consistent with `groupOneLiners` never emitting size-1 runs. Verified against STYLE.md §14's and STYLE_JAVA.md §5's worked 3-method examples byte-for-byte (Java with `public` modifier column, C++ with no modifier column), plus an outlier-exclusion case and a lone-one-liner (size-1 run, never grouped) case, via a throwaway smoke harness (not committed) |
 | §14 getter/setter group detection | Asked the user since STYLE.md/STYLE_JAVA.md never define what makes a contiguous run of one-liner methods count as one "logical group", nor a numeric meaning for "significantly longer". Resolved, three answers: (1) Grouping signal — any maximal run of 2+ textually adjacent single-statement one-liner methods counts as a group, regardless of which field(s) they touch or whether they mix getter/setter/checker shapes; broken by a blank line, a comment, or any non-one-liner member in between. The author's choice to write them adjacently is treated as the grouping signal (no field-matching or marker-comment requirement). (2) Minimum size — 2; a run of length 1 is left standalone/Allman, never treated as a one-member "group". (3) Outlier exclusion — a member is excluded from a group's alignment if its body width is more than 2x the next-widest *remaining* member's body width, applied iteratively (exclude, recompute the remaining widths, re-check) so that removing one outlier can correctly reveal and exclude another; an excluded member renders standalone/Allman like a non-grouped one-liner, and a group that drops to 1 member after exclusion stops being a group |
+| §3.2 keyword spacing | `MiscRule.enforceKeywordSpacing` does a single forward gap-buffering pass over the whole token list (same technique as `BlockStructureRule`'s brace-style passes): whitespace/newline/comment tokens accumulate in a `gap` buffer; on reaching a `(` PUNCT token, the gap is collapsed to zero width only if the immediately preceding significant token is a KEYWORD in the fixed `TIGHT_PAREN_KEYWORDS` set (`if`/`while`/`for`/`switch`, exactly STYLE.md §3.2's four) AND the gap contains no comment/newline token; otherwise the gap is emitted verbatim. `(...)`-interior padding (§3.1) is explicitly out of scope for this method, per the checklist note. Verified via a throwaway smoke harness (not committed): collapses `if (x)`/`while   (x)`/`for (...)`/`switch (x)` to tight form, leaves `catch (...)` (not one of the four keywords) and an identifier named `iffy` untouched, and leaves both a comment-in-gap (`if /* c */ (x)`) and a newline-in-gap (`if\n(x)`) case completely unrewritten |
 
 ---
 
@@ -182,14 +183,14 @@ re-open them.
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
-| `MiscRule.java` | NOT STARTED |
+| `MiscRule.java` | IN PROGRESS |
 | `CppSpecificRule.java` | NOT STARTED |
 | `JavaSpecificRule.java` | NOT STARTED |
 | `README.md` | NOT STARTED |
 
 ---
 
-## Current File: `MiscRule.java` — NOT STARTED
+## Current File: `MiscRule.java` — IN PROGRESS
 
 > `GetterSetterRule.java` is COMPLETE. Asked the user how to scope `MiscRule.java` (it had no
 > pre-seeded checklist, unlike every other rule file): resolved as **one file** covering every
@@ -205,7 +206,7 @@ re-open them.
 > `BlockStructureRule`).
 
 ### §3.2 Keyword spacing
-- [ ] No space between a control-flow keyword (`if`/`while`/`for`/`switch` -- exactly the four
+- [x] No space between a control-flow keyword (`if`/`while`/`for`/`switch` -- exactly the four
       keywords in STYLE.md §3.2's code block, no others) and its following `(`: collapse any
       gap (spaces only -- a comment or a `NEWLINE` in the gap blocks the rewrite, same
       conservative posture as `BlockStructureRule`'s brace-style passes) down to zero width.

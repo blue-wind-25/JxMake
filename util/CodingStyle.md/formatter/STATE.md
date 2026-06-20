@@ -221,51 +221,16 @@ re-open them.
 > `BlockStructureRule`).
 
 ### §3.2 Keyword spacing
-- [x] No space between a control-flow keyword (`if`/`while`/`for`/`switch` -- exactly the four
-      keywords in STYLE.md §3.2's code block, no others) and its following `(`: collapse any
-      gap (spaces only -- a comment or a `NEWLINE` in the gap blocks the rewrite, same
-      conservative posture as `BlockStructureRule`'s brace-style passes) down to zero width.
-      This rule only ever removes whitespace; it never decides whether the *contents* of the
-      `(...)` are padded -- that is §3.1, already implemented in `ComplexityPaddingEvaluator`,
-      and wiring it into an actual rewrite pass is a separate, not-yet-assigned piece of work
-      (flag this gap rather than silently expanding scope here)
+- [x] Complete -- see Resolved Design Decisions: "§3.2 keyword spacing"
 
 ### §3.3 `{}` initializer / block spacing
-- [x] Empty `{}` -- always tight, no padding, regardless of context
-- [x] Single-level `{ ... }` with content -- pad with one space inside both braces
-- [x] Nested `{ { ... }, { ... } }` -- pad at every nesting level, not just the outermost
-- [x] Scope to brace-initializer lists only (array/struct initializers, `= { ... }` contexts) --
-      must not touch a control-flow or function/class body `{ }` (those are §11/§7's domain,
-      already implemented in `BlockStructureRule`); confirm how to distinguish the two
-      structurally (no AST -- likely: an initializer brace's nearest preceding significant
-      token is `=`, or another `{`/`,` while already inside a recognized initializer) before
-      writing code, and if genuinely ambiguous for some shape, stop and ask rather than guess
+- [x] Complete -- see Resolved Design Decisions: "§3.3 initializer brace spacing"
 
 ### §4 Pre/Post Increment and Decrement
-- [x] Detect `i++`/`i--` (post) used as a bare expression statement (`i++;` at statement level,
-      not embedded in a larger expression) and rewrite to `++i;`/`--i;`
-- [x] Leave post-increment/decrement untouched when it is NOT a bare statement -- i.e. whenever
-      its value is actually used (`arr[i++]`, `return i--`, `x = i++`, as a function argument,
-      etc.) -- since STYLE.md §4 explicitly carves out "post-increment semantics required by the
-      surrounding expression" as the exception
-- [x] Confirm `for(...; ...; i++)` loop increment clauses count as "value not used" (the
-      increment's result is discarded either way) and should also be rewritten to `++i` --
-      STYLE.md's own examples are framed as general "prefer pre" with explicit exceptions only
-      for the value-is-used cases, so a `for` increment clause is not an exception
+- [x] Complete -- see Resolved Design Decisions: "§4 pre-increment rewrite"
 
 ### §1 Indentation
-- [x] 4 spaces per indent level -- exposed as `MiscRule.INDENT_WIDTH = 4` for any reformatting
-      this rule or others perform that need to *generate* new indentation (e.g. wrapped function
-      signatures in §8), at tab display size 4
-- [x] `indent-style = spaces | tabs`: implemented as `MiscRule.convertIndentation(tokens,
-      indentStyle)`. Only the leading-whitespace run at the start of each line (tracked via an
-      `atLineStart` flag reset on `NEWLINE`) is touched -- mid-line whitespace is never
-      indentation. Each line's indentation width is computed with tabs expanded at
-      `INDENT_WIDTH`; a width that isn't an exact multiple of `INDENT_WIDTH` is irregular/
-      malformed and is left completely untouched (verified by smoke test) rather than guessed
-      at. Otherwise re-rendered as `width / INDENT_WIDTH` levels of the requested unit (tab, or
-      4 spaces). Smoke-tested: mixed tab/space input converts cleanly to both `spaces` and
-      `tabs`; a 3-space (non-multiple-of-4) line is left alone
+- [x] `spaces`/`tabs` conversion complete -- see Resolved Design Decisions: "§1 indentation scope"
 - [ ] `indent-style = keep` (resolved -- see Resolved Design Decisions: "§1 indentation scope"):
       requires a new dedicated file-walking/detection class (not yet created, not
       `Main.java`/`Config.java` directly) that scans the whole project once to determine the
@@ -275,53 +240,13 @@ re-open them.
       per the Resolved Design Decision
 
 ### §2 Line Length
-- [x] Confirmed scope: STYLE.md §2 states a 100-char soft limit and explicitly defers the only
-      described mechanical fix (breaking) to §8 (Function Signatures). There is no other
-      described mechanical rewrite for an over-length line in STYLE.md, so this is a no-op
-      section in `MiscRule.java` beyond exposing `MiscRule.LINE_LENGTH_LIMIT = 100` for §8's
-      eventual use -- no additional line-breaking behavior invented beyond §8's explicit scope
+- [x] Complete -- no-op beyond exposing `MiscRule.LINE_LENGTH_LIMIT = 100` for §8's use; STYLE.md
+      §2 defers its only described mechanical fix (breaking) to §8
 
 ### §6 Assignment and Compound Operator Alignment
 (resolved -- see Resolved Design Decisions: "§6 grouping and rendering")
-- [x] Detect alignment groups: implemented as `MiscRule.groupAssignments`. A maximal run of
-      textually-adjacent bare assignment statements (`target op value;` where `target` is a
-      single bare `IDENTIFIER` -- a member access/array element/pointer deref has no STYLE.md
-      worked example to justify guessing at, and is excluded, same conservative posture as the
-      rest of this file). Any compound-assignment operator counts (`=`, `+=`, `-=`, `*=`, `/=`,
-      `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=` -- the tokenizer has no single-token `>>>=`, a
-      pre-existing tokenizer gap, not addressed here), regardless of which variable(s) are
-      involved -- same grouping signal as §14, broken by a blank line, a comment, or a
-      non-assignment statement. Statement splitting (`splitAssignmentStatements`) is depth-tracked
-      across `(`/`[`/`{` so a `for(...;...;...)` header's own `;`s, a lambda body's own `;`, or a
-      nested `{ }` block that leaked into this scope never end a span early -- a balancing `}`
-      produces an opaque span that's always rejected, same as any other unrecognized statement
-- [x] Render via two independently-computed fixed widths per group: `MiscRule.render`.
-      `maxNameLen` = max target-name length in the group; `maxPrefixLen` = (max length of
-      operator text minus its trailing `=`, across the group) **+ 1, unconditionally**. The `+1`
-      is not a floor/clamp -- it always applies, even when a real compound operator already
-      makes the natural max nonzero. Caught via a user-run hand-check (a first attempt at this
-      that only floored `maxPrefixLen` at 1 -- i.e. only added the `+1` when the natural max was
-      0 -- still produced a zero-gap row whenever some row's name AND operator-prefix were
-      *both* simultaneously at their group max, e.g. `a = 1; ab |= 2;` rendered `ab|= 2;` with no
-      separating space). STYLE.md's own §6 worked example was updated to reflect this (every
-      row's gap is `naturalMaxPrefixLen + 1`, not `naturalMaxPrefixLen` -- e.g. the `>>=` row's
-      natural prefix length is 2, but the rendered gap before every row's operator is 3). Each
-      row renders as `padRight(name, maxNameLen) + padLeft(prefix, maxPrefixLen) + "=" + " " +
-      value + ";"` -- the `padLeft` on the prefix is what lines up every row's `=` regardless of
-      which operator it uses. The right-hand side itself is never reformatted -- reproduced
-      verbatim from its original tokens (including internal spacing), since STYLE.md describes
-      `=`-column alignment only, not a rewrite of arbitrary expression spacing (this is also why
-      `~0x04` renders tight and correct: the original source already had no space there). An
-      optional trailing-comment column reuses `ColumnGrid`, same precedent as
-      `DeclarationAlignmentRule`/`GetterSetterRule`. Smoke-tested against STYLE.md's current
-      exact worked example (byte-for-byte match), the `a`/`ab |= 2` case, a lone variable, a
-      blank-line group reset, a non-assignment statement breaking a group, declarations/member-
-      access/array/deref targets correctly left untouched, trailing-comment alignment, and a
-      function-call RHS
-- [x] A lone variable with no group neighbors aligns trivially with itself -- confirmed by smoke
-      test once the unconditional `maxPrefixLen + 1` (above) was in place; a lone plain `=`
-      variable is the simplest instance of the zero-gap bug the `+1` fixes
-- [x] A blank line between groups resets alignment, same precedent as §5 -- smoke-tested
+- [x] Grouping, rendering, lone-variable, and blank-line-reset behavior complete -- see Resolved
+      Design Decisions: "§6 grouping and rendering"
 - [ ] Multi-line right-hand sides (see STYLE.md §6's "Multi-line right-hand sides" worked
       examples, added after the original checklist was written): when a row's RHS continues
       onto a following line, the continuation aligns to wherever the equivalent token would
@@ -338,81 +263,19 @@ re-open them.
 
 ### §8 Function Signatures
 (see Resolved Design Decisions: "§8 signature scope and rendering")
-- [x] Inline when the full signature fits within the 100-char soft limit (§2): implemented as
-      `MiscRule.render(Signature, indentLevel, indentStyle)`. The comparison is
-      `indentLevel * INDENT_WIDTH + inline.length() <= LINE_LENGTH_LIMIT` -- a visual starting
-      column, not a raw character count, per STYLE.md §1's tab-display-size-4 convention. A
-      zero-param signature (including an explicit C `(void)`) is always inline -- breaking
-      achieves nothing with no parameter to place on its own line
-- [x] Break to one-parameter-per-line when it does not fit, with parameters column-aligned:
-      implemented in the same `render` method. Parsing is `MiscRule.parseSignature(sigTokens)` --
-      see "§8 signature scope and rendering" for the caller-pre-isolation contract and the exact
-      padding formula, hand-verified character-by-character against STYLE.md §8's own worked
-      example (`const char*`/`uint8_t`/`uint16_t`, max width 11): the type column is
-      `maxTypeLen + 1` wide, unconditionally -- same convention as §6's `maxPrefixLen` -- before
-      the normal single-space join; a plain `maxTypeLen`-width column (matching §5's declaration
-      grid exactly) under-pads by one space relative to this section's own example. Smoke-tested:
-      STYLE.md's own inline example byte-for-byte; the broken example's param/closing-paren shape
-      byte-for-byte (forcing the break via a deliberately long function name, since STYLE.md's
-      own 27-char-name example is only 82 chars inline and never actually trips the 100-char
-      threshold itself -- illustrative only, same precedent as the §5 statics-ordering worked-
-      example mismatch); nested indent level (params at `indentLevel+1`, closing `)` at
-      `indentLevel`); zero-param and explicit-`(void)` always-inline; a C array-param suffix
-      (`uint8_t flagsArr[]`) in both inline and broken form; a default-value param (`int x = 0`)
-      correctly bailing the whole signature (no STYLE.md worked example for that shape)
-- [x] Closing `)` placement on a broken signature -- resolved: own line, indented to match the
-      first character of the function signature itself (i.e. the column the function's own
-      first token starts at, not indented further to match the parameter columns). STYLE.md §8
-      now states this explicitly rather than leaving it implicit in the worked example only
+- [x] Complete (inline, broken/column-aligned, and closing-`)`-placement forms) -- see Resolved
+      Design Decisions: "§8 signature scope and rendering"
 
 ### §9 Blank Line Before `return`
 (see Resolved Design Decisions: "§9 function-body detection and return scoping")
-- [x] Insert exactly one blank line before a `return` statement when: the enclosing function
-      body is multi-line, AND the `return` sits at function scope (not inside a nested
-      block/if/for/etc. -- i.e. its brace-depth-relative-to-the-function-body is 0). Implemented
-      as `MiscRule.insertBlankLineBeforeReturn`, a `Deque<FuncFrame>`-stack forward pass mirroring
-      `BlockStructureRule.addClosingComments`'s frame-stack structure
-- [x] Do NOT add a blank line before `return` in a one-liner function body (already excluded
-      from this rule's scope since one-liners are GetterSetterRule's domain and never reach
-      this pass with their body intact in expanded multi-line form) or before a single-expression
-      `if(x) return y;` (the `return` there is not at function scope in the relevant sense --
-      it's the single statement of an `if` body, never standing alone on the function's own top
-      level). Generalized to brace-less `while`/`for`/`switch` controlled bodies too -- see
-      Resolved Design Decisions
-- [x] Use the same gap-buffering / "blank line already present is left untouched, never removed"
-      precedent as `BlockStructureRule.insertNamedConstructBlankLines` -- this rule only ever
-      adds a missing blank line, never removes or normalizes an existing one beyond ensuring at
-      least one
+- [x] Complete -- see Resolved Design Decisions: "§9 function-body detection and return scoping"
 
 ### §15 Comment Style
 (resolved -- see Resolved Design Decisions: "§15 comment scope and sentence detection" and
 "§15 partial-implementation split")
-- [x] Applies to every `//` comment this pass actually sees. STYLE.md's own "labels, closing
-      comments, and markers are not sentences" exemption (`// for i`, `// class Foo`,
-      `/* FALL-THROUGH */`) is satisfied by **pipeline ordering, not in-rule detection**: this
-      §15 pass must run before `BlockStructureRule.addClosingComments`/
-      `insertNamedConstructBlankLines` (§7) and `SwitchRule.markFallthrough` (§13) in
-      `Main.java`'s eventual pass sequence, so those labels/markers don't exist yet in the token
-      stream when this pass runs and there is nothing to exempt. **Constraint for whoever wires
-      up `Main.java`'s pass order: §15 (`MiscRule`) before §7/§13 (`BlockStructureRule`/
-      `SwitchRule`).** No new "is this a label" heuristic is implemented in `MiscRule.java` itself
-- [x] Capitalize the first letter if it is currently lowercase and alphabetic; leave
-      non-alphabetic first characters (symbol, number, already-uppercase) untouched -- this
-      applies regardless of single- vs. multi-sentence (see next item). Implemented as
-      `MiscRule.enforceCommentStyle`/`capitalizeFirstLetter`
-- [x] Strip the trailing `.` only when the comment is a single sentence: i.e. when the only `.`
-      in the comment's text is its own last non-whitespace character. If a `.` appears anywhere
-      else (followed by more text), the comment has 2+ sentences and the trailing period is left
-      untouched (do not strip it). `...`/ellipsis still must never be touched regardless --
-      `stripSoleTrailingPeriod`'s plain dot-count check handles this for free, since an ellipsis's
-      dot count is never exactly 1, with no separate ellipsis-detection branch needed. (STYLE.md's
-      own prescriptive guidance is that multi-sentence content should be written as a `/* */`
-      block comment in the first place -- this branch is defensive handling for already-existing
-      non-compliant `//` comments, not a contradiction of that guidance)
-- [x] `COMMENT_BLOCK` (`/* ... */`) that is **already a single line** (e.g. `/* note */`,
-      including inline/trailing ones) gets the same capitalize/single-sentence-period rule as
-      `//`, operating on the text between the `/*`/`*/` delimiters. Implemented in
-      `enforceCommentStyle`, guarded by `!t.text.contains("\n") && !t.text.contains("\r")`
+- [x] `//` comments (capitalize + sole-trailing-period strip) and already-single-line
+      `COMMENT_BLOCK` comments complete -- see Resolved Design Decisions: "§15 partial-
+      implementation split"
 - [ ] **Deferred** (see "§15 partial-implementation split"): a `COMMENT_BLOCK` that already spans
       multiple lines is currently left completely untouched by `enforceCommentStyle` -- neither
       the capitalize/period text rule nor the structural "`/*`/`*/` forced onto their own line"

@@ -86,7 +86,7 @@ construct from the switch *statement* covered in STYLE.md §13 — that section'
 ```java
 String result = switch(day) {
     case MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY -> "Weekday";
-    case SATURDAY, SUNDAY                              -> "Weekend";
+    case SATURDAY, SUNDAY                             -> "Weekend";
 };
 ```
 
@@ -148,9 +148,9 @@ and explicit types, they align normally (column width = widest type token, `var`
 included).
 
 ```java
-var    count   = 0;
-int    total   = computeTotal();
-String label   = "done";
+var    count = 0;
+int    total = computeTotal();
+String label = "done";
 ```
 
 ---
@@ -174,10 +174,10 @@ it would to any other condition content.
 ```java
 String describe(Object obj) {
     return switch(obj) {
-        case Integer i      -> "int " + i;
-        case String s       -> "string " + s;
+        case Integer i           -> "int " + i;
+        case String s            -> "string " + s;
         case Point(int x, int y) -> "point " + x + "," + y;
-        default             -> "unknown";
+        default                  -> "unknown";
     };
 }
 ```

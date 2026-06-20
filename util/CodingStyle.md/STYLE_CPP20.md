@@ -27,7 +27,7 @@ declaration-alignment grid as a single, atomic name-cell occupying the same colu
 plain name would:
 
 ```cpp
-int    a     = xxx;
+int   a     = xxx;
 auto [b, c] = somePair;
 ```
 
@@ -40,8 +40,8 @@ directly after `[` or before `]`, consistent with the rest of the style guide's
 general comma/bracket spacing:
 
 ```cpp
-auto [a, b, c] = triple;     // correct
-auto [ a,b,c ] = triple;     // incorrect — no padding inside [], no missing space after comma
+auto [a, b, c] = triple;   // correct
+auto [ a,b,c ] = triple;   // incorrect — no padding inside [], no missing space after comma
 ```
 
 This list is treated as one opaque name-cell for *alignment* purposes (§5's grid),

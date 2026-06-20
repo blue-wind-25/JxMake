@@ -155,10 +155,10 @@ local prefix. All imports sharing that prefix are placed in group 5.
 
 Configurable:
 ```
-java-import-order  = static, java, org, com, local   # group order
-java-import-sort   = on                              # alphabetical within group
-java-import-depth  = 2                               # components defining "local"
-java-import-blank-lines = 1                          # blank lines between groups
+java-import-order       = static, java, org, com, local   # group order
+java-import-sort        = on                              # alphabetical within group
+java-import-depth       = 2                               # components defining "local"
+java-import-blank-lines = 1                               # blank lines between groups
 ```
 
 **Unused imports** — the formatter does not remove unused imports. That is the

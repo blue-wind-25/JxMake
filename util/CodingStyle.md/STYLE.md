@@ -132,11 +132,11 @@ Align the `=` column across assignments in the same logical group.
 Compound operators (`|=`, `&=`, `>>=`, etc.) align their `=` with the group:
 
 ```c
-flags    = 0x01;
-flags   |= 0x02;
-flags   &= ~0x04;
-flags  >>= 2;
-timeout  = 100;
+flags     = 0x01;
+flags    |= 0x02;
+flags    &= ~0x04;
+flags   >>= 2;
+timeout   = 100;
 ```
 
 **Grouping rules:**
@@ -153,15 +153,15 @@ started had the whole expression fit on line 1:
 
 Breaking **before** an operator — the operator aligns to the `=` column:
 ```c
-int a       = something
-            + else;
+int a = something
+      + else;
 ```
 
 Breaking **after** an operator — the next operand aligns to the column immediately
 after `=` (where the first operand began):
 ```c
-int a       = something +
-              else;
+int a = something +
+        else;
 ```
 
 This applies in both C/C++ and Java. Ordinary statements do not require a trailing `\`

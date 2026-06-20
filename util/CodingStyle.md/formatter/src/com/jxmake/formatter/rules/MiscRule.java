@@ -1179,6 +1179,75 @@ public class MiscRule {
         return -1;
     }
 
+    // ── §15 Comment Style ────────────────────────────────────────────────────────
+    /**
+     * Capitalizes the first letter and strips a sole trailing period (STYLE.md §15) on every
+     * `//` comment, and on every `/* ... *&#47;` block comment that is *already* a single line
+     * (a block comment already spanning multiple lines is left completely untouched by this
+     * method -- see "§15 comment scope and sentence detection" in STATE.md's Resolved Design
+     * Decisions for why that case, and STYLE.md's separator-alignment rule, are deferred rather
+     * than guessed at here).
+     * <p>Per that same Resolved Design Decision, this method applies unconditionally to every
+     * comment token it sees -- the STYLE.md exemption for labels/markers/closing-comments
+     * (`// for i`, `/* FALL-THROUGH *&#47;`) is satisfied by pipeline ordering in `Main.java`
+     * (this pass must run before `BlockStructureRule`'s §7 and `SwitchRule`'s §13 passes, which
+     * are what create those comments in the first place), not by any detection logic here.
+     */
+    public String enforceCommentStyle(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        for (final Token t : tokens) {
+            if (t.type == TokenType.COMMENT_LINE) {
+                out.append("//").append(applyCommentTextRules(t.text.substring(2)));
+            } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
+                final String inner = t.text.substring(2, t.text.length() - 2);
+                out.append("/*").append(applyCommentTextRules(inner)).append("*/");
+            } else {
+                out.append(t.text);
+            }
+        }
+        return out.toString();
+    }
+
+    private String applyCommentTextRules(final String content) {
+        return stripSoleTrailingPeriod(capitalizeFirstLetter(content));
+    }
+
+    private String capitalizeFirstLetter(final String content) {
+        for (int i = 0; i < content.length(); i++) {
+            final char c = content.charAt(i);
+            if (Character.isWhitespace(c)) {
+                continue;
+            }
+            if (Character.isLetter(c) && Character.isLowerCase(c)) {
+                return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
+            }
+            break;
+        }
+        return content;
+    }
+
+    /** Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
+     *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1. */
+    private String stripSoleTrailingPeriod(final String content) {
+        int end = content.length();
+        while (end > 0 && Character.isWhitespace(content.charAt(end - 1))) {
+            end--;
+        }
+        if (end == 0 || content.charAt(end - 1) != '.') {
+            return content;
+        }
+        int dotCount = 0;
+        for (int i = 0; i < content.length(); i++) {
+            if (content.charAt(i) == '.') {
+                dotCount++;
+            }
+        }
+        if (dotCount != 1) {
+            return content;
+        }
+        return content.substring(0, end - 1) + content.substring(end);
+    }
+
     // ── Token-scanning helpers ───────────────────────────────────────────────────
     private boolean isGapToken(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE

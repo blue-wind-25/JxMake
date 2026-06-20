@@ -145,6 +145,29 @@ timeout  = 100;
 - A lone variable with no group neighbors: no forced blank line, align trivially
   with itself — do not leave it awkwardly padded.
 
+**Multi-line right-hand sides:**
+
+When an assignment's right-hand side is too long to fit on one line and continues
+onto the next, the continuation aligns to wherever the equivalent token would have
+started had the whole expression fit on line 1:
+
+Breaking **before** an operator — the operator aligns to the `=` column:
+```c
+int a       = something
+            + else;
+```
+
+Breaking **after** an operator — the next operand aligns to the column immediately
+after `=` (where the first operand began):
+```c
+int a       = something +
+              else;
+```
+
+This applies in both C/C++ and Java. Ordinary statements do not require a trailing `\`
+to continue onto the next line — only macro bodies do. The same alignment target
+applies regardless of language or whether `\` happens to be present.
+
 ---
 
 ## 7. Closing Comments on Blocks
@@ -228,6 +251,19 @@ void reallyLongFunctionNameHere(
 ```
 
 Parameter alignment follows the same declaration alignment rules (§5).
+
+The closing `)` goes on its own line, indented to match the **first character of the
+function signature itself** (not indented further to match the parameters):
+
+```c
+void reallyLongFunctionNameHere(
+    const char*  name,
+    uint8_t      flags,
+    uint16_t     timeout
+)
+```
+
+Here `)` lines up under `void`, the start of the line the signature begins on.
 
 ---
 

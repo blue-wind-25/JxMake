@@ -10,6 +10,14 @@ Files in this directory
                   deterministic defaults that replace all judgment-call language
   README.txt      This file
 
+  Not yet covered by this workflow (phase 2, gated until the deterministic JAR
+  formatter's dogfood test succeeds — see formatter/STATE.md):
+    STYLE_JAVA17.md  Java 17+ constructs (record, sealed, switch expressions, etc.)
+    STYLE_CPP20.md   C++17/20/23 constructs (structured bindings, concepts, etc.)
+  Do not add these to the `cat` commands below until that gate is lifted and
+  AI_PREAMBLE.md has been updated to match — combining them prematurely will
+  apply phase-2 rules that have not been validated against real source yet.
+
 
 Model Selection
 ---------------

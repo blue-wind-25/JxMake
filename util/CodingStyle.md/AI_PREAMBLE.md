@@ -21,6 +21,15 @@ other at the same time**. A single block at function scope uses the plain form (
 `// while`). Named constructs (`class`, `struct`, `enum`, `namespace`, `interface`) always
 include the name.
 
+When a key variable name is needed, extract it as follows:
+
+- **`for`** — first identifier in the init clause; if init is empty, first identifier
+  in the increment clause; for for-each (`for(T x : xs)`), the identifier immediately
+  before the top-level `:`. None of these match (`for(;;)`) → bare `// for`.
+- **`while` / `switch`** — only if the controlling expression is exactly one identifier,
+  or `!` followed by one identifier. Any more compound condition → bare `// while` /
+  `// switch`. Do not attempt further simplification.
+
 ### §12 — Blank line before `else` / `else if`
 
 Add a blank line before `else` or `else if` **only** when the last statement of the

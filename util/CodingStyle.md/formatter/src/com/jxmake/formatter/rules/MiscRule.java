@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -389,6 +390,307 @@ public class MiscRule {
             i++;
         }
         return i < tokens.size() ? i : -1;
+    }
+
+    // ── §6 Assignment and Compound Operator Alignment ───────────────────────────
+    private static final Set<String> ASSIGNMENT_OPS = setOf(
+            "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
+
+    /** One parsed bare assignment statement (`target op value;` -- no declared type; a typed
+     *  declaration's own `= value` is STYLE.md §5/`DeclarationAlignmentRule`'s concern, not this
+     *  rule's). */
+    public static final class Assignment {
+        public final Token target;
+        public final Token operator;
+        public final List<Token> valueTokens;
+        public final Token trailingComment; // nullable
+        public final boolean blankLineBefore;
+
+        Assignment(final Token target, final Token operator, final List<Token> valueTokens,
+                final Token trailingComment, final boolean blankLineBefore) {
+            this.target = target;
+            this.operator = operator;
+            this.valueTokens = valueTokens;
+            this.trailingComment = trailingComment;
+            this.blankLineBefore = blankLineBefore;
+        }
+    }
+
+    /**
+     * Splits one scope's direct-content tokens (caller-extracted, no deeper-nested tokens --
+     * same scoping contract as `DeclarationAlignmentRule.groupDeclarations`) into maximal runs of
+     * textually-adjacent bare assignment statements (STYLE.md §6, resolved -- see "§6 grouping
+     * and rendering" in Resolved Design Decisions: same textually-adjacent-run signal as §14). A
+     * blank line, a comment-only gap, or any statement not recognized as a bare assignment breaks
+     * the current run. Unlike `GetterSetterRule.groupOneLiners`'s 2+ minimum, a run of length 1 is
+     * still returned here -- STYLE.md §6 explicitly wants a lone variable to "align trivially with
+     * itself," which {@link #render} achieves for free (group size 1 means both padding widths
+     * just equal that one row's own widths).
+     */
+    public List<List<Assignment>> groupAssignments(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = splitAssignmentStatements(scopeTokens);
+        final List<List<Assignment>> groups = new ArrayList<>();
+        List<Assignment> current = new ArrayList<>();
+
+        for (final List<Token> stmt : statements) {
+            final boolean blankBefore = hasBlankLineBeforeStmt(stmt);
+            final Assignment a = parseAssignment(stmt, blankBefore);
+            if (a == null) {
+                if (!current.isEmpty()) {
+                    groups.add(current);
+                    current = new ArrayList<>();
+                }
+                continue;
+            }
+            if (blankBefore && !current.isEmpty()) {
+                groups.add(current);
+                current = new ArrayList<>();
+            }
+            current.add(a);
+        }
+        if (!current.isEmpty()) {
+            groups.add(current);
+        }
+        return groups;
+    }
+
+    /**
+     * Renders one alignment group (STYLE.md §6) as two independently fixed-width columns per
+     * row -- `maxNameLen` (the widest target name) and `maxPrefixLen` (the widest operator text
+     * minus its trailing `=`) -- so that every row's `=` lands on the same column regardless of
+     * which compound operator it uses (resolved -- see "§6 grouping and rendering": a single
+     * `ColumnGrid` left-pad column on the concatenated name+operator text does NOT reproduce
+     * STYLE.md's worked example; this manual two-field padding does). The right-hand side is
+     * never reformatted -- its original token text (including internal spacing) is reproduced
+     * verbatim, since STYLE.md describes alignment of the `=` column only, not a rewrite of
+     * arbitrary expression spacing. An optional trailing-comment column reuses `ColumnGrid` to
+     * align comments across the group, same precedent as `DeclarationAlignmentRule`/
+     * `GetterSetterRule`. Multi-line right-hand sides are out of scope (see the checklist's
+     * deferred sub-item) -- `parseAssignment` never returns one, so every row reaching this
+     * method is single-line.
+     */
+    public List<String> render(final List<Assignment> group) {
+        int maxNameLen = 0;
+        int maxPrefixLen = 0;
+        for (final Assignment a : group) {
+            maxNameLen = Math.max(maxNameLen, a.target.text.length());
+            maxPrefixLen = Math.max(maxPrefixLen, assignOpPrefix(a.operator).length());
+        }
+        // +1 unconditionally -- even the group's widest operator still needs its own leading
+        // space (verified against STYLE.md's worked example: maxPrefixLen=2 from ">>=" there,
+        // but every row's rendered gap is 3, i.e. naturalMax+1, not naturalMax)
+        maxPrefixLen++;
+
+        final ColumnGrid grid = new ColumnGrid();
+        for (final Assignment a : group) {
+            final String lhs = padRight(a.target.text, maxNameLen)
+                    + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
+            final List<String> cells = new ArrayList<>();
+            cells.add(lhs);
+            cells.add(joinVerbatim(a.valueTokens) + ";");
+            if (a.trailingComment != null) {
+                cells.add(a.trailingComment.text);
+            }
+            grid.addRow(cells.toArray(new String[0]));
+        }
+
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(String.join(" ", row));
+        }
+        return lines;
+    }
+
+    private String assignOpPrefix(final Token operator) {
+        return operator.text.substring(0, operator.text.length() - 1);
+    }
+
+    private String joinVerbatim(final List<Token> tokens) {
+        final StringBuilder sb = new StringBuilder();
+        for (final Token t : tokens) {
+            sb.append(t.text);
+        }
+        return sb.toString();
+    }
+
+    private static String padRight(final String s, final int width) {
+        final StringBuilder sb = new StringBuilder(s);
+        while (sb.length() < width) {
+            sb.append(' ');
+        }
+        return sb.toString();
+    }
+
+    private static String padLeft(final String s, final int width) {
+        final StringBuilder sb = new StringBuilder();
+        while (sb.length() + s.length() < width) {
+            sb.append(' ');
+        }
+        sb.append(s);
+        return sb.toString();
+    }
+
+    /**
+     * Parses the shape `target op value ;` (STYLE.md §6) entirely on one source line.
+     * `target` must be a single bare `IDENTIFIER` -- a member access (`obj.field`), an array
+     * element (`arr[i]`), or a pointer deref (`*ptr`) has no STYLE.md worked example to justify
+     * guessing at, so any of those leave this method returning null (the statement is left
+     * untouched and breaks the current alignment run, same as any other unrecognized statement).
+     * A comment or `NEWLINE` anywhere between the target and the terminating `;` blocks
+     * recognition entirely -- including the multi-line-right-hand-side case, whose continuation-
+     * line rendering is a distinct, not-yet-designed sub-item (see the checklist).
+     */
+    private Assignment parseAssignment(final List<Token> stmt, final boolean blankBefore) {
+        final int targetIdx = nextSignificantIndex(stmt, 0);
+        if (targetIdx < 0 || stmt.get(targetIdx).type != TokenType.IDENTIFIER) {
+            return null;
+        }
+        final int opIdx = nextSignificantIndex(stmt, targetIdx + 1);
+        if (opIdx < 0 || stmt.get(opIdx).type != TokenType.OP
+                || !ASSIGNMENT_OPS.contains(stmt.get(opIdx).text)) {
+            return null;
+        }
+        final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
+        if (valueFrom < 0) {
+            return null;
+        }
+        final int semiIdx = findTopLevelSemicolon(stmt, valueFrom);
+        if (semiIdx < 0) {
+            return null;
+        }
+        int valueTo = semiIdx;
+        while (valueTo > valueFrom && isGapToken(stmt.get(valueTo - 1))) {
+            valueTo--;
+        }
+        if (valueTo <= valueFrom || !noBlockerBetween(stmt, targetIdx, semiIdx)) {
+            return null;
+        }
+        for (int i = semiIdx + 1; i < stmt.size(); i++) {
+            final Token t = stmt.get(i);
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.COMMENT_LINE
+                    && t.type != TokenType.COMMENT_BLOCK) {
+                return null; // stray tokens after `;` -- not a clean single statement
+            }
+        }
+
+        final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
+        return new Assignment(stmt.get(targetIdx), stmt.get(opIdx), value,
+                findTrailingAssignComment(stmt), blankBefore);
+    }
+
+    private int findTopLevelSemicolon(final List<Token> tokens, final int from) {
+        int depth = 0;
+        for (int i = from; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private Token findTrailingAssignComment(final List<Token> stmt) {
+        for (int k = stmt.size() - 1; k >= 0; k--) {
+            final Token t = stmt.get(k);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return t;
+            }
+            if (t.type != TokenType.WHITESPACE) {
+                break;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Splits scope tokens into statement-or-block spans, depth-tracked across `(`/`[`/`{` (and
+     * their closes) so that neither a parenthesized sub-expression's internal punctuation (e.g. a
+     * `for(...; ...; ...)` header's own `;`s, or a lambda body's own `;`) nor a nested `{ }` block
+     * ends the span early -- only a `;` or a balancing `}` at combined depth 0 does. A balancing
+     * `}` produces an opaque span (e.g. an `if`/`for`/method-body block that leaked into this
+     * scope) that `parseAssignment` will always reject, same as any other unrecognized statement.
+     * A same-line trailing comment is pulled into the span it follows, same precedent as
+     * `DeclarationAlignmentRule.splitStatements`.
+     */
+    private List<List<Token>> splitAssignmentStatements(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = new ArrayList<>();
+        List<Token> current = new ArrayList<>();
+        final int n = scopeTokens.size();
+        int depth = 0;
+        int idx = 0;
+
+        while (idx < n) {
+            final Token t = scopeTokens.get(idx);
+            current.add(t);
+            idx++;
+
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+                continue;
+            }
+            if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+                continue;
+            }
+            if (isPunct(t, "}")) {
+                depth--;
+                if (depth == 0) {
+                    idx = pullTrailingSameLine(scopeTokens, current, idx);
+                    statements.add(current);
+                    current = new ArrayList<>();
+                }
+                continue;
+            }
+            if (depth == 0 && isPunct(t, ";")) {
+                idx = pullTrailingSameLine(scopeTokens, current, idx);
+                statements.add(current);
+                current = new ArrayList<>();
+            }
+        }
+        if (!current.isEmpty()) {
+            statements.add(current);
+        }
+        return statements;
+    }
+
+    private int pullTrailingSameLine(final List<Token> tokens, final List<Token> current, final int from) {
+        int idx = from;
+        final int n = tokens.size();
+        while (idx < n) {
+            final Token next = tokens.get(idx);
+            if (next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
+                    || next.type == TokenType.COMMENT_BLOCK) {
+                current.add(next);
+                idx++;
+            } else {
+                break;
+            }
+        }
+        return idx;
+    }
+
+    /** Same blank-line-before detection as `DeclarationAlignmentRule.hasBlankLineBefore`. */
+    private boolean hasBlankLineBeforeStmt(final List<Token> stmt) {
+        int newlineRun = 0;
+        for (final Token t : stmt) {
+            if (t.type == TokenType.NEWLINE) {
+                newlineRun++;
+                if (newlineRun >= 2) {
+                    return true;
+                }
+            } else if (t.type == TokenType.WHITESPACE) {
+                // ignore -- doesn't break or extend the newline run
+            } else if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                newlineRun = 0;
+            } else {
+                break;
+            }
+        }
+        return false;
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

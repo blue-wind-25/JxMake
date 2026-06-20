@@ -280,21 +280,45 @@ re-open them.
 
 ### §6 Assignment and Compound Operator Alignment
 (resolved -- see Resolved Design Decisions: "§6 grouping and rendering")
-- [ ] Detect alignment groups: any maximal run of textually-adjacent assignment statements
-      (`=`, `|=`, `&=`, `>>=`, etc. -- any compound-assignment operator counts), regardless of
-      which variable(s) are involved -- same grouping signal as §14, broken by a blank line, a
-      comment, or a non-assignment statement
-- [ ] Render via two independently-computed fixed widths per group (NOT a single `ColumnGrid`
-      left-pad column -- verified by hand against STYLE.md §6's worked example that this does not
-      reproduce it): `maxNameLen` = max target-name length in the group; `maxPrefixLen` = max
-      length of (operator text minus its trailing `=`) in the group (0 for plain `=`, 1 for
-      `|=`/`&=`/etc., 2 for `>>=`/`<<=`). Each row renders as
-      `padRight(name, maxNameLen) + padLeft(prefix, maxPrefixLen) + "=" + " " + value + ";"` --
-      the `padLeft` on the prefix is what lines up every row's `=` regardless of which operator
-      it uses
-- [ ] A lone variable with no group neighbors aligns trivially with itself -- falls out for free
-      from the same width computation (group of 1 means both maxes equal that row's own widths)
-- [ ] A blank line between groups resets alignment, same precedent as §5
+- [x] Detect alignment groups: implemented as `MiscRule.groupAssignments`. A maximal run of
+      textually-adjacent bare assignment statements (`target op value;` where `target` is a
+      single bare `IDENTIFIER` -- a member access/array element/pointer deref has no STYLE.md
+      worked example to justify guessing at, and is excluded, same conservative posture as the
+      rest of this file). Any compound-assignment operator counts (`=`, `+=`, `-=`, `*=`, `/=`,
+      `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=` -- the tokenizer has no single-token `>>>=`, a
+      pre-existing tokenizer gap, not addressed here), regardless of which variable(s) are
+      involved -- same grouping signal as §14, broken by a blank line, a comment, or a
+      non-assignment statement. Statement splitting (`splitAssignmentStatements`) is depth-tracked
+      across `(`/`[`/`{` so a `for(...;...;...)` header's own `;`s, a lambda body's own `;`, or a
+      nested `{ }` block that leaked into this scope never end a span early -- a balancing `}`
+      produces an opaque span that's always rejected, same as any other unrecognized statement
+- [x] Render via two independently-computed fixed widths per group: `MiscRule.render`.
+      `maxNameLen` = max target-name length in the group; `maxPrefixLen` = (max length of
+      operator text minus its trailing `=`, across the group) **+ 1, unconditionally**. The `+1`
+      is not a floor/clamp -- it always applies, even when a real compound operator already
+      makes the natural max nonzero. Caught via a user-run hand-check (a first attempt at this
+      that only floored `maxPrefixLen` at 1 -- i.e. only added the `+1` when the natural max was
+      0 -- still produced a zero-gap row whenever some row's name AND operator-prefix were
+      *both* simultaneously at their group max, e.g. `a = 1; ab |= 2;` rendered `ab|= 2;` with no
+      separating space). STYLE.md's own §6 worked example was updated to reflect this (every
+      row's gap is `naturalMaxPrefixLen + 1`, not `naturalMaxPrefixLen` -- e.g. the `>>=` row's
+      natural prefix length is 2, but the rendered gap before every row's operator is 3). Each
+      row renders as `padRight(name, maxNameLen) + padLeft(prefix, maxPrefixLen) + "=" + " " +
+      value + ";"` -- the `padLeft` on the prefix is what lines up every row's `=` regardless of
+      which operator it uses. The right-hand side itself is never reformatted -- reproduced
+      verbatim from its original tokens (including internal spacing), since STYLE.md describes
+      `=`-column alignment only, not a rewrite of arbitrary expression spacing (this is also why
+      `~0x04` renders tight and correct: the original source already had no space there). An
+      optional trailing-comment column reuses `ColumnGrid`, same precedent as
+      `DeclarationAlignmentRule`/`GetterSetterRule`. Smoke-tested against STYLE.md's current
+      exact worked example (byte-for-byte match), the `a`/`ab |= 2` case, a lone variable, a
+      blank-line group reset, a non-assignment statement breaking a group, declarations/member-
+      access/array/deref targets correctly left untouched, trailing-comment alignment, and a
+      function-call RHS
+- [x] A lone variable with no group neighbors aligns trivially with itself -- confirmed by smoke
+      test once the unconditional `maxPrefixLen + 1` (above) was in place; a lone plain `=`
+      variable is the simplest instance of the zero-gap bug the `+1` fixes
+- [x] A blank line between groups resets alignment, same precedent as §5 -- smoke-tested
 - [ ] Multi-line right-hand sides (see STYLE.md §6's "Multi-line right-hand sides" worked
       examples, added after the original checklist was written): when a row's RHS continues
       onto a following line, the continuation aligns to wherever the equivalent token would
@@ -304,7 +328,10 @@ re-open them.
       in C/C++ and Java; a trailing `\` (when present, e.g. inside a macro) does not change the
       alignment target. Detection of "this row's RHS spans multiple lines" and the actual
       continuation-line rendering have not yet been designed -- this is new scope beyond the
-      single-line two-fixed-width algorithm above, treat as a distinct sub-item
+      single-line two-fixed-width algorithm above, treat as a distinct sub-item. Currently,
+      `parseAssignment` conservatively rejects any candidate whose target-to-`;` span contains a
+      comment or `NEWLINE` (via `noBlockerBetween`), so a multi-line RHS is left completely
+      untouched and breaks the surrounding group -- smoke-tested -- rather than mis-rendered
 
 ### §8 Function Signatures
 - [ ] Inline when the full signature fits within the 100-char soft limit (§2)

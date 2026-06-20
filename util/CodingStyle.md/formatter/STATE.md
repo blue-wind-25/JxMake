@@ -251,26 +251,32 @@ re-open them.
       for the value-is-used cases, so a `for` increment clause is not an exception
 
 ### §1 Indentation
-- [ ] 4 spaces per indent level -- for any reformatting this rule or others perform that need to
-      *generate* new indentation (e.g. wrapped function signatures in §8), use 4 spaces, tab
-      display size 4
-- [ ] `indent-style = spaces | tabs`: a simple, single-file mechanical conversion of every
-      indentation whitespace run to the specified style -- implement directly in `MiscRule.java`
-      (or a small helper it owns), no project-wide context needed for these two modes
+- [x] 4 spaces per indent level -- exposed as `MiscRule.INDENT_WIDTH = 4` for any reformatting
+      this rule or others perform that need to *generate* new indentation (e.g. wrapped function
+      signatures in §8), at tab display size 4
+- [x] `indent-style = spaces | tabs`: implemented as `MiscRule.convertIndentation(tokens,
+      indentStyle)`. Only the leading-whitespace run at the start of each line (tracked via an
+      `atLineStart` flag reset on `NEWLINE`) is touched -- mid-line whitespace is never
+      indentation. Each line's indentation width is computed with tabs expanded at
+      `INDENT_WIDTH`; a width that isn't an exact multiple of `INDENT_WIDTH` is irregular/
+      malformed and is left completely untouched (verified by smoke test) rather than guessed
+      at. Otherwise re-rendered as `width / INDENT_WIDTH` levels of the requested unit (tab, or
+      4 spaces). Smoke-tested: mixed tab/space input converts cleanly to both `spaces` and
+      `tabs`; a 3-space (non-multiple-of-4) line is left alone
 - [ ] `indent-style = keep` (resolved -- see Resolved Design Decisions: "§1 indentation scope"):
       requires a new dedicated file-walking/detection class (not yet created, not
       `Main.java`/`Config.java` directly) that scans the whole project once to determine the
-      dominant existing style, then calls into `MiscRule.java`'s plain spaces/tabs converter with
-      that resolved choice -- `MiscRule.java` itself never has to interpret "keep"
+      dominant existing style, then calls into `MiscRule.convertIndentation`'s plain spaces/tabs
+      converter with that resolved choice -- `MiscRule.java` itself never has to interpret
+      "keep". Deferred until `Main.java`/`Config.java` orchestration work begins -- not blocking,
+      per the Resolved Design Decision
 
 ### §2 Line Length
-- [ ] Confirm scope: STYLE.md §2 states a 100-char soft limit and explicitly defers the only
+- [x] Confirmed scope: STYLE.md §2 states a 100-char soft limit and explicitly defers the only
       described mechanical fix (breaking) to §8 (Function Signatures). There is no other
-      described mechanical rewrite for an over-length line in STYLE.md. Decide here whether
-      `MiscRule.java` needs anything for §2 beyond what §8 already does (e.g. a `--check`-mode
-      warning emission, out of scope for this rule class which only renders text) -- likely a
-      no-op section beyond documenting the line-length constant for §8 to consume; do not invent
-      additional line-breaking behavior beyond §8's explicit scope
+      described mechanical rewrite for an over-length line in STYLE.md, so this is a no-op
+      section in `MiscRule.java` beyond exposing `MiscRule.LINE_LENGTH_LIMIT = 100` for §8's
+      eventual use -- no additional line-breaking behavior invented beyond §8's explicit scope
 
 ### §6 Assignment and Compound Operator Alignment
 (resolved -- see Resolved Design Decisions: "§6 grouping and rendering")

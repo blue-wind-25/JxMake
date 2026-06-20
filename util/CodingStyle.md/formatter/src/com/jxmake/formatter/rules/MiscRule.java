@@ -39,6 +39,77 @@ public class MiscRule {
         return new HashSet<>(Arrays.asList(words));
     }
 
+    // ── §1 Indentation ───────────────────────────────────────────────────────────
+    /** Tab display size and spaces-per-level, per STYLE.md §1. Shared by any rule (this one or a
+     *  future one, e.g. §8's signature wrapping) that needs to *generate* new indentation. */
+    public static final int INDENT_WIDTH = 4;
+
+    /**
+     * Converts every line's leading indentation run to the requested style, per STYLE.md §1's
+     * `indent-style = spaces | tabs` modes (resolved -- see "§1 indentation scope" in Resolved
+     * Design Decisions). `indent-style = keep` is deliberately not handled here: it requires
+     * whole-project context to determine the dominant style, which is a `Main.java`/
+     * `Config.java`-orchestration-time decision made by a separate, not-yet-built detector class
+     * -- that class is expected to resolve "keep" down to a concrete `spaces`/`tabs` choice and
+     * call this method with that choice, so this method itself never has to interpret "keep".
+     * Only the whitespace run at the very start of each line is touched; whitespace elsewhere
+     * (mid-line alignment padding, trailing whitespace) is never indentation. A line whose
+     * indentation width (tabs expanded at {@link #INDENT_WIDTH}) is not an exact multiple of
+     * {@link #INDENT_WIDTH} is irregular/malformed indentation and is left completely untouched
+     * rather than guessed at.
+     */
+    public String convertIndentation(final List<Token> tokens, final String indentStyle) {
+        if (!"spaces".equals(indentStyle) && !"tabs".equals(indentStyle)) {
+            throw new IllegalArgumentException("convertIndentation only handles spaces|tabs, got: " + indentStyle);
+        }
+        final StringBuilder out = new StringBuilder();
+        boolean atLineStart = true;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (atLineStart && t.type == TokenType.WHITESPACE) {
+                out.append(renderIndent(t.text, indentStyle));
+                atLineStart = false;
+                i++;
+                continue;
+            }
+            out.append(t.text);
+            atLineStart = (t.type == TokenType.NEWLINE);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private String renderIndent(final String original, final String indentStyle) {
+        int width = 0;
+        for (int i = 0; i < original.length(); i++) {
+            width += (original.charAt(i) == '\t') ? (INDENT_WIDTH - (width % INDENT_WIDTH)) : 1;
+        }
+        if (width % INDENT_WIDTH != 0) {
+            return original;
+        }
+        final int levels = width / INDENT_WIDTH;
+        final boolean tabs = "tabs".equals(indentStyle);
+        final char unit = tabs ? '\t' : ' ';
+        final int count = tabs ? levels : levels * INDENT_WIDTH;
+        final StringBuilder sb = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            sb.append(unit);
+        }
+        return sb.toString();
+    }
+
+    // ── §2 Line Length ───────────────────────────────────────────────────────────
+    /**
+     * STYLE.md §2's 100-char soft limit. No rule in this class acts on it directly: §2 itself
+     * defers its only described mechanical fix (line-breaking) to §8 (Function Signatures, not
+     * yet implemented), and describes no other mechanical rewrite for an over-length line --
+     * §2 is therefore a no-op section here beyond exposing this constant for §8's eventual use.
+     */
+    public static final int LINE_LENGTH_LIMIT = 100;
+
     // ── §3.2 Keyword spacing ─────────────────────────────────────────────────────
     /**
      * Collapses any whitespace-only gap between a control-flow keyword (`if`/`while`/`for`/

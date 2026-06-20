@@ -178,6 +178,19 @@ See [`../README.txt`](../README.txt) for `reformat_chunks.py` usage.
 - [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
 - [`STATE.md`](STATE.md) — implementation progress tracker
 
+### Phase 2 (not yet implemented)
+
+Newer-language-construct support is scoped but deliberately gated until the
+core formatter (everything above) is complete and dogfood-verified:
+
+- [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
+  classes, switch expressions, text blocks, pattern matching)
+- [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
+  concepts/`requires`, `consteval`/`constinit`)
+- [`STATE_NEXT.md`](STATE_NEXT.md) — phase 2 implementation tracker
+
+See `STATE.md`'s End Goal section for the exact gating condition.
+
 ---
 
 ## License

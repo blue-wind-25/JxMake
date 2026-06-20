@@ -19,6 +19,11 @@ asks. All decisions relevant to implementation are already recorded in the
 history and future planning only — it is large and contains nothing the implementer
 needs that is not already summarized here.
 
+**Do NOT read `STYLE_JAVA17.md`, `STYLE_CPP20.md`, or `STATE_NEXT.md`** under any
+circumstances unless the End Goal dogfood-test milestone below is already checked off.
+These are gated, post-dogfood phase-2 work — out of scope for every session until that
+milestone is complete, regardless of what checklist item is currently in progress.
+
 **ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
 
 ### During implementation
@@ -284,15 +289,26 @@ re-open them.
 - [ ] A lone variable with no group neighbors aligns trivially with itself -- falls out for free
       from the same width computation (group of 1 means both maxes equal that row's own widths)
 - [ ] A blank line between groups resets alignment, same precedent as §5
+- [ ] Multi-line right-hand sides (see STYLE.md §6's "Multi-line right-hand sides" worked
+      examples, added after the original checklist was written): when a row's RHS continues
+      onto a following line, the continuation aligns to wherever the equivalent token would
+      have started had the expression fit on one line -- breaking *before* an operator aligns
+      that operator to the `=` column; breaking *after* an operator aligns the next operand to
+      the column immediately after `=` (where the first operand started). Applies identically
+      in C/C++ and Java; a trailing `\` (when present, e.g. inside a macro) does not change the
+      alignment target. Detection of "this row's RHS spans multiple lines" and the actual
+      continuation-line rendering have not yet been designed -- this is new scope beyond the
+      single-line two-fixed-width algorithm above, treat as a distinct sub-item
 
 ### §8 Function Signatures
 - [ ] Inline when the full signature fits within the 100-char soft limit (§2)
 - [ ] Break to one-parameter-per-line when it does not fit, with parameters column-aligned
       following the same declaration alignment rules as §5 (reuse `DeclarationAlignmentRule`'s
       column-alignment approach/helpers where practical rather than re-deriving from scratch)
-- [ ] Confirm exact placement of the closing `)` on a broken signature (STYLE.md's own example
-      shows it on its own line, un-indented, matching the function's own indentation level --
-      verify this against the worked example byte-for-byte)
+- [x] Closing `)` placement on a broken signature -- resolved: own line, indented to match the
+      first character of the function signature itself (i.e. the column the function's own
+      first token starts at, not indented further to match the parameter columns). STYLE.md §8
+      now states this explicitly rather than leaving it implicit in the worked example only
 
 ### §9 Blank Line Before `return`
 - [ ] Insert exactly one blank line before a `return` statement when: the enclosing function
@@ -424,3 +440,10 @@ to compile, it was actually being reassigned, so leave it without `final`.
 
 ## End Goal
 - [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that `make` still succeeds after
+
+Once the above is checked off, the formatter's core (Tier 1 + Tier 2, STYLE.md /
+STYLE_C_CPP.md / STYLE_JAVA.md) is considered complete. Phase 2 — Java 17+ and
+C++20+ construct support — begins at that point, tracked separately in
+`STATE_NEXT.md` (which also covers trimming `AI_PREAMBLE.md` down to its
+post-JAR Tier-3-only scope). Do not open or read `STATE_NEXT.md`,
+`STYLE_JAVA17.md`, or `STYLE_CPP20.md` before this milestone is checked off.

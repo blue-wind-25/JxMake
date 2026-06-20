@@ -14,6 +14,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -91,10 +92,16 @@ public class MiscRule {
         if (width % INDENT_WIDTH != 0) {
             return original;
         }
-        final int levels = width / INDENT_WIDTH;
+        return indentText(width / INDENT_WIDTH, indentStyle);
+    }
+
+    /** Renders `level` indent levels in the requested style -- shared by §1's line converter
+     *  above and §8's signature-wrapping below, which both need to *generate* brand-new
+     *  indentation (as opposed to converting indentation that already exists in source). */
+    private String indentText(final int level, final String indentStyle) {
         final boolean tabs = "tabs".equals(indentStyle);
         final char unit = tabs ? '\t' : ' ';
-        final int count = tabs ? levels : levels * INDENT_WIDTH;
+        final int count = tabs ? level : level * INDENT_WIDTH;
         final StringBuilder sb = new StringBuilder(count);
         for (int i = 0; i < count; i++) {
             sb.append(unit);
@@ -691,6 +698,290 @@ public class MiscRule {
             }
         }
         return false;
+    }
+
+    // ── §8 Function Signatures ──────────────────────────────────────────────────
+    /** One parameter: `[typeTokens] name [sizeTokens]` (the C array-param suffix, e.g. `int x[]`).
+     *  A param whose shape doesn't reduce to this (a default value, a bare `...`, etc.) has no
+     *  STYLE.md worked example to justify guessing at -- {@link #parseSignature} bails the whole
+     *  signature rather than mis-rendering one param. */
+    public static final class Param {
+        public final List<Token> typeTokens;
+        public final Token name;
+        public final List<Token> sizeTokens;
+
+        Param(final List<Token> typeTokens, final Token name, final List<Token> sizeTokens) {
+            this.typeTokens = typeTokens;
+            this.name = name;
+            this.sizeTokens = sizeTokens;
+        }
+    }
+
+    /** One parsed function signature: `leadTokens name ( params )`, where `leadTokens` is every
+     *  token before the name (modifiers and return type, not split apart -- §8 has no per-row
+     *  alignment group across multiple signatures the way §5's modifier columns do, so there is
+     *  no need to classify them individually). `explicitVoidParam` records a literal C `(void)`
+     *  parameter list, distinct from a truly empty `()`, so {@link #render} can reproduce it. */
+    public static final class Signature {
+        public final List<Token> leadTokens;
+        public final Token name;
+        public final List<Param> params;
+        public final boolean explicitVoidParam;
+
+        Signature(final List<Token> leadTokens, final Token name, final List<Param> params,
+                final boolean explicitVoidParam) {
+            this.leadTokens = leadTokens;
+            this.name = name;
+            this.params = params;
+            this.explicitVoidParam = explicitVoidParam;
+        }
+    }
+
+    /**
+     * Parses `sigTokens` -- a function signature already isolated by the caller, spanning from
+     * its first lead token (the first modifier, or the return type if there are none) through
+     * and including the parameter list's closing `)`, and nothing past it (no `throws` clause,
+     * no `{`/`;`) -- into a {@link Signature}. This rule's job is rendering (inline vs. broken,
+     * param alignment), not discovering where a function signature starts in arbitrary source;
+     * that boundary-finding is left to the caller, same granularity precedent as
+     * `DeclarationAlignmentRule.parseDeclaration`'s pre-split `stmt` contract.
+     * The name is identified as the IDENTIFIER immediately before the first depth-0 `(` (depth
+     * tracked over Java generics via the tokenizer's distinct `ANGLE_BRACKET_OPEN`/`_CLOSE`
+     * token types, so a generic return type like `Map<String, Integer> get(...)` doesn't
+     * misidentify `Integer` as the name). Returns null -- leaving the candidate completely
+     * untouched -- whenever: the shape doesn't match at all; `sigTokens` has trailing tokens past
+     * the matched `)` (the caller included something this method doesn't handle); or any
+     * parameter fails to parse (a default value, e.g. C++'s `int x = 0`, or any other shape with
+     * no STYLE.md worked example).
+     */
+    public Signature parseSignature(final List<Token> sigTokens) {
+        final List<Token> sig = significantOnly(sigTokens);
+        int openParen = -1;
+        int nameIdx = -1;
+        int depth = 0;
+        for (int i = 0; i < sig.size(); i++) {
+            final Token t = sig.get(i);
+            if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, "(") && i > 0
+                    && sig.get(i - 1).type == TokenType.IDENTIFIER) {
+                openParen = i;
+                nameIdx = i - 1;
+                break;
+            }
+        }
+        if (openParen < 0) {
+            return null;
+        }
+        final int closeParen = matchParenForward(sig, openParen);
+        if (closeParen != sig.size() - 1) {
+            return null;
+        }
+
+        final List<Token> leadTokens = new ArrayList<>(sig.subList(0, nameIdx));
+        final Token name = sig.get(nameIdx);
+        final List<Token> paramsSlice = sig.subList(openParen + 1, closeParen);
+
+        if (paramsSlice.isEmpty()) {
+            return new Signature(leadTokens, name, new ArrayList<Param>(), false);
+        }
+        if (paramsSlice.size() == 1 && paramsSlice.get(0).type == TokenType.KEYWORD
+                && "void".equals(paramsSlice.get(0).text)) {
+            return new Signature(leadTokens, name, new ArrayList<Param>(), true);
+        }
+
+        final List<Param> params = new ArrayList<>();
+        for (final List<Token> slice : splitTopLevelCommas(paramsSlice)) {
+            final Param p = parseParam(slice);
+            if (p == null) {
+                return null;
+            }
+            params.add(p);
+        }
+        return new Signature(leadTokens, name, params, false);
+    }
+
+    private List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
+        final List<List<Token>> parts = new ArrayList<>();
+        List<Token> current = new ArrayList<>();
+        int depth = 0;
+        for (final Token t : tokens) {
+            if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ",")) {
+                parts.add(current);
+                current = new ArrayList<>();
+                continue;
+            }
+            current.add(t);
+        }
+        parts.add(current);
+        return parts;
+    }
+
+    /** Parses one already-significant-only param slice, peeling a trailing `[size]` run (same
+     *  depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
+     *  `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name. */
+    private Param parseParam(final List<Token> slice) {
+        if (slice.isEmpty()) {
+            return null;
+        }
+        for (final Token t : slice) {
+            if (isOp(t, "=")) {
+                return null; // default value -- no STYLE.md worked example, bail the whole signature
+            }
+        }
+        int end = slice.size();
+        final List<Token> sizeTokens = new ArrayList<>();
+        while (end > 0 && isPunct(slice.get(end - 1), "]")) {
+            int depth = 0;
+            int openIdx = -1;
+            for (int k = end - 1; k >= 0; k--) {
+                final Token t = slice.get(k);
+                if (isPunct(t, "]")) {
+                    depth++;
+                } else if (isPunct(t, "[")) {
+                    depth--;
+                    if (depth == 0) {
+                        openIdx = k;
+                        break;
+                    }
+                }
+            }
+            if (openIdx < 0) {
+                break;
+            }
+            sizeTokens.addAll(0, slice.subList(openIdx, end));
+            end = openIdx;
+        }
+        if (end <= 0) {
+            return null;
+        }
+        final Token name = slice.get(end - 1);
+        if (name.type != TokenType.IDENTIFIER) {
+            return null;
+        }
+        final List<Token> typeTokens = new ArrayList<>(slice.subList(0, end - 1));
+        if (typeTokens.isEmpty()) {
+            return null;
+        }
+        return new Param(typeTokens, name, sizeTokens);
+    }
+
+    /**
+     * Renders one signature (STYLE.md §8) inline if it fits within {@link #LINE_LENGTH_LIMIT}
+     * at its starting column (`indentLevel * INDENT_WIDTH`, per STYLE.md §1's tab-display-size-4
+     * convention -- visual column, not raw character count, so the comparison is meaningful
+     * regardless of `indentStyle`), or broken to one parameter per line otherwise. A zero-param
+     * signature (including an explicit C `(void)`) is always rendered inline -- breaking achieves
+     * nothing with no parameter to place on its own line, so an over-length zero-param signature
+     * is left long rather than "broken" into a meaningless single-line shape.
+     * <p>Broken form: the parameter type column is padded to {@code maxTypeLen + 1} --
+     * unconditionally, the same convention established for §6's `maxPrefixLen` -- before the
+     * normal single-space join; verified character-by-character against STYLE.md §8's own worked
+     * example (`const char*`/`uint8_t`/`uint16_t`, max width 11, every row's gap is
+     * `(11 - thisWidth) + 2`, i.e. `maxTypeLen + 1` padding plus one join space, not
+     * `maxTypeLen + 1` total) that a plain `maxTypeLen`-width column (matching §5's declaration
+     * grid) under-pads by exactly one space relative to this section's own example. The closing
+     * `)` is indented to `indentLevel` (already resolved -- see STATE.md's §8 checklist: matches
+     * the first character of the signature itself); parameter lines are indented to
+     * `indentLevel + 1`.
+     */
+    public List<String> render(final Signature sig, final int indentLevel, final String indentStyle) {
+        final String lead = renderTokens(sig.leadTokens);
+        final String head = (lead.isEmpty() ? "" : lead + " ") + sig.name.text + "(";
+        final String inline = head + renderParamsInline(sig) + ")";
+        final int startColumn = indentLevel * INDENT_WIDTH;
+
+        if (sig.params.isEmpty() || startColumn + inline.length() <= LINE_LENGTH_LIMIT) {
+            return Collections.singletonList(inline);
+        }
+
+        int maxTypeLen = 0;
+        for (final Param p : sig.params) {
+            maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
+        }
+        final int typeColWidth = maxTypeLen + 1;
+
+        final List<String> lines = new ArrayList<>();
+        lines.add(head);
+        final String paramIndent = indentText(indentLevel + 1, indentStyle);
+        for (int i = 0; i < sig.params.size(); i++) {
+            final Param p = sig.params.get(i);
+            final String typeText = renderTokens(p.typeTokens);
+            final String nameText = p.name.text + renderTokens(p.sizeTokens)
+                    + (i < sig.params.size() - 1 ? "," : "");
+            lines.add(paramIndent + padRight(typeText, typeColWidth) + " " + nameText);
+        }
+        lines.add(indentText(indentLevel, indentStyle) + ")");
+        return lines;
+    }
+
+    private String renderParamsInline(final Signature sig) {
+        if (sig.params.isEmpty()) {
+            return sig.explicitVoidParam ? "void" : "";
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < sig.params.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            final Param p = sig.params.get(i);
+            sb.append(renderTokens(p.typeTokens)).append(' ')
+                    .append(p.name.text).append(renderTokens(p.sizeTokens));
+        }
+        return sb.toString();
+    }
+
+    /** Joins tokens into canonical spaced text -- exact copy of
+     *  `DeclarationAlignmentRule.renderTokens`'s tight-attachment rules (`*`/`&`/`::`/generics/
+     *  `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
+     *  these as a shared utility (each rule class keeps its own small token-joining helpers). */
+    private String renderTokens(final List<Token> tokens) {
+        final StringBuilder sb = new StringBuilder();
+        Token prev = null;
+        for (final Token t : tokens) {
+            if (prev != null && needsSpaceBetween(prev, t)) {
+                sb.append(' ');
+            }
+            sb.append(t.text);
+            prev = t;
+        }
+        return sb.toString();
+    }
+
+    private boolean needsSpaceBetween(final Token prev, final Token cur) {
+        if (isTightToken(cur)) {
+            return false;
+        }
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isPunct(prev, "[")) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isTightToken(final Token t) {
+        if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+            return true;
+        }
+        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]")) {
+            return true;
+        }
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::");
+    }
+
+    private List<Token> significantOnly(final List<Token> stmt) {
+        final List<Token> sig = new ArrayList<>();
+        for (final Token t : stmt) {
+            if (!isGapToken(t)) {
+                sig.add(t);
+            }
+        }
+        return sig;
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

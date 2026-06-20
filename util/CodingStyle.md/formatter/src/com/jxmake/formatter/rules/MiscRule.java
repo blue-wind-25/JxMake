@@ -984,6 +984,201 @@ public class MiscRule {
         return sig;
     }
 
+    // ── §9 Blank Line Before `return` ───────────────────────────────────────────
+    private static final class FuncFrame {
+        final boolean isFunctionBody;
+        final boolean multiLine;
+        boolean sawContent;
+
+        FuncFrame(final boolean isFunctionBody, final boolean multiLine) {
+            this.isFunctionBody = isFunctionBody;
+            this.multiLine = multiLine;
+            this.sawContent = false;
+        }
+    }
+
+    /**
+     * Inserts exactly one blank line before a `return` statement when (STYLE.md §9): the
+     * enclosing function body is itself multi-line, AND the `return` sits directly inside that
+     * body (not inside a further-nested block) with at least one statement already before it.
+     * Reuses the same gap-buffering / "leave an existing blank line untouched, only ever add a
+     * missing one" precedent as `BlockStructureRule.insertNamedConstructBlankLines`.
+     * <p>"Function body" is detected the same minimal, purely structural signal already noted
+     * (for a different, not-yet-wired-in purpose) in this file's "§11 K&R brace style detection"
+     * Resolved Design Decision: a `{` whose immediately preceding significant token is a `)`
+     * whose matching `(` is itself preceded by an IDENTIFIER -- which is enough on its own to
+     * exclude every control-flow brace (`if`/`while`/`for`/`switch`/`catch` are all preceded by a
+     * KEYWORD there, never an IDENTIFIER) and every lambda (preceded by `->`, never `)`), with no
+     * per-keyword exclusion list needed. One more guard is added beyond that precedent: if the
+     * identifier itself is preceded by `new`, this is a constructor call / anonymous class
+     * instantiation, not a method definition -- excluded so an anonymous class's own body is
+     * never misclassified as the function body of whatever constructor created it. Known,
+     * deliberate gap (no STYLE.md worked example to resolve it against): a C++ method with a
+     * trailing qualifier between `)` and `{` (`void foo() const { ... }`) is not recognized --
+     * the brace is misclassified as not-a-function-body and this rule simply does nothing there,
+     * never anything actively wrong.
+     * <p>STYLE.md §9's only documented exclusion is the brace-less `if(x) return y;` shape (§10);
+     * generalized here to a brace-less `while`/`for` controlled body too, since the underlying
+     * reasoning STYLE.md states for the exclusion -- "the `return` is at function scope... not
+     * inside a nested block" -- applies identically to those, even without literal braces.
+     * <p>A `return` whose immediately preceding gap contains a comment, or contains zero
+     * newlines (i.e. shares a source line with the previous statement), is left untouched --
+     * neither shape has a STYLE.md worked example to justify guessing where the blank line (or,
+     * for the zero-newline case, a new line break that doesn't yet exist at all) should go.
+     */
+    public String insertBlankLineBeforeReturn(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final Deque<FuncFrame> stack = new ArrayDeque<>();
+        final List<Token> gap = new ArrayList<>();
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean hasComment = gap.stream()
+                    .anyMatch(g -> g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK);
+            final long newlineCount = gap.stream().filter(g -> g.type == TokenType.NEWLINE).count();
+            if (shouldForceBlankBeforeReturn(tokens, i, stack) && !hasComment && newlineCount >= 1) {
+                appendGapWithForcedBlank(out, gap, newlineCount);
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+
+            if (!stack.isEmpty()) {
+                stack.peek().sawContent = true;
+            }
+            if (isPunct(t, "{")) {
+                final boolean isFuncBody = isFunctionBodyBrace(tokens, i);
+                stack.push(new FuncFrame(isFuncBody, isFuncBody && spansMultipleLines(tokens, i)));
+            } else if (isPunct(t, "}") && !stack.isEmpty()) {
+                stack.pop();
+            }
+            out.append(t.text);
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean shouldForceBlankBeforeReturn(final List<Token> tokens, final int idx,
+            final Deque<FuncFrame> stack) {
+        final Token t = tokens.get(idx);
+        if (t.type != TokenType.KEYWORD || !"return".equals(t.text) || stack.isEmpty()) {
+            return false;
+        }
+        final FuncFrame top = stack.peek();
+        if (!top.isFunctionBody || !top.multiLine || !top.sawContent) {
+            return false;
+        }
+        return !isBraceLessControlFlowReturn(tokens, idx);
+    }
+
+    private void appendGapWithForcedBlank(final StringBuilder out, final List<Token> gap, final long newlineCount) {
+        if (newlineCount >= 2) {
+            for (final Token g : gap) {
+                out.append(g.text);
+            }
+            return;
+        }
+        boolean inserted = false;
+        for (final Token g : gap) {
+            out.append(g.text);
+            if (!inserted && g.type == TokenType.NEWLINE) {
+                out.append('\n');
+                inserted = true;
+            }
+        }
+    }
+
+    /** A `return` immediately preceded by `)` whose matching `(` is preceded by `if`/`while`/
+     *  `for`/`switch` is the controlled body of a brace-less single-statement control-flow
+     *  construct -- not at function scope, regardless of which frame is on top of the stack
+     *  (a brace-less body never pushes its own frame). */
+    private boolean isBraceLessControlFlowReturn(final List<Token> tokens, final int returnIdx) {
+        final int closeParen = prevSignificantIndex(tokens, returnIdx - 1);
+        if (closeParen < 0 || !isPunct(tokens.get(closeParen), ")")) {
+            return false;
+        }
+        final int openParen = matchParenBackward(tokens, closeParen);
+        if (openParen < 0) {
+            return false;
+        }
+        final int kwIdx = prevSignificantIndex(tokens, openParen - 1);
+        return kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
+                && TIGHT_PAREN_KEYWORDS.contains(tokens.get(kwIdx).text);
+    }
+
+    private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx) {
+        final int closeParen = prevSignificantIndex(tokens, braceIdx - 1);
+        if (closeParen < 0 || !isPunct(tokens.get(closeParen), ")")) {
+            return false;
+        }
+        final int openParen = matchParenBackward(tokens, closeParen);
+        if (openParen < 0) {
+            return false;
+        }
+        final int nameIdx = prevSignificantIndex(tokens, openParen - 1);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        final int beforeName = prevSignificantIndex(tokens, nameIdx - 1);
+        return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
+                || !"new".equals(tokens.get(beforeName).text);
+    }
+
+    /** True iff a `NEWLINE` token appears anywhere between `openBraceIdx` and its matching `}`. */
+    private boolean spansMultipleLines(final List<Token> tokens, final int openBraceIdx) {
+        int depth = 0;
+        for (int k = openBraceIdx; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, "}")) {
+                depth--;
+                if (depth == 0) {
+                    return false;
+                }
+            } else if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int prevSignificantIndex(final List<Token> tokens, final int from) {
+        int i = from;
+        while (i >= 0 && isGapToken(tokens.get(i))) {
+            i--;
+        }
+        return i;
+    }
+
+    private int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 0;
+        for (int i = closeIdx; i >= 0; i--) {
+            if (isPunct(tokens.get(i), ")")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "(")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
     // ── Token-scanning helpers ───────────────────────────────────────────────────
     private boolean isGapToken(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE

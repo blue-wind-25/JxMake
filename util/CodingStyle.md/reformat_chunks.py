@@ -40,6 +40,11 @@ DIVIDER_RE = re.compile(r'^/{60,}\s*$')  # 60+ forward-slashes = a divider line
 # ---- style rules loader -----------------------------------------------------
 
 def load_rules(lang: str) -> str:
+    # NOTE: do not add STYLE_JAVA17.md / STYLE_CPP20.md to this loader until the
+    # formatter/STATE.md dogfood-test milestone is complete AND AI_PREAMBLE.md has
+    # been updated to match (see formatter/STATE_NEXT.md). Combining them early
+    # applies unvalidated phase-2 rules. See README.txt's "Files in this directory"
+    # note for the full rationale.
     preamble = STYLE_DIR / "AI_PREAMBLE.md"
     common   = STYLE_DIR / "STYLE.md"
     if lang in ("c", "cpp"):

@@ -143,12 +143,123 @@ public class CppSpecificRule {
         return false;
     }
 
+    /**
+     * STYLE_C_CPP.md §2 (brace-placement half only): a recognized function <b>definition</b>'s
+     * own brace moves to its own line (Allman) whenever it is currently K&amp;R/same-line -- the
+     * exact inverse of {@code BlockStructureRule.enforceKAndRBraceStyle}, which deliberately
+     * leaves this exact shape (`)` preceded by an IDENTIFIER) untouched today. Resolved -- see
+     * STATE.md "§2 one-liner scope": asked the user whether the one-liner exception should ever
+     * actively collapse an existing multi-line body down to a one-liner; the user chose
+     * brace-placement only -- this method never inspects or changes how many physical lines the
+     * body itself spans, it only ever relocates the opening `{`. That single rule already
+     * reproduces both of STYLE_C_CPP.md §2's worked examples for free: a body that already sits
+     * on one physical line (`{ _x = 0; }`) keeps that shape verbatim, just moved down a line; a
+     * body that already spans multiple lines keeps that shape too.
+     *
+     * <p>Candidate signal reuses §1's {@code isCandidateSignatureName}: the `{` is directly
+     * preceded (no comment, no newline in the gap) by a `)` whose matching `(` is itself preceded
+     * by a candidate function name (IDENTIFIER, not itself preceded by `new`) -- this naturally
+     * excludes every control-flow brace (`if`/`while`/`for`/`switch`/`catch` precede their `(`
+     * with a KEYWORD, never an IDENTIFIER) and every lambda (a lambda's `{` is preceded by
+     * `]`/a `)` whose matching `(` is preceded by `]`, or by a trailing return type -- never
+     * directly by a bare `)`-after-identifier). A trailing qualifier or return type between `)`
+     * and `{` (`void foo() const { ... }`, `auto foo() -> int { ... }`) is a documented,
+     * deliberate gap, identical in spirit to the one already accepted for §9's
+     * blank-line-before-return rule -- the immediate-predecessor check that excludes
+     * control-flow/lambda braces also excludes these, and there is no STYLE.md worked example to
+     * justify guessing past that signal. A `{` already on its own line (gap already contains a
+     * NEWLINE) is left untouched -- idempotent, and the per-occurrence indentation target reuses
+     * the closing `)`'s own line-leading indentation, which by STYLE.md §8's own rule ("closing
+     * `)` ... indented to match the first character of the function signature itself") is correct
+     * whether the signature is a single line or already broken across several.
+     */
+    public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
+        final Map<Integer, Integer> gapToBrace = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), "{")) {
+                continue;
+            }
+            final int closeParenIdx = prevSignificantIndex(tokens, i);
+            if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
+                continue;
+            }
+            if (!isFunctionDefinitionCloseParen(tokens, closeParenIdx)) {
+                continue;
+            }
+            if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
+                continue;
+            }
+            gapToBrace.put(closeParenIdx + 1, i);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        while (i < tokens.size()) {
+            final Integer braceIdx = gapToBrace.get(i);
+            if (braceIdx != null) {
+                out.append('\n').append(lineIndent(tokens, i - 1));
+                i = braceIdx;
+            } else {
+                out.append(tokens.get(i).text);
+                i++;
+            }
+        }
+        return out.toString();
+    }
+
+    private boolean isFunctionDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx) {
+        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        return openParenIdx >= 0 && isCandidateSignatureName(tokens, openParenIdx);
+    }
+
+    private boolean hasNewlineOrCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
+     *  line has no leading whitespace (column-0 start). */
+    private String lineIndent(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int afterNewline = newlineIdx + 1;
+        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
+            return tokens.get(afterNewline).text;
+        }
+        return "";
+    }
+
     private int matchParenForward(final List<Token> tokens, final int openIdx) {
         int depth = 0;
         for (int i = openIdx; i < tokens.size(); i++) {
             if (isPunct(tokens.get(i), "(")) {
                 depth++;
             } else if (isPunct(tokens.get(i), ")")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 0;
+        for (int i = closeIdx; i >= 0; i--) {
+            if (isPunct(tokens.get(i), ")")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "(")) {
                 depth--;
                 if (depth == 0) {
                     return i;

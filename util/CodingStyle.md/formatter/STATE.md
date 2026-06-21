@@ -169,6 +169,7 @@ re-open them.
 | §15 comment scope and sentence detection | Asked the user two scope questions, then re-checked against STYLE.md §15's actual current text (which is richer than the checklist's original framing) and corrected accordingly. Resolved (1): the capitalize/no-trailing-period rule applies to every `//` comment this pass sees -- but STYLE.md's pre-existing "labels, closing comments, and markers are not sentences" exemption (`// for i`, `// class Foo`, `/* FALL-THROUGH */`) is kept exactly as written there, achieved via **pipeline ordering**, not an in-rule heuristic: this §15 pass must run before `BlockStructureRule`'s §7 closing-comment-insertion pass and `SwitchRule`'s §13 fallthrough-marking pass in `Main.java`'s eventual orchestration, so label/marker comments simply don't exist in the token stream yet when this pass runs -- nothing to detect or exempt. Recorded as a hard constraint for whoever wires up `Main.java`'s pass order. Resolved (2), refined by the user beyond the original yes/no framing: period-stripping specifically (not capitalization, which always applies) depends on sentence count -- a comment is single-sentence (period stripped) iff the only `.` in its text is its own last non-whitespace character; if a `.` appears anywhere earlier followed by more text, the comment has 2+ sentences and its trailing period is left untouched. (`// Increment index.` → strip; `// Increment index. This index is incremented for XXX.` → leave both periods). `...`/ellipsis is still never touched, per the original checklist note; this whole branch is defensive handling of already-existing non-compliant `//` comments, since STYLE.md's own prescriptive guidance is to write multi-sentence content as a `/* */` block in the first place. Resolved (3): `COMMENT_BLOCK` (`/* ... */`) is in scope for the same capitalize/sentence-aware-period rule, plus a structural precondition the user added: a block comment that already spans multiple lines must have its `/*` and `*/` forced onto their own lines (moved if not already there), matching the shape of STYLE.md's own multi-sentence worked example. Asked a follow-up on how far that structural rule reaches: resolved that only already-multi-line block comments get this banner treatment -- a short single-line `/* note */` (including inline/trailing ones) is left alone, never force-exploded into a 3-line banner, since that would be a large structural change with no STYLE.md worked example to justify it. Resolved (4), newly discovered while re-reading STYLE.md §15 (this rule was entirely missing from the original checklist): STYLE.md also documents a **separator alignment** rule -- when inline trailing `//` comments across an aligned group share a separator character (`—`, `:`, etc.), that separator is aligned across the group by padding the label text before it, per STYLE.md's `int[] x`/`xy`/`z` worked example. Added as a new checklist item; its exact grouping-detection mechanics (reuse §5/§6 groups vs. compute independently) are deferred until that item is implemented. Evaluated whether any of this needed to be written into `STYLE.md` itself (per the user's "add them to STYLE.md too if you think it is necessary, otherwise commit" instruction) and concluded no: the label exemption and separator-alignment rule are already fully documented in STYLE.md (only this checklist was stale/incomplete relative to it), and the pipeline-ordering mechanism plus the §6 rendering algorithm are pure implementation detail, consistent with the §14 precedent of keeping such algorithms out of STYLE.md |
 | §15 partial-implementation split | User directed: implement §15 fully if simple enough, otherwise implement the simple parts and defer the rest. Split along where per-line ` * `-continuation-marker parsing becomes necessary: implemented now (`MiscRule.enforceCommentStyle`) are (a) every `//` comment, and (b) a `COMMENT_BLOCK` that is **already single-line** (no `\n`/`\r` in its token text) -- both get the resolved capitalize-first-letter + strip-sole-trailing-period rule, operating on the text between the comment delimiters. One reading judgment call beyond the original "§15 comment scope" decision's literal wording: that decision's resolution (3) said a short single-line `/* note */` is "left alone, never force-exploded into a banner" -- re-read as exempting it only from the *structural* banner-forcing, not from the capitalize/period *text* rule, since the decision's lead sentence frames `COMMENT_BLOCK` as in-scope for "the same capitalize/sentence-aware-period rule" before introducing the banner precondition as a separate, additional clause ("PLUS a structural precondition"). Deferred: a `COMMENT_BLOCK` that already spans multiple lines is left completely untouched, for both halves of resolution (3) -- the capitalize/period text rule (needs marker-aware parsing to find the first content letter past a leading ` * ` and the last content character before a trailing ` * `/`*/` line without disturbing the markers) and the `/*`/`*/` own-line forcing (STYLE.md only shows the already-correct target shape, never a "before" example, so the exact relocation mechanics for malformed input are a design choice still to be made). Also deferred: §15's separator-alignment item, which already carries its own unresolved grouping-detection sub-question recorded in resolution (4) above |
 | §15 multi-line block comment banner reformatting | Asked the user since the prior session's deferred item explicitly flagged the relocation mechanics as an open design choice, not a guess to take: a multi-line `COMMENT_BLOCK` might already use the conventional ` * `-per-line continuation-marker banner (just needing `/*`/`*/` relocated onto their own lines), or might be raw wrapped prose or commented-out code with no markers at all. The user chose the conservative scope: **only** normalize a multi-line block comment when every continuation line (line 2 onward), after stripping its leading whitespace, already starts with `*` -- i.e. it already follows the marker convention. Anything else is left completely untouched, consistent with the formatter's existing "only normalize within an already-recognizable shape, never restructure" posture used throughout (§11 brace style, §13 non-inline switch case bodies, etc.) -- this is what correctly skips commented-out code blocks and ASCII art, which have no STYLE.md worked example sanctioning a rewrite. `MiscRule.reformatMultiLineBlockComment` implements this: each continuation line's content is extracted via `stripLeadingWhitespace` + `afterLeadingStarMarker` (drops the leading `*` and at most one following space); the closing line additionally has its trailing `*/` peeled first (recognizing both a bare `*/`-only closer and a `* content */` closer in one line). The first and last physical lines (which carry `/*`/`*/` themselves) only contribute a content line if what remains after trimming is non-empty; a genuinely blank *middle* line (bare `*`, nothing else) is preserved as an intentional blank paragraph separator rather than collapsed. Text rules then generalize the existing single-line capitalize/period logic across the whole extracted content: the first content line's leading letter is always capitalized (`capitalizeFirstLetter`, reused unchanged); the trailing period on the very last content line is stripped only if it is the sole `.` across every content line (`stripSoleTrailingPeriodAcrossLines`, a multi-line generalization of `stripSoleTrailingPeriod`'s "only strip if the sole dot is also the trailing character" rule) -- this means a single sentence that merely got wrapped across physical lines inside a `/* */` (not because it has multiple sentences) still loses its trailing period, same as a single-sentence `//` comment would; a genuinely multi-sentence paragraph (2+ dots) keeps every period untouched, per STYLE.md's "end each sentence with a period" directive for the paragraph form. Output is re-indented from scratch using `indentBefore` (token-index variant of `BlockStructureRule.indentBefore`'s same line-leading-whitespace lookup) -- each regenerated line is `indent + " *" [+ " " + content]`, landing every line's `*` directly under the opening `/*`'s own `*` column, and the comment's *own* `/*`-line indentation is left untouched for free since it's a separate, pre-existing `WHITESPACE` token this rule never touches. Verified via a throwaway smoke harness (not committed): STYLE.md's own §15 worked example byte-for-byte (after fixing a leading-whitespace bug caught by the harness -- the first line's content needs full `.trim()`, not only a trailing trim, since the original code only trimmed trailing whitespace and left a stray leading space before the relocated first content line); blank-middle-line preservation; raw-wrapped-prose and commented-out-code rejection; ellipsis and mid-sentence-abbreviation non-stripping; tight (no-space) and bare (`*/`-only) closer variants; non-line-leading comments (mid-statement) correctly getting no indent; CRLF-sourced input; and round-trip idempotency |
+| §15 separator alignment | Asked the user two design questions before writing any code, since STATE.md flagged this item's grouping mechanics as unresolved. (1) Grouping signal: **compute independently from comment text alone** -- `MiscRule.alignCommentSeparators` scans the flat token stream for trailing `//` comments on physically-adjacent lines, regardless of what statement (if any) precedes them, rather than depending on another rule's `Declaration`/`Assignment` group objects. This matches every other pass in the file (each operates on retokenized text, never another rule's internal data) and is forced by the pipeline's "chained via re-tokenizing" architecture -- by the time this pass runs, an earlier rule's grouping has already collapsed into plain text. (2) Separator-character recognition, refined by the user beyond the original two-option framing: a candidate separator is any single character that is not alphanumeric **with Unicode letters/digits counting as alphanumeric** (`!Character.isLetterOrDigit(c)`, so accented letters like `ü` can never be mistaken for a separator), flanked by a literal space on both sides. A comment qualifies only if exactly one such candidate exists in its text (zero or 2+ candidates -- e.g. `// foo - bar - baz` -- means "not recognized", not "pick the first/last"); the candidate splits the comment into a trimmed `label` and trimmed `rest`, both of which must be non-empty. `parseSeparatorComment` implements this once and is reused by both the detection step and the rendering step. `findTrailingSeparatorComment` defines a "line" as the token span between two `NEWLINE`s (or list start/end) and only matches when that line's last significant token (skipping `WHITESPACE`) is a qualifying `COMMENT_LINE`. `alignCommentSeparators` then walks the per-line results once, forming maximal runs of consecutive qualifying lines sharing the same separator character -- a blank line, a non-qualifying comment, or a differing separator character all simply fail to extend the run, the same "doesn't match, breaks the group" posture used throughout this file -- and requires a run length of 2+ before rewriting anything (a lone qualifying line, e.g. `// single-level — pad` with no neighbors, is left byte-for-byte untouched, same minimum-group-size precedent as §14's getter/setter grouping). Each rewritten line becomes `"// " + padRight(label, maxLabelLen) + " " + sep + " " + rest`. **New conflict discovered and resolved before coding**: STYLE.md's worked example keeps labels lowercase (`single-level`, `nested`, `empty`), but `enforceCommentStyle`'s capitalize-first-letter rule was applying unconditionally to every `//` comment, which would have corrupted them (`Single-level`). Asked the user, who chose to treat any comment matching the separator-alignment shape as a label/fragment -- the same category as STYLE.md's pre-existing "labels... are not sentences" exemption -- so `enforceCommentStyle` now calls `parseSeparatorComment` first and passes such comments through completely unchanged (no capitalize, no period-stripping), leaving them for `alignCommentSeparators` (a later pass, after re-tokenizing) to pad. Verified via a throwaway smoke harness (not committed): STYLE.md's exact worked example byte-for-byte, a lone qualifying line left untouched, differing-separator/non-comment-line/blank-line run breaks, the 2-candidate ambiguous-comment rejection, and the full `enforceCommentStyle` → re-tokenize → `alignCommentSeparators` pipeline producing the correct final padded output without capitalization corruption |
 | §6 multi-line right-hand sides | `MiscRule.parseAssignment` now accepts a value spanning exactly two physical lines: after locating `valueFrom`/`valueTo` as before, a single forward scan over that range counts `NEWLINE` tokens and rejects outright (returns null, untouched) on any comment found or on 2+ `NEWLINE`s -- no STYLE.md worked example covers either. With exactly one `NEWLINE`, the surrounding whitespace is trimmed outward (mirroring the existing trailing-gap trim before `;`) to find `line1`'s last real token and `line2`'s first, and `classifyMultiLineBreak` decides which of STYLE.md's two documented shapes applies: `line2.get(0)` is an operator → "breaking before an operator" (`breakBeforeOperator=true`); else `line1`'s last token is an operator → "breaking after" (`false`); else neither (a break unrelated to any operator, e.g. mid-operand) → reject, same conservative posture as everywhere else in this rule. `Assignment` gained a `multiLine` flag plus `firstLineValueTokens`/`secondLineValueTokens` (via new `Assignment.singleLine(...)`/`Assignment.multiLine(...)` static factories replacing the old public constructor) since a multi-line row's value can no longer be one flat `valueTokens` list. Rendering (`render`/`renderMultiLine`): a multi-line row is excluded from the group's `ColumnGrid` pass entirely -- its `value+";"` cell would only ever hold the first physical line, so any comment-column padding computed from it would be wrong -- and is rendered separately as exactly two lines, then spliced back into the group's output at its original position. Line 1 is `lhs + " " + firstLineValueTokens`, identical in shape to the single-line case. Line 2 is pure indentation (no copied original whitespace) followed by `secondLineValueTokens` + `;` (+ trailing comment if present, appended directly, not column-aligned -- no worked example combines this with `ColumnGrid` comment alignment): indent length `lhsWidth - 1` for the before-operator case (lands the operator on the `=` column, since `lhs` is exactly `lhsWidth` characters and ends in `=`) or `lhsWidth + 1` for the after-operator case (lands the next operand one column past `=`, i.e. where the first operand began on line 1). Both targets are computed from the whole group's `lhsWidth` (shared `maxNameLen`/`maxPrefixLen`), not the row's own unpadded width, so a multi-line row still lines up correctly inside a group with longer-named neighbors. Verified via a throwaway smoke harness (not committed) against both of STYLE.md §6's worked examples byte-for-byte, plus a mixed group (one single-line + one multi-line-with-trailing-comment row, confirming `ColumnGrid`'s name/`=`-column padding and the multi-line row's independent indent both come out correct together) and the two/3+-newline and comment-inside-value rejection cases |
 
 ---
@@ -200,50 +201,105 @@ re-open them.
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
-| `MiscRule.java` | IN PROGRESS |
+| `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope") |
 | `CppSpecificRule.java` | NOT STARTED |
 | `JavaSpecificRule.java` | NOT STARTED |
 | `README.md` | NOT STARTED |
 
 ---
 
-## Current File: `MiscRule.java` — IN PROGRESS
+## Current File: `CppSpecificRule.java` — IN PROGRESS
 
-> `GetterSetterRule.java` is COMPLETE. Asked the user how to scope `MiscRule.java` (it had no
-> pre-seeded checklist, unlike every other rule file): resolved as **one file** covering every
-> remaining generic STYLE.md section not owned by another rule class (the "all remaining
-> generic sections" option, not a `WhitespaceRule`/`BraceStyleRule` split and not a smaller
-> subset) -- §1, §2, §3.2, §3.3, §4, §6, §8, §9, §15. `MiscRule.java` does not exist yet --
-> create it from scratch, following the existing rule classes' shape (constructor takes
-> `language`; public entry-point method(s) taking `List<Token>` and returning the rendered
-> `String`; reuse `ColumnGrid` for column alignment where applicable, same as
-> `DeclarationAlignmentRule`). Implement and checkpoint-commit one section below at a time, in
-> the order listed (later sections build on earlier ones: §8's param alignment reuses §6/§5-style
-> column alignment; §9's blank-line insertion reuses the gap-buffering technique from
-> `BlockStructureRule`).
->
-> §3.2, §3.3, §4, §2, §6, §8, and §9 are all COMPLETE (see Resolved Design Decisions for each) --
-> only the two items below remain.
+> `MiscRule.java` is COMPLETE (its one remaining item, §1 `indent-style=keep`, is non-blocking --
+> see the File Status table and Resolved Design Decisions: "§1 indentation scope"). Asked the
+> user how to scope `CppSpecificRule.java` (it had no pre-seeded checklist, unlike the original
+> per-rule files): of STYLE_C_CPP.md's 11 sections, §5 (pre/post increment) and §6 (bitfields) are
+> already fully implemented elsewhere (`MiscRule`/`DeclarationAlignmentRule`), §7's additional
+> C/C++ closing-comment cases are already handled by `BlockStructureRule`'s `NAMED`/`EXTERN_C`
+> classification and unnamed-namespace exclusion, the lambda-K&R part of §2 is already done
+> (`BlockStructureRule.isLambdaBrace`), and §8 is explicitly "preserve as-is" with nothing to
+> implement. That leaves 7 sections of genuinely new work: §1, §2 (Allman conversion only --
+> lambda K&R is already done), §3, §4, §9, §10, §11. Resolved: **one file, all 7, document order**
+> -- including §10/§11 despite needing filename context, by having `CppSpecificRule`'s entry
+> point(s) accept the filename as an extra parameter rather than spinning up a new file-walking
+> class for them. `CppSpecificRule.java` does not exist yet -- create it from scratch, following
+> the existing rule classes' shape (constructor takes `language`; public entry-point method(s)
+> taking `List<Token>` and returning the rendered `String`, plus a filename parameter for
+> §10/§11; reuse `ColumnGrid` where applicable). Implement and checkpoint-commit one section
+> below at a time, in the order listed.
 
-### §1 Indentation
-- [ ] `indent-style = keep` (resolved -- see Resolved Design Decisions: "§1 indentation scope"):
-      requires a new dedicated file-walking/detection class (not yet created, not
-      `Main.java`/`Config.java` directly) that scans the whole project once to determine the
-      dominant existing style, then calls into `MiscRule.convertIndentation`'s plain spaces/tabs
-      converter with that resolved choice -- `MiscRule.java` itself never has to interpret
-      "keep". Deferred until `Main.java`/`Config.java` orchestration work begins -- not blocking,
-      per the Resolved Design Decision
+### §1 Empty Parameter Lists
+- [ ] C always writes `void` explicitly (`void foo(void)`); C++ omits it (`void foo()`).
+      Branches on the existing `language` field (`"c"` vs `"cpp"`, per
+      `TokenizerCore`'s language switch) -- detect an empty `(...)` parameter list on a function
+      *definition or declaration* (not a call) and insert/remove the bare `void` token
+      accordingly. Needs its own definition-vs-call detection, similar in spirit to
+      `MiscRule.parseSignature`'s pre-isolated `sigTokens` contract but for a fresh scan since no
+      caller pre-isolates signatures here
 
-### §15 Comment Style
-(resolved -- see Resolved Design Decisions: "§15 comment scope and sentence detection" and
-"§15 partial-implementation split")
-- [ ] **Separator alignment** (new item -- STYLE.md §15 has this rule with its own worked example;
-      it was missing from this checklist entirely): when inline trailing `//` comments across an
-      aligned group (e.g. a declaration-alignment or assignment-alignment group from §5/§6) all
-      use the same separator character (`—`, `:`, etc.), align that separator column across the
-      group by padding the label text before it -- mirrors the `int[] x` / `xy` / `z` worked
-      example. Needs its own grouping-detection question (does this reuse §5/§6's groups
-      directly, or compute independently from comment text alone?) when this item is reached
+### §2 Function Brace Style (Allman conversion)
+- [ ] Convert a C/C++ **function definition's** own brace to Allman (own line) when it is
+      currently K&R/same-line -- the inverse of `BlockStructureRule.enforceKAndRBraceStyle`,
+      which deliberately leaves a `)` preceded by an IDENTIFIER (a named function/method
+      definition) untouched today, flagged there as "a different (not-yet-implemented) Tier-1
+      rule." Lambda bodies must stay K&R (already correctly excluded by
+      `BlockStructureRule.isLambdaBrace`'s detection, reused/not duplicated here) and must not be
+      reclassified as Allman by this pass
+- [ ] One-liner exception: a function whose entire body is a single statement (or short tightly
+      related sequence) renders as `{` and `}` together on the second line (`{ _x = 0; }` /
+      `{ _done = true; return y; }`) rather than full Allman expansion -- needs an operational
+      definition of "short tightly related sequence" (STYLE.md gives only single- and
+      two-statement examples); likely needs an `AskUserQuestion` when this item is reached
+
+### §3 C++ Template Angle Brackets `<>`
+- [ ] Single-level template params stay tight (`vector<int>`); any `<>` that directly contains
+      another `<>` at any depth gets padded on both sides of the outer `<>` (`vector< vector<int> >`).
+      This is flagged as a **correctness rule** (avoids `>>` parse errors in older C++ standards),
+      not just style -- so it cannot be skipped/left ambiguous the way some other sections are.
+      Tokenizer already distinguishes `ANGLE_BRACKET_OPEN`/`_CLOSE` from plain `<`/`>` operators
+      (used by `MiscRule.parseSignature`'s generic-depth tracking) -- reuse that depth tracking to
+      find nesting
+
+### §4 Pointer and Const Qualifier Style
+- [ ] `*` attaches to the type (`char* p`, not `char *p`); `const` before `*` attaches to type
+      (`const char* p`); `const` after `*` stays in place (`uint8_t* const p`,
+      `uint8_t* const* pp`). STYLE.md §5's declaration-alignment rule text already says "For
+      pointer and `const` placement in C/C++, see STYLE_C_CPP.md §4" -- meaning
+      `DeclarationAlignmentRule`'s current rendering takes `*`/`const` spacing verbatim from
+      input tokens today, and this section is what's supposed to normalize it. Likely needs
+      `DeclarationAlignmentRule`'s `renderTokens`/`needsSpaceBetween` tight-attachment join to be
+      reused or extended here rather than re-implemented, since the spacing primitives already
+      exist there
+
+### §9 Section Dividers
+- [ ] Two strengths of full-width (100-char) `/`-divider lines: single (ordinary section
+      boundary) and triple (stronger boundary, e.g. before a large `#endif` or an
+      attribution/origin change). STYLE.md explicitly says "use sparingly... should feel
+      significant, not routine" -- this reads as **human-authored**, not something the formatter
+      mechanically inserts. Needs an `AskUserQuestion` when this item is reached to confirm scope:
+      does the formatter do anything at all here (e.g. normalize an existing divider comment's
+      length to exactly 100 `/` chars if it's already recognizable as one), or is this section
+      entirely non-actionable/documentation-only for human authors
+
+### §10 Header File Structure
+- [ ] Fixed zone layout (copyright block / header guard / body / closing `#endif`) with exactly
+      2 blank lines between zones. Guard name derived from filename (uppercase, `.`/path
+      separators → `_`); warn (default) or rename (`header-guard-rename` config key, already
+      defined in Config Keys and Defaults) if the existing guard doesn't match. `#pragma once`
+      files preserve that form unless `header-guard-style` is explicitly configured (also already
+      defined). Needs the filename passed in (per this file's scoping decision above) and needs
+      `Config.java` to exist to actually read `header-guard-rename`/`header-guard-style` --
+      likely implementable against hardcoded defaults now and wired to real `Config` once that
+      class exists, same precedent as other sections that don't block on `Config.java`
+
+### §11 Include Ordering
+- [ ] Two groups (angle-bracket system headers, then quoted local headers) separated by exactly
+      1 blank line; grouping is always enforced regardless of `include-sort` (config key already
+      defined, default off -- alphabetical sort within each group is opt-in since include order
+      can affect behavior via macro dependencies). The file's own corresponding header (e.g.
+      `Foo.cpp` → `Foo.h`) always goes first in group 2, regardless of `include-sort`. Needs the
+      filename passed in (per this file's scoping decision above) to identify "the file's own
+      header"
 
 ---
 

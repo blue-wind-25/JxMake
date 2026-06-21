@@ -1333,7 +1333,11 @@ public class MiscRule {
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.COMMENT_LINE) {
-                out.append("//").append(applyCommentTextRules(t.text.substring(2)));
+                if (parseSeparatorComment(t.text, i) != null) {
+                    out.append(t.text);
+                } else {
+                    out.append("//").append(applyCommentTextRules(t.text.substring(2)));
+                }
             } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
                 final String inner = t.text.substring(2, t.text.length() - 2);
                 out.append("/*").append(applyCommentTextRules(inner)).append("*/");
@@ -1344,6 +1348,132 @@ public class MiscRule {
             }
         }
         return out.toString();
+    }
+
+    /** One trailing `//` comment recognized as a separator-alignment label, parsed from a single
+     *  comment token. */
+    private static final class SepMatch {
+        final int tokenIndex;
+        final String label;
+        final char sep;
+        final String rest;
+
+        SepMatch(final int tokenIndex, final String label, final char sep, final String rest) {
+            this.tokenIndex = tokenIndex;
+            this.label = label;
+            this.sep = sep;
+            this.rest = rest;
+        }
+    }
+
+    /**
+     * Resolved -- see STATE.md "§15 separator alignment": a trailing `//` comment qualifies as a
+     * separator-alignment label iff its text (after `//`) contains exactly one character that is
+     * (a) not a Unicode letter or digit ({@code Character.isLetterOrDigit}, so accented letters
+     * like `ü` count as alphanumeric and can never be a separator) and (b) flanked by a literal
+     * space on both sides. That single character is the separator; everything before it (trimmed)
+     * is the label, everything after it (trimmed) is the rest. A comment with zero or 2+ such
+     * candidates, or where label/rest would be empty, does not qualify and returns {@code null}.
+     */
+    private SepMatch parseSeparatorComment(final String commentText, final int tokenIndex) {
+        final String content = commentText.substring(2);
+        int sepPos = -1;
+        for (int i = 1; i < content.length() - 1; i++) {
+            final char c = content.charAt(i);
+            if (Character.isWhitespace(c) || Character.isLetterOrDigit(c)) {
+                continue;
+            }
+            if (content.charAt(i - 1) == ' ' && content.charAt(i + 1) == ' ') {
+                if (sepPos != -1) {
+                    return null;
+                }
+                sepPos = i;
+            }
+        }
+        if (sepPos == -1) {
+            return null;
+        }
+        final String label = content.substring(0, sepPos).trim();
+        final String rest = content.substring(sepPos + 1).trim();
+        if (label.isEmpty() || rest.isEmpty()) {
+            return null;
+        }
+        return new SepMatch(tokenIndex, label, content.charAt(sepPos), rest);
+    }
+
+    /**
+     * STYLE.md §15 separator alignment (resolved -- see STATE.md "§15 separator alignment"):
+     * pads the label portion of trailing `//` comments so a shared separator character lines up
+     * vertically across a run of physically-adjacent lines, independent of what kind of statement
+     * (if any) precedes the comment on each line -- this rule looks only at comment text, never
+     * at another rule's alignment-group structure. A "line" is the token span between two
+     * `NEWLINE` tokens (or list start/end); it qualifies only if its last significant token is a
+     * `COMMENT_LINE` that {@link #parseSeparatorComment} recognizes. A blank line, a line with no
+     * trailing comment, or a comment that doesn't match the separator shape naturally breaks the
+     * run (it simply doesn't qualify) -- same "doesn't match, breaks the group" posture used by
+     * every other grouping rule in this file. A run must also share the same separator character
+     * to stay together, and must have at least 2 qualifying lines before anything is rewritten --
+     * a lone qualifying line is left byte-for-byte untouched, same minimum-group-size precedent as
+     * §14's getter/setter grouping.
+     */
+    public String alignCommentSeparators(final List<Token> tokens) {
+        final List<SepMatch> perLine = new ArrayList<>();
+        int lineStart = 0;
+        for (int i = 0; i <= tokens.size(); i++) {
+            if (i == tokens.size() || tokens.get(i).type == TokenType.NEWLINE) {
+                perLine.add(findTrailingSeparatorComment(tokens, lineStart, i));
+                lineStart = i + 1;
+            }
+        }
+
+        final Map<Integer, String> rewrites = new HashMap<>();
+        int runStart = 0;
+        while (runStart < perLine.size()) {
+            if (perLine.get(runStart) == null) {
+                runStart++;
+                continue;
+            }
+            int runEnd = runStart + 1;
+            while (runEnd < perLine.size() && perLine.get(runEnd) != null
+                    && perLine.get(runEnd).sep == perLine.get(runStart).sep) {
+                runEnd++;
+            }
+            if (runEnd - runStart >= 2) {
+                int maxLabelLen = 0;
+                for (int i = runStart; i < runEnd; i++) {
+                    maxLabelLen = Math.max(maxLabelLen, perLine.get(i).label.length());
+                }
+                for (int i = runStart; i < runEnd; i++) {
+                    final SepMatch m = perLine.get(i);
+                    final String newText = "// " + padRight(m.label, maxLabelLen) + " " + m.sep + " " + m.rest;
+                    rewrites.put(m.tokenIndex, newText);
+                }
+            }
+            runStart = runEnd;
+        }
+
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            final String rewritten = rewrites.get(i);
+            out.append(rewritten != null ? rewritten : tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    /** The {@link SepMatch} for the line spanning {@code [from, to)}, or {@code null} if that
+     *  line's last significant token isn't a qualifying separator-alignment `//` comment. */
+    private SepMatch findTrailingSeparatorComment(final List<Token> tokens, final int from, final int to) {
+        for (int i = to - 1; i >= from; i--) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE) {
+                continue;
+            }
+            if (t.type != TokenType.COMMENT_LINE) {
+                return null;
+            }
+            return parseSeparatorComment(t.text, i);
+        }
+        return null;
     }
 
     /**

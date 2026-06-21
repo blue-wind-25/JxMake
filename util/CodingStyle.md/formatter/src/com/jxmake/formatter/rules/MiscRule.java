@@ -405,21 +405,48 @@ public class MiscRule {
 
     /** One parsed bare assignment statement (`target op value;` -- no declared type; a typed
      *  declaration's own `= value` is STYLE.md §5/`DeclarationAlignmentRule`'s concern, not this
-     *  rule's). */
+     *  rule's). {@code multiLine} rows (STYLE.md §6's "Multi-line right-hand sides") carry the
+     *  value split across {@code firstLineValueTokens}/{@code secondLineValueTokens} instead of
+     *  {@code valueTokens}, which is null for those rows -- see {@link #parseAssignment}. */
     public static final class Assignment {
         public final Token target;
         public final Token operator;
         public final List<Token> valueTokens;
         public final Token trailingComment; // nullable
         public final boolean blankLineBefore;
+        public final boolean multiLine;
+        public final boolean breakBeforeOperator; // only meaningful when multiLine
+        public final List<Token> firstLineValueTokens; // only set when multiLine
+        public final List<Token> secondLineValueTokens; // only set when multiLine
 
-        Assignment(final Token target, final Token operator, final List<Token> valueTokens,
-                final Token trailingComment, final boolean blankLineBefore) {
+        private Assignment(final Token target, final Token operator, final List<Token> valueTokens,
+                final Token trailingComment, final boolean blankLineBefore, final boolean multiLine,
+                final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
+                final List<Token> secondLineValueTokens) {
             this.target = target;
             this.operator = operator;
             this.valueTokens = valueTokens;
             this.trailingComment = trailingComment;
             this.blankLineBefore = blankLineBefore;
+            this.multiLine = multiLine;
+            this.breakBeforeOperator = breakBeforeOperator;
+            this.firstLineValueTokens = firstLineValueTokens;
+            this.secondLineValueTokens = secondLineValueTokens;
+        }
+
+        static Assignment singleLine(final Token target, final Token operator,
+                final List<Token> valueTokens, final Token trailingComment,
+                final boolean blankLineBefore) {
+            return new Assignment(target, operator, valueTokens, trailingComment, blankLineBefore,
+                    false, false, null, null);
+        }
+
+        static Assignment multiLine(final Token target, final Token operator,
+                final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
+                final List<Token> secondLineValueTokens, final Token trailingComment,
+                final boolean blankLineBefore) {
+            return new Assignment(target, operator, null, trailingComment, blankLineBefore, true,
+                    breakBeforeOperator, firstLineValueTokens, secondLineValueTokens);
         }
     }
 
@@ -472,9 +499,12 @@ public class MiscRule {
      * verbatim, since STYLE.md describes alignment of the `=` column only, not a rewrite of
      * arbitrary expression spacing. An optional trailing-comment column reuses `ColumnGrid` to
      * align comments across the group, same precedent as `DeclarationAlignmentRule`/
-     * `GetterSetterRule`. Multi-line right-hand sides are out of scope (see the checklist's
-     * deferred sub-item) -- `parseAssignment` never returns one, so every row reaching this
-     * method is single-line.
+     * `GetterSetterRule`. A {@code multiLine} row (STYLE.md §6's "Multi-line right-hand sides")
+     * cannot participate in that `ColumnGrid` pass -- its single `value+";"` cell would only ever
+     * hold the first physical line, so any later comment-column padding computed from it would be
+     * wrong -- so such rows are rendered separately by {@link #renderMultiLine} and spliced back
+     * into the group's line order afterward; their own trailing comment (rare, undocumented by any
+     * worked example) is appended directly after the second line's `;` rather than column-aligned.
      */
     public List<String> render(final List<Assignment> group) {
         int maxNameLen = 0;
@@ -487,9 +517,13 @@ public class MiscRule {
         // space (verified against STYLE.md's worked example: maxPrefixLen=2 from ">>=" there,
         // but every row's rendered gap is 3, i.e. naturalMax+1, not naturalMax)
         maxPrefixLen++;
+        final int lhsWidth = maxNameLen + maxPrefixLen + 1; // +1 for "="
 
         final ColumnGrid grid = new ColumnGrid();
         for (final Assignment a : group) {
+            if (a.multiLine) {
+                continue;
+            }
             final String lhs = padRight(a.target.text, maxNameLen)
                     + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
             final List<String> cells = new ArrayList<>();
@@ -500,12 +534,48 @@ public class MiscRule {
             }
             grid.addRow(cells.toArray(new String[0]));
         }
+        final List<String[]> flushed = grid.flush();
 
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(String.join(" ", row));
+        int flushIdx = 0;
+        for (final Assignment a : group) {
+            if (a.multiLine) {
+                lines.addAll(renderMultiLine(a, maxNameLen, maxPrefixLen, lhsWidth));
+            } else {
+                lines.add(String.join(" ", flushed.get(flushIdx)));
+                flushIdx++;
+            }
         }
         return lines;
+    }
+
+    /**
+     * Renders one multi-line-right-hand-side row (STYLE.md §6) as exactly two lines: line 1 is
+     * `lhs + " " + firstLineValueTokens` (identical shape to the single-line case); line 2 is
+     * indentation alone, sized to land the continuation at the documented target column, followed
+     * by `secondLineValueTokens` and the terminating `;`. Breaking *before* an operator (the
+     * operator is the first token of {@code secondLineValueTokens}) targets the `=` column itself
+     * -- index `lhsWidth - 1`, since `lhs` is exactly `lhsWidth` characters wide and ends in `=`.
+     * Breaking *after* an operator (the operator is the last token of {@code
+     * firstLineValueTokens}) targets the column immediately after `=`, i.e. where the first
+     * operand began on line 1 -- index `lhsWidth + 1` (`lhs` then one space then the operand).
+     * Both target columns are computed from the whole group's `lhsWidth`, not this row's own
+     * unpadded name/operator length, so a multi-line row's continuation lines up correctly even
+     * when other rows in the same group have longer names/operators.
+     */
+    private List<String> renderMultiLine(final Assignment a, final int maxNameLen,
+            final int maxPrefixLen, final int lhsWidth) {
+        final String lhs = padRight(a.target.text, maxNameLen)
+                + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
+        final String line1 = lhs + " " + joinVerbatim(a.firstLineValueTokens);
+
+        final int indentLen = a.breakBeforeOperator ? lhsWidth - 1 : lhsWidth + 1;
+        final StringBuilder line2 = new StringBuilder(padRight("", indentLen));
+        line2.append(joinVerbatim(a.secondLineValueTokens)).append(';');
+        if (a.trailingComment != null) {
+            line2.append(' ').append(a.trailingComment.text);
+        }
+        return Arrays.asList(line1, line2.toString());
     }
 
     private String assignOpPrefix(final Token operator) {
@@ -538,14 +608,18 @@ public class MiscRule {
     }
 
     /**
-     * Parses the shape `target op value ;` (STYLE.md §6) entirely on one source line.
-     * `target` must be a single bare `IDENTIFIER` -- a member access (`obj.field`), an array
-     * element (`arr[i]`), or a pointer deref (`*ptr`) has no STYLE.md worked example to justify
-     * guessing at, so any of those leave this method returning null (the statement is left
-     * untouched and breaks the current alignment run, same as any other unrecognized statement).
-     * A comment or `NEWLINE` anywhere between the target and the terminating `;` blocks
-     * recognition entirely -- including the multi-line-right-hand-side case, whose continuation-
-     * line rendering is a distinct, not-yet-designed sub-item (see the checklist).
+     * Parses the shape `target op value ;` (STYLE.md §6), either entirely on one source line, or
+     * spanning exactly two (STYLE.md §6's "Multi-line right-hand sides", see {@link
+     * #classifyMultiLineBreak}). `target` must be a single bare `IDENTIFIER` -- a member access
+     * (`obj.field`), an array element (`arr[i]`), or a pointer deref (`*ptr`) has no STYLE.md
+     * worked example to justify guessing at, so any of those leave this method returning null (the
+     * statement is left untouched and breaks the current alignment run, same as any other
+     * unrecognized statement). A comment or `NEWLINE` between the target and the first value token
+     * (i.e. the `target op` portion must itself be on one line) blocks recognition entirely, as
+     * does any comment anywhere in the value -- only a single `NEWLINE` inside the value, at a
+     * point `classifyMultiLineBreak` can classify as breaking directly before or after an
+     * operator, is accepted; two or more `NEWLINE`s, or a break point unrelated to an operator
+     * (e.g. mid-operand), have no STYLE.md worked example and are left untouched.
      */
     private Assignment parseAssignment(final List<Token> stmt, final boolean blankBefore) {
         final int targetIdx = nextSignificantIndex(stmt, 0);
@@ -558,7 +632,7 @@ public class MiscRule {
             return null;
         }
         final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
-        if (valueFrom < 0) {
+        if (valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom)) {
             return null;
         }
         final int semiIdx = findTopLevelSemicolon(stmt, valueFrom);
@@ -569,7 +643,7 @@ public class MiscRule {
         while (valueTo > valueFrom && isGapToken(stmt.get(valueTo - 1))) {
             valueTo--;
         }
-        if (valueTo <= valueFrom || !noBlockerBetween(stmt, targetIdx, semiIdx)) {
+        if (valueTo <= valueFrom) {
             return null;
         }
         for (int i = semiIdx + 1; i < stmt.size(); i++) {
@@ -580,9 +654,67 @@ public class MiscRule {
             }
         }
 
-        final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
-        return new Assignment(stmt.get(targetIdx), stmt.get(opIdx), value,
-                findTrailingAssignComment(stmt), blankBefore);
+        int newlineCount = 0;
+        int newlineIdx = -1;
+        for (int i = valueFrom; i < valueTo; i++) {
+            final Token t = stmt.get(i);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return null;
+            }
+            if (t.type == TokenType.NEWLINE) {
+                newlineCount++;
+                newlineIdx = i;
+            }
+        }
+        if (newlineCount > 1) {
+            return null;
+        }
+
+        final Token trailingComment = findTrailingAssignComment(stmt);
+        if (newlineCount == 0) {
+            final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
+            return Assignment.singleLine(stmt.get(targetIdx), stmt.get(opIdx), value,
+                    trailingComment, blankBefore);
+        }
+
+        int line1End = newlineIdx;
+        while (line1End > valueFrom && isGapToken(stmt.get(line1End - 1))) {
+            line1End--;
+        }
+        int line2Start = newlineIdx + 1;
+        while (line2Start < valueTo && isGapToken(stmt.get(line2Start))) {
+            line2Start++;
+        }
+        if (line1End <= valueFrom || line2Start >= valueTo) {
+            return null;
+        }
+        final List<Token> line1 = new ArrayList<>(stmt.subList(valueFrom, line1End));
+        final List<Token> line2 = new ArrayList<>(stmt.subList(line2Start, valueTo));
+        final Boolean breakBeforeOperator = classifyMultiLineBreak(line1, line2);
+        if (breakBeforeOperator == null) {
+            return null;
+        }
+        return Assignment.multiLine(stmt.get(targetIdx), stmt.get(opIdx), breakBeforeOperator,
+                line1, line2, trailingComment, blankBefore);
+    }
+
+    /**
+     * Classifies a multi-line right-hand side's break point per STYLE.md §6: {@code true} if
+     * {@code line2}'s first token is an operator ("breaking before an operator"), {@code false} if
+     * {@code line1}'s last token is an operator ("breaking after an operator"), {@code null} if
+     * neither holds -- no STYLE.md worked example covers a break unrelated to an operator (e.g.
+     * mid-operand), so that shape is left unrecognized rather than guessed at. Checked in this
+     * order so a (rare, ambiguous) break where both sides touch an operator resolves to the
+     * "before" reading.
+     */
+    private Boolean classifyMultiLineBreak(final List<Token> line1, final List<Token> line2) {
+        if (line2.get(0).type == TokenType.OP) {
+            return Boolean.TRUE;
+        }
+        if (line1.get(line1.size() - 1).type == TokenType.OP) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
     private int findTopLevelSemicolon(final List<Token> tokens, final int from) {

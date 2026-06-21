@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
@@ -156,6 +157,92 @@ public class MiscRule {
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    // ── §3.1 Condition complexity padding ───────────────────────────────────────
+    private static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
+
+    /**
+     * Pads or tightens the `(...)` immediately following one of the four control-flow keywords
+     * (`if`/`while`/`for`/`switch` -- the same {@link #TIGHT_PAREN_KEYWORDS} set as
+     * {@link #enforceKeywordSpacing}, §3.2) per STYLE.md §3.1: exactly one space just inside both
+     * `(` and `)` when {@link ComplexityPaddingEvaluator#isLoose} reports the content "loose"
+     * (a nested `(`/`[` is present anywhere in it, e.g. a function call or a parenthesized
+     * sub-expression), or zero width (tight) otherwise. `isLoose`'s flat "any `(`/`[` token
+     * present in the slice" check already subsumes nesting propagation -- an outer condition
+     * containing a call or a parenthesized sub-expression is loose without recursing into it --
+     * so each condition's content (the tokens strictly between its own matching `(`/`)`) is
+     * evaluated exactly once; no AST, no recursive re-evaluation. Scope is deliberately limited
+     * to a condition paren directly following one of the four keywords -- a nested call's own
+     * parens (`isReady(x)` inside `if( isReady(x) )`), a plain grouping paren, or any other
+     * `(...)` not anchored to one of those keywords is left completely untouched, since no
+     * STYLE.md worked example pads anything beyond a control-flow condition (array-index `[...]`
+     * padding from the same §3.1 table is a separate, not-yet-assigned gap). A comment or
+     * `NEWLINE` in a given side's own gap blocks the rewrite for that side only, same posture as
+     * {@link #enforceInitializerBraceSpacing}.
+     */
+    public String enforceConditionComplexityPadding(final List<Token> tokens) {
+        final Map<Integer, Boolean> looseByOpenIdx = new HashMap<>();
+        final Map<Integer, Boolean> looseByCloseIdx = new HashMap<>();
+        final int n = tokens.size();
+
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !TIGHT_PAREN_KEYWORDS.contains(t.text)) {
+                continue;
+            }
+            final int openIdx = nextSignificantIndex(tokens, i + 1);
+            if (openIdx < 0 || !isPunct(tokens.get(openIdx), "(")) {
+                continue;
+            }
+            final int closeIdx = matchParenForward(tokens, openIdx);
+            if (closeIdx < 0) {
+                continue;
+            }
+            final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(openIdx + 1, closeIdx));
+            looseByOpenIdx.put(openIdx, loose);
+            looseByCloseIdx.put(closeIdx, loose);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        int lastSignificantIdx = -1;
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final Boolean afterOpen = isPunct(lastSignificant, "(") ? looseByOpenIdx.get(lastSignificantIdx) : null;
+            final Boolean beforeClose = isPunct(t, ")") ? looseByCloseIdx.get(i) : null;
+            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline);
+
+            if (!gapHasBlocker && (Boolean.TRUE.equals(afterOpen) || Boolean.TRUE.equals(beforeClose))) {
+                out.append(' ');
+                gap.clear();
+            } else if (!gapHasBlocker && (Boolean.FALSE.equals(afterOpen) || Boolean.FALSE.equals(beforeClose))) {
+                gap.clear();
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+                gap.clear();
+            }
+
+            out.append(t.text);
+            lastSignificant = t;
+            lastSignificantIdx = i;
             i++;
         }
         for (final Token g : gap) {

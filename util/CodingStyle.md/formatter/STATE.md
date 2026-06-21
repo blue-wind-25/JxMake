@@ -176,6 +176,7 @@ re-open them.
 | §9 section dividers are non-actionable | Asked the user per this item's own pre-recorded `AskUserQuestion` flag: should the formatter do anything mechanical with §9's single/triple 100-char `/`-divider lines (e.g. normalize an existing divider's length), or is the section entirely non-actionable/documentation-only for human authors. User chose **no-op** -- `CppSpecificRule.java` gets no new method for this section, consistent with STYLE.md's own framing ("use sparingly... should feel significant, not routine") as human-authored content the formatter should not touch at all |
 | §4 pointer/const spacing already satisfied | Before writing any code, read `DeclarationAlignmentRule`'s and `MiscRule`'s existing `renderTokens`/`needsSpaceBetween`/`isTightToken` (both already-COMPLETE files), since the checklist note suggested reusing rather than re-implementing them. Tracing `needsSpaceBetween` by hand shows its rule is not "no space before/after `*`" (as the original checklist note assumed) but specifically "no space *before* a tight token (`*`/`&`/`::`/generics/`,`/`[`/`]`), default single space otherwise, with no special-case for what comes *after* `*`" -- which already produces exactly STYLE_C_CPP.md §4's four worked examples for free: `char* p` (space before `*` suppressed, default space before `p`), `const char* p` (default space `const`-`char`, suppressed before `*`, default space before `p`), `uint8_t* const p` (suppressed before `*`, default space before `const`, default space before `p`), `uint8_t* const* pp` (suppressed before first `*`, default space before `const`, suppressed before second `*`, default space before `pp`). `DeclarationAlignmentRule.splitCppType` additionally already extracts a single trailing postfix `const` into its own aligned grid column when present. Verified with a throwaway smoke harness (not committed, 10 cases) driving `DeclarationAlignmentRule.groupDeclarations`/`render` end-to-end on real source text for all four worked examples plus `unsigned char* p`, `int** pp`, `int* p`, and three already-misspaced inputs (`char *p;`, `char * p;`, `const char * const p;`) that all normalize correctly -- all 10 passed with zero changes to any file. `MiscRule.render(Signature, ...)`'s parameter rendering uses the identical duplicated `renderTokens` helper, so function-signature parameter types get the same correct spacing for free. Conclusion: this checklist item required no new code in `CppSpecificRule.java` (or anywhere) -- the original checklist note's "takes `*`/`const` spacing verbatim from input tokens" framing was incorrect; the existing tight-attachment join already re-derives, not preserves, this spacing, and it already happens to be STYLE_C_CPP.md §4-compliant. No cast-expression or other context is in scope, since STYLE.md §5's cross-reference to this section, and every worked example, is declaration/signature-shaped only |
 | §3 template angle-bracket spacing (`CppSpecificRule.java`) | Checklist text was already fully specified (no `AskUserQuestion` needed): a matched `<>` pair stays tight unless its span contains another `<>` pair anywhere within it (however deeply nested), in which case exactly one space is padded just inside its own `<` and `>`. `enforceTemplateAngleBracketSpacing` matches `ANGLE_BRACKET_OPEN`/`_CLOSE` pairs with a simple forward stack (`nestedAnglePairIndices`) -- safe because the tokenizer has already resolved all `>>`-lexing ambiguity before this rule ever sees the tokens -- then flags both the open and close index of any pair containing at least one other `ANGLE_BRACKET_OPEN` strictly within its span; this transitively pads every ancestor on a 3+-level chain (`A< B< C<int> > >`), not just the immediate outer pair, while the childless innermost pair stays tight. Rendering reuses the same gap-buffering technique as `MiscRule.enforceInitializerBraceSpacing`: the gap right after a flagged open / right before a flagged close collapses to exactly one space (zero width when unflagged), unless that side's gap contains a comment/newline, which blocks only that side. **Bug found and fixed in already-COMPLETE `TokenizerCore.java`** while verifying against this section's own worked example (`vector<int>`): `reclassifyAngleBrackets`'s `isGenericSafeToken` only allowed a tiny KEYWORD allowlist (`extends`/`super`/`const`/`typename`/`class`) inside a candidate `<>`, omitting every builtin C/C++ type keyword (`int`, `char`, `bool`, ...) -- so `vector<int>`, the single most common template shape, was silently never reclassified into `ANGLE_BRACKET_OPEN`/`_CLOSE` at all (fell back to plain `OP` tokens, invisible to this rule and to `MiscRule.parseSignature`'s same depth-tracking). Fixed by replacing that inline list with a new `GENERIC_SAFE_KEYWORDS` set that adds the missing primitive-type keywords; this is a strict superset (no `<>` previously reclassified as a generic stops being one), so no other rule that depends on `ANGLE_BRACKET_OPEN`/`_CLOSE` can regress from it. **Second bug found and fixed** in the new method itself while smoke-testing the `>>`/3-level cases: the tokenizer's own `>>` disambiguation keeps both closing characters as one token's `text` (`">>"`, for the *inner* close) and inserts a zero-width placeholder token right after it (for the *outer* close) -- naively appending `t.text` per token therefore put any inserted padding space after both characters instead of between them. Fixed by rendering exactly one literal `<`/`>` character per `ANGLE_BRACKET_OPEN`/`_CLOSE` token unconditionally (ignoring `t.text` for these two types only), which is character-count-correct regardless of how the tokenizer distributed the original text across the bundled tokens. Verified via a throwaway smoke harness (not committed, 15 cases): single-level tight, already-over-padded single tightened back down, 2-level and 3-level nesting (both freshly-typed `>>>`-style and already-`> > >`-spaced input), siblings with no nesting (`map<int, string>`), one-nested-sibling (`map<int, vector<int>>`), comment-blocks-open-side, non-template `<`/`>` comparison operators left untouched, real C source left untouched, and idempotency (re-running on already-correct output reproduces it byte-for-byte) |
+| §10 header file structure (`CppSpecificRule.java`) | Asked the user two questions before writing any code: (1) zone-spacing enforcement direction -- resolved **exactly 2, both directions** (collapses excess blank lines, not just a floor, unlike §7's "exactly one" floor-only precedent); (2) the closing `#endif`'s trailing `// GUARD_NAME` comment policy -- resolved **always add/normalize it**, even if the input's `#endif` was previously bare. `enforceHeaderFileStructure(tokens, filePath, renameGuard)` detects the file's shape via `detectHeaderZones`, conservatively (any deviation aborts detection and returns the file byte-for-byte unchanged, same "never restructure past an unrecognized shape" posture as §11/§13/§15 elsewhere): first significant token must be a `COMMENT_BLOCK`; next, separated only by whitespace/newlines (a comment in the gap aborts), must be a `#pragma once` `PREPROCESSOR` token, or an `#ifndef NAME` one immediately followed (whitespace/newlines only) by a matching `#define NAME`; for the `#ifndef` form, the matching closing `#endif` is located by depth-counting every `#if`/`#ifdef`/`#ifndef` (+1)/`#endif` (-1) `PREPROCESSOR` token after the guard (`TokenizerCore`'s own `preprocessorDepth` isn't stored per-token, so this re-derives it independently by re-scanning), and nothing but trailing whitespace may follow that `#endif`; the body must be non-empty. The body's own content (verbatim between the guard and the closing `#endif`/end-of-file) is untouched -- this section only fixes inter-zone spacing and the guard, not body formatting. `deriveGuardName` is a pure mechanical transform of whatever `filePath` string the caller supplies (uppercase, `.`/`/`/`\` → `_`), matching STYLE_C_CPP.md §10's own worked example once the caller has already stripped any project-root prefix the example's path omits -- this method has no project-layout knowledge to do that stripping itself, deferred like other not-yet-wired `Main.java`/`Config.java` concerns. `renameGuard` stands in for the not-yet-existent `header-guard-rename` config key (default off): when false, or when the existing guard already matches, the existing name is kept and only spacing/the `#endif` comment are normalized; the "warn, don't rename" side effect that default implies has nowhere to go yet (no `Config`/CLI output mechanism exists) and is deferred to whoever wires this method into `Main.java`. `header-guard-style` (preserve/ifndef/pragma-once) needs no code at all right now -- this method already only ever normalizes within whichever of the two forms is already present and never converts between them, exactly the documented default ("preserve existing"). Verified via a throwaway smoke harness (not committed, 11 cases): STYLE_C_CPP.md §10's own worked example byte-for-byte; excess-blank-line collapsing in both directions; guard rename firing with `renameGuard=true` on a mismatch; guard mismatch left alone with `renameGuard=false` while the `#endif` comment is still added/normalized; the `#pragma once` form; a nested `#ifdef`/`#endif` inside the body correctly not mistaken for the closing `#endif`; missing-copyright-block, comment-between-zones, non-header-shaped content, and trailing-content-after-`#endif` all left byte-for-byte untouched; and idempotency (re-running on already-correct output reproduces it unchanged) |
 
 ---
 
@@ -185,6 +186,12 @@ re-open them.
       `WhitespaceRule` + `BraceStyleRule` if needed during implementation
 - [ ] `reformat_chunks.py` — keep as-is (AI-based, for long files) alongside the
       new JAR, or deprecate once JAR handles long files natively?
+- [~] `CppSpecificRule.java` §11 "Include Ordering" — STYLE_C_CPP.md has no such section (only
+      goes up to §10), contradicting this file's own "Current File" scoping note that lists §11
+      as in-scope. Only related trace is the undefined `include-sort` config key. Need the user
+      to decide: write a new STYLE_C_CPP.md §11 spec first, drop it from scope and mark
+      `CppSpecificRule.java` COMPLETE after §10, or something else. Blocks the `CppSpecificRule.java`
+      §11 checklist item — see its note there.
 
 ---
 
@@ -232,10 +239,14 @@ re-open them.
 > `String`, plus a filename parameter for §10/§11; reuse `ColumnGrid` where applicable).
 > Implement and checkpoint-commit one section below at a time, in the order listed.
 >
-> §1, §2, §3, §4, and §9 are COMPLETE (see Resolved Design Decisions: "§1 empty parameter list
+> §1, §2, §3, §4, §9, and §10 are COMPLETE (see Resolved Design Decisions: "§1 empty parameter list
 > (`CppSpecificRule.java`)", "§2 one-liner scope (`CppSpecificRule.java`)", "§3 template
 > angle-bracket spacing (`CppSpecificRule.java`)", "§4 pointer/const spacing already
-> satisfied", and "§9 section dividers are non-actionable") -- §10 onward remain.
+> satisfied", "§9 section dividers are non-actionable", and "§10 header file structure
+> (`CppSpecificRule.java`)") -- §11 remains, but see the note under its checklist item below: there
+> is no actual "§11" section in STYLE_C_CPP.md (it only goes up to §10), contradicting this file's
+> own earlier 7-section scoping note above -- this needs to be resolved with the user before any
+> further code is written.
 
 ### §1 Empty Parameter Lists
 - [x] C always writes `void` explicitly (`void foo(void)`); C++ omits it (`void foo()`) -- see
@@ -268,15 +279,27 @@ re-open them.
       code added; see Resolved Design Decisions: "§9 section dividers are non-actionable"
 
 ### §10 Header File Structure
-- [ ] Fixed zone layout (copyright block / header guard / body / closing `#endif`) with exactly
-      2 blank lines between zones. Guard name derived from filename (uppercase, `.`/path
-      separators → `_`); warn (default) or rename (`header-guard-rename` config key, already
-      defined in Config Keys and Defaults) if the existing guard doesn't match. `#pragma once`
-      files preserve that form unless `header-guard-style` is explicitly configured (also already
-      defined). Needs the filename passed in (per this file's scoping decision above) and needs
-      `Config.java` to exist to actually read `header-guard-rename`/`header-guard-style` --
-      likely implementable against hardcoded defaults now and wired to real `Config` once that
-      class exists, same precedent as other sections that don't block on `Config.java`
+- [x] Fixed zone layout (copyright block / header guard / body / closing `#endif`) with exactly
+      2 blank lines between zones, both directions (collapses excess, not just a floor). Guard
+      name derived from filename (uppercase, `.`/path separators → `_`); `renameGuard` parameter
+      stands in for the not-yet-existent `header-guard-rename` config key (default off, warn-only
+      behavior deferred to `Main.java` wiring). `#pragma once` files preserve that form -- no
+      conversion between guard styles is implemented, matching `header-guard-style`'s documented
+      default ("preserve existing"). See Resolved Design Decisions: "§10 header file structure
+      (`CppSpecificRule.java`)"
+
+### §11 Include Ordering -- BLOCKED, see Open Questions
+- [~] **No such section actually exists.** `grep -n "^## " STYLE_C_CPP.md` confirms the file's
+      sections only go up to `## 10. Header File Structure` -- there is no `## 11.` anywhere in
+      STYLE_C_CPP.md or STYLE.md. This contradicts this file's own "Current File" scoping note
+      above, which lists "§11" as one of `CppSpecificRule.java`'s 7 in-scope sections. The only
+      related trace anywhere is the pre-existing `include-sort = off # off | on` config key in
+      Config Keys and Defaults, with zero accompanying spec text defining what "sorted" means
+      (grouping rules, alphabetical order, blank-line separation, etc.). Blocked -- see Open
+      Questions -- until the user resolves whether to (a) write a new STYLE_C_CPP.md §11 section
+      defining the rule before implementing it, (b) drop "§11"/`include-sort` from
+      `CppSpecificRule.java`'s scope entirely and mark `CppSpecificRule.java` COMPLETE after §10,
+      or (c) something else.
 
 ---
 

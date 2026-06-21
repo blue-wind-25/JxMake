@@ -28,6 +28,9 @@ import java.util.Set;
  */
 public class CppSpecificRule {
 
+    /** STYLE_C_CPP.md §10: number of blank lines required between header zones. */
+    private static final int HEADER_ZONE_BLANK_LINES = 2;
+
     private final String language;
 
     public CppSpecificRule(final String language) {
@@ -379,6 +382,297 @@ public class CppSpecificRule {
             }
         }
         return false;
+    }
+
+    /**
+     * STYLE_C_CPP.md §10: a header file has a fixed 4-zone layout -- copyright block, header
+     * guard (`#ifndef`/`#define` pair, or `#pragma once`), body, closing `#endif` (absent for the
+     * `#pragma once` form) -- separated by exactly {@link #HEADER_ZONE_BLANK_LINES} blank lines.
+     * Resolved via two {@code AskUserQuestion}s before writing this method (see STATE.md "§10
+     * header zone spacing" and "§10 #endif trailing comment"): zone spacing is enforced strictly
+     * in both directions (collapses excess blank lines, not just a floor, unlike §7's
+     * "exactly one" precedent), and the closing `#endif`'s trailing `// GUARD_NAME` comment is
+     * always normalized to the current guard name regardless of whether a rename actually fired,
+     * inserting one even if the file's `#endif` was previously bare.
+     *
+     * <p>{@code detectHeaderZones} recognizes the shape conservatively: the first significant
+     * token must be a {@code COMMENT_BLOCK}; the next, separated only by whitespace/newlines (a
+     * comment in that gap aborts detection), must be a `#pragma once` {@code PREPROCESSOR} token
+     * or an `#ifndef NAME` one immediately (whitespace/newlines only, no comment) followed by a
+     * matching `#define NAME`; for the `#ifndef` form, the matching closing `#endif` is located by
+     * depth-counting every `#if`/`#ifdef`/`#ifndef` (+1) and `#endif` (-1) {@code PREPROCESSOR}
+     * token after the guard (mirroring {@code TokenizerCore}'s own `preprocessorDepth` tracking,
+     * applied after tokenization since that depth isn't stored per-token), and nothing but
+     * trailing whitespace/newline may follow it. Any deviation from this shape -- a missing
+     * copyright block, a comment between zones, a mismatched `#ifndef`/`#define` name pair, an
+     * unmatched `#endif`, trailing content after the closing `#endif`, or an empty body -- aborts
+     * detection entirely and the file is returned byte-for-byte unchanged, the same conservative
+     * "don't guess past an unrecognized shape" posture used throughout this codebase, since
+     * STYLE_C_CPP.md gives no worked "before" example for any malformed header. The body's own
+     * content (verbatim between the guard and the closing `#endif`/end-of-file) is untouched --
+     * §10 only fixes inter-zone spacing and the guard, not body formatting.
+     *
+     * <p>Guard-name derivation (`deriveGuardName`) is a pure, mechanical transform of whatever
+     * {@code filePath} string the caller supplies (uppercase, `.`/`/`/`\` &rarr; `_`) -- e.g.
+     * `audio/Codec.h` &rarr; `AUDIO_CODEC_H`, matching STYLE_C_CPP.md §10's own worked example
+     * once the caller has already stripped any project-root prefix (`src/`) the example's path
+     * omits; this method has no project-layout knowledge to do that stripping itself, so it is
+     * the caller's responsibility, deferred like other not-yet-wired `Main.java`/`Config.java`
+     * concerns elsewhere in this file. `renameGuard` stands in for the not-yet-existent
+     * `header-guard-rename` config key (default off): when false, or when the existing guard
+     * already matches, the existing name is kept and only spacing/the `#endif` comment are
+     * normalized. The actual "warn, don't rename" side effect that default implies has nowhere to
+     * go yet (no `Config`/CLI output mechanism exists) and is deferred to whoever wires this
+     * method into `Main.java`. `header-guard-style` (preserve/ifndef/pragma-once) needs no code at
+     * all right now -- this method already only ever normalizes within whichever of the two forms
+     * is already present and never converts between them, which is exactly the documented default
+     * ("preserve existing") with nothing else implemented to switch to yet.
+     */
+    public String enforceHeaderFileStructure(final List<Token> tokens, final String filePath,
+            final boolean renameGuard) {
+        final HeaderZones z = detectHeaderZones(tokens);
+        if (z == null) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        appendRange(out, tokens, 0, z.copyrightEnd + 1);
+        appendBlankLineGap(out);
+
+        if (z.isPragmaOnce) {
+            appendRange(out, tokens, z.guardOpenIdx, z.guardOpenIdx + 1);
+            appendBlankLineGap(out);
+            appendRange(out, tokens, z.bodyStart, z.bodyEnd);
+            return out.toString();
+        }
+
+        final String expectedGuard = deriveGuardName(filePath);
+        final String effectiveGuard = renameGuard && !expectedGuard.equals(z.actualGuardName)
+                ? expectedGuard : z.actualGuardName;
+
+        out.append("#ifndef ").append(effectiveGuard);
+        appendRange(out, tokens, z.guardOpenIdx + 1, z.guardDefineIdx);
+        out.append("#define ").append(effectiveGuard);
+        appendBlankLineGap(out);
+        appendRange(out, tokens, z.bodyStart, z.bodyEnd);
+        appendBlankLineGap(out);
+        out.append("#endif // ").append(effectiveGuard);
+        appendRange(out, tokens, z.endifIdx + 1, tokens.size());
+        return out.toString();
+    }
+
+    /** Detected zone boundaries for {@link #enforceHeaderFileStructure}, or {@code null} from the
+     *  detector if the token list doesn't match the expected shape. */
+    private static final class HeaderZones {
+        int copyrightEnd;
+        boolean isPragmaOnce;
+        int guardOpenIdx;
+        int guardDefineIdx; // == guardOpenIdx for the pragma-once form
+        String actualGuardName; // null for the pragma-once form
+        int bodyStart;
+        int bodyEnd; // exclusive
+        int endifIdx; // -1 for the pragma-once form
+    }
+
+    private HeaderZones detectHeaderZones(final List<Token> tokens) {
+        final int n = tokens.size();
+        final int copyrightIdx = nextNonBlankIndex(tokens, 0);
+        if (copyrightIdx < 0 || tokens.get(copyrightIdx).type != TokenType.COMMENT_BLOCK) {
+            return null;
+        }
+        final HeaderZones z = new HeaderZones();
+        z.copyrightEnd = copyrightIdx;
+
+        final int guardIdx = nextNonBlankIndex(tokens, copyrightIdx + 1);
+        if (guardIdx < 0 || tokens.get(guardIdx).type != TokenType.PREPROCESSOR) {
+            return null;
+        }
+        final String guardText = tokens.get(guardIdx).text;
+
+        if (isPragmaOnceDirective(guardText)) {
+            z.isPragmaOnce = true;
+            z.guardOpenIdx = guardIdx;
+            z.guardDefineIdx = guardIdx;
+            z.endifIdx = -1;
+        } else if ("ifndef".equals(directiveWord(guardText))) {
+            z.isPragmaOnce = false;
+            z.guardOpenIdx = guardIdx;
+            z.actualGuardName = extractDirectiveName(guardText, "ifndef");
+            if (z.actualGuardName == null) {
+                return null;
+            }
+            final int defineIdx = nextNonBlankIndex(tokens, guardIdx + 1);
+            if (defineIdx < 0 || tokens.get(defineIdx).type != TokenType.PREPROCESSOR) {
+                return null;
+            }
+            final String defineName = extractDirectiveName(tokens.get(defineIdx).text, "define");
+            if (defineName == null || !defineName.equals(z.actualGuardName)) {
+                return null;
+            }
+            z.guardDefineIdx = defineIdx;
+        } else {
+            return null;
+        }
+
+        final int afterGuard = (z.isPragmaOnce ? z.guardOpenIdx : z.guardDefineIdx) + 1;
+        final int bodyStart = nextNonBlankIndex(tokens, afterGuard);
+        if (bodyStart < 0) {
+            return null;
+        }
+        z.bodyStart = bodyStart;
+
+        if (z.isPragmaOnce) {
+            z.bodyEnd = n;
+            return z;
+        }
+
+        int depth = 1;
+        int endifIdx = -1;
+        for (int p = z.guardDefineIdx + 1; p < n; p++) {
+            final Token t = tokens.get(p);
+            if (t.type != TokenType.PREPROCESSOR) {
+                continue;
+            }
+            final String word = directiveWord(t.text);
+            if ("if".equals(word) || "ifdef".equals(word) || "ifndef".equals(word)) {
+                depth++;
+            } else if ("endif".equals(word)) {
+                depth--;
+                if (depth == 0) {
+                    endifIdx = p;
+                    break;
+                }
+            }
+        }
+        if (endifIdx < 0) {
+            return null;
+        }
+        for (int p = endifIdx + 1; p < n; p++) {
+            final TokenType ty = tokens.get(p).type;
+            if (ty != TokenType.WHITESPACE && ty != TokenType.NEWLINE) {
+                return null;
+            }
+        }
+
+        final int lastBodySig = prevNonBlankIndex(tokens, endifIdx - 1);
+        if (lastBodySig < z.bodyStart) {
+            return null;
+        }
+        z.bodyEnd = lastBodySig + 1;
+        z.endifIdx = endifIdx;
+        return z;
+    }
+
+    /** Uppercase, with `.`/`/`/`\` replaced by `_` -- e.g. `audio/Codec.h` → `AUDIO_CODEC_H`. */
+    private String deriveGuardName(final String filePath) {
+        final StringBuilder sb = new StringBuilder(filePath.length());
+        for (int i = 0; i < filePath.length(); i++) {
+            final char c = filePath.charAt(i);
+            if (c == '.' || c == '/' || c == '\\') {
+                sb.append('_');
+            } else {
+                sb.append(Character.toUpperCase(c));
+            }
+        }
+        return sb.toString();
+    }
+
+    private boolean isPragmaOnceDirective(final String text) {
+        if (!"pragma".equals(directiveWord(text))) {
+            return false;
+        }
+        final String afterHash = text.trim().substring(1).trim();
+        final String afterPragma = afterHash.substring("pragma".length()).trim();
+        return "once".equals(afterPragma);
+    }
+
+    /** The directive keyword of a {@code PREPROCESSOR} token's text (e.g. `"ifndef"`, `"endif"`,
+     *  `"pragma"`), or `""` if the text doesn't start with `#`. */
+    private String directiveWord(final String text) {
+        final String t = text.trim();
+        if (!t.startsWith("#")) {
+            return "";
+        }
+        final String rest = t.substring(1);
+        int p = 0;
+        while (p < rest.length() && Character.isWhitespace(rest.charAt(p))) {
+            p++;
+        }
+        final int start = p;
+        while (p < rest.length() && (Character.isLetterOrDigit(rest.charAt(p)) || rest.charAt(p) == '_')) {
+            p++;
+        }
+        return rest.substring(start, p);
+    }
+
+    /** The macro name of an `#ifndef NAME` / `#define NAME` directive's text, requiring nothing
+     *  else (e.g. a trailing comment) follow it on the line -- {@code null} if the shape doesn't
+     *  match exactly. */
+    private String extractDirectiveName(final String text, final String expectedDirective) {
+        final String t = text.trim();
+        if (!t.startsWith("#")) {
+            return null;
+        }
+        String rest = t.substring(1).trim();
+        if (!rest.startsWith(expectedDirective)) {
+            return null;
+        }
+        rest = rest.substring(expectedDirective.length()).trim();
+        return isValidIdentifierName(rest) ? rest : null;
+    }
+
+    private boolean isValidIdentifierName(final String s) {
+        if (s.isEmpty() || !(Character.isLetter(s.charAt(0)) || s.charAt(0) == '_')) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (!(Character.isLetterOrDigit(c) || c == '_')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void appendBlankLineGap(final StringBuilder out) {
+        for (int i = 0; i < HEADER_ZONE_BLANK_LINES + 1; i++) {
+            out.append('\n');
+        }
+    }
+
+    private void appendRange(final StringBuilder out, final List<Token> tokens, final int fromInclusive,
+            final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            out.append(tokens.get(i).text);
+        }
+    }
+
+    private String joinVerbatim(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        for (final Token t : tokens) {
+            out.append(t.text);
+        }
+        return out.toString();
+    }
+
+    private int nextNonBlankIndex(final List<Token> tokens, final int from) {
+        for (int i = from; i < tokens.size(); i++) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty != TokenType.WHITESPACE && ty != TokenType.NEWLINE) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int prevNonBlankIndex(final List<Token> tokens, final int from) {
+        for (int i = from; i >= 0; i--) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty != TokenType.WHITESPACE && ty != TokenType.NEWLINE) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private int matchParenForward(final List<Token> tokens, final int openIdx) {

@@ -1314,30 +1314,173 @@ public class MiscRule {
     // ── §15 Comment Style ────────────────────────────────────────────────────────
     /**
      * Capitalizes the first letter and strips a sole trailing period (STYLE.md §15) on every
-     * `//` comment, and on every `/* ... *&#47;` block comment that is *already* a single line
-     * (a block comment already spanning multiple lines is left completely untouched by this
-     * method -- see "§15 comment scope and sentence detection" in STATE.md's Resolved Design
-     * Decisions for why that case, and STYLE.md's separator-alignment rule, are deferred rather
-     * than guessed at here).
-     * <p>Per that same Resolved Design Decision, this method applies unconditionally to every
-     * comment token it sees -- the STYLE.md exemption for labels/markers/closing-comments
-     * (`// for i`, `/* FALL-THROUGH *&#47;`) is satisfied by pipeline ordering in `Main.java`
-     * (this pass must run before `BlockStructureRule`'s §7 and `SwitchRule`'s §13 passes, which
-     * are what create those comments in the first place), not by any detection logic here.
+     * `//` comment, on every `/* ... *&#47;` block comment that is already a single line, and on
+     * a multi-line `/* ... *&#47;` block comment that already follows the conventional ` * `
+     * continuation-marker banner shape (see {@link #reformatMultiLineBlockComment}) -- a
+     * multi-line block comment that does *not* already use that marker convention (raw wrapped
+     * prose, commented-out code, ASCII art) is left completely untouched, per the user's resolved
+     * scope decision: only normalize within an already-recognizable shape, never restructure
+     * arbitrary content. STYLE.md's separator-alignment rule remains a separate, deferred item.
+     * <p>Per the Resolved Design Decision ("§15 comment scope and sentence detection"), this
+     * method applies unconditionally to every comment token it sees -- the STYLE.md exemption
+     * for labels/markers/closing-comments (`// for i`, `/* FALL-THROUGH *&#47;`) is satisfied by
+     * pipeline ordering in `Main.java` (this pass must run before `BlockStructureRule`'s §7 and
+     * `SwitchRule`'s §13 passes, which are what create those comments in the first place), not by
+     * any detection logic here.
      */
     public String enforceCommentStyle(final List<Token> tokens) {
         final StringBuilder out = new StringBuilder();
-        for (final Token t : tokens) {
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
             if (t.type == TokenType.COMMENT_LINE) {
                 out.append("//").append(applyCommentTextRules(t.text.substring(2)));
             } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
                 final String inner = t.text.substring(2, t.text.length() - 2);
                 out.append("/*").append(applyCommentTextRules(inner)).append("*/");
+            } else if (t.type == TokenType.COMMENT_BLOCK) {
+                out.append(reformatMultiLineBlockComment(t.text, indentBefore(tokens, i)));
             } else {
                 out.append(t.text);
             }
         }
         return out.toString();
+    }
+
+    /**
+     * Normalizes a multi-line `/* ... *&#47;` block comment into STYLE.md §15's banner shape
+     * (`/*` alone on its own line, each content line as ` * &lt;content&gt;`, `*&#47;` alone on
+     * its own line, all indented to match {@code indent} -- the original comment's own line
+     * indentation) -- but only when every physical line is already recognizable as using the
+     * conventional `*`-per-line continuation-marker convention (resolved -- see "§15 multi-line
+     * block comment banner reformatting" in STATE.md). If any continuation line, once its
+     * leading whitespace is stripped, does not start with `*`, the whole comment is returned
+     * unchanged -- this is what correctly skips raw wrapped prose and commented-out code, neither
+     * of which has a STYLE.md worked example sanctioning a rewrite.
+     * <p>Once recognized, each line's content is extracted by stripping its leading whitespace,
+     * its leading `*`, and at most one following space (the closing line additionally has its
+     * trailing `*&#47;` stripped first). The first and last physical lines (which carry `/*` and
+     * `*&#47;` respectively) only contribute a content line if what remains is non-empty; a
+     * genuinely blank *middle* line (a bare `*` with nothing else) is preserved as an intentional
+     * blank paragraph separator. Text rules then apply across the whole extracted content exactly
+     * like the single-line case, generalized over multiple lines: the first content line's
+     * leading letter is always capitalized; the trailing period on the very last content line is
+     * stripped only if it is the sole `.` across all content lines (an ellipsis, or any
+     * abbreviation followed by more sentence text, is never touched), matching STYLE.md's "single
+     * sentence never ends in a period, even one that merely got wrapped onto multiple physical
+     * lines" reading already established for `//` comments.
+     */
+    private String reformatMultiLineBlockComment(final String text, final String indent) {
+        final String[] rawLines = text.split("\r\n|\r|\n", -1);
+        final int n = rawLines.length;
+        for (int i = 1; i < n; i++) {
+            if (!stripLeadingWhitespace(rawLines[i]).startsWith("*")) {
+                return text;
+            }
+        }
+
+        final String firstContent = rawLines[0].substring(2).trim();
+
+        final String lastStripped = stripLeadingWhitespace(rawLines[n - 1]);
+        final String lastContent;
+        if ("*/".equals(lastStripped)) {
+            lastContent = "";
+        } else {
+            final String afterMarker = afterLeadingStarMarker(lastStripped);
+            if (!afterMarker.endsWith("*/")) {
+                return text;
+            }
+            lastContent = trimTrailing(afterMarker.substring(0, afterMarker.length() - 2));
+        }
+
+        final List<String> contentLines = new ArrayList<>();
+        if (!firstContent.isEmpty()) {
+            contentLines.add(firstContent);
+        }
+        for (int i = 1; i < n - 1; i++) {
+            contentLines.add(trimTrailing(afterLeadingStarMarker(stripLeadingWhitespace(rawLines[i]))));
+        }
+        if (!lastContent.isEmpty()) {
+            contentLines.add(lastContent);
+        }
+
+        if (!contentLines.isEmpty()) {
+            contentLines.set(0, capitalizeFirstLetter(contentLines.get(0)));
+        }
+        stripSoleTrailingPeriodAcrossLines(contentLines);
+
+        final StringBuilder out = new StringBuilder("/*");
+        for (final String line : contentLines) {
+            out.append('\n').append(indent).append(" *");
+            if (!line.isEmpty()) {
+                out.append(' ').append(line);
+            }
+        }
+        out.append('\n').append(indent).append(" */");
+        return out.toString();
+    }
+
+    /** Drops a line's leading whitespace, returning the remainder unchanged. */
+    private String stripLeadingWhitespace(final String line) {
+        int i = 0;
+        while (i < line.length() && Character.isWhitespace(line.charAt(i))) {
+            i++;
+        }
+        return line.substring(i);
+    }
+
+    /** Drops a leading `*` and at most one space immediately after it. Caller must have already
+     *  verified {@code wsStrippedLine} starts with `*`. */
+    private String afterLeadingStarMarker(final String wsStrippedLine) {
+        String rest = wsStrippedLine.substring(1);
+        if (rest.startsWith(" ")) {
+            rest = rest.substring(1);
+        }
+        return rest;
+    }
+
+    private String trimTrailing(final String s) {
+        int end = s.length();
+        while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(0, end);
+    }
+
+    /** Cross-line generalization of {@link #stripSoleTrailingPeriod}: strips the trailing `.` on
+     *  the last entry only when it is the sole `.` across every entry. */
+    private void stripSoleTrailingPeriodAcrossLines(final List<String> lines) {
+        if (lines.isEmpty()) {
+            return;
+        }
+        int dotCount = 0;
+        for (final String l : lines) {
+            for (int i = 0; i < l.length(); i++) {
+                if (l.charAt(i) == '.') {
+                    dotCount++;
+                }
+            }
+        }
+        if (dotCount != 1) {
+            return;
+        }
+        final int lastIdx = lines.size() - 1;
+        final String last = lines.get(lastIdx);
+        if (last.isEmpty() || last.charAt(last.length() - 1) != '.') {
+            return;
+        }
+        lines.set(lastIdx, last.substring(0, last.length() - 1));
+    }
+
+    /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on
+     *  its line -- same precedent as `BlockStructureRule.indentBefore`. */
+    private String indentBefore(final List<Token> tokens, final int idx) {
+        final StringBuilder indent = new StringBuilder();
+        int i = idx - 1;
+        while (i >= 0 && tokens.get(i).type == TokenType.WHITESPACE) {
+            indent.insert(0, tokens.get(i).text);
+            i--;
+        }
+        return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
     }
 
     private String applyCommentTextRules(final String content) {

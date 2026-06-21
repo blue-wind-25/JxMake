@@ -178,6 +178,10 @@ re-open them.
 | §3 template angle-bracket spacing (`CppSpecificRule.java`) | Checklist text was already fully specified (no `AskUserQuestion` needed): a matched `<>` pair stays tight unless its span contains another `<>` pair anywhere within it (however deeply nested), in which case exactly one space is padded just inside its own `<` and `>`. `enforceTemplateAngleBracketSpacing` matches `ANGLE_BRACKET_OPEN`/`_CLOSE` pairs with a simple forward stack (`nestedAnglePairIndices`) -- safe because the tokenizer has already resolved all `>>`-lexing ambiguity before this rule ever sees the tokens -- then flags both the open and close index of any pair containing at least one other `ANGLE_BRACKET_OPEN` strictly within its span; this transitively pads every ancestor on a 3+-level chain (`A< B< C<int> > >`), not just the immediate outer pair, while the childless innermost pair stays tight. Rendering reuses the same gap-buffering technique as `MiscRule.enforceInitializerBraceSpacing`: the gap right after a flagged open / right before a flagged close collapses to exactly one space (zero width when unflagged), unless that side's gap contains a comment/newline, which blocks only that side. **Bug found and fixed in already-COMPLETE `TokenizerCore.java`** while verifying against this section's own worked example (`vector<int>`): `reclassifyAngleBrackets`'s `isGenericSafeToken` only allowed a tiny KEYWORD allowlist (`extends`/`super`/`const`/`typename`/`class`) inside a candidate `<>`, omitting every builtin C/C++ type keyword (`int`, `char`, `bool`, ...) -- so `vector<int>`, the single most common template shape, was silently never reclassified into `ANGLE_BRACKET_OPEN`/`_CLOSE` at all (fell back to plain `OP` tokens, invisible to this rule and to `MiscRule.parseSignature`'s same depth-tracking). Fixed by replacing that inline list with a new `GENERIC_SAFE_KEYWORDS` set that adds the missing primitive-type keywords; this is a strict superset (no `<>` previously reclassified as a generic stops being one), so no other rule that depends on `ANGLE_BRACKET_OPEN`/`_CLOSE` can regress from it. **Second bug found and fixed** in the new method itself while smoke-testing the `>>`/3-level cases: the tokenizer's own `>>` disambiguation keeps both closing characters as one token's `text` (`">>"`, for the *inner* close) and inserts a zero-width placeholder token right after it (for the *outer* close) -- naively appending `t.text` per token therefore put any inserted padding space after both characters instead of between them. Fixed by rendering exactly one literal `<`/`>` character per `ANGLE_BRACKET_OPEN`/`_CLOSE` token unconditionally (ignoring `t.text` for these two types only), which is character-count-correct regardless of how the tokenizer distributed the original text across the bundled tokens. Verified via a throwaway smoke harness (not committed, 15 cases): single-level tight, already-over-padded single tightened back down, 2-level and 3-level nesting (both freshly-typed `>>>`-style and already-`> > >`-spaced input), siblings with no nesting (`map<int, string>`), one-nested-sibling (`map<int, vector<int>>`), comment-blocks-open-side, non-template `<`/`>` comparison operators left untouched, real C source left untouched, and idempotency (re-running on already-correct output reproduces it byte-for-byte) |
 | §10 header file structure (`CppSpecificRule.java`) | Asked the user two questions before writing any code: (1) zone-spacing enforcement direction -- resolved **exactly 2, both directions** (collapses excess blank lines, not just a floor, unlike §7's "exactly one" floor-only precedent); (2) the closing `#endif`'s trailing `// GUARD_NAME` comment policy -- resolved **always add/normalize it**, even if the input's `#endif` was previously bare. `enforceHeaderFileStructure(tokens, filePath, renameGuard)` detects the file's shape via `detectHeaderZones`, conservatively (any deviation aborts detection and returns the file byte-for-byte unchanged, same "never restructure past an unrecognized shape" posture as §13/§15 elsewhere): first significant token must be a `COMMENT_BLOCK`; next, separated only by whitespace/newlines (a comment in the gap aborts), must be a `#pragma once` `PREPROCESSOR` token, or an `#ifndef NAME` one immediately followed (whitespace/newlines only) by a matching `#define NAME`; for the `#ifndef` form, the matching closing `#endif` is located by depth-counting every `#if`/`#ifdef`/`#ifndef` (+1)/`#endif` (-1) `PREPROCESSOR` token after the guard (`TokenizerCore`'s own `preprocessorDepth` isn't stored per-token, so this re-derives it independently by re-scanning), and nothing but trailing whitespace may follow that `#endif`; the body must be non-empty. The body's own content (verbatim between the guard and the closing `#endif`/end-of-file) is untouched -- this section only fixes inter-zone spacing and the guard, not body formatting. `deriveGuardName` is a pure mechanical transform of whatever `filePath` string the caller supplies (uppercase, `.`/`/`/`\` → `_`), matching STYLE_C_CPP.md §10's own worked example once the caller has already stripped any project-root prefix the example's path omits -- this method has no project-layout knowledge to do that stripping itself, deferred like other not-yet-wired `Main.java`/`Config.java` concerns. `renameGuard` stands in for the not-yet-existent `header-guard-rename` config key (default off): when false, or when the existing guard already matches, the existing name is kept and only spacing/the `#endif` comment are normalized; the "warn, don't rename" side effect that default implies has nowhere to go yet (no `Config`/CLI output mechanism exists) and is deferred to whoever wires this method into `Main.java`. `header-guard-style` (preserve/ifndef/pragma-once) needs no code at all right now -- this method already only ever normalizes within whichever of the two forms is already present and never converts between them, exactly the documented default ("preserve existing"). Verified via a throwaway smoke harness (not committed, 11 cases): STYLE_C_CPP.md §10's own worked example byte-for-byte; excess-blank-line collapsing in both directions; guard rename firing with `renameGuard=true` on a mismatch; guard mismatch left alone with `renameGuard=false` while the `#endif` comment is still added/normalized; the `#pragma once` form; a nested `#ifdef`/`#endif` inside the body correctly not mistaken for the closing `#endif`; missing-copyright-block, comment-between-zones, non-header-shaped content, and trailing-content-after-`#endif` all left byte-for-byte untouched; and idempotency (re-running on already-correct output reproduces it unchanged) |
 | §11 dropped from `CppSpecificRule.java` scope | The original scoping note for `CppSpecificRule.java` (see "§1 empty parameter list" context / the now-revised "Current File" intro above) listed "§11 Include Ordering" as one of 7 sections to implement, alongside a pre-existing `include-sort = off # off \| on` config key. While implementing §10, `grep -n "^## " STYLE_C_CPP.md` showed the file's sections only go up to `## 10. Header File Structure` -- there never was a "§11" in STYLE_C_CPP.md or STYLE.md, and `include-sort` has no accompanying spec text anywhere defining sort order, grouping, or blank-line rules. Asked the user how to resolve the contradiction; chosen: **drop §11 from scope entirely** rather than write a new spec section or defer it to `STATE_NEXT.md`. `CppSpecificRule.java` is marked COMPLETE after §10 with no §11 method ever added. `include-sort` remains in Config Keys and Defaults as an existing, already-documented key but has no implementation anywhere and no tracked follow-up -- if it is ever revisited, that work starts from a blank slate (no spec, no code, no checklist item), not from this decision |
+| `JavaSpecificRule.java` scoping | Cross-checked STYLE_JAVA.md's 7 numbered sections (plus §8, "preserve as-is") against the already-COMPLETE general/shared rule files before writing any code, same approach used to scope `CppSpecificRule.java`. Excluded from this file's scope entirely (no checklist item, consistent with how §5/§6/§7-lambda-part/§8 were excluded from `CppSpecificRule.java`'s own scoping): **§1** (Empty Parameter Lists) -- `void` is not valid Java syntax inside an empty parameter list at all (unlike C, where `foo()` is a real, pre-existing shape needing `(void)` inserted), so there is no "before" state that can ever occur in valid Java input; nothing to detect or rewrite. **§4** ({} Initializer Spacing) -- already-COMPLETE `MiscRule.enforceInitializerBraceSpacing`'s structural `isInit` signal (preceding token is `=`, or `{`/`,` while the enclosing still-open frame is itself `true`) applies unchanged to Java array initializers (`int[] x = {1, 2, 3}`, preceded by `=`) and correctly leaves the double-brace-initialization idiom (`new HashMap<>() {{ put(...); }}`) untouched for free -- its outer `{` is preceded by `)`, never classified `isInit`, so the inner `{`'s "enclosing frame is `isInit`" condition also fails. **§5** (Getter/Setter/Checker Group Alignment) -- explicitly "same rules as STYLE.md §14", already fully implemented by the already-COMPLETE, language-general `GetterSetterRule.java`. **§6** (Closing Comments) -- explicitly "same rules as STYLE.md §7"; verified `BlockStructureRule.classifyBrace`/`isAnonymousClassBrace` already renders Java anonymous classes as bare `// class` (`Frame.named(braceIdx, "class")`) and named class/interface/enum constructs via the existing language-general `Token.name`-driven path -- exactly STYLE_JAVA.md §6's worked examples, zero new code. **§8** ("Unresolved/Preserve-As-Is") -- explicitly mirrors STYLE_C_CPP.md §8's already-excluded `else`/`else-if` judgment-call threshold; non-actionable by the same reasoning. That leaves 3 sections with real, scoped checklist items below: **§2** (method-definition Allman conversion; class/interface/enum K&R and lambda K&R are already done elsewhere, same exclusion pattern as `CppSpecificRule.java`'s own §2 scoping), **§3** (resolved to need zero Java-specific code -- see "§3.1 condition-interior padding" below), and **§7** (Import Ordering, genuinely new, well-specified work) |
+| §2 Allman-conversion vs. getter/setter one-liner groups -- left unguarded | While scoping §2, found that the already-COMPLETE `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` has no logic excluding a one-liner function definition that is part of a 2+ run intended for `GetterSetterRule`'s §14 aligned-group rendering -- it relocates *any* K&R function-definition brace to Allman unconditionally. STYLE_JAVA.md §2 explicitly surfaces this exact interaction ("One-liner methods follow the getter/setter group rule from STYLE.md §14 when they appear as part of an aligned group"), so the question of whether the new Java method-definition Allman pass needs its own run-detection (duplicating `GetterSetterRule`'s grouping logic) was asked before writing any code. Resolved: **no detection logic, in either language** -- rely entirely on `Main.java`'s eventual pipeline ordering to run `GetterSetterRule` before any Allman-conversion pass, so a one-liner destined for a §14 aligned group is never seen by the Allman pass as a standalone K&R brace in the first place (`GetterSetterRule` will have already consumed and re-rendered it). This is a **hard ordering constraint for `Main.java`**, recorded here so whoever wires up the pipeline does not get this wrong: `GetterSetterRule` must run before `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` and before `JavaSpecificRule`'s analogous new method, in both languages' pipelines. No code changes to the already-COMPLETE `CppSpecificRule.java` were made as a result of this decision |
+| §3.1 condition-interior padding -- wiring decision | STYLE_JAVA.md §3 ("if Spacing When Body is `{}`") is a pure application of STYLE.md §3.1's general loose/tight condition-interior-padding rule -- it explicitly says the `{}` shape itself triggers nothing extra, §3.1 alone decides padding. Investigation found `ComplexityPaddingEvaluator.isLoose` (the pure evaluator function) has never actually been wired into any rewrite pass in any rule file -- `MiscRule.enforceKeywordSpacing`'s own doc comment calls this "separate, not-yet-assigned work". Asked the user whether to wire this up now (as general STYLE.md scope, not Java- or C/C++-specific) or defer/flag §3 as blocked. Resolved: **wire it up now, in `MiscRule.java`** (not `JavaSpecificRule.java`, since the rule itself is language-general) -- a new method there will apply `isLoose` to pad/tighten `if`/`while`/`for`/`switch` condition interiors per STYLE.md §3.1. Once that exists, STYLE_JAVA.md §3 is satisfied for free and needs **zero Java-specific code** in `JavaSpecificRule.java` -- its checklist item below exists only to record this resolution, not to track new work in this file. This `MiscRule.java` method has not yet been implemented -- it is the next concrete implementation step, ahead of `JavaSpecificRule.java`'s own §2/§7 work, since §3's checklist item depends on it |
+| §4 array-declaration syntax parenthetical -- non-actionable | STYLE_JAVA.md §4's intro parenthetical, "with Java array-declaration syntax (`int[] x` not `int x[]`)", has no accompanying worked "before" example showing a postfix-bracket declaration (`int x[];`) being converted to prefix form. Asked the user whether to implement this as an active rewrite rule or treat it as purely illustrative context for the `{}`-initializer-spacing worked example that follows it. Resolved: **non-actionable, no code** -- consistent with this codebase's standing posture of never guessing past an unspecified shape when no worked example justifies it. If a real "convert `int x[]` to `int[] x`" rule is ever wanted, it starts from a blank slate (no spec example, no code, no checklist item), same precedent as `include-sort`'s parallel "dropped, blank slate if revisited" treatment above |
 
 ---
 
@@ -210,81 +214,73 @@ re-open them.
 | `GetterSetterRule.java` | COMPLETE |
 | `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope") |
 | `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope") |
-| `JavaSpecificRule.java` | NOT STARTED |
+| `JavaSpecificRule.java` | IN PROGRESS |
 | `README.md` (defer until just before Dogfood) | NOT STARTED |
 
 ---
 
-## Current File: `CppSpecificRule.java` — COMPLETE
+## Current File: `JavaSpecificRule.java` — IN PROGRESS
 
-> `CppSpecificRule.java` is now COMPLETE. `MiscRule.java` is also COMPLETE (its one remaining
-> item, §1 `indent-style=keep`, is non-blocking -- see the File Status table and Resolved Design
-> Decisions: "§1 indentation scope"). Asked the user how to scope `CppSpecificRule.java` (it had
-> no pre-seeded checklist, unlike the original per-rule files): of STYLE_C_CPP.md's sections, §5
-> (pre/post increment) and §6 (bitfields) are already fully implemented elsewhere
-> (`MiscRule`/`DeclarationAlignmentRule`), §7's additional C/C++ closing-comment cases are already
-> handled by `BlockStructureRule`'s `NAMED`/`EXTERN_C` classification and unnamed-namespace
-> exclusion, the lambda-K&R part of §2 is already done (`BlockStructureRule.isLambdaBrace`), and
-> §8 is explicitly "preserve as-is" with nothing to implement. The original scoping note also
-> listed a "§11 Include Ordering" as in-scope, but this was later discovered to not exist anywhere
-> in STYLE_C_CPP.md (which only goes up to §10) -- the user resolved this by dropping it from
-> scope entirely; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope".
-> That leaves the 6 sections actually implemented: §1, §2 (Allman conversion only -- lambda K&R is
-> already done), §3, §4, §9, §10, all in document order, all COMPLETE (see Resolved Design
-> Decisions: "§1 empty parameter list (`CppSpecificRule.java`)", "§2 one-liner scope
-> (`CppSpecificRule.java`)", "§3 template angle-bracket spacing (`CppSpecificRule.java`)", "§4
-> pointer/const spacing already satisfied", "§9 section dividers are non-actionable", and "§10
-> header file structure (`CppSpecificRule.java`)"). `CppSpecificRule.java` follows the existing
-> rule classes' shape (constructor takes `language`; public entry-point method(s) taking
-> `List<Token>` and returning the rendered `String`, plus a filename parameter for §10; reuse
-> `ColumnGrid` where applicable).
+> `CppSpecificRule.java` is COMPLETE (§1, §2, §3, §4, §9, §10; §11 dropped -- see Resolved Design
+> Decisions: "§11 dropped from `CppSpecificRule.java` scope"). `MiscRule.java` is COMPLETE except
+> for the one new method described below, needed to unblock this file's §3 item. Asked the user
+> how to scope `JavaSpecificRule.java` (no pre-seeded checklist, same situation
+> `CppSpecificRule.java` was in): cross-checked STYLE_JAVA.md's sections against the already-
+> COMPLETE general/shared rule files -- full reasoning for every excluded section (§1, §4, §5, §6,
+> §8) is in Resolved Design Decisions: "`JavaSpecificRule.java` scoping". That leaves 3 sections
+> with checklist items below: §2 (method-definition Allman conversion), §3 (resolved to need zero
+> code in *this* file -- see "§3.1 condition-interior padding -- wiring decision" below), and §7
+> (Import Ordering, genuinely new work). `JavaSpecificRule.java` does not exist yet -- create it
+> from scratch, following the existing rule classes' shape (constructor takes `language` for
+> consistency with the other rule classes, even though this file is Java-only; public entry-point
+> method(s) taking `List<Token>` and returning the rendered `String`; a `packageDeclaration`/
+> filename-style extra parameter will be needed for §7's local-import detection; reuse `ColumnGrid`
+> where applicable).
 >
-> Per STATE.md's own protocol ("When a file reaches COMPLETE... Replace the Current File checklist
-> with the checklist for the next file"), the next file per the File Status table is
-> `JavaSpecificRule.java` (NOT STARTED, no pre-seeded checklist -- its scope needs the same kind
-> of `AskUserQuestion` treatment `CppSpecificRule.java` got, since STYLE_JAVA.md's sections
-> haven't yet been cross-checked against what `MiscRule`/`BlockStructureRule`/etc. already cover
-> for Java). That scoping work has not yet been started and should begin the next session/turn.
+> Two decisions from this scoping pass apply outside this file and are recorded here so they are
+> not lost: (1) **No run-detection coordination between Allman-conversion and `GetterSetterRule`'s
+> one-liner groups, in either language** -- this is a `Main.java` pipeline-ordering constraint
+> (`GetterSetterRule` must run first), not code in this file or `CppSpecificRule.java`; see
+> Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left
+> unguarded". (2) **`MiscRule.java` needs one new method** (general condition-interior padding,
+> STYLE.md §3.1) before this file's §3 checklist item can be marked done -- see Resolved Design
+> Decisions: "§3.1 condition-interior padding -- wiring decision". That `MiscRule.java` method has
+> not been implemented yet; it is the next concrete step, ahead of this file's own §2/§7 work.
+>
+> Implement and checkpoint-commit one section below at a time, in the order listed.
 
-### §1 Empty Parameter Lists
-- [x] C always writes `void` explicitly (`void foo(void)`); C++ omits it (`void foo()`) -- see
-      Resolved Design Decisions: "§1 empty parameter list (`CppSpecificRule.java`)"
+### §2 Method Brace Style (Allman conversion)
+- [ ] Convert a Java **method definition's** own brace to Allman (own line) when currently K&R/
+      same-line. Class/interface/enum body braces and control-flow blocks already correctly stay
+      K&R (shared, language-general `BlockStructureRule` logic via `Token.name`/keyword-based
+      classification) and lambda bodies already correctly stay K&R
+      (`BlockStructureRule.isLambdaBrace`'s Java branch: preceding token is `->`) -- neither needs
+      touching here. One-liner exception: brace-placement only, same resolution as
+      `CppSpecificRule.java`'s §2 (no active collapsing/exploding of body line-count). No run-
+      detection against `GetterSetterRule`'s one-liner groups is added here -- see Resolved Design
+      Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left unguarded" (this
+      is a `Main.java` pipeline-ordering constraint, not a gap in this method)
 
-### §2 Function Brace Style (Allman conversion)
-- [x] Convert a C/C++ **function definition's** own brace to Allman (own line) when it is
-      currently K&R/same-line -- see Resolved Design Decisions: "§2 one-liner scope
-      (`CppSpecificRule.java`)"
-- [x] One-liner exception -- resolved as brace-placement only (no active collapsing/exploding of
-      body line-count); see Resolved Design Decisions: "§2 one-liner scope
-      (`CppSpecificRule.java`)"
+### §3 `if` Spacing When Body is `{}`
+- [ ] Resolved to need **zero new code in this file** -- STYLE.md §3.1's general condition-
+      interior-padding rule (not yet wired into any rewrite pass anywhere) is what actually
+      governs this section, and the `{}`-body shape itself adds nothing beyond that. See Resolved
+      Design Decisions: "§3.1 condition-interior padding -- wiring decision" for the new
+      `MiscRule.java` method that must exist first; this checklist item can be checked off as soon
+      as that method exists and is verified against STYLE_JAVA.md §3's two worked examples
+      (`if( list.get(i) ) {}` padded, `if(a == 1) {}` tight)
 
-### §3 C++ Template Angle Brackets `<>`
-- [x] Single-level template params stay tight (`vector<int>`); any `<>` that directly contains
-      another `<>` at any depth gets padded on both sides of the outer `<>` (`vector< vector<int> >`)
-      -- see Resolved Design Decisions: "§3 template angle-bracket spacing (`CppSpecificRule.java`)".
-      Also fixed two bugs discovered while implementing this section: a `TokenizerCore.java`
-      reclassification gap that silently broke `vector<int>`-shaped templates, and a rendering
-      bug with the tokenizer's `>>`-splitting representation -- both documented in the same row
-
-### §4 Pointer and Const Qualifier Style
-- [x] `*` attaches to the type (`char* p`, not `char *p`); `const` before `*` attaches to type
-      (`const char* p`); `const` after `*` stays in place (`uint8_t* const p`,
-      `uint8_t* const* pp`) -- already fully satisfied by existing code, no new code needed; see
-      Resolved Design Decisions: "§4 pointer/const spacing already satisfied"
-
-### §9 Section Dividers
-- [x] Non-actionable/documentation-only for human authors -- the formatter does nothing here, no
-      code added; see Resolved Design Decisions: "§9 section dividers are non-actionable"
-
-### §10 Header File Structure
-- [x] Fixed zone layout (copyright block / header guard / body / closing `#endif`) with exactly
-      2 blank lines between zones, both directions (collapses excess, not just a floor). Guard
-      name derived from filename (uppercase, `.`/path separators → `_`); `renameGuard` parameter
-      stands in for the not-yet-existent `header-guard-rename` config key (default off, warn-only
-      behavior deferred to `Main.java` wiring). `#pragma once` files preserve that form -- no
-      conversion between guard styles is implemented, matching `header-guard-style`'s documented
-      default ("preserve existing"). See Resolved Design Decisions: "§10 header file structure
-      (`CppSpecificRule.java`)"
+### §7 Import Ordering
+- [ ] Group imports into 5 ordered groups (`static`, `java`/`javax`, `org`, `com`, `local`),
+      separated by exactly `java-import-blank-lines` (default 1) blank line(s); alphabetically sort
+      within each group (`java-import-sort`, default on). Local-package detection: read the
+      `package` declaration at the top of the file, take its top `java-import-depth` (default 2)
+      components as the local prefix, and place any import sharing that prefix in the `local`
+      group. `java-import-order` (default `static, java, org, com, local`) configures group order
+      -- needs hardcoded defaults now, wired to real `Config.java` once that class exists, same
+      precedent as `CppSpecificRule.java`'s §10 not blocking on `Config.java`. "Unused imports are
+      not removed" is explicitly out of scope (STYLE_JAVA.md's own words) -- no detection of
+      whether an import is actually used should be attempted
 
 ---
 

@@ -10,9 +10,14 @@ package com.jxmake.formatter.rules;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * C/C++-specific STYLE_C_CPP.md sections not owned by another rule class: §1, §2 (Allman
@@ -237,6 +242,143 @@ public class CppSpecificRule {
             return tokens.get(afterNewline).text;
         }
         return "";
+    }
+
+    /**
+     * STYLE_C_CPP.md §3: a single-level template angle-bracket pair stays tight
+     * (`vector<int>`); any pair whose content (anywhere within its span, however deeply nested)
+     * contains another `<>` pair gets exactly one space padded just inside both its own `<` and
+     * its own `>` (`vector< vector<int> >`). Flagged in STATE.md as a correctness rule, not just
+     * style -- the padding is what prevents two adjacent `>` characters belonging to different
+     * pairs from being lexed as a single `>>` shift operator on pre-C++11 compilers -- so this is
+     * fully specified already (unlike several other sections in this file, no
+     * {@code AskUserQuestion} was needed): every matched pair is classified as tight or padded by
+     * this one rule, with no remaining ambiguity to resolve.
+     *
+     * <p>Pair matching reuses the tokenizer's own {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE}
+     * disambiguation (the same token types {@code MiscRule.parseSignature} tracks for Java
+     * generics) via a simple forward stack, since the tokenizer has already resolved any `>>`
+     * lexing ambiguity at tokenize time -- by the time these tokens reach this rule, nesting is
+     * already unambiguous and properly paired. A pair "contains another `<>` at any depth" iff at
+     * least one other {@code ANGLE_BRACKET_OPEN} token lies strictly between its own open and
+     * close indices, regardless of how many other tokens or how many nesting levels separate
+     * them -- this is what correctly pads <i>every</i> ancestor pair on a 3+-level chain
+     * (`A< B< C<int> > >`), not just the immediate outer pair, while leaving the innermost,
+     * childless pair tight.
+     *
+     * <p>Rendering reuses the same gap-buffering technique as {@code MiscRule}'s spacing passes
+     * (e.g. {@code enforceInitializerBraceSpacing}): the gap immediately after a flagged
+     * {@code ANGLE_BRACKET_OPEN} and immediately before a flagged {@code ANGLE_BRACKET_CLOSE} is
+     * collapsed to exactly one space (zero width for an unflagged/tight pair's own open or
+     * close), unless that gap contains a comment or newline, which blocks the rewrite for that
+     * one side only -- consistent with this codebase's existing "a comment/newline in the gap
+     * blocks the rewrite" posture throughout. Since the C tokenizer never emits
+     * {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} tokens at all (templates don't exist in C), this
+     * method is a no-op (output equals input) when {@code language} is `"c"`, with no separate
+     * early-return guard needed.
+     */
+    public String enforceTemplateAngleBracketSpacing(final List<Token> tokens) {
+        final Set<Integer> needsPadding = nestedAnglePairIndices(tokens);
+
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        int lastSignificantIdx = -1;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean afterOpen = lastSignificant != null
+                    && lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
+            final boolean beforeClose = t.type == TokenType.ANGLE_BRACKET_CLOSE;
+            final boolean gapHasBlocker = hasCommentOrNewline(gap);
+
+            if ((afterOpen || beforeClose) && !gapHasBlocker) {
+                final boolean pad = (afterOpen && needsPadding.contains(lastSignificantIdx))
+                        || (beforeClose && needsPadding.contains(i));
+                if (pad) {
+                    out.append(' ');
+                }
+                gap.clear();
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+                gap.clear();
+            }
+
+            // Always one literal char per angle token, never t.text: the tokenizer's `>>`
+            // split keeps both characters on the first ANGLE_BRACKET_CLOSE token's text (">>")
+            // and gives the second one a zero-width placeholder token right after, so any space
+            // padding inserted between the two must land between two single-char emissions, not
+            // after a 2-char one.
+            if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                out.append('<');
+            } else if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                out.append('>');
+            } else {
+                out.append(t.text);
+            }
+            lastSignificant = t;
+            lastSignificantIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Indices of every {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} token that is part of a
+     *  matched pair whose span contains at least one other such pair -- the set of "needs
+     *  padding" occurrences for {@link #enforceTemplateAngleBracketSpacing}. */
+    private Set<Integer> nestedAnglePairIndices(final List<Token> tokens) {
+        final Deque<Integer> openStack = new ArrayDeque<>();
+        final Map<Integer, Integer> openToClose = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.ANGLE_BRACKET_OPEN) {
+                openStack.push(i);
+            } else if (ty == TokenType.ANGLE_BRACKET_CLOSE && !openStack.isEmpty()) {
+                openToClose.put(openStack.pop(), i);
+            }
+        }
+
+        final Set<Integer> needsPadding = new HashSet<>();
+        for (final Map.Entry<Integer, Integer> entry : openToClose.entrySet()) {
+            final int openIdx = entry.getKey();
+            final int closeIdx = entry.getValue();
+            boolean hasNested = false;
+            for (int j = openIdx + 1; j < closeIdx; j++) {
+                if (tokens.get(j).type == TokenType.ANGLE_BRACKET_OPEN) {
+                    hasNested = true;
+                    break;
+                }
+            }
+            if (hasNested) {
+                needsPadding.add(openIdx);
+                needsPadding.add(closeIdx);
+            }
+        }
+        return needsPadding;
+    }
+
+    private boolean hasCommentOrNewline(final List<Token> gap) {
+        for (final Token g : gap) {
+            final TokenType type = g.type;
+            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE
+                    || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int matchParenForward(final List<Token> tokens, final int openIdx) {

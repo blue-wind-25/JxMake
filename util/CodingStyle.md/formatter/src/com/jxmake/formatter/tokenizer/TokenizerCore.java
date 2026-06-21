@@ -89,6 +89,15 @@ public class TokenizerCore {
             setOf("class", "struct", "enum", "namespace");
     private static final Set<String> NAMED_CONSTRUCT_JAVA = setOf("class", "interface", "enum");
 
+    // Keywords that may legally appear inside a generic/template argument list without
+    // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
+    // `<? extends T>`. Builtin C/C++ type keywords were missing here originally, which silently
+    // blocked reclassification of the single most common template shape (`vector<int>`).
+    private static final Set<String> GENERIC_SAFE_KEYWORDS = setOf(
+            "extends", "super", "const", "typename", "class",
+            "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
+            "short", "signed", "unsigned", "void", "wchar_t");
+
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
             "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
@@ -656,9 +665,7 @@ public class TokenizerCore {
             case ANGLE_BRACKET_CLOSE:
                 return true;
             case KEYWORD:
-                return "extends".equals(t.text) || "super".equals(t.text)
-                        || "const".equals(t.text) || "typename".equals(t.text)
-                        || "class".equals(t.text);
+                return GENERIC_SAFE_KEYWORDS.contains(t.text);
             case PUNCT:
                 return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text);
             case OP:

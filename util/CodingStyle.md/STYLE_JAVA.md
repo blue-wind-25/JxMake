@@ -143,9 +143,11 @@ import com.*;               // Group 2: com.*
 
 import org.*;               // Group 3: org.*
 
-import mycompany.myproject; // Group 4: local / in-project imports
+import <other>.*;           // Group 4: <other>.*
 
-import static ...;          // Group 5: static imports
+import mycompany.myproject; // Group 5: local / in-project imports
+
+import static ...;          // Group 6: static imports
 ```
 
 **Local import detection:** the project's root package is read from the `package`

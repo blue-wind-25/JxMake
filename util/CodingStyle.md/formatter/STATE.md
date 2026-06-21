@@ -221,18 +221,11 @@ re-open them.
 > the order listed (later sections build on earlier ones: §8's param alignment reuses §6/§5-style
 > column alignment; §9's blank-line insertion reuses the gap-buffering technique from
 > `BlockStructureRule`).
-
-### §3.2 Keyword spacing
-- [x] Complete -- see Resolved Design Decisions: "§3.2 keyword spacing"
-
-### §3.3 `{}` initializer / block spacing
-- [x] Complete -- see Resolved Design Decisions: "§3.3 initializer brace spacing"
-
-### §4 Pre/Post Increment and Decrement
-- [x] Complete -- see Resolved Design Decisions: "§4 pre-increment rewrite"
+>
+> §3.2, §3.3, §4, §2, §6, §8, and §9 are all COMPLETE (see Resolved Design Decisions for each) --
+> only the two items below remain.
 
 ### §1 Indentation
-- [x] `spaces`/`tabs` conversion complete -- see Resolved Design Decisions: "§1 indentation scope"
 - [ ] `indent-style = keep` (resolved -- see Resolved Design Decisions: "§1 indentation scope"):
       requires a new dedicated file-walking/detection class (not yet created, not
       `Main.java`/`Config.java` directly) that scans the whole project once to determine the
@@ -241,39 +234,9 @@ re-open them.
       "keep". Deferred until `Main.java`/`Config.java` orchestration work begins -- not blocking,
       per the Resolved Design Decision
 
-### §2 Line Length
-- [x] Complete -- no-op beyond exposing `MiscRule.LINE_LENGTH_LIMIT = 100` for §8's use; STYLE.md
-      §2 defers its only described mechanical fix (breaking) to §8
-
-### §6 Assignment and Compound Operator Alignment
-(resolved -- see Resolved Design Decisions: "§6 grouping and rendering")
-- [x] Grouping, rendering, lone-variable, and blank-line-reset behavior complete -- see Resolved
-      Design Decisions: "§6 grouping and rendering"
-- [x] Multi-line right-hand sides -- see Resolved Design Decisions: "§6 multi-line right-hand
-      sides". Handles exactly one `NEWLINE` in the value, classified as breaking before or after
-      an operator per STYLE.md's two worked examples; 2+ `NEWLINE`s, a comment in the value, or a
-      break unrelated to an operator are left untouched, same conservative posture as the rest of
-      this rule
-
-### §8 Function Signatures
-(see Resolved Design Decisions: "§8 signature scope and rendering")
-- [x] Complete (inline, broken/column-aligned, and closing-`)`-placement forms) -- see Resolved
-      Design Decisions: "§8 signature scope and rendering"
-
-### §9 Blank Line Before `return`
-(see Resolved Design Decisions: "§9 function-body detection and return scoping")
-- [x] Complete -- see Resolved Design Decisions: "§9 function-body detection and return scoping"
-
 ### §15 Comment Style
 (resolved -- see Resolved Design Decisions: "§15 comment scope and sentence detection" and
 "§15 partial-implementation split")
-- [x] `//` comments (capitalize + sole-trailing-period strip) and already-single-line
-      `COMMENT_BLOCK` comments complete -- see Resolved Design Decisions: "§15 partial-
-      implementation split"
-- [x] Multi-line `COMMENT_BLOCK` banner reformatting -- see Resolved Design Decisions: "§15
-      multi-line block comment banner reformatting". Scoped (per the user's resolved choice) to
-      block comments already using the conventional `*`-per-line marker convention; raw wrapped
-      prose and commented-out code are left untouched
 - [ ] **Separator alignment** (new item -- STYLE.md §15 has this rule with its own worked example;
       it was missing from this checklist entirely): when inline trailing `//` comments across an
       aligned group (e.g. a declaration-alignment or assignment-alignment group from §5/§6) all

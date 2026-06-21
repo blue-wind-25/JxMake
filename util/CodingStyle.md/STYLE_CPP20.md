@@ -98,8 +98,6 @@ forgotten, not because a decision has been made:
       table.
 - [ ] Coroutines (`co_await`, `co_yield`, `co_return`) — likely no special rule
       beyond existing keyword + expression spacing, but unconfirmed.
-- [ ] Modules (`import`/`export module`) — likely needs its own include-ordering-
-      style section analogous to STYLE_C_CPP.md §11, not yet drafted.
 - [ ] `if`/`switch` with init-statement (`if(auto x = f(); x > 0)`) — existing §3.1
       complexity padding likely already handles the parenthesized content correctly
       since it's just nested expression content, but not yet verified against a

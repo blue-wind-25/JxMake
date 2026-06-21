@@ -243,32 +243,3 @@ header-guard-style = ifndef   # ifndef | pragma-once (default: preserve existing
 
 The 2-blank-line rule above applies to `#ifndef` guards. For `#pragma once` files,
 the same zone separation applies with `#pragma once` in place of the guard block.
-
----
-
-## 11. Include Ordering
-
-Includes are arranged in two groups, separated by **exactly 1 blank line**:
-
-```c
-#include <system_header>    // Group 1: system / stdlib (angle brackets)
-#include <another_system>
-
-#include "local_header.h"   // Group 2: project / local (quotes)
-#include "another_local.h"
-```
-
-**Within each group:** alphabetical order. Sorting is opt-in (default off) because
-include order in C/C++ can affect behavior via macro dependencies:
-```
-include-sort = off   # default: preserve order within group, only enforce grouping
-```
-
-**Grouping** (angle bracket vs quote) is always enforced regardless of `include-sort`.
-Mixed groups are split and reordered into the two-group layout.
-
-**Source files** (`.c` / `.cpp`): same two-group rule applies. No header guard.
-
-**The corresponding own header** (e.g. `Foo.cpp` including `Foo.h`) goes at the top
-of group 2, before other local includes — this catches missing self-contained includes
-early. This placement is always enforced, regardless of `include-sort`.

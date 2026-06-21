@@ -286,15 +286,6 @@ re-open them.
       likely implementable against hardcoded defaults now and wired to real `Config` once that
       class exists, same precedent as other sections that don't block on `Config.java`
 
-### §11 Include Ordering
-- [ ] Two groups (angle-bracket system headers, then quoted local headers) separated by exactly
-      1 blank line; grouping is always enforced regardless of `include-sort` (config key already
-      defined, default off -- alphabetical sort within each group is opt-in since include order
-      can affect behavior via macro dependencies). The file's own corresponding header (e.g.
-      `Foo.cpp` → `Foo.h`) always goes first in group 2, regardless of `include-sort`. Needs the
-      filename passed in (per this file's scoping decision above) to identify "the file's own
-      header"
-
 ---
 
 ## Config Keys and Defaults

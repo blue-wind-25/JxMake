@@ -136,16 +136,16 @@ Within each group, imports are sorted alphabetically (configurable).
 **Default group order:**
 
 ```java
-import static ...;          // Group 1: static imports
-
-import java.*;              // Group 2: java.* and javax.*
+import java.*;              // Group 1: java.* and javax.*
 import javax.*;
+
+import com.*;               // Group 2: com.*
 
 import org.*;               // Group 3: org.*
 
-import com.*;               // Group 4: com.*
+import mycompany.myproject; // Group 4: local / in-project imports
 
-import mycompany.myproject; // Group 5: local / in-project imports
+import static ...;          // Group 5: static imports
 ```
 
 **Local import detection:** the project's root package is read from the `package`

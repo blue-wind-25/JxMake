@@ -115,28 +115,28 @@ xdiff: sclean
 
 ##### Archive the whole project
 arcv: distclean
-	@(                                                                                                     \
-		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                        \
-		echo;                                                                                          \
-		echo -e "$(C_MAGENTA)Cleaning-up the project tree ...$(C_RESET)";                              \
-		cp -Rav src/jxm/gcomp  src/jxm/gcomp2 > /dev/null;                                             \
-		rm -rvf src/jxm/gcomp                 > /dev/null;                                             \
-		mv      src/jxm/gcomp2 src/jxm/gcomp  > /dev/null;                                             \
-		cp -Rav src/jxm/tool   src/jxm/tool2  > /dev/null;                                             \
-		rm -rvf src/jxm/tool                  > /dev/null;                                             \
-		mv      src/jxm/tool2  src/jxm/tool   > /dev/null;                                             \
-		cp -Rav src/jxm/ugc    src/jxm/ugc2   > /dev/null;                                             \
-		rm -rvf src/jxm/ugc                   > /dev/null;                                             \
-		mv      src/jxm/ugc2   src/jxm/ugc    > /dev/null;                                             \
-		cp -Rav test           test2          > /dev/null;                                             \
-		rm -rvf test                          > /dev/null;                                             \
-		mv      test2          test           > /dev/null;                                             \
-		echo -e "$(C_GREEN)Copying the project tree (excluding  the '.svn' directory) ...$(C_RESET)";  \
-		cd ..;                                                                                         \
-		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                     \
-		echo;                                                                                          \
-		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";                 \
-		tar -cjvpf $${COPY_NAME}.tar.bz2 $$COPY_NAME > /dev/null;                                      \
-		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                                    \
-		echo;                                                                                          \
+	@(                                                                                                            \
+		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                               \
+		echo;                                                                                                 \
+		echo -e "$(C_MAGENTA)Cleaning-up the project tree ...$(C_RESET)";                                     \
+		cp -Rav src/jxm/gcomp  src/jxm/gcomp2 > /dev/null;                                                    \
+		rm -rvf src/jxm/gcomp                 > /dev/null;                                                    \
+		mv      src/jxm/gcomp2 src/jxm/gcomp  > /dev/null;                                                    \
+		cp -Rav src/jxm/tool   src/jxm/tool2  > /dev/null;                                                    \
+		rm -rvf src/jxm/tool                  > /dev/null;                                                    \
+		mv      src/jxm/tool2  src/jxm/tool   > /dev/null;                                                    \
+		cp -Rav src/jxm/ugc    src/jxm/ugc2   > /dev/null;                                                    \
+		rm -rvf src/jxm/ugc                   > /dev/null;                                                    \
+		mv      src/jxm/ugc2   src/jxm/ugc    > /dev/null;                                                    \
+		cp -Rav test           test2          > /dev/null;                                                    \
+		rm -rvf test                          > /dev/null;                                                    \
+		mv      test2          test           > /dev/null;                                                    \
+		echo -e "$(C_GREEN)Copying the project tree (excluding '.svn' and '.svn' directories) ...$(C_RESET)"; \
+		cd ..;                                                                                                \
+		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                            \
+		echo;                                                                                                 \
+		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";                        \
+		tar -cjvpf $${COPY_NAME}.tar.bz2 $$COPY_NAME > /dev/null;                                             \
+		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                                           \
+		echo;                                                                                                 \
 	)

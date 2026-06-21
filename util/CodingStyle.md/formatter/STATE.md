@@ -91,6 +91,10 @@ util/CodingStyle.md/formatter/
       Config.java
       ServerMode.java
       IndentationDetector.java  ← whole-project dominant-indent-style walker (for `indent-style = keep`)
+      ScopePipeline.java        ← recursive scope/signature discovery + group-render-splice engine
+                                   for DeclarationAlignmentRule/GetterSetterRule/MiscRule's grouping
+                                   rules (STYLE.md §5/§6/§8/§14) -- see "Main.java orchestration
+                                   architecture" in Resolved Design Decisions
       tokenizer/
         TokenizerCore.java
       grid/
@@ -185,6 +189,9 @@ re-open them.
 | §2 method-definition Allman conversion (`JavaSpecificRule.java`) | `JavaSpecificRule.java` created from scratch (did not exist before this), porting `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s algorithm to `enforceMethodDefinitionAllmanBraceStyle`: a `{` directly preceded (no comment/newline in the gap) by a `)` whose matching `(` is preceded by a candidate method name (IDENTIFIER, not itself preceded by `new`) is relocated onto its own line at the closing `)`'s own line-leading indentation; everything else (class/interface/enum body braces, every control-flow brace, lambda bodies -- all already correctly K&R via the shared `BlockStructureRule`) is naturally excluded by the same signal, with zero duplicated logic needed for those. One genuine Java-specific false positive the C++ signal never had to consider: an enum constant's anonymous constant-body (`RED("red") { ... }`) is structurally identical to a method-definition signature (Java enum constants never use `new` the way anonymous classes do), so left unguarded it would wrongly Allman-convert a constant body. Resolved unilaterally (not asked -- this is a heuristic-correctness fix for an already-specified rule, "method definitions only", not a guess past an unspecified shape, same category of unilateral call as §1's `isCandidateSignatureName`'s `new`-exclusion in `CppSpecificRule.java`): added `isEnumConstantBody`, which excludes a candidate if its matching `}` (found via new `matchBraceForward`) is immediately followed by `,` or `;` -- the universal enum-constant-list separator/terminator, a shape no real Java method body's `}` can ever be followed by (unlike C/C++, Java never trails a method body with a bare `;`). Documented residual gap: the *last* constant in an enum with no trailing members and no trailing `;` (legal Java) has its body's `}` followed directly by the enum's own closing `}`, indistinguishable from an ordinary last-member-in-a-body shape without enum-body-context tracking -- left as a documented, bounded-effort gap, same posture as every other such gap in this codebase (throws-clause, C++ trailing-qualifier, etc.). One-liner exception: brace-placement only, identical resolution to `CppSpecificRule.java`'s own §2 (STATE.md "§2 one-liner scope") -- body line-count is never inspected or changed, only the opening `{`'s placement. No run-detection against `GetterSetterRule`'s one-liner groups was added, per the already-recorded pipeline-ordering decision ("§2 Allman-conversion vs. getter/setter one-liner groups -- left unguarded"). Verified via a throwaway smoke harness (not committed, 21 cases): STYLE_JAVA.md §2's own worked example, already-Allman no-op, an indented method inside a class body, class/interface/enum body braces left untouched, `if`/`while`/`try`-`catch` control-flow left untouched, a lambda left untouched, an anonymous-class body left untouched while a method *inside* it still correctly converts, a same-name constructor converted, one-liner (single- and multi-statement) brace-only relocation plus already-correct no-op, the `throws`-clause gap left untouched, comment-in-gap blocking, both enum-constant-body shapes (trailing comma, trailing semicolon) left untouched while a method *inside* the constant body still correctly converts, a generic method (`<T> T get(T x)`), and an annotated method (`@Override` above the signature) |
 | §4 array-declaration syntax parenthetical -- non-actionable | STYLE_JAVA.md §4's intro parenthetical, "with Java array-declaration syntax (`int[] x` not `int x[]`)", has no accompanying worked "before" example showing a postfix-bracket declaration (`int x[];`) being converted to prefix form. Asked the user whether to implement this as an active rewrite rule or treat it as purely illustrative context for the `{}`-initializer-spacing worked example that follows it. Resolved: **non-actionable, no code** -- consistent with this codebase's standing posture of never guessing past an unspecified shape when no worked example justifies it. If a real "convert `int x[]` to `int[] x`" rule is ever wanted, it starts from a blank slate (no spec example, no code, no checklist item), same precedent as `include-sort`'s parallel "dropped, blank slate if revisited" treatment above |
 | §7 import group order/count contradiction | STYLE_JAVA.md §7's worked example (6 groups: java/javax merged, com, org, `<other>`, local, static -- static LAST) directly contradicted the same section's `java-import-order` config-default string (5 groups: static, java, org, com, local -- static FIRST, org before com, no "other" bucket at all). Asked the user; resolved: **trust the worked example**. `STYLE_JAVA.md`'s config string and `STATE.md`'s "Config Keys and Defaults" table were both corrected to `java, com, org, other, local, static`. The 6 group names are a fixed classification taxonomy (every import always sorts into exactly one of these 6 buckets), not configurable -- `java-import-order` only configures *emission order* of the always-the-same 6 buckets |
+| `Main.java` orchestration architecture | While scoping `Main.java`'s checklist, found that several grouping rule classes (`DeclarationAlignmentRule.groupDeclarations`, `GetterSetterRule.groupOneLiners`, `MiscRule.groupAssignments`, `MiscRule.parseSignature`) explicitly document that the **caller** must find scope/signature boundaries in the whole-file token stream and splice rendered group output back in -- and no code anywhere does this yet. Asked the user where that orchestration should live. Resolved: a **new dedicated class**, `ScopePipeline.java` (name chosen by Claude, not load-bearing -- rename freely if a better one surfaces), not `Main.java`/`Config.java` directly -- same precedent as `indent-style=keep`'s `IndentationDetector.java` ("so as not to clutter Main/Config"). `Main.java` itself stays thin: CLI args, file discovery, config loading, calling `ScopePipeline` once per file for the grouping rules, then calling the remaining simple whole-file `enforceX` passes directly, then handling output modes. Added to `Project Layout`/`File Status` as `NOT STARTED`, ordered before `Main.java` since `Main.java` depends on it |
+| STYLE.md §5/§6 scope -- anywhere in code, recursively | STYLE.md §5 (declaration alignment) and §6 (assignment alignment) have no worked example that is unambiguously local-variable-only or field-only -- both worked examples happen to show field/static-style declarations, but neither section's rule text restricts itself to class/struct bodies. Asked the user; resolved: **both apply anywhere in code, recursively** -- inside class/struct/enum bodies, inside function/method bodies, and recursively inside every nested block (an `if`/`for`/`while` body that itself contains local declarations or assignments gets its own independent group+render pass). This is the scope `ScopePipeline.java`'s recursive scope-walker must implement, not just the simpler "one pass over each type body" shape `GetterSetterRule` uses |
+| `DeclarationAlignmentRule.splitStatements` depth-awareness fix | While scoping `ScopePipeline.java` against the newly-resolved "§5 applies anywhere, recursively" decision above, found that `DeclarationAlignmentRule.splitStatements` (in the already-COMPLETE `DeclarationAlignmentRule.java`) was NOT depth-aware -- it split purely on every top-level `;`with zero brace/paren/bracket depth tracking, unlike `MiscRule.splitAssignmentStatements` (tracks `(`/`[`/`{` depth, only splits at depth 0, closes a statement when a brace pair fully closes back to depth 0) and `GetterSetterRule.splitMembers` (also depth-aware), despite `groupAssignments`'s own doc comment claiming "the same scoping contract as `DeclarationAlignmentRule.groupDeclarations`". This meant `groupDeclarations` would corrupt-split on semicolons inside any nested `{ }` block (e.g. a method body, or a nested `if`/`for`/`while`) if `scopeTokens` ever contained one -- newly load-bearing now that §5 must recurse into function bodies that mix local declarations with nested control-flow blocks containing their own statements. Fixed directly (small, mechanical, well-understood bug in an already-COMPLETE file, not a design ambiguity -- same category of unilateral fix as the `.* ` tokenizer bug found while implementing §7): ported `MiscRule.splitAssignmentStatements`'s exact depth-tracking algorithm into `DeclarationAlignmentRule.splitStatements` (new local `depth` counter, same `(`/`[`/`{`/`)`/`]`/`}` increment/decrement rules, statement closes at a depth-0 `;` or when a brace pair closes back to depth 0) plus a new `pullTrailingSameLine` helper (ported from `MiscRule`'s identical helper, kept duplicated per this codebase's "one owner per rule class" precedent for small token helpers). Verified via a throwaway reflection-based smoke harness (not committed): a `scopeTokens` slice containing `int a; int b; if (x) { int c; int d; } int e;` now correctly splits into 4 real statements (the whole `if` block consumed as one opaque unit) instead of corrupt-splitting on the `c;`/`d;` semicolons inside it |
 | §7 import ordering implementation (`JavaSpecificRule.java`) | `enforceImportOrdering(tokens, groupOrder, sortAlphabetically, importDepth, blankLines)`: a single forward scan (brace-depth-tracked, though Java imports are always at depth 0 by construction) finds every top-level `import` keyword and hands each to `parseImportStatement`, which walks token-by-token from `import` to the terminating `;`, collecting an optional leading `static` keyword and then IDENTIFIER/dot/star tokens concatenated directly into a path string (Java import paths have no meaningful internal whitespace) -- returns `null` (signaling "bail the *entire* pass, return input byte-for-byte unchanged") on any comment found anywhere inside the statement, or any other unrecognized token. A floating comment in the gap *between* two otherwise-clean import statements also bails the whole pass (`hasCommentBetween`), since silently reordering past it would drop it. Zero imports found is also a no-op. **Bug found and fixed during smoke-testing**: a wildcard import's trailing `.*` (`import java.util.*;`) does not lex as two single-char OP tokens `.` and `*` -- `TokenizerCore.MULTI_CHAR_OPS` includes C++'s pointer-to-member operator `".*"`, shared across languages, so the tokenizer greedily combines it into one OP token with text `".*"`. `parseImportStatement`'s path-token check was changed from two literal `isOp(t,".")`/`isOp(t,"*")` comparisons to a new `isPathOp` helper that accepts any OP token whose text consists solely of `.`/`*` characters, covering all three shapes (`.`, `*`, `.*`). Classification (`classifyImportGroup`) priority is static > local > java/javax > org > com > other (fixed, independent of `groupOrder`): local detection reads the file's first `package` declaration (`findLocalPrefix`, best-effort IDENTIFIER-token collection between `package` and `;` -- non-destructive lookup, not a rewrite, so unlike the import parser it never bails, just best-effort extracts) and takes its top `importDepth` dot-components as the prefix; an import matches local iff its own first N components equal that prefix component-for-component (`matchesPrefix`), which correctly handles a wildcard import of the local package itself (`com.mycompany.app.*` matches a 2-component `com.mycompany` prefix regardless of what follows) while correctly rejecting a same-prefix-looking sibling package (`com.mycompanyx.Foo` does not match prefix `com.mycompany`, verified by smoke test, since component-wise equality is exact-string, not substring). Rendering buckets each `ParsedImport` into one of the 6 fixed-key buckets, optionally sorts each bucket alphabetically by path text (`sortAlphabetically`), then emits non-empty buckets in `groupOrder`'s order, joining same-bucket members with a single `\n` and inserting `blankLines + 1` newlines between two non-empty buckets (consistent with the existing `HEADER_ZONE_BLANK_LINES + 1` precedent in `CppSpecificRule`). Each import line is regenerated canonically (`"import " ["static "] path ";"`), discarding original internal spacing -- same "restructured content is regenerated, not preserved verbatim" precedent as `DeclarationAlignmentRule`'s static reordering. Only the recognized `[firstImportIdx, lastSemicolonIdx]` span is replaced; everything before/after (including the `package` line and the blank line before the first type declaration) is spliced back in verbatim. `groupOrder` is validated as an exact-size permutation of the 6 fixed bucket names; an invalid value throws `IllegalArgumentException` (config-validation precondition, not a per-file content-shape judgment call -- same posture as `MiscRule.convertIndentation`'s existing validation throw). Verified via a throwaway smoke harness (not committed, 11 cases): STYLE_JAVA.md §7's full worked example (6 groups, static last, java/javax merged, an "other" bucket for `lombok.Data`) byte-for-byte; the local-prefix exact-match boundary case (`com.mycompanyx.Foo` correctly NOT matching `com.mycompany` prefix); no-`package`-declaration (local bucket never populated); `sortAlphabetically=false` preserving original relative order; `blankLines=0` (single newline between groups, no blank line); a floating comment between two import statements bailing the whole pass; a same-line trailing comment on one import statement bailing the whole pass; zero imports (no-op); a wildcard import matching the local prefix; full round-trip idempotency; and an invalid `groupOrder` throwing `IllegalArgumentException` |
 
 ---
@@ -206,13 +213,14 @@ re-open them.
 | `Config.java` | NOT STARTED |
 | `ServerMode.java` | NOT STARTED |
 | `IndentationDetector.java` | NOT STARTED |
+| `ScopePipeline.java` | NOT STARTED |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
 | `ModifierPriority.java` | COMPLETE |
 | `CppModifierPriority.java` | COMPLETE |
 | `JavaModifierPriority.java` | COMPLETE |
 | `ComplexityPaddingEvaluator.java` | COMPLETE |
-| `DeclarationAlignmentRule.java` | COMPLETE |
+| `DeclarationAlignmentRule.java` | COMPLETE (`splitStatements` made depth-aware -- see Resolved Design Decisions: "`DeclarationAlignmentRule.splitStatements` depth-awareness fix") |
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
@@ -223,27 +231,72 @@ re-open them.
 
 ---
 
-## Current File: `Main.java` — NOT STARTED
+## Current File: `ScopePipeline.java` — NOT STARTED (scoping in progress)
 
-> `JavaSpecificRule.java` is now COMPLETE (§2, §3, §7 -- see Resolved Design Decisions: "§2
-> method-definition Allman conversion (`JavaSpecificRule.java`)", "§3.1 condition-interior padding
-> -- implementation", "§7 import group order/count contradiction", and "§7 import ordering
-> implementation (`JavaSpecificRule.java`)"). Every rule class in `Project Layout` is now COMPLETE.
+> While scoping `Main.java`'s checklist, found that `Main.java`'s real prerequisite is a new file,
+> `ScopePipeline.java` (see `Project Layout`/`File Status`, inserted before `Main.java`). Several
+> grouping rule classes (`DeclarationAlignmentRule.groupDeclarations`, `GetterSetterRule.groupOneLiners`,
+> `MiscRule.groupAssignments`, `MiscRule.parseSignature`) explicitly document that the **caller**
+> must find scope/signature boundaries in the whole-file token stream and splice rendered group
+> output back in -- no code anywhere does this yet. `ScopePipeline.java` is that caller.
+> `Main.java`'s own checklist is deferred until `ScopePipeline.java`'s checklist is written and
+> implemented -- `Main.java`'s job will then be much thinner (CLI args, file discovery, config
+> loading, one call into `ScopePipeline` per file for the grouping rules, then the remaining simple
+> whole-file `enforceX` passes called directly, then output-mode handling).
 >
-> `Main.java` has no pre-seeded checklist yet -- same situation `CppSpecificRule.java` and
-> `JavaSpecificRule.java` were in before their own scoping passes. Before writing any code, this
-> file's actual job needs to be scoped out (CLI argument parsing, file discovery, per-file
-> tokenize -> apply-rules-in-order -> render pipeline, output modes (`--diff`/`--check`/`--out`),
-> and wiring in the two recorded pipeline-ordering constraints below) and a checklist written here,
-> the same way `JavaSpecificRule.java`'s scoping pass cross-checked STYLE_JAVA.md's sections against
-> already-COMPLETE files. Ask the user before finalizing that scope if anything is ambiguous.
+> **Resolved so far** (see Resolved Design Decisions for full detail on each):
+> - Boundary-finding + splice-back orchestration lives in this new dedicated class, not
+>   `Main.java`/`Config.java` -- "`Main.java` orchestration architecture".
+> - STYLE.md §5/§6 (declaration/assignment alignment) apply **anywhere in code, recursively** --
+>   not just class/struct bodies, but function/method bodies and every nested block too --
+>   "STYLE.md §5/§6 scope -- anywhere in code, recursively".
+> - Fixed a latent bug this surfaced: `DeclarationAlignmentRule.splitStatements` was not
+>   depth-aware and would have corrupt-split on a scope containing a nested `{ }` block. Ported
+>   `MiscRule.splitAssignmentStatements`'s depth-tracking algorithm into it directly (small,
+>   mechanical, already-verified-by-smoke-test fix to an already-COMPLETE file, not a new design
+>   question) -- "`DeclarationAlignmentRule.splitStatements` depth-awareness fix".
 >
-> Two hard pipeline-ordering constraints already recorded for whoever does this scoping, so they are
-> not lost: (1) **`GetterSetterRule` must run before any Allman-conversion pass**, in both languages
-> -- see Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left
-> unguarded". (2) Several `MiscRule`/`BlockStructureRule`/`SwitchRule` passes are chained via
-> re-tokenizing between them (§11/§12/§13/§15 etc.) -- see those sections' own Resolved Design
-> Decisions rows for each pass's specific ordering requirement relative to its neighbors.
+> **Still open, investigation in progress, NOT yet written into a checklist:**
+> - The three boundary-finding contracts differ in granularity and need separate discovery logic:
+>   (1) `DeclarationAlignmentRule.groupDeclarations`/`MiscRule.groupAssignments` want a scope's
+>   *direct-content-only* tokens (no deeper-nested tokens included in the slice itself, but the
+>   now-fixed depth-aware splitters mean a nested block can safely appear as one opaque consumed
+>   statement within that slice). (2) `GetterSetterRule.groupOneLiners` wants a type body's *full*
+>   range, *including* nested method-body tokens. (3) `MiscRule.parseSignature` wants a function
+>   signature span (lead modifier/return-type token through the parameter list's closing `)`) --
+>   not a brace-delimited scope at all.
+> - For (3) specifically: was mid-investigation (re-deriving from precedent, not yet confirmed)
+>   when this session ended. The existing `isCandidateSignatureName` signal (IDENTIFIER directly
+>   before `(`, not itself preceded by `new` -- already duplicated in `CppSpecificRule.java` and
+>   `JavaSpecificRule.java` for Allman-conversion detection) is the natural reuse candidate for
+>   *finding* a signature's name, but it cannot by itself distinguish a function **definition**
+>   from a bare **prototype/declaration** from a plain **call statement** -- a call like
+>   `doSomething(x);` and a prototype like `void foo();` are token-shape-identical (identifier,
+>   matching `(...)`, then `;`) with no AST to disambiguate. `CppSpecificRule.java`'s own §1 already
+>   documents the prototype-vs-call ambiguity as a deliberate, accepted gap for that reason. The
+>   working hypothesis (not yet confirmed with the user, not yet written as a Resolved Design
+>   Decision) is that `ScopePipeline.java`'s signature-finder for `MiscRule.parseSignature` should
+>   likewise only target **definitions** (matching `)` followed by `{`, skipping over a possible
+>   C++ trailing qualifier or Java `throws` clause first) and leave bare prototypes alone, for the
+>   same reason. Needs one more pass of STYLE.md §8's actual text (not yet (re-)read this session)
+>   to confirm prototypes were never intended to be in scope, before finalizing this as a checklist
+>   item rather than another `AskUserQuestion`.
+> - Splice-back mechanics (replacing a group's original token span with `render(group)`'s output,
+>   re-indented, while leaving everything outside the span untouched) and the overall multi-pass
+>   internal pipeline (find scopes -> group -> render -> splice -> re-tokenize -> next pass, chained
+>   per this codebase's existing "chained via re-tokenizing between passes" precedent) have not yet
+>   been written up as concrete checklist items.
+> - Two hard pipeline-ordering constraints already recorded for whoever finishes this scoping, so
+>   they are not lost: (1) **`GetterSetterRule` must run before any Allman-conversion pass**, in
+>   both languages -- see Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter
+>   one-liner groups -- left unguarded". (2) Several `MiscRule`/`BlockStructureRule`/`SwitchRule`
+>   passes are chained via re-tokenizing between them (§11/§12/§13/§15 etc.) -- see those sections'
+>   own Resolved Design Decisions rows for each pass's specific ordering requirement relative to
+>   its neighbors.
+>
+> Resume by re-reading STYLE.md §8 in full, confirming or correcting the definition-vs-prototype
+> hypothesis above (ask the user only if genuinely still ambiguous after reading), then writing the
+> actual checklist items for this file before any implementation begins.
 
 ---
 

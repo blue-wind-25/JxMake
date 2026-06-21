@@ -357,6 +357,7 @@ public class DeclarationAlignmentRule {
         final List<List<Token>> statements = new ArrayList<>();
         List<Token> current = new ArrayList<>();
         final int n = scopeTokens.size();
+        int depth = 0;
         int idx = 0;
 
         while (idx < n) {
@@ -364,19 +365,26 @@ public class DeclarationAlignmentRule {
             current.add(t);
             idx++;
 
-            if (t.type == TokenType.PUNCT && ";".equals(t.text)) {
-                // Pull in a same-line trailing comment so it stays with this
-                // statement instead of becoming the next statement's leading token.
-                while (idx < n) {
-                    final Token next = scopeTokens.get(idx);
-                    if (next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
-                            || next.type == TokenType.COMMENT_BLOCK) {
-                        current.add(next);
-                        idx++;
-                    } else {
-                        break;
-                    }
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+                continue;
+            }
+            if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+                continue;
+            }
+            if (isPunct(t, "}")) {
+                depth--;
+                if (depth == 0) {
+                    idx = pullTrailingSameLine(scopeTokens, current, idx);
+                    statements.add(current);
+                    current = new ArrayList<>();
                 }
+                continue;
+            }
+
+            if (depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text)) {
+                idx = pullTrailingSameLine(scopeTokens, current, idx);
                 statements.add(current);
                 current = new ArrayList<>();
             }
@@ -386,6 +394,26 @@ public class DeclarationAlignmentRule {
             statements.add(current);
         }
         return statements;
+    }
+
+    /** Pulls a same-line trailing comment after a just-closed statement so it stays attached
+     *  to that statement instead of becoming the next statement's leading token -- ported from
+     *  {@code MiscRule.splitAssignmentStatements}'s identical depth-aware splitting algorithm
+     *  (see STATE.md "`DeclarationAlignmentRule.splitStatements` depth-awareness fix"). */
+    private int pullTrailingSameLine(final List<Token> tokens, final List<Token> current, final int from) {
+        int idx = from;
+        final int n = tokens.size();
+        while (idx < n) {
+            final Token next = tokens.get(idx);
+            if (next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
+                    || next.type == TokenType.COMMENT_BLOCK) {
+                current.add(next);
+                idx++;
+            } else {
+                break;
+            }
+        }
+        return idx;
     }
 
     private boolean hasBlankLineBefore(final List<Token> stmt) {

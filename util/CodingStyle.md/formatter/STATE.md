@@ -184,6 +184,8 @@ re-open them.
 | §3.1 condition-interior padding -- implementation | `MiscRule.enforceConditionComplexityPadding` implements the wiring decision above. First pass: for every KEYWORD token in `TIGHT_PAREN_KEYWORDS` (`if`/`while`/`for`/`switch`), locate its immediately following `(` (`nextSignificantIndex`) and that paren's matching `)` (the already-existing, now-reused `matchParenForward` helper -- one owner, not duplicated, same precedent as this file's other helpers); evaluate `ComplexityPaddingEvaluator.isLoose` once on `tokens.subList(openIdx + 1, closeIdx)` and record the verdict keyed by both the open and close token index (`Map<Integer, Boolean>` x2) -- no recursion, exactly the algorithm already specified in "§3.1 complexity padding algorithm" above. Second pass: a single forward gap-buffering render (same technique as `enforceInitializerBraceSpacing`) collapses the gap right after a recorded open / right before a recorded close to exactly one space (loose) or zero width (tight), unless that side's own gap contains a comment/`NEWLINE`, which blocks only that side. Scope is deliberately limited to a paren directly anchored to one of the four keywords -- a nested call's own parens (`isReady(x)` inside `if( isReady(x) )`), plain grouping parens, and array-index `[...]` brackets (the latter a separate, not-yet-assigned §3.1 gap, since neither the original question nor STYLE_JAVA.md §3 asked for it) are all left completely untouched. Verified via a throwaway smoke harness (not committed, 21 cases): every condition-anchored row of STYLE.md §3.1's table (atoms/simple-op chain tight, function-call and nested-paren loose), both directions of re-padding (already-correct loose/tight left alone, mis-padded loose/tight corrected), `for(;;)` and a normal 3-clause `for` header (tight), `switch` with a simple op (tight) vs. a call (loose), `catch` left untouched (not one of the four keywords), both of STYLE_JAVA.md §3's worked examples in both already-correct and needs-fixing form, comment-in-gap and `NEWLINE`-in-gap blockers, a non-condition call statement and an array-index bracket both left untouched (scope exclusions), and idempotency on already-correct loose output. This satisfies `JavaSpecificRule.java`'s §3 checklist item for free, as already anticipated by the wiring decision above |
 | §2 method-definition Allman conversion (`JavaSpecificRule.java`) | `JavaSpecificRule.java` created from scratch (did not exist before this), porting `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s algorithm to `enforceMethodDefinitionAllmanBraceStyle`: a `{` directly preceded (no comment/newline in the gap) by a `)` whose matching `(` is preceded by a candidate method name (IDENTIFIER, not itself preceded by `new`) is relocated onto its own line at the closing `)`'s own line-leading indentation; everything else (class/interface/enum body braces, every control-flow brace, lambda bodies -- all already correctly K&R via the shared `BlockStructureRule`) is naturally excluded by the same signal, with zero duplicated logic needed for those. One genuine Java-specific false positive the C++ signal never had to consider: an enum constant's anonymous constant-body (`RED("red") { ... }`) is structurally identical to a method-definition signature (Java enum constants never use `new` the way anonymous classes do), so left unguarded it would wrongly Allman-convert a constant body. Resolved unilaterally (not asked -- this is a heuristic-correctness fix for an already-specified rule, "method definitions only", not a guess past an unspecified shape, same category of unilateral call as §1's `isCandidateSignatureName`'s `new`-exclusion in `CppSpecificRule.java`): added `isEnumConstantBody`, which excludes a candidate if its matching `}` (found via new `matchBraceForward`) is immediately followed by `,` or `;` -- the universal enum-constant-list separator/terminator, a shape no real Java method body's `}` can ever be followed by (unlike C/C++, Java never trails a method body with a bare `;`). Documented residual gap: the *last* constant in an enum with no trailing members and no trailing `;` (legal Java) has its body's `}` followed directly by the enum's own closing `}`, indistinguishable from an ordinary last-member-in-a-body shape without enum-body-context tracking -- left as a documented, bounded-effort gap, same posture as every other such gap in this codebase (throws-clause, C++ trailing-qualifier, etc.). One-liner exception: brace-placement only, identical resolution to `CppSpecificRule.java`'s own §2 (STATE.md "§2 one-liner scope") -- body line-count is never inspected or changed, only the opening `{`'s placement. No run-detection against `GetterSetterRule`'s one-liner groups was added, per the already-recorded pipeline-ordering decision ("§2 Allman-conversion vs. getter/setter one-liner groups -- left unguarded"). Verified via a throwaway smoke harness (not committed, 21 cases): STYLE_JAVA.md §2's own worked example, already-Allman no-op, an indented method inside a class body, class/interface/enum body braces left untouched, `if`/`while`/`try`-`catch` control-flow left untouched, a lambda left untouched, an anonymous-class body left untouched while a method *inside* it still correctly converts, a same-name constructor converted, one-liner (single- and multi-statement) brace-only relocation plus already-correct no-op, the `throws`-clause gap left untouched, comment-in-gap blocking, both enum-constant-body shapes (trailing comma, trailing semicolon) left untouched while a method *inside* the constant body still correctly converts, a generic method (`<T> T get(T x)`), and an annotated method (`@Override` above the signature) |
 | §4 array-declaration syntax parenthetical -- non-actionable | STYLE_JAVA.md §4's intro parenthetical, "with Java array-declaration syntax (`int[] x` not `int x[]`)", has no accompanying worked "before" example showing a postfix-bracket declaration (`int x[];`) being converted to prefix form. Asked the user whether to implement this as an active rewrite rule or treat it as purely illustrative context for the `{}`-initializer-spacing worked example that follows it. Resolved: **non-actionable, no code** -- consistent with this codebase's standing posture of never guessing past an unspecified shape when no worked example justifies it. If a real "convert `int x[]` to `int[] x`" rule is ever wanted, it starts from a blank slate (no spec example, no code, no checklist item), same precedent as `include-sort`'s parallel "dropped, blank slate if revisited" treatment above |
+| §7 import group order/count contradiction | STYLE_JAVA.md §7's worked example (6 groups: java/javax merged, com, org, `<other>`, local, static -- static LAST) directly contradicted the same section's `java-import-order` config-default string (5 groups: static, java, org, com, local -- static FIRST, org before com, no "other" bucket at all). Asked the user; resolved: **trust the worked example**. `STYLE_JAVA.md`'s config string and `STATE.md`'s "Config Keys and Defaults" table were both corrected to `java, com, org, other, local, static`. The 6 group names are a fixed classification taxonomy (every import always sorts into exactly one of these 6 buckets), not configurable -- `java-import-order` only configures *emission order* of the always-the-same 6 buckets |
+| §7 import ordering implementation (`JavaSpecificRule.java`) | `enforceImportOrdering(tokens, groupOrder, sortAlphabetically, importDepth, blankLines)`: a single forward scan (brace-depth-tracked, though Java imports are always at depth 0 by construction) finds every top-level `import` keyword and hands each to `parseImportStatement`, which walks token-by-token from `import` to the terminating `;`, collecting an optional leading `static` keyword and then IDENTIFIER/dot/star tokens concatenated directly into a path string (Java import paths have no meaningful internal whitespace) -- returns `null` (signaling "bail the *entire* pass, return input byte-for-byte unchanged") on any comment found anywhere inside the statement, or any other unrecognized token. A floating comment in the gap *between* two otherwise-clean import statements also bails the whole pass (`hasCommentBetween`), since silently reordering past it would drop it. Zero imports found is also a no-op. **Bug found and fixed during smoke-testing**: a wildcard import's trailing `.*` (`import java.util.*;`) does not lex as two single-char OP tokens `.` and `*` -- `TokenizerCore.MULTI_CHAR_OPS` includes C++'s pointer-to-member operator `".*"`, shared across languages, so the tokenizer greedily combines it into one OP token with text `".*"`. `parseImportStatement`'s path-token check was changed from two literal `isOp(t,".")`/`isOp(t,"*")` comparisons to a new `isPathOp` helper that accepts any OP token whose text consists solely of `.`/`*` characters, covering all three shapes (`.`, `*`, `.*`). Classification (`classifyImportGroup`) priority is static > local > java/javax > org > com > other (fixed, independent of `groupOrder`): local detection reads the file's first `package` declaration (`findLocalPrefix`, best-effort IDENTIFIER-token collection between `package` and `;` -- non-destructive lookup, not a rewrite, so unlike the import parser it never bails, just best-effort extracts) and takes its top `importDepth` dot-components as the prefix; an import matches local iff its own first N components equal that prefix component-for-component (`matchesPrefix`), which correctly handles a wildcard import of the local package itself (`com.mycompany.app.*` matches a 2-component `com.mycompany` prefix regardless of what follows) while correctly rejecting a same-prefix-looking sibling package (`com.mycompanyx.Foo` does not match prefix `com.mycompany`, verified by smoke test, since component-wise equality is exact-string, not substring). Rendering buckets each `ParsedImport` into one of the 6 fixed-key buckets, optionally sorts each bucket alphabetically by path text (`sortAlphabetically`), then emits non-empty buckets in `groupOrder`'s order, joining same-bucket members with a single `\n` and inserting `blankLines + 1` newlines between two non-empty buckets (consistent with the existing `HEADER_ZONE_BLANK_LINES + 1` precedent in `CppSpecificRule`). Each import line is regenerated canonically (`"import " ["static "] path ";"`), discarding original internal spacing -- same "restructured content is regenerated, not preserved verbatim" precedent as `DeclarationAlignmentRule`'s static reordering. Only the recognized `[firstImportIdx, lastSemicolonIdx]` span is replaced; everything before/after (including the `package` line and the blank line before the first type declaration) is spliced back in verbatim. `groupOrder` is validated as an exact-size permutation of the 6 fixed bucket names; an invalid value throws `IllegalArgumentException` (config-validation precondition, not a per-file content-shape judgment call -- same posture as `MiscRule.convertIndentation`'s existing validation throw). Verified via a throwaway smoke harness (not committed, 11 cases): STYLE_JAVA.md §7's full worked example (6 groups, static last, java/javax merged, an "other" bucket for `lombok.Data`) byte-for-byte; the local-prefix exact-match boundary case (`com.mycompanyx.Foo` correctly NOT matching `com.mycompany` prefix); no-`package`-declaration (local bucket never populated); `sortAlphabetically=false` preserving original relative order; `blankLines=0` (single newline between groups, no blank line); a floating comment between two import statements bailing the whole pass; a same-line trailing comment on one import statement bailing the whole pass; zero imports (no-op); a wildcard import matching the local prefix; full round-trip idempotency; and an invalid `groupOrder` throwing `IllegalArgumentException` |
 
 ---
 
@@ -216,80 +218,32 @@ re-open them.
 | `GetterSetterRule.java` | COMPLETE |
 | `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation") |
 | `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope") |
-| `JavaSpecificRule.java` | IN PROGRESS |
+| `JavaSpecificRule.java` | COMPLETE |
 | `README.md` (defer until just before Dogfood) | NOT STARTED |
 
 ---
 
-## Current File: `JavaSpecificRule.java` — IN PROGRESS
+## Current File: `Main.java` — NOT STARTED
 
-> `CppSpecificRule.java` is COMPLETE (§1, §2, §3, §4, §9, §10; §11 dropped -- see Resolved Design
-> Decisions: "§11 dropped from `CppSpecificRule.java` scope"). `MiscRule.java` is COMPLETE except
-> for the one new method described below, needed to unblock this file's §3 item. Asked the user
-> how to scope `JavaSpecificRule.java` (no pre-seeded checklist, same situation
-> `CppSpecificRule.java` was in): cross-checked STYLE_JAVA.md's sections against the already-
-> COMPLETE general/shared rule files -- full reasoning for every excluded section (§1, §4, §5, §6,
-> §8) is in Resolved Design Decisions: "`JavaSpecificRule.java` scoping". That leaves 3 sections
-> with checklist items below: §2 (method-definition Allman conversion), §3 (resolved to need zero
-> code in *this* file -- see "§3.1 condition-interior padding -- wiring decision" below), and §7
-> (Import Ordering, genuinely new work). `JavaSpecificRule.java` does not exist yet -- create it
-> from scratch, following the existing rule classes' shape (constructor takes `language` for
-> consistency with the other rule classes, even though this file is Java-only; public entry-point
-> method(s) taking `List<Token>` and returning the rendered `String`; a `packageDeclaration`/
-> filename-style extra parameter will be needed for §7's local-import detection; reuse `ColumnGrid`
-> where applicable).
+> `JavaSpecificRule.java` is now COMPLETE (§2, §3, §7 -- see Resolved Design Decisions: "§2
+> method-definition Allman conversion (`JavaSpecificRule.java`)", "§3.1 condition-interior padding
+> -- implementation", "§7 import group order/count contradiction", and "§7 import ordering
+> implementation (`JavaSpecificRule.java`)"). Every rule class in `Project Layout` is now COMPLETE.
 >
-> Two decisions from this scoping pass apply outside this file and are recorded here so they are
-> not lost: (1) **No run-detection coordination between Allman-conversion and `GetterSetterRule`'s
-> one-liner groups, in either language** -- this is a `Main.java` pipeline-ordering constraint
-> (`GetterSetterRule` must run first), not code in this file or `CppSpecificRule.java`; see
-> Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left
-> unguarded". (2) **`MiscRule.java` gained one new method** (`enforceConditionComplexityPadding`,
-> general condition-interior padding, STYLE.md §3.1) -- now implemented and verified, satisfying
-> this file's §3 checklist item for free; see Resolved Design Decisions: "§3.1 condition-interior
-> padding -- implementation".
+> `Main.java` has no pre-seeded checklist yet -- same situation `CppSpecificRule.java` and
+> `JavaSpecificRule.java` were in before their own scoping passes. Before writing any code, this
+> file's actual job needs to be scoped out (CLI argument parsing, file discovery, per-file
+> tokenize -> apply-rules-in-order -> render pipeline, output modes (`--diff`/`--check`/`--out`),
+> and wiring in the two recorded pipeline-ordering constraints below) and a checklist written here,
+> the same way `JavaSpecificRule.java`'s scoping pass cross-checked STYLE_JAVA.md's sections against
+> already-COMPLETE files. Ask the user before finalizing that scope if anything is ambiguous.
 >
-> `JavaSpecificRule.java` now exists (created from scratch) with §2 implemented and verified --
-> see Resolved Design Decisions: "§2 method-definition Allman conversion (`JavaSpecificRule.java`)"
-> for the algorithm and its one Java-specific guard (enum-constant anonymous bodies). §2 and §3 are
-> checked off below; only §7 (Import Ordering) remains.
->
-> Implement and checkpoint-commit one section below at a time, in the order listed.
-
-### §2 Method Brace Style (Allman conversion)
-- [x] Convert a Java **method definition's** own brace to Allman (own line) when currently K&R/
-      same-line. Class/interface/enum body braces and control-flow blocks already correctly stay
-      K&R (shared, language-general `BlockStructureRule` logic via `Token.name`/keyword-based
-      classification) and lambda bodies already correctly stay K&R
-      (`BlockStructureRule.isLambdaBrace`'s Java branch: preceding token is `->`) -- neither needed
-      touching here. One-liner exception: brace-placement only, same resolution as
-      `CppSpecificRule.java`'s §2 (no active collapsing/exploding of body line-count). No run-
-      detection against `GetterSetterRule`'s one-liner groups was added here -- see Resolved Design
-      Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left unguarded" (this
-      is a `Main.java` pipeline-ordering constraint, not a gap in this method). Implemented as
-      `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`, including a Java-specific guard
-      against misclassifying enum-constant anonymous bodies -- see Resolved Design Decisions: "§2
-      method-definition Allman conversion (`JavaSpecificRule.java`)"
-
-### §3 `if` Spacing When Body is `{}`
-- [x] Resolved to need **zero new code in this file** -- STYLE.md §3.1's general condition-
-      interior-padding rule, now implemented as `MiscRule.enforceConditionComplexityPadding`, is
-      what actually governs this section; the `{}`-body shape itself adds nothing beyond that.
-      See Resolved Design Decisions: "§3.1 condition-interior padding -- implementation". Verified
-      against both of STYLE_JAVA.md §3's worked examples (`if( list.get(i) ) {}` padded,
-      `if(a == 1) {}` tight), in both already-correct and needs-fixing input form
-
-### §7 Import Ordering
-- [ ] Group imports into 5 ordered groups (`static`, `java`/`javax`, `org`, `com`, `local`),
-      separated by exactly `java-import-blank-lines` (default 1) blank line(s); alphabetically sort
-      within each group (`java-import-sort`, default on). Local-package detection: read the
-      `package` declaration at the top of the file, take its top `java-import-depth` (default 2)
-      components as the local prefix, and place any import sharing that prefix in the `local`
-      group. `java-import-order` (default `static, java, org, com, local`) configures group order
-      -- needs hardcoded defaults now, wired to real `Config.java` once that class exists, same
-      precedent as `CppSpecificRule.java`'s §10 not blocking on `Config.java`. "Unused imports are
-      not removed" is explicitly out of scope (STYLE_JAVA.md's own words) -- no detection of
-      whether an import is actually used should be attempted
+> Two hard pipeline-ordering constraints already recorded for whoever does this scoping, so they are
+> not lost: (1) **`GetterSetterRule` must run before any Allman-conversion pass**, in both languages
+> -- see Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter one-liner groups -- left
+> unguarded". (2) Several `MiscRule`/`BlockStructureRule`/`SwitchRule` passes are chained via
+> re-tokenizing between them (§11/§12/§13/§15 etc.) -- see those sections' own Resolved Design
+> Decisions rows for each pass's specific ordering requirement relative to its neighbors.
 
 ---
 
@@ -315,7 +269,7 @@ header-guard-rename        = off             # off | on
 header-guard-style         = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order          = static, java, org, com, local
+java-import-order          = java, com, org, other, local, static
 java-import-sort           = on
 java-import-depth          = 2
 java-import-blank-lines    = 1

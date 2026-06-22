@@ -1,0 +1,277 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the MIT License.
+ * See the LICENSE file in the formatter root directory for the full MIT license text.
+ */
+package com.jxmake.formatter;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+public final class Config {
+    private static final String APP_NAME = "style-fmt";
+    private static final String CONFIG_DIR = ".config/style-fmt";
+    private static final String CONFIG_FILE = "config";
+    private static final String STYLE_FMT_FILE_NAME = ".style-fmt";
+    private static final String ENV_PREFIX = "STYLEFMT_";
+
+    private static final String[] ALL_KEYS = {
+        "line-length", "indent-size", "indent-style", "server-port",
+        "closing-comment-min-lines", "format-macros", "line-endings",
+        "include-sort", "header-guard-rename", "header-guard-style",
+        "java-import-order", "java-import-sort", "java-import-depth",
+        "java-import-blank-lines"
+    };
+
+    private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "keep" };
+    private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
+    private static final String[] HEADER_GUARD_STYLE_CHOICES = { "preserve", "ifndef", "pragma-once" };
+
+    private int lineLength = 100;
+    private int indentSize = 4;
+    private String indentStyle = "spaces";
+    private int serverPort = 17173;
+    private int closingCommentMinLines = 5;
+    private boolean formatMacros = false;
+    private String lineEndings = "lf";
+    private boolean includeSort = false;
+    private boolean headerGuardRename = false;
+    private String headerGuardStyle = "preserve";
+    private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
+    private boolean javaImportSort = true;
+    private int javaImportDepth = 2;
+    private int javaImportBlankLines = 1;
+
+    private Config() {
+    }
+
+    public int lineLength() {
+        return lineLength;
+    }
+
+    public int indentSize() {
+        return indentSize;
+    }
+
+    public String indentStyle() {
+        return indentStyle;
+    }
+
+    public int serverPort() {
+        return serverPort;
+    }
+
+    public int closingCommentMinLines() {
+        return closingCommentMinLines;
+    }
+
+    public boolean isFormatMacros() {
+        return formatMacros;
+    }
+
+    public String lineEndings() {
+        return lineEndings;
+    }
+
+    public boolean isIncludeSort() {
+        return includeSort;
+    }
+
+    public boolean isHeaderGuardRename() {
+        return headerGuardRename;
+    }
+
+    public String headerGuardStyle() {
+        return headerGuardStyle;
+    }
+
+    public List<String> javaImportOrder() {
+        return javaImportOrder;
+    }
+
+    public boolean isJavaImportSort() {
+        return javaImportSort;
+    }
+
+    public int javaImportDepth() {
+        return javaImportDepth;
+    }
+
+    public int javaImportBlankLines() {
+        return javaImportBlankLines;
+    }
+
+    public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides) {
+        final Map<String, String> merged = new LinkedHashMap<String, String>();
+
+        final Path globalConfigPath = Paths.get(System.getProperty("user.home"), CONFIG_DIR, CONFIG_FILE);
+        merged.putAll(parseConfigFile(globalConfigPath));
+
+        merged.putAll(collectEnvVars());
+
+        for (final Map<String, String> layer : collectStyleFmtLayers(targetFile)) {
+            merged.putAll(layer);
+        }
+
+        if (cliOverrides != null) {
+            merged.putAll(cliOverrides);
+        }
+
+        return fromRawMap(merged);
+    }
+
+    private static List<Map<String, String>> collectStyleFmtLayers(final Path targetFile) {
+        final List<Map<String, String>> layers = new ArrayList<Map<String, String>>();
+        Path dir = targetFile.toAbsolutePath().getParent();
+        while (dir != null) {
+            final Path candidate = dir.resolve(STYLE_FMT_FILE_NAME);
+            if (Files.isRegularFile(candidate)) {
+                layers.add(parseConfigFile(candidate));
+            }
+            dir = dir.getParent();
+        }
+        Collections.reverse(layers);
+        return layers;
+    }
+
+    private static Map<String, String> collectEnvVars() {
+        final Map<String, String> result = new LinkedHashMap<String, String>();
+        for (final String key : ALL_KEYS) {
+            final String envName = ENV_PREFIX + key.toUpperCase(Locale.ROOT).replace('-', '_');
+            final String value = System.getenv(envName);
+            if (value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static Map<String, String> parseConfigFile(final Path path) {
+        final Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!Files.isRegularFile(path)) {
+            return result;
+        }
+        final List<String> lines;
+        try {
+            lines = Files.readAllLines(path);
+        } catch (final IOException e) {
+            System.err.println("style-fmt: warning: could not read config file " + path + ": " + e.getMessage());
+            return result;
+        }
+        for (final String rawLine : lines) {
+            final String line = rawLine.trim();
+            if (line.isEmpty() || line.charAt(0) == '#') {
+                continue;
+            }
+            final int eq = line.indexOf('=');
+            if (eq < 0) {
+                continue;
+            }
+            final String key = line.substring(0, eq).trim();
+            final String value = line.substring(eq + 1).trim();
+            if (!key.isEmpty()) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static Config fromRawMap(final Map<String, String> raw) {
+        final Config config = new Config();
+        config.lineLength = parseInt(raw, "line-length", config.lineLength);
+        config.indentSize = parseInt(raw, "indent-size", config.indentSize);
+        config.indentStyle = parseChoice(raw, "indent-style", config.indentStyle, INDENT_STYLE_CHOICES);
+        config.serverPort = parseInt(raw, "server-port", config.serverPort);
+        config.closingCommentMinLines = parseInt(raw, "closing-comment-min-lines", config.closingCommentMinLines);
+        config.formatMacros = parseBoolean(raw, "format-macros", config.formatMacros);
+        config.lineEndings = parseChoice(raw, "line-endings", config.lineEndings, LINE_ENDINGS_CHOICES);
+        config.includeSort = parseBoolean(raw, "include-sort", config.includeSort);
+        config.headerGuardRename = parseBoolean(raw, "header-guard-rename", config.headerGuardRename);
+        config.headerGuardStyle = parseChoice(raw, "header-guard-style", config.headerGuardStyle, HEADER_GUARD_STYLE_CHOICES);
+        config.javaImportOrder = parseStringList(raw, "java-import-order", config.javaImportOrder);
+        config.javaImportSort = parseBoolean(raw, "java-import-sort", config.javaImportSort);
+        config.javaImportDepth = parseInt(raw, "java-import-depth", config.javaImportDepth);
+        config.javaImportBlankLines = parseInt(raw, "java-import-blank-lines", config.javaImportBlankLines);
+        return config;
+    }
+
+    private static int parseInt(final Map<String, String> raw, final String key, final int fallback) {
+        final String value = raw.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (final NumberFormatException e) {
+            warnInvalid(key, value, String.valueOf(fallback));
+            return fallback;
+        }
+    }
+
+    private static boolean parseBoolean(final Map<String, String> raw, final String key, final boolean fallback) {
+        final String value = raw.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        final String trimmed = value.trim();
+        if ("on".equals(trimmed)) {
+            return true;
+        }
+        if ("off".equals(trimmed)) {
+            return false;
+        }
+        warnInvalid(key, value, fallback ? "on" : "off");
+        return fallback;
+    }
+
+    private static String parseChoice(final Map<String, String> raw, final String key, final String fallback,
+            final String[] choices) {
+        final String value = raw.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        final String trimmed = value.trim();
+        for (final String choice : choices) {
+            if (choice.equals(trimmed)) {
+                return trimmed;
+            }
+        }
+        warnInvalid(key, value, fallback);
+        return fallback;
+    }
+
+    private static List<String> parseStringList(final Map<String, String> raw, final String key,
+            final List<String> fallback) {
+        final String value = raw.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        final List<String> result = new ArrayList<String>();
+        for (final String part : value.split(",")) {
+            final String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        if (result.isEmpty()) {
+            warnInvalid(key, value, fallback.toString());
+            return fallback;
+        }
+        return result;
+    }
+
+    private static void warnInvalid(final String key, final String value, final String fallback) {
+        System.err.println("style-fmt: warning: invalid value for '" + key + "': \"" + value
+                + "\" -- using default \"" + fallback + "\"");
+    }
+}

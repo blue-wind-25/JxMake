@@ -218,7 +218,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | File | Status |
 |---|---|
 | `Main.java` | NOT STARTED |
-| `Config.java` | IN PROGRESS |
+| `Config.java` | COMPLETE |
 | `ServerMode.java` | NOT STARTED |
 | `IndentationDetector.java` | NOT STARTED |
 | `ScopePipeline.java` | COMPLETE |
@@ -409,7 +409,13 @@ reference.
 
 ---
 
-## Current File: `Config.java` — IN PROGRESS
+## `Config.java` — COMPLETE
+
+Implemented per the checklist below (all items done, smoke-tested end-to-end: built-in defaults,
+global-config override, `.style-fmt` two-level cascade (subdir overrides project root, project
+root overrides global), `STYLEFMT_*` env vars, CLI override beating every other layer, and
+fail-soft invalid-value handling -- not committed, same throwaway-smoke-test precedent as
+`ScopePipeline.java`'s). Design history kept below for reference.
 
 While scoping `Main.java`'s checklist, confirmed `Config.java` is the next real prerequisite
 (see RDD_KEY_66): it's the most foundational of `Main.java`'s three remaining NOT-STARTED
@@ -453,28 +459,28 @@ fully resolved -- no outstanding ambiguity.
 
 ### Checklist
 
-- [ ] **Fixed constants + typed fields** — `APP_NAME`, `CONFIG_DIR`, `CONFIG_FILE` as
+- [x] **Fixed constants + typed fields** — `APP_NAME`, `CONFIG_DIR`, `CONFIG_FILE` as
       `private static final` (per Fixed Constants table); one typed field per key in the
       Config Keys and Defaults table below, each initialized to its built-in default.
-- [ ] **`parseConfigFile(Path)` → `Map<String,String>`** — hand-rolled line parser: skip blank
+- [x] **`parseConfigFile(Path)` → `Map<String,String>`** — hand-rolled line parser: skip blank
       lines and lines whose first non-whitespace character is `#`; split remaining lines on the
       first `=`, trim both sides; return only the keys actually present.
-- [ ] **Env var layer** — collect `STYLEFMT_*` environment variables into a
+- [x] **Env var layer** — collect `STYLEFMT_*` environment variables into a
       `Map<String,String>`, converting each config key to its env var name (uppercase, `-` → `_`,
       `STYLEFMT_` prefix) to reverse-match.
-- [ ] **`.style-fmt` ancestor walk** — given a target file's path, walk from its parent
+- [x] **`.style-fmt` ancestor walk** — given a target file's path, walk from its parent
       directory to the filesystem root, calling `parseConfigFile` on each `.style-fmt` found,
       collecting results outer-to-inner (root-most first).
-- [ ] **Layered merge** — overlay raw `Map<String,String>` layers in RDD_KEY_15 order (built-in
+- [x] **Layered merge** — overlay raw `Map<String,String>` layers in RDD_KEY_15 order (built-in
       defaults are the typed fallback, not a map layer; global config → env vars → `.style-fmt`
       walk results in outer-to-inner order → CLI overrides) into one final raw map.
-- [ ] **Typed construction** — build the final `Config` instance from the merged raw map: parse
+- [x] **Typed construction** — build the final `Config` instance from the merged raw map: parse
       each key into its declared type, falling back to the built-in default with an stderr
       warning on any invalid/unparseable value; parse `java-import-order` into a `List<String>`.
-- [ ] **`Config.resolve(Path targetFile, Map<String,String> cliOverrides)`** — public static
+- [x] **`Config.resolve(Path targetFile, Map<String,String> cliOverrides)`** — public static
       factory tying together all of the above; the one entry point `Main.java` calls once per
       file.
-- [ ] **Throwaway smoke test** — not committed, same precedent as `ScopePipeline.java`'s: a
+- [x] **Throwaway smoke test** — not committed, same precedent as `ScopePipeline.java`'s: a
       built-in-defaults-only case, a global-config-only override, an env var override, a
       two-level nested `.style-fmt` cascade (subdir overrides one key, inherits the rest from
       project root), and a CLI override beating every other layer — verified end-to-end.

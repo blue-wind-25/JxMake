@@ -230,7 +230,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 |---|---|
 | `Main.java` | NOT STARTED |
 | `Config.java` | COMPLETE |
-| `ServerMode.java` | NOT STARTED |
+| `ServerMode.java` | IN PROGRESS |
 | `Formatter.java` | COMPLETE |
 | `IndentationDetector.java` | NOT STARTED |
 | `ScopePipeline.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to fix a C++ access-specifier-label span bug -- see Resolved Design Decisions: "`ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member") |
@@ -499,73 +499,64 @@ fully resolved -- no outstanding ambiguity.
 
 ---
 
-## Current File: `Formatter.java` — COMPLETE
+## Current File: `ServerMode.java` — IN PROGRESS
 
-While scoping `ServerMode.java`'s wire protocol, found its `/format` handler needs the exact
-per-file pipeline `Main.java`'s CLI path will also need -- see "`Formatter.java` orchestration
-architecture" (RDD_KEY_72). This file owns that pipeline so neither caller duplicates it.
+**Resolved (already settled by prior RDD entries, just citing them here):**
+- Wire protocol: `POST /format?path=<path>&lang=<java|cpp, optional>` with raw content as the
+  request body, formatted content as the 200 response body, non-2xx + error message on failure;
+  `POST /shutdown` for graceful exit -- RDD_KEY_73.
+- Lockfile: `$HOME/.config/style-fmt/server.lock` (RDD_KEY_13), written by the server on
+  successful bind, deleted on graceful shutdown.
+- Idempotency: on start, if the lockfile's PID is alive (`ProcessHandle.of(pid).isPresent()`),
+  another server is already running -- treat as a harmless no-op (log and return), do not bind a
+  second socket. If the PID is not alive, the lockfile is stale -- delete it and bind fresh --
+  RDD_KEY_10.
+- Port: default `17173` (`DEFAULT_PORT`), overridable via `Config.serverPort()`; lockfile records
+  the actual bound port -- RDD_KEY_9/RDD_KEY_11.
+- HTTP transport: `com.sun.net.httpserver.HttpServer` (JDK-bundled since 6, no external
+  dependency) -- the only reasonable choice given the Makefile's plain `javac`+`jar` build with no
+  dependency manager of any kind; not treated as a new design fork.
 
-**Resolved:**
-- Public API: `Formatter.formatOne(String content, String language, String filePath, Config
-  config)` -- `filePath` was added beyond the original `(content, language, config)` sketch in
-  RDD_KEY_72 once `CppSpecificRule.enforceHeaderFileStructure(tokens, filePath, renameGuard)`'s
-  existing signature turned out to need a real path string for include-guard-name derivation; a
-  mechanical signature refinement, not a new design question.
-- Whole-file pass order for the 17 `enforceX` methods beyond ScopePipeline's §5/§6/§8/§14 --
-  RDD_KEY_74 (confirmed with the user, adjustable later if a phase ordering turns out wrong in
-  practice).
-
-**Mechanical fill-in:**
-- One `TokenizerCore` instance (`new TokenizerCore(language)`), re-tokenizing via
-  `tokenizer.tokenize(text)` before every pass, same chained-re-tokenize precedent used
-  throughout this codebase.
-- One instance each of `BlockStructureRule` (via the `(language, closingCommentMinLines)`
-  constructor, passing `config.closingCommentMinLines()`), `SwitchRule`, `MiscRule`, and --
-  language-conditionally -- `CppSpecificRule` or `JavaSpecificRule`.
-- §5/§6/§8/§14 run first via `new ScopePipeline(language, config.indentStyle()).process(content)`,
-  before any `enforceX` call -- this alone satisfies RDD_KEY_60 (GetterSetterRule before Allman)
-  with no extra bookkeeping.
-- Cpp-only calls (`enforceFunctionDefinitionAllmanBraceStyle`, `enforceEmptyParameterList`,
-  `enforceTemplateAngleBracketSpacing`, `enforceHeaderFileStructure`) and Java-only calls
-  (`enforceMethodDefinitionAllmanBraceStyle`, `enforceImportOrdering`) are gated on
-  `"cpp".equals(language)` / `"java".equals(language)` respectively; everything else runs for
-  both languages.
-- `enforceImportOrdering` is called with `config.javaImportOrder()`, `config.isJavaImportSort()`,
-  `config.javaImportDepth()`, `config.javaImportBlankLines()` directly. `enforceHeaderFileStructure`
-  is called with `filePath` and `config.isHeaderGuardRename()` directly -- `header-guard-style`
-  needs no wiring at all per its own RDD_KEY_57 note ("needs no code at all right now").
-- `convertIndentation` is called last with `config.indentStyle()` -- `indent-style=keep`'s
-  cross-file majority detection remains deferred to `IndentationDetector.java` per RDD_KEY_43;
-  `convertIndentation` itself already documents what it does with `"keep"` as input (unchanged
-  from `MiscRule.java`'s existing COMPLETE behavior, not re-decided here).
+**Mechanical fill-in (no design fork, decided here and documented for consistency):**
+- Lockfile content format: two lines, PID then port (`"<pid>\n<port>\n"`) -- RDD_KEY_9/11/13 say
+  *what* it carries (PID + port) but not the exact byte format.
+- `/format` language inference when `lang` is absent: by `path`'s extension --
+  `.java` → `"java"`; `.c`/`.cc`/`.cpp`/`.cxx`/`.h`/`.hh`/`.hpp`/`.hxx` → `"cpp"`; anything else →
+  400 with an error body. Consistent with `Formatter.java`'s existing two-language gate
+  (`isCpp`/`isJava`).
+- `/format` resolves config fresh per request via `Config.resolve(Paths.get(path), null)` --
+  RDD_KEY_71 already establishes per-file resolution with no CLI-override layer for server
+  requests (the wire protocol in RDD_KEY_73 carries no override parameters).
+- `HttpServer`'s executor is left as the JDK default (sequential dispatch on the server's own
+  thread) -- this is a local dev-loop formatting daemon, not a concurrent web service; revisit only
+  if real usage proves this insufficient, same "adjustable later if wrong in practice" disposition
+  as RDD_KEY_74.
+- `/shutdown` responds `200` first (so the calling CLI's POST doesn't hang), then spawns a
+  daemon thread that calls `httpServer.stop(1)`, deletes the lockfile, and `System.exit(0)` --
+  stopping the server from within its own request-handler thread would block that same handler
+  on its own in-flight exchange.
 
 ### Checklist
 
-- [x] **Skeleton** -- `formatOne(String content, String language, String filePath, Config
-      config)`; construct one `TokenizerCore`, one `ScopePipeline`, one each of
-      `BlockStructureRule`/`SwitchRule`/`MiscRule`, and the language-conditional
-      `CppSpecificRule`/`JavaSpecificRule`.
-- [x] **Phase 0** -- `scopePipeline.process(content)`.
-- [x] **Phase 1 (structural/brace)** -- `collapseSingleExpressionBlocks` →
-      `enforceKAndRBraceStyle` → `placeElseOnOwnLine` → `insertNamedConstructBlankLines` →
-      language's Allman-conversion method → `enforceEmptyParameterList` (cpp only) →
-      `formatNonInlineSwitches` → `insertBlankLineBeforeReturn`, re-tokenizing between each.
-- [x] **Phase 2 (comment-style)** -- `enforceCommentStyle` → `alignCommentSeparators`.
-- [x] **Phase 3 (comment/marker-generating)** -- `addClosingComments` → `markFallthrough` →
-      `alignInlineSwitches`.
-- [x] **Phase 4 (cosmetic spacing)** -- `enforceKeywordSpacing` →
-      `enforceConditionComplexityPadding` → `enforceInitializerBraceSpacing` →
-      `enforcePreIncrement` → `enforceTemplateAngleBracketSpacing` (cpp only).
-- [x] **Phase 5 (file-header-level)** -- `enforceHeaderFileStructure` (cpp only) /
-      `enforceImportOrdering` (java only).
-- [x] **Phase 6 (final whitespace)** -- `convertIndentation`, return the result.
-- [x] **Throwaway smoke test** -- not committed, same precedent as `Config.java`'s: one Java
-      input and one C++ input, each exercising enough of STYLE.md/STYLE_JAVA.md/STYLE_C_CPP.md
-      to touch every phase at least once, verified end-to-end plus idempotency. Surfaced and fixed
-      four real bugs along the way (RDD_KEY_75 through RDD_KEY_78): §14 one-liner grouping
-      destroyed by the Allman pass, a `++j;`/`--j;` misparsed as a fake declaration, auto-generated
-      closing-comment labels wrongly recapitalized on a second pass, and a C++ access-specifier
-      label merged into the following member's signature.
+- [ ] **Skeleton** -- `public static void start(Config config)`; resolve `DEFAULT_PORT` from
+      `config.serverPort()`, lockfile path from `System.getProperty("user.home")` +
+      `/.config/style-fmt/server.lock` (mirroring `Config.java`'s own `CONFIG_DIR`/`CONFIG_FILE`
+      constant pattern).
+- [ ] **Idempotency check** -- read lockfile if present; live PID → log + return; stale/missing →
+      delete if present, continue to bind.
+- [ ] **Bind + lockfile write** -- `HttpServer.create(new InetSocketAddress("localhost", port), 0)`;
+      on successful bind, write `"<pid>\n<port>\n"` to the lockfile (creating
+      `~/.config/style-fmt/` if missing).
+- [ ] **`/format` handler** -- parse `path`/`lang` query params; read request body fully as
+      bytes → `String`; infer language from extension if `lang` absent (400 if unrecognized);
+      `Config.resolve` + `Formatter.formatOne`; write formatted content as the `200` body; catch
+      any exception and respond non-2xx with the exception message as the body.
+- [ ] **`/shutdown` handler** -- respond `200` immediately, then on a daemon thread:
+      `httpServer.stop(1)`, delete the lockfile, `System.exit(0)`.
+- [ ] **Throwaway smoke test** -- not committed: start the server on an ephemeral port, POST a
+      small Java snippet to `/format` and check the response is correctly formatted, POST a C++
+      snippet and check the same, verify the lockfile was written with the right PID/port, POST
+      `/shutdown` and verify the process's `HttpServer` actually stops and the lockfile is removed.
 
 ---
 

@@ -199,6 +199,8 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_67 | STYLE.md §5/§6 scope -- anywhere in code, recursively |
 | RDD_KEY_68 | `DeclarationAlignmentRule.splitStatements` depth-awareness fix |
 | RDD_KEY_69 | §7 import ordering implementation (`JavaSpecificRule.java`) |
+| RDD_KEY_70 | `Config.java` file format |
+| RDD_KEY_71 | `Config.java` resolution scope |
 
 ---
 
@@ -216,7 +218,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | File | Status |
 |---|---|
 | `Main.java` | NOT STARTED |
-| `Config.java` | NOT STARTED |
+| `Config.java` | IN PROGRESS |
 | `ServerMode.java` | NOT STARTED |
 | `IndentationDetector.java` | NOT STARTED |
 | `ScopePipeline.java` | COMPLETE |
@@ -404,6 +406,78 @@ reference.
       §6, §8 (including a signature long enough to force the broken multi-line form), §14, and
       nested recursion (a declaration group inside an `if` block inside a method inside a
       class), verified to render correctly end-to-end.
+
+---
+
+## Current File: `Config.java` — IN PROGRESS
+
+While scoping `Main.java`'s checklist, confirmed `Config.java` is the next real prerequisite
+(see RDD_KEY_66): it's the most foundational of `Main.java`'s three remaining NOT-STARTED
+dependencies (`Config.java`, `ServerMode.java`, `IndentationDetector.java`), and unlike
+`IndentationDetector.java` (open design question per RDD_KEY_43, deferred), its design is now
+fully resolved -- no outstanding ambiguity.
+
+**Resolved (this session — checklist ready to write):**
+- Config file format (both `~/.config/style-fmt/config` and `.style-fmt`): hand-rolled
+  `key = value` line parser, not `java.util.Properties` — RDD_KEY_70.
+- Resolution scope: per-file, via a `Config.resolve(Path targetFile, Map<String,String>
+  cliOverrides)` factory that walks `targetFile`'s directory upward collecting `.style-fmt`
+  overrides to the filesystem root, rather than one config resolved once per invocation —
+  RDD_KEY_71.
+- Full precedence chain (already resolved pre-session): RDD_KEY_15. `.style-fmt` cascade
+  semantics: RDD_KEY_16. `STYLEFMT_*` env var layer: implied by RDD_KEY_15, key-name mapping
+  is mechanical (`line-length` → `STYLEFMT_LINE_LENGTH`: uppercase, `-` → `_`, prefixed).
+
+**Mechanical fill-in (not new design decisions):**
+- Each layer (global config file, one `.style-fmt` file, env vars, CLI overrides) parses into
+  a raw `Map<String,String>` containing only the keys it explicitly sets — never pre-filled
+  with defaults. Layers are merged in RDD_KEY_15 order via simple overlay (later layer's keys
+  win); built-in defaults are applied only for keys absent from every layer.
+- `.style-fmt` ancestor walk: starting at `targetFile`'s parent directory, check each directory
+  for a `.style-fmt` file up to the filesystem root, collecting matches outer-to-inner (root-most
+  first) so that closer-to-file always overrides farther-from-file, per RDD_KEY_16's cascade. No
+  special "project root" marker (e.g. `.git`) is needed — walking to the filesystem root and
+  merging every `.style-fmt` found along the way already produces the correct two-tier (or
+  N-tier) cascade RDD_KEY_15/16 describe.
+- Typed construction: after the final raw-string merge, each key is parsed into its declared
+  type (`int`, boolean-as-`on`/`off`, or a restricted-choice `String`). An invalid/unparseable
+  value for a key prints a warning to stderr and falls back to that key's built-in default —
+  fail-soft, consistent with this codebase's existing posture elsewhere (e.g. `parseSignature`
+  returning `null` rather than crashing on an unrecognized shape). Never throws/exits the run.
+- `java-import-order`'s comma-separated value parses into a trimmed `List<String>`; every other
+  key is scalar.
+- CLI overrides are merged in last (highest precedence per RDD_KEY_15), as a
+  `Map<String,String>` parameter `Main.java` passes into `Config.resolve` — `Main.java`'s own
+  CLI-flag parsing is out of scope for `Config.java` itself, which only ever receives the
+  already-parsed override map.
+
+### Checklist
+
+- [ ] **Fixed constants + typed fields** — `APP_NAME`, `CONFIG_DIR`, `CONFIG_FILE` as
+      `private static final` (per Fixed Constants table); one typed field per key in the
+      Config Keys and Defaults table below, each initialized to its built-in default.
+- [ ] **`parseConfigFile(Path)` → `Map<String,String>`** — hand-rolled line parser: skip blank
+      lines and lines whose first non-whitespace character is `#`; split remaining lines on the
+      first `=`, trim both sides; return only the keys actually present.
+- [ ] **Env var layer** — collect `STYLEFMT_*` environment variables into a
+      `Map<String,String>`, converting each config key to its env var name (uppercase, `-` → `_`,
+      `STYLEFMT_` prefix) to reverse-match.
+- [ ] **`.style-fmt` ancestor walk** — given a target file's path, walk from its parent
+      directory to the filesystem root, calling `parseConfigFile` on each `.style-fmt` found,
+      collecting results outer-to-inner (root-most first).
+- [ ] **Layered merge** — overlay raw `Map<String,String>` layers in RDD_KEY_15 order (built-in
+      defaults are the typed fallback, not a map layer; global config → env vars → `.style-fmt`
+      walk results in outer-to-inner order → CLI overrides) into one final raw map.
+- [ ] **Typed construction** — build the final `Config` instance from the merged raw map: parse
+      each key into its declared type, falling back to the built-in default with an stderr
+      warning on any invalid/unparseable value; parse `java-import-order` into a `List<String>`.
+- [ ] **`Config.resolve(Path targetFile, Map<String,String> cliOverrides)`** — public static
+      factory tying together all of the above; the one entry point `Main.java` calls once per
+      file.
+- [ ] **Throwaway smoke test** — not committed, same precedent as `ScopePipeline.java`'s: a
+      built-in-defaults-only case, a global-config-only override, an env var override, a
+      two-level nested `.style-fmt` cascade (subdir overrides one key, inherits the rest from
+      project root), and a CLI override beating every other layer — verified end-to-end.
 
 ---
 

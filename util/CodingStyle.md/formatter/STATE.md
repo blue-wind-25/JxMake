@@ -93,6 +93,10 @@ util/CodingStyle.md/formatter/
       Main.java
       Config.java
       ServerMode.java
+      Formatter.java            ← shared per-file pipeline (Config.resolve + ScopePipeline.process +
+                                   whole-file enforceX passes, in order) called by both Main.java and
+                                   ServerMode.java -- see "Formatter.java orchestration architecture"
+                                   in Resolved Design Decisions
       IndentationDetector.java  ← whole-project dominant-indent-style walker (for `indent-style = keep`)
       ScopePipeline.java        ← recursive scope/signature discovery + group-render-splice engine
                                    for DeclarationAlignmentRule/GetterSetterRule/MiscRule's grouping
@@ -201,6 +205,9 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_69 | §7 import ordering implementation (`JavaSpecificRule.java`) |
 | RDD_KEY_70 | `Config.java` file format |
 | RDD_KEY_71 | `Config.java` resolution scope |
+| RDD_KEY_72 | `Formatter.java` orchestration architecture |
+| RDD_KEY_73 | `ServerMode.java` wire protocol |
+| RDD_KEY_74 | `Formatter.java` whole-file pass order |
 
 ---
 
@@ -220,6 +227,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `Main.java` | NOT STARTED |
 | `Config.java` | COMPLETE |
 | `ServerMode.java` | NOT STARTED |
+| `Formatter.java` | IN PROGRESS |
 | `IndentationDetector.java` | NOT STARTED |
 | `ScopePipeline.java` | COMPLETE |
 | `TokenizerCore.java` | COMPLETE |
@@ -484,6 +492,72 @@ fully resolved -- no outstanding ambiguity.
       built-in-defaults-only case, a global-config-only override, an env var override, a
       two-level nested `.style-fmt` cascade (subdir overrides one key, inherits the rest from
       project root), and a CLI override beating every other layer — verified end-to-end.
+
+---
+
+## Current File: `Formatter.java` — IN PROGRESS
+
+While scoping `ServerMode.java`'s wire protocol, found its `/format` handler needs the exact
+per-file pipeline `Main.java`'s CLI path will also need -- see "`Formatter.java` orchestration
+architecture" (RDD_KEY_72). This file owns that pipeline so neither caller duplicates it.
+
+**Resolved:**
+- Public API: `Formatter.formatOne(String content, String language, String filePath, Config
+  config)` -- `filePath` was added beyond the original `(content, language, config)` sketch in
+  RDD_KEY_72 once `CppSpecificRule.enforceHeaderFileStructure(tokens, filePath, renameGuard)`'s
+  existing signature turned out to need a real path string for include-guard-name derivation; a
+  mechanical signature refinement, not a new design question.
+- Whole-file pass order for the 17 `enforceX` methods beyond ScopePipeline's §5/§6/§8/§14 --
+  RDD_KEY_74 (confirmed with the user, adjustable later if a phase ordering turns out wrong in
+  practice).
+
+**Mechanical fill-in:**
+- One `TokenizerCore` instance (`new TokenizerCore(language)`), re-tokenizing via
+  `tokenizer.tokenize(text)` before every pass, same chained-re-tokenize precedent used
+  throughout this codebase.
+- One instance each of `BlockStructureRule` (via the `(language, closingCommentMinLines)`
+  constructor, passing `config.closingCommentMinLines()`), `SwitchRule`, `MiscRule`, and --
+  language-conditionally -- `CppSpecificRule` or `JavaSpecificRule`.
+- §5/§6/§8/§14 run first via `new ScopePipeline(language, config.indentStyle()).process(content)`,
+  before any `enforceX` call -- this alone satisfies RDD_KEY_60 (GetterSetterRule before Allman)
+  with no extra bookkeeping.
+- Cpp-only calls (`enforceFunctionDefinitionAllmanBraceStyle`, `enforceEmptyParameterList`,
+  `enforceTemplateAngleBracketSpacing`, `enforceHeaderFileStructure`) and Java-only calls
+  (`enforceMethodDefinitionAllmanBraceStyle`, `enforceImportOrdering`) are gated on
+  `"cpp".equals(language)` / `"java".equals(language)` respectively; everything else runs for
+  both languages.
+- `enforceImportOrdering` is called with `config.javaImportOrder()`, `config.isJavaImportSort()`,
+  `config.javaImportDepth()`, `config.javaImportBlankLines()` directly. `enforceHeaderFileStructure`
+  is called with `filePath` and `config.isHeaderGuardRename()` directly -- `header-guard-style`
+  needs no wiring at all per its own RDD_KEY_57 note ("needs no code at all right now").
+- `convertIndentation` is called last with `config.indentStyle()` -- `indent-style=keep`'s
+  cross-file majority detection remains deferred to `IndentationDetector.java` per RDD_KEY_43;
+  `convertIndentation` itself already documents what it does with `"keep"` as input (unchanged
+  from `MiscRule.java`'s existing COMPLETE behavior, not re-decided here).
+
+### Checklist
+
+- [ ] **Skeleton** -- `formatOne(String content, String language, String filePath, Config
+      config)`; construct one `TokenizerCore`, one `ScopePipeline`, one each of
+      `BlockStructureRule`/`SwitchRule`/`MiscRule`, and the language-conditional
+      `CppSpecificRule`/`JavaSpecificRule`.
+- [ ] **Phase 0** -- `scopePipeline.process(content)`.
+- [ ] **Phase 1 (structural/brace)** -- `collapseSingleExpressionBlocks` →
+      `enforceKAndRBraceStyle` → `placeElseOnOwnLine` → `insertNamedConstructBlankLines` →
+      language's Allman-conversion method → `enforceEmptyParameterList` (cpp only) →
+      `formatNonInlineSwitches` → `insertBlankLineBeforeReturn`, re-tokenizing between each.
+- [ ] **Phase 2 (comment-style)** -- `enforceCommentStyle` → `alignCommentSeparators`.
+- [ ] **Phase 3 (comment/marker-generating)** -- `addClosingComments` → `markFallthrough` →
+      `alignInlineSwitches`.
+- [ ] **Phase 4 (cosmetic spacing)** -- `enforceKeywordSpacing` →
+      `enforceConditionComplexityPadding` → `enforceInitializerBraceSpacing` →
+      `enforcePreIncrement` → `enforceTemplateAngleBracketSpacing` (cpp only).
+- [ ] **Phase 5 (file-header-level)** -- `enforceHeaderFileStructure` (cpp only) /
+      `enforceImportOrdering` (java only).
+- [ ] **Phase 6 (final whitespace)** -- `convertIndentation`, return the result.
+- [ ] **Throwaway smoke test** -- not committed, same precedent as `Config.java`'s: one Java
+      input and one C++ input, each exercising enough of STYLE.md/STYLE_JAVA.md/STYLE_C_CPP.md
+      to touch every phase at least once, verified end-to-end plus idempotency.
 
 ---
 

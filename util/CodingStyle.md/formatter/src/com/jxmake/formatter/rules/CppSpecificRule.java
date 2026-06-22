@@ -180,9 +180,16 @@ public class CppSpecificRule {
      * the closing `)`'s own line-leading indentation, which by STYLE.md §8's own rule ("closing
      * `)` ... indented to match the first character of the function signature itself") is correct
      * whether the signature is a single line or already broken across several.
+     *
+     * <p>RDD_KEY_75 (supersedes RDD_KEY_60): a one-liner function whose entire `{ ... }` body
+     * sits on one physical line is deferred rather than converted immediately -- if it is
+     * textually adjacent (no blank line, no comment-only gap) to another such one-liner, both are
+     * left alone, mirroring {@code JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle}'s
+     * identical fix (see that method's doc comment for the full rationale).
      */
     public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
         final Map<Integer, Integer> gapToBrace = new HashMap<>();
+        final List<OneLinerCandidate> oneLiners = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) {
             if (!isPunct(tokens.get(i), "{")) {
                 continue;
@@ -197,7 +204,31 @@ public class CppSpecificRule {
             if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
                 continue;
             }
+            final int closeBraceIdx = matchBraceForward(tokens, i);
+            if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
+                final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+                final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
+                oneLiners.add(new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx));
+                continue;
+            }
             gapToBrace.put(closeParenIdx + 1, i);
+        }
+
+        final boolean[] grouped = new boolean[oneLiners.size()];
+        for (int idx = 1; idx < oneLiners.size(); idx++) {
+            final OneLinerCandidate prev = oneLiners.get(idx - 1);
+            final OneLinerCandidate cur = oneLiners.get(idx);
+            final int prevBoundary = findPrevSiblingBoundary(tokens, cur.nameIdx);
+            if (prevBoundary == prev.closeBraceIdx && !breaksOneLinerRun(tokens, prevBoundary, cur.nameIdx)) {
+                grouped[idx - 1] = true;
+                grouped[idx] = true;
+            }
+        }
+        for (int idx = 0; idx < oneLiners.size(); idx++) {
+            if (!grouped[idx]) {
+                final OneLinerCandidate c = oneLiners.get(idx);
+                gapToBrace.put(c.closeParenIdx + 1, c.braceIdx);
+            }
         }
 
         final StringBuilder out = new StringBuilder();
@@ -213,6 +244,86 @@ public class CppSpecificRule {
             }
         }
         return out.toString();
+    }
+
+    /** One function-definition `{ ... }` whose body sits entirely on one physical line --
+     *  candidate for staying K&amp;R if adjacent to another one-liner (RDD_KEY_75). */
+    private static final class OneLinerCandidate {
+        final int nameIdx;
+        final int closeParenIdx;
+        final int braceIdx;
+        final int closeBraceIdx;
+
+        OneLinerCandidate(final int nameIdx, final int closeParenIdx, final int braceIdx, final int closeBraceIdx) {
+            this.nameIdx = nameIdx;
+            this.closeParenIdx = closeParenIdx;
+            this.braceIdx = braceIdx;
+            this.closeBraceIdx = closeBraceIdx;
+        }
+    }
+
+    /** True iff no {@code NEWLINE} token appears between {@code braceIdx} and {@code closeBraceIdx}
+     *  inclusive -- the whole `{ ... }` span is one physical line. */
+    private boolean isSingleLineBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
+        for (int i = braceIdx; i <= closeBraceIdx; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Scans backward from {@code fromIdx} for the nearest top-level `}`/`;` (the previous
+     *  sibling's own end), or -1 if a `{` is hit first or the start of the token list is reached.
+     *  Bounded-effort: does not depth-track, same posture as the rest of this codebase's
+     *  non-AST heuristics. */
+    private int findPrevSiblingBoundary(final List<Token> tokens, final int fromIdx) {
+        for (int i = fromIdx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "}") || isPunct(t, ";")) {
+                return i;
+            }
+            if (isPunct(t, "{")) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /** True iff a blank line (two or more consecutive {@code NEWLINE} tokens) or any comment
+     *  appears strictly between {@code fromExclusive} and {@code toExclusive}. */
+    private boolean breaksOneLinerRun(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        int newlineRun = 0;
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.NEWLINE) {
+                newlineRun++;
+                if (newlineRun >= 2) {
+                    return true;
+                }
+            } else if (type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            } else if (type != TokenType.WHITESPACE) {
+                newlineRun = 0;
+            }
+        }
+        return false;
+    }
+
+    /** Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward}. */
+    private int matchBraceForward(final List<Token> tokens, final int openIdx) {
+        int depth = 0;
+        for (int i = openIdx; i < tokens.size(); i++) {
+            if (isPunct(tokens.get(i), "{")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "}")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     private boolean isFunctionDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx) {

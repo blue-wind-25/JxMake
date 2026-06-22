@@ -208,6 +208,10 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_72 | `Formatter.java` orchestration architecture |
 | RDD_KEY_73 | `ServerMode.java` wire protocol |
 | RDD_KEY_74 | `Formatter.java` whole-file pass order |
+| RDD_KEY_75 | Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient |
+| RDD_KEY_76 | `DeclarationAlignmentRule` misparses a bare `++j;`/`--j;` statement as a fake field declaration |
+| RDD_KEY_77 | `MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency |
+| RDD_KEY_78 | `ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member |
 
 ---
 
@@ -227,22 +231,22 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `Main.java` | NOT STARTED |
 | `Config.java` | COMPLETE |
 | `ServerMode.java` | NOT STARTED |
-| `Formatter.java` | IN PROGRESS |
+| `Formatter.java` | COMPLETE |
 | `IndentationDetector.java` | NOT STARTED |
-| `ScopePipeline.java` | COMPLETE |
+| `ScopePipeline.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to fix a C++ access-specifier-label span bug -- see Resolved Design Decisions: "`ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member") |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
 | `ModifierPriority.java` | COMPLETE |
 | `CppModifierPriority.java` | COMPLETE |
 | `JavaModifierPriority.java` | COMPLETE |
 | `ComplexityPaddingEvaluator.java` | COMPLETE |
-| `DeclarationAlignmentRule.java` | COMPLETE (`splitStatements` made depth-aware -- see Resolved Design Decisions: "`DeclarationAlignmentRule.splitStatements` depth-awareness fix") |
+| `DeclarationAlignmentRule.java` | COMPLETE (`splitStatements` made depth-aware -- see Resolved Design Decisions: "`DeclarationAlignmentRule.splitStatements` depth-awareness fix"; reopened during `Formatter.java` smoke-testing to reject a non-keyword, non-identifier type lead -- see Resolved Design Decisions: "`DeclarationAlignmentRule` misparses a bare `++j;`/`--j;` statement as a fake field declaration") |
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
-| `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation") |
-| `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope") |
-| `JavaSpecificRule.java` | COMPLETE |
+| `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation"; reopened during `Formatter.java` smoke-testing to add structural detection for closing-comment labels -- see Resolved Design Decisions: "`MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency") |
+| `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient") |
+| `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient") |
 | `README.md` (defer until just before Dogfood) | NOT STARTED |
 
 ---
@@ -495,7 +499,7 @@ fully resolved -- no outstanding ambiguity.
 
 ---
 
-## Current File: `Formatter.java` — IN PROGRESS
+## Current File: `Formatter.java` — COMPLETE
 
 While scoping `ServerMode.java`'s wire protocol, found its `/format` handler needs the exact
 per-file pipeline `Main.java`'s CLI path will also need -- see "`Formatter.java` orchestration
@@ -537,27 +541,31 @@ architecture" (RDD_KEY_72). This file owns that pipeline so neither caller dupli
 
 ### Checklist
 
-- [ ] **Skeleton** -- `formatOne(String content, String language, String filePath, Config
+- [x] **Skeleton** -- `formatOne(String content, String language, String filePath, Config
       config)`; construct one `TokenizerCore`, one `ScopePipeline`, one each of
       `BlockStructureRule`/`SwitchRule`/`MiscRule`, and the language-conditional
       `CppSpecificRule`/`JavaSpecificRule`.
-- [ ] **Phase 0** -- `scopePipeline.process(content)`.
-- [ ] **Phase 1 (structural/brace)** -- `collapseSingleExpressionBlocks` →
+- [x] **Phase 0** -- `scopePipeline.process(content)`.
+- [x] **Phase 1 (structural/brace)** -- `collapseSingleExpressionBlocks` →
       `enforceKAndRBraceStyle` → `placeElseOnOwnLine` → `insertNamedConstructBlankLines` →
       language's Allman-conversion method → `enforceEmptyParameterList` (cpp only) →
       `formatNonInlineSwitches` → `insertBlankLineBeforeReturn`, re-tokenizing between each.
-- [ ] **Phase 2 (comment-style)** -- `enforceCommentStyle` → `alignCommentSeparators`.
-- [ ] **Phase 3 (comment/marker-generating)** -- `addClosingComments` → `markFallthrough` →
+- [x] **Phase 2 (comment-style)** -- `enforceCommentStyle` → `alignCommentSeparators`.
+- [x] **Phase 3 (comment/marker-generating)** -- `addClosingComments` → `markFallthrough` →
       `alignInlineSwitches`.
-- [ ] **Phase 4 (cosmetic spacing)** -- `enforceKeywordSpacing` →
+- [x] **Phase 4 (cosmetic spacing)** -- `enforceKeywordSpacing` →
       `enforceConditionComplexityPadding` → `enforceInitializerBraceSpacing` →
       `enforcePreIncrement` → `enforceTemplateAngleBracketSpacing` (cpp only).
-- [ ] **Phase 5 (file-header-level)** -- `enforceHeaderFileStructure` (cpp only) /
+- [x] **Phase 5 (file-header-level)** -- `enforceHeaderFileStructure` (cpp only) /
       `enforceImportOrdering` (java only).
-- [ ] **Phase 6 (final whitespace)** -- `convertIndentation`, return the result.
-- [ ] **Throwaway smoke test** -- not committed, same precedent as `Config.java`'s: one Java
+- [x] **Phase 6 (final whitespace)** -- `convertIndentation`, return the result.
+- [x] **Throwaway smoke test** -- not committed, same precedent as `Config.java`'s: one Java
       input and one C++ input, each exercising enough of STYLE.md/STYLE_JAVA.md/STYLE_C_CPP.md
-      to touch every phase at least once, verified end-to-end plus idempotency.
+      to touch every phase at least once, verified end-to-end plus idempotency. Surfaced and fixed
+      four real bugs along the way (RDD_KEY_75 through RDD_KEY_78): §14 one-liner grouping
+      destroyed by the Allman pass, a `++j;`/`--j;` misparsed as a fake declaration, auto-generated
+      closing-comment labels wrongly recapitalized on a second pass, and a C++ access-specifier
+      label merged into the following member's signature.
 
 ---
 

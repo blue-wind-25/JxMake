@@ -127,12 +127,45 @@ public class ScopePipeline {
                 braceIdx = -1;
                 continue;
             }
+            if (depth == 0 && isOp(t, ":") && isAccessSpecifierLabel(tokens, start, idx)) {
+                idx++;
+                idx = pullTrailingSameLine(tokens, idx);
+                spans.add(new Span(start, idx, -1, -1));
+                start = idx;
+                braceIdx = -1;
+                continue;
+            }
             idx++;
         }
         if (start < n) {
             spans.add(new Span(start, n, -1, -1));
         }
         return spans;
+    }
+
+    /** True iff {@code tokens[start, colonIdx)} contains exactly one significant token and it is
+     *  `public`/`private`/`protected` -- a C++ access-specifier label, which (unlike a ternary's
+     *  `:`) must end its own span here rather than being absorbed into the member that follows.
+     *  Without this, "public:\n    Foo() {}" is swept into one span whose lead tokens become
+     *  "public :", corrupting {@link #applySignaturePass}'s candidate-signature parse. Deliberately
+     *  narrow: a bare ternary always has more than one significant lead token (e.g. `a ? b`), and a
+     *  `case`/`default` switch label never matches this keyword set, so neither is affected. */
+    private boolean isAccessSpecifierLabel(final List<Token> tokens, final int start, final int colonIdx) {
+        int only = -1;
+        for (int i = start; i < colonIdx; i++) {
+            if (!isGapToken(tokens.get(i))) {
+                if (only >= 0) {
+                    return false;
+                }
+                only = i;
+            }
+        }
+        if (only < 0) {
+            return false;
+        }
+        final Token t = tokens.get(only);
+        return t.type == TokenType.KEYWORD
+                && ("public".equals(t.text) || "private".equals(t.text) || "protected".equals(t.text));
     }
 
     /** Extends {@code from} forward over a same-line trailing comment, so it stays attached to the

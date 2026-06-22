@@ -1409,25 +1409,32 @@ public class MiscRule {
      * scope decision: only normalize within an already-recognizable shape, never restructure
      * arbitrary content. STYLE.md's separator-alignment rule remains a separate, deferred item.
      * <p>Per the Resolved Design Decision ("§15 comment scope and sentence detection"), this
-     * method applies unconditionally to every comment token it sees -- the STYLE.md exemption
-     * for labels/markers/closing-comments (`// for i`, `/* FALL-THROUGH *&#47;`) is satisfied by
-     * pipeline ordering in `Main.java` (this pass must run before `BlockStructureRule`'s §7 and
-     * `SwitchRule`'s §13 passes, which are what create those comments in the first place), not by
-     * any detection logic here.
+     * method applies unconditionally to every comment token it sees, <i>except</i> for the
+     * STYLE.md-documented exemption for labels/markers/closing-comments (`// for i`,
+     * `/* FALL-THROUGH *&#47;`), which is now detected structurally (RDD_KEY_75 follow-up; see
+     * {@link #isClosingBraceLabelComment}) rather than relied upon via pipeline ordering alone --
+     * ordering by itself (this pass must run before `BlockStructureRule`'s §7 and `SwitchRule`'s
+     * §13 passes that create those comments) only holds the first time a file is formatted; a
+     * re-format of already-formatted output sees the generated comments as ordinary input and,
+     * without this detection, would wrongly capitalize a lowercase label like `// switch`.
      */
     public String enforceCommentStyle(final List<Token> tokens) {
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.COMMENT_LINE) {
-                if (parseSeparatorComment(t.text, i) != null) {
+                if (parseSeparatorComment(t.text, i) != null || isClosingBraceLabelComment(tokens, i)) {
                     out.append(t.text);
                 } else {
                     out.append("//").append(applyCommentTextRules(t.text.substring(2)));
                 }
             } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
                 final String inner = t.text.substring(2, t.text.length() - 2);
-                out.append("/*").append(applyCommentTextRules(inner)).append("*/");
+                if ("FALL-THROUGH".equals(inner.trim())) {
+                    out.append(t.text);
+                } else {
+                    out.append("/*").append(applyCommentTextRules(inner)).append("*/");
+                }
             } else if (t.type == TokenType.COMMENT_BLOCK) {
                 out.append(reformatMultiLineBlockComment(t.text, indentBefore(tokens, i)));
             } else {
@@ -1435,6 +1442,33 @@ public class MiscRule {
             }
         }
         return out.toString();
+    }
+
+    /** True iff the {@code COMMENT_LINE} token at {@code idx} is immediately preceded, on the
+     *  same physical line (only {@code WHITESPACE} in between, no {@code NEWLINE}), by a `}` --
+     *  optionally followed by a `;` (C/C++ `struct`/`class`/`enum`/`union` definitions) -- the
+     *  exact shape {@code BlockStructureRule.addClosingComments} generates (STYLE.md §7's
+     *  `// label` closing comments). Catches both freshly-generated and user-written instances of
+     *  this shape alike, consistent with STYLE.md's own "labels/markers/closing-comments" framing
+     *  not distinguishing the two. */
+    private boolean isClosingBraceLabelComment(final List<Token> tokens, final int idx) {
+        int p = idx - 1;
+        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
+            p--;
+        }
+        if (p < 0) {
+            return false;
+        }
+        if (isPunct(tokens.get(p), ";")) {
+            p--;
+            while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
+                p--;
+            }
+            if (p < 0) {
+                return false;
+            }
+        }
+        return isPunct(tokens.get(p), "}");
     }
 
     /** One trailing `//` comment recognized as a separator-alignment label, parsed from a single

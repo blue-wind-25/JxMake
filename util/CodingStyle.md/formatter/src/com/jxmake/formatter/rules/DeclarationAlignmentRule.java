@@ -523,8 +523,12 @@ public class DeclarationAlignmentRule {
             return null;
         }
         final Token firstType = typeTokens.get(0);
-        if (firstType.type == TokenType.KEYWORD && !typeKeywords.contains(firstType.text)) {
-            return null; // e.g. return/throw/assert/break -- not a declaration
+        if (firstType.type == TokenType.KEYWORD) {
+            if (!typeKeywords.contains(firstType.text)) {
+                return null; // e.g. return/throw/assert/break -- not a declaration
+            }
+        } else if (firstType.type != TokenType.IDENTIFIER) {
+            return null; // e.g. a bare `++`/`--`/`!` prefix -- not a type, not a declaration
         }
 
         return new Declaration(modifiers, typeTokens, name, sizeTokens, initTokens,
@@ -547,7 +551,11 @@ public class DeclarationAlignmentRule {
             return null;
         }
         final Token firstType = typeTokens.get(0);
-        if (firstType.type == TokenType.KEYWORD && !typeKeywords.contains(firstType.text)) {
+        if (firstType.type == TokenType.KEYWORD) {
+            if (!typeKeywords.contains(firstType.text)) {
+                return null;
+            }
+        } else if (firstType.type != TokenType.IDENTIFIER) {
             return null;
         }
         final List<Token> widthTokens = new ArrayList<>(body.subList(colonIdx + 1, body.size()));

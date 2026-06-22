@@ -31,7 +31,7 @@ ambiguity protocol as `STATE.md`.
 | `JavaSpecificRule.java` (record, switch expressions, text blocks, var, pattern matching) | NOT STARTED |
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
-| `CppSpecificRule.java` (concepts/requires) | NOT STARTED — blocked, see Open Questions |
+| `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
 | `README.md` (update) | NOT STARTED |
 
 ---

@@ -10,6 +10,20 @@ Files in this directory
                   deterministic defaults that replace all judgment-call language
   README.txt      This file
 
+  The deterministic JAR formatter (formatter/code-formatter-1.00.jar) handles
+  all Tier-1 and Tier-2 rules mechanically — run it first before reaching for
+  the AI workflow here. The AI workflow (this file, reformat_chunks.py) is for
+  Tier-3 judgment-call rules that the JAR intentionally leaves to AI:
+    - Function call line-breaking intent
+    - Getter/setter groups with non-standard naming conventions
+    - Comment placement and blank-line intent
+  See formatter/FORMATTER_DISCUSSION.md "Future: AI-Assisted Formatting" for
+  the full rationale and the planned JAR config hook (ai-assist, ai-endpoint,
+  ai-model) that will eventually invoke AI directly from the JAR for these
+  judgment calls. Note: that JAR-invoked AI path uses a minimal decision-only
+  prompt (not AI_PREAMBLE.md) — AI_PREAMBLE.md and this workflow are for
+  general/capable models only, not small on-device models.
+
   Not yet covered by this workflow (phase 2, gated until the deterministic JAR
   formatter's dogfood test succeeds — see formatter/STATE.md):
     STYLE_JAVA17.md  Java 17+ constructs (record, sealed, switch expressions, etc.)

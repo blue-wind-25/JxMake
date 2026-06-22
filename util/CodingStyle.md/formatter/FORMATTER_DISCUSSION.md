@@ -405,14 +405,45 @@ fmt-check:
 
 ## Open Questions / Next Discussion Topics
 
-- [ ] Tokenizer implementation — write fresh in Java (preferred) or adapt existing lexer?
-- [ ] Rule engine as data vs code — lean toward direct Java methods per rule for debuggability
-- [ ] Multi-module Java projects — `java-import-depth = 2` handles cross-module as local;
-      confirm this matches actual usage
-- [ ] `.style-fmt` inheritance from parent subdirectory — full inheritance or only explicit
-      override keys?
-- [ ] Server mode: should `--server` in a Makefile be truly idempotent (check lockfile first)
-      or should it always attempt and exit gracefully on conflict?
+- [x] Tokenizer implementation — write fresh in Java (resolved: fresh Java tokenizer,
+      no external lexer library)
+- [x] Rule engine as data vs code — resolved: direct Java methods, grouped into logical
+      rule classes (not one class per rule)
+- [x] Multi-module Java projects — resolved: `java-import-depth = 2`, top-N components
+      of `package` declaration for pre-Java-9 module-less projects
+- [x] `.style-fmt` inheritance from parent subdirectory — resolved: full inheritance,
+      child keys override parent
+- [x] Server mode idempotency — resolved: check lockfile first; if PID not alive treat
+      as stale, delete and start fresh (`ProcessHandle.of(pid).isPresent()`)
+
+### Open — minimalist on-device AI prompt design
+
+The JAR's `ai-assist` config hook (see "AI extension design" below) is intended to
+invoke a local on-device model (e.g. Ollama, a small quantized model on embedded
+hardware) for Tier-3 judgment calls. Testing with Qwen3 1.7B and Qwen-Coder2.5 2B
+on a Raspberry Pi CM5 shows:
+
+- Small models **can** make layout *decisions* (inline vs. split params, one-line vs.
+  multi-line body) reliably
+- Small models **cannot** reformat source correctly by themselves — output quality
+  degrades badly without a precise prompt, and even then mechanical execution is error-prone
+- The prompt must be extremely precise or the model generates garbage
+
+This suggests the correct design for the on-device path is a **decision-only prompt**:
+the JAR sends a minimal context (the expression or signature, the line budget, and a
+few-sentence rule summary) and asks the model to return a single token decision
+(`inline` / `split` / `split-grouped`). The JAR then executes the chosen form
+mechanically. The model never touches source text directly.
+
+- [ ] **Open:** design the minimalist decision-only prompt for the on-device AI path.
+      The general-model prompt (`AI_PREAMBLE.md` + full style rules) is **not** suitable
+      here — it asks the model to reformat source, which small models do poorly. The
+      on-device prompt needs: (1) the candidate expression/signature text, (2) the
+      current line-length budget, (3) a one-paragraph rule summary (not the full style
+      guide), and (4) an instruction to respond with exactly one decision token.
+      This prompt does not exist yet — it is a separate design artifact from
+      `AI_PREAMBLE.md` and will live in `SPECIAL_STYLE.md` or a dedicated
+      `AI_DECISION_PROMPT.md` once designed.
 
 ---
 
@@ -470,17 +501,31 @@ ai-model    = llama3
 Using a generic OpenAI-compatible endpoint means the extension works with Ollama
 locally, a self-hosted server, or a remote API without changing the formatter code.
 
-The AI pass operates at **finer granularity** than `reformat_chunks.py` (which sends
-500-line file chunks). For function call line-breaking, the natural unit is a single
-call expression. The AI receives the expression, the surrounding context (a few lines),
-the relevant `SPECIAL_STYLE.md` rules, and the current line-length budget, and returns
-the preferred form.
+**Two distinct invocation paths — different prompt designs:**
+
+**Path A — general/capable model (remote API or large local model):**
+The AI receives a single call expression or signature, a few lines of surrounding
+context, the relevant `SPECIAL_STYLE.md` rules, and the current line-length budget,
+and returns the preferred formatted form. Operates at finer granularity than
+`reformat_chunks.py` (which sends 500-line chunks). The JAR splices the result back.
+Prompt basis: a trimmed version of `AI_PREAMBLE.md` scoped to `SPECIAL_STYLE.md`
+rules only.
+
+**Path B — minimalist on-device model (small quantized model, e.g. on embedded hardware):**
+Small models can make layout *decisions* reliably but cannot reformat source correctly.
+The JAR sends a decision-only prompt: the candidate expression, the line budget, and a
+one-paragraph rule summary — and expects exactly one decision token back (`inline` /
+`split` / `split-grouped`). The JAR then executes the chosen form mechanically using
+its existing token-level rules. The model never touches source text directly.
+Prompt design for this path is an open question — see Open Questions above.
 
 ### Current workaround
 
 For one-off style migration of files with many judgment-call decisions, use
 `reformat_chunks.py` with the Anthropic API. It is already the recommended path for
 files over 500 lines and handles the same class of problem, at coarser granularity.
+Note: `reformat_chunks.py` uses Path A semantics (model reformats source directly) and
+is not suitable for small on-device models.
 
 ---
 

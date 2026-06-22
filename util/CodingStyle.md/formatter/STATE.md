@@ -219,7 +219,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `Config.java` | NOT STARTED |
 | `ServerMode.java` | NOT STARTED |
 | `IndentationDetector.java` | NOT STARTED |
-| `ScopePipeline.java` | NOT STARTED |
+| `ScopePipeline.java` | COMPLETE |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
 | `ModifierPriority.java` | COMPLETE |
@@ -237,7 +237,13 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 ---
 
-## Current File: `ScopePipeline.java` — NOT STARTED (scoping in progress)
+## `ScopePipeline.java` — COMPLETE
+
+Implemented per the checklist below (all items done, smoke-tested end-to-end: §5/§6/§8/§14 each
+verified individually plus nested recursion across method/if-block scopes, the §14
+outlier-exclusion non-contiguous-splice path, and round-trip idempotency -- not committed, same
+throwaway-smoke-test precedent as the `splitStatements` depth-fix). Design history kept below for
+reference.
 
 > While scoping `Main.java`'s checklist, found that `Main.java`'s real prerequisite is a new file,
 > `ScopePipeline.java` (see `Project Layout`/`File Status`, inserted before `Main.java`). Several
@@ -360,39 +366,39 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 ### Checklist
 
-- [ ] **Skeleton + shared helpers** -- class fields (`language`, `indentStyle`, a
+- [x] **Skeleton + shared helpers** -- class fields (`language`, `indentStyle`, a
       `TokenizerCore`, one instance each of `DeclarationAlignmentRule`/`GetterSetterRule`/
       `MiscRule`); ported low-level scanning helpers duplicated per this codebase's
       one-owner-per-class precedent: `isPunct`, `isOp`, `isGapToken`, `prevSignificantIndex`,
       `nextSignificantIndex`, `matchParenForward`, `matchParenBackward`, `matchBraceForward`.
-- [ ] **`splitTopLevelSpans`** -- the depth-aware span splitter described above (statement- and
+- [x] **`splitTopLevelSpans`** -- the depth-aware span splitter described above (statement- and
       block-terminated spans, contiguous coverage of the input, open-brace index recorded for
       block-terminated spans, same `pullTrailingSameLine`-style same-line-trailing-comment pull
       ported alongside it).
-- [ ] **§5 pass** -- `groupDeclarations(scopeTokens)` -> `render(group)` per group -> anchor
+- [x] **§5 pass** -- `groupDeclarations(scopeTokens)` -> `render(group)` per group -> anchor
       each group to a `(start, end)` span range via the `IdentityHashMap` lookup described above
       -> splice all groups' rendered text back into `scopeTokens`' source text in one pass
       (spans not covered by any group pass through verbatim).
-- [ ] **§6 pass** -- identical shape to §5 using `groupAssignments`/`render` (Assignment's
+- [x] **§6 pass** -- identical shape to §5 using `groupAssignments`/`render` (Assignment's
       anchor token is `target`, or for a `multiLine` row, `firstLineValueTokens.get(0)`).
-- [ ] **§8 pass** -- signature-candidate scan per `splitTopLevelSpans` (above) -> for each
+- [x] **§8 pass** -- signature-candidate scan per `splitTopLevelSpans` (above) -> for each
       candidate, `parseSignature(sigTokens)` (returns `null` => leave untouched, same posture as
       every other unrecognized shape in this codebase) -> `render(sig, depth, indentStyle)` ->
       splice only the `[span.start, closeParenIdx]` range, leaving the body untouched.
-- [ ] **§14 pass** -- `groupOneLiners(scopeTokens)` -> `excludeOutliers(scopeTokens, group)` ->
+- [x] **§14 pass** -- `groupOneLiners(scopeTokens)` -> `excludeOutliers(scopeTokens, group)` ->
       `render(scopeTokens, group)` -> splice using each `Member`'s own `memberFrom`/`memberTo`
       directly (no anchor lookup needed); a group that drops below 2 after exclusion is skipped
       entirely (members render unchanged, per `excludeOutliers`'s own contract).
-- [ ] **Recursion driver** -- `processScope(tokens, depth)`: run the four passes above in
+- [x] **Recursion driver** -- `processScope(tokens, depth)`: run the four passes above in
       fixed order, re-tokenizing the scope's text between each; then, on the final token list,
       use `splitTopLevelSpans` again to find every block-terminated span's child interior,
       recursively call `processScope(childTokens, depth + 1)` on each (outer-first: this scope's
       own four passes complete before any child is touched), splice each child's processed text
       back in place; return the final assembled text for this scope.
-- [ ] **`process(String source)`** -- public entry point: tokenize the whole file via
+- [x] **`process(String source)`** -- public entry point: tokenize the whole file via
       `TokenizerCore`, call `processScope(tokens, 0)`, return the result. This is the one method
       `Main.java` will call once per file.
-- [ ] **Throwaway smoke test** -- not committed, same precedent as the `splitStatements`
+- [x] **Throwaway smoke test** -- not committed, same precedent as the `splitStatements`
       depth-fix's verification: hand-built source snippets covering one example each of §5
       (declarations inside a method body, not just a class body -- exercises RDD_KEY_67),
       §6, §8 (including a signature long enough to force the broken multi-line form), §14, and

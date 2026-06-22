@@ -41,12 +41,12 @@ ambiguity protocol as `STATE.md`.
 - [ ] `record` — treat as `class` for brace style, closing comment, forced blank
       lines (STYLE_JAVA17.md §1). Component list follows §8 signature rules.
 - [ ] `sealed` / `non-sealed` / `permits` — new `JavaModifierPriority` column;
-      pin exact ordering against the real current priority list first
-      (STYLE_JAVA17.md §2 — flagged open question, do not guess).
+      order is `abstract → sealed → non-sealed → final` (resolved — see
+      STYLE_JAVA17.md §2 resolved decisions table).
 - [ ] Switch expressions (`->` form) — new alignment pass, distinct from STYLE.md
-      §13's `:`-based switch statement handling (STYLE_JAVA17.md §3). Resolve the
-      block-body-outlier open question before implementing the alignment group
-      logic.
+      §13's `:`-based switch statement handling (STYLE_JAVA17.md §3). Block-body
+      case breaks entire group's `->` alignment — all-or-nothing, no outlier
+      exclusion (resolved — see STYLE_JAVA17.md §7 resolved decisions table).
 - [ ] Text blocks (`"""`) — tokenizer change only: recognize as one opaque
       multi-line token, contents never touched (STYLE_JAVA17.md §4). Verify
       current `TokenizerCore.java` doesn't already mis-tokenize these before
@@ -62,14 +62,29 @@ ambiguity protocol as `STATE.md`.
 
 - [ ] Structured bindings — atomic name-cell in existing §5 grid, plus internal
       `[a, b, c]` spacing rule (STYLE_CPP20.md §1).
-- [ ] Concepts / `requires` clauses — **blocked**, no worked examples agreed yet.
-      Needs a design discussion before any checklist item is actionable
-      (STYLE_CPP20.md §2).
-- [ ] `consteval` / `constinit` — new `CppModifierPriority` column; check whether
-      `constexpr` already has an entry before adding anything (STYLE_CPP20.md §3).
-- [ ] Other candidates not yet scoped (`<=>`, coroutines, modules, init-statement
-      `if`/`switch`) — no rules drafted, listed only so they aren't forgotten
-      (STYLE_CPP20.md §4).
+- [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`
+      always, wraps only past 100 chars; nested compound requirements untouched
+      (resolved — see STYLE_CPP20.md §2 and §5 resolved decisions table).
+- [ ] `consteval` / `constinit` — new `CppModifierPriority` columns, order
+      `constexpr → consteval → constinit`; verify `constexpr` already present
+      before adding (resolved — see STYLE_CPP20.md §3 and §5).
+- [ ] `<=>`, coroutines, init-statement `if`/`switch` — all resolved as needing
+      zero new rules (see STYLE_CPP20.md §4 and §5 resolved decisions table).
+      Verify no-op assumption holds during implementation.
+
+---
+
+## Resolved Design Decisions
+
+Full decision text lives in `STATE_NEXT_rdd_log.md` — **do not read that file in full**.
+To look up a specific decision during implementation:
+```
+grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
+```
+
+| Key | Topic |
+|---|---|
+| _(none yet — entries added here as implementation questions arise)_ | |
 
 ---
 

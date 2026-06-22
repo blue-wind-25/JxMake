@@ -296,8 +296,108 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 > - Several `MiscRule`/`BlockStructureRule`/`SwitchRule` passes have ordering requirements
 >   relative to each other -- see each section's own RDD entry.
 >
-> Resume by writing the actual checklist items for this file — all design questions are now
-> resolved, no `AskUserQuestion` needed before implementation begins.
+> **Splice-back mechanics (mechanical fill-in, not a new design decision -- same category as
+> the `splitStatements` depth-awareness fix above):**
+> - `GetterSetterRule.Member` already stores `memberFrom`/`memberTo` indices directly -- §14's
+>   splice-back needs no extra bookkeeping.
+> - `MiscRule.Signature` carries no indices at all, but `ScopePipeline` itself is the one that
+>   finds and slices `sigTokens` in the first place (see §8 checklist item below), so it already
+>   has the exact `[start, closeParenIdx]` range before calling `parseSignature` -- no recovery
+>   needed there either.
+> - `DeclarationAlignmentRule.Declaration` and `MiscRule.Assignment` carry neither indices nor a
+>   reference to their statement's closing `;`/trailing-comment token. Since `Token` has no
+>   `equals`/`hashCode` override (default reference identity), and every `Declaration`/
+>   `Assignment` field holds the *same* `Token` instances sliced out of the `scopeTokens` list
+>   `ScopePipeline` already has, the fix is: build an `IdentityHashMap<Token,Integer>` once per
+>   scope (token instance -> index in `scopeTokens`), then for each returned group, look up an
+>   anchor token from its first/last `Declaration`/`Assignment` (e.g. `name`/`target`, or
+>   `trailingComment` when present) to find which of `ScopePipeline`'s own independently-computed
+>   top-level spans (see checklist below) that statement falls in -- the *span's* `(start, end)`
+>   (not the anchor token's own index) is what is actually replaced, since the span already
+>   correctly includes the trailing `;`/comment via the identical depth-aware algorithm.
+>
+> **Per-scope pass design (mechanical fill-in):** since `groupOneLiners`'s "full type-body
+> range including nested method-body tokens" and `groupDeclarations`/`groupAssignments`'s
+> "direct-content-only slice, nested block opaque" boundary contracts are both already
+> satisfied just by handing **the same `scopeTokens` slice** to each call (their own internal
+> depth-aware statement/member splitters already treat a nested `{ }` as one opaque unit), no
+> separate slice-extraction step is needed per rule -- every pass for one scope operates on that
+> scope's own full `(open, close)`-exclusive token range. Four passes run in this fixed order,
+> re-tokenizing the scope's text between each (same "chained via re-tokenizing between passes"
+> precedent as §11/§12/§13/§15): §5 declarations, §6 assignments, §8 signatures, §14
+> getter/setter. §8 before §14 specifically: §8's signature rendering only ever touches the
+> `[leadTokens..closeParen]` span, never the body, so it cannot disturb a one-liner body; running
+> it first lets §8 normalize/possibly-break long signatures before §14's grid-alignment pass
+> re-pads the (by-definition short, one-line) signatures of whatever one-liner run remains.
+> §5/§6 are statement-level (`;`-terminated) and structurally disjoint from §8/§14's
+> brace-block-terminated members, so their relative order doesn't matter; declarations-then-
+> assignments is just the order STYLE.md numbers the sections in.
+> Only after all four passes does recursion into child scopes happen (outer-first, per the
+> already-resolved walk order).
+>
+> **Child-scope / signature-candidate discovery (mechanical fill-in):** one depth-aware
+> top-level span splitter, `splitTopLevelSpans`, ported a third time (same algorithm already
+> duplicated in `DeclarationAlignmentRule.splitStatements` and
+> `MiscRule.splitAssignmentStatements`) -- but additionally recording, for any span that closes
+> via a top-level `}` rather than a `;`, the matching open-brace index. This one helper serves
+> three jobs at once: (1) anchor-token -> span lookup for the §5/§6 splice-back above, (2)
+> finding every child scope to recurse into (any `}`-closed span's `(openBraceIdx+1, closeIdx)`
+> interior), and (3) finding §8 signature candidates (a `}`-closed span whose open brace is
+> directly preceded -- skipping whitespace/comments/newlines -- by a `)` whose matching `(` is
+> itself preceded by an IDENTIFIER not preceded by `new`; ported from
+> `JavaSpecificRule.isCandidateMethodName`/`CppSpecificRule.isCandidateSignatureName`, plus
+> `JavaSpecificRule.isEnumConstantBody`'s exclusion guarded by `"java".equals(language)`). A
+> signature candidate's lead span is `[span.start, closeParenIdx]`; its body is the same child
+> scope found by (2) for that span -- both are derived from one scan, not two.
+>
+> **Indentation level for §8 rendering:** `MiscRule.render(Signature, indentLevel, indentStyle)`
+> needs the nesting depth of the signature's own scope. `ScopePipeline`'s recursion already
+> threads a plain `int depth` parameter (0 at the file root, incremented by 1 each time it
+> recurses into a child scope's interior) -- pass that straight through as `indentLevel`, no
+> separate computation needed.
+>
+> All design questions are now resolved; the checklist below is ready to implement directly.
+
+### Checklist
+
+- [ ] **Skeleton + shared helpers** -- class fields (`language`, `indentStyle`, a
+      `TokenizerCore`, one instance each of `DeclarationAlignmentRule`/`GetterSetterRule`/
+      `MiscRule`); ported low-level scanning helpers duplicated per this codebase's
+      one-owner-per-class precedent: `isPunct`, `isOp`, `isGapToken`, `prevSignificantIndex`,
+      `nextSignificantIndex`, `matchParenForward`, `matchParenBackward`, `matchBraceForward`.
+- [ ] **`splitTopLevelSpans`** -- the depth-aware span splitter described above (statement- and
+      block-terminated spans, contiguous coverage of the input, open-brace index recorded for
+      block-terminated spans, same `pullTrailingSameLine`-style same-line-trailing-comment pull
+      ported alongside it).
+- [ ] **§5 pass** -- `groupDeclarations(scopeTokens)` -> `render(group)` per group -> anchor
+      each group to a `(start, end)` span range via the `IdentityHashMap` lookup described above
+      -> splice all groups' rendered text back into `scopeTokens`' source text in one pass
+      (spans not covered by any group pass through verbatim).
+- [ ] **§6 pass** -- identical shape to §5 using `groupAssignments`/`render` (Assignment's
+      anchor token is `target`, or for a `multiLine` row, `firstLineValueTokens.get(0)`).
+- [ ] **§8 pass** -- signature-candidate scan per `splitTopLevelSpans` (above) -> for each
+      candidate, `parseSignature(sigTokens)` (returns `null` => leave untouched, same posture as
+      every other unrecognized shape in this codebase) -> `render(sig, depth, indentStyle)` ->
+      splice only the `[span.start, closeParenIdx]` range, leaving the body untouched.
+- [ ] **§14 pass** -- `groupOneLiners(scopeTokens)` -> `excludeOutliers(scopeTokens, group)` ->
+      `render(scopeTokens, group)` -> splice using each `Member`'s own `memberFrom`/`memberTo`
+      directly (no anchor lookup needed); a group that drops below 2 after exclusion is skipped
+      entirely (members render unchanged, per `excludeOutliers`'s own contract).
+- [ ] **Recursion driver** -- `processScope(tokens, depth)`: run the four passes above in
+      fixed order, re-tokenizing the scope's text between each; then, on the final token list,
+      use `splitTopLevelSpans` again to find every block-terminated span's child interior,
+      recursively call `processScope(childTokens, depth + 1)` on each (outer-first: this scope's
+      own four passes complete before any child is touched), splice each child's processed text
+      back in place; return the final assembled text for this scope.
+- [ ] **`process(String source)`** -- public entry point: tokenize the whole file via
+      `TokenizerCore`, call `processScope(tokens, 0)`, return the result. This is the one method
+      `Main.java` will call once per file.
+- [ ] **Throwaway smoke test** -- not committed, same precedent as the `splitStatements`
+      depth-fix's verification: hand-built source snippets covering one example each of §5
+      (declarations inside a method body, not just a class body -- exercises RDD_KEY_67),
+      §6, §8 (including a signature long enough to force the broken multi-line form), §14, and
+      nested recursion (a declaration group inside an `if` block inside a method inside a
+      class), verified to render correctly end-to-end.
 
 ---
 

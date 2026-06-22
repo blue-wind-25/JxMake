@@ -53,65 +53,136 @@ operates on the cell's own rendering.
 
 ## 2. Concepts and `requires` Clauses
 
-**Status: TBD.** No worked example agreed yet. Open questions to resolve before
-implementation:
+### 2.1 `concept` definition — brace style
 
-- [ ] Brace style for a `concept` definition — same K&R-vs-Allman split as
-      class/struct (Allman, since it's a named top-level definition), or does a
-      `concept`'s `= requires { ... };` body (an expression, not a block) follow
-      different rules entirely?
-- [ ] Trailing `requires` clause on a function/template signature — when present
-      and the signature is otherwise short, does `requires(...)` force a line break
-      even under the 100-char limit, or only when the combined length exceeds it
-      (consistent with §8's existing trigger)?
-- [ ] Line-breaking and indentation of a multi-line `requires { ... }` expression
-      body (the "compound requirement" form) — no existing rule shape to fall back
-      on, since this isn't a `{}` initializer (§3.3) or a function/control-flow
-      block (§11).
+A `concept`'s `= requires { ... }` body is an expression (assigned via `=`), not a
+standalone block definition. It uses **K&R** brace placement, same as lambda bodies,
+for the same reason — a `{` that is part of an expression stays on the same line:
+
+```cpp
+template<typename T>
+concept Drawable = requires(T t) {
+    t.draw();
+    { t.area() } -> std::convertible_to<double>;
+};
+```
+
+Nested compound requirements (`{ ... } -> type`) are left **completely untouched**
+by the formatter — their interior is opaque, same posture as lambdas with complex
+bodies.
+
+### 2.2 Trailing `requires` clause on a function/template signature
+
+The `requires` clause always trails the closing `)` of the parameter list — on the
+same line if the `)` is inline, or on the same line as the broken-form `)` if the
+signature is already broken per STYLE.md §8:
+
+```cpp
+// fits in 100 chars — inline
+void draw(T t) requires Drawable<T> { ... }
+
+// signature broken per §8, requires trails the )
+void reallyLongFunctionName(
+        ParamType param
+) requires Drawable<T> && Serializable<T>
+{ ... }
+```
+
+If the `) requires ...` combined line exceeds the 100-char soft limit, `requires`
+wraps to its own line, indented one level under the function name:
+
+```cpp
+void reallyLongFunctionName(ParamType param)
+        requires Drawable<T> && Serializable<T>
+{ ... }
+```
+
+### 2.3 Multi-line `requires { }` expression body
+
+Standard block indentation — body contents indented one level, closing `};` on its
+own line. Nested `{ ... } -> type` compound requirements are left untouched:
+
+```cpp
+template<typename T>
+concept Drawable = requires(T t) {
+    t.draw();
+    {
+        t.area()
+    } -> std::convertible_to<double>;
+};
+```
 
 ---
 
 ## 3. `consteval`, `constinit`, `constexpr` (as it appears post-C++17)
 
-**Status: TBD.**
+`consteval` and `constinit` are new modifier keywords that take columns in
+`CppModifierPriority` adjacent to the existing `constexpr` entry:
 
-- [ ] `consteval` and `constinit` are new modifier keywords analogous to `sealed`
-      in STYLE_JAVA17.md — they need a column in `CppModifierPriority`. Exact
-      ordering relative to existing modifiers (`static`, `volatile`, `const`,
-      `constexpr` already present in some capacity) needs to be pinned against the
-      full existing priority list before implementation, not assumed.
-- [ ] Confirm `constexpr` (pre-existing keyword, but increasingly common on more
-      constructs in C++17/20) doesn't already have an entry in
-      `CppModifierPriority` that this section is duplicating — check the real
-      implementation before adding anything.
+```
+static / extern / inline
+constexpr → consteval → constinit
+virtual / override / final
+const / volatile
+```
 
----
-
-## 4. Other Candidates Not Yet Scoped
-
-Flagged for future discussion, no rules drafted yet — listed so they aren't
-forgotten, not because a decision has been made:
-
-- [ ] Three-way comparison operator `<=>` — spacing only question (is it tight or
-      padded like other binary operators?); likely falls under existing binary-op
-      spacing with no new rule needed, but not yet confirmed against STYLE.md §3.1's
-      table.
-- [ ] Coroutines (`co_await`, `co_yield`, `co_return`) — likely no special rule
-      beyond existing keyword + expression spacing, but unconfirmed.
-- [ ] `if`/`switch` with init-statement (`if(auto x = f(); x > 0)`) — existing §3.1
-      complexity padding likely already handles the parenthesized content correctly
-      since it's just nested expression content, but not yet verified against a
-      worked example.
+Before adding these columns, verify against the real `CppModifierPriority`
+implementation that `constexpr` already has an entry there — do not add a
+duplicate. If `constexpr` is missing (unlikely given phase-1 work), add it first
+in the same slot, then `consteval` and `constinit` immediately after.
 
 ---
 
-## 5. Open Questions Summary
+## 4. Other Constructs
 
-- [ ] §1 structured bindings: confirm the atomic-name-cell reading against a second
-      worked example with a 4+ element binding list and a trailing comment, to make
-      sure STYLE.md §5's comment-alignment column still lines up correctly.
-- [ ] §2 concepts/requires: needs a full design discussion before any checklist
-      item is actionable — currently just a list of unresolved questions, not a
-      spec.
-- [ ] §3 consteval/constinit: needs the real current `CppModifierPriority` ordering
-      checked first; do not guess a column position without it.
+### 4.1 Three-way comparison operator `<=>`
+
+Single space each side, same as all other binary operators:
+
+```cpp
+auto result = a <=> b;
+```
+
+No inter-line RHS operator alignment — `<=>` inside a value expression is ordinary
+content, out of STYLE.md §6's scope (which aligns only the `=` column).
+
+### 4.2 Coroutines (`co_await`, `co_yield`, `co_return`)
+
+Treated identically to `return` / `throw` — keyword followed by an expression, no
+special formatting rule.
+
+```cpp
+co_return result;
+co_yield value;
+auto x = co_await asyncOp();
+```
+
+### 4.3 `if` / `switch` with init-statement
+
+```cpp
+if(auto x = f(); x > 0) { ... }
+switch(auto x = compute(); x) { ... }
+```
+
+No special rule needed. STYLE.md §3.1's `isLoose` check applies to the full
+condition content as usual — the `;` is just another token. A condition like
+`auto x = 10; x > 0` containing no `(` or `[` tokens is correctly classified
+tight; one like `auto x = f(); x > 0` containing a call `(` is correctly loose.
+
+---
+
+## 5. Resolved Design Decisions (Q&A session)
+
+| Topic | Decision |
+|---|---|
+| `concept` brace style | K&R — `requires { }` is an expression body, same as lambda |
+| `requires` clause line-break trigger | Trails `)` always; wraps to own line only when `) requires ...` exceeds 100 chars |
+| Multi-line `requires { }` body | Standard block indent; nested `{ ... } -> type` compound requirements left untouched |
+| `constexpr` / `consteval` / `constinit` column order | `constexpr → consteval → constinit` together; verify `constexpr` already present before adding |
+| `<=>` spacing | Single space each side; no RHS operator alignment |
+| Coroutines | Identical to `return`/`throw` — no special rule |
+| `if`/`switch` init-statement | No special rule; `isLoose` already handles correctly via `(` / `[` detection |
+
+**§1 structured bindings implementation note:** verify the atomic-name-cell reading
+against a worked example with a trailing comment before implementing, to confirm
+STYLE.md §5's comment-alignment column still lines up when the name cell is `[a, b, c]`.

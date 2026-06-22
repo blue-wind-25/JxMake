@@ -32,7 +32,18 @@ public record Point(int x, int y) {
 **Component list** (the `(int x, int y)` part) follows the same line-breaking and
 column-alignment rules as a function signature (STYLE.md §8) — inline if it fits
 within the 100-char soft limit, otherwise broken one-component-per-line with the
-same closing-`)` placement rule.
+closing `)` on its own line at the `record` keyword's indentation column:
+
+```java
+public record LongNamedPoint(
+        int x,
+        int y
+) {
+
+    // ...
+
+} // record LongNamedPoint
+```
 
 **Compact canonical constructor** (`public Point { ... }` — no parameter list) is a
 method-shaped body and follows ordinary method body rules (STYLE_JAVA.md §2), not
@@ -54,11 +65,21 @@ public final class Circle implements Shape { ... }
 public non-sealed class Square implements Shape { ... }
 ```
 
-**Modifier priority column:** `sealed` / `non-sealed` take a column in
-`JavaModifierPriority`, ordered immediately after `final`/`abstract` and before the
-type keyword (`class`/`interface`) — i.e. they occupy the same conceptual slot as
-`final`, since exactly one of `final` / `sealed` / `non-sealed` / (none) applies to
-a given type.
+**Modifier priority column:** `sealed` / `non-sealed` take columns in
+`JavaModifierPriority` in this order:
+
+```
+public / protected / private
+static
+abstract → sealed → non-sealed → final
+synchronized / native / transient / volatile
+class / interface  (type keyword)
+```
+
+Exactly one of `abstract` / `sealed` / `non-sealed` / `final` / (none) applies to a
+given type, so these four share the same conceptual slot. `sealed` and `non-sealed`
+sit between `abstract` and `final` — that order is compile-safe since these keywords
+are mutually exclusive on any real declaration.
 
 **`permits` clause:** treated like an `implements`/`extends` clause for line-breaking
 purposes — inline if the full declaration line fits within 100 chars; if not, break
@@ -93,6 +114,10 @@ String result = switch(day) {
 The `->` column is aligned across all cases in the switch, same spirit as STYLE.md
 §13's inline `:` alignment — pad each case's label (including multi-value
 comma-separated labels) so `->` lands in the same column.
+
+**All-or-nothing:** if any case in the switch expression uses a block body (`-> {`),
+the entire switch expression's `->` alignment is abandoned — no case gets aligned.
+Same conservative posture as STYLE.md §13's inline alignment rule.
 
 ### 3.2 Block bodies with `yield`
 
@@ -188,16 +213,10 @@ pattern, or a plain value.
 
 ---
 
-## 7. Open Questions (deferred to implementation time)
+## 7. Resolved Design Decisions (Q&A session)
 
-- [ ] Switch-expression `->` alignment: does a case with a block body (§3.2) get
-      excluded from the `->` column-alignment group the same way GetterSetterRule
-      excludes oversized outliers (STYLE.md §14), or does block-bodied presence
-      break the whole group's alignment?
-- [ ] Record component list alignment when broken (§1): confirm against a worked
-      multi-component example that this exactly matches STYLE.md §8's existing
-      closing-`)` placement rule with no record-specific deviation.
-- [ ] `sealed`/`non-sealed` modifier-priority exact column index relative to every
-      other existing `JavaModifierPriority` entry — needs to be pinned against the
-      full existing priority list, not just "near final/abstract," before
-      implementation.
+| Topic | Decision |
+|---|---|
+| Switch expr `->` alignment + block body | Block-body case breaks the whole switch expression's `->` alignment — no case gets aligned. Same all-or-nothing posture as STYLE.md §13 |
+| Record component broken form (§1) | Follows §8 exactly — `)` on its own line at the `record` keyword's indentation column (see worked example in §1 above) |
+| `sealed`/`non-sealed` exact column in `JavaModifierPriority` | `abstract → sealed → non-sealed → final` — see §2 above for full priority table |

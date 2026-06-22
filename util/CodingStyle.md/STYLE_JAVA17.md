@@ -36,8 +36,8 @@ closing `)` on its own line at the `record` keyword's indentation column:
 
 ```java
 public record LongNamedPoint(
-        int x,
-        int y
+    int x,
+    int y
 ) {
 
     // ...

@@ -83,7 +83,7 @@ void draw(T t) requires Drawable<T> { ... }
 
 // signature broken per §8, requires trails the )
 void reallyLongFunctionName(
-        ParamType param
+    ParamType param
 ) requires Drawable<T> && Serializable<T>
 { ... }
 ```
@@ -93,7 +93,7 @@ wraps to its own line, indented one level under the function name:
 
 ```cpp
 void reallyLongFunctionName(ParamType param)
-        requires Drawable<T> && Serializable<T>
+    requires Drawable<T> && Serializable<T>
 { ... }
 ```
 

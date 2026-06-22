@@ -262,47 +262,42 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 >   mechanical, already-verified-by-smoke-test fix to an already-COMPLETE file, not a new design
 >   question) -- "`DeclarationAlignmentRule.splitStatements` depth-awareness fix".
 >
-> **Still open, investigation in progress, NOT yet written into a checklist:**
-> - The three boundary-finding contracts differ in granularity and need separate discovery logic:
->   (1) `DeclarationAlignmentRule.groupDeclarations`/`MiscRule.groupAssignments` want a scope's
->   *direct-content-only* tokens (no deeper-nested tokens included in the slice itself, but the
->   now-fixed depth-aware splitters mean a nested block can safely appear as one opaque consumed
->   statement within that slice). (2) `GetterSetterRule.groupOneLiners` wants a type body's *full*
->   range, *including* nested method-body tokens. (3) `MiscRule.parseSignature` wants a function
->   signature span (lead modifier/return-type token through the parameter list's closing `)`) --
->   not a brace-delimited scope at all.
-> - For (3) specifically: was mid-investigation (re-deriving from precedent, not yet confirmed)
->   when this session ended. The existing `isCandidateSignatureName` signal (IDENTIFIER directly
->   before `(`, not itself preceded by `new` -- already duplicated in `CppSpecificRule.java` and
->   `JavaSpecificRule.java` for Allman-conversion detection) is the natural reuse candidate for
->   *finding* a signature's name, but it cannot by itself distinguish a function **definition**
->   from a bare **prototype/declaration** from a plain **call statement** -- a call like
->   `doSomething(x);` and a prototype like `void foo();` are token-shape-identical (identifier,
->   matching `(...)`, then `;`) with no AST to disambiguate. `CppSpecificRule.java`'s own §1 already
->   documents the prototype-vs-call ambiguity as a deliberate, accepted gap for that reason. The
->   working hypothesis (not yet confirmed with the user, not yet written as a Resolved Design
->   Decision) is that `ScopePipeline.java`'s signature-finder for `MiscRule.parseSignature` should
->   likewise only target **definitions** (matching `)` followed by `{`, skipping over a possible
->   C++ trailing qualifier or Java `throws` clause first) and leave bare prototypes alone, for the
->   same reason. Needs one more pass of STYLE.md §8's actual text (not yet (re-)read this session)
->   to confirm prototypes were never intended to be in scope, before finalizing this as a checklist
->   item rather than another `AskUserQuestion`.
-> - Splice-back mechanics (replacing a group's original token span with `render(group)`'s output,
->   re-indented, while leaving everything outside the span untouched) and the overall multi-pass
->   internal pipeline (find scopes -> group -> render -> splice -> re-tokenize -> next pass, chained
->   per this codebase's existing "chained via re-tokenizing between passes" precedent) have not yet
->   been written up as concrete checklist items.
-> - Two hard pipeline-ordering constraints already recorded for whoever finishes this scoping, so
->   they are not lost: (1) **`GetterSetterRule` must run before any Allman-conversion pass**, in
->   both languages -- see Resolved Design Decisions: "§2 Allman-conversion vs. getter/setter
->   one-liner groups -- left unguarded". (2) Several `MiscRule`/`BlockStructureRule`/`SwitchRule`
->   passes are chained via re-tokenizing between them (§11/§12/§13/§15 etc.) -- see those sections'
->   own Resolved Design Decisions rows for each pass's specific ordering requirement relative to
->   its neighbors.
+> **Resolved (pre-session Q&A — all open items closed, checklist ready to write):**
 >
-> Resume by re-reading STYLE.md §8 in full, confirming or correcting the definition-vs-prototype
-> hypothesis above (ask the user only if genuinely still ambiguous after reading), then writing the
-> actual checklist items for this file before any implementation begins.
+> **Boundary contracts (three distinct granularities):**
+> - `groupDeclarations` / `groupAssignments` (§5/§6): direct-content-only slice — nested `{ }`
+>   block appears as one opaque consumed statement in the slice; inner tokens not included.
+> - `groupOneLiners` (§14): full type-body range including nested method-body tokens — confirmed
+>   by reading `GetterSetterRule.splitMembers`, which tracks brace depth and consumes nested bodies.
+> - `parseSignature` (§8): signature span only — first modifier/return-type token through the
+>   closing `)` of the parameter list; not brace-delimited at all.
+>
+> **§8 signature finder — definitions only:**
+> STYLE.md §8's worked examples show only function definitions; no prototype example exists
+> anywhere in the spec. Confirmed: `ScopePipeline`'s signature-finder targets only definitions
+> (`)` directly followed by `{`, skipping a possible C++ trailing qualifier or Java `throws`
+> clause). Bare prototypes (`void foo();`) are left untouched — same deliberate gap as
+> `CppSpecificRule.java` §1. No `AskUserQuestion` needed.
+>
+> **Recursive walk order — outer-first:**
+> `ScopePipeline` visits scopes outer-first then recurses. This is safe because each scope
+> receives its own extracted direct-content slice — inner splices never affect outer token
+> indices. (Inner-first is only needed when passes share one flat token list with overlapping
+> spans, as in §13's nested-switch fix — not the case here.)
+>
+> **Splice-back and internal pipeline:**
+> For each scope: extract slice → group → render → splice rendered output back into the slice
+> → re-tokenize the slice → recurse into nested scopes on the fresh token list. Chained via
+> re-tokenizing between passes, same precedent as §11/§12/§13/§15 throughout this codebase.
+>
+> **Hard pipeline-ordering constraints (unchanged, carry forward to checklist):**
+> - `GetterSetterRule` must run before any Allman-conversion pass (both languages) --
+>   RDD_KEY_60.
+> - Several `MiscRule`/`BlockStructureRule`/`SwitchRule` passes have ordering requirements
+>   relative to each other -- see each section's own RDD entry.
+>
+> Resume by writing the actual checklist items for this file — all design questions are now
+> resolved, no `AskUserQuestion` needed before implementation begins.
 
 ---
 

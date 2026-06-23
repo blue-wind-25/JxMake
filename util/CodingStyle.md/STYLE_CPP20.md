@@ -1,10 +1,5 @@
 # STYLE_CPP20.md — C++17/20/23 Construct Rules (Phase 2 — NOT YET IMPLEMENTED)
 
-> **Implementation gate:** these rules are scoped for **after** the formatter's
-> dogfood-test milestone (see `formatter/STATE.md`'s End Goal section) succeeds.
-> Claude CLI sessions must not read or implement against this file until that
-> milestone is marked complete — see `formatter/STATE.md` and `formatter/STATE_NEXT.md`.
-
 Read [STYLE.md](STYLE.md) and [STYLE_C_CPP.md](STYLE_C_CPP.md) first. This file extends
 both for C++17/20/23 constructs not covered there. `STYLE_C_CPP.md` remains the
 baseline; nothing here overrides it except where explicitly noted.

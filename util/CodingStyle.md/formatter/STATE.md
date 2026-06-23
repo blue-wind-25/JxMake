@@ -9,7 +9,8 @@
 ### Session start
 1. Read this entire file to understand current state
 2. Check the **File Status** table to find the current file (`IN PROGRESS` first,
-   then the first `NOT STARTED`)
+   then the first `NOT STARTED`). If every row is `COMPLETE`, this file's own work is
+   done — continue in `STATE_NEXT.md` instead (see the phase-order note below).
 3. Check the **Current File** checklist for unchecked items — that is where to resume
 4. If anything in this file is ambiguous, stop and ask before writing any code
 
@@ -19,11 +20,14 @@ asks. All decisions relevant to implementation are recorded in the
 `FORMATTER_DISCUSSION.md` is design history and future planning only — large, and
 contains nothing the implementer needs beyond what is already indexed here.
 
-> ⛔ **PHASE-2 GATE — DO NOT READ:**
-> `STYLE_JAVA17.md`, `STYLE_CPP20.md`, `STATE_NEXT.md`, and `STATE_rdd_log.md` (in full).
-> These are off-limits until the End Goal dogfood-test milestone is checked off.
-> `STATE_rdd_log.md` may only be accessed via `grep -Fm1 'RDD_KEY_n'` for a specific key.
-> Violation of this gate wastes context and risks importing out-of-scope constraints.
+> **Phase order reversed (RDD_KEY_82):** `Main.java`, `README.md`, and the Tier 1/Tier 2
+> self-dogfood test were moved out of this file into `STATE_NEXT.md`'s new "End Goal
+> (Phase 1)" section, to be done *after* `STATE_NEXT.md`'s Java 17+/C++20+ checklists —
+> this avoids dogfooding twice when Phase 2 work touches the same shared formatting code
+> paths. The old Phase-2 gate is therefore lifted: `STYLE_JAVA17.md`, `STYLE_CPP20.md`,
+> and `STATE_NEXT.md` are now in scope. `STATE_rdd_log.md` (in full) remains off-limits —
+> access it only via `grep -Fm1 'RDD_KEY_n'` for a specific key; same rule applies to
+> `STATE_NEXT_rdd_log.md` once you're working in `STATE_NEXT.md`.
 
 **ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
 
@@ -215,6 +219,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = keep`) |
 | RDD_KEY_80 | `ServerMode.java` idempotency check on a Java 8 build target -- `ProcessHandle` via reflection |
 | RDD_KEY_81 | Allman-brace render-loop infinite loop when `)`/`{` are already adjacent (`CppSpecificRule.java`/`JavaSpecificRule.java`) |
+| RDD_KEY_82 | Phase ordering reversed -- `Main.java`/`README.md`/Phase-1 dogfood test deferred to `STATE_NEXT.md` |
 
 ---
 
@@ -228,7 +233,6 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 | File | Status |
 |---|---|
-| `Main.java` | NOT STARTED |
 | `Config.java` | COMPLETE |
 | `ServerMode.java` | COMPLETE |
 | `Formatter.java` | COMPLETE |
@@ -247,20 +251,9 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation"; reopened during `Formatter.java` smoke-testing to add structural detection for closing-comment labels -- see Resolved Design Decisions: "`MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency") |
 | `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 | `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
-| `README.md` (defer until just before Dogfood) | NOT STARTED |
 
----
-
-## Current File: `Main.java` — NOT STARTED
-
-The only remaining unimplemented file. Note for its checklist: the **Temp-file cache (`Main`
-standalone mode)** layer is `Main.java`'s own responsibility, not `IndentationDetector`'s (now
-COMPLETE) -- `Main` manages a temp-file cache: key = SHA hash of boundary dir absolute path string, stored as
-`/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
-`lastModified` epoch ms. On read: if file exists and stored `lastModified` matches current
-`Files.getLastModifiedTime(boundaryDir)`, return cached style; otherwise delete and rescan.
-`IndentationDetector` itself is unaware of this — `Main` calls `detect()` with a pre-populated
-single-entry map if the temp cache hit, bypassing the scan entirely.
+`Main.java` and `README.md` moved to `STATE_NEXT.md`'s "End Goal (Phase 1)" section -- RDD_KEY_82.
+Every row above is now `COMPLETE`; this file's own work is done. Continue in `STATE_NEXT.md`.
 
 ---
 
@@ -339,11 +332,8 @@ be marked `final` — let `javac` be the check: if marking something `final` fai
 to compile, it was actually being reassigned, so leave it without `final`.
 
 ## End Goal
-- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that `make` still succeeds after
 
-Once the above is checked off, the formatter's core (Tier 1 + Tier 2, STYLE.md /
-STYLE_C_CPP.md / STYLE_JAVA.md) is considered complete. Phase 2 — Java 17+ and
-C++20+ construct support — begins at that point, tracked separately in
-`STATE_NEXT.md` (which also covers trimming `AI_PREAMBLE.md` down to its
-post-JAR Tier-3-only scope). Do not open or read `STATE_NEXT.md`,
-`STYLE_JAVA17.md`, or `STYLE_CPP20.md` before this milestone is checked off.
+Moved to `STATE_NEXT.md`'s "End Goal (Phase 1)" section (RDD_KEY_82). Phase ordering was
+reversed: `STATE_NEXT.md`'s Java 17+/C++20+ checklists are now implemented first, with
+`Main.java`, `README.md`, and the Tier 1/Tier 2 self-dogfood test deferred until after those
+checklists land, so the dogfood pass only needs to happen once.

@@ -1,9 +1,13 @@
 # STATE_NEXT.md — Phase 2 Tracker (Java 17+ / C++20+ Constructs)
 
-> **DO NOT READ OR IMPLEMENT AGAINST THIS FILE YET.**
-> This file is gated until `STATE.md`'s End Goal dogfood-test milestone is marked
-> complete. If you are a Claude CLI session and you have arrived here before that
-> milestone is checked off, stop — return to `STATE.md` instead.
+> **Active (RDD_KEY_82 in `STATE_rdd_log.md`).** Phase ordering was reversed: this file's
+> Java 17+/C++20+ checklists are now implemented *before* `STATE.md`'s original End Goal
+> (`Main.java`, `README.md`, the Tier 1/Tier 2 self-dogfood test), which has moved here —
+> see "End Goal (Phase 1)" below, placed just before "End Goal (Phase 2)". Rationale: this
+> file's own "Hard constraint" below already means Phase 2 work lands as new branches
+> inside the same already-COMPLETE rule classes, so dogfooding once after both phases land
+> avoids re-validating the same dogfood pass twice. `STATE_NEXT_EXT.md` remains gated until
+> this file's own End Goal (Phase 2) milestone (the last item below) is checked off.
 
 ---
 
@@ -88,6 +92,33 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 
 ---
 
+## End Goal (Phase 1)
+
+Moved here from `STATE.md` (RDD_KEY_82) — done *after* the Java 17+/C++20+ checklists
+above, so the dogfood pass below covers both phases at once.
+
+### File Status
+
+| File | Status |
+|---|---|
+| `Main.java` | NOT STARTED |
+| `README.md` (defer until just before Dogfood) | NOT STARTED |
+
+**`Main.java` note:** owns the temp-file cache layer for `IndentationDetector.detect()` in
+standalone mode -- key = SHA hash of boundary dir absolute path string, stored as
+`/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
+`lastModified` epoch ms. On read: if the file exists and its stored `lastModified` matches
+current `Files.getLastModifiedTime(boundaryDir)`, return the cached style; otherwise delete
+and rescan. `IndentationDetector` itself is unaware of this -- `Main` calls `detect()` with
+a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirely.
+
+### Checklist
+
+- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that
+      `make` still succeeds after
+
+---
+
 ## End Goal (Phase 2)
 
 - [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set
@@ -105,10 +136,10 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 
 ## After Phase 2
 
-Once the End Goal above is checked off, continue with
+Once End Goal (Phase 2) above is checked off, continue with
 [`STATE_NEXT_EXT.md`](STATE_NEXT_EXT.md) for:
 - Phase 3 — JAR `ai-assist` integration (local on-device AI for Tier-3 judgment calls)
 - Post-phase-3 cleanup — `JXMAKE_` / `jxmake_` prefix rename for all env vars and
   config keys
 
-**Do not read `STATE_NEXT_EXT.md` until this file's dogfood milestone is complete.**
+**Do not read `STATE_NEXT_EXT.md` until End Goal (Phase 2) above is checked off.**

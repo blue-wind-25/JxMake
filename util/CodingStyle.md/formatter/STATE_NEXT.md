@@ -100,3 +100,15 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
       §15 capitalization, and this phase's Java17+/C++20+ additions) should be
       removed from `AI_PREAMBLE.md` since it is no longer ambiguous —
       it is documented, implemented behavior.
+
+---
+
+## After Phase 2
+
+Once the End Goal above is checked off, continue with
+[`STATE_NEXT_EXT.md`](STATE_NEXT_EXT.md) for:
+- Phase 3 — JAR `ai-assist` integration (local on-device AI for Tier-3 judgment calls)
+- Post-phase-3 cleanup — `JXMAKE_` / `jxmake_` prefix rename for all env vars and
+  config keys
+
+**Do not read `STATE_NEXT_EXT.md` until this file's dogfood milestone is complete.**

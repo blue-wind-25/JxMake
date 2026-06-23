@@ -435,15 +435,15 @@ few-sentence rule summary) and asks the model to return a single token decision
 (`inline` / `split` / `split-grouped`). The JAR then executes the chosen form
 mechanically. The model never touches source text directly.
 
-- [ ] **Open:** design the minimalist decision-only prompt for the on-device AI path.
-      The general-model prompt (`AI_PREAMBLE.md` + full style rules) is **not** suitable
-      here — it asks the model to reformat source, which small models do poorly. The
-      on-device prompt needs: (1) the candidate expression/signature text, (2) the
-      current line-length budget, (3) a one-paragraph rule summary (not the full style
-      guide), and (4) an instruction to respond with exactly one decision token.
-      This prompt does not exist yet — it is a separate design artifact from
-      `AI_PREAMBLE.md` and will live in `SPECIAL_STYLE.md` or a dedicated
-      `AI_DECISION_PROMPT.md` once designed.
+- [x] **Resolved:** the minimalist decision-only prompt for the on-device AI path.
+      Confirmed working design (see `STATE_NEXT_EXT.md` for implementation details):
+      the JAR generates N candidate layouts and sends a selection prompt asking the
+      model to return a single digit (0–N). A grammar constraint (`root ::= "0" | "1"
+      | ...`) forces a single-token response. The model never touches source text.
+      Tested with Qwen2.5-Coder-3B-Instruct-Q4_K_M via llama.cpp on a Raspberry Pi
+      CM5 over the OpenAI-compatible `/v1/completions` endpoint (`temperature = 0.0`).
+      The prompt and grammar constraint will live in a dedicated `AI_DECISION_PROMPT.md`
+      once the Phase 3 implementation begins (see `STATE_NEXT_EXT.md`).
 
 ---
 
@@ -506,8 +506,8 @@ locally, a self-hosted server, or a remote API without changing the formatter co
 **Path A — general/capable model (remote API or large local model):**
 The AI receives a single call expression or signature, a few lines of surrounding
 context, the relevant `SPECIAL_STYLE.md` rules, and the current line-length budget,
-and returns the preferred formatted form. Operates at finer granularity than
-`reformat_chunks.py` (which sends 500-line chunks). The JAR splices the result back.
+and returns the preferred formatted form. Operates at finer granularity than the
+manual AI workflow in `../README.txt` (which sends whole files). The JAR splices the result back.
 Prompt basis: a trimmed version of `AI_PREAMBLE.md` scoped to `SPECIAL_STYLE.md`
 rules only.
 
@@ -521,11 +521,11 @@ Prompt design for this path is an open question — see Open Questions above.
 
 ### Current workaround
 
-For one-off style migration of files with many judgment-call decisions, use
-`reformat_chunks.py` with the Anthropic API. It is already the recommended path for
-files over 500 lines and handles the same class of problem, at coarser granularity.
-Note: `reformat_chunks.py` uses Path A semantics (model reformats source directly) and
-is not suitable for small on-device models.
+For one-off style migration of files with many judgment-call decisions, use the AI
+workflow described in `../README.txt` with a capable model (Claude Sonnet / Opus,
+GPT-4o, etc.) and `AI_PREAMBLE.md`. Feed the JAR output (Tier-1 and Tier-2 already
+applied, `ai-assist = off`) to the AI for the Tier-3 pass. This uses Path A semantics
+— the model reformats source directly — and is not suitable for small on-device models.
 
 ---
 
@@ -561,4 +561,4 @@ is not suitable for small on-device models.
 | Non-standard getter/setter naming | No special handling | `abc()`/`abc(val)`, `xxxHasFeature()`, etc. are all handled by the same adjacent-run rule; no naming-aware heuristic added |
 | Line rejoining (under 100 chars) | Not implemented | 100-char limit is a split trigger only, not a join trigger; intent of manual breaks is unknowable |
 | Function call line-breaking decisions | Deferred to AI pass / `SPECIAL_STYLE.md` | Requires understanding argument meaning, not just token shape; wrong policy in either direction hurts readability |
-| AI extension | Deferred, OpenAI-compatible endpoint | Separate tool / opt-in flag; not part of default JAR; finer granularity than `reformat_chunks.py` |
+| AI extension | Deferred, OpenAI-compatible `/v1/completions` endpoint | Separate opt-in flag (`ai-assist`); not part of default JAR; decision-only prompt, model never rewrites source |

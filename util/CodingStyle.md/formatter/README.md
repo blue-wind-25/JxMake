@@ -20,7 +20,9 @@ cd util/CodingStyle.md/formatter
 make
 ```
 
-Produces `code-formatter-1.00.jar` in the `formatter/` directory.
+Produces `code-formatter-1.00.jar` in the `formatter/` directory (version
+number matches `VERSION` in the Makefile — replace `1.00` with your built
+version in the commands below).
 
 ---
 
@@ -154,19 +156,54 @@ the JVM internally). The following limitations apply on Windows:
 
 ---
 
-## AI-Assisted Formatting (long files / style migration)
+## Optional: Local AI (Tier-3 judgment calls)
 
-For one-off style migration of large existing files (> 500 lines), the separate
-Python script `reformat_chunks.py` uses the Anthropic API to apply the style guide
-via Claude. This is complementary to the JAR formatter — the JAR is the day-to-day
-tool; the Python script is for bulk migration.
+The JAR is intentionally deterministic and AI-free for all Tier-1 and Tier-2 rules.
+A small class of Tier-3 judgment-call decisions (function call line-breaking intent,
+non-standard getter/setter grouping) can optionally be handled by a local small model
+via the `ai-assist` config key. See `FORMATTER_DISCUSSION.md` for the full design.
 
-The JAR is intentionally deterministic and AI-free. A small class of judgment-call
-formatting decisions (function call line-breaking, non-standard getter/setter grouping)
-cannot be implemented deterministically and are deferred to a future `SPECIAL_STYLE.md`
-+ AI extension pass. See `FORMATTER_DISCUSSION.md` for the design.
+The confirmed working setup uses **llama.cpp** serving **Qwen2.5-Coder-3B-Instruct**
+over an OpenAI-compatible REST endpoint. The JAR generates candidate layouts and sends
+a decision-only prompt; the model returns a single token selecting the best option.
+The model never rewrites source text directly.
 
-See [`../README.txt`](../README.txt) for `reformat_chunks.py` usage.
+**llama.cpp**
+- Home: https://github.com/ggml-org/llama.cpp
+- Tested release: https://github.com/ggml-org/llama.cpp/archive/refs/tags/b9753.tar.gz
+
+**Qwen2.5-Coder-3B-Instruct-GGUF** (recommended quantization: `q4_k_m`)
+- Model page: https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF
+- Direct download: https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
+
+Start the server (OpenAI-compatible endpoint, recommended over the native `/completion`
+endpoint for portability):
+
+```sh
+llama-server --model qwen2.5-coder-3b-instruct-q4_k_m.gguf --port 8080
+```
+
+Then configure the JAR:
+
+```properties
+ai-assist   = local
+ai-endpoint = http://localhost:8080
+ai-model    = qwen2.5-coder-3b-instruct-q4_k_m.gguf
+```
+
+**Note:** this local AI path uses a minimal decision-only prompt internal to the JAR,
+not `AI_PREAMBLE.md`. If you want to use a capable model (Claude, GPT-4o, etc.) for
+Tier-3 formatting, use the separate AI workflow in `../README.txt` instead — and
+keep `ai-assist = off` so the two paths do not interfere.
+
+---
+
+## AI Workflow for Style Migration (large files / one-off passes)
+
+For one-off style migration of large existing files, see [`../README.txt`](../README.txt).
+It describes using a capable AI model (Claude Sonnet / Opus, GPT-4o, etc.) with
+`AI_PREAMBLE.md` to apply Tier-3 judgment-call rules that the JAR leaves untouched.
+Run the JAR first with `ai-assist = off`, then apply the AI workflow to the result.
 
 ---
 
@@ -188,6 +225,12 @@ core formatter (everything above) is complete and dogfood-verified:
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
   concepts/`requires`, `consteval`/`constinit`)
 - [`STATE_NEXT.md`](STATE_NEXT.md) — phase 2 implementation tracker
+
+### Phase 3 (not yet implemented, gated on phase 2)
+
+JAR-integrated `ai-assist` — local on-device model for Tier-3 judgment calls:
+
+- [`STATE_NEXT_EXT.md`](STATE_NEXT_EXT.md) — phase 3 implementation tracker
 
 See `STATE.md`'s End Goal section for the exact gating condition.
 

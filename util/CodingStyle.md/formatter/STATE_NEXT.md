@@ -36,7 +36,6 @@ ambiguity protocol as `STATE.md`.
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
-| `README.md` (update) | NOT STARTED |
 
 ---
 
@@ -102,7 +101,7 @@ above, so the dogfood pass below covers both phases at once.
 | File | Status |
 |---|---|
 | `Main.java` | NOT STARTED |
-| `README.md` (defer until just before Dogfood) | NOT STARTED |
+| `README.md` (for both phase 1 and phase 2; defer until just before Dogfood) | NOT STARTED |
 
 **`Main.java` note:** owns the temp-file cache layer for `IndentationDetector.detect()` in
 standalone mode -- key = SHA hash of boundary dir absolute path string, stored as

@@ -459,6 +459,13 @@ public class DeclarationAlignmentRule {
             return null;
         }
 
+        if ("cpp".equals(language)) {
+            final Declaration binding = parseStructuredBinding(modifiers, body, i, trailingComment, blankBefore);
+            if (binding != null) {
+                return binding;
+            }
+        }
+
         int colonIdx = -1;
         for (int j = i; j < body.size(); j++) {
             if (isOp(body.get(j), ":")) {
@@ -533,6 +540,83 @@ public class DeclarationAlignmentRule {
 
         return new Declaration(modifiers, typeTokens, name, sizeTokens, initTokens,
                 new ArrayList<Token>(), trailingComment, blankBefore);
+    }
+
+    /**
+     * Parses the `auto [a, b, ...] = expr;` shape of a C++17 structured binding
+     * (STYLE_CPP20.md §1). Legal type prefixes before the bracket list are only
+     * `auto`/`const`/`volatile`/`&`/`&&` -- never a real identifier -- so if an
+     * IDENTIFIER token or a top-level `=` appears before the first top-level `[`,
+     * this isn't a structured binding and the caller falls through to the normal
+     * name/size parsing path. Returns null (not just "no match" but also any
+     * malformed/unbalanced shape) so the caller always has a safe fallback.
+     */
+    private Declaration parseStructuredBinding(final List<Token> modifiers, final List<Token> body,
+            final int typeStart, final Token trailingComment, final boolean blankBefore) {
+        int bracketStart = -1;
+        for (int j = typeStart; j < body.size(); j++) {
+            final Token t = body.get(j);
+            if (isPunct(t, "[")) {
+                bracketStart = j;
+                break;
+            }
+            if (isOp(t, "=") || t.type == TokenType.IDENTIFIER) {
+                return null;
+            }
+        }
+        if (bracketStart < 0 || bracketStart <= typeStart) {
+            return null;
+        }
+
+        int depth = 0;
+        int bracketEnd = -1;
+        for (int j = bracketStart; j < body.size(); j++) {
+            final Token t = body.get(j);
+            if (isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, "]")) {
+                depth--;
+                if (depth == 0) {
+                    bracketEnd = j;
+                    break;
+                }
+            }
+        }
+        if (bracketEnd < 0) {
+            return null; // unbalanced -- bail, don't touch this statement
+        }
+
+        final List<Token> typeTokens = new ArrayList<>(body.subList(typeStart, bracketStart));
+        final Token firstType = typeTokens.get(0);
+        if (firstType.type != TokenType.KEYWORD || !typeKeywords.contains(firstType.text)) {
+            return null;
+        }
+
+        int eqIdx = -1;
+        for (int j = bracketEnd + 1; j < body.size(); j++) {
+            if (isOp(body.get(j), "=")) {
+                eqIdx = j;
+                break;
+            }
+        }
+        if (eqIdx < 0) {
+            return null; // structured bindings are always initialized
+        }
+        final List<Token> initTokens = new ArrayList<>(body.subList(eqIdx + 1, body.size()));
+        if (initTokens.isEmpty()) {
+            return null;
+        }
+
+        // `name` must stay a real token from `body` (identity-anchored back to the original
+        // statement by ScopePipeline's splice-back map) -- so the opening `[` itself is the
+        // name cell's first token, and the rest of the bracket (interior + closing `]`) rides
+        // along as `sizeTokens`, exactly like a real array-size suffix would. renderNameCell
+        // concatenates the two unchanged, producing the atomic "[a, b, c]" cell.
+        final Token bindingName = body.get(bracketStart);
+        final List<Token> bracketRest = new ArrayList<>(body.subList(bracketStart + 1, bracketEnd + 1));
+
+        return new Declaration(modifiers, typeTokens, bindingName, bracketRest,
+                initTokens, new ArrayList<Token>(), trailingComment, blankBefore);
     }
 
     /** Parses the `Type name : width` shape of a C/C++ bitfield (STYLE_C_CPP.md §6). */

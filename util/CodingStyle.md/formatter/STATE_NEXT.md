@@ -40,7 +40,7 @@ ambiguity protocol as `STATE.md`.
 | `DeclarationAlignmentRule.java` (`var`) | COMPLETE (added `"var"` to `TYPE_KEYWORDS_JAVA`; confirmed-not-no-op, see below) |
 | `JavaSpecificRule.java` (pattern matching) | COMPLETE (confirmed true no-op, zero code changes; see below) |
 | `CppModifierPriority.java` (consteval/constinit addition) | COMPLETE (see below) |
-| `CppSpecificRule.java` (structured bindings) | NOT STARTED |
+| `DeclarationAlignmentRule.java` (structured bindings) | COMPLETE (see below; landed here, not in a new `CppSpecificRule.java`, since `parseDeclaration`/`render`'s existing machinery already covered it additively) |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
 
 ---
@@ -67,8 +67,36 @@ ambiguity protocol as `STATE.md`.
       item below -- `auto` is already a recognized type keyword
       (`TYPE_KEYWORDS_CPP`) from prior work; STYLE_CPP20.md §1 is where its
       grid behavior is actually specified.
-- [ ] Structured bindings — atomic name-cell in existing §5 grid, plus internal
-      `[a, b, c]` spacing rule (STYLE_CPP20.md §1).
+- [x] Structured bindings — atomic name-cell in existing §5 grid, plus internal
+      `[a, b, c]` spacing rule (STYLE_CPP20.md §1). Implemented as a new
+      `parseStructuredBinding` helper called from `parseDeclaration` (cpp only,
+      right after the modifiers loop and before the bitfield `colonIdx` scan --
+      required ordering, since that loop scans the whole body for `:` with no
+      `=`/end limit and would wrongly match a `:` inside a ternary in the
+      binding's initializer). Detection: scan forward from the first non-modifier
+      token for the first top-level `[`; abort (fall through to normal parsing)
+      if an IDENTIFIER or top-level `=` is seen first, since legal structured-
+      binding type prefixes are only `auto`/`const`/`volatile`/`&`/`&&` -- never
+      a real name -- so this can't false-positive on an ordinary `Type name[n]`
+      array declaration. Reused `renderTokens()` unmodified for the bracket-list
+      spacing (it already produces canonical `[a, b, c]` comma/bracket spacing
+      with zero new code, confirmed by trace). Splice-back anchoring (see
+      `ScopePipeline.applyDeclarationsPass`) requires `Declaration.name` to be a
+      *real* token instance from the input for its identity-keyed index map --
+      first attempt synthesized a brand-new `Token` for the whole bracket text
+      and hit an NPE there (not in `Declaration`/`render` themselves). Fixed by
+      keeping `name` = the real `[` token and folding the interior tokens +
+      closing `]` into `sizeTokens` (exactly like a real array-size suffix
+      would), so `renderNameCell`'s existing `name.text + renderTokens(sizeTokens)`
+      concatenation produces the atomic `[a, b, c]` cell with no changes to
+      `renderNameCell`/`render`. Verified via a 6-case harness: atomic name-cell
+      alongside plain declarations, idempotency, internal spacing
+      normalization, `auto&`/`const auto&` qualified bindings, trailing-comment
+      column alignment still correct with `[a, b, c]` as the name cell, and two
+      regressions confirmed unaffected (`int arr[3] = {...}` real array decl,
+      and bracket-less `auto x = 1;`). Also reran all prior Phase-2 harnesses
+      (var, pattern matching, switch expressions, text blocks, consteval/
+      constinit) with zero failures.
 - [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`
       always, wraps only past 100 chars; nested compound requirements untouched
       (resolved — see STYLE_CPP20.md §2 and §5 resolved decisions table).

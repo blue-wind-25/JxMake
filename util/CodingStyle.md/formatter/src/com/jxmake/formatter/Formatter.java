@@ -42,6 +42,7 @@ public final class Formatter {
             text = cppRule.enforceEmptyParameterList(tokenizer.tokenize(text));
         } else if (isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
+            text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.tokenize(text));
         }
         text = switchRule.formatNonInlineSwitches(tokenizer.tokenize(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.tokenize(text));

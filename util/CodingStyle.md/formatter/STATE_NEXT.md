@@ -31,7 +31,7 @@ ambiguity protocol as `STATE.md`.
 
 | File | Status |
 |---|---|
-| `JavaModifierPriority.java` (sealed/non-sealed addition) | NOT STARTED |
+| `JavaModifierPriority.java` (sealed/non-sealed addition) | COMPLETE (see RDD_KEY_1; `TokenizerCore.java` and `JavaSpecificRule.java` also touched -- new keywords, new `enforcePermitsClauseLineBreaking` pass) |
 | `JavaSpecificRule.java` (record, switch expressions, text blocks, var, pattern matching) | NOT STARTED |
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
@@ -43,9 +43,12 @@ ambiguity protocol as `STATE.md`.
 
 - [ ] `record` — treat as `class` for brace style, closing comment, forced blank
       lines (STYLE_JAVA17.md §1). Component list follows §8 signature rules.
-- [ ] `sealed` / `non-sealed` / `permits` — new `JavaModifierPriority` column;
+- [x] `sealed` / `non-sealed` / `permits` — new `JavaModifierPriority` column;
       order is `abstract → sealed → non-sealed → final` (resolved — see
-      STYLE_JAVA17.md §2 resolved decisions table).
+      STYLE_JAVA17.md §2 resolved decisions table). Column order required a
+      stop-and-ask against the Hard Constraint (the map is flat, no per-kind
+      context) -- resolved, see RDD_KEY_1. `permits` clause line-breaking
+      implemented as `JavaSpecificRule.enforcePermitsClauseLineBreaking`.
 - [ ] Switch expressions (`->` form) — new alignment pass, distinct from STYLE.md
       §13's `:`-based switch statement handling (STYLE_JAVA17.md §3). Block-body
       case breaks entire group's `->` alignment — all-or-nothing, no outlier
@@ -87,7 +90,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 
 | Key | Topic |
 |---|---|
-| _(none yet — entries added here as implementation questions arise)_ | |
+| RDD_KEY_1 | `JavaModifierPriority` column order for `abstract`/`sealed`/`non-sealed`/`final`/`volatile` -- declaration-kind-specific orderings merged into one map |
 
 ---
 

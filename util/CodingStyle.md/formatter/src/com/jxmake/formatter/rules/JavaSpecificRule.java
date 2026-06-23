@@ -28,6 +28,10 @@ import java.util.Set;
  */
 public class JavaSpecificRule {
 
+    /** Fallback one-indent-level unit when it can't be derived from the class/interface's own
+     *  body indentation -- same precedent as {@code SwitchRule.DEFAULT_INDENT_UNIT}. */
+    private static final String DEFAULT_INDENT_UNIT = "    ";
+
     private final String language;
 
     /** The six fixed classification buckets every import is sorted into, per the resolved
@@ -515,6 +519,215 @@ public class JavaSpecificRule {
             }
         }
         return true;
+    }
+
+    /**
+     * STYLE_JAVA17.md §2: line-breaks a {@code permits} clause -- inline if the full
+     * class/interface declaration line (from the {@code class}/{@code interface} keyword's own
+     * line start through the body's opening {@code {}) fits within {@code
+     * MiscRule.LINE_LENGTH_LIMIT}, otherwise one permitted type per line, column-aligned under the
+     * first type, with the body's {@code {} trailing the last type. Always re-decides from
+     * scratch regardless of the file's current wrapped/unwrapped shape -- same "regenerate, don't
+     * preserve" posture as {@link #enforceImportOrdering}'s static reordering, so the pass is
+     * idempotent. Bails per occurrence (leaves that one untouched) if a comment is found anywhere
+     * between the declaration's line start and the body's {@code {}, or if the permitted-type list
+     * can't be parsed -- never guesses past an unrecognized shape, same posture as {@link
+     * #enforceImportOrdering}.
+     */
+    public String enforcePermitsClauseLineBreaking(final List<Token> tokens) {
+        final List<int[]> spans = new ArrayList<>();
+        final List<String> renders = new ArrayList<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !"permits".equals(t.text)) {
+                continue;
+            }
+            final int classIdx = prevClassOrInterfaceKeyword(tokens, i);
+            if (classIdx < 0) {
+                continue;
+            }
+            final int openBraceIdx = nextPunct(tokens, i, "{");
+            if (openBraceIdx < 0) {
+                continue;
+            }
+            final int declStart = lineStartIndex(tokens, classIdx);
+            if (hasCommentBetween(tokens, declStart, openBraceIdx + 1)) {
+                continue;
+            }
+            final int prevSigIdx = prevSignificantIndex(tokens, i);
+            if (prevSigIdx < 0) {
+                continue;
+            }
+            final List<String> types = parsePermittedTypes(tokens, i + 1, openBraceIdx);
+            if (types == null) {
+                continue;
+            }
+
+            final String baseIndent = lineIndent(tokens, declStart);
+            final String collapsedFull = baseIndent + collapseToOneLine(tokens, declStart, openBraceIdx);
+            final String rendered = collapsedFull.length() <= MiscRule.LINE_LENGTH_LIMIT
+                    ? renderPermitsInline(types)
+                    : renderPermitsWrapped(tokens, baseIndent, openBraceIdx, types);
+
+            spans.add(new int[] { prevSigIdx + 1, openBraceIdx + 1 });
+            renders.add(rendered);
+        }
+
+        if (spans.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (int s = 0; s < spans.size(); s++) {
+            final int[] span = spans.get(s);
+            appendRange(out, tokens, cursor, span[0]);
+            out.append(renders.get(s));
+            cursor = span[1];
+        }
+        appendRange(out, tokens, cursor, tokens.size());
+        return out.toString();
+    }
+
+    private String renderPermitsInline(final List<String> types) {
+        return " permits " + String.join(", ", types) + " {";
+    }
+
+    /** Derives the one-indent-level unit from the gap between the declaration's own indent and its
+     *  body's first member's indent (same precedent as {@code SwitchRule.deriveUnit}), falling back
+     *  to {@link #DEFAULT_INDENT_UNIT}. */
+    private String renderPermitsWrapped(final List<Token> tokens, final String baseIndent,
+            final int openBraceIdx, final List<String> types) {
+        final String unit = deriveIndentUnit(tokens, baseIndent, openBraceIdx);
+        final String align = repeatChar(' ', baseIndent.length() + unit.length() + "permits ".length());
+
+        final StringBuilder sb = new StringBuilder();
+        sb.append('\n').append(baseIndent).append(unit).append("permits ");
+        for (int idx = 0; idx < types.size(); idx++) {
+            if (idx > 0) {
+                sb.append('\n').append(align);
+            }
+            sb.append(types.get(idx));
+            if (idx < types.size() - 1) {
+                sb.append(',');
+            }
+        }
+        sb.append(" {");
+        return sb.toString();
+    }
+
+    private String deriveIndentUnit(final List<Token> tokens, final String baseIndent, final int openBraceIdx) {
+        final int firstBodySig = nextSignificantIndex(tokens, openBraceIdx);
+        if (firstBodySig < 0) {
+            return DEFAULT_INDENT_UNIT;
+        }
+        final String bodyIndent = lineIndent(tokens, firstBodySig);
+        if (bodyIndent.length() > baseIndent.length() && bodyIndent.startsWith(baseIndent)) {
+            return bodyIndent.substring(baseIndent.length());
+        }
+        return DEFAULT_INDENT_UNIT;
+    }
+
+    private String repeatChar(final char c, final int count) {
+        final StringBuilder sb = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    /** Splits {@code tokens[fromInclusive, toExclusive)} on top-level commas (depth-tracked across
+     *  `&lt;...&gt;` generic argument lists) into one collapsed-to-one-line, trimmed string per
+     *  permitted type. Returns {@code null} if the list is empty -- an unparseable/empty shape this
+     *  method never guesses past. Multi-char OPs like `&gt;&gt;` that close two nested generic levels
+     *  at once are a known, accepted residual gap (permitted-type lists are realistically always
+     *  simple class names, never deeply nested generics). */
+    private List<String> parsePermittedTypes(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        final List<String> types = new ArrayList<>();
+        final StringBuilder current = new StringBuilder();
+        int angleDepth = 0;
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return null;
+            }
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                if (current.length() > 0 && current.charAt(current.length() - 1) != ' ') {
+                    current.append(' ');
+                }
+                continue;
+            }
+            if (isPunct(t, "<")) {
+                angleDepth++;
+            } else if (isPunct(t, ">")) {
+                angleDepth--;
+            } else if (angleDepth == 0 && isPunct(t, ",")) {
+                types.add(current.toString().trim());
+                current.setLength(0);
+                continue;
+            }
+            current.append(t.text);
+        }
+        final String last = current.toString().trim();
+        if (last.isEmpty()) {
+            return null;
+        }
+        types.add(last);
+        return types;
+    }
+
+    /** Collapses {@code tokens[fromInclusive, toInclusive]} to one physical line by replacing every
+     *  WHITESPACE/NEWLINE run between significant tokens with a single space -- used only to measure
+     *  the would-be-inline rendering length, never emitted verbatim. */
+    private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = fromInclusive; i <= toInclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+                    sb.append(' ');
+                }
+                continue;
+            }
+            sb.append(t.text);
+        }
+        return sb.toString().trim();
+    }
+
+    /** Nearest preceding {@code class}/{@code interface} KEYWORD token, or -1 -- bounded-effort,
+     *  no depth tracking, same posture as the rest of this codebase's non-AST heuristics. */
+    private int prevClassOrInterfaceKeyword(final List<Token> tokens, final int fromExclusive) {
+        for (int i = fromExclusive - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && ("class".equals(t.text) || "interface".equals(t.text))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Nearest following PUNCT token matching {@code text}, or -1. */
+    private int nextPunct(final List<Token> tokens, final int fromExclusive, final String text) {
+        for (int i = fromExclusive + 1; i < tokens.size(); i++) {
+            if (isPunct(tokens.get(i), text)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Index of the first significant token on the same physical line as {@code idx}. */
+    private int lineStartIndex(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int firstSig = nextSignificantIndex(tokens, newlineIdx);
+        return firstSig < 0 ? idx : firstSig;
     }
 
     /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim. */

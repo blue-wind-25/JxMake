@@ -79,10 +79,10 @@ public class TokenizerCore {
             "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
             "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
             "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int",
-            "interface", "long", "native", "new", "package", "private", "protected", "public",
-            "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
-            "throw", "throws", "transient", "true", "false", "null", "try", "var", "void",
-            "volatile", "while");
+            "interface", "long", "native", "new", "package", "permits", "private", "protected",
+            "public", "return", "sealed", "short", "static", "strictfp", "super", "switch",
+            "synchronized", "this", "throw", "throws", "transient", "true", "false", "null", "try",
+            "var", "void", "volatile", "while");
 
     private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
     private static final Set<String> NAMED_CONSTRUCT_CPP =

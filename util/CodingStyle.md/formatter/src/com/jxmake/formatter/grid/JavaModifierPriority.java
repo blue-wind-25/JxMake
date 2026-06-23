@@ -19,8 +19,15 @@ public class JavaModifierPriority extends ModifierPriority {
         PRIORITY.put("private", 0);
         PRIORITY.put("protected", 0);
         PRIORITY.put("static", 1);
-        PRIORITY.put("volatile", 2);
-        PRIORITY.put("final", 3);
+        // abstract/final/sealed share one column -- per-kind, exactly one of these (or none) ever
+        // applies to a given class/method/field, so the shared rank is never ambiguous in practice
+        // (STYLE_JAVA17.md SS2, resolved). `non-sealed` is semantically in this same slot but has no
+        // entry here: it lexes as three tokens (`non` `-` `sealed`), not one, so it can't be a single
+        // map key -- any future class-modifier-reordering pass must special-case it as a unit.
+        PRIORITY.put("abstract", 2);
+        PRIORITY.put("final", 2);
+        PRIORITY.put("sealed", 2);
+        PRIORITY.put("volatile", 3);
     }
 
     @Override

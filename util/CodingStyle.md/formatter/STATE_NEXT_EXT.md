@@ -161,7 +161,7 @@ directly followed by a body `{`.
 |---|---|
 | `STYLE.md` (add call line-breaking forms to §8) | NOT STARTED |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
-| `Config.java` (ai-assist, ai-endpoint, ai-model keys) | NOT STARTED |
+| `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT STARTED |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT STARTED |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT STARTED |
 | `MiscRule.java` (Tier-3 AI decision hooks) | NOT STARTED |
@@ -182,7 +182,23 @@ directly followed by a body `{`.
 - [ ] Implement option 1 (dropped form) in `MiscRule.java`:
       Collapse all args to a single line, drop below `(` indented one level,
       `)` on its own line at the function name's indentation column. Only
-      applied when inline would exceed 100 chars.
+      offered as an AI candidate when inline would exceed 100 chars.
+
+      **No-AI fallback rule (applies when ai-assist is off or endpoint
+      unavailable):** after the fit check determines inline is not viable,
+      attempt dropped — render all args on one line indented one level and
+      measure the result. If that line fits ≤ 100 chars → use dropped, done.
+      If it still exceeds 100 chars → fall back to one-per-line (option 3).
+      No ratio check or threshold needed — the fit check is the sole
+      criterion. This applies to both calls and forward declarations.
+
+- [ ] Verify `parseSignature` bails on comment tokens between params:
+      A comment token appearing mid-param-list should cause the entire
+      signature to be left untouched (same bail behavior as default values,
+      varargs, throws). Read the existing bail path in `parseSignature` and
+      confirm a comment token triggers it. If not, add the bail condition
+      before implementing option 2 — the comment-handling rules for option 2
+      must build on a known-safe foundation, not a misparse.
 
 - [ ] Implement option 2 (preserve groups + align) in `MiscRule.java`:
       Scan the existing token stream for line breaks within the arg list.
@@ -197,17 +213,34 @@ directly followed by a body `{`.
 **Step 2 — AI integration:**
 
 - [ ] Add config keys to `Config.java`:
-      `ai-assist` (off | local), `ai-endpoint`, `ai-model`.
+      `ai-assist` (off | local), `ai-endpoint`, `ai-model`,
+      `ai-retry-interval` (default 60, seconds, server mode only).
       Env var equivalents: `STYLEFMT_AI_ASSIST`, `STYLEFMT_AI_ENDPOINT`,
-      `STYLEFMT_AI_MODEL`.
+      `STYLEFMT_AI_MODEL`, `STYLEFMT_AI_RETRY_INTERVAL`.
 
 - [ ] Implement `AiDecisionClient.java`:
       POST to `{ai-endpoint}/v1/chat/completions` with a messages array
       (`system` + `user` roles), `max_tokens = 1`, `temperature = 0.0`, and
       grammar constraint string. Parse `choices[0].message.content` from JSON
-      response. Fail-safe: if the
-      endpoint is unreachable or returns an unexpected token, fall back to
-      option 0 (first candidate) and log a warning — never abort formatting.
+      response. Use a short connect timeout (500ms) to keep latency acceptable
+      when the endpoint is down.
+
+      **Endpoint unavailability cache** — to avoid DNS/mDNS lookup cost on
+      every call when the endpoint is unreachable:
+      - **Standalone mode:** static boolean field `endpointDead`; on first
+        connection failure set it true and skip all subsequent AI calls for
+        the process lifetime. Logs a single warning on first failure only.
+      - **Server mode:** static `long lastFailedAt` timestamp; on failure,
+        skip AI calls for 60 seconds, then retry once. If retry succeeds,
+        clear `lastFailedAt` and resume normal operation. This allows the
+        user to start llama.cpp mid-session without restarting the JAR server.
+        Retry interval is configurable via `ai-retry-interval` config key
+        (default 60, in seconds); add to `Config.java` alongside the other
+        ai-assist keys.
+
+      Fail-safe in all cases: fall back to the no-AI mechanical result
+      (option 1 dropped if it fits, otherwise option 3 one-per-line) and
+      log a warning — never abort formatting.
 
 - [ ] Design and write `AI_DECISION_PROMPT.md`:
       Prompt template for the selection prompt. Must include: (1) the
@@ -217,6 +250,25 @@ directly followed by a body `{`.
       it minimal — small models degrade with long prompts. Revisit the
       comment-handling and candidate-availability rules above before writing
       this prompt.
+
+      **Before writing the prompt — test the model first:**
+      Manually test Qwen2.5-Coder-3B with 5-10 real code examples covering
+      the candidate forms (vary func name length, param count, call vs
+      declaration). Observe whether the model's selections match human
+      judgment consistently. Try at least two prompt phrasings:
+      - Aesthetic framing: "which option looks most readable"
+      - Rule-based framing: "which option best fits within the line length
+        budget while preserving grouping intent"
+      Compare results on the same examples — rule-based framing may be more
+      reliable for a small model since it gives a concrete criterion.
+
+      **If the model is unreliable across both phrasings:** mark this item
+      and all subsequent Step 2 items as PENDING, stop generating code, and
+      leave a note for the next chat session to discuss before proceeding.
+      Do not implement `AiDecisionClient` wiring or decision hooks until the
+      prompt is confirmed to work reliably. The mechanical fallback (auto-drop
+      + one-per-line) is always available as the permanent solution if AI
+      selection proves too unreliable at this model size.
 
 - [ ] Wire Tier-3 AI decision hooks into `MiscRule.java`:
       For each function call arg list, determine the candidate set per the
@@ -268,6 +320,8 @@ To be done after all Phase 3 items above are complete and the API surface
 | RDD_EXT_5 | Semantic grouping (by type/name similarity) explicitly out of scope — option 2 preserves existing author-expressed grouping only, never creates new groupings |
 | RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
 | RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
+| RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
+| RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
 
 ---
 

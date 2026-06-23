@@ -66,6 +66,7 @@ ambiguity protocol as `STATE.md`.
 
 ## Checklist — C++17/20/23
 
+- [ ] `auto` keyword
 - [ ] Structured bindings — atomic name-cell in existing §5 grid, plus internal
       `[a, b, c]` spacing rule (STYLE_CPP20.md §1).
 - [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`

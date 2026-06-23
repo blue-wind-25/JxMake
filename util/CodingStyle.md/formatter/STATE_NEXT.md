@@ -36,7 +36,7 @@ ambiguity protocol as `STATE.md`.
 | `JavaSpecificRule.java` (switch expressions) | COMPLETE (new `enforceSwitchExpressionArrowAlignment`, wired into `Formatter.java`; no RDD needed -- STYLE_JAVA17.md §7 already pre-resolved the only design question, the block-body all-or-nothing bail-out) |
 | `TokenizerCore.java` (text blocks) | COMPLETE (new `isTextBlockOpener`/`emitTextBlock`, opaque `STRING` token spanning the whole block, mirrors `emitBlockComment`'s internal-newline pattern; no RDD needed) |
 | `DeclarationAlignmentRule.java` (`var`) | COMPLETE (added `"var"` to `TYPE_KEYWORDS_JAVA`; confirmed-not-no-op, see below) |
-| `JavaSpecificRule.java` (pattern matching) | NOT STARTED |
+| `JavaSpecificRule.java` (pattern matching) | COMPLETE (confirmed true no-op, zero code changes; see below) |
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
@@ -102,9 +102,20 @@ ambiguity protocol as `STATE.md`.
       same group now aligns `var`/`int`/`String` together in one grid (STYLE_JAVA17.md
       §5), and the switch-expression and text-block harnesses still pass with zero
       regressions.
-- [ ] Pattern matching (`instanceof`, switch patterns, record deconstruction) —
-      §3.1 complexity padding should already handle condition content; switch
-      patterns reuse the new §3 arrow-form alignment (STYLE_JAVA17.md §6).
+- [x] Pattern matching (`instanceof`, switch patterns, record deconstruction) —
+      confirmed true no-op, zero code changes (STYLE_JAVA17.md §6). `instanceof`
+      pattern variables are just condition tokens; no rule treats them specially
+      and none needs to. Switch type/record-deconstruction patterns reuse
+      `enforceSwitchExpressionArrowAlignment`'s existing `findCaseArrowOrColon`,
+      whose `(`/`[` depth tracking already returns to depth 0 after a pattern's
+      own component list before looking for the label-terminating `->` -- this
+      was already required to handle ordinary parenthesized expressions in a
+      case label, so record deconstruction (including a nested record pattern,
+      e.g. `case Pair(Point(int a, int b), int c) ->`) needed no new code.
+      Verified via harness: `instanceof String s` survives untouched + idempotent;
+      STYLE_JAVA17.md §6.2's worked example (type patterns, record deconstruction,
+      `default`) aligns into one `->` column; a nested record deconstruction
+      pattern aligns correctly without confusing the arrow finder.
 
 ## Checklist — C++17/20/23
 

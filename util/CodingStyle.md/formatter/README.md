@@ -108,7 +108,7 @@ header-guard-rename        = off             # off | on (warn only by default)
 header-guard-style         = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order          = static, java, org, com, local
+java-import-order          = java, com, org, other, local, static
 java-import-sort           = on
 java-import-depth          = 2
 java-import-blank-lines    = 1

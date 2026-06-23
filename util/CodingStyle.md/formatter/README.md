@@ -191,6 +191,10 @@ ai-endpoint = http://localhost:8080
 ai-model    = qwen2.5-coder-3b-instruct-q4_k_m.gguf
 ```
 
+The JAR uses the `/v1/chat/completions` endpoint — llama.cpp applies the
+model's chat template automatically from the GGUF metadata, so no
+model-specific prompt tokens are needed in the config.
+
 **Note:** this local AI path uses a minimal decision-only prompt internal to the JAR,
 not `AI_PREAMBLE.md`. If you want to use a capable model (Claude, GPT-4o, etc.) for
 Tier-3 formatting, use the separate AI workflow in `../README.txt` instead — and

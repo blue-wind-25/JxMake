@@ -31,9 +31,11 @@ llama.cpp on Raspberry Pi CM5):
 - A grammar constraint (`root ::= "0" | "1" | ... | "N"`) forces a
   single-token response — no prose, no reasoning output
 - `temperature = 0.0` for deterministic selection
-- The JAR uses the OpenAI-compatible `/v1/completions` endpoint (not the
-  llama.cpp-native `/completion` endpoint) for portability across backends
-  (llama.cpp, Ollama, vLLM, LM Studio, etc.)
+- The JAR uses the OpenAI-compatible `/v1/chat/completions` endpoint —
+  llama.cpp applies the model's chat template (ChatML for Qwen, Llama-3
+  format for Llama, etc.) automatically from the GGUF metadata, so no
+  model-specific prompt tokens (`<|im_start|>` etc.) are needed in the JAR.
+  Portable across backends (llama.cpp, Ollama, vLLM, LM Studio, etc.)
 - The model never rewrites source text — the JAR executes the chosen layout
   mechanically using existing token-level rules
 - AI is only invoked when there is a genuine choice between candidates —
@@ -160,7 +162,7 @@ directly followed by a body `{`.
 | `STYLE.md` (add call line-breaking forms to §8) | NOT STARTED |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
 | `Config.java` (ai-assist, ai-endpoint, ai-model keys) | NOT STARTED |
-| `AiDecisionClient.java` (OpenAI-compatible `/v1/completions` caller) | NOT STARTED |
+| `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT STARTED |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT STARTED |
 | `MiscRule.java` (Tier-3 AI decision hooks) | NOT STARTED |
 | `README.md` (update ai-assist section with final config details) | NOT STARTED |
@@ -200,9 +202,10 @@ directly followed by a body `{`.
       `STYLEFMT_AI_MODEL`.
 
 - [ ] Implement `AiDecisionClient.java`:
-      POST to `{ai-endpoint}/v1/completions` with prompt, `n_predict = 1`
-      (or `max_tokens = 1`), `temperature = 0.0`, and grammar constraint
-      string. Parse `choices[0].text` from JSON response. Fail-safe: if the
+      POST to `{ai-endpoint}/v1/chat/completions` with a messages array
+      (`system` + `user` roles), `max_tokens = 1`, `temperature = 0.0`, and
+      grammar constraint string. Parse `choices[0].message.content` from JSON
+      response. Fail-safe: if the
       endpoint is unreachable or returns an unexpected token, fall back to
       option 0 (first candidate) and log a warning — never abort formatting.
 
@@ -258,7 +261,7 @@ To be done after all Phase 3 items above are complete and the API surface
 
 | Key | Topic |
 |---|---|
-| RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/completions` preferred over native `/completion` for portability |
+| RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/chat/completions` used (not `/v1/completions` or native `/completion`) — llama.cpp applies model chat template automatically from GGUF metadata, no model-specific prompt tokens needed in JAR code |
 | RDD_EXT_2 | Model never rewrites source; JAR executes chosen candidate mechanically |
 | RDD_EXT_3 | Fail-safe on unreachable endpoint: fall back to option 0, log warning, continue |
 | RDD_EXT_4 | Four candidate forms for function call and declaration line-breaking (inline, dropped, preserve-groups+align, one-per-line); option 1 only when inline exceeds 100 chars; option 2 only when source already multi-line; AI only invoked when multiple candidates exist; option 2 uses comma-spacing normalization for calls and existing §5 column grid (DeclarationAlignmentRule/ColumnGrid/ModifierPriority) for declarations |

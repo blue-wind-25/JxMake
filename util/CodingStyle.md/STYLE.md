@@ -230,7 +230,7 @@ constructs (`struct`, `namespace` in C/C++; `interface` in Java).
 **Never** add closing comments on:
 - `case` labels
 - Naked compound blocks `{ ... }`
-- `else` / `else if` — unless the branch is long *and* contains deeply nested `if`s inside
+- `else` / `else if` — never, regardless of length or nesting depth
 
 ---
 
@@ -313,6 +313,9 @@ switch(state) {
 
 Contrast with **function definitions**, which use Allman style (opening `{` on its own line) —
 see the language-specific files.
+
+**Named constructs** (`class`, `interface`, `enum`, etc.) additionally receive a blank line
+after `{` and before `}` regardless of content length — see §7.
 
 ---
 
@@ -428,8 +431,9 @@ Short functions in a class, struct, or enum body that form a logical group
 
 - Align: `)` column, `{` column, body, `}` column
 - Pad empty parameter lists with spaces to match the widest signature
-- If one function body is significantly longer than the rest, **exclude it from
-  the group** — write it normally, do not let it distort the alignment of the others
+- If one function body — when written inline — would push the full line past 100
+  characters, **exclude it from the group** — write it normally in Allman style
+  below the group. Do not let it distort the alignment of the others
 - The right `}` of all group members must also align
 
 ```cpp

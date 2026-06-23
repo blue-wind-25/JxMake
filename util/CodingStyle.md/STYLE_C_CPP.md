@@ -153,18 +153,28 @@ Enum:
 
 ---
 
-## 8. Unresolved / Preserve-As-Is Cases
+## 8. `type* const` in Mixed Declaration Groups
 
-- `uint8_t* const` within a mixed declaration group: align at type column,
-  treat `const` as a post-type modifier — exact column behavior is left to
-  judgment based on surrounding context.
-- `else`/`else if` closing comment threshold: apply when the branch is long
-  **and** contains multiple levels of nested `if`s — exact line count is a
-  judgment call.
+Treat `* const` as a two-token suffix of the base type. Pad all types in the
+group to match the widest (including `* const`), then align names normally:
+
+```c
+uint8_t        value;
+uint8_t*       ptr;
+uint8_t* const cptr;
+uint16_t       count;
+```
+
+The `* const` tokens stay together as a unit — they are never split across the
+type and modifier columns.
+
+## 9. Unresolved / Preserve-As-Is Cases
+
+- `else`/`else if` closing comments: never add them — see STYLE.md §7.
 
 ---
 
-## 9. Section Dividers
+## 10. Section Dividers
 
 Two strengths of divider are used, both full-width at the line-length limit (100 chars).
 
@@ -199,7 +209,7 @@ Use sparingly in both cases — the triple should feel significant, not routine.
 
 ---
 
-## 10. Header File Structure
+## 11. Header File Structure
 
 Header files follow a fixed top-level layout. Each zone is separated from the next
 by **exactly 2 blank lines**.
@@ -227,9 +237,13 @@ by **exactly 2 blank lines**.
 3. Body
 4. Closing `#endif`
 
-**Guard name:** derived from the filename — uppercase, with `.` and path separators
-replaced by `_` (e.g. `src/audio/Codec.h` → `AUDIO_CODEC_H`). The formatter warns
-if the existing guard name does not match. Renaming is opt-in:
+**Guard name:** derived by uppercasing the file path and replacing `.`, `/`, and `\`
+with `_`. The formatter applies this transform to whatever path it is given — stripping
+conventional source-root prefixes (e.g. `src/`, `include/`) is the caller's
+responsibility and depends on project layout. Example: if the caller passes
+`audio/Codec.h` (after stripping a `src/` prefix), the result is `AUDIO_CODEC_H`.
+
+The formatter warns if the existing guard name does not match. Renaming is opt-in:
 ```
 header-guard-rename = off   # default: warn only, do not rename
 ```

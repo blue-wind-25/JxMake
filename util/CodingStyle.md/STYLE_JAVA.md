@@ -170,5 +170,4 @@ responsibility of the IDE or a separate lint tool.
 
 ## 8. Unresolved / Preserve-As-Is Cases
 
-- `else`/`else if` closing comment threshold: same judgment-call rule as C/C++ —
-  apply when the branch is long and contains deeply nested `if`s inside.
+- `else`/`else if` closing comments: never add them — see STYLE.md §7.

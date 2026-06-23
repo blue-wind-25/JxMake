@@ -34,7 +34,9 @@ ambiguity protocol as `STATE.md`.
 | `JavaModifierPriority.java` (sealed/non-sealed addition) | COMPLETE (see RDD_KEY_1; `TokenizerCore.java` and `JavaSpecificRule.java` also touched -- new keywords, new `enforcePermitsClauseLineBreaking` pass) |
 | `JavaSpecificRule.java` (record) | COMPLETE (see RDD_KEY_2; `TokenizerCore.java` and `BlockStructureRule.java` also touched) |
 | `JavaSpecificRule.java` (switch expressions) | COMPLETE (new `enforceSwitchExpressionArrowAlignment`, wired into `Formatter.java`; no RDD needed -- STYLE_JAVA17.md §7 already pre-resolved the only design question, the block-body all-or-nothing bail-out) |
-| `JavaSpecificRule.java` (text blocks, var, pattern matching) | NOT STARTED |
+| `TokenizerCore.java` (text blocks) | COMPLETE (new `isTextBlockOpener`/`emitTextBlock`, opaque `STRING` token spanning the whole block, mirrors `emitBlockComment`'s internal-newline pattern; no RDD needed) |
+| `DeclarationAlignmentRule.java` (`var`) | COMPLETE (added `"var"` to `TYPE_KEYWORDS_JAVA`; confirmed-not-no-op, see below) |
+| `JavaSpecificRule.java` (pattern matching) | NOT STARTED |
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
@@ -72,13 +74,34 @@ ambiguity protocol as `STATE.md`.
       alignment), colon-form switches confirmed byte-for-byte unaffected via a
       pristine-baseline diff, idempotency, and a nested switch-expression-inside-
       a-block-body case.
-- [ ] Text blocks (`"""`) — tokenizer change only: recognize as one opaque
-      multi-line token, contents never touched (STYLE_JAVA17.md §4). Verify
-      current `TokenizerCore.java` doesn't already mis-tokenize these before
-      assuming this is purely additive.
-- [ ] `var` — confirm it needs zero code changes (already just another type-column
-      token in the existing §5 grid) — likely a no-op verification item, not new
-      code (STYLE_JAVA17.md §5).
+- [x] Text blocks (`"""`) — tokenizer change only: recognize as one opaque
+      multi-line token, contents never touched (STYLE_JAVA17.md §4). NOT a no-op:
+      the pre-existing single-line `emitString()` would mis-lex the opening/closing
+      `"""` (empty-string token + stray quote), exposing the block's multi-line
+      content -- braces, indentation -- to every downstream rule. Fixed with new
+      `TokenizerCore.isTextBlockOpener()`/`emitTextBlock()`, reusing `TokenType.STRING`
+      and mirroring `emitBlockComment()`'s "one token, internal newlines embedded in
+      `.text`" pattern, which is exactly what makes "preserved exactly as written"
+      fall out for free (NEWLINE-scanning passes never see inside; `MiscRule`'s
+      indentation conversion never reaches in). Verified: STYLE_JAVA17.md worked
+      example (content + indentation preserved exactly), idempotency, no
+      closing-comment/blank-line leak into block content, statements after the
+      block survive, braces inside content untouched, escaped `\"""` inside content
+      doesn't break delimiter matching, and a pristine-baseline diff confirming zero
+      impact on ordinary string/char literal tokenization.
+- [x] `var` — confirmed NOT a no-op: `DeclarationAlignmentRule.TYPE_KEYWORDS_JAVA`
+      lacked `"var"` even though `TokenizerCore.KEYWORDS_JAVA` already had it as a
+      full keyword (from the sealed/permits work), so `parseDeclaration` hit its
+      `KEYWORD not in typeKeywords -> return null` branch and silently excluded every
+      `var`-declared local/field from §5 grid alignment. Confirmed via harness: a
+      `var`/`int`/`String` group rendered with `var` left at a single space while
+      `int`/`String` aligned together, pre-fix. Fixed by adding `"var"` to
+      `TYPE_KEYWORDS_JAVA` (mirrors `TYPE_KEYWORDS_CPP` already including `"auto"`
+      for the same reason). `GetterSetterRule.java` checked -- no analogous
+      type-keyword set there, so no parallel change needed. Verified post-fix: the
+      same group now aligns `var`/`int`/`String` together in one grid (STYLE_JAVA17.md
+      §5), and the switch-expression and text-block harnesses still pass with zero
+      regressions.
 - [ ] Pattern matching (`instanceof`, switch patterns, record deconstruction) —
       §3.1 complexity padding should already handle condition content; switch
       patterns reuse the new §3 arrow-form alignment (STYLE_JAVA17.md §6).

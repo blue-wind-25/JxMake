@@ -30,7 +30,7 @@ public class DeclarationAlignmentRule {
             setOf("bool", "wchar_t", "char16_t", "char32_t", "auto", "class"));
 
     private static final Set<String> TYPE_KEYWORDS_JAVA = setOf(
-            "boolean", "byte", "char", "double", "float", "int", "long", "short", "void");
+            "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "var");
 
     private final String language;
     private final ModifierPriority modifierPriority;

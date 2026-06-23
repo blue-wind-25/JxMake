@@ -191,6 +191,8 @@ public class TokenizerCore {
                 t = emitLineComment();
             } else if (c == '/' && peek(1) == '*') {
                 t = emitBlockComment();
+            } else if (c == '"' && isTextBlockOpener()) {
+                t = emitTextBlock();
             } else if (c == '"') {
                 t = emitString();
             } else if (c == '\'') {
@@ -498,6 +500,54 @@ public class TokenizerCore {
         }
         return new Token(TokenType.COMMENT_BLOCK, source.substring(start, pos), braceDepth,
                 parenDepth, null);
+    }
+
+    /** True iff {@code pos} sits on the opening `"""` of a Java text block (STYLE_JAVA17.md §4) --
+     *  three consecutive `"` characters, Java only ({@code emitString}'s plain-string path already
+     *  bails on a bare `"` followed by a newline before finding its own closing quote, which is
+     *  exactly what would otherwise happen here: without this check, a text block's opening `"""`
+     *  mis-lexes as an empty string token followed by a single stray-quote token, exposing the
+     *  block's entire multi-line content -- braces, indentation, everything -- to every other rule
+     *  in the pipeline). */
+    private boolean isTextBlockOpener() {
+        return "java".equals(language) && peek(1) == '"' && peek(2) == '"';
+    }
+
+    /**
+     * Lexes a Java text block (`"""..."""`) as a single opaque STRING token spanning every
+     * physical line it covers -- same "one token, internal newlines embedded in its own text,
+     * never split into separate NEWLINE tokens" precedent already established by {@link
+     * #emitBlockComment} for `/<i></i>* ... *<i></i>/`. This is what makes STYLE_JAVA17.md §4's "preserved
+     * exactly as written" requirement fall out for free: nothing downstream that scans for
+     * NEWLINE tokens to detect "spans multiple physical lines" ever sees inside a text block's
+     * content, and Phase 6's indentation-conversion pass (which only ever rewrites line-start
+     * WHITESPACE tokens, found by walking from one NEWLINE to the next) never reaches in to
+     * rewrite it either -- both already true for block comments, now true here too, without any
+     * special-casing needed in either of those passes.
+     *
+     * <p>A `\`-escaped quote is skipped as a pair (mirroring {@code emitString}/{@code emitChar}'s
+     * own escape handling) so an escaped `\"""` inside the content is never mistaken for the
+     * closing delimiter. An unterminated text block (no closing `"""` before EOF) is consumed to
+     * the end of the source -- same graceful-degradation posture as {@code emitBlockComment}'s own
+     * unterminated-comment handling, never a crash.
+     */
+    private Token emitTextBlock() {
+        final int start = pos;
+        pos += 3;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\' && pos + 1 < length) {
+                pos += 2;
+                continue;
+            }
+            if (c == '"' && peek(1) == '"' && peek(2) == '"') {
+                pos += 3;
+                break;
+            }
+            pos++;
+        }
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
     }
 
     private Token emitString() {

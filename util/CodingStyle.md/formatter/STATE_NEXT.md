@@ -39,7 +39,7 @@ ambiguity protocol as `STATE.md`.
 | `TokenizerCore.java` (text blocks) | COMPLETE (new `isTextBlockOpener`/`emitTextBlock`, opaque `STRING` token spanning the whole block, mirrors `emitBlockComment`'s internal-newline pattern; no RDD needed) |
 | `DeclarationAlignmentRule.java` (`var`) | COMPLETE (added `"var"` to `TYPE_KEYWORDS_JAVA`; confirmed-not-no-op, see below) |
 | `JavaSpecificRule.java` (pattern matching) | COMPLETE (confirmed true no-op, zero code changes; see below) |
-| `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
+| `CppModifierPriority.java` (consteval/constinit addition) | COMPLETE (see below) |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
 
@@ -47,9 +47,26 @@ ambiguity protocol as `STATE.md`.
 
 ## Checklist — C++17/20/23
 
-- [ ] `auto` (as data type) alignment, `consteval` / `constinit` — new `CppModifierPriority`
-      columns, order `constexpr → consteval → constinit`; verify `constexpr`
-      already present before adding (resolved — see STYLE_CPP20.md §3 and §5).
+- [x] `consteval` / `constinit` — new `CppModifierPriority` columns, order
+      `constexpr → consteval → constinit` (resolved — see STYLE_CPP20.md §3 and
+      §5). Verified `constexpr` was NOT already present in `CppModifierPriority`
+      (the "unlikely given phase-1 work" caveat turned out true) -- added it
+      alongside `consteval`/`constinit`, all three sharing one rank (mutually
+      exclusive, same shared-column precedent as `JavaModifierPriority`'s
+      `abstract`/`final`/`sealed`, RDD_KEY_1), placed between `static` and the
+      existing `volatile`/`const` ranks, which were renumbered up by one to make
+      room. `consteval`/`constinit` were also missing from `TokenizerCore`'s
+      `KEYWORDS_CPP` (only `constexpr` was present) -- added both. Renumbering
+      `volatile`/`const` is safe because `DeclarationAlignmentRule.render`
+      already omits any column inactive for the whole group rather than
+      rendering dead padding -- confirmed via a pristine-baseline diff showing
+      byte-for-byte identical output for a mixed static/const/volatile/pointer/
+      bitfield group, plus a worked-example harness for `constexpr`/`constinit`
+      declarations aligning correctly and idempotently.
+      **`auto` (as data type) alignment** deferred to the structured-bindings
+      item below -- `auto` is already a recognized type keyword
+      (`TYPE_KEYWORDS_CPP`) from prior work; STYLE_CPP20.md §1 is where its
+      grid behavior is actually specified.
 - [ ] Structured bindings — atomic name-cell in existing §5 grid, plus internal
       `[a, b, c]` spacing rule (STYLE_CPP20.md §1).
 - [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`

@@ -65,7 +65,8 @@ public class TokenizerCore {
 
     private static final Set<String> KEYWORDS_CPP = setOf(
             "alignas", "alignof", "asm", "auto", "bool", "break", "case", "catch", "char",
-            "char16_t", "char32_t", "class", "const", "constexpr", "const_cast", "continue",
+            "char16_t", "char32_t", "class", "const", "constexpr", "consteval", "constinit",
+            "const_cast", "continue",
             "decltype", "default", "delete", "do", "double", "dynamic_cast", "else", "enum",
             "explicit", "export", "extern", "false", "final", "float", "for", "friend", "goto",
             "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "nullptr",

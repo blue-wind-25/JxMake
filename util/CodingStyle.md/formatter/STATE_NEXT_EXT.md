@@ -108,6 +108,11 @@ To be done after all Phase 3 items above are complete and the API surface
       other docs referencing old key names or env var names.
 - [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
       `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
+- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep` implies
+      "preserve as-is" but the actual behavior is "detect project majority and apply it."
+      Update `Config.java` (`INDENT_STYLE_CHOICES`, default), `IndentationDetector.java`
+      (any internal string comparisons), docs (`README.md`, `FORMATTER_DISCUSSION.md`),
+      and `.style-fmt` files in the repo if any use `keep`.
 
 ---
 

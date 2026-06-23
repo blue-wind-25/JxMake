@@ -212,6 +212,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_76 | `DeclarationAlignmentRule` misparses a bare `++j;`/`--j;` statement as a fake field declaration |
 | RDD_KEY_77 | `MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency |
 | RDD_KEY_78 | `ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member |
+| RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = keep`) |
 
 ---
 
@@ -306,6 +307,60 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
       small Java snippet to `/format` and check the response is correctly formatted, POST a C++
       snippet and check the same, verify the lockfile was written with the right PID/port, POST
       `/shutdown` and verify the process's `HttpServer` actually stops and the lockfile is removed.
+
+---
+
+## Current File: `IndentationDetector.java` — NOT STARTED
+
+Full design settled in RDD_KEY_79. No open questions.
+
+**Prerequisite:** `Config.java` must be updated first (promote two constants — see checklist
+item 1 below); this is a minor additive change to an already-COMPLETE file.
+
+### Checklist
+
+- [ ] **`Config.java` update** — promote `private String indentStyle = "spaces"` and
+      `private int indentSize = 4` to `public static final String DEFAULT_INDENT_STYLE = "spaces"`
+      and `public static final int DEFAULT_INDENT_SIZE = 4`. Update the field initializers to
+      reference these constants. No behavior change — additive only.
+
+- [ ] **Skeleton** — `public final class IndentationDetector`; no instance state (all methods
+      static). Two public entry points:
+      `static String detect(Path fileDir, Map<Path, String> cache)` and
+      `static String detectFromContent(String source)`.
+
+- [ ] **`detectFromContent(String source)`** — scan source line by line; return `"spaces"` on
+      first line starting with space, `"tabs"` on first line starting with tab; if no indented
+      line found return `Config.DEFAULT_INDENT_STYLE`.
+
+- [ ] **`findBoundaryDir(Path startDir)`** — walk upward from `startDir`; stop and return the
+      directory when a `.style-fmt`, `.git`, or `.hg` entry is found in it; stop and return
+      `Paths.get(System.getProperty("user.home"))` if home is reached without finding any marker;
+      never walk above home.
+
+- [ ] **`sampleDir(Path boundaryDir)`** — subtree walk from `boundaryDir`; for each source file
+      (`.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hh`, `.hpp`, `.hxx`), read line by line and
+      stop at the first line starting with whitespace — that file's vote is `"spaces"` or `"tabs"`.
+      Accumulate votes; stop after 10 files have yielded a signal (cap). Return whichever style
+      has more votes; ties return `Config.DEFAULT_INDENT_STYLE`.
+
+- [ ] **`detect(Path fileDir, Map<Path, String> cache)`** — if `cache` contains `fileDir`,
+      return cached value. Call `findBoundaryDir(fileDir)` → call `sampleDir(result)` → store
+      in cache under `fileDir` key → return. Cache is owned by the caller (`ServerMode` holds
+      an in-memory `Map<Path, String>` for its lifetime; `Main` passes a fresh one per
+      invocation for the temp-file cache layer — see below).
+
+- [ ] **Temp-file cache (`Main` standalone mode)** — `Main.java` (not this class) manages a
+      temp-file cache: key = SHA hash of boundary dir absolute path string, stored as
+      `/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
+      `lastModified` epoch ms. On read: if file exists and stored `lastModified` matches current
+      `Files.getLastModifiedTime(boundaryDir)`, return cached style; otherwise delete and rescan.
+      `IndentationDetector` itself is unaware of this — `Main` calls `detect()` with a
+      pre-populated single-entry map if the temp cache hit, bypassing the scan entirely.
+
+- [ ] **Throwaway smoke test** — not committed: `detectFromContent` on a spaces snippet, a tabs
+      snippet, and an empty string; `sampleDir` on a small temp directory tree with mixed files;
+      `detect` with a warm cache (returns without scanning); boundary walk stopping at `.git`.
 
 ---
 

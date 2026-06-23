@@ -232,7 +232,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `Config.java` | COMPLETE |
 | `ServerMode.java` | COMPLETE |
 | `Formatter.java` | COMPLETE |
-| `IndentationDetector.java` | NOT STARTED |
+| `IndentationDetector.java` | COMPLETE |
 | `ScopePipeline.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to fix a C++ access-specifier-label span bug -- see Resolved Design Decisions: "`ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member") |
 | `TokenizerCore.java` | COMPLETE |
 | `ColumnGrid.java` | COMPLETE |
@@ -251,125 +251,16 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 ---
 
-## Current File: `ServerMode.java` — IN PROGRESS
+## Current File: `Main.java` — NOT STARTED
 
-**Resolved (already settled by prior RDD entries, just citing them here):**
-- Wire protocol: `POST /format?path=<path>&lang=<java|cpp, optional>` with raw content as the
-  request body, formatted content as the 200 response body, non-2xx + error message on failure;
-  `POST /shutdown` for graceful exit -- RDD_KEY_73.
-- Lockfile: `$HOME/.config/style-fmt/server.lock` (RDD_KEY_13), written by the server on
-  successful bind, deleted on graceful shutdown.
-- Idempotency: on start, if the lockfile's PID is alive (`ProcessHandle.of(pid).isPresent()`),
-  another server is already running -- treat as a harmless no-op (log and return), do not bind a
-  second socket. If the PID is not alive, the lockfile is stale -- delete it and bind fresh --
-  RDD_KEY_10.
-- Port: default `17173` (`DEFAULT_PORT`), overridable via `Config.serverPort()`; lockfile records
-  the actual bound port -- RDD_KEY_9/RDD_KEY_11.
-- HTTP transport: `com.sun.net.httpserver.HttpServer` (JDK-bundled since 6, no external
-  dependency) -- the only reasonable choice given the Makefile's plain `javac`+`jar` build with no
-  dependency manager of any kind; not treated as a new design fork.
-
-**Mechanical fill-in (no design fork, decided here and documented for consistency):**
-- Lockfile content format: two lines, PID then port (`"<pid>\n<port>\n"`) -- RDD_KEY_9/11/13 say
-  *what* it carries (PID + port) but not the exact byte format.
-- `/format` language inference when `lang` is absent: by `path`'s extension --
-  `.java` → `"java"`; `.c`/`.cc`/`.cpp`/`.cxx`/`.h`/`.hh`/`.hpp`/`.hxx` → `"cpp"`; anything else →
-  400 with an error body. Consistent with `Formatter.java`'s existing two-language gate
-  (`isCpp`/`isJava`).
-- `/format` resolves config fresh per request via `Config.resolve(Paths.get(path), null)` --
-  RDD_KEY_71 already establishes per-file resolution with no CLI-override layer for server
-  requests (the wire protocol in RDD_KEY_73 carries no override parameters).
-- `HttpServer`'s executor is left as the JDK default (sequential dispatch on the server's own
-  thread) -- this is a local dev-loop formatting daemon, not a concurrent web service; revisit only
-  if real usage proves this insufficient, same "adjustable later if wrong in practice" disposition
-  as RDD_KEY_74.
-- `/shutdown` responds `200` first (so the calling CLI's POST doesn't hang), then spawns a
-  daemon thread that calls `httpServer.stop(1)`, deletes the lockfile, and `System.exit(0)` --
-  stopping the server from within its own request-handler thread would block that same handler
-  on its own in-flight exchange.
-
-### Checklist
-
-- [ ] **Skeleton** -- `public static void start(Config config)`; resolve `DEFAULT_PORT` from
-      `config.serverPort()`, lockfile path from `System.getProperty("user.home")` +
-      `/.config/style-fmt/server.lock` (mirroring `Config.java`'s own `CONFIG_DIR`/`CONFIG_FILE`
-      constant pattern).
-- [x] **Idempotency check** -- read lockfile if present; live PID → log + return; stale/missing →
-      delete if present, continue to bind. `ProcessHandle` accessed via reflection with a
-      pre-Java-9 fallback (`/proc/<pid>` or `kill -0`) for the Java 8 build target --
-      RDD_KEY_80.
-- [ ] **Bind + lockfile write** -- `HttpServer.create(new InetSocketAddress("localhost", port), 0)`;
-      on successful bind, write `"<pid>\n<port>\n"` to the lockfile (creating
-      `~/.config/style-fmt/` if missing).
-- [x] **`/format` handler** -- parse `path`/`lang` query params; read request body fully as
-      bytes → `String`; infer language from extension if `lang` absent (400 if unrecognized);
-      `Config.resolve` + `Formatter.formatOne`; write formatted content as the `200` body; catch
-      any exception and respond non-2xx with the exception message as the body.
-- [x] **`/shutdown` handler** -- respond `200` immediately, then on a daemon thread:
-      `httpServer.stop(1)`, delete the lockfile, `System.exit(0)`.
-- [x] **Throwaway smoke test** -- not committed: ran the server as a genuine separate process on
-      an ephemeral port (`server-port` override), confirmed lockfile PID matched the real OS pid,
-      confirmed a second `start()` call against the same lockfile logged "already running" and did
-      not bind a second socket, POSTed a Java snippet and a C++ snippet to `/format` and confirmed
-      both came back correctly formatted, POSTed to `/format` with an unrecognized extension and
-      got a `400`, POSTed `/shutdown` and confirmed the process actually exited (`kill -0` failed)
-      and the lockfile was deleted. Along the way found and fixed an unrelated infinite-loop bug
-      in `CppSpecificRule`/`JavaSpecificRule` (RDD_KEY_81, see below) that the C++ smoke input
-      triggered.
-
----
-
-## Current File: `IndentationDetector.java` — NOT STARTED
-
-Full design settled in RDD_KEY_79. No open questions.
-
-**Prerequisite:** `Config.java` must be updated first (promote two constants — see checklist
-item 1 below); this is a minor additive change to an already-COMPLETE file.
-
-### Checklist
-
-- [ ] **`Config.java` update** — promote `private String indentStyle = "spaces"` and
-      `private int indentSize = 4` to `public static final String DEFAULT_INDENT_STYLE = "spaces"`
-      and `public static final int DEFAULT_INDENT_SIZE = 4`. Update the field initializers to
-      reference these constants. No behavior change — additive only.
-
-- [ ] **Skeleton** — `public final class IndentationDetector`; no instance state (all methods
-      static). Two public entry points:
-      `static String detect(Path fileDir, Map<Path, String> cache)` and
-      `static String detectFromContent(String source)`.
-
-- [ ] **`detectFromContent(String source)`** — scan source line by line; return `"spaces"` on
-      first line starting with space, `"tabs"` on first line starting with tab; if no indented
-      line found return `Config.DEFAULT_INDENT_STYLE`.
-
-- [ ] **`findBoundaryDir(Path startDir)`** — walk upward from `startDir`; stop and return the
-      directory when a `.style-fmt`, `.git`, or `.hg` entry is found in it; stop and return
-      `Paths.get(System.getProperty("user.home"))` if home is reached without finding any marker;
-      never walk above home.
-
-- [ ] **`sampleDir(Path boundaryDir)`** — subtree walk from `boundaryDir`; for each source file
-      (`.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hh`, `.hpp`, `.hxx`), read line by line and
-      stop at the first line starting with whitespace — that file's vote is `"spaces"` or `"tabs"`.
-      Accumulate votes; stop after 10 files have yielded a signal (cap). Return whichever style
-      has more votes; ties return `Config.DEFAULT_INDENT_STYLE`.
-
-- [ ] **`detect(Path fileDir, Map<Path, String> cache)`** — if `cache` contains `fileDir`,
-      return cached value. Call `findBoundaryDir(fileDir)` → call `sampleDir(result)` → store
-      in cache under `fileDir` key → return. Cache is owned by the caller (`ServerMode` holds
-      an in-memory `Map<Path, String>` for its lifetime; `Main` passes a fresh one per
-      invocation for the temp-file cache layer — see below).
-
-- [ ] **Temp-file cache (`Main` standalone mode)** — `Main.java` (not this class) manages a
-      temp-file cache: key = SHA hash of boundary dir absolute path string, stored as
-      `/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
-      `lastModified` epoch ms. On read: if file exists and stored `lastModified` matches current
-      `Files.getLastModifiedTime(boundaryDir)`, return cached style; otherwise delete and rescan.
-      `IndentationDetector` itself is unaware of this — `Main` calls `detect()` with a
-      pre-populated single-entry map if the temp cache hit, bypassing the scan entirely.
-
-- [ ] **Throwaway smoke test** — not committed: `detectFromContent` on a spaces snippet, a tabs
-      snippet, and an empty string; `sampleDir` on a small temp directory tree with mixed files;
-      `detect` with a warm cache (returns without scanning); boundary walk stopping at `.git`.
+The only remaining unimplemented file. Note for its checklist: the **Temp-file cache (`Main`
+standalone mode)** layer is `Main.java`'s own responsibility, not `IndentationDetector`'s (now
+COMPLETE) -- `Main` manages a temp-file cache: key = SHA hash of boundary dir absolute path string, stored as
+`/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
+`lastModified` epoch ms. On read: if file exists and stored `lastModified` matches current
+`Files.getLastModifiedTime(boundaryDir)`, return cached style; otherwise delete and rescan.
+`IndentationDetector` itself is unaware of this — `Main` calls `detect()` with a pre-populated
+single-entry map if the temp cache hit, bypassing the scan entirely.
 
 ---
 

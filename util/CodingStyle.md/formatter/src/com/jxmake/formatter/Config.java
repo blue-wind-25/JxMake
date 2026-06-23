@@ -37,9 +37,12 @@ public final class Config {
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
     private static final String[] HEADER_GUARD_STYLE_CHOICES = { "preserve", "ifndef", "pragma-once" };
 
+    public static final String DEFAULT_INDENT_STYLE = "spaces";
+    public static final int DEFAULT_INDENT_SIZE = 4;
+
     private int lineLength = 100;
-    private int indentSize = 4;
-    private String indentStyle = "spaces";
+    private int indentSize = DEFAULT_INDENT_SIZE;
+    private String indentStyle = DEFAULT_INDENT_STYLE;
     private int serverPort = 17173;
     private int closingCommentMinLines = 5;
     private boolean formatMacros = false;

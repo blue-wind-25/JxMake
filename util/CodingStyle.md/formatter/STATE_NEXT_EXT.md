@@ -1,10 +1,21 @@
 # STATE_NEXT_EXT.md — Phase 3: JAR ai-assist Integration
 
 > **DO NOT READ OR IMPLEMENT AGAINST THIS FILE YET.**
-> This file is gated until `STATE_NEXT.md`'s End Goal (Phase 2) dogfood-test
-> milestone is marked complete. If you are a Claude CLI session and you have
-> arrived here before that milestone is checked off, stop — return to
-> `STATE_NEXT.md` instead.
+> This file is gated until `STATE_NEXT.md`'s End Goal (Phase 2) milestone (the
+> `AI_PREAMBLE.md` trim item) is marked complete. If you are a Claude CLI session
+> and you have arrived here before that milestone is checked off, stop — return
+> to `STATE_NEXT.md` instead.
+>
+> **Note:** `Main.java`, `README.md`, and the Dogfood test (originally
+> `STATE.md`'s End Goal, then `STATE_NEXT.md`'s "End Goal (Phase 1)") now live in
+> this file's Checklist — Phase 3, positioned just before "Step 2 — AI
+> integration" rather than at the very start of Phase 3. Reason: "Step 1 —
+> Deterministic extensions" below lands new branches inside already-COMPLETE
+> rule classes (`MiscRule.java`'s call/declaration line-breaking) — same kind of
+> risk to existing behavior as the Java 17+/C++20+ work in `STATE_NEXT.md`. The
+> dogfood checkpoint needs to run *after* Step 1, not before it, so it actually
+> catches any regression Step 1 introduces — running it any earlier would miss
+> exactly the risk it exists to catch.
 
 ---
 
@@ -209,6 +220,33 @@ directly followed by a body `{`.
 - [ ] Verify options 0 (inline) and 3 (one-per-line) already work correctly
       for function *calls* (not just signatures) — they may need minor
       adaptation since the existing §8 pass targets signatures only.
+
+**Step 1.5 — Dogfood checkpoint (regression gate before AI integration):**
+
+Moved here from `STATE.md` (RDD_KEY_82, originally `STATE_NEXT.md`'s "End Goal
+(Phase 1)"). Placed after Step 1 rather than before it: Step 1 above touches
+already-COMPLETE `MiscRule.java` logic, so this checkpoint must run after Step 1
+lands in order to actually catch any regression it introduces, covering the
+core formatter plus the Java 17+/C++20+ additions plus Step 1 in one combined
+dogfood pass — before the riskier AI-integration work in Step 2 begins.
+
+| File | Status |
+|---|---|
+| `Main.java` | NOT STARTED |
+| `README.md` (for both phase 1 and phase 2; defer until just before Dogfood) | NOT STARTED |
+
+**`Main.java` note:** owns the temp-file cache layer for `IndentationDetector.detect()` in
+standalone mode -- key = SHA hash of boundary dir absolute path string, stored as
+`/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
+`lastModified` epoch ms. On read: if the file exists and its stored `lastModified` matches
+current `Files.getLastModifiedTime(boundaryDir)`, return the cached style; otherwise delete
+and rescan. `IndentationDetector` itself is unaware of this -- `Main` calls `detect()` with
+a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirely.
+
+- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that
+      `make` still succeeds after
+- [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set
+      exercising every construct in `STATE_NEXT.md`, verify style compliance
 
 **Step 2 — AI integration:**
 

@@ -1,13 +1,15 @@
 # STATE_NEXT.md — Phase 2 Tracker (Java 17+ / C++20+ Constructs)
 
 > **Active (RDD_KEY_82 in `STATE_rdd_log.md`).** Phase ordering was reversed: this file's
-> Java 17+/C++20+ checklists are now implemented *before* `STATE.md`'s original End Goal
-> (`Main.java`, `README.md`, the Tier 1/Tier 2 self-dogfood test), which has moved here —
-> see "End Goal (Phase 1)" below, placed just before "End Goal (Phase 2)". Rationale: this
-> file's own "Hard constraint" below already means Phase 2 work lands as new branches
-> inside the same already-COMPLETE rule classes, so dogfooding once after both phases land
-> avoids re-validating the same dogfood pass twice. `STATE_NEXT_EXT.md` remains gated until
-> this file's own End Goal (Phase 2) milestone (the last item below) is checked off.
+> Java 17+/C++20+ checklists are implemented *before* `STATE.md`'s original End Goal
+> (`Main.java`, `README.md`, the Tier 1/Tier 2 self-dogfood test). That End Goal has since
+> moved again, past this file entirely, into `STATE_NEXT_EXT.md`'s Phase 3 checklist,
+> positioned just before its "Step 2 — AI integration" — because Phase 3's "Step 1 —
+> Deterministic extensions" also lands new branches inside already-COMPLETE rule classes
+> (`MiscRule.java`'s call/declaration line-breaking), so the dogfood checkpoint needs to sit
+> *after* Step 1 too, to catch regressions from Phase 2 and Step 1 in one combined pass
+> before the riskier AI-integration work begins. This file's own gate to `STATE_NEXT_EXT.md`
+> is unchanged: still controlled by this file's End Goal (Phase 2) milestone below.
 
 ---
 
@@ -43,80 +45,6 @@ ambiguity protocol as `STATE.md`.
 
 ---
 
-## Checklist — Java 17+
-
-- [x] `record` — treat as `class` for brace style, closing comment, forced blank
-      lines (STYLE_JAVA17.md §1). Component list follows §8 signature rules.
-      `TokenizerCore` named-construct stamping extended to see through a record's
-      `(...)` component list and an optional trailing `implements` clause;
-      `BlockStructureRule`/`JavaSpecificRule` also touched for the same shapes plus
-      the compact canonical constructor -- see RDD_KEY_2.
-- [x] `sealed` / `non-sealed` / `permits` — new `JavaModifierPriority` column;
-      order is `abstract → sealed → non-sealed → final` (resolved — see
-      STYLE_JAVA17.md §2 resolved decisions table). Column order required a
-      stop-and-ask against the Hard Constraint (the map is flat, no per-kind
-      context) -- resolved, see RDD_KEY_1. `permits` clause line-breaking
-      implemented as `JavaSpecificRule.enforcePermitsClauseLineBreaking`.
-- [x] Switch expressions (`->` form) — new alignment pass, distinct from STYLE.md
-      §13's `:`-based switch statement handling (STYLE_JAVA17.md §3). Block-body
-      case breaks entire group's `->` alignment — all-or-nothing, no outlier
-      exclusion (resolved — see STYLE_JAVA17.md §7 resolved decisions table).
-      Implemented as `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`:
-      independent switch/case discovery (own helper methods, does not touch or
-      reuse `SwitchRule`'s private colon-form machinery) that bails (leaves the
-      switch untouched) the instant a label's terminator is `:` instead of `->`,
-      so arrow-form and colon-form switches are never confused. Only the label
-      span up to and including `-> ` is ever rewritten; body content (including
-      a block body's own K&R brace, already handled by
-      `BlockStructureRule.isLambdaBrace`'s existing `->`-preceded-brace branch)
-      is untouched. Verified: STYLE_JAVA17.md's worked examples (basic alignment,
-      block-body bail-out, pattern-matching/record-deconstruction/`default`
-      alignment), colon-form switches confirmed byte-for-byte unaffected via a
-      pristine-baseline diff, idempotency, and a nested switch-expression-inside-
-      a-block-body case.
-- [x] Text blocks (`"""`) — tokenizer change only: recognize as one opaque
-      multi-line token, contents never touched (STYLE_JAVA17.md §4). NOT a no-op:
-      the pre-existing single-line `emitString()` would mis-lex the opening/closing
-      `"""` (empty-string token + stray quote), exposing the block's multi-line
-      content -- braces, indentation -- to every downstream rule. Fixed with new
-      `TokenizerCore.isTextBlockOpener()`/`emitTextBlock()`, reusing `TokenType.STRING`
-      and mirroring `emitBlockComment()`'s "one token, internal newlines embedded in
-      `.text`" pattern, which is exactly what makes "preserved exactly as written"
-      fall out for free (NEWLINE-scanning passes never see inside; `MiscRule`'s
-      indentation conversion never reaches in). Verified: STYLE_JAVA17.md worked
-      example (content + indentation preserved exactly), idempotency, no
-      closing-comment/blank-line leak into block content, statements after the
-      block survive, braces inside content untouched, escaped `\"""` inside content
-      doesn't break delimiter matching, and a pristine-baseline diff confirming zero
-      impact on ordinary string/char literal tokenization.
-- [x] `var` — confirmed NOT a no-op: `DeclarationAlignmentRule.TYPE_KEYWORDS_JAVA`
-      lacked `"var"` even though `TokenizerCore.KEYWORDS_JAVA` already had it as a
-      full keyword (from the sealed/permits work), so `parseDeclaration` hit its
-      `KEYWORD not in typeKeywords -> return null` branch and silently excluded every
-      `var`-declared local/field from §5 grid alignment. Confirmed via harness: a
-      `var`/`int`/`String` group rendered with `var` left at a single space while
-      `int`/`String` aligned together, pre-fix. Fixed by adding `"var"` to
-      `TYPE_KEYWORDS_JAVA` (mirrors `TYPE_KEYWORDS_CPP` already including `"auto"`
-      for the same reason). `GetterSetterRule.java` checked -- no analogous
-      type-keyword set there, so no parallel change needed. Verified post-fix: the
-      same group now aligns `var`/`int`/`String` together in one grid (STYLE_JAVA17.md
-      §5), and the switch-expression and text-block harnesses still pass with zero
-      regressions.
-- [x] Pattern matching (`instanceof`, switch patterns, record deconstruction) —
-      confirmed true no-op, zero code changes (STYLE_JAVA17.md §6). `instanceof`
-      pattern variables are just condition tokens; no rule treats them specially
-      and none needs to. Switch type/record-deconstruction patterns reuse
-      `enforceSwitchExpressionArrowAlignment`'s existing `findCaseArrowOrColon`,
-      whose `(`/`[` depth tracking already returns to depth 0 after a pattern's
-      own component list before looking for the label-terminating `->` -- this
-      was already required to handle ordinary parenthesized expressions in a
-      case label, so record deconstruction (including a nested record pattern,
-      e.g. `case Pair(Point(int a, int b), int c) ->`) needed no new code.
-      Verified via harness: `instanceof String s` survives untouched + idempotent;
-      STYLE_JAVA17.md §6.2's worked example (type patterns, record deconstruction,
-      `default`) aligns into one `->` column; a nested record deconstruction
-      pattern aligns correctly without confusing the arrow finder.
-
 ## Checklist — C++17/20/23
 
 - [ ] `auto` (as data type) alignment, `consteval` / `constinit` — new `CppModifierPriority`
@@ -148,37 +76,13 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 
 ---
 
-## End Goal (Phase 1)
-
-Moved here from `STATE.md` (RDD_KEY_82) — done *after* the Java 17+/C++20+ checklists
-above, so the dogfood pass below covers both phases at once.
-
-### File Status
-
-| File | Status |
-|---|---|
-| `Main.java` | NOT STARTED |
-| `README.md` (for both phase 1 and phase 2; defer until just before Dogfood) | NOT STARTED |
-
-**`Main.java` note:** owns the temp-file cache layer for `IndentationDetector.detect()` in
-standalone mode -- key = SHA hash of boundary dir absolute path string, stored as
-`/tmp/style-fmt-indent-<hash>.cache`, content = detected style + `\n` + boundary dir
-`lastModified` epoch ms. On read: if the file exists and its stored `lastModified` matches
-current `Files.getLastModifiedTime(boundaryDir)`, return the cached style; otherwise delete
-and rescan. `IndentationDetector` itself is unaware of this -- `Main` calls `detect()` with
-a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirely.
-
-### Checklist
-
-- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that
-      `make` still succeeds after
-
----
-
 ## End Goal (Phase 2)
 
-- [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set
-      exercising every construct above, verify style compliance
+> `Main.java`, `README.md`, and the Dogfood test (originally tracked here as "End Goal
+> (Phase 1)", moved from `STATE.md` per RDD_KEY_82) have moved again, to
+> `STATE_NEXT_EXT.md`'s Phase 3 checklist, just before its "Step 2 — AI integration" —
+> see that file's gate note for why. Only the AI_PREAMBLE trim item remains here.
+
 - [ ] Trim `AI_PREAMBLE.md` back to Tier-3-only content (function-call
       line-breaking, non-standard getter/setter naming — the genuinely
       AI-only judgment calls per `FORMATTER_DISCUSSION.md`'s "Future:
@@ -195,6 +99,7 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
 Once End Goal (Phase 2) above is checked off, continue with
 [`STATE_NEXT_EXT.md`](STATE_NEXT_EXT.md) for:
 - Phase 3 — JAR `ai-assist` integration (local on-device AI for Tier-3 judgment calls)
+  (also now owns `Main.java`, `README.md`, and the Dogfood test — see that file)
 - Post-phase-3 cleanup — `JXMAKE_` / `jxmake_` prefix rename for all env vars and
   config keys
 

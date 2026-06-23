@@ -213,6 +213,8 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_77 | `MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency |
 | RDD_KEY_78 | `ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member |
 | RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = keep`) |
+| RDD_KEY_80 | `ServerMode.java` idempotency check on a Java 8 build target -- `ProcessHandle` via reflection |
+| RDD_KEY_81 | Allman-brace render-loop infinite loop when `)`/`{` are already adjacent (`CppSpecificRule.java`/`JavaSpecificRule.java`) |
 
 ---
 
@@ -228,7 +230,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 |---|---|
 | `Main.java` | NOT STARTED |
 | `Config.java` | COMPLETE |
-| `ServerMode.java` | IN PROGRESS |
+| `ServerMode.java` | COMPLETE |
 | `Formatter.java` | COMPLETE |
 | `IndentationDetector.java` | NOT STARTED |
 | `ScopePipeline.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to fix a C++ access-specifier-label span bug -- see Resolved Design Decisions: "`ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member") |
@@ -243,8 +245,8 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
 | `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation"; reopened during `Formatter.java` smoke-testing to add structural detection for closing-comment labels -- see Resolved Design Decisions: "`MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency") |
-| `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient") |
-| `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient") |
+| `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
+| `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 | `README.md` (defer until just before Dogfood) | NOT STARTED |
 
 ---
@@ -292,21 +294,28 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
       `config.serverPort()`, lockfile path from `System.getProperty("user.home")` +
       `/.config/style-fmt/server.lock` (mirroring `Config.java`'s own `CONFIG_DIR`/`CONFIG_FILE`
       constant pattern).
-- [ ] **Idempotency check** -- read lockfile if present; live PID → log + return; stale/missing →
-      delete if present, continue to bind.
+- [x] **Idempotency check** -- read lockfile if present; live PID → log + return; stale/missing →
+      delete if present, continue to bind. `ProcessHandle` accessed via reflection with a
+      pre-Java-9 fallback (`/proc/<pid>` or `kill -0`) for the Java 8 build target --
+      RDD_KEY_80.
 - [ ] **Bind + lockfile write** -- `HttpServer.create(new InetSocketAddress("localhost", port), 0)`;
       on successful bind, write `"<pid>\n<port>\n"` to the lockfile (creating
       `~/.config/style-fmt/` if missing).
-- [ ] **`/format` handler** -- parse `path`/`lang` query params; read request body fully as
+- [x] **`/format` handler** -- parse `path`/`lang` query params; read request body fully as
       bytes → `String`; infer language from extension if `lang` absent (400 if unrecognized);
       `Config.resolve` + `Formatter.formatOne`; write formatted content as the `200` body; catch
       any exception and respond non-2xx with the exception message as the body.
-- [ ] **`/shutdown` handler** -- respond `200` immediately, then on a daemon thread:
+- [x] **`/shutdown` handler** -- respond `200` immediately, then on a daemon thread:
       `httpServer.stop(1)`, delete the lockfile, `System.exit(0)`.
-- [ ] **Throwaway smoke test** -- not committed: start the server on an ephemeral port, POST a
-      small Java snippet to `/format` and check the response is correctly formatted, POST a C++
-      snippet and check the same, verify the lockfile was written with the right PID/port, POST
-      `/shutdown` and verify the process's `HttpServer` actually stops and the lockfile is removed.
+- [x] **Throwaway smoke test** -- not committed: ran the server as a genuine separate process on
+      an ephemeral port (`server-port` override), confirmed lockfile PID matched the real OS pid,
+      confirmed a second `start()` call against the same lockfile logged "already running" and did
+      not bind a second socket, POSTed a Java snippet and a C++ snippet to `/format` and confirmed
+      both came back correctly formatted, POSTed to `/format` with an unrecognized extension and
+      got a `400`, POSTed `/shutdown` and confirmed the process actually exited (`kill -0` failed)
+      and the lockfile was deleted. Along the way found and fixed an unrelated infinite-loop bug
+      in `CppSpecificRule`/`JavaSpecificRule` (RDD_KEY_81, see below) that the C++ smoke input
+      triggered.
 
 ---
 

@@ -147,7 +147,8 @@ public class JavaSpecificRule {
             final Integer braceIdx = gapToBrace.get(i);
             if (braceIdx != null) {
                 out.append('\n').append(lineIndent(tokens, i - 1));
-                i = braceIdx;
+                out.append(tokens.get(braceIdx).text);
+                i = braceIdx + 1;
             } else {
                 out.append(tokens.get(i).text);
                 i++;

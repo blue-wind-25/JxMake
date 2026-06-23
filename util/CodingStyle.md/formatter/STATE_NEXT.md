@@ -119,7 +119,7 @@ ambiguity protocol as `STATE.md`.
 
 ## Checklist — C++17/20/23
 
-- [ ] `auto` (as data type), `consteval` / `constinit` — new `CppModifierPriority`
+- [ ] `auto` (as data type) alignment, `consteval` / `constinit` — new `CppModifierPriority`
       columns, order `constexpr → consteval → constinit`; verify `constexpr`
       already present before adding (resolved — see STYLE_CPP20.md §3 and §5).
 - [ ] Structured bindings — atomic name-cell in existing §5 grid, plus internal

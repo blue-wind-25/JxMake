@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -102,13 +103,27 @@ public class JavaSpecificRule {
         final Map<Integer, Integer> gapToBrace = new HashMap<>();
         final List<OneLinerCandidate> oneLiners = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) {
-            if (!isPunct(tokens.get(i), "{")) {
+            if (!isPunct(tokens.get(i), "{") || tokens.get(i).name != null) {
+                // `name != null` means the tokenizer already tagged this as a named-construct
+                // body (class/interface/enum/record) -- always K&R, handled by
+                // `BlockStructureRule.qualifiesForKAndR`, never Allman. Without this guard a
+                // record's own body brace (`record Point(...) {`, or with a trailing
+                // `implements` clause) is structurally indistinguishable from a method
+                // definition / compact-constructor shape and would be wrongly re-broken here.
                 continue;
             }
-            final int closeParenIdx = prevSignificantIndex(tokens, i);
-            if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
+            final int prevIdx = prevSignificantIndex(tokens, i);
+            if (prevIdx < 0) {
                 continue;
             }
+            if (!isPunct(tokens.get(prevIdx), ")")) {
+                if (isCompactConstructorBrace(tokens, prevIdx, i)
+                        && !hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
+                    gapToBrace.put(prevIdx + 1, i);
+                }
+                continue;
+            }
+            final int closeParenIdx = prevIdx;
             if (!isMethodDefinitionCloseParen(tokens, closeParenIdx)) {
                 continue;
             }
@@ -242,6 +257,43 @@ public class JavaSpecificRule {
         final int beforeName = prevSignificantIndex(tokens, nameIdx);
         return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
                 || !"new".equals(tokens.get(beforeName).text);
+    }
+
+    /** Access modifiers legal on a compact canonical constructor -- the only keywords that may
+     *  sit between a member boundary and the constructor's own name. */
+    private static final Set<String> COMPACT_CTOR_MODIFIERS = new HashSet<>(
+            Arrays.asList("public", "private", "protected"));
+
+    /**
+     * True iff the `{` at {@code braceIdx} (whose immediately preceding significant token,
+     * already confirmed not a `)`, sits at {@code identIdx}) is a record's compact canonical
+     * constructor -- `public Point { ... }`, no parameter list at all (STYLE_JAVA17.md §1).
+     * A bare IDENTIFIER directly before `{` is structurally ambiguous: besides a compact
+     * constructor, it's also produced by an enum constant body omitting constructor args
+     * (`RED { ... }`, excluded via {@code isEnumConstantBody}) and -- the case that bit the
+     * first version of this method -- the <i>last type in an enclosing class/interface's own
+     * `implements`/`extends` clause</i> (`class Foo implements Bar {`), since `Bar` is just as
+     * bare an IDENTIFIER as a constructor name. Distinguished by walking back from the name,
+     * over any access modifiers (the only thing legal before a real constructor name), and
+     * requiring what's left to be a member/scope boundary (`}`, `;`, `{`, or start of file) --
+     * `implements`/`extends`/`,` never satisfy that, so they correctly fail this check instead
+     * of needing `Token.name` (which can't see back across an arbitrarily long `implements`
+     * list either, so it's null for both the true positive and the false positive alike here).
+     */
+    private boolean isCompactConstructorBrace(final List<Token> tokens, final int identIdx, final int braceIdx) {
+        if (tokens.get(identIdx).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        if (isEnumConstantBody(tokens, braceIdx)) {
+            return false;
+        }
+        int i = prevSignificantIndex(tokens, identIdx);
+        while (i >= 0 && tokens.get(i).type == TokenType.KEYWORD
+                && COMPACT_CTOR_MODIFIERS.contains(tokens.get(i).text)) {
+            i = prevSignificantIndex(tokens, i - 1);
+        }
+        return i < 0 || isPunct(tokens.get(i), "}") || isPunct(tokens.get(i), ";")
+                || isPunct(tokens.get(i), "{");
     }
 
     /** True iff the `{` at {@code braceIdx} is an enum constant's anonymous constant-body --
@@ -693,6 +745,203 @@ public class JavaSpecificRule {
             sb.append(t.text);
         }
         return sb.toString().trim();
+    }
+
+    /** Sentinel returned by {@link #findCaseArrowOrColon} when a label's top-level `:` is found
+     *  instead of `->` -- the switch is colon-form, owned by {@code SwitchRule}, never touched here. */
+    private static final int COLON_FOUND = -2;
+
+    /** Sentinel returned by {@link #findCaseArrowOrColon} when neither terminator is found before
+     *  hitting a depth-0 `;`/`{` boundary first -- a malformed/unrecognized label shape. */
+    private static final int ARROW_NOT_FOUND = -1;
+
+    /**
+     * STYLE_JAVA17.md §3: column-aligns the `->` across every case of an arrow-labeled switch
+     * (a switch *expression*, or the same arrow syntax used as a statement -- the rule doesn't
+     * distinguish, since the token shape is identical either way). This is a distinct construct
+     * from the `:`-labeled switch statement already fully handled by {@code SwitchRule}'s
+     * STYLE.md §13 passes, which this method never touches: arrow-labeled and colon-labeled cases
+     * never co-exist in one switch per the JLS, so the two rules' switch discovery is naturally
+     * disjoint -- {@link #findArrowCases} returns {@code null} (skip, untouched) the instant it
+     * finds a label terminated by `:` instead of `->`.
+     *
+     * <p>All-or-nothing per switch (§3.1, §7 resolved decision): if any case in a given switch has
+     * a block body (`-> {`), that whole switch is left untouched -- no alignment at all, same
+     * conservative posture as STYLE.md §13's own inline-alignment bail-out. Nothing else is needed
+     * for a block-body case: its `{` already renders K&amp;R via {@code
+     * BlockStructureRule.isLambdaBrace}'s existing `->`-preceded-brace branch (lambdas and arrow-form
+     * switch cases are structurally identical at that brace), and already gets no closing comment
+     * via the same not-`)`-preceded shape in {@code BlockStructureRule.classifyBrace} -- both already
+     * correct, pre-existing, general-purpose behavior, not modified here.
+     *
+     * <p>A switch with a malformed/unrecognized label shape is also left completely untouched, same
+     * "never guess past an unrecognized shape" posture used throughout this codebase. Only the label
+     * span -- from the `case`/`default` keyword through the `->` and the single space after it -- is
+     * ever rewritten; body content (everything from the first significant token after `->` onward)
+     * is never touched, so a block body's internal formatting, a multi-line expression, or a
+     * `throw` statement survives exactly as written.
+     */
+    public String enforceSwitchExpressionArrowAlignment(final List<Token> tokens) {
+        final Map<Integer, String> overrides = new HashMap<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !"switch".equals(t.text)) {
+                continue;
+            }
+            final int openParenIdx = nextSignificantIndex(tokens, i);
+            if (openParenIdx < 0 || !isPunct(tokens.get(openParenIdx), "(")) {
+                continue;
+            }
+            final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+            if (closeParenIdx < 0) {
+                continue;
+            }
+            final int openBraceIdx = nextSignificantIndex(tokens, closeParenIdx);
+            if (openBraceIdx < 0 || !isPunct(tokens.get(openBraceIdx), "{")) {
+                continue;
+            }
+            final int closeBraceIdx = matchBraceForward(tokens, openBraceIdx);
+            if (closeBraceIdx < 0) {
+                continue;
+            }
+
+            final List<ArrowCase> cases = findArrowCases(tokens, openBraceIdx, closeBraceIdx);
+            if (cases == null || cases.isEmpty()) {
+                continue; // colon-form (SwitchRule's), or malformed -- never ours
+            }
+
+            boolean anyBlockBody = false;
+            for (final ArrowCase c : cases) {
+                if (c.blockBody) {
+                    anyBlockBody = true;
+                    break;
+                }
+            }
+            if (!anyBlockBody) {
+                applyArrowAlignment(cases, overrides);
+            }
+        }
+
+        return render(tokens, overrides);
+    }
+
+    /** One `case <label> ->` / `default ->` arrow-form case found directly (brace depth 0 relative
+     *  to the switch's own `{`) inside an arrow-labeled switch body. */
+    private static final class ArrowCase {
+        final int kwIdx;
+        final int bodyStartIdx; // first significant token after `->`
+        final String label; // raw "case ..." / "default" text, whitespace-collapsed and trimmed
+        final boolean blockBody; // body starts with `{`
+
+        ArrowCase(final int kwIdx, final int bodyStartIdx, final String label, final boolean blockBody) {
+            this.kwIdx = kwIdx;
+            this.bodyStartIdx = bodyStartIdx;
+            this.label = label;
+            this.blockBody = blockBody;
+        }
+    }
+
+    /**
+     * Finds every direct (brace-depth-0) `case`/`default` label inside [openBraceIdx,
+     * closeBraceIdx) and classifies it as arrow-form. Returns {@code null} the instant any label's
+     * terminator turns out to be a top-level `:` ({@link #COLON_FOUND} -- the switch belongs to
+     * {@code SwitchRule} instead) or can't be found at all ({@link #ARROW_NOT_FOUND} -- malformed).
+     */
+    private List<ArrowCase> findArrowCases(final List<Token> tokens, final int openBraceIdx, final int closeBraceIdx) {
+        final List<ArrowCase> cases = new ArrayList<>();
+        int depth = 0;
+        for (int i = openBraceIdx + 1; i < closeBraceIdx; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.KEYWORD
+                    && ("case".equals(t.text) || "default".equals(t.text))) {
+                final int arrowIdx = findCaseArrowOrColon(tokens, i, closeBraceIdx);
+                if (arrowIdx == COLON_FOUND || arrowIdx == ARROW_NOT_FOUND) {
+                    return null;
+                }
+                final int bodyStartIdx = nextSignificantIndex(tokens, arrowIdx);
+                if (bodyStartIdx < 0) {
+                    return null;
+                }
+                final String label = collapseToOneLine(tokens, i, arrowIdx - 1);
+                cases.add(new ArrowCase(i, bodyStartIdx, label, isPunct(tokens.get(bodyStartIdx), "{")));
+            }
+        }
+        return cases;
+    }
+
+    /** The top-level (paren/bracket-depth 0) `->` terminating a `case`/`default` label starting at
+     *  {@code kwIdx}, or {@link #COLON_FOUND}/{@link #ARROW_NOT_FOUND} -- see {@link #findArrowCases}. */
+    private int findCaseArrowOrColon(final List<Token> tokens, final int kwIdx, final int limit) {
+        int depth = 0;
+        for (int i = kwIdx + 1; i < limit; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, "->")) {
+                return i;
+            } else if (depth == 0 && isOp(t, ":")) {
+                return COLON_FOUND;
+            } else if (depth == 0 && (isPunct(t, ";") || isPunct(t, "{"))) {
+                return ARROW_NOT_FOUND;
+            }
+        }
+        return ARROW_NOT_FOUND;
+    }
+
+    /** Pads every case's label to the widest in {@code cases} (trailing-cell trick, same precedent
+     *  as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the label span --
+     *  body content from {@code bodyStartIdx} onward is left completely untouched. */
+    private void applyArrowAlignment(final List<ArrowCase> cases, final Map<Integer, String> overrides) {
+        final ColumnGrid grid = new ColumnGrid();
+        for (final ArrowCase c : cases) {
+            grid.addRow(new String[] {c.label + " ", ""});
+        }
+        final List<String[]> padded = grid.flush();
+
+        for (int i = 0; i < cases.size(); i++) {
+            final ArrowCase c = cases.get(i);
+            overrides.put(c.kwIdx, padded.get(i)[0] + "-> ");
+            for (int k = c.kwIdx + 1; k < c.bodyStartIdx; k++) {
+                overrides.put(k, "");
+            }
+        }
+    }
+
+    /** Renders {@code tokens} with each entry in {@code overrides} substituted for that token's
+     *  own text -- same minimal-touch rendering precedent as {@code SwitchRule.render}. */
+    private String render(final List<Token> tokens, final Map<Integer, String> overrides) {
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            final String override = overrides.get(i);
+            out.append(override != null ? override : tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    private int matchParenForward(final List<Token> tokens, final int openIdx) {
+        int depth = 0;
+        for (int i = openIdx; i < tokens.size(); i++) {
+            if (isPunct(tokens.get(i), "(")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), ")")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private boolean isOp(final Token t, final String text) {
+        return t != null && t.type == TokenType.OP && text.equals(t.text);
     }
 
     /** Nearest preceding {@code class}/{@code interface} KEYWORD token, or -1 -- bounded-effort,

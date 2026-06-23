@@ -80,14 +80,15 @@ public class TokenizerCore {
             "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
             "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int",
             "interface", "long", "native", "new", "package", "permits", "private", "protected",
-            "public", "return", "sealed", "short", "static", "strictfp", "super", "switch",
+            "public", "record", "return", "sealed", "short", "static", "strictfp", "super", "switch",
             "synchronized", "this", "throw", "throws", "transient", "true", "false", "null", "try",
             "var", "void", "volatile", "while");
 
     private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
     private static final Set<String> NAMED_CONSTRUCT_CPP =
             setOf("class", "struct", "enum", "namespace");
-    private static final Set<String> NAMED_CONSTRUCT_JAVA = setOf("class", "interface", "enum");
+    private static final Set<String> NAMED_CONSTRUCT_JAVA =
+            setOf("class", "interface", "enum", "record");
 
     // Keywords that may legally appear inside a generic/template argument list without
     // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
@@ -119,6 +120,16 @@ public class TokenizerCore {
     private boolean syntaxError;
     private final Deque<String> nameStack = new LinkedList<>();
     private final Deque<Token> recentSignificant = new ArrayDeque<>();
+    // record header tracking (`record Name(` ... `)` -- the component list sits between the
+    // keyword+name and the body brace, so the simple 2-token `computeConstructName` lookback
+    // can't see across it). `bracketNameStack` mirrors every `(`/`[` open/close 1:1 so it stays
+    // balanced regardless of nested unrelated brackets (e.g. an annotation argument list inside
+    // the component list); `pendingRecordName` is the most recently closed record component
+    // list's name, consumed by the very next `{` (the record's own body -- nothing else can
+    // legally emit a `{` between the component list and the body, since `implements`/generic
+    // clauses there contain no brace-bearing expressions).
+    private final Deque<String> bracketNameStack = new LinkedList<>(); // LinkedList allows null pushes
+    private String pendingRecordName;
 
     public boolean hasSyntaxError() {
         return syntaxError;
@@ -155,6 +166,8 @@ public class TokenizerCore {
         this.syntaxError = false;
         this.nameStack.clear();
         this.recentSignificant.clear();
+        this.bracketNameStack.clear();
+        this.pendingRecordName = null;
 
         final List<Token> tokens = new ArrayList<>();
 
@@ -264,11 +277,38 @@ public class TokenizerCore {
         return null;
     }
 
+    /**
+     * True if the last two significant tokens are the `record` keyword followed by its
+     * declared name -- called when a `(` is emitted, to flag that paren group as a record's
+     * component list (see {@code bracketNameStack}/{@code pendingRecordName} above). Generic
+     * record names (`record Box<T>(...)`) are not recognized -- out of scope, same
+     * bounded-effort spirit as {@code isAnonymousClassBrace}'s qualified-name limitation in
+     * `BlockStructureRule`.
+     */
+    private String computeRecordHeaderName() {
+        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
+        final int n = arr.length;
+        if (n < 2 || !namedConstructKeywords.contains("record")) {
+            return null;
+        }
+        final Token kw = arr[n - 2];
+        final Token name = arr[n - 1];
+        if (kw.type == TokenType.KEYWORD && "record".equals(kw.text) && name.type == TokenType.IDENTIFIER) {
+            return name.text;
+        }
+        return null;
+    }
+
     // ── Per-construct emit helpers ──────────────────────────────────────────────────
     private Token emitOpenBrace() {
         String name = null;
         if (preprocessorDepth == 0) {
-            name = computeConstructName();
+            if (pendingRecordName != null) {
+                name = pendingRecordName;
+                pendingRecordName = null;
+            } else {
+                name = computeConstructName();
+            }
             braceDepth++;
             nameStack.push(name);
         }
@@ -290,6 +330,7 @@ public class TokenizerCore {
     }
 
     private Token emitOpenBracket(final char c) {
+        bracketNameStack.push(c == '(' ? computeRecordHeaderName() : null);
         if (preprocessorDepth == 0) {
             parenDepth++;
         }
@@ -298,6 +339,10 @@ public class TokenizerCore {
     }
 
     private Token emitCloseBracket(final char c) {
+        final String recordName = bracketNameStack.isEmpty() ? null : bracketNameStack.pop();
+        if (c == ')' && recordName != null) {
+            pendingRecordName = recordName;
+        }
         if (preprocessorDepth == 0) {
             parenDepth--;
         }

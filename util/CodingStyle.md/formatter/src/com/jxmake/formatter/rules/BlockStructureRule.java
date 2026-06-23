@@ -761,6 +761,20 @@ public class BlockStructureRule {
             return Frame.named(braceIdx, name); // already a complete label, e.g. `extern "C"`
         }
 
+        final int recordCloseParen = findRecordComponentListClose(tokens, braceIdx);
+        if (recordCloseParen >= 0) {
+            // `record Name(...) [implements TypeList] {` -- the component list (and an optional
+            // implements clause) sits between the name and the body brace, so the name isn't the
+            // token directly before `{` like it is for class/interface/enum.
+            final int openParen = matchOpenBackward(tokens, recordCloseParen);
+            final int nameIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
+            final int recordKwIdx = nameIdx >= 0 ? prevSignificantIndex(tokens, nameIdx - 1) : -1;
+            if (recordKwIdx >= 0 && tokens.get(recordKwIdx).type == TokenType.KEYWORD
+                    && "record".equals(tokens.get(recordKwIdx).text)) {
+                return Frame.named(braceIdx, "record " + name);
+            }
+            return Frame.named(braceIdx, name);
+        }
         final int identIdx = prevSignificantIndex(tokens, braceIdx - 1);
         final int kwIdx = identIdx >= 0 ? prevSignificantIndex(tokens, identIdx - 1) : -1;
         String label = name;
@@ -775,6 +789,38 @@ public class BlockStructureRule {
             }
         }
         return Frame.named(braceIdx, label);
+    }
+
+    /**
+     * Finds the `)` closing a record's component list, scanning backward from {@code braceIdx}
+     * across an optional trailing `implements TypeList` clause (the only thing Java permits
+     * between a record's component list and its body brace). Returns -1 if the immediate
+     * predecessor chain doesn't match this shape (not a record, or an unrecognized shape this
+     * bounded-effort scan doesn't cover -- e.g. anything other than `implements` at the top
+     * level). Angle-bracket depth is tracked so generic bounds inside the implements clause
+     * (`implements Comparable<? super Point>`) don't false-positive on `super`/`extends` as an
+     * unexpected keyword.
+     */
+    private int findRecordComponentListClose(final List<Token> tokens, final int braceIdx) {
+        int angleDepth = 0;
+        int i = prevSignificantIndex(tokens, braceIdx - 1);
+        while (i >= 0) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                angleDepth++;
+            } else if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                angleDepth--;
+            } else if (angleDepth == 0) {
+                if (isPunct(t, ")")) {
+                    return i;
+                }
+                if (t.type == TokenType.KEYWORD && !"implements".equals(t.text)) {
+                    return -1;
+                }
+            }
+            i = prevSignificantIndex(tokens, i - 1);
+        }
+        return -1;
     }
 
     /**

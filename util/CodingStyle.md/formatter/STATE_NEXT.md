@@ -32,7 +32,9 @@ ambiguity protocol as `STATE.md`.
 | File | Status |
 |---|---|
 | `JavaModifierPriority.java` (sealed/non-sealed addition) | COMPLETE (see RDD_KEY_1; `TokenizerCore.java` and `JavaSpecificRule.java` also touched -- new keywords, new `enforcePermitsClauseLineBreaking` pass) |
-| `JavaSpecificRule.java` (record, switch expressions, text blocks, var, pattern matching) | NOT STARTED |
+| `JavaSpecificRule.java` (record) | COMPLETE (see RDD_KEY_2; `TokenizerCore.java` and `BlockStructureRule.java` also touched) |
+| `JavaSpecificRule.java` (switch expressions) | COMPLETE (new `enforceSwitchExpressionArrowAlignment`, wired into `Formatter.java`; no RDD needed -- STYLE_JAVA17.md §7 already pre-resolved the only design question, the block-body all-or-nothing bail-out) |
+| `JavaSpecificRule.java` (text blocks, var, pattern matching) | NOT STARTED |
 | `CppModifierPriority.java` (consteval/constinit addition) | NOT STARTED |
 | `CppSpecificRule.java` (structured bindings) | NOT STARTED |
 | `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
@@ -41,18 +43,35 @@ ambiguity protocol as `STATE.md`.
 
 ## Checklist — Java 17+
 
-- [ ] `record` — treat as `class` for brace style, closing comment, forced blank
+- [x] `record` — treat as `class` for brace style, closing comment, forced blank
       lines (STYLE_JAVA17.md §1). Component list follows §8 signature rules.
+      `TokenizerCore` named-construct stamping extended to see through a record's
+      `(...)` component list and an optional trailing `implements` clause;
+      `BlockStructureRule`/`JavaSpecificRule` also touched for the same shapes plus
+      the compact canonical constructor -- see RDD_KEY_2.
 - [x] `sealed` / `non-sealed` / `permits` — new `JavaModifierPriority` column;
       order is `abstract → sealed → non-sealed → final` (resolved — see
       STYLE_JAVA17.md §2 resolved decisions table). Column order required a
       stop-and-ask against the Hard Constraint (the map is flat, no per-kind
       context) -- resolved, see RDD_KEY_1. `permits` clause line-breaking
       implemented as `JavaSpecificRule.enforcePermitsClauseLineBreaking`.
-- [ ] Switch expressions (`->` form) — new alignment pass, distinct from STYLE.md
+- [x] Switch expressions (`->` form) — new alignment pass, distinct from STYLE.md
       §13's `:`-based switch statement handling (STYLE_JAVA17.md §3). Block-body
       case breaks entire group's `->` alignment — all-or-nothing, no outlier
       exclusion (resolved — see STYLE_JAVA17.md §7 resolved decisions table).
+      Implemented as `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`:
+      independent switch/case discovery (own helper methods, does not touch or
+      reuse `SwitchRule`'s private colon-form machinery) that bails (leaves the
+      switch untouched) the instant a label's terminator is `:` instead of `->`,
+      so arrow-form and colon-form switches are never confused. Only the label
+      span up to and including `-> ` is ever rewritten; body content (including
+      a block body's own K&R brace, already handled by
+      `BlockStructureRule.isLambdaBrace`'s existing `->`-preceded-brace branch)
+      is untouched. Verified: STYLE_JAVA17.md's worked examples (basic alignment,
+      block-body bail-out, pattern-matching/record-deconstruction/`default`
+      alignment), colon-form switches confirmed byte-for-byte unaffected via a
+      pristine-baseline diff, idempotency, and a nested switch-expression-inside-
+      a-block-body case.
 - [ ] Text blocks (`"""`) — tokenizer change only: recognize as one opaque
       multi-line token, contents never touched (STYLE_JAVA17.md §4). Verify
       current `TokenizerCore.java` doesn't already mis-tokenize these before
@@ -91,6 +110,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 | Key | Topic |
 |---|---|
 | RDD_KEY_1 | `JavaModifierPriority` column order for `abstract`/`sealed`/`non-sealed`/`final`/`volatile` -- declaration-kind-specific orderings merged into one map |
+| RDD_KEY_2 | `record` named-construct detection through component list / `implements` clause / compact constructor -- three additive lookback extensions, one regression caught and fixed during verification |
 
 ---
 

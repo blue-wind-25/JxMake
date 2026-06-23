@@ -55,6 +55,9 @@ public final class Formatter {
         text = blockRule.addClosingComments(tokenizer.tokenize(text));
         text = switchRule.markFallthrough(tokenizer.tokenize(text));
         text = switchRule.alignInlineSwitches(tokenizer.tokenize(text));
+        if (isJava) {
+            text = javaRule.enforceSwitchExpressionArrowAlignment(tokenizer.tokenize(text));
+        }
 
         // Phase 4: cosmetic spacing.
         text = miscRule.enforceKeywordSpacing(tokenizer.tokenize(text));

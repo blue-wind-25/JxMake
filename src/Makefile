@@ -283,16 +283,24 @@ DIST_DIR = ../dist_build
 
 dist: jar
 	@rm -rvf $(DIST_DIR)
-	@mkdir -p $(DIST_DIR)/jxmake_dist/apps/{compile-server,pcpp-java}
+	@mkdir -p $(DIST_DIR)/jxmake_dist/apps/{code-formatter/style,compile-server,pcpp-java}
 	@mkdir -p $(DIST_DIR)/jxmake_dist/libs
 	@mkdir -p $(DIST_DIR)/jxmake_dist/dics
 	@mkdir -p $(DIST_DIR)/jxmake_dist/unicode
+	@cp -v ../util/CodingStyle.md/README.txt                  $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
+	@cp -v ../util/CodingStyle.md/AI_PREAMBLE.md              $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
+	@cp -v ../util/CodingStyle.md/STYLE*.md                   $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
+	@cp -v ../util/CodingStyle.md/formatter/README.md         $(DIST_DIR)/jxmake_dist/apps/code-formatter/README.md
+	@cp -v ../util/CodingStyle.md/formatter/*.{sh,cmd}        $(DIST_DIR)/jxmake_dist/apps/code-formatter
+	@cp -v ../util/CodingStyle.md/formatter/*.{sh,cmd}        $(DIST_DIR)/jxmake_dist/apps/code-formatter
+	@cp -v ../util/CodingStyle.md/formatter/LICENSE.txt       $(DIST_DIR)/jxmake_dist/apps/code-formatter/LICENSE.txt
+	@cp -v ../util/CodingStyle.md/formatter/target/*.jar      $(DIST_DIR)/jxmake_dist/apps/code-formatter/code-formatter.jar
 	@cp -v ../util/JCS/*.{sh,ps1,cmd}                         $(DIST_DIR)/jxmake_dist/apps/compile-server
 	@cp -v ../util/JCS/compile-server.jar                     $(DIST_DIR)/jxmake_dist/apps/compile-server/compile-server.jar
-	@cp -v ../util/JCS/README.md                              $(DIST_DIR)/jxmake_dist/apps/compile-server/compile-server-README.md
+	@cp -v ../util/JCS/README.md                              $(DIST_DIR)/jxmake_dist/apps/compile-server/README.md
 	@cp -v ../3rd_party/tools/pcpp_java/$(PCPP_JAVA_JAR)      $(DIST_DIR)/jxmake_dist/apps/pcpp-java/pcpp-java.jar
-	@cp -v ../3rd_party/tools/pcpp_java/LICENSE.txt           $(DIST_DIR)/jxmake_dist/apps/pcpp-java/pcpp-java-LICENSE.txt
-	@cp -v ../3rd_party/tools/pcpp_java/TRANSLATION_NOTES.txt $(DIST_DIR)/jxmake_dist/apps/pcpp-java/pcpp-java-TRANSLATION_NOTES.txt
+	@cp -v ../3rd_party/tools/pcpp_java/LICENSE.txt           $(DIST_DIR)/jxmake_dist/apps/pcpp-java/LICENSE.txt
+	@cp -v ../3rd_party/tools/pcpp_java/TRANSLATION_NOTES.txt $(DIST_DIR)/jxmake_dist/apps/pcpp-java/TRANSLATION_NOTES.txt
 	@cp -v ../3rd_party/jars/*                                $(DIST_DIR)/jxmake_dist/libs
 	@cp -v ../3rd_party/dics/*                                $(DIST_DIR)/jxmake_dist/dics
 	@cp -v ../3rd_party/unicode/*                             $(DIST_DIR)/jxmake_dist/unicode

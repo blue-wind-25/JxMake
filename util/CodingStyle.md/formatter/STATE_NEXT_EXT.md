@@ -25,8 +25,7 @@ logic, stop and ask before proceeding.
 Confirmed working design (tested with Qwen2.5-Coder-3B-Instruct-Q4_K_M via
 llama.cpp on Raspberry Pi CM5):
 
-- The JAR generates N candidate layouts for a Tier-3 decision point (e.g.
-  function call line-breaking: inline vs. split-per-arg vs. split-grouped)
+- The JAR generates N candidate layouts for a Tier-3 decision point
 - A selection prompt is sent to the local model asking it to pick the best
   option by number
 - A grammar constraint (`root ::= "0" | "1" | ... | "N"`) forces a
@@ -37,6 +36,8 @@ llama.cpp on Raspberry Pi CM5):
   (llama.cpp, Ollama, vLLM, LM Studio, etc.)
 - The model never rewrites source text — the JAR executes the chosen layout
   mechanically using existing token-level rules
+- AI is only invoked when there is a genuine choice between candidates —
+  single-candidate cases are handled mechanically with no endpoint call
 
 **Reference tools and models:**
 - llama.cpp: https://github.com/ggml-org/llama.cpp
@@ -45,14 +46,123 @@ llama.cpp on Raspberry Pi CM5):
 
 ---
 
+## Function Call and Declaration Line-Breaking — Candidate Forms
+
+> **Note:** This section describes the full design for §8 function *call*
+> and *declaration* line-breaking (distinct from function *signature*
+> line-breaking, which is already fully deterministic and unchanged).
+> STYLE.md §8 currently only documents signature breaking. The CLI must
+> update STYLE.md §8 to add these forms **before** implementing them —
+> see the checklist below.
+
+### The four candidate forms
+
+**Option 0 — Inline:** all args on one line.
+```cpp
+myfunc(a, b, c, d, e)
+```
+
+**Option 1 — Dropped:** args stay on one line but dropped below `(`;
+`)` on its own line. Only offered as a candidate when inline would exceed
+the 100-char limit (i.e. option 0 is not viable).
+```cpp
+myfunc(
+    a, b, c, d, e
+)
+```
+
+**Option 2 — Preserve groups + align:** keep existing line breaks exactly,
+ensure `)` is on its own line. Only offered when source is already
+multi-line. This option is **fully deterministic — no AI involvement**.
+The JAR applies it mechanically whenever the source is already grouped.
+
+Alignment within each preserved group line differs by context:
+- **Calls** — normalize spacing around `,` and between token expressions
+- **Declarations** — apply the existing §5 column grid (modifier columns,
+  type column, name column, comment column) across params within each group
+  line, reusing `DeclarationAlignmentRule`/`ColumnGrid`/`ModifierPriority`
+  infrastructure — no new alignment machinery needed
+
+```cpp
+// call — comma-spacing normalized within each group line
+myfunc(
+    a, b,
+    c, d,
+    e
+)
+
+// declaration — §5 grid applied within each group line
+void myfunc(
+    int      a, SomeType b,
+    uint8_t  c, int      d, // related output params
+    bool     e
+)
+```
+
+**Option 3 — One-per-line:** each arg on its own line, column-aligned;
+`)` on its own line. Always a candidate.
+```cpp
+myfunc(
+    a,
+    b,
+    c,
+    d,
+    e
+)
+```
+
+### Candidate availability matrix
+
+| Source form | Options offered | AI needed? |
+|---|---|---|
+| Inline, fits in 100 chars | 0 only | No |
+| Inline, exceeds 100 chars | 1, 3 | Yes (`"0" \| "1"`) |
+| Multi-line, inline fits | 0, 2, 3 | Yes (`"0" \| "1" \| "2"`) |
+| Multi-line, inline too long | 1, 2, 3 | Yes (`"0" \| "1" \| "2"`) |
+
+### Semantic grouping — explicitly out of scope
+
+Grouping by parameter type similarity, name prefix/suffix, or any other
+semantic signal is **never attempted** by the JAR or the local AI model.
+Option 2 only preserves grouping the author already expressed via line
+breaks — it never creates new groupings. Any semantic grouping is a
+human judgment call, outside the scope of this tool at any phase.
+
+### Comment handling within argument lists
+
+- **Trailing comment after an arg** (`myfunc(a, b // note`) — align
+  normally per §15 comment alignment rules within the group line.
+- **Comment-only line between arg groups** — treat as opaque: preserve
+  in place, do not reflow around it. Only compatible with option 2
+  (preserve groups); options 0, 1, and 3 migrate it to trailing position
+  on the arg it follows.
+- **Inline block comment between args** (`myfunc(a, /* note */ b)`) —
+  treat as opaque: normalize spaces around it, do not move it.
+- **Leading preamble comment above first arg** (comment with no preceding
+  arg on any line) — disqualifies options 0, 1, and 3; only option 2
+  is offered. This is a strong signal the author wants the layout preserved.
+
+### Distinction from signature breaking
+
+Function *signature* breaking (declarations/definitions with a body `{`)
+is already fully deterministic — inline if ≤ 100 chars, one-per-line
+otherwise, per the existing §8 implementation. No AI is involved for
+signatures. The candidate forms above apply to function *calls* and
+*forward declarations / prototype params* — i.e. any parameter list not
+directly followed by a body `{`.
+
+---
+
 ## File Status
 
 | File | Status |
 |---|---|
+| `STYLE.md` (add call line-breaking forms to §8) | NOT STARTED |
+| `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
 | `Config.java` (ai-assist, ai-endpoint, ai-model keys) | NOT STARTED |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/completions` caller) | NOT STARTED |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT STARTED |
-| `MiscRule.java` or rule classes (Tier-3 decision hooks) | NOT STARTED |
+| `MiscRule.java` (Tier-3 AI decision hooks) | NOT STARTED |
 | `README.md` (update ai-assist section with final config details) | NOT STARTED |
 | `FORMATTER_DISCUSSION.md` (close out remaining open questions) | NOT STARTED |
 
@@ -60,29 +170,56 @@ llama.cpp on Raspberry Pi CM5):
 
 ## Checklist — Phase 3
 
+**Step 1 — Deterministic extensions (no AI, implement first):**
+
+- [ ] Update `STYLE.md` §8 — add the four call line-breaking candidate forms
+      and the comment-handling rules documented in the Background section
+      above. Do this before writing any code so the spec and implementation
+      stay in sync.
+
+- [ ] Implement option 1 (dropped form) in `MiscRule.java`:
+      Collapse all args to a single line, drop below `(` indented one level,
+      `)` on its own line at the function name's indentation column. Only
+      applied when inline would exceed 100 chars.
+
+- [ ] Implement option 2 (preserve groups + align) in `MiscRule.java`:
+      Scan the existing token stream for line breaks within the arg list.
+      Normalize spacing around `,` and between tokens within each line.
+      Ensure `)` is on its own line. Migrate comments per the rules in the
+      Background section. Only applied when source is already multi-line.
+
+- [ ] Verify options 0 (inline) and 3 (one-per-line) already work correctly
+      for function *calls* (not just signatures) — they may need minor
+      adaptation since the existing §8 pass targets signatures only.
+
+**Step 2 — AI integration:**
+
 - [ ] Add config keys to `Config.java`:
-      `ai-assist` (off | local), `ai-endpoint`, `ai-model`
+      `ai-assist` (off | local), `ai-endpoint`, `ai-model`.
       Env var equivalents: `STYLEFMT_AI_ASSIST`, `STYLEFMT_AI_ENDPOINT`,
-      `STYLEFMT_AI_MODEL`
+      `STYLEFMT_AI_MODEL`.
 
 - [ ] Implement `AiDecisionClient.java`:
-      POST to `{ai-endpoint}/v1/completions` with prompt, `n_predict = 1` (or
-      `max_tokens = 1`), `temperature = 0.0`, and grammar constraint string.
-      Parse `choices[0].text` from JSON response. Fail-safe: if the endpoint
-      is unreachable or returns an unexpected token, fall back to option 0
-      (first candidate) and log a warning — never abort formatting.
+      POST to `{ai-endpoint}/v1/completions` with prompt, `n_predict = 1`
+      (or `max_tokens = 1`), `temperature = 0.0`, and grammar constraint
+      string. Parse `choices[0].text` from JSON response. Fail-safe: if the
+      endpoint is unreachable or returns an unexpected token, fall back to
+      option 0 (first candidate) and log a warning — never abort formatting.
 
 - [ ] Design and write `AI_DECISION_PROMPT.md`:
-      Prompt template for the selection prompt. Must include: (1) the candidate
-      layouts as numbered options, (2) a one-paragraph rule summary (not the
-      full style guide), (3) the current line-length budget, (4) the instruction
-      to respond with exactly one digit. Keep it minimal — small models degrade
-      with long prompts.
+      Prompt template for the selection prompt. Must include: (1) the
+      candidate layouts as numbered options, (2) a one-paragraph rule
+      summary (not the full style guide), (3) the current line-length
+      budget, (4) the instruction to respond with exactly one digit. Keep
+      it minimal — small models degrade with long prompts. Revisit the
+      comment-handling and candidate-availability rules above before writing
+      this prompt.
 
-- [ ] Wire Tier-3 decision hooks into the relevant rule classes:
-      Function call line-breaking (§8/§9 interaction) is the primary target.
-      Getter/setter grouping boundary is secondary. Each hook: generate
-      candidates mechanically → call `AiDecisionClient` → execute chosen form.
+- [ ] Wire Tier-3 AI decision hooks into `MiscRule.java`:
+      For each function call arg list, determine the candidate set per the
+      availability matrix above. If only one candidate → apply mechanically,
+      no AI call. If multiple candidates → call `AiDecisionClient` with the
+      grammar constraint for that candidate count → execute chosen form.
 
 - [ ] Update `README.md` ai-assist section with final config key names and
       grammar constraint format once implementation is stable.
@@ -108,11 +245,12 @@ To be done after all Phase 3 items above are complete and the API surface
       other docs referencing old key names or env var names.
 - [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
       `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
-- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep` implies
-      "preserve as-is" but the actual behavior is "detect project majority and apply it."
-      Update `Config.java` (`INDENT_STYLE_CHOICES`, default), `IndentationDetector.java`
-      (any internal string comparisons), docs (`README.md`, `FORMATTER_DISCUSSION.md`),
-      and `.style-fmt` files in the repo if any use `keep`.
+- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep`
+      implies "preserve as-is" but the actual behavior is "detect project
+      majority and apply it." Update `Config.java` (`INDENT_STYLE_CHOICES`,
+      default), `IndentationDetector.java` (any internal string comparisons),
+      docs (`README.md`, `FORMATTER_DISCUSSION.md`), and `.style-fmt` files
+      in the repo if any use `keep`.
 
 ---
 
@@ -123,11 +261,17 @@ To be done after all Phase 3 items above are complete and the API surface
 | RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/completions` preferred over native `/completion` for portability |
 | RDD_EXT_2 | Model never rewrites source; JAR executes chosen candidate mechanically |
 | RDD_EXT_3 | Fail-safe on unreachable endpoint: fall back to option 0, log warning, continue |
+| RDD_EXT_4 | Four candidate forms for function call and declaration line-breaking (inline, dropped, preserve-groups+align, one-per-line); option 1 only when inline exceeds 100 chars; option 2 only when source already multi-line; AI only invoked when multiple candidates exist; option 2 uses comma-spacing normalization for calls and existing §5 column grid (DeclarationAlignmentRule/ColumnGrid/ModifierPriority) for declarations |
+| RDD_EXT_5 | Semantic grouping (by type/name similarity) explicitly out of scope — option 2 preserves existing author-expressed grouping only, never creates new groupings |
+| RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
+| RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
 
 ---
 
 ## End Goal (Phase 3)
 
+- [ ] `STYLE.md` §8 updated with call line-breaking forms
+- [ ] Options 1 and 2 implemented deterministically, verified by smoke test
 - [ ] `ai-assist = local` works end-to-end: JAR formats a file with Tier-3
       decisions delegated to the local model, output is correct and stable
       across repeated runs (`temperature = 0.0`)

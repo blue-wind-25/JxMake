@@ -8,6 +8,20 @@ Preserve all logic, comments, and identifiers — change only whitespace and for
 
 ---
 
+## Scope
+
+This preamble and the style rules that follow are for **capable general-purpose models
+only** (Claude Sonnet / Opus, GPT-4o, Gemini 1.5 Pro, and equivalents). They cover
+Tier-3 judgment-call formatting that the deterministic JAR formatter intentionally
+leaves untouched — function call line-breaking intent, non-standard getter/setter
+grouping, and comment placement intent.
+
+Do **not** use this preamble with small on-device models (Qwen2.5-Coder-3B, Llama
+3.2 3B, etc.). The JAR's built-in `ai-assist` path uses a separate minimal
+decision-only prompt designed for those models. The two paths are incompatible.
+
+---
+
 ## Defaults for Judgment-Call Rules
 
 The style guide uses "optional", "context-driven", and "judgment call" in a few places.

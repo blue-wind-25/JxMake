@@ -10,19 +10,24 @@ Files in this directory
                   deterministic defaults that replace all judgment-call language
   README.txt      This file
 
-  The deterministic JAR formatter (formatter/code-formatter-1.00.jar) handles
-  all Tier-1 and Tier-2 rules mechanically — run it first before reaching for
-  the AI workflow here. The AI workflow (this file, reformat_chunks.py) is for
-  Tier-3 judgment-call rules that the JAR intentionally leaves to AI:
+  The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
+  1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
+  — run it first before reaching for the AI workflow here.  The AI workflow
+  (this file) covers Tier-3 judgment-call rules that the JAR intentionally
+  leaves to AI:
     - Function call line-breaking intent
     - Getter/setter groups with non-standard naming conventions
     - Comment placement and blank-line intent
   See formatter/FORMATTER_DISCUSSION.md "Future: AI-Assisted Formatting" for
   the full rationale and the planned JAR config hook (ai-assist, ai-endpoint,
   ai-model) that will eventually invoke AI directly from the JAR for these
-  judgment calls. Note: that JAR-invoked AI path uses a minimal decision-only
-  prompt (not AI_PREAMBLE.md) — AI_PREAMBLE.md and this workflow are for
-  general/capable models only, not small on-device models.
+  judgment calls.
+
+  IMPORTANT: if you intend to use the full AI workflow described in this file,
+  run the JAR with ai-assist disabled (the default).  Enabling ai-assist in
+  the JAR activates a separate minimal decision-only prompt designed for small
+  on-device models — it is not compatible with, and should not be combined
+  with, the capable-model workflow described here.
 
   Not yet covered by this workflow (phase 2, gated until the deterministic JAR
   formatter's dogfood test succeeds — see formatter/STATE.md):
@@ -51,11 +56,10 @@ Non-Anthropic equivalents at the same tier:
   Gemini 1.5 Pro / 2.0 Pro, GPT-4o (not 4o-mini)
 
 Context note: each `claude -p` call in a shell loop is a completely independent
-process — context does NOT accumulate between iterations. Each invocation sees
-only the style rules and the current file. The batch script below already handles
-this correctly. "One file at a time" only matters if you try to feed multiple
-files in a single prompt (e.g. `cat *.c | claude -p "..."`), which you should
-avoid.
+process — context does NOT accumulate between iterations.  Each invocation sees
+only the style rules and the current file.  "One file at a time" only matters
+if you try to feed multiple files in a single prompt (e.g. `cat *.c | claude -p
+"..."`), which you should avoid.
 
 
 Preparing the Style Prompt
@@ -184,50 +188,18 @@ Usage:
 
 Tips and Limitations
 ---------------------
-1. Review every diff manually. The model makes mistakes, especially on:
+1. Review every diff manually.  The model makes mistakes, especially on:
    - Large declaration groups requiring precise column alignment (STYLE.md §5, §6)
    - Getter/setter aligned groups (STYLE.md §14)
    - Complex bracket-padding decisions near the boundary of the rules (§3.1)
 
-2. Process files that are already mostly correct. AI reformatting works best
+2. Process files that are already mostly correct.  AI reformatting works best
    as a consistency pass, not a from-scratch transformation.
 
-3. For very long files (> 500 lines), use reformat_chunks.py (see below) instead
-   of reformat_file.py.  It splits at section dividers automatically.
-
-4. Some comment changes in the diff are intentional: the model applies §15
+3. Some comment changes in the diff are intentional: the model applies §15
    (removes trailing periods from // comments; converts multi-sentence comments
    to /* */ form).  Watch for unintentional changes — dropped comments or
    altered wording — which are bugs, not style fixes.
 
-5. Alignment in getter/setter groups (STYLE.md §14) is the hardest rule for
-   models to apply correctly. Manually verify those sections.
-
-
-Long Files — Chunk-Based Reformatting  (reformat_chunks.py)
-------------------------------------------------------------
-For files longer than ~500 lines, use reformat_chunks.py.  It splits the file
-at every section divider (single or triple ////) before sending to the model,
-then reassembles in order.
-
-Why splitting at dividers is safe:
-  - The divider block (all 1 or 3 lines) is always placed at the END of the
-    preceding chunk.  No divider is ever split across two API calls.
-  - The next chunk starts cleanly after the divider.
-  - Reassembly is a plain concatenation — no divider is duplicated or lost.
-  - //// divider lines are C line-comments; the model preserves their content
-    and only adjusts whitespace, so they survive chunking intact.
-
-Fallback for files with no internal dividers:
-  If a chunk is still above 500 lines (no dividers inside it), the script
-  falls back to splitting at function-boundary blank lines (a `}` at column 0
-  followed by a blank line).  This heuristic is less reliable — review those
-  chunks carefully in the diff.
-
-Usage (same as reformat_file.py, but handles long files automatically):
-  export ANTHROPIC_API_KEY="sk-ant-..."
-  python3 reformat_chunks.py src/LargeModule.c c
-  python3 reformat_chunks.py src/BigClass.java java
-
-Output:  src/LargeModule.c.reformatted
-Review:  diff src/LargeModule.c src/LargeModule.c.reformatted
+4. Alignment in getter/setter groups (STYLE.md §14) is the hardest rule for
+   models to apply correctly.  Manually verify those sections.

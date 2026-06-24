@@ -176,7 +176,7 @@ directly followed by a body `{`.
 
 | File | Status |
 |---|---|
-| `STYLE.md` (add call line-breaking forms to §8) | NOT STARTED |
+| `STYLE.md` (add call line-breaking forms to §8) | COMPLETE (commit b222345, predates this checklist pass -- verified matches RDD_EXT_4/5/6/7) |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
 | `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see note) |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
@@ -191,10 +191,17 @@ directly followed by a body `{`.
 
 **Step 1 — Deterministic extensions (no AI, implement first):**
 
-- [ ] Update `STYLE.md` §8 — add the four call line-breaking candidate forms
+- [x] Update `STYLE.md` §8 — add the four call line-breaking candidate forms
       and the comment-handling rules documented in the Background section
       above. Do this before writing any code so the spec and implementation
       stay in sync.
+      Already done (commit b222345, predates this checklist pass) -- §8's
+      "Function Calls and Forward Declarations" subsection covers all four
+      forms, the calls-vs-declarations option-2 alignment distinction, and the
+      comment-handling rules. Verified against RDD_EXT_4/5/6/7 -- matches,
+      with one deliberate simplification consistent with Step 2 being NOT
+      FEASIBLE: multi-line source always preserves grouping (option 2) rather
+      than offering a 0/2/3 AI choice, since there is no AI to choose with.
 
 - [ ] Implement option 1 (dropped form) and option 2 (preserve groups) in
       `MiscRule.java` — see RDD_KEY_4 for full architecture. Summary:

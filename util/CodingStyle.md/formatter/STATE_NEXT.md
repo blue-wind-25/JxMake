@@ -99,7 +99,16 @@ ambiguity protocol as `STATE.md`.
       constinit) with zero failures.
 - [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`
       always, wraps only past 100 chars; nested compound requirements untouched
-      (resolved — see STYLE_CPP20.md §2 and §5 resolved decisions table).
+      (resolved — see STYLE_CPP20.md §2 and §5 resolved decisions table;
+      implementation design in RDD_KEY_3).
+      Key points: (a) `concept` K&R brace is a no-op — verify via smoke test.
+      (b) Add `"requires"` and `"concept"` to `KEYWORDS_CPP` in
+      `TokenizerCore.java`; add `"concept"` to `NAMED_CONSTRUCT_CPP` (neither
+      is present — confirmed from source). (c) New `enforceRequiresClausePlacement`
+      in `CppSpecificRule.java`: KEYWORD `"requires"` whose prev significant
+      token is `)` → trailing clause; anything else → requirements expression
+      body, skip. Wire after `enforceEmptyParameterList` in `Formatter.java`
+      Phase 1 block (line 42). All helpers already present in `CppSpecificRule`.
 - [ ] `<=>`, coroutines, init-statement `if`/`switch` — all resolved as needing
       zero new rules (see STYLE_CPP20.md §4 and §5 resolved decisions table).
       Verify no-op assumption holds during implementation.
@@ -118,6 +127,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 |---|---|
 | RDD_KEY_1 | `JavaModifierPriority` column order for `abstract`/`sealed`/`non-sealed`/`final`/`volatile` -- declaration-kind-specific orderings merged into one map |
 | RDD_KEY_2 | `record` named-construct detection through component list / `implements` clause / compact constructor -- three additive lookback extensions, one regression caught and fixed during verification |
+| RDD_KEY_3 | concepts/`requires` implementation in `CppSpecificRule.java` -- `concept` K&R likely no-op (verify), new `enforceRequiresClausePlacement` using `)` predecessor to distinguish trailing clause from requirements expression body, `concept` added to `NAMED_CONSTRUCT_CPP` |
 
 ---
 

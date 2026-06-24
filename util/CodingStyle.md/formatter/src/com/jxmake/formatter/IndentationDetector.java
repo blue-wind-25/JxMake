@@ -52,7 +52,15 @@ public final class IndentationDetector {
         return Config.DEFAULT_INDENT_STYLE;
     }
 
-    private static Path findBoundaryDir(final Path startDir) {
+    /**
+     * Exposed (not just used internally by {@link #detect}) so {@code Main}'s standalone-mode
+     * temp-file cache can key on the same boundary directory this class would otherwise compute
+     * and immediately discard -- the cache must invalidate on the boundary dir's
+     * {@code lastModified}, which only means anything if it is the *same* directory `detect`
+     * itself would have scanned. Purely additive: behavior and signature for the one existing
+     * caller ({@link #detect}) are unchanged.
+     */
+    public static Path findBoundaryDir(final Path startDir) {
         final Path home = Paths.get(System.getProperty("user.home"));
         Path dir = startDir;
         while (dir != null) {

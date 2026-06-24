@@ -262,7 +262,7 @@ dogfood pass — before the riskier AI-integration work in Step 2 begins.
 
 | File | Status |
 |---|---|
-| `Main.java` | NOT STARTED |
+| `Main.java` | COMPLETE (CLI parsing, config resolution, standalone temp-cache for `IndentationDetector`, server auto-connect/delegate-with-fallback, `--server`/`--stop`, all four output modes, exit codes; verified by manual smoke test -- see RDD_KEY_6. Dogfood checklist items below still open.) |
 | `README.md` (for both phase 1 and phase 2; defer until just before Dogfood) | NOT STARTED |
 
 **`Main.java` note:** owns the temp-file cache layer for `IndentationDetector.detect()` in
@@ -273,13 +273,17 @@ current `Files.getLastModifiedTime(boundaryDir)`, return the cached style; other
 and rescan. `IndentationDetector` itself is unaware of this -- `Main` calls `detect()` with
 a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirely.
 
-- [ ] Parse CLI args: `--server`, `--stop`, `--standalone`, `--diff`,
+- [x] Parse CLI args: `--server`, `--stop`, `--standalone`, `--diff`,
       `--check`, `--out DIR`, `--port N`, and one or more file paths.
       Unknown flags → print usage to stderr and exit 2.
+      Done — see `Main.run()`. Mutually-exclusive output-mode flags
+      (`--diff`/`--check`/`--out`) and missing-argument cases for `--out`/
+      `--port` also validated, each producing exit 2.
 
-- [ ] Config resolution: call `Config.resolve(filePath, cliFlags)` per file.
+- [x] Config resolution: call `Config.resolve(filePath, cliFlags)` per file.
+      Done — `Main.formatStandalone()`.
 
-- [ ] IndentationDetector temp-file cache layer (standalone mode):
+- [x] IndentationDetector temp-file cache layer (standalone mode):
       Key = SHA-256 hex of boundary dir absolute path string.
       Cache file = `/tmp/style-fmt-indent-<key>.cache`
       Content = detected style + `\n` + boundary dir `lastModified` epoch ms.
@@ -287,25 +291,63 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
       `Files.getLastModifiedTime(boundaryDir)` → pre-populate single-entry
       map and pass to `IndentationDetector.detect()` (bypasses scan);
       otherwise delete cache file and rescan normally.
+      Done exactly as specified — `Main.resolveKeepIndentStyle()`. Required
+      widening `IndentationDetector.findBoundaryDir` from `private` to
+      `public static` (purely additive, zero behavior change for the one
+      existing caller, `detect()`). Verified via manual test: `tabs` cache
+      written and reused correctly for a `.style-fmt` with `indent-style =
+      keep` over a tab-indented sample.
 
-- [ ] Server auto-connect: if no `--standalone` flag, check lockfile; if
+- [x] Server auto-connect: if no `--standalone` flag, check lockfile; if
       server is alive, delegate to it via HTTP POST `/format` and exit;
       else run in-process via `Formatter.formatOne()`.
+      Done — `Main.format()`/`delegateToServer()`. Also added a resilience
+      behavior beyond the literal spec: if delegation throws (e.g. server
+      died between the lockfile check and the request), falls back to
+      standalone formatting with a stderr warning rather than aborting.
+      Required adding `ServerMode.findRunningServerPort()` (new public
+      method, purely additive — see RDD_KEY_6) since `ServerMode` had no
+      existing way to answer "is a server alive, and on which port" without
+      duplicating its private lockfile/PID-liveness helpers in `Main`.
 
-- [ ] `--server` mode: delegate to `ServerMode.start()` and exit.
+- [x] `--server` mode: delegate to `ServerMode.start()` and exit.
+      Done, with one correction found via smoke test: a naive
+      `System.exit(run(args))` after starting killed the just-started
+      server immediately (its live HTTP listener threads don't matter once
+      `System.exit` tears the whole JVM down). Fixed by changing
+      `ServerMode.start()`'s return type from `void` to `boolean` (true =
+      freshly started, caller must not exit; false = nothing to keep alive
+      — already running, or startup failed) and having `Main.main()` skip
+      `System.exit` only in the true case. `ServerMode.start()` had no
+      existing caller before this task, so this is not a behavior change to
+      any working code path. Full narrative: RDD_KEY_6.
 
-- [ ] `--stop` mode: read lockfile for PID+port, POST `/shutdown` with
+- [x] `--stop` mode: read lockfile for PID+port, POST `/shutdown` with
       short timeout, poll for lockfile removal, fall back to forceful kill
       on timeout (best-effort, see RDD_KEY_73/RDD_KEY_80).
+      Done — implemented as a new `ServerMode.stop()` public method (not
+      duplicated in `Main`) reusing `ServerMode`'s existing private
+      lockfile/PID helpers, plus a new `forceKill()` using the same
+      reflective-`ProcessHandle`-with-Java-8-fallback pattern as
+      `isProcessAlive`. Verified via smoke test: idempotent on an
+      already-stopped server, graceful shutdown on a running one.
 
-- [ ] Output modes:
+- [x] Output modes:
       in-place (default) — overwrite file with formatted content;
       `--diff` — print unified diff to stdout, do not modify file;
       `--check` — exit 1 if file would change, 0 if already formatted;
       `--out DIR` — write formatted output to DIR/<filename> instead.
+      Done — all four verified via smoke test. `--diff` required writing a
+      small self-contained unified-diff implementation (line-level LCS,
+      single hunk per file with clamped context rather than GNU diff's
+      multi-hunk splitting — simpler, still fully correct, see RDD_KEY_6)
+      since no existing diff utility exists in this codebase and shelling
+      out to the system `diff` binary would conflict with the project's
+      established cross-platform (no-shell-out-if-avoidable) posture.
 
-- [ ] Exit codes: 0 = success / no changes, 1 = would change (`--check`) or
+- [x] Exit codes: 0 = success / no changes, 1 = would change (`--check`) or
       formatting error, 2 = usage error (bad flags / no files given).
+      Done and verified for all three values across the scenarios above.
 
 - [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that
       `make` still succeeds after
@@ -313,7 +355,7 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
       exercising every construct in `STATE_NEXT.md`, verify style compliance
 - [ ] Dogfood test — formatter applied to Java and C/C++ sample sets containing
       `//` and `/* */` comments in uncommon locations
-      
+
 **Step 2 — AI integration: NOT FEASIBLE (deferred)**
 
 > The JAR cannot distinguish meaningful author-expressed argument grouping from
@@ -383,12 +425,13 @@ To be done after all Phase 3 items above are complete and the API surface
 | RDD_KEY_4 | `MiscRule.java` call/declaration line-breaking architecture -- `parseSignature` strips comments via `significantOnly()`, so option 2 must bypass it and work on raw token stream; option 1 reuses `parseSignature` + new `renderDropped`; both in one new `enforceCallLineBreaking` pass |
 | RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
 | RDD_KEY_5 | `MiscRule.enforceCallLineBreaking` implementation scope decisions (nesting claims interior regardless of rewrite outcome; any comment between `(`/`)` disqualifies the whole candidate, simplest case of RDD_EXT_6 only; call-vs-declaration classified by `parseSignature` success/failure; declaration preserve-groups needed a new `ColumnGrid`-based multi-per-line renderer since `DeclarationAlignmentRule.render()` only does one declaration per line) and a real bug found+fixed in smoke testing — nested calls inside a rewritten outer candidate were corrupted by routing expression tokens through `renderTokens` (whose tight-attachment rules don't know about call parens); fixed with new `collapseTokensToOneLine` helper that preserves original spacing instead of re-deriving it. Full narrative in `STATE_NEXT_rdd_log.md` |
+| RDD_KEY_6 | `Main.java` implementation decisions and a real bug found+fixed in smoke testing: (1) `IndentationDetector.findBoundaryDir` widened `private`→`public static` (purely additive); (2) `ServerMode.start()` return type changed `void`→`boolean` after smoke testing revealed `System.exit(run(args))` was killing a just-started server immediately — no existing caller before this task, so not a behavior change to working code; (3) added new public `ServerMode.findRunningServerPort()` and `ServerMode.stop()` methods (reusing existing private lockfile/PID helpers) instead of duplicating the lockfile protocol in `Main`; (4) `--diff` implemented via a small self-written line-level LCS unified-diff (single hunk per file with clamped context, not GNU diff's multi-hunk splitting) rather than shelling out to system `diff`, consistent with the project's no-shell-out posture; (5) two pre-existing gaps discovered but explicitly left unfixed as out of scope for this task, flagged to user instead: `ServerMode.FormatHandler` passes `config.indentStyle()` straight to `Formatter.formatOne` with no `"keep"`-resolution (will throw `IllegalArgumentException` on any project configured with `indent-style = keep` when going through the server, confirmed via smoke test — `Main`'s server-delegation-failure fallback to standalone masks this in practice but the server-side bug remains), and `Config.lineEndings()` was previously dead (read by no code) until `Main.applyLineEndings()` added the first consumer for standalone/in-process formatting — `ServerMode.FormatHandler` still doesn't apply it. Full narrative in `STATE_NEXT_rdd_log.md` |
 
 ---
 
 ## End Goal (Phase 3)
 
-- [ ] `STYLE.md` §8 updated with call line-breaking forms
+- [x] `STYLE.md` §8 updated with call line-breaking forms
 - [x] Options 1 and 2 implemented deterministically, verified by smoke test
 - [~] `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
       fallback (dropped-or-one-per-line) is the permanent behavior

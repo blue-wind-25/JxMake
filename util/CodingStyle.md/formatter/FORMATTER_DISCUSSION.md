@@ -436,14 +436,15 @@ few-sentence rule summary) and asks the model to return a single token decision
 mechanically. The model never touches source text directly.
 
 - [x] **Resolved:** the minimalist decision-only prompt for the on-device AI path.
-      Confirmed working design (see `STATE_NEXT_EXT.md` for implementation details):
+      Confirmed working design (see `STATE.md`'s Phase 3 section for implementation details):
       the JAR generates N candidate layouts and sends a selection prompt asking the
       model to return a single digit (0–N). A grammar constraint (`root ::= "0" | "1"
       | ...`) forces a single-token response. The model never touches source text.
       Tested with Qwen2.5-Coder-3B-Instruct-Q4_K_M via llama.cpp on a Raspberry Pi
       CM5 over the OpenAI-compatible `/v1/completions` endpoint (`temperature = 0.0`).
-      The prompt and grammar constraint will live in a dedicated `AI_DECISION_PROMPT.md`
-      once the Phase 3 implementation begins (see `STATE_NEXT_EXT.md`).
+      The prompt and grammar constraint were scoped for a dedicated `AI_DECISION_PROMPT.md`,
+      but Step 2 (AI integration) was ultimately found NOT FEASIBLE and deferred — see
+      `STATE.md`'s Phase 3, Step 2 section for the full rationale.
 
 ---
 

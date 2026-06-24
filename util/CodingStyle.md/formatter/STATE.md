@@ -8,26 +8,29 @@
 
 ### Session start
 1. Read this entire file to understand current state
-2. Check the **File Status** table to find the current file (`IN PROGRESS` first,
-   then the first `NOT STARTED`). If every row is `COMPLETE`, this file's own work is
-   done — continue in `STATE_NEXT.md` instead (see the phase-order note below).
-3. Check the **Current File** checklist for unchecked items — that is where to resume
+2. Check the **File Status** tables (Phase 1 / Phase 2 / Phase 3, in that order) to
+   find the current file (`IN PROGRESS` first, then the first `NOT STARTED`). All of
+   Phase 1 and Phase 2 are `COMPLETE`; resume work is in Phase 3.
+3. Check the **Checklist — Phase 3** section for unchecked items — that is where to
+   resume. **Step 2 — AI integration is NOT FEASIBLE** (deferred, see that section) —
+   do not attempt it; skip straight to the dogfood checklist and Post-Phase-3 Cleanup.
 4. If anything in this file is ambiguous, stop and ask before writing any code
 
 **Do NOT read `FORMATTER_DISCUSSION.md` or `README.md`** unless the user explicitly
 asks. All decisions relevant to implementation are recorded in the
-**Resolved Design Decisions** index below (full text in `STATE_rdd_log.md`).
+**Resolved Design Decisions** index below (full text in `STATE_rdd_log.md` —
+**do not read that file in full**, look up one key at a time via `grep -Fm1`).
 `FORMATTER_DISCUSSION.md` is design history and future planning only — large, and
 contains nothing the implementer needs beyond what is already indexed here.
 
-> **Phase order reversed (RDD_KEY_82):** `Main.java`, `README.md`, and the Tier 1/Tier 2
-> self-dogfood test were moved out of this file into `STATE_NEXT.md`'s new "End Goal
-> (Phase 1)" section, to be done *after* `STATE_NEXT.md`'s Java 17+/C++20+ checklists —
-> this avoids dogfooding twice when Phase 2 work touches the same shared formatting code
-> paths. The old Phase-2 gate is therefore lifted: `STYLE_JAVA17.md`, `STYLE_CPP20.md`,
-> and `STATE_NEXT.md` are now in scope. `STATE_rdd_log.md` (in full) remains off-limits —
-> access it only via `grep -Fm1 'RDD_KEY_n'` for a specific key; same rule applies to
-> `STATE_NEXT_rdd_log.md` once you're working in `STATE_NEXT.md`.
+> History: this tracker was originally split across `STATE.md` (Phase 1),
+> `STATE_NEXT.md` (Phase 2), and `STATE_NEXT_EXT.md` (Phase 3), with phase order
+> reversed mid-project (RDD_KEY_82) so Phase 2's Java17+/C++20+ work landed before
+> Phase 1's `Main.java`/dogfood items, avoiding a double dogfood pass. All three files
+> — and their two RDD logs (`STATE_rdd_log.md` + `STATE_NEXT_rdd_log.md`) — were
+> merged into this single file/single log once Phase 3 was underway. Nothing about
+> the resolved decisions changed; `RDD_KEY_1`–`6` from the old `STATE_NEXT_rdd_log.md`
+> were renumbered `RDD_KEY_83`–`88` to fit the merged log's single namespace.
 
 **ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
 
@@ -73,13 +76,13 @@ EOF
    the checklist item, then continue
 
 ### When a file reaches COMPLETE
-1. Mark it `COMPLETE` in the File Status table
+1. Mark it `COMPLETE` in the relevant File Status table
 2. Replace the **Current File** checklist with the checklist for the next file
 3. Commit STATE.md together with the completed source file
 
 ### Session end
 - Always leave STATE.md committed and up to date before ending the session
-- The next session will resume from the first unchecked item in the Current File checklist
+- The next session will resume from the first unchecked item in the current checklist
 
 ---
 
@@ -88,13 +91,14 @@ EOF
 ```
 util/CodingStyle.md/formatter/
   STATE.md                  ← this file
+  STATE_rdd_log.md           ← full Resolved Design Decisions text (do not read in full)
   README.md
   FORMATTER_DISCUSSION.md
   Makefile
   LICENSE
   src/
     com/jxmake/formatter/
-      Main.java
+      Main.java                 ← CLI entry point (Phase 3 Step 1.5)
       Config.java
       ServerMode.java
       Formatter.java            ← shared per-file pipeline (Config.resolve + ScopePipeline.process +
@@ -125,6 +129,19 @@ util/CodingStyle.md/formatter/
         JavaSpecificRule.java
   target/
 ```
+
+---
+
+## Phase Status
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 — Core formatter | `STYLE.md` / `STYLE_C_CPP.md` / `STYLE_JAVA.md` (Tier 1 + Tier 2) | COMPLETE |
+| 2 — Newer-language constructs | `STYLE_JAVA17.md` / `STYLE_CPP20.md` | COMPLETE |
+| 3, Step 1 — Call/declaration line-breaking | `STYLE.md` §8 extension, `MiscRule.enforceCallLineBreaking` | COMPLETE |
+| 3, Step 1.5 — Dogfood checkpoint | `Main.java` + dogfood verification | IN PROGRESS |
+| 3, Step 2 — AI integration | local on-device AI for Tier-3 judgment calls | NOT FEASIBLE (deferred — see Checklist — Phase 3) |
+| Post-Phase-3 — Cleanup | `JXMAKE_`/`jxmake-` prefix rename | NOT STARTED |
 
 ---
 
@@ -219,7 +236,13 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = keep`) |
 | RDD_KEY_80 | `ServerMode.java` idempotency check on a Java 8 build target -- `ProcessHandle` via reflection |
 | RDD_KEY_81 | Allman-brace render-loop infinite loop when `)`/`{` are already adjacent (`CppSpecificRule.java`/`JavaSpecificRule.java`) |
-| RDD_KEY_82 | Phase ordering reversed -- `Main.java`/`README.md`/Phase-1 dogfood test deferred to `STATE_NEXT.md` |
+| RDD_KEY_82 | Phase ordering reversed -- `Main.java`/`README.md`/Phase-1 dogfood test deferred to Phase 3 |
+| RDD_KEY_83 | `JavaModifierPriority` column order for `abstract`/`sealed`/`non-sealed`/`final`/`volatile` -- declaration-kind-specific orderings merged into one map |
+| RDD_KEY_84 | `record` named-construct detection through component list / `implements` clause / compact constructor |
+| RDD_KEY_85 | C++ concepts/`requires` clause implementation in `CppSpecificRule.java` |
+| RDD_KEY_86 | `MiscRule.java` call/declaration line-breaking architecture -- option 2 must bypass `parseSignature`, option 1 reuses it + new `renderDropped` |
+| RDD_KEY_87 | `MiscRule.enforceCallLineBreaking` implementation scope decisions (nesting, comment bail-out, call-vs-declaration classification, new preserve-groups grid) + `collapseTokensToOneLine` bugfix |
+| RDD_KEY_88 | `Main.java` implementation (Step 1.5) -- CLI parsing, config resolution, indent-style temp-cache, server auto-connect/delegate, `--server`/`--stop`, output modes, exit codes |
 
 ---
 
@@ -229,7 +252,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 ---
 
-## File Status
+## File Status — Phase 1
 
 | File | Status |
 |---|---|
@@ -252,8 +275,58 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 | `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 
-`Main.java` and `README.md` moved to `STATE_NEXT.md`'s "End Goal (Phase 1)" section -- RDD_KEY_82.
-Every row above is now `COMPLETE`; this file's own work is done. Continue in `STATE_NEXT.md`.
+`Main.java`, `README.md`, and the Tier 1/Tier 2 self-dogfood test were deferred to Phase 3
+(RDD_KEY_82) to avoid dogfooding twice once Phase 2 work touched the same shared code paths
+— see **Checklist — Phase 3, Step 1.5** below.
+
+---
+
+## File Status — Phase 2
+
+| File | Status |
+|---|---|
+| `JavaModifierPriority.java` (sealed/non-sealed addition) | COMPLETE (see RDD_KEY_83; `TokenizerCore.java` and `JavaSpecificRule.java` also touched -- new keywords, new `enforcePermitsClauseLineBreaking` pass) |
+| `JavaSpecificRule.java` (record) | COMPLETE (see RDD_KEY_84; `TokenizerCore.java` and `BlockStructureRule.java` also touched) |
+| `JavaSpecificRule.java` (switch expressions) | COMPLETE (new `enforceSwitchExpressionArrowAlignment`, wired into `Formatter.java`; no RDD needed -- STYLE_JAVA17.md §7 already pre-resolved the only design question, the block-body all-or-nothing bail-out) |
+| `TokenizerCore.java` (text blocks) | COMPLETE (new `isTextBlockOpener`/`emitTextBlock`, opaque `STRING` token spanning the whole block, mirrors `emitBlockComment`'s internal-newline pattern; no RDD needed) |
+| `DeclarationAlignmentRule.java` (`var`) | COMPLETE (added `"var"` to `TYPE_KEYWORDS_JAVA`; confirmed-not-no-op) |
+| `JavaSpecificRule.java` (pattern matching) | COMPLETE (confirmed true no-op, zero code changes) |
+| `CppModifierPriority.java` (consteval/constinit addition) | COMPLETE (new shared-rank column for `constexpr`/`consteval`/`constinit` between `static` and `volatile`/`const`; `consteval`/`constinit` also added to `KEYWORDS_CPP` -- `constexpr` alone was already present) |
+| `DeclarationAlignmentRule.java` (structured bindings) | COMPLETE (new `parseStructuredBinding` helper in `parseDeclaration`, cpp only; landed here rather than in a new `CppSpecificRule.java` method since `render`'s existing machinery already covered the atomic `[a, b, c]` name-cell additively) |
+| `CppSpecificRule.java` (concepts/requires) | COMPLETE (see RDD_KEY_85; `TokenizerCore.java` and `BlockStructureRule.java` also touched -- new keywords, `pendingConceptName`, `isConceptRequiresExpressionBody`. Also fixed in the same pass: `<=>` tokenization and `co_await`/`co_return`/`co_yield` keywords for the `<=>`/coroutines/init-statement checklist item below -- both pre-existing TokenizerCore gaps, no RDD needed) |
+| `AI_PREAMBLE_FULL.md` / `AI_PREAMBLE_AESTHETIC.md` presence + `README.txt` references | COMPLETE -- verified clean, no stale `AI_PREAMBLE.md` to delete |
+
+### Checklist — Phase 2 (C++17/20/23, all complete)
+
+- [x] `consteval` / `constinit`
+- [x] Structured bindings
+- [x] Concepts / `requires` clauses (RDD_KEY_85)
+- [x] `<=>`, coroutines, init-statement `if`/`switch` -- also fixed two missing-keyword
+      tokenizer gaps surfaced by verification (`<=>` in `MULTI_CHAR_OPS`,
+      `co_await`/`co_return`/`co_yield` in `KEYWORDS_CPP`). Surfaced but left unfixed as
+      out-of-scope: a pre-existing, unrelated bug where `auto x = regularFunc();` renders
+      as `auto x = regularFunc ( );` -- reproduces on the pristine pre-Phase-2 build, a
+      future Tier-1 `DeclarationAlignmentRule` pass should pick it up.
+
+**Hard constraint (Phase 2, satisfied throughout):** all of the above landed as additive
+branches in existing rule classes / new modifier-priority entries — no rewrite of
+already-COMPLETE Phase 1 logic.
+
+---
+
+## File Status — Phase 3
+
+| File | Status |
+|---|---|
+| `STYLE.md` (add call line-breaking forms to §8) | COMPLETE (commit b222345, predates this checklist pass -- verified matches RDD_EXT_4/5/6/7) |
+| `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | COMPLETE (new `enforceCallLineBreaking` pass + helpers, wired into `Formatter.formatOne`; verified via 13-scenario smoke test; see RDD_KEY_86/87) |
+| `Main.java` | COMPLETE (see Checklist — Phase 3, Step 1.5; RDD_KEY_88) |
+| `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see Checklist — Phase 3, Step 2) |
+| `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
+| `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
+| `MiscRule.java` (Tier-3 AI decision hooks) | NOT FEASIBLE |
+| `README.md` (phase 1+2 dogfood update; ai-assist section) | PARTIALLY DONE (ai-assist section already removed; phase 1+2 update still NOT STARTED, deferred until just before dogfood) |
+| `FORMATTER_DISCUSSION.md` (add Step 2 NOT FEASIBLE decision to Key Decisions table) | NOT STARTED |
 
 ---
 
@@ -331,9 +404,301 @@ that are genuinely reassigned (e.g. a `for` loop's `i`, an accumulator) must NOT
 be marked `final` — let `javac` be the check: if marking something `final` fails
 to compile, it was actually being reassigned, so leave it without `final`.
 
+---
+
+## Phase 3 — Background and Architecture (ai-assist)
+
+Tracks implementation of the JAR's built-in `ai-assist` feature — local
+on-device AI for Tier-3 judgment-call formatting decisions — and the
+post-phase-3 cleanup tasks that follow.
+
+**Hard constraint:** this work is purely additive. No existing Tier-1/Tier-2
+rule behavior may change. If an item turns out to require modifying existing
+logic, stop and ask before proceeding.
+
+Confirmed working design (tested with Qwen2.5-Coder-3B-Instruct-Q4_K_M via
+llama.cpp on Raspberry Pi CM5):
+
+- The JAR generates N candidate layouts for a Tier-3 decision point
+- A selection prompt is sent to the local model asking it to pick the best
+  option by number
+- A grammar constraint (`root ::= "0" | "1" | ... | "N"`) forces a
+  single-token response — no prose, no reasoning output
+- `temperature = 0.0` for deterministic selection
+- The JAR uses the OpenAI-compatible `/v1/chat/completions` endpoint —
+  llama.cpp applies the model's chat template (ChatML for Qwen, Llama-3
+  format for Llama, etc.) automatically from the GGUF metadata, so no
+  model-specific prompt tokens (`<|im_start|>` etc.) are needed in the JAR.
+  Portable across backends (llama.cpp, Ollama, vLLM, LM Studio, etc.)
+- The model never rewrites source text — the JAR executes the chosen layout
+  mechanically using existing token-level rules
+- AI is only invoked when there is a genuine choice between candidates —
+  single-candidate cases are handled mechanically with no endpoint call
+
+**Reference tools and models:**
+- llama.cpp: https://github.com/ggml-org/llama.cpp
+- Qwen2.5-Coder-3B-Instruct-GGUF: https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF
+- Tested GGUF: `qwen2.5-coder-3b-instruct-q4_k_m.gguf`
+
+---
+
+## Function Call and Declaration Line-Breaking — Candidate Forms
+
+> **Note:** This section describes the full design for §8 function *call*
+> and *declaration* line-breaking (distinct from function *signature*
+> line-breaking, which is already fully deterministic and unchanged).
+> STYLE.md §8 currently only documents signature breaking. The CLI must
+> update STYLE.md §8 to add these forms **before** implementing them —
+> see the checklist below.
+
+### The four candidate forms
+
+**Option 0 — Inline:** all args on one line.
+```cpp
+myfunc(a, b, c, d, e)
+```
+
+**Option 1 — Dropped:** args stay on one line but dropped below `(`;
+`)` on its own line. Only offered as a candidate when inline would exceed
+the 100-char limit (i.e. option 0 is not viable).
+```cpp
+myfunc(
+    a, b, c, d, e
+)
+```
+
+**Option 2 — Preserve groups + align:** keep existing line breaks exactly,
+ensure `)` is on its own line. Only offered when source is already
+multi-line. This option is **fully deterministic — no AI involvement**.
+The JAR applies it mechanically whenever the source is already grouped.
+
+Alignment within each preserved group line differs by context:
+- **Calls** — normalize spacing around `,` and between token expressions
+- **Declarations** — apply the existing §5 column grid (modifier columns,
+  type column, name column, comment column) across params within each group
+  line, reusing `DeclarationAlignmentRule`/`ColumnGrid`/`ModifierPriority`
+  infrastructure — no new alignment machinery needed
+
+```cpp
+// call — comma-spacing normalized within each group line
+myfunc(
+    a,        b,
+    c,        d,
+    e
+)
+
+// declaration — §5 grid applied within each group line
+void myfunc(
+    int      a, SomeType b,
+    uint8_t  c, int      d, // related output params
+    bool     e
+)
+```
+
+Note: for calls, "align" means normalizing spacing around `,` and between tokens
+within each preserved group line — not applying the §5 column grid (which is for
+typed declarations only). The two lines above illustrate the difference: the call
+example pads token spacing within each line; the declaration example aligns type,
+name, and comment columns across params on the same line.
+
+**Option 3 — One-per-line:** each arg on its own line, column-aligned;
+`)` on its own line. Always a candidate.
+```cpp
+myfunc(
+    a,
+    b,
+    c,
+    d,
+    e
+)
+```
+
+### Candidate availability matrix
+
+| Source form | Options offered | AI needed? |
+|---|---|---|
+| Inline, fits in 100 chars | 0 only | No |
+| Inline, exceeds 100 chars | 1, 3 | Yes (`"0" \| "1"`) |
+| Multi-line, inline fits | 0, 2, 3 | Yes (`"0" \| "1" \| "2"`) |
+| Multi-line, inline too long | 1, 2, 3 | Yes (`"0" \| "1" \| "2"`) |
+
+### Semantic grouping — explicitly out of scope
+
+Grouping by parameter type similarity, name prefix/suffix, or any other
+semantic signal is **never attempted** by the JAR or the local AI model.
+Option 2 only preserves grouping the author already expressed via line
+breaks — it never creates new groupings. Any semantic grouping is a
+human judgment call, outside the scope of this tool at any phase.
+
+### Comment handling within argument lists
+
+- **Trailing comment after an arg** (`myfunc(a, b // note`) — align
+  normally per §15 comment alignment rules within the group line.
+- **Comment-only line between arg groups** — treat as opaque: preserve
+  in place, do not reflow around it. Only compatible with option 2
+  (preserve groups); options 0, 1, and 3 migrate it to trailing position
+  on the arg it follows.
+- **Inline block comment between args** (`myfunc(a, /* note */ b)`) —
+  treat as opaque: normalize spaces around it, do not move it.
+- **Leading preamble comment above first arg** (comment with no preceding
+  arg on any line) — disqualifies options 0, 1, and 3; only option 2
+  is offered. This is a strong signal the author wants the layout preserved.
+
+### Distinction from signature breaking
+
+Function *signature* breaking (declarations/definitions with a body `{`)
+is already fully deterministic — inline if ≤ 100 chars, one-per-line
+otherwise, per the existing §8 implementation. No AI is involved for
+signatures. The candidate forms above apply to function *calls* and
+*forward declarations / prototype params* — i.e. any parameter list not
+directly followed by a body `{`.
+
+---
+
+## Checklist — Phase 3
+
+**Step 1 — Deterministic extensions (complete):**
+
+- [x] `STYLE.md` §8 updated with the four call-line-breaking candidate forms and
+      comment-handling rules (commit b222345; verified matches RDD_EXT_4–7, with one
+      deliberate simplification: multi-line source always preserves grouping (option 2)
+      rather than offering a 0/2/3 AI choice, consistent with Step 2 being NOT FEASIBLE)
+- [x] `MiscRule.enforceCallLineBreaking` — option 1 (dropped) + option 2
+      (preserve-groups+align), for both calls and declarations (RDD_KEY_86, RDD_KEY_87)
+- [x] `parseSignature` comment-handling verified safe for option 1 — strips comments via
+      `significantOnly()` rather than bailing; option 2 bypasses `parseSignature` entirely
+      (RDD_KEY_86)
+- [x] Options 0 (inline) and 3 (one-per-line) verified working for function *calls*
+      (not just signatures) inside the same `enforceCallLineBreaking` pass (RDD_KEY_87)
+
+No-AI fallback rule (ai-assist off or endpoint unavailable): see RDD_EXT_8.
+
+**Step 1.5 — Dogfood checkpoint (in progress):**
+
+Runs after Step 1 rather than before it, since Step 1 touches already-COMPLETE
+`MiscRule.java` logic and this checkpoint must catch any regression it introduces —
+covers the core formatter plus the Phase 2 additions plus Step 1 in one combined pass,
+before the (deferred) Step 2 AI-integration work.
+
+`Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
+`/tmp/style-fmt-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
++ boundary dir `lastModified` epoch ms; invalidated automatically on an mtime mismatch
+(RDD_KEY_88).
+
+- [x] CLI arg parsing (`--server`, `--stop`, `--standalone`, `--diff`, `--check`,
+      `--out DIR`, `--port N`, file paths); unknown flags / bad usage → exit 2 (RDD_KEY_88)
+- [x] Config resolution per file via `Config.resolve()` (RDD_KEY_88)
+- [x] `IndentationDetector` temp-file cache for standalone mode — see note above
+      (RDD_KEY_88)
+- [x] Server auto-connect/delegate via HTTP POST `/format`, with fallback to standalone
+      formatting on delegation failure (RDD_KEY_88)
+- [x] `--server` mode via `ServerMode.start()` (RDD_KEY_88)
+- [x] `--stop` mode via `ServerMode.stop()` (RDD_KEY_88)
+- [x] Four output modes: in-place (default), `--diff` (self-written unified diff,
+      single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
+- [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting
+      error, 2 = usage error (RDD_KEY_88)
+- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and
+      that `make` still succeeds after
+- [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set exercising
+      every Phase 2 construct, verify style compliance
+- [ ] Dogfood test — formatter applied to Java and C/C++ sample sets containing
+      `//` and `/* */` comments in uncommon locations
+- [ ] `README.md` update for Phase 1 + Phase 2 (defer until just before the dogfood
+      items above)
+
+Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
+out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
+doesn't resolve `indent-style = keep` before calling `Formatter.formatOne` (will throw
+on a server-delegated request for such a project — masked in practice by `Main`'s
+fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` is
+applied by `Main.applyLineEndings()` for standalone/in-process formatting but not yet
+by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
+
+**Step 2 — AI integration: NOT FEASIBLE (deferred)**
+
+> The JAR cannot distinguish meaningful author-expressed argument grouping from
+> arbitrary line breaks — this is the core prerequisite for reliable AI candidate
+> selection, and no tractable heuristic exists for it. Without that signal, a small
+> on-device model (3B–7B) has no reliable basis for choosing between candidates and
+> produces inconsistent results. The mechanical fallback (dropped form if args fit on
+> one indented line, one-per-line otherwise) is therefore the permanent behavior when
+> inline exceeds 100 chars.
+>
+> The architecture (grammar-constrained single-token response via `/v1/chat/completions`,
+> candidate layout generation, fail-safe fallback) remains documented here and in the
+> RDD table as a valid design. If a grouping-intent heuristic is developed in the future,
+> or if a larger model (7B+) proves reliable enough without one, Step 2 can be revisited
+> without redesigning the infrastructure.
+>
+> Tier-3 aesthetic decisions (argument layout, non-standard getter/setter grouping) are
+> handled by the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md` instead.
+
+- [~] All Step 2 items below are NOT FEASIBLE — no implementation needed.
+- [~] `Config.java` ai-assist keys — NOT FEASIBLE
+- [~] `AiDecisionClient.java` — NOT FEASIBLE
+- [~] `AI_DECISION_PROMPT.md` — NOT FEASIBLE
+- [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
+- [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session; no further CLI action needed for this item)
+- [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
+
+---
+
+## Checklist — Post-Phase-3 Cleanup
+
+To be done after all Phase 3 items above are complete and the API surface
+(config keys, env vars) is frozen.
+
+- [ ] Rename all `STYLEFMT_*` environment variables to `JXMAKE_*` prefix.
+      Grep: `grep -r "STYLEFMT_" src/`
+- [ ] Rename all `.style-fmt` config file keys from unprefixed names to
+      `jxmake-` prefix (e.g. `line-length` → `jxmake-line-length`).
+      Update `Config.java` key strings and all docs in one pass.
+- [ ] Rename `~/.config/style-fmt/` path to `~/.config/jxmake/` (or decide
+      to keep tool-specific path — confirm before implementing).
+- [ ] Update `README.md`, `README.txt`, `FORMATTER_DISCUSSION.md`, and any
+      other docs referencing old key names or env var names.
+- [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
+      `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
+- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep`
+      implies "preserve as-is" but the actual behavior is "detect project
+      majority and apply it." Update `Config.java` (`INDENT_STYLE_CHOICES`,
+      default), `IndentationDetector.java` (any internal string comparisons),
+      docs (`README.md`, `FORMATTER_DISCUSSION.md`), and `.style-fmt` files
+      in the repo if any use `keep`.
+
+---
+
+## Phase 3 — AI-Assist Resolved Design Decisions (inline only, no external log)
+
+These `RDD_EXT_n` decisions are background/architecture for the (deferred) Step 2
+AI integration and were never externally logged — they have no entry in
+`STATE_rdd_log.md` and no collision risk, so they stay inline here. The related
+`RDD_KEY_86`/`87`/`88` decisions that *are* externally logged appear only in the
+main Resolved Design Decisions index above.
+
+| Key | Topic |
+|---|---|
+| RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/chat/completions` used (not `/v1/completions` or native `/completion`) — llama.cpp applies model chat template automatically from GGUF metadata, no model-specific prompt tokens needed in JAR code |
+| RDD_EXT_2 | Model never rewrites source; JAR executes chosen candidate mechanically |
+| RDD_EXT_3 | Fail-safe on unreachable endpoint: fall back to option 0, log warning, continue |
+| RDD_EXT_4 | Four candidate forms for function call and declaration line-breaking (inline, dropped, preserve-groups+align, one-per-line); option 1 only when inline exceeds 100 chars; option 2 only when source already multi-line; AI only invoked when multiple candidates exist; option 2 uses comma-spacing normalization for calls and existing §5 column grid (DeclarationAlignmentRule/ColumnGrid/ModifierPriority) for declarations |
+| RDD_EXT_5 | Semantic grouping (by type/name similarity) explicitly out of scope — option 2 preserves existing author-expressed grouping only, never creates new groupings |
+| RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
+| RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
+| RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
+| RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
+
+---
+
 ## End Goal
 
-Moved to `STATE_NEXT.md`'s "End Goal (Phase 1)" section (RDD_KEY_82). Phase ordering was
-reversed: `STATE_NEXT.md`'s Java 17+/C++20+ checklists are now implemented first, with
-`Main.java`, `README.md`, and the Tier 1/Tier 2 self-dogfood test deferred until after those
-checklists land, so the dogfood pass only needs to happen once.
+- [x] Phase 1 (core formatter, all of STYLE.md/STYLE_C_CPP.md/STYLE_JAVA.md): COMPLETE
+- [x] Phase 2 (Java17+/C++20+ constructs): COMPLETE
+- [x] Phase 3, `STYLE.md` §8 updated with call line-breaking forms
+- [x] Phase 3, options 1 and 2 implemented deterministically, verified by smoke test
+- [~] Phase 3, `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
+      fallback (dropped-or-one-per-line) is the permanent behavior
+- [ ] Phase 3 dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
+- [ ] Post-Phase-3 cleanup complete: all env vars and config keys use the
+      `JXMAKE_` / `jxmake-` prefix; no stale references remain

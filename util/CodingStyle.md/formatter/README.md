@@ -175,24 +175,16 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_C_CPP.md`](../STYLE_C_CPP.md) — C and C++ extensions
 - [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
 - [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
-- [`STATE.md`](STATE.md) — implementation progress tracker
+- [`STATE.md`](STATE.md) — implementation progress tracker (all phases, including
+  Java 17+/C++20+ support and the call/declaration line-breaking work)
 
-### Phase 2 (not yet implemented)
-
-Newer-language-construct support is scoped but deliberately gated until the
-core formatter (everything above) is complete and dogfood-verified:
-
+Newer-language-construct support:
 - [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
   classes, switch expressions, text blocks, pattern matching)
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
   concepts/`requires`, `consteval`/`constinit`)
-- [`STATE_NEXT.md`](STATE_NEXT.md) — phase 2 implementation tracker
 
-### Phase 3 (not yet implemented, gated on phase 2)
-
-- [`STATE_NEXT_EXT.md`](STATE_NEXT_EXT.md) — phase 3 implementation tracker
-
-See `STATE.md`'s End Goal section for the exact gating condition.
+See `STATE.md`'s Phase Status / End Goal sections for current progress.
 
 ---
 

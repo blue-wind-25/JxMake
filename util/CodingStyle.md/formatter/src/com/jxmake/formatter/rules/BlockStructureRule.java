@@ -761,6 +761,15 @@ public class BlockStructureRule {
             return Frame.named(braceIdx, name); // already a complete label, e.g. `extern "C"`
         }
 
+        if (isConceptRequiresExpressionBody(tokens, braceIdx, name)) {
+            // `concept Name = requires(...) {` -- the requires-expression's own parameter list
+            // sits between the name and the body brace, same gap problem as `record`'s component
+            // list below. Checked first: `findRecordComponentListClose` below matches on the
+            // immediate `)` predecessor unconditionally (java-only in practice, since only `record`
+            // ever arms `pendingRecordName`, but it would otherwise misclassify this same shape).
+            return Frame.named(braceIdx, "concept " + name);
+        }
+
         final int recordCloseParen = findRecordComponentListClose(tokens, braceIdx);
         if (recordCloseParen >= 0) {
             // `record Name(...) [implements TypeList] {` -- the component list (and an optional
@@ -821,6 +830,42 @@ public class BlockStructureRule {
             i = prevSignificantIndex(tokens, i - 1);
         }
         return -1;
+    }
+
+    /**
+     * True iff {@code braceIdx}'s `{` is the body of a `concept Name = requires(...) { ... }`
+     * definition -- i.e. the exact predecessor chain `) requires ( ... ) <- = <- name <-
+     * concept`, scanning backward via {@link #matchOpenBackward}'s same local depth counting used
+     * by the record-component-list check above. {@code name} is the already-detected construct
+     * name (from the `{` token's own {@code name} field), confirmed here to match the identifier
+     * immediately before the `=` -- guards against a coincidentally-shaped unrelated expression.
+     */
+    private boolean isConceptRequiresExpressionBody(final List<Token> tokens, final int braceIdx, final String name) {
+        final int closeParenIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
+            return false;
+        }
+        final int openParenIdx = matchOpenBackward(tokens, closeParenIdx);
+        if (openParenIdx < 0) {
+            return false;
+        }
+        final int requiresIdx = prevSignificantIndex(tokens, openParenIdx - 1);
+        if (requiresIdx < 0 || tokens.get(requiresIdx).type != TokenType.KEYWORD
+                || !"requires".equals(tokens.get(requiresIdx).text)) {
+            return false;
+        }
+        final int eqIdx = prevSignificantIndex(tokens, requiresIdx - 1);
+        if (eqIdx < 0 || !isOp(tokens.get(eqIdx), "=")) {
+            return false;
+        }
+        final int nameIdx = prevSignificantIndex(tokens, eqIdx - 1);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER
+                || !name.equals(tokens.get(nameIdx).text)) {
+            return false;
+        }
+        final int conceptKwIdx = prevSignificantIndex(tokens, nameIdx - 1);
+        return conceptKwIdx >= 0 && tokens.get(conceptKwIdx).type == TokenType.KEYWORD
+                && "concept".equals(tokens.get(conceptKwIdx).text);
     }
 
     /**

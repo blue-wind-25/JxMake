@@ -31,6 +31,11 @@ public class CppSpecificRule {
     /** STYLE_C_CPP.md §10: number of blank lines required between header zones. */
     private static final int HEADER_ZONE_BLANK_LINES = 2;
 
+    /** One indentation level, used by {@link #enforceRequiresClausePlacement} when wrapping a
+     *  trailing `requires` clause to its own line -- same precedent as
+     *  {@code JavaSpecificRule.DEFAULT_INDENT_UNIT}/{@code SwitchRule.DEFAULT_INDENT_UNIT}. */
+    private static final String DEFAULT_INDENT_UNIT = "    ";
+
     private final String language;
 
     public CppSpecificRule(final String language) {
@@ -494,6 +499,124 @@ public class CppSpecificRule {
             }
         }
         return false;
+    }
+
+    /**
+     * STYLE_CPP20.md §2.2/§2.3: a trailing `requires` clause on a function/template signature
+     * always trails the closing `)` of the parameter list -- on the same line if the combined
+     * line (the physical line the `)` already sits on, plus ` requires <clause>`) fits within
+     * {@link MiscRule#LINE_LENGTH_LIMIT}, otherwise wrapped to its own line indented one level
+     * under the function name's line-leading indent. Detection: a KEYWORD `requires` token whose
+     * previous significant token is `)` is a trailing clause (it follows a parameter list);
+     * anything else (`=`, or no previous token at all) is a requires-<i>expression</i> body
+     * (`concept Drawable = requires(T t) { ... }`) -- left completely untouched, same posture as
+     * STYLE_CPP20.md §2.1/§2.3's "nested compound requirements ... left completely untouched".
+     *
+     * <p>The clause's own end is the first `{` or `;` reached scanning forward from `requires`
+     * -- a deliberate, non-AST signal, same conservative posture as the rest of this file: an ad
+     * hoc requires-<i>expression</i> used as the entire trailing constraint (`f() requires
+     * requires(T a) { a.foo(); }`) has no STYLE_CPP20.md worked example and is a documented gap,
+     * not specially detected -- its own `{` would be (mis)read as the terminator. A comment
+     * anywhere in the replaced span blocks the rewrite entirely, consistent with this file's
+     * existing "a comment in the gap blocks the rewrite" posture.
+     */
+    public String enforceRequiresClausePlacement(final List<Token> tokens) {
+        final List<int[]> spans = new ArrayList<>();
+        final List<String> renders = new ArrayList<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !"requires".equals(t.text)) {
+                continue;
+            }
+            final int closeParenIdx = prevSignificantIndex(tokens, i);
+            if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
+                continue;
+            }
+            final int clauseEndIdx = findRequiresClauseEnd(tokens, i);
+            if (clauseEndIdx < 0 || clauseEndIdx <= i + 1) {
+                continue;
+            }
+            if (hasCommentBetween(tokens, closeParenIdx, clauseEndIdx)) {
+                continue;
+            }
+
+            final int lineStartIdx = lineStartIndex(tokens, closeParenIdx);
+            final String baseIndent = lineIndent(tokens, closeParenIdx);
+            final String clauseExpr = collapseToOneLine(tokens, i + 1, clauseEndIdx - 1);
+            final String combined = baseIndent + collapseToOneLine(tokens, lineStartIdx, closeParenIdx)
+                    + " requires " + clauseExpr;
+
+            String rendered = combined.length() <= MiscRule.LINE_LENGTH_LIMIT
+                    ? " requires " + clauseExpr
+                    : "\n" + baseIndent + DEFAULT_INDENT_UNIT + "requires " + clauseExpr;
+            if (isPunct(tokens.get(clauseEndIdx), "{")) {
+                rendered += " ";
+            }
+
+            spans.add(new int[] { closeParenIdx + 1, clauseEndIdx });
+            renders.add(rendered);
+        }
+
+        if (spans.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (int s = 0; s < spans.size(); s++) {
+            final int[] span = spans.get(s);
+            appendRange(out, tokens, cursor, span[0]);
+            out.append(renders.get(s));
+            cursor = span[1];
+        }
+        appendRange(out, tokens, cursor, tokens.size());
+        return out.toString();
+    }
+
+    /** The first `{`/`;` reached scanning forward from {@code requiresIdx}, or -1 if neither is
+     *  found -- the trailing clause's own end (exclusive), per
+     *  {@link #enforceRequiresClausePlacement}'s doc comment. */
+    private int findRequiresClauseEnd(final List<Token> tokens, final int requiresIdx) {
+        for (int i = requiresIdx + 1; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{") || isPunct(t, ";")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** The index of the first significant token on the physical line containing {@code idx} --
+     *  the line-collapsing analog of {@link #lineIndent}. */
+    private int lineStartIndex(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int firstSig = nextSignificantIndex(tokens, newlineIdx);
+        return firstSig < 0 ? idx : firstSig;
+    }
+
+    /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
+     *  run collapses to exactly one space -- used to measure a would-be single-line rendering
+     *  against {@link MiscRule#LINE_LENGTH_LIMIT} without actually committing to it. */
+    private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = fromInclusive; i <= toInclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+                    sb.append(' ');
+                }
+                continue;
+            }
+            sb.append(t.text);
+        }
+        return sb.toString().trim();
     }
 
     /**

@@ -41,7 +41,7 @@ ambiguity protocol as `STATE.md`.
 | `JavaSpecificRule.java` (pattern matching) | COMPLETE (confirmed true no-op, zero code changes; see below) |
 | `CppModifierPriority.java` (consteval/constinit addition) | COMPLETE (see below) |
 | `DeclarationAlignmentRule.java` (structured bindings) | COMPLETE (see below; landed here, not in a new `CppSpecificRule.java`, since `parseDeclaration`/`render`'s existing machinery already covered it additively) |
-| `CppSpecificRule.java` (concepts/requires) | NOT STARTED |
+| `CppSpecificRule.java` (concepts/requires) | COMPLETE (see RDD_KEY_3; `TokenizerCore.java` and `BlockStructureRule.java` also touched -- new keywords, `pendingConceptName`, `isConceptRequiresExpressionBody`. Also fixed in the same pass: `<=>` tokenization and `co_await`/`co_return`/`co_yield` keywords for the `<=>`/coroutines/init-statement checklist item below -- both pre-existing TokenizerCore gaps, no RDD needed) |
 
 ---
 
@@ -97,21 +97,38 @@ ambiguity protocol as `STATE.md`.
       and bracket-less `auto x = 1;`). Also reran all prior Phase-2 harnesses
       (var, pattern matching, switch expressions, text blocks, consteval/
       constinit) with zero failures.
-- [ ] Concepts / `requires` clauses — K&R brace style; `requires` trails `)`
-      always, wraps only past 100 chars; nested compound requirements untouched
-      (resolved — see STYLE_CPP20.md §2 and §5 resolved decisions table;
-      implementation design in RDD_KEY_3).
-      Key points: (a) `concept` K&R brace is a no-op — verify via smoke test.
-      (b) Add `"requires"` and `"concept"` to `KEYWORDS_CPP` in
-      `TokenizerCore.java`; add `"concept"` to `NAMED_CONSTRUCT_CPP` (neither
-      is present — confirmed from source). (c) New `enforceRequiresClausePlacement`
-      in `CppSpecificRule.java`: KEYWORD `"requires"` whose prev significant
-      token is `)` → trailing clause; anything else → requirements expression
-      body, skip. Wire after `enforceEmptyParameterList` in `Formatter.java`
-      Phase 1 block (line 42). All helpers already present in `CppSpecificRule`.
-- [ ] `<=>`, coroutines, init-statement `if`/`switch` — all resolved as needing
-      zero new rules (see STYLE_CPP20.md §4 and §5 resolved decisions table).
-      Verify no-op assumption holds during implementation.
+- [x] Concepts / `requires` clauses — K&R brace style confirmed a true no-op;
+      `requires` trails `)` always, wraps only past 100 chars; nested compound
+      requirements untouched (see STYLE_CPP20.md §2 and §5 resolved decisions
+      table; implementation in RDD_KEY_3, updated with two discovered gaps).
+      Implemented: `"requires"`/`"concept"` added to `KEYWORDS_CPP`; `"concept"`
+      added to `NAMED_CONSTRUCT_CPP`; new `CppSpecificRule.enforceRequiresClausePlacement`
+      wired after `enforceEmptyParameterList`. Two additive gaps found and fixed
+      beyond the original design (both documented in RDD_KEY_3): (1)
+      `TokenizerCore`'s 2-token construct-name lookback can't see `concept Name =
+      requires(...) {` across the parameter list — fixed with `pendingConceptName`,
+      mirroring `record`'s `pendingRecordName`. (2) `BlockStructureRule.classifyNamed`
+      had the same gap for closing-comment labels — fixed with
+      `isConceptRequiresExpressionBody`, checked *before* `findRecordComponentListClose`
+      (which would otherwise intercept the same `)`-before-`{` shape first).
+      Verified via a 7-case harness (K&R no-op, inline-fits, wrap-then-collapse,
+      too-long wrap, requires-expression-body untouched, prototype semicolon,
+      comment-blocks-rewrite) plus closing-comment/blank-line cases, all idempotent.
+- [x] `<=>`, coroutines, init-statement `if`/`switch` — confirmed all three need
+      zero new formatting rules (see STYLE_CPP20.md §4 and §5 resolved decisions
+      table), but verification surfaced two missing-keyword gaps, both fixed:
+      `<=>` was tokenized as `<=` + `>` because `MULTI_CHAR_OPS` lacked it
+      entirely — added, ordered *before* `<=` (a strict prefix) since
+      `emitOperator` is first-match-wins. `co_await`/`co_return`/`co_yield` were
+      not in `KEYWORDS_CPP`, so `DeclarationAlignmentRule` misparsed
+      `co_yield value;` as a fake field declaration — added all three as
+      keywords. init-statement `if`/`switch` needed no code at all, confirmed
+      via smoke test. Verification also surfaced a pre-existing, unrelated bug
+      (`auto x = regularFunc();` renders as `auto x = regularFunc ( );`,
+      reproduced on the pristine pre-session build with no coroutine involved at
+      all) — out of scope for this checklist item, left unfixed and undocumented
+      beyond this note; a future Tier-1 `DeclarationAlignmentRule` pass should
+      pick it up.
 
 ---
 

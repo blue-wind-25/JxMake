@@ -40,6 +40,7 @@ public final class Formatter {
         if (isCpp) {
             text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = cppRule.enforceEmptyParameterList(tokenizer.tokenize(text));
+            text = cppRule.enforceRequiresClausePlacement(tokenizer.tokenize(text));
         } else if (isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.tokenize(text));

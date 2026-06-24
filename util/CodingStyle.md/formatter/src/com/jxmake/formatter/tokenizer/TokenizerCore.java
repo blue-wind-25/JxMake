@@ -65,16 +65,16 @@ public class TokenizerCore {
 
     private static final Set<String> KEYWORDS_CPP = setOf(
             "alignas", "alignof", "asm", "auto", "bool", "break", "case", "catch", "char",
-            "char16_t", "char32_t", "class", "const", "constexpr", "consteval", "constinit",
-            "const_cast", "continue",
+            "char16_t", "char32_t", "class", "co_await", "co_return", "co_yield", "concept",
+            "const", "constexpr", "consteval", "constinit", "const_cast", "continue",
             "decltype", "default", "delete", "do", "double", "dynamic_cast", "else", "enum",
             "explicit", "export", "extern", "false", "final", "float", "for", "friend", "goto",
             "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "nullptr",
             "operator", "override", "private", "protected", "public", "register",
-            "reinterpret_cast", "return", "short", "signed", "sizeof", "static", "static_assert",
-            "static_cast", "struct", "switch", "template", "this", "thread_local", "throw",
-            "true", "try", "typedef", "typeid", "typename", "union", "unsigned", "using",
-            "virtual", "void", "volatile", "wchar_t", "while");
+            "reinterpret_cast", "requires", "return", "short", "signed", "sizeof", "static",
+            "static_assert", "static_cast", "struct", "switch", "template", "this",
+            "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union",
+            "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while");
 
     private static final Set<String> KEYWORDS_JAVA = setOf(
             "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
@@ -87,7 +87,7 @@ public class TokenizerCore {
 
     private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
     private static final Set<String> NAMED_CONSTRUCT_CPP =
-            setOf("class", "struct", "enum", "namespace");
+            setOf("class", "struct", "enum", "namespace", "concept");
     private static final Set<String> NAMED_CONSTRUCT_JAVA =
             setOf("class", "interface", "enum", "record");
 
@@ -100,9 +100,12 @@ public class TokenizerCore {
             "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
             "short", "signed", "unsigned", "void", "wchar_t");
 
+    // Longest-prefix-first order matters: emitOperator() matches the first entry whose text the
+    // source starts with, so "<=>" must precede "<=" (a strict prefix of it) or the spaceship
+    // operator would be split into "<=" + ">".
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
-            "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
+            "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*"
     };
 
@@ -131,6 +134,13 @@ public class TokenizerCore {
     // clauses there contain no brace-bearing expressions).
     private final Deque<String> bracketNameStack = new LinkedList<>(); // LinkedList allows null pushes
     private String pendingRecordName;
+    // concept body tracking (`concept Name = requires(...) { ... }` -- the requires-expression's
+    // own parameter list sits between the keyword+name and the body brace, same gap problem as
+    // `record`'s component list, but simpler: nothing between `concept Name =` and that first `{`
+    // can itself open a brace, so a single pending flag (armed on `=`, consumed by the very next
+    // `{`) suffices with no paren-balancing needed. Cleared without effect on `;` first -- a
+    // concept with no requires-expression body at all (`concept Integral = std::is_integral_v<T>;`).
+    private String pendingConceptName;
 
     public boolean hasSyntaxError() {
         return syntaxError;
@@ -169,6 +179,7 @@ public class TokenizerCore {
         this.recentSignificant.clear();
         this.bracketNameStack.clear();
         this.pendingRecordName = null;
+        this.pendingConceptName = null;
 
         final List<Token> tokens = new ArrayList<>();
 
@@ -244,11 +255,36 @@ public class TokenizerCore {
             case PREPROCESSOR:
                 return;
             default:
+                if (t.type == TokenType.OP && "=".equals(t.text)) {
+                    final String conceptName = computeConceptHeaderName();
+                    if (conceptName != null) {
+                        pendingConceptName = conceptName;
+                    }
+                } else if (t.type == TokenType.PUNCT && ";".equals(t.text)) {
+                    pendingConceptName = null;
+                }
                 recentSignificant.addLast(t);
                 if (recentSignificant.size() > 3) {
                     recentSignificant.removeFirst();
                 }
         }
+    }
+
+    /** True iff the last two significant tokens (before the `=` currently being tracked) are the
+     *  `concept` keyword followed by its declared name -- arms {@code pendingConceptName}, the
+     *  `concept` analog of {@link #computeRecordHeaderName}. */
+    private String computeConceptHeaderName() {
+        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
+        final int n = arr.length;
+        if (n < 2 || !namedConstructKeywords.contains("concept")) {
+            return null;
+        }
+        final Token kw = arr[n - 2];
+        final Token name = arr[n - 1];
+        if (kw.type == TokenType.KEYWORD && "concept".equals(kw.text) && name.type == TokenType.IDENTIFIER) {
+            return name.text;
+        }
+        return null;
     }
 
     // ── Named construct detection (for the `{` name stack) ─────────────────────────
@@ -309,6 +345,9 @@ public class TokenizerCore {
             if (pendingRecordName != null) {
                 name = pendingRecordName;
                 pendingRecordName = null;
+            } else if (pendingConceptName != null) {
+                name = pendingConceptName;
+                pendingConceptName = null;
             } else {
                 name = computeConstructName();
             }

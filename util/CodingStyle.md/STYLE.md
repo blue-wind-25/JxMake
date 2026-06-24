@@ -244,9 +244,9 @@ void foo(int x, uint8_t flags, const char* name)
 **Break to one-per-line** otherwise, with parameters column-aligned:
 ```c
 void reallyLongFunctionNameHere(
-    const char*  name,
-    uint8_t      flags,
-    uint16_t     timeout
+    const char* name,
+    uint8_t     flags,
+    uint16_t    timeout
 )
 ```
 
@@ -257,9 +257,9 @@ function signature itself** (not indented further to match the parameters):
 
 ```c
 void reallyLongFunctionNameHere(
-    const char*  name,
-    uint8_t      flags,
-    uint16_t     timeout
+    const char* name,
+    uint8_t     flags,
+    uint16_t    timeout
 )
 ```
 

@@ -4,6 +4,7 @@
  * This file is part of the JxMake build system and is distributed under the MIT License.
  * See the LICENSE file in the formatter root directory for the full MIT license text.
  */
+
 package com.jxmake.formatter;
 
 import java.io.BufferedReader;

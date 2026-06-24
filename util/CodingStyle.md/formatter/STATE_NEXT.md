@@ -128,14 +128,16 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 > `STATE_NEXT_EXT.md`'s Phase 3 checklist, just before its "Step 2 — AI integration" —
 > see that file's gate note for why. Only the AI_PREAMBLE trim item remains here.
 
-- [ ] Trim `AI_PREAMBLE.md` back to Tier-3-only content (function-call
-      line-breaking, non-standard getter/setter naming — the genuinely
-      AI-only judgment calls per `FORMATTER_DISCUSSION.md`'s "Future:
-      AI-Assisted Formatting" section). Everything now resolved by the JAR
-      (§7 nesting, §12 blank line, §13 inline alignment, §14 outlier exclusion,
-      §15 capitalization, and this phase's Java17+/C++20+ additions) should be
-      removed from `AI_PREAMBLE.md` since it is no longer ambiguous —
-      it is documented, implemented behavior.
+- [ ] Replace `AI_PREAMBLE.md` with two focused preambles:
+      `AI_PREAMBLE_FULL.md` (full-file pass for un-JAR-processed files, retains
+      all judgment-call defaults) and `AI_PREAMBLE_AESTHETIC.md` (layout judgment
+      pass for post-JAR files, scoped to argument list layout and non-standard
+      getter/setter grouping only). Delete the original `AI_PREAMBLE.md`.
+      Update `README.txt` to reference both new files.
+      The §7/§12/§13/§14/§15 defaults that the JAR now handles deterministically
+      remain in `AI_PREAMBLE_FULL.md` for the full-file pass (where a capable
+      model still needs them) but are absent from `AI_PREAMBLE_AESTHETIC.md`
+      (where the JAR has already applied them).
 
 ---
 

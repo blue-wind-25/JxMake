@@ -172,10 +172,10 @@ directly followed by a body `{`.
 |---|---|
 | `STYLE.md` (add call line-breaking forms to §8) | NOT STARTED |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
-| `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT STARTED |
-| `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT STARTED |
-| `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT STARTED |
-| `MiscRule.java` (Tier-3 AI decision hooks) | NOT STARTED |
+| `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see note) |
+| `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
+| `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
+| `MiscRule.java` (Tier-3 AI decision hooks) | NOT FEASIBLE |
 | `README.md` (update ai-assist section with final config details) | NOT STARTED |
 | `FORMATTER_DISCUSSION.md` (close out remaining open questions) | NOT STARTED |
 
@@ -282,77 +282,32 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
 - [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set
       exercising every construct in `STATE_NEXT.md`, verify style compliance
 
-**Step 2 — AI integration:**
+**Step 2 — AI integration: NOT FEASIBLE (deferred)**
 
-- [ ] Add config keys to `Config.java`:
-      `ai-assist` (off | local), `ai-endpoint`, `ai-model`,
-      `ai-retry-interval` (default 60, seconds, server mode only).
-      Env var equivalents: `STYLEFMT_AI_ASSIST`, `STYLEFMT_AI_ENDPOINT`,
-      `STYLEFMT_AI_MODEL`, `STYLEFMT_AI_RETRY_INTERVAL`.
+> The JAR cannot distinguish meaningful author-expressed argument grouping from
+> arbitrary line breaks — this is the core prerequisite for reliable AI candidate
+> selection, and no tractable heuristic exists for it. Without that signal, a small
+> on-device model (3B–7B) has no reliable basis for choosing between candidates and
+> produces inconsistent results. The mechanical fallback (dropped form if args fit on
+> one indented line, one-per-line otherwise) is therefore the permanent behavior when
+> inline exceeds 100 chars.
+>
+> The architecture (grammar-constrained single-token response via `/v1/chat/completions`,
+> candidate layout generation, fail-safe fallback) remains documented here and in the
+> RDD table as a valid design. If a grouping-intent heuristic is developed in the future,
+> or if a larger model (7B+) proves reliable enough without one, Step 2 can be revisited
+> without redesigning the infrastructure.
+>
+> Tier-3 aesthetic decisions (argument layout, non-standard getter/setter grouping) are
+> handled by the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md` instead.
 
-- [ ] Implement `AiDecisionClient.java`:
-      POST to `{ai-endpoint}/v1/chat/completions` with a messages array
-      (`system` + `user` roles), `max_tokens = 1`, `temperature = 0.0`, and
-      grammar constraint string. Parse `choices[0].message.content` from JSON
-      response. Use a short connect timeout (500ms) to keep latency acceptable
-      when the endpoint is down.
-
-      **Endpoint unavailability cache** — to avoid DNS/mDNS lookup cost on
-      every call when the endpoint is unreachable:
-      - **Standalone mode:** static boolean field `endpointDead`; on first
-        connection failure set it true and skip all subsequent AI calls for
-        the process lifetime. Logs a single warning on first failure only.
-      - **Server mode:** static `long lastFailedAt` timestamp; on failure,
-        skip AI calls for 60 seconds, then retry once. If retry succeeds,
-        clear `lastFailedAt` and resume normal operation. This allows the
-        user to start llama.cpp mid-session without restarting the JAR server.
-        Retry interval is configurable via `ai-retry-interval` config key
-        (default 60, in seconds); add to `Config.java` alongside the other
-        ai-assist keys.
-
-      Fail-safe in all cases: fall back to the no-AI mechanical result
-      (option 1 dropped if it fits, otherwise option 3 one-per-line) and
-      log a warning — never abort formatting.
-
-- [ ] Design and write `AI_DECISION_PROMPT.md`:
-      Prompt template for the selection prompt. Must include: (1) the
-      candidate layouts as numbered options, (2) a one-paragraph rule
-      summary (not the full style guide), (3) the current line-length
-      budget, (4) the instruction to respond with exactly one digit. Keep
-      it minimal — small models degrade with long prompts. Revisit the
-      comment-handling and candidate-availability rules above before writing
-      this prompt.
-
-      **Before writing the prompt — test the model first:**
-      Manually test Qwen2.5-Coder-3B with 5-10 real code examples covering
-      the candidate forms (vary func name length, param count, call vs
-      declaration). Observe whether the model's selections match human
-      judgment consistently. Try at least two prompt phrasings:
-      - Aesthetic framing: "which option looks most readable"
-      - Rule-based framing: "which option best fits within the line length
-        budget while preserving grouping intent"
-      Compare results on the same examples — rule-based framing may be more
-      reliable for a small model since it gives a concrete criterion.
-
-      **If the model is unreliable across both phrasings:** mark this item
-      and all subsequent Step 2 items as PENDING, stop generating code, and
-      leave a note for the next chat session to discuss before proceeding.
-      Do not implement `AiDecisionClient` wiring or decision hooks until the
-      prompt is confirmed to work reliably. The mechanical fallback (auto-drop
-      + one-per-line) is always available as the permanent solution if AI
-      selection proves too unreliable at this model size.
-
-- [ ] Wire Tier-3 AI decision hooks into `MiscRule.java`:
-      For each function call arg list, determine the candidate set per the
-      availability matrix above. If only one candidate → apply mechanically,
-      no AI call. If multiple candidates → call `AiDecisionClient` with the
-      grammar constraint for that candidate count → execute chosen form.
-
-- [ ] Update `README.md` ai-assist section with final config key names and
-      grammar constraint format once implementation is stable.
-
-- [ ] Update `FORMATTER_DISCUSSION.md` — close out remaining open items,
-      update Key Decisions table.
+- [~] All Step 2 items below are NOT FEASIBLE — no implementation needed.
+- [~] `Config.java` ai-assist keys — NOT FEASIBLE
+- [~] `AiDecisionClient.java` — NOT FEASIBLE
+- [~] `AI_DECISION_PROMPT.md` — NOT FEASIBLE
+- [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
+- [~] `README.md` ai-assist section — already updated (AI section removed)
+- [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
 
 ---
 
@@ -401,8 +356,7 @@ To be done after all Phase 3 items above are complete and the API surface
 
 - [ ] `STYLE.md` §8 updated with call line-breaking forms
 - [ ] Options 1 and 2 implemented deterministically, verified by smoke test
-- [ ] `ai-assist = local` works end-to-end: JAR formats a file with Tier-3
-      decisions delegated to the local model, output is correct and stable
-      across repeated runs (`temperature = 0.0`)
+- [~] `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
+      fallback (dropped-or-one-per-line) is the permanent behavior
 - [ ] Post-phase-3 cleanup complete: all env vars and config keys use the
       `JXMAKE_` / `jxmake-` prefix; no stale references remain

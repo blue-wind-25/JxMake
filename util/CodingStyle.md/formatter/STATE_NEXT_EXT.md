@@ -99,8 +99,8 @@ Alignment within each preserved group line differs by context:
 ```cpp
 // call — comma-spacing normalized within each group line
 myfunc(
-    a, b,
-    c, d,
+    a,        b,
+    c,        d,
     e
 )
 
@@ -111,6 +111,12 @@ void myfunc(
     bool     e
 )
 ```
+
+Note: for calls, "align" means normalizing spacing around `,` and between tokens
+within each preserved group line — not applying the §5 column grid (which is for
+typed declarations only). The two lines above illustrate the difference: the call
+example pads token spacing within each line; the declaration example aligns type,
+name, and comment columns across params on the same line.
 
 **Option 3 — One-per-line:** each arg on its own line, column-aligned;
 `)` on its own line. Always a candidate.
@@ -176,8 +182,8 @@ directly followed by a body `{`.
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
 | `MiscRule.java` (Tier-3 AI decision hooks) | NOT FEASIBLE |
-| `README.md` (update ai-assist section with final config details) | NOT STARTED |
-| `FORMATTER_DISCUSSION.md` (close out remaining open questions) | NOT STARTED |
+| `README.md` (update ai-assist section with final config details) | PARTIALLY DONE (ai-assist section removed in chat session; `[~] NOT FEASIBLE` below covers remaining item) |
+| `FORMATTER_DISCUSSION.md` (add Step 2 NOT FEASIBLE decision to Key Decisions table) | NOT STARTED |
 
 ---
 
@@ -306,7 +312,7 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
 - [~] `AiDecisionClient.java` — NOT FEASIBLE
 - [~] `AI_DECISION_PROMPT.md` — NOT FEASIBLE
 - [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
-- [~] `README.md` ai-assist section — already updated (AI section removed)
+- [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session; no further CLI action needed for this item)
 - [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
 
 ---

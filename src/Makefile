@@ -288,7 +288,7 @@ dist: jar
 	@mkdir -p $(DIST_DIR)/jxmake_dist/dics
 	@mkdir -p $(DIST_DIR)/jxmake_dist/unicode
 	@cp -v ../util/CodingStyle.md/README.txt                  $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
-	@cp -v ../util/CodingStyle.md/AI_PREAMBLE.md              $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
+	@cp -v ../util/CodingStyle.md/AI_PREAMBLE_*.md            $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
 	@cp -v ../util/CodingStyle.md/STYLE*.md                   $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
 	@cp -v ../util/CodingStyle.md/formatter/README.md         $(DIST_DIR)/jxmake_dist/apps/code-formatter/README.md
 	@cp -v ../util/CodingStyle.md/formatter/*.{sh,cmd}        $(DIST_DIR)/jxmake_dist/apps/code-formatter

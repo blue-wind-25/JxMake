@@ -155,10 +155,13 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_NEXT_rdd_log.md
 > `STATE_NEXT_EXT.md`'s Phase 3 checklist, just before its "Step 2 — AI integration" —
 > see that file's gate note for why. Only the AI_PREAMBLE trim item remains here.
 
-- [ ] Verify `AI_PREAMBLE_FULL.md` and `AI_PREAMBLE_AESTHETIC.md` are present
+- [x] Verify `AI_PREAMBLE_FULL.md` and `AI_PREAMBLE_AESTHETIC.md` are present
       in `util/CodingStyle.md/` alongside `STYLE.md`, and that `README.txt`
       references both filenames correctly. If `AI_PREAMBLE.md` still exists,
       delete it (superseded). No other action needed.
+      Verified: both files present; `README.txt` references both filenames
+      correctly (lines 9-10, 27, 42, 84-127, 191-196); no stale `AI_PREAMBLE.md`
+      to delete. No code or doc changes needed.
 
 ---
 

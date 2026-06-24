@@ -3,12 +3,12 @@ Using AI to Apply the Coding Style Guide
 
 Files in this directory
 -----------------------
-  STYLE.md               Common rules for all languages (read this first)
-  STYLE_C_CPP.md         C and C++ extensions/overrides
-  STYLE_JAVA.md          Java extensions/overrides
-  AI_PREAMBLE_FULL.md    Preamble for full-file pass (un-JAR-processed files)
+  STYLE.md                  Common rules for all languages (read this first)
+  STYLE_C_CPP.md            C and C++ extensions/overrides
+  STYLE_JAVA.md             Java extensions/overrides
+  AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
-  README.txt             This file
+  README.txt                This file
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
   1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically.

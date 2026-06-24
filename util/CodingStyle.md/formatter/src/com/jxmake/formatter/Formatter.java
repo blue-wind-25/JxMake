@@ -45,6 +45,7 @@ public final class Formatter {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.tokenize(text));
         }
+        text = miscRule.enforceCallLineBreaking(tokenizer.tokenize(text));
         text = switchRule.formatNonInlineSwitches(tokenizer.tokenize(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.tokenize(text));
 

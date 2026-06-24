@@ -177,7 +177,7 @@ directly followed by a body `{`.
 | File | Status |
 |---|---|
 | `STYLE.md` (add call line-breaking forms to §8) | COMPLETE (commit b222345, predates this checklist pass -- verified matches RDD_EXT_4/5/6/7) |
-| `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | NOT STARTED |
+| `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | COMPLETE (new `enforceCallLineBreaking` pass + helpers, wired into `Formatter.formatOne`; verified via 13-scenario smoke test; see RDD_KEY_5) |
 | `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see note) |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
@@ -203,7 +203,7 @@ directly followed by a body `{`.
       FEASIBLE: multi-line source always preserves grouping (option 2) rather
       than offering a 0/2/3 AI choice, since there is no AI to choose with.
 
-- [ ] Implement option 1 (dropped form) and option 2 (preserve groups) in
+- [x] Implement option 1 (dropped form) and option 2 (preserve groups) in
       `MiscRule.java` — see RDD_KEY_4 for full architecture. Summary:
       new `enforceCallLineBreaking` whole-file pass; option 2 applied first
       (multi-line source, raw token stream, no `parseSignature`); option 1
@@ -211,6 +211,16 @@ directly followed by a body `{`.
       `renderDropped` method alongside existing `render`). Wire after
       `enforceEmptyParameterList`/`enforcePermitsClauseLineBreaking` in
       `Formatter.formatOne` Phase 1, before `formatNonInlineSwitches`.
+      Done — wired exactly as specified. Implementation needed three
+      additional scope decisions beyond RDD_KEY_4's architecture (nesting,
+      comment bail-out, call-vs-declaration classification) plus a new
+      `renderDeclarationPreserveGroups` grid for the declaration case
+      (`DeclarationAlignmentRule.render()` couldn't be reused as-is —
+      confirmed via `AskUserQuestion`, user chose new grid logic). A real
+      bug (nested call inside a rewritten outer candidate had its own
+      parens corrupted by `renderTokens`) was found via smoke test and
+      fixed with a new `collapseTokensToOneLine` helper. Full narrative:
+      RDD_KEY_5.
 
       **No-AI fallback rule (applies when ai-assist is off or endpoint
       unavailable):** after the fit check determines inline is not viable,
@@ -230,9 +240,16 @@ directly followed by a body `{`.
       Merged into the option 1 item above — both implemented in one new
       `enforceCallLineBreaking` pass per RDD_KEY_4.
 
-- [ ] Verify options 0 (inline) and 3 (one-per-line) already work correctly
+- [x] Verify options 0 (inline) and 3 (one-per-line) already work correctly
       for function *calls* (not just signatures) — they may need minor
       adaptation since the existing §8 pass targets signatures only.
+      Verified via smoke test: option 0 (call fits inline → byte-for-byte
+      no-op, confirmed with a nested-call case too) and option 3
+      (one-per-line fallback when dropped form still exceeds 100 chars,
+      for both calls and forward declarations) both work correctly. No
+      adaptation was needed beyond what RDD_KEY_5 already covers — both
+      are handled inside the same new `enforceCallLineBreaking` pass, not
+      the existing §8 signature pass.
 
 **Step 1.5 — Dogfood checkpoint (regression gate before AI integration):**
 
@@ -365,13 +382,14 @@ To be done after all Phase 3 items above are complete and the API surface
 | RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
 | RDD_KEY_4 | `MiscRule.java` call/declaration line-breaking architecture -- `parseSignature` strips comments via `significantOnly()`, so option 2 must bypass it and work on raw token stream; option 1 reuses `parseSignature` + new `renderDropped`; both in one new `enforceCallLineBreaking` pass |
 | RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
+| RDD_KEY_5 | `MiscRule.enforceCallLineBreaking` implementation scope decisions (nesting claims interior regardless of rewrite outcome; any comment between `(`/`)` disqualifies the whole candidate, simplest case of RDD_EXT_6 only; call-vs-declaration classified by `parseSignature` success/failure; declaration preserve-groups needed a new `ColumnGrid`-based multi-per-line renderer since `DeclarationAlignmentRule.render()` only does one declaration per line) and a real bug found+fixed in smoke testing — nested calls inside a rewritten outer candidate were corrupted by routing expression tokens through `renderTokens` (whose tight-attachment rules don't know about call parens); fixed with new `collapseTokensToOneLine` helper that preserves original spacing instead of re-deriving it. Full narrative in `STATE_NEXT_rdd_log.md` |
 
 ---
 
 ## End Goal (Phase 3)
 
 - [ ] `STYLE.md` §8 updated with call line-breaking forms
-- [ ] Options 1 and 2 implemented deterministically, verified by smoke test
+- [x] Options 1 and 2 implemented deterministically, verified by smoke test
 - [~] `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
       fallback (dropped-or-one-per-line) is the permanent behavior
 - [ ] Post-phase-3 cleanup complete: all env vars and config keys use the

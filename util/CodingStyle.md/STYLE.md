@@ -265,6 +265,46 @@ void reallyLongFunctionNameHere(
 
 Here `)` lines up under `void`, the start of the line the signature begins on.
 
+### Function Calls and Forward Declarations
+
+The rules above apply to **function/method signatures** (parameter lists directly
+followed by a body `{`). Function **calls** and **forward declarations** (prototype
+parameter lists not followed by a body `{`) follow a simpler rule:
+
+**Inline** if the full call/declaration fits within 100 chars — leave it as-is.
+
+**Otherwise:** attempt the dropped form — all args on one indented line below `(`,
+with `)` on its own line at the call's indentation level:
+
+```c
+someFunction(
+    arg1, arg2, arg3
+);
+```
+
+If the dropped form still exceeds 100 chars, fall back to **one-per-line**:
+
+```c
+someFunction(
+    arg1,
+    arg2,
+    arg3
+);
+```
+
+**Multi-line source:** if the source already has the args on multiple lines, preserve
+the existing line breaks (option 2 — preserve groups). Normalize spacing around `,`
+and between tokens within each group line; ensure `)` is on its own line. For forward
+declarations, apply the §5 column grid within each group line. For calls, normalize
+spacing only — no column grid.
+
+**Comments within arg lists:**
+- Trailing comment after an arg — preserve in place.
+- Comment-only line between arg groups — preserve in place (incompatible with
+  inline/dropped/one-per-line; keeps multi-line grouped form).
+- Inline block comment between args — normalize spaces around it, do not move it.
+- Leading preamble comment above first arg — preserve entire arg list untouched.
+
 ---
 
 ## 9. Blank Line Before `return`

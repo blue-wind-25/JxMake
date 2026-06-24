@@ -243,6 +243,40 @@ current `Files.getLastModifiedTime(boundaryDir)`, return the cached style; other
 and rescan. `IndentationDetector` itself is unaware of this -- `Main` calls `detect()` with
 a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirely.
 
+- [ ] Parse CLI args: `--server`, `--stop`, `--standalone`, `--diff`,
+      `--check`, `--out DIR`, `--port N`, and one or more file paths.
+      Unknown flags → print usage to stderr and exit 2.
+
+- [ ] Config resolution: call `Config.resolve(filePath, cliFlags)` per file.
+
+- [ ] IndentationDetector temp-file cache layer (standalone mode):
+      Key = SHA-256 hex of boundary dir absolute path string.
+      Cache file = `/tmp/style-fmt-indent-<key>.cache`
+      Content = detected style + `\n` + boundary dir `lastModified` epoch ms.
+      On read: file exists + stored `lastModified` ==
+      `Files.getLastModifiedTime(boundaryDir)` → pre-populate single-entry
+      map and pass to `IndentationDetector.detect()` (bypasses scan);
+      otherwise delete cache file and rescan normally.
+
+- [ ] Server auto-connect: if no `--standalone` flag, check lockfile; if
+      server is alive, delegate to it via HTTP POST `/format` and exit;
+      else run in-process via `Formatter.formatOne()`.
+
+- [ ] `--server` mode: delegate to `ServerMode.start()` and exit.
+
+- [ ] `--stop` mode: read lockfile for PID+port, POST `/shutdown` with
+      short timeout, poll for lockfile removal, fall back to forceful kill
+      on timeout (best-effort, see RDD_KEY_73/RDD_KEY_80).
+
+- [ ] Output modes:
+      in-place (default) — overwrite file with formatted content;
+      `--diff` — print unified diff to stdout, do not modify file;
+      `--check` — exit 1 if file would change, 0 if already formatted;
+      `--out DIR` — write formatted output to DIR/<filename> instead.
+
+- [ ] Exit codes: 0 = success / no changes, 1 = would change (`--check`) or
+      formatting error, 2 = usage error (bad flags / no files given).
+
 - [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and that
       `make` still succeeds after
 - [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set

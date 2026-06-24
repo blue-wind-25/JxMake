@@ -196,10 +196,14 @@ directly followed by a body `{`.
       above. Do this before writing any code so the spec and implementation
       stay in sync.
 
-- [ ] Implement option 1 (dropped form) in `MiscRule.java`:
-      Collapse all args to a single line, drop below `(` indented one level,
-      `)` on its own line at the function name's indentation column. Only
-      offered as an AI candidate when inline would exceed 100 chars.
+- [ ] Implement option 1 (dropped form) and option 2 (preserve groups) in
+      `MiscRule.java` — see RDD_KEY_4 for full architecture. Summary:
+      new `enforceCallLineBreaking` whole-file pass; option 2 applied first
+      (multi-line source, raw token stream, no `parseSignature`); option 1
+      as fallback for inline-exceeds-100 (reuses `parseSignature` + new
+      `renderDropped` method alongside existing `render`). Wire after
+      `enforceEmptyParameterList`/`enforcePermitsClauseLineBreaking` in
+      `Formatter.formatOne` Phase 1, before `formatNonInlineSwitches`.
 
       **No-AI fallback rule (applies when ai-assist is off or endpoint
       unavailable):** after the fit check determines inline is not viable,
@@ -209,19 +213,15 @@ directly followed by a body `{`.
       No ratio check or threshold needed — the fit check is the sole
       criterion. This applies to both calls and forward declarations.
 
-- [ ] Verify `parseSignature` bails on comment tokens between params:
-      A comment token appearing mid-param-list should cause the entire
-      signature to be left untouched (same bail behavior as default values,
-      varargs, throws). Read the existing bail path in `parseSignature` and
-      confirm a comment token triggers it. If not, add the bail condition
-      before implementing option 2 — the comment-handling rules for option 2
-      must build on a known-safe foundation, not a misparse.
+- [x] Verify `parseSignature` bails on comment tokens between params:
+      RESOLVED via source inspection (RDD_KEY_4) — `parseSignature` calls
+      `significantOnly()` which strips all COMMENT tokens before parsing, so
+      it silently ignores rather than bails on comments. This is safe for
+      option 1. Option 2 must NOT use `parseSignature` at all (see RDD_KEY_4).
 
-- [ ] Implement option 2 (preserve groups + align) in `MiscRule.java`:
-      Scan the existing token stream for line breaks within the arg list.
-      Normalize spacing around `,` and between tokens within each line.
-      Ensure `)` is on its own line. Migrate comments per the rules in the
-      Background section. Only applied when source is already multi-line.
+- [~] Implement option 2 (preserve groups + align) in `MiscRule.java`:
+      Merged into the option 1 item above — both implemented in one new
+      `enforceCallLineBreaking` pass per RDD_KEY_4.
 
 - [ ] Verify options 0 (inline) and 3 (one-per-line) already work correctly
       for function *calls* (not just signatures) — they may need minor
@@ -354,6 +354,7 @@ To be done after all Phase 3 items above are complete and the API surface
 | RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
 | RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
 | RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
+| RDD_KEY_4 | `MiscRule.java` call/declaration line-breaking architecture -- `parseSignature` strips comments via `significantOnly()`, so option 2 must bypass it and work on raw token stream; option 1 reuses `parseSignature` + new `renderDropped`; both in one new `enforceCallLineBreaking` pass |
 | RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
 
 ---

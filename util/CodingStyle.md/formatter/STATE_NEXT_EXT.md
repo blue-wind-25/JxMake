@@ -287,7 +287,9 @@ a pre-populated single-entry map on a temp-cache hit, bypassing the scan entirel
       `make` still succeeds after
 - [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set
       exercising every construct in `STATE_NEXT.md`, verify style compliance
-
+- [ ] Dogfood test — formatter applied to Java and C/C++ sample sets containing
+      `//` and `/* */` comments in uncommon locations
+      
 **Step 2 — AI integration: NOT FEASIBLE (deferred)**
 
 > The JAR cannot distinguish meaningful author-expressed argument grouping from

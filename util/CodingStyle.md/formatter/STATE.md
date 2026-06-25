@@ -864,6 +864,40 @@ main Resolved Design Decisions index above.
 
 ---
 
+## Known Gaps — Not Scheduled
+
+Low-priority issues that do not corrupt output and have no immediate fix
+planned. Recorded here so they are not rediscovered in future sessions.
+
+**`* const` cosmetic gap in mixed declaration groups (`DeclarationAlignmentRule`)**
+When a declaration group contains both `T*` and `T* const` lines and a longer
+type elsewhere in the same group, the current separate-postConst-column layout
+produces a visual gap between `*` and `const`:
+
+```c
+// Current output (postConst is a separate ColumnGrid column):
+char*            a;
+char*      const c;    // ← gap between * and const
+uint8_t* const*  h;
+
+// Ideal output (per STYLE_C_CPP.md §8 example — * const baked into type cell):
+char*            a;
+char* const      c;
+uint8_t* const*  h;
+```
+
+Fix (when desired, low regression risk): in `splitCppType`, always return
+`postConst = ""` and include the full token sequence (including trailing
+`const`) in `typeAndStar`. The `postConstActive` path in `render` then never
+fires and can be removed. Output then matches the §8 example exactly.
+No correctness impact in the current state — all variants (`const char*`,
+`char const*`, `char* const`, `const char* const`, `uint8_t* const*` etc.)
+align and render without corruption; only the cosmetic gap is wrong.
+East-const (`char const*`) is intentionally NOT normalized to west-const —
+it is a valid author preference and the formatter preserves it.
+
+---
+
 ## End Goal
 
 - [x] Phase 1 (core formatter, all of STYLE.md/STYLE_C_CPP.md/STYLE_JAVA.md): COMPLETE

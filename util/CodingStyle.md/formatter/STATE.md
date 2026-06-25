@@ -143,7 +143,7 @@ util/CodingStyle.md/formatter/
 | 1 — Core formatter | `STYLE.md` / `STYLE_C_CPP.md` / `STYLE_JAVA.md` (Tier 1 + Tier 2) | COMPLETE |
 | 2 — Newer-language constructs | `STYLE_JAVA17.md` / `STYLE_CPP20.md` | COMPLETE |
 | 3, Step 1 — Call/declaration line-breaking | `STYLE.md` §8 extension, `MiscRule.enforceCallLineBreaking` | COMPLETE |
-| 3, Step 1.4 — `renderTokens` paren-spacing fix | `DeclarationAlignmentRule` + `MiscRule` | NOT STARTED |
+| 3, Step 1.4 — `renderTokens` paren-spacing fix | `DeclarationAlignmentRule` + `MiscRule` | COMPLETE |
 | 3, Step 1.5 — Dogfood checkpoint | `Main.java` + dogfood verification | IN PROGRESS |
 | 3, Step 2 — AI integration | local on-device AI for Tier-3 judgment calls | NOT FEASIBLE (deferred — see Checklist — Phase 3) |
 | Post-Phase-3 — Cleanup | `JXMAKE_`/`jxmake-` prefix rename | NOT STARTED |
@@ -327,7 +327,7 @@ already-COMPLETE Phase 1 logic.
 | `STYLE.md` (add call line-breaking forms to §8) | COMPLETE (commit b222345, predates this checklist pass -- verified matches RDD_EXT_4/5/6/7) |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | COMPLETE (new `enforceCallLineBreaking` pass + helpers, wired into `Formatter.formatOne`; verified via 13-scenario smoke test; see RDD_KEY_86/87) |
 | `Main.java` | COMPLETE (see Checklist — Phase 3, Step 1.5; RDD_KEY_88) |
-| `DeclarationAlignmentRule.java` + `MiscRule.java` (`renderTokens` paren-spacing fix) | NOT STARTED (see Checklist — Phase 3, Step 1.4) |
+| `DeclarationAlignmentRule.java` + `MiscRule.java` (`renderTokens` paren-spacing fix) | COMPLETE (see Checklist — Phase 3, Step 1.4) |
 | `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see Checklist — Phase 3, Step 2) |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
@@ -667,21 +667,24 @@ Bug A makes Phase 4 apply correct spacing everywhere.
 **If anything in this fix is unclear, stop and ask the user with a concrete
 example of the input token sequence and expected output before proceeding.**
 
-- [ ] Bug A: rename and extend `enforceConditionComplexityPadding` →
+- [x] Bug A: rename and extend `enforceConditionComplexityPadding` →
       `enforceComplexityPadding` in `MiscRule.java`; add the function-
       definition-signature exclusion; update `Formatter.java` call site
-- [ ] Bug B: fix `needsSpaceBetween` in `DeclarationAlignmentRule.java`
-- [ ] Bug B: fix `needsSpaceBetween` in `MiscRule.java` (identical change)
-- [ ] Smoke-test: verify these cases produce correct output after both fixes:
-      - `int n = arr.size();` → tight (empty args, declaration init)
-      - `auto x = func( other() );` — wait, is this right? Content of
-        `func(...)` has `(` → loose; content of `other(...)` is empty → tight.
-        Result in a decl init: `auto x = func( other() );` ✓
+- [x] Bug B: fix `needsSpaceBetween` in `DeclarationAlignmentRule.java`
+- [x] Bug B: fix `needsSpaceBetween` in `MiscRule.java` (identical change)
+      Also added `isOp(t, ".")` to `isTightToken` and `isOp(prev, ".")` to the
+      prev guard in both files -- `.` is treated identically to `::` (tight on
+      both sides), required by the `arr.size()` smoke test case.
+- [x] Smoke-test: verify these cases produce correct output after both fixes:
+      - `int n = arr.size();` → tight (empty args, declaration init) ✓
+      - `auto x = func( other() );` — content of `func(...)` has `(` → loose;
+        content of `other(...)` is empty → tight ✓
       - `memset( buf, 0, n * sizeof(float) );` — standalone call ✓
-      - `process(float[] buffer, int n)` — method sig, stays tight ✓
-      - `a[ b[i] ];` — `[` contains `[` → loose ✓
-      - `a[10];` — tight ✓
-- [ ] Commit `MiscRule.java`, `DeclarationAlignmentRule.java`, `Formatter.java`,
+      - `process(float[] buffer, int n) { }` — method sig followed by `{`,
+        stays tight ✓
+      - `a[ b[i] ]` inside condition — `[` contains `[` → loose ✓
+      - `a[10]` — tight ✓
+- [x] Commit `MiscRule.java`, `DeclarationAlignmentRule.java`, `Formatter.java`,
       and `STATE.md` together
 
 **Step 1.5 — Dogfood checkpoint (in progress):**
@@ -910,7 +913,7 @@ semantically odd. Acceptable as preserve-as-is behaviour.
 - [x] Phase 3, options 1 and 2 implemented deterministically, verified by smoke test
 - [~] Phase 3, `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
       fallback (dropped-or-one-per-line) is the permanent behavior
-- [ ] Phase 3, Step 1.4 — `renderTokens` paren-spacing fix in `DeclarationAlignmentRule`
+- [x] Phase 3, Step 1.4 — `renderTokens` paren-spacing fix in `DeclarationAlignmentRule`
       and `MiscRule` (fixes `foo()` → `foo ( )` in rendered init/size expressions)
 - [ ] Phase 3 dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
 - [ ] Post-Phase-3 cleanup complete: all env vars and config keys use the

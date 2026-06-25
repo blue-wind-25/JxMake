@@ -169,45 +169,54 @@ public class MiscRule {
     private static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
 
     /**
-     * Pads or tightens the `(...)` immediately following one of the four control-flow keywords
-     * (`if`/`while`/`for`/`switch` -- the same {@link #TIGHT_PAREN_KEYWORDS} set as
-     * {@link #enforceKeywordSpacing}, §3.2) per STYLE.md §3.1: exactly one space just inside both
-     * `(` and `)` when {@link ComplexityPaddingEvaluator#isLoose} reports the content "loose"
-     * (a nested `(`/`[` is present anywhere in it, e.g. a function call or a parenthesized
-     * sub-expression), or zero width (tight) otherwise. `isLoose`'s flat "any `(`/`[` token
-     * present in the slice" check already subsumes nesting propagation -- an outer condition
-     * containing a call or a parenthesized sub-expression is loose without recursing into it --
-     * so each condition's content (the tokens strictly between its own matching `(`/`)`) is
-     * evaluated exactly once; no AST, no recursive re-evaluation. Scope is deliberately limited
-     * to a condition paren directly following one of the four keywords -- a nested call's own
-     * parens (`isReady(x)` inside `if( isReady(x) )`), a plain grouping paren, or any other
-     * `(...)` not anchored to one of those keywords is left completely untouched, since no
-     * STYLE.md worked example pads anything beyond a control-flow condition (array-index `[...]`
-     * padding from the same §3.1 table is a separate, not-yet-assigned gap). A comment or
-     * `NEWLINE` in a given side's own gap blocks the rewrite for that side only, same posture as
-     * {@link #enforceInitializerBraceSpacing}.
+     * Pads or tightens every `(...)` and `[...]` in the token stream per STYLE.md §3.1: exactly
+     * one space just inside both delimiters when {@link ComplexityPaddingEvaluator#isLoose} reports
+     * the content "loose" (a nested `(`/`[` is present anywhere in it), or zero width (tight)
+     * otherwise. Applies universally -- not limited to control-flow conditions. One exclusion:
+     * a `(` whose immediately preceding significant token is an IDENTIFIER and whose matching `)`
+     * is followed by `{`, `->`, or a trailing qualifier (`const`/`override`/`noexcept`/`throws`/
+     * `final`) is a function/method definition parameter list and is left untouched. A comment or
+     * `NEWLINE` in a given side's own gap blocks the rewrite for that side only.
      */
-    public String enforceConditionComplexityPadding(final List<Token> tokens) {
+    public String enforceComplexityPadding(final List<Token> tokens) {
         final Map<Integer, Boolean> looseByOpenIdx = new HashMap<>();
         final Map<Integer, Boolean> looseByCloseIdx = new HashMap<>();
         final int n = tokens.size();
 
         for (int i = 0; i < n; i++) {
             final Token t = tokens.get(i);
-            if (t.type != TokenType.KEYWORD || !TIGHT_PAREN_KEYWORDS.contains(t.text)) {
-                continue;
+            if (isPunct(t, "(")) {
+                final int prevSigIdx = prevSignificantIndex(tokens, i - 1);
+                if (prevSigIdx >= 0 && tokens.get(prevSigIdx).type == TokenType.IDENTIFIER) {
+                    final int closeIdx = matchParenForward(tokens, i);
+                    if (closeIdx < 0) {
+                        continue;
+                    }
+                    final int afterCloseIdx = nextSignificantIndex(tokens, closeIdx + 1);
+                    if (afterCloseIdx >= 0 && isFunctionDefFollower(tokens.get(afterCloseIdx))) {
+                        continue;
+                    }
+                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                    looseByOpenIdx.put(i, loose);
+                    looseByCloseIdx.put(closeIdx, loose);
+                } else {
+                    final int closeIdx = matchParenForward(tokens, i);
+                    if (closeIdx < 0) {
+                        continue;
+                    }
+                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                    looseByOpenIdx.put(i, loose);
+                    looseByCloseIdx.put(closeIdx, loose);
+                }
+            } else if (isPunct(t, "[")) {
+                final int closeIdx = matchBracketForward(tokens, i);
+                if (closeIdx < 0) {
+                    continue;
+                }
+                final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                looseByOpenIdx.put(i, loose);
+                looseByCloseIdx.put(closeIdx, loose);
             }
-            final int openIdx = nextSignificantIndex(tokens, i + 1);
-            if (openIdx < 0 || !isPunct(tokens.get(openIdx), "(")) {
-                continue;
-            }
-            final int closeIdx = matchParenForward(tokens, openIdx);
-            if (closeIdx < 0) {
-                continue;
-            }
-            final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(openIdx + 1, closeIdx));
-            looseByOpenIdx.put(openIdx, loose);
-            looseByCloseIdx.put(closeIdx, loose);
         }
 
         final StringBuilder out = new StringBuilder();
@@ -224,8 +233,10 @@ public class MiscRule {
                 continue;
             }
 
-            final Boolean afterOpen = isPunct(lastSignificant, "(") ? looseByOpenIdx.get(lastSignificantIdx) : null;
-            final Boolean beforeClose = isPunct(t, ")") ? looseByCloseIdx.get(i) : null;
+            final boolean lastIsOpen = isPunct(lastSignificant, "(") || isPunct(lastSignificant, "[");
+            final boolean curIsClose = isPunct(t, ")") || isPunct(t, "]");
+            final Boolean afterOpen = lastIsOpen ? looseByOpenIdx.get(lastSignificantIdx) : null;
+            final Boolean beforeClose = curIsClose ? looseByCloseIdx.get(i) : null;
             final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline);
 
             if (!gapHasBlocker && (Boolean.TRUE.equals(afterOpen) || Boolean.TRUE.equals(beforeClose))) {
@@ -249,6 +260,33 @@ public class MiscRule {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    private boolean isFunctionDefFollower(final Token t) {
+        if (isPunct(t, "{") || isOp(t, "->")) {
+            return true;
+        }
+        if (t.type == TokenType.KEYWORD) {
+            final String s = t.text;
+            return "const".equals(s) || "override".equals(s) || "noexcept".equals(s)
+                    || "throws".equals(s) || "final".equals(s);
+        }
+        return false;
+    }
+
+    private int matchBracketForward(final List<Token> tokens, final int openIdx) {
+        int depth = 0;
+        for (int i = openIdx; i < tokens.size(); i++) {
+            if (isPunct(tokens.get(i), "[")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "]")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     // ── §3.3 `{}` initializer / block spacing ───────────────────────────────────
@@ -1177,7 +1215,10 @@ public class MiscRule {
         if (isTightToken(cur)) {
             return false;
         }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isPunct(prev, "[")) {
+        if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
+            return false;
+        }
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
         return true;
@@ -1187,10 +1228,10 @@ public class MiscRule {
         if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
             return true;
         }
-        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]")) {
+        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::");
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".");
     }
 
     private List<Token> significantOnly(final List<Token> stmt) {

@@ -64,7 +64,7 @@ public final class Formatter {
 
         // Phase 4: cosmetic spacing.
         text = miscRule.enforceKeywordSpacing(tokenizer.tokenize(text));
-        text = miscRule.enforceConditionComplexityPadding(tokenizer.tokenize(text));
+        text = miscRule.enforceComplexityPadding(tokenizer.tokenize(text));
         text = miscRule.enforceInitializerBraceSpacing(tokenizer.tokenize(text));
         text = miscRule.enforcePreIncrement(tokenizer.tokenize(text));
         if (isCpp) {

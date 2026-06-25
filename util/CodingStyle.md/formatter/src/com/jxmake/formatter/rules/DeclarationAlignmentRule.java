@@ -336,7 +336,10 @@ public class DeclarationAlignmentRule {
         if (isTightToken(cur)) {
             return false;
         }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isPunct(prev, "[")) {
+        if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
+            return false;
+        }
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
         return true;
@@ -346,10 +349,10 @@ public class DeclarationAlignmentRule {
         if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
             return true;
         }
-        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]")) {
+        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::");
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".");
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────

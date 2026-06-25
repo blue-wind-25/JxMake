@@ -780,4 +780,100 @@ by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
 > or if a larger model (7B+) proves reliable enough without one, Step 2 can be revisited
 > without redesigning the infrastructure.
 >
-> Tier-3 aesthetic decisions (argument layout, non-standar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+> Tier-3 aesthetic decisions (argument layout, non-standard getter/setter grouping) are
+> handled by the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md` instead.
+
+- [~] All Step 2 items below are NOT FEASIBLE — no implementation needed.
+- [~] `Config.java` ai-assist keys — NOT FEASIBLE
+- [~] `AiDecisionClient.java` — NOT FEASIBLE
+- [~] `AI_DECISION_PROMPT.md` — NOT FEASIBLE
+- [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
+- [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session; no further CLI action needed for this item)
+- [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
+
+---
+
+## Checklist — Post-Phase-3 Cleanup
+
+To be done after all Phase 3 items above are complete and the API surface
+(config keys, env vars) is frozen.
+
+- [ ] Rename all `STYLEFMT_*` environment variables to `JXMAKE_*` prefix.
+      Grep: `grep -r "STYLEFMT_" src/`
+- [ ] Rename all `.style-fmt` config file keys from unprefixed names to
+      `jxmake-` prefix (e.g. `line-length` → `jxmake-line-length`).
+      Update `Config.java` key strings and all docs in one pass.
+- [ ] Rename `~/.config/style-fmt/` path to `~/.config/jxmake/` (or decide
+      to keep tool-specific path — confirm before implementing).
+- [ ] Update `README.md`, `README.txt`, `FORMATTER_DISCUSSION.md`, and any
+      other docs referencing old key names or env var names.
+- [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
+      `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
+- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep`
+      implies "preserve as-is" but the actual behavior is "detect project
+      majority and apply it." Update `Config.java` (`INDENT_STYLE_CHOICES`,
+      default), `IndentationDetector.java` (any internal string comparisons),
+      docs (`README.md`, `FORMATTER_DISCUSSION.md`), and `.style-fmt` files
+      in the repo if any use `keep`.
+
+---
+
+## Checklist — Post-Phase-3 Cleanup, Step 2 — Makefile `test` target
+
+To be done after the cleanup checklist above and after the dogfood test files
+(`test/*_inp.*` / `test/*_out.*`) are confirmed correct.
+
+- [ ] Add variables to Makefile:
+      `TEST_DIR = test`, `TEST_TMP = target/test-out`,
+      `DOGFOOD_SRC = target/dogfood-src`
+- [ ] Add `test` target (depends on `$(JAR_FILE)`):
+      (1) `mkdir -p $(TEST_TMP) $(DOGFOOD_SRC)`
+      (2) For each `$(TEST_DIR)/*_inp.*`: run
+          `java -jar $(JAR_FILE) --out $(TEST_TMP) <file>` then
+          `diff -u $(TEST_DIR)/<base>_out.<ext> $(TEST_TMP)/<base>_inp.<ext>`
+          (note: `--out` preserves the original filename, so the diff compares
+          the `*_out` reference against the formatter's output of `*_inp`)
+      (3) For each `$(TEST_DIR)/*_out.*`: run formatter with `--out $(TEST_TMP)`
+          then diff the result against the original `*_out` (idempotency)
+      (4) Copy `src/` tree to `$(DOGFOOD_SRC)`, run formatter on all `.java`
+          files there, `javac` them, run formatter again and verify no changes
+- [ ] Add `test` to `.PHONY`
+- [ ] Verify `make test` runs clean end-to-end before committing
+
+These `RDD_EXT_n` decisions are background/architecture for the (deferred) Step 2
+AI integration and were never externally logged — they have no entry in
+`STATE_rdd_log.md` and no collision risk, so they stay inline here. The related
+`RDD_KEY_86`/`87`/`88` decisions that *are* externally logged appear only in the
+main Resolved Design Decisions index above.
+
+| Key | Topic |
+|---|---|
+| RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/chat/completions` used (not `/v1/completions` or native `/completion`) — llama.cpp applies model chat template automatically from GGUF metadata, no model-specific prompt tokens needed in JAR code |
+| RDD_EXT_2 | Model never rewrites source; JAR executes chosen candidate mechanically |
+| RDD_EXT_3 | Fail-safe on unreachable endpoint: fall back to option 0, log warning, continue |
+| RDD_EXT_4 | Four candidate forms for function call and declaration line-breaking (inline, dropped, preserve-groups+align, one-per-line); option 1 only when inline exceeds 100 chars; option 2 only when source already multi-line; AI only invoked when multiple candidates exist; option 2 uses comma-spacing normalization for calls and existing §5 column grid (DeclarationAlignmentRule/ColumnGrid/ModifierPriority) for declarations |
+| RDD_EXT_5 | Semantic grouping (by type/name similarity) explicitly out of scope — option 2 preserves existing author-expressed grouping only, never creates new groupings |
+| RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
+| RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
+| RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
+| RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
+
+---
+
+## End Goal
+
+- [x] Phase 1 (core formatter, all of STYLE.md/STYLE_C_CPP.md/STYLE_JAVA.md): COMPLETE
+- [x] Phase 2 (Java17+/C++20+ constructs): COMPLETE
+- [x] Phase 3, `STYLE.md` §8 updated with call line-breaking forms
+- [x] Phase 3, options 1 and 2 implemented deterministically, verified by smoke test
+- [~] Phase 3, `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
+      fallback (dropped-or-one-per-line) is the permanent behavior
+- [ ] Phase 3, Step 1.4 — `renderTokens` paren-spacing fix in `DeclarationAlignmentRule`
+      and `MiscRule` (fixes `foo()` → `foo ( )` in rendered init/size expressions)
+- [ ] Phase 3 dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
+- [ ] Post-Phase-3 cleanup complete: all env vars and config keys use the
+      `JXMAKE_` / `jxmake-` prefix; no stale references remain
+- [ ] `test/` directory with 15 `*_inp`/`*_out` file pairs + `README.txt` committed
+      and confirmed correct against the formatter's actual output
+- [ ] Makefile `test` target implemented and verified (see Post-Phase-3 Cleanup,
+      Step 2)

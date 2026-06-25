@@ -42,8 +42,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
     } // record ProcessResult
 
-    public enum State
-    {
+    public enum State {
 
         IDLE,
         RUNNING,
@@ -77,15 +76,15 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
     // ── Getters / setters ──────────────────────────────────────────────────────────
 
-    public State         getState()                   { return state; }
-    public ChannelConfig getConfig()                  { return config; }
-    public int           getFrameCount()              { return frameCount; }
-    public boolean       isMuted()                    { return muted; }
-    public void          setMuted(boolean muted)      { this.muted = muted; }
-    public float         getGain()                    { return gain; }
-    public void          setGain(float gain)          { this.gain = gain; }
-    public String        getLabel()                   { return label; }
-    public void          setLabel(String label)       { this.label = label; }
+    public State         getState()              { return state;       }
+    public ChannelConfig getConfig()             { return config;      }
+    public int           getFrameCount()         { return frameCount;  }
+    public boolean       isMuted()               { return muted;       }
+    public void          setMuted(boolean muted) { this.muted = muted; }
+    public float         getGain()               { return gain;        }
+    public void          setGain(float gain)     { this.gain = gain;   }
+    public String        getLabel()              { return label;       }
+    public void          setLabel(String label)  { this.label = label; }
 
     // ── Core methods ───────────────────────────────────────────────────────────────
 
@@ -133,7 +132,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         else if(obj instanceof String s && !s.isEmpty()) {
             return "label: " + s;
         }
-        
+
         return "unknown";
     }
 
@@ -154,17 +153,17 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
     {
         var result = new ArrayList<String>();
         var cfg    = config;
-        for (var i = 0; i < cfg.channels(); i++) {
+        for(var i = 0; i < cfg.channels(); i++) {
             var name = "ch" + i;
             result.add(name);
         }
+
         return result;
     }
 
     // ── Inner implementations ──────────────────────────────────────────────────────
 
-    public static final class LocalEngine extends AudioEngine
-    {
+    public static final class LocalEngine extends AudioEngine {
 
         private final int bufferSize;
 
@@ -178,8 +177,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
     } // class LocalEngine
 
-    public static final class RemoteEngine extends AudioEngine
-    {
+    public static final class RemoteEngine extends AudioEngine {
 
         private final String endpoint;
         private final int    port;
@@ -192,7 +190,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         }
 
         public String getEndpoint() { return endpoint; }
-        public int    getPort()     { return port; }
+        public int    getPort    () { return port;     }
 
     } // class RemoteEngine
 

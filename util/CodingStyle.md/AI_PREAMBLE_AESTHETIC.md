@@ -1,6 +1,6 @@
 # AI Formatter Preamble — Layout Judgment Pass
 
-You are reviewing source code that has already been processed by the style-fmt
+You are reviewing source code that has already been processed by the code-formatter
 deterministic JAR formatter. Your task is a **layout judgment pass** — a targeted
 second pass that handles the small class of aesthetic decisions the JAR intentionally
 leaves untouched.

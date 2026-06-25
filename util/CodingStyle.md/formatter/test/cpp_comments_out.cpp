@@ -38,26 +38,25 @@ private:
 
 // Comment inside concept requires expression
 template<typename T>
-concept HasDraw = requires(T t /* the object */) {
-    /* must have draw */ t.draw();
-    { t.area() /* area method */ } -> std::convertible_to<double>;
+concept HasDraw = requires(T t /* The object */) {
+    /*Mmust have draw */ t.draw();
+    { t.area() /* Area method */ } -> std::convertible_to<double>;
 };
 
 // Comment between class specifier and base
-class /* derived */ Derived /* from */ : /* public */ public Base
-{
+class /* Derived */ Derived /* From */ : /* Public */ public Base {
 
 public:
 
     // Comment before constructor
     Derived(); // default ctor
-    /* explicit */ explicit Derived(int v); // value ctor
-    ~Derived(); // dtor
+    /* explicit */ explicit Derived(int v); // Value ctor
+    ~Derived(); // Dtor
 
     // Inline methods with trailing comments
-    int  getValue() const  { return v_; }    // getter
-    void setValue(int v)   { v_ = v; }       // setter
-    bool isValid() const   { return v_ > 0; } // validator
+    int  getValue(     ) const { return v_;     } // Getter
+    void setValue(int v)       { v_ = v;        } // Setter
+    bool isValid (     ) const { return v_ > 0; } // Validator
 
 private:
 
@@ -67,15 +66,15 @@ private:
 
 // Comment inside function definition with complex params
 void complexFunction(
-    int                      a, // plain int
-    const std::string&       b, /* const ref string */
-    std::vector<int>         c, // vector by value
-    std::function<void(int)> d  /* callback */
+    int                      a, // Plain int
+    const std::string&       b, /* Const ref string */
+    std::vector<int>         c, // Vector by value
+    std::function<void(int)> d  /* Callback */
 )
 {
     // Comment at top
     auto result = a; /* start with a */
-    result += static_cast<int>(b.size()); // Add string length
+    result += static_cast<int>( b.size() ); // Add string length
 
     // Comment inside if with init-statement
     if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) {
@@ -104,15 +103,13 @@ void complexFunction(
      */
 
     // Structured binding with comment
-    auto [lo /* low */, hi /* high */] = std::pair<int, int>{0, result};
-    (void)lo;
-    (void)hi;
+    auto [lo /* Low */, hi /* High */] = std::pair<int, int>{0, result};
+    (void) lo;
+    (void) hi;
 }
 
 // Comment inside requires clause
-template<typename T>
-    requires /* numeric */ std::integral<T> /* constraint */
-T doubled(T x)
+template<typename T> requires /* Numeric */ std::integral<T> /* Constraint */ T doubled(T x)
 {
     return x * 2;
 }

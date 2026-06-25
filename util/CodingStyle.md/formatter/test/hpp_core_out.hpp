@@ -30,10 +30,12 @@ struct Config;
 // Concepts
 
 template<typename T>
-concept Processable = requires(T t, Buffer &buf) {
+concept Processable = requires(T t, Buffer& buf) {
+
     { t.process(buf) } -> std::same_as<void>;
     t.reset();
-};
+
+}; // concept Processable
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -44,8 +46,7 @@ enum class SampleRate : uint32_t {
     SR_96000 = 96000
 }; // enum class SampleRate
 
-struct Config
-{
+struct Config {
 
     SampleRate rate      = SampleRate::SR_48000;
     uint8_t    channels  = 2;
@@ -57,21 +58,20 @@ struct Config
 ////////////////////////////////////////////////////////////////////////////////////
 // Processor interface
 
-class Processor
-{
+class Processor {
 
 public:
 
     virtual ~Processor() = default;
 
-    virtual void process(Buffer &buf) = 0;
+    virtual void process(Buffer& buf) = 0;
     virtual void reset()              = 0;
     virtual bool isReady() const      = 0;
 
     std::string getName() const;
     void        setName(std::string name);
 
-    static std::unique_ptr<Processor> create(const Config &cfg);
+    static std::unique_ptr<Processor> create(const Config& cfg);
 
 protected:
 
@@ -87,14 +87,13 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////
 // Concrete processors
 
-class GainProcessor : public Processor
-{
+class GainProcessor : public Processor {
 
 public:
 
     explicit GainProcessor(Config cfg, float gain = 1.0f);
 
-    void process(Buffer &buf) override;
+    void process(Buffer& buf) override;
     void reset() override;
     bool isReady() const override;
 
@@ -107,14 +106,13 @@ private:
 
 }; // class GainProcessor
 
-class MixerProcessor : public Processor
-{
+class MixerProcessor : public Processor {
 
 public:
 
     explicit MixerProcessor(Config cfg);
 
-    void process(Buffer &buf) override;
+    void process(Buffer& buf) override;
     void reset() override;
     bool isReady() const override;
 

@@ -15,7 +15,7 @@ public record NamedPoint(String name, int x, int y) implements Comparable<NamedP
     // compact constructor
     public NamedPoint
     {
-        if (name == null) throw new IllegalArgumentException("name must not be null");
+        if(name == null) throw new IllegalArgumentException("name must not be null");
     }
 
     public double distance() { return Math.sqrt(x * x + y * y); }
@@ -154,7 +154,7 @@ public class VarUsage
     public void demo(List<String> items)
     {
         var result = new java.util.ArrayList<String>();
-        for (var item : items) {
+        for(var item : items) {
             var trimmed = item.trim();
             result.add(trimmed);
         }
@@ -171,11 +171,13 @@ public class Patterns
 
     public String describe(Object obj)
     {
-        if (obj instanceof String s) {
+        if(obj instanceof String s) {
             return "string: " + s.toUpperCase();
-        } else if (obj instanceof Integer i) {
+        }
+        else if(obj instanceof Integer i) {
             return "int: " + i;
-        } else if (obj instanceof List<?> list) {
+        }
+        else if(obj instanceof List<?> list) {
             return "list of " + list.size();
         }
         return "unknown";

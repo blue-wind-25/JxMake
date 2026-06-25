@@ -60,26 +60,27 @@ public class CoreExample
     // Method with K&R brace style for control flow, Allman for the method itself
     public void process(List<String> items) throws IOException
     {
-        if (items == null) {
+        if(items == null) {
             throw new IllegalArgumentException("items must not be null");
         }
-        for (int i = 0; i < items.size(); i++) {
+        for(int i = 0; i < items.size(); i++) {
             String item = items.get(i);
-            if (item.startsWith(PREFIX)) {
+            if(item.startsWith(PREFIX)) {
                 System.out.println(item);
-            } else {
+            }
+            else {
                 System.err.println("skipping: " + item);
             }
         }
         // while loop
         int idx = 0;
-        while (idx < MAX_COUNT) {
+        while(idx < MAX_COUNT) {
             idx++;
         }
         // do-while
         do {
             idx--;
-        } while (idx > 0);
+        } while(idx > 0);
     }
 
     // Switch statement

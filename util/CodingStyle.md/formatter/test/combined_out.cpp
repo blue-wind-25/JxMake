@@ -81,9 +81,9 @@ public:
     ~Engine();
 
     Engine(const Engine&)            = delete;
-    Engine &operator=(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
     Engine(Engine&&)                 = default;
-    Engine &operator=(Engine&&)      = default;
+    Engine& operator=(Engine&&)      = default;
 
     // Core API
     bool start();
@@ -159,7 +159,7 @@ FrameRange Engine<Impl>::getActiveRange() const
 ////////////////////////////////////////////////////////////////////////////////////
 // C++17 structured bindings usage
 
-void useBindings(const FrameRange &range)
+void useBindings(const FrameRange& range)
 {
     auto     [start, end] = range;
     uint32_t  length      = end - start;
@@ -206,7 +206,7 @@ struct AudioVersion {
     int minor;
     int patch;
 
-    auto operator<=>(const AudioVersion &) const = default;
+    auto operator<=>(const AudioVersion&) const = default;
 
 }; // struct AudioVersion
 
@@ -216,7 +216,7 @@ struct AudioVersion {
 auto makeProcessor(float gain) -> std::function<bool(float*, uint32_t)>
 {
     return [gain](float* buf, uint32_t frames) mutable {
-        for (uint32_t i = 0; i < frames; ++i) buf[i] *= gain;
+        for(uint32_t i = 0; i < frames; ++i) buf[i] *= gain;
         return true;
     };
 }
@@ -240,7 +240,7 @@ static constinit float gainC = 0.25f; // Channel C
 // Comment inside requires expression
 template<typename T>
 concept HasProcess = requires(T t, float* /* Buffer */ buf, uint32_t /* Count */ n) {
-    
+
     { t.process(buf /* Data */, n /* Len */) } -> std::same_as<bool>;
 
 }; // concept HasProcess

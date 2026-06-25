@@ -29,15 +29,14 @@ enum class SampleFormat {
 }; // enum class SampleFormat
 
 struct alignas(16) AudioBuffer {
-    float    *data;
-    uint32_t  frames;
-    uint32_t  channels;
-    uint32_t  sampleRate;
+    float*   data;
+    uint32_t frames;
+    uint32_t channels;
+    uint32_t sampleRate;
 }; // struct AudioBuffer
 
 // Class with multiple access specifiers
-class Processor
-{
+class Processor {
 
 public:
 
@@ -45,12 +44,12 @@ public:
     explicit Processor(int channels, float gain);
     ~Processor() = default;
 
-    Processor(const Processor &)            = delete;
-    Processor &operator=(const Processor &) = delete;
-    Processor(Processor &&)                 = default;
-    Processor &operator=(Processor &&)      = default;
+    Processor(const Processor&)            = delete;
+    Processor& operator=(const Processor&) = delete;
+    Processor(Processor&&)                 = default;
+    Processor& operator=(Processor&&)      = default;
 
-    void  process(AudioBuffer &buf);
+    void  process(AudioBuffer& buf);
     float getGain() const;
     void  setGain(float gain);
     int   getChannels() const;
@@ -58,7 +57,7 @@ public:
 
 protected:
 
-    virtual void onProcess(AudioBuffer &buf) = 0;
+    virtual void onProcess(AudioBuffer& buf) = 0;
 
 private:
 
@@ -70,12 +69,11 @@ private:
 
 // Template class
 template<typename T, int N>
-class RingBuffer
-{
+class RingBuffer {
 
 public:
 
-    void push(const T &val);
+    void push(const T& val);
     T    pop();
     bool empty() const { return head_ == tail_; }
     int  size() const  { return (tail_ - head_ + N) % N; }
@@ -92,10 +90,10 @@ private:
 // Free functions
 
 // Lambda in function
-void applyGain(AudioBuffer &buf, float gain)
+void applyGain(AudioBuffer& buf, float gain)
 {
     auto transform = [&buf, gain]() {
-        for (uint32_t i = 0; i < buf.frames * buf.channels; ++i) {
+        for(uint32_t i = 0; i < buf.frames * buf.channels; ++i) {
             buf.data[i] *= gain;
         }
     };
@@ -113,12 +111,11 @@ auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuff
 }
 
 // Function with initializer list
-Processor::Processor(int channels, float gain)
-    : gain_(gain), channels_(channels), active_(false)
+Processor::Processor(int channels, float gain) : gain_(gain), channels_(channels), active_(false)
 {
 }
 
-void Processor::process(AudioBuffer &buf)
+void Processor::process(AudioBuffer& buf)
 {
     if(!active_) return;
 
@@ -140,7 +137,7 @@ extern "C" {
 
     void audio_init(void);
     void audio_shutdown(void);
-    int  audio_process(float *buf, int frames);
+    int  audio_process(float* buf, int frames);
 
 } // extern "C"
 

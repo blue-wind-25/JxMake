@@ -2,7 +2,7 @@ Formatter Test Suite
 ====================
 
 This directory contains the permanent dogfood/regression test suite for the
-style-fmt code formatter. Tests are mechanically verifiable: no manual inspection
+code-formatter code formatter. Tests are mechanically verifiable: no manual inspection
 required once the expected output files are authored.
 
 

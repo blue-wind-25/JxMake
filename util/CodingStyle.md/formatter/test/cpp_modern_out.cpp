@@ -31,10 +31,10 @@ void useBindings()
     bool active = true;
 
     // Range-based for with structured binding
-    std::vector<Pair> pairs = {{1, 2}, {3, 4}};
-    for (auto &[f, s] : pairs) {
-        (void)f;
-        (void)s;
+    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
+    for(auto& [f, s] : pairs) {
+        (void) f;
+        (void) s;
     }
 }
 
@@ -43,10 +43,11 @@ void useBindings()
 
 void initStatements(int raw)
 {
-    if (int v = raw * 2; v > 100) {
+    if(int v = raw * 2; v > 100) {
         // v in scope here
-    } else {
-        (void)v;
+    }
+    else {
+        (void) v;
     }
 
     switch (int code = raw % 4; code) {
@@ -64,15 +65,19 @@ concept Numeric = std::integral<T> || std::floating_point<T>;
 
 template<typename T>
 concept Drawable = requires(T t) {
+
     t.draw();
     { t.area() } -> std::convertible_to<double>;
-};
+
+}; // concept Drawable
 
 template<typename T>
-concept Serializable = requires(T t, std::ostream &os) {
+concept Serializable = requires(T t, std::ostream& os) {
+
     { t.serialize(os) } -> std::same_as<void>;
     T::version;
-};
+
+}; // concept Serializable
 
 // Requires clause on function
 template<Numeric T>
@@ -90,8 +95,7 @@ T cube(T x) requires Numeric<T>
 
 // Concept in class template
 template<Drawable T>
-class Canvas
-{
+class Canvas {
 
 public:
 
@@ -99,7 +103,7 @@ public:
 
     void render()
     {
-        for (auto &it : items_) {
+        for(auto& it : items_) {
             it.draw();
         }
     }
@@ -124,28 +128,26 @@ static constinit float defaultGain   = 1.0f;
 ////////////////////////////////////////////////////////////////////////////////////
 // C++20: three-way comparison operator <=>
 
-struct Version
-{
+struct Version {
 
     int major;
     int minor;
     int patch;
 
-    auto operator<=>(const Version &) const = default;
+    auto operator<=>(const Version&) const = default;
 
 }; // struct Version
 
-struct Weight
-{
+struct Weight {
 
     double value;
 
-    auto operator<=>(const Weight &other) const
+    auto operator<=>(const Weight& other) const
     {
         return value <=> other.value;
     }
 
-    bool operator==(const Weight &) const = default;
+    bool operator==(const Weight&) const = default;
 
 }; // struct Weight
 

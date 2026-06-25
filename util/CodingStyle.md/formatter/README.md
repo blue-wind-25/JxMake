@@ -94,7 +94,7 @@ precedence (later sources override earlier ones):
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                = 100
 indent-size                = 4
-indent-style               = spaces          # spaces | tabs
+indent-style               = spaces          # spaces | tabs | keep
 server-port                = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────

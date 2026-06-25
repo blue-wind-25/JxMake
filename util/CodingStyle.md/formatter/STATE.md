@@ -725,8 +725,8 @@ fix must be in place before test output is meaningful.
       single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
 - [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting
       error, 2 = usage error (RDD_KEY_88)
-- [ ] `README.md` update for Phase 1 + Phase 2 (do this immediately before the
-      dogfood items below)
+- [x] `README.md` update for Phase 1 + Phase 2 (added `keep` to `indent-style`
+      comment; all other Phase 1+2 items already present)
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS / FAIL / SKIP)
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`

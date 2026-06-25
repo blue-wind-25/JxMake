@@ -870,31 +870,35 @@ Low-priority issues that do not corrupt output and have no immediate fix
 planned. Recorded here so they are not rediscovered in future sessions.
 
 **`* const` cosmetic gap in mixed declaration groups (`DeclarationAlignmentRule`)**
-When a declaration group contains both `T*` and `T* const` lines and a longer
-type elsewhere in the same group, the current separate-postConst-column layout
-produces a visual gap between `*` and `const`:
+The current separate-postConst-column layout produces a visual gap between `*`
+and `const` when shorter types share a group with longer ones:
 
 ```c
-// Current output (postConst is a separate ColumnGrid column):
-char*            a;
-char*      const c;    // ← gap between * and const
-uint8_t* const*  h;
-
-// Ideal output (per STYLE_C_CPP.md §8 example — * const baked into type cell):
-char*            a;
-char* const      c;
-uint8_t* const*  h;
+char*      const c;    // ← gap (current)
+char* const      c;    // ← correct per §8
 ```
 
-Fix (when desired, low regression risk): in `splitCppType`, always return
-`postConst = ""` and include the full token sequence (including trailing
-`const`) in `typeAndStar`. The `postConstActive` path in `render` then never
-fires and can be removed. Output then matches the §8 example exactly.
-No correctness impact in the current state — all variants (`const char*`,
-`char const*`, `char* const`, `const char* const`, `uint8_t* const*` etc.)
-align and render without corruption; only the cosmetic gap is wrong.
-East-const (`char const*`) is intentionally NOT normalized to west-const —
-it is a valid author preference and the formatter preserves it.
+Fix (low regression risk): in `splitCppType`, always return `postConst = ""`
+and include the full token sequence in `typeAndStar`. No correctness impact
+in the current state — all variants align and render without corruption.
+East-const (`char const*`) is intentionally not normalized to west-const.
+
+**`typedef`, `using`, and direct function-pointer declarations not aligned**
+`typedef` and `using` are not in `typeKeywords`, and direct function-pointer
+declarations (`void (*fp)(int)`) have `)` as their last token rather than an
+IDENTIFIER, so `parseDeclaration` returns null for all of these. They pass
+through unchanged — no corruption — but a `typedef`/`using`/func-ptr line
+in the middle of a plain variable group breaks the group at that point, so
+the surrounding variables end up in separate alignment groups:
+
+```c
+int    count = 0;
+void (*cb)(int) = NULL;   // ← breaks group; count and ratio in separate groups
+float  ratio = 1.0f;
+```
+
+No fix planned — aligning these into a variable column grid would be
+semantically odd. Acceptable as preserve-as-is behaviour.
 
 ---
 

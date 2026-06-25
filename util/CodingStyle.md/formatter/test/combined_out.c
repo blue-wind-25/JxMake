@@ -117,7 +117,7 @@ ProcessResult audio_process(float *buf, uint32_t frames)
         return r;
     }
     if (g_muted) {
-        memset(buf, 0, frames * sizeof(float));
+        memset( buf, 0, frames * sizeof(float) );
     } else {
         audio_apply_gain(buf, frames, g_gain);
     }

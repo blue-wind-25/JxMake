@@ -121,7 +121,7 @@ private:
 
 template<AudioProcessor Impl>
 Engine<Impl>::Engine(Config cfg)
-    : cfg_(std::move(cfg)), impl_(), gain_(cfg_.gain)
+    : cfg_( std::move(cfg) ), impl_(), gain_(cfg_.gain)
 {
 }
 

@@ -189,7 +189,7 @@ public class CoreExample
     @Override
     public void run()
     {
-        process(new ArrayList<String>());
+        process( new ArrayList<String>() );
     }
 
 } // class CoreExample

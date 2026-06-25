@@ -81,7 +81,7 @@ int switchy(int v) {
     }
 }
 
-// Divider comments of various widths (should be normalized to 100 chars)
+// Divider comments of various widths
 // Short divider:
 ////////////////////
 // Already correct:

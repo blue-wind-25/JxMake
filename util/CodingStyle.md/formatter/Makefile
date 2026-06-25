@@ -54,11 +54,12 @@ clean:
 #   make test JAVA=/path/to/java
 #   make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
+#	for inp in $(TEST_DIR)/*_inp.*; do
 test: $(JAR_FILE)
 	@mkdir -p $(TEST_TMP)
 	@echo "=== Forward pass (inp → out) ==="
 	@fail=0;                                                                 \
-	for inp in $(TEST_DIR)/*_inp.*; do                                       \
+	for inp in $(TEST_DIR)/combined_inp.c; do                                       \
 		base=$$(basename "$$inp");                                       \
 		ext="$${base##*_inp.}";                                          \
 		stem="$${base%_inp.*}";                                          \

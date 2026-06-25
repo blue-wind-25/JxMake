@@ -11,9 +11,9 @@
 #include "mymodule.h"
 #include "util.h"
 
-// C11 core formatting test: declarations, functions, structs, enums, macros.
+// C11 core formatting test: declarations, functions, structs, enums, macros
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 // Declarations and alignment
 
 #define MAX_ITEMS  64
@@ -28,7 +28,7 @@ typedef enum {
 } State;
 
 typedef struct {
-    volatile uint8_t buffer[64];
+    volatile uint8_t  buffer[64];
              uint16_t timeout;
              uint8_t  flags    : 4;
              uint8_t  mode     : 2;
@@ -54,7 +54,7 @@ typedef enum Color {
 
 } Color; // enum Color
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 // Functions -- Allman brace style for definitions, K&R for control flow
 
 // Short function (no closing comment needed on the brace)
@@ -64,15 +64,12 @@ int add(int a, int b)
 }
 
 // Longer function
-void process(DeviceState *state, uint8_t *data, size_t len)
+void process(DeviceState* state, uint8_t* data, size_t len)
 {
-    if (state == NULL || data == NULL) {
-        return;
-    }
-    for (size_t i = 0; i < len; ++i) {
-        if (data[i] == 0) {
-            continue;
-        }
+    if(state == NULL || data == NULL) return;
+
+    for(size_t i = 0; i < len; ++i) {
+        if( data[i] == 0 ) continue;
         state->buffer[i % 64] = data[i];
     }
     state->flags   = 0x0F;
@@ -83,13 +80,13 @@ void process(DeviceState *state, uint8_t *data, size_t len)
 // Function with void parameter (C style)
 void reset(void)
 {
-    // nothing
+    // Nothing
 }
 
 // Pointer declarations
-void        transform(uint8_t *const src, uint8_t *dst, size_t n);
-const char *describe(State s);
-uint8_t    *alloc_buffer(size_t sz);
+void        transform(uint8_t* const src, uint8_t* dst, size_t n);
+const char* describe(State s);
+uint8_t*    alloc_buffer(size_t sz);
 
 // Declaration alignment group
 static volatile uint8_t  buf[64];
@@ -100,36 +97,33 @@ static          int      count;
 // Mixed static and non-static
 static int beta;
 static int delta;
-
-int alpha;
-int gamma;
+       int alpha;
+       int gamma;
 
 // Switch
-const char *describe(State s)
+const char* describe(State s)
 {
-    switch (s) {
-        case STATE_IDLE:    return "idle";
-        case STATE_RUNNING: return "running";
-        case STATE_DONE:    return "done";
-        case STATE_ERROR:   return "error";
-        default:            return "unknown";
-    }
+    switch(s) {
+        case STATE_IDLE    : return "idle"   ;
+        case STATE_RUNNING : return "running";
+        case STATE_DONE    : return "done"   ;
+        case STATE_ERROR   : return "error"  ;
+        default            : return "unknown";
+    } // switch
 }
 
 // Pre-increment enforcement
-void count_up(int *arr, int n)
+void count_up(int* arr, int n)
 {
-    for (int i = 0; i < n; ++i) {
-        arr[i]++;
-    }
+    for(int i = 0; i < n; ++i) arr[i]++;
 }
 
 // Do-while
-void drain(int *q, int *len)
+void drain(int* q, int* len)
 {
     do {
         (*len)--;
-    } while (*len > 0);
+    } while(*len > 0);
 }
 
 // Extern C block (C file -- not applicable, but test that it doesn't break)

@@ -17,16 +17,14 @@ import static java.util.Collections.unmodifiableList;
 // Exercises: imports, declarations, getters/setters, closng comments,
 // switch expressions, records, sealed classes, text blocks, var, pattern matching.
 
-public sealed class AudioEngine
-    permits AudioEngine.LocalEngine, AudioEngine.RemoteEngine
-{
+public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.RemoteEngine {
 
     // ── Constants ──────────────────────────────────────────────────────────────────
 
-    private static final int    MAX_CHANNELS    = 8;
-    private static final int    DEFAULT_RATE    = 48000;
-    private static final String ENGINE_NAME     = "AudioEngine";
-    private static final String ENGINE_VERSION  = "2.0";
+    private static final int    MAX_CHANNELS   = 8;
+    private static final int    DEFAULT_RATE   = 48000;
+    private static final String ENGINE_NAME    = "AudioEngine";
+    private static final String ENGINE_VERSION = "2.0";
 
     // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -37,7 +35,7 @@ public sealed class AudioEngine
 
         public ProcessResult
         {
-            if (framesProcessed < 0) throw new IllegalArgumentException("negative frames");
+            if(framesProcessed < 0) throw new IllegalArgumentException("negative frames");
         }
 
         public boolean hasError() { return error != null && !error.isEmpty(); }
@@ -93,20 +91,21 @@ public sealed class AudioEngine
 
     public ProcessResult process(float[] buffer, int frames) throws IOException
     {
-        if (buffer == null || frames <= 0) {
+        if(buffer == null || frames <= 0) {
             return new ProcessResult(false, 0, "invalid input");
         }
-        if (state != State.RUNNING) {
+        if(state != State.RUNNING) {
             return new ProcessResult(false, 0, "not running");
         }
-        if (muted) {
+        if(muted) {
             java.util.Arrays.fill(buffer, 0, frames, 0.0f);
             return new ProcessResult(true, frames, null);
         }
-        for (int i = 0; i < frames; ++i) {
+        for(int i = 0; i < frames; ++i) {
             buffer[i] *= gain;
         }
         frameCount += frames;
+
         return new ProcessResult(true, frames, null);
     }
 
@@ -125,13 +124,16 @@ public sealed class AudioEngine
     // Pattern matching
     public String describe(Object obj)
     {
-        if (obj instanceof ChannelConfig cc) {
+        if(obj instanceof ChannelConfig cc) {
             return "config: " + cc.channels() + "ch @ " + cc.sampleRate() + "Hz";
-        } else if (obj instanceof ProcessResult pr) {
+        }
+        else if(obj instanceof ProcessResult pr) {
             return pr.success() ? "ok:" + pr.framesProcessed() : "err:" + pr.error();
-        } else if (obj instanceof String s && !s.isEmpty()) {
+        }
+        else if(obj instanceof String s && !s.isEmpty()) {
             return "label: " + s;
         }
+        
         return "unknown";
     }
 

@@ -120,24 +120,21 @@ Processor::Processor(int channels, float gain)
 
 void Processor::process(AudioBuffer &buf)
 {
-    if (!active_) {
-        return;
-    }
-    for (uint32_t i = 0; i < buf.channels; ++i) {
+    if(!active_) return;
+
+    for(uint32_t i = 0; i < buf.channels; ++i) {
         // process each channel
         float *ch = buf.data + i * buf.frames;
-        for (uint32_t j = 0; j < buf.frames; ++j) {
-            ch[j] *= gain_;
-        }
+        for(uint32_t j = 0; j < buf.frames; ++j) ch[j] *= gain_;
     }
     onProcess(buf);
 }
 
 // Getters and setters
-float Processor::getGain() const        { return gain_; }
-void  Processor::setGain(float gain)    { gain_ = gain; }
-int   Processor::getChannels() const    { return channels_; }
-void  Processor::setChannels(int ch)    { channels_ = ch; }
+float Processor::getGain    (          ) const { return gain_;     }
+void  Processor::setGain    (float gain)       { gain_ = gain;     }
+int   Processor::getChannels(          ) const { return channels_; }
+void  Processor::setChannels(int   ch  )       { channels_ = ch;   }
 
 extern "C" {
 

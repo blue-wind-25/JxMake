@@ -5,24 +5,23 @@
 
 #include <iostream>
 
-// C++ comment edge cases: // and /* */ in uncommon positions.
+// C++ comment edge cases: // and /* */ in uncommon positions
 
 namespace cppcomments {
 
 // Trailing comments on declarations (alignment group)
-static int alpha = 1; // alpha value
-static int beta  = 2; // beta value
-static int gamma = 3; // gamma value
+static int alpha = 1; // Alpha value
+static int beta  = 2; // Beta value
+static int gamma = 3; // Gamma value
 
 // Block comment inside template parameter list
-template<typename /* key type */ K, typename /* value type */ V>
-class Map
-{
+template<typename /* Key type */ K, typename /* Value type */ V>
+class Map {
 
 public:
 
-    void insert(const K & /* key */ k, const V & /* value */ v);
-    V    get(const K &k) const; // may throw
+    void insert(const K& /* Key */ k, const V& /* Value */ v);
+    V    get(const K& k) const; // May throw
 
 private:
 
@@ -30,8 +29,8 @@ private:
     struct Entry
     {
 
-        K key;   // the key
-        V value; // the value
+        K key;   // The key
+        V value; // The value
 
     }; // struct Entry
 
@@ -69,31 +68,31 @@ private:
 // Comment inside function definition with complex params
 void complexFunction(
     int                      a, // plain int
-    const std::string       &b, /* const ref string */
+    const std::string&       b, /* const ref string */
     std::vector<int>         c, // vector by value
     std::function<void(int)> d  /* callback */
 )
 {
     // Comment at top
     auto result = a; /* start with a */
-    result += static_cast<int>(b.size()); // add string length
+    result += static_cast<int>(b.size()); // Add string length
 
     // Comment inside if with init-statement
-    if (/* check */ auto it = c.begin(); it != c.end() /* valid */) {
+    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) {
         result += *it;
     }
 
     // Comment between else and brace in C++
-    if (result > 0) {
+    if(result > 0) {
         d(result);
-    } /* call otherwise */ else {
+    }
+    /* Call otherwise */
+    else {
         d(0);
     }
 
     // Comment inside for range header
-    for (/* elem */ int x : c /* range */) {
-        result += x;
-    }
+    for(/* elem */ int x : c /* range */) result += x;
 
     /*
      * Multi-line block comment in C++ function.

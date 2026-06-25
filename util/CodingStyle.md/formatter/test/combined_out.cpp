@@ -14,7 +14,7 @@
 #include "audio.hpp"
 #include "platform.hpp"
 
-// Combined C++ test: C++11/14/17/20/23 constructs together.
+// Combined C++ test: C++11/14/17/20/23 constructs together
 
 namespace audio {
 
@@ -22,17 +22,21 @@ namespace audio {
 // C++20 concepts
 
 template<typename T>
-concept AudioProcessor = requires(T t, float *buf, uint32_t frames) {
+concept AudioProcessor = requires(T t, float* buf, uint32_t frames) {
+
     { t.process(buf, frames) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
     t.gain;
-};
+
+}; // concept AudioProcessor
 
 template<typename T>
 concept Configurable = requires(T t) {
+
     typename T::Config;
     { T::defaultConfig() } -> std::same_as<typename T::Config>;
-};
+
+}; // concept Configurable
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -44,13 +48,12 @@ enum class SampleFormat : uint8_t {
 }; // enum class SampleFormat
 
 // Structured binding support
-struct FrameRange
-{
+struct FrameRange {
 
     uint32_t start;
     uint32_t end;
 
-    auto operator<=>(const FrameRange &) const = default;
+    auto operator<=>(const FrameRange&) const = default;
 
 }; // struct FrameRange
 
@@ -58,8 +61,7 @@ struct FrameRange
 // Main engine class (C++11/14 base + C++20 features)
 
 template<AudioProcessor Impl>
-class Engine
-{
+class Engine {
 
 public:
 
@@ -78,23 +80,23 @@ public:
     explicit Engine(Config cfg);
     ~Engine();
 
-    Engine(const Engine &)            = delete;
-    Engine &operator=(const Engine &) = delete;
-    Engine(Engine &&)                 = default;
-    Engine &operator=(Engine &&)      = default;
+    Engine(const Engine&)            = delete;
+    Engine &operator=(const Engine&) = delete;
+    Engine(Engine&&)                 = default;
+    Engine &operator=(Engine&&)      = default;
 
     // Core API
-    bool     start();
-    bool     stop();
-    bool     process(float *buf, uint32_t frames);
+    bool start();
+    bool stop();
+    bool process(float* buf, uint32_t frames);
 
     // Getters/setters
-    float          getGain() const;
-    void           setGain(float g);
-    bool           isMuted() const;
-    void           setMuted(bool m);
-    uint32_t       getFrameCount() const;
-    const Config  &getConfig() const;
+    float         getGain      (       ) const;
+    void          setGain      (float g);
+    bool          isMuted      (       ) const;
+    void          setMuted     (bool m );
+    uint32_t      getFrameCount(       ) const;
+    const Config& getConfig    (       ) const;
 
     // C++17 structured bindings helper
     FrameRange getActiveRange() const;
@@ -120,37 +122,33 @@ private:
 // Implementation
 
 template<AudioProcessor Impl>
-Engine<Impl>::Engine(Config cfg)
-    : cfg_( std::move(cfg) ), impl_(), gain_(cfg_.gain)
+Engine<Impl>::Engine(Config cfg) : cfg_( std::move(cfg) ), impl_(), gain_(cfg_.gain)
 {
 }
 
 template<AudioProcessor Impl>
-bool Engine<Impl>::process(float *buf, uint32_t frames)
+bool Engine<Impl>::process(float* buf, uint32_t frames)
 {
-    if (!running_ || buf == nullptr || frames == 0) {
-        return false;
+    if(!running_ || buf == nullptr || frames == 0) return false;
     }
-    if (muted_) {
+    if(muted_) {
         std::fill(buf, buf + frames, 0.0f);
-    } else {
-        if (!impl_.process(buf, frames)) {
-            return false;
-        }
-        for (uint32_t i = 0; i < frames; ++i) {
-            buf[i] *= gain_;
-        }
+    }
+    else {
+        if( !impl_.process(buf, frames) ) return false;
+        for(uint32_t i = 0; i < frames; ++i) buf[i] *= gain_;
     }
     frameCount_ += frames;
+
     return true;
 }
 
 // Getters/setters (one-liners)
-template<AudioProcessor Impl> float    Engine<Impl>::getGain() const      { return gain_; }
-template<AudioProcessor Impl> void     Engine<Impl>::setGain(float g)     { gain_ = g; }
-template<AudioProcessor Impl> bool     Engine<Impl>::isMuted() const      { return muted_; }
-template<AudioProcessor Impl> void     Engine<Impl>::setMuted(bool m)     { muted_ = m; }
-template<AudioProcessor Impl> uint32_t Engine<Impl>::getFrameCount() const { return frameCount_; }
+template<AudioProcessor Impl> float    Engine<Impl>::getGain      (       ) const { return gain_;       }
+template<AudioProcessor Impl> void     Engine<Impl>::setGain      (float g)       { gain_ = g;          }
+template<AudioProcessor Impl> bool     Engine<Impl>::isMuted      (       ) const { return muted_;      }
+template<AudioProcessor Impl> void     Engine<Impl>::setMuted     (bool m )       { muted_ = m;         }
+template<AudioProcessor Impl> uint32_t Engine<Impl>::getFrameCount(       ) const { return frameCount_; }
 
 template<AudioProcessor Impl>
 FrameRange Engine<Impl>::getActiveRange() const
@@ -163,15 +161,15 @@ FrameRange Engine<Impl>::getActiveRange() const
 
 void useBindings(const FrameRange &range)
 {
-    auto [start, end] = range;
-    uint32_t length = end - start;
-    (void)length;
+    auto     [start, end] = range;
+    uint32_t  length      = end - start;
+    (void) length;
 
     // In a declaration group
-    uint32_t offset = 0;
-    auto [lo, hi] = FrameRange{ offset, offset + 100 };
-    bool active = lo < hi;
-    (void)active;
+    uint32_t offset  = 0;
+    auto    [lo, hi] = FrameRange{ offset, offset + 100 };
+    bool     active  = lo < hi;
+    (void) active;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -179,32 +177,30 @@ void useBindings(const FrameRange &range)
 
 void withInitStatement(int raw)
 {
-    if (auto v = raw * 2; v > 100) {
-        printf("big: %d\n", v);
-    }
-    switch (int code = raw & 3; code) {
-        case 0:  break;
-        case 1:  break;
-        default: break;
+    if(auto v = raw * 2; v > 100) printf("big: %d\n", v);
+
+    switch(int code = raw & 3; code) {
+        case 0  : break;
+        case 1  : break;
+        default : break;
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
-// consteval and constinit
+// Consteval and constinit
 
 consteval int sampleCount(int channels, int frames)
 {
     return channels * frames;
 }
 
-constinit        float    globalGain       = 1.0f;
+       constinit float    globalGain       = 1.0f;
 static constinit uint32_t globalSampleRate = 48000;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Three-way comparison
 
-struct AudioVersion
-{
+struct AudioVersion {
 
     int major;
     int minor;
@@ -217,21 +213,19 @@ struct AudioVersion
 ////////////////////////////////////////////////////////////////////////////////////
 // Lambda, auto return, extern "C"
 
-auto makeProcessor(float gain) -> std::function<bool(float *, uint32_t)>
+auto makeProcessor(float gain) -> std::function<bool(float*, uint32_t)>
 {
-    return [gain](float *buf, uint32_t frames) mutable {
-        for (uint32_t i = 0; i < frames; ++i) {
-            buf[i] *= gain;
-        }
+    return [gain](float* buf, uint32_t frames) mutable {
+        for (uint32_t i = 0; i < frames; ++i) buf[i] *= gain;
         return true;
     };
 }
 
 extern "C" {
 
-    void audio_c_init(void);
-    void audio_c_shutdown(void);
-    int  audio_c_process(float *buf, int frames, float gain);
+    void audio_c_init();
+    void audio_c_shutdown();
+    int  audio_c_process(float* buf, int frames, float gain);
 
 } // extern "C"
 
@@ -239,14 +233,16 @@ extern "C" {
 // Comment edge cases (combined)
 
 // Trailing comments on declarations
-static constinit float gainA = 1.0f;  // channel A
-static constinit float gainB = 0.5f;  // channel B
-static constinit float gainC = 0.25f; // channel C
+static constinit float gainA = 1.0f;  // Channel A
+static constinit float gainB = 0.5f;  // Channel B
+static constinit float gainC = 0.25f; // Channel C
 
 // Comment inside requires expression
 template<typename T>
-concept HasProcess = requires(T t, float * /* buffer */ buf, uint32_t /* count */ n) {
-    { t.process(buf /* data */, n /* len */) } -> std::same_as<bool>;
-};
+concept HasProcess = requires(T t, float* /* Buffer */ buf, uint32_t /* Count */ n) {
+    
+    { t.process(buf /* Data */, n /* Len */) } -> std::same_as<bool>;
+
+}; // concept HasProcess
 
 } // namespace audio

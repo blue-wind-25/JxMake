@@ -59,7 +59,7 @@ test: $(JAR_FILE)
 	@mkdir -p $(TEST_TMP)
 	@echo "=== Forward pass (inp → out) ==="
 	@fail=0;                                                                 \
-	for inp in $(TEST_DIR)/combined_inp.c; do                                       \
+	for inp in $(TEST_DIR)/combined_inp.java; do                                       \
 		base=$$(basename "$$inp");                                       \
 		ext="$${base##*_inp.}";                                          \
 		stem="$${base%_inp.*}";                                          \

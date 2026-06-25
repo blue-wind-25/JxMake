@@ -27,15 +27,6 @@ asks. All decisions relevant to implementation are recorded in the
 `FORMATTER_DISCUSSION.md` is design history and future planning only — large, and
 contains nothing the implementer needs beyond what is already indexed here.
 
-> History: this tracker was originally split across `STATE.md` (Phase 1),
-> `STATE_NEXT.md` (Phase 2), and `STATE_NEXT_EXT.md` (Phase 3), with phase order
-> reversed mid-project (RDD_KEY_82) so Phase 2's Java17+/C++20+ work landed before
-> Phase 1's `Main.java`/dogfood items, avoiding a double dogfood pass. All three files
-> — and their two RDD logs (`STATE_rdd_log.md` + `STATE_NEXT_rdd_log.md`) — were
-> merged into this single file/single log once Phase 3 was underway. Nothing about
-> the resolved decisions changed; `RDD_KEY_1`–`6` from the old `STATE_NEXT_rdd_log.md`
-> were renumbered `RDD_KEY_83`–`88` to fit the merged log's single namespace.
-
 **ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
 
 ### During implementation
@@ -102,7 +93,7 @@ util/CodingStyle.md/formatter/
   LICENSE
   src/
     com/jxmake/formatter/
-      Main.java                 ← CLI entry point (Phase 3 Step 1.5)
+      Main.java                 ← CLI entry point
       Config.java
       ServerMode.java
       Formatter.java            ← shared per-file pipeline (Config.resolve + ScopePipeline.process +
@@ -146,8 +137,6 @@ util/CodingStyle.md/formatter/
 | 3, Step 1.4 — `renderTokens` paren-spacing fix | `DeclarationAlignmentRule` + `MiscRule` | COMPLETE |
 | 3, Step 1.5 — Dogfood checkpoint | `Main.java` + dogfood verification | IN PROGRESS |
 | 3, Step 2 — AI integration | local on-device AI for Tier-3 judgment calls | NOT FEASIBLE (deferred — see Checklist — Phase 3) |
-| Post-Phase-3 — Cleanup | `JXMAKE_`/`jxmake-` prefix rename | NOT STARTED |
-| Post-Phase-3 — Test suite | `test/` file pairs + Makefile `test` target | NOT STARTED |
 
 ---
 
@@ -727,7 +716,7 @@ fix must be in place before test output is meaningful.
       error, 2 = usage error (RDD_KEY_88)
 - [x] `README.md` update for Phase 1 + Phase 2 (added `keep` to `indent-style`
       comment; all other Phase 1+2 items already present)
-- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS / FAIL / SKIP)
+- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 - [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
@@ -759,9 +748,6 @@ hand and may themselves contain errors.**
       again; must produce no changes
 - [ ] Dogfood self-format declaration count: `grep -c "class\|interface\|enum"`
       on original `src/` must equal count on `target/dogfood-src/`
-- [ ] Post-Phase-3 cleanup pre-flight note: the cleanup (prefix rename,
-      `indent-style = keep` → `auto`) runs AFTER all dogfood items above pass;
-      do not start the rename until this entire Step 1.5 checklist is complete
 
 Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
 out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
@@ -799,53 +785,6 @@ by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
 - [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
 
 ---
-
-## Checklist — Post-Phase-3 Cleanup
-
-To be done after all Phase 3 items above are complete and the API surface
-(config keys, env vars) is frozen.
-
-- [ ] Rename all `STYLEFMT_*` environment variables to `JXMAKE_*` prefix.
-      Grep: `grep -r "STYLEFMT_" src/`
-- [ ] Rename all `.style-fmt` config file keys from unprefixed names to
-      `jxmake-` prefix (e.g. `line-length` → `jxmake-line-length`).
-      Update `Config.java` key strings and all docs in one pass.
-- [ ] Rename `~/.config/style-fmt/` path to `~/.config/jxmake/` (or decide
-      to keep tool-specific path — confirm before implementing).
-- [ ] Update `README.md`, `README.txt`, `FORMATTER_DISCUSSION.md`, and any
-      other docs referencing old key names or env var names.
-- [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
-      `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
-- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep`
-      implies "preserve as-is" but the actual behavior is "detect project
-      majority and apply it." Update `Config.java` (`INDENT_STYLE_CHOICES`,
-      default), `IndentationDetector.java` (any internal string comparisons),
-      docs (`README.md`, `FORMATTER_DISCUSSION.md`), and `.style-fmt` files
-      in the repo if any use `keep`.
-
----
-
-## Checklist — Post-Phase-3 Cleanup, Step 2 — Makefile `test` target
-
-To be done after the cleanup checklist above and after the dogfood test files
-(`test/*_inp.*` / `test/*_out.*`) are confirmed correct.
-
-- [ ] Add variables to Makefile:
-      `TEST_DIR = test`, `TEST_TMP = target/test-out`,
-      `DOGFOOD_SRC = target/dogfood-src`
-- [ ] Add `test` target (depends on `$(JAR_FILE)`):
-      (1) `mkdir -p $(TEST_TMP) $(DOGFOOD_SRC)`
-      (2) For each `$(TEST_DIR)/*_inp.*`: run
-          `java -jar $(JAR_FILE) --out $(TEST_TMP) <file>` then
-          `diff -u $(TEST_DIR)/<base>_out.<ext> $(TEST_TMP)/<base>_inp.<ext>`
-          (note: `--out` preserves the original filename, so the diff compares
-          the `*_out` reference against the formatter's output of `*_inp`)
-      (3) For each `$(TEST_DIR)/*_out.*`: run formatter with `--out $(TEST_TMP)`
-          then diff the result against the original `*_out` (idempotency)
-      (4) Copy `src/` tree to `$(DOGFOOD_SRC)`, run formatter on all `.java`
-          files there, `javac` them, run formatter again and verify no changes
-- [ ] Add `test` to `.PHONY`
-- [ ] Verify `make test` runs clean end-to-end before committing
 
 These `RDD_EXT_n` decisions are background/architecture for the (deferred) Step 2
 AI integration and were never externally logged — they have no entry in
@@ -916,9 +855,5 @@ semantically odd. Acceptable as preserve-as-is behaviour.
 - [x] Phase 3, Step 1.4 — `renderTokens` paren-spacing fix in `DeclarationAlignmentRule`
       and `MiscRule` (fixes `foo()` → `foo ( )` in rendered init/size expressions)
 - [ ] Phase 3 dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
-- [ ] Post-Phase-3 cleanup complete: all env vars and config keys use the
-      `JXMAKE_` / `jxmake-` prefix; no stale references remain
 - [ ] `test/` directory with 15 `*_inp`/`*_out` file pairs + `README.txt` committed
       and confirmed correct against the formatter's actual output
-- [ ] Makefile `test` target implemented and verified (see Post-Phase-3 Cleanup,
-      Step 2)

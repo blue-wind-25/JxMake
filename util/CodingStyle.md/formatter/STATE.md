@@ -13,7 +13,11 @@
    Phase 1 and Phase 2 are `COMPLETE`; resume work is in Phase 3.
 3. Check the **Checklist — Phase 3** section for unchecked items — that is where to
    resume. **Step 2 — AI integration is NOT FEASIBLE** (deferred, see that section) —
-   do not attempt it; skip straight to the dogfood checklist and Post-Phase-3 Cleanup.
+   skip straight to the dogfood checklist. Correct order within Step 1.x: (a) Step 1.4
+   `renderTokens` paren-spacing fix, (b) README.md update, (c) dogfood file-pair pass
+   (correct `*_out` files as needed), (d) dogfood idempotency + self-format passes,
+   (e) Post-Phase-3 Cleanup (prefix rename — only after all dogfood items pass),
+   (f) Makefile `test` target.
 4. If anything in this file is ambiguous, stop and ask before writing any code
 
 **Do NOT read `FORMATTER_DISCUSSION.md` or `README.md`** unless the user explicitly
@@ -139,9 +143,11 @@ util/CodingStyle.md/formatter/
 | 1 — Core formatter | `STYLE.md` / `STYLE_C_CPP.md` / `STYLE_JAVA.md` (Tier 1 + Tier 2) | COMPLETE |
 | 2 — Newer-language constructs | `STYLE_JAVA17.md` / `STYLE_CPP20.md` | COMPLETE |
 | 3, Step 1 — Call/declaration line-breaking | `STYLE.md` §8 extension, `MiscRule.enforceCallLineBreaking` | COMPLETE |
+| 3, Step 1.4 — `renderTokens` paren-spacing fix | `DeclarationAlignmentRule` + `MiscRule` | NOT STARTED |
 | 3, Step 1.5 — Dogfood checkpoint | `Main.java` + dogfood verification | IN PROGRESS |
 | 3, Step 2 — AI integration | local on-device AI for Tier-3 judgment calls | NOT FEASIBLE (deferred — see Checklist — Phase 3) |
 | Post-Phase-3 — Cleanup | `JXMAKE_`/`jxmake-` prefix rename | NOT STARTED |
+| Post-Phase-3 — Test suite | `test/` file pairs + Makefile `test` target | NOT STARTED |
 
 ---
 
@@ -321,6 +327,7 @@ already-COMPLETE Phase 1 logic.
 | `STYLE.md` (add call line-breaking forms to §8) | COMPLETE (commit b222345, predates this checklist pass -- verified matches RDD_EXT_4/5/6/7) |
 | `MiscRule.java` (option 1 dropped form + option 2 preserve-groups+align, for both calls and declarations) | COMPLETE (new `enforceCallLineBreaking` pass + helpers, wired into `Formatter.formatOne`; verified via 13-scenario smoke test; see RDD_KEY_86/87) |
 | `Main.java` | COMPLETE (see Checklist — Phase 3, Step 1.5; RDD_KEY_88) |
+| `DeclarationAlignmentRule.java` + `MiscRule.java` (`renderTokens` paren-spacing fix) | NOT STARTED (see Checklist — Phase 3, Step 1.4) |
 | `Config.java` (ai-assist, ai-endpoint, ai-model, ai-retry-interval keys) | NOT FEASIBLE (Step 2 deferred — see Checklist — Phase 3, Step 2) |
 | `AiDecisionClient.java` (OpenAI-compatible `/v1/chat/completions` caller) | NOT FEASIBLE |
 | `AI_DECISION_PROMPT.md` (prompt template — separate from AI_PREAMBLE.md) | NOT FEASIBLE |
@@ -573,12 +580,125 @@ directly followed by a body `{`.
 
 No-AI fallback rule (ai-assist off or endpoint unavailable): see RDD_EXT_8.
 
+**Step 1.4 — Complexity padding: universal `()` / `[]` + `renderTokens` bracket fix**
+
+Two coupled bugs that must land in the same commit.
+
+**Background — STYLE.md §3.1 is universal, not just control-flow:**
+The style guide states the rule applies to all `()` and `[]`, not only
+`if`/`while`/`for`/`switch` conditions. The current implementation has two
+gaps that violate this:
+
+**Bug A — `enforceConditionComplexityPadding` scope too narrow (`MiscRule.java`):**
+Currently only pads/tightens `(` immediately following a control-flow keyword.
+All other `()` and `[]` are left untouched, producing wrong output:
+
+```
+// WRONG (current):
+memset(buf, 0, frames * sizeof(float));   // outer ( contains ( → should be loose
+items_.push_back(std::move(item));         // ( contains ( → should be loose
+process(new ArrayList<String>());          // ( contains ( → should be loose
+cfg_(std::move(cfg));                      // ( contains ( → should be loose
+func();                                    // empty → tight ✓ (already correct)
+a[10];                                     // no ( or [ in content → tight ✓
+
+// CORRECT (after fix):
+memset( buf, 0, frames * sizeof(float) );
+items_.push_back( std::move(item) );
+process( new ArrayList<String>() );
+cfg_( std::move(cfg) );
+func();
+a[10];
+// Also correct after fix:
+func( other() );                           // ( contains ( → loose
+func( (a + b) * c );                       // ( contains ( → loose
+a[ b[i] ];                                 // [ contains [ → loose
+( A[ b[n] + 1 ] );                         // outer ( contains [ → loose,
+                                           // middle [ contains [ → loose,
+                                           // inner [n] empty → tight
+```
+
+Fix for Bug A: rename `enforceConditionComplexityPadding` to
+`enforceComplexityPadding` and remove the `TIGHT_PAREN_KEYWORDS` gate so
+it scans every `(` and `[` in the token stream. Add one exclusion: skip
+any `(` where the immediately preceding significant token is an IDENTIFIER
+**and** the matching `)` is followed (skipping whitespace/comments) by
+`{`, `->`, or any of `const`/`override`/`noexcept`/`throws`/`final` —
+this identifies function/method definition parameter lists, which must not
+be padded regardless of their content (e.g. `process(float[] buffer, int n)`
+must stay tight even though `[]` is inside). The `isLoose` evaluator in
+`ComplexityPaddingEvaluator` is already correct and **unchanged**.
+Also update the call site in `Formatter.java` to use the new method name.
+
+**If anything in this fix is unclear, stop and ask the user with a concrete
+example of the input token sequence and expected output before proceeding.**
+
+**Bug B — `renderTokens` bracket spacing (`DeclarationAlignmentRule.java` and
+`MiscRule.java`):**
+`renderTokens` is designed for type-token lists (modifier + type + name) but
+is also called on `initTokens` and `sizeTokens` which can contain call
+expressions. Its `isTightToken`/`needsSpaceBetween` helpers do not treat `(`
+and `)` (or `]`) as tight, producing spurious spaces:
+
+```
+// WRONG (current) — renderTokens called on initTokens:
+auto x    = arr.size ( );      // ) not tight → space before )
+int  n    = arr.size ( );      // same
+// CORRECT (after fix):
+auto x    = arr.size();
+int  n    = arr.size();
+```
+
+Fix for Bug B: in `needsSpaceBetween` in **both** `DeclarationAlignmentRule`
+and `MiscRule`, add:
+1. No space before `)` or `]` — always tight as `cur`.
+2. No space before `(` when `prev` is IDENTIFIER — call site join.
+3. `isPunct(prev, "(")` and `isPunct(prev, "[")` added to the existing
+   prev-is-tight guard (alongside `ANGLE_BRACKET_OPEN`/`::`/`[`) — no space
+   immediately after an open bracket.
+
+After this fix, `renderTokens` is bracket-neutral: it neither adds nor
+removes spacing around `()` and `[]`. Bug A's fix (Phase 4) then applies
+the correct loose/tight padding to the whole-file token stream, including
+whatever Phase 0 (`ScopePipeline` / `DeclarationAlignmentRule`) re-rendered.
+The two fixes work together: Bug B makes Phase 0 stop producing wrong spacing;
+Bug A makes Phase 4 apply correct spacing everywhere.
+
+**If anything in this fix is unclear, stop and ask the user with a concrete
+example of the input token sequence and expected output before proceeding.**
+
+- [ ] Bug A: rename and extend `enforceConditionComplexityPadding` →
+      `enforceComplexityPadding` in `MiscRule.java`; add the function-
+      definition-signature exclusion; update `Formatter.java` call site
+- [ ] Bug B: fix `needsSpaceBetween` in `DeclarationAlignmentRule.java`
+- [ ] Bug B: fix `needsSpaceBetween` in `MiscRule.java` (identical change)
+- [ ] Smoke-test: verify these cases produce correct output after both fixes:
+      - `int n = arr.size();` → tight (empty args, declaration init)
+      - `auto x = func( other() );` — wait, is this right? Content of
+        `func(...)` has `(` → loose; content of `other(...)` is empty → tight.
+        Result in a decl init: `auto x = func( other() );` ✓
+      - `memset( buf, 0, n * sizeof(float) );` — standalone call ✓
+      - `process(float[] buffer, int n)` — method sig, stays tight ✓
+      - `a[ b[i] ];` — `[` contains `[` → loose ✓
+      - `a[10];` — tight ✓
+- [ ] Commit `MiscRule.java`, `DeclarationAlignmentRule.java`, `Formatter.java`,
+      and `STATE.md` together
+
 **Step 1.5 — Dogfood checkpoint (in progress):**
 
-Runs after Step 1 rather than before it, since Step 1 touches already-COMPLETE
-`MiscRule.java` logic and this checkpoint must catch any regression it introduces —
-covers the core formatter plus the Phase 2 additions plus Step 1 in one combined pass,
-before the (deferred) Step 2 AI-integration work.
+Runs after Step 1.4 rather than before it, since the paren/bracket spacing
+fix must be in place before test output is meaningful.
+
+**Critical rules for this step:**
+- Run test files **one at a time**, not all at once. After each file, if
+  the formatter output does not match the `*_out` file, **stop and ask the
+  user** before attempting any fix — the mismatch may be a bug in the
+  `*_out` file itself (authored by hand, not confirmed by the formatter),
+  not necessarily a formatter bug. Record which files passed and which did
+  not in STATE.md as you go, so progress is preserved if quota runs out.
+- The same ask-first rule applies to the self-dogfood pass: if formatting
+  the formatter's own source produces unexpected changes, stop and report
+  the diff to the user before fixing anything.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
 `/tmp/style-fmt-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
@@ -598,14 +718,43 @@ before the (deferred) Step 2 AI-integration work.
       single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
 - [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting
       error, 2 = usage error (RDD_KEY_88)
-- [ ] Dogfood test — run formatter on its own `src/` tree, verify style compliance and
-      that `make` still succeeds after
-- [ ] Dogfood test — formatter applied to a Java 17+ / C++20+ sample set exercising
-      every Phase 2 construct, verify style compliance
-- [ ] Dogfood test — formatter applied to Java and C/C++ sample sets containing
-      `//` and `/* */` comments in uncommon locations
-- [ ] `README.md` update for Phase 1 + Phase 2 (defer until just before the dogfood
-      items above)
+- [ ] `README.md` update for Phase 1 + Phase 2 (do this immediately before the
+      dogfood items below)
+- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS / FAIL / SKIP)
+- [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
+- [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
+- [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
+- [ ] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c`
+- [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
+- [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
+- [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
+- [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
+- [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
+- [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
+- [ ] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h`
+- [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
+- [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp`
+- [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
+
+**If any file-pair test above shows a mismatch: stop, report the full diff to the
+user, and wait for instruction. Do not attempt to fix either the formatter or the
+`*_out` file without explicit user direction — the `*_out` files were authored by
+hand and may themselves contain errors.**
+
+**After all 15 file-pair tests pass (or are resolved):**
+- [ ] Idempotency pass: for each `test/*_out.*` file, run formatter with
+      `--out <tmpdir>` and diff against original; all must be empty
+- [ ] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
+      to `target/dogfood-src/`
+- [ ] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;
+      must compile with zero errors
+- [ ] Dogfood self-format idempotency: run formatter on `target/dogfood-src/`
+      again; must produce no changes
+- [ ] Dogfood self-format declaration count: `grep -c "class\|interface\|enum"`
+      on original `src/` must equal count on `target/dogfood-src/`
+- [ ] Post-Phase-3 cleanup pre-flight note: the cleanup (prefix rename,
+      `indent-style = keep` → `auto`) runs AFTER all dogfood items above pass;
+      do not start the rename until this entire Step 1.5 checklist is complete
 
 Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
 out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
@@ -631,74 +780,4 @@ by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
 > or if a larger model (7B+) proves reliable enough without one, Step 2 can be revisited
 > without redesigning the infrastructure.
 >
-> Tier-3 aesthetic decisions (argument layout, non-standard getter/setter grouping) are
-> handled by the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md` instead.
-
-- [~] All Step 2 items below are NOT FEASIBLE — no implementation needed.
-- [~] `Config.java` ai-assist keys — NOT FEASIBLE
-- [~] `AiDecisionClient.java` — NOT FEASIBLE
-- [~] `AI_DECISION_PROMPT.md` — NOT FEASIBLE
-- [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
-- [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session; no further CLI action needed for this item)
-- [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision
-
----
-
-## Checklist — Post-Phase-3 Cleanup
-
-To be done after all Phase 3 items above are complete and the API surface
-(config keys, env vars) is frozen.
-
-- [ ] Rename all `STYLEFMT_*` environment variables to `JXMAKE_*` prefix.
-      Grep: `grep -r "STYLEFMT_" src/`
-- [ ] Rename all `.style-fmt` config file keys from unprefixed names to
-      `jxmake-` prefix (e.g. `line-length` → `jxmake-line-length`).
-      Update `Config.java` key strings and all docs in one pass.
-- [ ] Rename `~/.config/style-fmt/` path to `~/.config/jxmake/` (or decide
-      to keep tool-specific path — confirm before implementing).
-- [ ] Update `README.md`, `README.txt`, `FORMATTER_DISCUSSION.md`, and any
-      other docs referencing old key names or env var names.
-- [ ] Verify no stale `STYLEFMT_` or unprefixed key references remain:
-      `grep -r "STYLEFMT_\|style-fmt" src/ docs/`
-- [ ] Rename `indent-style = keep` value to `indent-style = auto` — `keep`
-      implies "preserve as-is" but the actual behavior is "detect project
-      majority and apply it." Update `Config.java` (`INDENT_STYLE_CHOICES`,
-      default), `IndentationDetector.java` (any internal string comparisons),
-      docs (`README.md`, `FORMATTER_DISCUSSION.md`), and `.style-fmt` files
-      in the repo if any use `keep`.
-
----
-
-## Phase 3 — AI-Assist Resolved Design Decisions (inline only, no external log)
-
-These `RDD_EXT_n` decisions are background/architecture for the (deferred) Step 2
-AI integration and were never externally logged — they have no entry in
-`STATE_rdd_log.md` and no collision risk, so they stay inline here. The related
-`RDD_KEY_86`/`87`/`88` decisions that *are* externally logged appear only in the
-main Resolved Design Decisions index above.
-
-| Key | Topic |
-|---|---|
-| RDD_EXT_1 | Selection prompt + grammar constraint confirmed working for Qwen2.5-Coder-3B on llama.cpp; `/v1/chat/completions` used (not `/v1/completions` or native `/completion`) — llama.cpp applies model chat template automatically from GGUF metadata, no model-specific prompt tokens needed in JAR code |
-| RDD_EXT_2 | Model never rewrites source; JAR executes chosen candidate mechanically |
-| RDD_EXT_3 | Fail-safe on unreachable endpoint: fall back to option 0, log warning, continue |
-| RDD_EXT_4 | Four candidate forms for function call and declaration line-breaking (inline, dropped, preserve-groups+align, one-per-line); option 1 only when inline exceeds 100 chars; option 2 only when source already multi-line; AI only invoked when multiple candidates exist; option 2 uses comma-spacing normalization for calls and existing §5 column grid (DeclarationAlignmentRule/ColumnGrid/ModifierPriority) for declarations |
-| RDD_EXT_5 | Semantic grouping (by type/name similarity) explicitly out of scope — option 2 preserves existing author-expressed grouping only, never creates new groupings |
-| RDD_EXT_6 | Comment handling: trailing comments align normally; comment-only lines between groups are opaque (option 2 only, others migrate to trailing); inline block comments normalized in place; leading preamble comment disqualifies options 0/1/3 |
-| RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
-| RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
-| RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
-
----
-
-## End Goal
-
-- [x] Phase 1 (core formatter, all of STYLE.md/STYLE_C_CPP.md/STYLE_JAVA.md): COMPLETE
-- [x] Phase 2 (Java17+/C++20+ constructs): COMPLETE
-- [x] Phase 3, `STYLE.md` §8 updated with call line-breaking forms
-- [x] Phase 3, options 1 and 2 implemented deterministically, verified by smoke test
-- [~] Phase 3, `ai-assist = local` — NOT FEASIBLE (see Step 2 note above); mechanical
-      fallback (dropped-or-one-per-line) is the permanent behavior
-- [ ] Phase 3 dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
-- [ ] Post-Phase-3 cleanup complete: all env vars and config keys use the
-      `JXMAKE_` / `jxmake-` prefix; no stale references remain
+> Tier-3 aesthetic decisions (argument layout, non-standar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   

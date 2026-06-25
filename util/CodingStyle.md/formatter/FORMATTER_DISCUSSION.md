@@ -116,15 +116,15 @@ section below for the design and rationale.
 ### One JAR, three run modes
 
 ```
-style-fmt --server [--port N]     Start formatting server (default port 17173)
-style-fmt --stop                  Kill server via lockfile PID
-style-fmt File.java               Auto: use server if present, else standalone
-style-fmt --standalone File.java  Force standalone (bypass server check)
+jxmake-code-formatter --server [--port N]     Start formatting server (default port 17173)
+jxmake-code-formatter --stop                  Kill server via lockfile PID
+jxmake-code-formatter File.java               Auto: use server if present, else standalone
+jxmake-code-formatter --standalone File.java  Force standalone (bypass server check)
 ```
 
 ### Server mode
 
-- Writes `~/.config/style-fmt/server.lock` containing PID and port on startup
+- Writes `~/.config/jxmake-code-formatter/server.lock` containing PID and port on startup
 - Client mode reads lockfile, checks PID still alive, connects if yes
 - Falls back to standalone silently if lockfile absent or PID dead
 - Benefit: JVM startup paid once; tokenizer and rule engine stay warm across
@@ -139,12 +139,12 @@ style-fmt --standalone File.java  Force standalone (bypass server check)
 ### Data flow
 
 ```
-style-fmt (client mode)
+jxmake-code-formatter (client mode)
     │
     ├── server present? ──yes──► HTTP localhost:17173
     │                                │
     │                                ▼
-    │                         style-fmt (server mode)
+    │                         jxmake-code-formatter (server mode)
     │                                │
     └── no ──────────────────► in-process
                                      │
@@ -317,18 +317,18 @@ Blank line resets group.
 ```
 Built-in defaults
     ↓
-~/.config/style-fmt/config        user global
+~/.config/jxmake-code-formatter/config  user global
     ↓
-STYLEFMT_* environment variables  overrides global, overridden by project
+JXMAKE_CODE_FORMATTER_* environment variables  overrides global, overridden by project
     ↓
-.style-fmt in project root        per-project (commit to repo)
+.jxmake-code-formatter in project root        per-project (commit to repo)
     ↓
-.style-fmt in subdirectory        per-subdir (inherits from parent .style-fmt)
+.jxmake-code-formatter in subdirectory        per-subdir (inherits from parent .jxmake-code-formatter)
     ↓
 CLI flags                         always win
 ```
 
-Env vars sit below project-level config so a committed `.style-fmt` wins over
+Env vars sit below project-level config so a committed `.jxmake-code-formatter` wins over
 CI environment settings, preventing silent CI overrides.
 
 ### Config keys
@@ -380,10 +380,10 @@ a tool where the config file becomes a second style guide.
 ## Output Modes
 
 ```
-style-fmt File.java              In-place edit (default)
-style-fmt --diff File.java       Print unified diff, do not edit
-style-fmt --check File.java      Exit 1 if file would change (CI mode)
-style-fmt --out DIR File.java    Write to DIR/File.java instead
+jxmake-code-formatter File.java              In-place edit (default)
+jxmake-code-formatter --diff File.java       Print unified diff, do not edit
+jxmake-code-formatter --check File.java      Exit 1 if file would change (CI mode)
+jxmake-code-formatter --out DIR File.java    Write to DIR/File.java instead
 ```
 
 ---
@@ -394,11 +394,11 @@ Single JAR on PATH. For JxMake / GNU Make:
 
 ```makefile
 fmt:
-    style-fmt --server &    # idempotent: exits immediately if already running
-    style-fmt $(SRCS)
+    jxmake-code-formatter --server &    # idempotent: exits immediately if already running
+    jxmake-code-formatter $(SRCS)
 
 fmt-check:
-    style-fmt --check $(SRCS)
+    jxmake-code-formatter --check $(SRCS)
 ```
 
 ---
@@ -411,7 +411,7 @@ fmt-check:
       rule classes (not one class per rule)
 - [x] Multi-module Java projects — resolved: `java-import-depth = 2`, top-N components
       of `package` declaration for pre-Java-9 module-less projects
-- [x] `.style-fmt` inheritance from parent subdirectory — resolved: full inheritance,
+- [x] `.jxmake-code-formatter` inheritance from parent subdirectory — resolved: full inheritance,
       child keys override parent
 - [x] Server mode idempotency — resolved: check lockfile first; if PID not alive treat
       as stale, delete and start fresh (`ProcessHandle.of(pid).isPresent()`)

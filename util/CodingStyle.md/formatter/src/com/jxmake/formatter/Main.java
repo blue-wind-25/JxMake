@@ -134,7 +134,7 @@ public final class Main {
                     anyChanged = true;
                 }
             } catch (final Exception e) {
-                System.err.println("style-fmt: error: " + file + ": " + e.getMessage());
+                System.err.println("jxmake-code-formatter: error: " + file + ": " + e.getMessage());
                 anyError = true;
             }
         }
@@ -148,15 +148,15 @@ public final class Main {
     }
 
     private static int usageError(final String message) {
-        System.err.println("style-fmt: error: " + message);
+        System.err.println("jxmake-code-formatter: error: " + message);
         printUsage();
         return 2;
     }
 
     private static void printUsage() {
-        System.err.println("usage: style-fmt [--standalone] [--diff | --check | --out DIR] [file...]");
-        System.err.println("       style-fmt --server [--port N]");
-        System.err.println("       style-fmt --stop");
+        System.err.println("usage: jxmake-code-formatter [--standalone] [--diff | --check | --out DIR] [file...]");
+        System.err.println("       jxmake-code-formatter --server [--port N]");
+        System.err.println("       jxmake-code-formatter --stop");
     }
 
     /** Returns {@code true} if the file's formatted content differs from its original content. */
@@ -209,7 +209,7 @@ public final class Main {
                 try {
                     return delegateToServer(serverPort, path, language, original);
                 } catch (final IOException e) {
-                    System.err.println("style-fmt: warning: server delegation failed (" + e.getMessage()
+                    System.err.println("jxmake-code-formatter: warning: server delegation failed (" + e.getMessage()
                             + "), falling back to standalone formatting");
                 }
             }
@@ -220,8 +220,8 @@ public final class Main {
     private static String formatStandalone(final Path path, final String language, final String original,
             final Map<String, String> baseCliOverrides) throws IOException {
         Config config = Config.resolve(path, baseCliOverrides);
-        if ("keep".equals(config.indentStyle())) {
-            final String resolvedStyle = resolveKeepIndentStyle(path);
+        if ("auto".equals(config.indentStyle())) {
+            final String resolvedStyle = resolveAutoIndentStyle(path);
             final Map<String, String> merged = new LinkedHashMap<String, String>(baseCliOverrides);
             merged.put("indent-style", resolvedStyle);
             config = Config.resolve(path, merged);
@@ -234,17 +234,17 @@ public final class Main {
      * Standalone-mode persistent cache for {@code IndentationDetector.detect()}, layered on top
      * of that class's own in-memory, per-call cache (which only lives for one JVM invocation and
      * is therefore useless across separate CLI runs). Key = SHA-256 hex of the boundary
-     * directory's absolute path string; cache file = {@code /tmp/style-fmt-indent-<key>.cache};
+     * directory's absolute path string; cache file = {@code /tmp/jxmake-code-formatter-indent-<key>.cache};
      * content = detected style + newline + boundary dir's {@code lastModified} epoch ms. A
      * mismatch (someone added/removed a source file under the boundary dir since the last scan)
      * invalidates the entry and triggers a fresh scan.
      */
-    private static String resolveKeepIndentStyle(final Path path) throws IOException {
+    private static String resolveAutoIndentStyle(final Path path) throws IOException {
         final Path fileDir = path.toAbsolutePath().getParent();
         final Path boundaryDir = IndentationDetector.findBoundaryDir(fileDir);
         final long boundaryLastModified = Files.exists(boundaryDir) ? Files.getLastModifiedTime(boundaryDir)
                 .toMillis() : 0L;
-        final Path cacheFile = Paths.get("/tmp", "style-fmt-indent-" + sha256Hex(boundaryDir.toString())
+        final Path cacheFile = Paths.get("/tmp", "jxmake-code-formatter-indent-" + sha256Hex(boundaryDir.toString())
                 + ".cache");
 
         if (Files.isRegularFile(cacheFile)) {
@@ -263,7 +263,7 @@ public final class Main {
             try {
                 Files.deleteIfExists(cacheFile);
             } catch (final IOException e) {
-                System.err.println("style-fmt: warning: could not delete stale indent-style cache: "
+                System.err.println("jxmake-code-formatter: warning: could not delete stale indent-style cache: "
                         + e.getMessage());
             }
         }
@@ -272,7 +272,7 @@ public final class Main {
         try {
             Files.write(cacheFile, (detected + "\n" + boundaryLastModified + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (final IOException e) {
-            System.err.println("style-fmt: warning: could not write indent-style cache: " + e.getMessage());
+            System.err.println("jxmake-code-formatter: warning: could not write indent-style cache: " + e.getMessage());
         }
         return detected;
     }

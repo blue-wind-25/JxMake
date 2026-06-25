@@ -1,4 +1,4 @@
-# style-fmt — Code Formatter
+# jxmake-code-formatter — Code Formatter
 
 A deterministic code formatter for C, C++, and Java implementing the
 [CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer plus
@@ -82,10 +82,10 @@ The formatter reads configuration from the following sources, in order of increa
 precedence (later sources override earlier ones):
 
 1. Built-in class defaults
-2. `~/.config/style-fmt/config` — user global config
-3. `STYLEFMT_*` environment variables
-4. `.style-fmt` in the project root — per-project config (commit this to the repo)
-5. `.style-fmt` in the source subdirectory — inherits from parent, overrides specific keys
+2. `~/.config/jxmake-code-formatter/config` — user global config
+3. `JXMAKE_CODE_FORMATTER_*` environment variables
+4. `.jxmake-code-formatter` in the project root — per-project config (commit this to the repo)
+5. `.jxmake-code-formatter` in the source subdirectory — inherits from parent, overrides specific keys
 6. CLI flags — always win
 
 ### Config file format
@@ -94,7 +94,7 @@ precedence (later sources override earlier ones):
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                = 100
 indent-size                = 4
-indent-style               = spaces          # spaces | tabs | keep
+indent-style               = spaces          # spaces | tabs | auto
 server-port                = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
@@ -114,9 +114,9 @@ java-import-depth          = 2
 java-import-blank-lines    = 1
 ```
 
-### `.style-fmt` inheritance
+### `.jxmake-code-formatter` inheritance
 
-A `.style-fmt` file in a subdirectory fully inherits from the nearest `.style-fmt`
+A `.jxmake-code-formatter` file in a subdirectory fully inherits from the nearest `.jxmake-code-formatter`
 found in any parent directory, overriding only the keys it explicitly specifies.
 
 ### Java import groups and module detection
@@ -145,10 +145,10 @@ is used — no module system involvement required.
 The formatter runs on Windows (JVM is cross-platform, `/` paths are normalized by
 the JVM internally). The following limitations apply on Windows:
 
-- `~/.config/style-fmt/` resolves via `System.getProperty("user.home")` which on
+- `~/.config/jxmake-code-formatter/` resolves via `System.getProperty("user.home")` which on
   Windows typically maps to `C:\Users\<name>` — this works correctly
-- Environment variable overrides (`STYLEFMT_*`) work normally
-- Some path overrides in `.style-fmt` using Unix-style absolute paths
+- Environment variable overrides (`JXMAKE_CODE_FORMATTER_*`) work normally
+- Some path overrides in `.jxmake-code-formatter` using Unix-style absolute paths
   (e.g. `/etc/...`) will not resolve correctly on Windows — use relative paths
   or `user.home`-relative paths in config files intended for cross-platform use
 - Server mode PID liveness check uses `ProcessHandle` (Java 9+) which is

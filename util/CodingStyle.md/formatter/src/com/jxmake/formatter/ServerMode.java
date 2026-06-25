@@ -31,7 +31,7 @@ public final class ServerMode {
     }
 
     private static Path lockfilePath() {
-        return Paths.get(System.getProperty("user.home"), ".config/style-fmt", LOCKFILE_NAME);
+        return Paths.get(System.getProperty("user.home"), ".config/jxmake-code-formatter", LOCKFILE_NAME);
     }
 
     /**
@@ -47,13 +47,13 @@ public final class ServerMode {
         if (Files.isRegularFile(lockfilePath)) {
             final long existingPid = readLockfilePid(lockfilePath);
             if (existingPid > 0 && isProcessAlive(existingPid)) {
-                System.out.println("style-fmt: server already running (pid " + existingPid + ")");
+                System.out.println("jxmake-code-formatter: server already running (pid " + existingPid + ")");
                 return false;
             }
             try {
                 Files.deleteIfExists(lockfilePath);
             } catch (final IOException e) {
-                System.err.println("style-fmt: warning: could not delete stale lockfile: " + e.getMessage());
+                System.err.println("jxmake-code-formatter: warning: could not delete stale lockfile: " + e.getMessage());
             }
         }
 
@@ -62,7 +62,7 @@ public final class ServerMode {
         try {
             httpServer = HttpServer.create(new InetSocketAddress("localhost", port), 0);
         } catch (final IOException e) {
-            System.err.println("style-fmt: error: could not bind server: " + e.getMessage());
+            System.err.println("jxmake-code-formatter: error: could not bind server: " + e.getMessage());
             return false;
         }
 
@@ -71,14 +71,14 @@ public final class ServerMode {
             final String lockContent = currentPid() + "\n" + port + "\n";
             Files.write(lockfilePath, lockContent.getBytes(StandardCharsets.UTF_8));
         } catch (final IOException e) {
-            System.err.println("style-fmt: error: could not write lockfile: " + e.getMessage());
+            System.err.println("jxmake-code-formatter: error: could not write lockfile: " + e.getMessage());
             return false;
         }
 
         httpServer.createContext("/format", new FormatHandler());
         httpServer.createContext("/shutdown", new ShutdownHandler(httpServer, lockfilePath));
         httpServer.start();
-        System.out.println("style-fmt: server listening on port " + port);
+        System.out.println("jxmake-code-formatter: server listening on port " + port);
         return true;
     }
 
@@ -180,14 +180,14 @@ public final class ServerMode {
     public static boolean stop() {
         final Path lockfilePath = lockfilePath();
         if (!Files.isRegularFile(lockfilePath)) {
-            System.out.println("style-fmt: no server running");
+            System.out.println("jxmake-code-formatter: no server running");
             return true;
         }
 
         final long pid = readLockfilePid(lockfilePath);
         if (pid <= 0 || !isProcessAlive(pid)) {
             deleteLockfileQuietly(lockfilePath);
-            System.out.println("style-fmt: no server running (stale lockfile removed)");
+            System.out.println("jxmake-code-formatter: no server running (stale lockfile removed)");
             return true;
         }
 
@@ -208,7 +208,7 @@ public final class ServerMode {
 
         for (int i = 0; i < 20; i++) {
             if (!Files.isRegularFile(lockfilePath)) {
-                System.out.println("style-fmt: server stopped");
+                System.out.println("jxmake-code-formatter: server stopped");
                 return true;
             }
             try {
@@ -221,18 +221,18 @@ public final class ServerMode {
 
         if (!isProcessAlive(pid)) {
             deleteLockfileQuietly(lockfilePath);
-            System.out.println("style-fmt: server stopped");
+            System.out.println("jxmake-code-formatter: server stopped");
             return true;
         }
 
-        System.err.println("style-fmt: warning: server did not exit gracefully, forcing termination (pid " + pid
+        System.err.println("jxmake-code-formatter: warning: server did not exit gracefully, forcing termination (pid " + pid
                 + ")");
         final boolean killed = forceKill(pid);
         deleteLockfileQuietly(lockfilePath);
         if (killed) {
-            System.out.println("style-fmt: server stopped (forced)");
+            System.out.println("jxmake-code-formatter: server stopped (forced)");
         } else {
-            System.err.println("style-fmt: error: could not stop server (pid " + pid + ") -- forceful "
+            System.err.println("jxmake-code-formatter: error: could not stop server (pid " + pid + ") -- forceful "
                     + "termination is best-effort and not guaranteed on all platforms");
         }
         return killed;
@@ -242,7 +242,7 @@ public final class ServerMode {
         try {
             Files.deleteIfExists(lockfilePath);
         } catch (final IOException e) {
-            System.err.println("style-fmt: warning: could not delete lockfile: " + e.getMessage());
+            System.err.println("jxmake-code-formatter: warning: could not delete lockfile: " + e.getMessage());
         }
     }
 
@@ -331,7 +331,7 @@ public final class ServerMode {
                 try {
                     Files.deleteIfExists(lockfilePath);
                 } catch (final IOException e) {
-                    System.err.println("style-fmt: warning: could not delete lockfile: " + e.getMessage());
+                    System.err.println("jxmake-code-formatter: warning: could not delete lockfile: " + e.getMessage());
                 }
                 System.exit(0);
             });

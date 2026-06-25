@@ -20,11 +20,11 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class Config {
-    private static final String APP_NAME = "style-fmt";
-    private static final String CONFIG_DIR = ".config/style-fmt";
+    private static final String APP_NAME = "jxmake-code-formatter";
+    private static final String CONFIG_DIR = ".config/jxmake-code-formatter";
     private static final String CONFIG_FILE = "config";
-    private static final String STYLE_FMT_FILE_NAME = ".style-fmt";
-    private static final String ENV_PREFIX = "STYLEFMT_";
+    private static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";
+    private static final String ENV_PREFIX = "JXMAKE_CODE_FORMATTER_";
 
     private static final String[] ALL_KEYS = {
         "line-length", "indent-size", "indent-style", "server-port",
@@ -34,7 +34,7 @@ public final class Config {
         "java-import-blank-lines"
     };
 
-    private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "keep" };
+    private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
     private static final String[] HEADER_GUARD_STYLE_CHOICES = { "preserve", "ifndef", "pragma-once" };
 
@@ -169,7 +169,7 @@ public final class Config {
         try {
             lines = Files.readAllLines(path);
         } catch (final IOException e) {
-            System.err.println("style-fmt: warning: could not read config file " + path + ": " + e.getMessage());
+            System.err.println("jxmake-code-formatter: warning: could not read config file " + path + ": " + e.getMessage());
             return result;
         }
         for (final String rawLine : lines) {
@@ -275,7 +275,7 @@ public final class Config {
     }
 
     private static void warnInvalid(final String key, final String value, final String fallback) {
-        System.err.println("style-fmt: warning: invalid value for '" + key + "': \"" + value
+        System.err.println("jxmake-code-formatter: warning: invalid value for '" + key + "': \"" + value
                 + "\" -- using default \"" + fallback + "\"");
     }
 }

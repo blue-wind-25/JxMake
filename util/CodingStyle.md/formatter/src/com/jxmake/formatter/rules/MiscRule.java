@@ -50,11 +50,11 @@ public class MiscRule {
     /**
      * Converts every line's leading indentation run to the requested style, per STYLE.md §1's
      * `indent-style = spaces | tabs` modes (resolved -- see "§1 indentation scope" in Resolved
-     * Design Decisions). `indent-style = keep` is deliberately not handled here: it requires
+     * Design Decisions). `indent-style = auto` is deliberately not handled here: it requires
      * whole-project context to determine the dominant style, which is a `Main.java`/
      * `Config.java`-orchestration-time decision made by a separate, not-yet-built detector class
-     * -- that class is expected to resolve "keep" down to a concrete `spaces`/`tabs` choice and
-     * call this method with that choice, so this method itself never has to interpret "keep".
+     * -- that class is expected to resolve "auto" down to a concrete `spaces`/`tabs` choice and
+     * call this method with that choice, so this method itself never has to interpret "auto".
      * Only the whitespace run at the very start of each line is touched; whitespace elsewhere
      * (mid-line alignment padding, trailing whitespace) is never indentation. A line whose
      * indentation width (tabs expanded at {@link #INDENT_WIDTH}) is not an exact multiple of

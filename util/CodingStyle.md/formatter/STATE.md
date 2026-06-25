@@ -16,8 +16,7 @@
    skip straight to the dogfood checklist. Correct order within Step 1.x: (a) Step 1.4
    `renderTokens` paren-spacing fix, (b) README.md update, (c) dogfood file-pair pass
    (correct `*_out` files as needed), (d) dogfood idempotency + self-format passes,
-   (e) Post-Phase-3 Cleanup (prefix rename — only after all dogfood items pass),
-   (f) Makefile `test` target.
+   (e) Makefile `test` target.
 4. If anything in this file is ambiguous, stop and ask before writing any code
 
 **Do NOT read `FORMATTER_DISCUSSION.md` or `README.md`** unless the user explicitly
@@ -45,7 +44,7 @@ contains nothing the implementer needs beyond what is already indexed here.
 
 ### `.gitignore` — add these lines if not already present
 ```
-# style-fmt build output
+# jxmake-code-formatter build output
 target/
 *.jar
 ```
@@ -58,7 +57,7 @@ target/
    ```
    git add util/CodingStyle.md/formatter/STATE.md
    git commit -m "$(cat <<'EOF'
-style-fmt: block on <question summary>
+jxmake-code-formatter: block on <question summary>
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 EOF
@@ -100,7 +99,7 @@ util/CodingStyle.md/formatter/
                                    whole-file enforceX passes, in order) called by both Main.java and
                                    ServerMode.java -- see "Formatter.java orchestration architecture"
                                    in Resolved Design Decisions
-      IndentationDetector.java  ← whole-project dominant-indent-style walker (for `indent-style = keep`)
+      IndentationDetector.java  ← whole-project dominant-indent-style walker (for `indent-style = auto`)
       ScopePipeline.java        ← recursive scope/signature discovery + group-render-splice engine
                                    for DeclarationAlignmentRule/GetterSetterRule/MiscRule's grouping
                                    rules (STYLE.md §5/§6/§8/§14) -- see "Main.java orchestration
@@ -165,7 +164,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_13 | Lockfile location |
 | RDD_KEY_14 | Line endings |
 | RDD_KEY_15 | Config precedence |
-| RDD_KEY_16 | `.style-fmt` inheritance |
+| RDD_KEY_16 | `.jxmake-code-formatter` inheritance |
 | RDD_KEY_17 | Multi-module Java imports |
 | RDD_KEY_18 | Windows support |
 | RDD_KEY_19 | Output modes |
@@ -228,7 +227,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_76 | `DeclarationAlignmentRule` misparses a bare `++j;`/`--j;` statement as a fake field declaration |
 | RDD_KEY_77 | `MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency |
 | RDD_KEY_78 | `ScopePipeline.splitTopLevelSpans` never closed a span at a C++ access-specifier label, merging it into the following member |
-| RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = keep`) |
+| RDD_KEY_79 | `IndentationDetector.java` design (`indent-style = auto`) |
 | RDD_KEY_80 | `ServerMode.java` idempotency check on a Java 8 build target -- `ProcessHandle` via reflection |
 | RDD_KEY_81 | Allman-brace render-loop infinite loop when `)`/`{` are already adjacent (`CppSpecificRule.java`/`JavaSpecificRule.java`) |
 | RDD_KEY_82 | Phase ordering reversed -- `Main.java`/`README.md`/Phase-1 dogfood test deferred to Phase 3 |
@@ -266,7 +265,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | `BlockStructureRule.java` | COMPLETE |
 | `SwitchRule.java` | COMPLETE |
 | `GetterSetterRule.java` | COMPLETE |
-| `MiscRule.java` | COMPLETE (§1 `indent-style=keep` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation"; reopened during `Formatter.java` smoke-testing to add structural detection for closing-comment labels -- see Resolved Design Decisions: "`MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency") |
+| `MiscRule.java` | COMPLETE (§1 `indent-style=auto` cross-file integration deferred to `IndentationDetector.java` -- see Resolved Design Decisions: "§1 indentation scope"; §3.1 condition-interior padding added -- see Resolved Design Decisions: "§3.1 condition-interior padding -- implementation"; reopened during `Formatter.java` smoke-testing to add structural detection for closing-comment labels -- see Resolved Design Decisions: "`MiscRule.enforceCommentStyle` relied on pipeline ordering (not detection) to skip closing-comment labels, breaking idempotency") |
 | `CppSpecificRule.java` | COMPLETE (§11 "Include Ordering" dropped from scope -- no such section exists in STYLE_C_CPP.md; see Resolved Design Decisions: "§11 dropped from `CppSpecificRule.java` scope"; reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 | `JavaSpecificRule.java` | COMPLETE (reopened during `Formatter.java` smoke-testing to add the §14 one-liner adjacency heuristic -- see Resolved Design Decisions: "Supersedes RDD_KEY_60 -- Allman pass actually destroys §14 grouping, ordering alone insufficient"; reopened during `ServerMode.java` smoke-testing to fix an infinite loop when `)`/`{` are already adjacent -- see Resolved Design Decisions: "Allman-brace render-loop infinite loop when `)`/`{` are already adjacent") |
 
@@ -334,7 +333,7 @@ Configurable values with their in-class defaults. All overridable via config fil
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                = 100
 indent-size                = 4
-indent-style               = spaces          # spaces | tabs | keep
+indent-style               = spaces          # spaces | tabs | auto
 server-port                = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
@@ -366,9 +365,9 @@ These must appear as `private static final` in their owning class, never as raw 
 | `HEADER_ZONE_BLANK_LINES` | `2` | `CppSpecificRule` |
 | `INCLUDE_GROUP_BLANK_LINES` | `1` | `CppSpecificRule` |
 | `EXTERN_C_LABEL` | `"extern \"C\""` | `CppSpecificRule` |
-| `APP_NAME` | `"style-fmt"` | `Config` |
+| `APP_NAME` | `"jxmake-code-formatter"` | `Config` |
 | `LOCKFILE_NAME` | `"server.lock"` | `ServerMode` |
-| `CONFIG_DIR` | `".config/style-fmt"` | `Config` |
+| `CONFIG_DIR` | `".config/jxmake-code-formatter"` | `Config` |
 | `CONFIG_FILE` | `"config"` | `Config` |
 | `DEFAULT_PORT` | `17173` | `ServerMode` |
 | `MANIFEST_FILE` | `"MANIFEST.MF"` | _(build only, Makefile)_ |
@@ -697,7 +696,7 @@ fix must be in place before test output is meaningful.
   the diff to the user before fixing anything.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
-`/tmp/style-fmt-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
+`/tmp/jxmake-code-formatter-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
 + boundary dir `lastModified` epoch ms; invalidated automatically on an mtime mismatch
 (RDD_KEY_88).
 
@@ -714,7 +713,7 @@ fix must be in place before test output is meaningful.
       single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
 - [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting
       error, 2 = usage error (RDD_KEY_88)
-- [x] `README.md` update for Phase 1 + Phase 2 (added `keep` to `indent-style`
+- [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
@@ -751,7 +750,7 @@ hand and may themselves contain errors.**
 
 Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
 out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
-doesn't resolve `indent-style = keep` before calling `Formatter.formatOne` (will throw
+doesn't resolve `indent-style = auto` before calling `Formatter.formatOne` (will throw
 on a server-delegated request for such a project — masked in practice by `Main`'s
 fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` is
 applied by `Main.applyLineEndings()` for standalone/in-process formatting but not yet

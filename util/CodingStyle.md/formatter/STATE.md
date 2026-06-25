@@ -696,6 +696,10 @@ fix must be in place before test output is meaningful.
   `*_out` file itself (authored by hand, not confirmed by the formatter),
   not necessarily a formatter bug. Record which files passed and which did
   not in STATE.md as you go, so progress is preserved if quota runs out.
+- After each individual file test — pass or fail — update the checklist
+  item inline with `(PASS)`, `(FAIL)`, or `(SKIP)` and commit STATE.md
+  immediately. Do not batch multiple results into one commit. This ensures
+  no progress is lost if the session ends mid-way through the 15 files.
 - The same ask-first rule applies to the self-dogfood pass: if formatting
   the formatter's own source produces unexpected changes, stop and report
   the diff to the user before fixing anything.

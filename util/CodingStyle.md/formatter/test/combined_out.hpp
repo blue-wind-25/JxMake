@@ -28,12 +28,12 @@ template<typename T>
 concept Processor = requires(T t, float* buf, uint32_t n) {
     { t.process(buf, n) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
-}; // concept Processor
+};
 
 template<typename T>
 concept Configurable = requires {
     typename T::Config;
-}; // concept Configurable
+};
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Enums and structs
@@ -70,7 +70,6 @@ template<Processor Impl>
 class EngineBase {
 
 public:
-
     using ConfigType = EngineConfig;
 
     explicit EngineBase(EngineConfig cfg);
@@ -93,7 +92,6 @@ public:
     static consteval uint32_t maxChannels() { return 8; }
 
 protected:
-
     EngineConfig cfg_;
     Impl         impl_;
     float        gain_       = 1.0f;
@@ -109,14 +107,12 @@ template<Processor Impl>
 class DefaultEngine : public EngineBase<Impl> {
 
 public:
-
     explicit DefaultEngine(EngineConfig cfg);
 
     bool process(float* buf, uint32_t frames) override;
     void reset() override;
 
 private:
-
     bool running_ = false;
 
 }; // class DefaultEngine

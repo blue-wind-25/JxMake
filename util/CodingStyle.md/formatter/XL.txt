@@ -1,0 +1,208 @@
+Do not execute `make test`. This and similar construct:
+
+    virtual void   process(Buffer& buf) = 0;
+    virtual void   reset() = 0;
+    virtual bool   isReady() const = 0;
+
+    std::string   getName() const;
+    void   setName(std::string name);
+
+    static std::unique_ptr<Processor>   create(const Config& cfg);
+
+    float Processor::getGain() const { return gain_; }
+    void Processor::setGain(float gain) { gain_ = gain; }
+    int Processor::getChannels() const { return channels_; }
+    void Processor::setChannels(int ch) { channels_ = ch; }
+
+must be reformatted as:
+
+    virtual void process(Buffer& buf) = 0;
+    virtual void reset()              = 0;
+    virtual bool isReady() const      = 0;
+
+    std::string getName(                ) const;
+    void        setName(std::string name);
+
+    static std::unique_ptr<Processor> create(const Config& cfg);
+
+    float Processor::getGain    (          ) const { return gain_;     }
+    void  Processor::setGain    (float gain)       { gain_ = gain;     }
+    int   Processor::getChannels(          ) const { return channels_; }
+    void  Processor::setChannels(int   ch  )       { channels_ = ch;   }
+
+the current formmater does not correctly align them. By right, they should also be governed by
+`## 14. Getter/Setter/Checker Group Alignment` in `STYLE.md` even if they may not getter/setter
+because the formmater cannot know if the functions are actually getter/setter.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    switch (code) {
+        case 1:
+            return "one";
+        case 2:
+            return "two";
+        case 3:
+        case 4:
+            return "three-or-four";
+        default:
+            return "unknown";
+    }
+
+must be reformatted as:
+
+    switch(code) {
+
+        case 1  : return "one"          ;
+        case 2  : return "two"          ;
+        case 3  : /* FALL-THROUGH */
+        case 4  : return "three-or-four";
+        default : return "unknown"      ;
+
+    } // switch
+
+currentlty the formatter produce INCORRECT result:
+
+        switch(code) {
+            case 1  : return "one"          ;
+            case 2  : return "two"          ;
+            case 3 : /* FALL-THROUGH */
+            case 4  : return "three-or-four";
+            default : return "unknown"      ;
+        } // switch
+
+In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
+
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false) {
+}
+
+must be reformatted as:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false)
+{
+}
+
+NOT:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false)
+    {
+}
+
+See the incorrect indent before `{`
+
+Mind you tough if the character length for `: ...` exceeds the limit, then they must be dropped
+and aligned:
+
+    : gain_    (gain    )
+    , channels_(channels)
+    , active_  (false   )
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    try {
+        return map.get(key).trim();
+    } catch (NullPointerException e) {
+        return "";
+    } finally {
+        System.out.println("done");
+    }
+
+must be reformatted as:
+
+    try {
+        return map.get(key).trim();
+    }
+    catch(NullPointerException e) {
+        return "";
+    }
+    finally {
+        System.out.println("done");
+    }
+
+See the Java code example in `## 11. Non-function Block Brace Style` in `STYLE.md`
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    if (!active_) {
+        return;
+    }
+
+is reformatted as:
+
+    if(!active_) return;
+
+which is CORRECT.
+
+---
+
+However, this construct (`if` with `else`/`else if`):
+
+    if (buf.channels > 8) {
+        return;
+    }
+    else if (buf.channels > 4) {
+        buf.channels = 4;
+    }
+    else if (buf.channels > 2) {
+        // Do nothing
+    }
+    else {
+        /* Do nothing */
+    }
+
+must be reformatted as:
+
+         if(buf.channels > 8) return;
+    else if(buf.channels > 4) buf.channels = 4;
+    else if(buf.channels > 2) {} // Do nothing
+    else                      {} /* Do nothing */
+
+However, if one of the branch contains multiple line:
+
+    if (buf.channels > 8) {
+        return;
+    }
+    else if (buf.channels > 4) {
+        buf.channels = 4;
+    }
+    else if (buf.channels > 2) {
+        // Do nothing
+        <other statement>
+    }
+    else {
+        /* Do nothing */
+    }
+
+it must be reformatted as:
+
+    if(buf.channels > 8) {
+        return;
+    }
+    else if(buf.channels > 4) {
+        buf.channels = 4;
+    }
+    else if(buf.channels > 2) {
+        // Do nothing
+        <other statement>
+    }
+    else {
+        /* Do nothing */
+    }
+
+only remove ` ` between `if` and `(`
+
+IF DIFFICULT, do not reformat the block structure `if` with `else`/`else if`:
+

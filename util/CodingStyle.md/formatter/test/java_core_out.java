@@ -69,13 +69,11 @@ public class CoreExample extends Base implements Runnable, Cloneable {
     public String describe(int code)
     {
         switch(code) {
-
             case 1  : return "one"          ;
             case 2  : return "two"          ;
             case 3  : /* FALL-THROUGH */
             case 4  : return "three-or-four";
             default : return "unknown"      ;
-
         } // switch
     }
 

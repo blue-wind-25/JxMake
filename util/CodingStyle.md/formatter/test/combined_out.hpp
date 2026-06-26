@@ -26,25 +26,23 @@ namespace audio {
 
 template<typename T>
 concept Processor = requires(T t, float* buf, uint32_t n) {
-
     { t.process(buf, n) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
-
 }; // concept Processor
 
 template<typename T>
 concept Configurable = requires {
-
     typename T::Config;
-
 }; // concept Configurable
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Enums and structs
 
 enum class Format : uint8_t {
+
     S16 = 0,
     F32 = 1
+
 }; // enum class Format
 
 struct EngineConfig {
@@ -133,10 +131,8 @@ std::unique_ptr< EngineBase<Impl> > makeEngine(EngineConfig cfg);
 // C interop
 
 extern "C" {
-
-    void audio_global_init(void);
-    void audio_global_shutdown(void);
-
+    void audio_global_init();
+    void audio_global_shutdown();
 } // extern "C"
 
 } // namespace audio

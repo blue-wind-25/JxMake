@@ -23,19 +23,15 @@ namespace audio {
 
 template<typename T>
 concept AudioProcessor = requires(T t, float* buf, uint32_t frames) {
-
     { t.process(buf, frames) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
     t.gain;
-
 }; // concept AudioProcessor
 
 template<typename T>
 concept Configurable = requires(T t) {
-
     typename T::Config;
     { T::defaultConfig() } -> std::same_as<typename T::Config>;
-
 }; // concept Configurable
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -65,8 +61,7 @@ class Engine {
 
 public:
 
-    struct Config
-    {
+    struct Config {
 
         uint32_t     sampleRate = 48000;
         uint8_t      channels   = 2;
@@ -104,7 +99,7 @@ public:
     // Static factory
     static Config defaultConfig();
 
-    // consteval utility
+    // Consteval utility
     static consteval uint32_t maxChannels() { return 8; }
 
 private:
@@ -130,7 +125,6 @@ template<AudioProcessor Impl>
 bool Engine<Impl>::process(float* buf, uint32_t frames)
 {
     if(!running_ || buf == nullptr || frames == 0) return false;
-    }
     if(muted_) {
         std::fill(buf, buf + frames, 0.0f);
     }
@@ -222,11 +216,9 @@ auto makeProcessor(float gain) -> std::function<bool(float*, uint32_t)>
 }
 
 extern "C" {
-
     void audio_c_init();
     void audio_c_shutdown();
     int  audio_c_process(float* buf, int frames, float gain);
-
 } // extern "C"
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -240,9 +232,7 @@ static constinit float gainC = 0.25f; // Channel C
 // Comment inside requires expression
 template<typename T>
 concept HasProcess = requires(T t, float* /* Buffer */ buf, uint32_t /* Count */ n) {
-
     { t.process(buf /* Data */, n /* Len */) } -> std::same_as<bool>;
-
 }; // concept HasProcess
 
 } // namespace audio

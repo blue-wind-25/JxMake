@@ -6,15 +6,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.example.Framework;
+
 import com.example.core.Base;
 import com.example.util.Helper;
-
-import org.example.Framework;
 
 import static java.util.Collections.unmodifiableList;
 
 // Combined Java test: core + Java 17+ constructs in one realistic file.
-// Exercises: imports, declarations, getters/setters, closng comments,
+// Exercises: imports, declarations, getters/setters, closing comments,
 // switch expressions, records, sealed classes, text blocks, var, pattern matching.
 
 public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.RemoteEngine {
@@ -30,8 +30,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
     public record ChannelConfig(int channels, int sampleRate, boolean stereo) {}
 
-    public record ProcessResult(boolean success, int framesProcessed, String error)
-    {
+    public record ProcessResult(boolean success, int framesProcessed, String error) {
 
         public ProcessResult
         {
@@ -111,12 +110,12 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
     // State machine -- uses switch expression
     public void transition(String event)
     {
-        state = switch (event) {
+        state = switch(event) {
             case "start"  -> State.RUNNING;
             case "pause"  -> State.PAUSED;
             case "stop"   -> State.IDLE;
             case "error"  -> State.ERROR;
-            default       -> state; // no change
+            default       -> state; // No change
         };
     }
 
@@ -148,7 +147,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         return DEBUG_TEMPLATE.formatted(ENGINE_NAME, ENGINE_VERSION, state, frameCount);
     }
 
-    // var usage
+    // Var usage
     public List<String> listChannels()
     {
         var result = new ArrayList<String>();

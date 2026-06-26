@@ -142,7 +142,7 @@ static bool audio_validate(const AudioConfig* cfg)
 {
     if(cfg == NULL) return false;
     if(cfg->channels == 0 || cfg->channels > AUDIO_MAX_CHANNELS) return false;
-    switch (cfg->format) {
+    switch(cfg->format) {
         case AUDIO_FORMAT_S16 : /* FALL-THROUGH */
         case AUDIO_FORMAT_S24 : /* FALL-THROUGH */
         case AUDIO_FORMAT_F32 : break;

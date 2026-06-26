@@ -44,20 +44,20 @@ typedef struct Engine Engine;
 extern "C" {
 #endif
 
-Engine *engine_create(const EngineConfig *cfg);
-void    engine_destroy(Engine *eng);
-bool    engine_start(Engine *eng);
-bool    engine_stop(Engine *eng);
-bool    engine_process(Engine *eng, float *buf, uint32_t frames);
+Engine*     engine_create(const EngineConfig* cfg);
+void        engine_destroy(Engine* eng);
+bool        engine_start(Engine* eng);
+bool        engine_stop(Engine* eng);
+bool        engine_process(Engine* eng, float* buf, uint32_t frames);
 
-EngineState engine_get_state(const Engine *eng);
-float       engine_get_gain(const Engine *eng);
-void        engine_set_gain(Engine *eng, float gain);
-bool        engine_is_muted(const Engine *eng);
-void        engine_set_muted(Engine *eng, bool muted);
-uint32_t    engine_get_frames(const Engine *eng);
+EngineState engine_get_state(const Engine* eng);
+float       engine_get_gain(const Engine* eng);
+void        engine_set_gain(Engine* eng, float gain);
+bool        engine_is_muted(const Engine* eng);
+void        engine_set_muted(Engine* eng, bool muted);
+uint32_t    engine_get_frames(const Engine* eng);
 
-const char *engine_version(void);
+const char* engine_version(void);
 
 #ifdef __cplusplus
 }

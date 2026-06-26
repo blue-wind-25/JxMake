@@ -130,11 +130,9 @@ int   Processor::getChannels(          ) const { return channels_; }
 void  Processor::setChannels(int   ch  )       { channels_ = ch;   }
 
 extern "C" {
-
-    void audio_init(void);
-    void audio_shutdown(void);
+    void audio_init();
+    void audio_shutdown();
     int  audio_process(float* buf, int frames);
-
 } // extern "C"
 
 // Namespace closing

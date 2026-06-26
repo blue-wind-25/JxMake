@@ -55,7 +55,6 @@ struct   FrameRange   {
 template<AudioProcessor Impl>
 class   Engine   {
 public:
-
     struct Config {
         uint32_t     sampleRate  = 48000;
         uint8_t      channels    = 2;

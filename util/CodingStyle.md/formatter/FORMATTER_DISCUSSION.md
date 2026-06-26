@@ -166,7 +166,7 @@ jxmake-code-formatter (client mode)
 - No tree-sitter (tokenizer is sufficient)
 - No AI API (all rules are deterministic)
 - No Ollama, no SBC, no mDNS
-- Single JAR, runs on any JVM 21+
+- Single JAR, runs on any JVM 8+
 
 ---
 

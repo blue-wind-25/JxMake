@@ -290,11 +290,10 @@ dist: jar
 	@cp -v ../util/CodingStyle.md/README.txt                  $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
 	@cp -v ../util/CodingStyle.md/AI_PREAMBLE_*.md            $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
 	@cp -v ../util/CodingStyle.md/STYLE*.md                   $(DIST_DIR)/jxmake_dist/apps/code-formatter/style
-	@cp -v ../util/CodingStyle.md/formatter/README.md         $(DIST_DIR)/jxmake_dist/apps/code-formatter/README.md
 	@cp -v ../util/CodingStyle.md/formatter/*.{sh,cmd}        $(DIST_DIR)/jxmake_dist/apps/code-formatter
-	@cp -v ../util/CodingStyle.md/formatter/*.{sh,cmd}        $(DIST_DIR)/jxmake_dist/apps/code-formatter
-	@cp -v ../util/CodingStyle.md/formatter/LICENSE.txt       $(DIST_DIR)/jxmake_dist/apps/code-formatter/LICENSE.txt
 	@cp -v ../util/CodingStyle.md/formatter/target/*.jar      $(DIST_DIR)/jxmake_dist/apps/code-formatter/code-formatter.jar
+	@cp -v ../util/CodingStyle.md/formatter/LICENSE.txt       $(DIST_DIR)/jxmake_dist/apps/code-formatter/LICENSE.txt
+	@cp -v ../util/CodingStyle.md/formatter/README.md         $(DIST_DIR)/jxmake_dist/apps/code-formatter/README.md
 	@cp -v ../util/JCS/*.{sh,ps1,cmd}                         $(DIST_DIR)/jxmake_dist/apps/compile-server
 	@cp -v ../util/JCS/compile-server.jar                     $(DIST_DIR)/jxmake_dist/apps/compile-server/compile-server.jar
 	@cp -v ../util/JCS/README.md                              $(DIST_DIR)/jxmake_dist/apps/compile-server/README.md

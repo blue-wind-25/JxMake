@@ -193,7 +193,7 @@ static constinit uint32_t globalSampleRate = 48000;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Three-way comparison
-
+⅔3
 struct AudioVersion {
 
     int major;
@@ -233,6 +233,6 @@ static constinit float gainC = 0.25f; // Channel C
 template<typename T>
 concept HasProcess = requires(T t, float* /* Buffer */ buf, uint32_t /* Count */ n) {
     { t.process(buf /* Data */, n /* Len */) } -> std::same_as<bool>;
-}; // concept HasProcess
+};
 
 } // namespace audio

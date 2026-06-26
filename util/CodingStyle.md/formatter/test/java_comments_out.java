@@ -91,14 +91,14 @@ public class CommentEdgeCases {
     // Comment inside ternary expression (tricky for tokenizer)
     public int ternaryWithComment(boolean cond)
     {
-        return cond /* is true? */ ? 1 : 0;
+        return cond /* Is true? */ ? 1 : 0;
     }
 
     // Comment inside array initializer
     private static final int[] VALUES = {
-        1, // one
-        2, // two
-        /* three */ 3
+        1, // One
+        2, // Two
+        /* Three */ 3
     };
 
 } // class CommentEdgeCases

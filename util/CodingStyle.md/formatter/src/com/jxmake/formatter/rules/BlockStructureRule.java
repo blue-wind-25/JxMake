@@ -784,17 +784,20 @@ public class BlockStructureRule {
             }
             return Frame.named(braceIdx, name);
         }
-        final int identIdx = prevSignificantIndex(tokens, braceIdx - 1);
-        final int kwIdx = identIdx >= 0 ? prevSignificantIndex(tokens, identIdx - 1) : -1;
+        // Search backward past inheritance/base-type clauses to find the construct keyword.
+        final int nameIdx = findConstructNameIndex(tokens, braceIdx, name);
         String label = name;
-        if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD) {
-            final String kw = tokens.get(kwIdx).text;
-            final int beforeKw = prevSignificantIndex(tokens, kwIdx - 1);
-            if ("class".equals(kw) && beforeKw >= 0 && tokens.get(beforeKw).type == TokenType.KEYWORD
-                    && "enum".equals(tokens.get(beforeKw).text)) {
-                label = "enum class " + name;
-            } else {
-                label = kw + " " + name;
+        if (nameIdx >= 0) {
+            final int kwIdx = prevSignificantIndex(tokens, nameIdx - 1);
+            if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD) {
+                final String kw = tokens.get(kwIdx).text;
+                final int beforeKw = prevSignificantIndex(tokens, kwIdx - 1);
+                if ("class".equals(kw) && beforeKw >= 0 && tokens.get(beforeKw).type == TokenType.KEYWORD
+                        && "enum".equals(tokens.get(beforeKw).text)) {
+                    label = "enum class " + name;
+                } else {
+                    label = kw + " " + name;
+                }
             }
         }
         return Frame.named(braceIdx, label);
@@ -1027,6 +1030,103 @@ public class BlockStructureRule {
      * identifier (optionally negated, e.g. `!done`) -- anything more compound has no single
      * representative variable, so this returns null and the caller falls back to a bare label.
      */
+    // ── Named-construct header spacing (STYLE.md §11) ───────────────────────────
+    /**
+     * Scans a token slice and collapses every run of spaces/tabs within a named-construct
+     * header (the range from the opening keyword to the `{`, e.g. `class   Foo   :   public   Bar`)
+     * to a single space.  Only {@code WHITESPACE} tokens (spaces/tabs) are collapsed; NEWLINE
+     * tokens are left untouched, so a header that was already broken across lines by earlier
+     * passes is not corrupted.  The header range is identified by scanning backward from each
+     * `{` whose {@code name} field is non-null -- the tokenizer guarantees that field is set
+     * exactly for the opening brace of every named construct.
+     */
+    public String enforceNamedConstructHeaderSpacing(final List<Token> tokens) {
+        final int n = tokens.size();
+        final boolean[] collapse = new boolean[n];
+
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (!isPunct(t, "{") || t.name == null) {
+                continue;
+            }
+            int headerStart = -1;
+            for (int j = i - 1; j >= 0; j--) {
+                final Token prev = tokens.get(j);
+                final TokenType ty = prev.type;
+                if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
+                        || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                    continue;
+                }
+                if (ty == TokenType.KEYWORD && isNamedConstructStartKeyword(prev.text)) {
+                    headerStart = j;
+                    if ("class".equals(prev.text)) {
+                        final int before = prevSignificantIndex(tokens, j - 1);
+                        if (before >= 0 && tokens.get(before).type == TokenType.KEYWORD
+                                && "enum".equals(tokens.get(before).text)) {
+                            headerStart = before;
+                        }
+                    }
+                    break;
+                }
+                if (ty == TokenType.PUNCT
+                        && (";".equals(prev.text) || "{".equals(prev.text) || "}".equals(prev.text))) {
+                    break;
+                }
+            }
+            if (headerStart >= 0) {
+                for (int j = headerStart; j < i; j++) {
+                    collapse[j] = true;
+                }
+            }
+        }
+
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (collapse[i] && t.type == TokenType.WHITESPACE) {
+                out.append(' ');
+            } else {
+                out.append(t.text);
+            }
+        }
+        return out.toString();
+    }
+
+    private boolean isNamedConstructStartKeyword(final String text) {
+        switch (text) {
+            case "class": case "struct": case "enum": case "namespace":
+            case "concept": case "interface": case "record":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Searches backward from {@code braceIdx} for the first {@code IDENTIFIER} token whose
+     * text equals {@code name}, stopping at any {@code ;}, {@code {}, or {@code }} boundary.
+     * Returns the index of that token, or -1 if not found.  Used by {@link #classifyNamed} to
+     * locate the construct name across an inheritance or base-type clause so the keyword
+     * immediately before it can be extracted for the closing-comment label.
+     */
+    private int findConstructNameIndex(final List<Token> tokens, final int braceIdx, final String name) {
+        for (int i = braceIdx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            final TokenType ty = t.type;
+            if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
+                    || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                continue;
+            }
+            if (ty == TokenType.IDENTIFIER && name.equals(t.text)) {
+                return i;
+            }
+            if (ty == TokenType.PUNCT && (";".equals(t.text) || "{".equals(t.text))) {
+                break;
+            }
+        }
+        return -1;
+    }
+
     private String extractSingleIdentifier(final List<Token> body) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : body) {

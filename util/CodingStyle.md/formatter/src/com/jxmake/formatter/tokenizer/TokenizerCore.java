@@ -141,6 +141,12 @@ public class TokenizerCore {
     // `{`) suffices with no paren-balancing needed. Cleared without effect on `;` first -- a
     // concept with no requires-expression body at all (`concept Integral = std::is_integral_v<T>;`).
     private String pendingConceptName;
+    // Named-construct body tracking: armed when IDENTIFIER follows a named-construct keyword
+    // (class/struct/enum/namespace), persists across inheritance clauses and base-type specifiers
+    // so the `{` at the end of `class Foo : public Bar {` or `enum class E : uint32_t {` still
+    // carries the correct construct name.  Cleared on `;`, on entering a paren group at depth 1
+    // (which signals a function/method parameter list, not a construct header), and when consumed.
+    private String pendingNamedConstructName;
 
     public boolean hasSyntaxError() {
         return syntaxError;
@@ -180,6 +186,7 @@ public class TokenizerCore {
         this.bracketNameStack.clear();
         this.pendingRecordName = null;
         this.pendingConceptName = null;
+        this.pendingNamedConstructName = null;
 
         final List<Token> tokens = new ArrayList<>();
 
@@ -262,10 +269,28 @@ public class TokenizerCore {
                     }
                 } else if (t.type == TokenType.PUNCT && ";".equals(t.text)) {
                     pendingConceptName = null;
+                    pendingNamedConstructName = null;
+                } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1) {
+                    // Entering the outermost paren group (a function's parameter list) -- clear
+                    // pendingNamedConstructName so the function body's `{` doesn't pick up the
+                    // surrounding class/struct name.
+                    pendingNamedConstructName = null;
                 }
                 recentSignificant.addLast(t);
                 if (recentSignificant.size() > 3) {
                     recentSignificant.removeFirst();
+                }
+                // Arm pendingNamedConstructName when IDENTIFIER follows a named-construct keyword.
+                if (t.type == TokenType.IDENTIFIER) {
+                    final Token[] arr = recentSignificant.toArray(new Token[0]);
+                    final int n = arr.length;
+                    if (n >= 2) {
+                        final Token prev = arr[n - 2];
+                        if (prev.type == TokenType.KEYWORD && namedConstructKeywords.contains(prev.text)
+                                && !"concept".equals(prev.text)) {
+                            pendingNamedConstructName = t.text;
+                        }
+                    }
                 }
         }
     }
@@ -348,6 +373,9 @@ public class TokenizerCore {
             } else if (pendingConceptName != null) {
                 name = pendingConceptName;
                 pendingConceptName = null;
+            } else if (pendingNamedConstructName != null) {
+                name = pendingNamedConstructName;
+                pendingNamedConstructName = null;
             } else {
                 name = computeConstructName();
             }

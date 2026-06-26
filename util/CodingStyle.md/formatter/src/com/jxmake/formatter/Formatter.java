@@ -38,6 +38,7 @@ public final class Formatter {
         // Phase 1: structural/brace passes.
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.tokenize(text));
         text = blockRule.enforceKAndRBraceStyle(tokenizer.tokenize(text));
+        text = blockRule.enforceNamedConstructHeaderSpacing(tokenizer.tokenize(text));
         text = blockRule.placeElseOnOwnLine(tokenizer.tokenize(text));
         text = blockRule.insertNamedConstructBlankLines(tokenizer.tokenize(text));
         if (isCOrCpp) {

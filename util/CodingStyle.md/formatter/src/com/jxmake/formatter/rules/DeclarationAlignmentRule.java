@@ -473,8 +473,9 @@ public class DeclarationAlignmentRule {
                 }
             } else if (t.type == TokenType.WHITESPACE) {
                 // ignore -- doesn't break or extend the newline run
-            } else if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                newlineRun = 0; // a comment line consumes that line's content slot
+            } else if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK
+                    || t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF) {
+                newlineRun = 0; // a comment/preprocessor line consumes that line's content slot
             } else {
                 break;
             }
@@ -746,6 +747,8 @@ public class DeclarationAlignmentRule {
                 case NEWLINE:
                 case COMMENT_LINE:
                 case COMMENT_BLOCK:
+                case PREPROCESSOR:
+                case MACRO_DEF:
                     continue;
                 default:
                     sig.add(t);

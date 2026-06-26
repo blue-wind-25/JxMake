@@ -556,7 +556,7 @@ fix must be in place before test output is meaningful.
       error, 2 = usage error (RDD_KEY_88)
 - [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
-- [ ] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h`
+- [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c`
 - [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp`
 - [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`

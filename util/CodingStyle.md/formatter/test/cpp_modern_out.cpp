@@ -22,13 +22,13 @@ struct Triple { float x; float y; float z; };
 
 void useBindings()
 {
-    auto [a, b]    = Pair{1, 2};
-    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
+    auto [a, b]    = Pair{ 1, 2 };
+    auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
 
     // In a group with plain declarations
-    int  count = 10;
+    int   count   = 10;
     auto [lo, hi] = Pair{0, count};
-    bool active = true;
+    bool  active  = true;
 
     // Range-based for with structured binding
     std::vector<Pair> pairs = { {1, 2}, {3, 4} };
@@ -50,10 +50,10 @@ void initStatements(int raw)
         (void) v;
     }
 
-    switch (int code = raw % 4; code) {
-        case 0:  break;
-        case 1:  break;
-        default: break;
+    switch(int code = raw % 4; code) {
+        case 0  : break;
+        case 1  : break;
+        default : break;
     }
 }
 
@@ -65,19 +65,15 @@ concept Numeric = std::integral<T> || std::floating_point<T>;
 
 template<typename T>
 concept Drawable = requires(T t) {
-
     t.draw();
     { t.area() } -> std::convertible_to<double>;
-
-}; // concept Drawable
+};
 
 template<typename T>
 concept Serializable = requires(T t, std::ostream& os) {
-
     { t.serialize(os) } -> std::same_as<void>;
     T::version;
-
-}; // concept Serializable
+};
 
 // Requires clause on function
 template<Numeric T>
@@ -154,19 +150,17 @@ struct Weight {
 ////////////////////////////////////////////////////////////////////////////////////
 // C++20: coroutines (basic shape, not full impl)
 
-struct Generator
-{
+struct Generator {
 
-    struct promise_type
-    {
+    struct promise_type {
 
-        int       value;
-        Generator get_return_object()                    { return {}; }
-        std::suspend_always initial_suspend()            { return {}; }
-        std::suspend_always final_suspend() noexcept     { return {}; }
-        std::suspend_always yield_value(int v)           { value = v; return {}; }
-        void                return_void()                {}
-        void                unhandled_exception()        {}
+        int value;
+        Generator           get_return_object  (     )          { return {};            }
+        std::suspend_always initial_suspend    (     )          { return {};            }
+        std::suspend_always final_suspend      (     ) noexcept { return {};            }
+        std::suspend_always yield_value        (int v)          { value = v; return {}; }
+        void                return_void        (     )          {                       }
+        void                unhandled_exception(     )          {                       }
 
     }; // struct promise_type
 

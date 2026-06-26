@@ -54,12 +54,7 @@ clean:
 #   make test JAVA=/path/to/java
 #   make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
-#	for inp in $(TEST_DIR)/*_inp.*; do                                       \
-#
-##### !!! TODO !!! #####
-#	for inp in $(TEST_DIR)/*_inp.*; do
-# make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
-# git status | grep _inp
+
 INP_FILES :=
 INP_FILES += h_core_inp.h
 INP_FILES += c_core_inp.c
@@ -80,7 +75,12 @@ INP_FILES += hpp_core_inp.hpp
 #INP_FILES += c_comments_inp.c
 #INP_FILES += cpp_comments_inp.cpp
 #INP_FILES += java_comments_inp.java
+
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
+
+# make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
+# git status | grep _inp
+
 test: $(JAR_FILE)
 	@mkdir -p $(TEST_TMP)
 	@echo "=== Forward pass (inp → out) ==="

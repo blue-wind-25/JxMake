@@ -11,7 +11,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "platform.hpp"
 #include "types.hpp"
 

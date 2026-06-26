@@ -67,13 +67,16 @@ INP_FILES += h_core_inp.h
 #INP_FILES += hpp_core_inp.hpp
 #INP_FILES += cpp_core_inp.cpp
 #INP_FILES += java_core_inp.java
+
 #INP_FILES += cpp_modern_inp.cpp
 #INP_FILES += java_modern_inp.java
+
 #INP_FILES += combined_inp.h
 #INP_FILES += combined_inp.c
 #INP_FILES += combined_inp.hpp
 #INP_FILES += combined_inp.cpp
 #INP_FILES += combined_inp.java
+
 #INP_FILES += c_comments_inp.c
 #INP_FILES += cpp_comments_inp.cpp
 #INP_FILES += java_comments_inp.java

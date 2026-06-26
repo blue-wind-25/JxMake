@@ -9,8 +9,7 @@ import java.util.Optional;
 
 public record Point(int x, int y) {}
 
-public record NamedPoint(String name, int x, int y) implements Comparable<NamedPoint>
-{
+public record NamedPoint(String name, int x, int y) implements Comparable<NamedPoint> {
 
     // compact constructor
     public NamedPoint
@@ -24,16 +23,13 @@ public record NamedPoint(String name, int x, int y) implements Comparable<NamedP
 
 // --- Sealed classes ---
 
-public abstract sealed class Shape
-    permits Circle, Rectangle, Triangle
-{
+public abstract sealed class Shape permits Circle, Rectangle, Triangle {
 
     public abstract double area();
 
 } // class Shape
 
-public final class Circle extends Shape
-{
+public final class Circle extends Shape {
 
     private final double radius;
 
@@ -43,8 +39,7 @@ public final class Circle extends Shape
 
 } // class Circle
 
-public final class Rectangle extends Shape
-{
+public final class Rectangle extends Shape {
 
     private final double width;
     private final double height;
@@ -55,8 +50,7 @@ public final class Rectangle extends Shape
 
 } // class Rectangle
 
-public non-sealed class Triangle extends Shape
-{
+public non-sealed class Triangle extends Shape {
 
     private final double base;
     private final double height;
@@ -74,8 +68,7 @@ public sealed interface Expr
             Expr.Mul,
             Expr.Neg,
             Expr.Var,
-            Expr.Lit
-{
+            Expr.Lit {
 
     record Num(int value) implements Expr {}
     record Add(Expr left, Expr right) implements Expr {}
@@ -88,8 +81,7 @@ public sealed interface Expr
 
 // --- Switch expressions ---
 
-public class Switcher
-{
+public class Switcher {
 
     public String dayType(Day day)
     {
@@ -126,8 +118,7 @@ public class Switcher
 
 // --- Text blocks ---
 
-public class Templates
-{
+public class Templates {
 
     private static final String JSON = """
             {
@@ -148,8 +139,7 @@ public class Templates
 
 // --- var ---
 
-public class VarUsage
-{
+public class VarUsage {
 
     public void demo(List<String> items)
     {
@@ -166,8 +156,7 @@ public class VarUsage
 
 // --- Pattern matching instanceof ---
 
-public class Patterns
-{
+public class Patterns {
 
     public String describe(Object obj)
     {

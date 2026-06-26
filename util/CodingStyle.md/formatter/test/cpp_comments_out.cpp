@@ -38,8 +38,10 @@ private:
 // Comment inside concept requires expression
 template<typename T>
 concept HasDraw = requires(T t /* The object */) {
+
     /*Mmust have draw */ t.draw();
     { t.area() /* Area method */ } -> std::convertible_to<double>;
+    
 }; // concept HasDraw
 
 // Comment between class specifier and base

@@ -23,16 +23,20 @@ namespace audio {
 
 template<typename T>
 concept AudioProcessor = requires(T t, float* buf, uint32_t frames) {
+
     { t.process(buf, frames) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
     t.gain;
-};
+
+}; // concept AudioProcessor
 
 template<typename T>
 concept Configurable = requires(T t) {
+
     typename T::Config;
     { T::defaultConfig() } -> std::same_as<typename T::Config>;
-};
+
+}; // concept Configurable
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -230,7 +234,9 @@ static constinit float gainC = 0.25f; // Channel C
 // Comment inside requires expression
 template<typename T>
 concept HasProcess = requires(T t, float* /* Buffer */ buf, uint32_t /* Count */ n) {
+
     { t.process(buf /* Data */, n /* Len */) } -> std::same_as<bool>;
-};
+
+}; // concept HasProcess
 
 } // namespace audio

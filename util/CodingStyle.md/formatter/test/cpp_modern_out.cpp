@@ -65,15 +65,19 @@ concept Numeric = std::integral<T> || std::floating_point<T>;
 
 template<typename T>
 concept Drawable = requires(T t) {
+
     t.draw();
     { t.area() } -> std::convertible_to<double>;
-};
+
+}; // concept Drawable
 
 template<typename T>
 concept Serializable = requires(T t, std::ostream& os) {
+
     { t.serialize(os) } -> std::same_as<void>;
     T::version;
-};
+    
+};  // concept Serializable
 
 // Requires clause on function
 template<Numeric T>

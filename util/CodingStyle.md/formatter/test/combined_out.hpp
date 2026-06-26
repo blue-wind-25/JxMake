@@ -26,14 +26,18 @@ namespace audio {
 
 template<typename T>
 concept Processor = requires(T t, float* buf, uint32_t n) {
+
     { t.process(buf, n) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
-};
+
+}; // concept Processor
 
 template<typename T>
 concept Configurable = requires {
+
     typename T::Config;
-};
+
+}; // concept Configurable
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Enums and structs

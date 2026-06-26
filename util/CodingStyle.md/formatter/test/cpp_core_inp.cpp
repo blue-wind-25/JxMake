@@ -107,6 +107,12 @@ void Processor::process(AudioBuffer& buf) {
     if (!active_) {
         return;
     }
+    if(buf.channels > 4) {
+        buf.channels = 4;
+    }
+    else {
+        // Do nothing
+    }
     for (uint32_t i = 0; i < buf.channels; ++i) {
         // process each channel
         float* ch = buf.data + i * buf.frames;

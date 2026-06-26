@@ -430,6 +430,13 @@ public class DeclarationAlignmentRule {
                 continue;
             }
 
+            if (depth == 0 && t.type == TokenType.OP && ":".equals(t.text)
+                    && isAccessSpecifierColon(current)) {
+                idx = pullTrailingSameLine(scopeTokens, current, idx);
+                statements.add(current);
+                current = new ArrayList<>();
+                continue;
+            }
             if (depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text)) {
                 idx = pullTrailingSameLine(scopeTokens, current, idx);
                 statements.add(current);
@@ -461,6 +468,21 @@ public class DeclarationAlignmentRule {
             }
         }
         return idx;
+    }
+
+    /** True iff {@code current} contains exactly one significant non-gap token followed by {@code :}
+     *  and that token is {@code public}, {@code private}, or {@code protected} -- i.e. this `:` is
+     *  a C++ access-specifier label boundary, not a ternary or bitfield colon. */
+    private boolean isAccessSpecifierColon(final List<Token> current) {
+        final List<Token> sig = significantOnly(current);
+        if (sig.size() != 2) {
+            return false;
+        }
+        final Token kw = sig.get(0);
+        final Token col = sig.get(1);
+        return kw.type == TokenType.KEYWORD
+                && ("public".equals(kw.text) || "private".equals(kw.text) || "protected".equals(kw.text))
+                && col.type == TokenType.OP && ":".equals(col.text);
     }
 
     private boolean hasBlankLineBefore(final List<Token> stmt) {

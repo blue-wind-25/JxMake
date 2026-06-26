@@ -166,7 +166,7 @@ jxmake-code-formatter (client mode)
 - No tree-sitter (tokenizer is sufficient)
 - No AI API (all rules are deterministic)
 - No Ollama, no SBC, no mDNS
-- Single JAR, runs on any JVM 8+
+- Single JAR, runs on any JVM 21+
 
 ---
 
@@ -479,18 +479,16 @@ The JAR sends a decision-only prompt: the candidate expression, the line budget,
 one-paragraph rule summary — and expects exactly one decision token back (`inline` /
 `split` / `split-grouped`). The JAR then executes the chosen form mechanically using
 its existing token-level rules. The model never touches source text directly.
-
-See `STATE_NEXT_AI.md` for the full architecture design, confirmed working implementation
-details, and the NOT FEASIBLE determination for the JAR-integrated version.
+See `STATE_NEXT_AI.md` for the confirmed working design and NOT FEASIBLE determination.
 
 ### Current workaround
 
 For one-off style migration of files with many judgment-call decisions, use the AI
 workflow described in `../README.txt` with a capable model (Claude Sonnet / Opus,
-GPT-4o, etc.) and `AI_PREAMBLE_AESTHETIC.md`. Feed the JAR output (Tier-1 and
-Tier-2 already applied) to the AI for the Tier-3 layout judgment pass. This uses
-Path A semantics — the model reformats source directly — and is not suitable for
-small on-device models.
+GPT-4o, etc.) and `AI_PREAMBLE_AESTHETIC.md`. Feed the JAR output (Tier-1 and Tier-2
+already applied, `ai-assist = off`) to the AI for the Tier-3 layout judgment pass.
+This uses Path A semantics — the model reformats source directly — and is not suitable
+for small on-device models.
 
 ---
 
@@ -500,7 +498,7 @@ small on-device models.
 |---|---|---|
 | Parsing | Tokenizer + recursive descent | AST not needed for any style rule |
 | AI dependency | None | All rules deterministic via grid + recursion |
-| Language | Java 8+ single JAR | Runs everywhere, no native deps |
+| Language | Java 21+ single JAR | Runs everywhere, no native deps |
 | Server mode | Localhost HTTP + lockfile | Amortize JVM startup across batch |
 | Port | 17173 default, configurable | Fixed default, lockfile carries actual port |
 | Config precedence | defaults → global → env → project → subdir → CLI | Env below project so CI can't override committed style |
@@ -514,7 +512,7 @@ small on-device models.
 | Header zone separation | 2 blank lines between each zone | Clear visual separation of copyright / guard / body |
 | Include groups | Angle bracket vs quote, 1 blank line between | Universal C/C++ convention |
 | Include sorting | Off by default | Include order can affect behavior via macro deps |
-| Java import groups | java / com / org / other / local / static, 1 blank line | Conventional Java ordering (RDD_KEY_65) |
+| Java import groups | static / java / org / com / local, 1 blank line | Conventional Java ordering |
 | Java local detection | Top-N components of own `package` declaration | No filesystem walk needed |
 | SBC component | Dropped | Was solving a problem that no longer exists |
 | AI provider rotation | Dropped | No Tier 3 rules in the JAR |
@@ -525,5 +523,5 @@ small on-device models.
 | Getter/setter group detection | Adjacent one-liners, broken by blank line or comment | Naming conventions are unbounded; author proximity is the only safe signal |
 | Non-standard getter/setter naming | No special handling | `abc()`/`abc(val)`, `xxxHasFeature()`, etc. are all handled by the same adjacent-run rule; no naming-aware heuristic added |
 | Line rejoining (under 100 chars) | Not implemented | 100-char limit is a split trigger only, not a join trigger; intent of manual breaks is unknowable |
-| Function call line-breaking (Tier-3 decisions) | JAR-integrated AI NOT FEASIBLE; mechanical fallback is permanent | JAR cannot distinguish author-expressed grouping from arbitrary line breaks — required signal for AI candidate selection; see `STATE_NEXT_AI.md` |
+| Function call line-breaking decisions | JAR-integrated AI NOT FEASIBLE; mechanical fallback is permanent | JAR cannot distinguish author-expressed grouping from arbitrary line breaks — required signal for AI candidate selection; see `STATE_NEXT_AI.md` |
 | AI extension (JAR-integrated) | NOT FEASIBLE for current JAR; deferred | See `STATE_NEXT_AI.md` for full rationale and architecture |

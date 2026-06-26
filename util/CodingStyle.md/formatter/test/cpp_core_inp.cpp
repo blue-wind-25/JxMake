@@ -107,8 +107,14 @@ void Processor::process(AudioBuffer& buf) {
     if (!active_) {
         return;
     }
-    if(buf.channels > 4) {
+    if (buf.channels > 8) {
+        return;
+    }
+    else if (buf.channels > 4) {
         buf.channels = 4;
+    }
+    else if (buf.channels > 2) {
+        // Do nothing
     }
     else {
         // Do nothing

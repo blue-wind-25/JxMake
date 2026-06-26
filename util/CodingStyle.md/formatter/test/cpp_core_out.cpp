@@ -108,15 +108,25 @@ auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuff
 
 // Function with initializer list
 Processor::Processor(int channels, float gain)
-: gain_(gain), channels_(channels), active_(false)
+    : gain_(gain), channels_(channels), active_(false)
 {
 }
 
 void Processor::process(AudioBuffer& buf)
 {
     if(!active_) return;
-    if(buf.channels > 4) buf.channels = 4;
-    else                 {} // Do nothing
+    if(buf.channels > 8) {
+        return;
+    }
+    else if(buf.channels > 4) {
+        buf.channels = 4;
+    }
+    else if(buf.channels > 2) {
+        // Do nothing
+    }
+    else {
+        // Do nothing
+    }
     for(uint32_t i = 0; i < buf.channels; ++i) {
         // Process each channel
         float* ch = buf.data + i * buf.frames;

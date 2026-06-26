@@ -32,9 +32,7 @@ public abstract sealed class Shape permits Circle, Rectangle, Triangle {
 public final class Circle extends Shape {
 
     private final double radius;
-
     public Circle(double radius) { this.radius = radius; }
-
     public double area() { return Math.PI * radius * radius; }
 
 } // class Circle
@@ -43,9 +41,7 @@ public final class Rectangle extends Shape {
 
     private final double width;
     private final double height;
-
     public Rectangle(double width, double height) { this.width = width; this.height = height; }
-
     public double area() { return width * height; }
 
 } // class Rectangle
@@ -54,9 +50,7 @@ public non-sealed class Triangle extends Shape {
 
     private final double base;
     private final double height;
-
     public Triangle(double base, double height) { this.base = base; this.height = height; }
-
     public double area() { return 0.5 * base * height; }
 
 } // class Triangle
@@ -101,7 +95,7 @@ public class Switcher {
                 yield 1;
             }
             default -> x * 2;
-        };
+        }; // switch
     }
 
     // Switch expression with aligned arrows

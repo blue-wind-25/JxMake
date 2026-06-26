@@ -19,8 +19,21 @@ namespace modern {
 ////////////////////////////////////////////////////////////////////////////////////
 // C++17: structured bindings
 
-struct Pair   { int first; int second; };
-struct Triple { float x; float y; float z; };
+struct Pair {
+
+ int first;
+ int second;
+
+}; // struct Pair
+
+struct Triple {
+
+ float x;
+ float y;
+ float z;
+
+}; // struct Triple
+
 
 void useBindings()
 {
@@ -46,7 +59,7 @@ void useBindings()
 void initStatements(int raw)
 {
     if(int v = raw * 2; v > 100) {
-        // v in scope here
+        // 'v' in scope here
     }
     else {
         (void) v;
@@ -79,7 +92,7 @@ concept Serializable = requires(T t, std::ostream& os) {
     { t.serialize(os) } -> std::same_as<void>;
     T::version;
 
-};  // concept Serializable
+}; // concept Serializable
 
 // Requires clause on function
 template<Numeric T>

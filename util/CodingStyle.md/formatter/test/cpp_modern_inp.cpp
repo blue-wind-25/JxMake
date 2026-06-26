@@ -20,7 +20,9 @@ namespace modern {
 // C++17: structured bindings
 
 struct Pair { int first; int second; };
+
 struct Triple { float x; float y; float z; };
+
 
 void useBindings() {
     auto [a, b] = Pair{1, 2};
@@ -44,7 +46,7 @@ void useBindings() {
 
 void initStatements(int raw) {
     if (int v = raw * 2; v > 100) {
-        // v in scope here
+        // 'v' in scope here
     } else {
         (void)v;
     }

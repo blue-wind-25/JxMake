@@ -38,6 +38,84 @@ because the formmater cannot know if the functions are actually getter/setter.
 
 Do not execute `make test`. This and similar construct:
 
+    auto [a, b] = Pair{1, 2};
+    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
+
+    // In a group with plain declarations
+    int   count = 10;
+    auto [lo, hi] = Pair{0, count};
+    bool   active = true;
+
+    // Range-based for with structured binding
+    std::vector<Pair> pairs = {{1,2},{3,4}};
+    for (auto& [f, s] : pairs) {
+        (void)f;
+        (void)s;
+    }
+
+must be reformatted as:
+
+    auto [a, b]    = Pair{ 1, 2 };
+    auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
+
+    // In a group with plain declarations
+    int   count   = 10;
+    auto [lo, hi] = Pair{0, count};
+    bool  active  = true;
+
+    // Range-based for with structured binding
+    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
+    for(auto& [f, s] : pairs) {
+        (void) f;
+        (void) s;
+    }
+
+currently the formatter produce INCORRECT result:
+
+    auto [a, b] = Pair{1, 2};
+    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
+
+    // In a group with plain declarations
+    int count = 10;
+    auto [lo, hi] = Pair{0, count};
+    bool active = true;
+
+    // Range-based for with structured binding
+    std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };
+    for( auto& [f, s] : pairs ) {
+        (void)f;
+        (void)s;
+    }
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    var result = new java.util.ArrayList<String>();
+
+    var map = new java.util.HashMap<String, Integer>();
+
+    record Num(int value) implements Expr {}
+
+MUST not be reformatted to:
+
+    var result = new java.util.ArrayList<String> ();
+
+    var map = new java.util.HashMap<String, Integer> ();
+
+    record Num(int value) implements Expr {
+
+    } // record Num
+
+The 1st bug is the extra ` ` before `()`.
+The 2nd buf is `record` must not be reformated into multi-line format if it only contains `{}`
+
+Check also for possible the extra ` ` before `()` and similar `{}` in C/C++ formatter.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
     // C++17/20/23 constructs: structured bindings, concepts/requires,
     // consteval/constinit, <=>, coroutines, init-statement if/switch.
 

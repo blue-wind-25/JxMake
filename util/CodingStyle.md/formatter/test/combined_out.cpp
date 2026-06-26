@@ -26,13 +26,13 @@ concept AudioProcessor = requires(T t, float* buf, uint32_t frames) {
     { t.process(buf, frames) } -> std::same_as<bool>;
     { t.reset() } -> std::same_as<void>;
     t.gain;
-}; // concept AudioProcessor
+};
 
 template<typename T>
 concept Configurable = requires(T t) {
     typename T::Config;
     { T::defaultConfig() } -> std::same_as<typename T::Config>;
-}; // concept Configurable
+};
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Types

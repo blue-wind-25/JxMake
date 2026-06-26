@@ -166,7 +166,7 @@ jxmake-code-formatter (client mode)
 - No tree-sitter (tokenizer is sufficient)
 - No AI API (all rules are deterministic)
 - No Ollama, no SBC, no mDNS
-- Single JAR, runs on any JVM 21+
+- Single JAR, runs on any JVM 8+
 
 ---
 
@@ -341,12 +341,13 @@ project-variable.
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                = 100
 indent-size                = 4
-indent-style               = spaces          # spaces | tabs
+indent-style               = spaces          # spaces | tabs | auto
 server-port                = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 closing-comment-min-lines  = 5
 format-macros              = off             # off | on (multiline #define opt-in)
+line-endings               = lf              # lf | crlf | preserve
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 include-sort               = off             # off | on (alphabetical within group)
@@ -354,7 +355,7 @@ header-guard-rename        = off             # off | on (warn only vs auto-renam
 header-guard-style         = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order          = static, java, org, com, local
+java-import-order          = java, com, org, other, local, static
 java-import-sort           = on              # alphabetical within group
 java-import-depth          = 2              # package components defining "local"
 java-import-blank-lines    = 1              # blank lines between import groups
@@ -405,46 +406,7 @@ fmt-check:
 
 ## Open Questions / Next Discussion Topics
 
-- [x] Tokenizer implementation — write fresh in Java (resolved: fresh Java tokenizer,
-      no external lexer library)
-- [x] Rule engine as data vs code — resolved: direct Java methods, grouped into logical
-      rule classes (not one class per rule)
-- [x] Multi-module Java projects — resolved: `java-import-depth = 2`, top-N components
-      of `package` declaration for pre-Java-9 module-less projects
-- [x] `.jxmake-code-formatter` inheritance from parent subdirectory — resolved: full inheritance,
-      child keys override parent
-- [x] Server mode idempotency — resolved: check lockfile first; if PID not alive treat
-      as stale, delete and start fresh (`ProcessHandle.of(pid).isPresent()`)
-
-### Open — minimalist on-device AI prompt design
-
-The JAR's `ai-assist` config hook (see "AI extension design" below) is intended to
-invoke a local on-device model (e.g. Ollama, a small quantized model on embedded
-hardware) for Tier-3 judgment calls. Testing with Qwen3 1.7B and Qwen-Coder2.5 2B
-on a Raspberry Pi CM5 shows:
-
-- Small models **can** make layout *decisions* (inline vs. split params, one-line vs.
-  multi-line body) reliably
-- Small models **cannot** reformat source correctly by themselves — output quality
-  degrades badly without a precise prompt, and even then mechanical execution is error-prone
-- The prompt must be extremely precise or the model generates garbage
-
-This suggests the correct design for the on-device path is a **decision-only prompt**:
-the JAR sends a minimal context (the expression or signature, the line budget, and a
-few-sentence rule summary) and asks the model to return a single token decision
-(`inline` / `split` / `split-grouped`). The JAR then executes the chosen form
-mechanically. The model never touches source text directly.
-
-- [x] **Resolved:** the minimalist decision-only prompt for the on-device AI path.
-      Confirmed working design (see `STATE.md`'s Phase 3 section for implementation details):
-      the JAR generates N candidate layouts and sends a selection prompt asking the
-      model to return a single digit (0–N). A grammar constraint (`root ::= "0" | "1"
-      | ...`) forces a single-token response. The model never touches source text.
-      Tested with Qwen2.5-Coder-3B-Instruct-Q4_K_M via llama.cpp on a Raspberry Pi
-      CM5 over the OpenAI-compatible `/v1/completions` endpoint (`temperature = 0.0`).
-      The prompt and grammar constraint were scoped for a dedicated `AI_DECISION_PROMPT.md`,
-      but Step 2 (AI integration) was ultimately found NOT FEASIBLE and deferred — see
-      `STATE.md`'s Phase 3, Step 2 section for the full rationale.
+*(all resolved — see STATE_rdd_log.md for full decision text)*
 
 ---
 
@@ -508,9 +470,8 @@ locally, a self-hosted server, or a remote API without changing the formatter co
 The AI receives a single call expression or signature, a few lines of surrounding
 context, the relevant `SPECIAL_STYLE.md` rules, and the current line-length budget,
 and returns the preferred formatted form. Operates at finer granularity than the
-manual AI workflow in `../README.txt` (which sends whole files). The JAR splices the result back.
-Prompt basis: a trimmed version of `AI_PREAMBLE.md` scoped to `SPECIAL_STYLE.md`
-rules only.
+manual AI workflow in `../README.txt` / `AI_PREAMBLE_AESTHETIC.md` (which sends
+whole post-JAR files). The JAR splices the result back.
 
 **Path B — minimalist on-device model (small quantized model, e.g. on embedded hardware):**
 Small models can make layout *decisions* reliably but cannot reformat source correctly.
@@ -518,15 +479,18 @@ The JAR sends a decision-only prompt: the candidate expression, the line budget,
 one-paragraph rule summary — and expects exactly one decision token back (`inline` /
 `split` / `split-grouped`). The JAR then executes the chosen form mechanically using
 its existing token-level rules. The model never touches source text directly.
-Prompt design for this path is an open question — see Open Questions above.
+
+See `STATE_NEXT_AI.md` for the full architecture design, confirmed working implementation
+details, and the NOT FEASIBLE determination for the JAR-integrated version.
 
 ### Current workaround
 
 For one-off style migration of files with many judgment-call decisions, use the AI
 workflow described in `../README.txt` with a capable model (Claude Sonnet / Opus,
-GPT-4o, etc.) and `AI_PREAMBLE.md`. Feed the JAR output (Tier-1 and Tier-2 already
-applied, `ai-assist = off`) to the AI for the Tier-3 pass. This uses Path A semantics
-— the model reformats source directly — and is not suitable for small on-device models.
+GPT-4o, etc.) and `AI_PREAMBLE_AESTHETIC.md`. Feed the JAR output (Tier-1 and
+Tier-2 already applied) to the AI for the Tier-3 layout judgment pass. This uses
+Path A semantics — the model reformats source directly — and is not suitable for
+small on-device models.
 
 ---
 
@@ -536,7 +500,7 @@ applied, `ai-assist = off`) to the AI for the Tier-3 pass. This uses Path A sema
 |---|---|---|
 | Parsing | Tokenizer + recursive descent | AST not needed for any style rule |
 | AI dependency | None | All rules deterministic via grid + recursion |
-| Language | Java 21+ single JAR | Runs everywhere, no native deps |
+| Language | Java 8+ single JAR | Runs everywhere, no native deps |
 | Server mode | Localhost HTTP + lockfile | Amortize JVM startup across batch |
 | Port | 17173 default, configurable | Fixed default, lockfile carries actual port |
 | Config precedence | defaults → global → env → project → subdir → CLI | Env below project so CI can't override committed style |
@@ -550,7 +514,7 @@ applied, `ai-assist = off`) to the AI for the Tier-3 pass. This uses Path A sema
 | Header zone separation | 2 blank lines between each zone | Clear visual separation of copyright / guard / body |
 | Include groups | Angle bracket vs quote, 1 blank line between | Universal C/C++ convention |
 | Include sorting | Off by default | Include order can affect behavior via macro deps |
-| Java import groups | static / java / org / com / local, 1 blank line | Conventional Java ordering |
+| Java import groups | java / com / org / other / local / static, 1 blank line | Conventional Java ordering (RDD_KEY_65) |
 | Java local detection | Top-N components of own `package` declaration | No filesystem walk needed |
 | SBC component | Dropped | Was solving a problem that no longer exists |
 | AI provider rotation | Dropped | No Tier 3 rules in the JAR |
@@ -561,5 +525,5 @@ applied, `ai-assist = off`) to the AI for the Tier-3 pass. This uses Path A sema
 | Getter/setter group detection | Adjacent one-liners, broken by blank line or comment | Naming conventions are unbounded; author proximity is the only safe signal |
 | Non-standard getter/setter naming | No special handling | `abc()`/`abc(val)`, `xxxHasFeature()`, etc. are all handled by the same adjacent-run rule; no naming-aware heuristic added |
 | Line rejoining (under 100 chars) | Not implemented | 100-char limit is a split trigger only, not a join trigger; intent of manual breaks is unknowable |
-| Function call line-breaking decisions | Deferred to AI pass / `SPECIAL_STYLE.md` | Requires understanding argument meaning, not just token shape; wrong policy in either direction hurts readability |
-| AI extension | Deferred, OpenAI-compatible `/v1/completions` endpoint | Separate opt-in flag (`ai-assist`); not part of default JAR; decision-only prompt, model never rewrites source |
+| Function call line-breaking (Tier-3 decisions) | JAR-integrated AI NOT FEASIBLE; mechanical fallback is permanent | JAR cannot distinguish author-expressed grouping from arbitrary line breaks — required signal for AI candidate selection; see `STATE_NEXT_AI.md` |
+| AI extension (JAR-integrated) | NOT FEASIBLE for current JAR; deferred | See `STATE_NEXT_AI.md` for full rationale and architecture |

@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.example.util.Helper;
-
 import org.example.Base;
+
+import com.example.util.Helper;
 
 // A basic Java class exercising core formatting rules (Java 8-compatible constructs).
 

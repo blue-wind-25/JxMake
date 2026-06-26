@@ -34,6 +34,185 @@ the current formmater does not correctly align them. By right, they should also 
 `## 14. Getter/Setter/Checker Group Alignment` in `STYLE.md` even if they may not getter/setter
 because the formmater cannot know if the functions are actually getter/setter.
 
+Check also for similar constructs in the Java formatter.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    var result = new java.util.ArrayList<String>();
+
+    var map = new java.util.HashMap<String, Integer>();
+
+    record Num(int value) implements Expr {}
+
+MUST not be reformatted to:
+
+    var result = new java.util.ArrayList<String> ();
+
+    var map = new java.util.HashMap<String, Integer> ();
+
+    record Num(int value) implements Expr {
+
+    } // record Num
+
+The 1st bug is the extra ` ` before `()`. This is object construction/instantiation.
+
+The 2nd bug is `record` must not be reformatted into multi-line format if it only contains `{}`
+
+Check also for possible extra ` ` before `()` and similar `{}` construct in the C/C++ formatter.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    switch (code) {
+        case 1:
+            return "one";
+        case 2:
+            return "two";
+        case 3:
+        case 4:
+            return "three-or-four";
+        default:
+            return "unknown";
+    }
+
+must be reformatted as:
+
+    switch(code) {
+
+        case 1  : return "one"          ;
+        case 2  : return "two"          ;
+        case 3  : /* FALL-THROUGH */
+        case 4  : return "three-or-four";
+        default : return "unknown"      ;
+
+    } // switch
+
+currently the formatter produce INCORRECT result:
+
+        switch(code) {
+            case 1  : return "one"          ;
+            case 2  : return "two"          ;
+            case 3 : /* FALL-THROUGH */
+            case 4  : return "three-or-four";
+            default : return "unknown"      ;
+        } // switch
+
+In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
+
+Check the constructs for both the C/C++ and the Java formatters.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch.
+
+must be reformatted as:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch
+
+remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
+by counting the `.` that is not part of languange construct (e.g., member access).
+
+currently the formatter produce INCORRECT result:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // Consteval/constinit, <=>, coroutines, init-statement if/switch
+
+As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
+`consteval` above.
+
+Check also for similar constructs in the Java formatter (should not be needed because Java and C/C++
+comments have the same syntax).
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    @Override
+    public void run() {
+        process(new ArrayList<String>());
+    }
+
+must be reformatted as:
+
+    @Override
+    public void run()
+    {
+        process( new ArrayList<String>() );
+    }
+
+currently the formatter produce INCORRECT result:
+
+    @ Override public void run()
+    {
+        process( new ArrayList<String>() );
+    }
+
+I think the bug is because `@` is never checked properly.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    try {
+        return map.get(key).trim();
+    } catch (NullPointerException e) {
+        return "";
+    } finally {
+        System.out.println("done");
+    }
+
+must be reformatted as:
+
+    try {
+        return map.get(key).trim();
+    }
+    catch(NullPointerException e) {
+        return "";
+    }
+    finally {
+        System.out.println("done");
+    }
+
+See the Java code example in `## 11. Non-function Block Brace Style` in `STYLE.md`
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false) {
+}
+
+must be reformatted as:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false)
+{
+}
+
+currently the formatter produce INCORRECT result:
+
+Processor::Processor(int channels, float gain)
+    : gain_(gain), channels_(channels), active_(false)
+    {
+}
+
+See the incorrect indent before `{`
+
+Mind you tough if the character length for `: ...` exceeds the limit, then they must be dropped
+and aligned:
+
+    : gain_    (gain    )
+    , channels_(channels)
+    , active_  (false   )
+
 ####################################################################################################
 
 Do not execute `make test`. This and similar construct:
@@ -86,177 +265,6 @@ currently the formatter produce INCORRECT result:
         (void)f;
         (void)s;
     }
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    var result = new java.util.ArrayList<String>();
-
-    var map = new java.util.HashMap<String, Integer>();
-
-    record Num(int value) implements Expr {}
-
-MUST not be reformatted to:
-
-    var result = new java.util.ArrayList<String> ();
-
-    var map = new java.util.HashMap<String, Integer> ();
-
-    record Num(int value) implements Expr {
-
-    } // record Num
-
-The 1st bug is the extra ` ` before `()`.
-The 2nd buf is `record` must not be reformated into multi-line format if it only contains `{}`
-
-Check also for possible the extra ` ` before `()` and similar `{}` in C/C++ formatter.
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch.
-
-must be reformatted as:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch
-
-remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
-by counting the `.` that is not part of languange construct (e.g., member access).
-
-currently the formatter produce INCORRECT result:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // Consteval/constinit, <=>, coroutines, init-statement if/switch
-
-As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
-`consteval` above.
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    @Override
-    public void run() {
-        process(new ArrayList<String>());
-    }
-
-must be reformatted as:
-
-    @Override
-    public void run()
-    {
-        process( new ArrayList<String>() );
-    }
-
-currently the formatter produce INCORRECT result:
-
-    @ Override public void run()
-    {
-        process( new ArrayList<String>() );
-    }
-
-I think the bug is because `@` is never checked properly.
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    switch (code) {
-        case 1:
-            return "one";
-        case 2:
-            return "two";
-        case 3:
-        case 4:
-            return "three-or-four";
-        default:
-            return "unknown";
-    }
-
-must be reformatted as:
-
-    switch(code) {
-
-        case 1  : return "one"          ;
-        case 2  : return "two"          ;
-        case 3  : /* FALL-THROUGH */
-        case 4  : return "three-or-four";
-        default : return "unknown"      ;
-
-    } // switch
-
-currently the formatter produce INCORRECT result:
-
-        switch(code) {
-            case 1  : return "one"          ;
-            case 2  : return "two"          ;
-            case 3 : /* FALL-THROUGH */
-            case 4  : return "three-or-four";
-            default : return "unknown"      ;
-        } // switch
-
-In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-Processor::Processor(int channels, float gain)
-    : gain_(gain), channels_(channels), active_(false) {
-}
-
-must be reformatted as:
-
-Processor::Processor(int channels, float gain)
-    : gain_(gain), channels_(channels), active_(false)
-{
-}
-
-currently the formatter produce INCORRECT result:
-
-Processor::Processor(int channels, float gain)
-    : gain_(gain), channels_(channels), active_(false)
-    {
-}
-
-See the incorrect indent before `{`
-
-Mind you tough if the character length for `: ...` exceeds the limit, then they must be dropped
-and aligned:
-
-    : gain_    (gain    )
-    , channels_(channels)
-    , active_  (false   )
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    try {
-        return map.get(key).trim();
-    } catch (NullPointerException e) {
-        return "";
-    } finally {
-        System.out.println("done");
-    }
-
-must be reformatted as:
-
-    try {
-        return map.get(key).trim();
-    }
-    catch(NullPointerException e) {
-        return "";
-    }
-    finally {
-        System.out.println("done");
-    }
-
-See the Java code example in `## 11. Non-function Block Brace Style` in `STYLE.md`
 
 ####################################################################################################
 
@@ -332,3 +340,4 @@ only remove ` ` between `if` and `(`
 
 IF DIFFICULT, do not reformat the block structure `if` with `else`/`else if`:
 
+Check the constructs for both the C/C++ and the Java formatters.

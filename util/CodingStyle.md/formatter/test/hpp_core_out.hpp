@@ -60,7 +60,6 @@ struct Config {
 class Processor {
 
 public:
-
     virtual ~Processor() = default;
 
     virtual void process(Buffer& buf) = 0;
@@ -89,7 +88,6 @@ private:
 class GainProcessor : public Processor {
 
 public:
-
     explicit GainProcessor(Config cfg, float gain = 1.0f);
 
     void process(Buffer& buf) override;
@@ -108,7 +106,6 @@ private:
 class MixerProcessor : public Processor {
 
 public:
-
     explicit MixerProcessor(Config cfg);
 
     void process(Buffer& buf) override;

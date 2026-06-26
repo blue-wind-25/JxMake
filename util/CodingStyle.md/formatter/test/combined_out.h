@@ -60,7 +60,7 @@ uint32_t    engine_get_frames(const Engine* eng);
 const char* engine_version(void);
 
 #ifdef __cplusplus
-}
+} // extern "C"
 #endif
 
 

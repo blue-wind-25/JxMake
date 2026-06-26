@@ -218,9 +218,11 @@ auto makeProcessor(float gain) -> std::function<bool(float*, uint32_t)>
 }
 
 extern "C" {
+
     void audio_c_init();
     void audio_c_shutdown();
     int  audio_c_process(float* buf, int frames, float gain);
+    
 } // extern "C"
 
 ////////////////////////////////////////////////////////////////////////////////////

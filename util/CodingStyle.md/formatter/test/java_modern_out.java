@@ -174,6 +174,10 @@ public class Patterns {
 
 } // class Patterns
 
-enum Day { MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY }
+enum Day {
+    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+} // enum Day
 
-enum Status { ACTIVE, INACTIVE, PENDING }
+enum Status {
+    ACTIVE, INACTIVE, PENDING
+} // enum Status

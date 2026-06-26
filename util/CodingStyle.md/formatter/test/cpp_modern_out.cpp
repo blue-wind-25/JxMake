@@ -102,9 +102,7 @@ public:
 
     void render()
     {
-        for(auto& it : items_) {
-            it.draw();
-        }
+        for(auto& it : items_) it.draw();
     }
 
 private:

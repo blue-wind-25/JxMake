@@ -131,8 +131,10 @@ std::unique_ptr< EngineBase<Impl> > makeEngine(EngineConfig cfg);
 // C interop
 
 extern "C" {
+
     void audio_global_init();
     void audio_global_shutdown();
+
 } // extern "C"
 
 } // namespace audio

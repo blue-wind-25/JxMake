@@ -134,4 +134,5 @@ public class Patterns {
 }
 
 enum Day { MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY }
+
 enum Status { ACTIVE, INACTIVE, PENDING }

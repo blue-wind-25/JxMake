@@ -30,11 +30,9 @@ struct Config;
 
 template<typename T>
 concept Processable = requires(T t, Buffer& buf) {
-
     { t.process(buf) } -> std::same_as<void>;
     t.reset();
-
-}; // concept Processable
+};
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Types

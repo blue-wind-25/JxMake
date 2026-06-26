@@ -38,6 +38,55 @@ because the formmater cannot know if the functions are actually getter/setter.
 
 Do not execute `make test`. This and similar construct:
 
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch.
+
+must be reformatted as:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch
+
+remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
+by counting the `.` that is not part of languange construct (e.g., member access).
+
+currently the formatter produce INCORRECT result:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // Consteval/constinit, <=>, coroutines, init-statement if/switch
+
+As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
+`consteval` above.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    @Override
+    public void run() {
+        process(new ArrayList<String>());
+    }
+
+must be reformatted as:
+
+    @Override
+    public void run()
+    {
+        process( new ArrayList<String>() );
+    }
+
+currently the formatter produce INCORRECT result:
+
+    @ Override public void run()
+    {
+        process( new ArrayList<String>() );
+    }
+
+I think the bug is because `@` is never checked properly.
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
     switch (code) {
         case 1:
             return "one";
@@ -62,7 +111,7 @@ must be reformatted as:
 
     } // switch
 
-currentlty the formatter produce INCORRECT result:
+currently the formatter produce INCORRECT result:
 
         switch(code) {
             case 1  : return "one"          ;
@@ -73,7 +122,6 @@ currentlty the formatter produce INCORRECT result:
         } // switch
 
 In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
-
 
 ####################################################################################################
 
@@ -90,7 +138,7 @@ Processor::Processor(int channels, float gain)
 {
 }
 
-NOT:
+currently the formatter produce INCORRECT result:
 
 Processor::Processor(int channels, float gain)
     : gain_(gain), channels_(channels), active_(false)

@@ -141,6 +141,7 @@ void  Processor::setGain    (float gain)       { gain_ = gain;     }
 int   Processor::getChannels(          ) const { return channels_; }
 void  Processor::setChannels(int   ch  )       { channels_ = ch;   }
 
+// Extern "C" block
 extern "C" {
 
     void audio_init();

@@ -9,6 +9,8 @@
 #include <ranges>
 #include <span>
 
+// Lone comment
+
 // C++17/20/23 constructs: structured bindings, concepts/requires,
 // consteval/constinit, <=>, coroutines, init-statement if/switch.
 

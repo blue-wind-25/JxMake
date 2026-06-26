@@ -60,7 +60,6 @@ template<AudioProcessor Impl>
 class Engine {
 
 public:
-
     struct Config {
 
         uint32_t     sampleRate = 48000;
@@ -103,7 +102,6 @@ public:
     static consteval uint32_t maxChannels() { return 8; }
 
 private:
-
     Config   cfg_;
     Impl     impl_;
     float    gain_       = 1.0f;

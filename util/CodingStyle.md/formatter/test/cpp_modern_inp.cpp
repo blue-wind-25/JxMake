@@ -94,6 +94,7 @@ public:
             it.draw();
         }
     }
+
 private:
     std::vector<T> items_;
 };

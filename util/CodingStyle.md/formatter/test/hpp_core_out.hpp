@@ -74,11 +74,9 @@ public:
     static std::unique_ptr<Processor> create(const Config& cfg);
 
 protected:
-
     explicit Processor(Config cfg);
 
 private:
-
     std::string name_;
     Config      cfg_;
 
@@ -100,7 +98,6 @@ public:
     void  setGain(float gain);
 
 private:
-
     float gain_;
 
 }; // class GainProcessor
@@ -118,7 +115,6 @@ public:
     void removeSource(std::shared_ptr<Processor> src);
 
 private:
-
     std::vector<std::shared_ptr<Processor>> sources_;
 
 }; // class MixerProcessor

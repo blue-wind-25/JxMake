@@ -19,12 +19,10 @@ template<typename /* Key type */ K, typename /* Value type */ V>
 class Map {
 
 public:
-
     void insert(const K& /* Key */ k, const V& /* Value */ v);
     V    get(const K& k) const; // May throw
 
 private:
-
     // Internal storage
     struct Entry {
 
@@ -41,14 +39,13 @@ concept HasDraw = requires(T t /* The object */) {
 
     /*Mmust have draw */ t.draw();
     { t.area() /* Area method */ } -> std::convertible_to<double>;
-    
+
 }; // concept HasDraw
 
 // Comment between class specifier and base
 class /* Derived */ Derived /* From */ : /* Public */ public Base {
 
 public:
-
     // Comment before constructor
     Derived(); // Default ctor
     /* explicit */ explicit Derived(int v); // Value ctor
@@ -60,7 +57,6 @@ public:
     bool isValid (     ) const { return v_ > 0; } // Validator
 
 private:
-
     int v_ = 0; /* Initial value */
 
 }; // class Derived

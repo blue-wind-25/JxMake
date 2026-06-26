@@ -76,7 +76,7 @@ concept Serializable = requires(T t, std::ostream& os) {
 
     { t.serialize(os) } -> std::same_as<void>;
     T::version;
-    
+
 };  // concept Serializable
 
 // Requires clause on function
@@ -98,7 +98,6 @@ template<Drawable T>
 class Canvas {
 
 public:
-
     void add(T item) { items_.push_back( std::move(item) ); }
 
     void render()
@@ -109,7 +108,6 @@ public:
     }
 
 private:
-
     std::vector<T> items_;
 
 }; // class Canvas

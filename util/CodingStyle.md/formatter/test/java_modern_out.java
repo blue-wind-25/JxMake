@@ -85,7 +85,7 @@ public class Switcher {
 
     public String dayType(Day day)
     {
-        return switch (day) {
+        return switch(day) {
             case MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY -> "Weekday";
             case SATURDAY, SUNDAY                             -> "Weekend";
         };
@@ -94,7 +94,7 @@ public class Switcher {
     // Switch expression with block body
     public int compute(int x)
     {
-        return switch (x) {
+        return switch(x) {
             case 0 -> 0;
             case 1 -> {
                 System.out.println("one");
@@ -107,7 +107,7 @@ public class Switcher {
     // Switch expression with aligned arrows
     public String describe(Status s)
     {
-        return switch (s) {
+        return switch(s) {
             case ACTIVE   -> "active";
             case INACTIVE -> "inactive";
             case PENDING  -> "pending";

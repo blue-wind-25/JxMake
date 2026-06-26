@@ -320,6 +320,9 @@ static          const char*          aFunction(/* Any */);
                       char           funcX(/* Any */);
 ```
 
+Java does not have free functions, and thus only governed by §14
+(Getter/Setter/Checker Group Alignment).
+
 ---
 
 ## 9. Blank Line Before `return`

@@ -130,7 +130,7 @@ public class CoreExample extends Base implements Runnable, Cloneable {
         try {
             return map.get(key).trim();
         }
-        catch (NullPointerException e) {
+        catch(NullPointerException e) {
             return "";
         }
         finally {

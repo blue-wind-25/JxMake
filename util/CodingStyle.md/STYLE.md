@@ -369,6 +369,18 @@ switch(state) {
 }
 ```
 
+```java
+try {
+    ...
+}
+catch(NullPointerException e) {
+    ...
+}
+finally {
+    ...
+}
+```
+
 Contrast with **function definitions**, which use Allman style (opening `{` on its own line) —
 see the language-specific files.
 

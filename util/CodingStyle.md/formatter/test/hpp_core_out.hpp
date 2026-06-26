@@ -115,7 +115,7 @@ public:
     void removeSource(std::shared_ptr<Processor> src);
 
 private:
-    std::vector<std::shared_ptr<Processor>> sources_;
+    std::vector< std::shared_ptr<Processor> > sources_;
 
 }; // class MixerProcessor
 

@@ -54,12 +54,34 @@ clean:
 #   make test JAVA=/path/to/java
 #   make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
+#	for inp in $(TEST_DIR)/*_inp.*; do                                       \
+#
+##### !!! TODO !!! #####
 #	for inp in $(TEST_DIR)/*_inp.*; do
+# make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
+# git status | grep _inp
+INP_FILES :=
+#INP_FILES += h_core_inp.h
+INP_FILES += c_core_inp.c
+#INP_FILES += hpp_core_inp.hpp
+#INP_FILES += cpp_core_inp.cpp
+#INP_FILES += java_core_inp.java
+#INP_FILES += cpp_modern_inp.cpp
+#INP_FILES += java_modern_inp.java
+#INP_FILES += combined_inp.h
+#INP_FILES += combined_inp.c
+#INP_FILES += combined_inp.hpp
+#INP_FILES += combined_inp.cpp
+#INP_FILES += combined_inp.java
+#INP_FILES += c_comments_inp.c
+#INP_FILES += cpp_comments_inp.cpp
+#INP_FILES += java_comments_inp.java
+REF_FILES := $(subst _inp,_out,$(INP_FILES))
 test: $(JAR_FILE)
 	@mkdir -p $(TEST_TMP)
 	@echo "=== Forward pass (inp → out) ==="
 	@fail=0;                                                                 \
-	for inp in $(TEST_DIR)/combined_inp.java; do                                       \
+	for inp in $(addprefix $(TEST_DIR)/,$(INP_FILES)); do                    \
 		base=$$(basename "$$inp");                                       \
 		ext="$${base##*_inp.}";                                          \
 		stem="$${base%_inp.*}";                                          \
@@ -82,7 +104,7 @@ test: $(JAR_FILE)
 	@echo ""
 	@echo "=== Idempotency pass (out → out) ==="
 	@fail=0;                                                                 \
-	for out in $(TEST_DIR)/*_out.*; do                                       \
+	for out in $(addprefix $(TEST_DIR)/,$(REF_FILES)); do                    \
 		base=$$(basename "$$out");                                       \
 		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$out"; \
 		result="$(TEST_TMP)/$$base";                                     \

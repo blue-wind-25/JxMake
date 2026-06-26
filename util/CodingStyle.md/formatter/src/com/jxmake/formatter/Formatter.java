@@ -22,12 +22,14 @@ public final class Formatter {
             final Config config) {
         final TokenizerCore tokenizer = new TokenizerCore(language);
         final boolean isCpp = "cpp".equals(language);
+        final boolean isC = "c".equals(language);
+        final boolean isCOrCpp = isCpp || isC;
         final boolean isJava = "java".equals(language);
 
         final BlockStructureRule blockRule = new BlockStructureRule(language, config.closingCommentMinLines());
         final SwitchRule switchRule = new SwitchRule(language);
         final MiscRule miscRule = new MiscRule(language);
-        final CppSpecificRule cppRule = isCpp ? new CppSpecificRule(language) : null;
+        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(language) : null;
         final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(language) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
@@ -38,10 +40,12 @@ public final class Formatter {
         text = blockRule.enforceKAndRBraceStyle(tokenizer.tokenize(text));
         text = blockRule.placeElseOnOwnLine(tokenizer.tokenize(text));
         text = blockRule.insertNamedConstructBlankLines(tokenizer.tokenize(text));
-        if (isCpp) {
+        if (isCOrCpp) {
             text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = cppRule.enforceEmptyParameterList(tokenizer.tokenize(text));
-            text = cppRule.enforceRequiresClausePlacement(tokenizer.tokenize(text));
+            if (isCpp) {
+                text = cppRule.enforceRequiresClausePlacement(tokenizer.tokenize(text));
+            }
         } else if (isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.tokenize(text));
@@ -72,7 +76,7 @@ public final class Formatter {
         }
 
         // Phase 5: file-header-level structure.
-        if (isCpp) {
+        if (isCOrCpp) {
             text = cppRule.enforceHeaderFileStructure(tokenizer.tokenize(text), filePath, config.isHeaderGuardRename());
         } else if (isJava) {
             text = javaRule.enforceImportOrdering(tokenizer.tokenize(text), config.javaImportOrder(),

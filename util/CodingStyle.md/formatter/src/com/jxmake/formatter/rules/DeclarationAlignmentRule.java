@@ -24,7 +24,7 @@ public class DeclarationAlignmentRule {
 
     private static final Set<String> TYPE_KEYWORDS_C = setOf(
             "void", "char", "short", "int", "long", "float", "double", "signed",
-            "unsigned", "struct", "enum", "union");
+            "unsigned", "struct", "enum", "union", "bool", "_Bool");
 
     private static final Set<String> TYPE_KEYWORDS_CPP = union(TYPE_KEYWORDS_C,
             setOf("bool", "wchar_t", "char16_t", "char32_t", "auto", "class"));
@@ -190,6 +190,19 @@ public class DeclarationAlignmentRule {
      */
     public List<String> render(final List<Declaration> originalGroup) {
         final List<Declaration> group = reorderStatics(originalGroup);
+
+        // Function forward declarations use a simpler 2-column layout (no modifier columns).
+        boolean allAreFuncDecls = !group.isEmpty();
+        for (final Declaration d : group) {
+            if (d.sizeTokens.isEmpty() || !isPunct(d.sizeTokens.get(0), "(")) {
+                allAreFuncDecls = false;
+                break;
+            }
+        }
+        if (allAreFuncDecls) {
+            return renderFunctionForwardGroup(group);
+        }
+
         final boolean isJava = "java".equals(language);
         final int modifierColumns = modifierPriority.columnCount();
         final boolean[] modifierActive = new boolean[modifierColumns];
@@ -212,6 +225,14 @@ public class DeclarationAlignmentRule {
                 postConstActive = true;
             }
             splits.add(split);
+        }
+
+        int maxInitNameWidth = 0;
+        for (final Declaration d : group) {
+            if (!d.initTokens.isEmpty()) {
+                maxInitNameWidth = Math.max(maxInitNameWidth,
+                        d.name.text.length() + renderTokens(d.sizeTokens).length());
+            }
         }
 
         final ColumnGrid grid = new ColumnGrid();
@@ -243,7 +264,7 @@ public class DeclarationAlignmentRule {
                 }
             }
 
-            cells.add(renderNameCell(d, bitfieldNameWidth));
+            cells.add(renderNameCell(d, bitfieldNameWidth, maxInitNameWidth));
 
             if (d.trailingComment != null) {
                 cells.add(d.trailingComment.text);
@@ -266,8 +287,10 @@ public class DeclarationAlignmentRule {
      * unrelated declarations' names+sizes in the same group -- the trailing
      * comment column then falls out of ColumnGrid's normal per-column
      * max-width padding once this cell's content is fixed.
+     * `maxInitNameWidth` pads the name+size portion when any sibling declaration
+     * in the group has an initializer, aligning all `=` signs.
      */
-    private String renderNameCell(final Declaration d, final int bitfieldNameWidth) {
+    private String renderNameCell(final Declaration d, final int bitfieldNameWidth, final int maxInitNameWidth) {
         final StringBuilder sb = new StringBuilder();
         if (!d.bitfieldWidth.isEmpty()) {
             sb.append(d.name.text);
@@ -278,13 +301,34 @@ public class DeclarationAlignmentRule {
             sb.append(";");
             return sb.toString();
         }
-        sb.append(d.name.text);
-        sb.append(renderTokens(d.sizeTokens));
+        final String nameAndSize = d.name.text + renderTokens(d.sizeTokens);
         if (!d.initTokens.isEmpty()) {
+            sb.append(nameAndSize);
+            for (int pad = nameAndSize.length(); pad < maxInitNameWidth; pad++) {
+                sb.append(' ');
+            }
             sb.append(" = ").append(renderTokens(d.initTokens));
+        } else {
+            sb.append(nameAndSize);
         }
         sb.append(";");
         return sb.toString();
+    }
+
+    private List<String> renderFunctionForwardGroup(final List<Declaration> group) {
+        final ColumnGrid grid = new ColumnGrid();
+        for (final Declaration d : group) {
+            final List<Token> allTypeTokens = new ArrayList<>(d.modifiers);
+            allTypeTokens.addAll(d.typeTokens);
+            final String typeStr = renderTokens(allTypeTokens);
+            final String nameStr = d.name.text + renderTokens(d.sizeTokens) + ";";
+            grid.addRow(new String[] { typeStr, nameStr });
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(String.join(" ", row));
+        }
+        return lines;
     }
 
     /** Splits C/C++ type tokens into the base-type(+pointer) cell and an optional post-pointer `const` cell. */
@@ -339,7 +383,7 @@ public class DeclarationAlignmentRule {
         if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
             return false;
         }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isPunct(prev, "[") || isPunct(prev, "(")) {
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
         return true;
@@ -352,7 +396,7 @@ public class DeclarationAlignmentRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".");
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────
@@ -521,6 +565,28 @@ public class DeclarationAlignmentRule {
             sizeEnd = openIdx;
         }
 
+        // Strip a trailing function-parameter list (...) to handle forward declarations.
+        if (initTokens.isEmpty() && sizeEnd > i && isPunct(body.get(sizeEnd - 1), ")")) {
+            int depth2 = 0;
+            int parenOpenIdx = -1;
+            for (int k = sizeEnd - 1; k >= i; k--) {
+                final Token t = body.get(k);
+                if (isPunct(t, ")")) {
+                    depth2++;
+                } else if (isPunct(t, "(")) {
+                    depth2--;
+                    if (depth2 == 0) {
+                        parenOpenIdx = k;
+                        break;
+                    }
+                }
+            }
+            if (parenOpenIdx > i) {
+                sizeTokens.addAll(0, body.subList(parenOpenIdx, sizeEnd));
+                sizeEnd = parenOpenIdx;
+            }
+        }
+
         if (sizeEnd <= i) {
             return null;
         }
@@ -531,6 +597,12 @@ public class DeclarationAlignmentRule {
         final List<Token> typeTokens = new ArrayList<>(body.subList(i, sizeEnd - 1));
         if (typeTokens.isEmpty()) {
             return null;
+        }
+        // Reject member-access expressions (ptr->field or obj.field) in type position.
+        for (final Token t : typeTokens) {
+            if (isOp(t, "->") || isOp(t, ".")) {
+                return null;
+            }
         }
         final Token firstType = typeTokens.get(0);
         if (firstType.type == TokenType.KEYWORD) {

@@ -715,21 +715,21 @@ fix must be in place before test output is meaningful.
       error, 2 = usage error (RDD_KEY_88)
 - [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
-- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
-- [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
-- [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
-- [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
-- [ ] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c`
-- [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
-- [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
-- [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
-- [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
-- [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
-- [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
 - [ ] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h`
-- [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
+- [ ] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c`
 - [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp`
+- [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
+- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
+- [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
+- [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
+- [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
+- [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
+- [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
+- [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
+- [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
+- [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
+- [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the
 user, and wait for instruction. Do not attempt to fix either the formatter or the

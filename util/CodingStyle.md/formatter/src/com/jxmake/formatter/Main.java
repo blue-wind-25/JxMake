@@ -357,9 +357,11 @@ public final class Main {
         if (lower.endsWith(".java")) {
             return "java";
         }
-        if (lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
-                || lower.endsWith(".h") || lower.endsWith(".hh") || lower.endsWith(".hpp")
-                || lower.endsWith(".hxx")) {
+        if (lower.endsWith(".c") || lower.endsWith(".h")) {
+            return "c";
+        }
+        if (lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
+                || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
             return "cpp";
         }
         return null;

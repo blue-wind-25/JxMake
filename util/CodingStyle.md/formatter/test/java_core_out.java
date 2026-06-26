@@ -105,7 +105,6 @@ public class CoreExample extends Base implements Runnable, Cloneable {
     public interface Processor {
 
         void process(String input);
-
         default String preprocess(String input)
         {
             return input.trim();

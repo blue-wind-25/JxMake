@@ -535,6 +535,7 @@ public class MiscRule {
      *  {@code valueTokens}, which is null for those rows -- see {@link #parseAssignment}. */
     public static final class Assignment {
         public final Token target;
+        public final String lhsText; // full rendered LHS (may span multiple tokens)
         public final Token operator;
         public final List<Token> valueTokens;
         public final Token trailingComment; // nullable
@@ -544,11 +545,13 @@ public class MiscRule {
         public final List<Token> firstLineValueTokens; // only set when multiLine
         public final List<Token> secondLineValueTokens; // only set when multiLine
 
-        private Assignment(final Token target, final Token operator, final List<Token> valueTokens,
-                final Token trailingComment, final boolean blankLineBefore, final boolean multiLine,
+        private Assignment(final Token target, final String lhsText, final Token operator,
+                final List<Token> valueTokens, final Token trailingComment,
+                final boolean blankLineBefore, final boolean multiLine,
                 final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
                 final List<Token> secondLineValueTokens) {
             this.target = target;
+            this.lhsText = lhsText;
             this.operator = operator;
             this.valueTokens = valueTokens;
             this.trailingComment = trailingComment;
@@ -559,19 +562,20 @@ public class MiscRule {
             this.secondLineValueTokens = secondLineValueTokens;
         }
 
-        static Assignment singleLine(final Token target, final Token operator,
+        static Assignment singleLine(final Token target, final String lhsText, final Token operator,
                 final List<Token> valueTokens, final Token trailingComment,
                 final boolean blankLineBefore) {
-            return new Assignment(target, operator, valueTokens, trailingComment, blankLineBefore,
-                    false, false, null, null);
+            return new Assignment(target, lhsText, operator, valueTokens, trailingComment,
+                    blankLineBefore, false, false, null, null);
         }
 
-        static Assignment multiLine(final Token target, final Token operator,
+        static Assignment multiLine(final Token target, final String lhsText, final Token operator,
                 final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
                 final List<Token> secondLineValueTokens, final Token trailingComment,
                 final boolean blankLineBefore) {
-            return new Assignment(target, operator, null, trailingComment, blankLineBefore, true,
-                    breakBeforeOperator, firstLineValueTokens, secondLineValueTokens);
+            return new Assignment(target, lhsText, operator, null, trailingComment,
+                    blankLineBefore, true, breakBeforeOperator, firstLineValueTokens,
+                    secondLineValueTokens);
         }
     }
 
@@ -635,7 +639,7 @@ public class MiscRule {
         int maxNameLen = 0;
         int maxPrefixLen = 0;
         for (final Assignment a : group) {
-            maxNameLen = Math.max(maxNameLen, a.target.text.length());
+            maxNameLen = Math.max(maxNameLen, a.lhsText.length());
             maxPrefixLen = Math.max(maxPrefixLen, assignOpPrefix(a.operator).length());
         }
         // +1 unconditionally -- even the group's widest operator still needs its own leading
@@ -649,7 +653,7 @@ public class MiscRule {
             if (a.multiLine) {
                 continue;
             }
-            final String lhs = padRight(a.target.text, maxNameLen)
+            final String lhs = padRight(a.lhsText, maxNameLen)
                     + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
             final List<String> cells = new ArrayList<>();
             cells.add(lhs);
@@ -690,7 +694,7 @@ public class MiscRule {
      */
     private List<String> renderMultiLine(final Assignment a, final int maxNameLen,
             final int maxPrefixLen, final int lhsWidth) {
-        final String lhs = padRight(a.target.text, maxNameLen)
+        final String lhs = padRight(a.lhsText, maxNameLen)
                 + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
         final String line1 = lhs + " " + joinVerbatim(a.firstLineValueTokens);
 
@@ -751,11 +755,46 @@ public class MiscRule {
         if (targetIdx < 0 || stmt.get(targetIdx).type != TokenType.IDENTIFIER) {
             return null;
         }
-        final int opIdx = nextSignificantIndex(stmt, targetIdx + 1);
-        if (opIdx < 0 || stmt.get(opIdx).type != TokenType.OP
-                || !ASSIGNMENT_OPS.contains(stmt.get(opIdx).text)) {
+        // Scan forward to find the assignment operator, allowing member-access chains
+        // (obj.field, ptr->field) and subscript expressions (arr[i]) in the LHS.
+        // State 0: after target/field, expecting op or member-access operator.
+        // State 1: after . or ->, expecting the field-name IDENTIFIER.
+        // State 2: inside [...] subscript (depth-tracked).
+        int opIdx = -1;
+        int scanState = 0;
+        int scanDepth = 0;
+        for (int k = targetIdx + 1; k < stmt.size(); k++) {
+            final Token t = stmt.get(k);
+            if (isGapToken(t)) { continue; }
+            if (scanState == 2) {
+                if (isPunct(t, "[")) { scanDepth++; }
+                else if (isPunct(t, "]")) { scanDepth--; if (scanDepth == 0) { scanState = 0; } }
+                else if (isPunct(t, ";")) { return null; }
+                continue;
+            }
+            if (scanState == 1) {
+                if (t.type != TokenType.IDENTIFIER) { return null; }
+                scanState = 0;
+                continue;
+            }
+            if (t.type == TokenType.OP && ASSIGNMENT_OPS.contains(t.text)) {
+                opIdx = k;
+                break;
+            }
+            if (isOp(t, ".") || isOp(t, "->")) { scanState = 1; continue; }
+            if (isPunct(t, "[")) { scanState = 2; scanDepth = 1; continue; }
             return null;
         }
+        if (opIdx < 0) { return null; }
+
+        // Render the full LHS for alignment (handles single- and multi-token LHS).
+        final List<Token> lhsSigTokens = new ArrayList<>();
+        for (int k = targetIdx; k < opIdx; k++) {
+            final Token t = stmt.get(k);
+            if (!isGapToken(t)) { lhsSigTokens.add(t); }
+        }
+        final String lhsText = renderTokens(lhsSigTokens);
+
         final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
         if (valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom)) {
             return null;
@@ -798,7 +837,7 @@ public class MiscRule {
         final Token trailingComment = findTrailingAssignComment(stmt);
         if (newlineCount == 0) {
             final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
-            return Assignment.singleLine(stmt.get(targetIdx), stmt.get(opIdx), value,
+            return Assignment.singleLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
                     trailingComment, blankBefore);
         }
 
@@ -819,8 +858,8 @@ public class MiscRule {
         if (breakBeforeOperator == null) {
             return null;
         }
-        return Assignment.multiLine(stmt.get(targetIdx), stmt.get(opIdx), breakBeforeOperator,
-                line1, line2, trailingComment, blankBefore);
+        return Assignment.multiLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx),
+                breakBeforeOperator, line1, line2, trailingComment, blankBefore);
     }
 
     /**
@@ -1218,7 +1257,7 @@ public class MiscRule {
         if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
             return false;
         }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isPunct(prev, "[") || isPunct(prev, "(")) {
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
         return true;
@@ -1231,7 +1270,7 @@ public class MiscRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".");
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     private List<Token> significantOnly(final List<Token> stmt) {

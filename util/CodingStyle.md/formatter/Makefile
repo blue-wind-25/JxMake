@@ -61,8 +61,9 @@ clean:
 # make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
 # git status | grep _inp
 INP_FILES :=
-#INP_FILES += h_core_inp.h
-INP_FILES += c_core_inp.c
+INP_FILES += h_core_inp.h
+#INP_FILES += c_core_inp.c
+
 #INP_FILES += hpp_core_inp.hpp
 #INP_FILES += cpp_core_inp.cpp
 #INP_FILES += java_core_inp.java

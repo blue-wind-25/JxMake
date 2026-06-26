@@ -38,13 +38,13 @@ typedef struct Codec Codec;
 extern "C" {
 #endif
 
-Codec *codec_create(const CodecConfig *cfg);
-void  codec_destroy(Codec *codec);
-int   codec_process(Codec *codec, const float *in, float *out, uint32_t frames);
-bool  codec_is_valid(const Codec *codec);
+Codec* codec_create(const CodecConfig *cfg);
+void   codec_destroy(Codec *codec);
+int    codec_process(Codec *codec, const float *in, float *out, uint32_t frames);
+bool   codec_is_valid(const Codec *codec);
 
-const char *codec_version(void);
-const char *codec_last_error(void);
+const char* codec_version(void);
+const char* codec_last_error(void);
 
 #ifdef __cplusplus
 }

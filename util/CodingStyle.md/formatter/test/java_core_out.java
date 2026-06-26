@@ -11,92 +11,72 @@ import org.example.Base;
 
 // A basic Java class exercising core formatting rules (Java 8-compatible constructs).
 
-public class CoreExample
-    extends Base
-    implements Runnable, Cloneable
-{
+public class CoreExample extends Base implements Runnable, Cloneable {
 
-    private static final int    MAX_COUNT = 100;
-    private static final String PREFIX    = "item_";
-
-    private int     count;
-    private String  name;
-    private boolean active;
-    private long    timestamp;
+    private static final int     MAX_COUNT = 100;
+    private static final String  PREFIX    = "item_";
+    private              int     count;
+    private              String  name;
+    private              boolean active;
+    private              long    timestamp;
 
     // Constructor with closing comment test (short -- no comment expected)
     public CoreExample(int count, String name)
     {
-        this.count = count;
-        this.name = name;
-        this.active = true;
+        this.count     = count;
+        this.name      = name;
+        this.active    = true;
         this.timestamp = System.currentTimeMillis();
     }
 
     // Constructor with closing comment test (long -- comment expected)
-    public CoreExample(
-        int    count,
-        String name,
-        boolean active,
-        long   timestamp,
-        String extra
-    )
+    public CoreExample(int count, String name, boolean active, long timestamp, String extra)
     {
-        this.count = count;
-        this.name = name;
-        this.active = active;
+        this.count     = count;
+        this.name      = name;
+        this.active    = active;
         this.timestamp = timestamp;
     }
 
     // Simple getters and setters (should be grouped as one-liners if short)
-    public int     getCount()               { return count; }
-    public void    setCount(int count)      { this.count = count; }
-    public String  getName()                { return name; }
-    public void    setName(String name)     { this.name = name; }
-    public boolean isActive()               { return active; }
-    public void    setActive(boolean active){ this.active = active; }
-    public long    getTimestamp()           { return timestamp; }
+    public int     getCount    (              ) { return count;         }
+    public void    setCount    (int count     ) { this.count = count;   }
+    public String  getName     (              ) { return name;          }
+    public void    setName     (String name   ) { this.name = name;     }
+    public boolean isActive    (              ) { return active;        }
+    public void    setActive   (boolean active) { this.active = active; }
+    public long    getTimestamp(              ) { return timestamp;     }
 
     // Method with K&R brace style for control flow, Allman for the method itself
     public void process(List<String> items) throws IOException
     {
-        if(items == null) {
-            throw new IllegalArgumentException("items must not be null");
-        }
-        for(int i = 0; i < items.size(); i++) {
+        if(items == null) throw new IllegalArgumentException("items must not be null");
+        for( int i = 0; i < items.size(); ++i ) {
             String item = items.get(i);
-            if(item.startsWith(PREFIX)) {
-                System.out.println(item);
-            }
-            else {
-                System.err.println("skipping: " + item);
-            }
+            if( item.startsWith(PREFIX) ) System.out.println(item);
+            else                          System.err.println("skipping: " + item);
         }
-        // while loop
+        // While loop
         int idx = 0;
-        while(idx < MAX_COUNT) {
-            idx++;
-        }
-        // do-while
+        while(idx < MAX_COUNT) ++idx;
+        // Do-while
         do {
-            idx--;
+            --idx;
         } while(idx > 0);
     }
 
     // Switch statement
     public String describe(int code)
     {
-        switch (code) {
-            case 1:
-                return "one";
-            case 2:
-                return "two";
-            case 3:
-            case 4:
-                return "three-or-four";
-            default:
-                return "unknown";
-        }
+        switch(code) {
+
+            case 1  : return "one";
+            case 2  : return "two";
+            case 3  : /* FALL-THROUGH */
+            case 4  : return "three-or-four";
+            default : return "unknown";
+
+        } // switch
     }
 
     // Declaration alignment test
@@ -113,20 +93,16 @@ public class CoreExample
     public static final int WRONG_ORDER = 42;
 
     // Nested class
-    public static class Inner
-    {
+    public static class Inner {
 
         private int value;
-
         public Inner(int value) { this.value = value; }
-
         public int getValue() { return value; }
 
     } // class Inner
 
     // Interface
-    public interface Processor
-    {
+    public interface Processor {
 
         void process(String input);
 
@@ -138,12 +114,9 @@ public class CoreExample
     } // interface Processor
 
     // Enum
-    public enum Status
-    {
+    public enum Status {
 
-        ACTIVE,
-        INACTIVE,
-        PENDING;
+        ACTIVE, INACTIVE, PENDING;
 
         public boolean isTerminal()
         {
@@ -157,9 +130,11 @@ public class CoreExample
     {
         try {
             return map.get(key).trim();
-        } catch (NullPointerException e) {
+        }
+        catch (NullPointerException e) {
             return "";
-        } finally {
+        }
+        finally {
             System.out.println("done");
         }
     }

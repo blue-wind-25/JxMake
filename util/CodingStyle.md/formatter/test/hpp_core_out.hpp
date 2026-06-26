@@ -15,7 +15,7 @@
 #include "platform.hpp"
 #include "types.hpp"
 
-// C++ audio processor header -- pragma once form.
+// C++ audio processor header -- pragma once form
 
 namespace audio {
 
@@ -41,9 +41,11 @@ concept Processable = requires(T t, Buffer& buf) {
 // Types
 
 enum class SampleRate : uint32_t {
+
     SR_44100 = 44100,
     SR_48000 = 48000,
     SR_96000 = 96000
+
 }; // enum class SampleRate
 
 struct Config {
@@ -68,7 +70,7 @@ public:
     virtual void reset()              = 0;
     virtual bool isReady() const      = 0;
 
-    std::string getName() const;
+    std::string getName(                ) const;
     void        setName(std::string name);
 
     static std::unique_ptr<Processor> create(const Config& cfg);
@@ -97,7 +99,7 @@ public:
     void reset() override;
     bool isReady() const override;
 
-    float getGain() const;
+    float getGain(          ) const;
     void  setGain(float gain);
 
 private:

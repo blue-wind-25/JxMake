@@ -7,7 +7,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-
 #include "mymodule.h"
 #include "util.h"
 
@@ -16,9 +15,9 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // Declarations and alignment
 
-#define MAX_ITEMS  64
+#define MAX_ITEMS 64
 #define TIMEOUT_MS 500
-#define PREFIX     "item_"
+#define PREFIX "item_"
 
 typedef enum {
     STATE_IDLE,
@@ -43,7 +42,7 @@ typedef struct Point {
     float y;
     float z;
 
-} Point; // struct Point
+} Point;
 
 // Enum with closing comment
 typedef enum Color {
@@ -52,7 +51,7 @@ typedef enum Color {
     COLOR_GREEN,
     COLOR_BLUE
 
-} Color; // enum Color
+} Color;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Functions -- Allman brace style for definitions, K&R for control flow
@@ -67,7 +66,6 @@ int add(int a, int b)
 void process(DeviceState* state, uint8_t* data, size_t len)
 {
     if(state == NULL || data == NULL) return;
-
     for(size_t i = 0; i < len; ++i) {
         if( data[i] == 0 ) continue;
         state->buffer[i % 64] = data[i];

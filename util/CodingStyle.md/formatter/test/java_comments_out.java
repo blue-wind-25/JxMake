@@ -2,8 +2,7 @@ package com.example.comments;
 
 // Test file: uncommon // and /* */ comment locations in Java
 
-public class CommentEdgeCases
-{
+public class CommentEdgeCases {
 
     // Comment between annotations and declaration
     @SuppressWarnings("unchecked")
@@ -28,15 +27,15 @@ public class CommentEdgeCases
     public void method(
         int a, // First param
         /* Second */ int b,
-        int c  // Rhird param
+        int c  // Third param
     )
     {
         // Comment at top of method body
-        int x = a + b; // inline comment on assignment
+        int x = a + b; // Inline comment on assignment
         /* block comment inline on next line */ int y = b + c;
 
         // Comment inside if condition context (before brace)
-        if /* condition check */ (x > y) System.out.println("greater");
+        if /* Condition check */ (x > y) System.out.println("greater");
 
         // Comment between else and brace
         if(x < 0) {
@@ -62,7 +61,7 @@ public class CommentEdgeCases
 
         // Line comment before return
         // Return value is z
-        return; // this is a void method so this is wrong but tests the comment
+        return; // This is a void method so this is wrong but tests the comment
     }
 
     // Comment between method declarations
@@ -70,19 +69,22 @@ public class CommentEdgeCases
 
     public void another()
     {
-        // empty
+        // Empty
     }
 
     // Comment inside switch
     public int switchy(int v)
     {
-        switch (v) {
-            // comment before case
-            case 1: // comment after case label
+        switch(v) {
+
+            // Comment before case
+            case 1: // Comment after case label
                 return 1;
-            /* block comment before default */
+
+            /* Block comment before default */
             default:
                 return 0;
+
         }
     }
 

@@ -38,8 +38,8 @@ void multiParam(
 {
     // Comment at top of function body
     int tmp  = a; /* Save a */
-        tmp += b; // Add b
-        tmp += c; /* Add c */
+    tmp     += b; // Add b
+    tmp     += c; /* Add c */
 
     // Comment inside if condition
     if /* Check */ (tmp > 0) printf("%d\n", tmp);
@@ -48,7 +48,7 @@ void multiParam(
     if(a < 0) {
         printf("neg\n");
     }
-    /* non-negative */
+    /* Non-negative */
     else {
         printf("pos\n");
     }
@@ -69,7 +69,7 @@ void multiParam(
      */
 
     // Comment before return
-    return; // done
+    return; // Done
 }
 
 // Comment inside switch
@@ -77,9 +77,9 @@ int switchy(int v)
 {
     switch(v) {
         // Before case 1
-        case 1: /* Inline on case */ return 1;
+        case 1   : /* Inline on case */ return 1;
         /* Before default */
-        default: return 0; // Default case
+        default  : return 0; // Default case
     }
 }
 

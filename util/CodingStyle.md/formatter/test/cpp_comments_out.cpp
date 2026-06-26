@@ -25,9 +25,8 @@ public:
 
 private:
 
-    // internal storage
-    struct Entry
-    {
+    // Internal storage
+    struct Entry {
 
         K key;   // The key
         V value; // The value
@@ -41,7 +40,7 @@ template<typename T>
 concept HasDraw = requires(T t /* The object */) {
     /*Mmust have draw */ t.draw();
     { t.area() /* Area method */ } -> std::convertible_to<double>;
-};
+}; // concept HasDraw
 
 // Comment between class specifier and base
 class /* Derived */ Derived /* From */ : /* Public */ public Base {
@@ -49,7 +48,7 @@ class /* Derived */ Derived /* From */ : /* Public */ public Base {
 public:
 
     // Comment before constructor
-    Derived(); // default ctor
+    Derived(); // Default ctor
     /* explicit */ explicit Derived(int v); // Value ctor
     ~Derived(); // Dtor
 
@@ -60,7 +59,7 @@ public:
 
 private:
 
-    int v_ = 0; /* initial value */
+    int v_ = 0; /* Initial value */
 
 }; // class Derived
 
@@ -73,7 +72,7 @@ void complexFunction(
 )
 {
     // Comment at top
-    auto result = a; /* start with a */
+    auto result = a; /* Start with a */
     result += static_cast<int>( b.size() ); // Add string length
 
     // Comment inside if with init-statement
@@ -91,7 +90,7 @@ void complexFunction(
     }
 
     // Comment inside for range header
-    for(/* elem */ int x : c /* range */) result += x;
+    for(/* Elem */ int x : c /* Range */) result += x;
 
     /*
      * Multi-line block comment in C++ function.

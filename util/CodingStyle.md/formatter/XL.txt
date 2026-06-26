@@ -60,7 +60,8 @@ The 1st bug is the extra ` ` before `()`. This is object construction/instantiat
 
 The 2nd bug is `record` must not be reformatted into multi-line format if it only contains `{}`
 
-Check also for possible extra ` ` before `()` and similar `{}` construct in the C/C++ formatter.
+Check also for possible extra ` ` before `()` for object construction/instantiation and
+similar `{}` construct in the C/C++ formatter.
 
 ####################################################################################################
 
@@ -103,32 +104,6 @@ currently the formatter produce INCORRECT result:
 In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
 
 Check the constructs for both the C/C++ and the Java formatters.
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch.
-
-must be reformatted as:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch
-
-remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
-by counting the `.` that is not part of languange construct (e.g., member access).
-
-currently the formatter produce INCORRECT result:
-
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // Consteval/constinit, <=>, coroutines, init-statement if/switch
-
-As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
-`consteval` above.
-
-Check also for similar constructs in the Java formatter (should not be needed because Java and C/C++
-comments have the same syntax).
 
 ####################################################################################################
 
@@ -212,6 +187,32 @@ and aligned:
     : gain_    (gain    )
     , channels_(channels)
     , active_  (false   )
+
+####################################################################################################
+
+Do not execute `make test`. This and similar construct:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch.
+
+must be reformatted as:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // consteval/constinit, <=>, coroutines, init-statement if/switch
+
+remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
+by counting the `.` that is not part of languange construct (e.g., member access).
+
+currently the formatter produce INCORRECT result:
+
+    // C++17/20/23 constructs: structured bindings, concepts/requires,
+    // Consteval/constinit, <=>, coroutines, init-statement if/switch
+
+As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
+`consteval` above.
+
+Check also for similar constructs in the Java formatter (should not be needed because Java and C/C++
+comments have the same syntax).
 
 ####################################################################################################
 

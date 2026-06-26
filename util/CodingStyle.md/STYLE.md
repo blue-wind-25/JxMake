@@ -305,6 +305,21 @@ spacing only — no column grid.
 - Inline block comment between args — normalize spaces around it, do not move it.
 - Leading preamble comment above first arg — preserve entire arg list untouched.
 
+### Alignment of Return Types in Forward Declarations
+
+In C/C++, forward declarations of free functions in the same logical group are
+column-aligned across:
+
+```c
+static volatile       uint8_t        function1(/* Any */);
+static volatile       uint8_t*       func2(/* Any */);
+static volatile const uint8_t* const function3(/* Any */);
+static                uint16_t       myFunction(/* Any */);
+                      uint8_t        theFunction(/* Any */);
+static          const char*          aFunction(/* Any */);
+                      char           funcX(/* Any */);
+```
+
 ---
 
 ## 9. Blank Line Before `return`
@@ -467,7 +482,7 @@ switches the `:` is aligned as above; in non-inline switches no space before `:`
 ## 14. Getter/Setter/Checker Group Alignment
 
 Short functions in a class, struct, or enum body that form a logical group
-(getters, setters, checkers) may be written inline as an aligned group:
+(getters, setters, checkers, etc.) may be written inline as an aligned group:
 
 - Align: `)` column, `{` column, body, `}` column
 - Pad empty parameter lists with spaces to match the widest signature

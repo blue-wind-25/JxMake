@@ -317,6 +317,23 @@ Current phase.
     if found, the `)` just before it is the function's true close-paren, whose line's indent
     is used for the Allman `{`. Idempotency check moved to use the immediate preceding token
     (the last initializer `)`) rather than the now-distant function `)`.
+  - Bug 4b: two pre-existing rendering issues (not caused by Bug 3/4 commits) — NOT YET FIXED
+    - `(int   ch  )` rendered as `(int ch    )`: `GetterSetterRule.render` (definitions path,
+      `isDef = true`) builds the `callGrid` with each member's entire param string as a single
+      cell (`cellText(tokens, m.paramsFrom, m.paramsTo)` verbatim, e.g. `"int ch"`). The grid
+      pads it to the max params-column width (here 10, from `"float gain"`), pushing all surplus
+      spaces to the right (`"int ch    "`). Fix: for each param position, extract the type tokens
+      and name token separately, compute `maxTypeWidth` and `maxNameWidth` across the group, and
+      pad type and name individually before joining with a single space — so `"int"` is padded to
+      5 (= `"float"`) and `"ch"` is padded to 4 (= `"gain"`), giving `"int   ch  "`.
+    - `float* ch = buf.data + i * buf.frames` rendered as `i* buf.frames` (space before `*`
+      lost): `MiscRule.renderTokens` treats `*` as a tight token via `isTightToken`, suppressing
+      the preceding space regardless of whether `*` is a pointer declarator or a binary multiply.
+      Some formatter pass calls `renderTokens` on a token range that includes `i * buf.frames`,
+      causing the space drop. Root cause: `isTightToken(*)` is context-blind; fix requires either
+      distinguishing pointer-`*` from multiply-`*` by context (preceding token is an IDENTIFIER
+      or `)` → binary; preceding token is a type keyword/identifier with no intervening name →
+      pointer), or passing the raw source whitespace through for binary operators.
   - Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED
   - Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`

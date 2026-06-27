@@ -147,6 +147,11 @@ public class TokenizerCore {
     // carries the correct construct name.  Cleared on `;`, on entering a paren group at depth 1
     // (which signals a function/method parameter list, not a construct header), and when consumed.
     private String pendingNamedConstructName;
+    // Sticky flag set whenever a named-construct keyword (class/struct/enum/namespace) is seen.
+    // Allows the IDENTIFIER lookup to skip over attribute-specifiers like `alignas(16)` that
+    // sit between the keyword and the construct name.  Cleared when pendingNamedConstructName is
+    // armed, on `;`, or on `{`/`}` (scope transition).
+    private boolean namedConstructKeywordSeen;
 
     public boolean hasSyntaxError() {
         return syntaxError;
@@ -270,27 +275,31 @@ public class TokenizerCore {
                 } else if (t.type == TokenType.PUNCT && ";".equals(t.text)) {
                     pendingConceptName = null;
                     pendingNamedConstructName = null;
+                    namedConstructKeywordSeen = false;
+                } else if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
+                    namedConstructKeywordSeen = false;
+                } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
+                    namedConstructKeywordSeen = false;
                 } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1) {
                     // Entering the outermost paren group (a function's parameter list) -- clear
                     // pendingNamedConstructName so the function body's `{` doesn't pick up the
                     // surrounding class/struct name.
                     pendingNamedConstructName = null;
+                } else if (t.type == TokenType.KEYWORD && namedConstructKeywords.contains(t.text)
+                        && !"concept".equals(t.text)) {
+                    namedConstructKeywordSeen = true;
                 }
                 recentSignificant.addLast(t);
                 if (recentSignificant.size() > 3) {
                     recentSignificant.removeFirst();
                 }
                 // Arm pendingNamedConstructName when IDENTIFIER follows a named-construct keyword.
-                if (t.type == TokenType.IDENTIFIER) {
-                    final Token[] arr = recentSignificant.toArray(new Token[0]);
-                    final int n = arr.length;
-                    if (n >= 2) {
-                        final Token prev = arr[n - 2];
-                        if (prev.type == TokenType.KEYWORD && namedConstructKeywords.contains(prev.text)
-                                && !"concept".equals(prev.text)) {
-                            pendingNamedConstructName = t.text;
-                        }
-                    }
+                // namedConstructKeywordSeen survives attribute-specifiers like `alignas(16)` that
+                // sit between the keyword and the name; the old arr[n-2] check only caught the
+                // direct keyword→identifier case.
+                if (t.type == TokenType.IDENTIFIER && t.parenDepth == 0 && namedConstructKeywordSeen) {
+                    pendingNamedConstructName = t.text;
+                    namedConstructKeywordSeen = false;
                 }
         }
     }

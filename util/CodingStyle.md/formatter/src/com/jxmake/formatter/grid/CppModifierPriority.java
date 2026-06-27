@@ -24,6 +24,11 @@ public class CppModifierPriority extends ModifierPriority {
         PRIORITY.put("constinit", 1);
         PRIORITY.put("volatile", 2);
         PRIORITY.put("const", 3);
+        // virtual/inline/explicit are function-declaration qualifiers; they share one column
+        // since they are mutually exclusive in practice (a single function is at most one).
+        PRIORITY.put("virtual", 4);
+        PRIORITY.put("inline", 4);
+        PRIORITY.put("explicit", 4);
     }
 
     @Override

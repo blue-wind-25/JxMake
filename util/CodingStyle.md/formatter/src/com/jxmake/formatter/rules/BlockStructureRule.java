@@ -770,25 +770,28 @@ public class BlockStructureRule {
             return Frame.named(braceIdx, "concept " + name);
         }
 
-        final int recordCloseParen = findRecordComponentListClose(tokens, braceIdx);
-        if (recordCloseParen >= 0) {
-            // `record Name(...) [implements TypeList] {` -- the component list (and an optional
-            // implements clause) sits between the name and the body brace, so the name isn't the
-            // token directly before `{` like it is for class/interface/enum.
-            final int openParen = matchOpenBackward(tokens, recordCloseParen);
-            final int nameIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
-            final int recordKwIdx = nameIdx >= 0 ? prevSignificantIndex(tokens, nameIdx - 1) : -1;
-            if (recordKwIdx >= 0 && tokens.get(recordKwIdx).type == TokenType.KEYWORD
-                    && "record".equals(tokens.get(recordKwIdx).text)) {
-                return Frame.named(braceIdx, "record " + name);
+        if ("java".equals(language)) {
+            final int recordCloseParen = findRecordComponentListClose(tokens, braceIdx);
+            if (recordCloseParen >= 0) {
+                // `record Name(...) [implements TypeList] {` -- the component list (and an optional
+                // implements clause) sits between the name and the body brace, so the name isn't the
+                // token directly before `{` like it is for class/interface/enum.
+                final int openParen = matchOpenBackward(tokens, recordCloseParen);
+                final int nameIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
+                final int recordKwIdx = nameIdx >= 0 ? prevSignificantIndex(tokens, nameIdx - 1) : -1;
+                if (recordKwIdx >= 0 && tokens.get(recordKwIdx).type == TokenType.KEYWORD
+                        && "record".equals(tokens.get(recordKwIdx).text)) {
+                    return Frame.named(braceIdx, "record " + name);
+                }
+                return Frame.named(braceIdx, name);
             }
-            return Frame.named(braceIdx, name);
         }
-        // Search backward past inheritance/base-type clauses to find the construct keyword.
+        // Search backward past inheritance/base-type clauses (and attribute-specifiers like
+        // `alignas(16)`) to find the construct keyword.
         final int nameIdx = findConstructNameIndex(tokens, braceIdx, name);
         String label = name;
         if (nameIdx >= 0) {
-            final int kwIdx = prevSignificantIndex(tokens, nameIdx - 1);
+            final int kwIdx = findConstructKeywordIndex(tokens, nameIdx - 1);
             if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD) {
                 final String kw = tokens.get(kwIdx).text;
                 final int beforeKw = prevSignificantIndex(tokens, kwIdx - 1);
@@ -1100,6 +1103,30 @@ public class BlockStructureRule {
             default:
                 return false;
         }
+    }
+
+    /**
+     * Scans backward from {@code fromIdx} for the nearest KEYWORD that satisfies
+     * {@link BlockStructureRule#isNamedConstructStartKeyword}, skipping over non-keyword tokens
+     * (e.g. attribute-specifiers like {@code alignas(16)} that can appear between the keyword
+     * and the construct name).  Stops at {@code ;}, {@code {}, or {@code }}.
+     */
+    private int findConstructKeywordIndex(final List<Token> tokens, final int fromIdx) {
+        for (int i = fromIdx; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            final TokenType ty = t.type;
+            if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
+                    || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                continue;
+            }
+            if (ty == TokenType.KEYWORD && isNamedConstructStartKeyword(t.text)) {
+                return i;
+            }
+            if (ty == TokenType.PUNCT && (";".equals(t.text) || "{".equals(t.text) || "}".equals(t.text))) {
+                break;
+            }
+        }
+        return -1;
     }
 
     /**

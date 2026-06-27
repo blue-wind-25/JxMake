@@ -294,7 +294,19 @@ Current phase.
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
 - [x] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (PASS)
-- [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
+- [~] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp` (IN PROGRESS — fixing 6 bugs per user direction)
+  - Bug 1 FIXED: tokenizer `namedConstructKeywordSeen` flag lets named-construct detection
+    skip attribute-specifiers like `alignas(16)` between keyword and name;
+    `BlockStructureRule.findConstructKeywordIndex` scans past them for the closing comment
+    label; `classifyNamed` record-path guarded to Java-only.
+  - Bug 2 FIXED: `virtual`/`inline`/`explicit` added to `CppModifierPriority` (were
+    silently rejected by `typeKeywords` check); `= 0`/`= delete`/`= default` suffixes
+    now recognised as func-decl specifiers so function-parameter stripping fires and
+    the extra spaces are collapsed.
+  - Bug 3: extra space after `::` in qualified method names — NOT YET FIXED
+  - Bug 4: extra indent before `{` after member initializer list — NOT YET FIXED
+  - Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED
+  - Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`

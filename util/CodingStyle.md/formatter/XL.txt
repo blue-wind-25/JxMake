@@ -5,7 +5,7 @@ If all is good, commit and process the next bug:
 
 Be careful when fixing to not cause regression on `(PASS)` tests.
 
-### Bug 1
+### Bug 1 [DONE]
 Input code:
     struct   alignas(16) AudioBuffer   {
         float*   data;
@@ -34,7 +34,7 @@ but the formatter outputs:
 
 It seems it cannot detect struct (theoritically also class, etc.) if there is something between the keyword and name.
 
-### Bug 2
+### Bug 2 [DONE]
 
 The formatter cannot remove extra spaces between `void` and `onProcess`:
     protected:

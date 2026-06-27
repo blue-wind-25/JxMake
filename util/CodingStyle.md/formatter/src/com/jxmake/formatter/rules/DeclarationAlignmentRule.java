@@ -321,7 +321,11 @@ public class DeclarationAlignmentRule {
             final List<Token> allTypeTokens = new ArrayList<>(d.modifiers);
             allTypeTokens.addAll(d.typeTokens);
             final String typeStr = renderTokens(allTypeTokens);
-            final String nameStr = d.name.text + renderTokens(d.sizeTokens) + ";";
+            String nameStr = d.name.text + renderTokens(d.sizeTokens);
+            if (!d.initTokens.isEmpty()) {
+                nameStr += " = " + renderTokens(d.initTokens);
+            }
+            nameStr += ";";
             grid.addRow(new String[] { typeStr, nameStr });
         }
         final List<String> lines = new ArrayList<>();
@@ -397,6 +401,16 @@ public class DeclarationAlignmentRule {
             return true;
         }
         return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+    }
+
+    /** True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
+     *  `= default`) rather than a true variable initializer. */
+    private static boolean isFuncDeclSpecifier(final List<Token> initTokens) {
+        if (initTokens.size() != 1) {
+            return false;
+        }
+        final Token t = initTokens.get(0);
+        return "0".equals(t.text) || "delete".equals(t.text) || "default".equals(t.text);
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────
@@ -589,7 +603,10 @@ public class DeclarationAlignmentRule {
         }
 
         // Strip a trailing function-parameter list (...) to handle forward declarations.
-        if (initTokens.isEmpty() && sizeEnd > i && isPunct(body.get(sizeEnd - 1), ")")) {
+        // Also fires for `= 0` / `= delete` / `= default` suffixes (pure-virtual / deleted /
+        // defaulted), which are function specifiers, not true variable initializers.
+        if (sizeEnd > i && isPunct(body.get(sizeEnd - 1), ")")
+                && (initTokens.isEmpty() || isFuncDeclSpecifier(initTokens))) {
             int depth2 = 0;
             int parenOpenIdx = -1;
             for (int k = sizeEnd - 1; k >= i; k--) {

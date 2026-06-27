@@ -283,8 +283,6 @@ Current phase.
 + boundary dir `lastModified` epoch ms; invalidated automatically on an mtime mismatch
 (RDD_KEY_88).
 
-Current work: File-pair test `hpp_core_inp.hpp` (IN PROGRESS)
-
 - [x] CLI arg parsing (`--server`, `--stop`, `--standalone`, `--diff`, `--check`,
       `--out DIR`, `--port N`, file paths); unknown flags / bad usage → exit 2 (RDD_KEY_88)
 - [x] Four output modes: in-place (default), `--diff` (self-written unified diff,
@@ -295,47 +293,7 @@ Current work: File-pair test `hpp_core_inp.hpp` (IN PROGRESS)
       comment; all other Phase 1+2 items already present)
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
-- [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (IN PROGRESS)
-  **Fixes applied this session:**
-  1. `GetterSetterRule.hasAccessSpecifier`: `isPunct(t, ":")` → `isOp(t, ":")` — the `:` in
-     `public:`/`private:`/`protected:` is tokenized as OP, not PUNCT; bug caused `isClassScope`
-     to always be false → declaration grouping silently disabled for all C++ scopes.
-  2. `GetterSetterRule.render` (plain-declaration path): removed the `nameGrid` that padded
-     name-column width, which produced `addSource   (` (spaces between name and `(`). Declarations
-     now use verbatim name like the pure-specifier path.
-
-  **3rd failure (`make test` output):**
-  ```
-  float getDebug  (        ) const          { return dbg_;     }   ← CORRECT
-  void  setDebug  (bool dbg) const          { dbg_ = dbg;}         ← WRONG: no space before }
-  int   getChannel(        ) const          { return channel_; }   ← CORRECT
-  void  setChannel(int ch  )                { channel_ = ch;}      ← WRONG: no space before }
-  int   getMode   (        ) const noexcept { return channel_; }   ← CORRECT
-  void  seMode    (int ch  ) noexcept       { channel_ = ch;}      ← WRONG: no space before }
-  ```
-  Pattern: members WITHOUT parameters render correctly; members WITH parameters
-  don't get body-cell padding — `}` runs directly against the body with no space.
-
-  **Investigation so far (root cause not yet found):**
-  - Render code adds `{`, body, `}` as three separate cells — all six members should produce
-    5-cell rows `[type, callCell, "{", body, "}"]` with no trailing comment. ColumnGrid pads
-    columns 0–3 (last = `}`) based on max width. Logic appears correct on paper.
-  - `parseOneLinerMember`: `bodyFrom`/`bodyTo` computed via `trimLeadingWs`/`trimTrailingWs`
-    from `terminatorIdx+1` to `closeBraceIdx` — traced through; returns correct range
-    (`dbg_ = dbg;`) for `setDebug`.
-  - `excludeOutliers`: doesn't reorder members; no outliers in this group of 4.
-  - `callGrid` and outer `grid` are separate `ColumnGrid` instances; `flush()` clears buffer.
-  - `splitMembers` correctly spans `{ body }` per member (splits on `}` at depth 0).
-  - **Next step**: verify whether the column count for wrong-members' rows actually differs
-    at runtime (e.g., add a temporary diagnostic or step through with a debugger).
-
-  **4th failure (`make test` output):**
-  With this example code, the comments are not rendered (disappeared).
-  ```
-  float getDebug2() const { return dbg_; } // Comment A : 10
-  void setDebug2(bool dbg) const { dbg_ = dbg; } // Comment BB : 20
-  ```
-
+- [x] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (PASS)
 - [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`

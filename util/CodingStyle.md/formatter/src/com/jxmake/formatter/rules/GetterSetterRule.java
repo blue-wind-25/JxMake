@@ -36,20 +36,27 @@ public class GetterSetterRule {
     public static final class Member {
         public final List<Token> modifiers;   // Java only; empty for C/C++
         public final int returnTypeFrom, returnTypeTo;
+        public final int nameFrom;            // start of qualified name (= nameIdx for unqualified)
         public final int nameIdx;
         public final int paramsFrom, paramsTo;
-        public final int bodyFrom, bodyTo;
+        public final int bodyFrom, bodyTo;    // -1/-1 for declarations
         public final int memberFrom, memberTo; // full original span, for verbatim passthrough
         public final Token trailingComment;    // nullable
         public final boolean blankLineBefore;
+        public final String postParenQualifier; // "" or " const" etc.; never contains "override"
+        public final String pureSpecifier;      // null / "= 0" / "= delete" / "= default"
+        public final boolean isDefinition;      // true = { body }, false = ; terminated
 
         Member(final List<Token> modifiers, final int returnTypeFrom, final int returnTypeTo,
-                final int nameIdx, final int paramsFrom, final int paramsTo, final int bodyFrom,
-                final int bodyTo, final int memberFrom, final int memberTo,
-                final Token trailingComment, final boolean blankLineBefore) {
+                final int nameFrom, final int nameIdx, final int paramsFrom, final int paramsTo,
+                final int bodyFrom, final int bodyTo, final int memberFrom, final int memberTo,
+                final Token trailingComment, final boolean blankLineBefore,
+                final String postParenQualifier, final String pureSpecifier,
+                final boolean isDefinition) {
             this.modifiers = modifiers;
             this.returnTypeFrom = returnTypeFrom;
             this.returnTypeTo = returnTypeTo;
+            this.nameFrom = nameFrom;
             this.nameIdx = nameIdx;
             this.paramsFrom = paramsFrom;
             this.paramsTo = paramsTo;
@@ -59,6 +66,9 @@ public class GetterSetterRule {
             this.memberTo = memberTo;
             this.trailingComment = trailingComment;
             this.blankLineBefore = blankLineBefore;
+            this.postParenQualifier = postParenQualifier;
+            this.pureSpecifier = pureSpecifier;
+            this.isDefinition = isDefinition;
         }
     }
 
@@ -67,16 +77,27 @@ public class GetterSetterRule {
      * Splits one class/struct/enum body's full token range (including nested method-body
      * tokens -- unlike {@code DeclarationAlignmentRule}, this rule needs to see inside `{ }`)
      * into maximal runs of 2+ textually adjacent single-statement one-liner methods. A blank
-     * line, a comment-only gap, or any member that isn't a recognized one-liner method breaks
-     * the current run. A run of length 1 is never returned as a group (STYLE.md §14).
+     * line, a comment-only gap, any member not recognised as a one-liner, or a change in member
+     * kind (definition vs. declaration vs. pure-specifier) breaks the current run. A run of
+     * length 1 is never returned as a group (STYLE.md §14).
+     *
+     * Declaration grouping (isDefinition=false) is only enabled when the scope tokens contain
+     * at least one access-specifier label (public:/private:/protected:), which identifies the
+     * scope as a C++ class/struct body. In Java, declaration grouping is always enabled since
+     * Java class bodies have no such labels.
      */
     public List<List<Member>> groupOneLiners(final List<Token> scopeTokens) {
+        final boolean isClassScope = isJava || hasAccessSpecifier(scopeTokens);
         final List<int[]> spans = splitMembers(scopeTokens);
         final List<List<Member>> groups = new ArrayList<>();
         List<Member> current = new ArrayList<>();
 
         for (final int[] span : spans) {
-            final Member m = parseOneLinerMember(scopeTokens, span[0], span[1]);
+            Member m = parseOneLinerMember(scopeTokens, span[0], span[1]);
+            // In file/namespace scope, only process definitions; skip declarations.
+            if (m != null && !isClassScope && !m.isDefinition) {
+                m = null;
+            }
             if (m == null) {
                 if (current.size() >= 2) {
                     groups.add(current);
@@ -89,6 +110,18 @@ public class GetterSetterRule {
                     groups.add(current);
                 }
                 current = new ArrayList<>();
+            }
+            // Break on kind change: definition vs. declaration, or with/without pure-specifier.
+            if (!current.isEmpty()) {
+                final Member prev = current.get(current.size() - 1);
+                final boolean kindChanged = prev.isDefinition != m.isDefinition
+                        || (prev.pureSpecifier == null) != (m.pureSpecifier == null);
+                if (kindChanged) {
+                    if (current.size() >= 2) {
+                        groups.add(current);
+                    }
+                    current = new ArrayList<>();
+                }
             }
             current.add(m);
         }
@@ -141,34 +174,76 @@ public class GetterSetterRule {
 
     // ── Column grid rendering ───────────────────────────────────────────────────
     /**
-     * Renders one aligned group (already passed through `excludeOutliers`) into source lines
-     * (STYLE.md §14, STYLE_JAVA.md §5): fixed modifier columns (Java only -- only those actually
-     * used anywhere in the group), the return type, a `name(params)` cell (name and params each
-     * padded to the group's widest via a nested {@link ColumnGrid}, same precedent as
-     * `SwitchRule.applyInlineAlignment`'s call-shaped case rows), `{`, the body, and `}`, plus an
-     * optional trailing comment column. The closing `}` column falls out for free since it is just
-     * another fixed cell in this same single left-to-right grid pass -- no second pass is needed.
+     * Renders one aligned group (already passed through {@code excludeOutliers}) into source
+     * lines (STYLE.md §14, STYLE_JAVA.md §5). Three rendering modes, all sharing modifier
+     * columns (Java only) and return-type column:
+     *
+     * <ul>
+     *   <li><b>Definitions</b>: nested callGrid pads name and params; {@code { body }} columns.
+     *   <li><b>Plain declarations</b>: name column padded via ColumnGrid; params verbatim (not
+     *       internally aligned); {@code qualifier;} appended as last (ragged) column.
+     *   <li><b>Pure-specifier declarations</b> ({@code = 0 / = delete / = default}): entire
+     *       {@code name(params)qualifier} cell is verbatim and not internally aligned; only
+     *       {@code = X;} aligns as the last column.
+     * </ul>
      */
     public List<String> render(final List<Token> tokens, final List<Member> group) {
+        final boolean isPureSpecifier = group.get(0).pureSpecifier != null;
+        final boolean isDef = group.get(0).isDefinition;
+
+        // Modifier columns (Java only).
         final int modifierColumns = isJava ? modifierPriority.columnCount() : 0;
         final boolean[] modifierActive = new boolean[modifierColumns];
-        for (final Member m : group) {
-            for (final Token mod : m.modifiers) {
-                final int rank = modifierPriority.priorityOf(mod.text);
-                if (rank >= 0) {
-                    modifierActive[rank] = true;
+        if (isJava) {
+            for (final Member m : group) {
+                for (final Token mod : m.modifiers) {
+                    final int rank = modifierPriority.priorityOf(mod.text);
+                    if (rank >= 0) {
+                        modifierActive[rank] = true;
+                    }
                 }
             }
         }
 
-        final ColumnGrid callGrid = new ColumnGrid();
-        for (final Member m : group) {
-            // Trailing "" keeps params from being the last cell, so ColumnGrid's ragged-row
-            // rule doesn't skip padding it when params is empty (e.g. "getX()").
-            callGrid.addRow(new String[] {cellText(tokens, m.nameIdx, m.nameIdx + 1),
-                    cellText(tokens, m.paramsFrom, m.paramsTo), ""});
+        // Build per-member call cells.
+        final String[] callCells = new String[group.size()];
+        if (isDef) {
+            // Definitions: pad name and params via nested callGrid (existing behaviour).
+            final ColumnGrid callGrid = new ColumnGrid();
+            for (final Member m : group) {
+                // Trailing "" keeps params from being the last cell so ColumnGrid pads it
+                // even when empty (e.g. "getX()").
+                callGrid.addRow(new String[] {cellText(tokens, m.nameFrom, m.nameIdx + 1),
+                        cellText(tokens, m.paramsFrom, m.paramsTo), ""});
+            }
+            final List<String[]> callPadded = callGrid.flush();
+            for (int i = 0; i < group.size(); i++) {
+                final Member m = group.get(i);
+                final String[] call = callPadded.get(i);
+                callCells[i] = call[0] + "(" + call[1] + ")" + m.postParenQualifier;
+            }
+        } else if (!isPureSpecifier) {
+            // Plain declarations: pad names via ColumnGrid; params verbatim.
+            final ColumnGrid nameGrid = new ColumnGrid();
+            for (final Member m : group) {
+                nameGrid.addRow(new String[] {cellText(tokens, m.nameFrom, m.nameIdx + 1), ""});
+            }
+            final List<String[]> namePadded = nameGrid.flush();
+            for (int i = 0; i < group.size(); i++) {
+                final Member m = group.get(i);
+                callCells[i] = namePadded.get(i)[0]
+                        + "(" + cellText(tokens, m.paramsFrom, m.paramsTo).trim() + ")"
+                        + m.postParenQualifier;
+            }
+        } else {
+            // Pure-specifier declarations: entire name(params)qualifier verbatim.
+            for (int i = 0; i < group.size(); i++) {
+                final Member m = group.get(i);
+                callCells[i] = cellText(tokens, m.nameFrom, m.nameIdx + 1).trim()
+                        + "(" + cellText(tokens, m.paramsFrom, m.paramsTo).trim() + ")"
+                        + m.postParenQualifier;
+            }
         }
-        final List<String[]> callPadded = callGrid.flush();
 
         final ColumnGrid grid = new ColumnGrid();
         for (int idx = 0; idx < group.size(); idx++) {
@@ -193,12 +268,19 @@ public class GetterSetterRule {
 
             cells.add(cellText(tokens, m.returnTypeFrom, m.returnTypeTo));
 
-            final String[] call = callPadded.get(idx);
-            cells.add(call[0] + "(" + call[1] + ")");
-
-            cells.add("{");
-            cells.add(cellText(tokens, m.bodyFrom, m.bodyTo));
-            cells.add("}");
+            if (isDef) {
+                cells.add(callCells[idx]);
+                cells.add("{");
+                cells.add(cellText(tokens, m.bodyFrom, m.bodyTo));
+                cells.add("}");
+            } else if (isPureSpecifier) {
+                // call cell is NOT last: ColumnGrid pads it so = X; aligns.
+                cells.add(callCells[idx]);
+                cells.add(m.pureSpecifier + ";");
+            } else {
+                // Plain declaration: call cell IS last (ragged); ";" appended directly.
+                cells.add(callCells[idx] + ";");
+            }
 
             if (m.trailingComment != null) {
                 cells.add(m.trailingComment.text);
@@ -285,12 +367,15 @@ public class GetterSetterRule {
 
     // ── One-liner method recognition ────────────────────────────────────────────
     /**
-     * Recognizes the shape `[modifiers]* returnType name ( params ) { oneStatement; }` entirely
-     * on one source line (no `NEWLINE` token between its first significant token and its closing
-     * `}`). Anything that doesn't match exactly -- a field, a multi-line method, a constructor (no
-     * return type), a method with a `throws` clause, a multi-statement or brace-wrapped body, etc.
-     * -- returns null and is left completely untouched by this rule, same conservative posture as
-     * the rest of the formatter.
+     * Recognises one of three shapes (all on a single source line, no intervening NEWLINE):
+     * <ul>
+     *   <li>Definition:              {@code [mods]* retType [Q::]name(params) [quals] { stmt; }}
+     *   <li>Plain declaration:       {@code [mods]* retType [Q::]name(params) [quals] ;}
+     *   <li>Pure-specifier decl:     {@code [mods]* retType [Q::]name(params) [quals] = 0|delete|default ;}
+     * </ul>
+     * Returns null for: constructors, methods with {@code override} qualifier (those are
+     * implementing a base-class contract, not getter/setter pairs), {@code throws} clauses,
+     * fields, multi-line members, and any other unrecognised shape.
      */
     private Member parseOneLinerMember(final List<Token> tokens, final int from, final int to) {
         final int firstSig = firstSignificantIndex(tokens, from, to);
@@ -328,7 +413,26 @@ public class GetterSetterRule {
         if (nameIdx < 0 || nameIdx == returnTypeFrom) {
             return null; // no return type before the name -- e.g. a constructor
         }
-        final int returnTypeTo = trimTrailingWs(tokens, returnTypeFrom, nameIdx);
+
+        // Extend nameIdx backwards for qualified names (e.g. "Processor::method").
+        int nameFrom = nameIdx;
+        while (nameFrom > returnTypeFrom) {
+            final int prevA = prevSignificant(tokens, nameFrom - 1, returnTypeFrom);
+            if (prevA < 0 || !isOp(tokens.get(prevA), "::")) {
+                break;
+            }
+            final int prevB = prevSignificant(tokens, prevA - 1, returnTypeFrom);
+            if (prevB < 0 || prevB < returnTypeFrom) {
+                break;
+            }
+            final Token tb = tokens.get(prevB);
+            if (tb.type != TokenType.IDENTIFIER && tb.type != TokenType.KEYWORD) {
+                break;
+            }
+            nameFrom = prevB;
+        }
+
+        final int returnTypeTo = trimTrailingWs(tokens, returnTypeFrom, nameFrom);
         if (returnTypeTo <= returnTypeFrom) {
             return null;
         }
@@ -344,35 +448,107 @@ public class GetterSetterRule {
         final int paramsFrom = trimLeadingWs(tokens, parenOpenIdx + 1, parenCloseIdx);
         final int paramsTo = trimTrailingWs(tokens, paramsFrom, parenCloseIdx);
 
-        final int braceIdx = nextSignificant(tokens, parenCloseIdx + 1, to);
-        if (braceIdx < 0 || !isPunct(tokens.get(braceIdx), "{")) {
-            return null; // e.g. a `throws` clause -- not a recognized one-liner shape
-        }
-        final int closeBraceIdx = matchBracket(tokens, braceIdx, "{", "}");
-        if (closeBraceIdx < 0) {
-            return null;
-        }
-
-        final int lastSig = lastSignificantIndex(tokens, closeBraceIdx + 1, to);
-        final Token trailingComment;
-        if (lastSig >= 0) {
-            final Token t = tokens.get(lastSig);
-            if (t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
-                return null; // stray tokens after the closing brace -- not a clean one-liner
+        // Collect post-paren qualifiers (C++ only). Override-annotated members are never
+        // getter/setter pairs -- skip them.
+        final StringBuilder qualBuilder = new StringBuilder();
+        int afterParen = parenCloseIdx + 1;
+        while (true) {
+            final int sigIdx = nextSignificant(tokens, afterParen, to);
+            if (sigIdx < 0) {
+                break;
             }
-            trailingComment = t;
-        } else {
-            trailingComment = null;
+            final Token t = tokens.get(sigIdx);
+            if (!isPostParenQualifier(t)) {
+                break;
+            }
+            if ("override".equals(t.text)) {
+                return null; // never group override declarations
+            }
+            if ("noexcept".equals(t.text)) {
+                final int nextSig = nextSignificant(tokens, sigIdx + 1, to);
+                if (nextSig >= 0 && isPunct(tokens.get(nextSig), "(")) {
+                    return null; // noexcept(expr) form not supported
+                }
+            }
+            qualBuilder.append(" ").append(t.text);
+            afterParen = sigIdx + 1;
+        }
+        final String postParenQualifier = qualBuilder.toString();
+
+        // Check for pure-specifier: = 0 / = delete / = default.
+        String pureSpecifier = null;
+        final int eqSigIdx = nextSignificant(tokens, afterParen, to);
+        if (eqSigIdx >= 0 && isOp(tokens.get(eqSigIdx), "=")) {
+            final int specIdx = nextSignificant(tokens, eqSigIdx + 1, to);
+            if (specIdx >= 0) {
+                final Token st = tokens.get(specIdx);
+                final boolean isPure = (st.type == TokenType.NUMBER && "0".equals(st.text))
+                        || (st.type == TokenType.KEYWORD
+                                && ("delete".equals(st.text) || "default".equals(st.text)));
+                if (isPure) {
+                    pureSpecifier = "= " + st.text;
+                    afterParen = specIdx + 1;
+                }
+            }
         }
 
-        final int bodyFrom = trimLeadingWs(tokens, braceIdx + 1, closeBraceIdx);
-        final int bodyTo = trimTrailingWs(tokens, bodyFrom, closeBraceIdx);
-        if (!isSingleStatementBody(tokens, bodyFrom, bodyTo)) {
+        // Determine terminator: { (definition) or ; (declaration).
+        final int terminatorIdx = nextSignificant(tokens, afterParen, to);
+        if (terminatorIdx < 0) {
             return null;
         }
+        final Token terminator = tokens.get(terminatorIdx);
 
-        return new Member(modifiers, returnTypeFrom, returnTypeTo, nameIdx, paramsFrom, paramsTo,
-                bodyFrom, bodyTo, from, to, trailingComment, blankBefore);
+        final boolean isDefinition;
+        final int bodyFrom;
+        final int bodyTo;
+        final Token trailingComment;
+
+        if (isPunct(terminator, "{")) {
+            if (pureSpecifier != null) {
+                return null; // = 0 { ... } is not a valid shape
+            }
+            isDefinition = true;
+            final int closeBraceIdx = matchBracket(tokens, terminatorIdx, "{", "}");
+            if (closeBraceIdx < 0) {
+                return null;
+            }
+            final int lastSig = lastSignificantIndex(tokens, closeBraceIdx + 1, to);
+            if (lastSig >= 0) {
+                final Token t = tokens.get(lastSig);
+                if (t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
+                    return null; // stray tokens after closing brace
+                }
+                trailingComment = t;
+            } else {
+                trailingComment = null;
+            }
+            bodyFrom = trimLeadingWs(tokens, terminatorIdx + 1, closeBraceIdx);
+            bodyTo = trimTrailingWs(tokens, bodyFrom, closeBraceIdx);
+            if (!isSingleStatementBody(tokens, bodyFrom, bodyTo)) {
+                return null;
+            }
+        } else if (isPunct(terminator, ";")) {
+            isDefinition = false;
+            bodyFrom = -1;
+            bodyTo = -1;
+            final int lastSig = lastSignificantIndex(tokens, terminatorIdx + 1, to);
+            if (lastSig >= 0) {
+                final Token t = tokens.get(lastSig);
+                if (t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
+                    return null; // stray tokens after ";"
+                }
+                trailingComment = t;
+            } else {
+                trailingComment = null;
+            }
+        } else {
+            return null; // throws clause or other unrecognised form
+        }
+
+        return new Member(modifiers, returnTypeFrom, returnTypeTo, nameFrom, nameIdx,
+                paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
+                postParenQualifier, pureSpecifier, isDefinition);
     }
 
     /** First IDENTIFIER in [from, to) whose next significant token is `(`; -1 if none. */
@@ -530,5 +706,59 @@ public class GetterSetterRule {
 
     private boolean isPunct(final Token t, final String text) {
         return t.type == TokenType.PUNCT && text.equals(t.text);
+    }
+
+    private boolean isOp(final Token t, final String text) {
+        return t.type == TokenType.OP && text.equals(t.text);
+    }
+
+    /** True iff {@code t} is a C++ post-paren qualifier that can appear between {@code )} and
+     *  the function body or terminator (const, volatile, noexcept, override, final). */
+    private boolean isPostParenQualifier(final Token t) {
+        if (isJava || t.type != TokenType.KEYWORD) {
+            return false;
+        }
+        switch (t.text) {
+            case "const":
+            case "volatile":
+            case "noexcept":
+            case "override":
+            case "final":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /** True iff the scope tokens contain at least one access-specifier label
+     *  ({@code public:} / {@code private:} / {@code protected:}) at depth 0.
+     *  Used to distinguish class/struct bodies from file/namespace scopes. */
+    private boolean hasAccessSpecifier(final List<Token> tokens) {
+        int depth = 0;
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.KEYWORD
+                    && ("public".equals(t.text) || "private".equals(t.text)
+                            || "protected".equals(t.text))) {
+                final int next = nextSignificant(tokens, i + 1, tokens.size());
+                if (next >= 0 && isPunct(tokens.get(next), ":")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private int prevSignificant(final List<Token> tokens, final int from, final int lowerBound) {
+        for (int i = from; i >= lowerBound; i--) {
+            if (!isInsignificant(tokens.get(i))) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

@@ -199,7 +199,12 @@ public class CppSpecificRule {
             if (!isPunct(tokens.get(i), "{")) {
                 continue;
             }
-            final int closeParenIdx = prevSignificantIndex(tokens, i);
+            // Walk past post-paren qualifiers (const, volatile, noexcept, override, final)
+            // so that e.g. `func() const {` is handled the same as `func() {`.
+            int closeParenIdx = prevSignificantIndex(tokens, i);
+            while (closeParenIdx >= 0 && isDefinitionQualifier(tokens.get(closeParenIdx))) {
+                closeParenIdx = prevSignificantIndex(tokens, closeParenIdx);
+            }
             if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
                 continue;
             }
@@ -209,14 +214,18 @@ public class CppSpecificRule {
             if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
                 continue;
             }
+            // gapStart: first token after the last qualifier (or after ")"), so qualifiers
+            // before "{" are preserved in the output and only the trailing whitespace is replaced.
+            final int lastBeforeBrace = prevSignificantIndex(tokens, i);
+            final int gapStart = lastBeforeBrace + 1;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
                 final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
                 final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
-                oneLiners.add(new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx));
+                oneLiners.add(new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx, gapStart));
                 continue;
             }
-            gapToBrace.put(closeParenIdx + 1, i);
+            gapToBrace.put(gapStart, i);
         }
 
         final boolean[] grouped = new boolean[oneLiners.size()];
@@ -232,7 +241,7 @@ public class CppSpecificRule {
         for (int idx = 0; idx < oneLiners.size(); idx++) {
             if (!grouped[idx]) {
                 final OneLinerCandidate c = oneLiners.get(idx);
-                gapToBrace.put(c.closeParenIdx + 1, c.braceIdx);
+                gapToBrace.put(c.gapStart, c.braceIdx);
             }
         }
 
@@ -259,12 +268,15 @@ public class CppSpecificRule {
         final int closeParenIdx;
         final int braceIdx;
         final int closeBraceIdx;
+        final int gapStart; // first token index after last qualifier (or after ")"), for Allman key
 
-        OneLinerCandidate(final int nameIdx, final int closeParenIdx, final int braceIdx, final int closeBraceIdx) {
+        OneLinerCandidate(final int nameIdx, final int closeParenIdx, final int braceIdx,
+                final int closeBraceIdx, final int gapStart) {
             this.nameIdx = nameIdx;
             this.closeParenIdx = closeParenIdx;
             this.braceIdx = braceIdx;
             this.closeBraceIdx = closeBraceIdx;
+            this.gapStart = gapStart;
         }
     }
 
@@ -956,6 +968,24 @@ public class CppSpecificRule {
             }
         }
         return -1;
+    }
+
+    /** True iff {@code t} is a C++ post-paren qualifier keyword that can appear between {@code )}
+     *  and {@code {}} in a function definition (const, volatile, noexcept, override, final). */
+    private boolean isDefinitionQualifier(final Token t) {
+        if (t.type != TokenType.KEYWORD) {
+            return false;
+        }
+        switch (t.text) {
+            case "const":
+            case "volatile":
+            case "noexcept":
+            case "override":
+            case "final":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private boolean isGapToken(final Token t) {

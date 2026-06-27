@@ -37,6 +37,10 @@ contains nothing the implementer needs beyond what is already indexed here.
   are trivially connected — use judgment based on line count (~50 lines threshold)
 - Never let implemented files and STATE.md drift out of sync — STATE.md must
   always reflect the true current state at every commit
+- Never modify the files `util/CodingStyle.md/formatter/test/*_inp.*` unless they contain
+  syntax errors (they are the test input files).
+- Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
+  asked (they are the reference output files that show the expected results).
 
 ### When hitting an ambiguity or open question
 1. **Stop coding immediately** — do not guess or proceed past the ambiguity
@@ -557,8 +561,8 @@ fix must be in place before test output is meaningful.
 - [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
-- [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c`
-- [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp`
+- [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
+- [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (IN PROGRESS)
 - [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`

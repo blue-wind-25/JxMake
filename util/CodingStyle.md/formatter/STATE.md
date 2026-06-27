@@ -304,18 +304,20 @@ Current work: File-pair test `hpp_core_inp.hpp` (IN PROGRESS)
      name-column width, which produced `addSource   (` (spaces between name and `(`). Declarations
      now use verbatim name like the pure-specifier path.
 
-  **Remaining failure after those two fixes (`make test` output):**
+  **3rd failure (`make test` output):**
   ```
-  float getDebug  (        ) const { return dbg_;     }   ← CORRECT
-  void  setDebug  (bool dbg)       { dbg_ = dbg;}         ← WRONG: no space before }
-  int   getChannel(        ) const { return channel_; }   ← CORRECT
-  void  setChannel(int ch  )       { channel_ = ch;}      ← WRONG: no space before }
+  float getDebug  (        ) const          { return dbg_;     }   ← CORRECT
+  void  setDebug  (bool dbg) const          { dbg_ = dbg;}         ← WRONG: no space before }
+  int   getChannel(        ) const          { return channel_; }   ← CORRECT
+  void  setChannel(int ch  )                { channel_ = ch;}      ← WRONG: no space before }
+  int   getMode   (        ) const noexcept { return channel_; }   ← CORRECT
+  void  seMode    (int ch  ) noexcept       { channel_ = ch;}      ← WRONG: no space before }
   ```
-  Pattern: members WITH post-paren qualifier (`const`) render correctly; members WITHOUT
-  qualifier don't get body-cell padding — `}` runs directly against the body with no space.
+  Pattern: members WITHOUT parameters render correctly; members WITH parameters
+  don't get body-cell padding — `}` runs directly against the body with no space.
 
   **Investigation so far (root cause not yet found):**
-  - Render code adds `{`, body, `}` as three separate cells — all four members should produce
+  - Render code adds `{`, body, `}` as three separate cells — all six members should produce
     5-cell rows `[type, callCell, "{", body, "}"]` with no trailing comment. ColumnGrid pads
     columns 0–3 (last = `}`) based on max width. Logic appears correct on paper.
   - `parseOneLinerMember`: `bodyFrom`/`bodyTo` computed via `trimLeadingWs`/`trimTrailingWs`
@@ -324,11 +326,16 @@ Current work: File-pair test `hpp_core_inp.hpp` (IN PROGRESS)
   - `excludeOutliers`: doesn't reorder members; no outliers in this group of 4.
   - `callGrid` and outer `grid` are separate `ColumnGrid` instances; `flush()` clears buffer.
   - `splitMembers` correctly spans `{ body }` per member (splits on `}` at depth 0).
-  - Key clue: the only structural difference between the correct and incorrect members is
-    presence/absence of `m.postParenQualifier`. The `callCells` computation is correct
-    regardless (qualifier appended verbatim to call string). **Next step**: verify whether
-    the column count for wrong-members' rows actually differs at runtime (e.g., add a
-    temporary diagnostic or step through with a debugger).
+  - **Next step**: verify whether the column count for wrong-members' rows actually differs
+    at runtime (e.g., add a temporary diagnostic or step through with a debugger).
+
+  **4th failure (`make test` output):**
+  With this example code, the comments are not rendered (disappeared).
+  ```
+  float getDebug2() const { return dbg_; } // Comment A : 10
+  void setDebug2(bool dbg) const { dbg_ = dbg; } // Comment BB : 20
+  ```
+
 - [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`

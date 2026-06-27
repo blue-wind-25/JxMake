@@ -60,7 +60,7 @@ INP_FILES += h_core_inp.h
 INP_FILES += c_core_inp.c
 
 INP_FILES += hpp_core_inp.hpp
-#INP_FILES += cpp_core_inp.cpp
+INP_FILES += cpp_core_inp.cpp
 #INP_FILES += java_core_inp.java
 
 #INP_FILES += cpp_modern_inp.cpp

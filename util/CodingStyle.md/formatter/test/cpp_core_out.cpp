@@ -46,16 +46,16 @@ public:
     explicit Processor(int channels, float gain);
     ~Processor() = default;
 
-    Processor(const Processor&)            = delete;
+    Processor(const Processor&) = delete;
     Processor& operator=(const Processor&) = delete;
-    Processor(Processor&&)                 = default;
-    Processor& operator=(Processor&&)      = default;
+    Processor(Processor&&) = default;
+    Processor& operator=(Processor&&) = default;
 
-    void  process    (AudioBuffer& buf);
-    float getGain    (                ) const;
-    void  setGain    (float gain      );
-    int   getChannels(                ) const;
-    void  setChannels(int ch          );
+    void  process(AudioBuffer& buf);
+    float getGain() const;
+    void  setGain(float gain);
+    int   getChannels() const;
+    void  setChannels(int ch);
 
 protected:
     virtual void onProcess(AudioBuffer& buf) = 0;
@@ -72,10 +72,10 @@ template<typename T, int N>
 class RingBuffer {
 
 public:
-    void push (const T& val);
-    T    pop  (            );
-    bool empty(            ) const { return head_ == tail_;          }
-    int  size (            ) const { return (tail_ - head_ + N) % N; }
+    void push(const T& val);
+    T    pop();
+    bool empty() const { return head_ == tail_;          }
+    int  size () const { return (tail_ - head_ + N) % N; }
 
 private:
     T   buf_[N];
@@ -103,6 +103,7 @@ auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuff
     buf->frames   = frames;
     buf->channels = channels;
     buf->data     = new float[frames * channels]();
+    
     return buf;
 }
 

@@ -68,7 +68,7 @@ public:
     virtual void reset()              = 0;
     virtual bool isReady() const      = 0;
 
-    std::string getName(                ) const;
+    std::string getName() const;
     void        setName(std::string name);
 
     static std::unique_ptr<Processor> create(const Config& cfg);
@@ -94,7 +94,7 @@ public:
     void reset() override;
     bool isReady() const override;
 
-    float getGain(          ) const;
+    float getGain() const;
     void  setGain(float gain);
 
     float getDebug  (        ) const { return dbg_;     }

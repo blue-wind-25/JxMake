@@ -194,6 +194,7 @@ public class CppSpecificRule {
      */
     public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
         final Map<Integer, Integer> gapToBrace = new HashMap<>();
+        final Map<Integer, String> gapToIndent = new HashMap<>();
         final List<OneLinerCandidate> oneLiners = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) {
             if (!isPunct(tokens.get(i), "{")) {
@@ -208,24 +209,37 @@ public class CppSpecificRule {
             if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
                 continue;
             }
-            if (!isFunctionDefinitionCloseParen(tokens, closeParenIdx)) {
-                continue;
-            }
-            if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
+            // Resolve past any constructor member-initializer list (`: init(val), ...`) to
+            // the function's own close paren, so that the Allman brace is indented to the
+            // function's own declaration line rather than the last initializer's line.
+            final int funcCloseParen = resolveToFunctionCloseParen(tokens, closeParenIdx);
+            if (!isFunctionDefinitionCloseParen(tokens, funcCloseParen)) {
                 continue;
             }
             // gapStart: first token after the last qualifier (or after ")"), so qualifiers
             // before "{" are preserved in the output and only the trailing whitespace is replaced.
             final int lastBeforeBrace = prevSignificantIndex(tokens, i);
+            // Idempotency: already on own line if there is a newline between the IMMEDIATE
+            // preceding token (qualifier or last-initializer ")") and "{".
+            if (hasNewlineOrCommentBetween(tokens, lastBeforeBrace, i)) {
+                continue;
+            }
             final int gapStart = lastBeforeBrace + 1;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
-                final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+                final int openParenIdx = matchParenBackward(tokens, funcCloseParen);
                 final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
-                oneLiners.add(new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx, gapStart));
+                oneLiners.add(new OneLinerCandidate(nameIdx, funcCloseParen, i, closeBraceIdx, gapStart));
                 continue;
             }
             gapToBrace.put(gapStart, i);
+            // When the function's own `)` is on a different line than the immediate preceding
+            // token (initializer-list case), store the correct indent from the function's line.
+            final String funcIndent = lineIndent(tokens, funcCloseParen);
+            final String defaultIndent = lineIndent(tokens, lastBeforeBrace);
+            if (!funcIndent.equals(defaultIndent)) {
+                gapToIndent.put(gapStart, funcIndent);
+            }
         }
 
         final boolean[] grouped = new boolean[oneLiners.size()];
@@ -242,6 +256,11 @@ public class CppSpecificRule {
             if (!grouped[idx]) {
                 final OneLinerCandidate c = oneLiners.get(idx);
                 gapToBrace.put(c.gapStart, c.braceIdx);
+                final String funcIndent = lineIndent(tokens, c.closeParenIdx);
+                final String defaultIndent = lineIndent(tokens, c.gapStart - 1);
+                if (!funcIndent.equals(defaultIndent)) {
+                    gapToIndent.put(c.gapStart, funcIndent);
+                }
             }
         }
 
@@ -250,7 +269,9 @@ public class CppSpecificRule {
         while (i < tokens.size()) {
             final Integer braceIdx = gapToBrace.get(i);
             if (braceIdx != null) {
-                out.append('\n').append(lineIndent(tokens, i - 1));
+                final String overrideIndent = gapToIndent.get(i);
+                final String indent = overrideIndent != null ? overrideIndent : lineIndent(tokens, i - 1);
+                out.append('\n').append(indent);
                 out.append(tokens.get(braceIdx).text);
                 i = braceIdx + 1;
             } else {
@@ -259,6 +280,27 @@ public class CppSpecificRule {
             }
         }
         return out.toString();
+    }
+
+    /** Resolves the close-paren of a candidate function definition, walking backward past any
+     *  constructor member-initializer list (`: init(val), ...`) to find the function's own `)`.
+     *  Returns {@code candidate} itself when no initializer-list colon is found (normal case). */
+    private int resolveToFunctionCloseParen(final List<Token> tokens, final int candidate) {
+        int depth = 0;
+        for (int i = candidate; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth++;
+            } else if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, ":")) {
+                // Found the initializer-list colon. The function's own `)` is just before this.
+                final int funcCloseParen = prevSignificantIndex(tokens, i);
+                return (funcCloseParen >= 0 && isPunct(tokens.get(funcCloseParen), ")"))
+                        ? funcCloseParen : candidate;
+            }
+        }
+        return candidate;
     }
 
     /** One function-definition `{ ... }` whose body sits entirely on one physical line --
@@ -1000,5 +1042,9 @@ public class CppSpecificRule {
 
     private boolean isPunct(final Token t, final String text) {
         return t != null && t.type == TokenType.PUNCT && text.equals(t.text);
+    }
+
+    private boolean isOp(final Token t, final String text) {
+        return t != null && t.type == TokenType.OP && text.equals(t.text);
     }
 }

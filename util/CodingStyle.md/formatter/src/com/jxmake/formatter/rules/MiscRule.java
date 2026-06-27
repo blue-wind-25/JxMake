@@ -1189,7 +1189,9 @@ public class MiscRule {
      */
     public List<String> render(final Signature sig, final int indentLevel, final String indentStyle) {
         final String lead = renderTokens(sig.leadTokens);
-        final String head = (lead.isEmpty() ? "" : lead + " ") + sig.name.text + "(";
+        final boolean leadNeedsSpace = !sig.leadTokens.isEmpty()
+                && needsSpaceBetween(sig.leadTokens.get(sig.leadTokens.size() - 1), sig.name);
+        final String head = (lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "")) + sig.name.text + "(";
         final String inline = head + renderParamsInline(sig) + ")";
         final int startColumn = indentLevel * INDENT_WIDTH;
 

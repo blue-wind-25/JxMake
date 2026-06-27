@@ -303,8 +303,20 @@ Current phase.
     silently rejected by `typeKeywords` check); `= 0`/`= delete`/`= default` suffixes
     now recognised as func-decl specifiers so function-parameter stripping fires and
     the extra spaces are collapsed.
-  - Bug 3: extra space after `::` in qualified method names — NOT YET FIXED
-  - Bug 4: extra indent before `{` after member initializer list — NOT YET FIXED
+  - Bug 3 FIXED: `MiscRule.render(Signature)` unconditionally appended a space between the
+    rendered lead tokens and the function name; when `leadTokens` ends with `::` (qualified
+    name like `Processor::setGain`) the space landed after `::` instead of before `(`.
+    Fix: check `needsSpaceBetween(lastLeadToken, sig.name)` and suppress the space when
+    the last lead token is `::`, `.`, or `->`.
+  - Bug 4 FIXED: `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` used
+    `prevSignificantIndex` before `{` to find the close-paren, which returned the `)` of
+    the last initializer-list entry (e.g. `active_(false)`) rather than the constructor's
+    own `)`. The Allman `{` was then indented to the initializer-list line (4 spaces) instead
+    of the constructor's own line (0 spaces). Fix: new `resolveToFunctionCloseParen` helper
+    scans backward past balanced parens looking for a depth-0 `:` (initializer-list colon);
+    if found, the `)` just before it is the function's true close-paren, whose line's indent
+    is used for the Allman `{`. Idempotency check moved to use the immediate preceding token
+    (the last initializer `)`) rather than the now-distant function `)`.
   - Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED
   - Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`

@@ -508,16 +508,17 @@ public class GetterSetterRule {
             if (closeBraceIdx < 0) {
                 return null;
             }
-            final int lastSig = lastSignificantIndex(tokens, closeBraceIdx + 1, to);
-            if (lastSig >= 0) {
-                final Token t = tokens.get(lastSig);
-                if (t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
-                    return null; // stray tokens after closing brace
+            Token foundComment = null;
+            for (int ci = closeBraceIdx + 1; ci < to; ci++) {
+                final Token t = tokens.get(ci);
+                if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                    foundComment = t;
+                    break;
+                } else if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                    return null; // stray non-comment token after }
                 }
-                trailingComment = t;
-            } else {
-                trailingComment = null;
             }
+            trailingComment = foundComment;
             bodyFrom = trimLeadingWs(tokens, terminatorIdx + 1, closeBraceIdx);
             bodyTo = trimTrailingWs(tokens, bodyFrom, closeBraceIdx);
             if (!isSingleStatementBody(tokens, bodyFrom, bodyTo)) {
@@ -527,16 +528,17 @@ public class GetterSetterRule {
             isDefinition = false;
             bodyFrom = -1;
             bodyTo = -1;
-            final int lastSig = lastSignificantIndex(tokens, terminatorIdx + 1, to);
-            if (lastSig >= 0) {
-                final Token t = tokens.get(lastSig);
-                if (t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
-                    return null; // stray tokens after ";"
+            Token foundComment = null;
+            for (int ci = terminatorIdx + 1; ci < to; ci++) {
+                final Token t = tokens.get(ci);
+                if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                    foundComment = t;
+                    break;
+                } else if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                    return null; // stray non-comment token after ";"
                 }
-                trailingComment = t;
-            } else {
-                trailingComment = null;
             }
+            trailingComment = foundComment;
         } else {
             return null; // throws clause or other unrecognised form
         }

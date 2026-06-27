@@ -221,17 +221,21 @@ public class JavaSpecificRule {
     }
 
     /** True iff a blank line (two or more consecutive {@code NEWLINE} tokens) or any comment
-     *  appears strictly between {@code fromExclusive} and {@code toExclusive} -- either one breaks
-     *  a one-liner run, mirroring {@code GetterSetterRule.groupOneLiners}'s own run-breaking rule. */
+     *  that starts on a NEW line (not a trailing same-line comment on the previous member)
+     *  appears strictly between {@code fromExclusive} and {@code toExclusive}. */
     private boolean breaksOneLinerRun(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
         int newlineRun = 0;
+        boolean pastFirstNewline = false;
         for (int i = fromExclusive + 1; i < toExclusive; i++) {
             final TokenType type = tokens.get(i).type;
             if (type == TokenType.NEWLINE) {
+                pastFirstNewline = true;
                 newlineRun++;
                 if (newlineRun >= 2) {
                     return true;
                 }
+            } else if (!pastFirstNewline) {
+                // same line as previous } -- trailing comment or whitespace, not a gap
             } else if (type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
                 return true;
             } else if (type != TokenType.WHITESPACE) {

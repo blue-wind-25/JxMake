@@ -286,7 +286,11 @@ public class ScopePipeline {
             final String indent = trailingIndent(leadingGap);
             final List<String> lines = declarationRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
-            replacements.add(new Replacement(firstSpan.start, lastSpan.end, text));
+            int lastTermEnd = lastSpan.end;
+            while (lastTermEnd > lastSpan.start && isGapToken(tokens.get(lastTermEnd - 1))) {
+                lastTermEnd--;
+            }
+            replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
         }
         return splice(tokens, replacements);
     }
@@ -315,7 +319,11 @@ public class ScopePipeline {
             final String indent = trailingIndent(leadingGap);
             final List<String> lines = miscRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
-            replacements.add(new Replacement(firstSpan.start, lastSpan.end, text));
+            int lastTermEnd = lastSpan.end;
+            while (lastTermEnd > lastSpan.start && isGapToken(tokens.get(lastTermEnd - 1))) {
+                lastTermEnd--;
+            }
+            replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
         }
         return splice(tokens, replacements);
     }

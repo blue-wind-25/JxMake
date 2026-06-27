@@ -223,15 +223,10 @@ public class GetterSetterRule {
                 callCells[i] = call[0] + "(" + call[1] + ")" + m.postParenQualifier;
             }
         } else if (!isPureSpecifier) {
-            // Plain declarations: pad names via ColumnGrid; params verbatim.
-            final ColumnGrid nameGrid = new ColumnGrid();
-            for (final Member m : group) {
-                nameGrid.addRow(new String[] {cellText(tokens, m.nameFrom, m.nameIdx + 1), ""});
-            }
-            final List<String[]> namePadded = nameGrid.flush();
+            // Plain declarations: type column aligns name start; name and params verbatim.
             for (int i = 0; i < group.size(); i++) {
                 final Member m = group.get(i);
-                callCells[i] = namePadded.get(i)[0]
+                callCells[i] = cellText(tokens, m.nameFrom, m.nameIdx + 1).trim()
                         + "(" + cellText(tokens, m.paramsFrom, m.paramsTo).trim() + ")"
                         + m.postParenQualifier;
             }

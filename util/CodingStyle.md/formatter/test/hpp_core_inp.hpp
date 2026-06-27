@@ -85,8 +85,15 @@ public:
     float getGain() const;
     void setGain(float gain);
 
+    float getDebug() const { return dbg_; }
+    void setDebug(bool dbg) { dbg_ = dbg; }
+    int getChannel() const { return channel_; }
+    void setChannel(int ch) { channel_ = ch; }
+
 private:
     float gain_;
+    bool dbg_;
+    int ch_;
 };
 
 class   MixerProcessor   :   public   Processor   {

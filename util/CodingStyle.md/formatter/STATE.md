@@ -282,9 +282,6 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 
 ### Checklist — Phase 2 (C++17/20/23, all complete)
 
-- [x] `consteval` / `constinit`
-- [x] Structured bindings
-- [x] Concepts / `requires` clauses (RDD_KEY_85)
 - [x] `<=>`, coroutines, init-statement `if`/`switch` -- also fixed two missing-keyword
       tokenizer gaps surfaced by verification (`<=>` in `MULTI_CHAR_OPS`,
       `co_await`/`co_return`/`co_yield` in `KEYWORDS_CPP`). Surfaced but left unfixed as
@@ -391,18 +388,6 @@ to compile, it was actually being reassigned, so leave it without `final`.
 
 **Step 1 — Deterministic extensions (complete):**
 
-- [x] `STYLE.md` §8 updated with the four call-line-breaking candidate forms and
-      comment-handling rules (commit b222345; verified matches RDD_EXT_4–7, with one
-      deliberate simplification: multi-line source always preserves grouping (option 2)
-      rather than offering a 0/2/3 AI choice, consistent with Step 2 being NOT FEASIBLE)
-- [x] `MiscRule.enforceCallLineBreaking` — option 1 (dropped) + option 2
-      (preserve-groups+align), for both calls and declarations (RDD_KEY_86, RDD_KEY_87)
-- [x] `parseSignature` comment-handling verified safe for option 1 — strips comments via
-      `significantOnly()` rather than bailing; option 2 bypasses `parseSignature` entirely
-      (RDD_KEY_86)
-- [x] Options 0 (inline) and 3 (one-per-line) verified working for function *calls*
-      (not just signatures) inside the same `enforceCallLineBreaking` pass (RDD_KEY_87)
-
 No-AI fallback rule (ai-assist off or endpoint unavailable): see RDD_EXT_8.
 
 **Step 1.4 — Complexity padding: universal `()` / `[]` + `renderTokens` bracket fix**
@@ -413,104 +398,6 @@ Two coupled bugs that must land in the same commit.
 The style guide states the rule applies to all `()` and `[]`, not only
 `if`/`while`/`for`/`switch` conditions. The current implementation has two
 gaps that violate this:
-
-**Bug A — `enforceConditionComplexityPadding` scope too narrow (`MiscRule.java`):**
-Currently only pads/tightens `(` immediately following a control-flow keyword.
-All other `()` and `[]` are left untouched, producing wrong output:
-
-```
-// WRONG (current):
-memset(buf, 0, frames * sizeof(float));   // outer ( contains ( → should be loose
-items_.push_back(std::move(item));         // ( contains ( → should be loose
-process(new ArrayList<String>());          // ( contains ( → should be loose
-cfg_(std::move(cfg));                      // ( contains ( → should be loose
-func();                                    // empty → tight ✓ (already correct)
-a[10];                                     // no ( or [ in content → tight ✓
-
-// CORRECT (after fix):
-memset( buf, 0, frames * sizeof(float) );
-items_.push_back( std::move(item) );
-process( new ArrayList<String>() );
-cfg_( std::move(cfg) );
-func();
-a[10];
-// Also correct after fix:
-func( other() );                           // ( contains ( → loose
-func( (a + b) * c );                       // ( contains ( → loose
-a[ b[i] ];                                 // [ contains [ → loose
-( A[ b[n] + 1 ] );                         // outer ( contains [ → loose,
-                                           // middle [ contains [ → loose,
-                                           // inner [n] empty → tight
-```
-
-Fix for Bug A: rename `enforceConditionComplexityPadding` to
-`enforceComplexityPadding` and remove the `TIGHT_PAREN_KEYWORDS` gate so
-it scans every `(` and `[` in the token stream. Add one exclusion: skip
-any `(` where the immediately preceding significant token is an IDENTIFIER
-**and** the matching `)` is followed (skipping whitespace/comments) by
-`{`, `->`, or any of `const`/`override`/`noexcept`/`throws`/`final` —
-this identifies function/method definition parameter lists, which must not
-be padded regardless of their content (e.g. `process(float[] buffer, int n)`
-must stay tight even though `[]` is inside). The `isLoose` evaluator in
-`ComplexityPaddingEvaluator` is already correct and **unchanged**.
-Also update the call site in `Formatter.java` to use the new method name.
-
-**If anything in this fix is unclear, stop and ask the user with a concrete
-example of the input token sequence and expected output before proceeding.**
-
-**Bug B — `renderTokens` bracket spacing (`DeclarationAlignmentRule.java` and
-`MiscRule.java`):**
-`renderTokens` is designed for type-token lists (modifier + type + name) but
-is also called on `initTokens` and `sizeTokens` which can contain call
-expressions. Its `isTightToken`/`needsSpaceBetween` helpers do not treat `(`
-and `)` (or `]`) as tight, producing spurious spaces:
-
-```
-// WRONG (current) — renderTokens called on initTokens:
-auto x    = arr.size ( );      // ) not tight → space before )
-int  n    = arr.size ( );      // same
-// CORRECT (after fix):
-auto x    = arr.size();
-int  n    = arr.size();
-```
-
-Fix for Bug B: in `needsSpaceBetween` in **both** `DeclarationAlignmentRule`
-and `MiscRule`, add:
-1. No space before `)` or `]` — always tight as `cur`.
-2. No space before `(` when `prev` is IDENTIFIER — call site join.
-3. `isPunct(prev, "(")` and `isPunct(prev, "[")` added to the existing
-   prev-is-tight guard (alongside `ANGLE_BRACKET_OPEN`/`::`/`[`) — no space
-   immediately after an open bracket.
-
-After this fix, `renderTokens` is bracket-neutral: it neither adds nor
-removes spacing around `()` and `[]`. Bug A's fix (Phase 4) then applies
-the correct loose/tight padding to the whole-file token stream, including
-whatever Phase 0 (`ScopePipeline` / `DeclarationAlignmentRule`) re-rendered.
-The two fixes work together: Bug B makes Phase 0 stop producing wrong spacing;
-Bug A makes Phase 4 apply correct spacing everywhere.
-
-**If anything in this fix is unclear, stop and ask the user with a concrete
-example of the input token sequence and expected output before proceeding.**
-
-- [x] Bug A: rename and extend `enforceConditionComplexityPadding` →
-      `enforceComplexityPadding` in `MiscRule.java`; add the function-
-      definition-signature exclusion; update `Formatter.java` call site
-- [x] Bug B: fix `needsSpaceBetween` in `DeclarationAlignmentRule.java`
-- [x] Bug B: fix `needsSpaceBetween` in `MiscRule.java` (identical change)
-      Also added `isOp(t, ".")` to `isTightToken` and `isOp(prev, ".")` to the
-      prev guard in both files -- `.` is treated identically to `::` (tight on
-      both sides), required by the `arr.size()` smoke test case.
-- [x] Smoke-test: verify these cases produce correct output after both fixes:
-      - `int n = arr.size();` → tight (empty args, declaration init) ✓
-      - `auto x = func( other() );` — content of `func(...)` has `(` → loose;
-        content of `other(...)` is empty → tight ✓
-      - `memset( buf, 0, n * sizeof(float) );` — standalone call ✓
-      - `process(float[] buffer, int n) { }` — method sig followed by `{`,
-        stays tight ✓
-      - `a[ b[i] ]` inside condition — `[` contains `[` → loose ✓
-      - `a[10]` — tight ✓
-- [x] Commit `MiscRule.java`, `DeclarationAlignmentRule.java`, `Formatter.java`,
-      and `STATE.md` together
 
 **Step 1.5 — Dogfood checkpoint (in progress):**
 
@@ -563,6 +450,39 @@ fix must be in place before test output is meaningful.
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
 - [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (IN PROGRESS)
+  **Fixes applied this session (uncommitted with STATE.md):**
+  1. `GetterSetterRule.hasAccessSpecifier`: `isPunct(t, ":")` → `isOp(t, ":")` — the `:` in
+     `public:`/`private:`/`protected:` is tokenized as OP, not PUNCT; bug caused `isClassScope`
+     to always be false → declaration grouping silently disabled for all C++ scopes.
+  2. `GetterSetterRule.render` (plain-declaration path): removed the `nameGrid` that padded
+     name-column width, which produced `addSource   (` (spaces between name and `(`). Declarations
+     now use verbatim name like the pure-specifier path.
+
+  **Remaining failure after those two fixes (`make test` output):**
+  ```
+  float getDebug  (        ) const { return dbg_;     }   ← CORRECT
+  void  setDebug  (bool dbg)       { dbg_ = dbg;}         ← WRONG: no space before }
+  int   getChannel(        ) const { return channel_; }   ← CORRECT
+  void  setChannel(int ch  )       { channel_ = ch;}      ← WRONG: no space before }
+  ```
+  Pattern: members WITH post-paren qualifier (`const`) render correctly; members WITHOUT
+  qualifier don't get body-cell padding — `}` runs directly against the body with no space.
+
+  **Investigation so far (root cause not yet found):**
+  - Render code adds `{`, body, `}` as three separate cells — all four members should produce
+    5-cell rows `[type, callCell, "{", body, "}"]` with no trailing comment. ColumnGrid pads
+    columns 0–3 (last = `}`) based on max width. Logic appears correct on paper.
+  - `parseOneLinerMember`: `bodyFrom`/`bodyTo` computed via `trimLeadingWs`/`trimTrailingWs`
+    from `terminatorIdx+1` to `closeBraceIdx` — traced through; returns correct range
+    (`dbg_ = dbg;`) for `setDebug`.
+  - `excludeOutliers`: doesn't reorder members; no outliers in this group of 4.
+  - `callGrid` and outer `grid` are separate `ColumnGrid` instances; `flush()` clears buffer.
+  - `splitMembers` correctly spans `{ body }` per member (splits on `}` at depth 0).
+  - Key clue: the only structural difference between the correct and incorrect members is
+    presence/absence of `m.postParenQualifier`. The `callCells` computation is correct
+    regardless (qualifier appended verbatim to call string). **Next step**: verify whether
+    the column count for wrong-members' rows actually differs at runtime (e.g., add a
+    temporary diagnostic or step through with a debugger).
 - [ ] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp`
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`

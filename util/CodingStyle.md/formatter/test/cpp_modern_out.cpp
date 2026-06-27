@@ -21,16 +21,16 @@ namespace modern {
 
 struct Pair {
 
- int first;
- int second;
+    int first;
+    int second;
 
 }; // struct Pair
 
 struct Triple {
 
- float x;
- float y;
- float z;
+    float x;
+    float y;
+    float z;
 
 }; // struct Triple
 

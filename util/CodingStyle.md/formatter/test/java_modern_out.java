@@ -3,7 +3,7 @@ package com.example.modern;
 import java.util.List;
 import java.util.Optional;
 
-// Java 17+ constructs: records, sealed classes, switch expressions, text blocks, var, pattern matching.
+// Java 17+ constructs: records, sealed classes, switch expressions, text blocks, var, pattern matching
 
 // --- Records ---
 

@@ -253,8 +253,6 @@ accept `final` there). This applies to all `.java` files under `src/`.
 
 **Step 1.5 — Dogfood checkpoint (in progress):**
 
-Current phase.
-
 **Critical rules for this step:**
 - The user may specify which `*_inp.*` file to run next — **do not assume sequential
   order**. Run only the file the user names, unless told to run all remaining.

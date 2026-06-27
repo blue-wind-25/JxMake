@@ -40,7 +40,7 @@ The formatter cannot remove extra spaces between `void` and `onProcess`:
     protected:
         virtual void   onProcess(AudioBuffer& buf) = 0;
 
-### Bug 3
+### Bug 3 [DONE]
 
 Input code:
     float Processor::getGain() const { return gain_; }
@@ -72,7 +72,7 @@ but the formatter outputs:
 
 See the extra space after `::`
 
-### Bug 4
+### Bug 4 [DONE]
 
 Input code:
     Processor::Processor(int channels, float gain)
@@ -92,6 +92,15 @@ but the formatter outputs:
     }
 
 See the extra indent before `{`
+
+
+Continue with `- Bug 4b: two pre-existing rendering issues (not caused by Bug 3/4 commits) — NOT YET FIXED`.
+Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+
+Continue with `- Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED`.
+Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+Here is the full bug 5 details:
+
 
 ### Bug 5
 
@@ -128,7 +137,11 @@ The formatter seems cannot understand:
     auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer> {
 as function definition or there is something else that cause it to change the `{` style.
 
-Also. see the extra space in `> ()`. It may be related to Bug 3 or 4 above.
+
+Continue with `- Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED`.
+Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+Here is the full bug 6 details:
+
 
 ### Bug 6
 
@@ -169,6 +182,7 @@ should render as:
     }
 
 FOR SIMPLICITY `if` construct with `else`/`else if` should not be collapsed into one-liner.
+
 
 
 

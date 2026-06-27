@@ -284,7 +284,9 @@ public class CppSpecificRule {
 
     /** Resolves the close-paren of a candidate function definition, walking backward past any
      *  constructor member-initializer list (`: init(val), ...`) to find the function's own `)`.
-     *  Returns {@code candidate} itself when no initializer-list colon is found (normal case). */
+     *  Returns {@code candidate} itself when no initializer-list colon is found (normal case),
+     *  or when a `{`/`}` scope boundary is crossed before finding one (stops at the boundary to
+     *  avoid following `:` from a different function's initializer list). */
     private int resolveToFunctionCloseParen(final List<Token> tokens, final int candidate) {
         int depth = 0;
         for (int i = candidate; i >= 0; i--) {
@@ -293,6 +295,9 @@ public class CppSpecificRule {
                 depth++;
             } else if (isPunct(t, "(") || isPunct(t, "[")) {
                 depth--;
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) {
+                // Crossed a scope boundary -- stop; no initializer-list in this candidate.
+                return candidate;
             } else if (depth == 0 && isOp(t, ":")) {
                 // Found the initializer-list colon. The function's own `)` is just before this.
                 final int funcCloseParen = prevSignificantIndex(tokens, i);

@@ -745,7 +745,7 @@ public class GetterSetterRule {
                     && ("public".equals(t.text) || "private".equals(t.text)
                             || "protected".equals(t.text))) {
                 final int next = nextSignificant(tokens, i + 1, tokens.size());
-                if (next >= 0 && isPunct(tokens.get(next), ":")) {
+                if (next >= 0 && isOp(tokens.get(next), ":")) {
                     return true;
                 }
             }

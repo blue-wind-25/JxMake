@@ -20,15 +20,15 @@ must be reformatted as:
     virtual void reset()              = 0;
     virtual bool isReady() const      = 0;
 
-    std::string getName(                ) const;
+    std::string getName() const;
     void        setName(std::string name);
 
     static std::unique_ptr<Processor> create(const Config& cfg);
 
-    float Processor::getGain    (          ) const { return gain_;     }
-    void  Processor::setGain    (float gain)       { gain_ = gain;     }
-    int   Processor::getChannels(          ) const { return channels_; }
-    void  Processor::setChannels(int   ch  )       { channels_ = ch;   }
+    float Processor::getGain    () const { return gain_; }
+    void  Processor::setGain    (float gain) { gain_ = gain; }
+    int   Processor::getChannels() const { return channels_; }
+    void  Processor::setChannels(int ch) { channels_ = ch; }
 
 the current formmater does not correctly align them. By right, they should also be governed by
 `## 14. Getter/Setter/Checker Group Alignment` in `STYLE.md` even if they may not getter/setter
@@ -93,13 +93,13 @@ must be reformatted as:
 
 currently the formatter produce INCORRECT result:
 
-        switch(code) {
-            case 1  : return "one"          ;
-            case 2  : return "two"          ;
-            case 3 : /* FALL-THROUGH */
-            case 4  : return "three-or-four";
-            default : return "unknown"      ;
-        } // switch
+    switch(code) {
+        case 1  : return "one"          ;
+        case 2  : return "two"          ;
+        case 3 : /* FALL-THROUGH */
+        case 4  : return "three-or-four";
+        default : return "unknown"      ;
+    } // switch
 
 In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
 

@@ -450,7 +450,7 @@ fix must be in place before test output is meaningful.
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
 - [ ] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (IN PROGRESS)
-  **Fixes applied this session (uncommitted with STATE.md):**
+  **Fixes applied this session:**
   1. `GetterSetterRule.hasAccessSpecifier`: `isPunct(t, ":")` → `isOp(t, ":")` — the `:` in
      `public:`/`private:`/`protected:` is tokenized as OP, not PUNCT; bug caused `isClassScope`
      to always be false → declaration grouping silently disabled for all C++ scopes.

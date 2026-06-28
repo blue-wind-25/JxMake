@@ -95,12 +95,12 @@ See the extra indent before `{`
 
 
 Continue with `- Bug 4b: two pre-existing rendering issues (not caused by Bug 3/4 commits) — NOT YET FIXED`.
-Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
+
 
 Continue with `- Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED`.
-Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
 Here is the full bug 5 details:
-
 
 ### Bug 5
 
@@ -139,9 +139,8 @@ as function definition or there is something else that cause it to change the `{
 
 
 Continue with `- Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED`.
-Be careful when fixing to not cause regression on `(PASS)` tests and previous bug fixes.
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
 Here is the full bug 6 details:
-
 
 ### Bug 6
 

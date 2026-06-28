@@ -163,15 +163,20 @@ public class Patterns {
         else if(obj instanceof List<?> list) {
             return "list of " + list.size();
         }
+
         return "unknown";
     }
 
 } // class Patterns
 
 enum Day {
+
     MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+
 } // enum Day
 
 enum Status {
+
     ACTIVE, INACTIVE, PENDING
+
 } // enum Status

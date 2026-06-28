@@ -62,6 +62,44 @@ public record NamedPoint(   String   name,   int   x,   int   y   ) implements C
 
 Fix those bugs first and then wait before fixing the other bugs.
 
+(3)
+-    public Rectangle(double width, double height) { this.width = width; this.height = height; }
+-    public double area() { return width * height; }
++    public Rectangle(double width, double height)
++    { this.width  = width;
++ this.height = height; }
++    public double area()
++    { return width * height; }
+
+(4)
+         var result = new java.util.ArrayList<String>();
+         for(var item : items) {
+-            var trimmed = item.trim();
+-            result.add(trimmed);
++            var trimmed = item. trim();
++            result.             add(trimmed);
+         }
+         var map   = new java.util.HashMap<String, Integer>();
+         var count = map.size();
+(5)
+ enum Day {
+
+-    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
++ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+
+-} // enum Day
++ } // enum Day
+
+ enum Status {
+
+-    ACTIVE, INACTIVE, PENDING
++ ACTIVE, INACTIVE, PENDING
+
+-} // enum Status
++ } // enum Status
+
+Fix those bugs first and then wait before fixing the other bugs.
+
 ####################################################################################################
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
@@ -72,6 +110,8 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
  // C++17/20/23 constructs: structured bindings, concepts/requires,
 -// consteval/constinit, <=>, coroutines, init-statement if/switch
 +// Consteval/constinit, <=>, coroutines, init-statement if/switch
+
+The formatter needs a list of all keywords that must not be titlecase in comments (check the Java keywords too).
 
 (2)
 -    int first;
@@ -93,6 +133,8 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
 -}; // struct Triple
 + }; // struct Triple
+
+Fix those bugs first and then wait before fixing the other bugs.
 
 (3)
  void useBindings()
@@ -125,7 +167,19 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
 -    T::version;
 +    T:: version;
 
+Fix those bugs first and then wait before fixing the other bugs.
+
 (5)
+ // Requires clause on function
+-template<Numeric T>
+-T square(T x)
++template < Numeric T > T square(T x)
+ {
+     return x * x;
+ }
+
+ // Trailing requires clause
+ template<typename T>
 -T cube(T x) requires Numeric<T>
 -{
 +T cube(T x) requires Numeric<T> {
@@ -143,6 +197,8 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
  static constinit float defaultGain   = 1.0f;
 +       constinit int   globalCounter = 0;
 
+Fix those bugs first and then wait before fixing the other bugs.
+
 (8)
 -    auto operator<=>(const Weight& other) const
 -    {
@@ -150,7 +206,24 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
          return value <=> other.value;
      }
 
-Fix those bugs first and then wait before fixing the other bugs.
+(9)
+     struct promise_type {
+
+         int value;
+-        Generator           get_return_object  (     )          { return {};            }
+-        std::suspend_always initial_suspend    (     )          { return {};            }
+-        std::suspend_always final_suspend      (     ) noexcept { return {};            }
+-        std::suspend_always yield_value        (int v)          { value = v; return {}; }
+-        void                return_void        (     )          {                       }
+-        void                unhandled_exception(     )          {                       }
++        Generator           get_return_object()          { return {}; }
++        std::suspend_always initial_suspend  ()          { return {}; }
++        std::suspend_always final_suspend    () noexcept { return {}; }
++        std::suspend_always yield_value(int v) { value = v; return {}; }
++        void return_void() {}
++        void unhandled_exception() {}
+
+     }; // struct promise_type
 
 ####################################################################################################
 

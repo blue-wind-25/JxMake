@@ -1,10 +1,3 @@
-Fix 6 bugs from `make test`.
-
-Do it one by one, after smoke test let me test again.
-If all is good, commit and process the next bug:
-
-Be careful when fixing to not cause regression on `(PASS)` tests.
-
 ### Bug 1 [DONE]
 Input code:
     struct   alignas(16) AudioBuffer   {
@@ -93,10 +86,12 @@ but the formatter outputs:
 
 See the extra indent before `{`
 
+----------------------------------------------------------------------------------------------------
 
 Continue with `- Bug 4b: two pre-existing rendering issues (not caused by Bug 3/4 commits) — NOT YET FIXED`.
 Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
 
+----------------------------------------------------------------------------------------------------
 
 Continue with `- Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED`.
 Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
@@ -112,7 +107,6 @@ Input code:
         buf->data     = new float[frames * channels]();
         return buf;
     }
-
 should render as:
     auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer>
     {
@@ -124,19 +118,7 @@ should render as:
         return buf;
     }
 
-but the formatter outputs:
-    auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer> {
-        auto buf = std::make_unique<AudioBuffer> ();
-        buf->frames   = frames;
-        buf->channels = channels;
-        buf->data     = new float[frames * channels]();
-        return buf;
-    }
-
-The formatter seems cannot understand:
-    auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer> {
-as function definition or there is something else that cause it to change the `{` style.
-
+----------------------------------------------------------------------------------------------------
 
 Continue with `- Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED`.
 Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
@@ -165,7 +147,6 @@ However input code:
     else {
         // Do nothing
     }
-
 should render as:
     if(buf.channels > 8) {
         return;
@@ -180,11 +161,7 @@ should render as:
         // Do nothing
     }
 
-FOR SIMPLICITY `if` construct with `else`/`else if` should not be collapsed into one-liner.
-
-
-
-
+FOR SIMPLICITY `if` construct with `else`/`else if` must not be collapsed into one-liner.
 
 ####################################################################################################
 

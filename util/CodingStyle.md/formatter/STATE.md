@@ -262,8 +262,6 @@ accept `final` there). This applies to all `.java` files under `src/`.
   `*_out` file itself (authored by hand, not confirmed by the formatter),
   not necessarily a formatter bug. Record which files passed and which did
   not in STATE.md as you go, so progress is preserved if quota runs out.
-- **Do NOT run `make test`** unless the user explicitly asks. Run individual
-  file pairs manually via the formatter directly.
 - After each individual file test — pass or fail — update the checklist
   item inline with `(PASS)`, `(FAIL)`, or `(SKIP)` and commit STATE.md
   immediately. Do not batch multiple results into one commit. This ensures

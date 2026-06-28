@@ -347,9 +347,22 @@ public class ScopePipeline {
             if (span.openBraceIdx < 0) {
                 continue;
             }
-            final int closeParenIdx = prevSignificantIndex(tokens, span.openBraceIdx);
-            if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
+            int closeParenIdx = prevSignificantIndex(tokens, span.openBraceIdx);
+            if (closeParenIdx < 0) {
                 continue;
+            }
+            // For Java: handle a `throws` clause between `)` and `{`.
+            int throwsEndIdx = -1;
+            if (!isPunct(tokens.get(closeParenIdx), ")")) {
+                if (!"java".equals(language)) {
+                    continue;
+                }
+                final int realCloseParen = findCloseParenBeforeThrows(tokens, closeParenIdx);
+                if (realCloseParen < 0) {
+                    continue;
+                }
+                throwsEndIdx = closeParenIdx;
+                closeParenIdx = realCloseParen;
             }
             final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
             if (openParenIdx < 0 || !isCandidateSignatureName(tokens, openParenIdx)) {
@@ -374,7 +387,18 @@ public class ScopePipeline {
             for (int i = 1; i < lines.size(); i++) {
                 text.append('\n').append(lines.get(i));
             }
-            replacements.add(new Replacement(span.start, closeParenIdx + 1, text.toString()));
+            if (throwsEndIdx >= 0) {
+                // Append normalized throws clause: scan significant tokens from `throws` keyword
+                // through the last exception class name, joining with single spaces.
+                int ti = nextSignificantIndex(tokens, closeParenIdx);
+                while (ti >= 0 && ti <= throwsEndIdx) {
+                    text.append(' ').append(tokens.get(ti).text);
+                    ti = nextSignificantIndex(tokens, ti);
+                }
+                replacements.add(new Replacement(span.start, throwsEndIdx + 1, text.toString()));
+            } else {
+                replacements.add(new Replacement(span.start, closeParenIdx + 1, text.toString()));
+            }
         }
         return splice(tokens, replacements);
     }
@@ -402,6 +426,35 @@ public class ScopePipeline {
         }
         final int next = nextSignificantIndex(tokens, closeBraceIdx);
         return next >= 0 && (isPunct(tokens.get(next), ",") || isPunct(tokens.get(next), ";"));
+    }
+
+    /**
+     * For Java `throws` clauses: given the token at {@code fromIdx} (the significant token
+     * immediately before `{`) that is NOT `)`, checks if it is the last exception class name
+     * in a {@code throws} clause. Scans backward through comma-separated IDENTIFIERs to the
+     * {@code throws} keyword, then expects `)` immediately before it.
+     * Returns the index of the `)` of the method parameter list, or -1 if no such pattern found.
+     */
+    private int findCloseParenBeforeThrows(final List<Token> tokens, final int fromIdx) {
+        int i = fromIdx;
+        if (i < 0 || tokens.get(i).type != TokenType.IDENTIFIER) {
+            return -1;
+        }
+        while (i >= 0) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.IDENTIFIER) {
+                i = prevSignificantIndex(tokens, i - 1);
+            } else if (isPunct(t, ",")) {
+                i = prevSignificantIndex(tokens, i - 1);
+            } else {
+                break;
+            }
+        }
+        if (i < 0 || tokens.get(i).type != TokenType.KEYWORD || !"throws".equals(tokens.get(i).text)) {
+            return -1;
+        }
+        final int closeParen = prevSignificantIndex(tokens, i - 1);
+        return (closeParen >= 0 && isPunct(tokens.get(closeParen), ")")) ? closeParen : -1;
     }
 
     // ── §14 getter/setter pass ───────────────────────────────────────────────────

@@ -117,7 +117,21 @@ public class JavaSpecificRule {
                 continue;
             }
             if (!isPunct(tokens.get(prevIdx), ")")) {
-                if (isCompactConstructorBrace(tokens, prevIdx, i)
+                // Check for Java `throws` clause: `void foo() throws IOException {`
+                final int throwsCloseParen = findCloseParenBeforeThrows(tokens, prevIdx);
+                if (throwsCloseParen >= 0 && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
+                        && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
+                        && !isEnumConstantBody(tokens, i)) {
+                    final int closeBraceIdx = matchBraceForward(tokens, i);
+                    if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
+                        final int openParenIdx = matchParenBackward(tokens, throwsCloseParen);
+                        final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
+                        oneLiners.add(new OneLinerCandidate(nameIdx, throwsCloseParen, i, closeBraceIdx));
+                    } else {
+                        // Keep `throws IOException` in output; only move `{` to its own line.
+                        gapToBrace.put(prevIdx + 1, i);
+                    }
+                } else if (isCompactConstructorBrace(tokens, prevIdx, i)
                         && !hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
                     gapToBrace.put(prevIdx + 1, i);
                 }
@@ -248,6 +262,35 @@ public class JavaSpecificRule {
     private boolean isMethodDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx) {
         final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
         return openParenIdx >= 0 && isCandidateMethodName(tokens, openParenIdx);
+    }
+
+    /**
+     * For Java {@code throws} clauses: given the token at {@code fromIdx} (the significant token
+     * immediately before {@code {}) that is NOT {@code )}, checks if it is the last exception
+     * class name in a {@code throws} clause. Scans backward through comma-separated IDENTIFIERs
+     * to the {@code throws} keyword, then expects {@code )} immediately before it.
+     * Returns the index of the {@code )} of the method parameter list, or -1 if no such pattern.
+     */
+    private int findCloseParenBeforeThrows(final List<Token> tokens, final int fromIdx) {
+        int i = fromIdx;
+        if (i < 0 || tokens.get(i).type != TokenType.IDENTIFIER) {
+            return -1;
+        }
+        while (i >= 0) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.IDENTIFIER) {
+                i = prevSignificantIndex(tokens, i - 1);
+            } else if (isPunct(t, ",")) {
+                i = prevSignificantIndex(tokens, i - 1);
+            } else {
+                break;
+            }
+        }
+        if (i < 0 || tokens.get(i).type != TokenType.KEYWORD || !"throws".equals(tokens.get(i).text)) {
+            return -1;
+        }
+        final int closeParen = prevSignificantIndex(tokens, i - 1);
+        return (closeParen >= 0 && isPunct(tokens.get(closeParen), ")")) ? closeParen : -1;
     }
 
     /** True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded

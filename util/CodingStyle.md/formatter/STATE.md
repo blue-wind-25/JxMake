@@ -332,7 +332,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
       pointer), or passing the raw source whitespace through for binary operators.
   - Bug 5 FIXED: trailing-return-type function not detected as function definition
   - Bug 6 FIXED: `if`/`else`/`else if` chains collapsed to one-liner
-- [~] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (IN PROGRESS — fixing bugs per user direction)
+- [x] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS)
   - Bug A FIXED: `public   class CoreExample` spaces not normalized — `enforceNamedConstructHeaderSpacing`
     `headerStart` now extends backward past modifier keywords (`public`, `abstract`, etc.) so
     the collapse range includes them, not just the `class`/`interface`/`enum` keyword itself.
@@ -344,6 +344,14 @@ accept `final` there). This applies to all `.java` files under `src/`.
     label (for named constructs), or removes it (if it looks like a wrong closing comment and
     no comment is wanted there). New helpers: `findExistingLineComment`, `isLikelyClosingComment`,
     `normalizeWhitespaceBefore`, `clearWhitespaceBefore`.
+  - Bug D FIXED: method with `throws` clause (`void process(...) throws IOException {`) not
+    converted to Allman brace style, and extra spaces between tokens not normalized. Two fixes:
+    (1) `ScopePipeline.applySignaturePass` extended to detect and normalize `throws` clauses —
+    scans backward through the exception list to find the true `)`, renders the signature
+    normalized, then appends a normalized `throws ExceptionType` suffix to the replacement;
+    (2) `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` extended with
+    `findCloseParenBeforeThrows` helper — detects the throws-clause pattern and applies the
+    same `gapToBrace` Allman conversion as for bare-paren method definitions.
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`

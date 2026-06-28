@@ -40,9 +40,9 @@ public class CoreExample extends Base implements Runnable, Cloneable {
 
     // Simple getters and setters (should be grouped as one-liners if short)
     public int     getCount    (              ) { return count;         }
-    public void    setCount    (int count     ) { this.count = count;   }
+    public void    setCount    (int     count ) { this.count = count;   }
     public String  getName     (              ) { return name;          }
-    public void    setName     (String name   ) { this.name = name;     }
+    public void    setName     (String  name  ) { this.name = name;     }
     public boolean isActive    (              ) { return active;        }
     public void    setActive   (boolean active) { this.active = active; }
     public long    getTimestamp(              ) { return timestamp;     }

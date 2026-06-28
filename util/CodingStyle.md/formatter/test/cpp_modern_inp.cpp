@@ -126,6 +126,7 @@ struct Version {
 
 struct Weight {
     double value;
+
     auto operator<=>(const Weight& other) const {
         return value <=> other.value;
     }

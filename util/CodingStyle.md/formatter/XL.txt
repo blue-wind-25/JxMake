@@ -8,138 +8,149 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
 
-Quota is almost-up (80%), so now either fix:
+Bug fix for the `java_core_inp.java` formatting test:
+         switch(code) {
+             case 1  : return "one"          ;
+             case 2  : return "two"          ;
+-            case 3  : /* FALL-THROUGH */
++            case 3 : /* FALL-THROUGH */
+             case 4  : return "three-or-four";
+-            case 5  : break                 ;
++            case 5  :                       break;
+             default : return "unknown"      ;
+         } // switch
 
--    public void process(List<String> items) throws IOException
--    {
-+    public   void   process(List<String> items)   throws   IOException   {
+and:
 
-or:
+     {
+         try {
+             return map.get(key).trim();
+-        }
+-        catch(NullPointerException e) {
++        } catch (NullPointerException e) {
+             return "";
+-        }
+-        finally {
++        } finally {
+             System.out.println("done");
+         }
+     }
+
+and:
 
 -    @Override
 -    public void run()
 +    @ Override public void run()
+     {
+         process( new ArrayList<String>() );
+     }
 
 ####################################################################################################
 
-This and similar construct:
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
 
-    var result = new java.util.ArrayList<String>();
+Bug fix for the `java_modern_inp.java` formatting test:
 
-    var map = new java.util.HashMap<String, Integer>();
+(1)
+`record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
+(empty), hence, the closing comment `// record ...` is also not needed
 
-    record Num(int value) implements Expr {}
+(2)
+The formatter failed to recognize this due to the tailing `implements Comparable<NamedPoint>`:
 
-MUST not be reformatted to:
+public record NamedPoint(   String   name,   int   x,   int   y   ) implements Comparable<NamedPoint> {
 
-    var result = new java.util.ArrayList<String> ();
-
-    var map = new java.util.HashMap<String, Integer> ();
-
-    record Num(int value) implements Expr {
-
-    } // record Num
-
-The 1st bug is the extra ` ` before `()`. This is object construction/instantiation.
-
-The 2nd bug is `record` must not be reformatted into multi-line format if it only contains `{}`
-
-Check also for possible extra ` ` before `()` for object construction/instantiation and
-similar `{}` construct in the C/C++ formatter.
+Fix those bugs first and then wait before fixing the other bugs.
 
 ####################################################################################################
 
-Do not execute `make test`. This and similar construct:
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
 
-    switch (code) {
-        case 1:
-            return "one";
-        case 2:
-            return "two";
-        case 3:
-        case 4:
-            return "three-or-four";
-        default:
-            return "unknown";
-    }
+Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-must be reformatted as:
+(1)
+ // C++17/20/23 constructs: structured bindings, concepts/requires,
+-// consteval/constinit, <=>, coroutines, init-statement if/switch
++// Consteval/constinit, <=>, coroutines, init-statement if/switch
 
-    switch(code) {
+(2)
+-    int first;
+-    int second;
++ int first;
++ int second;
 
-        case 1  : return "one"          ;
-        case 2  : return "two"          ;
-        case 3  : /* FALL-THROUGH */
-        case 4  : return "three-or-four";
-        default : return "unknown"      ;
+-}; // struct Pair
++ }; // struct Pair
 
-    } // switch
+ struct Triple {
 
-currently the formatter produce INCORRECT result:
+-    float x;
+-    float y;
+-    float z;
++ float x;
++ float y;
++ float z;
 
-    switch(code) {
-        case 1  : return "one"          ;
-        case 2  : return "two"          ;
-        case 3 : /* FALL-THROUGH */
-        case 4  : return "three-or-four";
-        default : return "unknown"      ;
-    } // switch
+-}; // struct Triple
++ }; // struct Triple
 
-In `case 3` there is not enough padding space. See `## 13. `switch` Formatting` in `STYLE.md`
+(3)
+ void useBindings()
+ {
+-    auto [a, b]    = Pair{ 1, 2 };
+-    auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
++    auto [a, b] = Pair{1, 2};
++    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
 
-Check the constructs for both the C/C++ and the Java formatters.
+     // In a group with plain declarations
+-    int   count   = 10;
++    int count = 10;
+     auto [lo, hi] = Pair{0, count};
+-    bool  active  = true;
++    bool active = true;
 
-####################################################################################################
+     // Range-based for with structured binding
+-    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
+-    for(auto& [f, s] : pairs) {
+-        (void) f;
+-        (void) s;
++    std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };
++    for( auto& [f, s] : pairs ) {
++        (void)f;
++        (void)s;
+     }
+ }
 
-Do not execute `make test`. This and similar construct:
+(4)
+-    T::version;
++    T:: version;
 
-    @Override
-    public void run() {
-        process(new ArrayList<String>());
-    }
+(5)
+-T cube(T x) requires Numeric<T>
+-{
++T cube(T x) requires Numeric<T> {
+     return x * x * x;
+ }
 
-must be reformatted as:
+(6)
+-    void add(T item) { items_.push_back( std::move(item) ); }
+-
++    void add(T item)
++    { items_.push_back( std::move(item) ); }
 
-    @Override
-    public void run()
-    {
-        process( new ArrayList<String>() );
-    }
+(7)
+-constinit        int   globalCounter = 0;
+ static constinit float defaultGain   = 1.0f;
++       constinit int   globalCounter = 0;
 
-currently the formatter produce INCORRECT result:
+(8)
+-    auto operator<=>(const Weight& other) const
+-    {
++    auto operator<=>(const Weight& other) const {
+         return value <=> other.value;
+     }
 
-    @ Override public void run()
-    {
-        process( new ArrayList<String>() );
-    }
-
-I think the bug is because `@` is never checked properly.
-
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    try {
-        return map.get(key).trim();
-    } catch (NullPointerException e) {
-        return "";
-    } finally {
-        System.out.println("done");
-    }
-
-must be reformatted as:
-
-    try {
-        return map.get(key).trim();
-    }
-    catch(NullPointerException e) {
-        return "";
-    }
-    finally {
-        System.out.println("done");
-    }
-
-See the Java code example in `## 11. Non-function Block Brace Style` in `STYLE.md`
+Fix those bugs first and then wait before fixing the other bugs.
 
 ####################################################################################################
 
@@ -167,55 +178,3 @@ As a matter a fact, there must be a list of to prevent the capitalization of res
 Check also for similar constructs in the Java formatter (should not be needed because Java and C/C++
 comments have the same syntax).
 
-####################################################################################################
-
-Do not execute `make test`. This and similar construct:
-
-    auto [a, b] = Pair{1, 2};
-    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
-
-    // In a group with plain declarations
-    int   count = 10;
-    auto [lo, hi] = Pair{0, count};
-    bool   active = true;
-
-    // Range-based for with structured binding
-    std::vector<Pair> pairs = {{1,2},{3,4}};
-    for (auto& [f, s] : pairs) {
-        (void)f;
-        (void)s;
-    }
-
-must be reformatted as:
-
-    auto [a, b]    = Pair{ 1, 2 };
-    auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
-
-    // In a group with plain declarations
-    int   count   = 10;
-    auto [lo, hi] = Pair{0, count};
-    bool  active  = true;
-
-    // Range-based for with structured binding
-    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
-    for(auto& [f, s] : pairs) {
-        (void) f;
-        (void) s;
-    }
-
-currently the formatter produce INCORRECT result:
-
-    auto [a, b] = Pair{1, 2};
-    auto [x, y, z] = Triple{1.0f, 2.0f, 3.0f};
-
-    // In a group with plain declarations
-    int count = 10;
-    auto [lo, hi] = Pair{0, count};
-    bool active = true;
-
-    // Range-based for with structured binding
-    std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };
-    for( auto& [f, s] : pairs ) {
-        (void)f;
-        (void)s;
-    }

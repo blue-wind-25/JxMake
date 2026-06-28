@@ -83,9 +83,12 @@ public   class   CoreExample   extends   Base   implements   Runnable,   Cloneab
             case 3:
             case 4:
                 return "three-or-four";
+            case 5:
+                break;
             default:
                 return "unknown";
         }
+        return null;
     }
 
     // Declaration alignment test

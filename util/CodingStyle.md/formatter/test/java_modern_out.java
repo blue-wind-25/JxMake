@@ -11,7 +11,7 @@ public record Point(int x, int y) {}
 
 public record NamedPoint(String name, int x, int y) implements Comparable<NamedPoint> {
 
-    // compact constructor
+    // Compact constructor
     public NamedPoint
     {
         if(name == null) throw new IllegalArgumentException("name must not be null");

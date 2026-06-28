@@ -77,8 +77,11 @@ public class CoreExample extends Base implements Runnable, Cloneable {
             case 2  : return "two"          ;
             case 3  : /* FALL-THROUGH */
             case 4  : return "three-or-four";
+            case 5  : break                 ;
             default : return "unknown"      ;
         } // switch
+
+        return null;
     }
 
     // Declaration alignment test

@@ -33,6 +33,7 @@ public class BlockStructureRule {
 
     // STYLE.md §11 K&R list: keywords whose body brace is preceded by a `( ... )` condition.
     private static final Set<String> PAREN_KR_KEYWORDS = setOf("if", "while", "for", "switch", "catch");
+    
     // STYLE.md §11 K&R list: keywords whose body brace follows the bare keyword, no condition.
     private static final Set<String> BARE_KR_KEYWORDS = setOf("else", "do", "try", "finally");
 

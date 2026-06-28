@@ -12,7 +12,7 @@
 // Lone comment
 
 // C++17/20/23 constructs: structured bindings, concepts/requires,
-// consteval/constinit, <=>, coroutines, init-statement if/switch.
+// consteval/constinit, <=>, coroutines, init-statement if/switch
 
 namespace modern {
 
@@ -157,7 +157,6 @@ struct Weight {
     {
         return value <=> other.value;
     }
-
     bool operator==(const Weight&) const = default;
 
 }; // struct Weight

@@ -330,7 +330,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
       distinguishing pointer-`*` from multiply-`*` by context (preceding token is an IDENTIFIER
       or `)` → binary; preceding token is a type keyword/identifier with no intervening name →
       pointer), or passing the raw source whitespace through for binary operators.
-  - Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED
+  - Bug 5 FIXED: trailing-return-type function not detected as function definition
   - Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED
 - [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`

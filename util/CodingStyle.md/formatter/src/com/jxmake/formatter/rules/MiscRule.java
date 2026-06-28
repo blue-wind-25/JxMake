@@ -1256,7 +1256,8 @@ public class MiscRule {
         if (isTightToken(cur)) {
             return false;
         }
-        if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
+        if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
+                || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
@@ -1421,7 +1422,15 @@ public class MiscRule {
     }
 
     private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx) {
-        final int closeParen = prevSignificantIndex(tokens, braceIdx - 1);
+        // Skip post-paren qualifiers (const, volatile, noexcept, override, final, throws).
+        int closeParen = prevSignificantIndex(tokens, braceIdx - 1);
+        while (closeParen >= 0 && isFunctionBodyQualifier(tokens.get(closeParen))) {
+            closeParen = prevSignificantIndex(tokens, closeParen - 1);
+        }
+        // Also handle trailing return type: `auto foo() -> ReturnType {`
+        if (closeParen >= 0 && !isPunct(tokens.get(closeParen), ")")) {
+            closeParen = findCloseParenBeforeTrailingReturnType(tokens, closeParen);
+        }
         if (closeParen < 0 || !isPunct(tokens.get(closeParen), ")")) {
             return false;
         }
@@ -1436,6 +1445,54 @@ public class MiscRule {
         final int beforeName = prevSignificantIndex(tokens, nameIdx - 1);
         return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
                 || !"new".equals(tokens.get(beforeName).text);
+    }
+
+    private boolean isFunctionBodyQualifier(final Token t) {
+        if (t.type != TokenType.KEYWORD) {
+            return false;
+        }
+        switch (t.text) {
+            case "const":
+            case "volatile":
+            case "noexcept":
+            case "override":
+            case "final":
+            case "throws":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /** Scans backward from {@code fromIdx} through a trailing return type, tracking angle-bracket
+     *  and paren depth; returns the function's close paren that precedes {@code ->} (skipping any
+     *  post-paren qualifiers between {@code )} and {@code ->}), or -1 if not found. */
+    private int findCloseParenBeforeTrailingReturnType(final List<Token> tokens, final int fromIdx) {
+        int depth = 0;
+        for (int i = fromIdx; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, ">") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (isPunct(t, "<") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            } else if (isPunct(t, ")")) {
+                depth++;
+            } else if (isPunct(t, "(")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, "->")) {
+                int beforeArrow = prevSignificantIndex(tokens, i - 1);
+                while (beforeArrow >= 0 && isFunctionBodyQualifier(tokens.get(beforeArrow))) {
+                    beforeArrow = prevSignificantIndex(tokens, beforeArrow - 1);
+                }
+                return (beforeArrow >= 0 && isPunct(tokens.get(beforeArrow), ")")) ? beforeArrow : -1;
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     /** True iff a `NEWLINE` token appears anywhere between `openBraceIdx` and its matching `}`. */

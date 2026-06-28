@@ -408,7 +408,8 @@ public class DeclarationAlignmentRule {
         if (isTightToken(cur)) {
             return false;
         }
-        if (isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER) {
+        if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
+                || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {

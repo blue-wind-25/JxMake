@@ -207,7 +207,13 @@ public class CppSpecificRule {
                 closeParenIdx = prevSignificantIndex(tokens, closeParenIdx);
             }
             if (closeParenIdx < 0 || !isPunct(tokens.get(closeParenIdx), ")")) {
-                continue;
+                // Possibly a trailing return type: `auto foo() -> ReturnType {`
+                if (closeParenIdx >= 0) {
+                    closeParenIdx = findCloseParenBeforeTrailingReturnType(tokens, closeParenIdx);
+                }
+                if (closeParenIdx < 0) {
+                    continue;
+                }
             }
             // Resolve past any constructor member-initializer list (`: init(val), ...`) to
             // the function's own close paren, so that the Allman brace is indented to the
@@ -391,6 +397,39 @@ public class CppSpecificRule {
                 if (depth == 0) {
                     return i;
                 }
+            }
+        }
+        return -1;
+    }
+
+    /** Scans backward from {@code fromIdx} through a trailing return type expression, tracking
+     *  angle-bracket and paren depth, and returns the function's close paren that immediately
+     *  precedes {@code ->} (skipping any post-paren qualifiers between {@code )} and
+     *  {@code ->}), or -1 if no {@code ->} is found at depth 0 before a scope boundary. */
+    private int findCloseParenBeforeTrailingReturnType(final List<Token> tokens, final int fromIdx) {
+        int depth = 0;
+        for (int i = fromIdx; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, ">") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (isPunct(t, "<") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            } else if (isPunct(t, ")")) {
+                depth++;
+            } else if (isPunct(t, "(")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, "->")) {
+                // Found the trailing return type arrow; skip any qualifiers and find `)`.
+                int beforeArrow = prevSignificantIndex(tokens, i);
+                while (beforeArrow >= 0 && isDefinitionQualifier(tokens.get(beforeArrow))) {
+                    beforeArrow = prevSignificantIndex(tokens, beforeArrow);
+                }
+                return (beforeArrow >= 0 && isPunct(tokens.get(beforeArrow), ")")) ? beforeArrow : -1;
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) {
+                return -1;
             }
         }
         return -1;

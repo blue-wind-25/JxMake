@@ -1,10 +1,18 @@
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
 Continue with `- Bug 5: trailing-return-type function not detected as function definition — NOT YET FIXED`.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
 
 Here is the full bug 5 details:
 
-### Bug 5
+### Bug 5 [DONE]
 
 Input code:
     auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer> {
@@ -28,7 +36,9 @@ should render as:
 ----------------------------------------------------------------------------------------------------
 
 Continue with `- Bug 6: `if`/`else`/`else if` chains collapsed to one-liner — NOT YET FIXED`.
-Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
+
 Here is the full bug 6 details:
 
 ### Bug 6

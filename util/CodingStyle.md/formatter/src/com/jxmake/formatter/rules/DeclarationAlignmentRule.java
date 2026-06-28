@@ -307,7 +307,7 @@ public class DeclarationAlignmentRule {
             for (int pad = nameAndSize.length(); pad < maxInitNameWidth; pad++) {
                 sb.append(' ');
             }
-            sb.append(" = ").append(renderTokens(d.initTokens));
+            sb.append(" = ").append(renderInitTokens(d.initTokens));
         } else {
             sb.append(nameAndSize);
         }
@@ -376,6 +376,30 @@ public class DeclarationAlignmentRule {
             }
             sb.append(t.text);
             prev = t;
+        }
+        return sb.toString();
+    }
+
+    /** Renders initializer value tokens (the right-hand side of `= expr`) where `*` and `&`
+     *  may appear as binary operators rather than pointer/reference declarators. Uses lookahead:
+     *  if the token following `*`/`&` is an IDENTIFIER or NUMBER, a space is inserted before
+     *  the operator (binary context); otherwise the normal tight-attachment rule applies. */
+    private String renderInitTokens(final List<Token> tokens) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            final Token prev = i > 0 ? tokens.get(i - 1) : null;
+            if (prev != null) {
+                final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
+                if (isTightToken(t) && (isOp(t, "*") || isOp(t, "&"))
+                        && next != null
+                        && (next.type == TokenType.IDENTIFIER || next.type == TokenType.NUMBER)) {
+                    sb.append(' '); // binary * or & in expression context
+                } else if (needsSpaceBetween(prev, t)) {
+                    sb.append(' ');
+                }
+            }
+            sb.append(t.text);
         }
         return sb.toString();
     }

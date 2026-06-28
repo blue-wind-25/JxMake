@@ -100,9 +100,9 @@ public:
     float getDebug  (        ) const          { return dbg_;     }
     void  setDebug  (bool dbg) const          { dbg_ = dbg;      }
     int   getChannel(        ) const          { return channel_; }
-    void  setChannel(int ch  )                { channel_ = ch;   }
+    void  setChannel(int  ch )                { channel_ = ch;   }
     int   getMode   (        ) const noexcept { return channel_; }
-    void  seMode    (int ch  ) noexcept       { channel_ = ch;   }
+    void  seMode    (int  ch ) noexcept       { channel_ = ch;   }
 
     float getDebug2(        ) const { return dbg_; } // Comment A  : 10
     void  setDebug2(bool dbg) const { dbg_ = dbg;  } // Comment BB : 20

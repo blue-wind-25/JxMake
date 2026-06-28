@@ -313,7 +313,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     if found, the `)` just before it is the function's true close-paren, whose line's indent
     is used for the Allman `{`. Idempotency check moved to use the immediate preceding token
     (the last initializer `)`) rather than the now-distant function `)`.
-  - Bug 4b: two pre-existing rendering issues (not caused by Bug 3/4 commits) — NOT YET FIXED
+  - Bug 4b FIXED: two pre-existing rendering issues (not caused by Bug 3/4 commits)
     - `(int   ch  )` rendered as `(int ch    )`: `GetterSetterRule.render` (definitions path,
       `isDef = true`) builds the `callGrid` with each member's entire param string as a single
       cell (`cellText(tokens, m.paramsFrom, m.paramsTo)` verbatim, e.g. `"int ch"`). The grid

@@ -208,13 +208,62 @@ public class GetterSetterRule {
         // Build per-member call cells.
         final String[] callCells = new String[group.size()];
         if (isDef) {
-            // Definitions: pad name and params via nested callGrid (existing behaviour).
+            // Definitions: pad name and params via nested callGrid.
+            // For params, split each member's params into type and name so they can be
+            // padded independently -- otherwise a single wide params cell pads trailing
+            // spaces after the name rather than between type and name.
+            final String[] typeTexts = new String[group.size()];
+            final String[] nameTexts = new String[group.size()];
+            int maxTypeWidth = 0;
+            int maxNameWidth = 0;
+            boolean canSplitParams = true;
+
+            for (int i = 0; i < group.size(); i++) {
+                final Member m = group.get(i);
+                if (m.paramsFrom >= m.paramsTo) {
+                    // Empty params -- no split; left as null to signal "use verbatim"
+                    typeTexts[i] = null;
+                    nameTexts[i] = null;
+                    continue;
+                }
+                // Find the last IDENTIFIER in the params range as the param name
+                int nameTokenIdx = -1;
+                for (int k = m.paramsTo - 1; k >= m.paramsFrom; k--) {
+                    final Token tk = tokens.get(k);
+                    if (tk.type == TokenType.IDENTIFIER) {
+                        nameTokenIdx = k;
+                        break;
+                    }
+                    if (!isInsignificant(tk)) {
+                        break;
+                    }
+                }
+                if (nameTokenIdx < 0) {
+                    canSplitParams = false;
+                    break;
+                }
+                final int typeEnd = trimTrailingWs(tokens, m.paramsFrom, nameTokenIdx);
+                typeTexts[i] = cellText(tokens, m.paramsFrom, typeEnd);
+                nameTexts[i] = tokens.get(nameTokenIdx).text;
+                maxTypeWidth = Math.max(maxTypeWidth, typeTexts[i].length());
+                maxNameWidth = Math.max(maxNameWidth, nameTexts[i].length());
+            }
+
             final ColumnGrid callGrid = new ColumnGrid();
-            for (final Member m : group) {
+            for (int i = 0; i < group.size(); i++) {
+                final Member m = group.get(i);
+                final String paramsCell;
+                if (!canSplitParams || typeTexts[i] == null) {
+                    // Empty params or unsplittable: use verbatim (ColumnGrid pads)
+                    paramsCell = cellText(tokens, m.paramsFrom, m.paramsTo);
+                } else {
+                    // Pre-padded: type and name in separate columns of fixed width
+                    paramsCell = padRight(typeTexts[i], maxTypeWidth) + " " + padRight(nameTexts[i], maxNameWidth);
+                }
                 // Trailing "" keeps params from being the last cell so ColumnGrid pads it
                 // even when empty (e.g. "getX()").
                 callGrid.addRow(new String[] {cellText(tokens, m.nameFrom, m.nameIdx + 1),
-                        cellText(tokens, m.paramsFrom, m.paramsTo), ""});
+                        paramsCell, ""});
             }
             final List<String[]> callPadded = callGrid.flush();
             for (int i = 0; i < group.size(); i++) {
@@ -289,6 +338,14 @@ public class GetterSetterRule {
             lines.add(String.join(" ", row));
         }
         return lines;
+    }
+
+    private static String padRight(final String s, final int width) {
+        final StringBuilder sb = new StringBuilder(s);
+        while (sb.length() < width) {
+            sb.append(' ');
+        }
+        return sb.toString();
     }
 
     private String cellText(final List<Token> tokens, final int from, final int to) {

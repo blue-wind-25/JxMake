@@ -8,21 +8,18 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
 
-For the formatting test of `java_core_inp.java`. The formatter seems to fail to recognize this
-as class:
+Quota is almost-up (80%), so now either fix:
 
-public   class   CoreExample   extends   Base   implements   Runnable,   Cloneable   {
+-    public void process(List<String> items) throws IOException
+-    {
++    public   void   process(List<String> items)   throws   IOException   {
 
-and thus failed removing the extra spaces and failed to put proper `} // class CoreExample`.
 
-It also failed to align the assignment:
-        this.count = count;
-        this.name = name;
-        this.active = true;
-        this.timestamp = System.currentTimeMillis();
+or:
 
-Please fix the above 2 (or maybe 3 bugs first). Use `BUF="$(make test)" ; printf "%s\n" "$BUF" | head -n 45 ; printf "%s\n" "$BUF" | tail -n 10` to limit the reading.
-
+-    @Override
+-    public void run()
++    @ Override public void run()
 
 ####################################################################################################
 

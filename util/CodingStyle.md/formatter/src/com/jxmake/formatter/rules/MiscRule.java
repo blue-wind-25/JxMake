@@ -752,7 +752,11 @@ public class MiscRule {
      */
     private Assignment parseAssignment(final List<Token> stmt, final boolean blankBefore) {
         final int targetIdx = nextSignificantIndex(stmt, 0);
-        if (targetIdx < 0 || stmt.get(targetIdx).type != TokenType.IDENTIFIER) {
+        if (targetIdx < 0) {
+            return null;
+        }
+        final TokenType targetType = stmt.get(targetIdx).type;
+        if (targetType != TokenType.IDENTIFIER && targetType != TokenType.KEYWORD) {
             return null;
         }
         // Scan forward to find the assignment operator, allowing member-access chains

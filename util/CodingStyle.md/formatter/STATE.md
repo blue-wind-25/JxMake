@@ -332,7 +332,18 @@ accept `final` there). This applies to all `.java` files under `src/`.
       pointer), or passing the raw source whitespace through for binary operators.
   - Bug 5 FIXED: trailing-return-type function not detected as function definition
   - Bug 6 FIXED: `if`/`else`/`else if` chains collapsed to one-liner
-- [ ] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java`
+- [~] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (IN PROGRESS — fixing bugs per user direction)
+  - Bug A FIXED: `public   class CoreExample` spaces not normalized — `enforceNamedConstructHeaderSpacing`
+    `headerStart` now extends backward past modifier keywords (`public`, `abstract`, etc.) so
+    the collapse range includes them, not just the `class`/`interface`/`enum` keyword itself.
+  - Bug B FIXED: `this.count = count;` not aligned — `MiscRule.parseAssignment` required the
+    first LHS token to be `IDENTIFIER`; `this`/`super` are `KEYWORD`, so were rejected. Fix:
+    accept both `IDENTIFIER` and `KEYWORD` as the first LHS token.
+  - Bug C FIXED: wrong `// end CoreExample` closing comments not replaced/removed —
+    `addClosingComments` now replaces an existing `COMMENT_LINE` after `}` with the correct
+    label (for named constructs), or removes it (if it looks like a wrong closing comment and
+    no comment is wanted there). New helpers: `findExistingLineComment`, `isLikelyClosingComment`,
+    `normalizeWhitespaceBefore`, `clearWhitespaceBefore`.
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`

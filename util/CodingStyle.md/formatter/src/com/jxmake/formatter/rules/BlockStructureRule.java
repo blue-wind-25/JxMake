@@ -688,6 +688,7 @@ public class BlockStructureRule {
         final int n = tokens.size();
         final Deque<Frame> stack = new ArrayDeque<>();
         final Map<Integer, String> comments = new HashMap<>();
+        final Map<Integer, String> replaceTokens = new HashMap<>(); // idx → replacement text
 
         for (int i = 0; i < n; i++) {
             final Token t = tokens.get(i);
@@ -712,25 +713,89 @@ public class BlockStructureRule {
                 }
                 final Frame f = stack.pop();
                 final String comment = decideComment(tokens, f, i);
-                if (comment == null) {
-                    continue;
-                }
                 final int insertAt = commentInsertionIndex(tokens, i);
-                if (safeToCommentAfter(tokens, insertAt)) {
-                    comments.put(insertAt, comment);
+                final int existingCommentIdx = findExistingLineComment(tokens, insertAt, n);
+                if (comment != null) {
+                    if (safeToCommentAfter(tokens, insertAt)) {
+                        comments.put(insertAt, comment);
+                    } else if (existingCommentIdx >= 0) {
+                        replaceTokens.put(existingCommentIdx, "// " + comment);
+                        normalizeWhitespaceBefore(tokens, insertAt + 1, existingCommentIdx, replaceTokens);
+                    }
+                } else if (existingCommentIdx >= 0
+                        && isLikelyClosingComment(tokens.get(existingCommentIdx).text)) {
+                    replaceTokens.put(existingCommentIdx, "");
+                    clearWhitespaceBefore(tokens, insertAt + 1, existingCommentIdx, replaceTokens);
                 }
             }
         }
 
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < n; i++) {
-            out.append(tokens.get(i).text);
+            final String replacement = replaceTokens.get(i);
+            if (replacement != null) {
+                out.append(replacement);
+            } else {
+                out.append(tokens.get(i).text);
+            }
             final String c = comments.get(i);
             if (c != null) {
                 out.append(" // ").append(c);
             }
         }
         return out.toString();
+    }
+
+    /** Finds the index of a COMMENT_LINE token directly after {@code afterIdx} (skipping only
+     *  WHITESPACE), or -1 if the first non-whitespace token is not a COMMENT_LINE. */
+    private int findExistingLineComment(final List<Token> tokens, final int afterIdx, final int n) {
+        int k = afterIdx + 1;
+        while (k < n && tokens.get(k).type == TokenType.WHITESPACE) {
+            k++;
+        }
+        return (k < n && tokens.get(k).type == TokenType.COMMENT_LINE) ? k : -1;
+    }
+
+    /** True if a comment's text looks like a formatter-generated closing comment or a
+     *  wrong-closing-comment artifact: starts with {@code "// "} followed by only word
+     *  characters (letters, digits, underscore) and spaces, with no punctuation or symbols. */
+    private boolean isLikelyClosingComment(final String text) {
+        if (!text.startsWith("// ")) {
+            return false;
+        }
+        final String body = text.substring(3);
+        if (body.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < body.length(); i++) {
+            final char c = body.charAt(i);
+            if (c != ' ' && !Character.isLetterOrDigit(c) && c != '_') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Collapses all WHITESPACE tokens in [{@code from}, {@code before}) to a single space. */
+    private void normalizeWhitespaceBefore(final List<Token> tokens, final int from,
+            final int before, final Map<Integer, String> replaceTokens) {
+        boolean first = true;
+        for (int k = from; k < before; k++) {
+            if (tokens.get(k).type == TokenType.WHITESPACE) {
+                replaceTokens.put(k, first ? " " : "");
+                first = false;
+            }
+        }
+    }
+
+    /** Removes all WHITESPACE tokens in [{@code from}, {@code before}). */
+    private void clearWhitespaceBefore(final List<Token> tokens, final int from,
+            final int before, final Map<Integer, String> replaceTokens) {
+        for (int k = from; k < before; k++) {
+            if (tokens.get(k).type == TokenType.WHITESPACE) {
+                replaceTokens.put(k, "");
+            }
+        }
     }
 
     /** Classifies the `{` at braceIdx for closing-comment purposes; see {@link #addClosingComments}. */
@@ -1091,6 +1156,13 @@ public class BlockStructureRule {
                                 && "enum".equals(tokens.get(before).text)) {
                             headerStart = before;
                         }
+                    }
+                    // Extend backward past any preceding modifier keywords (public, abstract, etc.)
+                    int ext = prevSignificantIndex(tokens, headerStart - 1);
+                    while (ext >= 0 && tokens.get(ext).type == TokenType.KEYWORD
+                            && !isNamedConstructStartKeyword(tokens.get(ext).text)) {
+                        headerStart = ext;
+                        ext = prevSignificantIndex(tokens, ext - 1);
                     }
                     break;
                 }

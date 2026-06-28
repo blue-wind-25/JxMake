@@ -62,10 +62,10 @@ public class CoreExample extends Base implements Runnable, Cloneable {
         }
         // While loop
         int idx = 0;
-        while(idx < MAX_COUNT) ++idx;
+        while(idx < MAX_COUNT) idx++;
         // Do-while
         do {
-            --idx;
+            idx--;
         } while(idx > 0);
     }
 

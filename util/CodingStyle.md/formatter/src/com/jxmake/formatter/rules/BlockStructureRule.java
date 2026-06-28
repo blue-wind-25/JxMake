@@ -75,11 +75,13 @@ public class BlockStructureRule {
             if (t.type == TokenType.KEYWORD && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
                 final ControlBlock block = matchControlBlock(tokens, i);
                 if (block != null && block.openBraceIndex >= 0) {
-                    final String collapsed = tryCollapse(tokens, i, block);
-                    if (collapsed != null) {
-                        out.append(collapsed);
-                        i = block.closeBraceIndex + 1;
-                        continue;
+                    if (!isPartOfElseChain(tokens, i, block, n)) {
+                        final String collapsed = tryCollapse(tokens, i, block);
+                        if (collapsed != null) {
+                            out.append(collapsed);
+                            i = block.closeBraceIndex + 1;
+                            continue;
+                        }
                     }
                 }
             }
@@ -211,6 +213,27 @@ public class BlockStructureRule {
         final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /** True if the `if` at {@code kwIndex} is part of an {@code else}/
+     *  {@code else if} chain -- either its closing `}` is followed by {@code else},
+     *  or the keyword itself is directly preceded by {@code else} (i.e. it is an
+     *  {@code else if} branch). In either case collapsing the branch to a one-liner
+     *  is suppressed so all branches in the chain keep braces (STYLE_C_CPP.md §10). */
+    private boolean isPartOfElseChain(final List<Token> tokens, final int kwIndex,
+            final ControlBlock block, final int n) {
+        final int afterClose = skipNonSignificant(tokens, block.closeBraceIndex + 1);
+        if (afterClose < n && tokens.get(afterClose).type == TokenType.KEYWORD
+                && "else".equals(tokens.get(afterClose).text)) {
+            return true;
+        }
+        int prev = kwIndex - 1;
+        while (prev >= 0 && (tokens.get(prev).type == TokenType.WHITESPACE
+                || tokens.get(prev).type == TokenType.NEWLINE)) {
+            prev--;
+        }
+        return prev >= 0 && tokens.get(prev).type == TokenType.KEYWORD
+                && "else".equals(tokens.get(prev).text);
     }
 
     /** Joins tokens onto one line: any run of whitespace/newlines between tokens becomes one space. */

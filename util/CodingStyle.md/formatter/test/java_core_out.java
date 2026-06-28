@@ -65,7 +65,7 @@ public class CoreExample extends Base implements Runnable, Cloneable {
         while(idx < MAX_COUNT) idx++;
         // Do-while
         do {
-            idx--;
+            --idx;
         } while(idx > 0);
     }
 
@@ -154,7 +154,7 @@ public class CoreExample extends Base implements Runnable, Cloneable {
             {
                 System.out.println("running");
             }
-        };
+        }; // class
     }
 
     // Lambda (Java 8)

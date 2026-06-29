@@ -21,7 +21,11 @@ namespace modern {
 
 struct Pair { int first; int second; };
 
-struct Triple { float x; float y; float z; };
+struct Triple {
+  float x;
+    float y;
+  float z;
+};
 
 
 void useBindings() {

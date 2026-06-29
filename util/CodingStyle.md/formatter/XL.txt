@@ -1,108 +1,12 @@
 Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
 
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
-
-Bug fix for the `java_core_inp.java` formatting test:
-         switch(code) {
-             case 1  : return "one"          ;
-             case 2  : return "two"          ;
--            case 3  : /* FALL-THROUGH */
-+            case 3 : /* FALL-THROUGH */
-             case 4  : return "three-or-four";
--            case 5  : break                 ;
-+            case 5  :                       break;
-             default : return "unknown"      ;
-         } // switch
-
-and:
-
-     {
-         try {
-             return map.get(key).trim();
--        }
--        catch(NullPointerException e) {
-+        } catch (NullPointerException e) {
-             return "";
--        }
--        finally {
-+        } finally {
-             System.out.println("done");
-         }
-     }
-
-and:
-
--    @Override
--    public void run()
-+    @ Override public void run()
-     {
-         process( new ArrayList<String>() );
-     }
-
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
-
-Bug fix for the `java_modern_inp.java` formatting test:
-
-(1)
-`record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
-(empty), hence, the closing comment `// record ...` is also not needed
-
-(2)
-The formatter failed to recognize this due to the tailing `implements Comparable<NamedPoint>`:
-
-public record NamedPoint(   String   name,   int   x,   int   y   ) implements Comparable<NamedPoint> {
-
-Fix those bugs first and then wait before fixing the other bugs.
-
-(3)
--    public Rectangle(double width, double height) { this.width = width; this.height = height; }
--    public double area() { return width * height; }
-+    public Rectangle(double width, double height)
-+    { this.width  = width;
-+ this.height = height; }
-+    public double area()
-+    { return width * height; }
-
-(4)
-         var result = new java.util.ArrayList<String>();
-         for(var item : items) {
--            var trimmed = item.trim();
--            result.add(trimmed);
-+            var trimmed = item. trim();
-+            result.             add(trimmed);
-         }
-         var map   = new java.util.HashMap<String, Integer>();
-         var count = map.size();
-(5)
- enum Day {
-
--    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
-+ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
-
--} // enum Day
-+ } // enum Day
-
- enum Status {
-
--    ACTIVE, INACTIVE, PENDING
-+ ACTIVE, INACTIVE, PENDING
-
--} // enum Status
-+ } // enum Status
-
-Fix those bugs first and then wait before fixing the other bugs.
-
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
 
 Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
@@ -114,6 +18,8 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
 The formatter needs a list of all keywords that must not be titlecase in comments (check the Java keywords too).
 
 (2)
+ struct Pair {
+
 -    int first;
 -    int second;
 + int first;
@@ -127,16 +33,20 @@ The formatter needs a list of all keywords that must not be titlecase in comment
 -    float x;
 -    float y;
 -    float z;
-+ float x;
-+ float y;
-+ float z;
++  float x;
++  float y;
++  float z;
 
--}; // struct Triple
-+ }; // struct Triple
-
-Fix those bugs first and then wait before fixing the other bugs.
+ }; // struct Triple
 
 (3)
+     { t.serialize(os) } -> std::same_as<void>;
+-    T::version;
++    T:: version;
+
+Fix those three bugs first (don't look at the other part of the diff).
+
+(4)
  void useBindings()
  {
 -    auto [a, b]    = Pair{ 1, 2 };
@@ -162,10 +72,6 @@ Fix those bugs first and then wait before fixing the other bugs.
 +        (void)s;
      }
  }
-
-(4)
--    T::version;
-+    T:: version;
 
 Fix those bugs first and then wait before fixing the other bugs.
 
@@ -227,27 +133,55 @@ Fix those bugs first and then wait before fixing the other bugs.
 
 ####################################################################################################
 
-Do not execute `make test`. This and similar construct:
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
 
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch.
+Bug fix for the `java_modern_inp.java` formatting test:
 
-must be reformatted as:
+(1)
+`record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
+(empty), hence, the closing comment `// record ...` is also not needed
 
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // consteval/constinit, <=>, coroutines, init-statement if/switch
+(2)
+The formatter failed to recognize this due to the tailing `implements Comparable<NamedPoint>`:
 
-remove the `.` as it is only contains one sentence, not multiple sentence (you can determine this
-by counting the `.` that is not part of languange construct (e.g., member access).
+public record NamedPoint(   String   name,   int   x,   int   y   ) implements Comparable<NamedPoint> {
 
-currently the formatter produce INCORRECT result:
+Fix those bugs first and then wait before fixing the other bugs.
 
-    // C++17/20/23 constructs: structured bindings, concepts/requires,
-    // Consteval/constinit, <=>, coroutines, init-statement if/switch
+(3)
+-    public Rectangle(double width, double height) { this.width = width; this.height = height; }
+-    public double area() { return width * height; }
++    public Rectangle(double width, double height)
++    { this.width  = width;
++ this.height = height; }
++    public double area()
++    { return width * height; }
 
-As a matter a fact, there must be a list of to prevent the capitalization of reserved word such as
-`consteval` above.
+(4)
+         var result = new java.util.ArrayList<String>();
+         for(var item : items) {
+-            var trimmed = item.trim();
+-            result.add(trimmed);
++            var trimmed = item. trim();
++            result.             add(trimmed);
+         }
+         var map   = new java.util.HashMap<String, Integer>();
+         var count = map.size();
+(5)
+ enum Day {
 
-Check also for similar constructs in the Java formatter (should not be needed because Java and C/C++
-comments have the same syntax).
+-    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
++ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
 
+-} // enum Day
++ } // enum Day
+
+ enum Status {
+
+-    ACTIVE, INACTIVE, PENDING
++ ACTIVE, INACTIVE, PENDING
+
+-} // enum Status
++ } // enum Status
+
+Fix those bugs first and then wait before fixing the other bugs.

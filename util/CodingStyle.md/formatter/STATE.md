@@ -375,7 +375,18 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
+- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 3 bugs fixed, remaining diff is pre-existing)
+  - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
+    capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
+  - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
+    (`struct Foo { int a; int b; };`) to multi-line before recursing, using `findParentIndent`
+    to compute the correct member indent; `normalizeLeadingGap` no longer adds `\n` for
+    inline (no-newline) gaps — which previously broke setter/getter one-liner bodies.
+    `ScopePipeline.normalizeIndent` still normalizes non-multiple-of-4 indent widths (struct
+    Triple 2→4 spaces).
+  - Bug 3 FIXED: `DeclarationAlignmentRule.parseDeclaration` now rejects statements where
+    `typeTokens` ends with `::` — `T::version;` was misread as declaration (type=`T::`,
+    name=`version`) and rendered with a column-grid space between them.
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

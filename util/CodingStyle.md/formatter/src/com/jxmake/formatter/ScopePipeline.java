@@ -248,6 +248,67 @@ public class ScopePipeline {
         return nl >= 0 ? gap.substring(nl + 1) : gap;
     }
 
+    /** Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link MiscRule#INDENT_WIDTH}.
+     *  Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
+     *  multiple of INDENT_WIDTH).  Only non-zero non-multiples (e.g. 2-space source) are touched. */
+    private String normalizeIndent(final String rawIndent) {
+        int width = 0;
+        for (int i = 0; i < rawIndent.length(); i++) {
+            final char c = rawIndent.charAt(i);
+            if (c == '\t') {
+                width = ((width / MiscRule.INDENT_WIDTH) + 1) * MiscRule.INDENT_WIDTH;
+            } else {
+                width++;
+            }
+        }
+        // Zero-width is valid (global/top-level scope, column 0).  Multiples of INDENT_WIDTH
+        // are valid.  Only round up a non-zero non-multiple (malformed indentation in source).
+        if (width == 0 || width % MiscRule.INDENT_WIDTH == 0) {
+            return rawIndent;
+        }
+        final int normalized = ((width + MiscRule.INDENT_WIDTH - 1) / MiscRule.INDENT_WIDTH)
+                * MiscRule.INDENT_WIDTH;
+        final StringBuilder sb = new StringBuilder(normalized);
+        for (int i = 0; i < normalized; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
+    }
+
+    /** Returns a `leadingGap` that ends with `normalizedIndent` on its final line.  Only acts
+     *  when `leadingGap` already has a newline (multi-line indented content); if `leadingGap`
+     *  has no newline the content is inline and the gap is left unchanged -- callers that need
+     *  to expand a one-liner named-scope body pre-process it before calling processScope. */
+    private String normalizeLeadingGap(final String leadingGap, final String rawIndent,
+            final String normalizedIndent) {
+        if (rawIndent.equals(normalizedIndent)) {
+            return leadingGap;
+        }
+        final int nl = leadingGap.lastIndexOf('\n');
+        if (nl < 0) {
+            return leadingGap;
+        }
+        return leadingGap.substring(0, nl + 1) + normalizedIndent;
+    }
+
+    /** Returns the leading whitespace of the line that contains the span's first significant
+     *  token -- i.e. the indentation of the named construct whose one-liner body we are about
+     *  to pre-expand.  Scans forward to the first non-gap token, then backward to the preceding
+     *  newline; the text between that newline and the token is the indentation. */
+    private String findParentIndent(final List<Token> tokens, final Span span) {
+        for (int i = span.start; i < span.openBraceIdx; i++) {
+            if (!isGapToken(tokens.get(i))) {
+                for (int j = i - 1; j >= span.start; j--) {
+                    if (tokens.get(j).type == TokenType.NEWLINE) {
+                        return joinText(tokens, j + 1, i);
+                    }
+                }
+                return "";
+            }
+        }
+        return "";
+    }
+
     private Map<Token, Integer> buildIndexMap(final List<Token> tokens) {
         final Map<Token, Integer> indexOf = new IdentityHashMap<>();
         for (int i = 0; i < tokens.size(); i++) {
@@ -282,8 +343,10 @@ public class ScopePipeline {
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
 
-            final String leadingGap = joinText(tokens, firstSpan.start, firstIdx);
-            final String indent = trailingIndent(leadingGap);
+            final String rawLeadingGap = joinText(tokens, firstSpan.start, firstIdx);
+            final String rawIndent = trailingIndent(rawLeadingGap);
+            final String indent = normalizeIndent(rawIndent);
+            final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
             final List<String> lines = declarationRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
             int lastTermEnd = lastSpan.end;
@@ -315,8 +378,10 @@ public class ScopePipeline {
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
 
-            final String leadingGap = joinText(tokens, firstSpan.start, firstIdx);
-            final String indent = trailingIndent(leadingGap);
+            final String rawLeadingGap = joinText(tokens, firstSpan.start, firstIdx);
+            final String rawIndent = trailingIndent(rawLeadingGap);
+            final String indent = normalizeIndent(rawIndent);
+            final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
             final List<String> lines = miscRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
             int lastTermEnd = lastSpan.end;
@@ -546,8 +611,21 @@ public class ScopePipeline {
             if (span.openBraceIdx < 0) {
                 continue;
             }
-            final String childSource = joinText(current, span.openBraceIdx + 1, span.closeBraceIdx);
-            final String childResult = processScope(tokenizer.tokenize(childSource), depth + 1);
+            String childSource = joinText(current, span.openBraceIdx + 1, span.closeBraceIdx);
+            final boolean isNamedScope = current.get(span.openBraceIdx).name != null;
+            // Pre-expand named-construct one-liner bodies (`struct Foo { int a; int b; };`)
+            // into multi-line form so that applyDeclarationsPass/applyAssignmentsPass in the
+            // child scope see newline-separated source and produce correctly-indented output.
+            // Non-named scopes (function/loop/lambda bodies) are left alone -- their one-liner
+            // bodies must stay inline for getter/setter grouping and Allman detection.
+            if (isNamedScope && !childSource.contains("\n")) {
+                final String trimmed = childSource.trim();
+                if (!trimmed.isEmpty()) {
+                    final String parentIndent = findParentIndent(current, span);
+                    childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
+                }
+            }
+            String childResult = processScope(tokenizer.tokenize(childSource), depth + 1);
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
         return splice(current, replacements);

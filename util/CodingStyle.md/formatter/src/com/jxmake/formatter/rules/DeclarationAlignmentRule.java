@@ -663,11 +663,16 @@ public class DeclarationAlignmentRule {
         if (typeTokens.isEmpty()) {
             return null;
         }
-        // Reject member-access expressions (ptr->field or obj.field) in type position.
+        // Reject member-access expressions and qualified-name accesses (ptr->field, obj.field,
+        // Type::member) in type position -- the last type token being `::` means the "name" is
+        // actually the RHS of a scope-resolution expression, not a variable being declared.
         for (final Token t : typeTokens) {
             if (isOp(t, "->") || isOp(t, ".")) {
                 return null;
             }
+        }
+        if (isOp(typeTokens.get(typeTokens.size() - 1), "::")) {
+            return null;
         }
         final Token firstType = typeTokens.get(0);
         if (firstType.type == TokenType.KEYWORD) {

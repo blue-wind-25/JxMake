@@ -32,6 +32,27 @@ public class MiscRule {
     private static final Set<String> TIGHT_PAREN_KEYWORDS =
             setOf("if", "while", "for", "switch", "catch");
 
+    // Keywords that must never be titlecased when they start a comment sentence.
+    private static final Set<String> COMMENT_NO_CAPITALIZE = setOf(
+            // C keywords
+            "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
+            "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
+            "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
+            "switch", "typedef", "union", "unsigned", "void", "volatile", "while",
+            // C++ additions
+            "alignas", "alignof", "asm", "bool", "catch", "char16_t", "char32_t", "class",
+            "co_await", "co_return", "co_yield", "concept", "consteval", "constexpr", "constinit",
+            "const_cast", "decltype", "delete", "dynamic_cast", "explicit", "export", "false",
+            "final", "friend", "mutable", "namespace", "new", "noexcept", "nullptr", "operator",
+            "override", "private", "protected", "public", "reinterpret_cast", "requires",
+            "static_assert", "static_cast", "template", "this", "thread_local", "throw", "true",
+            "try", "typeid", "typename", "using", "virtual", "wchar_t",
+            // Java keywords
+            "abstract", "assert", "boolean", "byte", "extends", "final", "finally", "implements",
+            "import", "instanceof", "interface", "native", "package", "permits", "protected",
+            "record", "sealed", "strictfp", "super", "synchronized", "throws", "transient",
+            "var", "yield", "null");
+
     private final String language;
 
     public MiscRule(final String language) {
@@ -1888,6 +1909,16 @@ public class MiscRule {
                 continue;
             }
             if (Character.isLetter(c) && Character.isLowerCase(c)) {
+                // Extract the first word to check whether it is a keyword.
+                int end = i;
+                while (end < content.length()
+                        && (Character.isLetterOrDigit(content.charAt(end))
+                                || content.charAt(end) == '_')) {
+                    end++;
+                }
+                if (COMMENT_NO_CAPITALIZE.contains(content.substring(i, end))) {
+                    return content;
+                }
                 return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
             }
             break;

@@ -60,10 +60,10 @@ public class CoreExample extends Base implements Runnable, Cloneable {
                 System.err.println("skipping: " + item);
             }
         } // for
-        // While loop
+        // while loop
         int idx = 0;
         while(idx < MAX_COUNT) idx++;
-        // Do-while
+        // do-while
         do {
             --idx;
         } while(idx > 0);

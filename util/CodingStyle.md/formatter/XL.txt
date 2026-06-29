@@ -10,43 +10,65 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-(1)
- // C++17/20/23 constructs: structured bindings, concepts/requires,
--// consteval/constinit, <=>, coroutines, init-statement if/switch
-+// Consteval/constinit, <=>, coroutines, init-statement if/switch
-
-The formatter needs a list of all keywords that must not be titlecase in comments (check the Java keywords too).
-
-(2)
- struct Pair {
-
--    int first;
--    int second;
-+ int first;
-+ int second;
-
--}; // struct Pair
-+ }; // struct Pair
-
- struct Triple {
-
--    float x;
--    float y;
--    float z;
-+  float x;
-+  float y;
-+  float z;
-
- }; // struct Triple
-
-(3)
-     { t.serialize(os) } -> std::same_as<void>;
--    T::version;
-+    T:: version;
-
-Fix those three bugs first (don't look at the other part of the diff).
-
 (4)
+ // Requires clause on function
+-template<Numeric T>
+-T square(T x)
++template < Numeric T > T square(T x)
+ {
+     return x * x;
+ }
+
+ // Trailing requires clause
+ template<typename T>
+-T cube(T x) requires Numeric<T>
+-{
++T cube(T x) requires Numeric<T> {
+     return x * x * x;
+ }
+
+(5)
+-    void add(T item) { items_.push_back( std::move(item) ); }
+-
++    void add(T item)
++    { items_.push_back( std::move(item) ); }
+
+Fix those two bugs first (don't look at the other part of the diff).
+
+
+(6)
+-constinit        int   globalCounter = 0;
+ static constinit float defaultGain   = 1.0f;
++       constinit int   globalCounter = 0;
+
+(7)
+-    auto operator<=>(const Weight& other) const
+-    {
++    auto operator<=>(const Weight& other) const {
+         return value <=> other.value;
+     }
+Fix those two bugs first (don't look at the other part of the diff).
+
+(8)
+     struct promise_type {
+
+         int value;
+-        Generator           get_return_object  (     )          { return {};            }
+-        std::suspend_always initial_suspend    (     )          { return {};            }
+-        std::suspend_always final_suspend      (     ) noexcept { return {};            }
+-        std::suspend_always yield_value        (int v)          { value = v; return {}; }
+-        void                return_void        (     )          {                       }
+-        void                unhandled_exception(     )          {                       }
++        Generator           get_return_object()          { return {}; }
++        std::suspend_always initial_suspend  ()          { return {}; }
++        std::suspend_always final_suspend    () noexcept { return {}; }
++        std::suspend_always yield_value(int v) { value = v; return {}; }
++        void return_void() {}
++        void unhandled_exception() {}
+
+     }; // struct promise_type
+
+(9)
  void useBindings()
  {
 -    auto [a, b]    = Pair{ 1, 2 };
@@ -72,64 +94,6 @@ Fix those three bugs first (don't look at the other part of the diff).
 +        (void)s;
      }
  }
-
-Fix those bugs first and then wait before fixing the other bugs.
-
-(5)
- // Requires clause on function
--template<Numeric T>
--T square(T x)
-+template < Numeric T > T square(T x)
- {
-     return x * x;
- }
-
- // Trailing requires clause
- template<typename T>
--T cube(T x) requires Numeric<T>
--{
-+T cube(T x) requires Numeric<T> {
-     return x * x * x;
- }
-
-(6)
--    void add(T item) { items_.push_back( std::move(item) ); }
--
-+    void add(T item)
-+    { items_.push_back( std::move(item) ); }
-
-(7)
--constinit        int   globalCounter = 0;
- static constinit float defaultGain   = 1.0f;
-+       constinit int   globalCounter = 0;
-
-Fix those bugs first and then wait before fixing the other bugs.
-
-(8)
--    auto operator<=>(const Weight& other) const
--    {
-+    auto operator<=>(const Weight& other) const {
-         return value <=> other.value;
-     }
-
-(9)
-     struct promise_type {
-
-         int value;
--        Generator           get_return_object  (     )          { return {};            }
--        std::suspend_always initial_suspend    (     )          { return {};            }
--        std::suspend_always final_suspend      (     ) noexcept { return {};            }
--        std::suspend_always yield_value        (int v)          { value = v; return {}; }
--        void                return_void        (     )          {                       }
--        void                unhandled_exception(     )          {                       }
-+        Generator           get_return_object()          { return {}; }
-+        std::suspend_always initial_suspend  ()          { return {}; }
-+        std::suspend_always final_suspend    () noexcept { return {}; }
-+        std::suspend_always yield_value(int v) { value = v; return {}; }
-+        void return_void() {}
-+        void unhandled_exception() {}
-
-     }; // struct promise_type
 
 ####################################################################################################
 

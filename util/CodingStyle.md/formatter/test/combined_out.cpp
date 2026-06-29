@@ -102,7 +102,7 @@ public:
     // Static factory
     static Config defaultConfig();
 
-    // Consteval utility
+    // consteval utility
     static consteval uint32_t maxChannels() { return 8; }
 
 private:
@@ -182,7 +182,7 @@ void withInitStatement(int raw)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
-// Consteval and constinit
+// consteval and constinit
 
 consteval int sampleCount(int channels, int frames)
 {

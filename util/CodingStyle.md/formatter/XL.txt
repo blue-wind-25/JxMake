@@ -190,3 +190,98 @@ Bug fix for the `combined_inp.c` formatting test:
 -void audio_debug(const AudioConfig* cfg /* Config */, char* out /* Output */, size_t len /* Buffer size */)
 +void audio_debug(const AudioConfig* cfg, char* out, size_t len)
  {
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `combined_inp.hpp` formatting test:
+
+-// Combined .hpp test: pragma once, concepts, templates, classes, extern C
++// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
+
+
+...
+
+     explicit EngineBase(EngineConfig cfg);
+     virtual ~EngineBase() = default;
+
+-    EngineBase(const EngineBase&)            = delete;
++    EngineBase(const EngineBase&) = delete;
+     EngineBase& operator=(const EngineBase&) = delete;
+
+...
+
+     float    getGain() const;
+     void     setGain(float g);
+     bool     isMuted() const;
+-    void     setMuted(bool m );
++    void     setMuted(bool m);
+     uint32_t getFrameCount() const;
+
+...
+
+ template<Processor Impl>
+-std::unique_ptr< EngineBase<Impl> > makeEngine(EngineConfig cfg);
++std::unique_ptr< EngineBase<Impl> >   makeEngine(EngineConfig cfg);
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `combined_inp.cpp` formatting test:
+
+(1)
+     explicit Engine(Config cfg);
+-    ~Engine();
++    ~        Engine();
+
+-    Engine(const Engine&)            = delete;
++    Engine(const Engine&) = delete;
+     Engine& operator=(const Engine&) = delete;
+-    Engine(Engine&&)                 = default;
+-    Engine& operator=(Engine&&)      = default;
++    Engine(Engine&&) = default;
++    Engine& operator=(Engine&&) = default;
+
+(2)
+ // Getters/setters (one-liners)
+-template<AudioProcessor Impl> float    Engine<Impl>::getGain      (       ) const { return gain_;       }
+-template<AudioProcessor Impl> void     Engine<Impl>::setGain      (float g)       { gain_ = g;          }
+-template<AudioProcessor Impl> bool     Engine<Impl>::isMuted      (       ) const { return muted_;      }
+-template<AudioProcessor Impl> void     Engine<Impl>::setMuted     (bool m )       { muted_ = m;         }
+-template<AudioProcessor Impl> uint32_t Engine<Impl>::getFrameCount(       ) const { return frameCount_; }
++template<AudioProcessor Impl> float Engine<Impl>::    getGain      (       ) const { return gain_;       }
++template < AudioProcessor Impl > void Engine<Impl>::  setGain      (float g)       { gain_ = g;          }
++template<AudioProcessor Impl> bool Engine<Impl>::     isMuted      (       ) const { return muted_;      }
++template < AudioProcessor Impl > void Engine<Impl>::  setMuted     (bool  m)       { muted_ = m;         }
++template<AudioProcessor Impl> uint32_t Engine<Impl>:: getFrameCount(       ) const { return frameCount_; }
+
+(3)
+ void useBindings(const FrameRange& range)
+ {
+-    auto     [start, end] = range;
+-    uint32_t  length      = end - start;
+-    (void) length;
++    auto[start, end] = range;
++    uint32_t length       = end - start;
++    (void)length;
+
+     // In a declaration group
+-    uint32_t offset  = 0;
+-    auto    [lo, hi] = FrameRange{ offset, offset + 100 };
+-    bool     active  = lo < hi;
+-    (void) active;
++    uint32_t offset = 0;
++    auto [lo, hi] = FrameRange{ offset, offset + 100 };
++    bool active = lo < hi;
++    (void)active;
+ }
+
+(4)
+ // Trailing comments on declarations
+ static constinit float gainA = 1.0f;  // Channel A
+ static constinit float gainB = 0.5f;  // Channel B
+-static constinit float gainC = 0.25f; // Channel C
++static constinit float gainC = 0.25f; // Channel C // channel C
+

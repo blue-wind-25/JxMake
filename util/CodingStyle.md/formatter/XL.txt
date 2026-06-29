@@ -82,46 +82,111 @@ Bug fix for the `java_modern_inp.java` formatting test:
 (empty), hence, the closing comment `// record ...` is also not needed
 
 (2)
-The formatter failed to recognize this due to the tailing `implements Comparable<NamedPoint>`:
-
-public record NamedPoint(   String   name,   int   x,   int   y   ) implements Comparable<NamedPoint> {
-
-Fix those bugs first and then wait before fixing the other bugs.
-
-(3)
--    public Rectangle(double width, double height) { this.width = width; this.height = height; }
--    public double area() { return width * height; }
-+    public Rectangle(double width, double height)
-+    { this.width  = width;
-+ this.height = height; }
-+    public double area()
-+    { return width * height; }
-
-(4)
-         var result = new java.util.ArrayList<String>();
          for(var item : items) {
 -            var trimmed = item.trim();
 -            result.add(trimmed);
 +            var trimmed = item. trim();
 +            result.             add(trimmed);
          }
-         var map   = new java.util.HashMap<String, Integer>();
-         var count = map.size();
-(5)
- enum Day {
 
--    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
-+ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+(3)
+-    public double distance() { return Math.sqrt(x * x + y * y); }
++    public double distance()
++    { return Math.sqrt(x * x + y * y); }
 
--} // enum Day
-+ } // enum Day
+...
 
- enum Status {
+     private final double width;
+     private final double height;
+-    public Rectangle(double width, double height) { this.width = width; this.height = height; }
+-    public double area() { return width * height; }
++    public Rectangle(double width, double height)
++    { this.width  = width;
++    this.height = height; }
++    public double area()
++    { return width * height; }
 
--    ACTIVE, INACTIVE, PENDING
-+ ACTIVE, INACTIVE, PENDING
+...
 
--} // enum Status
-+ } // enum Status
+     private final double base;
+     private final double height;
+-    public Triangle(double base, double height) { this.base = base; this.height = height; }
+-    public double area() { return 0.5 * base * height; }
++    public Triangle(double base, double height)
++    { this.base   = base;
++    this.height = height; }
++    public double area()
++    { return 0.5 * base * height; }
 
-Fix those bugs first and then wait before fixing the other bugs.
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `combined_inp.h` formatting test:
+
+(1)
+ #define ENGINE_VERSION_MAJOR 2
+ #define ENGINE_VERSION_MINOR 1
+-#define ENGINE_MAX_CH        8
+-#define ENGINE_RATE          48000
+-#define ENGINE_FRAMES        512
++#define ENGINE_MAX_CH   8
++#define ENGINE_RATE     48000
++#define ENGINE_FRAMES   512
+
+(2)
+ typedef enum EngineState {
+     ENGINE_STATE_IDLE,
+     ENGINE_STATE_RUNNING,
+     ENGINE_STATE_ERROR
+-} EngineState; // enum EngineState
++} EngineState;
+
+(3)
+ #ifdef __cplusplus
+-} // extern "C"
++}
+ #endif
+
+For this 3rd bug, if not feasible, do not fix.
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `combined_inp.c` formatting test:
+
+(1)
+     AUDIO_STATE_PAUSED,
+     AUDIO_STATE_ERROR
+
+-} AudioState; // enum AudioState
++} AudioState;
+
+ typedef enum AudioFormat {
+
+...
+
+     AUDIO_FORMAT_S24,
+     AUDIO_FORMAT_F32
+
+-} AudioFormat; // enum AudioFormat
++} AudioFormat;
+
+(2)
+-static AudioState  g_state       = AUDIO_STATE_IDLE;
+-static AudioConfig g_config      = { AUDIO_SAMPLE_RATE, 2, AUDIO_FORMAT_F32, AUDIO_FRAME_SIZE, false };
+-static float       g_gain        = 1.0f;
+-static bool        g_muted       = false;
+-static uint32_t    g_frame_count = 0;
++static AudioState g_state = AUDIO_STATE_IDLE;
++static AudioConfig   g_config = { AUDIO_SAMPLE_RATE, 2, AUDIO_FORMAT_F32, AUDIO_FRAME_SIZE, false };
++static float    g_gain        = 1.0f;
++static bool     g_muted       = false;
++static uint32_t g_frame_count = 0;
+
+(3)
+ // Comment in uncommon locations test (combined)
+-void audio_debug(const AudioConfig* cfg /* Config */, char* out /* Output */, size_t len /* Buffer size */)
++void audio_debug(const AudioConfig* cfg, char* out, size_t len)
+ {

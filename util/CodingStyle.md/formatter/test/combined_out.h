@@ -22,11 +22,9 @@
 #define ENGINE_FRAMES        512
 
 typedef enum EngineState {
-
     ENGINE_STATE_IDLE,
     ENGINE_STATE_RUNNING,
     ENGINE_STATE_ERROR
-
 } EngineState; // enum EngineState
 
 typedef struct {

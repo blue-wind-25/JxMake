@@ -332,7 +332,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
       pointer), or passing the raw source whitespace through for binary operators.
   - Bug 5 FIXED: trailing-return-type function not detected as function definition
   - Bug 6 FIXED: `if`/`else`/`else if` chains collapsed to one-liner
-- [~] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PARTIAL)
+- [x] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS)
   - Bug A FIXED: `public   class CoreExample` spaces not normalized — `enforceNamedConstructHeaderSpacing`
     `headerStart` now extends backward past modifier keywords (`public`, `abstract`, etc.) so
     the collapse range includes them, not just the `class`/`interface`/`enum` keyword itself.
@@ -352,6 +352,29 @@ accept `final` there). This applies to all `.java` files under `src/`.
     (2) `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` extended with
     `findCloseParenBeforeThrows` helper — detects the throws-clause pattern and applies the
     same `gapToBrace` Allman conversion as for bare-paren method definitions.
+  - Bug E FIXED: inline switch — fall-through case (`case 3`) got only 1 space before `:`
+    instead of 2 (misaligned with other labels). Root cause: `SwitchRule.applyInlineAlignment`
+    added a 1-cell row `[label]` for fall-through cases; ColumnGrid's ragged-row rule never
+    pads the last cell in a row, so the 1-cell row's label was unpadded. Fix: add an empty
+    sentinel second cell `[label, ""]` so the label is in a non-last position and gets padded.
+  - Bug F FIXED: inline switch — `break`-only case (`case 5`) was rendered as
+    `case 5  :                       break;` (break after the content-column padding). Root
+    cause: `classify` returned `hasContent=false, hasBreak=true`, which caused the terminator
+    cell to be `"break;"` placed AFTER the content-column padding. Fix: treat `break` as plain
+    content (`hasContent=true, plain="break", hasBreak=false`) so it lands in the content
+    column, with `;` as the terminator column. Output: `case 5  : break                 ;`.
+  - Bug G FIXED: `catch` and `finally` joined behind `}` (e.g. `} catch (...)`) instead of
+    on their own line. Root cause: no pass existed to separate them (only `placeElseOnOwnLine`
+    existed for `else`). Fix: added `BlockStructureRule.placeCatchFinallyOnOwnLine` (same
+    algorithm as `placeElseOnOwnLine`) and wired it in `Formatter.java` right after
+    `placeElseOnOwnLine`. Also added `"catch"` to `MiscRule.TIGHT_PAREN_KEYWORDS` so
+    `catch (...)` is tightened to `catch(...)` matching the style guide.
+  - Bug H FIXED: `@Override` annotation absorbed into method signature → rendered as
+    `@ Override public void run()` on one line. Root cause: `ScopePipeline.applySignaturePass`
+    treated `@` (OP token) as the first lead token, so `MiscRule.render` joined it with
+    `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
+    `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
+    `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
 - [ ] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp`
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`

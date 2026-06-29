@@ -376,13 +376,19 @@ public class ScopePipeline {
             if (leadStart < 0) {
                 continue;
             }
-            final Signature sig = miscRule.parseSignature(tokens.subList(leadStart, closeParenIdx + 1));
+            // For Java: skip past any leading @Annotation tokens so they stay verbatim in
+            // leadingGap (on their own line) rather than being absorbed into the signature's
+            // lead-token list and collapsed onto the method declaration line.
+            final int sigLeadStart = "java".equals(language)
+                    ? skipAnnotations(tokens, leadStart, closeParenIdx) : leadStart;
+            final Signature sig = miscRule.parseSignature(
+                    tokens.subList(sigLeadStart, closeParenIdx + 1));
             if (sig == null) {
                 continue;
             }
 
             final List<String> lines = miscRule.render(sig, depth, indentStyle);
-            final String leadingGap = joinText(tokens, span.start, leadStart);
+            final String leadingGap = joinText(tokens, span.start, sigLeadStart);
             final StringBuilder text = new StringBuilder(leadingGap).append(lines.get(0));
             for (int i = 1; i < lines.size(); i++) {
                 text.append('\n').append(lines.get(i));
@@ -401,6 +407,37 @@ public class ScopePipeline {
             }
         }
         return splice(tokens, replacements);
+    }
+
+    /**
+     * Scans forward past zero or more {@code @Identifier} / {@code @Identifier(args)}
+     * annotation tokens starting at {@code from}, returning the index of the first
+     * non-annotation significant token. Returns {@code from} if nothing is skipped or
+     * if skipping would reach or exceed {@code limit}.
+     */
+    private int skipAnnotations(final List<Token> tokens, final int from, final int limit) {
+        int i = from;
+        while (i >= 0 && i < limit && isOp(tokens.get(i), "@")) {
+            final int nameIdx = nextSignificantIndex(tokens, i);
+            if (nameIdx < 0 || nameIdx >= limit
+                    || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+                break;
+            }
+            final int afterName = nextSignificantIndex(tokens, nameIdx);
+            if (afterName >= 0 && afterName < limit && isPunct(tokens.get(afterName), "(")) {
+                final int closeParen = matchParenForward(tokens, afterName);
+                if (closeParen < 0 || closeParen >= limit) {
+                    break;
+                }
+                i = nextSignificantIndex(tokens, closeParen);
+            } else {
+                i = afterName;
+            }
+            if (i < 0 || i >= limit) {
+                break;
+            }
+        }
+        return (i < 0 || i >= limit) ? from : i;
     }
 
     /** True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded

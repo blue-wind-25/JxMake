@@ -587,7 +587,9 @@ public class SwitchRule {
                     || firstSignificantIndex(tokens, semi + 1, to) >= 0) {
                 return null;
             }
-            return new CaseRow(c.kwIdx, semi, label, false, false, null, null, null, true, false);
+            // Treat break as plain content so it lands in the content column (aligned with
+            // return/call statements), not as a trailing terminal that would precede its padding.
+            return new CaseRow(c.kwIdx, semi, label, true, false, null, null, "break", false, false);
         }
 
         final int semi = findTopLevelSemicolon(tokens, firstSig, to);
@@ -713,7 +715,10 @@ public class SwitchRule {
             final CaseRow row = rows.get(i);
             final String label = row.label + " ";
             if (!row.hasContent && !row.hasBreak) {
-                outerGrid.addRow(new String[] {label});
+                // Add an empty sentinel cell so ColumnGrid's ragged-row rule pads the label
+                // column to the same width as rows that have content (the sentinel is the
+                // last cell in its row and therefore never padded itself).
+                outerGrid.addRow(new String[] {label, ""});
             } else {
                 final String terminator = (row.hasContent ? ";" : "") + (row.hasBreak
                         ? (row.hasContent ? " break;" : "break;") : "");
@@ -726,7 +731,8 @@ public class SwitchRule {
             final CaseRow row = rows.get(i);
             final String[] cell = outerPadded.get(i);
             final String text;
-            if (cell.length == 1) {
+            if (!row.hasContent && !row.hasBreak) {
+                // 2-cell row: cell[1] is empty sentinel used only to force label padding.
                 text = cell[0] + ":" + (row.fallthrough ? " /* FALL-THROUGH */" : "");
             } else {
                 text = cell[0] + ":" + " " + cell[1] + cell[2];

@@ -40,6 +40,7 @@ public final class Formatter {
         text = blockRule.enforceKAndRBraceStyle(tokenizer.tokenize(text));
         text = blockRule.enforceNamedConstructHeaderSpacing(tokenizer.tokenize(text));
         text = blockRule.placeElseOnOwnLine(tokenizer.tokenize(text));
+        text = blockRule.placeCatchFinallyOnOwnLine(tokenizer.tokenize(text));
         text = blockRule.insertNamedConstructBlankLines(tokenizer.tokenize(text));
         if (isCOrCpp) {
             text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.tokenize(text));

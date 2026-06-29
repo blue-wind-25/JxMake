@@ -531,6 +531,53 @@ public class BlockStructureRule {
         return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
     }
 
+    /**
+     * Identical in structure to {@link #placeElseOnOwnLine}: when `catch` or `finally` is
+     * found directly after a `}` on the same line (no newline in the gap, no comment in the
+     * gap), it is moved onto the next line at the `}`'s own indentation level. This mirrors
+     * how STYLE.md treats these keywords: their body `{` is K&R-placed (already handled by
+     * {@link #enforceKAndRBraceStyle}), but the keyword itself follows the preceding closing
+     * brace on a new line, not appended to it.
+     */
+    public String placeCatchFinallyOnOwnLine(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        final int n = tokens.size();
+        int lastSigIdx = -1;
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
+                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            if (t.type == TokenType.KEYWORD
+                    && ("catch".equals(t.text) || "finally".equals(t.text))
+                    && lastSigIdx >= 0
+                    && isPunct(tokens.get(lastSigIdx), "}")
+                    && gap.stream().noneMatch(this::isComment)
+                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
+                out.append('\n').append(indentBefore(tokens, lastSigIdx));
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+            out.append(t.text);
+            lastSigIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
     // ── Named-construct blank lines (STYLE.md §7) ───────────────────────────────
     /**
      * Scans a token slice and ensures exactly one blank line immediately follows the `{` and

@@ -30,7 +30,7 @@ import java.util.Set;
 public class MiscRule {
 
     private static final Set<String> TIGHT_PAREN_KEYWORDS =
-            setOf("if", "while", "for", "switch");
+            setOf("if", "while", "for", "switch", "catch");
 
     private final String language;
 

@@ -116,6 +116,8 @@ public:
     void add(T item) { items_.push_back( std::move(item) ); }
     void render()
     {
+        int  dummy1 = 10;
+        auto dummy2 = dummy1;
         for(auto& it : items_) it.draw();
     }
 

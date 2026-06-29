@@ -27,7 +27,7 @@ typedef struct {
     int b; /* Second field */
     int c; // Third field
 
-} Trio; // struct Trio
+} Trio;
 
 // Comment between function params
 void multiParam(
@@ -57,7 +57,7 @@ void multiParam(
     for(int i = 0 /* Start */; i < 10 /* Limit */; ++i /* Step */) printf("%d\n", i);
 
     // Trailing comment on closing brace of for (user-written, not from formatter)
-    for(int j = 0; j < 5; ++j) printf("%d\n", j);
+    for(int j = 0; j < 5; ++j) printf("%d\n", j); // End for j
 
     /*
      * Multi-line block comment.
@@ -77,9 +77,9 @@ int switchy(int v)
 {
     switch(v) {
         // Before case 1
-        case 1: /* Inline on case */ return 1;
+        case 1: /* inline on case */ return 1;
         /* Before default */
-        default: return 0; // Default case
+        default: return 0; // default case
     }
 }
 

@@ -71,6 +71,13 @@ Fix those two bugs first (don't look at the other part of the diff).
      }
  }
 
+...
+
+     else {
+-        (void) v;
++        (void)v;
+     }
+
 ####################################################################################################
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
@@ -221,7 +228,7 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `combined_inp.cpp` formatting test:
 
-(1)
+(1) @@@ @@@ @@@
      explicit Engine(Config cfg);
 -    ~Engine();
 +    ~        Engine();
@@ -247,7 +254,7 @@ Bug fix for the `combined_inp.cpp` formatting test:
 +template < AudioProcessor Impl > void Engine<Impl>::  setMuted     (bool  m)       { muted_ = m;         }
 +template<AudioProcessor Impl> uint32_t Engine<Impl>:: getFrameCount(       ) const { return frameCount_; }
 
-(3)
+(3) @@@ @@@ @@@
  void useBindings(const FrameRange& range)
  {
 -    auto     [start, end] = range;
@@ -281,14 +288,14 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `combined_inp.java` formatting test:
 
-(1)
+(1) @@@ @@@ @@@
  // Combined Java test: core + Java 17+ constructs in one realistic file.
 -// Exercises: imports, declarations, getters/setters, closing comments,
 -// switch expressions, records, sealed classes, text blocks, var, pattern matching.
 +// Exercises: imports, declarations, getters/setters, closng comments,
 +// switch expressions, records, sealed classes, text blocks, var, pattern matching
 
-(2)
+(2) @@@ @@@ @@@
 -    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {}
 +    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {
 +
@@ -311,7 +318,7 @@ Bug fix for the `combined_inp.java` formatting test:
 For this 3rd bug, if an enum contains more than just the enum values, the enum values and other construct separated by "\n;\n".
 See `combined_out.java` for the details.
 
-(4)
+(4) @@@ @@@ @@@
          if(buffer == null || frames <= 0) return new ProcessResult(false, 0, "invalid input");
          if(state != State.RUNNING) return new ProcessResult(false, 0, "not running");
          if(muted) {
@@ -326,8 +333,216 @@ See `combined_out.java` for the details.
          return new ProcessResult(true, frames, null);
      }
 
-(5)
+(5) @@@ @@@ @@@
 -        public int getBufferSize() { return bufferSize; }
 +        public int getBufferSize()
 +        { return bufferSize; }
 
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `c_comments_inp.c` formatting test:
+
+(1)
+-
+-/* Separator */
+-
+
+NOTE: Lone `/* */` comments got deleted.
+
+(2) @@@ @@@ @@@
+ typedef struct {
+-
+     /* Fields below */
+     int a; // First field
+     int b; /* Second field */
+-    int c; // Third field
+-
++    int c; // Third field // third field
+ } Trio;
+
+(3) @@@ @@@ @@@
+ // Comment between function params
+-void multiParam(
+-    int a, /* First */
+-    int b, // Second
+-    int c  /* Third */
+-)
++void multiParam(int a, int b, int c)
+ {
+
+(4) @@@ @@@ @@@
+-    int tmp  = a; /* Save a */
+-    tmp     += b; // Add b
+-    tmp     += c; /* Add c */
++    int    tmp = a; /* Save a */
++    tmp += b; // Add b
++    tmp += c; /* Add c */       /* Add c */    /* Add c */
+
+(5)
+     if(a < 0) {
+         printf("neg\n");
+-    }
+-    /* Non-negative */
+-    else {
++    } /* Non-negative */ else {
+         printf("pos\n");
+     }
+
+(6) @@@ @@@ @@@
+ // Comment on same line as preprocessor
+-#define MACRO_A 1 // Macro a
+-#define MACRO_B 2 // Macro b
+-#define MACRO_C 3 // Macro c
++#define MACRO_A 1 // macro a
++#define MACRO_B 2 // macro b
++#define MACRO_C 3 // macro c
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `cpp_comments_inp.cpp` formatting test:
+
+(1)
+ static int alpha = 1; // Alpha value
+ static int beta  = 2; // Beta value
+-static int gamma = 3; // Gamma value
++static int gamma = 3; // Gamma value // gamma value
+
+(2) @@@ @@@ @@@
+-    void insert(const K& /* Key */ k, const V& /* Value */ v);
++    void insert(const K& k, const V& v);
+     V    get(const K& k) const; // May throw
+
+(3)
+ template<typename T>
+ concept HasDraw = requires(T t /* The object */) {
+-
+     /* Must have draw */ t.draw();
+     { t.area() /* Area method */ } -> std::convertible_to<double>;
+
+ }; // concept HasDraw
+
+(4) @@@ @@@ @@@
+     // Inline methods with trailing comments
+-    int  getValue(     ) const { return v_;     } // Getter
+-    void setValue(int v)       { v_ = v;        } // Setter
+-    bool isValid (     ) const { return v_ > 0; } // Validator
++    int  getValue(     ) const { return v_;     }
++    void setValue(int v)       { v_ = v;        }
++    bool isValid (     ) const { return v_ > 0; }
+
+ private:
+-    int v_ = 0; /* Initial value */
+-
++    int v_ = 0; /* Initial value */ /* Initial value */
+
+(5)
+ void complexFunction(
+-    int                      a, // Plain int
+-    const std::string&       b, /* Const ref string */
+-    std::vector<int>         c, // Vector by value
+-    std::function<void(int)> d  /* Callback */
+-)
+-{
++        int                           a,
++        const std::string&            b,
++        std::vector<int>              c,
++        std::function < void (int) >  d
++    )
++    {
+     // Comment at top
+-    auto result = a; /* Start with a */
+-    result += static_cast<int>( b.size() ); // Add string length
++    auto result = a; /* Start with a */ /* Start with a */
++    result += static_cast<int>( b.size() ); // Add string length // add string length
+
+     // Comment inside if with init-statement
+-    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) {
+-        result += *it;
+-    }
++    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) result += * it;
+
+     // Comment between else and brace in C++
+     if(result > 0) {
+         d(result);
+-    }
+-    /* Call otherwise */
+-    else {
++    } /* Call otherwise */ else {
+         d(0);
+     }
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `java_comments_out.java` formatting test:
+
+(1)
+     // Trailing line comment on a field declaration
+     private int alpha = 1; // Alpha value
+     private int beta  = 2; // Beta value
+-    private int gamma = 3; // Gamma value
++    private int gamma = 3; // Gamma value // gamma value
+
+     // Trailing block comment on a field declaration
+     private int delta   = 4; /* Delta */
+-    private int epsilon = 5; /* Epsilon */
++    private int epsilon = 5; /* Epsilon */ /* Epsilon */
+
+(2) @@@ @@@ @@@
+     // Trailing line comment on a field declaration
+     private int alpha = 1; // Alpha value
+     private int beta  = 2; // Beta value
+-    private int gamma = 3; // Gamma value
++    private int gamma = 3; // Gamma value // gamma value
+
+     // Trailing block comment on a field declaration
+     private int delta   = 4; /* Delta */
+-    private int epsilon = 5; /* Epsilon */
++    private int epsilon = 5; /* Epsilon */ /* Epsilon */
+
+(3) @@@ @@@ @@@
+     // Comment inside a method signature (between params)
+-    public void method(
+-        int a, // First param
+-        /* Second */ int b,
+-        int c  // Third param
+-    )
++    public void method(int a, int b, int c)
+     {
+         // Comment at top of method body
+-        int x = a + b; // Inline comment on assignment
+-        /* Block comment inline on next line */ int y = b + c;
++        int x = a + b; // inline comment on assignment
++        int y = b + c;
+
+(4) @@@ @@@ @@@
+         // Comment between else and brace
+         if(x < 0) {
+             System.out.println("negative");
+-        }
+-        /* else block */
+-        else {
++        } /* else block */ else {
+             System.out.println("non-negative");
+         }
+
+(5)
+     public int switchy(int v)
+     {
+         switch(v) {
+-
+             // Comment before case
+             case 1: // Comment after case label
+                 return 1;
+-
+             /* Block comment before default */
+             default:
+                 return 0;
+-
+         } // switch
+     }

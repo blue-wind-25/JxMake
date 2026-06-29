@@ -6,7 +6,7 @@ public class CommentEdgeCases {
 
     // Comment between annotations and declaration
     @SuppressWarnings("unchecked")
-    // This comment is between annotation and field
+    // this comment is between annotation and field
     private int annotatedField = 0;
 
     /* Block comment between annotation and field */
@@ -50,7 +50,7 @@ public class CommentEdgeCases {
         for(int i = 0 /* Start */; i < 10 /* End */; ++i /* Step */) System.out.println(i);
 
         // Comment after closing brace of for (not a named construct)
-        for(int j = 0; j < 5; j++) System.out.println(j);
+        for(int j = 0; j < 5; ++j) System.out.println(j); // End for
 
         // Block comment on its own line inside a block
         /*
@@ -60,8 +60,8 @@ public class CommentEdgeCases {
         int z = x + y;
 
         // Line comment before return
-        // Return value is z
-        return; // This is a void method so this is wrong but tests the comment
+        // return value is z
+        return; // this is a void method so this is wrong but tests the comment
     }
 
     // Comment between method declarations

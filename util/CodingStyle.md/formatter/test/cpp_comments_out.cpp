@@ -43,11 +43,11 @@ concept HasDraw = requires(T t /* The object */) {
 }; // concept HasDraw
 
 // Comment between class specifier and base
-class /* Derived */ Derived /* From */ : /* Public */ public Base {
+class /* Derived */ Derived /* From */ : /* public */ public Base {
 
 public:
     // Comment before constructor
-    Derived(); // Default ctor
+    Derived(); // default ctor
     /* explicit */ explicit Derived(int v); // Value ctor
     ~Derived(); // Dtor
 

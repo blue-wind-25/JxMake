@@ -86,7 +86,7 @@ public:
     float    getGain() const;
     void     setGain(float g);
     bool     isMuted() const;
-    void     setMuted(bool m );
+    void     setMuted(bool m);
     uint32_t getFrameCount() const;
 
     FrameRange getActiveRange() const;

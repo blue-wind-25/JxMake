@@ -36,17 +36,15 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         {
             if(framesProcessed < 0) throw new IllegalArgumentException("negative frames");
         }
-
         public boolean hasError() { return error != null && !error.isEmpty(); }
 
     } // record ProcessResult
 
     public enum State {
 
-        IDLE,
-        RUNNING,
-        PAUSED,
-        ERROR;
+        IDLE, RUNNING, PAUSED, ERROR
+
+        ;
 
         public boolean isActive() { return this == RUNNING; }
 
@@ -110,7 +108,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
             case "stop"  -> State.IDLE;
             case "error" -> State.ERROR;
             default      -> state; // No change
-        };
+        }; // switch
     }
 
     // Pattern matching
@@ -141,7 +139,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         return DEBUG_TEMPLATE.formatted(ENGINE_NAME, ENGINE_VERSION, state, frameCount);
     }
 
-    // Var usage
+    // var usage
     public List<String> listChannels()
     {
         var result = new ArrayList<String>();

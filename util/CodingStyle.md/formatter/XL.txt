@@ -200,7 +200,6 @@ Bug fix for the `combined_inp.hpp` formatting test:
 -// Combined .hpp test: pragma once, concepts, templates, classes, extern C
 +// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
 
-
 ...
 
      explicit EngineBase(EngineConfig cfg);
@@ -209,15 +208,6 @@ Bug fix for the `combined_inp.hpp` formatting test:
 -    EngineBase(const EngineBase&)            = delete;
 +    EngineBase(const EngineBase&) = delete;
      EngineBase& operator=(const EngineBase&) = delete;
-
-...
-
-     float    getGain() const;
-     void     setGain(float g);
-     bool     isMuted() const;
--    void     setMuted(bool m );
-+    void     setMuted(bool m);
-     uint32_t getFrameCount() const;
 
 ...
 
@@ -284,4 +274,60 @@ Bug fix for the `combined_inp.cpp` formatting test:
  static constinit float gainB = 0.5f;  // Channel B
 -static constinit float gainC = 0.25f; // Channel C
 +static constinit float gainC = 0.25f; // Channel C // channel C
+
+####################################################################################################
+
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.
+
+Bug fix for the `combined_inp.java` formatting test:
+
+(1)
+ // Combined Java test: core + Java 17+ constructs in one realistic file.
+-// Exercises: imports, declarations, getters/setters, closing comments,
+-// switch expressions, records, sealed classes, text blocks, var, pattern matching.
++// Exercises: imports, declarations, getters/setters, closng comments,
++// switch expressions, records, sealed classes, text blocks, var, pattern matching
+
+(2)
+-    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {}
++    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {
++
++} // record ChannelConfig
+
+(3)
+     public enum State {
+
+-        IDLE, RUNNING, PAUSED, ERROR
+-
+-        ;
+-
+-        public boolean isActive() { return this == RUNNING; }
++        IDLE, RUNNING, PAUSED, ERROR;
++        public boolean isActive()
++        { return this == RUNNING; }
+
+     } // enum State
+
+For this 3rd bug, if an enum contains more than just the enum values, the enum values and other construct separated by "\n;\n".
+See `combined_out.java` for the details.
+
+(4)
+         if(buffer == null || frames <= 0) return new ProcessResult(false, 0, "invalid input");
+         if(state != State.RUNNING) return new ProcessResult(false, 0, "not running");
+         if(muted) {
+-            java.util.Arrays.fill(buffer, 0, frames, 0.0f);
+-            return new ProcessResult(true, frames, null);
++            java.util.Arrays. fill(buffer, 0, frames, 0.0f);
++            return new        ProcessResult(true, frames, null);
+         }
+         for(int i = 0; i < frames; ++i) buffer[i] *= gain;
+         frameCount += frames;
+-
+         return new ProcessResult(true, frames, null);
+     }
+
+(5)
+-        public int getBufferSize() { return bufferSize; }
++        public int getBufferSize()
++        { return bufferSize; }
 

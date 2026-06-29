@@ -10,32 +10,6 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-(4)
- // Requires clause on function
--template<Numeric T>
--T square(T x)
-+template < Numeric T > T square(T x)
- {
-     return x * x;
- }
-
- // Trailing requires clause
- template<typename T>
--T cube(T x) requires Numeric<T>
--{
-+T cube(T x) requires Numeric<T> {
-     return x * x * x;
- }
-
-(5)
--    void add(T item) { items_.push_back( std::move(item) ); }
--
-+    void add(T item)
-+    { items_.push_back( std::move(item) ); }
-
-Fix those two bugs first (don't look at the other part of the diff).
-
-
 (6)
 -constinit        int   globalCounter = 0;
  static constinit float defaultGain   = 1.0f;
@@ -47,7 +21,9 @@ Fix those two bugs first (don't look at the other part of the diff).
 +    auto operator<=>(const Weight& other) const {
          return value <=> other.value;
      }
+
 Fix those two bugs first (don't look at the other part of the diff).
+
 
 (8)
      struct promise_type {

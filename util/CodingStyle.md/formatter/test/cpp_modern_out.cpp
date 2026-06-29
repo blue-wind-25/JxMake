@@ -114,7 +114,6 @@ class Canvas {
 
 public:
     void add(T item) { items_.push_back( std::move(item) ); }
-
     void render()
     {
         for(auto& it : items_) it.draw();

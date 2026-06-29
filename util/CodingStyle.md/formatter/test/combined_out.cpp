@@ -10,7 +10,6 @@
 #include <functional>
 #include <concepts>
 #include <compare>
-
 #include "audio.hpp"
 #include "platform.hpp"
 
@@ -42,9 +41,11 @@ concept Configurable = requires(T t) {
 // Types
 
 enum class SampleFormat : uint8_t {
+
     S16 = 0,
     S24 = 1,
     F32 = 2
+
 }; // enum class SampleFormat
 
 // Structured binding support
@@ -52,7 +53,6 @@ struct FrameRange {
 
     uint32_t start;
     uint32_t end;
-
     auto operator<=>(const FrameRange&) const = default;
 
 }; // struct FrameRange
@@ -89,12 +89,12 @@ public:
     bool process(float* buf, uint32_t frames);
 
     // Getters/setters
-    float         getGain      (       ) const;
-    void          setGain      (float g);
-    bool          isMuted      (       ) const;
-    void          setMuted     (bool m );
-    uint32_t      getFrameCount(       ) const;
-    const Config& getConfig    (       ) const;
+    float         getGain() const;
+    void          setGain(float g);
+    bool          isMuted() const;
+    void          setMuted(bool m);
+    uint32_t      getFrameCount() const;
+    const Config& getConfig() const;
 
     // C++17 structured bindings helper
     FrameRange getActiveRange() const;
@@ -174,7 +174,6 @@ void useBindings(const FrameRange& range)
 void withInitStatement(int raw)
 {
     if(auto v = raw * 2; v > 100) printf("big: %d\n", v);
-
     switch(int code = raw & 3; code) {
         case 0  : break;
         case 1  : break;
@@ -190,18 +189,17 @@ consteval int sampleCount(int channels, int frames)
     return channels * frames;
 }
 
-       constinit float    globalGain       = 1.0f;
 static constinit uint32_t globalSampleRate = 48000;
+       constinit float    globalGain       = 1.0f;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Three-way comparison
-⅔3
+
 struct AudioVersion {
 
     int major;
     int minor;
     int patch;
-
     auto operator<=>(const AudioVersion&) const = default;
 
 }; // struct AudioVersion
@@ -222,7 +220,7 @@ extern "C" {
     void audio_c_init();
     void audio_c_shutdown();
     int  audio_c_process(float* buf, int frames, float gain);
-    
+
 } // extern "C"
 
 ////////////////////////////////////////////////////////////////////////////////////

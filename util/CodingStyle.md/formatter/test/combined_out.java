@@ -75,33 +75,27 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
     // ── Getters / setters ──────────────────────────────────────────────────────────
 
-    public State         getState()              { return state;       }
-    public ChannelConfig getConfig()             { return config;      }
-    public int           getFrameCount()         { return frameCount;  }
-    public boolean       isMuted()               { return muted;       }
-    public void          setMuted(boolean muted) { this.muted = muted; }
-    public float         getGain()               { return gain;        }
-    public void          setGain(float gain)     { this.gain = gain;   }
-    public String        getLabel()              { return label;       }
-    public void          setLabel(String label)  { this.label = label; }
+    public State         getState     (             ) { return state;       }
+    public ChannelConfig getConfig    (             ) { return config;      }
+    public int           getFrameCount(             ) { return frameCount;  }
+    public boolean       isMuted      (             ) { return muted;       }
+    public void          setMuted     (boolean muted) { this.muted = muted; }
+    public float         getGain      (             ) { return gain;        }
+    public void          setGain      (float   gain ) { this.gain = gain;   }
+    public String        getLabel     (             ) { return label;       }
+    public void          setLabel     (String  label) { this.label = label; }
 
     // ── Core methods ───────────────────────────────────────────────────────────────
 
     public ProcessResult process(float[] buffer, int frames) throws IOException
     {
-        if(buffer == null || frames <= 0) {
-            return new ProcessResult(false, 0, "invalid input");
-        }
-        if(state != State.RUNNING) {
-            return new ProcessResult(false, 0, "not running");
-        }
+        if(buffer == null || frames <= 0) return new ProcessResult(false, 0, "invalid input");
+        if(state != State.RUNNING) return new ProcessResult(false, 0, "not running");
         if(muted) {
             java.util.Arrays.fill(buffer, 0, frames, 0.0f);
             return new ProcessResult(true, frames, null);
         }
-        for(int i = 0; i < frames; ++i) {
-            buffer[i] *= gain;
-        }
+        for(int i = 0; i < frames; ++i) buffer[i] *= gain;
         frameCount += frames;
 
         return new ProcessResult(true, frames, null);
@@ -111,11 +105,11 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
     public void transition(String event)
     {
         state = switch(event) {
-            case "start"  -> State.RUNNING;
-            case "pause"  -> State.PAUSED;
-            case "stop"   -> State.IDLE;
-            case "error"  -> State.ERROR;
-            default       -> state; // No change
+            case "start" -> State.RUNNING;
+            case "pause" -> State.PAUSED;
+            case "stop"  -> State.IDLE;
+            case "error" -> State.ERROR;
+            default      -> state; // No change
         };
     }
 
@@ -128,7 +122,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         else if(obj instanceof ProcessResult pr) {
             return pr.success() ? "ok:" + pr.framesProcessed() : "err:" + pr.error();
         }
-        else if(obj instanceof String s && !s.isEmpty()) {
+        else if( obj instanceof String s && !s.isEmpty() ) {
             return "label: " + s;
         }
 
@@ -152,7 +146,7 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
     {
         var result = new ArrayList<String>();
         var cfg    = config;
-        for(var i = 0; i < cfg.channels(); i++) {
+        for( var i = 0; i < cfg.channels(); ++i ) {
             var name = "ch" + i;
             result.add(name);
         }

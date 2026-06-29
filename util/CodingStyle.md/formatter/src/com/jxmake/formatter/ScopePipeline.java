@@ -444,8 +444,33 @@ public class ScopePipeline {
             // For Java: skip past any leading @Annotation tokens so they stay verbatim in
             // leadingGap (on their own line) rather than being absorbed into the signature's
             // lead-token list and collapsed onto the method declaration line.
-            final int sigLeadStart = "java".equals(language)
-                    ? skipAnnotations(tokens, leadStart, closeParenIdx) : leadStart;
+            // For C/C++: start the signature from the same line as the function name --
+            // a `template<...>` header that precedes the function on its own line must
+            // stay verbatim in leadingGap rather than being pulled into parseSignature,
+            // where it would be collapsed with the return type onto one line.
+            final int sigLeadStart;
+            if ("java".equals(language)) {
+                sigLeadStart = skipAnnotations(tokens, leadStart, closeParenIdx);
+            } else {
+                final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
+                if (nameIdx >= 0) {
+                    // Find the last NEWLINE within the span (before nameIdx).
+                    int newlineIdx = -1;
+                    for (int j = nameIdx - 1; j >= leadStart; j--) {
+                        if (tokens.get(j).type == TokenType.NEWLINE) { newlineIdx = j; break; }
+                    }
+                    if (newlineIdx < 0) {
+                        // No NEWLINE between leadStart and nameIdx -- same physical line.
+                        sigLeadStart = leadStart;
+                    } else {
+                        // Function name is on a later line; start the signature there.
+                        final int lineFirst = nextSignificantIndex(tokens, newlineIdx);
+                        sigLeadStart = lineFirst >= 0 ? lineFirst : leadStart;
+                    }
+                } else {
+                    sigLeadStart = leadStart;
+                }
+            }
             final Signature sig = miscRule.parseSignature(
                     tokens.subList(sigLeadStart, closeParenIdx + 1));
             if (sig == null) {

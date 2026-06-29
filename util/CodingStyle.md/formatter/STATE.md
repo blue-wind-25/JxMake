@@ -375,7 +375,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 3 bugs fixed, remaining diff is pre-existing)
+- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 5 bugs fixed, remaining diff is pre-existing)
   - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
     capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
   - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
@@ -387,6 +387,23 @@ accept `final` there). This applies to all `.java` files under `src/`.
   - Bug 3 FIXED: `DeclarationAlignmentRule.parseDeclaration` now rejects statements where
     `typeTokens` ends with `::` — `T::version;` was misread as declaration (type=`T::`,
     name=`version`) and rendered with a column-grid space between them.
+  - Bug 4 FIXED (two parts):
+    - (4a) `ScopePipeline.applySignaturePass`: for C/C++, `sigLeadStart` now starts from the
+      first significant token on the same physical line as the function name (by scanning
+      backward from the name for the last NEWLINE within the span), rather than from `leadStart`
+      (the span's very first significant token). This prevents a `template<...>` header on a
+      prior line from being pulled into `parseSignature`, where it was collapsed with the return
+      type and name onto one line (and padded as a nested angle-bracket pair).
+    - (4b) `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`: new
+      `findCloseParenBeforeRequiresClause` helper scans backward past the requires-clause
+      expression to find the function's own `)`, enabling Allman-brace conversion for
+      `f() requires Clause {`. `enforceRequiresClausePlacement` no longer swallows the
+      whitespace/newline before `{`/`;`: the replaced span now ends just past the last non-gap
+      clause token, so an Allman `\n{` placed by the earlier pass is preserved verbatim.
+  - Bug 5 FIXED: `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` no longer
+    Allman-converts a function whose `{ ... }` body sits on a single physical line — such
+    one-liners are always kept K&R (the `OneLinerCandidate` adjacency-grouping logic and all
+    related dead code removed).
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

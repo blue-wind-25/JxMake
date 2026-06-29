@@ -188,4 +188,206 @@ Generator makeGenerator()
     co_return;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// C++20: others
+
+// Nested namespace definition
+namespace alpha::beta::gamma {
+
+struct Point {
+
+    int x;
+    int y;
+
+}; // struct Point
+
+} // namespace alpha::beta::gamma
+
+// Designated initializers
+void designatedInitializers()
+{
+    alpha::beta::gamma::Point p{
+        .x = 10,
+        .y = 20
+    };
+    (void) p;
+}
+
+// Requires-expression with nested requirement
+template<typename T>
+concept LargeIntegral = requires {
+
+    requires std::integral<T>;
+    requires sizeof(T) >= 4;
+
+}; // concept LargeIntegral
+
+// Lambda template parameters
+auto genericLambda = []<typename T>(T value) {
+    return value;
+};
+
+// Lambda template with requires clause
+auto integralLambda = []<typename T>(T value) requires std::integral<T>
+{
+    return value;
+};
+
+// Qualified concept in template parameter list
+template<std::ranges::range R>
+void consume(R&& r)
+{
+    for(auto&& e : r) (void) e;
+}
+
+// Fold expression
+template<typename... Ts>
+auto sum(Ts... xs)
+{
+    return (... + xs);
+}
+
+// Attributes in common locations
+[[nodiscard]]
+int getValue()
+{
+    return 42;
+}
+
+void attributeExamples(int x)
+{
+    [[maybe_unused]]
+    int temp = x;
+
+    if (x > 0) [[likely]] {
+        ++x;
+    }
+    else [[unlikely]] {
+        --x;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// C++23: others
+////////////////////////////////////////////////////////////////////////////////////
+// Additional C++23 syntax
+
+// Alias declaration in init-statement
+void aliasInitStatement()
+{
+    if (using Int = int; true)
+    {
+        Int x = 42;
+        (void)x;
+    }
+
+    switch (using Size = std::size_t; Size{1})
+    {
+        case 1:
+            break;
+        default:
+            break;
+    }
+}
+
+// Explicit object parameter using auto
+struct Counter {
+    int value{};
+
+    void increment(this auto& self)
+    {
+        ++self.value;
+    }
+
+    int get(this const auto& self)
+    {
+        return self.value;
+    }
+
+    void reset(this auto&& self)
+    {
+        self.value = 0;
+    }
+};
+
+// Explicit object parameter with templates
+struct Wrapper {
+    template<typename T>
+    void assign(this Wrapper& self, T&& value)
+    {
+        (void) self;
+        (void) value;
+    }
+};
+
+struct Vec2 {
+
+    int x{};
+    int y{};
+
+    // Explicit object parameter (deducing this)
+    int lengthSquared(this const Vec2& self)
+    {
+        return self.x * self.x + self.y * self.y;
+    }
+
+    // static operator()
+    static void operator()() {}
+
+    // Multidimensional operator[]
+    int operator[](std::size_t row, std::size_t col) const
+    { return static_cast<int>(row * 100 + col); }
+
+}; // struct Vec2
+
+consteval int always42()
+{
+    return 42;
+}
+
+constexpr int compute()
+{
+    // if consteval (no condition)
+    if consteval {
+        return always42();
+    }
+    else {
+        return 0;
+    }
+}
+
+template <typename T>
+constexpr int value(T v)
+{
+    // if constexpr (with condition)
+    if constexpr(std::is_integral_v<T>) {
+        return static_cast<int>(v);
+    }
+    else {
+        return 0;
+    }
+}
+
+namespace a::b::c {
+
+} // namespace a b c
+
+int main()
+{
+    Vec2 v{3, 4};
+
+    // Multidimensional operator[]
+    int a = v[1, 2];
+
+    // static operator()
+    Vec2::operator()();
+
+    // Attribute introducer
+    [[ assume(a >= 0) ]];
+
+    if( int v = 10; myfunc(v) ) return -1;
+
+    return compute() + value(5) + v.lengthSquared();
+}
+
 } // namespace modern

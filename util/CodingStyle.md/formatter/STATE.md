@@ -400,8 +400,10 @@ The current separate-postConst-column layout produces a visual gap between `*`
 and `const` when shorter types share a group with longer ones:
 
 ```c
-char*      const c;    // ← gap (current)
-char* const      c;    // ← correct per §8
+char**         c;
+double**       c;
+char*    const c; // ← gap (current)
+char* const    c; // ← correct per §8
 ```
 
 Fix (low regression risk): in `splitCppType`, always return `postConst = ""`

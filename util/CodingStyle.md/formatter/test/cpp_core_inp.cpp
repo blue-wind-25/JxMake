@@ -92,7 +92,7 @@ void applyGain(AudioBuffer& buf, float gain) {
 // Auto return type
 auto makeBuffer(uint32_t frames, uint32_t channels) -> std::unique_ptr<AudioBuffer> {
     auto buf = std::make_unique<AudioBuffer>();
-    
+
     buf->frames   = frames;
     buf->channels = channels;
     buf->data     = new float[frames * channels]();

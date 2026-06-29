@@ -32,7 +32,7 @@ public class CommentEdgeCases {
     {
         // Comment at top of method body
         int x = a + b; // Inline comment on assignment
-        /* block comment inline on next line */ int y = b + c;
+        /* Block comment inline on next line */ int y = b + c;
 
         // Comment inside if condition context (before brace)
         if /* Condition check */ (x > y) System.out.println("greater");
@@ -47,7 +47,7 @@ public class CommentEdgeCases {
         }
 
         // Comment inside for loop header
-        for(int i = 0 /* start */; i < 10 /* end */; ++i /* step */) System.out.println(i);
+        for(int i = 0 /* Start */; i < 10 /* End */; ++i /* Step */) System.out.println(i);
 
         // Comment after closing brace of for (not a named construct)
         for(int j = 0; j < 5; j++) System.out.println(j);
@@ -85,7 +85,7 @@ public class CommentEdgeCases {
             default:
                 return 0;
 
-        }
+        } // switch
     }
 
     // Comment inside ternary expression (tricky for tokenizer)

@@ -37,7 +37,7 @@ private:
 template<typename T>
 concept HasDraw = requires(T t /* The object */) {
 
-    /*Mmust have draw */ t.draw();
+    /* Must have draw */ t.draw();
     { t.area() /* Area method */ } -> std::convertible_to<double>;
 
 }; // concept HasDraw

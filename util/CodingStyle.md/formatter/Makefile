@@ -63,7 +63,7 @@ INP_FILES += hpp_core_inp.hpp
 INP_FILES += cpp_core_inp.cpp
 INP_FILES += java_core_inp.java
 
-#INP_FILES += cpp_modern_inp.cpp
+INP_FILES += cpp_modern_inp.cpp
 #INP_FILES += java_modern_inp.java
 
 #INP_FILES += combined_inp.h
@@ -74,7 +74,7 @@ INP_FILES += java_core_inp.java
 
 #INP_FILES += c_comments_inp.c
 #INP_FILES += cpp_comments_inp.cpp
-INP_FILES += java_comments_inp.java
+#INP_FILES += java_comments_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

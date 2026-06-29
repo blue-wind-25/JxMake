@@ -475,14 +475,45 @@ int    count = 0;
 void (*cb)(int) = NULL;   // ← breaks group; count and ratio in separate groups
 float  ratio = 1.0f;
 ```
-
-No fix planned — aligning these into a variable column grid would be
-semantically odd. Acceptable as preserve-as-is behaviour.
+Update `README.md` after implementing this.
 
 ---
 
-## End Goal
+## TODO — Not Scheduled
 
-- [ ] Dogfood checkpoint complete (see Checklist — Phase 3, Step 1.5)
-- [ ] `test/` directory with 15 `*_inp`/`*_out` file pairs + `README.txt` committed
-      and confirmed correct against the formatter's actual output
+### Add support to enable/disable formatting
+
+Via comments inside the code:
+
+//% JXM_CFMT_DIS
+/*% JXM_CFMT_DIS */
+
+//% JXM_CFMT_ENA
+/*% JXM_CFMT_ENA */
+
+Via command line options to start with `JXM_CFMT_DIS` add option:
+--format-off
+
+Update `README.md` after implementing this.
+
+### Extra
+
+1. Smoke test support multiple-file formatting at once, both in `--standalone` and
+   client-server mode
+2. Add `bench` target in Makefile for benchmarking (calculate the total time):
+   - Formatting the 15 files above one by one in `--standalone` mode
+   - Formatting the 15 files above at once in `--standalone` mode
+   - Formatting the 15 files above one by one in client-server mode
+   - Formatting the 15 files above at once in client-server ` mode
+
+Start the server before benchmarking the client-server mode and then stop the server
+after the benchmarking is done. Do not include the server start and stop time in
+the benchmark.
+
+### Add new configuration entries:
+
+# ── Behavior ──────────────────────────────────────────────────────────────────
+normalize-comment-start-case = on              # on | off
+normalize-comment-end-period = on              # on | off
+
+Update `README.md` after implementing this.

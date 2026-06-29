@@ -13,11 +13,10 @@
 #include <vector>
 #include <functional>
 #include <concepts>
-
 #include "platform.hpp"
 #include "types.hpp"
 
-// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
+// Combined .hpp test: pragma once, concepts, templates, classes, extern C
 
 namespace audio {
 
@@ -62,7 +61,6 @@ struct FrameRange {
 
     uint32_t start;
     uint32_t end;
-
     auto operator<=>(const FrameRange&) const = default;
 
 }; // struct FrameRange
@@ -85,11 +83,11 @@ public:
     virtual bool process(float* buf, uint32_t frames) = 0;
     virtual void reset()                              = 0;
 
-    float    getGain      (       ) const;
-    void     setGain      (float g);
-    bool     isMuted      (       ) const;
-    void     setMuted     (bool m );
-    uint32_t getFrameCount(       ) const;
+    float    getGain() const;
+    void     setGain(float g);
+    bool     isMuted() const;
+    void     setMuted(bool m );
+    uint32_t getFrameCount() const;
 
     FrameRange getActiveRange() const;
 

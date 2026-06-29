@@ -10,7 +10,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
 #include "platform.h"
 #include "types.h"
 
@@ -44,11 +43,11 @@ typedef struct Engine Engine;
 extern "C" {
 #endif
 
-Engine*     engine_create(const EngineConfig* cfg);
-void        engine_destroy(Engine* eng);
-bool        engine_start(Engine* eng);
-bool        engine_stop(Engine* eng);
-bool        engine_process(Engine* eng, float* buf, uint32_t frames);
+Engine* engine_create(const EngineConfig* cfg);
+void    engine_destroy(Engine* eng);
+bool    engine_start(Engine* eng);
+bool    engine_stop(Engine* eng);
+bool    engine_process(Engine* eng, float* buf, uint32_t frames);
 
 EngineState engine_get_state(const Engine* eng);
 float       engine_get_gain(const Engine* eng);

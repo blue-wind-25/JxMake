@@ -8,7 +8,7 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Continue with `- Bug 9 IN PROGRESS (`DeclarationAlignmentRule` — structured bindings, `DeclarationAlignmentRule.java`)`.
+Continue with 'Bug 9 IN PROGRESS'.
 
 (9)
  void useBindings()

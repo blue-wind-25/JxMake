@@ -48,40 +48,43 @@ Fix those two bugs first (don't look at the other part of the diff).
 
 
 (10)
+ // Qualified concept in template parameter list
+ template<std::ranges::range R>
+-void consume(R&& r)
++void consume(R && r)
+ {
+-    for(auto&& e : r) (void) e;
++    for(auto&& e : r) (void)e;
+ }
+
+ // Fold expression
+ template<typename... Ts>
+-auto sum(Ts... xs)
++auto sum(Ts ... xs)
+ {
+     return (... + xs);
+ }
+
+ ...
+
 -    void reset(this auto&& self)
 +    void reset(this auto && self)
-
-(11)
- void attributeExamples(int x)
- {
--    [[maybe_unused]]
-+    [ [maybe_unused] ]
-     int temp = x;
-
--    if(x > 0) [[likely]] {
-+    if(x > 0) [ [likely] ] {
-         ++x;
+     {
+         self.value = 0;
      }
--    else [[unlikely]] {
-+    else [ [unlikely] ] {
-         --x;
-     }
-
-     if(x > 0) {
--        [[likely]] ++x;
-+        [ [likely] ] ++x;
-     }
-     else {
--        [[unlikely]] --x;
-+        [ [unlikely] ] --x;
-     }
- }
 
 ...
 
-     // Attribute introducer
--    [[ assume(a >= 0) ]];
-+    [ [ assume(a >= 0) ] ];
+     template<typename T>
+-    void assign(this Wrapper& self, T&& value)
++    void assign(this Wrapper& self, T && value)
+
+(11)
+     const void* a = nullptr;
+-          char* b = static_cast<char*>( const_cast<void*> (a) );
+-          int*  c = reinterpret_cast<int*>(b);
++          char* b = static_cast < char* > ( const_cast < void* > (a) );
++          int*  c = reinterpret_cast < int* > (b);
 
 (12)
 -} // namespace alpha beta gamma

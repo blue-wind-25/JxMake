@@ -78,6 +78,8 @@ INP_FILES += cpp_modern_inp.cpp
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
+# make test 2>/dev/null
+# make test 2>&1 | grep PASS
 # make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
 # clear && echo -e '\n====================================================================================================\n' && make test
 # git status | grep _inp

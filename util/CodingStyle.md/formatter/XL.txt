@@ -1,33 +1,14 @@
 Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Bug fix for the `cpp_modern_inp.cpp` formatting test:
-
-(8)
-     struct promise_type {
-
-         int value;
--        Generator           get_return_object  (     )          { return {};            }
--        std::suspend_always initial_suspend    (     )          { return {};            }
--        std::suspend_always final_suspend      (     ) noexcept { return {};            }
--        std::suspend_always yield_value        (int v)          { value = v; return {}; }
--        void                return_void        (     )          {                       }
--        void                unhandled_exception(     )          {                       }
-+        Generator           get_return_object()          { return {}; }
-+        std::suspend_always initial_suspend  ()          { return {}; }
-+        std::suspend_always final_suspend    () noexcept { return {}; }
-+        std::suspend_always yield_value(int v) { value = v; return {}; }
-+        void return_void() {}
-+        void unhandled_exception() {}
-
-     }; // struct promise_type
+Continue with `- Bug 9 IN PROGRESS (`DeclarationAlignmentRule` — structured bindings, `DeclarationAlignmentRule.java`)`.
 
 (9)
  void useBindings()
@@ -67,14 +48,10 @@ Fix those two bugs first (don't look at the other part of the diff).
 
 
 (10)
--} // namespace alpha beta gamma
-+} // namespace alpha
-
-(11)
 -    void reset(this auto&& self)
 +    void reset(this auto && self)
 
-(12)
+(11)
  void attributeExamples(int x)
  {
 -    [[maybe_unused]]
@@ -106,9 +83,16 @@ Fix those two bugs first (don't look at the other part of the diff).
 -    [[ assume(a >= 0) ]];
 +    [ [ assume(a >= 0) ] ];
 
+(12)
+-} // namespace alpha beta gamma
++} // namespace alpha
+
+For this bug #12, if fixing it is difficult and require many code changes, this form is also acceptable:
++} // namespace alpha ...
+
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `java_modern_inp.java` formatting test:
 
@@ -155,7 +139,7 @@ Bug fix for the `java_modern_inp.java` formatting test:
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `combined_inp.h` formatting test:
 
@@ -187,7 +171,7 @@ For this 3rd bug, if not feasible, do not fix.
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `combined_inp.c` formatting test:
 
@@ -228,7 +212,7 @@ Bug fix for the `combined_inp.c` formatting test:
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `combined_inp.hpp` formatting test:
 
@@ -252,7 +236,7 @@ Bug fix for the `combined_inp.hpp` formatting test:
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `combined_inp.cpp` formatting test:
 
@@ -312,7 +296,7 @@ Bug fix for the `combined_inp.cpp` formatting test:
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `combined_inp.java` formatting test:
 
@@ -368,7 +352,7 @@ See `combined_out.java` for the details.
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `c_comments_inp.c` formatting test:
 
@@ -429,7 +413,7 @@ NOTE: Lone `/* */` comments got deleted.
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `cpp_comments_inp.cpp` formatting test:
 
@@ -505,7 +489,7 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 
 ####################################################################################################
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified. If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
 Bug fix for the `java_comments_out.java` formatting test:
 

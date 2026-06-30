@@ -430,8 +430,9 @@ accept `final` there). This applies to all `.java` files under `src/`.
       now form one group correctly.
     - `OUTLIER_RATIO` changed from 2 to 3 (earlier fix, see prior session notes).
     - The promise_type section no longer appears in the diff.
-    **WARNING: debug prints still present in `GetterSetterRule.java` — do NOT remove until
-    Bug 9 is fully fixed and all sub-issues verified.**
+
+    **WARNING: debug prints still present in `GetterSetterRule.java` and `DeclarationAlignmentRule.java` —
+    do NOT remove until Bug 9 is fully fixed and all sub-issues verified.**
   - Bug 9 IN PROGRESS (`DeclarationAlignmentRule` — structured bindings, `DeclarationAlignmentRule.java`):
     Partial progress. `=` alignment IS working (position-verified: both formatter and reference
     output have `=` at same character offset). Remaining sub-issues:
@@ -475,7 +476,8 @@ accept `final` there). This applies to all `.java` files under `src/`.
     whitespace token from `body.subList(i, sizeEnd-1)`) and `"auto&&"` type cell is 6 chars
     (no trailing space, structured binding path `parseStructuredBinding` extracts typeTokens
     differently via `bracketStart`).
-    USER CLARIFICATION: it is the structured `[` and `]` binding that add spaces
+    USER CLARIFICATION: the structured binding path (`[` and `]`) is responsible for the
+    spacing differences.
 
     **(9d) Other differences in `useBindings()` scope** (NOT YET INVESTIGATED):
     The user originally asked about bugs 8 and 9 only. These are in the same scope and

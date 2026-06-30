@@ -93,10 +93,10 @@ static          bool     running;
 static          int      count;
 
 // Mixed static and non-static
-static int beta;
-static int delta;
        int alpha;
+static int beta;
        int gamma;
+static int delta;
 
 // Switch
 const char* describe(State s)

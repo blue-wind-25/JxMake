@@ -107,12 +107,23 @@ public class CppSpecificRule {
      *  by `new` -- the candidate-function-name signal shared by both rewrite directions. */
     private boolean isCandidateSignatureName(final List<Token> tokens, final int openIdx) {
         final int nameIdx = prevSignificantIndex(tokens, openIdx);
-        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+        if (nameIdx < 0) {
             return false;
         }
-        final int beforeName = prevSignificantIndex(tokens, nameIdx);
-        return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
-                || !"new".equals(tokens.get(beforeName).text);
+        final Token nameTok = tokens.get(nameIdx);
+        if (nameTok.type == TokenType.IDENTIFIER) {
+            final int beforeName = prevSignificantIndex(tokens, nameIdx);
+            return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
+                    || !"new".equals(tokens.get(beforeName).text);
+        }
+        // Operator overloads: `operator<=>`, `operator==`, etc. — the OP token before `(` is
+        // the operator symbol; the token before that must be the `operator` keyword.
+        if (nameTok.type == TokenType.OP) {
+            final int beforeOp = prevSignificantIndex(tokens, nameIdx);
+            return beforeOp >= 0 && tokens.get(beforeOp).type == TokenType.KEYWORD
+                    && "operator".equals(tokens.get(beforeOp).text);
+        }
+        return false;
     }
 
     /** True iff {@code closeIdx} (a `)`) is directly followed by `{` -- the function-definition

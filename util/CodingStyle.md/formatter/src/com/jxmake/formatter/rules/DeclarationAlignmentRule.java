@@ -189,7 +189,8 @@ public class DeclarationAlignmentRule {
      * (see `reorderStatics`).
      */
     public List<String> render(final List<Declaration> originalGroup) {
-        final List<Declaration> group = reorderStatics(originalGroup);
+        // C/C++ declarations must not be reordered -- changing order can alter semantics.
+        final List<Declaration> group = "java".equals(language) ? reorderStatics(originalGroup) : originalGroup;
 
         // Function forward declarations use a simpler 2-column layout (no modifier columns).
         boolean allAreFuncDecls = !group.isEmpty();

@@ -375,7 +375,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 5 bugs fixed, remaining diff is pre-existing)
+- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 7 bugs fixed, remaining diff is pre-existing)
   - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
     capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
   - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
@@ -404,6 +404,15 @@ accept `final` there). This applies to all `.java` files under `src/`.
     Allman-converts a function whose `{ ... }` body sits on a single physical line — such
     one-liners are always kept K&R (the `OneLinerCandidate` adjacency-grouping logic and all
     related dead code removed).
+  - Bug 6 FIXED: `DeclarationAlignmentRule.render` was calling `reorderStatics` for all
+    languages including C/C++. Reordering C/C++ declarations can alter semantics (initialization
+    order, `constinit` runtime-init guarantees). Fix: only call `reorderStatics` for Java.
+    `c_core_out.c` "Mixed static and non-static" section updated to reflect the preserved
+    original order.
+  - Bug 7 FIXED: `CppSpecificRule.isCandidateSignatureName` only accepted IDENTIFIER tokens
+    before `(`, so `operator<=>` (and other operator overloads) were never treated as function
+    definition candidates and their multi-line bodies were not Allman-converted. Fix: when the
+    token before `(` is an OP token, check that the token before it is the `operator` keyword.
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

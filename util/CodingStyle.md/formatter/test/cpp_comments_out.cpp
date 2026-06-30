@@ -20,7 +20,7 @@ class Map {
 
 public:
     void insert(const K& /* Key */ k, const V& /* Value */ v);
-    V    get(const K& k) const; // May throw
+    V get(const K& k) const; // May throw
 
 private:
     // Internal storage

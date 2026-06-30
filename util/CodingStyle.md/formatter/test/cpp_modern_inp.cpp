@@ -281,8 +281,9 @@ struct Counter {
 struct Wrapper {
     template<typename T>
     void assign(this Wrapper& self, T&& value) {
-        (void)self;
-        (void)value;
+        // These ones intentionally have spaces
+        (void) self;
+        (void) value;
     }
 };
 

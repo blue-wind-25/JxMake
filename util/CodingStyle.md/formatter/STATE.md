@@ -482,6 +482,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     **CRITICAL: Debug prints are active in both `GetterSetterRule.java` and
     `DeclarationAlignmentRule.java`. Do NOT remove until all sub-issues of Bug 9
     are fixed and verified with `make test`. Then remove ALL debug prints and commit.**
+    **NOTE: There is also regression in the idempotency pass for `c_core_out.c`.**
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

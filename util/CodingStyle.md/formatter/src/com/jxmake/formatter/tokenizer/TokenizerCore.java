@@ -106,7 +106,8 @@ public class TokenizerCore {
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
             "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
-            "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*"
+            "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
+            "[[", "]]"
     };
 
     private final String language;
@@ -225,6 +226,8 @@ public class TokenizerCore {
                 t = emitNumber();
             } else if (isIdentifierStart(c)) {
                 t = emitIdentifierOrKeyword();
+            } else if ((c == '[' && peek(1) == '[') || (c == ']' && peek(1) == ']')) {
+                t = emitOperator();
             } else if (c == '{') {
                 t = emitOpenBrace();
             } else if (c == '}') {

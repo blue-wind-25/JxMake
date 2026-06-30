@@ -134,7 +134,7 @@ consteval int factorial(int n)
     return n <= 1 ? 1 : n * factorial(n - 1);
 }
 
-constinit        int   globalCounter = 0;
+       constinit int   globalCounter = 0;
 static constinit float defaultGain   = 1.0f;
 
 ////////////////////////////////////////////////////////////////////////////////////

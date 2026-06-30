@@ -10,21 +10,6 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-(6)
--constinit        int   globalCounter = 0;
- static constinit float defaultGain   = 1.0f;
-+       constinit int   globalCounter = 0;
-
-(7)
--    auto operator<=>(const Weight& other) const
--    {
-+    auto operator<=>(const Weight& other) const {
-         return value <=> other.value;
-     }
-
-Fix those two bugs first (don't look at the other part of the diff).
-
-
 (8)
      struct promise_type {
 

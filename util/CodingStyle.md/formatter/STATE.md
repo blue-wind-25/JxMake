@@ -455,20 +455,27 @@ accept `final` there). This applies to all `.java` files under `src/`.
     emit a separate `;` span after the declaration span.
 
     **(9c) Type/name column width split for mixed groups** (NOT YET FIXED):
-    Formatter: `int  count    = 10;`  (type_col=4, name_padded=8)
-    Expected:  `int   count   = 10;`  (type_col=5, name_padded=7)
+    Formatter:
+    ```
+    int     count    = 10;
+    auto    [lo, hi] = Pair { 0, count };
+    auto&   [lo, hi] = Pair { 0, count };
+    auto && [lo, hi] = Pair { 0, count };
+    bool    active   = true;
+    ```
+    Expected:
+    ```
+    int     count   = 10;
+    auto   [lo, hi] = Pair{ 0, count };
+    auto&  [lo, hi] = Pair{ 0, count };
+    auto&& [lo, hi] = Pair{ 0, count };
+    bool    active  = true;
+    ```
     Key finding from debug: the `int` type cell is `"int "` (4 chars, INCLUDES trailing
-    whitespace token from `body.subList(i, sizeEnd-1)`) and `"auto"` type cell is 4 chars
+    whitespace token from `body.subList(i, sizeEnd-1)`) and `"auto&&"` type cell is 6 chars
     (no trailing space, structured binding path `parseStructuredBinding` extracts typeTokens
-    differently via `bracketStart`). Both are 4 chars → ColumnGrid type_col=4. But reference
-    needs type_col=5 for the regular declarations while keeping `"auto ` at 5 total (1 space).
-    This is a fundamental contradiction for ColumnGrid: if type_col=5, `"auto"` padded to 5
-    = `"auto "`, then join space = `"auto  "` (2 spaces before `[`) but reference wants 1.
-    INVESTIGATION NEEDED: check how `parseStructuredBinding` builds `typeTokens` (does it
-    include trailing whitespace?). Then determine if a special mixed-group rendering path
-    is required where regular type_col = `max_regular_type + 2` and structured bindings always
-    get 1 space after `"auto"` with `maxInitNameWidth` adjusted so `=` still aligns.
-    Debug prints active in `DeclarationAlignmentRule.render` to aid investigation.
+    differently via `bracketStart`).
+    USER CLARIFICATION: it is the structured `[` and `]` binding that add spaces
 
     **(9d) Other differences in `useBindings()` scope** (NOT YET INVESTIGATED):
     The user originally asked about bugs 8 and 9 only. These are in the same scope and
@@ -479,7 +486,8 @@ accept `final` there). This applies to all `.java` files under `src/`.
     **CRITICAL: Debug prints are active in both `GetterSetterRule.java` and
     `DeclarationAlignmentRule.java`. Do NOT remove until all sub-issues of Bug 9
     are fixed and verified with `make test`. Then remove ALL debug prints and commit.**
-    **NOTE: There is also regression in the idempotency pass for `c_core_out.c`.**
+    **WARNING: There is also regression in the idempotency pass for `c_core_out.c`.**
+
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

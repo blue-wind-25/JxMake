@@ -327,10 +327,6 @@ constexpr int value(T v)
     }
 }
 
-namespace a::b::c {
-
-} // namespace a b c
-
 int main()
 {
     Vec2 v{3, 4};

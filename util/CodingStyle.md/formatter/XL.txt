@@ -78,6 +78,40 @@ Fix those two bugs first (don't look at the other part of the diff).
 +        (void)v;
      }
 
+Fix those two bugs first (don't look at the other part of the diff).
+
+
+(10)
+-} // namespace alpha beta gamma
++} // namespace alpha
+
+(11)
+-    void reset(this auto&& self)
++    void reset(this auto && self)
+
+(12)
+ void attributeExamples(int x)
+ {
+-    [[maybe_unused]]
++    [ [maybe_unused] ]
+     int temp = x;
+
+-    if(x > 0) [[likely]] {
++    if(x > 0) [ [likely] ] {
+         ++x;
+     }
+-    else [[unlikely]] {
++    else [ [unlikely] ] {
+         --x;
+     }
+ }
+
+...
+
+     // Attribute introducer
+-    [[ assume(a >= 0) ]];
++    [ [ assume(a >= 0) ] ];
+
 ####################################################################################################
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified.

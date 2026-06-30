@@ -201,7 +201,7 @@ struct Point {
 
 }; // struct Point
 
-} // namespace alpha::beta::gamma
+} // namespace alpha beta gamma
 
 // Designated initializers
 void designatedInitializers()
@@ -259,7 +259,7 @@ void attributeExamples(int x)
     [[maybe_unused]]
     int temp = x;
 
-    if (x > 0) [[likely]] {
+    if(x > 0) [[likely]] {
         ++x;
     }
     else [[unlikely]] {
@@ -275,23 +275,20 @@ void attributeExamples(int x)
 // Alias declaration in init-statement
 void aliasInitStatement()
 {
-    if (using Int = int; true)
-    {
+    if(using Int = int; true) {
         Int x = 42;
         (void)x;
     }
 
-    switch (using Size = std::size_t; Size{1})
-    {
-        case 1:
-            break;
-        default:
-            break;
+    switch(using Size = std::size_t; Size{1}) {
+        case 1  : break;
+        default : break;
     }
 }
 
 // Explicit object parameter using auto
 struct Counter {
+
     int value{};
 
     void increment(this auto& self)
@@ -308,17 +305,20 @@ struct Counter {
     {
         self.value = 0;
     }
-};
+
+}; // struct Counter
 
 // Explicit object parameter with templates
 struct Wrapper {
+
     template<typename T>
     void assign(this Wrapper& self, T&& value)
     {
         (void) self;
         (void) value;
     }
-};
+
+}; // struct Wrapper
 
 struct Vec2 {
 
@@ -367,10 +367,6 @@ constexpr int value(T v)
         return 0;
     }
 }
-
-namespace a::b::c {
-
-} // namespace a b c
 
 int main()
 {

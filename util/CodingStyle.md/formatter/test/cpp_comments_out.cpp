@@ -101,8 +101,8 @@ void complexFunction(
 
     // Structured binding with comment
     auto [lo /* Low */, hi /* High */] = std::pair<int, int>{0, result};
-    (void) lo;
-    (void) hi;
+    (void)lo;
+    (void)hi;
 }
 
 // Comment inside requires clause

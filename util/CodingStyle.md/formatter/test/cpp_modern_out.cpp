@@ -47,9 +47,9 @@ void useBindings()
 
     // Range-based for with structured binding
     std::vector<Pair> pairs = { {1, 2}, {3, 4} };
-    for(auto& [f, s] : pairs) {
-        (void) f;
-        (void) s;
+    for( auto& [f, s] : pairs ) {
+        (void)f;
+        (void)s;
     }
 }
 
@@ -62,7 +62,7 @@ void initStatements(int raw)
         // 'v' in scope here
     }
     else {
-        (void) v;
+        (void)v;
     }
 
     switch(int code = raw % 4; code) {
@@ -210,7 +210,7 @@ void designatedInitializers()
         .x = 10,
         .y = 20
     };
-    (void) p;
+    (void)p;
 }
 
 // Requires-expression with nested requirement
@@ -237,7 +237,7 @@ auto integralLambda = []<typename T>(T value) requires std::integral<T>
 template<std::ranges::range R>
 void consume(R&& r)
 {
-    for(auto&& e : r) (void) e;
+    for(auto&& e : r) (void)e;
 }
 
 // Fold expression
@@ -321,8 +321,8 @@ struct Wrapper {
     template<typename T>
     void assign(this Wrapper& self, T&& value)
     {
-        (void) self;
-        (void) value;
+        (void)self;
+        (void)value;
     }
 
 }; // struct Wrapper

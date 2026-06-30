@@ -475,9 +475,6 @@ accept `final` there). This applies to all `.java` files under `src/`.
     likely pre-existing bugs not part of the original request:
     - `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → expected `{ {1, 2}, {3, 4} }`
       (no outer spaces inside `{ }`, space after `,` inside inner `{1, 2}`)
-    - `for( auto& [f, s] : pairs )` → expected `for(auto& [f, s] : pairs)` (no spaces
-      inside `for(...)`)
-    - `(void)f;` → expected `(void) f;` (space after cast)
 
     **CRITICAL: Debug prints are active in both `GetterSetterRule.java` and
     `DeclarationAlignmentRule.java`. Do NOT remove until all sub-issues of Bug 9

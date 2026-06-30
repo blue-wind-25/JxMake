@@ -159,13 +159,13 @@ void useBindings(const FrameRange& range)
 {
     auto     [start, end] = range;
     uint32_t  length      = end - start;
-    (void) length;
+    (void)length;
 
     // In a declaration group
     uint32_t offset  = 0;
     auto    [lo, hi] = FrameRange{ offset, offset + 100 };
     bool     active  = lo < hi;
-    (void) active;
+    (void)active;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

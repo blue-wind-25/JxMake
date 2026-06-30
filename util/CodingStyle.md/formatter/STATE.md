@@ -273,6 +273,12 @@ accept `final` there). This applies to all `.java` files under `src/`.
 - The same ask-first rule applies to the self-dogfood pass: if formatting
   the formatter's own source produces unexpected changes, stop and report
   the diff to the user before fixing anything.
+- To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes
+  prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where
+  to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes.
+  Do not use static analysis as the primary method of bug diagnosis or regression checking.
+  After the fix is verified with `make test`, remove all debug prints and then commit the
+  files you have modified (ignore files you have not modified). If unsure ask me.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
 `/tmp/jxmake-code-formatter-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
@@ -375,7 +381,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 7 bugs fixed, remaining diff is pre-existing)
+- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 9 bugs fixed, 4 sub-issues in Bug 9 remain)
   - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
     capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
   - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
@@ -413,6 +419,69 @@ accept `final` there). This applies to all `.java` files under `src/`.
     before `(`, so `operator<=>` (and other operator overloads) were never treated as function
     definition candidates and their multi-line bodies were not Allman-converted. Fix: when the
     token before `(` is an OP token, check that the token before it is the `operator` keyword.
+  - Bug 8 FIXED (`GetterSetterRule` — promise_type group, `GetterSetterRule.java`):
+    Two fixes applied:
+    - Empty-body guard: `bodyFrom < bodyTo &&` added before `isSingleStatementBody` call so
+      methods with `{}` empty bodies (e.g. `return_void`, `unhandled_exception`) are accepted.
+    - Multi-statement body guard REMOVED: the `!isSingleStatementBody(...)` check was removed
+      entirely. `yield_value`'s body `{ value = v; return {}; }` has 2 semicolons and was
+      previously rejected, splitting the 6-method group into two (3+2). Without this check,
+      `hasNewlineBetween` already ensures the member is on one line. All 6 promise_type methods
+      now form one group correctly.
+    - `OUTLIER_RATIO` changed from 2 to 3 (earlier fix, see prior session notes).
+    - The promise_type section no longer appears in the diff.
+    **WARNING: debug prints still present in `GetterSetterRule.java` — do NOT remove until
+    Bug 9 is fully fixed and all sub-issues verified.**
+  - Bug 9 IN PROGRESS (`DeclarationAlignmentRule` — structured bindings, `DeclarationAlignmentRule.java`):
+    Partial progress. `=` alignment IS working (position-verified: both formatter and reference
+    output have `=` at same character offset). Remaining sub-issues:
+
+    **(9a) Space before `{` in brace-initializer** (NOT YET FIXED):
+    Formatter output: `auto [a, b]    = Pair { 1, 2 };`
+    Expected:         `auto [a, b]    = Pair{ 1, 2 };`
+    Root cause: `renderInitTokens`/`needsSpaceBetween` adds a space when IDENTIFIER is
+    followed by `{`. Fix needed: in `needsSpaceBetween`, add a case — if `cur` is `{` and
+    `prev` is IDENTIFIER, return false (no space). This covers `Pair{`, `Triple{`, etc.
+
+    **(9b) Double semicolon `;;`** (NOT YET FIXED):
+    Formatter output: `auto [x, y, z] = Triple { 1.0f, 2.0f, 3.0f };;`
+    Expected:         `auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };`
+    Root cause suspected: `splitStatements` was fixed to not emit at `}` when next token is `;`,
+    but `renderNameCell` appends `;` itself. If the statement tokens passed to
+    `parseStructuredBinding` still include the original `;` in the initTokens or somewhere,
+    the render would produce `;` + the original `;` = `;;`. Need to add debug prints to trace
+    what `initTokens` contains for `Triple{...}` and whether the original `;` leaks into the
+    render. Alternatively, `splitTopLevelSpans` (ScopePipeline) was NOT fixed and may still
+    emit a separate `;` span after the declaration span.
+
+    **(9c) Type/name column width split for mixed groups** (NOT YET FIXED):
+    Formatter: `int  count    = 10;`  (type_col=4, name_padded=8)
+    Expected:  `int   count   = 10;`  (type_col=5, name_padded=7)
+    Key finding from debug: the `int` type cell is `"int "` (4 chars, INCLUDES trailing
+    whitespace token from `body.subList(i, sizeEnd-1)`) and `"auto"` type cell is 4 chars
+    (no trailing space, structured binding path `parseStructuredBinding` extracts typeTokens
+    differently via `bracketStart`). Both are 4 chars → ColumnGrid type_col=4. But reference
+    needs type_col=5 for the regular declarations while keeping `"auto ` at 5 total (1 space).
+    This is a fundamental contradiction for ColumnGrid: if type_col=5, `"auto"` padded to 5
+    = `"auto "`, then join space = `"auto  "` (2 spaces before `[`) but reference wants 1.
+    INVESTIGATION NEEDED: check how `parseStructuredBinding` builds `typeTokens` (does it
+    include trailing whitespace?). Then determine if a special mixed-group rendering path
+    is required where regular type_col = `max_regular_type + 2` and structured bindings always
+    get 1 space after `"auto"` with `maxInitNameWidth` adjusted so `=` still aligns.
+    Debug prints active in `DeclarationAlignmentRule.render` to aid investigation.
+
+    **(9d) Other differences in `useBindings()` scope** (NOT YET INVESTIGATED):
+    The user originally asked about bugs 8 and 9 only. These are in the same scope and
+    likely pre-existing bugs not part of the original request:
+    - `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → expected `{ {1, 2}, {3, 4} }`
+      (no outer spaces inside `{ }`, space after `,` inside inner `{1, 2}`)
+    - `for( auto& [f, s] : pairs )` → expected `for(auto& [f, s] : pairs)` (no spaces
+      inside `for(...)`)
+    - `(void)f;` → expected `(void) f;` (space after cast)
+
+    **CRITICAL: Debug prints are active in both `GetterSetterRule.java` and
+    `DeclarationAlignmentRule.java`. Do NOT remove until all sub-issues of Bug 9
+    are fixed and verified with `make test`. Then remove ALL debug prints and commit.**
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

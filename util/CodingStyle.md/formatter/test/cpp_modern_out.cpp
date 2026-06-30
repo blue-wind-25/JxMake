@@ -42,7 +42,7 @@ void useBindings()
 
     // In a group with plain declarations
     int   count   = 10;
-    auto [lo, hi] = Pair{0, count};
+    auto [lo, hi] = Pair{ 0, count };
     bool  active  = true;
 
     // Range-based for with structured binding

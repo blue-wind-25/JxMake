@@ -118,6 +118,10 @@ public class DeclarationAlignmentRule {
         if (!current.isEmpty()) {
             groups.add(current);
         }
+        for (final List<Declaration> g : groups) {
+            System.err.println("DBG decl group size=" + g.size() + ":");
+            for (final Declaration d : g) { System.err.println("  name=" + d.name.text + " initLast=" + (d.initTokens.isEmpty() ? "EMPTY" : d.initTokens.get(d.initTokens.size()-1).text)); }
+        }
         return groups;
     }
 
@@ -274,9 +278,13 @@ public class DeclarationAlignmentRule {
             grid.addRow(cells.toArray(new String[0]));
         }
 
+        final boolean dbgRender = group.stream().anyMatch(d -> d.name.text.equals("[") || d.name.text.equals("count") || d.name.text.equals("active") || d.name.text.equals("a") || d.name.text.equals("x"));
         final List<String> lines = new ArrayList<>();
+        if (dbgRender) System.err.println("DBG render: maxInitNameWidth=" + maxInitNameWidth + " group=" + group.stream().map(d -> d.name.text).collect(java.util.stream.Collectors.joining(",")));
         for (final String[] row : grid.flush()) {
-            lines.add(String.join(" ", row));
+            final String line = String.join(" ", row);
+            if (dbgRender) System.err.println("DBG render row: " + java.util.Arrays.toString(row) + " => [" + line + "]");
+            lines.add(line);
         }
         return lines;
     }
@@ -463,9 +471,25 @@ public class DeclarationAlignmentRule {
             if (isPunct(t, "}")) {
                 depth--;
                 if (depth == 0) {
-                    idx = pullTrailingSameLine(scopeTokens, current, idx);
-                    statements.add(current);
-                    current = new ArrayList<>();
+                    // Peek ahead: if the next significant token is `;` this `}` closes a
+                    // brace-initializer inside a declaration (e.g. `auto x = T{...};`), not
+                    // a method/class body — let the `;` emit the statement instead.
+                    boolean nextIsSemi = false;
+                    for (int peek = idx; peek < n; peek++) {
+                        final Token nx = scopeTokens.get(peek);
+                        if (nx.type == TokenType.WHITESPACE || nx.type == TokenType.NEWLINE
+                                || nx.type == TokenType.COMMENT_LINE
+                                || nx.type == TokenType.COMMENT_BLOCK) {
+                            continue;
+                        }
+                        nextIsSemi = isPunct(nx, ";");
+                        break;
+                    }
+                    if (!nextIsSemi) {
+                        idx = pullTrailingSameLine(scopeTokens, current, idx);
+                        statements.add(current);
+                        current = new ArrayList<>();
+                    }
                 }
                 continue;
             }
@@ -602,6 +626,11 @@ public class DeclarationAlignmentRule {
         } else {
             initTokens = new ArrayList<>();
             end = body.size();
+        }
+        // Reject if the initializer ends with `}` -- this means a lambda body, class/struct
+        // body, or complex nested-brace init that can't safely be column-aligned.
+        if (!initTokens.isEmpty() && isPunct(initTokens.get(initTokens.size() - 1), "}")) {
+            return null;
         }
 
         final List<Token> sizeTokens = new ArrayList<>();
@@ -791,6 +820,14 @@ public class DeclarationAlignmentRule {
         final List<Token> widthTokens = new ArrayList<>(body.subList(colonIdx + 1, body.size()));
         if (widthTokens.isEmpty()) {
             return null;
+        }
+        // A real bitfield width is a simple integer expression -- never contains `{`.
+        // Reject `enum Foo : Base { ... }` and `class Foo : Base { ... }` which reach
+        // parseBitfield via the `:` in their inheritance/base-type specifier.
+        for (final Token wt : widthTokens) {
+            if (isPunct(wt, "{")) {
+                return null;
+            }
         }
         return new Declaration(modifiers, typeTokens, name, new ArrayList<Token>(),
                 new ArrayList<Token>(), widthTokens, trailingComment, blankBefore);

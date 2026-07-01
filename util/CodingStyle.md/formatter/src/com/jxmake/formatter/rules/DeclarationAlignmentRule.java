@@ -232,9 +232,21 @@ public class DeclarationAlignmentRule {
             splits.add(split);
         }
 
+        boolean isStructuredBinding = false;
+        if ("cpp".equals(language)) {
+            for (final Declaration d : group) {
+                if ("[".equals(d.name.text)) {
+                    isStructuredBinding = true;
+                }
+            }
+        }
+
         int maxInitNameWidth = 0;
         for (final Declaration d : group) {
             if (!d.initTokens.isEmpty()) {
+                if (isStructuredBinding && !"[".equals(d.name.text)) {
+                   d.name.text = ' ' + d.name.text;
+                }
                 maxInitNameWidth = Math.max(maxInitNameWidth,
                         d.name.text.length() + renderTokens(d.sizeTokens).length());
             }
@@ -413,7 +425,7 @@ public class DeclarationAlignmentRule {
                     }
                 } else if (needsSpaceBetween(prev, t)) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if (t.type == TokenType.IDENTIFIER && isRepeatedOp(prev, '*')
+                    if (t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
                         && ("c".equals(language) || "cpp".equals(language))) {
                         // pointer dereference: add nothing
@@ -449,7 +461,7 @@ public class DeclarationAlignmentRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isRepeatedOp(t, '*') || isRepeatedOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        return isRepOp(t, '*') || isRepOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     /** True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
@@ -887,7 +899,7 @@ public class DeclarationAlignmentRule {
         return t.type == TokenType.OP && text.equals(t.text);
     }
 
-    private static boolean isRepeatedOp(final Token t, final char ch) {
+    private static boolean isRepOp(final Token t, final char ch) {
         if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
             return false;
         }

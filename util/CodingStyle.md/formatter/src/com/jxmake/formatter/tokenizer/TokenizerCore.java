@@ -38,7 +38,7 @@ public class TokenizerCore {
 
     public static final class Token {
         public final TokenType type;
-        public final String text;
+        public String text;
         public final int braceDepth;
         public final int parenDepth;
         public final String name; // for `{`/`}` only: pushed/popped construct name, else null

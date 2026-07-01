@@ -14,8 +14,6 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
 Do NOT remove until all sub-issues of Bug 9 are fixed and verified with `make test` and there is no regression.
 Then remove ALL debug prints and commit.**
 
-**CRITICAL: There is regression in the idempotency pass for `c_core_out.c`.**
-
 **(9a) Extra space before `{` in brace-initializer and double semicolon `;;`**
 
 Formatter output:
@@ -64,7 +62,18 @@ auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
          (void)f;
          (void)s;
 
-NOTE: Fix the above bug first and ignore the other part of the diff.
+**CRITICAL: There is regression in the idempotency pass for `c_core_out.c`.**
+ // Mixed static and non-static
+-       int alpha;
+-static int beta;
+-       int gamma;
+-static int delta;
++               int alpha;
++        static int beta;
++               int gamma;
++        static int delta;
+
+NOTE: Fix the above bugs first and ignore the other part of the diff.
 
 (10)
      const void* a = nullptr;

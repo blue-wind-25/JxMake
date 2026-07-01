@@ -505,7 +505,31 @@ accept `final` there). This applies to all `.java` files under `src/`.
     there's nothing to strip (no-op); on a re-format it exactly cancels out the self-generated
     padding, restoring idempotency. Verified via `make test`: `c_core_out.c` idempotency now
     passes, zero regressions elsewhere.
-- [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
+- [~] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (IN PROGRESS)
+  - Bug 1 FIXED: an empty named-construct body (`record Num(int value) implements Expr {}`,
+    likewise empty `class`/`interface`/`enum`, and C/C++ `struct`/`class`/`enum`/`enum class`)
+    was being expanded to multi-line with a closing comment even though it has no content.
+    Root cause 1: `BlockStructureRule.insertNamedConstructBlankLines` unconditionally inserted a
+    blank line after every named-construct `{` and before its matching `}`, with no check for an
+    empty body. Root cause 2: `BlockStructureRule.decideComment`'s `NAMED` case always returned
+    `f.label`, unconditionally adding a closing comment. Fix: new `isEmptyBraceBody` helper (true
+    iff the `{` is immediately followed, ignoring gap tokens, by its own matching `}`); consulted
+    in both places to keep an empty body collapsed and comment-free.
+  - Bug 2 FIXED: consecutive plain statements in a non-class scope whose last token before `;` is
+    `identifier(...)` (e.g. `var trimmed = item.trim();` / `result.add(trimmed);` inside a
+    `for`-loop body) were misidentified as one-liner method declarations and column-aligned as a
+    getter/setter group, corrupting them (`item. trim()`, `result.             add(trimmed)`).
+    Root cause: `GetterSetterRule.parseOneLinerMember` computed a "return type" span
+    (`returnTypeFrom`..`nameFrom`) without checking that the span actually looks like a type --
+    for `item.trim()` this span was `"item."` (a member-access receiver, not a type) and for
+    `var trimmed = item.trim()` it was `"var trimmed = item."` (an entire assignment). Fix:
+    reject the candidate when the return-type span contains a `.` or `=` token -- neither is
+    ever valid in an actual return-type/qualified-name-before-`::` position.
+  - Remaining `java_modern_inp.java` diff (unrelated to the two bugs above, left unfixed,
+    out of scope for this session): compact-constructor blank-line placement, single-statement
+    constructor/method bodies not staying K&R one-liner (Allman-converted with misaligned
+    continuation lines), and the `permits` clause not line-wrapping despite exceeding the line
+    length limit.
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`

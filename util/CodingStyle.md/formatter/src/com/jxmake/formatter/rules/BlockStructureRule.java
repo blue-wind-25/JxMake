@@ -621,8 +621,12 @@ public class BlockStructureRule {
             gap.clear();
 
             if (isPunct(t, "{")) {
-                namedStack.push(t.name != null);
-                afterNamedOpen = t.name != null;
+                // An empty body (`{}` or `{ }`) must stay collapsed -- no blank lines inserted
+                // either after the `{` or before the `}` -- so push `false` (as if unnamed) when
+                // the very next significant token is the matching `}`.
+                final boolean named = t.name != null && !isEmptyBraceBody(tokens, i);
+                namedStack.push(named);
+                afterNamedOpen = named;
             } else {
                 afterNamedOpen = false;
                 if (isPunct(t, "}") && !namedStack.isEmpty()) {
@@ -636,6 +640,19 @@ public class BlockStructureRule {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    /** True if the `{` at {@code openIdx} is immediately followed (ignoring gap tokens) by its
+     *  own matching `}`, i.e. an empty body -- {@code { }} or {@code {}}. */
+    private boolean isEmptyBraceBody(final List<Token> tokens, final int openIdx) {
+        for (int k = openIdx + 1; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isGap(t)) {
+                continue;
+            }
+            return isPunct(t, "}");
+        }
+        return false;
     }
 
     /** Renders gap as-is if it contains a comment; otherwise guarantees it contains a blank line. */
@@ -1071,7 +1088,7 @@ public class BlockStructureRule {
     private String decideComment(final List<Token> tokens, final Frame f, final int closeIdx) {
         switch (f.kind) {
             case NAMED:
-                return f.label;
+                return isEmptyBraceBody(tokens, f.openIdx) ? null : f.label;
             case FOR:
             case WHILE:
             case SWITCH:

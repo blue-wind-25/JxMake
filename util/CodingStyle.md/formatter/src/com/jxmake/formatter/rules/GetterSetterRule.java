@@ -488,6 +488,17 @@ public class GetterSetterRule {
         if (returnTypeTo <= returnTypeFrom) {
             return null;
         }
+        // Reject candidates whose "return type" span contains `.` or `=` -- those only appear
+        // here when this isn't actually a method declaration/definition at all, but a plain
+        // statement (e.g. `var trimmed = item.trim();`, `result.add(trimmed);`) that happens to
+        // end in `identifier(...)` immediately before the terminator. A real return type is only
+        // ever built from identifiers/keywords, `::`, template `<...>`, `*`, and `&`.
+        for (int k = returnTypeFrom; k < returnTypeTo; k++) {
+            final Token t = tokens.get(k);
+            if (isOp(t, ".") || isOp(t, "=")) {
+                return null;
+            }
+        }
 
         final int parenOpenIdx = nextSignificant(tokens, nameIdx + 1, to);
         if (parenOpenIdx < 0 || !isPunct(tokens.get(parenOpenIdx), "(")) {

@@ -66,54 +66,18 @@ auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
 
 NOTE: Fix the above bug first and ignore the other part of the diff.
 
-
-
-
-
 (10)
- // Qualified concept in template parameter list
- template<std::ranges::range R>
--void consume(R&& r)
-+void consume(R && r)
- {
-     for(auto&& e : r) (void)e;
- }
-
- // Fold expression
- template<typename... Ts>
--auto sum(Ts... xs)
-+auto sum(Ts ... xs)
- {
-     return (... + xs);
- }
-
-...
-
--    void reset(this auto&& self)
-+    void reset(this auto && self)
-     {
-         self.value = 0;
-     }
-
-...
-
-     template<typename T>
--    void assign(this Wrapper& self, T&& value)
-+    void assign(this Wrapper& self, T && value)
-     {
-
-(11)
      const void* a = nullptr;
 -          char* b = static_cast<char*>( const_cast<void*> (a) );
 -          int*  c = reinterpret_cast<int*>(b);
 +          char* b = static_cast < char* > ( const_cast < void* > (a) );
 +          int*  c = reinterpret_cast < int* > (b);
 
-(12)
+(11)
 -} // namespace alpha beta gamma
 +} // namespace alpha
 
-For this bug #12, if fixing it is difficult and require many code changes, this form is also acceptable:
+For this bug #11, if fixing it is difficult and require many code changes, this form is also acceptable:
 +} // namespace alpha ...
 
 ####################################################################################################

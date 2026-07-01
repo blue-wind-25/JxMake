@@ -121,7 +121,6 @@ public class TokenizerCore {
     // operator would be split into "<=" + ">".
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
-            "*******", "******", "*****", "****", "***", "**",
             "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "[[", "]]"
@@ -723,12 +722,22 @@ public class TokenizerCore {
     }
 
     private Token emitOperator() {
+        // Consume a maximal run of '*'
+        if (source.charAt(pos) == '*') {
+            final int start = pos;
+            while (pos < source.length() && source.charAt(pos) == '*') {
+                pos++;
+            }
+            return new Token(TokenType.OP, source.substring(start, pos), braceDepth, parenDepth, null);
+        }
+
         for (final String op : MULTI_CHAR_OPS) {
             if (source.startsWith(op, pos)) {
                 pos += op.length();
                 return new Token(TokenType.OP, op, braceDepth, parenDepth, null);
             }
         }
+
         final char c = source.charAt(pos);
         pos++;
         return new Token(TokenType.OP, String.valueOf(c), braceDepth, parenDepth, null);

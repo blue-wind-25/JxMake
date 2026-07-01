@@ -302,6 +302,26 @@ public class ScopePipeline {
         return nl >= 0 ? gap.substring(nl + 1) : gap;
     }
 
+    /** Count of leading `' '` characters in {@code s} (0 if it doesn't start with one). */
+    private int leadingSpaceCount(final String s) {
+        int count = 0;
+        while (count < s.length() && s.charAt(count) == ' ') {
+            count++;
+        }
+        return count;
+    }
+
+    /** Removes up to {@code n} trailing `' '` characters from the end of {@code s}. */
+    private String stripTrailingSpaces(final String s, final int n) {
+        int end = s.length();
+        int remaining = n;
+        while (remaining > 0 && end > 0 && s.charAt(end - 1) == ' ') {
+            end--;
+            remaining--;
+        }
+        return s.substring(0, end);
+    }
+
     /** Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link MiscRule#INDENT_WIDTH}.
      *  Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
      *  multiple of INDENT_WIDTH).  Only non-zero non-multiples (e.g. 2-space source) are touched. */
@@ -397,11 +417,21 @@ public class ScopePipeline {
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
 
-            final String rawLeadingGap = joinText(tokens, firstSpan.start, firstIdx);
+            final List<String> lines = declarationRule.render(group);
+            // `lines.get(0)` may already start with its own column-alignment padding (e.g. blank
+            // space matching a sibling's `static` width, STYLE.md §5) -- on a re-format of
+            // already-formatted source, that same padding is literally present in the raw text
+            // right before `firstIdx` too, indistinguishable by character alone from real code
+            // indentation. Stripping exactly that many trailing spaces off the raw gap before
+            // treating the remainder as "indent" keeps this pass idempotent; on a first-time
+            // format (no pre-existing padding in the source) there's nothing to strip and this
+            // is a no-op.
+            final String rawLeadingGapFull = joinText(tokens, firstSpan.start, firstIdx);
+            final int freshPad = leadingSpaceCount(lines.get(0));
+            final String rawLeadingGap = stripTrailingSpaces(rawLeadingGapFull, freshPad);
             final String rawIndent = trailingIndent(rawLeadingGap);
             final String indent = normalizeIndent(rawIndent);
             final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
-            final List<String> lines = declarationRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
             int lastTermEnd = lastSpan.end;
             while (lastTermEnd > lastSpan.start && isGapToken(tokens.get(lastTermEnd - 1))) {

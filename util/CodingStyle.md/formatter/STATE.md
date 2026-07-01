@@ -473,6 +473,27 @@ accept `final` there). This applies to all `.java` files under `src/`.
       (`static_cast < char* > (...)`) instead of tight (`static_cast<char*>(...)`) — likely a
       `CppSpecificRule.enforceTemplateAngleBracketSpacing` misclassification of cast keywords as
       generic templates.
+  - CRITICAL regression FIXED: idempotency pass on `c_core_out.c`'s "Mixed static and non-static"
+    section (Bug 6's own worked example) was re-indenting on a second format pass —
+    `static int beta;` / `       int alpha;` gained 8 extra leading spaces each time the already-
+    formatted output was re-run through the formatter. Root cause: `ScopePipeline.
+    applyDeclarationsPass` derived a declaration group's continuation-line indent by scanning the
+    raw whitespace immediately preceding the group's first token — but when the group's first
+    declaration has no modifiers while a sibling does (`alpha`/`gamma` have none, `beta`/`delta`
+    are `static`), `DeclarationAlignmentRule.render`'s `ColumnGrid` already left-pads that first
+    row's own rendered line with blank space matching the widest modifier column (e.g. `"       "`
+    matching `"static "`). On a fresh format that padding doesn't exist yet in the raw source, so
+    scanning finds 0 extra spaces; but on a *second* pass, that already-rendered padding IS the
+    literal text preceding the token, indistinguishable from real code indentation by character
+    inspection alone — so it got treated as (malformed, non-multiple-of-4) indentation, rounded up
+    to 8, and then prepended a second time in front of `render()`'s own freshly-recomputed padding,
+    doubling it. Fix: compute `lines = declarationRule.render(group)` first, measure the leading-
+    space count already present in `lines.get(0)`, and strip up to that many trailing spaces off
+    the raw leading gap before deriving `rawIndent`/`indent` from what remains (new
+    `leadingSpaceCount`/`stripTrailingSpaces` helpers in `ScopePipeline`) — on a first-time format
+    there's nothing to strip (no-op); on a re-format it exactly cancels out the self-generated
+    padding, restoring idempotency. Verified via `make test`: `c_core_out.c` idempotency now
+    passes, zero regressions elsewhere.
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

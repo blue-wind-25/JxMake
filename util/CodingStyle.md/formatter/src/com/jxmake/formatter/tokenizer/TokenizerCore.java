@@ -105,6 +105,7 @@ public class TokenizerCore {
     // operator would be split into "<=" + ">".
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
+            "**",
             "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "[[", "]]"

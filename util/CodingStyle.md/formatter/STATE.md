@@ -381,7 +381,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS — 9 bugs fixed, 4 sub-issues in Bug 9 remain)
+- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS)
   - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
     capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
   - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
@@ -430,66 +430,6 @@ accept `final` there). This applies to all `.java` files under `src/`.
       now form one group correctly.
     - `OUTLIER_RATIO` changed from 2 to 3 (earlier fix, see prior session notes).
     - The promise_type section no longer appears in the diff.
-
-    **WARNING: debug prints still present in `GetterSetterRule.java` and `DeclarationAlignmentRule.java` —
-    do NOT remove until Bug 9 is fully fixed and all sub-issues verified.**
-  - Bug 9 IN PROGRESS (`DeclarationAlignmentRule` — structured bindings, `DeclarationAlignmentRule.java`):
-    Partial progress. `=` alignment IS working (position-verified: both formatter and reference
-    output have `=` at same character offset). Remaining sub-issues:
-
-    **(9a) Space before `{` in brace-initializer** (NOT YET FIXED):
-    Formatter output: `auto [a, b]    = Pair { 1, 2 };`
-    Expected:         `auto [a, b]    = Pair{ 1, 2 };`
-    Root cause: `renderInitTokens`/`needsSpaceBetween` adds a space when IDENTIFIER is
-    followed by `{`. Fix needed: in `needsSpaceBetween`, add a case — if `cur` is `{` and
-    `prev` is IDENTIFIER, return false (no space). This covers `Pair{`, `Triple{`, etc.
-
-    **(9b) Double semicolon `;;`** (NOT YET FIXED):
-    Formatter output: `auto [x, y, z] = Triple { 1.0f, 2.0f, 3.0f };;`
-    Expected:         `auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };`
-    Root cause suspected: `splitStatements` was fixed to not emit at `}` when next token is `;`,
-    but `renderNameCell` appends `;` itself. If the statement tokens passed to
-    `parseStructuredBinding` still include the original `;` in the initTokens or somewhere,
-    the render would produce `;` + the original `;` = `;;`. Need to add debug prints to trace
-    what `initTokens` contains for `Triple{...}` and whether the original `;` leaks into the
-    render. Alternatively, `splitTopLevelSpans` (ScopePipeline) was NOT fixed and may still
-    emit a separate `;` span after the declaration span.
-
-    **(9c) Type/name column width split for mixed groups** (NOT YET FIXED):
-    Formatter:
-    ```
-    int     count    = 10;
-    auto    [lo, hi] = Pair { 0, count };
-    auto&   [lo, hi] = Pair { 0, count };
-    auto && [lo, hi] = Pair { 0, count };
-    bool    active   = true;
-    ```
-    Expected:
-    ```
-    int     count   = 10;
-    auto   [lo, hi] = Pair{ 0, count };
-    auto&  [lo, hi] = Pair{ 0, count };
-    auto&& [lo, hi] = Pair{ 0, count };
-    bool    active  = true;
-    ```
-    Key finding from debug: the `int` type cell is `"int "` (4 chars, INCLUDES trailing
-    whitespace token from `body.subList(i, sizeEnd-1)`) and `"auto&&"` type cell is 6 chars
-    (no trailing space, structured binding path `parseStructuredBinding` extracts typeTokens
-    differently via `bracketStart`).
-    USER CLARIFICATION: the structured binding path (`[` and `]`) is responsible for the
-    spacing differences.
-
-    **(9d) Other differences in `useBindings()` scope** (NOT YET INVESTIGATED):
-    The user originally asked about bugs 8 and 9 only. These are in the same scope and
-    likely pre-existing bugs not part of the original request:
-    - `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → expected `{ {1, 2}, {3, 4} }`
-      (no outer spaces inside `{ }`, space after `,` inside inner `{1, 2}`)
-
-    **CRITICAL: Debug prints are active in both `GetterSetterRule.java` and
-    `DeclarationAlignmentRule.java`. Do NOT remove until all sub-issues of Bug 9
-    are fixed and verified with `make test`. Then remove ALL debug prints and commit.**
-    **WARNING: There is also regression in the idempotency pass for `c_core_out.c`.**
-
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

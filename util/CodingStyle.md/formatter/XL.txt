@@ -8,9 +8,61 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Continue with 'Bug 9 IN PROGRESS'.
+Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-(9)
+**WARNING: Debug prints are active in both `GetterSetterRule.java` and `DeclarationAlignmentRule.java`.
+Do NOT remove until all sub-issues of Bug 9 are fixed and verified with `make test` and there is no regression.
+Then remove ALL debug prints and commit.**
+
+**CRITICAL: There is regression in the idempotency pass for `c_core_out.c`.**
+
+**(9a) Space before `{` in brace-initializer**
+Formatter output: `auto [a, b]    = Pair { 1, 2 };`
+Expected:         `auto [a, b]    = Pair{ 1, 2 };`
+Root cause: `renderInitTokens`/`needsSpaceBetween` adds a space when IDENTIFIER is
+followed by `{`. Fix needed: in `needsSpaceBetween`, add a case — if `cur` is `{` and
+`prev` is IDENTIFIER, return false (no space). This covers `Pair{`, `Triple{`, etc.
+
+**(9b) Double semicolon `;;`**
+Formatter output: `auto [x, y, z] = Triple { 1.0f, 2.0f, 3.0f };;`
+Expected:         `auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };`
+Root cause suspected: `splitStatements` was fixed to not emit at `}` when next token is `;`,
+but `renderNameCell` appends `;` itself. If the statement tokens passed to
+`parseStructuredBinding` still include the original `;` in the initTokens or somewhere,
+the render would produce `;` + the original `;` = `;;`. Need to add debug prints to trace
+what `initTokens` contains for `Triple{...}` and whether the original `;` leaks into the
+render. Alternatively, `splitTopLevelSpans` (ScopePipeline) was NOT fixed and may still
+emit a separate `;` span after the declaration span.
+
+**(9c) Type/name column width split for mixed groups and extra space before `&&`**
+Formatter:
+```
+int     count    = 10;
+auto    [lo, hi] = Pair { 0, count };
+auto&   [lo, hi] = Pair { 0, count };
+auto && [lo, hi] = Pair { 0, count };
+bool    active   = true;
+```
+Expected:
+```
+int     count   = 10;
+auto   [lo, hi] = Pair{ 0, count };
+auto&  [lo, hi] = Pair{ 0, count };
+auto&& [lo, hi] = Pair{ 0, count };
+bool    active  = true;
+```
+Root cause: the structured binding path (`[` and `]`) is responsible for the spacing
+differences and `&&` (and thus `**`, etc.) is not included as the data type.
+Possible partial fix: suffix the identifiers for the structured binding path with space ` `
+and include that space in column with calculation.
+
+**(9d) Other differences in `useBindings()` scope**
+- `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → space after `,` → `{ {1, 2}, {3, 4} }`
+
+expected `{ {1, 2}, {3, 4} }`
+  (no outer spaces inside `{ }`, space after `,` inside inner `{1, 2}`)
+
+Bug (9) detailed diff:
  void useBindings()
  {
 -    auto [a, b]    = Pair{ 1, 2 };
@@ -31,8 +83,13 @@ Continue with 'Bug 9 IN PROGRESS'.
 +    bool    active   = true;
 
      // Range-based for with structured binding
--    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
+-    std::vector<Pair> pairs = ;
 +    std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };
+
+NOTE: Fix the above bugs first and ignore the other part of the diff.
+
+
+
 
 
 (10)

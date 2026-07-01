@@ -390,22 +390,37 @@ public class DeclarationAlignmentRule {
     }
 
     /** Renders initializer value tokens (the right-hand side of `= expr`) where `*` and `&`
-     *  may appear as binary operators rather than pointer/reference declarators. Uses lookahead:
-     *  if the token following `*`/`&` is an IDENTIFIER or NUMBER, a space is inserted before
-     *  the operator (binary context); otherwise the normal tight-attachment rule applies. */
+     *  may represent either binary operators or unary pointer/reference operators. Uses
+     *  lookahead to distinguish binary `*`/`&`: if followed by an IDENTIFIER or NUMBER and
+     *  preceded by an IDENTIFIER or WHITESPACE, a space is inserted before the operator.
+     *  Also suppresses spacing between unary dereference `*`/`**` and the following
+     *  identifier in C/C++ expression contexts (e.g. `*ptr`, `**ptr`), while all other
+     *  spacing follows the normal token-spacing rules. */
     private String renderInitTokens(final List<Token> tokens) {
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
             final Token prev = i > 0 ? tokens.get(i - 1) : null;
+            final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
             if (prev != null) {
-                final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
                 if (isTightToken(t) && (isOp(t, "*") || isOp(t, "&"))
                         && next != null
                         && (next.type == TokenType.IDENTIFIER || next.type == TokenType.NUMBER)) {
-                    sb.append(' '); // binary * or & in expression context
+                    if(prev.type != TokenType.IDENTIFIER && prev.type != TokenType.WHITESPACE) {
+                    }
+                    else {
+                        sb.append(' '); // binary * or & in expression context
+                    }
                 } else if (needsSpaceBetween(prev, t)) {
-                    sb.append(' ');
+                    final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
+                    if (t.type == TokenType.IDENTIFIER && isRepeatedOp(prev, '*')
+                        && (prev2 == null || prev2.type == TokenType.OP)
+                        && ("c".equals(language) || "cpp".equals(language))) {
+                        // pointer dereference: add nothing
+                    }
+                    else {
+                        sb.append(' ');
+                    }
                 }
             }
             sb.append(t.text);
@@ -434,7 +449,7 @@ public class DeclarationAlignmentRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        return isRepeatedOp(t, '*') || isRepeatedOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     /** True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
@@ -864,11 +879,23 @@ public class DeclarationAlignmentRule {
         return sig;
     }
 
-    private boolean isPunct(final Token t, final String text) {
+    private static boolean isPunct(final Token t, final String text) {
         return t.type == TokenType.PUNCT && text.equals(t.text);
     }
 
-    private boolean isOp(final Token t, final String text) {
+    private static boolean isOp(final Token t, final String text) {
         return t.type == TokenType.OP && text.equals(t.text);
+    }
+
+    private static boolean isRepeatedOp(final Token t, final char ch) {
+        if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < t.text.length(); i++) {
+            if (t.text.charAt(i) != ch) {
+                return false;
+            }
+        }
+        return true;
     }
 }

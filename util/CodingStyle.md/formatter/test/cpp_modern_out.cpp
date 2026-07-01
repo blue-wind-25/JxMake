@@ -41,11 +41,16 @@ void useBindings()
     auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
 
     // In a group with plain declarations
-    int     count   = 10;
+    int     cnt1    = *aaa;
+    int     cnt2    = **bbb;
     auto   [lo, hi] = Pair{ 0, count };
     auto&  [lo, hi] = Pair{ 0, count };
     auto&& [lo, hi] = Pair{ 0, count };
     bool    active  = true;
+
+    int*   myptrone = nullptr;
+    int**  myptrtwo = nullptr;
+    auto  [xx, yy]  = Pair{ 0, count };
 
     // Range-based for with structured binding
     std::vector<Pair> pairs = { {1, 2}, {3, 4} };

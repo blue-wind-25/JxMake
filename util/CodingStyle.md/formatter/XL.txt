@@ -12,7 +12,7 @@ Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
 (10)
      const void* a = nullptr;
--          char* b = static_cast<char*>( const_cast<void*> (a) );
+-          char* b = static_cast<char*>( const_cast<void*>(a) );
 -          int*  c = reinterpret_cast<int*>(b);
 +          char* b = static_cast < char* > ( const_cast < void* > (a) );
 +          int*  c = reinterpret_cast < int* > (b);

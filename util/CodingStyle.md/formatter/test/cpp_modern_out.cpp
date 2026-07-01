@@ -409,7 +409,7 @@ int main()
     if( int v = 10; myfunc(v) ) return -1;
 
     const void* a = nullptr;
-          char* b = static_cast<char*>( const_cast<void*> (a) );
+          char* b = static_cast<char*>( const_cast<void*>(a) );
           int*  c = reinterpret_cast<int*>(b);
 
     return compute() + value(5) + v.lengthSquared();

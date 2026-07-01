@@ -10,37 +10,6 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `cpp_modern_inp.cpp` formatting test:
 
-**WARNING: Debug prints are active in both `GetterSetterRule.java` and `DeclarationAlignmentRule.java`.
-Do NOT remove until all sub-issues of Bug 9 are fixed and verified with `make test` and there is no regression.
-Then remove ALL debug prints and commit.**
-
-**(9b) Missing space ` ` after `,` **
-- `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → space after `,` → `{ {1, 2}, {3, 4} }`
-
-**Bug (9) detailed diff**
- void useBindings()
- {
-     // Range-based for with structured binding
--    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
-+    std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };
-     for( auto& [f, s] : pairs ) {
-         (void)f;
-         (void)s;
-
-**CRITICAL: There is regression in the idempotency pass for `c_core_out.c`.**
- // Mixed static and non-static
--       int alpha;
--static int beta;
--       int gamma;
--static int delta;
-+               int alpha;
-+        static int beta;
-+               int gamma;
-+        static int delta;
-
-NOTE: Fix the above bugs first and ignore the other part of the diff.
-
-
 (10)
      const void* a = nullptr;
 -          char* b = static_cast<char*>( const_cast<void*> (a) );
@@ -64,8 +33,12 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 Bug fix for the `java_modern_inp.java` formatting test:
 
 (1)
-`record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
+Empty `record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
 (empty), hence, the closing comment `// record ...` is also not needed
+
+Treat empty `class`, `interface`, `enum` the same.
+
+Also ensure the same with C/C++ `struct`, `class`, `enum`, `enum class`.
 
 (2)
          for(var item : items) {

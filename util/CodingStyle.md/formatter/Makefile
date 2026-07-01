@@ -85,44 +85,48 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 # git status | grep _inp
 
 test: $(JAR_FILE)
-	@mkdir -p $(TEST_TMP)
-	@echo "=== Forward pass (inp → out) ==="
-	@fail=0;                                                                 \
-	for inp in $(addprefix $(TEST_DIR)/,$(INP_FILES)); do                    \
-		base=$$(basename "$$inp");                                       \
-		ext="$${base##*_inp.}";                                          \
-		stem="$${base%_inp.*}";                                          \
-		out="$(TEST_DIR)/$${stem}_out.$$ext";                            \
-		if [ ! -f "$$out" ]; then                                        \
-			echo "SKIP $$inp (no matching $$out)";                   \
-			continue;                                                \
-		fi;                                                              \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$inp"; \
-		result="$(TEST_TMP)/$$base";                                     \
-		if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
-			echo "PASS $$inp";                                       \
-		else                                                             \
-			echo "FAIL $$inp";                                       \
-			diff -u "$$out" "$$result";                              \
-			fail=1;                                                  \
-		fi;                                                              \
-	done;                                                                    \
-	if [ $$fail -ne 0 ]; then exit 1; fi
-	@echo ""
-	@echo "=== Idempotency pass (out → out) ==="
-	@fail=0;                                                                 \
-	for out in $(addprefix $(TEST_DIR)/,$(REF_FILES)); do                    \
-		base=$$(basename "$$out");                                       \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$out"; \
-		result="$(TEST_TMP)/$$base";                                     \
-		if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
-			echo "PASS $$out";                                       \
-		else                                                             \
-			echo "FAIL $$out (not idempotent)";                      \
-			diff -u "$$out" "$$result";                              \
-			fail=1;                                                  \
-		fi;                                                              \
-	done;                                                                    \
-	if [ $$fail -ne 0 ]; then exit 1; fi
-	@echo ""
-	@echo "All tests passed."
+	@(                                                                               \
+		mkdir -p $(TEST_TMP);                                                    \
+		echo "=== Forward pass (inp → out) ===";                                 \
+		passed="$(TEST_TMP)/passed.list";                                        \
+		rm -f "$$passed";                                                        \
+		fail=0;                                                                  \
+		for inp in $(addprefix $(TEST_DIR)/,$(INP_FILES)); do                    \
+			base=$$(basename "$$inp");                                       \
+			ext="$${base##*_inp.}";                                          \
+			stem="$${base%_inp.*}";                                          \
+			out="$(TEST_DIR)/$${stem}_out.$$ext";                            \
+			if [ ! -f "$$out" ]; then                                        \
+				echo "SKIP $$inp (no matching $$out)";                   \
+				continue;                                                \
+			fi;                                                              \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$inp"; \
+			result="$(TEST_TMP)/$$base";                                     \
+			if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
+				echo "PASS $$inp";                                       \
+				echo "$$out" >> "$$passed";                              \
+			else                                                             \
+				echo "FAIL $$inp";                                       \
+				diff -u "$$out" "$$result";                              \
+				fail=1;                                                  \
+			fi;                                                              \
+		done;                                                                    \
+		echo "";                                                                 \
+		echo "=== Idempotency pass (out → out) ===";                             \
+		while IFS= read -r out; do                                               \
+			base=$$(basename "$$out");                                       \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$out"; \
+			result="$(TEST_TMP)/$$base";                                     \
+			if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
+				echo "PASS $$out";                                       \
+			else                                                             \
+				echo "FAIL $$out (not idempotent)";                      \
+				diff -u "$$out" "$$result";                              \
+				fail=1;                                                  \
+			fi;                                                              \
+		done <  "$$passed";                                                      \
+		rm -f "$$passed";                                                        \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                    \
+		echo "";                                                                 \
+		echo "All tests passed.";                                                \
+	)

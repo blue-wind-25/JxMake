@@ -314,7 +314,12 @@ public class MiscRule {
     /**
      * Normalizes spacing inside brace-initializer lists (array/struct initializers, `= { ... }`
      * contexts) per STYLE.md §3.3: empty `{}` is always tight; non-empty `{ ... }` gets exactly
-     * one space just inside both the opening and closing brace, at every nesting level.
+     * one space just inside both the opening and closing brace, at every nesting level. Also
+     * normalizes comma spacing within the same initializer context (no space before `,`, exactly
+     * one space after) -- needed because a brace-initializer whose contents span nested `{...}`
+     * groups (e.g. `{ {1,2}, {3,4} }`) is deliberately rejected by
+     * `DeclarationAlignmentRule.parseDeclaration` (initializer ending in `}` is left untouched, see
+     * its own doc comment) and so never gets comma spacing from that rule's `renderInitTokens`.
      * Control-flow and function/class body braces (STYLE.md §11/§7, already handled by
      * `BlockStructureRule`) are never touched -- those braces are never directly preceded by
      * `=`, `{`, or `,` while nested inside an already-recognized initializer, which is the
@@ -329,6 +334,13 @@ public class MiscRule {
         final StringBuilder out = new StringBuilder();
         final List<Token> gap = new ArrayList<>();
         final Deque<Boolean> initStack = new ArrayDeque<>();
+        // Parallel stack: true only for the frame directly opened by `=` (a fresh top-level
+        // initializer), false for every other frame -- including a nested initializer frame
+        // continuing an already-active parent initializer, and any non-initializer scope brace
+        // (function/control-flow body) that happens to enclose an initializer. `initStack` alone
+        // can't distinguish "outermost" this way since a non-initializer enclosing scope brace
+        // (e.g. a function body) also occupies a stack slot, offsetting a naive depth count.
+        final Deque<Boolean> outermostStack = new ArrayDeque<>();
         Token lastSignificant = null;
         final int n = tokens.size();
         int i = 0;
@@ -341,15 +353,21 @@ public class MiscRule {
                 continue;
             }
 
-            final boolean afterInitOpen = isPunct(lastSignificant, "{")
-                    && !initStack.isEmpty() && initStack.peek();
-            final boolean beforeInitClose = isPunct(t, "}")
-                    && !initStack.isEmpty() && initStack.peek();
+            final boolean inInit = !initStack.isEmpty() && initStack.peek();
+            // Inside-brace padding applies only at the outermost initializer level -- STYLE.md
+            // §3.3's worked example pads only the outer pair of a nested brace-initializer
+            // (`{ {1, 2}, {3, 4} }`), leaving inner element braces tight. Comma spacing, by
+            // contrast, applies at every nesting level.
+            final boolean atOutermostInit = inInit && !outermostStack.isEmpty() && outermostStack.peek();
+            final boolean afterInitOpen = isPunct(lastSignificant, "{") && atOutermostInit;
+            final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
+            final boolean beforeComma = isPunct(t, ",") && inInit;
+            final boolean afterComma = isPunct(lastSignificant, ",") && inInit;
             final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline);
 
-            if (afterInitOpen && isPunct(t, "}")) {
+            if ((afterInitOpen && isPunct(t, "}")) || beforeComma) {
                 gap.clear();
-            } else if ((afterInitOpen || beforeInitClose) && !gapHasBlocker) {
+            } else if ((afterInitOpen || beforeInitClose || afterComma) && !gapHasBlocker) {
                 out.append(' ');
                 gap.clear();
             } else {
@@ -360,12 +378,15 @@ public class MiscRule {
             }
 
             if (isPunct(t, "{")) {
-                final boolean isInit = isOp(lastSignificant, "=")
+                final boolean startsNewInit = isOp(lastSignificant, "=");
+                final boolean isInit = startsNewInit
                         || ((isPunct(lastSignificant, "{") || isPunct(lastSignificant, ","))
                                 && !initStack.isEmpty() && initStack.peek());
                 initStack.push(isInit);
+                outermostStack.push(startsNewInit);
             } else if (isPunct(t, "}") && !initStack.isEmpty()) {
                 initStack.pop();
+                outermostStack.pop();
             }
 
             out.append(t.text);

@@ -112,10 +112,29 @@ public class ScopePipeline {
                 final int closeBraceIdx = idx;
                 idx++;
                 if (depth == 0) {
-                    idx = pullTrailingSameLine(tokens, idx);
-                    spans.add(new Span(start, idx, braceIdx, closeBraceIdx));
-                    start = idx;
-                    braceIdx = -1;
+                    // Peek ahead: if the next significant token is `;`, this `}` is ambiguous --
+                    // it could close a genuine named-construct body (`struct Foo { ... };`) or a
+                    // brace-initializer nested in a declaration (`auto x = T{...};`, nested
+                    // `{ {1,2}, {3,4} };`). Function/control-flow/lambda bodies and other genuine
+                    // scopes are never followed by `;`, so in that (common) case this is
+                    // unambiguously a real scope and no further check is needed. Only in the
+                    // ambiguous `;`-followed case does `isScopeOpeningBrace` disambiguate via a
+                    // backward scan for a construct keyword.
+                    boolean nextIsSemi = false;
+                    for (int peek = idx; peek < n; peek++) {
+                        final Token nx = tokens.get(peek);
+                        if (isGapToken(nx)) {
+                            continue;
+                        }
+                        nextIsSemi = isPunct(nx, ";");
+                        break;
+                    }
+                    if (!nextIsSemi || isScopeOpeningBrace(tokens, braceIdx, start)) {
+                        idx = pullTrailingSameLine(tokens, idx);
+                        spans.add(new Span(start, idx, braceIdx, closeBraceIdx));
+                        start = idx;
+                        braceIdx = -1;
+                    }
                 }
                 continue;
             }
@@ -141,6 +160,41 @@ public class ScopePipeline {
             spans.add(new Span(start, n, -1, -1));
         }
         return spans;
+    }
+
+    /** True iff {@code text} starts a named construct -- ported from
+     *  {@code BlockStructureRule.isNamedConstructStartKeyword}. */
+    private boolean isNamedConstructStartKeyword(final String text) {
+        switch (text) {
+            case "class": case "struct": case "enum": case "namespace":
+            case "concept": case "interface": case "record":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * True iff the `{` at {@code braceIdx} genuinely opens a named-construct body (class/struct/
+     * union/enum/namespace/etc.) rather than a brace-initializer expression that merely happens to
+     * be followed by `;` (e.g. `auto x = T{...};`, nested `{ {1,2}, {3,4} };`). Only called for
+     * that ambiguous `;`-followed case (see caller) -- function/control-flow/lambda bodies are
+     * never followed by `;` and so never reach here. Scans every significant token between
+     * {@code spanStart} and {@code braceIdx} for a construct-introducing keyword (`class`,
+     * `struct`, ...); found anywhere in that range (not just immediately before the brace) so an
+     * intervening base-class list (`: public Base`), attribute-specifier (`alignas(16)`), or
+     * template header doesn't defeat the match. A brace-initializer's span never contains such a
+     * keyword (its lead tokens are a type/`auto` and `=`, or nothing at all), so this scan
+     * distinguishes the two shapes cleanly.
+     */
+    private boolean isScopeOpeningBrace(final List<Token> tokens, final int braceIdx, final int spanStart) {
+        for (int i = spanStart; i < braceIdx; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && isNamedConstructStartKeyword(t.text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True iff {@code tokens[start, colonIdx)} contains exactly one significant token and it is

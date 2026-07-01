@@ -118,10 +118,6 @@ public class DeclarationAlignmentRule {
         if (!current.isEmpty()) {
             groups.add(current);
         }
-        for (final List<Declaration> g : groups) {
-            System.err.println("DBG decl group size=" + g.size() + ":");
-            for (final Declaration d : g) { System.err.println("  name=" + d.name.text + " initLast=" + (d.initTokens.isEmpty() ? "EMPTY" : d.initTokens.get(d.initTokens.size()-1).text)); }
-        }
         return groups;
     }
 
@@ -290,13 +286,9 @@ public class DeclarationAlignmentRule {
             grid.addRow(cells.toArray(new String[0]));
         }
 
-        final boolean dbgRender = group.stream().anyMatch(d -> d.name.text.equals("[") || d.name.text.equals("count") || d.name.text.equals("active") || d.name.text.equals("a") || d.name.text.equals("x"));
         final List<String> lines = new ArrayList<>();
-        if (dbgRender) System.err.println("DBG render: maxInitNameWidth=" + maxInitNameWidth + " group=" + group.stream().map(d -> d.name.text).collect(java.util.stream.Collectors.joining(",")));
         for (final String[] row : grid.flush()) {
-            final String line = String.join(" ", row);
-            if (dbgRender) System.err.println("DBG render row: " + java.util.Arrays.toString(row) + " => [" + line + "]");
-            lines.add(line);
+            lines.add(String.join(" ", row));
         }
         return lines;
     }
@@ -446,6 +438,9 @@ public class DeclarationAlignmentRule {
         }
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
+            return false;
+        }
+        if (isPunct(cur, "{") && prev.type == TokenType.IDENTIFIER) {
             return false;
         }
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {

@@ -19,7 +19,7 @@ contains nothing the implementer needs beyond what is already indexed here.
   2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
   3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
   4. `git commit -m "<message>"` — short descriptive message, no strict format required,
-     trailer ending with `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+     trailer ending with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
 - Small related items within a section may be grouped into one commit if they
   are trivially connected — use judgment based on line count (~50 lines threshold)
 - Never let implemented files and STATE.md drift out of sync — STATE.md must
@@ -97,6 +97,8 @@ To look up a specific decision during implementation:
 ```
 grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 ```
+**Do not add the `-An` parameter to `grep` for `STATE_rdd_log.md`, as the lines in
+`STATE_rdd_log.md` are very long.**
 
 | Key | Topic |
 |---|---|
@@ -430,6 +432,47 @@ accept `final` there). This applies to all `.java` files under `src/`.
       now form one group correctly.
     - `OUTLIER_RATIO` changed from 2 to 3 (earlier fix, see prior session notes).
     - The promise_type section no longer appears in the diff.
+  - Bug 9 FIXED (two parts):
+    - (9a) Extra space before `{` in brace-initializer, plus a double-semicolon `;;` on
+      structured-binding declarations (`auto [x, y, z] = Triple{...};;`). Root cause 1:
+      `DeclarationAlignmentRule.needsSpaceBetween` inserted a space before `{` whenever the
+      previous token was an identifier; fixed by returning `false` when `cur` is `{` and `prev`
+      is an `IDENTIFIER`. Root cause 2 (the `;;`): `ScopePipeline.splitTopLevelSpans` closed a
+      `Span` on every depth-0 `}`, without the brace-initializer-vs-scope-body disambiguation
+      that `DeclarationAlignmentRule.splitStatements` already had — so a brace-initializer's `}`
+      (e.g. `Pair{1, 2}` in `auto [a, b] = Pair{1, 2};`) ended the span early, and the `;` that
+      belongs to the declaration was treated as its own trailing/second span, which the splice
+      logic then also terminated with `;`. Fix: added `isScopeOpeningBrace` — only consulted
+      when a depth-0 `}` is immediately followed by `;` (the genuinely ambiguous case; function/
+      control-flow/lambda bodies are never followed by `;`) — which scans every token between
+      the span start and the `{` for a named-construct keyword (`class`, `struct`, `enum`,
+      `namespace`, `concept`, `interface`, `record`, via new `isNamedConstructStartKeyword`,
+      ported from `BlockStructureRule`). Scanning the whole range (not just the token
+      immediately before `{`) is required so an intervening base-class list (`: public Base`)
+      or `extern "C"` doesn't defeat the match. Verified via `make test` with zero regression
+      across `h_core`, `c_core`, `hpp_core`, `cpp_core`, `java_core` after two earlier, more
+      fragile attempts (narrow immediately-preceding-token checks) broke those five tests.
+    - (9b) Missing space after `,` in nested brace-initializer lists not parsed as a
+      `Declaration` (e.g. `std::vector<Pair> pairs = {{1,2},{3,4}};` — rejected by
+      `DeclarationAlignmentRule.parseDeclaration`'s deliberate guard against `}`-ending
+      initializers). Fixed in `MiscRule.enforceInitializerBraceSpacing`: added comma-spacing
+      logic (`beforeComma`/`afterComma`, gated on any active initializer frame via `initStack`)
+      alongside the existing brace-padding logic. Brace padding itself (STYLE.md §3.3's
+      "outermost pair only" rule for nested initializers) required a second stack,
+      `outermostStack`, parallel to `initStack` — an initial attempt gated padding on
+      `initStack.size() == 1`, but that undercounts whenever the initializer is nested inside an
+      enclosing scope brace (e.g. a function body), which also occupies a stack slot; a frame is
+      "outermost" only if it was opened directly by `=` (tracked per-frame in `outermostStack`),
+      not by raw stack depth. Verified via `make test`: `pairs` line now renders as
+      `{ {1, 2}, {3, 4} };` matching `cpp_modern_out.cpp`, zero regressions.
+  - Remaining `cpp_modern_inp.cpp` diff after Bug 9 (both explicitly out of scope for Bug 9,
+    left unfixed, not yet filed as separate checklist items):
+    - `namespace alpha::beta::gamma { ... } // namespace alpha` — the closing comment drops
+      `beta gamma`, keeping only the first segment of the qualified namespace name.
+    - `static_cast<char*>(...)`/`reinterpret_cast<int*>(...)` render with spaced angle brackets
+      (`static_cast < char* > (...)`) instead of tight (`static_cast<char*>(...)`) — likely a
+      `CppSpecificRule.enforceTemplateAngleBracketSpacing` misclassification of cast keywords as
+      generic templates.
 - [ ] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java`
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`

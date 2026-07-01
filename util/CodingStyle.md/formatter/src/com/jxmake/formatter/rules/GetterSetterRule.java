@@ -128,12 +128,6 @@ public class GetterSetterRule {
         if (current.size() >= 2) {
             groups.add(current);
         }
-        System.err.println("DBG groupOneLiners: " + groups.size() + " groups");
-        for (int gi = 0; gi < groups.size(); gi++) {
-            final List<Member> g = groups.get(gi);
-            System.err.println("  group[" + gi + "] size=" + g.size());
-            for (final Member m : g) { System.err.println("    member name idx=" + m.nameIdx + " blank=" + m.blankLineBefore + " def=" + m.isDefinition); }
-        }
         return groups;
     }
 
@@ -166,13 +160,11 @@ public class GetterSetterRule {
                 }
             }
             if (maxWidth > secondWidth * OUTLIER_RATIO) {
-                System.err.println("DBG excludeOutliers: removing maxIdx=" + maxIdx + " maxWidth=" + maxWidth + " secondWidth=" + secondWidth + " ratio=" + OUTLIER_RATIO);
                 remaining.remove(maxIdx);
             } else {
                 break;
             }
         }
-        System.err.println("DBG excludeOutliers: remaining.size=" + remaining.size() + " bodyWidths: " + remaining.stream().mapToInt(m -> bodyWidth(tokens, m)).boxed().collect(java.util.stream.Collectors.toList()));
         return remaining.size() >= 2 ? remaining : new ArrayList<Member>();
     }
 
@@ -443,13 +435,7 @@ public class GetterSetterRule {
             return null;
         }
         final boolean blankBefore = hasBlankLineRun(tokens, from, firstSig);
-        final StringBuilder dbgSb = new StringBuilder();
-        for (int di = firstSig; di < to; di++) { final String tx = tokens.get(di).text; if (tx.length() > 0 && !tx.equals("\n")) dbgSb.append(tx); }
-        final String dbgSnippet = dbgSb.toString().trim();
-        final boolean dbgWantPrint = dbgSnippet.contains("get_return_object") || dbgSnippet.contains("initial_suspend") || dbgSnippet.contains("final_suspend") || dbgSnippet.contains("yield_value") || dbgSnippet.contains("return_void") || dbgSnippet.contains("unhandled_exception");
-        if (dbgWantPrint) System.err.println("DBG parseOneLiner: snippet=" + dbgSnippet.substring(0, Math.min(80, dbgSnippet.length())));
         if (hasNewlineBetween(tokens, firstSig, to)) {
-            if (dbgWantPrint) System.err.println("DBG parseOneLiner: null@hasNewline");
             return null;
         }
 
@@ -608,11 +594,9 @@ public class GetterSetterRule {
             }
             trailingComment = foundComment;
         } else {
-            if (dbgWantPrint) System.err.println("DBG parseOneLiner: null@unknownTerminator term=" + terminator.text);
             return null; // throws clause or other unrecognised form
         }
 
-        if (dbgWantPrint) System.err.println("DBG parseOneLiner: ACCEPTED bodyFrom=" + bodyFrom + " bodyTo=" + bodyTo);
         return new Member(modifiers, returnTypeFrom, returnTypeTo, nameFrom, nameIdx,
                 paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
                 postParenQualifier, pureSpecifier, isDefinition);

@@ -425,7 +425,7 @@ public class DeclarationAlignmentRule {
                     }
                 } else if (needsSpaceBetween(prev, t)) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if (t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
+                    if (t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
                         && ("c".equals(language) || "cpp".equals(language))) {
                         // pointer dereference: add nothing
@@ -461,7 +461,7 @@ public class DeclarationAlignmentRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isRepOp(t, '*') || isRepOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        return Token.isRepOp(t, '*') || Token.isRepOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     /** True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
@@ -897,17 +897,5 @@ public class DeclarationAlignmentRule {
 
     private static boolean isOp(final Token t, final String text) {
         return t.type == TokenType.OP && text.equals(t.text);
-    }
-
-    private static boolean isRepOp(final Token t, final char ch) {
-        if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
-            return false;
-        }
-        for (int i = 0; i < t.text.length(); i++) {
-            if (t.text.charAt(i) != ch) {
-                return false;
-            }
-        }
-        return true;
     }
 }

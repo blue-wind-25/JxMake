@@ -282,6 +282,14 @@ struct Counter {
     void reset(this auto&& self) {
         self.value = 0;
     }
+
+    void reset(Counter* obj) {
+        obj->value = 0;
+    }
+
+    void reset(Counter** obj) {
+        (**obj).value = 0;
+    }
 };
 
 // Explicit object parameter with templates

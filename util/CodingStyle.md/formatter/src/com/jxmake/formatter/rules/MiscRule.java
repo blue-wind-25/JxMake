@@ -1298,7 +1298,7 @@ public class MiscRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return isOp(t, "*") || isOp(t, "&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        return isOp(t, "*") || isOp(t, "&") || isOp(t, "&&") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     private List<Token> significantOnly(final List<Token> stmt) {

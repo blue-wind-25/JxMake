@@ -320,6 +320,16 @@ struct Counter {
         self.value = 0;
     }
 
+    void reset(Counter* obj)
+    {
+        obj->value = 0;
+    }
+
+    void reset(Counter** obj)
+    {
+        (**obj).value = 0;
+    }
+
 }; // struct Counter
 
 // Explicit object parameter with templates

@@ -51,6 +51,22 @@ public class TokenizerCore {
             this.parenDepth = parenDepth;
             this.name = name;
         }
+
+        public boolean isRepOp(final char ch) {
+            if (type != TokenType.OP || text.isEmpty()) {
+                return false;
+            }
+            for (int i = 0; i < text.length(); i++) {
+                if (text.charAt(i) != ch) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static boolean isRepOp(final Token t, final char ch) {
+            return (t == null) ? false : t.isRepOp(ch);
+        }
     }
 
     private static Set<String> setOf(final String... words) {
@@ -105,7 +121,7 @@ public class TokenizerCore {
     // operator would be split into "<=" + ">".
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>=", "...", "->*",
-            "**",
+            "*******", "******", "*****", "****", "***", "**",
             "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "[[", "]]"

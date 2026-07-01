@@ -28,7 +28,19 @@ auto [a, b]    = Pair{ 1, 2 };
 auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
 ```
 
-**(9b) Other differences in `useBindings()` scope**
+Root cause for double semicolon (suspected): `splitStatements` was fixed to not emit at `}` when next token is `;`,
+but `renderNameCell` appends `;` itself. If the statement tokens passed to
+`parseStructuredBinding` still include the original `;` in the initTokens or somewhere,
+the render would produce `;` + the original `;` = `;;`. Need to add debug prints to trace
+what `initTokens` contains for `Triple{...}` and whether the original `;` leaks into the
+render. Alternatively, `splitTopLevelSpans` (ScopePipeline) was NOT fixed and may still
+emit a separate `;` span after the declaration span.
+
+Root cause for extra space: `renderInitTokens`/`needsSpaceBetween` adds a space when IDENTIFIER is
+followed by `{`. Fix needed: in `needsSpaceBetween`, add a case — if `cur` is `{` and
+`prev` is IDENTIFIER, return false (no space). This covers `Pair{`, `Triple{`, etc.
+
+**(9b) Missing space ` ` after `,` **
 - `std::vector<Pair> pairs = { { 1,2 },{ 3,4 } };` → space after `,` → `{ {1, 2}, {3, 4} }`
 
 **Bug (9) detailed diff**
@@ -74,6 +86,7 @@ auto [x, y, z] = Triple{ 1.0f, 2.0f, 3.0f };
 +        static int delta;
 
 NOTE: Fix the above bugs first and ignore the other part of the diff.
+
 
 (10)
      const void* a = nullptr;

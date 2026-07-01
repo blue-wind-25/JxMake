@@ -922,6 +922,20 @@ public class BlockStructureRule {
                 return Frame.named(braceIdx, name);
             }
         }
+        // Qualified namespace name (`namespace alpha::beta::gamma {`): findConstructNameIndex
+        // matches single-token identifiers only, so look up the first segment instead and render
+        // the closing-comment label with the STYLE.md-preferred space separator.
+        if (name.indexOf(':') >= 0) {
+            final String firstSegment = name.substring(0, name.indexOf(':'));
+            final int qualNameIdx = findConstructNameIndex(tokens, braceIdx, firstSegment);
+            if (qualNameIdx >= 0) {
+                final int qualKwIdx = findConstructKeywordIndex(tokens, qualNameIdx - 1);
+                if (qualKwIdx >= 0 && tokens.get(qualKwIdx).type == TokenType.KEYWORD
+                        && "namespace".equals(tokens.get(qualKwIdx).text)) {
+                    return Frame.named(braceIdx, "namespace " + name.replace("::", " "));
+                }
+            }
+        }
         // Search backward past inheritance/base-type clauses (and attribute-specifiers like
         // `alignas(16)`) to find the construct keyword.
         final int nameIdx = findConstructNameIndex(tokens, braceIdx, name);

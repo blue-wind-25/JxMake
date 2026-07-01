@@ -116,6 +116,12 @@ public class TokenizerCore {
             "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
             "short", "signed", "unsigned", "void", "wchar_t");
 
+    // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
+    // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them
+    // unless checked separately.
+    private static final Set<String> CAST_KEYWORDS = setOf(
+            "static_cast", "dynamic_cast", "reinterpret_cast", "const_cast");
+
     // Longest-prefix-first order matters: emitOperator() matches the first entry whose text the
     // source starts with, so "<=>" must precede "<=" (a strict prefix of it) or the spaceship
     // operator would be split into "<=" + ">".
@@ -319,6 +325,15 @@ public class TokenizerCore {
                 if (t.type == TokenType.IDENTIFIER && t.parenDepth == 0 && namedConstructKeywordSeen) {
                     pendingNamedConstructName = t.text;
                     namedConstructKeywordSeen = false;
+                } else if (t.type == TokenType.IDENTIFIER && t.parenDepth == 0
+                        && pendingNamedConstructName != null && recentSignificant.size() >= 2) {
+                    // Qualified namespace name (`namespace alpha::beta::gamma {`): each further
+                    // `::identifier` segment after the first extends the already-armed name.
+                    final Token[] arr = recentSignificant.toArray(new Token[0]);
+                    final Token prev = arr[arr.length - 2];
+                    if (prev.type == TokenType.OP && "::".equals(prev.text)) {
+                        pendingNamedConstructName = pendingNamedConstructName + "::" + t.text;
+                    }
                 }
         }
     }
@@ -766,6 +781,10 @@ public class TokenizerCore {
                 null);
     }
 
+    private static boolean isCastKeyword(final Token t) {
+        return t.type == TokenType.KEYWORD && CAST_KEYWORDS.contains(t.text);
+    }
+
     // ── Generic/template angle bracket disambiguation ───────────────────────────────
     private void reclassifyAngleBrackets(final List<Token> tokens) {
         final List<Integer> sig = new ArrayList<>();
@@ -793,7 +812,7 @@ public class TokenizerCore {
 
             if (cur.type == TokenType.OP && "<".equals(cur.text)) {
                 final Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
-                if (prev != null && prev.type == TokenType.IDENTIFIER) {
+                if (prev != null && (prev.type == TokenType.IDENTIFIER || isCastKeyword(prev))) {
                     openStack.push(new int[] {idx, 1});
                 } else if (!openStack.isEmpty()) {
                     invalidateAll(openStack);

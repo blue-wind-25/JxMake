@@ -383,7 +383,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
     `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
     `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
-- [~] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (IN PROGRESS)
+- [x] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (PASS)
   - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
     capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
   - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
@@ -465,14 +465,25 @@ accept `final` there). This applies to all `.java` files under `src/`.
       "outermost" only if it was opened directly by `=` (tracked per-frame in `outermostStack`),
       not by raw stack depth. Verified via `make test`: `pairs` line now renders as
       `{ {1, 2}, {3, 4} };` matching `cpp_modern_out.cpp`, zero regressions.
-  - Remaining `cpp_modern_inp.cpp` diff after Bug 9 (both explicitly out of scope for Bug 9,
-    left unfixed, not yet filed as separate checklist items):
-    - `namespace alpha::beta::gamma { ... } // namespace alpha` — the closing comment drops
-      `beta gamma`, keeping only the first segment of the qualified namespace name.
-    - `static_cast<char*>(...)`/`reinterpret_cast<int*>(...)` render with spaced angle brackets
-      (`static_cast < char* > (...)`) instead of tight (`static_cast<char*>(...)`) — likely a
-      `CppSpecificRule.enforceTemplateAngleBracketSpacing` misclassification of cast keywords as
-      generic templates.
+  - Bug 10 FIXED: `static_cast<char*>(...)`/`reinterpret_cast<int*>(...)` rendered with spaced
+    angle brackets (`static_cast < char* > (...)`) instead of tight. Root cause:
+    `TokenizerCore.reclassifyAngleBrackets` only armed the `<` disambiguation stack when the
+    token before `<` was an `IDENTIFIER`; `static_cast`/`dynamic_cast`/`reinterpret_cast`/
+    `const_cast` are tokenized as `KEYWORD`, so the `<` after them was never reclassified to
+    `ANGLE_BRACKET_OPEN`/`_CLOSE` and was instead treated as a comparison operator elsewhere,
+    which spaces it. Fix: new `CAST_KEYWORDS` set + `isCastKeyword` helper; the arming check now
+    accepts `IDENTIFIER` or a cast keyword before `<`.
+  - Bug 11 FIXED: `namespace alpha::beta::gamma { ... }` closing comment dropped `beta`/`gamma`,
+    rendering `// namespace alpha` instead of `// namespace alpha beta gamma`. Root cause:
+    `TokenizerCore`'s `pendingNamedConstructName` armed on the first `IDENTIFIER` after
+    `namespace` (`alpha`) but never extended across the following `::beta::gamma` segments. Fix:
+    tokenizer now appends `::segment` for each further `IDENTIFIER` immediately preceded by `::`
+    while `pendingNamedConstructName` is armed, giving `"alpha::beta::gamma"`.
+    `BlockStructureRule.classifyNamed` special-cases a `name` containing `:` — looks up only the
+    first segment via `findConstructNameIndex` to confirm the `namespace` keyword, then renders
+    the closing-comment label as `"namespace " + name.replace("::", " ")` (STYLE.md-preferred
+    space separator, matching `cpp_modern_out.cpp`).
+  - `cpp_modern_inp.cpp` now PASSES in full (forward + idempotency).
   - CRITICAL regression FIXED: idempotency pass on `c_core_out.c`'s "Mixed static and non-static"
     section (Bug 6's own worked example) was re-indenting on a second format pass —
     `static int beta;` / `       int alpha;` gained 8 extra leading spaces each time the already-

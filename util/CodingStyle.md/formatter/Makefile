@@ -87,6 +87,8 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 test: $(JAR_FILE)
 	@(                                                                               \
 		mkdir -p $(TEST_TMP);                                                    \
+		clear;                                                                   \
+		echo "";                                                                 \
 		echo "=== Forward pass (inp → out) ===";                                 \
 		passed="$(TEST_TMP)/passed.list";                                        \
 		rm -f "$$passed";                                                        \
@@ -126,7 +128,8 @@ test: $(JAR_FILE)
 			fi;                                                              \
 		done <  "$$passed";                                                      \
 		rm -f "$$passed";                                                        \
-		if [ $$fail -ne 0 ]; then exit 1; fi;                                    \
 		echo "";                                                                 \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                    \
 		echo "All tests passed.";                                                \
+		echo "";                                                                 \
 	)

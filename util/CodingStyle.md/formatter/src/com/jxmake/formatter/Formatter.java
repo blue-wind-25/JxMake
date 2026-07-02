@@ -76,6 +76,9 @@ public final class Formatter {
         if (isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.tokenize(text));
         }
+        if (isCOrCpp && config.isFormatMacros()) {
+            text = cppRule.alignMacroDefinitions(tokenizer.tokenize(text));
+        }
 
         // Phase 5: file-header-level structure.
         if (isCOrCpp) {

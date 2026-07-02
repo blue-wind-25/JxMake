@@ -18,6 +18,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * C/C++-specific STYLE_C_CPP.md sections not owned by another rule class: §1, §2 (Allman
@@ -1048,5 +1050,99 @@ public class CppSpecificRule {
 
     private boolean isOp(final Token t, final String text) {
         return t != null && t.type == TokenType.OP && text.equals(t.text);
+    }
+
+    /** Matches a function-like `#define NAME(...)` -- never realigned, since the name/value
+     *  relationship there isn't a simple name-column/value-column pair. */
+    private static final Pattern FUNC_DEFINE = Pattern.compile("^#define\\s+[A-Za-z_]\\w*\\(");
+
+    /** Matches a scalar `#define NAME VALUE` (or `NAME VALUE // comment`) -- group 1 is the
+     *  name, group 2 is the value onward (untouched by realignment, only the gap before it
+     *  is rewritten). A `#define` with no value at all (e.g. a header guard) does not match
+     *  and is left alone. */
+    private static final Pattern VALUE_DEFINE = Pattern.compile("^#define\\s+([A-Za-z_]\\w*)\\s+(\\S.*)$");
+
+    /**
+     * `format-macros = on`: realigns the value column of consecutive scalar `#define` lines
+     * (STYLE_C_CPP.md macro grouping) so every value in the run starts at the same column,
+     * one space past the longest macro name in the run. A "run" is broken by a blank line, a
+     * comment, any non-`#define` line, a function-like `#define NAME(...)`, or a valueless
+     * `#define NAME` (header guards) -- each such line ends the current run without joining
+     * it, and starts a fresh (possibly empty) one. Only the name-to-value gap is rewritten;
+     * the value itself (including any trailing same-line comment) is passed through verbatim.
+     */
+    public String alignMacroDefinitions(final List<Token> tokens) {
+        final List<List<Integer>> runs = new ArrayList<>();
+        List<Integer> current = new ArrayList<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.PREPROCESSOR && isAlignableDefine(t.text)) {
+                if (!current.isEmpty() && !isAdjacentDefineLine(tokens, current.get(current.size() - 1), i)) {
+                    runs.add(current);
+                    current = new ArrayList<>();
+                }
+                current.add(i);
+            } else if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                if (!current.isEmpty()) {
+                    runs.add(current);
+                    current = new ArrayList<>();
+                }
+            }
+        }
+        if (!current.isEmpty()) {
+            runs.add(current);
+        }
+
+        final Map<Integer, String> replacements = new HashMap<>();
+        for (final List<Integer> run : runs) {
+            if (run.size() < 2) {
+                continue;
+            }
+            int maxNameLen = 0;
+            final Map<Integer, String> names = new HashMap<>();
+            for (final int idx : run) {
+                final Matcher m = VALUE_DEFINE.matcher(tokens.get(idx).text);
+                m.matches();
+                names.put(idx, m.group(1));
+                maxNameLen = Math.max(maxNameLen, m.group(1).length());
+            }
+            for (final int idx : run) {
+                final Matcher m = VALUE_DEFINE.matcher(tokens.get(idx).text);
+                m.matches();
+                final String name = names.get(idx);
+                final StringBuilder padding = new StringBuilder();
+                for (int p = 0; p < maxNameLen - name.length() + 1; p++) {
+                    padding.append(' ');
+                }
+                replacements.put(idx, "#define " + name + padding + m.group(2));
+            }
+        }
+
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            final String replacement = replacements.get(i);
+            out.append(replacement != null ? replacement : tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    private boolean isAlignableDefine(final String text) {
+        return !FUNC_DEFINE.matcher(text).find() && VALUE_DEFINE.matcher(text).matches();
+    }
+
+    /** True iff, scanning from just after {@code prevIdx} to just before {@code curIdx}, the
+     *  only tokens present are whitespace and exactly one newline -- i.e. the two `#define`
+     *  tokens sit on immediately consecutive lines with no blank line between them. */
+    private boolean isAdjacentDefineLine(final List<Token> tokens, final int prevIdx, final int curIdx) {
+        int newlineCount = 0;
+        for (int j = prevIdx + 1; j < curIdx; j++) {
+            final TokenType ty = tokens.get(j).type;
+            if (ty == TokenType.NEWLINE) {
+                newlineCount++;
+            } else if (ty != TokenType.WHITESPACE) {
+                return false;
+            }
+        }
+        return newlineCount == 1;
     }
 }

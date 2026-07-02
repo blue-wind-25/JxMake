@@ -562,7 +562,19 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `java_modern_out.java` with zero remaining diff.
   - All 5 bugs verified via `make test`: `java_modern_inp.java`/`java_modern_out.java` now PASS
     (forward + idempotency), zero regressions across the other 6 file-pairs.
-- [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
+- [~] File-pair test: `combined_inp.h` → diff vs `combined_out.h` -- 2 of 3 bugs remain
+  - Bug 1 FIXED: `#define` value columns in a contiguous run of scalar macros (no blank line,
+    comment, function-like macro, or valueless macro breaking the run) weren't realigned to a
+    common column when `format-macros = on` (env var `JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on`,
+    already exported by the `test` Makefile target) -- no code path existed at all for this;
+    `DeclarationAlignmentRule` never touches `#define` (requires a trailing `;`, which macros
+    never have). New `CppSpecificRule.alignMacroDefinitions`, wired into `Formatter.java` Phase 4
+    behind `config.isFormatMacros()`: groups consecutive scalar `#define NAME VALUE` lines into
+    runs, pads each name to the run's longest name + 1 space, leaves the value (and any trailing
+    same-line comment) untouched. Verified via `make test`: `combined_inp.h`'s macro-column diff
+    is gone, zero regressions across the other file-pairs.
+  - Bugs 2 (enum closing-comment) and 3 (`extern "C"` closing-comment) still open -- diffs
+    reported by user, not yet resolved.
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
@@ -653,6 +665,32 @@ Via command line options to start with `JXM_CFMT_DIS` add option:
 
 Update `README.md` after implementing this.
 
+### Add new configuration entries:
+
+```properties
+# ── Behavior ──────────────────────────────────────────────────────────────────
+normalize-comment-start-case = on              # on | off
+normalize-comment-end-period = on              # on | off
+```
+
+Update `README.md` after implementing this.
+
+### Cleanups
+1. These comparison:
+     "c".equals()
+     "cpp".equals()
+     "java".equals()
+   are scattered all over the place in the code, please refactor the, so they
+   are only compared once for every file being processed.
+2. Checkings such as:
+     isOp(...)
+     isPunct(...)
+     isKeyword(...)
+     isComment(...)
+     etc.
+   are scattered all over the place in the code, please refactor the, so they
+   are centralized in the `TokenizerCore.Token` class.
+
 ### Extra
 
 1. Smoke test support multiple-file formatting at once, both in `--standalone` and
@@ -666,11 +704,3 @@ Update `README.md` after implementing this.
 Start the server before benchmarking the client-server mode and then stop the server
 after the benchmarking is done. Do not include the server start and stop time in
 the benchmark.
-
-### Add new configuration entries:
-
-# ── Behavior ──────────────────────────────────────────────────────────────────
-normalize-comment-start-case = on              # on | off
-normalize-comment-end-period = on              # on | off
-
-Update `README.md` after implementing this.

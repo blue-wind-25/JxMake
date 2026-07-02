@@ -61,9 +61,13 @@ public final class Formatter {
         text = miscRule.alignCommentSeparators(tokenizer.tokenize(text));
 
         // Phase 3: comment/marker-generating passes.
-        text = blockRule.addClosingComments(tokenizer.tokenize(text));
+        // `alignInlineSwitches`/`markFallthrough` run before `addClosingComments` so the SWITCH
+        // closing-comment line-count decision (STYLE.md §7) sees the switch body's final,
+        // fully-compacted line count -- not its pre-alignment shape -- keeping the decision
+        // (and thus idempotency) stable across repeated format passes.
         text = switchRule.markFallthrough(tokenizer.tokenize(text));
         text = switchRule.alignInlineSwitches(tokenizer.tokenize(text));
+        text = blockRule.addClosingComments(tokenizer.tokenize(text));
         if (isJava) {
             text = javaRule.enforceSwitchExpressionArrowAlignment(tokenizer.tokenize(text));
         }

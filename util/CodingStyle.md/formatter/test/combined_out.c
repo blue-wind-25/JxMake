@@ -149,7 +149,7 @@ static bool audio_validate(const AudioConfig* cfg)
         case AUDIO_FORMAT_S24 : /* FALL-THROUGH */
         case AUDIO_FORMAT_F32 : break       ;
         default               : return false;
-    } // switch
+    }
 
     return true;
 }

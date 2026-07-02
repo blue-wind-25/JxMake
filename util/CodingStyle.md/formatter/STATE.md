@@ -606,8 +606,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     enforced blank line belongs.
   - All 3 bugs verified via `make test`: `combined_inp.h`/`combined_out.h` now PASS (forward +
     idempotency), zero regressions across the other 7 file-pairs. Committed as `efeb6df`.
-- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS forward; idempotency
-      pre-existing FAIL, unrelated -- see below)
+- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS forward + idempotency)
   - Bug 1 FIXED: struct member group indentation lost entirely when the group's first
     declaration has no modifiers but a sibling does (e.g. `bool success;`/`int frames;` next to
     `const char* error;` inside `ProcessResult`) and the real base indent (4) is smaller than the
@@ -642,10 +641,20 @@ accept `final` there). This applies to all `.java` files under `src/`.
     100 chars only counting comments) into multi-line form; comment length is now excluded from
     that decision (`render(Signature, ...)`'s `commentLen` subtraction) while comments still
     render in the one-line output.
-  - Pre-existing, unrelated idempotency gap (not fixed, out of scope for the 3 bugs above):
-    formatting `combined_out.c` a second time drops the switch statement's `// switch` closing
-    comment. Reproduced identically against the unmodified pre-fix source, confirming it predates
-    and is unaffected by Bugs 1-3.
+  - Bug 4 FIXED (idempotency, pre-existing, unrelated to Bugs 1-3): formatting `combined_out.c`
+    a second time dropped the switch statement's `// switch` closing comment. Root cause:
+    `Formatter.java`'s Phase 3 ran `blockRule.addClosingComments` (whose SWITCH-case decision is
+    based on `closing-comment-min-lines`, i.e. the switch body's content-line count) *before*
+    `switchRule.alignInlineSwitches`, which is the pass that actually compacts a fallthrough-case
+    chain onto one line per case. On the forward pass, `addClosingComments` counted the still
+    spread-out (6-line) input shape (`> 5` -- comment added); the compaction to 4 lines then
+    happened afterward. On a second pass over that already-compacted output, `addClosingComments`
+    counted the now-4-line shape directly (`<= 5` -- comment dropped) -- same source, different
+    line count, purely a pipeline-ordering artifact. Fix: reordered Phase 3 so
+    `switchRule.markFallthrough`/`switchRule.alignInlineSwitches` run *before*
+    `blockRule.addClosingComments`, so the line-count decision always sees the switch body's
+    final, fully-compacted shape on every pass. `combined_inp.c`/`combined_out.c` now PASS
+    forward + idempotency, zero regressions across the other 8 file-pairs.
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
 - [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`

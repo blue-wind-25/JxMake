@@ -69,7 +69,7 @@ INP_FILES += java_modern_inp.java
 INP_FILES += combined_inp.h
 INP_FILES += combined_inp.c
 INP_FILES += combined_inp.hpp
-#INP_FILES += combined_inp.cpp
+INP_FILES += combined_inp.cpp
 #INP_FILES += combined_inp.java
 
 #INP_FILES += c_comments_inp.c
@@ -79,7 +79,7 @@ INP_FILES += combined_inp.hpp
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # make test 2>/dev/null
-# make test 2>&1 | grep PASS
+# make test 2>&1 | grep -E 'PASS|FAIL'
 # make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
 # clear && echo -e '\n====================================================================================================\n' && make test
 # git status | grep _inp

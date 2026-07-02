@@ -10,46 +10,16 @@ Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Bug fix for the `combined_inp.c` formatting test:
-
-(1) The formatter produce the wrong indent:
- typedef struct {
--          bool  success;
--          int   frames;
--    const char* error;
-+      bool  success;
-+      int   frames;
-+const char* error;
- } ProcessResult;
-
-(2) The formatter does not align properly:
--static AudioState  g_state       = AUDIO_STATE_IDLE;
--static AudioConfig g_config      = { AUDIO_SAMPLE_RATE, 2, AUDIO_FORMAT_F32, AUDIO_FRAME_SIZE, false };
--static float       g_gain        = 1.0f;
--static bool        g_muted       = false;
--static uint32_t    g_frame_count = 0;
-+static AudioState g_state = AUDIO_STATE_IDLE;
-+static AudioConfig   g_config = { AUDIO_SAMPLE_RATE, 2, AUDIO_FORMAT_F32, AUDIO_FRAME_SIZE, false };
-+static float    g_gain        = 1.0f;
-+static bool     g_muted       = false;
-+static uint32_t g_frame_count = 0;
-
-(3) The formatter removes the comments:
- // Comment in uncommon locations test (combined)
--void audio_debug(const AudioConfig* cfg /* Config */, char* out /* Output */, size_t len /* Buffer size */)
-+void audio_debug(const AudioConfig* cfg, char* out, size_t len)
- {
-
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
-
 Bug fix for the `combined_inp.hpp` formatting test:
+
+(1) The formatter may incorrectly detect this as multiple sentences because of the period in
+    `.hpp` and `C.` and thus does not remove the period on the line-end. This bug may not be
+    fixable without AI-assist. If so, add this as one of the TODO in `STATE_NEXT_AI.md`.
 
 -// Combined .hpp test: pragma once, concepts, templates, classes, extern C
 +// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
 
-...
+(2) The formatter does not align `= delete` properly (any maybe also `= default` and `= 0`):
 
      explicit EngineBase(EngineConfig cfg);
      virtual ~EngineBase() = default;
@@ -58,7 +28,7 @@ Bug fix for the `combined_inp.hpp` formatting test:
 +    EngineBase(const EngineBase&) = delete;
      EngineBase& operator=(const EngineBase&) = delete;
 
-...
+(3) Extra spaces before `makeEngine`:
 
  template<Processor Impl>
 -std::unique_ptr< EngineBase<Impl> > makeEngine(EngineConfig cfg);

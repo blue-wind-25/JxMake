@@ -734,7 +734,19 @@ public class ScopePipeline {
                     childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
                 }
             }
-            String childResult = processScope(tokenizer.tokenize(childSource), depth + 1);
+            final String childResult;
+            if (!isNamedScope && !childSource.contains("\n")) {
+                // One-liner non-named body (method/constructor/loop `{ ... }` kept on its
+                // original single line) -- recursing would run it through the §5/§6
+                // declaration/assignment grouping passes, which assume a real multi-statement
+                // block and split+column-align each statement onto its own line. That's wrong
+                // here: a single-line body must stay exactly as written so later passes
+                // (GetterSetterRule one-liner grouping, Allman-brace conversion) can still
+                // recognize and handle it as a one-liner.
+                childResult = childSource;
+            } else {
+                childResult = processScope(tokenizer.tokenize(childSource), depth + 1);
+            }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
         return splice(current, replacements);

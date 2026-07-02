@@ -89,15 +89,11 @@ public class JavaSpecificRule {
      * idempotent. The per-occurrence indentation target reuses the closing `)`'s own
      * line-leading indentation, same as {@code CppSpecificRule}'s identical method.
      *
-     * <p>RDD_KEY_75 (supersedes RDD_KEY_60): a one-liner method whose entire `{ ... }` body sits
-     * on one physical line is deferred rather than converted immediately -- if it turns out to be
-     * textually adjacent (no blank line, no comment-only gap) to another such one-liner, both are
-     * left alone, since {@code GetterSetterRule}'s STYLE.md §14 rendering would otherwise have its
-     * one-liner table immediately destroyed by this very pass. This is a cheap adjacency heuristic
-     * ({@link #findPrevSiblingBoundary}/{@link #breaksOneLinerRun}), not a re-implementation of
-     * {@code GetterSetterRule.groupOneLiners}'s exact run/outlier rules -- a non-one-liner member
-     * (e.g. a multi-statement one-liner-shaped body) in between still correctly breaks adjacency,
-     * since its boundary token never matches the expected candidate's {@code closeBraceIdx}.
+     * <p>RDD_KEY_75/RDD_KEY_89: a one-liner method whose entire `{ ... }` body sits on one
+     * physical line is never converted to Allman -- confirmed via `make test` against
+     * java_modern_out.java/combined_out.java, where standalone one-liners (e.g. `distance()`,
+     * `hasError()`, `isActive()`, each the only one-liner in its enclosing scope) stay K&R just
+     * as reliably as ones adjacent to another one-liner (STYLE.md §14 groups).
      */
     public String enforceMethodDefinitionAllmanBraceStyle(final List<Token> tokens) {
         final Map<Integer, Integer> gapToBrace = new HashMap<>();
@@ -157,23 +153,6 @@ public class JavaSpecificRule {
             gapToBrace.put(closeParenIdx + 1, i);
         }
 
-        final boolean[] grouped = new boolean[oneLiners.size()];
-        for (int idx = 1; idx < oneLiners.size(); idx++) {
-            final OneLinerCandidate prev = oneLiners.get(idx - 1);
-            final OneLinerCandidate cur = oneLiners.get(idx);
-            final int prevBoundary = findPrevSiblingBoundary(tokens, cur.nameIdx);
-            if (prevBoundary == prev.closeBraceIdx && !breaksOneLinerRun(tokens, prevBoundary, cur.nameIdx)) {
-                grouped[idx - 1] = true;
-                grouped[idx] = true;
-            }
-        }
-        for (int idx = 0; idx < oneLiners.size(); idx++) {
-            if (!grouped[idx]) {
-                final OneLinerCandidate c = oneLiners.get(idx);
-                gapToBrace.put(c.closeParenIdx + 1, c.braceIdx);
-            }
-        }
-
         final StringBuilder out = new StringBuilder();
         int i = 0;
         while (i < tokens.size()) {
@@ -191,7 +170,7 @@ public class JavaSpecificRule {
     }
 
     /** One method-definition `{ ... }` whose body sits entirely on one physical line --
-     *  candidate for staying K&amp;R if adjacent to another one-liner (RDD_KEY_75). */
+     *  always stays K&amp;R (RDD_KEY_75/RDD_KEY_89), never converted to Allman. */
     private static final class OneLinerCandidate {
         final int nameIdx;
         final int closeParenIdx;
@@ -215,48 +194,6 @@ public class JavaSpecificRule {
             }
         }
         return true;
-    }
-
-    /** Scans backward from {@code fromIdx} for the nearest top-level `}`/`;` (the previous
-     *  sibling member's own end), or -1 if a `{` is hit first (no previous sibling in this
-     *  scope) or the start of the token list is reached. Bounded-effort: does not depth-track,
-     *  same posture as the rest of this codebase's non-AST heuristics. */
-    private int findPrevSiblingBoundary(final List<Token> tokens, final int fromIdx) {
-        for (int i = fromIdx - 1; i >= 0; i--) {
-            final Token t = tokens.get(i);
-            if (isPunct(t, "}") || isPunct(t, ";")) {
-                return i;
-            }
-            if (isPunct(t, "{")) {
-                return -1;
-            }
-        }
-        return -1;
-    }
-
-    /** True iff a blank line (two or more consecutive {@code NEWLINE} tokens) or any comment
-     *  that starts on a NEW line (not a trailing same-line comment on the previous member)
-     *  appears strictly between {@code fromExclusive} and {@code toExclusive}. */
-    private boolean breaksOneLinerRun(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
-        int newlineRun = 0;
-        boolean pastFirstNewline = false;
-        for (int i = fromExclusive + 1; i < toExclusive; i++) {
-            final TokenType type = tokens.get(i).type;
-            if (type == TokenType.NEWLINE) {
-                pastFirstNewline = true;
-                newlineRun++;
-                if (newlineRun >= 2) {
-                    return true;
-                }
-            } else if (!pastFirstNewline) {
-                // same line as previous } -- trailing comment or whitespace, not a gap
-            } else if (type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
-                return true;
-            } else if (type != TokenType.WHITESPACE) {
-                newlineRun = 0;
-            }
-        }
-        return false;
     }
 
     private boolean isMethodDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx) {

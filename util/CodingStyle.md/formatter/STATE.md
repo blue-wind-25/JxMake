@@ -505,7 +505,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     there's nothing to strip (no-op); on a re-format it exactly cancels out the self-generated
     padding, restoring idempotency. Verified via `make test`: `c_core_out.c` idempotency now
     passes, zero regressions elsewhere.
-- [~] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (IN PROGRESS)
+- [x] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (PASS)
   - Bug 1 FIXED: an empty named-construct body (`record Num(int value) implements Expr {}`,
     likewise empty `class`/`interface`/`enum`, and C/C++ `struct`/`class`/`enum`/`enum class`)
     was being expanded to multi-line with a closing comment even though it has no content.
@@ -525,11 +525,43 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `var trimmed = item.trim()` it was `"var trimmed = item."` (an entire assignment). Fix:
     reject the candidate when the return-type span contains a `.` or `=` token -- neither is
     ever valid in an actual return-type/qualified-name-before-`::` position.
-  - Remaining `java_modern_inp.java` diff (unrelated to the two bugs above, left unfixed,
-    out of scope for this session): compact-constructor blank-line placement, single-statement
-    constructor/method bodies not staying K&R one-liner (Allman-converted with misaligned
-    continuation lines), and the `permits` clause not line-wrapping despite exceeding the line
-    length limit.
+  - Bug 3 FIXED: a one-liner constructor/method body containing 2+ statements on its single
+    source line (e.g. `public Rectangle(double width, double height) { this.width = width;
+    this.height = height; }`) got its statements split onto separate, wrongly column-aligned
+    lines. Root cause: `ScopePipeline.processScope` recurses into every child `{...}` scope and
+    always re-runs the full §5/§6 declaration/assignment grouping passes on it, even when the
+    child is a non-named one-liner body that was deliberately left un-pre-expanded (still a
+    single physical line) specifically so later one-liner-aware passes could handle it -- those
+    grouping passes assume a real multi-line body and (mis)treat the 2 statements as a multi-line
+    alignment group. Fix: when recursing into a non-named child scope whose source has no `\n`,
+    skip the recursive `processScope` call entirely and splice the child source back unchanged.
+  - Bug 4 FIXED: a standalone one-liner method (single-statement body, not textually adjacent to
+    another one-liner) was Allman-broken (`{` moved to its own line) instead of staying K&R, e.g.
+    `public double distance() { return Math.sqrt(x * x + y * y); }`. Root cause: RDD_KEY_75's
+    "adjacency heuristic" in `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` only kept
+    a one-liner K&R when grouped with a neighboring one-liner, Allman-breaking every ungrouped
+    one-liner -- contradicted by evidence in `java_modern_out.java`/`combined_out.java`, where
+    isolated one-liners (`distance()`, `hasError()`, `isActive()`, each the only one-liner in its
+    enclosing scope) stay K&R. Fix: removed the grouped/ungrouped split entirely -- every
+    one-liner candidate now stays K&R unconditionally; deleted the now-dead
+    `findPrevSiblingBoundary`/`breaksOneLinerRun` helpers this required.
+  - Bug 5 FIXED: no blank line was inserted between a named-construct's `{` and a leading
+    same-line-comment-led member (e.g. `record NamedPoint(...) {` immediately followed by
+    `// compact constructor` with no blank line first). Root cause:
+    `BlockStructureRule.ensureBlankLine` treated *any* comment anywhere in the gap as reason to
+    render the gap unchanged (blank-line insertion fully blocked), conflating two different
+    shapes: a genuine trailing same-line comment glued to the previous token (correctly
+    ambiguous to relocate) vs. a comment that already starts on its own new line (safe to push
+    a blank line ahead of, same as any other token). Fix: only block insertion when there is no
+    `NEWLINE` token before the first comment in the gap (glued case); otherwise insert the blank
+    line ahead of the leading comment and leave the comment and everything after it untouched.
+  - Also fixed as a side effect of Bug 4 (no separate root cause): the `permits` clause was
+    already correctly line-wrapping once the Allman-brace pass stopped corrupting `distance()`'s
+    surrounding structure earlier in the pipeline; no dedicated fix was needed once Bugs 1-5
+    above were resolved -- confirmed via `make test`, `permits` wrapping matches
+    `java_modern_out.java` with zero remaining diff.
+  - All 5 bugs verified via `make test`: `java_modern_inp.java`/`java_modern_out.java` now PASS
+    (forward + idempotency), zero regressions across the other 6 file-pairs.
 - [ ] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`

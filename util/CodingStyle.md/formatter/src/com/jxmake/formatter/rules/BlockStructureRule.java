@@ -589,9 +589,7 @@ public class BlockStructureRule {
      * gets `"\n\n"` prepended. Control-flow blocks (`for`/`while`/`if`/`switch`/etc., where
      * `Token.name` is null) are never touched here -- STYLE.md §7 says their existing blank
      * lines must be preserved exactly as written, which this method already does simply by
-     * not inspecting them. A comment sitting in the gap blocks the insertion for that occurrence,
-     * since relocating it unambiguously is out of scope, consistent with `enforceKAndRBraceStyle`
-     * and `placeElseOnOwnLine` above.
+     * not inspecting them. See {@link #ensureBlankLine} for how a comment in the gap is handled.
      */
     public String insertNamedConstructBlankLines(final List<Token> tokens) {
         final StringBuilder out = new StringBuilder();
@@ -655,9 +653,32 @@ public class BlockStructureRule {
         return false;
     }
 
-    /** Renders gap as-is if it contains a comment; otherwise guarantees it contains a blank line. */
+    /**
+     * Guarantees the gap contains a blank line. A comment already sitting on its own line (at
+     * least one NEWLINE precedes it in the gap) does not block this -- the blank line is inserted
+     * ahead of it, same as it would be ahead of the first real token, and everything from the
+     * comment onward is left untouched. Only a comment with nothing but whitespace before it (a
+     * trailing same-line comment glued to the previous token, e.g. `stuff; // note`) still blocks
+     * insertion entirely, since relocating *that* comment ahead of a synthesized blank line would
+     * be ambiguous -- consistent with `enforceKAndRBraceStyle`/`placeElseOnOwnLine` above.
+     */
     private String ensureBlankLine(final List<Token> gap) {
-        if (gap.stream().anyMatch(this::isComment)) {
+        int firstCommentIdx = -1;
+        boolean newlineBeforeFirstComment = false;
+        for (int i = 0; i < gap.size(); i++) {
+            final Token g = gap.get(i);
+            if (isComment(g)) {
+                firstCommentIdx = i;
+                break;
+            }
+            if (g.type == TokenType.NEWLINE) {
+                newlineBeforeFirstComment = true;
+            }
+        }
+        if (firstCommentIdx >= 0 && !newlineBeforeFirstComment) {
+            // Comment sits on the same physical line as whatever precedes the gap (only
+            // whitespace, no NEWLINE, in between) -- a trailing same-line comment glued to the
+            // previous token, not a leading comment of the next member.
             final StringBuilder sb = new StringBuilder();
             for (final Token g : gap) {
                 sb.append(g.text);
@@ -665,9 +686,10 @@ public class BlockStructureRule {
             return sb.toString();
         }
 
+        final int prefixEnd = firstCommentIdx < 0 ? gap.size() : firstCommentIdx;
         int newlineCount = 0;
-        for (final Token g : gap) {
-            if (g.type == TokenType.NEWLINE) {
+        for (int i = 0; i < prefixEnd; i++) {
+            if (gap.get(i).type == TokenType.NEWLINE) {
                 newlineCount++;
             }
         }
@@ -677,12 +699,16 @@ public class BlockStructureRule {
             sb.append("\n\n");
         }
         boolean insertedExtra = newlineCount != 1;
-        for (final Token g : gap) {
+        for (int i = 0; i < prefixEnd; i++) {
+            final Token g = gap.get(i);
             sb.append(g.text);
             if (!insertedExtra && g.type == TokenType.NEWLINE) {
                 sb.append('\n');
                 insertedExtra = true;
             }
+        }
+        for (int i = prefixEnd; i < gap.size(); i++) {
+            sb.append(gap.get(i).text);
         }
         return sb.toString();
     }

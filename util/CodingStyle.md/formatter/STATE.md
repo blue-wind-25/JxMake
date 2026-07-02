@@ -867,6 +867,50 @@ accept `final` there). This applies to all `.java` files under `src/`.
     12 file-pairs (still 24/24 PASS forward + idempotency). Missing blank lines around the
     now-preserved comment (bug (2)) and the `Trio` struct's own missing blank lines are still
     open, left for a follow-up.
+  - CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next
+    session should fix these in order):
+    - (3c) `int c  /* Third */` expected (2 spaces before comment) vs `int c /* Third */`
+      actual in `multiParam`'s broken form. Root cause: `MiscRule.render(Signature, ...)`
+      (~line 1314) appends each param's trailing comment with a hardcoded single space
+      (`... + (p.comment != null ? " " + p.comment.text : "")`) -- there is no comment-column
+      padding step analogous to the existing `typeColWidth` padding. Since the last param has
+      no trailing comma, its `name+comma` cell is 1 char narrower than sibling params that do
+      (`"c"` vs `"a,"`/`"b,"`), so its comment sits 1 column left of the others. Fix needs a
+      comment-column width pass mirroring the `typeColWidth` logic, padding the `name+comma`
+      cell to a common width across all params in the group before appending the comment.
+    - (2) Missing blank lines around `/* Fields below */` inside the `Trio` struct.
+      User hypothesized a `closing-comment-min-lines`-style threshold (content < 5 lines);
+      **confirmed false** -- `BlockStructureRule.insertNamedConstructBlankLines` has no line-count
+      gate at all (verified: an 8-content-line version of the same struct shape still gets no
+      blank lines). Root cause instead: the `{` token's `.name` field is never set for the
+      `typedef struct { ... } Alias;` shape (anonymous struct, alias identifier *after* the
+      closing brace) -- `TokenizerCore.computeConstructName()` only looks at the last 2
+      significant tokens before `{` (here: `typedef`, `struct`), finds no IDENTIFIER between
+      `struct` and `{`, and returns null; `pendingNamedConstructName` is never armed either
+      since no IDENTIFIER token appears before the brace. `insertNamedConstructBlankLines`
+      requires `t.name != null` to insert blank lines, so this shape is silently skipped
+      entirely (no blank lines, no closing comment). Confirmed via isolated repro: a plain
+      `struct Trio { ... };` (no typedef-alias) gets blank lines + closing comment correctly;
+      only the typedef-anonymous-struct-with-trailing-alias shape is affected. The
+      closing-comment pass elsewhere already has forward-scan logic to recover the trailing
+      alias name for its own purposes -- that resolved name is never fed back into the
+      tokenizer's `{}`-naming step, which is the gap to close.
+    - (4) `} /* non-negative */ else {` not split onto separate lines (comment should move to
+      its own line between `}` and `else`). Root cause: `BlockStructureRule.placeElseOnOwnLine`
+      (line ~502-505) has a guard `gap.stream().noneMatch(this::isComment)` that unconditionally
+      bails out of *all* repositioning whenever any comment sits in the `}`...`else` gap, leaving
+      the original same-line text untouched verbatim. The guard needs to instead relocate the
+      comment onto its own line (between `}` and `else`) rather than skip the whole construct.
+    - (5) `// macro a` never gets capitalized to `// Macro a` (unlike ordinary `//` comments
+      elsewhere in the file). **Not** a word-exemption/no-capitalize list. Root cause:
+      `TokenizerCore` lexes an entire `#define NAME VALUE // comment` line as one opaque
+      `PREPROCESSOR` token (see the type's own comment: "opaque single-line #-directive") --
+      the trailing `//` text is embedded raw inside that token's text and never becomes a
+      separate `COMMENT_LINE` token, so it never reaches `MiscRule.enforceCommentStyle`'s
+      capitalization logic (which only rewrites `COMMENT_LINE`/`COMMENT_BLOCK` token types).
+      Fix needs the tokenizer to split a trailing `//` comment off of `#define` (and other
+      preprocessor) lines into its own `COMMENT_LINE` token, or `enforceCommentStyle` (or a new
+      pass) to specifically parse and rewrite the comment portion of `PREPROCESSOR` token text.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 

@@ -851,6 +851,22 @@ accept `final` there). This applies to all `.java` files under `src/`.
     Verified via `make test`: zero regressions across the other 12 file-pairs; `multiParam`'s
     broken form and the `int tmp = a;`/`tmp += b;`/`tmp += c;` sequence in `c_comments_inp.c`
     now render correctly.
+  - Bug (1) FIXED: a lone `/* ... */` (or `//`) comment on its own line, standing entirely
+    between two declarations in the same group with no blank line separating them (e.g.
+    `static int x = 10; /* separator */ static int y = 20;`), was silently deleted. Root cause:
+    `DeclarationAlignmentRule.groupDeclarations` only broke a group on a genuine blank line
+    (`hasBlankLineBefore`, a run of >=2 `NEWLINE` tokens) or a non-declaration statement; a
+    standalone comment consumes one of those newlines without contributing a second, so it never
+    tripped the blank-line check and both declarations stayed in one group -- whose `render`
+    fully regenerates the group's entire text span from the two `Declaration` objects alone, with
+    no field anywhere carrying the interior comment, so it just vanished. Fixed by adding
+    `hasCommentBefore` (any comment token in a statement's leading gap -- which, by
+    `pullTrailingSameLine`'s existing same-line-only pull, can only be a standalone comment, never
+    a leftover trailing one) as an additional group-breaking condition alongside `blankBefore`.
+    Verified via `make test`: `/* separator */` now survives; zero regressions across the other
+    12 file-pairs (still 24/24 PASS forward + idempotency). Missing blank lines around the
+    now-preserved comment (bug (2)) and the `Trio` struct's own missing blank lines are still
+    open, left for a follow-up.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 

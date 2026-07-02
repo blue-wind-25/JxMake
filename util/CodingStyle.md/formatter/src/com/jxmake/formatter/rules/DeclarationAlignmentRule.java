@@ -122,7 +122,14 @@ public class DeclarationAlignmentRule {
                 continue;
             }
 
-            if (blankBefore && !current.isEmpty()) {
+            // A standalone comment line between two declarations (e.g. `/* separator */` on its
+            // own line, not a trailing same-line comment -- those are already pulled into the
+            // previous statement by `pullTrailingSameLine`) must also break the group, just like
+            // a blank line: `render(group)` fully regenerates the group's whole span, so a
+            // comment surviving only in the raw leading gap of a mid-group declaration would be
+            // silently discarded otherwise.
+            final boolean breakBefore = blankBefore || hasCommentBefore(stmt);
+            if (breakBefore && !current.isEmpty()) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
@@ -638,6 +645,22 @@ public class DeclarationAlignmentRule {
         return kw.type == TokenType.KEYWORD
                 && ("public".equals(kw.text) || "private".equals(kw.text) || "protected".equals(kw.text))
                 && col.type == TokenType.OP && ":".equals(col.text);
+    }
+
+    /** True iff a comment token appears in {@code stmt}'s leading gap, before the first
+     *  significant (code) token -- by construction (see {@link #pullTrailingSameLine}) this can
+     *  only be a standalone comment on its own line, never a same-line trailing comment left
+     *  over from the previous statement. */
+    private boolean hasCommentBefore(final List<Token> stmt) {
+        for (final Token t : stmt) {
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                break;
+            }
+        }
+        return false;
     }
 
     private boolean hasBlankLineBefore(final List<Token> stmt) {

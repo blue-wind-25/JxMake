@@ -47,7 +47,7 @@ const char* codec_version(void);
 const char* codec_last_error(void);
 
 #ifdef __cplusplus
-}
+} // extern "C"
 #endif
 
 

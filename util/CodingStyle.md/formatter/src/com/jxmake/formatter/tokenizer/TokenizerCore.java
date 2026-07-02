@@ -408,45 +408,38 @@ public class TokenizerCore {
 
     // ── Per-construct emit helpers ──────────────────────────────────────────────────
     private Token emitOpenBrace() {
-        String name = null;
-        if (preprocessorDepth == 0) {
-            if (pendingRecordName != null) {
-                name = pendingRecordName;
-                pendingRecordName = null;
-            } else if (pendingConceptName != null) {
-                name = pendingConceptName;
-                pendingConceptName = null;
-            } else if (pendingNamedConstructName != null) {
-                name = pendingNamedConstructName;
-                pendingNamedConstructName = null;
-            } else {
-                name = computeConstructName();
-            }
-            braceDepth++;
-            nameStack.push(name);
+        final String name;
+        if (pendingRecordName != null) {
+            name = pendingRecordName;
+            pendingRecordName = null;
+        } else if (pendingConceptName != null) {
+            name = pendingConceptName;
+            pendingConceptName = null;
+        } else if (pendingNamedConstructName != null) {
+            name = pendingNamedConstructName;
+            pendingNamedConstructName = null;
+        } else {
+            name = computeConstructName();
         }
+        braceDepth++;
+        nameStack.push(name);
         pos++;
         return new Token(TokenType.PUNCT, "{", braceDepth, parenDepth, name);
     }
 
     private Token emitCloseBrace() {
-        String name = null;
-        if (preprocessorDepth == 0) {
-            if (braceDepth == 0) {
-                syntaxError = true;
-            }
-            name = nameStack.isEmpty() ? null : nameStack.pop();
-            braceDepth--;
+        if (braceDepth == 0) {
+            syntaxError = true;
         }
+        final String name = nameStack.isEmpty() ? null : nameStack.pop();
+        braceDepth--;
         pos++;
         return new Token(TokenType.PUNCT, "}", braceDepth, parenDepth, name);
     }
 
     private Token emitOpenBracket(final char c) {
         bracketNameStack.push(c == '(' ? computeRecordHeaderName() : null);
-        if (preprocessorDepth == 0) {
-            parenDepth++;
-        }
+        parenDepth++;
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }
@@ -456,9 +449,7 @@ public class TokenizerCore {
         if (c == ')' && recordName != null) {
             pendingRecordName = recordName;
         }
-        if (preprocessorDepth == 0) {
-            parenDepth--;
-        }
+        parenDepth--;
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }
@@ -567,27 +558,10 @@ public class TokenizerCore {
 
     private Token emitPreprocessor() {
         final int start = pos;
-        pos++; // consume '#'
-        while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
-            pos++;
-        }
-        final int wordStart = pos;
-        while (pos < length && isIdentifierPart(source.charAt(pos))) {
-            pos++;
-        }
-        final String directive = source.substring(wordStart, pos);
         while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
             pos++;
         }
-        final String text = source.substring(start, pos);
-
-        if ("if".equals(directive) || "ifdef".equals(directive) || "ifndef".equals(directive)) {
-            preprocessorDepth++;
-        } else if ("endif".equals(directive)) {
-            preprocessorDepth = Math.max(0, preprocessorDepth - 1);
-        }
-
-        return new Token(TokenType.PREPROCESSOR, text, braceDepth, parenDepth, null);
+        return new Token(TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null);
     }
 
     private Token emitLineComment() {

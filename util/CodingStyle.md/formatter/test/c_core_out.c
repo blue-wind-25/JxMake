@@ -42,7 +42,7 @@ typedef struct Point {
     float y;
     float z;
 
-} Point;
+} Point; // struct Point
 
 // Enum with closing comment
 typedef enum Color {
@@ -51,7 +51,7 @@ typedef enum Color {
     COLOR_GREEN,
     COLOR_BLUE
 
-} Color;
+} Color; // enum Color
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Functions -- Allman brace style for definitions, K&R for control flow

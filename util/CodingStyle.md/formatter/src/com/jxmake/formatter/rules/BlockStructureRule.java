@@ -592,24 +592,54 @@ public class BlockStructureRule {
      * not inspecting them. See {@link #ensureBlankLine} for how a comment in the gap is handled.
      */
     public String insertNamedConstructBlankLines(final List<Token> tokens) {
+        final int n = tokens.size();
+
+        // Match every '{' to its '}' via simple depth counting, so a named brace's true
+        // boundary can be found regardless of iteration order.
+        final Map<Integer, Integer> matchClose = new HashMap<>();
+        final Deque<Integer> braceStack = new ArrayDeque<>();
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                braceStack.push(i);
+            } else if (isPunct(t, "}") && !braceStack.isEmpty()) {
+                matchClose.put(braceStack.pop(), i);
+            }
+        }
+
+        // For each named, non-empty-body '{', the guaranteed blank line normally belongs right
+        // after '{' / right before '}' -- but if a preprocessor directive (e.g. an `#ifdef
+        // __cplusplus` / `#endif` pair wrapping just the brace, as with a guarded `extern "C"`)
+        // sits directly against the brace with no blank line of its own, the boundary moves past
+        // it: the blank line separates the guard from the real body content, not the brace from
+        // the guard immediately touching it.
+        final Set<Integer> blankBeforeIdx = new HashSet<>();
+        final Set<Integer> blankAfterIdx = new HashSet<>();
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (!isPunct(t, "{") || t.name == null || isEmptyBraceBody(tokens, i)) {
+                continue;
+            }
+            final Integer closeIdx = matchClose.get(i);
+            if (closeIdx == null) {
+                continue;
+            }
+            blankBeforeIdx.add(skipGuardForward(tokens, i));
+            blankAfterIdx.add(skipGuardBackward(tokens, closeIdx));
+        }
+
         final StringBuilder out = new StringBuilder();
         final List<Token> gap = new ArrayList<>();
-        final Deque<Boolean> namedStack = new ArrayDeque<>();
-        final int n = tokens.size();
-        boolean afterNamedOpen = false;
-        int i = 0;
-
-        while (i < n) {
+        int lastSignificant = -1;
+        for (int i = 0; i < n; i++) {
             final Token t = tokens.get(i);
             if (isGap(t)) {
                 gap.add(t);
-                i++;
                 continue;
             }
-
-            final boolean beforeNamedClose = isPunct(t, "}") && !namedStack.isEmpty()
-                    && namedStack.peek();
-            if (afterNamedOpen || beforeNamedClose) {
+            final boolean needBlank = blankBeforeIdx.contains(i)
+                    || (lastSignificant >= 0 && blankAfterIdx.contains(lastSignificant));
+            if (needBlank) {
                 out.append(ensureBlankLine(gap));
             } else {
                 for (final Token g : gap) {
@@ -617,27 +647,68 @@ public class BlockStructureRule {
                 }
             }
             gap.clear();
-
-            if (isPunct(t, "{")) {
-                // An empty body (`{}` or `{ }`) must stay collapsed -- no blank lines inserted
-                // either after the `{` or before the `}` -- so push `false` (as if unnamed) when
-                // the very next significant token is the matching `}`.
-                final boolean named = t.name != null && !isEmptyBraceBody(tokens, i);
-                namedStack.push(named);
-                afterNamedOpen = named;
-            } else {
-                afterNamedOpen = false;
-                if (isPunct(t, "}") && !namedStack.isEmpty()) {
-                    namedStack.pop();
-                }
-            }
             out.append(t.text);
-            i++;
+            lastSignificant = i;
         }
         for (final Token g : gap) {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    /** True iff nothing but whitespace and exactly one NEWLINE sits between tokens at indices
+     *  {@code fromExclusive} and {@code toExclusive} -- i.e. the two lines are adjacent with no
+     *  blank line between them. */
+    private boolean isSingleNewlineGap(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        int newlines = 0;
+        for (int k = fromExclusive + 1; k < toExclusive; k++) {
+            if (tokens.get(k).type == TokenType.NEWLINE) {
+                newlines++;
+            }
+        }
+        return newlines == 1;
+    }
+
+    /** From a named `{` at {@code openIdx}, walks forward past any run of preprocessor directive
+     *  lines sitting directly against the brace (no blank line of their own), returning the index
+     *  of the first token that represents real body content. */
+    private int skipGuardForward(final List<Token> tokens, final int openIdx) {
+        int i = openIdx;
+        while (true) {
+            int j = i + 1;
+            while (j < tokens.size() && isGap(tokens.get(j))) {
+                j++;
+            }
+            if (j >= tokens.size()) {
+                return j;
+            }
+            if (tokens.get(j).type == TokenType.PREPROCESSOR && isSingleNewlineGap(tokens, i, j)) {
+                i = j;
+                continue;
+            }
+            return j;
+        }
+    }
+
+    /** From a named `}` at {@code closeIdx}, walks backward past any run of preprocessor
+     *  directive lines sitting directly against the brace (no blank line of their own), returning
+     *  the index of the last token that represents real body content. */
+    private int skipGuardBackward(final List<Token> tokens, final int closeIdx) {
+        int i = closeIdx;
+        while (true) {
+            int j = i - 1;
+            while (j >= 0 && isGap(tokens.get(j))) {
+                j--;
+            }
+            if (j < 0) {
+                return j;
+            }
+            if (tokens.get(j).type == TokenType.PREPROCESSOR && isSingleNewlineGap(tokens, j, i)) {
+                i = j;
+                continue;
+            }
+            return j;
+        }
     }
 
     /** True if the `{` at {@code openIdx} is immediately followed (ignoring gap tokens) by its
@@ -1141,12 +1212,24 @@ public class BlockStructureRule {
         return count;
     }
 
-    /** Index to insert the comment at: the `}`, or a trailing `;` right after it, if present. */
+    /** Index to insert the comment at: the `}`, or a trailing `;` right after it, if present --
+     *  also skipping past a single typedef-alias identifier between them (C's
+     *  `typedef enum/struct NAME { ... } ALIAS;`), so the alias/`;` themselves aren't split from
+     *  the body they close. */
     private int commentInsertionIndex(final List<Token> tokens, final int closeIdx) {
         int k = closeIdx + 1;
         final int n = tokens.size();
         while (k < n && tokens.get(k).type == TokenType.WHITESPACE) {
             k++;
+        }
+        if (k < n && tokens.get(k).type == TokenType.IDENTIFIER) {
+            int j = k + 1;
+            while (j < n && tokens.get(j).type == TokenType.WHITESPACE) {
+                j++;
+            }
+            if (j < n && isPunct(tokens.get(j), ";")) {
+                return j;
+            }
         }
         return k < n && isPunct(tokens.get(k), ";") ? k : closeIdx;
     }

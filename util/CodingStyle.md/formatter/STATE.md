@@ -573,8 +573,28 @@ accept `final` there). This applies to all `.java` files under `src/`.
     runs, pads each name to the run's longest name + 1 space, leaves the value (and any trailing
     same-line comment) untouched. Verified via `make test`: `combined_inp.h`'s macro-column diff
     is gone, zero regressions across the other file-pairs.
-  - Bugs 2 (enum closing-comment) and 3 (`extern "C"` closing-comment) still open -- diffs
-    reported by user, not yet resolved.
+  - Bug 3 (`extern "C"` closing-comment) RESOLVED as a `combined_out.h` fixture fix (user-
+    confirmed, no code change): a bare `extern "C" { ... }` (unconditional, e.g. `cpp_core`)
+    gets a closing comment, but one wrapped in `#ifdef __cplusplus ... #endif` (as in
+    `combined_inp.h` and `h_core_inp.h`, both of which agree) does not -- `combined_out.h`'s
+    `// extern "C"` was a fixture error, now removed to match established precedent.
+  - Bug 2 (enum closing-comment) PARTIALLY FIXED: `BlockStructureRule.commentInsertionIndex`
+    only recognized `}` or `};` as the insertion point, so C's `typedef enum/struct NAME { ... }
+    ALIAS;` shape (alias identifier between `}` and `;`) never got a closing comment -- fixed by
+    skipping an optional single IDENTIFIER before the `;`. Verified via `make test` on
+    `c_core_inp.c`'s `Point`/`Color` (`test/c_core_out.c` already carried the expected `// struct
+    Point` / `// enum Color` from prior uncommitted work; now produced correctly), zero
+    regressions.
+  - Bug 2 still open for `combined_inp.h`'s `EngineState` specifically: found (not yet fixed) a
+    second, broader bug in `TokenizerCore` -- `emitOpenBrace`/`emitCloseBrace`/
+    `emitOpenBracket`/`emitCloseBracket` all gate `braceDepth`/`parenDepth` tracking *and*
+    named-construct detection behind `preprocessorDepth == 0`, so being inside **any**
+    `#if`/`#ifdef`/`#ifndef` region -- including an ordinary whole-file `#ifndef GUARD` header
+    guard -- freezes depth tracking and disables naming for everything inside it. This is why
+    `EngineState` (guarded) never gets `NAMED` classification, while the same shape works when
+    the file uses `#pragma once` instead (`hpp_core`, `cpp_core`). Asked the user how to fix this
+    (remove the guard entirely vs. special-case the header-guard shape vs. leave unfixed) --
+    no response yet; **not fixed**, flagged here as blocking the rest of this bug.
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`

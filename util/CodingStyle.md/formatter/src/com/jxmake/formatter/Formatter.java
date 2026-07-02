@@ -51,6 +51,7 @@ public final class Formatter {
         } else if (isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.tokenize(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.tokenize(text));
+            text = javaRule.separateEnumConstantListTerminator(tokenizer.tokenize(text));
         }
         text = miscRule.enforceCallLineBreaking(tokenizer.tokenize(text));
         text = switchRule.formatNonInlineSwitches(tokenizer.tokenize(text));

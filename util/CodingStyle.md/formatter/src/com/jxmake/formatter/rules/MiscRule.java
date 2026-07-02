@@ -1550,8 +1550,9 @@ public class MiscRule {
     }
 
     private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx) {
+        // Skip a `throws ExceptionType, ExceptionType...` clause, if present.
+        int closeParen = skipThrowsClauseBackward(tokens, prevSignificantIndex(tokens, braceIdx - 1));
         // Skip post-paren qualifiers (const, volatile, noexcept, override, final, throws).
-        int closeParen = prevSignificantIndex(tokens, braceIdx - 1);
         while (closeParen >= 0 && isFunctionBodyQualifier(tokens.get(closeParen))) {
             closeParen = prevSignificantIndex(tokens, closeParen - 1);
         }
@@ -1573,6 +1574,39 @@ public class MiscRule {
         final int beforeName = prevSignificantIndex(tokens, nameIdx - 1);
         return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
                 || !"new".equals(tokens.get(beforeName).text);
+    }
+
+    /** If {@code fromIdx} is the last token of a `throws ExceptionType, ExceptionType...` clause
+     *  (a comma-separated identifier/qualified-name list immediately preceded by the `throws`
+     *  keyword), returns the index just before that keyword; otherwise returns {@code fromIdx}
+     *  unchanged. */
+    private int skipThrowsClauseBackward(final List<Token> tokens, final int fromIdx) {
+        int i = fromIdx;
+        if (i < 0 || tokens.get(i).type != TokenType.IDENTIFIER) {
+            return fromIdx;
+        }
+        while (i >= 0) {
+            if (tokens.get(i).type != TokenType.IDENTIFIER) {
+                return fromIdx;
+            }
+            int prev = prevSignificantIndex(tokens, i - 1);
+            while (prev >= 0 && isOp(tokens.get(prev), ".")) {
+                prev = prevSignificantIndex(tokens, prev - 1);
+                if (prev < 0 || tokens.get(prev).type != TokenType.IDENTIFIER) {
+                    return fromIdx;
+                }
+                prev = prevSignificantIndex(tokens, prev - 1);
+            }
+            if (prev >= 0 && tokens.get(prev).type == TokenType.KEYWORD && "throws".equals(tokens.get(prev).text)) {
+                return prevSignificantIndex(tokens, prev - 1);
+            }
+            if (prev >= 0 && isPunct(tokens.get(prev), ",")) {
+                i = prevSignificantIndex(tokens, prev - 1);
+                continue;
+            }
+            return fromIdx;
+        }
+        return fromIdx;
     }
 
     private boolean isFunctionBodyQualifier(final Token t) {
@@ -1686,14 +1720,16 @@ public class MiscRule {
      * without this detection, would wrongly capitalize a lowercase label like `// switch`.
      */
     public String enforceCommentStyle(final List<Token> tokens) {
+        final Map<Integer, String> lineCommentContent = computeLineCommentGroups(tokens);
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.COMMENT_LINE) {
-                if (parseSeparatorComment(t.text, i) != null || isClosingBraceLabelComment(tokens, i)) {
+                final String content = lineCommentContent.get(i);
+                if (content == null) {
                     out.append(t.text);
                 } else {
-                    out.append("//").append(applyCommentTextRules(t.text.substring(2)));
+                    out.append("//").append(content);
                 }
             } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
                 final String inner = t.text.substring(2, t.text.length() - 2);
@@ -1709,6 +1745,95 @@ public class MiscRule {
             }
         }
         return out.toString();
+    }
+
+    /** Groups consecutive `//` line comments -- back to back with no blank line between -- into
+     *  one §15 sentence-detection unit, the same way a multi-line `/* ... *&#47;` block comment
+     *  already is: the trailing period is stripped only when it is the sole `.` across every line
+     *  of the group, not just the last line alone. A closing-brace-label comment
+     *  ({@link #isClosingBraceLabelComment}) breaks the chain entirely (never a link). A
+     *  separator-alignment comment ({@link #parseSeparatorComment}) still counts as a chain link
+     *  for dot-counting purposes (an ordinary prose sentence can coincidentally look like one, see
+     *  RDD_KEY_47 follow-up) but is never itself rewritten -- rendered verbatim, exactly as before.
+     *  Returns each rewritable group member's already-capitalized, period-decided replacement
+     *  content, keyed by its token index; a token absent from the map must be rendered verbatim by
+     *  the caller. */
+    private Map<Integer, String> computeLineCommentGroups(final List<Token> tokens) {
+        final Map<Integer, String> result = new HashMap<>();
+        int i = 0;
+        while (i < tokens.size()) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.COMMENT_LINE && isCommentChainLink(tokens, i)) {
+                final List<Integer> group = new ArrayList<>();
+                group.add(i);
+                int j = i;
+                int next;
+                while ((next = nextCommentChainLinkIfAdjacent(tokens, j)) >= 0) {
+                    group.add(next);
+                    j = next;
+                }
+                final List<String> contents = new ArrayList<>();
+                for (final int idx : group) {
+                    contents.add(tokens.get(idx).text.substring(2));
+                }
+                final int lastIdx = group.size() - 1;
+                if (isCommentRewritable(tokens, group.get(lastIdx))) {
+                    stripSoleTrailingPeriodAcrossLines(contents);
+                }
+                for (int k = 0; k < group.size(); k++) {
+                    if (isCommentRewritable(tokens, group.get(k))) {
+                        result.put(group.get(k), capitalizeFirstLetter(contents.get(k)));
+                    }
+                }
+                i = j + 1;
+            } else {
+                i++;
+            }
+        }
+        return result;
+    }
+
+    /** True iff the {@code COMMENT_LINE} token at {@code idx} extends a §15 sentence-detection
+     *  chain: any plain `//` comment that is not a closing-brace label. */
+    private boolean isCommentChainLink(final List<Token> tokens, final int idx) {
+        return !isClosingBraceLabelComment(tokens, idx);
+    }
+
+    /** True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a
+     *  separator-alignment label, handled instead by {@link #alignCommentSeparators}). */
+    private boolean isCommentRewritable(final List<Token> tokens, final int idx) {
+        final Token t = tokens.get(idx);
+        return parseSeparatorComment(t.text, idx) == null;
+    }
+
+    /** If the token at {@code idx} is a `//` chain-link comment, and it is followed -- after
+     *  exactly one {@code NEWLINE} and only {@code WHITESPACE} otherwise (no blank line, no other
+     *  token) -- by another chain-link `//` comment, returns that next comment's token index;
+     *  otherwise returns -1. */
+    private int nextCommentChainLinkIfAdjacent(final List<Token> tokens, final int idx) {
+        int p = idx + 1;
+        int newlineCount = 0;
+        while (p < tokens.size()) {
+            final TokenType type = tokens.get(p).type;
+            if (type == TokenType.WHITESPACE) {
+                p++;
+            } else if (type == TokenType.NEWLINE) {
+                newlineCount++;
+                if (newlineCount > 1) {
+                    return -1;
+                }
+                p++;
+            } else {
+                break;
+            }
+        }
+        if (p >= tokens.size() || newlineCount != 1) {
+            return -1;
+        }
+        if (tokens.get(p).type == TokenType.COMMENT_LINE && isCommentChainLink(tokens, p)) {
+            return p;
+        }
+        return -1;
     }
 
     /** True iff the {@code COMMENT_LINE} token at {@code idx} is immediately preceded, on the

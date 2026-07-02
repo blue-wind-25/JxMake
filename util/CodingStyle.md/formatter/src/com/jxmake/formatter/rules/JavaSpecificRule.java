@@ -294,6 +294,140 @@ public class JavaSpecificRule {
     }
 
     /**
+     * When a Java enum body has trailing members after its constant list (methods, fields,
+     * constructors), detaches the constant-list-terminating `;` onto its own line, with a blank
+     * line before and after it -- e.g.:
+     * <pre>
+     *     public enum State {
+     *
+     *         IDLE, RUNNING, PAUSED, ERROR
+     *
+     *         ;
+     *
+     *         public boolean isActive() { return this == RUNNING; }
+     *
+     *     }
+     * </pre>
+     * An enum with no trailing members (the `;` is the very last thing before the enum's own `}`,
+     * or absent entirely -- legal Java) is left untouched: there is nothing to separate the
+     * constant list from.
+     */
+    public String separateEnumConstantListTerminator(final List<Token> tokens) {
+        final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
+        if (terminators.isEmpty()) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token t : tokens) {
+                sb.append(t.text);
+            }
+            return sb.toString();
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        int lastSignificant = -1;
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                continue;
+            }
+            final boolean thisIsTerminator = terminators.containsKey(i);
+            final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(lastSignificant);
+            if (thisIsTerminator || prevWasTerminator) {
+                final String indent = thisIsTerminator ? terminators.get(i) : terminators.get(lastSignificant);
+                out.append('\n').append('\n').append(indent);
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = i;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Finds every Java enum body's constant-list-terminating `;` that has at least one more
+     *  member after it before the enum's own `}` -- keyed by token index, valued by the indent
+     *  string of the enum body's member lines (derived from its first member's own line). */
+    private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens) {
+        final Map<Integer, String> result = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), "{") || !isEnumBodyBrace(tokens, i)) {
+                continue;
+            }
+            final int closeBraceIdx = matchBraceForward(tokens, i);
+            if (closeBraceIdx < 0) {
+                continue;
+            }
+            final int firstMember = nextSignificantIndex(tokens, i + 1);
+            if (firstMember < 0 || firstMember >= closeBraceIdx) {
+                continue;
+            }
+            final String indent = lineIndentAt(tokens, firstMember);
+            int depth = 0;
+            for (int p = i + 1; p < closeBraceIdx; p++) {
+                final Token t = tokens.get(p);
+                if (isGapToken(t)) {
+                    continue;
+                }
+                if (isPunct(t, "(") || isPunct(t, "{")) {
+                    depth++;
+                } else if (isPunct(t, ")") || isPunct(t, "}")) {
+                    depth--;
+                } else if (depth == 0 && isPunct(t, ";")) {
+                    final int next = nextSignificantIndex(tokens, p + 1);
+                    if (next >= 0 && next < closeBraceIdx) {
+                        result.put(p, indent);
+                    }
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    /** True iff the `{` at {@code braceIdx} opens a Java enum's body -- scans backward past the
+     *  enum's name and any `implements`/generic-bound clause tokens until it finds the `enum`
+     *  keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely). */
+    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx) {
+        int p = prevSignificantIndex(tokens, braceIdx - 1);
+        while (p >= 0) {
+            final Token t = tokens.get(p);
+            if (t.type == TokenType.KEYWORD && "enum".equals(t.text)) {
+                return true;
+            }
+            if (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";")) {
+                return false;
+            }
+            p = prevSignificantIndex(tokens, p - 1);
+        }
+        return false;
+    }
+
+    /** The indentation of the physical line containing token {@code idx} -- the whitespace run
+     *  immediately after the nearest preceding {@code NEWLINE} (or the start of the file), taken
+     *  regardless of whether {@code idx} itself is that line's first token. */
+    private String lineIndentAt(final List<Token> tokens, final int idx) {
+        int p = idx - 1;
+        while (p >= 0 && tokens.get(p).type != TokenType.NEWLINE) {
+            p--;
+        }
+        final StringBuilder indent = new StringBuilder();
+        for (int k = p + 1; k < idx; k++) {
+            if (tokens.get(k).type == TokenType.WHITESPACE) {
+                indent.append(tokens.get(k).text);
+            } else {
+                break;
+            }
+        }
+        return indent.toString();
+    }
+
+    /**
      * STYLE_JAVA.md §7: groups every top-level {@code import} statement into six fixed buckets
      * (static, java/javax, org, com, local, other), sorts within each bucket, and re-renders the
      * whole import block in {@code groupOrder}'s order, separated by {@code blankLines} blank

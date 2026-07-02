@@ -191,6 +191,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_86 | `MiscRule.java` call/declaration line-breaking architecture -- option 2 must bypass `parseSignature`, option 1 reuses it + new `renderDropped` |
 | RDD_KEY_87 | `MiscRule.enforceCallLineBreaking` implementation scope decisions (nesting, comment bail-out, call-vs-declaration classification, new preserve-groups grid) + `collapseTokensToOneLine` bugfix |
 | RDD_KEY_88 | `Main.java` implementation (Step 1.5) -- CLI parsing, config resolution, indent-style temp-cache, server auto-connect/delegate, `--server`/`--stop`, output modes, exit codes |
+| RDD_KEY_89 | `combined_inp.java` -- §15 consecutive-`//`-comment grouping, enum constant-list `;` separation, `throws`-clause function-body detection |
 
 ---
 
@@ -749,7 +750,58 @@ accept `final` there). This applies to all `.java` files under `src/`.
        original comment behind in the untouched source right after the replaced span and
        duplicating it (`// Channel C // channel C`). Fixed by adding a new `isWhitespaceOrNewline`
        helper (excludes comments) for that specific trim, used in both passes.
-- [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
+- [x] File-pair test: `combined_inp.java` → diff vs `combined_out.java` (PASS forward + idempotency)
+  - Bug 1 FIXED: a `//` line comment's sentence-end period was stripped whenever that single line,
+    viewed in isolation, had exactly one `.` -- even when it was one physical line of a multi-line
+    prose paragraph (several consecutive `//` lines, no blank line between) whose *other* lines also
+    had dots, which should exempt the whole paragraph from stripping, same as an equivalent
+    multi-line `/* ... */` block already is. Root cause: `MiscRule.enforceCommentStyle` ran
+    `applyCommentTextRules`/`stripSoleTrailingPeriod` per `COMMENT_LINE` token independently, with no
+    concept of "this line is part of a larger comment paragraph". Fix: new
+    `computeLineCommentGroups` chains consecutive `//` lines (no blank line between) into one group
+    and reuses `stripSoleTrailingPeriodAcrossLines` (dot count computed across the whole group) to
+    decide whether to strip the last line's trailing period -- mirroring `reformatMultiLineBlockComment`'s
+    existing precedent exactly. A closing-brace-label comment ({@code isClosingBraceLabelComment})
+    breaks the chain entirely; a separator-alignment comment ({@code parseSeparatorComment}) still
+    counts as a chain link (for dot-counting) but is never itself rewritten, since it's rendered by
+    the separate `alignCommentSeparators` pass. This last distinction surfaced a second, pre-existing
+    bug during verification: `parseSeparatorComment`'s heuristic (any single non-alnum char
+    surrounded by spaces = separator) false-positived on ordinary prose containing a lone `+`
+    surrounded by spaces (`"core + Java 17+ constructs..."`), which had been silently breaking the
+    adjacency chain one line early; the new `isCommentChainLink`/`isCommentRewritable` split keeps
+    such a false-positive line in the chain (correct dot-counting) while still never rewriting it.
+  - Bug 2 FIXED (new feature, not a regression -- `STYLE_JAVA.md` has no worked example for this
+    shape): a Java enum body with trailing members after its constant list (methods/fields/
+    constructors) needs its constant-list-terminating `;` detached onto its own line with a blank
+    line before and after (`IDLE, RUNNING, PAUSED, ERROR` / blank / `;` / blank / `public boolean
+    isActive() ...`), but no code implemented this at all -- the terminator was left glued to the
+    last constant (`ERROR;`) with no separation from the next member. New
+    `JavaSpecificRule.separateEnumConstantListTerminator`, wired into `Formatter.java` Phase 1 (Java
+    branch, after `enforcePermitsClauseLineBreaking`): `isEnumBodyBrace` detects a `{` as a Java enum
+    body by scanning backward past the name/`implements` clause to the `enum` keyword;
+    `findEnumConstantListTerminators` finds each such body's first depth-0 `;` that has further
+    content before the body's closing `}` (an enum with no trailing members, or no `;` at all, is
+    untouched); the terminator's rendering explicitly overrides the original gap on both sides with
+    blank-line-then-indent. User-confirmed via chat after an initial back-and-forth (I first
+    mis-read the bug report's diff direction and wrongly "fixed" `combined_out.java` to the *compact*
+    shape -- reverted once corrected). This exposed a genuine conflict between two already-passing
+    fixtures: `java_core_out.java` had previously encoded the *compact* shape for the identical
+    enum-with-trailing-method case -- user fixed `java_core_out.java` by hand to the separated form
+    to match, resolving the conflict; `make test` now passes both forward and idempotency for every
+    file-pair with this rule wired in.
+  - Bug 3 FIXED: no blank line inserted before the final `return` in a multi-statement function body
+    when the method's signature has a `throws ExceptionType` clause between `)` and `{` (e.g.
+    `public ProcessResult process(...) throws IOException { ... }`). Root cause:
+    `MiscRule.isFunctionBodyBrace`'s post-paren-qualifier skip (`isFunctionBodyQualifier`) only
+    recognized the single-token `throws` keyword itself, not the exception-name token(s) that follow
+    it, so the token immediately before `{` (the exception identifier) was never skipped and the
+    brace was misclassified as not-a-function-body -- `insertBlankLineBeforeReturn` then never
+    pushed a `FuncFrame` for it, silently disabling the whole rule for that method. Fix: new
+    `skipThrowsClauseBackward` helper skips an entire comma-separated `throws A, B.C, ...` clause
+    (handling qualified/dotted exception names) before the existing single-token qualifier loop
+    runs.
+  - All 3 bugs verified via `make test` with zero regressions across the other 11 file-pairs (once
+    `java_core_out.java`'s enum fixture was updated per above).
 - [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`

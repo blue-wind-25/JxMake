@@ -120,7 +120,9 @@ public class CoreExample extends Base implements Runnable, Cloneable {
     // Enum
     public enum Status {
 
-        ACTIVE, INACTIVE, PENDING;
+        ACTIVE, INACTIVE, PENDING
+
+        ;
 
         public boolean isTerminal()
         {

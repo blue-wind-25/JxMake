@@ -706,7 +706,49 @@ accept `final` there). This applies to all `.java` files under `src/`.
   - Bugs 2 and 3 verified via `make test`: zero regressions across all other file-pairs
     (in particular `hpp_core_inp.hpp`'s pre-existing `process`/`reset`/`isReady` §14 group, none of
     whose members have an empty return type, is unaffected by the `mergeReturnTypeIntoCall` path).
-- [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
+- [x] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp` (PASS)
+  - Fixed 4 bugs, all verified via `make test` with zero regressions:
+    1. `GetterSetterRule.parseOneLinerMember`: a destructor's `~` marker (e.g. `~Engine()`) was
+       misread as a genuine (non-empty) return type because `noReturnType` was computed before the
+       `operator`/`::`-qualified-name backward-extension logic ran, and there was no `~`-marker
+       extension at all. Fixed by extending `nameFrom` backward over a leading `~` (parallel to the
+       existing `operator` keyword handling) and moving the `noReturnType` computation to after all
+       name-extension logic.
+    2. Two sub-issues in out-of-line class-template member one-liners (e.g.
+       `template<AudioProcessor Impl> float Engine<Impl>::getGain() const { return gain_; }`):
+       (a) `MiscRule.renderTokens`/`needsSpaceBetween` had no awareness that a leading
+       `template<...>` clause's `<`/`>` tokens (left as plain `OP`, never reclassified to
+       `ANGLE_BRACKET_OPEN/CLOSE`, since `template`, not an identifier/cast-keyword, precedes them)
+       should render tight -- only exposed for members *without* a trailing `const` qualifier
+       because `ScopePipeline.applySignaturePass` has no C++ handling for a qualifier between `)`
+       and `{` and bails (via `continue`) for `const` members, leaving them to `GetterSetterRule`
+       unprocessed while `MiscRule.render(Signature,...)` corrupted their siblings. Fixed by adding
+       `MiscRule.templateAngleTokens` (depth-matches the leading clause) and threading `Set<Token>`
+       open/close markers through `needsSpaceBetween`.
+       (b) `GetterSetterRule.parseOneLinerMember`'s `returnTypeFrom`/`returnTypeTo` span captured
+       the *entire* `template<...> ReturnType ClassName<Impl>::` prefix as one padded grid cell
+       (padding landing after `::` instead of after the bare return-type word). Fixed by adding a
+       `templatePrefixFrom`/`templatePrefixTo` field to `Member` (same precedent as
+       `DeclarationAlignmentRule`'s existing `templatePrefix`), detected/skipped before computing
+       `returnTypeFrom`, and rendered as its own unpadded grid column in `render()`. Also had to
+       extend the existing `::`-qualified-name backward-extension loop to skip back over a
+       depth-matched `ANGLE_BRACKET_OPEN`/`CLOSE` pair (e.g. `Engine<Impl>::`) rather than bailing
+       immediately on a `>` token, so the true return type doesn't still include the qualified
+       class-template name.
+    3. `MiscRule.parseAssignment` accepted a bare `KEYWORD` as the assignment target (for shapes
+       like `this->x = y`), which let it also misparse a C++17 structured binding's
+       `auto [a, b] = expr;` as a subscript-assignment to a variable literally named `auto`,
+       re-parsing and re-collapsing `DeclarationAlignmentRule`'s already-correct column-padded
+       output in a later pass. Fixed by explicitly rejecting a leading `auto` keyword target (the
+       *only* keyword this construct's grammar can start with, so no other legitimate shape is
+       affected).
+    4. `ScopePipeline.isGapToken` classified `COMMENT_LINE`/`COMMENT_BLOCK` as trimmable "gap", so
+       the trailing-boundary trim in `applyDeclarationsPass`/`applyAssignmentsPass` (used only for a
+       group's *last* member) over-trimmed past a same-line trailing comment already captured and
+       re-rendered via `Declaration.trailingComment`/`Assignment.trailingComment`, leaving the
+       original comment behind in the untouched source right after the replaced span and
+       duplicating it (`// Channel C // channel C`). Fixed by adding a new `isWhitespaceOrNewline`
+       helper (excludes comments) for that specific trim, used in both passes.
 - [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
 - [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
@@ -816,9 +858,10 @@ Update `README.md` after implementing this.
      isPunct(...)
      isKeyword(...)
      isComment(...)
+     isGapToken(...)
      etc.
    are scattered all over the place in the code, please refactor the, so they
-   are centralized in the `TokenizerCore.Token` class.
+   are centralized in the `TokenizerCore.Token` class or other class.
 
 ### Extra
 

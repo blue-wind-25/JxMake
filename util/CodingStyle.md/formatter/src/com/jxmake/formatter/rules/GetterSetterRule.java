@@ -35,6 +35,7 @@ public class GetterSetterRule {
     /** One parsed one-liner method candidate -- all fields are index ranges into the caller's token list. */
     public static final class Member {
         public final List<Token> modifiers;   // Java only; empty for C/C++
+        public final int templatePrefixFrom, templatePrefixTo; // equal (empty) unless C++ `template<...>`
         public final int returnTypeFrom, returnTypeTo;
         public final int nameFrom;            // start of qualified name (= nameIdx for unqualified)
         public final int nameIdx;
@@ -47,13 +48,16 @@ public class GetterSetterRule {
         public final String pureSpecifier;      // null / "= 0" / "= delete" / "= default"
         public final boolean isDefinition;      // true = { body }, false = ; terminated
 
-        Member(final List<Token> modifiers, final int returnTypeFrom, final int returnTypeTo,
+        Member(final List<Token> modifiers, final int templatePrefixFrom, final int templatePrefixTo,
+                final int returnTypeFrom, final int returnTypeTo,
                 final int nameFrom, final int nameIdx, final int paramsFrom, final int paramsTo,
                 final int bodyFrom, final int bodyTo, final int memberFrom, final int memberTo,
                 final Token trailingComment, final boolean blankLineBefore,
                 final String postParenQualifier, final String pureSpecifier,
                 final boolean isDefinition) {
             this.modifiers = modifiers;
+            this.templatePrefixFrom = templatePrefixFrom;
+            this.templatePrefixTo = templatePrefixTo;
             this.returnTypeFrom = returnTypeFrom;
             this.returnTypeTo = returnTypeTo;
             this.nameFrom = nameFrom;
@@ -204,6 +208,18 @@ public class GetterSetterRule {
             }
         }
 
+        // A leading C++ `template<...>` clause (out-of-line class-template member definitions)
+        // is its own column, separate from the return type -- otherwise the return-type column's
+        // padding would land after the clause (and the qualified `Class<Impl>::` name) instead of
+        // right after the actual return type.
+        boolean hasTemplatePrefix = false;
+        for (final Member m : group) {
+            if (m.templatePrefixTo > m.templatePrefixFrom) {
+                hasTemplatePrefix = true;
+                break;
+            }
+        }
+
         // Modifier columns (Java only).
         final int modifierColumns = isJava ? modifierPriority.columnCount() : 0;
         final boolean[] modifierActive = new boolean[modifierColumns];
@@ -321,6 +337,10 @@ public class GetterSetterRule {
                         cells.add(modCells[r]);
                     }
                 }
+            }
+
+            if (hasTemplatePrefix) {
+                cells.add(cellText(tokens, m.templatePrefixFrom, m.templatePrefixTo));
             }
 
             final String returnTypeText = cellText(tokens, m.returnTypeFrom, m.returnTypeTo);
@@ -475,6 +495,43 @@ public class GetterSetterRule {
                 break;
             }
         }
+        // A leading C++ `template<...>` clause (e.g. an out-of-line member-function definition
+        // of a class template, `template<AudioProcessor Impl> float Engine<Impl>::getGain()...`)
+        // is not part of the return type -- depth-matched on the raw `<`/`>` OP tokens, same
+        // precedent as `DeclarationAlignmentRule`'s own `templatePrefix` handling (the tokenizer
+        // never reclassifies these to `ANGLE_BRACKET_OPEN`/`_CLOSE` since `template`, not an
+        // identifier/cast-keyword, precedes the `<`).
+        int templatePrefixFrom = pos;
+        int templatePrefixTo = pos;
+        if (!isJava) {
+            final int templateKwIdx = nextSignificant(tokens, pos, to);
+            if (templateKwIdx >= 0 && tokens.get(templateKwIdx).type == TokenType.KEYWORD
+                    && "template".equals(tokens.get(templateKwIdx).text)) {
+                final int ltIdx = nextSignificant(tokens, templateKwIdx + 1, to);
+                if (ltIdx >= 0 && isOp(tokens.get(ltIdx), "<")) {
+                    int depth = 0;
+                    int closeIdx = -1;
+                    for (int k = ltIdx; k < to; k++) {
+                        final Token tk = tokens.get(k);
+                        if (isOp(tk, "<")) {
+                            depth++;
+                        } else if (isOp(tk, ">")) {
+                            depth--;
+                            if (depth == 0) {
+                                closeIdx = k;
+                                break;
+                            }
+                        }
+                    }
+                    if (closeIdx >= 0) {
+                        templatePrefixFrom = templateKwIdx;
+                        templatePrefixTo = closeIdx + 1;
+                        pos = templatePrefixTo;
+                    }
+                }
+            }
+        }
+
         final int returnTypeFrom = nextSignificant(tokens, pos, to);
         if (returnTypeFrom < 0) {
             return null;
@@ -484,18 +541,18 @@ public class GetterSetterRule {
         if (nameIdx < 0) {
             return null;
         }
-        // No return type before the name -- e.g. a constructor (`EngineBase(...)`). Only
-        // accepted later if it turns out to carry a pure-specifier (`= delete`/`= default`),
-        // so a bare function-call-shaped statement is never misclassified as a member.
-        final boolean noReturnType = nameIdx == returnTypeFrom;
 
-        // Extend nameIdx backwards for qualified names (e.g. "Processor::method") and for the
-        // `operator` keyword of an operator-overload name (e.g. "operator=").
+        // Extend nameIdx backwards for qualified names (e.g. "Processor::method"), for the
+        // `operator` keyword of an operator-overload name (e.g. "operator="), and for a
+        // destructor's `~` marker (e.g. "~Engine") -- none of these are a real return type.
         int nameFrom = nameIdx;
         final int beforeName = prevSignificant(tokens, nameFrom - 1, returnTypeFrom);
         if (beforeName >= 0 && beforeName >= returnTypeFrom
                 && tokens.get(beforeName).type == TokenType.KEYWORD
                 && "operator".equals(tokens.get(beforeName).text)) {
+            nameFrom = beforeName;
+        } else if (beforeName >= 0 && beforeName >= returnTypeFrom
+                && isOp(tokens.get(beforeName), "~")) {
             nameFrom = beforeName;
         }
         while (nameFrom > returnTypeFrom) {
@@ -503,9 +560,35 @@ public class GetterSetterRule {
             if (prevA < 0 || !isOp(tokens.get(prevA), "::")) {
                 break;
             }
-            final int prevB = prevSignificant(tokens, prevA - 1, returnTypeFrom);
+            int prevB = prevSignificant(tokens, prevA - 1, returnTypeFrom);
             if (prevB < 0 || prevB < returnTypeFrom) {
                 break;
+            }
+            // A qualifier segment may itself be a class-template specialization, e.g.
+            // "Engine<Impl>::getGain" -- skip back over the depth-matched "<...>" to reach the
+            // class-name identifier before it.
+            if (tokens.get(prevB).type == TokenType.ANGLE_BRACKET_CLOSE) {
+                int depth = 0;
+                int openIdx = -1;
+                for (int k = prevB; k >= returnTypeFrom; k--) {
+                    final Token tk = tokens.get(k);
+                    if (tk.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                        depth++;
+                    } else if (tk.type == TokenType.ANGLE_BRACKET_OPEN) {
+                        depth--;
+                        if (depth == 0) {
+                            openIdx = k;
+                            break;
+                        }
+                    }
+                }
+                if (openIdx < 0) {
+                    break;
+                }
+                prevB = prevSignificant(tokens, openIdx - 1, returnTypeFrom);
+                if (prevB < 0 || prevB < returnTypeFrom) {
+                    break;
+                }
             }
             final Token tb = tokens.get(prevB);
             if (tb.type != TokenType.IDENTIFIER && tb.type != TokenType.KEYWORD) {
@@ -513,6 +596,12 @@ public class GetterSetterRule {
             }
             nameFrom = prevB;
         }
+
+        // No return type before the name -- e.g. a constructor (`EngineBase(...)`) or destructor
+        // (`~Engine()`). Only accepted later if it turns out to carry a pure-specifier
+        // (`= delete`/`= default`), so a bare function-call-shaped statement is never
+        // misclassified as a member.
+        final boolean noReturnType = nameFrom == returnTypeFrom;
 
         final int effectiveReturnTypeFrom = noReturnType ? nameFrom : returnTypeFrom;
         final int returnTypeTo = trimTrailingWs(tokens, effectiveReturnTypeFrom, nameFrom);
@@ -643,8 +732,8 @@ public class GetterSetterRule {
             return null; // throws clause or other unrecognised form
         }
 
-        return new Member(modifiers, effectiveReturnTypeFrom, returnTypeTo, nameFrom, nameIdx,
-                paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
+        return new Member(modifiers, templatePrefixFrom, templatePrefixTo, effectiveReturnTypeFrom, returnTypeTo,
+                nameFrom, nameIdx, paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
                 postParenQualifier, pureSpecifier, isDefinition);
     }
 

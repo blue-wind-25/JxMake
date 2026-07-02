@@ -143,7 +143,7 @@ bool Engine<Impl>::process(float* buf, uint32_t frames)
 template<AudioProcessor Impl> float    Engine<Impl>::getGain      (       ) const { return gain_;       }
 template<AudioProcessor Impl> void     Engine<Impl>::setGain      (float g)       { gain_ = g;          }
 template<AudioProcessor Impl> bool     Engine<Impl>::isMuted      (       ) const { return muted_;      }
-template<AudioProcessor Impl> void     Engine<Impl>::setMuted     (bool m )       { muted_ = m;         }
+template<AudioProcessor Impl> void     Engine<Impl>::setMuted     (bool  m)       { muted_ = m;         }
 template<AudioProcessor Impl> uint32_t Engine<Impl>::getFrameCount(       ) const { return frameCount_; }
 
 template<AudioProcessor Impl>

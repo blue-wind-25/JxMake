@@ -442,7 +442,7 @@ public class ScopePipeline {
             final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
             final String text = leadingGap + String.join("\n" + indent, lines);
             int lastTermEnd = lastSpan.end;
-            while (lastTermEnd > lastSpan.start && isGapToken(tokens.get(lastTermEnd - 1))) {
+            while (lastTermEnd > lastSpan.start && isWhitespaceOrNewline(tokens.get(lastTermEnd - 1))) {
                 lastTermEnd--;
             }
             replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
@@ -477,7 +477,7 @@ public class ScopePipeline {
             final List<String> lines = miscRule.render(group);
             final String text = leadingGap + String.join("\n" + indent, lines);
             int lastTermEnd = lastSpan.end;
-            while (lastTermEnd > lastSpan.start && isGapToken(tokens.get(lastTermEnd - 1))) {
+            while (lastTermEnd > lastSpan.start && isWhitespaceOrNewline(tokens.get(lastTermEnd - 1))) {
                 lastTermEnd--;
             }
             replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
@@ -699,7 +699,8 @@ public class ScopePipeline {
             final List<String> lines = getterSetterRule.render(tokens, filtered);
             for (int i = 0; i < filtered.size(); i++) {
                 final Member m = filtered.get(i);
-                final int sigIdx = m.modifiers.isEmpty() ? m.returnTypeFrom : indexOf.get(m.modifiers.get(0));
+                final int startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
+                final int sigIdx = m.modifiers.isEmpty() ? startIdx : indexOf.get(m.modifiers.get(0));
                 final String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
                 replacements.add(new Replacement(m.memberFrom, m.memberTo, leadingGap + lines.get(i)));
             }
@@ -783,6 +784,17 @@ public class ScopePipeline {
     private boolean isGapToken(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
                 || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
+    }
+
+    /** Like {@link #isGapToken} but excludes comments -- used to trim a declaration/assignment
+     *  group's replaced span down to its true trailing content without eating a same-line trailing
+     *  comment that the group's own rendered {@code text} did NOT already re-include verbatim
+     *  (unlike a mid-group member, the group's *last* member's trailing comment is only captured
+     *  once, by {@code Declaration.trailingComment}/{@code Assignment.trailingComment} and rendered
+     *  into `text` -- if this trim treated the comment as trimmable "gap" too, it would stay behind
+     *  in the untouched source right after the replaced span, duplicating it in the output). */
+    private boolean isWhitespaceOrNewline(final Token t) {
+        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE;
     }
 
     private int prevSignificantIndex(final List<Token> tokens, final int from) {

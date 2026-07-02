@@ -801,6 +801,13 @@ public class MiscRule {
         if (targetType != TokenType.IDENTIFIER && targetType != TokenType.KEYWORD) {
             return null;
         }
+        // `auto [a, b] = expr;` (a C++17 structured binding) starts with the `auto` keyword
+        // followed by a `[` -- that's DeclarationAlignmentRule's shape, not an assignment to a
+        // subscript of a variable literally named "auto". Left unrecognized here so the
+        // declaration pass's rendering isn't re-parsed and re-collapsed by this pass.
+        if (targetType == TokenType.KEYWORD && "auto".equals(stmt.get(targetIdx).text)) {
+            return null;
+        }
         // Scan forward to find the assignment operator, allowing member-access chains
         // (obj.field, ptr->field) and subscript expressions (arr[i]) in the LHS.
         // State 0: after target/field, expecting op or member-access operator.
@@ -1249,7 +1256,8 @@ public class MiscRule {
     public List<String> render(final Signature sig, final int indentLevel, final String indentStyle) {
         final String lead = renderTokens(sig.leadTokens);
         final boolean leadNeedsSpace = !sig.leadTokens.isEmpty()
-                && needsSpaceBetween(sig.leadTokens.get(sig.leadTokens.size() - 1), sig.name);
+                && needsSpaceBetween(sig.leadTokens.get(sig.leadTokens.size() - 1), sig.name,
+                        Collections.<Token>emptySet(), Collections.<Token>emptySet());
         final String head = (lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "")) + sig.name.text + "(";
         final String inline = head + renderParamsInline(sig) + ")";
         final int startColumn = indentLevel * INDENT_WIDTH;
@@ -1311,10 +1319,13 @@ public class MiscRule {
      *  `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
      *  these as a shared utility (each rule class keeps its own small token-joining helpers). */
     private String renderTokens(final List<Token> tokens) {
+        final Set<Token> templateOpens = new HashSet<>();
+        final Set<Token> templateCloses = new HashSet<>();
+        templateAngleTokens(tokens, templateOpens, templateCloses);
         final StringBuilder sb = new StringBuilder();
         Token prev = null;
         for (final Token t : tokens) {
-            if (prev != null && needsSpaceBetween(prev, t)) {
+            if (prev != null && needsSpaceBetween(prev, t, templateOpens, templateCloses)) {
                 sb.append(' ');
             }
             sb.append(t.text);
@@ -1323,15 +1334,48 @@ public class MiscRule {
         return sb.toString();
     }
 
-    private boolean needsSpaceBetween(final Token prev, final Token cur) {
-        if (isTightToken(cur)) {
+    /** A leading `template<...>` clause's `<`/`>` tokens are never reclassified to
+     *  {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} by the tokenizer (it only arms on an
+     *  identifier/cast-keyword before `<`, not the `template` keyword -- see
+     *  `DeclarationAlignmentRule`'s own template-prefix handling for the same precedent), so
+     *  {@link #needsSpaceBetween}/{@link #isTightToken} would otherwise space them like a
+     *  comparison operator. Populates the identity sets of every open/close `<`/`>` token
+     *  belonging to such a clause (depth-matched on the raw `<`/`>` OP tokens themselves) so the
+     *  caller can treat them as tight without touching the tokens' actual type. */
+    private void templateAngleTokens(final List<Token> tokens, final Set<Token> opens, final Set<Token> closes) {
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && "template".equals(t.text)
+                    && i + 1 < tokens.size() && isOp(tokens.get(i + 1), "<")) {
+                int depth = 0;
+                for (int j = i + 1; j < tokens.size(); j++) {
+                    final Token u = tokens.get(j);
+                    if (isOp(u, "<")) {
+                        depth++;
+                        opens.add(u);
+                    } else if (isOp(u, ">")) {
+                        depth--;
+                        closes.add(u);
+                        if (depth == 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
+            final Set<Token> templateCloses) {
+        if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
             return false;
         }
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
+        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")
+                || templateOpens.contains(prev)) {
             return false;
         }
         return true;

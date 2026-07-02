@@ -422,6 +422,9 @@ public class DeclarationAlignmentRule {
                         && ("c".equals(language) || "cpp".equals(language))) {
                         // pointer dereference: add nothing
                     }
+                    else if (isPunct(prev, ")") && isCStyleCastClose(tokens, i - 1)) {
+                        // C-style cast `(Type)expr`: add nothing
+                    }
                     else {
                         sb.append(' ');
                     }
@@ -430,6 +433,45 @@ public class DeclarationAlignmentRule {
             sb.append(t.text);
         }
         return sb.toString();
+    }
+
+    /**
+     * True iff the `)` at `closeIdx` in `tokens` closes a C-style cast: `(Type)` where the
+     * content between the matching `(` and `)` is just a type-like token sequence
+     * (IDENTIFIER/KEYWORD plus optional `*`), and the token before the matching `(` is not
+     * an IDENTIFIER/`)`/`]` (which would make it a function call or subscript instead).
+     */
+    private boolean isCStyleCastClose(final List<Token> tokens, final int closeIdx) {
+        int depth = 0;
+        int openIdx = -1;
+        for (int k = closeIdx; k >= 0; k--) {
+            final Token t = tokens.get(k);
+            if (isPunct(t, ")")) {
+                depth++;
+            } else if (isPunct(t, "(")) {
+                depth--;
+                if (depth == 0) {
+                    openIdx = k;
+                    break;
+                }
+            }
+        }
+        if (openIdx < 0 || openIdx == closeIdx - 1) {
+            return false; // empty parens
+        }
+        final Token before = openIdx > 0 ? tokens.get(openIdx - 1) : null;
+        if (before != null && (before.type == TokenType.IDENTIFIER
+                || isPunct(before, ")") || isPunct(before, "]"))) {
+            return false; // function call / subscript, not a cast
+        }
+        for (int k = openIdx + 1; k < closeIdx; k++) {
+            final Token t = tokens.get(k);
+            if (t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD
+                    && !Token.isRepOp(t, '*')) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean needsSpaceBetween(final Token prev, final Token cur) {
@@ -592,6 +634,35 @@ public class DeclarationAlignmentRule {
     }
 
     // ── Declaration parsing ──────────────────────────────────────────────────────
+    /**
+     * True iff `initTokens` is a single top-level `{ ... }` brace-initializer with no
+     * nested `{` and no `;` inside -- i.e. a flat aggregate init like `{ a, b, c }`
+     * that can be rendered verbatim on one line and safely column-aligned.
+     */
+    private boolean isFlatAggregateInit(final List<Token> initTokens) {
+        if (!isPunct(initTokens.get(0), "{")) {
+            return false;
+        }
+        int depth = 0;
+        for (int k = 0; k < initTokens.size(); k++) {
+            final Token t = initTokens.get(k);
+            if (isPunct(t, "{")) {
+                depth++;
+                if (depth > 1) {
+                    return false;
+                }
+            } else if (isPunct(t, "}")) {
+                depth--;
+                if (depth == 0 && k != initTokens.size() - 1) {
+                    return false;
+                }
+            } else if (isPunct(t, ";")) {
+                return false;
+            }
+        }
+        return depth == 0;
+    }
+
     private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore) {
         final Token trailingComment = findTrailingComment(stmt);
         final List<Token> sig = significantOnly(stmt);
@@ -649,9 +720,11 @@ public class DeclarationAlignmentRule {
             initTokens = new ArrayList<>();
             end = body.size();
         }
-        // Reject if the initializer ends with `}` -- this means a lambda body, class/struct
-        // body, or complex nested-brace init that can't safely be column-aligned.
-        if (!initTokens.isEmpty() && isPunct(initTokens.get(initTokens.size() - 1), "}")) {
+        // Reject if the initializer ends with `}` and isn't a flat aggregate init (e.g. a
+        // lambda body, class/struct body, or nested-brace init) -- those can't safely be
+        // column-aligned. A flat `{ a, b, c }` with no nested `{` or `;` inside is safe.
+        if (!initTokens.isEmpty() && isPunct(initTokens.get(initTokens.size() - 1), "}")
+                && !isFlatAggregateInit(initTokens)) {
             return null;
         }
 

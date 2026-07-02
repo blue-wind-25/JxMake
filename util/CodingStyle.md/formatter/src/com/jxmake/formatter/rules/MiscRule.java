@@ -1051,11 +1051,14 @@ public class MiscRule {
         public final List<Token> typeTokens;
         public final Token name;
         public final List<Token> sizeTokens;
+        public final Token comment;
 
-        Param(final List<Token> typeTokens, final Token name, final List<Token> sizeTokens) {
+        Param(final List<Token> typeTokens, final Token name, final List<Token> sizeTokens,
+                final Token comment) {
             this.typeTokens = typeTokens;
             this.name = name;
             this.sizeTokens = sizeTokens;
+            this.comment = comment;
         }
     }
 
@@ -1097,7 +1100,7 @@ public class MiscRule {
      * no STYLE.md worked example).
      */
     public Signature parseSignature(final List<Token> sigTokens) {
-        final List<Token> sig = significantOnly(sigTokens);
+        final List<Token> sig = significantWithComments(sigTokens);
         int openParen = -1;
         int nameIdx = -1;
         int depth = 0;
@@ -1168,7 +1171,17 @@ public class MiscRule {
     /** Parses one already-significant-only param slice, peeling a trailing `[size]` run (same
      *  depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
      *  `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name. */
-    private Param parseParam(final List<Token> slice) {
+    private Param parseParam(final List<Token> rawSlice) {
+        if (rawSlice.isEmpty()) {
+            return null;
+        }
+        Token comment = null;
+        List<Token> slice = rawSlice;
+        final Token last = rawSlice.get(rawSlice.size() - 1);
+        if (last.type == TokenType.COMMENT_LINE || last.type == TokenType.COMMENT_BLOCK) {
+            comment = last;
+            slice = rawSlice.subList(0, rawSlice.size() - 1);
+        }
         if (slice.isEmpty()) {
             return null;
         }
@@ -1211,7 +1224,7 @@ public class MiscRule {
         if (typeTokens.isEmpty()) {
             return null;
         }
-        return new Param(typeTokens, name, sizeTokens);
+        return new Param(typeTokens, name, sizeTokens, comment);
     }
 
     /**
@@ -1241,7 +1254,15 @@ public class MiscRule {
         final String inline = head + renderParamsInline(sig) + ")";
         final int startColumn = indentLevel * INDENT_WIDTH;
 
-        if (sig.params.isEmpty() || startColumn + inline.length() <= LINE_LENGTH_LIMIT) {
+        // Param comments don't count toward the line-length break decision -- only the code
+        // itself should trigger wrapping to the multi-line param-per-line form.
+        int commentLen = 0;
+        for (final Param p : sig.params) {
+            if (p.comment != null) {
+                commentLen += p.comment.text.length() + 1;
+            }
+        }
+        if (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= LINE_LENGTH_LIMIT) {
             return Collections.singletonList(inline);
         }
 
@@ -1258,7 +1279,8 @@ public class MiscRule {
             final Param p = sig.params.get(i);
             final String typeText = renderTokens(p.typeTokens);
             final String nameText = p.name.text + renderTokens(p.sizeTokens)
-                    + (i < sig.params.size() - 1 ? "," : "");
+                    + (i < sig.params.size() - 1 ? "," : "")
+                    + (p.comment != null ? " " + p.comment.text : "");
             lines.add(paramIndent + padRight(typeText, typeColWidth) + " " + nameText);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
@@ -1277,6 +1299,9 @@ public class MiscRule {
             final Param p = sig.params.get(i);
             sb.append(renderTokens(p.typeTokens)).append(' ')
                     .append(p.name.text).append(renderTokens(p.sizeTokens));
+            if (p.comment != null) {
+                sb.append(' ').append(p.comment.text);
+            }
         }
         return sb.toString();
     }
@@ -1326,6 +1351,19 @@ public class MiscRule {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : stmt) {
             if (!isGapToken(t)) {
+                sig.add(t);
+            }
+        }
+        return sig;
+    }
+
+    /** Like {@link #significantOnly}, but keeps comment tokens -- used by {@link #parseSignature}
+     *  so a parameter's inline block comment survives parsing instead of being silently dropped;
+     *  only whitespace/newlines are gap tokens here. */
+    private List<Token> significantWithComments(final List<Token> stmt) {
+        final List<Token> sig = new ArrayList<>();
+        for (final Token t : stmt) {
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
                 sig.add(t);
             }
         }
@@ -2131,7 +2169,8 @@ public class MiscRule {
             final Param p = sig.params.get(i);
             final String typeText = renderTokens(p.typeTokens);
             final String nameText = p.name.text + renderTokens(p.sizeTokens)
-                    + (i < sig.params.size() - 1 ? "," : "");
+                    + (i < sig.params.size() - 1 ? "," : "")
+                    + (p.comment != null ? " " + p.comment.text : "");
             lines.add(paramIndent + padRight(typeText, typeColWidth) + " " + nameText);
         }
         lines.add(baseIndent + ")");

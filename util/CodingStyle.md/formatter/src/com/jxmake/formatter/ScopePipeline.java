@@ -428,7 +428,15 @@ public class ScopePipeline {
             // is a no-op.
             final String rawLeadingGapFull = joinText(tokens, firstSpan.start, firstIdx);
             final int freshPad = leadingSpaceCount(lines.get(0));
-            final String rawLeadingGap = stripTrailingSpaces(rawLeadingGapFull, freshPad);
+            // On a genuine re-format, the raw gap's trailing-space count is trueIndent + freshPad
+            // (the previous pass wrote both), so it is always >= freshPad. On a first-time format
+            // the gap has only trueIndent spaces with no self-padding; if that count is already
+            // less than freshPad (e.g. a struct member's real 4-space indent vs. a 6-wide
+            // "const "-column pad from a sibling), stripping would eat into real indentation, so
+            // skip the strip entirely in that case.
+            final int trailingSpaces = leadingSpaceCount(new StringBuilder(rawLeadingGapFull).reverse().toString());
+            final String rawLeadingGap = trailingSpaces >= freshPad
+                    ? stripTrailingSpaces(rawLeadingGapFull, freshPad) : rawLeadingGapFull;
             final String rawIndent = trailingIndent(rawLeadingGap);
             final String indent = normalizeIndent(rawIndent);
             final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);

@@ -28,6 +28,7 @@ contains nothing the implementer needs beyond what is already indexed here.
   syntax errors (they are the test input files).
 - Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
   asked (they are the reference output files that show the expected results).
+- Ignore `XL.txt`, that is the user tracker file.
 
 ### When hitting an ambiguity or open question
 1. **Stop coding immediately** — do not guess or proceed past the ambiguity
@@ -605,7 +606,46 @@ accept `final` there). This applies to all `.java` files under `src/`.
     enforced blank line belongs.
   - All 3 bugs verified via `make test`: `combined_inp.h`/`combined_out.h` now PASS (forward +
     idempotency), zero regressions across the other 7 file-pairs. Committed as `efeb6df`.
-- [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
+- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS forward; idempotency
+      pre-existing FAIL, unrelated -- see below)
+  - Bug 1 FIXED: struct member group indentation lost entirely when the group's first
+    declaration has no modifiers but a sibling does (e.g. `bool success;`/`int frames;` next to
+    `const char* error;` inside `ProcessResult`) and the real base indent (4) is smaller than the
+    modifier-column padding width (6, for `"const "`). Root cause:
+    `ScopePipeline.applyDeclarationsPass`'s idempotency-safe strip (RDD_KEY -- see `c_core_out.c`
+    "Mixed static and non-static" fix) assumed the raw leading gap always has at least `freshPad`
+    trailing spaces to strip; when the real indent is smaller than `freshPad` (first-time format,
+    not a re-format), it over-strips and destroys real indentation. Fix: only strip when the raw
+    gap's trailing-space count is `>= freshPad` (guaranteeing a non-negative, valid remainder);
+    otherwise leave the raw gap untouched (first-time format case).
+  - Bug 2 FIXED: a declaration group broke apart (each member column-aligned/indented
+    independently instead of as one group) whenever one member's initializer was a flat brace
+    aggregate (e.g. `static AudioConfig g_config = { AUDIO_SAMPLE_RATE, ..., false };`).
+    Root cause: `DeclarationAlignmentRule.parseDeclaration` unconditionally rejected any
+    initializer ending in `}` (originally meant to reject lambda/class bodies and complex nested
+    inits). Fix: new `isFlatAggregateInit` helper accepts a single top-level `{ ... }` with no
+    nested `{` and no `;` inside; only genuinely complex/nested brace inits are still rejected.
+    Side effect surfaced a second, pre-existing gap: `DeclarationAlignmentRule.renderInitTokens`
+    re-joined a C-style cast's tokens (`(int)frames`) with a space (`(int) frames`) since it had
+    no cast-awareness. Fixed with new `isCStyleCastClose` helper (scans backward to the matching
+    `(`, confirms the interior is type-like tokens only and the token before `(` isn't an
+    identifier/`)`/`]`, i.e. not a function call) wired into `renderInitTokens`'s space decision.
+  - Bug 3 FIXED: a parameter's inline block comment (e.g. `char* out /* Output */`) was silently
+    dropped from a function signature. Root cause: `MiscRule.parseSignature` ran
+    `significantOnly` first, discarding all comment tokens before parsing, and `Param` had no
+    field to carry one even if it survived. Fix: new `significantWithComments` (keeps comment
+    tokens, strips only whitespace/newlines) used by `parseSignature`; `Param` gained a nullable
+    `comment` field; `parseParam` strips and captures a trailing comment token off each param
+    slice before parsing the rest; `renderParamsInline` and both multi-line param-render sites
+    re-emit it. Also fixed: the inline-vs-multi-line line-length break decision was counting
+    comment text toward the 100-col limit, which wrongly broke `audio_debug`'s signature (over
+    100 chars only counting comments) into multi-line form; comment length is now excluded from
+    that decision (`render(Signature, ...)`'s `commentLen` subtraction) while comments still
+    render in the one-line output.
+  - Pre-existing, unrelated idempotency gap (not fixed, out of scope for the 3 bugs above):
+    formatting `combined_out.c` a second time drops the switch statement's `// switch` closing
+    comment. Reproduced identically against the unmodified pre-fix source, confirming it predates
+    and is unaffected by Bugs 1-3.
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
 - [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`

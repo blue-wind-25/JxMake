@@ -162,9 +162,9 @@ void useBindings(const FrameRange& range)
     (void)length;
 
     // In a declaration group
-    uint32_t offset  = 0;
-    auto    [lo, hi] = FrameRange{ offset, offset + 100 };
-    bool     active  = lo < hi;
+    uint32_t  offset  = 0;
+    auto     [lo, hi] = FrameRange{ offset, offset + 100 };
+    bool      active  = lo < hi;
     (void)active;
 }
 
@@ -189,8 +189,8 @@ consteval int sampleCount(int channels, int frames)
     return channels * frames;
 }
 
-static constinit uint32_t globalSampleRate = 48000;
        constinit float    globalGain       = 1.0f;
+static constinit uint32_t globalSampleRate = 48000;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Three-way comparison

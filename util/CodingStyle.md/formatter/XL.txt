@@ -61,7 +61,24 @@ Bug fix for the `combined_inp.c` formatting test:
 -} AudioFormat; // enum AudioFormat
 +} AudioFormat;
 
+ typedef struct {
+     uint32_t    sampleRate;
+
+...
+
+ } AudioRingBuf;
+
 (2)
+ typedef struct {
+-          bool  success;
+-          int   frames;
+-    const char* error;
++      bool  success;
++      int   frames;
++const char* error;
+ } ProcessResult;
+
+(3)
 -static AudioState  g_state       = AUDIO_STATE_IDLE;
 -static AudioConfig g_config      = { AUDIO_SAMPLE_RATE, 2, AUDIO_FORMAT_F32, AUDIO_FRAME_SIZE, false };
 -static float       g_gain        = 1.0f;
@@ -73,7 +90,7 @@ Bug fix for the `combined_inp.c` formatting test:
 +static bool     g_muted       = false;
 +static uint32_t g_frame_count = 0;
 
-(3)
+(4)
  // Comment in uncommon locations test (combined)
 -void audio_debug(const AudioConfig* cfg /* Config */, char* out /* Output */, size_t len /* Buffer size */)
 +void audio_debug(const AudioConfig* cfg, char* out, size_t len)
@@ -109,11 +126,12 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `combined_inp.cpp` formatting test:
 
-(1) @@@ @@@ @@@
+(1a)
      explicit Engine(Config cfg);
 -    ~Engine();
 +    ~        Engine();
 
+(1b) @@@ @@@ @@@
 -    Engine(const Engine&)            = delete;
 +    Engine(const Engine&) = delete;
      Engine& operator=(const Engine&) = delete;
@@ -139,22 +157,9 @@ Bug fix for the `combined_inp.cpp` formatting test:
  void useBindings(const FrameRange& range)
  {
 -    auto     [start, end] = range;
--    uint32_t  length      = end - start;
--    (void) length;
 +    auto[start, end] = range;
-+    uint32_t length       = end - start;
-+    (void)length;
-
-     // In a declaration group
--    uint32_t offset  = 0;
--    auto    [lo, hi] = FrameRange{ offset, offset + 100 };
--    bool     active  = lo < hi;
--    (void) active;
-+    uint32_t offset = 0;
-+    auto [lo, hi] = FrameRange{ offset, offset + 100 };
-+    bool active = lo < hi;
-+    (void)active;
- }
+     uint32_t  length      = end - start;
+     (void)length;
 
 (4)
  // Trailing comments on declarations

@@ -562,7 +562,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `java_modern_out.java` with zero remaining diff.
   - All 5 bugs verified via `make test`: `java_modern_inp.java`/`java_modern_out.java` now PASS
     (forward + idempotency), zero regressions across the other 6 file-pairs.
-- [~] File-pair test: `combined_inp.h` → diff vs `combined_out.h` -- 2 of 3 bugs remain
+- [x] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
   - Bug 1 FIXED: `#define` value columns in a contiguous run of scalar macros (no blank line,
     comment, function-like macro, or valueless macro breaking the run) weren't realigned to a
     common column when `format-macros = on` (env var `JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on`,
@@ -585,16 +585,26 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `c_core_inp.c`'s `Point`/`Color` (`test/c_core_out.c` already carried the expected `// struct
     Point` / `// enum Color` from prior uncommitted work; now produced correctly), zero
     regressions.
-  - Bug 2 still open for `combined_inp.h`'s `EngineState` specifically: found (not yet fixed) a
-    second, broader bug in `TokenizerCore` -- `emitOpenBrace`/`emitCloseBrace`/
-    `emitOpenBracket`/`emitCloseBracket` all gate `braceDepth`/`parenDepth` tracking *and*
-    named-construct detection behind `preprocessorDepth == 0`, so being inside **any**
-    `#if`/`#ifdef`/`#ifndef` region -- including an ordinary whole-file `#ifndef GUARD` header
-    guard -- freezes depth tracking and disables naming for everything inside it. This is why
-    `EngineState` (guarded) never gets `NAMED` classification, while the same shape works when
-    the file uses `#pragma once` instead (`hpp_core`, `cpp_core`). Asked the user how to fix this
-    (remove the guard entirely vs. special-case the header-guard shape vs. leave unfixed) --
-    no response yet; **not fixed**, flagged here as blocking the rest of this bug.
+  - Bug 2 FIXED for `combined_inp.h`'s `EngineState`: root cause was a second, broader bug in
+    `TokenizerCore` -- `emitOpenBrace`/`emitCloseBrace`/`emitOpenBracket`/`emitCloseBracket` all
+    gated `braceDepth`/`parenDepth` tracking *and* named-construct detection behind
+    `preprocessorDepth == 0`, so being inside **any** `#if`/`#ifdef`/`#ifndef` region -- including
+    an ordinary whole-file `#ifndef GUARD` header guard -- froze depth tracking and disabled
+    naming for everything inside it. Per user direction ("make NAMED constructs get their closing
+    comment regardless of `#if` guard, unless the guard is on the name itself"), removed the
+    `preprocessorDepth == 0` gating entirely (and the now-dead `preprocessorDepth` field/directive
+    counting) -- depth tracking and naming now happen unconditionally, matching the ungated
+    `#pragma once` case (`hpp_core`, `cpp_core`) that always worked correctly.
+  - Side effect of the `preprocessorDepth` fix: `extern "C"` wrapped in `#ifdef __cplusplus ...
+    #endif` is now correctly classified `NAMED`, which surfaced a second bug in
+    `insertNamedConstructBlankLines` (STYLE.md §7's forced blank-line-after-`{`/before-`}`) -- it
+    inserted the blank line between the brace and the guard directive touching it
+    (`extern "C" {` / blank / `#endif`) instead of between the guard and the real content. Fixed
+    by matching every `{`/`}` pair up front and walking past any preprocessor-guard line(s)
+    sitting directly against the brace (no blank line of their own) before deciding where the
+    enforced blank line belongs.
+  - All 3 bugs verified via `make test`: `combined_inp.h`/`combined_out.h` now PASS (forward +
+    idempotency), zero regressions across the other 7 file-pairs. Committed as `efeb6df`.
 - [ ] File-pair test: `combined_inp.c` → diff vs `combined_out.c`
 - [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`

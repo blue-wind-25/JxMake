@@ -86,6 +86,7 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 test: $(JAR_FILE)
 	@(                                                                               \
+		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                           \
 		mkdir -p $(TEST_TMP);                                                    \
 		clear;                                                                   \
 		echo "";                                                                 \

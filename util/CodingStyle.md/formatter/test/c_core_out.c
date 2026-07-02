@@ -15,9 +15,9 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // Declarations and alignment
 
-#define MAX_ITEMS 64
+#define MAX_ITEMS  64
 #define TIMEOUT_MS 500
-#define PREFIX "item_"
+#define PREFIX     "item_"
 
 typedef enum {
     STATE_IDLE,

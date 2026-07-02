@@ -12,16 +12,6 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `combined_inp.h` formatting test:
 
-(1)
- #define ENGINE_VERSION_MAJOR 2
- #define ENGINE_VERSION_MINOR 1
--#define ENGINE_MAX_CH        8
--#define ENGINE_RATE          48000
--#define ENGINE_FRAMES        512
-+#define ENGINE_MAX_CH   8
-+#define ENGINE_RATE     48000
-+#define ENGINE_FRAMES   512
-
 (2)
  typedef enum EngineState {
      ENGINE_STATE_IDLE,
@@ -44,7 +34,7 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `combined_inp.c` formatting test:
 
-(1)
+(1) @@@ @@@ @@@
      AUDIO_STATE_PAUSED,
      AUDIO_STATE_ERROR
 
@@ -77,6 +67,9 @@ Bug fix for the `combined_inp.c` formatting test:
 +      int   frames;
 +const char* error;
  } ProcessResult;
+
+Fix the above XXX bug firsts, ignore the other parts of the diff.
+
 
 (3)
 -static AudioState  g_state       = AUDIO_STATE_IDLE;

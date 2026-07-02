@@ -16,7 +16,6 @@ public record NamedPoint(String name, int x, int y) implements Comparable<NamedP
     {
         if(name == null) throw new IllegalArgumentException("name must not be null");
     }
-
     public double distance() { return Math.sqrt(x * x + y * y); }
 
 } // record NamedPoint
@@ -62,7 +61,9 @@ public sealed interface Expr
             Expr.Mul,
             Expr.Neg,
             Expr.Var,
-            Expr.Lit {
+            Expr.Lit,
+            Expr.XXX,
+            Expr.YYY {
 
     record Num(int value) implements Expr {}
     record Add(Expr left, Expr right) implements Expr {}

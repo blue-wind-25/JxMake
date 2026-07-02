@@ -44,7 +44,7 @@ public non-sealed class Triangle extends Shape {
 }
 
 // Sealed interface with many permits -- should wrap
-public sealed interface Expr permits Expr.Num, Expr.Add, Expr.Mul, Expr.Neg, Expr.Var, Expr.Lit {
+public sealed interface Expr permits Expr.Num, Expr.Add, Expr.Mul, Expr.Neg, Expr.Var, Expr.Lit, Expr.XXX, Expr.YYY {
     record Num(int value) implements Expr {}
     record Add(Expr left, Expr right) implements Expr {}
     record Mul(Expr left, Expr right) implements Expr {}

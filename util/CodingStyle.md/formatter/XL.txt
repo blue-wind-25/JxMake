@@ -2,81 +2,10 @@ Use debug prints and `make test` rather than relying only on static analysis to 
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
-
-Bug fix for the `cpp_modern_inp.cpp` formatting test:
-
-(10)
-     const void* a = nullptr;
--          char* b = static_cast<char*>( const_cast<void*>(a) );
--          int*  c = reinterpret_cast<int*>(b);
-+          char* b = static_cast < char* > ( const_cast < void* > (a) );
-+          int*  c = reinterpret_cast < int* > (b);
-
-(11)
--} // namespace alpha beta gamma
-+} // namespace alpha
-
-For this bug #11, if fixing it is difficult and require many code changes, one of these form is
-also acceptable:
-} // namespace alpha ...
-} // namespace ... gamma
+Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 ####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
-
-Bug fix for the `java_modern_inp.java` formatting test:
-
-(1)
-Empty `record` must not be reformatted into multi-line format if it only contains only `{}` or `{ }`
-(empty), hence, the closing comment `// record ...` is also not needed
-
-Treat empty `class`, `interface`, `enum` the same.
-
-Also ensure the same with C/C++ `struct`, `class`, `enum`, `enum class`.
-
-(2)
-         for(var item : items) {
--            var trimmed = item.trim();
--            result.add(trimmed);
-+            var trimmed = item. trim();
-+            result.             add(trimmed);
-         }
-
-(3)
--    public double distance() { return Math.sqrt(x * x + y * y); }
-+    public double distance()
-+    { return Math.sqrt(x * x + y * y); }
-
-...
-
-     private final double width;
-     private final double height;
--    public Rectangle(double width, double height) { this.width = width; this.height = height; }
--    public double area() { return width * height; }
-+    public Rectangle(double width, double height)
-+    { this.width  = width;
-+    this.height = height; }
-+    public double area()
-+    { return width * height; }
-
-...
-
-     private final double base;
-     private final double height;
--    public Triangle(double base, double height) { this.base = base; this.height = height; }
--    public double area() { return 0.5 * base * height; }
-+    public Triangle(double base, double height)
-+    { this.base   = base;
-+    this.height = height; }
-+    public double area()
-+    { return 0.5 * base * height; }
-
+####################################################################################################
 ####################################################################################################
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.

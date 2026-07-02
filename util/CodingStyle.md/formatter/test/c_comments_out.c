@@ -37,9 +37,9 @@ void multiParam(
 )
 {
     // Comment at top of function body
-    int tmp  = a; /* Save a */
-    tmp     += b; // Add b
-    tmp     += c; /* Add c */
+    int tmp = a; /* Save a */
+    tmp += b;    // Add b
+    tmp += c;    /* Add c */
 
     // Comment inside if condition
     if /* Check */ (tmp > 0) printf("%d\n", tmp);

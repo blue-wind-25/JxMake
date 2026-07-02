@@ -10,84 +10,54 @@ Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Bug fix for the `combined_inp.java` formatting test:
-
-(1) The formatter remove the sentence end period because currently it seems to think that only `/* */`
-    can contains multiple sentences. I think the fix is that consecutive `//` should also be included
-    in this detection.
-
- // Combined Java test: core + Java 17+ constructs in one realistic file.
--// Exercises: imports, declarations, getters/setters, closing comments,
--// switch expressions, records, sealed classes, text blocks, var, pattern matching.
-+// Exercises: imports, declarations, getters/setters, closing comments,
-+// switch expressions, records, sealed classes, text blocks, var, pattern matching
-
-
-(2) If an enum contains more than just the enum values, the enum values and the other
-    construct must be separated by "\n\n;\n". See `combined_out.java` for the details.
-
-     public enum State {
-
--        IDLE, RUNNING, PAUSED, ERROR
--
--        ;
--
-+        IDLE, RUNNING, PAUSED, ERROR;
-         public boolean isActive() { return this == RUNNING; }
-
-     } // enum State
-
-
-(3) The formatter failed to add '\n' before the last `return` in a function body.
-         for(int i = 0; i < frames; ++i) buffer[i] *= gain;
-         frameCount += frames;
--
-         return new ProcessResult(true, frames, null);
-     }
-
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
-
 Bug fix for the `c_comments_inp.c` formatting test:
 
-(1)
+(0) CRITICAL, the formatter exit prematurely. This may be related to (3)
+
+Lines from `int switchy(int v) {` and further disappeared.
+
+
+(1) Lone `/* */` comments got deleted.
 -
 -/* Separator */
 -
 
-NOTE: Lone `/* */` comments got deleted.
-
-(2) @@@ @@@ @@@
+(2) Investigate first. Why the formatter does not add `\n`? Is it because the line < 5 (excluding comments). If so then this is not a bug.
  typedef struct {
 -
      /* Fields below */
      int a; // First field
      int b; /* Second field */
--    int c; // Third field
+     int c; // Third field
 -
-+    int c; // Third field // third field
  } Trio;
 
-(3) @@@ @@@ @@@
- // Comment between function params
--void multiParam(
--    int a, /* First */
--    int b, // Second
--    int c  /* Third */
--)
-+void multiParam(int a, int b, int c)
- {
+(3) Formatting choice:
 
-(4) @@@ @@@ @@@
--    int tmp  = a; /* Save a */
--    tmp     += b; // Add b
--    tmp     += c; /* Add c */
-+    int    tmp = a; /* Save a */
-+    tmp += b; // Add b
-+    tmp += c; /* Add c */       /* Add c */    /* Add c */
+This:
+    // Comment between function params
+    void multiParam(
+        int a,   /* first */
+        int b,   // second
+        int c    /* third */
+    ) {
 
-(5)
+must be either formatted to (EASY):
+    // Comment between function params
+    void multiParam(
+        int a, /* First */
+        int b, // Second
+        int c  /* Third */
+    )
+    {
+or (DIFFICULT - NOT RECOMMENDED):
+    void multiParam(int a, /* First */ int b, /* Second */ int c /* third */)
+    {
+however the formatter currently blindly formatted it to:
+    +void multiParam(int a, /* First */ int b, // Second int c /* third */) {
+which is INCORRECT.
+
+(4) The formatter failed to drop the `else` if there is comment in it.
      if(a < 0) {
          printf("neg\n");
 -    }
@@ -96,6 +66,13 @@ NOTE: Lone `/* */` comments got deleted.
 +    } /* Non-negative */ else {
          printf("pos\n");
      }
+
+Fix (3) and (0) first then ensure no regression and commit.
+
+More bugs later...
+
+
+
 
 (6) @@@ @@@ @@@
  // Comment on same line as preprocessor

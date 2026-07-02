@@ -1144,8 +1144,21 @@ public class MiscRule {
             return new Signature(leadTokens, name, new ArrayList<Param>(), true);
         }
 
+        final List<List<Token>> parts = splitTopLevelCommas(paramsSlice);
+        // A comment immediately after a comma (before the next param's own tokens) belongs to
+        // the *previous* param -- e.g. `int b,   // second\nint c` -- but the comma-split above
+        // leaves it as the leading token of the next part. Reattach it as that previous part's
+        // trailing comment before parsing, so it doesn't get swept into the next param's type.
+        for (int i = 0; i < parts.size() - 1; i++) {
+            final List<Token> next = parts.get(i + 1);
+            while (!next.isEmpty() && (next.get(0).type == TokenType.COMMENT_LINE
+                    || next.get(0).type == TokenType.COMMENT_BLOCK)) {
+                parts.get(i).add(next.remove(0));
+            }
+        }
+
         final List<Param> params = new ArrayList<>();
-        for (final List<Token> slice : splitTopLevelCommas(paramsSlice)) {
+        for (final List<Token> slice : parts) {
             final Param p = parseParam(slice);
             if (p == null) {
                 return null;
@@ -1270,7 +1283,18 @@ public class MiscRule {
                 commentLen += p.comment.text.length() + 1;
             }
         }
-        if (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= LINE_LENGTH_LIMIT) {
+        // A `//` line comment on any param can never be rendered inline -- it would swallow
+        // every token after it on the physical line (including the params/`)`/`{` that follow),
+        // silently corrupting the rest of the file when re-tokenized by a later pass.
+        boolean hasLineComment = false;
+        for (final Param p : sig.params) {
+            if (p.comment != null && p.comment.type == TokenType.COMMENT_LINE) {
+                hasLineComment = true;
+                break;
+            }
+        }
+        if (!hasLineComment
+                && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= LINE_LENGTH_LIMIT)) {
             return Collections.singletonList(inline);
         }
 

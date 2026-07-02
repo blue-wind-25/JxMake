@@ -803,6 +803,27 @@ accept `final` there). This applies to all `.java` files under `src/`.
   - All 3 bugs verified via `make test` with zero regressions across the other 11 file-pairs (once
     `java_core_out.java`'s enum fixture was updated per above).
 - [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
+  - Bug (0)/(3) FIXED (partial, in progress -- other reported bugs in this file remain open):
+    a mid-param `//` line comment (e.g. `int b, // second` immediately followed on the next
+    line by the next param) was swept into the *following* param's `typeTokens` instead of
+    being recognized as the trailing comment of the param it actually follows on the source
+    line -- `MiscRule.parseSignature`'s comma-split had no reattachment step, and
+    `parseParam` only ever captured a slice's own *last* token as a comment. This corrupted
+    `void multiParam(...)`'s rendering to a single collapsed line ending in `// second int c
+    /* third */) {`, where the real `{` for the function body became part of that `//`
+    comment's text once re-tokenized by a later `Formatter.java` phase -- desyncing brace
+    depth for the rest of the file and silently truncating everything from `switchy(...)`
+    onward out of the output (bug (0)). Fixed in two parts (`MiscRule.parseSignature`):
+    (a) after `splitTopLevelCommas`, a leading comment token on any non-first part is now
+    reattached to the end of the previous part, so it stays with the param it followed in the
+    source; (b) `render(Signature, ...)` now forces multi-line (one-param-per-line) rendering
+    whenever any param's comment is a `COMMENT_LINE` (`//`) -- such a comment can never be
+    safely rendered inline, since it would swallow every token after it on that physical line.
+    Verified via `make test`: `c_comments_inp.c` no longer truncates and `multiParam` now
+    renders one param per line; zero regressions across the other 12 file-pairs (all still
+    PASS forward + idempotency). Remaining open bugs in this file (lone `/* */` comment
+    deletion, missing blank lines in `Trio`, `else` closing-comment placement, and a few
+    formatting/spacing diffs) are unfixed -- left for a follow-up session.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 

@@ -14,9 +14,7 @@ static int gamma = 3; // Gamma value
 
 // Block comment between declarations (breaks alignment group)
 static int x = 10;
-
 /* Separator */
-
 static int y = 20;
 
 // Comment after struct opening brace

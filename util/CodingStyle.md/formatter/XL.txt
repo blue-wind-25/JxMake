@@ -10,19 +10,20 @@ Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
+Continue with `- CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next`.
+
+
 Bug fix for the `c_comments_inp.c` formatting test:
 
-(0) CRITICAL, the formatter exit prematurely. This may be related to (3)
+(3c)
+ void multiParam(
+     int a, /* First */
+     int b, // Second
+-    int c  /* Third */
++    int c /* Third */
+ )
 
-Lines from `int switchy(int v) {` and further disappeared.
-
-
-(1) Lone `/* */` comments got deleted.
--
--/* Separator */
--
-
-(2) Investigate first. Why the formatter does not add `\n`? Is it because the line < 5 (excluding comments). If so then this is not a bug.
+(2)
  typedef struct {
 -
      /* Fields below */
@@ -32,32 +33,7 @@ Lines from `int switchy(int v) {` and further disappeared.
 -
  } Trio;
 
-(3) Formatting choice:
-
-This:
-    // Comment between function params
-    void multiParam(
-        int a,   /* first */
-        int b,   // second
-        int c    /* third */
-    ) {
-
-must be either formatted to (EASY):
-    // Comment between function params
-    void multiParam(
-        int a, /* First */
-        int b, // Second
-        int c  /* Third */
-    )
-    {
-or (DIFFICULT - NOT RECOMMENDED):
-    void multiParam(int a, /* First */ int b, /* Second */ int c /* third */)
-    {
-however the formatter currently blindly formatted it to:
-    +void multiParam(int a, /* First */ int b, // Second int c /* third */) {
-which is INCORRECT.
-
-(4) The formatter failed to drop the `else` if there is comment in it.
+(4)
      if(a < 0) {
          printf("neg\n");
 -    }
@@ -67,14 +43,7 @@ which is INCORRECT.
          printf("pos\n");
      }
 
-Fix (3) and (0) first then ensure no regression and commit.
-
-More bugs later...
-
-
-
-
-(6) @@@ @@@ @@@
+(5)
  // Comment on same line as preprocessor
 -#define MACRO_A 1 // Macro a
 -#define MACRO_B 2 // Macro b
@@ -89,36 +58,26 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `cpp_comments_inp.cpp` formatting test:
 
-(1)
- static int alpha = 1; // Alpha value
- static int beta  = 2; // Beta value
--static int gamma = 3; // Gamma value
-+static int gamma = 3; // Gamma value // gamma value
-
-(2) @@@ @@@ @@@
+(1) Alignment problem
 -    void insert(const K& /* Key */ k, const V& /* Value */ v);
 -    V get(const K& k) const; // May throw
 +    void insert(const K& k, const V& v);
 +    V    get(const K& k) const; // May throw
 
-(3)
-     // Internal storage
-     struct Entry {
-
+(2) Missing `\n`? @@@ @@@ @@@
          K key;   // The key
--        V value; // The value
+         V value; // The value
 -
-+        V value; // The value // the value
      }; // struct Entry
 
-(4)
-     // Comment before constructor
-     Derived(); // default ctor
-     /* explicit */ explicit Derived(int v); // Value ctor
--    ~Derived(); // Dtor
-+    ~        Derived();      // Dtor
+...
 
-(5) @@@ @@@ @@@
+ private:
+     int v_ = 0; /* Initial value */
+-
+ }; // class Derived
+
+(3) Missing comments
      // Inline methods with trailing comments
 -    int  getValue(     ) const { return v_;     } // Getter
 -    void setValue(int v)       { v_ = v;        } // Setter
@@ -127,13 +86,15 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 +    void setValue(int v)       { v_ = v;        }
 +    bool isValid (     ) const { return v_ > 0; }
 
- private:
--    int v_ = 0; /* Initial value */
--
-+    int v_ = 0; /* Initial value */ /* Initial value */
+...
 
-(6)
- // Comment inside function definition with complex params
+-    auto [lo /* Low */, hi /* High */] = std::pair<int, int>{0, result};
++    auto [lo, hi] = std::pair<int, int> { 0, result };
+     (void)lo;
+     (void)hi;
+ }
+
+(4) Alignment problem @@@ @@@ @@@
  void complexFunction(
 -    int                      a, // Plain int
 -    const std::string&       b, /* Const ref string */
@@ -141,27 +102,14 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 -    std::function<void(int)> d  /* Callback */
 -)
 -{
-+        int                           a,
-+        const std::string&            b,
-+        std::vector<int>              c,
-+        std::function < void (int) >  d
++        int                          a, // Plain int
++        const std::string&           b, /* const ref string */
++        std::vector<int>             c, // Vector by value
++        std::function < void (int) > d /* Callback */
 +    )
 +    {
-     // Comment at top
--    auto result = a; /* Start with a */
--    result += static_cast<int>( b.size() ); // Add string length
-+    auto result = a; /* Start with a */ /* Start with a */
-+    result += static_cast<int>( b.size() ); // Add string length // add string length
 
-     // Comment inside if with init-statement
--    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) {
--        result += *it;
--    }
-+    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) result += * it;
-
-     // Comment between else and brace in C++
-     if(result > 0) {
-         d(result);
+(5) Failed to drop `else` @@@ @@@ @@@
 -    }
 -    /* Call otherwise */
 -    else {
@@ -169,15 +117,7 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
          d(0);
      }
 
-(7) @@@ @@@ @@@
-     // Structured binding with comment
--    auto [lo /* Low */, hi /* High */] = std::pair<int, int>{0, result};
-+    auto [lo, hi] = std::pair<int, int> { 0, result };
-     (void)lo;
-     (void)hi;
- }
-
- // Comment inside requires clause
+(7) Should not be dropped?
 -template<typename T> requires /* Numeric */ std::integral<T> /* Constraint */ T doubled(T x)
 +template<typename T>
 +    requires /* Numeric */ std::integral<T> /* Constraint */
@@ -192,34 +132,33 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `java_comments_out.java` formatting test:
 
-(1) @@@ @@@ @@@
-     // Trailing line comment on a field declaration
-     private int alpha = 1; // Alpha value
-     private int beta  = 2; // Beta value
--    private int gamma = 3; // Gamma value
-+    private int gamma = 3; // Gamma value // gamma value
-
-     // Trailing block comment on a field declaration
-     private int delta   = 4; /* Delta */
--    private int epsilon = 5; /* Epsilon */
-+    private int epsilon = 5; /* Epsilon */ /* Epsilon */
-
-(2) @@@ @@@ @@@
-     // Comment inside a method signature (between params)
--    public void method(
+(1) Alignment problem - will be related to (2)
+     public void method(
 -        int a, // First param
--        /* Second */ int b,
++        int a,         // First param
+         /* Second */ int b,
 -        int c  // Third param
--    )
-+    public void method(int a, int b, int c)
++        int c          // Third param
+     )
      {
-         // Comment at top of method body
--        int x = a + b; // Inline comment on assignment
--        /* Block comment inline on next line */ int y = b + c;
-+        int x = a + b; // inline comment on assignment
-+        int y = b + c;
+Before fixing, what is your recommendation:
+  a. Move all comments to right side and align?
+  b. Other?
 
-(3) @@@ @@@ @@@
+(2) Missing comments
+     // Comment inside array initializer
+-    private static final int[] VALUES = {
+-        1, // One
+-        2, // Two
+-        /* Three */ 3
+-    };
++    private static final int[] VALUES = { 1, 2, 3 };
+
+(3) `inline` is not Java keyword. Shall, no-title-case have different list for Java and C/C++?
+-        int x = a + b; // Inline comment on assignment
++        int x = a + b; // inline comment on assignment
+
+(4) Failed to drop `else` @@@ @@@ @@@
          // Comment between else and brace
          if(x < 0) {
              System.out.println("negative");
@@ -230,7 +169,7 @@ Bug fix for the `java_comments_out.java` formatting test:
              System.out.println("non-negative");
          }
 
-(4)
+(5) Missing `\n`?
      public int switchy(int v)
      {
          switch(v) {

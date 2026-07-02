@@ -74,9 +74,7 @@ void complexFunction(
     result += static_cast<int>( b.size() ); // Add string length
 
     // Comment inside if with init-statement
-    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) {
-        result += *it;
-    }
+    if(/* Check */ auto it = c.begin(); it != c.end() /* Valid */) result += *it;
 
     // Comment between else and brace in C++
     if(result > 0) {

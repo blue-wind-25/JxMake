@@ -181,48 +181,27 @@ Bug fix for the `combined_inp.java` formatting test:
 +// Exercises: imports, declarations, getters/setters, closng comments,
 +// switch expressions, records, sealed classes, text blocks, var, pattern matching
 
-(2) @@@ @@@ @@@
--    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {}
-+    public record ChannelConfig(int channels, int sampleRate, boolean stereo) {
-+
-+} // record ChannelConfig
-
-(3)
+(2)
      public enum State {
 
 -        IDLE, RUNNING, PAUSED, ERROR
 -
 -        ;
 -
--        public boolean isActive() { return this == RUNNING; }
 +        IDLE, RUNNING, PAUSED, ERROR;
-+        public boolean isActive()
-+        { return this == RUNNING; }
+         public boolean isActive() { return this == RUNNING; }
 
      } // enum State
 
-For this 3rd bug, if an enum contains more than just the enum values, the enum values and other construct separated by "\n;\n".
+For this 2nd bug, if an enum contains more than just the enum values, the enum values and other construct separated by "\n;\n".
 See `combined_out.java` for the details.
 
-(4) @@@ @@@ @@@
-         if(buffer == null || frames <= 0) return new ProcessResult(false, 0, "invalid input");
-         if(state != State.RUNNING) return new ProcessResult(false, 0, "not running");
-         if(muted) {
--            java.util.Arrays.fill(buffer, 0, frames, 0.0f);
--            return new ProcessResult(true, frames, null);
-+            java.util.Arrays. fill(buffer, 0, frames, 0.0f);
-+            return new        ProcessResult(true, frames, null);
-         }
+(3)
          for(int i = 0; i < frames; ++i) buffer[i] *= gain;
          frameCount += frames;
 -
          return new ProcessResult(true, frames, null);
      }
-
-(5) @@@ @@@ @@@
--        public int getBufferSize() { return bufferSize; }
-+        public int getBufferSize()
-+        { return bufferSize; }
 
 ####################################################################################################
 
@@ -304,15 +283,23 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 +    V    get(const K& k) const; // May throw
 
 (3)
- template<typename T>
- concept HasDraw = requires(T t /* The object */) {
+     // Internal storage
+     struct Entry {
+
+         K key;   // The key
+-        V value; // The value
 -
-     /* Must have draw */ t.draw();
-     { t.area() /* Area method */ } -> std::convertible_to<double>;
++        V value; // The value // the value
+     }; // struct Entry
 
- }; // concept HasDraw
+(4)
+     // Comment before constructor
+     Derived(); // default ctor
+     /* explicit */ explicit Derived(int v); // Value ctor
+-    ~Derived(); // Dtor
++    ~        Derived();      // Dtor
 
-(4) @@@ @@@ @@@
+(5) @@@ @@@ @@@
      // Inline methods with trailing comments
 -    int  getValue(     ) const { return v_;     } // Getter
 -    void setValue(int v)       { v_ = v;        } // Setter
@@ -326,7 +313,8 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 -
 +    int v_ = 0; /* Initial value */ /* Initial value */
 
-(5)
+(6)
+ // Comment inside function definition with complex params
  void complexFunction(
 -    int                      a, // Plain int
 -    const std::string&       b, /* Const ref string */
@@ -361,6 +349,23 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
 +    } /* Call otherwise */ else {
          d(0);
      }
+
+(7) @@@ @@@ @@@
+     // Structured binding with comment
+-    auto [lo /* Low */, hi /* High */] = std::pair<int, int>{0, result};
++    auto [lo, hi] = std::pair<int, int> { 0, result };
+     (void)lo;
+     (void)hi;
+ }
+
+ // Comment inside requires clause
+-template<typename T> requires /* Numeric */ std::integral<T> /* Constraint */ T doubled(T x)
++template<typename T>
++    requires /* Numeric */ std::integral<T> /* Constraint */
++T doubled(T x)
+ {
+     return x * 2;
+ }
 
 ####################################################################################################
 

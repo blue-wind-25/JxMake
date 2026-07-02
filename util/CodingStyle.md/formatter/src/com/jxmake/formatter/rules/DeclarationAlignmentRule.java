@@ -23,6 +23,9 @@ import java.util.Set;
 
 public class DeclarationAlignmentRule {
 
+    private static final Set<String> COMPOUND_ASSIGN_OPS = setOf(
+            "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
+
     private static final Set<String> TYPE_KEYWORDS_C = setOf(
             "void", "char", "short", "int", "long", "float", "double", "signed",
             "unsigned", "struct", "enum", "union", "bool", "_Bool");
@@ -836,9 +839,13 @@ public class DeclarationAlignmentRule {
         }
         // Reject member-access expressions and qualified-name accesses (ptr->field, obj.field,
         // Type::member) in type position -- the last type token being `::` means the "name" is
-        // actually the RHS of a scope-resolution expression, not a variable being declared.
+        // actually the RHS of a scope-resolution expression, not a variable being declared. Also
+        // reject a compound-assignment operator (e.g. `tmp += b;` tokenizes `+=` as one OP token,
+        // which the eqIdx scan above only looks for a bare `=` and misses entirely -- leaving it
+        // stranded in typeTokens, misparsing the whole statement as declaring type "tmp +=" name
+        // "b" instead of recognizing it as not a declaration at all).
         for (final Token t : typeTokens) {
-            if (isOp(t, "->") || isOp(t, ".")) {
+            if (isOp(t, "->") || isOp(t, ".") || COMPOUND_ASSIGN_OPS.contains(t.text)) {
                 return null;
             }
         }

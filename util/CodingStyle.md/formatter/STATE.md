@@ -824,6 +824,33 @@ accept `final` there). This applies to all `.java` files under `src/`.
     PASS forward + idempotency). Remaining open bugs in this file (lone `/* */` comment
     deletion, missing blank lines in `Trio`, `else` closing-comment placement, and a few
     formatting/spacing diffs) are unfixed -- left for a follow-up session.
+  - Bug (3b) FIXED (two parts, both alignment/column-width bugs):
+    (a) `DeclarationAlignmentRule.parseDeclaration` misparsed a compound-assignment statement
+    (e.g. `tmp += b;`) as a fake declaration: `+=`/`-=`/etc. tokenize as one OP token, which the
+    method's `=`-only search for an initializer never matches, so the operator token was left
+    stranded inside `typeTokens` (`["tmp", "+="]`) while `name` became the RHS identifier
+    (`"b"`) -- passing every existing guard since `tmp` (the real first token) is a plain
+    IDENTIFIER. This silently merged `tmp += b;`/`tmp += c;` into the *same* declaration group
+    as a preceding `int tmp = a;`, and the fake `"tmp +="` type cell (6 chars) widened the
+    group's shared type column, wrongly padding the real declaration to `int    tmp = a;`. Fixed
+    by rejecting any `typeTokens` containing a compound-assignment operator (new
+    `COMPOUND_ASSIGN_OPS` set), alongside the existing `->`/`.`  rejection -- `tmp += b;` is no
+    longer treated as a declaration at all, so it and `int tmp = a;` are correctly independent
+    (§5 declaration vs. §6 assignment are different statement kinds with no combined worked
+    example in STYLE.md; confirmed with the user this is the correct read).
+    (b) `MiscRule.render(Signature, ...)`'s broken (one-param-per-line) form double-counted a
+    gap: `padRight(typeText, maxTypeLen + 1)` already produces the correct STYLE.md §8 gap
+    (hand-verified character-by-character against the `const char*`/`uint8_t`/`uint16_t` worked
+    example: column width is exactly `maxTypeLen + 1`, e.g. `uint8_t` padded to 12 gives the
+    example's 5-space gap with no further space needed), but the code then appended one more
+    literal `" "` before `nameText`, producing a double space whenever the padded column wasn't
+    already at its exact minimum (visible whenever all param types are equal width, e.g.
+    `multiParam(int a, int b, int c)` rendering `int  a,` instead of `int a,`). Fixed by dropping
+    the extra `" "` at both call sites (declaration-signature and forward-declaration/call
+    `renderDropped`, which shares the identical padding shape).
+    Verified via `make test`: zero regressions across the other 12 file-pairs; `multiParam`'s
+    broken form and the `int tmp = a;`/`tmp += b;`/`tmp += c;` sequence in `c_comments_inp.c`
+    now render correctly.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 

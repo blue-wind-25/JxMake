@@ -1313,7 +1313,7 @@ public class MiscRule {
             final String nameText = p.name.text + renderTokens(p.sizeTokens)
                     + (i < sig.params.size() - 1 ? "," : "")
                     + (p.comment != null ? " " + p.comment.text : "");
-            lines.add(paramIndent + padRight(typeText, typeColWidth) + " " + nameText);
+            lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
         return lines;
@@ -2364,7 +2364,7 @@ public class MiscRule {
             final String nameText = p.name.text + renderTokens(p.sizeTokens)
                     + (i < sig.params.size() - 1 ? "," : "")
                     + (p.comment != null ? " " + p.comment.text : "");
-            lines.add(paramIndent + padRight(typeText, typeColWidth) + " " + nameText);
+            lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
         }
         lines.add(baseIndent + ")");
         return lines;

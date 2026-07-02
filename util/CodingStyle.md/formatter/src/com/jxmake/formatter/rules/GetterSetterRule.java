@@ -190,6 +190,19 @@ public class GetterSetterRule {
     public List<String> render(final List<Token> tokens, final List<Member> group) {
         final boolean isPureSpecifier = group.get(0).pureSpecifier != null;
         final boolean isDef = group.get(0).isDefinition;
+        // A constructor member has no return type at all (STYLE.md §14 doesn't define a
+        // sensible shared return-type column start with a sibling that does have one, e.g.
+        // `EngineBase(const EngineBase&) = delete;` next to `EngineBase& operator=(...) =
+        // delete;`) -- when any member in the group is like this, the return-type and
+        // name/params cells are merged into one so the empty-type row isn't left-padded to
+        // the width of its sibling's real return type.
+        boolean mergeReturnTypeIntoCall = false;
+        for (final Member m : group) {
+            if (m.returnTypeTo <= m.returnTypeFrom) {
+                mergeReturnTypeIntoCall = true;
+                break;
+            }
+        }
 
         // Modifier columns (Java only).
         final int modifierColumns = isJava ? modifierPriority.columnCount() : 0;
@@ -310,7 +323,13 @@ public class GetterSetterRule {
                 }
             }
 
-            cells.add(cellText(tokens, m.returnTypeFrom, m.returnTypeTo));
+            final String returnTypeText = cellText(tokens, m.returnTypeFrom, m.returnTypeTo);
+            if (mergeReturnTypeIntoCall) {
+                final String prefix = returnTypeText.isEmpty() ? "" : returnTypeText + " ";
+                callCells[idx] = prefix + callCells[idx];
+            } else {
+                cells.add(returnTypeText);
+            }
 
             if (isDef) {
                 cells.add(callCells[idx]);
@@ -462,12 +481,23 @@ public class GetterSetterRule {
         }
 
         final int nameIdx = findNameBeforeParen(tokens, returnTypeFrom, to);
-        if (nameIdx < 0 || nameIdx == returnTypeFrom) {
-            return null; // no return type before the name -- e.g. a constructor
+        if (nameIdx < 0) {
+            return null;
         }
+        // No return type before the name -- e.g. a constructor (`EngineBase(...)`). Only
+        // accepted later if it turns out to carry a pure-specifier (`= delete`/`= default`),
+        // so a bare function-call-shaped statement is never misclassified as a member.
+        final boolean noReturnType = nameIdx == returnTypeFrom;
 
-        // Extend nameIdx backwards for qualified names (e.g. "Processor::method").
+        // Extend nameIdx backwards for qualified names (e.g. "Processor::method") and for the
+        // `operator` keyword of an operator-overload name (e.g. "operator=").
         int nameFrom = nameIdx;
+        final int beforeName = prevSignificant(tokens, nameFrom - 1, returnTypeFrom);
+        if (beforeName >= 0 && beforeName >= returnTypeFrom
+                && tokens.get(beforeName).type == TokenType.KEYWORD
+                && "operator".equals(tokens.get(beforeName).text)) {
+            nameFrom = beforeName;
+        }
         while (nameFrom > returnTypeFrom) {
             final int prevA = prevSignificant(tokens, nameFrom - 1, returnTypeFrom);
             if (prevA < 0 || !isOp(tokens.get(prevA), "::")) {
@@ -484,8 +514,9 @@ public class GetterSetterRule {
             nameFrom = prevB;
         }
 
-        final int returnTypeTo = trimTrailingWs(tokens, returnTypeFrom, nameFrom);
-        if (returnTypeTo <= returnTypeFrom) {
+        final int effectiveReturnTypeFrom = noReturnType ? nameFrom : returnTypeFrom;
+        final int returnTypeTo = trimTrailingWs(tokens, effectiveReturnTypeFrom, nameFrom);
+        if (returnTypeTo < effectiveReturnTypeFrom || (!noReturnType && returnTypeTo <= returnTypeFrom)) {
             return null;
         }
         // Reject candidates whose "return type" span contains `.` or `=` -- those only appear
@@ -555,6 +586,10 @@ public class GetterSetterRule {
             }
         }
 
+        if (noReturnType && pureSpecifier == null) {
+            return null; // bare constructor call/declaration -- not a member we can align
+        }
+
         // Determine terminator: { (definition) or ; (declaration).
         final int terminatorIdx = nextSignificant(tokens, afterParen, to);
         if (terminatorIdx < 0) {
@@ -608,12 +643,18 @@ public class GetterSetterRule {
             return null; // throws clause or other unrecognised form
         }
 
-        return new Member(modifiers, returnTypeFrom, returnTypeTo, nameFrom, nameIdx,
+        return new Member(modifiers, effectiveReturnTypeFrom, returnTypeTo, nameFrom, nameIdx,
                 paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
                 postParenQualifier, pureSpecifier, isDefinition);
     }
 
-    /** First IDENTIFIER in [from, to) whose next significant token is `(`; -1 if none. */
+    /**
+     * First IDENTIFIER in [from, to) whose next significant token is `(`; -1 if none. Also
+     * recognizes a C++ operator-overload name (`operator` keyword followed by a single OP
+     * token, e.g. `operator=`, `operator==`, `operator<=>`) immediately before `(`, returning
+     * the index of the OP token itself -- the caller detects the preceding `operator` keyword
+     * separately to extend the name's start back over it.
+     */
     private int findNameBeforeParen(final List<Token> tokens, final int from, final int to) {
         int i = from;
         while (i < to) {
@@ -623,6 +664,14 @@ public class GetterSetterRule {
                     final int next = nextSignificant(tokens, i + 1, to);
                     if (next >= 0 && isPunct(tokens.get(next), "(")) {
                         return i;
+                    }
+                } else if (t.type == TokenType.KEYWORD && "operator".equals(t.text)) {
+                    final int opIdx = nextSignificant(tokens, i + 1, to);
+                    if (opIdx >= 0 && tokens.get(opIdx).type == TokenType.OP) {
+                        final int next = nextSignificant(tokens, opIdx + 1, to);
+                        if (next >= 0 && isPunct(tokens.get(next), "(")) {
+                            return opIdx;
+                        }
                     }
                 }
             }

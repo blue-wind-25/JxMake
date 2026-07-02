@@ -16,6 +16,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -67,11 +68,20 @@ public class DeclarationAlignmentRule {
         public final List<Token> bitfieldWidth; // empty if not a bitfield
         public final Token trailingComment; // nullable
         public final boolean blankLineBefore;
+        public final List<Token> templatePrefix; // empty unless preceded by `template<...>` (C++)
 
         Declaration(final List<Token> modifiers, final List<Token> typeTokens, final Token name,
                 final List<Token> sizeTokens, final List<Token> initTokens,
                 final List<Token> bitfieldWidth, final Token trailingComment,
                 final boolean blankLineBefore) {
+            this(modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, Collections.<Token>emptyList());
+        }
+
+        Declaration(final List<Token> modifiers, final List<Token> typeTokens, final Token name,
+                final List<Token> sizeTokens, final List<Token> initTokens,
+                final List<Token> bitfieldWidth, final Token trailingComment,
+                final boolean blankLineBefore, final List<Token> templatePrefix) {
             this.modifiers = modifiers;
             this.typeTokens = typeTokens;
             this.name = name;
@@ -80,6 +90,7 @@ public class DeclarationAlignmentRule {
             this.bitfieldWidth = bitfieldWidth;
             this.trailingComment = trailingComment;
             this.blankLineBefore = blankLineBefore;
+            this.templatePrefix = templatePrefix;
         }
     }
 
@@ -328,6 +339,14 @@ public class DeclarationAlignmentRule {
         return sb.toString();
     }
 
+    /** Renders a leading `template<...>` clause with no space around the outer angle brackets
+     *  (STYLE_C_CPP.md: template parameter lists are always tight, unlike template argument
+     *  usages such as `std::unique_ptr< T >`). */
+    private String renderTemplatePrefix(final List<Token> templatePrefix) {
+        final List<Token> params = templatePrefix.subList(2, templatePrefix.size() - 1);
+        return "template<" + renderTokens(params) + ">";
+    }
+
     private List<String> renderFunctionForwardGroup(final List<Declaration> group) {
         final ColumnGrid grid = new ColumnGrid();
         for (final Declaration d : group) {
@@ -342,8 +361,13 @@ public class DeclarationAlignmentRule {
             grid.addRow(new String[] { typeStr, nameStr });
         }
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(String.join(" ", row));
+        final List<String[]> rows = grid.flush();
+        for (int idx = 0; idx < rows.size(); idx++) {
+            final Declaration d = group.get(idx);
+            if (!d.templatePrefix.isEmpty()) {
+                lines.add(renderTemplatePrefix(d.templatePrefix));
+            }
+            lines.add(String.join(" ", rows.get(idx)));
         }
         return lines;
     }
@@ -676,6 +700,28 @@ public class DeclarationAlignmentRule {
         }
 
         int i = 0;
+        List<Token> templatePrefix = Collections.emptyList();
+        if ("cpp".equals(language) && i < body.size() && body.get(i).type == TokenType.KEYWORD
+                && "template".equals(body.get(i).text) && i + 1 < body.size()
+                && isOp(body.get(i + 1), "<")) {
+            int depth = 0;
+            int j = i + 1;
+            for (; j < body.size(); j++) {
+                if (isOp(body.get(j), "<")) {
+                    depth++;
+                } else if (isOp(body.get(j), ">")) {
+                    depth--;
+                    if (depth == 0) {
+                        break;
+                    }
+                }
+            }
+            if (j < body.size()) {
+                templatePrefix = body.subList(i, j + 1);
+                i = j + 1;
+            }
+        }
+
         final List<Token> modifiers = new ArrayList<>();
         while (i < body.size() && body.get(i).type == TokenType.KEYWORD
                 && modifierPriority.isModifier(body.get(i).text)) {
@@ -809,7 +855,7 @@ public class DeclarationAlignmentRule {
         }
 
         return new Declaration(modifiers, typeTokens, name, sizeTokens, initTokens,
-                new ArrayList<Token>(), trailingComment, blankBefore);
+                new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix);
     }
 
     /**

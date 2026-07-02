@@ -87,3 +87,31 @@ decisions that *are* externally logged appear in the main index in `STATE.md`.
 | RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
 | RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
 | RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
+
+---
+
+## TODO: `//` comment sentence-boundary detection defeated by mid-word dots (NOT FEASIBLE deterministically)
+
+`MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only when it
+is the *sole* `.` in the comment text — a deliberately conservative heuristic to avoid
+mangling an ellipsis or an abbreviation followed by more sentence text. This
+misfires whenever the comment legitimately contains an unrelated dot earlier in the
+sentence that is *not* an end-of-sentence period, e.g.:
+
+```
+// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
+```
+
+Here `.hpp` (a file extension) and the trailing `C.` both count as dots, so
+`dotCount != 1` and the genuinely-sentence-ending trailing period is left in place
+(expected: stripped, since STYLE.md's single-sentence-never-ends-in-a-period rule
+should still apply).
+
+Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`, `v1.0`,
+single-letter abbreviations like `extern C.`) from a true sentence-ending dot is a
+natural-language judgment call, not a mechanical token-shape rule — no tractable
+heuristic was found that doesn't risk false positives/negatives on other comments
+(same class of problem as the Step 2 AI-assist deferral above: no reliable signal
+without semantic understanding of the comment text). Deferred as NOT FEASIBLE for
+Tier-1/Tier-2 mechanical rules; a candidate for the same Tier-3 AI-assist workflow
+referenced above if that is ever revisited.

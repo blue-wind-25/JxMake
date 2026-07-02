@@ -655,7 +655,57 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `blockRule.addClosingComments`, so the line-count decision always sees the switch body's
     final, fully-compacted shape on every pass. `combined_inp.c`/`combined_out.c` now PASS
     forward + idempotency, zero regressions across the other 8 file-pairs.
-- [ ] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp`
+- [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS forward + idempotency)
+  - Bug 1 NOT FEASIBLE, input adjusted instead: `MiscRule.stripSoleTrailingPeriod` (§15) only
+    strips a comment's trailing `.` when it is the *sole* `.` in the whole comment (to avoid
+    touching an ellipsis or abbreviation-then-more-sentence). A comment with an unrelated mid-word
+    dot earlier in the sentence (`// Combined .hpp test: ..., extern C.`) has `dotCount == 2`, so
+    the genuinely sentence-ending trailing period was left untouched. Distinguishing a mid-word dot
+    (file extension, `e.g.`, single-letter abbreviation) from a true sentence-ending dot needs
+    semantic understanding of the comment text, not a mechanical token-shape rule -- logged as a
+    Tier-3 AI-assist candidate in `STATE_NEXT_AI.md` rather than a heuristic that risks false
+    positives/negatives on other comments. `combined_inp.hpp`'s comment was edited by hand to drop
+    its trailing period (no formatter change), sidestepping the case rather than leaving the test
+    failing.
+  - Bug 2 FIXED: `GetterSetterRule` (§14, the rule actually responsible for `= 0`/`= delete`/
+    `= default` column alignment, despite its "getter/setter" name) deliberately excluded any
+    constructor/destructor/operator-overload from one-liner-member grouping (no distinguishable
+    return type before the name), so e.g. `EngineBase(const EngineBase&) = delete;` next to
+    `EngineBase& operator=(const EngineBase&) = delete;` never grouped or aligned. Fix (all in
+    `GetterSetterRule.java`): `findNameBeforeParen` now also recognizes a C++ operator-overload
+    name (`operator` keyword + one `OP` token, e.g. `operator=`) immediately before `(`;
+    `parseOneLinerMember` accepts a no-return-type member (constructor shape) only when it carries
+    a pure-specifier (`= delete`/`= default`/`= 0`), so a bare function-call-shaped statement is
+    never misclassified; `render(...)` gained a `mergeReturnTypeIntoCall` flag -- when any member
+    in a group has an empty return type, the return-type and name/params cells are merged into one
+    grid column so the empty-type row isn't left-padded to the width of a sibling's real return
+    type (the naive fix of just relaxing the grouping guard produced wrongly-padded output on the
+    first iteration; this merge is what actually fixed it).
+  - Bug 3 FIXED: `std::unique_ptr<EngineBase<Impl>> makeEngine(EngineConfig cfg);` preceded by its
+    own `template<Processor Impl>` line kept 3 raw input spaces before `makeEngine` instead of
+    being collapsed to 1. Root cause: `DeclarationAlignmentRule.parseDeclaration` never even
+    considered this statement a declaration -- `template`/`<`/`Processor`/`Impl`/`>` were included
+    as the literal start of `body`, and `template` (a `KEYWORD`, not a real C/C++ type) failed the
+    `firstType` type-keyword check, so the whole statement (comment, template line, and
+    declaration together, since they're one semicolon-terminated statement) silently bailed and
+    was left as raw untouched text -- only the separate, unrelated angle-bracket-spacing pass
+    touched the line at all (adding the inner `< EngineBase<Impl> >` spacing), never the outer
+    whitespace. Fix: `Declaration` gained a `templatePrefix` field (empty unless preceded by
+    `template<...>`); `parseDeclaration` now detects and skips a leading `template<...>` clause
+    (depth-matched on the literal `<`/`>` `OP` tokens -- these are NOT reclassified to
+    `ANGLE_BRACKET_OPEN/CLOSE` by `TokenizerCore.reclassifyAngleBrackets` here, since its preceding
+    token is the `template` keyword, not an identifier/cast-keyword, so `isOp`, not `isPunct`, is
+    the correct check) before parsing the rest of the declaration normally, and carries the
+    skipped tokens forward; `renderFunctionForwardGroup` emits `templatePrefix` as its own
+    verbatim-reconstructed line (new `renderTemplatePrefix` helper -- rebuilds `template<...>`
+    with tight, no-space outer angle brackets, since template *parameter* lists are always tight
+    unlike template *argument* usages such as `std::unique_ptr< T >`) immediately before the
+    grid-rendered declaration line; `ScopePipeline.applyDeclarationsPass`'s `firstAnchor` (used to
+    find the real start of the raw span being replaced) now prefers `templatePrefix.get(0)` over
+    `modifiers`/`typeTokens` when present.
+  - Bugs 2 and 3 verified via `make test`: zero regressions across all other file-pairs
+    (in particular `hpp_core_inp.hpp`'s pre-existing `process`/`reset`/`isReady` §14 group, none of
+    whose members have an empty return type, is unaffected by the `mergeReturnTypeIntoCall` path).
 - [ ] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp`
 - [ ] File-pair test: `combined_inp.java` → diff vs `combined_out.java`
 - [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`

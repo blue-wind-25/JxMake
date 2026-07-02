@@ -410,8 +410,8 @@ public class ScopePipeline {
         for (final List<Declaration> group : groups) {
             final Declaration first = group.get(0);
             final Declaration last = group.get(group.size() - 1);
-            final Token firstAnchor = first.modifiers.isEmpty()
-                    ? first.typeTokens.get(0) : first.modifiers.get(0);
+            final Token firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(0)
+                    : first.modifiers.isEmpty() ? first.typeTokens.get(0) : first.modifiers.get(0);
             final int firstIdx = indexOf.get(firstAnchor);
             final int lastIdx = indexOf.get(last.name);
             final Span firstSpan = findSpanContaining(spans, firstIdx);

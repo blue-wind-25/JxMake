@@ -46,10 +46,10 @@ public:
     explicit Processor(int channels, float gain);
     ~Processor() = default;
 
-    Processor(const Processor&) = delete;
+    Processor(const Processor&)            = delete;
     Processor& operator=(const Processor&) = delete;
-    Processor(Processor&&) = default;
-    Processor& operator=(Processor&&) = default;
+    Processor(Processor&&)                 = default;
+    Processor& operator=(Processor&&)      = default;
 
     void  process(AudioBuffer& buf);
     float getGain() const;

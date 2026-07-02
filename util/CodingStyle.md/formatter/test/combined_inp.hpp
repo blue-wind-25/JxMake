@@ -12,7 +12,7 @@
 #include "platform.hpp"
 #include "types.hpp"
 
-// Combined .hpp test: pragma once, concepts, templates, classes, extern C.
+// Combined .hpp test: pragma once, concepts, templates, classes, extern C
 
 namespace audio {
 

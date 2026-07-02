@@ -10,55 +10,22 @@ Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Bug fix for the `combined_inp.cpp` formatting test:
-
-(1) Extra spaces
-     explicit Engine(Config cfg);
--    ~Engine();
-+    ~        Engine();
-
-(2) Extra spaces such as in `< AudioProcessor Impl >` and then bad allignment for `Engine<Impl>`
- // Getters/setters (one-liners)
--template<AudioProcessor Impl> float    Engine<Impl>::getGain      (       ) const { return gain_;       }
--template<AudioProcessor Impl> void     Engine<Impl>::setGain      (float g)       { gain_ = g;          }
--template<AudioProcessor Impl> bool     Engine<Impl>::isMuted      (       ) const { return muted_;      }
--template<AudioProcessor Impl> void     Engine<Impl>::setMuted     (bool m )       { muted_ = m;         }
--template<AudioProcessor Impl> uint32_t Engine<Impl>::getFrameCount(       ) const { return frameCount_; }
-+template<AudioProcessor Impl> float Engine<Impl>::    getGain      (       ) const { return gain_;       }
-+template < AudioProcessor Impl > void Engine<Impl>::  setGain      (float g)       { gain_ = g;          }
-+template<AudioProcessor Impl> bool Engine<Impl>::     isMuted      (       ) const { return muted_;      }
-+template < AudioProcessor Impl > void Engine<Impl>::  setMuted     (bool  m)       { muted_ = m;         }
-+template<AudioProcessor Impl> uint32_t Engine<Impl>:: getFrameCount(       ) const { return frameCount_; }
-
-(3) Bad alignment
- void useBindings(const FrameRange& range)
- {
--    auto     [start, end] = range;
-+    auto[start, end] = range;
-     uint32_t  length      = end - start;
-     (void)length;
-
-(4) Extra comments
- // Trailing comments on declarations
- static constinit float gainA = 1.0f;  // Channel A
- static constinit float gainB = 0.5f;  // Channel B
--static constinit float gainC = 0.25f; // Channel C
-+static constinit float gainC = 0.25f; // Channel C // channel C
-
-####################################################################################################
-
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
-
 Bug fix for the `combined_inp.java` formatting test:
 
-(1) @@@ @@@ @@@
+(1) The formatter remove the sentence end period because currently it seems to think that only `/* */`
+    can contains multiple sentences. I think the fix is that consecutive `//` should also be included
+    in this detection.
+
  // Combined Java test: core + Java 17+ constructs in one realistic file.
 -// Exercises: imports, declarations, getters/setters, closing comments,
 -// switch expressions, records, sealed classes, text blocks, var, pattern matching.
-+// Exercises: imports, declarations, getters/setters, closng comments,
++// Exercises: imports, declarations, getters/setters, closing comments,
 +// switch expressions, records, sealed classes, text blocks, var, pattern matching
 
-(2)
+
+(2) If an enum contains more than just the enum values, the enum values and the other
+    construct must be separated by "\n\n;\n". See `combined_out.java` for the details.
+
      public enum State {
 
 -        IDLE, RUNNING, PAUSED, ERROR
@@ -70,10 +37,8 @@ Bug fix for the `combined_inp.java` formatting test:
 
      } // enum State
 
-For this 2nd bug, if an enum contains more than just the enum values, the enum values and other construct separated by "\n;\n".
-See `combined_out.java` for the details.
 
-(3)
+(3) The formatter failed to add '\n' before the last `return` in a function body.
          for(int i = 0; i < frames; ++i) buffer[i] *= gain;
          frameCount += frames;
 -

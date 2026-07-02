@@ -11,7 +11,7 @@ import org.example.Framework;
 import static java.util.Collections.unmodifiableList;
 
 // Combined Java test: core + Java 17+ constructs in one realistic file.
-// Exercises: imports, declarations, getters/setters, closng comments,
+// Exercises: imports, declarations, getters/setters, closing comments,
 // switch expressions, records, sealed classes, text blocks, var, pattern matching.
 
 public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.RemoteEngine {

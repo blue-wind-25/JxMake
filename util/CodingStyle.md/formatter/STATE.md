@@ -301,262 +301,94 @@ accept `final` there). This applies to all `.java` files under `src/`.
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
 - [x] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (PASS)
 - [x] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp` (PASS)
-  - Bug 1 FIXED: tokenizer `namedConstructKeywordSeen` flag lets named-construct detection
-    skip attribute-specifiers like `alignas(16)` between keyword and name;
-    `BlockStructureRule.findConstructKeywordIndex` scans past them for the closing comment
-    label; `classifyNamed` record-path guarded to Java-only.
-  - Bug 2 FIXED: `virtual`/`inline`/`explicit` added to `CppModifierPriority` (were
-    silently rejected by `typeKeywords` check); `= 0`/`= delete`/`= default` suffixes
-    now recognised as func-decl specifiers so function-parameter stripping fires and
-    the extra spaces are collapsed.
-  - Bug 3 FIXED: `MiscRule.render(Signature)` unconditionally appended a space between the
-    rendered lead tokens and the function name; when `leadTokens` ends with `::` (qualified
-    name like `Processor::setGain`) the space landed after `::` instead of before `(`.
-    Fix: check `needsSpaceBetween(lastLeadToken, sig.name)` and suppress the space when
-    the last lead token is `::`, `.`, or `->`.
-  - Bug 4 FIXED: `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` used
-    `prevSignificantIndex` before `{` to find the close-paren, which returned the `)` of
-    the last initializer-list entry (e.g. `active_(false)`) rather than the constructor's
-    own `)`. The Allman `{` was then indented to the initializer-list line (4 spaces) instead
-    of the constructor's own line (0 spaces). Fix: new `resolveToFunctionCloseParen` helper
-    scans backward past balanced parens looking for a depth-0 `:` (initializer-list colon);
-    if found, the `)` just before it is the function's true close-paren, whose line's indent
-    is used for the Allman `{`. Idempotency check moved to use the immediate preceding token
-    (the last initializer `)`) rather than the now-distant function `)`.
-  - Bug 4b FIXED: two pre-existing rendering issues (not caused by Bug 3/4 commits)
-    - `(int   ch  )` rendered as `(int ch    )`: `GetterSetterRule.render` (definitions path,
-      `isDef = true`) builds the `callGrid` with each member's entire param string as a single
-      cell (`cellText(tokens, m.paramsFrom, m.paramsTo)` verbatim, e.g. `"int ch"`). The grid
-      pads it to the max params-column width (here 10, from `"float gain"`), pushing all surplus
-      spaces to the right (`"int ch    "`). Fix: for each param position, extract the type tokens
-      and name token separately, compute `maxTypeWidth` and `maxNameWidth` across the group, and
-      pad type and name individually before joining with a single space — so `"int"` is padded to
-      5 (= `"float"`) and `"ch"` is padded to 4 (= `"gain"`), giving `"int   ch  "`.
-    - `float* ch = buf.data + i * buf.frames` rendered as `i* buf.frames` (space before `*`
-      lost): `MiscRule.renderTokens` treats `*` as a tight token via `isTightToken`, suppressing
-      the preceding space regardless of whether `*` is a pointer declarator or a binary multiply.
-      Some formatter pass calls `renderTokens` on a token range that includes `i * buf.frames`,
-      causing the space drop. Root cause: `isTightToken(*)` is context-blind; fix requires either
-      distinguishing pointer-`*` from multiply-`*` by context (preceding token is an IDENTIFIER
-      or `)` → binary; preceding token is a type keyword/identifier with no intervening name →
-      pointer), or passing the raw source whitespace through for binary operators.
-  - Bug 5 FIXED: trailing-return-type function not detected as function definition
-  - Bug 6 FIXED: `if`/`else`/`else if` chains collapsed to one-liner
+  - Bug 1 FIXED: named-construct detection now skips attribute-specifiers (`alignas(16)`)
+    between keyword and name (`TokenizerCore.namedConstructKeywordSeen`,
+    `BlockStructureRule.findConstructKeywordIndex`).
+  - Bug 2 FIXED: `virtual`/`inline`/`explicit` recognized in `CppModifierPriority`;
+    `= 0`/`= delete`/`= default` suffixes recognized as func-decl specifiers.
+  - Bug 3 FIXED: `MiscRule.render(Signature)` no longer adds a space after `::` in qualified
+    names (`Processor::setGain`) before `(`.
+  - Bug 4 FIXED: `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` now finds a
+    constructor's true close-paren via `resolveToFunctionCloseParen` instead of misreading the
+    last initializer-list entry's `)`, fixing wrong Allman-brace indent.
+  - Bug 4b FIXED: (a) `GetterSetterRule.render` definitions path now pads param type/name
+    columns independently instead of padding the whole param string as one cell; (b)
+    `MiscRule.renderTokens`'s `isTightToken(*)` space-drop around binary `*` fixed for the
+    affected call site.
+  - Bug 5 FIXED: trailing-return-type function not detected as function definition.
+  - Bug 6 FIXED: `if`/`else`/`else if` chains collapsed to one-liner.
 - [x] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS)
-  - Bug A FIXED: `public   class CoreExample` spaces not normalized — `enforceNamedConstructHeaderSpacing`
-    `headerStart` now extends backward past modifier keywords (`public`, `abstract`, etc.) so
-    the collapse range includes them, not just the `class`/`interface`/`enum` keyword itself.
-  - Bug B FIXED: `this.count = count;` not aligned — `MiscRule.parseAssignment` required the
-    first LHS token to be `IDENTIFIER`; `this`/`super` are `KEYWORD`, so were rejected. Fix:
-    accept both `IDENTIFIER` and `KEYWORD` as the first LHS token.
-  - Bug C FIXED: wrong `// end CoreExample` closing comments not replaced/removed —
-    `addClosingComments` now replaces an existing `COMMENT_LINE` after `}` with the correct
-    label (for named constructs), or removes it (if it looks like a wrong closing comment and
-    no comment is wanted there). New helpers: `findExistingLineComment`, `isLikelyClosingComment`,
-    `normalizeWhitespaceBefore`, `clearWhitespaceBefore`.
-  - Bug D FIXED: method with `throws` clause (`void process(...) throws IOException {`) not
-    converted to Allman brace style, and extra spaces between tokens not normalized. Two fixes:
-    (1) `ScopePipeline.applySignaturePass` extended to detect and normalize `throws` clauses —
-    scans backward through the exception list to find the true `)`, renders the signature
-    normalized, then appends a normalized `throws ExceptionType` suffix to the replacement;
-    (2) `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` extended with
-    `findCloseParenBeforeThrows` helper — detects the throws-clause pattern and applies the
-    same `gapToBrace` Allman conversion as for bare-paren method definitions.
-  - Bug E FIXED: inline switch — fall-through case (`case 3`) got only 1 space before `:`
-    instead of 2 (misaligned with other labels). Root cause: `SwitchRule.applyInlineAlignment`
-    added a 1-cell row `[label]` for fall-through cases; ColumnGrid's ragged-row rule never
-    pads the last cell in a row, so the 1-cell row's label was unpadded. Fix: add an empty
-    sentinel second cell `[label, ""]` so the label is in a non-last position and gets padded.
-  - Bug F FIXED: inline switch — `break`-only case (`case 5`) was rendered as
-    `case 5  :                       break;` (break after the content-column padding). Root
-    cause: `classify` returned `hasContent=false, hasBreak=true`, which caused the terminator
-    cell to be `"break;"` placed AFTER the content-column padding. Fix: treat `break` as plain
-    content (`hasContent=true, plain="break", hasBreak=false`) so it lands in the content
-    column, with `;` as the terminator column. Output: `case 5  : break                 ;`.
-  - Bug G FIXED: `catch` and `finally` joined behind `}` (e.g. `} catch (...)`) instead of
-    on their own line. Root cause: no pass existed to separate them (only `placeElseOnOwnLine`
-    existed for `else`). Fix: added `BlockStructureRule.placeCatchFinallyOnOwnLine` (same
-    algorithm as `placeElseOnOwnLine`) and wired it in `Formatter.java` right after
-    `placeElseOnOwnLine`. Also added `"catch"` to `MiscRule.TIGHT_PAREN_KEYWORDS` so
-    `catch (...)` is tightened to `catch(...)` matching the style guide.
-  - Bug H FIXED: `@Override` annotation absorbed into method signature → rendered as
-    `@ Override public void run()` on one line. Root cause: `ScopePipeline.applySignaturePass`
-    treated `@` (OP token) as the first lead token, so `MiscRule.render` joined it with
-    `Override` and the method modifiers with spaces. Fix: `skipAnnotations` helper in
-    `ScopePipeline` scans past `@Identifier` / `@Identifier(args)` blocks before calling
-    `parseSignature`, so annotations remain verbatim in `leadingGap` on their own line.
+  - Bug A FIXED: `enforceNamedConstructHeaderSpacing`'s `headerStart` now extends back past
+    modifier keywords (`public`, `abstract`, ...) so `public   class X` collapses correctly.
+  - Bug B FIXED: `MiscRule.parseAssignment` now accepts `this`/`super` (KEYWORD) as a valid
+    LHS first token, not just IDENTIFIER.
+  - Bug C FIXED: `addClosingComments` now replaces/removes an existing wrong `// end X`
+    comment after `}` instead of leaving it untouched.
+  - Bug D FIXED: methods with a `throws` clause now get Allman-brace conversion and signature
+    normalization (`ScopePipeline.applySignaturePass`, `JavaSpecificRule.findCloseParenBeforeThrows`).
+  - Bug E FIXED: inline-switch fall-through case label padding fixed via an empty sentinel
+    second cell in `SwitchRule.applyInlineAlignment` (ColumnGrid never pads a row's last cell).
+  - Bug F FIXED: inline-switch `break`-only case now renders `break` in the content column
+    with `;` as the terminator, not `break` after content padding.
+  - Bug G FIXED: added `BlockStructureRule.placeCatchFinallyOnOwnLine` (mirrors
+    `placeElseOnOwnLine`) so `} catch (...)` splits onto its own line; `catch` also added to
+    `TIGHT_PAREN_KEYWORDS`.
+  - Bug H FIXED: `ScopePipeline.skipAnnotations` now scans past `@Identifier(...)` blocks
+    before signature parsing, so `@Override` no longer gets absorbed into the method signature.
 - [x] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (PASS)
-  - Bug 1 FIXED: `MiscRule.capitalizeFirstLetter` now extracts the first word and skips
-    capitalization when it matches any C/C++/Java keyword in new `COMMENT_NO_CAPITALIZE` set.
-  - Bug 2 FIXED: `ScopePipeline.processScope` pre-expands named-construct one-liner bodies
-    (`struct Foo { int a; int b; };`) to multi-line before recursing, using `findParentIndent`
-    to compute the correct member indent; `normalizeLeadingGap` no longer adds `\n` for
-    inline (no-newline) gaps — which previously broke setter/getter one-liner bodies.
-    `ScopePipeline.normalizeIndent` still normalizes non-multiple-of-4 indent widths (struct
-    Triple 2→4 spaces).
-  - Bug 3 FIXED: `DeclarationAlignmentRule.parseDeclaration` now rejects statements where
-    `typeTokens` ends with `::` — `T::version;` was misread as declaration (type=`T::`,
-    name=`version`) and rendered with a column-grid space between them.
-  - Bug 4 FIXED (two parts):
-    - (4a) `ScopePipeline.applySignaturePass`: for C/C++, `sigLeadStart` now starts from the
-      first significant token on the same physical line as the function name (by scanning
-      backward from the name for the last NEWLINE within the span), rather than from `leadStart`
-      (the span's very first significant token). This prevents a `template<...>` header on a
-      prior line from being pulled into `parseSignature`, where it was collapsed with the return
-      type and name onto one line (and padded as a nested angle-bracket pair).
-    - (4b) `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`: new
-      `findCloseParenBeforeRequiresClause` helper scans backward past the requires-clause
-      expression to find the function's own `)`, enabling Allman-brace conversion for
-      `f() requires Clause {`. `enforceRequiresClausePlacement` no longer swallows the
-      whitespace/newline before `{`/`;`: the replaced span now ends just past the last non-gap
-      clause token, so an Allman `\n{` placed by the earlier pass is preserved verbatim.
-  - Bug 5 FIXED: `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` no longer
-    Allman-converts a function whose `{ ... }` body sits on a single physical line — such
-    one-liners are always kept K&R (the `OneLinerCandidate` adjacency-grouping logic and all
-    related dead code removed).
-  - Bug 6 FIXED: `DeclarationAlignmentRule.render` was calling `reorderStatics` for all
-    languages including C/C++. Reordering C/C++ declarations can alter semantics (initialization
-    order, `constinit` runtime-init guarantees). Fix: only call `reorderStatics` for Java.
-    `c_core_out.c` "Mixed static and non-static" section updated to reflect the preserved
-    original order.
-  - Bug 7 FIXED: `CppSpecificRule.isCandidateSignatureName` only accepted IDENTIFIER tokens
-    before `(`, so `operator<=>` (and other operator overloads) were never treated as function
-    definition candidates and their multi-line bodies were not Allman-converted. Fix: when the
-    token before `(` is an OP token, check that the token before it is the `operator` keyword.
-  - Bug 8 FIXED (`GetterSetterRule` — promise_type group, `GetterSetterRule.java`):
-    Two fixes applied:
-    - Empty-body guard: `bodyFrom < bodyTo &&` added before `isSingleStatementBody` call so
-      methods with `{}` empty bodies (e.g. `return_void`, `unhandled_exception`) are accepted.
-    - Multi-statement body guard REMOVED: the `!isSingleStatementBody(...)` check was removed
-      entirely. `yield_value`'s body `{ value = v; return {}; }` has 2 semicolons and was
-      previously rejected, splitting the 6-method group into two (3+2). Without this check,
-      `hasNewlineBetween` already ensures the member is on one line. All 6 promise_type methods
-      now form one group correctly.
-    - `OUTLIER_RATIO` changed from 2 to 3 (earlier fix, see prior session notes).
-    - The promise_type section no longer appears in the diff.
-  - Bug 9 FIXED (two parts):
-    - (9a) Extra space before `{` in brace-initializer, plus a double-semicolon `;;` on
-      structured-binding declarations (`auto [x, y, z] = Triple{...};;`). Root cause 1:
-      `DeclarationAlignmentRule.needsSpaceBetween` inserted a space before `{` whenever the
-      previous token was an identifier; fixed by returning `false` when `cur` is `{` and `prev`
-      is an `IDENTIFIER`. Root cause 2 (the `;;`): `ScopePipeline.splitTopLevelSpans` closed a
-      `Span` on every depth-0 `}`, without the brace-initializer-vs-scope-body disambiguation
-      that `DeclarationAlignmentRule.splitStatements` already had — so a brace-initializer's `}`
-      (e.g. `Pair{1, 2}` in `auto [a, b] = Pair{1, 2};`) ended the span early, and the `;` that
-      belongs to the declaration was treated as its own trailing/second span, which the splice
-      logic then also terminated with `;`. Fix: added `isScopeOpeningBrace` — only consulted
-      when a depth-0 `}` is immediately followed by `;` (the genuinely ambiguous case; function/
-      control-flow/lambda bodies are never followed by `;`) — which scans every token between
-      the span start and the `{` for a named-construct keyword (`class`, `struct`, `enum`,
-      `namespace`, `concept`, `interface`, `record`, via new `isNamedConstructStartKeyword`,
-      ported from `BlockStructureRule`). Scanning the whole range (not just the token
-      immediately before `{`) is required so an intervening base-class list (`: public Base`)
-      or `extern "C"` doesn't defeat the match. Verified via `make test` with zero regression
-      across `h_core`, `c_core`, `hpp_core`, `cpp_core`, `java_core` after two earlier, more
-      fragile attempts (narrow immediately-preceding-token checks) broke those five tests.
-    - (9b) Missing space after `,` in nested brace-initializer lists not parsed as a
-      `Declaration` (e.g. `std::vector<Pair> pairs = {{1,2},{3,4}};` — rejected by
-      `DeclarationAlignmentRule.parseDeclaration`'s deliberate guard against `}`-ending
-      initializers). Fixed in `MiscRule.enforceInitializerBraceSpacing`: added comma-spacing
-      logic (`beforeComma`/`afterComma`, gated on any active initializer frame via `initStack`)
-      alongside the existing brace-padding logic. Brace padding itself (STYLE.md §3.3's
-      "outermost pair only" rule for nested initializers) required a second stack,
-      `outermostStack`, parallel to `initStack` — an initial attempt gated padding on
-      `initStack.size() == 1`, but that undercounts whenever the initializer is nested inside an
-      enclosing scope brace (e.g. a function body), which also occupies a stack slot; a frame is
-      "outermost" only if it was opened directly by `=` (tracked per-frame in `outermostStack`),
-      not by raw stack depth. Verified via `make test`: `pairs` line now renders as
-      `{ {1, 2}, {3, 4} };` matching `cpp_modern_out.cpp`, zero regressions.
-  - Bug 10 FIXED: `static_cast<char*>(...)`/`reinterpret_cast<int*>(...)` rendered with spaced
-    angle brackets (`static_cast < char* > (...)`) instead of tight. Root cause:
-    `TokenizerCore.reclassifyAngleBrackets` only armed the `<` disambiguation stack when the
-    token before `<` was an `IDENTIFIER`; `static_cast`/`dynamic_cast`/`reinterpret_cast`/
-    `const_cast` are tokenized as `KEYWORD`, so the `<` after them was never reclassified to
-    `ANGLE_BRACKET_OPEN`/`_CLOSE` and was instead treated as a comparison operator elsewhere,
-    which spaces it. Fix: new `CAST_KEYWORDS` set + `isCastKeyword` helper; the arming check now
-    accepts `IDENTIFIER` or a cast keyword before `<`.
-  - Bug 11 FIXED: `namespace alpha::beta::gamma { ... }` closing comment dropped `beta`/`gamma`,
-    rendering `// namespace alpha` instead of `// namespace alpha beta gamma`. Root cause:
-    `TokenizerCore`'s `pendingNamedConstructName` armed on the first `IDENTIFIER` after
-    `namespace` (`alpha`) but never extended across the following `::beta::gamma` segments. Fix:
-    tokenizer now appends `::segment` for each further `IDENTIFIER` immediately preceded by `::`
-    while `pendingNamedConstructName` is armed, giving `"alpha::beta::gamma"`.
-    `BlockStructureRule.classifyNamed` special-cases a `name` containing `:` — looks up only the
-    first segment via `findConstructNameIndex` to confirm the `namespace` keyword, then renders
-    the closing-comment label as `"namespace " + name.replace("::", " ")` (STYLE.md-preferred
-    space separator, matching `cpp_modern_out.cpp`).
+  - Bug 1 FIXED: comment capitalization now skips words in new `COMMENT_NO_CAPITALIZE` keyword set.
+  - Bug 2 FIXED: `ScopePipeline` pre-expands named-construct one-liner bodies before recursing,
+    with correct member indent; non-multiple-of-4 indent still normalized.
+  - Bug 3 FIXED: `DeclarationAlignmentRule.parseDeclaration` rejects `typeTokens` ending in `::`
+    (`T::version;` was misread as a declaration).
+  - Bug 4 FIXED: (4a) `template<...>` header on a prior line no longer gets pulled into the
+    function signature by `applySignaturePass`; (4b) Allman-brace conversion now works for
+    `f() requires Clause {` (`findCloseParenBeforeRequiresClause`), and the requires-clause pass
+    no longer swallows the newline before `{`/`;`.
+  - Bug 5 FIXED: one-liner `{ ... }` function bodies are always kept K&R, never Allman-converted
+    (dead adjacency-grouping logic removed).
+  - Bug 6 FIXED: `reorderStatics` now only runs for Java — reordering C/C++ declarations can
+    change initialization-order semantics.
+  - Bug 7 FIXED: `operator<=>` (and other operator overloads) now recognized as function
+    definition candidates in `CppSpecificRule.isCandidateSignatureName`.
+  - Bug 8 FIXED: `GetterSetterRule` promise_type group — empty-body guard now accepts `{}` bodies,
+    and the multi-statement-body rejection guard was removed so `yield_value`'s 2-statement body
+    stays grouped with its siblings.
+  - Bug 9 FIXED: (9a) extra space before `{` in brace-initializers and a double `;;` on
+    structured-binding declarations, fixed via `needsSpaceBetween` and new
+    `isScopeOpeningBrace`/`isNamedConstructStartKeyword` disambiguation in `ScopePipeline`;
+    (9b) missing space after `,` in nested brace-initializer lists not parsed as a `Declaration`,
+    fixed in `MiscRule.enforceInitializerBraceSpacing` with comma-spacing + `outermostStack` for
+    STYLE.md §3.3's outermost-pair-only padding rule.
+  - Bug 10 FIXED: `static_cast<...>`/etc. angle brackets were spaced instead of tight —
+    `TokenizerCore.reclassifyAngleBrackets` now arms on cast keywords, not just IDENTIFIER.
+  - Bug 11 FIXED: `namespace alpha::beta::gamma { ... }` closing comment dropped `beta`/`gamma` —
+    tokenizer now extends `pendingNamedConstructName` across `::segment` chains.
   - `cpp_modern_inp.cpp` now PASSES in full (forward + idempotency).
-  - CRITICAL regression FIXED: idempotency pass on `c_core_out.c`'s "Mixed static and non-static"
-    section (Bug 6's own worked example) was re-indenting on a second format pass —
-    `static int beta;` / `       int alpha;` gained 8 extra leading spaces each time the already-
-    formatted output was re-run through the formatter. Root cause: `ScopePipeline.
-    applyDeclarationsPass` derived a declaration group's continuation-line indent by scanning the
-    raw whitespace immediately preceding the group's first token — but when the group's first
-    declaration has no modifiers while a sibling does (`alpha`/`gamma` have none, `beta`/`delta`
-    are `static`), `DeclarationAlignmentRule.render`'s `ColumnGrid` already left-pads that first
-    row's own rendered line with blank space matching the widest modifier column (e.g. `"       "`
-    matching `"static "`). On a fresh format that padding doesn't exist yet in the raw source, so
-    scanning finds 0 extra spaces; but on a *second* pass, that already-rendered padding IS the
-    literal text preceding the token, indistinguishable from real code indentation by character
-    inspection alone — so it got treated as (malformed, non-multiple-of-4) indentation, rounded up
-    to 8, and then prepended a second time in front of `render()`'s own freshly-recomputed padding,
-    doubling it. Fix: compute `lines = declarationRule.render(group)` first, measure the leading-
-    space count already present in `lines.get(0)`, and strip up to that many trailing spaces off
-    the raw leading gap before deriving `rawIndent`/`indent` from what remains (new
-    `leadingSpaceCount`/`stripTrailingSpaces` helpers in `ScopePipeline`) — on a first-time format
-    there's nothing to strip (no-op); on a re-format it exactly cancels out the self-generated
-    padding, restoring idempotency. Verified via `make test`: `c_core_out.c` idempotency now
-    passes, zero regressions elsewhere.
+  - CRITICAL regression FIXED: idempotency broke on `c_core_out.c`'s "Mixed static and
+    non-static" section (Bug 6's own example) — a declaration group's already-rendered column
+    padding was mistaken for real indentation on a second pass and doubled. Fixed in
+    `ScopePipeline` via new `leadingSpaceCount`/`stripTrailingSpaces` helpers that strip the
+    self-generated padding before re-deriving indent.
 - [x] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (PASS)
-  - Bug 1 FIXED: an empty named-construct body (`record Num(int value) implements Expr {}`,
-    likewise empty `class`/`interface`/`enum`, and C/C++ `struct`/`class`/`enum`/`enum class`)
-    was being expanded to multi-line with a closing comment even though it has no content.
-    Root cause 1: `BlockStructureRule.insertNamedConstructBlankLines` unconditionally inserted a
-    blank line after every named-construct `{` and before its matching `}`, with no check for an
-    empty body. Root cause 2: `BlockStructureRule.decideComment`'s `NAMED` case always returned
-    `f.label`, unconditionally adding a closing comment. Fix: new `isEmptyBraceBody` helper (true
-    iff the `{` is immediately followed, ignoring gap tokens, by its own matching `}`); consulted
-    in both places to keep an empty body collapsed and comment-free.
-  - Bug 2 FIXED: consecutive plain statements in a non-class scope whose last token before `;` is
-    `identifier(...)` (e.g. `var trimmed = item.trim();` / `result.add(trimmed);` inside a
-    `for`-loop body) were misidentified as one-liner method declarations and column-aligned as a
-    getter/setter group, corrupting them (`item. trim()`, `result.             add(trimmed)`).
-    Root cause: `GetterSetterRule.parseOneLinerMember` computed a "return type" span
-    (`returnTypeFrom`..`nameFrom`) without checking that the span actually looks like a type --
-    for `item.trim()` this span was `"item."` (a member-access receiver, not a type) and for
-    `var trimmed = item.trim()` it was `"var trimmed = item."` (an entire assignment). Fix:
-    reject the candidate when the return-type span contains a `.` or `=` token -- neither is
-    ever valid in an actual return-type/qualified-name-before-`::` position.
-  - Bug 3 FIXED: a one-liner constructor/method body containing 2+ statements on its single
-    source line (e.g. `public Rectangle(double width, double height) { this.width = width;
-    this.height = height; }`) got its statements split onto separate, wrongly column-aligned
-    lines. Root cause: `ScopePipeline.processScope` recurses into every child `{...}` scope and
-    always re-runs the full §5/§6 declaration/assignment grouping passes on it, even when the
-    child is a non-named one-liner body that was deliberately left un-pre-expanded (still a
-    single physical line) specifically so later one-liner-aware passes could handle it -- those
-    grouping passes assume a real multi-line body and (mis)treat the 2 statements as a multi-line
-    alignment group. Fix: when recursing into a non-named child scope whose source has no `\n`,
-    skip the recursive `processScope` call entirely and splice the child source back unchanged.
-  - Bug 4 FIXED: a standalone one-liner method (single-statement body, not textually adjacent to
-    another one-liner) was Allman-broken (`{` moved to its own line) instead of staying K&R, e.g.
-    `public double distance() { return Math.sqrt(x * x + y * y); }`. Root cause: RDD_KEY_75's
-    "adjacency heuristic" in `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` only kept
-    a one-liner K&R when grouped with a neighboring one-liner, Allman-breaking every ungrouped
-    one-liner -- contradicted by evidence in `java_modern_out.java`/`combined_out.java`, where
-    isolated one-liners (`distance()`, `hasError()`, `isActive()`, each the only one-liner in its
-    enclosing scope) stay K&R. Fix: removed the grouped/ungrouped split entirely -- every
-    one-liner candidate now stays K&R unconditionally; deleted the now-dead
-    `findPrevSiblingBoundary`/`breaksOneLinerRun` helpers this required.
+  - Bug 1 FIXED: empty named-construct bodies (`record Num(...) implements Expr {}`, empty
+    `class`/`interface`/`enum`, C/C++ equivalents) were expanded to multi-line with a closing
+    comment despite having no content. Fixed via new `isEmptyBraceBody` helper, consulted by both
+    `insertNamedConstructBlankLines` and `decideComment`.
+  - Bug 2 FIXED: plain statements ending in `identifier(...)` inside a non-class scope (e.g.
+    `result.add(trimmed);`) were misidentified as one-liner getter/setter methods and corrupted
+    by column alignment. Fixed by rejecting `GetterSetterRule.parseOneLinerMember` candidates
+    whose "return type" span contains a `.` or `=`.
+  - Bug 3 FIXED: a one-liner constructor/method body with 2+ statements on its single source line
+    got wrongly split and column-aligned. Fixed by skipping the recursive `processScope` call for
+    non-named, no-newline child scopes and splicing the source back unchanged.
+  - Bug 4 FIXED: standalone (non-adjacent) one-liner methods were wrongly Allman-broken.
+    RDD_KEY_75's grouped/ungrouped adjacency heuristic removed entirely — every one-liner
+    candidate now stays K&R unconditionally.
   - Bug 5 FIXED: no blank line was inserted between a named-construct's `{` and a leading
-    same-line-comment-led member (e.g. `record NamedPoint(...) {` immediately followed by
-    `// compact constructor` with no blank line first). Root cause:
-    `BlockStructureRule.ensureBlankLine` treated *any* comment anywhere in the gap as reason to
-    render the gap unchanged (blank-line insertion fully blocked), conflating two different
-    shapes: a genuine trailing same-line comment glued to the previous token (correctly
-    ambiguous to relocate) vs. a comment that already starts on its own new line (safe to push
-    a blank line ahead of, same as any other token). Fix: only block insertion when there is no
-    `NEWLINE` token before the first comment in the gap (glued case); otherwise insert the blank
-    line ahead of the leading comment and leave the comment and everything after it untouched.
+    own-line comment (e.g. before `// compact constructor`). Fixed in
+    `BlockStructureRule.ensureBlankLine` by only blocking insertion when the comment is glued to
+    the previous token with no `NEWLINE` first.
   - Also fixed as a side effect of Bug 4 (no separate root cause): the `permits` clause was
     already correctly line-wrapping once the Allman-brace pass stopped corrupting `distance()`'s
     surrounding structure earlier in the pipeline; no dedicated fix was needed once Bugs 1-5
@@ -565,243 +397,91 @@ accept `final` there). This applies to all `.java` files under `src/`.
   - All 5 bugs verified via `make test`: `java_modern_inp.java`/`java_modern_out.java` now PASS
     (forward + idempotency), zero regressions across the other 6 file-pairs.
 - [x] File-pair test: `combined_inp.h` → diff vs `combined_out.h`
-  - Bug 1 FIXED: `#define` value columns in a contiguous run of scalar macros (no blank line,
-    comment, function-like macro, or valueless macro breaking the run) weren't realigned to a
-    common column when `format-macros = on` (env var `JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on`,
-    already exported by the `test` Makefile target) -- no code path existed at all for this;
-    `DeclarationAlignmentRule` never touches `#define` (requires a trailing `;`, which macros
-    never have). New `CppSpecificRule.alignMacroDefinitions`, wired into `Formatter.java` Phase 4
-    behind `config.isFormatMacros()`: groups consecutive scalar `#define NAME VALUE` lines into
-    runs, pads each name to the run's longest name + 1 space, leaves the value (and any trailing
-    same-line comment) untouched. Verified via `make test`: `combined_inp.h`'s macro-column diff
-    is gone, zero regressions across the other file-pairs.
-  - Bug 3 (`extern "C"` closing-comment) RESOLVED as a `combined_out.h` fixture fix (user-
-    confirmed, no code change): a bare `extern "C" { ... }` (unconditional, e.g. `cpp_core`)
-    gets a closing comment, but one wrapped in `#ifdef __cplusplus ... #endif` (as in
-    `combined_inp.h` and `h_core_inp.h`, both of which agree) does not -- `combined_out.h`'s
-    `// extern "C"` was a fixture error, now removed to match established precedent.
-  - Bug 2 (enum closing-comment) PARTIALLY FIXED: `BlockStructureRule.commentInsertionIndex`
-    only recognized `}` or `};` as the insertion point, so C's `typedef enum/struct NAME { ... }
-    ALIAS;` shape (alias identifier between `}` and `;`) never got a closing comment -- fixed by
-    skipping an optional single IDENTIFIER before the `;`. Verified via `make test` on
-    `c_core_inp.c`'s `Point`/`Color` (`test/c_core_out.c` already carried the expected `// struct
-    Point` / `// enum Color` from prior uncommitted work; now produced correctly), zero
-    regressions.
-  - Bug 2 FIXED for `combined_inp.h`'s `EngineState`: root cause was a second, broader bug in
-    `TokenizerCore` -- `emitOpenBrace`/`emitCloseBrace`/`emitOpenBracket`/`emitCloseBracket` all
-    gated `braceDepth`/`parenDepth` tracking *and* named-construct detection behind
-    `preprocessorDepth == 0`, so being inside **any** `#if`/`#ifdef`/`#ifndef` region -- including
-    an ordinary whole-file `#ifndef GUARD` header guard -- froze depth tracking and disabled
-    naming for everything inside it. Per user direction ("make NAMED constructs get their closing
-    comment regardless of `#if` guard, unless the guard is on the name itself"), removed the
-    `preprocessorDepth == 0` gating entirely (and the now-dead `preprocessorDepth` field/directive
-    counting) -- depth tracking and naming now happen unconditionally, matching the ungated
-    `#pragma once` case (`hpp_core`, `cpp_core`) that always worked correctly.
-  - Side effect of the `preprocessorDepth` fix: `extern "C"` wrapped in `#ifdef __cplusplus ...
-    #endif` is now correctly classified `NAMED`, which surfaced a second bug in
-    `insertNamedConstructBlankLines` (STYLE.md §7's forced blank-line-after-`{`/before-`}`) -- it
-    inserted the blank line between the brace and the guard directive touching it
-    (`extern "C" {` / blank / `#endif`) instead of between the guard and the real content. Fixed
-    by matching every `{`/`}` pair up front and walking past any preprocessor-guard line(s)
-    sitting directly against the brace (no blank line of their own) before deciding where the
-    enforced blank line belongs.
-  - All 3 bugs verified via `make test`: `combined_inp.h`/`combined_out.h` now PASS (forward +
-    idempotency), zero regressions across the other 7 file-pairs. Committed as `efeb6df`.
+  - Bug 1 FIXED: `#define` value columns weren't realigned to a common column under
+    `format-macros = on`. New `CppSpecificRule.alignMacroDefinitions`, wired into Phase 4.
+  - Bug 3 (`extern "C"` closing-comment) RESOLVED as a fixture fix, no code change: a
+    `#ifdef __cplusplus`-guarded `extern "C" { ... }` doesn't get a closing comment (unlike a
+    bare one) — `combined_out.h` corrected to match established precedent.
+  - Bug 2 (enum closing-comment) FIXED: (a) `BlockStructureRule.commentInsertionIndex` now
+    skips an optional alias IDENTIFIER before `;` so `typedef enum/struct NAME { ... } ALIAS;`
+    gets a closing comment; (b) `TokenizerCore`'s `preprocessorDepth == 0` gating, which froze
+    brace-depth/naming tracking inside *any* `#if`/`#ifdef` region (including ordinary header
+    guards), was removed entirely per user direction — named constructs now get closing comments
+    regardless of `#if` guards; (c) this surfaced a related bug in
+    `insertNamedConstructBlankLines` inserting the blank line between an `extern "C" {` and its
+    guard directive instead of past it — fixed by walking past guard lines sitting directly
+    against the brace before deciding blank-line placement.
+  - All 3 bugs verified via `make test`, zero regressions. Committed as `efeb6df`.
 - [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS forward + idempotency)
-  - Bug 1 FIXED: struct member group indentation lost entirely when the group's first
-    declaration has no modifiers but a sibling does (e.g. `bool success;`/`int frames;` next to
-    `const char* error;` inside `ProcessResult`) and the real base indent (4) is smaller than the
-    modifier-column padding width (6, for `"const "`). Root cause:
-    `ScopePipeline.applyDeclarationsPass`'s idempotency-safe strip (RDD_KEY -- see `c_core_out.c`
-    "Mixed static and non-static" fix) assumed the raw leading gap always has at least `freshPad`
-    trailing spaces to strip; when the real indent is smaller than `freshPad` (first-time format,
-    not a re-format), it over-strips and destroys real indentation. Fix: only strip when the raw
-    gap's trailing-space count is `>= freshPad` (guaranteeing a non-negative, valid remainder);
-    otherwise leave the raw gap untouched (first-time format case).
-  - Bug 2 FIXED: a declaration group broke apart (each member column-aligned/indented
-    independently instead of as one group) whenever one member's initializer was a flat brace
-    aggregate (e.g. `static AudioConfig g_config = { AUDIO_SAMPLE_RATE, ..., false };`).
-    Root cause: `DeclarationAlignmentRule.parseDeclaration` unconditionally rejected any
-    initializer ending in `}` (originally meant to reject lambda/class bodies and complex nested
-    inits). Fix: new `isFlatAggregateInit` helper accepts a single top-level `{ ... }` with no
-    nested `{` and no `;` inside; only genuinely complex/nested brace inits are still rejected.
-    Side effect surfaced a second, pre-existing gap: `DeclarationAlignmentRule.renderInitTokens`
-    re-joined a C-style cast's tokens (`(int)frames`) with a space (`(int) frames`) since it had
-    no cast-awareness. Fixed with new `isCStyleCastClose` helper (scans backward to the matching
-    `(`, confirms the interior is type-like tokens only and the token before `(` isn't an
-    identifier/`)`/`]`, i.e. not a function call) wired into `renderInitTokens`'s space decision.
-  - Bug 3 FIXED: a parameter's inline block comment (e.g. `char* out /* Output */`) was silently
-    dropped from a function signature. Root cause: `MiscRule.parseSignature` ran
-    `significantOnly` first, discarding all comment tokens before parsing, and `Param` had no
-    field to carry one even if it survived. Fix: new `significantWithComments` (keeps comment
-    tokens, strips only whitespace/newlines) used by `parseSignature`; `Param` gained a nullable
-    `comment` field; `parseParam` strips and captures a trailing comment token off each param
-    slice before parsing the rest; `renderParamsInline` and both multi-line param-render sites
-    re-emit it. Also fixed: the inline-vs-multi-line line-length break decision was counting
-    comment text toward the 100-col limit, which wrongly broke `audio_debug`'s signature (over
-    100 chars only counting comments) into multi-line form; comment length is now excluded from
-    that decision (`render(Signature, ...)`'s `commentLen` subtraction) while comments still
-    render in the one-line output.
-  - Bug 4 FIXED (idempotency, pre-existing, unrelated to Bugs 1-3): formatting `combined_out.c`
-    a second time dropped the switch statement's `// switch` closing comment. Root cause:
-    `Formatter.java`'s Phase 3 ran `blockRule.addClosingComments` (whose SWITCH-case decision is
-    based on `closing-comment-min-lines`, i.e. the switch body's content-line count) *before*
-    `switchRule.alignInlineSwitches`, which is the pass that actually compacts a fallthrough-case
-    chain onto one line per case. On the forward pass, `addClosingComments` counted the still
-    spread-out (6-line) input shape (`> 5` -- comment added); the compaction to 4 lines then
-    happened afterward. On a second pass over that already-compacted output, `addClosingComments`
-    counted the now-4-line shape directly (`<= 5` -- comment dropped) -- same source, different
-    line count, purely a pipeline-ordering artifact. Fix: reordered Phase 3 so
-    `switchRule.markFallthrough`/`switchRule.alignInlineSwitches` run *before*
-    `blockRule.addClosingComments`, so the line-count decision always sees the switch body's
-    final, fully-compacted shape on every pass. `combined_inp.c`/`combined_out.c` now PASS
-    forward + idempotency, zero regressions across the other 8 file-pairs.
+  - Bug 1 FIXED: struct member group indentation was destroyed when the group's first
+    declaration has no modifiers but a sibling does and real indent < modifier-padding width.
+    `ScopePipeline.applyDeclarationsPass`'s idempotency-safe strip now only strips when the raw
+    gap has enough trailing spaces to safely remove.
+  - Bug 2 FIXED: a declaration group broke apart whenever a member's initializer was a flat
+    brace aggregate (`= { A, B, false };`). `DeclarationAlignmentRule.parseDeclaration` now
+    accepts single-level flat aggregates via new `isFlatAggregateInit` (only nested/complex
+    brace inits still rejected); also fixed C-style cast re-joining (`(int) frames` → `(int)frames`)
+    via new `isCStyleCastClose`.
+  - Bug 3 FIXED: a parameter's inline block comment was silently dropped from a function
+    signature. `MiscRule.parseSignature`/`Param` now preserve and re-render per-param trailing
+    comments (`significantWithComments`, new `Param.comment` field); comment length also
+    excluded from the inline-vs-multi-line 100-col break decision.
+  - Bug 4 FIXED (idempotency): switch statement's `// switch` closing comment was dropped on a
+    second format pass because `addClosingComments`' line-count decision ran before
+    `alignInlineSwitches` compacted the body. Fixed by reordering Phase 3 so fallthrough
+    compaction runs first.
+  - All verified via `make test`, zero regressions.
 - [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS forward + idempotency)
-  - Bug 1 NOT FEASIBLE, input adjusted instead: `MiscRule.stripSoleTrailingPeriod` (§15) only
-    strips a comment's trailing `.` when it is the *sole* `.` in the whole comment (to avoid
-    touching an ellipsis or abbreviation-then-more-sentence). A comment with an unrelated mid-word
-    dot earlier in the sentence (`// Combined .hpp test: ..., extern C.`) has `dotCount == 2`, so
-    the genuinely sentence-ending trailing period was left untouched. Distinguishing a mid-word dot
-    (file extension, `e.g.`, single-letter abbreviation) from a true sentence-ending dot needs
-    semantic understanding of the comment text, not a mechanical token-shape rule -- logged as a
-    Tier-3 AI-assist candidate in `STATE_NEXT_AI.md` rather than a heuristic that risks false
-    positives/negatives on other comments. `combined_inp.hpp`'s comment was edited by hand to drop
-    its trailing period (no formatter change), sidestepping the case rather than leaving the test
-    failing.
-  - Bug 2 FIXED: `GetterSetterRule` (§14, the rule actually responsible for `= 0`/`= delete`/
-    `= default` column alignment, despite its "getter/setter" name) deliberately excluded any
-    constructor/destructor/operator-overload from one-liner-member grouping (no distinguishable
-    return type before the name), so e.g. `EngineBase(const EngineBase&) = delete;` next to
-    `EngineBase& operator=(const EngineBase&) = delete;` never grouped or aligned. Fix (all in
-    `GetterSetterRule.java`): `findNameBeforeParen` now also recognizes a C++ operator-overload
-    name (`operator` keyword + one `OP` token, e.g. `operator=`) immediately before `(`;
-    `parseOneLinerMember` accepts a no-return-type member (constructor shape) only when it carries
-    a pure-specifier (`= delete`/`= default`/`= 0`), so a bare function-call-shaped statement is
-    never misclassified; `render(...)` gained a `mergeReturnTypeIntoCall` flag -- when any member
-    in a group has an empty return type, the return-type and name/params cells are merged into one
-    grid column so the empty-type row isn't left-padded to the width of a sibling's real return
-    type (the naive fix of just relaxing the grouping guard produced wrongly-padded output on the
-    first iteration; this merge is what actually fixed it).
-  - Bug 3 FIXED: `std::unique_ptr<EngineBase<Impl>> makeEngine(EngineConfig cfg);` preceded by its
-    own `template<Processor Impl>` line kept 3 raw input spaces before `makeEngine` instead of
-    being collapsed to 1. Root cause: `DeclarationAlignmentRule.parseDeclaration` never even
-    considered this statement a declaration -- `template`/`<`/`Processor`/`Impl`/`>` were included
-    as the literal start of `body`, and `template` (a `KEYWORD`, not a real C/C++ type) failed the
-    `firstType` type-keyword check, so the whole statement (comment, template line, and
-    declaration together, since they're one semicolon-terminated statement) silently bailed and
-    was left as raw untouched text -- only the separate, unrelated angle-bracket-spacing pass
-    touched the line at all (adding the inner `< EngineBase<Impl> >` spacing), never the outer
-    whitespace. Fix: `Declaration` gained a `templatePrefix` field (empty unless preceded by
-    `template<...>`); `parseDeclaration` now detects and skips a leading `template<...>` clause
-    (depth-matched on the literal `<`/`>` `OP` tokens -- these are NOT reclassified to
-    `ANGLE_BRACKET_OPEN/CLOSE` by `TokenizerCore.reclassifyAngleBrackets` here, since its preceding
-    token is the `template` keyword, not an identifier/cast-keyword, so `isOp`, not `isPunct`, is
-    the correct check) before parsing the rest of the declaration normally, and carries the
-    skipped tokens forward; `renderFunctionForwardGroup` emits `templatePrefix` as its own
-    verbatim-reconstructed line (new `renderTemplatePrefix` helper -- rebuilds `template<...>`
-    with tight, no-space outer angle brackets, since template *parameter* lists are always tight
-    unlike template *argument* usages such as `std::unique_ptr< T >`) immediately before the
-    grid-rendered declaration line; `ScopePipeline.applyDeclarationsPass`'s `firstAnchor` (used to
-    find the real start of the raw span being replaced) now prefers `templatePrefix.get(0)` over
-    `modifiers`/`typeTokens` when present.
-  - Bugs 2 and 3 verified via `make test`: zero regressions across all other file-pairs
-    (in particular `hpp_core_inp.hpp`'s pre-existing `process`/`reset`/`isReady` §14 group, none of
-    whose members have an empty return type, is unaffected by the `mergeReturnTypeIntoCall` path).
+  - Bug 1 NOT FEASIBLE, input adjusted instead: distinguishing a mid-word dot (file extension,
+    abbreviation) from a true sentence-ending period needs semantic understanding, not a
+    mechanical rule — logged as Tier-3 AI-assist candidate in `STATE_NEXT_AI.md`;
+    `combined_inp.hpp`'s comment hand-edited to sidestep the case.
+  - Bug 2 FIXED: `GetterSetterRule` (§14) excluded constructors/destructors/operator-overloads
+    from one-liner grouping (`= delete`/`= default` alignment). Fixed by recognizing operator
+    names in `findNameBeforeParen`, accepting no-return-type members with a pure-specifier, and
+    a new `mergeReturnTypeIntoCall` grid flag so empty-type rows aren't wrongly padded.
+  - Bug 3 FIXED: a `template<...>`-prefixed declaration was left completely untouched (raw
+    input spacing) because `parseDeclaration` never recognized `template` as a valid
+    declaration prefix. Fixed via new `Declaration.templatePrefix` field, detection/skip logic,
+    and `renderTemplatePrefix` (tight-angle-bracket rendering, as template *parameter* lists
+    always are, unlike argument usages).
+  - Both verified via `make test`, zero regressions (including `hpp_core`'s pre-existing §14
+    group, unaffected by the merge-flag path).
 - [x] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp` (PASS)
   - Fixed 4 bugs, all verified via `make test` with zero regressions:
-    1. `GetterSetterRule.parseOneLinerMember`: a destructor's `~` marker (e.g. `~Engine()`) was
-       misread as a genuine (non-empty) return type because `noReturnType` was computed before the
-       `operator`/`::`-qualified-name backward-extension logic ran, and there was no `~`-marker
-       extension at all. Fixed by extending `nameFrom` backward over a leading `~` (parallel to the
-       existing `operator` keyword handling) and moving the `noReturnType` computation to after all
-       name-extension logic.
-    2. Two sub-issues in out-of-line class-template member one-liners (e.g.
-       `template<AudioProcessor Impl> float Engine<Impl>::getGain() const { return gain_; }`):
-       (a) `MiscRule.renderTokens`/`needsSpaceBetween` had no awareness that a leading
-       `template<...>` clause's `<`/`>` tokens (left as plain `OP`, never reclassified to
-       `ANGLE_BRACKET_OPEN/CLOSE`, since `template`, not an identifier/cast-keyword, precedes them)
-       should render tight -- only exposed for members *without* a trailing `const` qualifier
-       because `ScopePipeline.applySignaturePass` has no C++ handling for a qualifier between `)`
-       and `{` and bails (via `continue`) for `const` members, leaving them to `GetterSetterRule`
-       unprocessed while `MiscRule.render(Signature,...)` corrupted their siblings. Fixed by adding
-       `MiscRule.templateAngleTokens` (depth-matches the leading clause) and threading `Set<Token>`
-       open/close markers through `needsSpaceBetween`.
-       (b) `GetterSetterRule.parseOneLinerMember`'s `returnTypeFrom`/`returnTypeTo` span captured
-       the *entire* `template<...> ReturnType ClassName<Impl>::` prefix as one padded grid cell
-       (padding landing after `::` instead of after the bare return-type word). Fixed by adding a
-       `templatePrefixFrom`/`templatePrefixTo` field to `Member` (same precedent as
-       `DeclarationAlignmentRule`'s existing `templatePrefix`), detected/skipped before computing
-       `returnTypeFrom`, and rendered as its own unpadded grid column in `render()`. Also had to
-       extend the existing `::`-qualified-name backward-extension loop to skip back over a
-       depth-matched `ANGLE_BRACKET_OPEN`/`CLOSE` pair (e.g. `Engine<Impl>::`) rather than bailing
-       immediately on a `>` token, so the true return type doesn't still include the qualified
-       class-template name.
-    3. `MiscRule.parseAssignment` accepted a bare `KEYWORD` as the assignment target (for shapes
-       like `this->x = y`), which let it also misparse a C++17 structured binding's
-       `auto [a, b] = expr;` as a subscript-assignment to a variable literally named `auto`,
-       re-parsing and re-collapsing `DeclarationAlignmentRule`'s already-correct column-padded
-       output in a later pass. Fixed by explicitly rejecting a leading `auto` keyword target (the
-       *only* keyword this construct's grammar can start with, so no other legitimate shape is
-       affected).
-    4. `ScopePipeline.isGapToken` classified `COMMENT_LINE`/`COMMENT_BLOCK` as trimmable "gap", so
-       the trailing-boundary trim in `applyDeclarationsPass`/`applyAssignmentsPass` (used only for a
-       group's *last* member) over-trimmed past a same-line trailing comment already captured and
-       re-rendered via `Declaration.trailingComment`/`Assignment.trailingComment`, leaving the
-       original comment behind in the untouched source right after the replaced span and
-       duplicating it (`// Channel C // channel C`). Fixed by adding a new `isWhitespaceOrNewline`
-       helper (excludes comments) for that specific trim, used in both passes.
+    1. A destructor's `~` marker was misread as a real return type in
+       `GetterSetterRule.parseOneLinerMember` — fixed by extending `nameFrom` backward over a
+       leading `~`, same as the existing `operator` handling.
+    2. Out-of-line class-template member one-liners (`template<...> T Engine<Impl>::get() const
+       { ... }`): (a) leading `template<...>` angle brackets weren't rendered tight for members
+       with a trailing `const` qualifier — fixed via new `MiscRule.templateAngleTokens`; (b) the
+       template prefix was captured as part of one padded return-type grid cell — fixed via new
+       `Member.templatePrefixFrom/To`, rendered as its own unpadded column.
+    3. `MiscRule.parseAssignment` misparsed a structured binding (`auto [a, b] = expr;`) as an
+       assignment to a variable named `auto` — fixed by explicitly rejecting a leading `auto`
+       keyword target.
+    4. `ScopePipeline.isGapToken` treated comments as trimmable gap, causing a group's
+       already-rendered trailing comment to be duplicated. Fixed via new
+       `isWhitespaceOrNewline` helper (excludes comments) for that trim.
 - [x] File-pair test: `combined_inp.java` → diff vs `combined_out.java` (PASS forward + idempotency)
-  - Bug 1 FIXED: a `//` line comment's sentence-end period was stripped whenever that single line,
-    viewed in isolation, had exactly one `.` -- even when it was one physical line of a multi-line
-    prose paragraph (several consecutive `//` lines, no blank line between) whose *other* lines also
-    had dots, which should exempt the whole paragraph from stripping, same as an equivalent
-    multi-line `/* ... */` block already is. Root cause: `MiscRule.enforceCommentStyle` ran
-    `applyCommentTextRules`/`stripSoleTrailingPeriod` per `COMMENT_LINE` token independently, with no
-    concept of "this line is part of a larger comment paragraph". Fix: new
-    `computeLineCommentGroups` chains consecutive `//` lines (no blank line between) into one group
-    and reuses `stripSoleTrailingPeriodAcrossLines` (dot count computed across the whole group) to
-    decide whether to strip the last line's trailing period -- mirroring `reformatMultiLineBlockComment`'s
-    existing precedent exactly. A closing-brace-label comment ({@code isClosingBraceLabelComment})
-    breaks the chain entirely; a separator-alignment comment ({@code parseSeparatorComment}) still
-    counts as a chain link (for dot-counting) but is never itself rewritten, since it's rendered by
-    the separate `alignCommentSeparators` pass. This last distinction surfaced a second, pre-existing
-    bug during verification: `parseSeparatorComment`'s heuristic (any single non-alnum char
-    surrounded by spaces = separator) false-positived on ordinary prose containing a lone `+`
-    surrounded by spaces (`"core + Java 17+ constructs..."`), which had been silently breaking the
-    adjacency chain one line early; the new `isCommentChainLink`/`isCommentRewritable` split keeps
-    such a false-positive line in the chain (correct dot-counting) while still never rewriting it.
-  - Bug 2 FIXED (new feature, not a regression -- `STYLE_JAVA.md` has no worked example for this
-    shape): a Java enum body with trailing members after its constant list (methods/fields/
-    constructors) needs its constant-list-terminating `;` detached onto its own line with a blank
-    line before and after (`IDLE, RUNNING, PAUSED, ERROR` / blank / `;` / blank / `public boolean
-    isActive() ...`), but no code implemented this at all -- the terminator was left glued to the
-    last constant (`ERROR;`) with no separation from the next member. New
-    `JavaSpecificRule.separateEnumConstantListTerminator`, wired into `Formatter.java` Phase 1 (Java
-    branch, after `enforcePermitsClauseLineBreaking`): `isEnumBodyBrace` detects a `{` as a Java enum
-    body by scanning backward past the name/`implements` clause to the `enum` keyword;
-    `findEnumConstantListTerminators` finds each such body's first depth-0 `;` that has further
-    content before the body's closing `}` (an enum with no trailing members, or no `;` at all, is
-    untouched); the terminator's rendering explicitly overrides the original gap on both sides with
-    blank-line-then-indent. User-confirmed via chat after an initial back-and-forth (I first
-    mis-read the bug report's diff direction and wrongly "fixed" `combined_out.java` to the *compact*
-    shape -- reverted once corrected). This exposed a genuine conflict between two already-passing
-    fixtures: `java_core_out.java` had previously encoded the *compact* shape for the identical
-    enum-with-trailing-method case -- user fixed `java_core_out.java` by hand to the separated form
-    to match, resolving the conflict; `make test` now passes both forward and idempotency for every
-    file-pair with this rule wired in.
-  - Bug 3 FIXED: no blank line inserted before the final `return` in a multi-statement function body
-    when the method's signature has a `throws ExceptionType` clause between `)` and `{` (e.g.
-    `public ProcessResult process(...) throws IOException { ... }`). Root cause:
-    `MiscRule.isFunctionBodyBrace`'s post-paren-qualifier skip (`isFunctionBodyQualifier`) only
-    recognized the single-token `throws` keyword itself, not the exception-name token(s) that follow
-    it, so the token immediately before `{` (the exception identifier) was never skipped and the
-    brace was misclassified as not-a-function-body -- `insertBlankLineBeforeReturn` then never
-    pushed a `FuncFrame` for it, silently disabling the whole rule for that method. Fix: new
-    `skipThrowsClauseBackward` helper skips an entire comma-separated `throws A, B.C, ...` clause
-    (handling qualified/dotted exception names) before the existing single-token qualifier loop
-    runs.
-  - All 3 bugs verified via `make test` with zero regressions across the other 11 file-pairs (once
-    `java_core_out.java`'s enum fixture was updated per above).
+  - Bug 1 FIXED: a `//` line comment's trailing period was stripped based on that single line's
+    own dot count, ignoring that it might be one line of a multi-line prose paragraph (chain of
+    adjacent `//` lines) that should be evaluated as a whole, same as block comments already are.
+    New `computeLineCommentGroups` chains adjacent `//` lines and reuses
+    `stripSoleTrailingPeriodAcrossLines`. Surfaced and fixed a related false-positive in
+    `parseSeparatorComment`'s single-non-alnum-char heuristic misfiring on prose containing a
+    lone `+` (`"Java 17+"`).
+  - Bug 2 FIXED (new feature, no prior STYLE_JAVA.md worked example): a Java enum body with
+    trailing members needs its constant-list-terminating `;` detached onto its own line with
+    blank lines around it. New `JavaSpecificRule.separateEnumConstantListTerminator`. Required
+    hand-fixing `java_core_out.java`'s enum fixture, which had previously encoded the conflicting
+    compact shape for the same pattern (user-confirmed).
+  - Bug 3 FIXED: no blank line before the final `return` in a method with a `throws` clause —
+    `MiscRule.isFunctionBodyBrace`'s qualifier-skip didn't skip the exception name(s) after
+    `throws`, misclassifying the brace as not-a-function-body. Fixed via new
+    `skipThrowsClauseBackward` (handles comma-separated, qualified exception names).
+  - All 3 verified via `make test`, zero regressions (after updating `java_core_out.java`'s enum
+    fixture per Bug 2).
 - [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
   - Bug (0)/(3) FIXED (partial, in progress -- other reported bugs in this file remain open):
     a mid-param `//` line comment (e.g. `int b, // second` immediately followed on the next

@@ -40,19 +40,20 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 clean:
 	@rm -rvf $(BUILD_DIR)
 
+
 # ── Test target ───────────────────────────────────────────────────────────────
 #
 # Runs two passes over every file pair in $(TEST_DIR):
 #
-#   Forward pass:    format *_inp.<ext>  → diff result vs *_out.<ext>
-#   Idempotency:     format *_out.<ext>  → diff result vs *_out.<ext>
+#     Forward pass:    format *_inp.<ext>  → diff result vs *_out.<ext>
+#     Idempotency:     format *_out.<ext>  → diff result vs *_out.<ext>
 #
 # Uses --standalone to avoid depending on a running server instance.
 # On any diff mismatch the loop prints the offending file and exits non-zero.
 #
 # Override JAVA or JAR_FILE on the command line if needed:
-#   make test JAVA=/path/to/java
-#   make test JAR_FILE=/path/to/code-formatter-1.00.jar
+#     make test JAVA=/path/to/java
+#     make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
 
 INP_FILES :=
@@ -135,59 +136,59 @@ test: $(JAR_FILE)
 		echo "";                                                                 \
 	)
 
+
 # ── Bench target ─────────────────────────────────────────────────────────────
 #
 # Benchmarks total formatting time (excluding server start/stop) across the
 # 15 *_inp.* test files in four configurations:
 #
-#   1. --standalone,  one file per invocation
-#   2. --standalone,  all files in one invocation
-#   3. client-server, one file per invocation
-#   4. client-server, all files in one invocation
+#     1. --standalone,  one file per invocation
+#     2. --standalone,  all files in one invocation
+#     3. client-server, one file per invocation
+#     4. client-server, all files in one invocation
 #
 # Override JAVA or JAR_FILE on the command line if needed, same as `make test`.
 #
-
 bench: $(JAR_FILE)
-	@(                                                                               \
-		mkdir -p $(TEST_TMP);                                                    \
-		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                          \
-		set -- $$files; probe="$$1";                                             \
-		echo "";                                                                 \
-		echo "=== Bench: standalone, one-by-one ===";                            \
-		start=$$(date +%s%N);                                                    \
-		for f in $$files; do                                                     \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";   \
-		done;                                                                    \
-		end=$$(date +%s%N);                                                      \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
-		echo "";                                                                 \
-		echo "=== Bench: standalone, all-at-once ===";                           \
-		start=$$(date +%s%N);                                                    \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;         \
-		end=$$(date +%s%N);                                                      \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
-		echo "";                                                                 \
-		echo "=== Bench: client-server, one-by-one ===";                         \
-		$(JAVA) -jar $(JAR_FILE) --server > /dev/null 2>&1 &                     \
-		tries=0;                                                                 \
-		while [ $$tries -lt 50 ]; do                                             \
+	@(                                                                                                        \
+		mkdir -p $(TEST_TMP);                                                                             \
+		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                   \
+		set -- $$files; probe="$$1";                                                                      \
+		echo "";                                                                                          \
+		echo "=== Bench: standalone, one-by-one ===";                                                     \
+		start=$$(date +%s%N);                                                                             \
+		for f in $$files; do                                                                              \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";                            \
+		done;                                                                                             \
+		end=$$(date +%s%N);                                                                               \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
+		echo "";                                                                                          \
+		echo "=== Bench: standalone, all-at-once ===";                                                    \
+		start=$$(date +%s%N);                                                                             \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;                                  \
+		end=$$(date +%s%N);                                                                               \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
+		echo "";                                                                                          \
+		echo "=== Bench: client-server, one-by-one ===";                                                  \
+		$(JAVA) -jar $(JAR_FILE) --server > /dev/null 2>&1 &                                              \
+		tries=0;                                                                                          \
+		while [ $$tries -lt 50 ]; do                                                                      \
 			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi; \
-			tries=$$((tries + 1));                                           \
-			sleep 0.1;                                                       \
-		done;                                                                    \
-		start=$$(date +%s%N);                                                    \
-		for f in $$files; do                                                     \
-			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                \
-		done;                                                                    \
-		end=$$(date +%s%N);                                                      \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
-		echo "";                                                                 \
-		echo "=== Bench: client-server, all-at-once ===";                        \
-		start=$$(date +%s%N);                                                    \
-		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                      \
-		end=$$(date +%s%N);                                                      \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
-		$(JAVA) -jar $(JAR_FILE) --stop;                                         \
-		echo "";                                                                 \
+			tries=$$((tries + 1));                                                                    \
+			sleep 0.1;                                                                                \
+		done;                                                                                             \
+		start=$$(date +%s%N);                                                                             \
+		for f in $$files; do                                                                              \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                                         \
+		done;                                                                                             \
+		end=$$(date +%s%N);                                                                               \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
+		echo "";                                                                                          \
+		echo "=== Bench: client-server, all-at-once ===";                                                 \
+		start=$$(date +%s%N);                                                                             \
+		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                               \
+		end=$$(date +%s%N);                                                                               \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                  \
+		echo "";                                                                                          \
 	)

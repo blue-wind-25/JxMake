@@ -1,4 +1,4 @@
-# STYLE_JAVA17.md — Java 17+ Construct Rules (Phase 2 — NOT YET IMPLEMENTED)
+# STYLE_JAVA17.md — Java 17+ Construct Rules
 
 Read [STYLE.md](STYLE.md) and [STYLE_JAVA.md](STYLE_JAVA.md) first. This file extends
 both for Java 17+ constructs not covered there. `STYLE_JAVA.md` remains the Java 8

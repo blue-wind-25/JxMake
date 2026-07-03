@@ -1,4 +1,4 @@
-# STYLE_CPP20.md — C++17/20/23 Construct Rules (Phase 2 — NOT YET IMPLEMENTED)
+# STYLE_CPP20.md — C++17/20/23 Construct Rules
 
 Read [STYLE.md](STYLE.md) and [STYLE_C_CPP.md](STYLE_C_CPP.md) first. This file extends
 both for C++17/20/23 constructs not covered there. `STYLE_C_CPP.md` remains the

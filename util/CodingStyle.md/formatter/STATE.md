@@ -193,6 +193,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
 | RDD_KEY_87 | `MiscRule.enforceCallLineBreaking` implementation scope decisions (nesting, comment bail-out, call-vs-declaration classification, new preserve-groups grid) + `collapseTokensToOneLine` bugfix |
 | RDD_KEY_88 | `Main.java` implementation (Step 1.5) -- CLI parsing, config resolution, indent-style temp-cache, server auto-connect/delegate, `--server`/`--stop`, output modes, exit codes |
 | RDD_KEY_89 | `combined_inp.java` -- §15 consecutive-`//`-comment grouping, enum constant-list `;` separation, `throws`-clause function-body detection |
+| RDD_KEY_90 | Task A (`JXM_CFMT_DIS`/`ENA`) -- rejected split-file-into-tmp-dirs approach in favor of in-memory token masking |
 
 ---
 
@@ -566,6 +567,14 @@ Via comments inside the code:
 Via command line option `--format-off`: formatting starts disabled for the whole file, as
 if `JXM_CFMT_DIS` were present at the top -- the user must insert an explicit
 `JXM_CFMT_ENA` marker in the source to turn formatting back on from that point onward.
+
+**Design direction (RDD_KEY_90):** implement via in-memory token masking, not by
+splitting the file into fragments/tmp dirs and formatting them independently --
+rejected because disabled regions aren't guaranteed to align to block boundaries
+and several rules need whole-file/whole-scope context. Tokenize the whole file once;
+tag the token range between each marker pair as frozen; every rule treats frozen
+tokens as opaque pass-through (skipped for transformation, but still counted for
+brace/scope-depth/line-number bookkeeping).
 
 Perform smoke-testing after implementing this and then `make test` to ensure there is no
 regression.

@@ -1403,8 +1403,11 @@ public class MiscRule {
         if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
             return false;
         }
+        // A type keyword (`void`, `int`, ...) directly followed by `(` is a function-type's
+        // return type inside a template argument (`std::function<void(int)>`) -- keywords can
+        // never be called, so this is never a call-site space, only a tight function-type join.
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
-                || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
+                || prev.type == TokenType.ANGLE_BRACKET_CLOSE || prev.type == TokenType.KEYWORD)) {
             return false;
         }
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")

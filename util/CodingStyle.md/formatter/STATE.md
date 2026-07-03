@@ -615,8 +615,44 @@ accept `final` there). This applies to all `.java` files under `src/`.
     comments (`isClosingBraceLabelComment` treated any comment after any `}` as an
     unrewritable closing-comment label) -- narrowed to only apply when the `}` sits alone on its
     own line (a real closing-comment label's shape), since a one-liner body's `}` shares its
-    line with the rest of the statement. Verified via `make test`, zero regressions. Bugs (2),
-    (4), (5), and the structured-binding part of (3) remain open.
+    line with the rest of the statement. Verified via `make test`, zero regressions.
+  - Bug (4) FIXED: `complexFunction`'s multi-line wrapped signature (params, `)`, `{`) was
+    over-indented by one level, and `std::function<void(int)>` rendered with wrong spacing
+    (`std::function < void (int) > d`) instead of tight. Root causes: (a)
+    `ScopePipeline.processScope` unconditionally passed `depth + 1` into every child brace
+    scope's recursion, but a `namespace` body is never indented per this codebase's convention
+    (unlike class/struct/enum bodies) -- `processScope` now has a new `isNamespaceScope` check
+    (walks back over the brace's optional `IDENTIFIER (:: IDENTIFIER)*` name chain to find a
+    preceding `namespace` keyword, since `Token.name` alone only holds the bare name) that keeps
+    `depth` unchanged for namespace bodies. (b) `TokenizerCore.isGenericSafeToken` didn't allow
+    `(`/`)` inside a candidate `<...>` span, so a function-type template argument
+    (`std::function<void(int)>`) always invalidated the angle-bracket reclassification, leaving
+    `<`/`>` as plain `OP` tokens rendered with comparison-operator spacing -- fixed by adding
+    `(`/`)` to the allowed PUNCT set. (c) Even after that, `MiscRule.needsSpaceBetween` inserted
+    a space between a type keyword (`void`) and a following `(` since only `IDENTIFIER`/
+    `ANGLE_BRACKET_CLOSE` were exempted -- keywords can never be called, so a keyword directly
+    before `(` is always a function-type join, never a call site; `KEYWORD` added to the
+    exemption. Verified via `make test`, zero regressions.
+  - Bug (5) FIXED: `template<typename T>\n    requires ... \nT doubled(T x) {` stayed split
+    across 3 lines instead of collapsing onto one, per STYLE.md §8's normal signature-wrapping
+    rule (it fits under 100 chars). This appeared to conflict with the already-resolved,
+    verified `cpp_modern_inp.cpp` Bug 4a decision that a `template<...>` header on its own prior
+    line must NOT be pulled into the signature and collapsed -- but that resolved case never has
+    a `requires` clause between the template header and the declarator (confirmed by checking
+    every `template<...>` occurrence in `cpp_modern_inp.cpp`/`cpp_modern_out.cpp`). The two
+    behaviors don't actually conflict: a leading (non-trailing) `requires`-clause line between
+    the template header and the declarator is the narrow, safe distinguishing signal. New
+    `ScopePipeline.extendOverLeadingRequiresAndTemplate` walks back from the declarator's own
+    line: it pulls in an immediately preceding lone `requires`-clause line, and -- only once such
+    a line has been pulled in -- also pulls in a `template<...>` header line directly above that.
+    A bare `template<...>` header with no requires clause is left untouched (the requires-line
+    pull gates the template-line pull), so `cpp_modern_inp.cpp`'s Bug 4a case is unaffected.
+    Verified via `make test`, zero regressions (`cpp_modern_out.cpp` still PASSES).
+
+  `cpp_comments_inp.cpp`/`cpp_comments_out.cpp` now differs only in bug (2) (missing blank
+  lines before `}; // struct Entry` / `}; // class Derived`) and the structured-binding part of
+  bug (3) (comment loss + brace spacing on `auto [lo, hi] = std::pair<int, int>{0, result};`) --
+  both explicitly out of scope for this round, not yet fixed.
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the

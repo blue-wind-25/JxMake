@@ -861,7 +861,10 @@ public class TokenizerCore {
             case KEYWORD:
                 return GENERIC_SAFE_KEYWORDS.contains(t.text);
             case PUNCT:
-                return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text);
+                // `(`/`)` allowed too: a function-type template argument (`std::function<void(int)>`)
+                // has a balanced parameter list nested directly inside the `<>`.
+                return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text)
+                        || "(".equals(t.text) || ")".equals(t.text);
             case OP:
                 return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
                         || "*".equals(t.text) || "&".equals(t.text);

@@ -365,6 +365,36 @@ public class ScopePipeline {
         return leadingGap.substring(0, nl + 1) + normalizedIndent;
     }
 
+    /** True if the `{` at {@code braceIdx} opens a `namespace NAME { ... }` (or nested
+     *  `namespace a::b { ... }`) body -- found by walking back over the optional
+     *  `IDENTIFIER (:: IDENTIFIER)*` name chain to check for an immediately preceding
+     *  `namespace` keyword. {@code Token.name} alone can't distinguish this from any other
+     *  named construct (it holds just the bare name, e.g. `"audio"`, not the construct
+     *  keyword). */
+    private boolean isNamespaceScope(final List<Token> tokens, final int braceIdx) {
+        if (tokens.get(braceIdx).name == null) {
+            return false;
+        }
+        int p = prevSignificantIndex(tokens, braceIdx - 1);
+        if (p < 0 || tokens.get(p).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        while (true) {
+            final int q = prevSignificantIndex(tokens, p - 1);
+            if (q < 0 || !isOp(tokens.get(q), "::")) {
+                break;
+            }
+            final int r = prevSignificantIndex(tokens, q - 1);
+            if (r < 0 || tokens.get(r).type != TokenType.IDENTIFIER) {
+                break;
+            }
+            p = r;
+        }
+        final int kwIdx = prevSignificantIndex(tokens, p - 1);
+        return kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
+                && "namespace".equals(tokens.get(kwIdx).text);
+    }
+
     /** Returns the leading whitespace of the line that contains the span's first significant
      *  token -- i.e. the indentation of the named construct whose one-liner body we are about
      *  to pre-expand.  Scans forward to the first non-gap token, then backward to the preceding
@@ -557,7 +587,9 @@ public class ScopePipeline {
                     } else {
                         // Function name is on a later line; start the signature there.
                         final int lineFirst = nextSignificantIndex(tokens, newlineIdx);
-                        sigLeadStart = lineFirst >= 0 ? lineFirst : leadStart;
+                        sigLeadStart = lineFirst >= 0
+                                ? extendOverLeadingRequiresAndTemplate(tokens, lineFirst, leadStart)
+                                : leadStart;
                     }
                 } else {
                     sigLeadStart = leadStart;
@@ -754,7 +786,12 @@ public class ScopePipeline {
                 // recognize and handle it as a one-liner.
                 childResult = childSource;
             } else {
-                childResult = processScope(tokenizer.tokenize(childSource), depth + 1);
+                // A `namespace` body is never indented (STYLE_C_CPP.md §7's closing-comment
+                // examples show namespace content flush with the namespace itself), unlike
+                // every other named construct (class/struct/enum) or function/loop body -- so
+                // it must not consume an indentation level the way `depth + 1` otherwise would.
+                final int childDepth = isNamespaceScope(current, span.openBraceIdx) ? depth : depth + 1;
+                childResult = processScope(tokenizer.tokenize(childSource), childDepth);
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
@@ -804,6 +841,52 @@ public class ScopePipeline {
             }
         }
         return -1;
+    }
+
+    /** Starting from the declarator's own line ({@code lineFirst}), pulls in an immediately
+     *  preceding leading `requires` clause line (`template<T>\n    requires ...\n Decl`), and --
+     *  only when such a requires line was found -- the `template<...>` header line above *that*,
+     *  so the whole group collapses onto the declarator's line. A bare `template<...>` header
+     *  with no requires clause is left untouched (stays verbatim on its own line, per the
+     *  resolved decision covering `cpp_modern_inp.cpp` Bug 4a) since the requires-line pull is
+     *  what gates the template-line pull. */
+    private int extendOverLeadingRequiresAndTemplate(final List<Token> tokens, final int lineFirst,
+            final int leadStart) {
+        int cur = lineFirst;
+        boolean pulledRequires = false;
+        while (true) {
+            // `cur`'s own line is separated from the line above it by the NEWLINE directly
+            // preceding `cur` (`ownLineSep`) -- the previous line's own first token sits between
+            // the NEWLINE *before that* (`prevLineSep`) and `ownLineSep`.
+            int ownLineSep = -1;
+            for (int j = cur - 1; j >= leadStart; j--) {
+                if (tokens.get(j).type == TokenType.NEWLINE) { ownLineSep = j; break; }
+            }
+            if (ownLineSep < 0) {
+                break;
+            }
+            int prevLineSep = -1;
+            for (int j = ownLineSep - 1; j >= leadStart; j--) {
+                if (tokens.get(j).type == TokenType.NEWLINE) { prevLineSep = j; break; }
+            }
+            final int prevLineFirst = prevLineSep >= 0
+                    ? nextSignificantIndex(tokens, prevLineSep)
+                    : (leadStart < ownLineSep ? leadStart : -1);
+            if (prevLineFirst < 0 || prevLineFirst >= cur) {
+                break;
+            }
+            final Token first = tokens.get(prevLineFirst);
+            if (!pulledRequires && first.type == TokenType.KEYWORD && "requires".equals(first.text)) {
+                cur = prevLineFirst;
+                pulledRequires = true;
+                continue;
+            }
+            if (pulledRequires && first.type == TokenType.KEYWORD && "template".equals(first.text)) {
+                cur = prevLineFirst;
+            }
+            break;
+        }
+        return cur;
     }
 
     private int nextSignificantIndex(final List<Token> tokens, final int from) {

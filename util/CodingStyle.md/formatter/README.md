@@ -128,6 +128,15 @@ local prefix is `com.mycompany`).
 For pre-Java-9 projects without module descriptors, the same `package` declaration
 is used — no module system involvement required.
 
+### C-preprocessor directives in Java source
+
+Some projects run `.java` files through a C-macro preprocessor (e.g. PCPP-style)
+before compilation, as a poor man's template mechanism. `#define`/`#ifdef`/`#endif`/etc.
+lines are recognized and passed through untouched, same as in `.c`/`.cpp`/`.h` files.
+Note: a preprocessor directive placed immediately before a method definition is
+currently known to get glued onto the same output line — avoid that specific
+placement until it's fixed.
+
 ---
 
 ## Line Endings

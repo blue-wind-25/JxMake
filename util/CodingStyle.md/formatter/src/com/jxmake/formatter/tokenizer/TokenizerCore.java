@@ -878,7 +878,12 @@ public class TokenizerCore {
     }
 
     private boolean isPreprocessorLanguage() {
-        return !"java".equals(language);
+        // Java source files sometimes carry PCPP-style C-preprocessor directives
+        // (`#define`/`#ifdef`/etc.) as a poor man's template mechanism ahead of a separate
+        // preprocessing step. Lexing them as opaque PREPROCESSOR/MACRO_DEF tokens (same as
+        // C/C++) means every rule already passes them through untouched -- no per-rule
+        // Java-specific handling needed.
+        return true;
     }
 
     private boolean isIdentifierStart(final char c) {

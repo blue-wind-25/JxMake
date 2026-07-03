@@ -73,8 +73,8 @@ INP_FILES += combined_inp.cpp
 INP_FILES += combined_inp.java
 
 INP_FILES += c_comments_inp.c
-#INP_FILES += cpp_comments_inp.cpp
-#INP_FILES += java_comments_inp.java
+INP_FILES += cpp_comments_inp.cpp
+INP_FILES += java_comments_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

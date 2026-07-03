@@ -128,18 +128,40 @@ public class DeclarationAlignmentRule {
             // a blank line: `render(group)` fully regenerates the group's whole span, so a
             // comment surviving only in the raw leading gap of a mid-group declaration would be
             // silently discarded otherwise.
-            final boolean breakBefore = blankBefore || hasCommentBefore(stmt);
+            final boolean breakBefore = blankBefore || hasCommentBefore(stmt) || isMemberFunctionForwardDecl(decl);
             if (breakBefore && !current.isEmpty()) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
             current.add(decl);
+
+            // STYLE.md §8's free-function forward-declaration column alignment ("Alignment of
+            // Return Types in Forward Declarations") applies to free functions only -- Java has
+            // no free functions (governed by §14 instead), and in C++ a trailing `const`
+            // qualifier (`V get(...) const;`) only ever appears on a member function, never a
+            // free one. Isolate such a declaration into its own singleton group so it renders
+            // solo (whitespace-normalized, not grid-padded against neighboring declarations).
+            if (isMemberFunctionForwardDecl(decl)) {
+                groups.add(current);
+                current = new ArrayList<>();
+            }
         }
 
         if (!current.isEmpty()) {
             groups.add(current);
         }
         return groups;
+    }
+
+    /** True if {@code decl} is a function forward declaration with a trailing `const`
+     *  qualifier -- the shape only a C++ member function can have (see comment at the
+     *  {@code isMemberFunctionForwardDecl} call site in {@link #groupDeclarations}). */
+    private boolean isMemberFunctionForwardDecl(final Declaration decl) {
+        if (decl.sizeTokens.isEmpty() || !isPunct(decl.sizeTokens.get(0), "(")) {
+            return false;
+        }
+        final Token last = decl.sizeTokens.get(decl.sizeTokens.size() - 1);
+        return last.type == TokenType.KEYWORD && "const".equals(last.text);
     }
 
     // ── Static reorder safety ───────────────────────────────────────────────────
@@ -377,7 +399,11 @@ public class DeclarationAlignmentRule {
             if (!d.templatePrefix.isEmpty()) {
                 lines.add(renderTemplatePrefix(d.templatePrefix));
             }
-            lines.add(String.join(" ", rows.get(idx)));
+            String line = String.join(" ", rows.get(idx));
+            if (d.trailingComment != null) {
+                line += " " + d.trailingComment.text;
+            }
+            lines.add(line);
         }
         return lines;
     }
@@ -713,6 +739,41 @@ public class DeclarationAlignmentRule {
         return depth == 0;
     }
 
+    /** Finds {@code openTok}/{@code closeTok} (by identity -- they come from {@code stmt} itself,
+     *  just filtered through {@code significantOnly}) within {@code stmt} and returns the raw
+     *  inclusive slice between them, comments and all. Returns {@code null} if either token
+     *  can't be located (should not happen given the identity precondition, but the caller has a
+     *  safe fallback). */
+    private List<Token> rawSliceBetween(final List<Token> stmt, final Token openTok, final Token closeTok) {
+        int openIdx = -1;
+        for (int k = 0; k < stmt.size(); k++) {
+            if (stmt.get(k) == openTok) {
+                openIdx = k;
+                break;
+            }
+        }
+        if (openIdx < 0) {
+            return null;
+        }
+        int closeIdx = -1;
+        for (int k = stmt.size() - 1; k > openIdx; k--) {
+            if (stmt.get(k) == closeTok) {
+                closeIdx = k;
+                break;
+            }
+        }
+        if (closeIdx < 0) {
+            return null;
+        }
+        final List<Token> raw = new ArrayList<>();
+        for (final Token t : stmt.subList(openIdx, closeIdx + 1)) {
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                raw.add(t);
+            }
+        }
+        return raw;
+    }
+
     private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore) {
         final Token trailingComment = findTrailingComment(stmt);
         final List<Token> sig = significantOnly(stmt);
@@ -802,6 +863,17 @@ public class DeclarationAlignmentRule {
 
         final List<Token> sizeTokens = new ArrayList<>();
         int sizeEnd = end;
+        // A trailing `const` qualifier on a member-function forward declaration (`V get(...)
+        // const;`) sits after the closing `)`, ahead of the parameter-list strip below -- peel
+        // it off first so that strip still finds `)` as the last token, then re-append it to
+        // `sizeTokens` afterward so it renders back after the parameter list.
+        Token trailingConstQualifier = null;
+        if (sizeEnd > i && body.get(sizeEnd - 1).type == TokenType.KEYWORD
+                && "const".equals(body.get(sizeEnd - 1).text)
+                && sizeEnd - 1 > i && isPunct(body.get(sizeEnd - 2), ")")) {
+            trailingConstQualifier = body.get(sizeEnd - 1);
+            sizeEnd--;
+        }
         while (sizeEnd > i && isPunct(body.get(sizeEnd - 1), "]")) {
             int depth = 0;
             int openIdx = -1;
@@ -844,9 +916,18 @@ public class DeclarationAlignmentRule {
                 }
             }
             if (parenOpenIdx > i) {
-                sizeTokens.addAll(0, body.subList(parenOpenIdx, sizeEnd));
+                // Use the original (comment-carrying) token slice for the parameter list, not
+                // the comment-stripped `body` -- a lone function-prototype declaration is fully
+                // regenerated from `Declaration` fields, so any interior parameter comment (e.g.
+                // `const K& /* Key */ k`) is only preserved if it's captured here.
+                final List<Token> rawParams = rawSliceBetween(stmt,
+                        body.get(parenOpenIdx), body.get(sizeEnd - 1));
+                sizeTokens.addAll(0, rawParams != null ? rawParams : body.subList(parenOpenIdx, sizeEnd));
                 sizeEnd = parenOpenIdx;
             }
+        }
+        if (trailingConstQualifier != null) {
+            sizeTokens.add(trailingConstQualifier);
         }
 
         if (sizeEnd <= i) {

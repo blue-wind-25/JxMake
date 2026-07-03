@@ -1943,7 +1943,18 @@ public class MiscRule {
                 return false;
             }
         }
-        return isPunct(tokens.get(p), "}");
+        if (!isPunct(tokens.get(p), "}")) {
+            return false;
+        }
+        // A generated/genuine closing-comment label only ever follows a `}` that sits alone on
+        // its own line (STYLE.md §7's rendering); a `}` sharing its line with the rest of a
+        // one-liner body (`{ return v_; }`) can never carry one, so a trailing comment there
+        // (e.g. a one-liner getter's `// getter`) is just an ordinary comment.
+        int q = p - 1;
+        while (q >= 0 && tokens.get(q).type == TokenType.WHITESPACE) {
+            q--;
+        }
+        return q < 0 || tokens.get(q).type == TokenType.NEWLINE;
     }
 
     /** One trailing `//` comment recognized as a separator-alignment label, parsed from a single

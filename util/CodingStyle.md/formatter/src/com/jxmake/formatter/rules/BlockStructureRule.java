@@ -934,14 +934,18 @@ public class BlockStructureRule {
         return (k < n && tokens.get(k).type == TokenType.COMMENT_LINE) ? k : -1;
     }
 
-    /** True if a comment's text looks like a formatter-generated closing comment or a
-     *  wrong-closing-comment artifact: starts with {@code "// "} followed by only word
-     *  characters (letters, digits, underscore) and spaces, with no punctuation or symbols. */
+    /** True if a comment's text looks like a stale/wrong closing-comment artifact left over
+     *  from a previous format pass: starts with {@code "// end "} (the closing-comment
+     *  convention used when a block that used to warrant one no longer does) followed by only
+     *  word characters (letters, digits, underscore) and spaces, with no punctuation or
+     *  symbols. An ordinary short comment that happens to be a single alphanumeric word or
+     *  phrase (e.g. `// getter`, `// validator`) does not start with {@code "end "} and so is
+     *  never mistaken for a stale closing-comment artifact. */
     private boolean isLikelyClosingComment(final String text) {
-        if (!text.startsWith("// ")) {
+        if (!text.startsWith("// end ")) {
             return false;
         }
-        final String body = text.substring(3);
+        final String body = text.substring(7);
         if (body.isEmpty()) {
             return false;
         }

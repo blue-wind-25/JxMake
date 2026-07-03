@@ -584,10 +584,39 @@ accept `final` there). This applies to all `.java` files under `src/`.
     new `capitalizePreprocessorTrailingComment`, leaving the rest of the directive text
     untouched. Verified via `make test`: all 13 file-pair tests now PASS (forward +
     idempotency), zero regressions.
-
   `c_comments_inp.c`/`c_comments_out.c` now PASSES in full (forward + idempotency) --
   all 5 bugs found in this file-pair are fixed.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
+  - Bug (1) FIXED: `void insert(const K& /* Key */ k, ...)` dropped its parameter comments, and
+    `V get(const K& k) const; // May throw` lost its trailing comment and kept raw unnormalized
+    whitespace (`V    get`). Root cause: `DeclarationAlignmentRule.parseDeclaration` captured a
+    member-function forward declaration's parameter list from the comment-stripped `body`
+    (dropping interior comments), never peeled off a trailing `const` qualifier (so `get(...)
+    const;` was rejected as a declaration entirely, leaving its raw whitespace/comment
+    untouched), and `renderFunctionForwardGroup` never emitted `Declaration.trailingComment` at
+    all. Fixed via a new `rawSliceBetween` helper (captures the raw, comment-carrying param-list
+    slice instead of the stripped one), trailing-`const`-qualifier peel/re-append logic in
+    `parseDeclaration`, and appending `trailingComment.text` in `renderFunctionForwardGroup`.
+    Separately, fixing `get()` recognition caused it to wrongly join `insert()`'s alignment
+    group and get column-padded (`V    get`) -- STYLE.md §8's forward-declaration column
+    alignment applies to free functions only, never C++ member functions, so `groupDeclarations`
+    now isolates any function forward declaration with a trailing `const` qualifier (new
+    `isMemberFunctionForwardDecl` check) into its own singleton group. Verified via `make test`,
+    zero regressions.
+  - Bug (3) (partial) FIXED: one-liner getter/setter/validator methods
+    (`int getValue() const { return v_; } // getter`) lost their trailing comment entirely, and
+    the structured-binding line lost its param comments too (structured-binding sub-case not yet
+    traced). Root cause (getter/setter/validator part): `BlockStructureRule.addClosingComments`
+    treats any short single-word `// comment` immediately after a `}` as a stale/wrong
+    formatter-generated closing-comment artifact and deletes it (`isLikelyClosingComment`) --
+    but every fixture's actual stale-artifact convention is specifically `// end <name>`, not an
+    arbitrary short word, so `isLikelyClosingComment` now requires the `"// end "` prefix.
+    Additionally, `MiscRule.enforceCommentStyle`'s capitalization pass was skipping the same
+    comments (`isClosingBraceLabelComment` treated any comment after any `}` as an
+    unrewritable closing-comment label) -- narrowed to only apply when the `}` sits alone on its
+    own line (a real closing-comment label's shape), since a one-liner body's `}` shares its
+    line with the rest of the statement. Verified via `make test`, zero regressions. Bugs (2),
+    (4), (5), and the structured-binding part of (3) remain open.
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the

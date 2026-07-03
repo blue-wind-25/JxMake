@@ -861,6 +861,24 @@ public class DeclarationAlignmentRule {
                 && !isFlatAggregateInit(initTokens)) {
             return null;
         }
+        // A `{ ... }` aggregate init with a `//` line comment on one of its elements (e.g.
+        // `{ 1, // One\n  2, // Two\n  /* Three */ 3 }`) can never be safely collapsed to one
+        // line -- same reasoning as a signature parameter's `//` comment -- and this class has
+        // no multi-line-initializer render path (every `Declaration` renders as exactly one
+        // line). Bail out entirely so the statement is left byte-for-byte untouched, preserving
+        // whatever multi-line layout (and comments) the original source already had, rather than
+        // corrupting it via a collapse this rule cannot correctly perform.
+        if (!initTokens.isEmpty() && isPunct(initTokens.get(initTokens.size() - 1), "}")) {
+            final List<Token> rawInit = rawSliceBetween(stmt, initTokens.get(0),
+                    initTokens.get(initTokens.size() - 1));
+            if (rawInit != null) {
+                for (final Token t : rawInit) {
+                    if (t.type == TokenType.COMMENT_LINE) {
+                        return null;
+                    }
+                }
+            }
+        }
 
         final List<Token> sizeTokens = new ArrayList<>();
         int sizeEnd = end;

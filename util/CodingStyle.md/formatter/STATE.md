@@ -675,7 +675,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
 
   `cpp_comments_inp.cpp`/`cpp_comments_out.cpp` now PASSES in full (forward + idempotency) --
   all 5 bugs found in this file-pair are fixed.
-- [~] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java` (in progress)
+- [x] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java` (PASS)
   - Bug 1 FIXED: multi-line method-signature param comments (`int a, // First param` /
     `/* Second */ int b,`) were destroyed two ways. Root cause A:
     `MiscRule.parseSignature`'s comma-split reattachment loop (originally intended to move a
@@ -721,9 +721,24 @@ accept `final` there). This applies to all `.java` files under `src/`.
     blank line still lands right before a leading standalone comment instead of the whole gap
     being left untouched. Verified via `make test`: zero regressions across the other 13
     file-pairs (idempotency unaffected, still 14/14 PASS).
-  - Remaining open in this file (not yet fixed): (c) array-initializer element comments
-    (`VALUES = { 1, // One ... }`) still collapsed/dropped entirely when the array is rendered
-    inline.
+  - Bug 4 FIXED: `private static final int[] VALUES = { 1, // One\n 2, // Two\n /* Three */ 3\n};`
+    was collapsed to `VALUES = { 1, 2, 3 };`, dropping every element comment. Root cause:
+    `DeclarationAlignmentRule.parseDeclaration` builds `initTokens` from `significantOnly(stmt)`,
+    stripping comments before the `{ ... }` initializer is even sliced out, and this class has no
+    multi-line-initializer render path -- every `Declaration` renders as exactly one line
+    (`renderNameCell`/`renderInitTokens`), so there was nowhere to put the comments back even if
+    recovered. User-confirmed simplest fix (rather than building a new one-per-line
+    multi-line-initializer render path, the heavier option, mirroring `MiscRule`'s signature
+    params): when a flat aggregate `{ ... }` initializer contains a `//` line comment on any
+    element (checked via the existing `rawSliceBetween` helper against the raw, comment-carrying
+    `stmt`), `parseDeclaration` now bails (returns `null`) entirely, leaving the statement
+    byte-for-byte untouched -- preserving whatever multi-line layout and comments the original
+    source already had (comment capitalization is still applied separately by
+    `MiscRule.enforceCommentStyle`, a whole-file pass independent of declaration parsing).
+    Verified via `make test`: all 15 file-pairs now PASS (forward + idempotency), zero
+    regressions.
+  `java_comments_inp.java`/`java_comments_out.java` now PASSES in full (forward + idempotency) --
+  all 4 bugs found in this file-pair are fixed.
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the
 user, and wait for instruction. Do not attempt to fix either the formatter or the

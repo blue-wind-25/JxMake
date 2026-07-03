@@ -675,7 +675,37 @@ accept `final` there). This applies to all `.java` files under `src/`.
 
   `cpp_comments_inp.cpp`/`cpp_comments_out.cpp` now PASSES in full (forward + idempotency) --
   all 5 bugs found in this file-pair are fixed.
-- [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
+- [~] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java` (in progress)
+  - Bug 1 FIXED: multi-line method-signature param comments (`int a, // First param` /
+    `/* Second */ int b,`) were destroyed two ways. Root cause A:
+    `MiscRule.parseSignature`'s comma-split reattachment loop (originally intended to move a
+    trailing `//`/`/* */` comment that landed as the *next* param's leading token back onto the
+    *previous* param, e.g. `int b,   // second\nint c`) used a `while` instead of an `if`, so for
+    `int a, // first param\n/* second */ int b,` it over-greedily pulled *both* the previous
+    param's own trailing comment *and* the next param's genuine leading comment onto the first
+    param -- corrupting that param's token slice so badly `parseParam` returned null and the
+    entire signature fell back to being left completely untouched (verbatim raw input, only
+    comment-capitalized), which is why the input's own manual wide comment-column spacing was
+    never reformatted. Fixed by changing the `while` to `if` (reattach at most one comment per
+    comma boundary). Root cause B: even once parsing succeeded, `parseParam`/`Param`/`render`/
+    `renderOnePerLine` never distinguished a *leading* comment (`/* Second */ int b`) from the
+    param's real `typeTokens`, so its width was folded into the shared `maxTypeLen` column,
+    wrongly widening every sibling param's padding. Fixed via new `Param.leadingComment` field
+    (peeled off in `parseParam` when the slice's first token is a comment), excluded from the
+    `maxTypeLen`/`typeColWidth` computation in both `render` and `renderOnePerLine`, and rendered
+    as an unpadded prefix before the type cell instead.
+  - Bug 2 FIXED: a lowercase C/C++-only keyword (`inline`) in `COMMENT_NO_CAPITALIZE` was
+    suppressing capitalization of an *unrelated* Java comment (`// inline comment on
+    assignment`) purely because the single shared keyword set applied across all three
+    languages regardless of which file was being formatted. Split into
+    `COMMENT_NO_CAPITALIZE_C`/`_CPP`/`_JAVA` and added `MiscRule.isCommentNoCapitalizeWord`,
+    which checks only the set(s) relevant to `this.language` (`c`: C only; `cpp`: C + C++
+    additions; `java`: Java only). Verified via `make test`: zero regressions across the other
+    13 file-pairs (idempotency pass unaffected, still 14/14 PASS).
+  - Remaining open in this file (not yet fixed): (b) blank lines dropped around switch-case
+    comments inside `switchy`'s `switch` body; (c) array-initializer element comments
+    (`VALUES = { 1, // One ... }`) still collapsed/dropped entirely when the array is rendered
+    inline.
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the
 user, and wait for instruction. Do not attempt to fix either the formatter or the

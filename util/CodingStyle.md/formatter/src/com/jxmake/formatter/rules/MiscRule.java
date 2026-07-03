@@ -32,26 +32,32 @@ public class MiscRule {
     private static final Set<String> TIGHT_PAREN_KEYWORDS =
             setOf("if", "while", "for", "switch", "catch");
 
-    // Keywords that must never be titlecased when they start a comment sentence.
-    private static final Set<String> COMMENT_NO_CAPITALIZE = setOf(
-            // C keywords
+    // Keywords that must never be titlecased when they start a comment sentence, split by the
+    // language they actually belong to -- a C/C++-only keyword like `inline` must not suppress
+    // capitalization in a Java comment, and vice versa.
+    private static final Set<String> COMMENT_NO_CAPITALIZE_C = setOf(
             "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
             "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
             "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
-            "switch", "typedef", "union", "unsigned", "void", "volatile", "while",
-            // C++ additions
+            "switch", "typedef", "union", "unsigned", "void", "volatile", "while");
+
+    private static final Set<String> COMMENT_NO_CAPITALIZE_CPP = setOf(
             "alignas", "alignof", "asm", "bool", "catch", "char16_t", "char32_t", "class",
             "co_await", "co_return", "co_yield", "concept", "consteval", "constexpr", "constinit",
             "const_cast", "decltype", "delete", "dynamic_cast", "explicit", "export", "false",
             "final", "friend", "mutable", "namespace", "new", "noexcept", "nullptr", "operator",
             "override", "private", "protected", "public", "reinterpret_cast", "requires",
             "static_assert", "static_cast", "template", "this", "thread_local", "throw", "true",
-            "try", "typeid", "typename", "using", "virtual", "wchar_t",
-            // Java keywords
-            "abstract", "assert", "boolean", "byte", "extends", "final", "finally", "implements",
-            "import", "instanceof", "interface", "native", "package", "permits", "protected",
-            "record", "sealed", "strictfp", "super", "synchronized", "throws", "transient",
-            "var", "yield", "null");
+            "try", "typeid", "typename", "using", "virtual", "wchar_t");
+
+    private static final Set<String> COMMENT_NO_CAPITALIZE_JAVA = setOf(
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
+            "const", "continue", "default", "do", "else", "enum", "extends", "final", "finally",
+            "for", "goto", "if", "implements", "import", "instanceof", "interface", "native",
+            "new", "package", "permits", "private", "protected", "public", "record", "return",
+            "sealed", "static", "strictfp", "super", "switch", "synchronized", "this", "throw",
+            "throws", "transient", "try", "var", "void", "volatile", "while", "yield", "null",
+            "true", "false");
 
     private final String language;
 
@@ -1059,13 +1065,15 @@ public class MiscRule {
         public final Token name;
         public final List<Token> sizeTokens;
         public final Token comment;
+        public final Token leadingComment;
 
         Param(final List<Token> typeTokens, final Token name, final List<Token> sizeTokens,
-                final Token comment) {
+                final Token comment, final Token leadingComment) {
             this.typeTokens = typeTokens;
             this.name = name;
             this.sizeTokens = sizeTokens;
             this.comment = comment;
+            this.leadingComment = leadingComment;
         }
     }
 
@@ -1151,7 +1159,7 @@ public class MiscRule {
         // trailing comment before parsing, so it doesn't get swept into the next param's type.
         for (int i = 0; i < parts.size() - 1; i++) {
             final List<Token> next = parts.get(i + 1);
-            while (!next.isEmpty() && (next.get(0).type == TokenType.COMMENT_LINE
+            if (!next.isEmpty() && (next.get(0).type == TokenType.COMMENT_LINE
                     || next.get(0).type == TokenType.COMMENT_BLOCK)) {
                 parts.get(i).add(next.remove(0));
             }
@@ -1205,6 +1213,13 @@ public class MiscRule {
         if (slice.isEmpty()) {
             return null;
         }
+        Token leadingComment = null;
+        final Token first = slice.get(0);
+        if (slice.size() > 1
+                && (first.type == TokenType.COMMENT_LINE || first.type == TokenType.COMMENT_BLOCK)) {
+            leadingComment = first;
+            slice = slice.subList(1, slice.size());
+        }
         for (final Token t : slice) {
             if (isOp(t, "=")) {
                 return null; // default value -- no STYLE.md worked example, bail the whole signature
@@ -1244,7 +1259,7 @@ public class MiscRule {
         if (typeTokens.isEmpty()) {
             return null;
         }
-        return new Param(typeTokens, name, sizeTokens, comment);
+        return new Param(typeTokens, name, sizeTokens, comment, leadingComment);
     }
 
     /**
@@ -1300,7 +1315,9 @@ public class MiscRule {
 
         int maxTypeLen = 0;
         for (final Param p : sig.params) {
-            maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
+            if (p.leadingComment == null) {
+                maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
+            }
         }
         final int typeColWidth = maxTypeLen + 1;
         int maxNameCommaLen = 0;
@@ -1322,7 +1339,9 @@ public class MiscRule {
             final String nameText = p.comment != null
                     ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
                     : nameCommaText;
-            lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
+            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
+            final String typeCell = p.leadingComment != null ? typeText + " " : padRight(typeText, typeColWidth);
+            lines.add(paramIndent + leadPrefix + typeCell + nameText);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
         return lines;
@@ -2241,7 +2260,7 @@ public class MiscRule {
                                 || content.charAt(end) == '_')) {
                     end++;
                 }
-                if (COMMENT_NO_CAPITALIZE.contains(content.substring(i, end))) {
+                if (isCommentNoCapitalizeWord(content.substring(i, end))) {
                     return content;
                 }
                 return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
@@ -2249,6 +2268,20 @@ public class MiscRule {
             break;
         }
         return content;
+    }
+
+    /** True iff `word` is a keyword in the current file's language ({@link #language}) that must
+     *  never be titlecased when it starts a comment sentence -- checked against the
+     *  language-specific set only, so a C/C++-only keyword like `inline` never suppresses
+     *  capitalization in a Java comment, and vice versa. */
+    private boolean isCommentNoCapitalizeWord(final String word) {
+        if ("java".equals(language)) {
+            return COMMENT_NO_CAPITALIZE_JAVA.contains(word);
+        }
+        if ("cpp".equals(language)) {
+            return COMMENT_NO_CAPITALIZE_C.contains(word) || COMMENT_NO_CAPITALIZE_CPP.contains(word);
+        }
+        return COMMENT_NO_CAPITALIZE_C.contains(word);
     }
 
     /** Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
@@ -2425,7 +2458,9 @@ public class MiscRule {
     private List<String> renderOnePerLine(final Signature sig, final String baseIndent) {
         int maxTypeLen = 0;
         for (final Param p : sig.params) {
-            maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
+            if (p.leadingComment == null) {
+                maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
+            }
         }
         final int typeColWidth = maxTypeLen + 1;
         final String paramIndent = baseIndent + DEFAULT_INDENT_UNIT;
@@ -2446,7 +2481,9 @@ public class MiscRule {
             final String nameText = p.comment != null
                     ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
                     : nameCommaText;
-            lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
+            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
+            final String typeCell = p.leadingComment != null ? typeText + " " : padRight(typeText, typeColWidth);
+            lines.add(paramIndent + leadPrefix + typeCell + nameText);
         }
         lines.add(baseIndent + ")");
         return lines;

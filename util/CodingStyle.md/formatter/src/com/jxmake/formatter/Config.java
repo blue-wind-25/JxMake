@@ -29,6 +29,7 @@ public final class Config {
     private static final String[] ALL_KEYS = {
         "line-length", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
+        "normalize-comment-start-case", "normalize-comment-end-period",
         "include-sort", "header-guard-rename", "header-guard-style",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines"
@@ -48,6 +49,8 @@ public final class Config {
     private int closingCommentMinLines = 5;
     private boolean formatMacros = false;
     private String lineEndings = "lf";
+    private boolean normalizeCommentStartCase = true;
+    private boolean normalizeCommentEndPeriod = true;
     private boolean includeSort = false;
     private boolean headerGuardRename = false;
     private String headerGuardStyle = "preserve";
@@ -85,6 +88,14 @@ public final class Config {
 
     public String lineEndings() {
         return lineEndings;
+    }
+
+    public boolean isNormalizeCommentStartCase() {
+        return normalizeCommentStartCase;
+    }
+
+    public boolean isNormalizeCommentEndPeriod() {
+        return normalizeCommentEndPeriod;
     }
 
     public boolean isIncludeSort() {
@@ -199,6 +210,10 @@ public final class Config {
         config.closingCommentMinLines = parseInt(raw, "closing-comment-min-lines", config.closingCommentMinLines);
         config.formatMacros = parseBoolean(raw, "format-macros", config.formatMacros);
         config.lineEndings = parseChoice(raw, "line-endings", config.lineEndings, LINE_ENDINGS_CHOICES);
+        config.normalizeCommentStartCase = parseBoolean(raw, "normalize-comment-start-case",
+                config.normalizeCommentStartCase);
+        config.normalizeCommentEndPeriod = parseBoolean(raw, "normalize-comment-end-period",
+                config.normalizeCommentEndPeriod);
         config.includeSort = parseBoolean(raw, "include-sort", config.includeSort);
         config.headerGuardRename = parseBoolean(raw, "header-guard-rename", config.headerGuardRename);
         config.headerGuardStyle = parseChoice(raw, "header-guard-style", config.headerGuardStyle, HEADER_GUARD_STYLE_CHOICES);

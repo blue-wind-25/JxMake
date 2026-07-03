@@ -101,6 +101,8 @@ server-port                = 17173
 closing-comment-min-lines  = 5
 format-macros              = off             # off | on
 line-endings               = lf              # lf | crlf | preserve
+normalize-comment-start-case = on            # on | off
+normalize-comment-end-period = on            # on | off
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 include-sort               = off             # off | on

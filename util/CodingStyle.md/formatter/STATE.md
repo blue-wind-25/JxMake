@@ -217,6 +217,8 @@ server-port                = 17173
 closing-comment-min-lines  = 5
 format-macros              = off             # off | on
 line-endings               = lf              # lf | crlf | preserve
+normalize-comment-start-case = on            # on | off
+normalize-comment-end-period = on            # on | off
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 include-sort               = off             # off | on
@@ -941,7 +943,7 @@ regression.
 Update `README.md` after the tests passed and then add the tests as one of the
 new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 
-### B — Add new configuration entries
+### B — Add new configuration entries (DONE)
 
 ```properties
 # ── Behavior ──────────────────────────────────────────────────────────────────
@@ -951,8 +953,23 @@ normalize-comment-end-period = on              # on | off
 
 And implement that to enable/disable comments title-casing and end-period handling.
 
+Implemented: two new `Config.java` keys following the existing `format-macros` pattern
+(`ALL_KEYS`, private field default `true`, getter, `parseBoolean` line in `fromRawMap`).
+`MiscRule` now takes both flags in its constructor and gates them at the single shared
+definitions of `capitalizeFirstLetter` (start-case) and `stripSoleTrailingPeriod`/
+`stripSoleTrailingPeriodAcrossLines` (end-period) -- every comment-handling call site
+(line comments, block comments, multi-line banner comments, preprocessor trailing
+comments) already funnels through these two methods, so no per-call-site wiring was
+needed. `ScopePipeline`'s constructor also threads both flags down to its own internal
+`MiscRule` instance for consistency, though that instance's comment paths aren't
+currently exercised (used only for §6 assignment grouping there).
+
 Perform smoke-testing after implementing this and then `make test` to ensure there is no
 regression.
+
+Verified via `make test` (15/15 file-pairs, zero regressions, defaults are `on`/`on` so
+existing fixtures are unaffected) plus a manual smoke test toggling both keys `off` via a
+`.jxmake-code-formatter` file, confirming lowercase/no-period comments are left untouched.
 
 Update `README.md` after implementing this.
 

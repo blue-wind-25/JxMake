@@ -28,12 +28,14 @@ public final class Formatter {
 
         final BlockStructureRule blockRule = new BlockStructureRule(language, config.closingCommentMinLines());
         final SwitchRule switchRule = new SwitchRule(language);
-        final MiscRule miscRule = new MiscRule(language);
+        final MiscRule miscRule = new MiscRule(language, config.isNormalizeCommentStartCase(),
+                config.isNormalizeCommentEndPeriod());
         final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(language) : null;
         final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(language) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
-        String text = new ScopePipeline(language, config.indentStyle()).process(content);
+        String text = new ScopePipeline(language, config.indentStyle(), config.isNormalizeCommentStartCase(),
+                config.isNormalizeCommentEndPeriod()).process(content);
 
         // Phase 1: structural/brace passes.
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.tokenize(text));

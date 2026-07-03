@@ -45,13 +45,14 @@ public class ScopePipeline {
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
 
-    public ScopePipeline(final String language, final String indentStyle) {
+    public ScopePipeline(final String language, final String indentStyle,
+            final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod) {
         this.language = language;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(language);
         this.declarationRule = new DeclarationAlignmentRule(language);
         this.getterSetterRule = new GetterSetterRule(language);
-        this.miscRule = new MiscRule(language);
+        this.miscRule = new MiscRule(language, normalizeCommentStartCase, normalizeCommentEndPeriod);
     }
 
     // ── Top-level span splitting ─────────────────────────────────────────────────

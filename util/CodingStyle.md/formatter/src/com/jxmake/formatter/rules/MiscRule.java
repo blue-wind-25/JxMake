@@ -60,9 +60,14 @@ public class MiscRule {
             "true", "false");
 
     private final String language;
+    private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
 
-    public MiscRule(final String language) {
+    public MiscRule(final String language, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod) {
         this.language = language;
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     private static Set<String> setOf(final String... words) {
@@ -2208,7 +2213,7 @@ public class MiscRule {
     /** Cross-line generalization of {@link #stripSoleTrailingPeriod}: strips the trailing `.` on
      *  the last entry only when it is the sole `.` across every entry. */
     private void stripSoleTrailingPeriodAcrossLines(final List<String> lines) {
-        if (lines.isEmpty()) {
+        if (!normalizeCommentEndPeriod || lines.isEmpty()) {
             return;
         }
         int dotCount = 0;
@@ -2247,6 +2252,9 @@ public class MiscRule {
     }
 
     private String capitalizeFirstLetter(final String content) {
+        if (!normalizeCommentStartCase) {
+            return content;
+        }
         for (int i = 0; i < content.length(); i++) {
             final char c = content.charAt(i);
             if (Character.isWhitespace(c)) {
@@ -2287,6 +2295,9 @@ public class MiscRule {
     /** Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
      *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1. */
     private String stripSoleTrailingPeriod(final String content) {
+        if (!normalizeCommentEndPeriod) {
+            return content;
+        }
         int end = content.length();
         while (end > 0 && Character.isWhitespace(content.charAt(end - 1))) {
             end--;

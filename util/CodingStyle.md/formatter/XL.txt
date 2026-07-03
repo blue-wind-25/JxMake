@@ -117,7 +117,7 @@ Bug fix for the `cpp_comments_inp.cpp` formatting test:
          d(0);
      }
 
-(7) Should not be dropped?
+(6) Should not be dropped?
 -template<typename T> requires /* Numeric */ std::integral<T> /* Constraint */ T doubled(T x)
 +template<typename T>
 +    requires /* Numeric */ std::integral<T> /* Constraint */
@@ -132,7 +132,7 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 
 Bug fix for the `java_comments_out.java` formatting test:
 
-(1) Alignment problem - will be related to (2)
+(1) Alignment problem - it will be related to (2) below
      public void method(
 -        int a, // First param
 +        int a,         // First param

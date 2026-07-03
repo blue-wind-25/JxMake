@@ -154,6 +154,7 @@ bench: $(JAR_FILE)
 		mkdir -p $(TEST_TMP);                                                                             \
 		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                   \
 		set -- $$files; probe="$$1";                                                                      \
+		clear;                                                                                            \
 		echo "";                                                                                          \
 		echo "=== Bench: standalone, one-by-one ===";                                                     \
 		start=$$(date +%s%N);                                                                             \
@@ -169,8 +170,10 @@ bench: $(JAR_FILE)
 		end=$$(date +%s%N);                                                                               \
 		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
 		echo "";                                                                                          \
+		$(JAVA) -jar $(JAR_FILE) --server 2>&1 &                                                          \
+		sleep 1;                                                                                          \
+		echo "";                                                                                          \
 		echo "=== Bench: client-server, one-by-one ===";                                                  \
-		$(JAVA) -jar $(JAR_FILE) --server > /dev/null 2>&1 &                                              \
 		tries=0;                                                                                          \
 		while [ $$tries -lt 50 ]; do                                                                      \
 			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi; \
@@ -189,6 +192,7 @@ bench: $(JAR_FILE)
 		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                               \
 		end=$$(date +%s%N);                                                                               \
 		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
+		echo "";                                                                                          \
 		$(JAVA) -jar $(JAR_FILE) --stop;                                                                  \
 		echo "";                                                                                          \
 	)

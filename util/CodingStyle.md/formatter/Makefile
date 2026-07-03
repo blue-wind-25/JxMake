@@ -24,7 +24,7 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all clean test
+.PHONY: all clean test bench
 
 all: $(JAR_FILE)
 
@@ -132,5 +132,62 @@ test: $(JAR_FILE)
 		echo "";                                                                 \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                    \
 		echo "All tests passed.";                                                \
+		echo "";                                                                 \
+	)
+
+# ── Bench target ─────────────────────────────────────────────────────────────
+#
+# Benchmarks total formatting time (excluding server start/stop) across the
+# 15 *_inp.* test files in four configurations:
+#
+#   1. --standalone,  one file per invocation
+#   2. --standalone,  all files in one invocation
+#   3. client-server, one file per invocation
+#   4. client-server, all files in one invocation
+#
+# Override JAVA or JAR_FILE on the command line if needed, same as `make test`.
+#
+
+bench: $(JAR_FILE)
+	@(                                                                               \
+		mkdir -p $(TEST_TMP);                                                    \
+		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                          \
+		set -- $$files; probe="$$1";                                             \
+		echo "";                                                                 \
+		echo "=== Bench: standalone, one-by-one ===";                            \
+		start=$$(date +%s%N);                                                    \
+		for f in $$files; do                                                     \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";   \
+		done;                                                                    \
+		end=$$(date +%s%N);                                                      \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
+		echo "";                                                                 \
+		echo "=== Bench: standalone, all-at-once ===";                           \
+		start=$$(date +%s%N);                                                    \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;         \
+		end=$$(date +%s%N);                                                      \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
+		echo "";                                                                 \
+		echo "=== Bench: client-server, one-by-one ===";                         \
+		$(JAVA) -jar $(JAR_FILE) --server > /dev/null 2>&1 &                     \
+		tries=0;                                                                 \
+		while [ $$tries -lt 50 ]; do                                             \
+			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi; \
+			tries=$$((tries + 1));                                           \
+			sleep 0.1;                                                       \
+		done;                                                                    \
+		start=$$(date +%s%N);                                                    \
+		for f in $$files; do                                                     \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                \
+		done;                                                                    \
+		end=$$(date +%s%N);                                                      \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
+		echo "";                                                                 \
+		echo "=== Bench: client-server, all-at-once ===";                        \
+		start=$$(date +%s%N);                                                    \
+		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                      \
+		end=$$(date +%s%N);                                                      \
+		echo "Total: $$(( (end - start) / 1000000 )) ms";                        \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                         \
 		echo "";                                                                 \
 	)

@@ -632,9 +632,9 @@ regression.
 Update `README.md` after the tests passed and then add the tests as one of the
 new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 
-### D — Extra
+### D — Extra (DONE)
 
-1. Smoke test support multiple-file formatting at once, both in `--standalone` and
+1. Smoke test the support multiple-file formatting at once, both in `--standalone` and
    client-server mode
 2. Add `bench` target in Makefile for benchmarking (calculate the total time):
    - Formatting the 15 files above one by one in `--standalone` mode
@@ -645,6 +645,26 @@ new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 Start the server before benchmarking the client-server mode and then stop the server
 after the benchmarking is done. Do not include the server start and stop time in
 the benchmark.
+
+**Implemented:** new `bench` Makefile target covers both items at once — its
+"all-at-once" standalone/client-server passes each invoke the JAR with all 15
+`*_inp.*` files as separate CLI args in one process, which is the multi-file smoke
+test item 1 asked for, so no separate test was written. Timing uses
+`date +%s%N` deltas around each of the four passes; the client-server passes start
+the server backgrounded (`&`, since `ServerMode.start` blocks in the foreground by
+design — non-daemon `HttpServer` listener threads keep the JVM alive until
+`/shutdown`, RDD_KEY_9) and poll with a real client request (formatting
+`h_core_inp.h`) until it succeeds or 50 retries (5s) elapse, before starting the
+timer — this excludes both server startup and the lockfile/port-bind race from the
+measured time. The probe file is the first entry of the same `$(INP_FILES)` list
+used for the timed passes (`set -- $$files; probe="$$1"`), not a hardcoded filename.
+Server is stopped via `--stop` after the last pass. Verified: `make
+bench` runs end-to-end with no hang and no leftover `java`/lockfile processes;
+`make test` still 15/15 PASS (forward + idempotency) afterward.
+
+Makefile note: keep recipe line continuations (`\`) aligned to a common column,
+consistent with the existing `test` target — this project's Makefile uses tab
+size 8.
 
 ### E — Code cleanups
 1. These comparison:

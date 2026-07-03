@@ -22,6 +22,11 @@ JAR-applied alignment).
 Do **not** use this preamble with small on-device models (Qwen2.5-Coder-3B, Llama
 3.2 3B, etc.) — they fail inconsistently on column alignment and bracket-padding rules.
 
+This preamble is language-agnostic; combine it with the style files for the target
+language (see README.txt). For Kotlin, this is currently the **only** available
+workflow — the deterministic JAR does not yet implement Kotlin support, so there is
+no post-JAR layout-judgment pass for Kotlin files until that lands.
+
 ---
 
 ## Defaults for Judgment-Call Rules

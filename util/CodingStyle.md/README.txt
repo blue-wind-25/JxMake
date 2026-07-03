@@ -6,17 +6,25 @@ Files in this directory
   STYLE.md                  Common rules for all languages (read this first)
   STYLE_C_CPP.md            C and C++ extensions/overrides
   STYLE_JAVA.md             Java extensions/overrides
+  STYLE_KOTLIN.md           Kotlin 1.0-1.9 extensions/overrides
+  STYLE_KOTLIN2.md          Kotlin 2.0+ extensions/overrides (read after STYLE_KOTLIN.md)
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
-  1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically.
-  Run it first. The AI workflows described here cover the remaining Tier-3
-  aesthetic decisions the JAR intentionally leaves untouched:
+  1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
+  for C, C++, and Java. Run it first for those languages. The AI workflows
+  described here cover the remaining Tier-3 aesthetic decisions the JAR
+  intentionally leaves untouched:
     - Function argument list layout (when the source is already multi-line and
       the author's grouping intent should be preserved or improved)
     - Getter/setter groups with non-standard naming conventions
+
+  NOTE — Kotlin: the JAR does not yet implement Kotlin support (see STATE.md
+  for status). Until it does, the full-file AI pass is the only way to apply
+  STYLE_KOTLIN.md / STYLE_KOTLIN2.md; there is no post-JAR layout-judgment
+  workflow for Kotlin files yet.
 
   There are two AI passes, described below. Use only one per file per run.
 
@@ -88,6 +96,12 @@ Combine the relevant preamble with the style files for the target language:
 
   FULL-FILE PASS — Java files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md > /tmp/style_java_full.txt
+
+  FULL-FILE PASS — Kotlin files (1.0-1.9):
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md > /tmp/style_kotlin_full.txt
+
+  FULL-FILE PASS — Kotlin files (2.0+):
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin2_full.txt
 
   LAYOUT JUDGMENT PASS — any language:
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
@@ -180,7 +194,7 @@ Script (reformat_file.py):
 
   if __name__ == "__main__":
       if len(sys.argv) < 3:
-          print(f"Usage: {sys.argv[0]} <source_file> <lang: c|cpp|java> [pass: full|aesthetic]")
+          print(f"Usage: {sys.argv[0]} <source_file> <lang: c|cpp|java|kotlin|kotlin2> [pass: full|aesthetic]")
           sys.exit(1)
 
       src, lang = sys.argv[1], sys.argv[2]
@@ -195,6 +209,12 @@ Script (reformat_file.py):
       elif lang == "java":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_JAVA.md")
+      elif lang == "kotlin":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_KOTLIN.md")
+      elif lang == "kotlin2":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_KOTLIN.md", style_dir / "STYLE_KOTLIN2.md")
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 
@@ -213,6 +233,10 @@ Usage:
 
   # Layout judgment pass (post-JAR file):
   python3 reformat_file.py src/Utils.c c aesthetic
+
+  # Kotlin full-file pass (no JAR support yet, so this is the only path):
+  python3 reformat_file.py src/Utils.kt kotlin
+  python3 reformat_file.py src/Utils.kt kotlin2   # 2.0+ source
 
 
 Tips and Limitations

@@ -501,9 +501,17 @@ public class BlockStructureRule {
 
             if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lastSigIdx >= 0
                     && isPunct(tokens.get(lastSigIdx), "}")
-                    && gap.stream().noneMatch(this::isComment)
                     && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
-                out.append('\n').append(indentBefore(tokens, lastSigIdx));
+                final String indent = indentBefore(tokens, lastSigIdx);
+                out.append('\n').append(indent);
+                for (final Token g : gap) {
+                    if (isComment(g)) {
+                        out.append(g.text);
+                    }
+                }
+                if (gap.stream().anyMatch(this::isComment)) {
+                    out.append('\n').append(indent);
+                }
             } else {
                 for (final Token g : gap) {
                     out.append(g.text);
@@ -559,9 +567,17 @@ public class BlockStructureRule {
                     && ("catch".equals(t.text) || "finally".equals(t.text))
                     && lastSigIdx >= 0
                     && isPunct(tokens.get(lastSigIdx), "}")
-                    && gap.stream().noneMatch(this::isComment)
                     && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
-                out.append('\n').append(indentBefore(tokens, lastSigIdx));
+                final String indent = indentBefore(tokens, lastSigIdx);
+                out.append('\n').append(indent);
+                for (final Token g : gap) {
+                    if (isComment(g)) {
+                        out.append(g.text);
+                    }
+                }
+                if (gap.stream().anyMatch(this::isComment)) {
+                    out.append('\n').append(indent);
+                }
             } else {
                 for (final Token g : gap) {
                     out.append(g.text);

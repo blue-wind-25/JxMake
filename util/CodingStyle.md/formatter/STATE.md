@@ -564,14 +564,17 @@ accept `final` there). This applies to all `.java` files under `src/`.
     typedef-anonymous-struct-with-alias shapes. User confirmed and hand-edited
     `c_comments_out.c` to remove the blank-line expectation around `Trio`'s fields instead of
     changing formatter behavior.
+  - Bug (4) FIXED: `} /* non-negative */ else {` was not split onto separate lines. Root cause:
+    `BlockStructureRule.placeElseOnOwnLine`'s guard `gap.stream().noneMatch(this::isComment)`
+    unconditionally bailed out of *all* repositioning whenever any comment sat in the
+    `}`...`else` gap, leaving the original same-line text untouched verbatim. Fixed by dropping
+    that guard and instead relocating any comment(s) found in the gap onto their own line
+    between `}` and `else` (both now on their own lines at `}`'s indentation). Applied the
+    identical fix to `placeCatchFinallyOnOwnLine` for consistency, since it shares the exact
+    same structure/guard (no test currently exercises that path, but it had the same latent
+    bug). Verified via `make test`, zero regressions.
   - CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next
-    session should fix these in order):
-    - (4) `} /* non-negative */ else {` not split onto separate lines (comment should move to
-      its own line between `}` and `else`). Root cause: `BlockStructureRule.placeElseOnOwnLine`
-      (line ~502-505) has a guard `gap.stream().noneMatch(this::isComment)` that unconditionally
-      bails out of *all* repositioning whenever any comment sits in the `}`...`else` gap, leaving
-      the original same-line text untouched verbatim. The guard needs to instead relocate the
-      comment onto its own line (between `}` and `else`) rather than skip the whole construct.
+    session should fix this):
     - (5) `// macro a` never gets capitalized to `// Macro a` (unlike ordinary `//` comments
       elsewhere in the file). **Not** a word-exemption/no-capitalize list. Root cause:
       `TokenizerCore` lexes an entire `#define NAME VALUE // comment` line as one opaque

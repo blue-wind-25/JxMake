@@ -662,13 +662,19 @@ public class DeclarationAlignmentRule {
                 && col.type == TokenType.OP && ":".equals(col.text);
     }
 
-    /** True iff a comment token appears in {@code stmt}'s leading gap, before the first
-     *  significant (code) token -- by construction (see {@link #pullTrailingSameLine}) this can
-     *  only be a standalone comment on its own line, never a same-line trailing comment left
-     *  over from the previous statement. */
+    /** True iff a comment or preprocessor-directive token appears in {@code stmt}'s leading gap,
+     *  before the first significant (code) token -- by construction (see
+     *  {@link #pullTrailingSameLine}) this can only be a standalone comment/directive on its own
+     *  line, never a same-line trailing comment left over from the previous statement. A leading
+     *  `#ifdef`/`#elif`/`#else`/`#endif`/etc. directive must break the group the same way a
+     *  standalone comment does: {@code render(group)} only re-emits each {@code Declaration}'s own
+     *  fields, so a directive's raw text embedded mid-group (not caught by
+     *  {@code applyDeclarationsPass}'s leading-gap capture, which only covers the group's very
+     *  first statement) would otherwise be silently dropped. */
     private boolean hasCommentBefore(final List<Token> stmt) {
         for (final Token t : stmt) {
-            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK
+                    || t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF) {
                 return true;
             }
             if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {

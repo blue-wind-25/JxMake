@@ -809,6 +809,43 @@ Multi-star names (`(**cb)`) are also handled — the tokenizer emits a run of
 `*` as one merged rep-op token (`Token.isRepOp`), not separate `*` tokens, so
 the detection checks `isRepOp(t, '*')` rather than a literal `"*"` op match.
 
+**`#ifdef`/`#elif`/`#else`/`#endif` interleaved with declarations dropped every
+branch but the first — FIXED**
+Discovered while implementing `### C` (Java preprocessor pass-through), but
+confirmed to affect C/C++ too — not Java-specific. `#ifdef`/`#elif`/`#else`
+directives sitting between sibling declarations in the same group were
+silently dropped (only the leading `#ifdef` before the group's first
+declaration and the trailing `#endif` after its last survived), e.g.:
+
+```cpp
+#ifdef FEATURE_X
+    int featureFlag = 1;
+#elif defined(FEATURE_Y)
+    int featureFlag = 2;
+#else
+    int featureFlag = 0;
+#endif
+```
+collapsed to just the three declarations under one `#ifdef ... #endif` with
+the `#elif`/`#else` lines gone entirely. Root cause:
+`DeclarationAlignmentRule.splitStatements`/`ScopePipeline.splitTopLevelSpans`
+never treat a `PREPROCESSOR`/`MACRO_DEF` token as its own statement boundary
+(only `;`/`}`/access-specifier `:` are), so a directive line's tokens end up
+folded into the *following* statement's token list -- and `groupDeclarations`'
+`hasCommentBefore` group-break guard (added earlier for standalone comments,
+see the `c_comments_inp.c` Bug 1 entry above) only checked for
+`COMMENT_LINE`/`COMMENT_BLOCK`, not `PREPROCESSOR`/`MACRO_DEF`, so a directive
+mid-group never forced a group boundary. Since `render(group)` only re-emits
+each `Declaration`'s own parsed fields (type/modifiers/name/init) with no
+field carrying interleaved raw text, any directive line embedded *inside* a
+group (not just before the group's very first statement, which
+`applyDeclarationsPass`'s leading-gap capture already preserves) was silently
+discarded. Fixed by adding `PREPROCESSOR`/`MACRO_DEF` to `hasCommentBefore`'s
+check, forcing a group break at any leading directive exactly like a
+standalone comment already does. Verified via `make test` (zero regressions,
+15/15 file-pairs) plus manual smoke tests of the `#elif`/`#else` shape above
+in both `.cpp` and `.java`, confirmed idempotent.
+
 **`using` alias declarations not aligned — NOT SCHEDULED (design decision)**
 `using Foo = Type;` is inverted (name, then `=`, then type) versus every other
 declaration this rule handles (type, then name), so it can't reuse the
@@ -936,11 +973,11 @@ passes them through untouched with no per-rule Java-specific handling needed. Ve
 
 Smoke-testing surfaced two pre-existing bugs in the shared declaration-grouping/splice
 pipeline, **not introduced by this change** (confirmed identical in unmodified C++/plain-C
-files of the same shape via `git stash`): (1) `#ifdef`/`#else`/`#endif` interleaved with
-declarations inside a scope drops the `#else` branch's content; (2) a preprocessor
-directive immediately before a Java method definition gets glued onto the same line
-(Java-specific, C++ unaffected -- see new Known Gap above). Both are out of scope for this
-task and left as separate, not-yet-scheduled gaps rather than expanding C's scope.
+files of the same shape via `git stash`): (1) `#ifdef`/`#elif`/`#else`/`#endif` interleaved
+with declarations inside a scope dropped every branch but the first (affects C/C++ too --
+**now FIXED**, see "Known Gaps — Fixed" below); (2) a preprocessor directive immediately
+before a Java method definition gets glued onto the same line (Java-specific, C++
+unaffected -- still open, see Known Gap above).
 
 Perform smoke-testing after implementing this and then `make test` to ensure there is no
 regression.

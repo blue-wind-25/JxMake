@@ -671,8 +671,9 @@ Via comments inside the code:
 //% JXM_CFMT_ENA
 /*% JXM_CFMT_ENA */
 
-Via command line options to start with `JXM_CFMT_DIS` add option:
---format-off
+Via command line option `--format-off`: formatting starts disabled for the whole file, as
+if `JXM_CFMT_DIS` were present at the top -- the user must insert an explicit
+`JXM_CFMT_ENA` marker in the source to turn formatting back on from that point onward.
 
 Update `README.md` after implementing this.
 
@@ -684,15 +685,34 @@ normalize-comment-start-case = on              # on | off
 normalize-comment-end-period = on              # on | off
 ```
 
+And implement that to enable/disable comments title-casing and end-period handling.
+
 Update `README.md` after implementing this.
 
-### Cleanups
+### Extra
+
+1. Smoke test support multiple-file formatting at once, both in `--standalone` and
+   client-server mode
+2. Add `bench` target in Makefile for benchmarking (calculate the total time):
+   - Formatting the 15 files above one by one in `--standalone` mode
+   - Formatting the 15 files above at once in `--standalone` mode
+   - Formatting the 15 files above one by one in client-server mode
+   - Formatting the 15 files above at once in client-server mode
+
+Start the server before benchmarking the client-server mode and then stop the server
+after the benchmarking is done. Do not include the server start and stop time in
+the benchmark.
+
+### Code cleanups
 1. These comparison:
      "c".equals()
      "cpp".equals()
      "java".equals()
    are scattered all over the place in the code, please refactor the, so they
-   are only compared once for every file being processed.
+   are only compared once for every file being processed -- precompute
+   `isC`/`isCpp`/`isJava` (or an equivalent boolean/enum) once per file in
+   `Formatter.formatOne` and thread it down instead of re-doing the string
+   comparison in every rule method.
 2. Checkings such as:
      isOp(...)
      isPunct(...)
@@ -703,16 +723,22 @@ Update `README.md` after implementing this.
    are scattered all over the place in the code, please refactor the, so they
    are centralized in the `TokenizerCore.Token` class or other class.
 
-### Extra
+### Add more tests
 
-1. Smoke test support multiple-file formatting at once, both in `--standalone` and
-   client-server mode
-2. Add `bench` target in Makefile for benchmarking (calculate the total time):
-   - Formatting the 15 files above one by one in `--standalone` mode
-   - Formatting the 15 files above at once in `--standalone` mode
-   - Formatting the 15 files above one by one in client-server mode
-   - Formatting the 15 files above at once in client-server ` mode
+Add more `*_inp.c/cpp/java` and `*_out.c/cpp/java` test pairs to test more construct
+variants (do not modify the existing test pairs).
 
-Start the server before benchmarking the client-server mode and then stop the server
-after the benchmarking is done. Do not include the server start and stop time in
-the benchmark.
+Add them also under:
+    File-pair test: `java_comments_inp.java` ...
+in 'STATE.md'
+
+Finally `test/README.txt` to register the new tests.
+
+### Don't damage C-preprocessor macros embedded in Java source
+
+Some Java source files use a C-macro preprocessor (e.g. PCPP-style) as a poor man's
+template mechanism -- `#define`/`#ifdef`/etc. lines mixed into otherwise-normal Java code
+before a separate preprocessing step runs. The Java formatter currently has no awareness
+of this and could corrupt such lines (they don't look like valid Java constructs).
+Investigate and, if needed, add detection/pass-through handling so these preprocessor
+lines are left untouched when formatting `.java` files.

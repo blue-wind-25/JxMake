@@ -6,8 +6,8 @@ Files in this directory
   STYLE.md                  Common rules for all languages (read this first)
   STYLE_C_CPP.md            C and C++ extensions/overrides
   STYLE_JAVA.md             Java extensions/overrides
-  STYLE_KOTLIN.md           Kotlin 1.0-1.9 extensions/overrides
-  STYLE_KOTLIN2.md          Kotlin 2.0+ extensions/overrides (read after STYLE_KOTLIN.md)
+  STYLE_KOTLIN.md           Kotlin extensions/overrides (baseline)
+  STYLE_KOTLIN2.md          Kotlin extensions/overrides (newer constructs, read after STYLE_KOTLIN.md)
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
@@ -97,10 +97,10 @@ Combine the relevant preamble with the style files for the target language:
   FULL-FILE PASS — Java files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md > /tmp/style_java_full.txt
 
-  FULL-FILE PASS — Kotlin files (1.0-1.9):
+  FULL-FILE PASS — Kotlin files (baseline):
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md > /tmp/style_kotlin_full.txt
 
-  FULL-FILE PASS — Kotlin files (2.0+):
+  FULL-FILE PASS — Kotlin files (newer constructs):
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin2_full.txt
 
   LAYOUT JUDGMENT PASS — any language:
@@ -236,7 +236,7 @@ Usage:
 
   # Kotlin full-file pass (no JAR support yet, so this is the only path):
   python3 reformat_file.py src/Utils.kt kotlin
-  python3 reformat_file.py src/Utils.kt kotlin2   # 2.0+ source
+  python3 reformat_file.py src/Utils.kt kotlin2   # newer constructs
 
 
 Tips and Limitations

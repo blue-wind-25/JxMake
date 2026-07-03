@@ -686,6 +686,38 @@ size 8.
    are scattered all over the place in the code, please refactor the, so they
    are centralized in the `TokenizerCore.Token` class or other class.
 
+**Files needing cleanup (identified, not yet touched — actual cleanup deferred to
+next session):**
+
+Item 1 — `"c"/"cpp"/"java"` string comparisons (`grep -rEo
+'"c"\.equals\(|"cpp"\.equals\(|"java"\.equals\('`), occurrence counts per file:
+- `rules/DeclarationAlignmentRule.java` — 9
+- `ScopePipeline.java` — 3
+- `rules/BlockStructureRule.java` — 3
+- `Formatter.java` — 3 (this is the target site where `isC`/`isCpp`/`isJava` should
+  already be precomputed and threaded down instead of duplicated elsewhere)
+- `tokenizer/TokenizerCore.java` — 2
+- `rules/MiscRule.java` — 2
+- `rules/JavaSpecificRule.java` — 1
+- `rules/GetterSetterRule.java` — 1
+- `rules/CppSpecificRule.java` — 1
+
+Item 2 — `isOp`/`isPunct`/`isKeyword`/`isComment`/`isGapToken` (and similar) checks,
+occurrence counts per file:
+- `rules/MiscRule.java` — 124
+- `rules/DeclarationAlignmentRule.java` — 66
+- `rules/JavaSpecificRule.java` — 52
+- `rules/BlockStructureRule.java` — 51
+- `rules/CppSpecificRule.java` — 46
+- `rules/SwitchRule.java` — 33
+- `ScopePipeline.java` — 32
+- `rules/GetterSetterRule.java` — 24
+
+(Counts are raw call-site occurrences of the five named checks combined, not method
+definitions; the actual centralization target is likely `TokenizerCore.Token` per the
+task wording above, but which of these are call sites vs. duplicate private helper
+definitions needs to be confirmed file-by-file during the real cleanup pass.)
+
 ### F — Add more tests
 
 Add more `*_inp.c/cpp/java` and `*_out.c/cpp/java` test pairs to test more construct

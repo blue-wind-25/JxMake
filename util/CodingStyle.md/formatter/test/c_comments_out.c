@@ -19,12 +19,10 @@ static int y = 20;
 
 // Comment after struct opening brace
 typedef struct {
-
     /* Fields below */
     int a; // First field
     int b; /* Second field */
     int c; // Third field
-
 } Trio;
 
 // Comment between function params

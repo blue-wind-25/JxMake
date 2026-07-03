@@ -1303,6 +1303,13 @@ public class MiscRule {
             maxTypeLen = Math.max(maxTypeLen, renderTokens(p.typeTokens).length());
         }
         final int typeColWidth = maxTypeLen + 1;
+        int maxNameCommaLen = 0;
+        for (int i = 0; i < sig.params.size(); i++) {
+            final Param p = sig.params.get(i);
+            final String nameCommaText = p.name.text + renderTokens(p.sizeTokens)
+                    + (i < sig.params.size() - 1 ? "," : "");
+            maxNameCommaLen = Math.max(maxNameCommaLen, nameCommaText.length());
+        }
 
         final List<String> lines = new ArrayList<>();
         lines.add(head);
@@ -1310,9 +1317,11 @@ public class MiscRule {
         for (int i = 0; i < sig.params.size(); i++) {
             final Param p = sig.params.get(i);
             final String typeText = renderTokens(p.typeTokens);
-            final String nameText = p.name.text + renderTokens(p.sizeTokens)
-                    + (i < sig.params.size() - 1 ? "," : "")
-                    + (p.comment != null ? " " + p.comment.text : "");
+            final String nameCommaText = p.name.text + renderTokens(p.sizeTokens)
+                    + (i < sig.params.size() - 1 ? "," : "");
+            final String nameText = p.comment != null
+                    ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
+                    : nameCommaText;
             lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
@@ -2356,14 +2365,23 @@ public class MiscRule {
         }
         final int typeColWidth = maxTypeLen + 1;
         final String paramIndent = baseIndent + DEFAULT_INDENT_UNIT;
+        int maxNameCommaLen = 0;
+        for (int i = 0; i < sig.params.size(); i++) {
+            final Param p = sig.params.get(i);
+            final String nameCommaText = p.name.text + renderTokens(p.sizeTokens)
+                    + (i < sig.params.size() - 1 ? "," : "");
+            maxNameCommaLen = Math.max(maxNameCommaLen, nameCommaText.length());
+        }
 
         final List<String> lines = new ArrayList<>();
         for (int i = 0; i < sig.params.size(); i++) {
             final Param p = sig.params.get(i);
             final String typeText = renderTokens(p.typeTokens);
-            final String nameText = p.name.text + renderTokens(p.sizeTokens)
-                    + (i < sig.params.size() - 1 ? "," : "")
-                    + (p.comment != null ? " " + p.comment.text : "");
+            final String nameCommaText = p.name.text + renderTokens(p.sizeTokens)
+                    + (i < sig.params.size() - 1 ? "," : "");
+            final String nameText = p.comment != null
+                    ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
+                    : nameCommaText;
             lines.add(paramIndent + padRight(typeText, typeColWidth) + nameText);
         }
         lines.add(baseIndent + ")");

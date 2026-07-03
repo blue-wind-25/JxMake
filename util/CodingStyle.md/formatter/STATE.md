@@ -547,34 +547,25 @@ accept `final` there). This applies to all `.java` files under `src/`.
     12 file-pairs (still 24/24 PASS forward + idempotency). Missing blank lines around the
     now-preserved comment (bug (2)) and the `Trio` struct's own missing blank lines are still
     open, left for a follow-up.
+  - Bug (3c) FIXED: `int c  /* Third */` (2 spaces before comment) vs `int c /* Third */`
+    actual in `multiParam`'s broken form. Root cause: `MiscRule.render(Signature, ...)`
+    (~line 1314) and its `renderOnePerLine` sibling (~line 2352) appended each param's
+    trailing comment with a hardcoded single space, with no comment-column padding step
+    analogous to the existing `typeColWidth` padding -- since the last param has no trailing
+    comma, its `name+comma` cell was 1 char narrower than sibling params that do (`"c"` vs
+    `"a,"`/`"b,"`), so its comment sat 1 column left of the others. Fixed by adding a
+    `maxNameCommaLen` pass in both methods, padding the `name+comma` cell to a common width
+    across all params in the group before appending the comment. Verified via `make test`,
+    zero regressions.
+  - Bug (2) RESOLVED as a fixture fix, no code change: investigation found the line-count
+    theory doesn't hold (`AudioConfig`: 5 content lines, no blank lines expected;
+    `AudioRingBuf`: 6 content lines, no blank lines expected; `Trio`: only 4 content lines yet
+    blank lines were expected) -- line count is not the differentiator between these
+    typedef-anonymous-struct-with-alias shapes. User confirmed and hand-edited
+    `c_comments_out.c` to remove the blank-line expectation around `Trio`'s fields instead of
+    changing formatter behavior.
   - CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next
     session should fix these in order):
-    - (3c) `int c  /* Third */` expected (2 spaces before comment) vs `int c /* Third */`
-      actual in `multiParam`'s broken form. Root cause: `MiscRule.render(Signature, ...)`
-      (~line 1314) appends each param's trailing comment with a hardcoded single space
-      (`... + (p.comment != null ? " " + p.comment.text : "")`) -- there is no comment-column
-      padding step analogous to the existing `typeColWidth` padding. Since the last param has
-      no trailing comma, its `name+comma` cell is 1 char narrower than sibling params that do
-      (`"c"` vs `"a,"`/`"b,"`), so its comment sits 1 column left of the others. Fix needs a
-      comment-column width pass mirroring the `typeColWidth` logic, padding the `name+comma`
-      cell to a common width across all params in the group before appending the comment.
-    - (2) Missing blank lines around `/* Fields below */` inside the `Trio` struct.
-      User hypothesized a `closing-comment-min-lines`-style threshold (content < 5 lines);
-      **confirmed false** -- `BlockStructureRule.insertNamedConstructBlankLines` has no line-count
-      gate at all (verified: an 8-content-line version of the same struct shape still gets no
-      blank lines). Root cause instead: the `{` token's `.name` field is never set for the
-      `typedef struct { ... } Alias;` shape (anonymous struct, alias identifier *after* the
-      closing brace) -- `TokenizerCore.computeConstructName()` only looks at the last 2
-      significant tokens before `{` (here: `typedef`, `struct`), finds no IDENTIFIER between
-      `struct` and `{`, and returns null; `pendingNamedConstructName` is never armed either
-      since no IDENTIFIER token appears before the brace. `insertNamedConstructBlankLines`
-      requires `t.name != null` to insert blank lines, so this shape is silently skipped
-      entirely (no blank lines, no closing comment). Confirmed via isolated repro: a plain
-      `struct Trio { ... };` (no typedef-alias) gets blank lines + closing comment correctly;
-      only the typedef-anonymous-struct-with-trailing-alias shape is affected. The
-      closing-comment pass elsewhere already has forward-scan logic to recover the trailing
-      alias name for its own purposes -- that resolved name is never fed back into the
-      tokenizer's `{}`-naming step, which is the gap to close.
     - (4) `} /* non-negative */ else {` not split onto separate lines (comment should move to
       its own line between `}` and `else`). Root cause: `BlockStructureRule.placeElseOnOwnLine`
       (line ~502-505) has a guard `gap.stream().noneMatch(this::isComment)` that unconditionally

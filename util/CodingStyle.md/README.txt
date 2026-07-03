@@ -4,8 +4,10 @@ Using AI to Apply the Coding Style Guide
 Files in this directory
 -----------------------
   STYLE.md                  Common rules for all languages (read this first)
-  STYLE_C_CPP.md            C and C++ extensions/overrides
-  STYLE_JAVA.md             Java extensions/overrides
+  STYLE_C_CPP.md            C and C++ extensions/overrides (baseline)
+  STYLE_CPP20.md                  C++ extensions/overrides (newer constructs, read after STYLE_C_CPP.md)
+  STYLE_JAVA.md             Java extensions/overrides (baseline)
+  STYLE_JAVA17.md           Java extensions/overrides (newer constructs, read after STYLE_JAVA.md)
   STYLE_KOTLIN.md           Kotlin extensions/overrides (baseline)
   STYLE_KOTLIN2.md          Kotlin extensions/overrides (newer constructs, read after STYLE_KOTLIN.md)
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
@@ -92,16 +94,13 @@ Combine the relevant preamble with the style files for the target language:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md > /tmp/style_c_full.txt
 
   FULL-FILE PASS — C++ files:
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md > /tmp/style_cpp_full.txt
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md STYLE_CPP20.md > /tmp/style_cpp_full.txt
 
   FULL-FILE PASS — Java files:
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md > /tmp/style_java_full.txt
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_JAVA17 > /tmp/style_java_full.txt
 
-  FULL-FILE PASS — Kotlin files (baseline):
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md > /tmp/style_kotlin_full.txt
-
-  FULL-FILE PASS — Kotlin files (newer constructs):
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin2_full.txt
+  FULL-FILE PASS — Kotlin files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin_full.txt
 
   LAYOUT JUDGMENT PASS — any language:
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
@@ -194,7 +193,7 @@ Script (reformat_file.py):
 
   if __name__ == "__main__":
       if len(sys.argv) < 3:
-          print(f"Usage: {sys.argv[0]} <source_file> <lang: c|cpp|java|kotlin|kotlin2> [pass: full|aesthetic]")
+          print(f"Usage: {sys.argv[0]} <source_file> <lang: c|cpp|java|kotlin> [pass: full|aesthetic]")
           sys.exit(1)
 
       src, lang = sys.argv[1], sys.argv[2]
@@ -205,14 +204,11 @@ Script (reformat_file.py):
           rules = load_rules(style_dir / "AI_PREAMBLE_AESTHETIC.md")
       elif lang in ("c", "cpp"):
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
-                             style_dir / "STYLE_C_CPP.md")
+                             style_dir / "STYLE_C_CPP.md", style_dir / "STYLE_CPP20.md")
       elif lang == "java":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
-                             style_dir / "STYLE_JAVA.md")
+                             style_dir / "STYLE_JAVA.md", style_dir / "STYLE_JAVA17.md")
       elif lang == "kotlin":
-          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
-                             style_dir / "STYLE_KOTLIN.md")
-      elif lang == "kotlin2":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_KOTLIN.md", style_dir / "STYLE_KOTLIN2.md")
       else:
@@ -236,7 +232,6 @@ Usage:
 
   # Kotlin full-file pass (no JAR support yet, so this is the only path):
   python3 reformat_file.py src/Utils.kt kotlin
-  python3 reformat_file.py src/Utils.kt kotlin2   # newer constructs
 
 
 Tips and Limitations

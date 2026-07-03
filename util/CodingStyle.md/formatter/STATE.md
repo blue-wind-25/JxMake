@@ -655,13 +655,18 @@ int    count = 0;
 void (*cb)(int) = NULL;   // ← breaks group; count and ratio in separate groups
 float  ratio = 1.0f;
 ```
-Update `README.md` after implementing this.
+
+Perform smoke-testing after implementing/fixing each of the above gaps and then
+`make test` to ensure there is no regression.
+
+Update `README.md` after the tests passed and then add the tests as one of the
+new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 
 ---
 
 ## TODO — Not Scheduled
 
-### Add support to enable/disable formatting
+### A — Add support to enable/disable formatting
 
 Via comments inside the code:
 
@@ -677,7 +682,7 @@ if `JXM_CFMT_DIS` were present at the top -- the user must insert an explicit
 
 Update `README.md` after implementing this.
 
-### Add new configuration entries:
+### B — Add new configuration entries:
 
 ```properties
 # ── Behavior ──────────────────────────────────────────────────────────────────
@@ -689,7 +694,16 @@ And implement that to enable/disable comments title-casing and end-period handli
 
 Update `README.md` after implementing this.
 
-### Extra
+### C — Don't damage C-preprocessor macros embedded in Java source
+
+Some Java source files use a C-macro preprocessor (e.g. PCPP-style) as a poor man's
+template mechanism -- `#define`/`#ifdef`/etc. lines mixed into otherwise-normal Java code
+before a separate preprocessing step runs. The Java formatter currently has no awareness
+of this and could corrupt such lines (they don't look like valid Java constructs).
+Investigate and, if needed, add detection/pass-through handling so these preprocessor
+lines are left untouched when formatting `.java` files.
+
+### D — Extra
 
 1. Smoke test support multiple-file formatting at once, both in `--standalone` and
    client-server mode
@@ -703,7 +717,7 @@ Start the server before benchmarking the client-server mode and then stop the se
 after the benchmarking is done. Do not include the server start and stop time in
 the benchmark.
 
-### Code cleanups
+### E — Code cleanups
 1. These comparison:
      "c".equals()
      "cpp".equals()
@@ -723,7 +737,7 @@ the benchmark.
    are scattered all over the place in the code, please refactor the, so they
    are centralized in the `TokenizerCore.Token` class or other class.
 
-### Add more tests
+### F — Add more tests
 
 Add more `*_inp.c/cpp/java` and `*_out.c/cpp/java` test pairs to test more construct
 variants (do not modify the existing test pairs).
@@ -734,11 +748,3 @@ in 'STATE.md'
 
 Finally `test/README.txt` to register the new tests.
 
-### Don't damage C-preprocessor macros embedded in Java source
-
-Some Java source files use a C-macro preprocessor (e.g. PCPP-style) as a poor man's
-template mechanism -- `#define`/`#ifdef`/etc. lines mixed into otherwise-normal Java code
-before a separate preprocessing step runs. The Java formatter currently has no awareness
-of this and could corrupt such lines (they don't look like valid Java constructs).
-Investigate and, if needed, add detection/pass-through handling so these preprocessor
-lines are left untouched when formatting `.java` files.

@@ -420,19 +420,7 @@ public class DeclarationAlignmentRule {
     }
 
     private TypeSplit splitCppType(final List<Token> typeTokens) {
-        List<Token> tokens = typeTokens;
-        String postConst = "";
-        final int n = tokens.size();
-        if (n >= 2) {
-            final Token last = tokens.get(n - 1);
-            final Token secondLast = tokens.get(n - 2);
-            if (last.type == TokenType.KEYWORD && "const".equals(last.text)
-                    && isOp(secondLast, "*")) {
-                postConst = "const";
-                tokens = tokens.subList(0, n - 1);
-            }
-        }
-        return new TypeSplit(renderTokens(tokens), postConst);
+        return new TypeSplit(renderTokens(typeTokens), "");
     }
 
     /**
@@ -875,6 +863,77 @@ public class DeclarationAlignmentRule {
                 for (final Token t : rawInit) {
                     if (t.type == TokenType.COMMENT_LINE) {
                         return null;
+                    }
+                }
+            }
+        }
+
+        // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as
+        // Type (*name)(params), i.e. two adjacent parenthesized groups rather than a single
+        // trailing identifier. Detected independently of whether an initializer follows --
+        // the `(params)` group is always part of the type/name here, unlike the generic
+        // trailing-`(...)`-strip below which only fires for forward declarations (no init,
+        // or a func-decl specifier like `= 0`/`= delete`). Folding `(*name)` into the name
+        // cell lets `name.text + sizeTokens` render back as `(*fp)(int)`, so it aligns with
+        // plain variables in the same group exactly like STATE.md's gap example requires.
+        if (end > i && isPunct(body.get(end - 1), ")")) {
+            int depth = 0;
+            int paramsOpenIdx = -1;
+            for (int k = end - 1; k >= i; k--) {
+                final Token t = body.get(k);
+                if (isPunct(t, ")")) {
+                    depth++;
+                } else if (isPunct(t, "(")) {
+                    depth--;
+                    if (depth == 0) {
+                        paramsOpenIdx = k;
+                        break;
+                    }
+                }
+            }
+            if (paramsOpenIdx > i && isPunct(body.get(paramsOpenIdx - 1), ")")) {
+                int depth2 = 0;
+                int nameOpenIdx = -1;
+                for (int k = paramsOpenIdx - 1; k >= i; k--) {
+                    final Token t = body.get(k);
+                    if (isPunct(t, ")")) {
+                        depth2++;
+                    } else if (isPunct(t, "(")) {
+                        depth2--;
+                        if (depth2 == 0) {
+                            nameOpenIdx = k;
+                            break;
+                        }
+                    }
+                }
+                if (nameOpenIdx > i) {
+                    final List<Token> inner = body.subList(nameOpenIdx + 1, paramsOpenIdx - 1);
+                    boolean isFuncPtrName = !inner.isEmpty()
+                            && inner.get(inner.size() - 1).type == TokenType.IDENTIFIER;
+                    for (int k = 0; isFuncPtrName && k < inner.size() - 1; k++) {
+                        // A run of `*` may be tokenized as one merged rep-op (e.g. `**`) rather
+                        // than separate `*` tokens (see Token.isRepOp) -- accept either shape.
+                        if (!Token.isRepOp(inner.get(k), '*')) {
+                            isFuncPtrName = false;
+                        }
+                    }
+                    if (isFuncPtrName) {
+                        final Token nameToken = inner.get(inner.size() - 1);
+                        final StringBuilder wrapped = new StringBuilder("(");
+                        for (int k = 0; k < inner.size() - 1; k++) {
+                            wrapped.append(inner.get(k).text);
+                        }
+                        wrapped.append(nameToken.text).append(')');
+                        nameToken.text = wrapped.toString();
+                        final List<Token> funcPtrTypeTokens = new ArrayList<>(body.subList(i, nameOpenIdx));
+                        if (!funcPtrTypeTokens.isEmpty()) {
+                            final List<Token> rawParams = rawSliceBetween(stmt,
+                                    body.get(paramsOpenIdx), body.get(end - 1));
+                            final List<Token> funcPtrSizeTokens = new ArrayList<>(
+                                    rawParams != null ? rawParams : body.subList(paramsOpenIdx, end));
+                            return new Declaration(modifiers, funcPtrTypeTokens, nameToken, funcPtrSizeTokens,
+                                    initTokens, new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix);
+                        }
                     }
                 }
             }

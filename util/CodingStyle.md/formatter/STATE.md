@@ -767,46 +767,66 @@ by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
 
 ---
 
-## Known Gaps — Not Scheduled
+## Known Gaps — Fixed
 
-Low-priority issues that do not corrupt output and have no immediate fix
-planned. Recorded here so they are not rediscovered in future sessions.
+Previously-recorded low-priority gaps, now resolved. Kept here (not deleted)
+so the history of what was wrong and how it was fixed isn't lost.
 
-**`* const` cosmetic gap in mixed declaration groups (`DeclarationAlignmentRule`)**
-The current separate-postConst-column layout produces a visual gap between `*`
-and `const` when shorter types share a group with longer ones:
+**`* const` cosmetic gap in mixed declaration groups (`DeclarationAlignmentRule`) — FIXED**
+The separate-postConst-column layout used to produce a visual gap between `*`
+and `const` when shorter types shared a group with longer ones:
 
 ```c
 char**         c;
 double**       c;
-char*    const c; // ← gap (current)
+char*    const c; // ← gap (was)
 char* const    c; // ← correct per §8
 ```
 
-Fix (low regression risk): in `splitCppType`, always return `postConst = ""`
-and include the full token sequence in `typeAndStar`. No correctness impact
-in the current state — all variants align and render without corruption.
-East-const (`char const*`) is intentionally not normalized to west-const.
+Fix: `splitCppType` now always returns `postConst = ""` and includes the full
+token sequence (including any trailing `const`) in `typeAndStar`, so the whole
+type+star+const text is one column padded uniformly. East-const
+(`char const*`) is intentionally not normalized to west-const.
 
-**`typedef`, `using`, and direct function-pointer declarations not aligned**
-`typedef` and `using` are not in `typeKeywords`, and direct function-pointer
-declarations (`void (*fp)(int)`) have `)` as their last token rather than an
-IDENTIFIER, so `parseDeclaration` returns null for all of these. They pass
-through unchanged — no corruption — but a `typedef`/`using`/func-ptr line
-in the middle of a plain variable group breaks the group at that point, so
-the surrounding variables end up in separate alignment groups:
+**`typedef` declarations not aligned — FIXED**
+`typedef` is now a modifier-column keyword in `CppModifierPriority` (rank 0,
+ahead of `static`/`constexpr`/etc. since C/C++ grammar requires it first).
+`typedef int Foo;` parses through the normal declaration path and joins
+surrounding plain-variable groups instead of breaking them.
+
+**Direct function-pointer declarations not aligned — FIXED**
+`void (*fp)(int);` used to make `parseDeclaration` return null (last token is
+`)`, not an IDENTIFIER), breaking the surrounding group. `parseDeclaration`
+now detects the `Type (*name)(params)` shape directly (independent of whether
+an initializer follows) and folds `(*name)` into the name cell, so it renders
+and aligns like any other declaration in the group:
 
 ```c
-int    count = 0;
-void (*cb)(int) = NULL;   // ← breaks group; count and ratio in separate groups
-float  ratio = 1.0f;
+int   count      = 0;
+void  (*cb)(int) = NULL;
+float ratio      = 1.0f;
 ```
 
-Perform smoke-testing after implementing/fixing each of the above gaps and then
-`make test` to ensure there is no regression.
+Multi-star names (`(**cb)`) are also handled — the tokenizer emits a run of
+`*` as one merged rep-op token (`Token.isRepOp`), not separate `*` tokens, so
+the detection checks `isRepOp(t, '*')` rather than a literal `"*"` op match.
 
-Update `README.md` after the tests passed and then add the tests as one of the
-new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
+**`using` alias declarations not aligned — NOT SCHEDULED (design decision)**
+`using Foo = Type;` is inverted (name, then `=`, then type) versus every other
+declaration this rule handles (type, then name), so it can't reuse the
+existing `typeTokens`/`name` model. Still breaks group boundaries; passes
+through unchanged (no corruption). If picked up later, align at `=` per the
+user's own suggested layout:
+
+```cpp
+using whatever1           = ...;
+using long_long_long_name = ...;
+```
+
+This needs its own parsing branch (recognize `using IDENTIFIER = ...;`) and a
+column layout keyed on the `=` position rather than the name+size position —
+scope it as a small standalone task rather than folding into the function-
+pointer/typedef fix above.
 
 ---
 
@@ -826,7 +846,11 @@ Via command line option `--format-off`: formatting starts disabled for the whole
 if `JXM_CFMT_DIS` were present at the top -- the user must insert an explicit
 `JXM_CFMT_ENA` marker in the source to turn formatting back on from that point onward.
 
-Update `README.md` after implementing this.
+Perform smoke-testing after implementing this and then `make test` to ensure there is no
+regression.
+
+Update `README.md` after the tests passed and then add the tests as one of the
+new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 
 ### B — Add new configuration entries:
 
@@ -838,6 +862,9 @@ normalize-comment-end-period = on              # on | off
 
 And implement that to enable/disable comments title-casing and end-period handling.
 
+Perform smoke-testing after implementing this and then `make test` to ensure there is no
+regression.
+
 Update `README.md` after implementing this.
 
 ### C — Don't damage C-preprocessor macros embedded in Java source
@@ -848,6 +875,12 @@ before a separate preprocessing step runs. The Java formatter currently has no a
 of this and could corrupt such lines (they don't look like valid Java constructs).
 Investigate and, if needed, add detection/pass-through handling so these preprocessor
 lines are left untouched when formatting `.java` files.
+
+Perform smoke-testing after implementing this and then `make test` to ensure there is no
+regression.
+
+Update `README.md` after the tests passed and then add the tests as one of the
+new tests candidate in `## TODO — Not Scheduled` : `### F — Add more tests`.
 
 ### D — Extra
 
@@ -894,3 +927,13 @@ in 'STATE.md'
 
 Finally `test/README.txt` to register the new tests.
 
+Candidate: the three `DeclarationAlignmentRule` fixes under `## Known Gaps — Fixed`
+above (`* const` gap, `typedef` alignment, function-pointer alignment incl.
+multi-star `(**cb)`). Reuse the constructs already written there as the `_inp`
+source instead of re-deriving new snippets -- add a `c_cpp_decl_gaps_inp.c`
+(or fold into an existing `_core`/`_modern` pair) covering:
+- mixed `char**`/`double**`/`char* const` group (the gap example)
+- `typedef unsigned char byte;` inside a plain-variable group
+- `void (*cb)(int) = NULL;` and `void (**cb)(int) = NULL;` inside a
+  plain-variable group with differing name widths, to assert the `=` aligns
+  across the whole group.

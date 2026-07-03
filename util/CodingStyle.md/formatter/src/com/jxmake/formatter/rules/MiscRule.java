@@ -1773,11 +1773,61 @@ public class MiscRule {
                 }
             } else if (t.type == TokenType.COMMENT_BLOCK) {
                 out.append(reformatMultiLineBlockComment(t.text, indentBefore(tokens, i)));
+            } else if (t.type == TokenType.PREPROCESSOR) {
+                out.append(capitalizePreprocessorTrailingComment(t.text));
             } else {
                 out.append(t.text);
             }
         }
         return out.toString();
+    }
+
+    /** A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
+     *  (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
+     *  doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
+     *  is skipped by the loop above. Applies the same capitalization rule directly to the text
+     *  portion after a top-level (not inside a string/char literal) `//`, if any. */
+    private String capitalizePreprocessorTrailingComment(final String text) {
+        final int idx = findTopLevelLineCommentStart(text);
+        if (idx < 0) {
+            return text;
+        }
+        final String before = text.substring(0, idx);
+        final String inner = text.substring(idx + 2);
+        return before + "//" + capitalizeFirstLetter(inner);
+    }
+
+    /** Index of a `//` sequence not nested inside a `"..."` or `'...'` literal, or -1 if none. */
+    private int findTopLevelLineCommentStart(final String text) {
+        boolean inString = false;
+        boolean inChar = false;
+        for (int i = 0; i < text.length() - 1; i++) {
+            final char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (inChar) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '\'') {
+                    inChar = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+            } else if (c == '\'') {
+                inChar = true;
+            } else if (c == '/' && text.charAt(i + 1) == '/') {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** Groups consecutive `//` line comments -- back to back with no blank line between -- into

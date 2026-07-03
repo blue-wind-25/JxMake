@@ -482,7 +482,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     `skipThrowsClauseBackward` (handles comma-separated, qualified exception names).
   - All 3 verified via `make test`, zero regressions (after updating `java_core_out.java`'s enum
     fixture per Bug 2).
-- [ ] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c`
+- [x] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c` (PASS)
   - Bug (0)/(3) FIXED (partial, in progress -- other reported bugs in this file remain open):
     a mid-param `//` line comment (e.g. `int b, // second` immediately followed on the next
     line by the next param) was swept into the *following* param's `typeTokens` instead of
@@ -573,18 +573,20 @@ accept `final` there). This applies to all `.java` files under `src/`.
     identical fix to `placeCatchFinallyOnOwnLine` for consistency, since it shares the exact
     same structure/guard (no test currently exercises that path, but it had the same latent
     bug). Verified via `make test`, zero regressions.
-  - CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next
-    session should fix this):
-    - (5) `// macro a` never gets capitalized to `// Macro a` (unlike ordinary `//` comments
-      elsewhere in the file). **Not** a word-exemption/no-capitalize list. Root cause:
-      `TokenizerCore` lexes an entire `#define NAME VALUE // comment` line as one opaque
-      `PREPROCESSOR` token (see the type's own comment: "opaque single-line #-directive") --
-      the trailing `//` text is embedded raw inside that token's text and never becomes a
-      separate `COMMENT_LINE` token, so it never reaches `MiscRule.enforceCommentStyle`'s
-      capitalization logic (which only rewrites `COMMENT_LINE`/`COMMENT_BLOCK` token types).
-      Fix needs the tokenizer to split a trailing `//` comment off of `#define` (and other
-      preprocessor) lines into its own `COMMENT_LINE` token, or `enforceCommentStyle` (or a new
-      pass) to specifically parse and rewrite the comment portion of `PREPROCESSOR` token text.
+  - Bug (5) FIXED: `// macro a` was never capitalized to `// Macro a` (unlike ordinary `//`
+    comments elsewhere in the file). Root cause: `TokenizerCore` lexes an entire
+    `#define NAME VALUE // comment` line as one opaque `PREPROCESSOR` token, so the trailing
+    `//` text is embedded raw inside that token's text and never reaches
+    `MiscRule.enforceCommentStyle`'s capitalization logic (which only rewrote `COMMENT_LINE`/
+    `COMMENT_BLOCK` token types). Fixed by adding a `PREPROCESSOR`-token branch to
+    `enforceCommentStyle` that locates a top-level (not inside a `"..."`/`'...'` literal) `//`
+    via new `findTopLevelLineCommentStart`, then capitalizes just that trailing portion via
+    new `capitalizePreprocessorTrailingComment`, leaving the rest of the directive text
+    untouched. Verified via `make test`: all 13 file-pair tests now PASS (forward +
+    idempotency), zero regressions.
+
+  `c_comments_inp.c`/`c_comments_out.c` now PASSES in full (forward + idempotency) --
+  all 5 bugs found in this file-pair are fixed.
 - [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 

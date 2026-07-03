@@ -10,28 +10,7 @@ Fix the above XXX bug firsts, ignore the other parts of the diff.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
 
-Continue with `- CONFIRMED, NOT YET FIXED (investigated only, per explicit user instruction -- next`.
-
-
 Bug fix for the `c_comments_inp.c` formatting test:
-
-(3c)
- void multiParam(
-     int a, /* First */
-     int b, // Second
--    int c  /* Third */
-+    int c /* Third */
- )
-
-(2)
- typedef struct {
--
-     /* Fields below */
-     int a; // First field
-     int b; /* Second field */
-     int c; // Third field
--
- } Trio;
 
 (4)
      if(a < 0) {

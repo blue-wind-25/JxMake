@@ -161,6 +161,16 @@ public class SwitchRule {
         if (firstSig < 0) {
             return false; // empty/fallthrough body -- trivially fits on one line
         }
+        // A `//` line comment appearing before the body's first real statement token (e.g. right
+        // after the case label, `case 1: // note`) always forces that statement onto the next
+        // physical line -- a `//` comment can never be followed by more code on the same line --
+        // so such a case can never be rendered in the single-line inline form, unlike a `/* */`
+        // block comment in the same position (`case 1: /* note */ return 1;`), which can.
+        for (int i = from; i < firstSig; i++) {
+            if (tokens.get(i).type == TokenType.COMMENT_LINE) {
+                return true;
+            }
+        }
         for (int i = firstSig; i <= lastSig; i++) {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 return true;
@@ -266,17 +276,26 @@ public class SwitchRule {
         }
     }
 
-    /** Ensures the gap [fromIdx, toIdxExclusive) contains a blank line, unless it holds a comment. */
+    /** Ensures the gap [fromIdx, toIdxExclusive) contains a blank line. A standalone comment
+     *  glued to the label/statement that follows it (e.g. `// comment before case` right before
+     *  `case 1:`) stays right where it is -- the blank line is still guaranteed, but only in the
+     *  sub-gap before that first comment, same as {@code BlockStructureRule.ensureBlankLine}'s
+     *  own comment-preserving precedent (never relocate a comment, just still ensure the blank
+     *  line around it). */
     private void ensureBlankLineInGap(final List<Token> tokens, final int fromIdx,
             final int toIdxExclusive, final Map<Integer, String> insertAfter) {
-        boolean hasComment = false;
+        int firstCommentIdx = -1;
+        for (int i = fromIdx; i < toIdxExclusive; i++) {
+            if (isComment(tokens.get(i))) {
+                firstCommentIdx = i;
+                break;
+            }
+        }
+        final int scanEnd = firstCommentIdx < 0 ? toIdxExclusive : firstCommentIdx;
         int newlineCount = 0;
         int firstNewlineIdx = -1;
-        for (int i = fromIdx; i < toIdxExclusive; i++) {
+        for (int i = fromIdx; i < scanEnd; i++) {
             final Token t = tokens.get(i);
-            if (isComment(t)) {
-                hasComment = true;
-            }
             if (t.type == TokenType.NEWLINE) {
                 newlineCount++;
                 if (firstNewlineIdx < 0) {
@@ -284,7 +303,7 @@ public class SwitchRule {
                 }
             }
         }
-        if (hasComment || newlineCount >= 2) {
+        if (newlineCount >= 2) {
             return;
         }
         if (newlineCount == 0) {

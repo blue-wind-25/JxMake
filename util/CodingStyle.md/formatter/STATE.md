@@ -702,8 +702,26 @@ accept `final` there). This applies to all `.java` files under `src/`.
     which checks only the set(s) relevant to `this.language` (`c`: C only; `cpp`: C + C++
     additions; `java`: Java only). Verified via `make test`: zero regressions across the other
     13 file-pairs (idempotency pass unaffected, still 14/14 PASS).
-  - Remaining open in this file (not yet fixed): (b) blank lines dropped around switch-case
-    comments inside `switchy`'s `switch` body; (c) array-initializer element comments
+  - Bug 3 FIXED: blank lines were dropped around switch-case comments inside `switchy`'s
+    `switch` body (before `// Comment before case`, before `/* Block comment before default */`,
+    and before the closing `}`). Two distinct root causes, both in `SwitchRule.java`:
+    (a) `isNonInline`/`caseSpansMultipleLines` classified `switchy` as an "inline" switch (every
+    case body is a single statement fitting one line) and skipped the entire non-inline
+    blank-line-insertion pass, but `case 1: // comment after case label` can never actually be
+    inlined -- a `//` line comment always swallows the rest of its physical line, forcing
+    `return 1;` onto the next line regardless -- unlike a `/* */` block comment in the same
+    position (`case 1: /* inline on case */ return 1;`, the already-passing `c_comments_inp.c`
+    shape), which genuinely can stay on one line. Fixed by having `caseSpansMultipleLines` also
+    return true whenever a `COMMENT_LINE` token appears before the body's first real statement
+    token. (b) Even once routed to the non-inline pass, `ensureBlankLineInGap`'s `hasComment`
+    guard bailed out of inserting a blank line at all whenever any comment sat in the gap --
+    same bail-entirely-instead-of-preserving-the-comment shape as the earlier
+    `BlockStructureRule.ensureBlankLine` bug (`cpp_comments_inp.cpp` Bug 2). Fixed by restricting
+    the blank-line/newline-count check to the sub-gap before the first comment (if any), so the
+    blank line still lands right before a leading standalone comment instead of the whole gap
+    being left untouched. Verified via `make test`: zero regressions across the other 13
+    file-pairs (idempotency unaffected, still 14/14 PASS).
+  - Remaining open in this file (not yet fixed): (c) array-initializer element comments
     (`VALUES = { 1, // One ... }`) still collapsed/dropped entirely when the array is rendered
     inline.
 

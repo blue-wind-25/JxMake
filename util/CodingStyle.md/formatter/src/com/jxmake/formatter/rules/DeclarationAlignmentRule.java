@@ -542,7 +542,8 @@ public class DeclarationAlignmentRule {
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
-        if (isPunct(cur, "{") && prev.type == TokenType.IDENTIFIER) {
+        if (isPunct(cur, "{")
+                && (prev.type == TokenType.IDENTIFIER || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
@@ -820,7 +821,7 @@ public class DeclarationAlignmentRule {
         }
 
         if ("cpp".equals(language)) {
-            final Declaration binding = parseStructuredBinding(modifiers, body, i, trailingComment, blankBefore);
+            final Declaration binding = parseStructuredBinding(stmt, modifiers, body, i, trailingComment, blankBefore);
             if (binding != null) {
                 return binding;
             }
@@ -978,8 +979,9 @@ public class DeclarationAlignmentRule {
      * name/size parsing path. Returns null (not just "no match" but also any
      * malformed/unbalanced shape) so the caller always has a safe fallback.
      */
-    private Declaration parseStructuredBinding(final List<Token> modifiers, final List<Token> body,
-            final int typeStart, final Token trailingComment, final boolean blankBefore) {
+    private Declaration parseStructuredBinding(final List<Token> stmt, final List<Token> modifiers,
+            final List<Token> body, final int typeStart, final Token trailingComment,
+            final boolean blankBefore) {
         int bracketStart = -1;
         for (int j = typeStart; j < body.size(); j++) {
             final Token t = body.get(j);
@@ -1040,7 +1042,11 @@ public class DeclarationAlignmentRule {
         // along as `sizeTokens`, exactly like a real array-size suffix would. renderNameCell
         // concatenates the two unchanged, producing the atomic "[a, b, c]" cell.
         final Token bindingName = body.get(bracketStart);
-        final List<Token> bracketRest = new ArrayList<>(body.subList(bracketStart + 1, bracketEnd + 1));
+        final Token bracketClose = body.get(bracketEnd);
+        final List<Token> rawBracket = rawSliceBetween(stmt, bindingName, bracketClose);
+        final List<Token> bracketRest = rawBracket != null
+                ? new ArrayList<>(rawBracket.subList(1, rawBracket.size()))
+                : new ArrayList<>(body.subList(bracketStart + 1, bracketEnd + 1));
 
         return new Declaration(modifiers, typeTokens, bindingName, bracketRest,
                 initTokens, new ArrayList<Token>(), trailingComment, blankBefore);

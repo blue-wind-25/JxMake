@@ -744,10 +744,12 @@ public class BlockStructureRule {
      * Guarantees the gap contains a blank line. A comment already sitting on its own line (at
      * least one NEWLINE precedes it in the gap) does not block this -- the blank line is inserted
      * ahead of it, same as it would be ahead of the first real token, and everything from the
-     * comment onward is left untouched. Only a comment with nothing but whitespace before it (a
-     * trailing same-line comment glued to the previous token, e.g. `stuff; // note`) still blocks
-     * insertion entirely, since relocating *that* comment ahead of a synthesized blank line would
-     * be ambiguous -- consistent with `enforceKAndRBraceStyle`/`placeElseOnOwnLine` above.
+     * comment onward is left untouched. A comment with nothing but whitespace before it (a
+     * trailing same-line comment glued to the previous token, e.g. `stuff; // note`) is left
+     * attached to that line -- relocating *it* ahead of a synthesized blank line would be
+     * ambiguous, consistent with `enforceKAndRBraceStyle`/`placeElseOnOwnLine` above -- but the
+     * blank line is still guaranteed in the remainder of the gap, right after the comment's own
+     * line, rather than being dropped entirely.
      */
     private String ensureBlankLine(final List<Token> gap) {
         int firstCommentIdx = -1;
@@ -765,11 +767,13 @@ public class BlockStructureRule {
         if (firstCommentIdx >= 0 && !newlineBeforeFirstComment) {
             // Comment sits on the same physical line as whatever precedes the gap (only
             // whitespace, no NEWLINE, in between) -- a trailing same-line comment glued to the
-            // previous token, not a leading comment of the next member.
+            // previous token, not a leading comment of the next member. Keep it glued to that
+            // line, but still guarantee a blank line in what remains of the gap after it.
             final StringBuilder sb = new StringBuilder();
-            for (final Token g : gap) {
-                sb.append(g.text);
+            for (int i = 0; i <= firstCommentIdx; i++) {
+                sb.append(gap.get(i).text);
             }
+            sb.append(ensureBlankLine(gap.subList(firstCommentIdx + 1, gap.size())));
             return sb.toString();
         }
 

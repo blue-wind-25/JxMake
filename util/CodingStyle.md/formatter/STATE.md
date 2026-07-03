@@ -29,6 +29,7 @@ contains nothing the implementer needs beyond what is already indexed here.
 - Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
   asked (they are the reference output files that show the expected results).
 - Ignore `XL.txt`, that is the user tracker file.
+- Use `/tmp` for temporary smoke-test and mini-test files.
 
 ### When hitting an ambiguity or open question
 1. **Stop coding immediately** — do not guess or proceed past the ambiguity
@@ -586,7 +587,7 @@ accept `final` there). This applies to all `.java` files under `src/`.
     idempotency), zero regressions.
   `c_comments_inp.c`/`c_comments_out.c` now PASSES in full (forward + idempotency) --
   all 5 bugs found in this file-pair are fixed.
-- [ ] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
+- [x] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp`
   - Bug (1) FIXED: `void insert(const K& /* Key */ k, ...)` dropped its parameter comments, and
     `V get(const K& k) const; // May throw` lost its trailing comment and kept raw unnormalized
     whitespace (`V    get`). Root cause: `DeclarationAlignmentRule.parseDeclaration` captured a
@@ -649,10 +650,31 @@ accept `final` there). This applies to all `.java` files under `src/`.
     pull gates the template-line pull), so `cpp_modern_inp.cpp`'s Bug 4a case is unaffected.
     Verified via `make test`, zero regressions (`cpp_modern_out.cpp` still PASSES).
 
-  `cpp_comments_inp.cpp`/`cpp_comments_out.cpp` now differs only in bug (2) (missing blank
-  lines before `}; // struct Entry` / `}; // class Derived`) and the structured-binding part of
-  bug (3) (comment loss + brace spacing on `auto [lo, hi] = std::pair<int, int>{0, result};`) --
-  both explicitly out of scope for this round, not yet fixed.
+  - Bug (2) FIXED: missing blank lines before `}; // struct Entry` / `}; // class Map` when the
+    last member before the closing brace carried a trailing same-line comment (e.g. `V value; //
+    the value`). Root cause: `BlockStructureRule.ensureBlankLine`'s trailing-same-line-comment
+    guard (added to avoid relocating a comment glued to the previous token ahead of a synthesized
+    blank line) returned the gap completely untouched in that case, dropping the blank line
+    entirely instead of still guaranteeing one in what remains of the gap after the comment's own
+    line. Fixed by keeping the comment glued to its line but recursively calling `ensureBlankLine`
+    on the remainder of the gap after it, so the blank line lands right after the comment instead
+    of being silently skipped. Verified via `make test`, zero regressions.
+  - Bug (3) (structured-binding part) FIXED: `auto [lo /* low */, hi /* high */] = std::pair<int,
+    int>{0, result};` lost both bracket-interior comments entirely, and the brace-initializer got
+    a stray space before `{` (`std::pair<int, int> { 0, result }`). Root causes: (a)
+    `DeclarationAlignmentRule.parseStructuredBinding` built `bracketRest` (the `[a, b, ...]`
+    interior) from the comment-stripped `body` list -- the same root-cause shape as Bug (1) --
+    fixed by passing the original (comment-carrying) `stmt` down into `parseStructuredBinding`
+    and using the existing `rawSliceBetween` helper to re-slice the bracket's raw content instead.
+    (b) `DeclarationAlignmentRule.needsSpaceBetween` only exempted `{` from a forced space when
+    directly preceded by an `IDENTIFIER`, not an `ANGLE_BRACKET_CLOSE` (`>`) -- so a brace-init
+    directly following a template type argument (`std::pair<int, int>{...}`) always got a
+    spurious space inserted before `{` -- fixed by adding `ANGLE_BRACKET_CLOSE` to that exemption
+    (mirroring the existing `(` exemption two lines above it). Verified via `make test`, zero
+    regressions.
+
+  `cpp_comments_inp.cpp`/`cpp_comments_out.cpp` now PASSES in full (forward + idempotency) --
+  all 5 bugs found in this file-pair are fixed.
 - [ ] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java`
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the
@@ -660,7 +682,7 @@ user, and wait for instruction. Do not attempt to fix either the formatter or th
 `*_out` file without explicit user direction — the `*_out` files were authored by
 hand and may themselves contain errors.**
 
-**After all 15 file-pair tests pass (or are resolved):**
+**After all 15 file-pair tests pass (or are resolved - ask the user first):**
 - [ ] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
       to `target/dogfood-src/`
 - [ ] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;

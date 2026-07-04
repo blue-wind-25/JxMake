@@ -13,6 +13,10 @@ import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2794,21 +2798,9 @@ public class MiscRule {
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────
-    private boolean isGapToken(final Token t) {
-        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
-                || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
-    }
-
+    // isGapToken/isPunct/isOp are centralized on TokenizerCore.Token (static-imported above).
     private boolean isCommentOrNewline(final Token t) {
         return t.type == TokenType.NEWLINE || t.type == TokenType.COMMENT_LINE
                 || t.type == TokenType.COMMENT_BLOCK;
-    }
-
-    private boolean isPunct(final Token t, final String text) {
-        return t != null && t.type == TokenType.PUNCT && text.equals(t.text);
-    }
-
-    private boolean isOp(final Token t, final String text) {
-        return t != null && t.type == TokenType.OP && text.equals(t.text);
     }
 }

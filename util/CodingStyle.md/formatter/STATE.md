@@ -700,7 +700,7 @@ size 8.
    comparison, not a language check). Verified via `make test`: 15/15 file-pairs still PASS
    (forward + idempotency), zero regressions.
 
-2. Checkings such as:
+2. Checkings such as: (DONE)
      isOp(...)
      isPunct(...)
      isKeyword(...)
@@ -709,6 +709,26 @@ size 8.
      etc.
    are scattered all over the place in the code, please refactor the, so they
    are centralized in the `TokenizerCore.Token` class or other class.
+
+   Implemented: five null-safe static methods added to `TokenizerCore.Token`
+   (`isPunct`/`isOp`/`isKeyword`/`isComment`/`isGapToken`), alongside the pre-existing
+   `isRepOp` static/instance pair. Every rule class's byte-for-byte-duplicate private
+   helper of the same name was deleted; call sites are unchanged in syntax (same
+   `isPunct(t, "x")`/`isOp(t, "x")`/etc. shape) because each file adds a `static import`
+   of exactly the methods it uses instead of redefining them locally
+   (`ScopePipeline`, `GetterSetterRule`, `DeclarationAlignmentRule`, `CppSpecificRule`,
+   `SwitchRule`, `JavaSpecificRule`, `BlockStructureRule`, `MiscRule`). `SwitchRule` also
+   had its own differently-named `isGap` wrapper (identical body to `isGapToken`) --
+   renamed all its call sites to `isGapToken` and dropped the wrapper. Three
+   `this::isComment` method references in `BlockStructureRule` (passed to
+   `Stream.anyMatch`/`noneMatch`) were switched to `Token::isComment`, since a static
+   method reached only via static import can't be referenced through `this::`. Two
+   rule-local helpers with different semantics from the five centralized checks were
+   deliberately left in place, not touched: `MiscRule.isCommentOrNewline` (comment OR
+   newline, no whitespace -- not the same predicate as `isGapToken`) and
+   `ScopePipeline.isWhitespaceOrNewline` (whitespace/newline only, no comments --
+   also distinct). Verified via `make test`: 15/15 file-pairs still PASS (forward +
+   idempotency), zero regressions.
 
 **Files needing cleanup (identified, not yet touched — actual cleanup deferred to
 next session):**

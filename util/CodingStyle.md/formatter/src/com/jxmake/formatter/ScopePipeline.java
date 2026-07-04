@@ -18,6 +18,10 @@ import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -806,25 +810,12 @@ public class ScopePipeline {
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────
-    // Ported low-level helpers, duplicated per this codebase's one-owner-per-class precedent.
+    // isPunct/isOp/isGapToken are centralized on TokenizerCore.Token (static-imported below);
     // prevSignificantIndex/nextSignificantIndex use the exclusive-of-`from` convention (matching
     // JavaSpecificRule/CppSpecificRule, since isCandidateSignatureName/isEnumConstantBody above
     // are ported verbatim from there), not MiscRule's inclusive-of-`from` convention.
 
-    private boolean isPunct(final Token t, final String text) {
-        return t != null && t.type == TokenType.PUNCT && text.equals(t.text);
-    }
-
-    private boolean isOp(final Token t, final String text) {
-        return t != null && t.type == TokenType.OP && text.equals(t.text);
-    }
-
-    private boolean isGapToken(final Token t) {
-        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
-                || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
-    }
-
-    /** Like {@link #isGapToken} but excludes comments -- used to trim a declaration/assignment
+    /** Like {@code Token.isGapToken} but excludes comments -- used to trim a declaration/assignment
      *  group's replaced span down to its true trailing content without eating a same-line trailing
      *  comment that the group's own rendered {@code text} did NOT already re-include verbatim
      *  (unlike a mid-group member, the group's *last* member's trailing comment is only captured

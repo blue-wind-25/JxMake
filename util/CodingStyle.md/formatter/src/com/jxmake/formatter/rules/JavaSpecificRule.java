@@ -12,6 +12,10 @@ import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1056,10 +1060,6 @@ public class JavaSpecificRule {
         return -1;
     }
 
-    private boolean isOp(final Token t, final String text) {
-        return t != null && t.type == TokenType.OP && text.equals(t.text);
-    }
-
     /** Nearest preceding {@code class}/{@code interface} KEYWORD token, or -1 -- bounded-effort,
      *  no depth tracking, same posture as the rest of this codebase's non-AST heuristics. */
     private int prevClassOrInterfaceKeyword(final List<Token> tokens, final int fromExclusive) {
@@ -1201,12 +1201,4 @@ public class JavaSpecificRule {
         return -1;
     }
 
-    private boolean isGapToken(final Token t) {
-        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
-                || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
-    }
-
-    private boolean isPunct(final Token t, final String text) {
-        return t != null && t.type == TokenType.PUNCT && text.equals(t.text);
-    }
 }

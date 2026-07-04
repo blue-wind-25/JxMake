@@ -11,6 +11,10 @@ import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -291,7 +295,7 @@ public class BlockStructureRule {
                 continue;
             }
 
-            if (isPunct(t, "{") && gap.stream().noneMatch(this::isComment)
+            if (isPunct(t, "{") && gap.stream().noneMatch(Token::isComment)
                     && qualifiesForKAndR(tokens, i)) {
                 out.append(' ');
             } else {
@@ -307,10 +311,6 @@ public class BlockStructureRule {
             out.append(g.text);
         }
         return out.toString();
-    }
-
-    private boolean isComment(final Token t) {
-        return t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
     }
 
     /** True if the `{` at braceIdx opens a K&R-styled construct per STYLE.md §11 (see caller doc). */
@@ -417,10 +417,6 @@ public class BlockStructureRule {
         }
     }
 
-    private boolean isOp(final Token t, final String text) {
-        return t.type == TokenType.OP && text.equals(t.text);
-    }
-
     /** Index of the nearest significant token at or before `from`, or -1 if none. */
     private int prevSignificantIndex(final List<Token> tokens, final int from) {
         int i = from;
@@ -467,10 +463,6 @@ public class BlockStructureRule {
         return i;
     }
 
-    private boolean isPunct(final Token t, final String text) {
-        return t.type == TokenType.PUNCT && text.equals(t.text);
-    }
-
     // ── `else` / `else if` placement (STYLE.md §12) ─────────────────────────────
     /**
      * Scans a token slice and ensures every `else`/`else if` that directly follows a block's
@@ -510,7 +502,7 @@ public class BlockStructureRule {
                         out.append(g.text);
                     }
                 }
-                if (gap.stream().anyMatch(this::isComment)) {
+                if (gap.stream().anyMatch(Token::isComment)) {
                     out.append('\n').append(indent);
                 }
             } else {
@@ -576,7 +568,7 @@ public class BlockStructureRule {
                         out.append(g.text);
                     }
                 }
-                if (gap.stream().anyMatch(this::isComment)) {
+                if (gap.stream().anyMatch(Token::isComment)) {
                     out.append('\n').append(indent);
                 }
             } else {

@@ -54,20 +54,46 @@ public class TokenizerCore {
             this.name = name;
         }
 
-        public boolean isRepOp(final char ch) {
-            if (type != TokenType.OP || text.isEmpty()) {
+        /** Null-safe: {@code t} is a `PUNCT` token whose text equals {@code text}. Centralizes
+         *  what used to be a byte-for-byte-identical private helper duplicated in nearly every
+         *  rule class. */
+        public static boolean isPunct(final Token t, final String text) {
+            return t != null && t.type == TokenType.PUNCT && text.equals(t.text);
+        }
+
+        /** Null-safe: {@code t} is an `OP` token whose text equals {@code text}. */
+        public static boolean isOp(final Token t, final String text) {
+            return t != null && t.type == TokenType.OP && text.equals(t.text);
+        }
+
+        /** Null-safe: {@code t} is an `OP` token whose text equals repeated {@code ch}. */
+        public static boolean isRepOp(final Token t, final char ch) {
+            if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
                 return false;
             }
-            for (int i = 0; i < text.length(); i++) {
-                if (text.charAt(i) != ch) {
+            for (int i = 0; i < t.text.length(); i++) {
+                if (t.text.charAt(i) != ch) {
                     return false;
                 }
             }
             return true;
         }
 
-        public static boolean isRepOp(final Token t, final char ch) {
-            return (t == null) ? false : t.isRepOp(ch);
+        /** Null-safe: {@code t} is a `KEYWORD` token whose text equals {@code text}. */
+        public static boolean isKeyword(final Token t, final String text) {
+            return t != null && t.type == TokenType.KEYWORD && text.equals(t.text);
+        }
+
+        /** Null-safe: {@code t} is a line or block comment token. */
+        public static boolean isComment(final Token t) {
+            return t != null && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK);
+        }
+
+        /** Null-safe: {@code t} is whitespace, a newline, or a comment -- a token every rule
+         *  class's rendering passes skip over when scanning for the next significant token. */
+        public static boolean isGapToken(final Token t) {
+            return t != null && (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
+                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK);
         }
     }
 

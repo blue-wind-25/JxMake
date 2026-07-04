@@ -13,6 +13,12 @@ import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -180,7 +186,7 @@ public class SwitchRule {
 
     private int firstSignificantIndex(final List<Token> tokens, final int from, final int to) {
         for (int i = from; i < to; i++) {
-            if (!isGap(tokens.get(i))) {
+            if (!isGapToken(tokens.get(i))) {
                 return i;
             }
         }
@@ -189,7 +195,7 @@ public class SwitchRule {
 
     private int lastSignificantIndex(final List<Token> tokens, final int from, final int to) {
         for (int i = to - 1; i >= from; i--) {
-            if (!isGap(tokens.get(i))) {
+            if (!isGapToken(tokens.get(i))) {
                 return i;
             }
         }
@@ -360,7 +366,7 @@ public class SwitchRule {
             if (t.type == TokenType.NEWLINE) {
                 return -1;
             }
-            if (!isGap(t)) {
+            if (!isGapToken(t)) {
                 return isPunct(t, "{") ? i : -1;
             }
             i++;
@@ -670,10 +676,6 @@ public class SwitchRule {
         return sb.toString();
     }
 
-    private boolean isKeyword(final Token t, final String text) {
-        return t.type == TokenType.KEYWORD && text.equals(t.text);
-    }
-
     /**
      * Scans [from, to) for a fallthrough marker comment (STYLE.md §13's "FALL-THROUGH" text):
      * returns its index if found alone, -1 if there is no comment at all, or -2 if a comment is
@@ -811,26 +813,10 @@ public class SwitchRule {
     private int skipNonSignificant(final List<Token> tokens, final int from) {
         final int n = tokens.size();
         int i = from;
-        while (i < n && isGap(tokens.get(i))) {
+        while (i < n && isGapToken(tokens.get(i))) {
             i++;
         }
         return i;
     }
 
-    private boolean isGap(final Token t) {
-        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
-                || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
-    }
-
-    private boolean isComment(final Token t) {
-        return t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
-    }
-
-    private boolean isPunct(final Token t, final String text) {
-        return t.type == TokenType.PUNCT && text.equals(t.text);
-    }
-
-    private boolean isOp(final Token t, final String text) {
-        return t.type == TokenType.OP && text.equals(t.text);
-    }
 }

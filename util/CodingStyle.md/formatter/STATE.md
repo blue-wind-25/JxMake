@@ -222,7 +222,6 @@ normalize-comment-start-case = on            # on | off
 normalize-comment-end-period = on            # on | off
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-include-sort               = off             # off | on
 header-guard-rename        = off             # off | on
 header-guard-style         = preserve        # preserve | ifndef | pragma-once
 

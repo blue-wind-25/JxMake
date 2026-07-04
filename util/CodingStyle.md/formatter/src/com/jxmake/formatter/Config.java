@@ -30,7 +30,7 @@ public final class Config {
         "line-length", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-end-period",
-        "include-sort", "header-guard-rename", "header-guard-style",
+        "header-guard-rename", "header-guard-style",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines"
     };
@@ -51,7 +51,6 @@ public final class Config {
     private String lineEndings = "lf";
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
-    private boolean includeSort = false;
     private boolean headerGuardRename = false;
     private String headerGuardStyle = "preserve";
     private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
@@ -96,10 +95,6 @@ public final class Config {
 
     public boolean isNormalizeCommentEndPeriod() {
         return normalizeCommentEndPeriod;
-    }
-
-    public boolean isIncludeSort() {
-        return includeSort;
     }
 
     public boolean isHeaderGuardRename() {
@@ -214,7 +209,6 @@ public final class Config {
                 config.normalizeCommentStartCase);
         config.normalizeCommentEndPeriod = parseBoolean(raw, "normalize-comment-end-period",
                 config.normalizeCommentEndPeriod);
-        config.includeSort = parseBoolean(raw, "include-sort", config.includeSort);
         config.headerGuardRename = parseBoolean(raw, "header-guard-rename", config.headerGuardRename);
         config.headerGuardStyle = parseChoice(raw, "header-guard-style", config.headerGuardStyle, HEADER_GUARD_STYLE_CHOICES);
         config.javaImportOrder = parseStringList(raw, "java-import-order", config.javaImportOrder);

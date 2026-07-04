@@ -63,6 +63,41 @@ call from a Makefile target even if the server is already running.
 **After SIGKILL or manual lockfile deletion:** the next invocation detects the stale
 lockfile (PID no longer alive), cleans it up, and starts fresh automatically.
 
+### Disabling formatting for part or all of a file
+
+To keep a region of code exactly as written — untouched by any formatting rule — wrap it
+in a marker comment pair:
+
+```java
+//% JXM_CFMT_DIS
+… code left byte-for-byte untouched …
+//% JXM_CFMT_ENA
+```
+
+The block-comment form works the same way, useful where a line comment isn't available
+(e.g. inside a macro or a single-line context):
+
+```c
+/*% JXM_CFMT_DIS */
+… code left byte-for-byte untouched …
+/*% JXM_CFMT_ENA */
+```
+
+Formatting resumes immediately after `JXM_CFMT_ENA`. The marker comments themselves are
+never modified or removed by a later run, so this is safe to leave in checked-in source
+permanently, and idempotent across repeated formatting passes.
+
+To disable formatting for an entire file from the command line (as if `JXM_CFMT_DIS`
+were present at the very top), without editing the file itself:
+
+```sh
+java -jar code-formatter-1.00.jar --format-off File.java
+```
+
+The file stays completely untouched unless it contains its own `JXM_CFMT_ENA` marker,
+at which point formatting resumes from that point onward, same as the in-code marker
+pair above.
+
 ### Makefile integration
 
 ```makefile
@@ -92,28 +127,27 @@ precedence (later sources override earlier ones):
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
-line-length                = 100
-indent-size                = 4
-indent-style               = spaces          # spaces | tabs | auto
-server-port                = 17173
+line-length                  = 100
+indent-size                  = 4
+indent-style                 = spaces          # spaces | tabs | auto
+server-port                  = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-closing-comment-min-lines  = 5
-format-macros              = off             # off | on
-line-endings               = lf              # lf | crlf | preserve
-normalize-comment-start-case = on            # on | off
-normalize-comment-end-period = on            # on | off
+line-endings                 = lf              # lf | crlf | preserve
+normalize-comment-start-case = on              # on | off
+normalize-comment-end-period = on              # on | off
+closing-comment-min-lines    = 5
+format-macros                = off             # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-include-sort               = off             # off | on
-header-guard-rename        = off             # off | on (warn only by default)
-header-guard-style         = preserve        # preserve | ifndef | pragma-once
+header-guard-rename          = off             # off | on (warn only by default)
+header-guard-style           = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order          = java, com, org, other, local, static
-java-import-sort           = on
-java-import-depth          = 2
-java-import-blank-lines    = 1
+java-import-order            = java, com, org, other, local, static
+java-import-sort             = on
+java-import-depth            = 2
+java-import-blank-lines      = 1
 ```
 
 ### `.jxmake-code-formatter` inheritance

@@ -908,10 +908,6 @@ public class MiscRule {
                 newlineIdx = i;
             }
         }
-        if (newlineCount > 1) {
-            return null;
-        }
-
         final Token trailingComment = findTrailingAssignComment(stmt);
         if (newlineCount == 0) {
             final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
@@ -919,25 +915,37 @@ public class MiscRule {
                     trailingComment, blankBefore);
         }
 
-        int line1End = newlineIdx;
-        while (line1End > valueFrom && isGapToken(stmt.get(line1End - 1))) {
-            line1End--;
+        // STYLE.md §6's own "multi-line right-hand side" shape is exactly one newline, split at
+        // an operator. Anything else here (more than one newline, or a single newline that isn't
+        // an operator break) is most likely a call whose arguments `MiscRule.enforceCallLineBreaking`
+        // already wrapped across lines on a prior pass, once fed back in as this pass's input --
+        // reject re-deriving that shape and fall through to the verbatim branch below instead of
+        // returning null, so this row still participates in the group's LHS/`=` alignment (using
+        // its own `lhsText` for width) rather than splitting the run into smaller subgroups, which
+        // would otherwise make a fresh format and a reformat of that format's own already-wrapped
+        // output disagree on group membership/padding (non-idempotent).
+        if (newlineCount == 1) {
+            int line1End = newlineIdx;
+            while (line1End > valueFrom && isGapToken(stmt.get(line1End - 1))) {
+                line1End--;
+            }
+            int line2Start = newlineIdx + 1;
+            while (line2Start < valueTo && isGapToken(stmt.get(line2Start))) {
+                line2Start++;
+            }
+            if (line1End > valueFrom && line2Start < valueTo) {
+                final List<Token> line1 = new ArrayList<>(stmt.subList(valueFrom, line1End));
+                final List<Token> line2 = new ArrayList<>(stmt.subList(line2Start, valueTo));
+                final Boolean breakBeforeOperator = classifyMultiLineBreak(line1, line2);
+                if (breakBeforeOperator != null) {
+                    return Assignment.multiLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx),
+                            breakBeforeOperator, line1, line2, trailingComment, blankBefore);
+                }
+            }
         }
-        int line2Start = newlineIdx + 1;
-        while (line2Start < valueTo && isGapToken(stmt.get(line2Start))) {
-            line2Start++;
-        }
-        if (line1End <= valueFrom || line2Start >= valueTo) {
-            return null;
-        }
-        final List<Token> line1 = new ArrayList<>(stmt.subList(valueFrom, line1End));
-        final List<Token> line2 = new ArrayList<>(stmt.subList(line2Start, valueTo));
-        final Boolean breakBeforeOperator = classifyMultiLineBreak(line1, line2);
-        if (breakBeforeOperator == null) {
-            return null;
-        }
-        return Assignment.multiLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx),
-                breakBeforeOperator, line1, line2, trailingComment, blankBefore);
+        final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
+        return Assignment.singleLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
+                trailingComment, blankBefore);
     }
 
     /**

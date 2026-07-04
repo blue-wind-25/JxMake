@@ -139,6 +139,16 @@ Real-code regressions:
                                 to differ between a fresh format and a reformat of
                                 already-formatted output.
 
+  real_code_regressions_3_inp/out.java -- Distilled from a bug found dogfood-testing
+                                the formatter against its own src/ tree: MiscRule's
+                                consecutive-assignment `=`-alignment rule rejected any
+                                assignment whose RHS had already been wrapped across
+                                lines by a later pass (enforceCallLineBreaking),
+                                splitting the alignment run into smaller subgroups
+                                (and shrinking their padding) on a second format of
+                                already-formatted output, rather than continuing to
+                                treat it as one aligned group as on a fresh format.
+
 
 How Tests Are Run
 -----------------

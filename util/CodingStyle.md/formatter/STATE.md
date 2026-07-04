@@ -504,16 +504,48 @@ formatter-induced errors (22 remaining errors are the known pre-existing `javax.
 missing-dependency issue in `toolbar/WifiStaDialog.java`, confirmed identical against the
 unmodified original source).
 
-**NEXT SESSION — continue here:** Java candidate is done. Continue the real-code testing
-methodology against the remaining C/C++ candidates, in this order unless the user redirects:
-`martinus/nanobench` → `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`.
-Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs newer;
-confirm any compile failure also reproduces against the *unmodified* original source before
-treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20 requirement).
+**Self-dogfood (formatter's own `src/com/jxmake/formatter/` tree, 20 files) — DONE:** found
+and fixed one more bug of the same pass-ordering idempotency class:
+
+5. **`MiscRule.parseAssignment` rejected any consecutive-assignment-alignment (STYLE.md §6)
+   row whose RHS had already been wrapped across lines by a later pass**
+   (`MiscRule.enforceCallLineBreaking`) — `parseAssignment` only recognizes STYLE.md §6's own
+   "multi-line right-hand side" shape (exactly one newline, split cleanly before/after an
+   operator via `classifyMultiLineBreak`); any other multi-line shape (in particular a call
+   whose args got wrapped onto their own line between an opening and closing paren, i.e. 2+
+   newlines, or 1 newline that isn't an operator break) fell through to `return null`, which
+   `groupAssignments` treats as a hard group boundary. On a fresh format, an over-long
+   assignment's RHS is still one physical line when this pass runs (it hasn't been wrapped by
+   `enforceCallLineBreaking` yet, which runs later), so the whole run of assignments forms one
+   group with uniform `=` padding; reformatting that same output found the already-wrapped
+   rows unrecognized, splitting the run into smaller subgroups with different (usually
+   smaller) padding — non-idempotent. Fixed by falling through to a verbatim single-line
+   `Assignment` (embedding the existing newlines/indentation as-is via `joinVerbatim`, which
+   just concatenates original token text) instead of returning null whenever the multi-line
+   shape isn't classifiable as STYLE.md §6's clean operator-break case — the row still
+   contributes its `lhsText` to the group's width computation and keeps its neighbors grouped,
+   but its own already-wrapped RHS is left untouched rather than being re-derived.
+
+Verified: `make test` 21/21 PASS (added `test/real_code_regressions_3_{inp,out}.java`), and
+the full 20-file formatter `src/` tree is byte-for-byte idempotent (`diff -rq round1 round2`
+empty), `javac`-compiles with 0 errors (matching the original source), and declaration counts
+match (16 top-level/nested types, same names, in both original and round1 — a naive grep
+overcounts due to javadoc/line-wrap noise containing the words "class"/"interface").
+
+**NEXT SESSION — continue here:** Both the Java candidate and the self-dogfood check are
+done. Continue the real-code testing methodology against the remaining C/C++ candidates, in
+this order unless the user redirects: `martinus/nanobench` → `serge-sans-paille/frozen` →
+`fmtlib/fmt` → `taocpp/PEGTL`. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard
+flag if a library needs newer; confirm any compile failure also reproduces against the
+*unmodified* original source before treating it as formatter-induced, same check done for
+tinyexpr-plusplus's C++20 requirement). No specific OSS C++23 candidate has been picked yet
+for a compile-only check with the ARM toolchain at
+`/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` — ask the user for one, or suggest one
+once picked, rather than guessing a project/URL.
 
 For each new bug found: minimal isolated repro first, fix, verify against the full source
 round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (a new
-`_3`/`_4` suffixed pair if an existing one gets too large) — same pattern as this session.
+`_4`/`_5` suffixed pair if an existing one gets too large) — same pattern as this session.
 Update this section as each candidate completes.
 
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/

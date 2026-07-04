@@ -467,6 +467,9 @@ public class ScopePipeline {
             final int lastIdx = indexOf.get(last.name);
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
+            if (anyFrozen(tokens, firstSpan.start, lastSpan.end)) {
+                continue;
+            }
 
             final List<String> lines = declarationRule.render(group);
             // `lines.get(0)` may already start with its own column-alignment padding (e.g. blank
@@ -520,6 +523,9 @@ public class ScopePipeline {
             final int lastIdx = indexOf.get(last.target);
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
+            if (anyFrozen(tokens, firstSpan.start, lastSpan.end)) {
+                continue;
+            }
 
             final String rawLeadingGap = joinText(tokens, firstSpan.start, firstIdx);
             final String rawIndent = trailingIndent(rawLeadingGap);
@@ -582,6 +588,9 @@ public class ScopePipeline {
 
             final int leadStart = nextSignificantIndex(tokens, span.start - 1);
             if (leadStart < 0) {
+                continue;
+            }
+            if (anyFrozen(tokens, leadStart, (throwsEndIdx >= 0 ? throwsEndIdx : closeParenIdx) + 1)) {
                 continue;
             }
             // For Java: skip past any leading @Annotation tokens so they stay verbatim in
@@ -752,6 +761,9 @@ public class ScopePipeline {
             final List<String> lines = getterSetterRule.render(tokens, filtered);
             for (int i = 0; i < filtered.size(); i++) {
                 final Member m = filtered.get(i);
+                if (anyFrozen(tokens, m.memberFrom, m.memberTo)) {
+                    continue;
+                }
                 final int startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
                 final int sigIdx = m.modifiers.isEmpty() ? startIdx : indexOf.get(m.modifiers.get(0));
                 final String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
@@ -840,6 +852,15 @@ public class ScopePipeline {
      *  in the untouched source right after the replaced span, duplicating it in the output). */
     private boolean isWhitespaceOrNewline(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE;
+    }
+
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int prevSignificantIndex(final List<Token> tokens, final int from) {

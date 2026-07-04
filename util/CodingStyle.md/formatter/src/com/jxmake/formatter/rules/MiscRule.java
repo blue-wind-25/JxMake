@@ -109,7 +109,7 @@ public class MiscRule {
 
         while (i < n) {
             final Token t = tokens.get(i);
-            if (atLineStart && t.type == TokenType.WHITESPACE) {
+            if (atLineStart && t.type == TokenType.WHITESPACE && !t.frozen) {
                 out.append(renderIndent(t.text, indentStyle));
                 atLineStart = false;
                 i++;
@@ -185,7 +185,8 @@ public class MiscRule {
             final boolean collapse = isPunct(t, "(") && lastSignificant != null
                     && lastSignificant.type == TokenType.KEYWORD
                     && TIGHT_PAREN_KEYWORDS.contains(lastSignificant.text)
-                    && gap.stream().noneMatch(this::isCommentOrNewline);
+                    && gap.stream().noneMatch(this::isCommentOrNewline)
+                    && !t.frozen && !lastSignificant.frozen && gap.stream().noneMatch(g -> g.frozen);
             if (!collapse) {
                 for (final Token g : gap) {
                     out.append(g.text);
@@ -274,7 +275,9 @@ public class MiscRule {
             final boolean curIsClose = isPunct(t, ")") || isPunct(t, "]");
             final Boolean afterOpen = lastIsOpen ? looseByOpenIdx.get(lastSignificantIdx) : null;
             final Boolean beforeClose = curIsClose ? looseByCloseIdx.get(i) : null;
-            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline);
+            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline)
+                    || t.frozen || (lastSignificant != null && lastSignificant.frozen)
+                    || gap.stream().anyMatch(g -> g.frozen);
 
             if (!gapHasBlocker && (Boolean.TRUE.equals(afterOpen) || Boolean.TRUE.equals(beforeClose))) {
                 out.append(' ');
@@ -379,9 +382,11 @@ public class MiscRule {
             final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
             final boolean beforeComma = isPunct(t, ",") && inInit;
             final boolean afterComma = isPunct(lastSignificant, ",") && inInit;
-            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline);
+            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline)
+                    || t.frozen || (lastSignificant != null && lastSignificant.frozen)
+                    || gap.stream().anyMatch(g -> g.frozen);
 
-            if ((afterInitOpen && isPunct(t, "}")) || beforeComma) {
+            if (((afterInitOpen && isPunct(t, "}")) || beforeComma) && !gapHasBlocker) {
                 gap.clear();
             } else if ((afterInitOpen || beforeInitClose || afterComma) && !gapHasBlocker) {
                 out.append(' ');
@@ -464,7 +469,8 @@ public class MiscRule {
                 depth--;
             } else if (depth == 0 && t.type == TokenType.IDENTIFIER && isStatementBoundary(lastSignificant)) {
                 final int opIdx = nextSignificantIndex(tokens, i + 1);
-                if (opIdx >= 0 && isIncrementOp(tokens.get(opIdx)) && noBlockerBetween(tokens, i, opIdx)) {
+                if (opIdx >= 0 && isIncrementOp(tokens.get(opIdx)) && noBlockerBetween(tokens, i, opIdx)
+                        && !t.frozen && !tokens.get(opIdx).frozen) {
                     final int termIdx = nextSignificantIndex(tokens, opIdx + 1);
                     if (termIdx >= 0 && isPunct(tokens.get(termIdx), ";")) {
                         spans.put(i, opIdx);
@@ -518,6 +524,9 @@ public class MiscRule {
             }
             final int afterOp = nextSignificantIndex(tokens, opIdx + 1);
             if (afterOp != closeParen) {
+                continue;
+            }
+            if (tokens.get(incrStart).frozen || tokens.get(opIdx).frozen) {
                 continue;
             }
             spans.put(incrStart, opIdx);
@@ -1569,7 +1578,7 @@ public class MiscRule {
     private boolean shouldForceBlankBeforeReturn(final List<Token> tokens, final int idx,
             final Deque<FuncFrame> stack) {
         final Token t = tokens.get(idx);
-        if (t.type != TokenType.KEYWORD || !"return".equals(t.text) || stack.isEmpty()) {
+        if (t.type != TokenType.KEYWORD || !"return".equals(t.text) || stack.isEmpty() || t.frozen) {
             return false;
         }
         final FuncFrame top = stack.peek();
@@ -1789,7 +1798,9 @@ public class MiscRule {
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.COMMENT_LINE) {
+            if (t.frozen) {
+                out.append(t.text);
+            } else if (t.type == TokenType.COMMENT_LINE) {
                 final String content = lineCommentContent.get(i);
                 if (content == null) {
                     out.append(t.text);
@@ -2107,7 +2118,7 @@ public class MiscRule {
             if (t.type == TokenType.WHITESPACE) {
                 continue;
             }
-            if (t.type != TokenType.COMMENT_LINE) {
+            if (t.type != TokenType.COMMENT_LINE || t.frozen) {
                 return null;
             }
             return parseSeparatorComment(t.text, i);
@@ -2392,6 +2403,9 @@ public class MiscRule {
             }
             if (hasCommentBetween(tokens, i, closeIdx)) {
                 continue; // see "Comments" above
+            }
+            if (anyFrozen(tokens, nameIdx, closeIdx + 1)) {
+                continue; // frozen span (RDD_KEY_90 §A) -- left untouched
             }
 
             final String rendered = renderCallCandidate(tokens, nameIdx, i, closeIdx);
@@ -2802,5 +2816,17 @@ public class MiscRule {
     private boolean isCommentOrNewline(final Token t) {
         return t.type == TokenType.NEWLINE || t.type == TokenType.COMMENT_LINE
                 || t.type == TokenType.COMMENT_BLOCK;
+    }
+
+    /** {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
+     *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
+     *  to partially rewrite it. */
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 }

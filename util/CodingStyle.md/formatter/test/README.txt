@@ -42,6 +42,13 @@ Java:
                                 normally-formatted declarations immediately before,
                                 between, and after each frozen region.
 
+  java_preprocessor_method_inp/out.java -- Regression coverage for the "preprocessor
+                                directive glued onto a following method definition"
+                                bug (STATE.md Known Gaps): a `#endif` directly before
+                                a method inside a class body, with and without blank
+                                lines and a `throws` clause, must not be joined onto
+                                the method's own modifier line.
+
   combined_inp/out.java      -- All of the above in one realistic file: sealed class
                                 with nested record, enum, inner classes; switch
                                 expressions; pattern matching; text blocks; var;

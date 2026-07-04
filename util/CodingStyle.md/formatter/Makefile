@@ -79,6 +79,7 @@ INP_FILES += java_comments_inp.java
 INP_FILES += format_toggle_inp.java
 
 INP_FILES += c_cpp_decl_gaps_inp.c
+INP_FILES += java_preprocessor_method_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

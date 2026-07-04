@@ -595,7 +595,23 @@ public class ScopePipeline {
                 continue;
             }
 
-            final int leadStart = nextSignificantIndex(tokens, span.start - 1);
+            int leadStart = nextSignificantIndex(tokens, span.start - 1);
+            if (leadStart < 0) {
+                continue;
+            }
+            // A preprocessor directive (e.g. a lone `#endif` closing a field-level `#ifdef`
+            // guard) sitting on its own line before this method is not part of the signature --
+            // isGapToken() deliberately treats PREPROCESSOR/MACRO_DEF as significant (so
+            // statement-splitting elsewhere doesn't swallow it), but that means
+            // nextSignificantIndex() stops on it here, making it look like the signature's own
+            // first token. Left uncorrected, the whole directive line gets pulled out of
+            // leadingGap and re-glued directly onto the rendered signature's first line with no
+            // newline. Skip past any number of leading directive lines (each still its own
+            // physical line, i.e. followed by a NEWLINE) to find the real lead token instead.
+            while (leadStart >= 0 && (tokens.get(leadStart).type == TokenType.PREPROCESSOR
+                    || tokens.get(leadStart).type == TokenType.MACRO_DEF)) {
+                leadStart = nextSignificantIndex(tokens, leadStart);
+            }
             if (leadStart < 0) {
                 continue;
             }

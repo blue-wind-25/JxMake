@@ -495,35 +495,38 @@ column layout keyed on the `=` position rather than the name+size position —
 scope it as a small standalone task rather than folding into the function-
 pointer/typedef fix above.
 
-**Preprocessor directive glued onto a following Java method definition — NOT
-SCHEDULED (needs investigation)**
-Discovered while implementing `### C` below. A `#endif` (or any preprocessor
-line) sitting directly before a method definition inside a Java class body
-gets glued onto the same output line as the method's modifiers, e.g.:
-
-```java
-#ifdef FEATURE_X
-    private int featureFlag = 1;
-#endif
-
-    public void run(void)
-```
-renders as:
-```java
-#ifdef FEATURE_X
-    private int featureFlag = 1;
-#endif public void run(void)
-```
-regardless of blank lines separating them in the source. Confirmed **Java-
-specific**: the identical shape (preprocessor-guarded field followed by a
-method, inside a class body) formats correctly in C++ — likely a scan in
-`JavaSpecificRule` (method Allman-brace enforcement or a related pass) that
-doesn't treat a `PREPROCESSOR` token as a boundary the way C++'s equivalent
-logic does. Simple top-level cases (a bare `#define`, or `#ifdef`/`#endif`
-wrapping a whole class or a field with no method immediately after) are
-unaffected and already covered by the `isPreprocessorLanguage()` fix in `###
-C`. Root cause not yet found; needs its own investigation session before any
-test fixture exercising this shape can be added.
+**Preprocessor directive glued onto a following Java method definition — FIXED**
+A `#endif` (or any preprocessor line) sitting directly before a method
+definition inside a class body used to get glued onto the same output line as
+the method's modifiers, e.g. `#endif public void run(void)`, regardless of
+blank lines separating them in the source. Re-confirmed genuinely
+**Java-specific** via a minimal repro built both before and after the fix
+(`git show HEAD:...` swapped in temporarily): the identical shape in C++
+already formats correctly, because `applySignaturePass`'s C/C++ branch for
+computing `sigLeadStart` separately scans forward for the last `NEWLINE`
+before the function name and restarts from that line, incidentally routing
+around the bug -- the Java branch (`skipAnnotations`) has no equivalent
+line-rescan and uses `leadStart` as-is. Root cause: `leadStart` is found via
+`nextSignificantIndex`, which (correctly, for its other callers) treats
+`PREPROCESSOR`/`MACRO_DEF` as significant, not a gap token -- so when a
+directive line is the first token of a method's leading span, `leadStart`
+landed on the directive itself instead of skipping past it. `sigLeadStart`
+then also pointed at the directive, so `leadingGap` (computed as
+`joinText(span.start, sigLeadStart)`) excluded the directive's own text,
+silently dropping it from the preserved leading gap and leaving it glued to
+the re-rendered signature's first line with no separating text at all. Fixed
+by adding a loop right after computing `leadStart` that walks forward past
+any run of leading `PREPROCESSOR`/`MACRO_DEF` tokens (each still its own line)
+to find the real first token of the signature, conceptually the same fix
+shape as `BlockStructureRule.skipGuardForward`/`skipGuardBackward` already
+walking past guard directives for named-construct blank lines (a different
+code path, not reused directly, since this one operates on `leadStart` inside
+`applySignaturePass` rather than a brace boundary). New test fixture
+`test/java_preprocessor_method_inp/out.java` covers a `#endif` directly before
+a method (with and without a blank line, and with a `throws` clause), added
+to `INP_FILES` and `test/README.txt`. Verified via `make test`: 18/18 PASS
+(forward + idempotency), zero regressions; manually confirmed the identical
+C++ shape formats correctly both before and after the fix.
 
 ---
 
@@ -553,7 +556,7 @@ completion criteria already say to add tests for what they implement as they
 go, so add each one's tests immediately after it lands rather than batching
 them at the end. Do one final F pass after A to catch anything left over.
 
-### A — Add support to enable/disable formatting (IN PROGRESS)
+### A — Add support to enable/disable formatting (DONE)
 
 Infrastructure landed: `Token.frozen` field + `TokenizerCore.markFrozenSpans` (scans
 `//% JXM_CFMT_DIS`/`ENA` and block-comment equivalents, toggles frozen state, marker
@@ -630,15 +633,10 @@ marker mid-class (content before frozen, after reformatted), and a
 partial in-body freeze (content outside the marker pair reformats normally,
 inside stays byte-for-byte untouched).
 
-**Next:** add `--format-off` and both marker forms to `README.md`'s
-documentation (marker syntax + CLI flag).
-and `--format-off` flag documentation, then run full `make test` to confirm
-zero regressions.
-
-Via comments inside the code:
-
-//% JXM_CFMT_DIS
-/*% JXM_CFMT_DIS */
+`README.md` documents the marker syntax (`//% JXM_CFMT_DIS`/`ENA` and
+`/*% JXM_CFMT_DIS */`/`/*% JXM_CFMT_ENA */`) and the `--format-off` CLI flag
+under "Disabling formatting for part or all of a file". Task A is complete:
+plumbing, all rule guards, test fixture, and docs all landed and verified.
 
 //% JXM_CFMT_ENA
 /*% JXM_CFMT_ENA */

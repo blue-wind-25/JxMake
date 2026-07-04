@@ -436,7 +436,9 @@ and the `Formatter` pipeline's pass ordering:
    satisfies both constraints at once.
 
 Verified after the final fix: `make test` 18/18 → 19/19 PASS (added a permanent regression
-fixture, `test/real_code_regressions_{inp,out}.cpp`, distilling all 3 bug shapes), and the
+fixture, `test/real_code_regressions_1_{inp,out}.cpp` (renamed from `real_code_regressions_`
+without the `_1` suffix in a later session, once a second-language fixture existed),
+distilling all 3 bug shapes), and the
 full tinyexpr-plusplus `.cpp`/`.h` pair is now byte-for-byte idempotent (`diff round1 round2`
 empty) and compiles clean with `g++ -std=c++20`.
 

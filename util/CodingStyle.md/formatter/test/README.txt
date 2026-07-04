@@ -117,7 +117,7 @@ Headers:
                                 declaration, extern "C" block.
 
 Real-code regressions:
-  real_code_regressions_inp/out.cpp   -- Distilled from bugs found testing against
+  real_code_regressions_1_inp/out.cpp -- Distilled from bugs found testing against
                                 real, compiling third-party C++ (tinyexpr-plusplus):
                                 same-line-sibling call-argument mis-split, call
                                 "does it fit" length undercount, and a

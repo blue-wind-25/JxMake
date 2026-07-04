@@ -70,7 +70,6 @@ public final class Formatter {
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.apply(text));
             text = javaRule.separateEnumConstantListTerminator(tokenizer.apply(text));
         }
-        text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         text = switchRule.formatNonInlineSwitches(tokenizer.apply(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
 
@@ -93,6 +92,14 @@ public final class Formatter {
         // Phase 4: cosmetic spacing.
         text = miscRule.enforceKeywordSpacing(tokenizer.apply(text));
         text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
+        // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
+        // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line
+        // right at the boundary can measure as "fits" here, then grow past the limit once padding
+        // is added with no further re-check, only to (correctly, but inconsistently) get broken
+        // the next time the file is formatted -- an idempotency bug found by dogfood-testing this
+        // formatter against real-world C++ (tinyexpr-plusplus's te_parser::bitwise_rotate_right/
+        // left overloads).
+        text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
         text = miscRule.enforcePreIncrement(tokenizer.apply(text));
         if (isCpp) {

@@ -55,7 +55,6 @@ clean:
 #     make test JAVA=/path/to/java
 #     make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
-
 INP_FILES :=
 INP_FILES += h_core_inp.h
 INP_FILES += c_core_inp.c
@@ -83,12 +82,9 @@ INP_FILES += c_cpp_decl_gaps_inp.c
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
+# make test
 # make test 2>/dev/null
 # make test 2>&1 | grep -E 'PASS|FAIL'
-# make && clear && rm -rvf target/test-out && make test | ../../../3rd_party/tools/colordiff/colordiff.pl | more
-# clear && echo -e '\n====================================================================================================\n' && make test
-# git status | grep _inp
-
 test: $(JAR_FILE)
 	@(                                                                               \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                           \

@@ -248,7 +248,8 @@ public class SwitchRule {
     private SwitchBlock pickInnermostNeedingWork(final List<Token> tokens, final List<SwitchBlock> switches) {
         SwitchBlock best = null;
         for (final SwitchBlock sw : switches) {
-            if (sw.cases.isEmpty() || !isNonInline(tokens, sw) || !needsWork(tokens, sw)) {
+            if (sw.cases.isEmpty() || !isNonInline(tokens, sw) || !needsWork(tokens, sw)
+                    || anyFrozen(tokens, sw.openBrace, sw.closeBrace + 1)) {
                 continue;
             }
             if (best == null || (sw.closeBrace - sw.openBrace) < (best.closeBrace - best.openBrace)) {
@@ -489,7 +490,8 @@ public class SwitchRule {
         final Map<Integer, String> overrides = new HashMap<>();
 
         for (final SwitchBlock sw : switches) {
-            if (sw.cases.isEmpty() || isNonInline(tokens, sw)) {
+            if (sw.cases.isEmpty() || isNonInline(tokens, sw)
+                    || anyFrozen(tokens, sw.openBrace, sw.closeBrace + 1)) {
                 continue;
             }
             final List<CaseRow> rows = classifyAll(tokens, sw);
@@ -528,6 +530,9 @@ public class SwitchRule {
                 }
                 if (findFallthroughMarker(tokens, from, to) != -1) {
                     continue; // already marked, or an unrelated comment is present -- leave it alone
+                }
+                if (tokens.get(c.colonIdx).frozen) {
+                    continue;
                 }
                 overrides.put(c.colonIdx, tokens.get(c.colonIdx).text + " /* FALL-THROUGH */");
             }
@@ -817,6 +822,15 @@ public class SwitchRule {
             i++;
         }
         return i;
+    }
+
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

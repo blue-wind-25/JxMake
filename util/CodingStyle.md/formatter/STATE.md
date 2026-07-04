@@ -381,14 +381,69 @@ hand and may themselves contain errors.**
 - [x] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;
       must compile with zero errors — first run surfaced a real compile-breaking bug (see
       below), now fixed; verified clean compile after the fix.
-- [ ] Dogfood self-format idempotency: run formatter on `target/dogfood-src/`
-      again; must produce no changes — **FAILS**, nearly every file changes on a second
-      pass. Not yet investigated; likely several distinct convergence bugs rather than one
-      root cause, out of scope for the session that found it. Needs its own investigation.
-- [ ] Dogfood self-format declaration count: `grep -c "class\|interface\|enum"`
-      on original `src/` must equal count on `target/dogfood-src/` — mismatched (210 vs
-      256 in one run), not investigated; blocked on the idempotency item above since the
-      two are likely related (declarations shifting/duplicating across repeated passes).
+- [~] Dogfood self-format idempotency / declaration count: superseded by the real-code
+      testing approach below, which found and fixed the actual bugs underlying this failure.
+      Not re-run standalone against `target/dogfood-src/` since; if revisited, expect it to be
+      much closer to passing given the pass-ordering fix, but there may be other Java-only
+      convergence bugs the C++ testing below wouldn't have exercised.
+
+**Real-code testing (pivoted from synthetic dogfooding — found bugs faster):**
+Rather than continuing to chase the broad dogfood idempotency failure blind, tested the
+formatter against a real, compiling third-party C++ codebase:
+`https://github.com/blake-madden/tinyexpr-plusplus` (single-header-ish expression parser,
+~2900-line `.cpp` + ~1200-line `.h`, requires C++20 for `std::set::contains()` /
+`std::ranges::copy` — confirmed by trying `-std=c++17` against the *unmodified* original
+source and seeing it also fail, ruling out formatter-induced C++20-isms).
+Toolchain used: `/opt/gcc-12.2.0/bin/g++ -std=c++20` (this machine's newer GCC install; the
+ARM toolchain at `/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` was offered but not
+needed here since tinyexpr-plusplus is host-only). Methodology (repeatable for future
+libraries): clone with `--depth 1` into a scratch dir → format once (round1) → format the
+round1 output again (round2) → `diff round1 round2` (must be empty for idempotency) →
+compile round1 with g++ (must succeed with zero errors, same as the original unmodified
+source). Other candidates suggested but not yet tried: `martinus/nanobench`,
+`serge-sans-paille/frozen`, `fmtlib/fmt`, `taocpp/PEGTL`.
+
+Found and fixed 3 bugs this way, all in `MiscRule`'s multi-line call/declaration rendering
+and the `Formatter` pipeline's pass ordering:
+1. **`groupByOriginalLine` mis-split of same-line siblings** — a *trailing* newline (before a
+   lone closing-paren line) was misread as a new argument's *leading* newline, wrongly
+   splitting arguments that originally shared one source line (e.g.
+   `static_cast<uint16_t>(val1), static_cast<int>(val2)`) onto separate output lines. Fixed
+   with `pendingNewRow`/`currentHasSignificant` state tracking in `groupByOriginalLine` (only
+   a newline before a part's first significant token counts as starting a new row).
+2. **Length-measurement undercount** — `renderCallCandidate`'s "does it fit" check measured
+   only up to the candidate's own closing paren, ignoring trailing same-line text (e.g. an
+   outer `static_cast<T>( ... ) );` suffix), undercounting the true line length. Fixed by
+   adding `lineEndIndex` (symmetric to the existing `lineStartIndex`) and measuring the full
+   physical line.
+3. **Pass-ordering idempotency bug (the deep root cause)** — `enforceCallLineBreaking`'s
+   "fits within `LINE_LENGTH_LIMIT`" check ran before `enforceComplexityPadding` added loose
+   `( x )` spacing, so a borderline-length line could measure as "fits" on a fresh format,
+   then grow past the limit once padding was added with no re-check — getting broken only on
+   a second format pass (confirmed by measuring: a 99-char source line becomes 103 chars after
+   Phase 4 padding, crossing the 100-char limit). A first fix moved `enforceCallLineBreaking`
+   itself to run after `enforceComplexityPadding` (commit `1c10946`) — this fixed the
+   `rotr`/`rotl` divergence but broke a *different* invariant: `BlockStructureRule
+   .addClosingComments`'s line-count threshold (`closingCommentMinLines`, STYLE.md §7) needs
+   to see any line-count-*expanding* pass's effect before it decides whether to add a closing
+   comment (the same reasoning already applied to `switchRule.alignInlineSwitches` running
+   before `addClosingComments` for switch bodies) — pushing call-breaking past
+   `addClosingComments` meant a while-loop body whose call got broken across lines only
+   crossed the closing-comment threshold on a second pass
+   (`te_parser::list`'s while loop). **Final fix** (commit `26a9715`): instead pull
+   `enforceComplexityPadding` forward into Phase 1, immediately before
+   `enforceCallLineBreaking` (which stays in its original position, ahead of Phase 3) — this
+   satisfies both constraints at once.
+
+Verified after the final fix: `make test` 18/18 → 19/19 PASS (added a permanent regression
+fixture, `test/real_code_regressions_{inp,out}.cpp`, distilling all 3 bug shapes), and the
+full tinyexpr-plusplus `.cpp`/`.h` pair is now byte-for-byte idempotent (`diff round1 round2`
+empty) and compiles clean with `g++ -std=c++20`.
+
+**Lesson for future test-writing sessions:** real, compiling third-party code found 3
+concrete, fixable bugs quickly; the earlier from-scratch dogfood idempotency failure (nearly
+every self-format file changing on a second pass) was broad and hard to triage by comparison.
+Prefer real-code testing over synthetic dogfooding when hunting for formatter bugs.
 
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/
 `renderDeclarationPreserveGroups` (Option 2, "preserve original line groups" for a multi-line

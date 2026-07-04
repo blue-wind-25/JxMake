@@ -2526,7 +2526,8 @@ public class MiscRule {
             return lines == null ? null : "(\n" + String.join("\n", lines);
         }
 
-        final String wholeLine = baseIndent + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), closeIdx);
+        final String wholeLine = baseIndent
+                + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), lineEndIndex(tokens, closeIdx) - 1);
         if (wholeLine.length() <= LINE_LENGTH_LIMIT) {
             return null; // Option 0 -- already fits, no change
         }
@@ -2821,6 +2822,21 @@ public class MiscRule {
         }
         final int firstSig = nextSignificantIndex(tokens, newlineIdx + 1);
         return firstSig < 0 ? idx : firstSig;
+    }
+
+    /** The index one past the last significant token on the physical line containing {@code idx}
+     *  (i.e. up to, but excluding, the line's own {@code NEWLINE}, or {@code tokens.size()} at
+     *  end of file) -- the counterpart to {@link #lineStartIndex}, needed because a call/
+     *  declaration candidate's own `)` is not necessarily the end of its physical line (e.g. a
+     *  nested call like {@code std::rotr(...)} inside an outer {@code static_cast<T>( ... ) );}):
+     *  measuring a candidate's "does it fit on one line" length only up to its own `)` silently
+     *  ignores trailing same-line text after it, undercounting the true rendered line length. */
+    private int lineEndIndex(final List<Token> tokens, final int idx) {
+        int i = idx;
+        while (i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE) {
+            i++;
+        }
+        return i;
     }
 
     /** Line-leading whitespace of the physical line containing token {@code idx} -- "" if that

@@ -446,17 +446,30 @@ every self-format file changing on a second pass) was broad and hard to triage b
 Prefer real-code testing over synthetic dogfooding when hunting for formatter bugs.
 
 **NEXT SESSION — continue here:** tinyexpr-plusplus is done (idempotent + compiles clean,
-see above). Apply the same clone → format twice → diff → compile methodology to the 4
-remaining candidate libraries, in this order unless the user redirects:
-`martinus/nanobench` → `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`.
-Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs newer;
-confirm any compile failure also reproduces against the *unmodified* original source before
-treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20 requirement).
-For each new bug found: minimal isolated repro first, fix, verify against the full library
-round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (or a
-new `_2`/`_3` suffixed fixture pair if the existing one gets too large) — same pattern as
-this session. Update this section (and the dogfood checklist above, if revisited) as each
-library completes.
+see above). Continue the real-code testing methodology, now **interleaving C/C++ candidates
+with a real Java codebase** rather than doing all C/C++ first:
+
+- C/C++ candidates remaining, in this order unless the user redirects:
+  `martinus/nanobench` → `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`.
+  Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs newer;
+  confirm any compile failure also reproduces against the *unmodified* original source before
+  treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20 requirement).
+- Java candidate: a real, already-compiling Java source tree at (path relative to this
+  `formatter/` directory, do not expand to an absolute home-directory path):
+  `../../../../RobotCoding/gui_frontend/src/`
+  (subdirs at last check: `blocks`, `gf`, `gui`, `jcom`, `rc`, `runtime`, `toolbar`, plus
+  `COMMAND_PROTOCOL.txt`). Use JDK at
+  `/opt/openjdk-25_linux-x64_bin/jdk-25/bin/` (`javac`/`java`) to compile round1 output,
+  same round1→round2 diff + compile methodology as the C++ candidates (format once, format
+  the output again, diff must be empty, `javac` the result with zero errors — compare any
+  compile failure against the unmodified original source first, same as the C++ side, before
+  treating it as formatter-induced).
+
+For each new bug found (either language): minimal isolated repro first, fix, verify against
+the full source round-trip, `make test`, then a permanent fixture under
+`test/real_code_regressions_*` (or a new `_2`/`_3` suffixed fixture pair if the existing one
+gets too large) — same pattern as this session. Update this section (and the dogfood
+checklist above, if revisited) as each candidate (C/C++ library or the Java tree) completes.
 
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/
 `renderDeclarationPreserveGroups` (Option 2, "preserve original line groups" for a multi-line

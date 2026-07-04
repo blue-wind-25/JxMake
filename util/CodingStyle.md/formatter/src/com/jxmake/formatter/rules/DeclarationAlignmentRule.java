@@ -15,6 +15,7 @@ import com.jxmake.formatter.grid.ModifierPriority;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
@@ -334,8 +335,13 @@ public class DeclarationAlignmentRule {
         }
 
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(String.join(" ", row));
+        final List<String[]> rows = grid.flush();
+        for (int idx = 0; idx < rows.size(); idx++) {
+            final Declaration d = group.get(idx);
+            if (!d.templatePrefix.isEmpty()) {
+                lines.add(renderTemplatePrefix(d.templatePrefix));
+            }
+            lines.add(String.join(" ", rows.get(idx)));
         }
         return lines;
     }
@@ -787,11 +793,15 @@ public class DeclarationAlignmentRule {
 
         int i = 0;
         List<Token> templatePrefix = Collections.emptyList();
+        int afterTemplateKeyword = i + 1;
+        while (afterTemplateKeyword < body.size() && isGapToken(body.get(afterTemplateKeyword))) {
+            afterTemplateKeyword++;
+        }
         if (lang.isCpp && i < body.size() && body.get(i).type == TokenType.KEYWORD
-                && "template".equals(body.get(i).text) && i + 1 < body.size()
-                && isOp(body.get(i + 1), "<")) {
+                && "template".equals(body.get(i).text) && afterTemplateKeyword < body.size()
+                && isOp(body.get(afterTemplateKeyword), "<")) {
             int depth = 0;
-            int j = i + 1;
+            int j = afterTemplateKeyword;
             for (; j < body.size(); j++) {
                 if (isOp(body.get(j), "<")) {
                     depth++;

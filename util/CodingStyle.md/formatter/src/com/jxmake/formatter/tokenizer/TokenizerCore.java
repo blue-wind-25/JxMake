@@ -190,6 +190,7 @@ public class TokenizerCore {
 
     private final String language;
     private final boolean isC;
+    private final boolean isCpp;
     private final boolean isJava;
     private final Set<String> keywords;
     private final Set<String> namedConstructKeywords;
@@ -241,6 +242,7 @@ public class TokenizerCore {
     public TokenizerCore(final Lang lang) {
         this.language = lang.language;
         this.isC = lang.isC;
+        this.isCpp = lang.isCpp;
         this.isJava = lang.isJava;
         switch (language) {
             case "c":
@@ -300,6 +302,8 @@ public class TokenizerCore {
                 t = emitBlockComment();
             } else if (c == '"' && isTextBlockOpener()) {
                 t = emitTextBlock();
+            } else if ((isC || isCpp) && rawStringPrefixLength() >= 0) {
+                t = emitRawString(rawStringPrefixLength());
             } else if (c == '"') {
                 t = emitString();
             } else if (c == '\'') {
@@ -690,6 +694,70 @@ public class TokenizerCore {
                 break;
             }
             pos++;
+        }
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
+    }
+
+    private static final String[] RAW_STRING_PREFIXES = { "u8R", "uR", "UR", "LR", "R" };
+
+    /** C++11 raw string literals (`R"delim(...)delim"`, optionally prefixed by an encoding
+     *  prefix `u8`/`u`/`U`/`L`) can contain arbitrary characters -- including `{`/`}` -- as plain
+     *  content (nanobench's mustache HTML templates are stored this way). Without recognizing the
+     *  whole thing as one opaque token, {@code emitIdentifierOrKeyword} + {@code emitString} would
+     *  lex the prefix, the raw delimiter, and the literal's contents as ordinary source, exposing
+     *  any brace characters inside to the brace-depth tracker that every scope-splitting pass
+     *  relies on -- silently corrupting nesting depth for the rest of the file. Returns the
+     *  prefix length (`"R"` = 1, `"u8R"` = 3, ...) if {@code pos} sits on a genuine raw string
+     *  opener (prefix + `"` + a valid delimiter of at most 16 chars with no whitespace/paren/
+     *  backslash + `(`), else -1. */
+    private int rawStringPrefixLength() {
+        for (final String prefix : RAW_STRING_PREFIXES) {
+            if (!source.startsWith(prefix, pos)) {
+                continue;
+            }
+            int p = pos + prefix.length();
+            if (p >= length || source.charAt(p) != '"') {
+                continue;
+            }
+            p++;
+            final int delimStart = p;
+            while (p < length && p - delimStart <= 16 && source.charAt(p) != '(') {
+                final char dc = source.charAt(p);
+                if (dc == ' ' || dc == '\t' || dc == '\n' || dc == '\r' || dc == '\\' || dc == ')') {
+                    break;
+                }
+                p++;
+            }
+            if (p < length && source.charAt(p) == '(') {
+                return prefix.length();
+            }
+        }
+        return -1;
+    }
+
+    /** Lexes a raw string literal as a single opaque STRING token, from the encoding/`R` prefix
+     *  through the closing `)delim"` -- content in between (including any `{`/`}`/`"` chars) is
+     *  never re-examined by the brace-depth tracker or any other rule (same "opaque, own text,
+     *  never split" precedent as {@link #emitBlockComment}/{@link #emitTextBlock}). An unterminated
+     *  raw string (no matching `)delim"` before EOF) is consumed to the end of the source. */
+    private Token emitRawString(final int prefixLen) {
+        final int start = pos;
+        pos += prefixLen + 1; // prefix + opening `"`
+        final int delimStart = pos;
+        while (pos < length && source.charAt(pos) != '(') {
+            pos++;
+        }
+        final String delim = source.substring(delimStart, pos);
+        final String closer = ")" + delim + "\"";
+        if (pos < length) {
+            pos++; // `(`
+        }
+        final int closerIdx = source.indexOf(closer, pos);
+        if (closerIdx < 0) {
+            pos = length;
+        } else {
+            pos = closerIdx + closer.length();
         }
         return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
                 null);

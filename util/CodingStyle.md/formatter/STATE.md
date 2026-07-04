@@ -532,16 +532,121 @@ empty), `javac`-compiles with 0 errors (matching the original source), and decla
 match (16 top-level/nested types, same names, in both original and round1 — a naive grep
 overcounts due to javadoc/line-wrap noise containing the words "class"/"interface").
 
-**NEXT SESSION — continue here:** Both the Java candidate and the self-dogfood check are
-done. Continue the real-code testing methodology against the remaining C/C++ candidates, in
-this order unless the user redirects: `martinus/nanobench` → `serge-sans-paille/frozen` →
-`fmtlib/fmt` → `taocpp/PEGTL`. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard
-flag if a library needs newer; confirm any compile failure also reproduces against the
-*unmodified* original source before treating it as formatter-induced, same check done for
-tinyexpr-plusplus's C++20 requirement). No specific OSS C++23 candidate has been picked yet
-for a compile-only check with the ARM toolchain at
-`/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` — ask the user for one, or suggest one
-once picked, rather than guessing a project/URL.
+**`martinus/nanobench` (single-header `src/include/nanobench.h`, 3484 lines) — DONE:** found
+and fixed two real bugs, one of them a severe silent-content-loss class never seen before this
+session (previous bugs were all idempotency-only divergences, never actual data loss):
+
+6. **`TokenizerCore` had no support for C++11 raw string literals (`R"delim(...)delim"`) at
+   all.** nanobench stores its mustache HTML/JSON/CSV report templates as raw strings full of
+   `{{...}}` placeholders and literal `{`/`}` characters. Without raw-string recognition, the
+   tokenizer lexed a raw string's content as ordinary source: the `{`/`}` characters inside were
+   seen by every scope-splitting/brace-depth-tracking pass as real punctuation, corrupting
+   nesting depth for the rest of the file. Diagnosed via `head -n N`-based bisection (narrowed
+   the trigger to a ~4-line window), then confirmed directly: a fully-balanced, self-contained
+   1895-line prefix of the file, isolated and formatted on its own, still lost its final 2
+   closing braces and (in the full/unbounded-growth case before the narrower fix below) up to
+   ~46% of total output, producing code that doesn't even compile (`unterminated #if`,
+   `unterminated #ifndef`, unclosed namespaces) — from a source file that itself compiles
+   cleanly with 0 errors. Fixed by adding `TokenizerCore.rawStringPrefixLength`/`emitRawString`:
+   recognizes the optional encoding prefix (`u8R`/`uR`/`UR`/`LR`/`R`) + `"` + a ≤16-char
+   delimiter with no whitespace/paren/backslash + `(`, then lexes through to the matching
+   `)delim"` as one opaque STRING token (same "one token, own text, never re-examined"
+   precedent as `emitBlockComment`/`emitTextBlock`) — content inside (including any
+   `{`/`}`/`"`) is never exposed to any other rule.
+   - **Follow-up bug in the same fix**: the new dispatch branch was gated on `isC` (this
+     tokenizer's C-only flag) instead of C-or-C++, so `.hpp`/`.cpp` files (anything not
+     literally `.c`/`.h`) were completely unaffected by the fix — raw strings in genuine C++
+     files (like nanobench tested honestly under a `.hpp` extension, since it's really C++
+     despite upstream naming it `.h`) still corrupted. Added an `isCpp` field to
+     `TokenizerCore` (mirroring `Lang.isCpp`, populated from the constructor same as `isC`/
+     `isJava` already were) and changed the raw-string dispatch condition to `isC || isCpp`.
+7. **`DeclarationAlignmentRule`'s general (non-function-forward-declaration) group renderer
+   silently dropped a leading `template<...>` prefix** captured on a bare forward declaration
+   (`template <typename T>\nstruct PerfCountSet;`, no body). `parseDeclaration` already extracts
+   and stores this as `Declaration.templatePrefix` for exactly this purpose, but `render()` has
+   two separate group-rendering code paths gated on `allAreFuncDecls` (true only when every
+   declaration's `sizeTokens` starts with `(`, i.e. looks like `name(...)`): only
+   `renderFunctionForwardGroup` (the `true` branch) ever emitted `templatePrefix`; the general
+   grid-render path (the `false` branch, which is what a bare `struct Foo;`/`class Bar;`
+   forward declaration with no parens actually goes through) built its `lines` list directly
+   from `grid.flush()` with no `templatePrefix` check at all. Result: `template <typename T>`
+   vanished from in front of `struct PerfCountSet;`, while the immediately-following *full*
+   definition (`template <typename T>\nstruct PerfCountSet { ... };`, which has a body and so
+   is handled entirely by `ScopePipeline`, never reaching this rule) kept its own template line
+   fine — `struct PerfCountSet` ends up forward-declared as a plain (non-template) type, then
+   later redefined as a template of the same name: `error: 'struct ... PerfCountSet' is not a
+   template` at every use site. (A smaller, likely-related contributing factor also fixed in
+   the same pass: the `template` keyword's own child-clause detection in `parseDeclaration`
+   required `body.get(i + 1)` to be the `<` token with zero gap tokens in between —
+   `significantOnly(stmt)` already strips whitespace/newlines before this check runs, so this
+   turned out not to be reachable in practice, but the defensive gap-skip was added anyway
+   since it costs nothing and matches the equivalent skip already used for `requires`/
+   `template` pulling elsewhere in `MiscRule`.) Fixed by adding the same `templatePrefix`-check
+   in the general path's line-building loop that `renderFunctionForwardGroup` already had.
+
+Verified: `make test` 22/22 PASS (added `test/real_code_regressions_4_{inp,out}.hpp`, covering
+both the raw-string-with-braces shape and the template-forward-declaration shape in one
+fixture), the full nanobench header (formatted honestly as C++ via a `.hpp` copy, since its
+real content is C++ despite the upstream `.h` name) is byte-for-byte idempotent (`diff` round1
+vs round2 empty) and round1 compiles clean with `g++ -std=c++20 -fsyntax-only` under
+`-DANKERL_NANOBENCH_IMPLEMENT` (matching the unmodified original, which also compiles with 0
+errors under the same flags).
+
+**Known, deliberately out-of-scope observation (not a bug):** formatting nanobench.h under its
+*actual* `.h` extension (this formatter's own convention: `.h` = C, `.hpp` = C++, matching
+`h_core_inp.h`/`hpp_core_inp.hpp` in `test/`) hits a different, unrelated failure — `CppSpecificRule
+.enforceEmptyParameterList`'s C-only "add explicit `(void)`" heuristic misfires on a constructor
+member-initializer-list's trailing `, mHas() { ... }` (an empty-parens call immediately
+followed by `{`, structurally identical under C rules to an empty-param C function
+*definition*), rewriting it to the ill-formed `mHas(void)`. This can only happen because
+nanobench is genuinely C++ mislabeled with a `.h` extension (real C has no member-initializer
+lists at all, so this shape is unreachable for genuine C input) — treated as a convention
+mismatch in the test file, not a formatter defect, and not fixed this session.
+
+**NEXT SESSION — continue here:** Continue the real-code testing methodology against the
+remaining C/C++ candidates, in this order unless the user redirects:
+`serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`, then the additional candidates
+below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs
+newer; confirm any compile failure also reproduces against the *unmodified* original source
+before treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20
+requirement and nanobench above). For any C++ candidate distributed under a `.h`/`.hpp`
+extension, check which it actually is before testing (nanobench's own `.h`-vs-content mismatch
+above cost real bisection time chasing a non-bug) — copy to `.hpp` first if the content is
+really C++.
+
+Additional candidates the user has since supplied (not yet started, path relative to home dir
+written as `~` below so this file never embeds the actual account/user name):
+
+- **C17**: `github.com/Tongsuo-Project/tongsuo-mini` — a crypto/TLS codebase, likely macro-heavy
+  (good match for this formatter's own history of macro-related bugs). Compile-check with the
+  ARM toolchain at `/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` (`-fsyntax-only`,
+  confirmed to at least launch and run a real `-fsyntax-only` pass in this environment) or
+  `/opt/gcc-12.2.0` with `-std=c17`, whichever the checkout needs.
+- **C++23**: `github.com/basvas-jkj/cpp_modules` — check first whether this actually uses C++20/23
+  *language modules* (`import`/`export module`) before committing to it as a candidate; that
+  syntax is a real risk both for the formatter (never exercised against `import`/`module`
+  keyword contexts) and for whichever toolchain compiles it.
+- **C++23**: `github.com/V1niciosLins/StartCpp` — smaller/likely learner-style repo; treat as a
+  quick filler candidate, lower priority, not expected to surface new bugs.
+- **Clang 22.1.8**, already downloaded and extracted by the user to
+  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/` (a prebuilt Linux-X64 LLVM release, run directly
+  on this CentOS7 box — no `patchelf`/glibc-2.41 repointing needed after all; the release binary
+  already runs as-is here). Confirmed working: `clang++ -std=c++23 -fsyntax-only <file>.cpp`
+  both with and without `-stdlib=libc++` returns exit 0 on a trivial translation unit. This is
+  the preferred tool for the two C++23 candidates above (more current explicit C++23 support
+  than `/opt/gcc-12.2.0`). One cosmetic wrinkle: every invocation of any binary under
+  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/` prints one repeated stderr line per shared-library
+  dependency --
+  `.../clang++: /opt/gcc-12.2.0/lib64/libstdc++.so.6: no version information available (required by .../clang++)`
+  -- this is just an older libstdc++ (picked up from `/opt/gcc-12.2.0`, likely via an
+  already-set `LD_LIBRARY_PATH`) lacking GNU symbol-versioning metadata; it is NOT a functional
+  error (the command still completes and returns the correct exit code) and is unrelated to
+  glibc. Filter it out of captured output rather than treating it as a compile error, e.g.:
+  `<clang++ invocation> 2>&1 | grep -v 'no version information available'`
+  (grep on that fixed substring is safe/stable — don't grep on the changing library path).
+  `/opt/glibc-2.41/` also exists in this environment (full glibc install, dynamic linker
+  included) if a genuine glibc-version-mismatch problem is ever hit with some OTHER prebuilt
+  binary and patchelf repointing becomes necessary again -- not needed for clang22 itself.
 
 For each new bug found: minimal isolated repro first, fix, verify against the full source
 round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (a new
@@ -716,7 +821,7 @@ C++ shape formats correctly both before and after the fix.
 
 ---
 
-## TODO — Not Scheduled
+## TODO — (DONE, partial)
 
 **Implementation order: C, B, D, E, A -- with F threaded through each step,
 plus a final F sweep after A.**
@@ -938,7 +1043,7 @@ Makefile note: keep recipe line continuations (`\`) aligned to a common column,
 consistent with the existing `test` target — this project's Makefile uses tab
 size 8.
 
-### E — Code cleanups
+### E — Code cleanups (DONE)
 1. These comparison: (DONE)
      "c".equals()
      "cpp".equals()

@@ -149,6 +149,25 @@ Real-code regressions:
                                 already-formatted output, rather than continuing to
                                 treat it as one aligned group as on a fresh format.
 
+  real_code_regressions_4_inp/out.hpp -- Distilled from bugs found testing against
+                                real, compiling third-party C++ (martinus/nanobench,
+                                a single-header library): (1) the tokenizer had no
+                                support for C++11 raw string literals
+                                (`R"DELIM(...)DELIM"`) at all, so `{`/`}` characters
+                                inside one (e.g. nanobench's mustache HTML/JSON
+                                templates) were lexed as ordinary punctuation,
+                                corrupting brace-depth tracking for the rest of the
+                                file and silently truncating up to ~46% of real-world
+                                files; (2) even after adding raw-string support, it
+                                was gated on the tokenizer's C-only `isC` flag
+                                instead of C-or-C++, so `.hpp`/`.cpp` files were
+                                unaffected; (3) DeclarationAlignmentRule's general
+                                (non-function-forward-declaration) group renderer
+                                silently dropped a leading `template<...>` prefix
+                                captured on a bare forward declaration (`template
+                                <typename T>\nstruct Foo;`) -- only the
+                                function-forward-declaration renderer emitted it.
+
 
 How Tests Are Run
 -----------------

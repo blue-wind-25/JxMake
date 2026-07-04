@@ -199,7 +199,7 @@ val active = true
 
 ```kotlin
 // NOT preferred — do not space ?. or !!
-val len = str ?. length
+val len  = str ?. length
 val name = user !! .name
 ```
 
@@ -221,7 +221,7 @@ column itself lines up, detached from the variable name:
 ```kotlin
 public  open     var x : Int
 private          val y : String
-         override var z : Long
+        override var z : Long
 ```
 
 Assignment `=` aligns the same way as Java/C++ (STYLE.md §5) whenever a group of
@@ -329,7 +329,7 @@ word-operators and get normal spacing — same tight/loose rule applies once nes
 ## 10. Destructuring Declarations
 
 ```kotlin
-val (a, b) = pair
+val (a, b)        = pair
 val (id, name, _) = user
 ```
 

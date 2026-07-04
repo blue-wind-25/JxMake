@@ -291,9 +291,10 @@ public final class ServerMode {
                     }
                 }
 
+                final boolean formatOff = "true".equals(params.get("format-off"));
                 final String content = readBody(exchange.getRequestBody());
                 final Config config = Config.resolve(Paths.get(path), null);
-                final String formatted = Formatter.formatOne(content, language, path, config);
+                final String formatted = Formatter.formatOne(content, language, path, config, formatOff);
                 respond(exchange, 200, formatted);
             } catch (final Exception e) {
                 respond(exchange, 500, e.getMessage() != null ? e.getMessage() : e.toString());

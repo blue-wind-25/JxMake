@@ -554,7 +554,27 @@ completion criteria already say to add tests for what they implement as they
 go, so add each one's tests immediately after it lands rather than batching
 them at the end. Do one final F pass after A to catch anything left over.
 
-### A — Add support to enable/disable formatting
+### A — Add support to enable/disable formatting (IN PROGRESS)
+
+Infrastructure landed: `Token.frozen` field + `TokenizerCore.markFrozenSpans` (scans
+`//% JXM_CFMT_DIS`/`ENA` and block-comment equivalents, toggles frozen state, marker
+itself always frozen); `Formatter.formatOne` overload takes `formatOff` and wraps
+every re-tokenize call through a local `tokenizer` `Function` that calls
+`markFrozenSpans`; `ScopePipeline` given the same `formatOff`-aware `tokenize()`
+wrapper (its own overloaded constructor, default `false` for the old 4-arg call
+sites); `Main.java` parses `--format-off`, threads it through
+`processFile`/`format`/`formatStandalone`/`delegateToServer`; `ServerMode.FormatHandler`
+reads a `format-off=true` query param. `make test` 15/15 PASS (forward + idempotency),
+zero regressions -- this step only adds the frozen-tagging plumbing, no rule yet
+actually checks `t.frozen`, so behavior is unchanged pending the per-rule guard work
+below.
+
+**Next:** add per-rule frozen guards (two-tier: token-level render-loop passthrough
+vs. span-level structural-pass skip, see plan) file-by-file in order: `MiscRule` →
+`BlockStructureRule` → `SwitchRule` → `DeclarationAlignmentRule` → `GetterSetterRule`
+→ `CppSpecificRule`/`JavaSpecificRule` → `ScopePipeline`'s own grouping passes. Run
+`make test` after each file. Then add new test fixture(s) with marker regions,
+register in `test/README.txt` + this checklist, update `README.md`.
 
 Via comments inside the code:
 

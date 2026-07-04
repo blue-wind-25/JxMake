@@ -44,6 +44,7 @@ public class TokenizerCore {
         public final int braceDepth;
         public final int parenDepth;
         public final String name; // for `{`/`}` only: pushed/popped construct name, else null
+        public boolean frozen; // set by markFrozenSpans; true = opaque pass-through, never transformed
 
         public Token(final TokenType type, final String text, final int braceDepth,
                 final int parenDepth, final String name) {
@@ -94,6 +95,33 @@ public class TokenizerCore {
         public static boolean isGapToken(final Token t) {
             return t != null && (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
                     || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK);
+        }
+    }
+
+    private static final java.util.regex.Pattern FORMAT_DIS_MARKER = java.util.regex.Pattern.compile(
+            "^//%\\s*JXM_CFMT_DIS\\s*$|^/\\*%\\s*JXM_CFMT_DIS\\s*\\*/$");
+    private static final java.util.regex.Pattern FORMAT_ENA_MARKER = java.util.regex.Pattern.compile(
+            "^//%\\s*JXM_CFMT_ENA\\s*$|^/\\*%\\s*JXM_CFMT_ENA\\s*\\*/$");
+
+    /** Scans {@code tokens} in order, toggling a frozen/unfrozen state on
+     *  {@code //% JXM_CFMT_DIS}/{@code ENA} (and block-comment equivalent) marker comments, and
+     *  stamps {@link Token#frozen} on every token accordingly. A marker token itself is always
+     *  stamped frozen (never reformatted/removed), regardless of whether it disables or
+     *  re-enables. {@code startFrozen} seeds the initial state (set from {@code --format-off}). */
+    public static void markFrozenSpans(final List<Token> tokens, final boolean startFrozen) {
+        boolean frozen = startFrozen;
+        for (final Token t : tokens) {
+            if (Token.isComment(t)) {
+                final String trimmed = t.text.trim();
+                if (FORMAT_DIS_MARKER.matcher(trimmed).matches()) {
+                    frozen = true;
+                } else if (FORMAT_ENA_MARKER.matcher(trimmed).matches()) {
+                    t.frozen = true;
+                    frozen = false;
+                    continue;
+                }
+            }
+            t.frozen = frozen;
         }
     }
 

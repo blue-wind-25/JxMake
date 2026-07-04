@@ -53,6 +53,7 @@ public final class Main {
         boolean serverMode = false;
         boolean stopMode = false;
         boolean standalone = false;
+        boolean formatOff = false;
         OutputMode outputMode = OutputMode.IN_PLACE;
         String outDir = null;
         Integer port = null;
@@ -66,6 +67,8 @@ public final class Main {
                 stopMode = true;
             } else if ("--standalone".equals(arg)) {
                 standalone = true;
+            } else if ("--format-off".equals(arg)) {
+                formatOff = true;
             } else if ("--diff".equals(arg)) {
                 if (outputMode != OutputMode.IN_PLACE) {
                     return usageError("--diff cannot be combined with --check or --out");
@@ -130,7 +133,7 @@ public final class Main {
         boolean anyError = false;
         for (final String file : files) {
             try {
-                if (processFile(Paths.get(file), outputMode, outDir, standalone, cliOverrides)) {
+                if (processFile(Paths.get(file), outputMode, outDir, standalone, formatOff, cliOverrides)) {
                     anyChanged = true;
                 }
             } catch (final Exception e) {
@@ -154,14 +157,16 @@ public final class Main {
     }
 
     private static void printUsage() {
-        System.err.println("usage: jxmake-code-formatter [--standalone] [--diff | --check | --out DIR] [file...]");
+        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] "
+                + "[--diff | --check | --out DIR] [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");
     }
 
     /** Returns {@code true} if the file's formatted content differs from its original content. */
     private static boolean processFile(final Path path, final OutputMode outputMode, final String outDir,
-            final boolean standalone, final Map<String, String> cliOverrides) throws IOException {
+            final boolean standalone, final boolean formatOff, final Map<String, String> cliOverrides)
+            throws IOException {
         if (!Files.isRegularFile(path)) {
             throw new IOException("no such file: " + path);
         }
@@ -171,7 +176,7 @@ public final class Main {
         }
 
         final String original = readFile(path);
-        final String formatted = format(path, language, original, standalone, cliOverrides);
+        final String formatted = format(path, language, original, standalone, formatOff, cliOverrides);
         final boolean changed = !formatted.equals(original);
 
         switch (outputMode) {
@@ -202,23 +207,24 @@ public final class Main {
     }
 
     private static String format(final Path path, final String language, final String original,
-            final boolean standalone, final Map<String, String> cliOverrides) throws IOException {
+            final boolean standalone, final boolean formatOff, final Map<String, String> cliOverrides)
+            throws IOException {
         if (!standalone) {
             final int serverPort = ServerMode.findRunningServerPort();
             if (serverPort > 0) {
                 try {
-                    return delegateToServer(serverPort, path, language, original);
+                    return delegateToServer(serverPort, path, language, original, formatOff);
                 } catch (final IOException e) {
                     System.err.println("jxmake-code-formatter: warning: server delegation failed (" + e.getMessage()
                             + "), falling back to standalone formatting");
                 }
             }
         }
-        return formatStandalone(path, language, original, cliOverrides);
+        return formatStandalone(path, language, original, formatOff, cliOverrides);
     }
 
     private static String formatStandalone(final Path path, final String language, final String original,
-            final Map<String, String> baseCliOverrides) throws IOException {
+            final boolean formatOff, final Map<String, String> baseCliOverrides) throws IOException {
         Config config = Config.resolve(path, baseCliOverrides);
         if ("auto".equals(config.indentStyle())) {
             final String resolvedStyle = resolveAutoIndentStyle(path);
@@ -226,7 +232,7 @@ public final class Main {
             merged.put("indent-style", resolvedStyle);
             config = Config.resolve(path, merged);
         }
-        final String formatted = Formatter.formatOne(original, language, path.toString(), config);
+        final String formatted = Formatter.formatOne(original, language, path.toString(), config, formatOff);
         return applyLineEndings(formatted, original, config.lineEndings());
     }
 
@@ -320,9 +326,10 @@ public final class Main {
     }
 
     private static String delegateToServer(final int port, final Path path, final String language,
-            final String content) throws IOException {
+            final String content, final boolean formatOff) throws IOException {
         final String encodedPath = URLEncoder.encode(path.toAbsolutePath().toString(), "UTF-8");
-        final URL url = new URL("http://localhost:" + port + "/format?path=" + encodedPath + "&lang=" + language);
+        final URL url = new URL("http://localhost:" + port + "/format?path=" + encodedPath + "&lang=" + language
+                + (formatOff ? "&format-off=true" : ""));
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);

@@ -48,15 +48,31 @@ public class ScopePipeline {
     private final DeclarationAlignmentRule declarationRule;
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
+    private final boolean formatOff;
 
     public ScopePipeline(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod) {
+        this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, false);
+    }
+
+    public ScopePipeline(final Lang lang, final String indentStyle,
+            final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
+            final boolean formatOff) {
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(lang);
         this.declarationRule = new DeclarationAlignmentRule(lang);
         this.getterSetterRule = new GetterSetterRule(lang);
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod);
+        this.formatOff = formatOff;
+    }
+
+    /** Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
+     *  re-tokenize, same as {@code Formatter}'s tokenizer wrapper. */
+    private List<Token> tokenize(final String s) {
+        final List<Token> tokens = tokenizer.tokenize(s);
+        TokenizerCore.markFrozenSpans(tokens, formatOff);
+        return tokens;
     }
 
     // ── Top-level span splitting ─────────────────────────────────────────────────
@@ -755,10 +771,10 @@ public class ScopePipeline {
      */
     private String processScope(final List<Token> tokens, final int depth) {
         List<Token> current = tokens;
-        current = tokenizer.tokenize(applyDeclarationsPass(current));
-        current = tokenizer.tokenize(applyAssignmentsPass(current));
-        current = tokenizer.tokenize(applySignaturePass(current, depth));
-        current = tokenizer.tokenize(applyGetterSetterPass(current));
+        current = tokenize(applyDeclarationsPass(current));
+        current = tokenize(applyAssignmentsPass(current));
+        current = tokenize(applySignaturePass(current, depth));
+        current = tokenize(applyGetterSetterPass(current));
 
         final List<Span> spans = splitTopLevelSpans(current);
         final List<Replacement> replacements = new ArrayList<>();
@@ -796,7 +812,7 @@ public class ScopePipeline {
                 // every other named construct (class/struct/enum) or function/loop body -- so
                 // it must not consume an indentation level the way `depth + 1` otherwise would.
                 final int childDepth = isNamespaceScope(current, span.openBraceIdx) ? depth : depth + 1;
-                childResult = processScope(tokenizer.tokenize(childSource), childDepth);
+                childResult = processScope(tokenize(childSource), childDepth);
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
@@ -806,7 +822,7 @@ public class ScopePipeline {
     /** Public entry point: tokenizes {@code source} and runs the recursive scope pipeline,
      *  starting at depth 0. The one method {@code Main.java} calls once per file. */
     public String process(final String source) {
-        return processScope(tokenizer.tokenize(source), 0);
+        return processScope(tokenize(source), 0);
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

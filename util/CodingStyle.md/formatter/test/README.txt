@@ -57,6 +57,13 @@ C:
                                 between params, inside if/for headers, between else
                                 and brace, divider normalization, comments on macros.
 
+  c_cpp_decl_gaps_inp/out.c  -- Regression coverage for three DeclarationAlignmentRule
+                                fixes (STATE.md "Known Gaps -- Fixed"): the `* const`
+                                column gap in mixed pointer-star groups, `typedef`
+                                joining and aligning with a surrounding plain-variable
+                                group, and direct function-pointer declarations
+                                (including multi-star `(**cb)`) joining a group.
+
   combined_inp/out.c         -- All C constructs together in one realistic file:
                                 macros, enums with closing comments, structs, forward
                                 declarations, global state alignment, public API,

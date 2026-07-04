@@ -809,24 +809,19 @@ size 8.
    also distinct). Verified via `make test`: 15/15 file-pairs still PASS (forward +
    idempotency), zero regressions.
 
-### F — Add more tests
+### F — Add more tests — DONE
 
-Add more `*_inp.c/cpp/java` and `*_out.c/cpp/java` test pairs to test more construct
-variants (do not modify the existing test pairs).
+Added `test/c_cpp_decl_gaps_inp/out.c` covering the three `DeclarationAlignmentRule`
+fixes recorded under `## Known Gaps — Fixed`: the `* const` column gap in a mixed
+`char**`/`double**`/`char* const` group, `typedef unsigned char byte;` joining and
+aligning with a following plain-variable group (`int`/`double`), and direct
+function-pointer declarations (`void (*cb)(int) = NULL;`, including multi-star
+`void (**cbcb)(int) = NULL;`) joining a plain-variable group with the `=` aligned
+across the whole group. Registered in the Makefile's `INP_FILES` and
+`test/README.txt`. Verified via `make test`: 17/17 PASS (forward + idempotency),
+zero regressions.
 
-Add them also under:
-    File-pair test: `java_comments_inp.java` ...
-in 'STATE.md'
-
-Finally `test/README.txt` to register the new tests.
-
-Candidate: the three `DeclarationAlignmentRule` fixes under `## Known Gaps — Fixed`
-above (`* const` gap, `typedef` alignment, function-pointer alignment incl.
-multi-star `(**cb)`). Reuse the constructs already written there as the `_inp`
-source instead of re-deriving new snippets -- add a `c_cpp_decl_gaps_inp.c`
-(or fold into an existing `_core`/`_modern` pair) covering:
-- mixed `char**`/`double**`/`char* const` group (the gap example)
-- `typedef unsigned char byte;` inside a plain-variable group
-- `void (*cb)(int) = NULL;` and `void (**cb)(int) = NULL;` inside a
-  plain-variable group with differing name widths, to assert the `=` aligns
-  across the whole group.
+This was the final F pass done after Task A per the "F is not an independent
+batching slot" note above -- Task A's own tests (`format_toggle_inp/out.java`)
+were already added when Task A landed; this pass covers everything else left
+over from prior sections.

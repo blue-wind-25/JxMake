@@ -376,14 +376,42 @@ user, and wait for instruction. Do not attempt to fix either the formatter or th
 hand and may themselves contain errors.**
 
 **After all 15 file-pair tests pass (or are resolved - ask the user first):**
-- [ ] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
+- [x] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
       to `target/dogfood-src/`
-- [ ] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;
-      must compile with zero errors
+- [x] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;
+      must compile with zero errors — first run surfaced a real compile-breaking bug (see
+      below), now fixed; verified clean compile after the fix.
 - [ ] Dogfood self-format idempotency: run formatter on `target/dogfood-src/`
-      again; must produce no changes
+      again; must produce no changes — **FAILS**, nearly every file changes on a second
+      pass. Not yet investigated; likely several distinct convergence bugs rather than one
+      root cause, out of scope for the session that found it. Needs its own investigation.
 - [ ] Dogfood self-format declaration count: `grep -c "class\|interface\|enum"`
-      on original `src/` must equal count on `target/dogfood-src/`
+      on original `src/` must equal count on `target/dogfood-src/` — mismatched (210 vs
+      256 in one run), not investigated; blocked on the idempotency item above since the
+      two are likely related (declarations shifting/duplicating across repeated passes).
+
+**Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/
+`renderDeclarationPreserveGroups` (Option 2, "preserve original line groups" for a multi-line
+call/declaration argument list) used to split each original source line's tokens on top-level
+commas independently, resetting paren/bracket/angle depth to 0 at the start of every line. When
+a single argument was itself a nested call whose own argument list wrapped onto a second
+physical line (so the outer line ended with an unclosed paren, i.e. real depth > 0 carried into
+the next line), the per-line depth reset caused that line's trailing comma to be misread as
+"still inside" the line's one accumulated part instead of splitting it off — and a synthetic
+comma was then appended on top of it by the row-rendering loop, corrupting output with a
+duplicated comma (or, in the `tokens.add(idx + 1, new Token(...))` case in `TokenizerCore.java`,
+an outright compile error). Fixed by replacing the old `splitOnNewlines` + per-line
+`splitTopLevelCommas` combination with a new `groupByOriginalLine` helper that tracks depth
+cumulatively across the *entire* multi-line slice (correct top-level-comma detection) while
+still grouping the resulting arguments back into per-original-line rows (a depth-0 `NEWLINE`
+seen since the last depth-0 comma starts a new row) — preserving the original "which arguments
+shared a source line" semantics without the depth-reset bug. `splitOnNewlines` itself is now
+dead and was removed. Verified: `make test` 18/18 PASS (no regression), dogfood self-format now
+compiles with zero `javac` errors (previously failed with several `illegal start of expression`
+errors from duplicated commas / broken `new Token(...)`, `new DiffRun(...)`,
+`new SwitchBlock(...)` construction). No new fixture added for this — it requires a real
+multi-line nested-call argument shape to trigger; a future `## TODO — Not Scheduled` item could
+add one.
 
 Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
 out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
@@ -710,7 +738,7 @@ files of the same shape via `git stash`): (1) `#ifdef`/`#elif`/`#else`/`#endif` 
 with declarations inside a scope dropped every branch but the first (affects C/C++ too --
 **now FIXED**, see "Known Gaps — Fixed" below); (2) a preprocessor directive immediately
 before a Java method definition gets glued onto the same line (Java-specific, C++
-unaffected -- still open, see Known Gap above).
+unaffected -- **now FIXED**, see "Known Gaps — Fixed" below).
 
 Perform smoke-testing after implementing this and then `make test` to ensure there is no
 regression.

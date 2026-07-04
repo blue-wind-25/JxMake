@@ -1215,6 +1215,56 @@ public class MiscRule {
         return parts;
     }
 
+    /** Splits {@code paramsSlice} into top-level (depth-0) comma-separated arguments -- exactly
+     *  like {@link #splitTopLevelCommas}, but tracking paren/bracket/angle depth *cumulatively
+     *  across the whole slice* rather than resetting it to 0 per original source line -- then
+     *  groups consecutive arguments back into "rows" by which original line each one *starts* on.
+     *  An argument that itself spans multiple lines (e.g. a lone nested call whose own argument
+     *  list wraps) stays one argument in one row; only a depth-0 {@code NEWLINE} seen since the
+     *  last depth-0 comma starts a new row. This replaces the old {@code splitOnNewlines} +
+     *  per-line {@link #splitTopLevelCommas} combination, which mis-split a nested comma sitting at
+     *  a line break (still inside an unclosed paren from the previous line) as if it were a local
+     *  top-level split point, corrupting the rendered output (see RDD_KEY_5 addendum). Trailing/
+     *  leading empty parts (a dangling comma with nothing after it before the closing paren) are
+     *  dropped. */
+    private List<List<List<Token>>> groupByOriginalLine(final List<Token> paramsSlice) {
+        final List<List<Token>> parts = new ArrayList<>();
+        final List<Boolean> startsNewRow = new ArrayList<>();
+        List<Token> current = new ArrayList<>();
+        int depth = 0;
+        boolean sawNewlineSinceLastComma = true; // first part always starts a new row
+        for (final Token t : paramsSlice) {
+            if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ",")) {
+                parts.add(current);
+                startsNewRow.add(sawNewlineSinceLastComma);
+                current = new ArrayList<>();
+                sawNewlineSinceLastComma = false;
+                continue;
+            } else if (depth == 0 && t.type == TokenType.NEWLINE) {
+                sawNewlineSinceLastComma = true;
+            }
+            current.add(t);
+        }
+        parts.add(current);
+        startsNewRow.add(sawNewlineSinceLastComma);
+
+        final List<List<List<Token>>> rows = new ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            if (significantOnly(parts.get(i)).isEmpty()) {
+                continue; // dangling trailing/leading comma artifact
+            }
+            if (startsNewRow.get(i) || rows.isEmpty()) {
+                rows.add(new ArrayList<>());
+            }
+            rows.get(rows.size() - 1).add(parts.get(i));
+        }
+        return rows;
+    }
+
     /** Parses one already-significant-only param slice, peeling a trailing `[size]` run (same
      *  depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
      *  `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name. */
@@ -2450,6 +2500,17 @@ public class MiscRule {
         final String baseIndent = lineIndent(tokens, nameIdx);
 
         if (containsNewline(paramsSlice)) {
+            // renderCallPreserveGroups/renderDeclarationPreserveGroups re-split each original
+            // source line independently, resetting paren-depth tracking to 0 per line -- correct
+            // only when paramsSlice actually holds multiple top-level (sibling) arguments. A single
+            // argument that itself spans multiple lines (e.g. a lone nested call whose own
+            // argument list wraps) has zero top-level commas in the full slice; splitting it
+            // per-line would misdetect a nested comma sitting at a line break as a local top-level
+            // split point and then append a synthetic comma on top of the one already present,
+            // duplicating it. Leave such single-argument candidates untouched (Option 0).
+            if (splitTopLevelCommas(paramsSlice).size() <= 1) {
+                return null;
+            }
             final List<String> lines = (sig != null)
                     ? renderDeclarationPreserveGroups(paramsSlice, baseIndent)
                     : renderCallPreserveGroups(paramsSlice, baseIndent);
@@ -2575,18 +2636,7 @@ public class MiscRule {
      *  arguments share a line, not preserve arbitrary original indentation depth, same distinction
      *  {@link #renderDeclarationPreserveGroups} makes. */
     private List<String> renderCallPreserveGroups(final List<Token> paramsSlice, final String baseIndent) {
-        final List<List<List<Token>>> rows = new ArrayList<>();
-        for (final List<Token> group : splitOnNewlines(paramsSlice)) {
-            final List<List<Token>> row = new ArrayList<>();
-            for (final List<Token> part : splitTopLevelCommas(group)) {
-                if (!significantOnly(part).isEmpty()) {
-                    row.add(part);
-                }
-            }
-            if (!row.isEmpty()) {
-                rows.add(row);
-            }
-        }
+        final List<List<List<Token>>> rows = groupByOriginalLine(paramsSlice);
         if (rows.isEmpty()) {
             return null; // shouldn't happen -- caller only calls this when a newline was found -- bail safe
         }
@@ -2626,17 +2676,10 @@ public class MiscRule {
      *  shape (the same "bail the whole signature" posture {@link #parseSignature} itself uses). */
     private List<String> renderDeclarationPreserveGroups(final List<Token> paramsSlice, final String baseIndent) {
         final List<List<Param>> rows = new ArrayList<>();
-        for (final List<Token> group : splitOnNewlines(paramsSlice)) {
-            final List<Token> sig = significantOnly(group);
-            if (sig.isEmpty()) {
-                continue;
-            }
+        for (final List<List<Token>> lineParts : groupByOriginalLine(paramsSlice)) {
             final List<Param> row = new ArrayList<>();
-            for (final List<Token> part : splitTopLevelCommas(sig)) {
-                if (part.isEmpty()) {
-                    continue; // dangling trailing/leading comma artifact of splitting per original line
-                }
-                final Param p = parseParam(part);
+            for (final List<Token> part : lineParts) {
+                final Param p = parseParam(significantOnly(part));
                 if (p == null) {
                     return null;
                 }
@@ -2681,24 +2724,6 @@ public class MiscRule {
             }
         }
         return false;
-    }
-
-    /** Splits {@code tokens} into one sublist per original physical line (the {@code NEWLINE}
-     *  tokens themselves are dropped, not included in either sublist) -- the per-line grouping
-     *  both Option 2 renderers above need. */
-    private List<List<Token>> splitOnNewlines(final List<Token> tokens) {
-        final List<List<Token>> groups = new ArrayList<>();
-        List<Token> current = new ArrayList<>();
-        for (final Token t : tokens) {
-            if (t.type == TokenType.NEWLINE) {
-                groups.add(current);
-                current = new ArrayList<>();
-            } else {
-                current.add(t);
-            }
-        }
-        groups.add(current);
-        return groups;
     }
 
     /** True iff any token in {@code (fromExclusive, toExclusive)} is a comment -- same "comment in
@@ -2746,7 +2771,7 @@ public class MiscRule {
     }
 
     /** Same whitespace/newline-run-collapsing as {@link #collapseToOneLine}, but over a detached
-     *  sublist (as returned by {@link #splitTopLevelCommas}/{@link #splitOnNewlines}) rather than
+     *  sublist (as returned by {@link #splitTopLevelCommas}/{@link #groupByOriginalLine}) rather than
      *  an index range into the original token list. Used to render one call argument's own tokens
      *  -- deliberately does *not* route through {@link #renderTokens}, since an argument may itself
      *  contain a nested call/parenthesized sub-expression (`bar(1, 2)`); `renderTokens`'s

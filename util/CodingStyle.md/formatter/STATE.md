@@ -588,11 +588,17 @@ verbatim); guarded anyway by bailing the whole pass if any token in the detected
 header-zone span (copyright through the guard/`#endif`) is frozen, covering the
 narrow case of a frozen region overlapping the guard itself.
 
-**Next:** add per-rule frozen guards to `DeclarationAlignmentRule` and
-`GetterSetterRule` (two-tier: token-level render-loop passthrough vs.
-span-level structural-pass skip, see plan). Run `make test` after each file.
-Then add new test fixture(s) with marker regions, register in
-`test/README.txt` + this checklist, update `README.md`.
+`DeclarationAlignmentRule` and `GetterSetterRule` are only ever invoked through
+`ScopePipeline`'s splice-back passes (`applyDeclarationsPass`/
+`applyGetterSetterPass`), which already skip a frozen span at the splice choke
+point (commit `0d36924`) -- no separate per-rule guards needed in those two
+classes themselves.
+
+**Next:** all rule files are now guarded. Add new test fixture(s) with marker
+regions (line + block comment forms, plus `--format-off`), register in
+`test/README.txt` + this checklist, update `README.md` with the marker syntax
+and `--format-off` flag documentation, then run full `make test` to confirm
+zero regressions.
 
 Via comments inside the code:
 
@@ -767,38 +773,6 @@ size 8.
    `ScopePipeline.isWhitespaceOrNewline` (whitespace/newline only, no comments --
    also distinct). Verified via `make test`: 15/15 file-pairs still PASS (forward +
    idempotency), zero regressions.
-
-**Files needing cleanup (identified, not yet touched — actual cleanup deferred to
-next session):**
-
-Item 1 — `"c"/"cpp"/"java"` string comparisons (`grep -rEo
-'"c"\.equals\(|"cpp"\.equals\(|"java"\.equals\('`), occurrence counts per file:
-- `rules/DeclarationAlignmentRule.java` — 9
-- `ScopePipeline.java` — 3
-- `rules/BlockStructureRule.java` — 3
-- `Formatter.java` — 3 (this is the target site where `isC`/`isCpp`/`isJava` should
-  already be precomputed and threaded down instead of duplicated elsewhere)
-- `tokenizer/TokenizerCore.java` — 2
-- `rules/MiscRule.java` — 2
-- `rules/JavaSpecificRule.java` — 1
-- `rules/GetterSetterRule.java` — 1
-- `rules/CppSpecificRule.java` — 1
-
-Item 2 — `isOp`/`isPunct`/`isKeyword`/`isComment`/`isGapToken` (and similar) checks,
-occurrence counts per file:
-- `rules/MiscRule.java` — 124
-- `rules/DeclarationAlignmentRule.java` — 66
-- `rules/JavaSpecificRule.java` — 52
-- `rules/BlockStructureRule.java` — 51
-- `rules/CppSpecificRule.java` — 46
-- `rules/SwitchRule.java` — 33
-- `ScopePipeline.java` — 32
-- `rules/GetterSetterRule.java` — 24
-
-(Counts are raw call-site occurrences of the five named checks combined, not method
-definitions; the actual centralization target is likely `TokenizerCore.Token` per the
-task wording above, but which of these are call sites vs. duplicate private helper
-definitions needs to be confirmed file-by-file during the real cleanup pass.)
 
 ### F — Add more tests
 

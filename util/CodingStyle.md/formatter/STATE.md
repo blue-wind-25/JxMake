@@ -709,9 +709,29 @@ written as `~` below so this file never embeds the actual account/user name):
   included) if a genuine glibc-version-mismatch problem is ever hit with some OTHER prebuilt
   binary and patchelf repointing becomes necessary again -- not needed for clang22 itself.
 
+**Java candidates the user has since supplied (not yet started):**
+
+- **SMALL**: `github.com/google/google-java-format` — small, expected to catch formatter logic
+  bugs specifically (not just tokenizer/lexer edge cases like the raw-string bug above).
+- **MEDIUM**: `github.com/javaparser/javaparser` — excellent grammar coverage, good candidate for
+  finding parsing-edge-case bugs across a wide variety of Java constructs.
+- **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
+  smaller candidates above are exhausted.
+
+**Local PCPP-heavy Java source — test this one FIRST (before the candidates above):**
+`../../../src/jxm/ugc/ARMCortexMThumbC.java.in` (relative to this `formatter/` directory; 938
+lines, 21 `#`-directive lines as of 2026-07-05). Does not compile standalone (a `.java.in`
+template, not real compilable Java — presumably JxMake's own preprocessor-templated source for
+generating per-target ARM Cortex-M Thumb C variants). Since `javac` isn't available as a
+correctness check here, use the GCC preprocessor instead: run `gcc -E` (or
+`/opt/gcc-12.2.0/bin/gcc -E`) over both the original file and the formatted output and diff the
+two preprocessed results — if the formatter only touched whitespace/comments/layout (as it
+should), the two preprocessed outputs must be identical. This is a substitute for the usual
+"does it compile" check, specific to this heavily-macro/PCPP file.
+
 For each new bug found: minimal isolated repro first, fix, verify against the full source
 round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (a new
-`_4`/`_5` suffixed pair if an existing one gets too large) — same pattern as this session.
+`_4`/`_5`/`_6` suffixed pair if an existing one gets too large) — same pattern as this session.
 Update this section as each candidate completes.
 
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/

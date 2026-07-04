@@ -603,6 +603,67 @@ nanobench is genuinely C++ mislabeled with a `.h` extension (real C has no membe
 lists at all, so this shape is unreachable for genuine C input) — treated as a convention
 mismatch in the test file, not a formatter defect, and not fixed this session.
 
+**User-reported bug (`real_code_regressions_1_out.cpp`'s `} // while` indentation) — DONE:**
+The user noticed `real_code_regressions_1_out.cpp`'s `while` loop closed with an 8-space-indented
+`} // while` (matching the loop body's own indent) instead of 4-space (matching the `while`
+keyword's own line). Confirmed live (not a stale fixture) by reformatting the `_inp.cpp` file
+directly and reproducing the same wrong indentation.
+
+8. **`ScopePipeline` never re-derived a scope's closing-brace gap from depth.** The
+   whitespace/newline gap between a scope's last statement and its own closing `}` belongs to
+   no statement, so no pass ever re-indented it — it was carried through byte-for-byte from the
+   original source, including any misindentation already present there (the reported shape: a
+   `}` that happened to line up with its own body instead of the frame that opened it). Fixed in
+   `ScopePipeline.processScope`'s child-scope recursion by forcing that trailing gap to
+   `"\n" + findParentIndent(...)` (the indentation of the line containing the construct's own
+   keyword/name) after trimming whatever was there originally.
+
+   This one-line-sounding fix surfaced four edge cases in `findParentIndent`, each found via a
+   `make test` regression and fixed before moving on (final state covers all four):
+   - **Bare compound blocks** (`{ ... }` with no preceding keyword): the `{` itself is the first
+     significant token in its own span, so `openBraceIdx` now doubles as its own anchor.
+   - **Preprocessor-directive-adjacent spans**: a `#directive` line belonging to a *previous*
+     sibling span's tail can end up sitting in the *next* span's own leading range (`splitTopLevelSpans`
+     doesn't treat `PREPROCESSOR` as a span boundary) — `PREPROCESSOR` tokens are now skipped like
+     gap tokens when hunting for the anchor.
+   - **A comment sitting directly in the trailing gap** (e.g. between a block's `}` and a
+     following `else` — `if(x){...}\n/* comment */\nelse{...}`): forcing a reindent here was
+     duplicating/misplacing the comment (it's content another, later pass — `placeElseOnOwnLine`
+     — already positions correctly). New `trailingGapHasComment` guard skips the fix entirely
+     whenever a `COMMENT_LINE`/`COMMENT_BLOCK` token sits in that gap, leaving the old
+     pass-through behavior in place for that case.
+   - **A `case`/`default` label sharing a span with the construct that follows it**: case labels
+     don't end a span the way `;`/`}` do (`splitTopLevelSpans` only breaks on those), so
+     `case 1:\n    if(...) {...}` is one span with `case 1:` sitting *before* the `if` inside it.
+     The original anchor search scanned *forward* from the span's own start, so it locked onto
+     `case` instead of `if`, then returned `case`'s own (shallower) line indent for the `if`/`else`
+     construct's closing braces — a genuinely wrong, non-cosmetic corruption (found via the
+     `martinus/nanobench` idempotency re-check below, not the initial `make test` run). Fixed by
+     rewriting the anchor search to instead scan *backward* from `openBraceIdx`, skipping balanced
+     parens/brackets, stopping at the nearest top-level `;`, `}`, or a genuine `case`/`default`
+     label colon (disambiguated from an inheritance-list/ternary/constructor-initializer-list
+     colon via a new `isCaseOrDefaultLabelColon` helper that scans backward from the colon for a
+     `case`/`default` keyword before hitting any of `;`/`}`/`{`/`:`) — whichever is found first
+     marks the true start of the statement that owns `openBraceIdx`.
+   - Separately (not a `findParentIndent` bug, but a required guard at the fix's own call site):
+     an **empty/whitespace-only body** (`{}`/`{ }`) has no statement to hang a trailing gap off
+     of — forcing `"\n" + indent` here would re-expand it into `{\n}`, regressing a fix from an
+     earlier session (`java_modern`'s "empty named-construct bodies no longer expanded"). Guarded
+     by skipping the reindent whenever `rawChildResult.trim().isEmpty()`.
+
+   Diagnosed each edge case the same way: a minimal isolated `.c`/`.cpp`/`.java` repro under
+   `/tmp`, formatted directly via the standalone jar, with a temporary `System.err.println` in
+   `ScopePipeline.processScope`/`Formatter.formatOne` printing the span/`parentIndent`/
+   `rawChildResult`/`childResult` values when needed — removed once each root cause was confirmed.
+
+   Verified: `make test` 23/23 PASS (added `test/real_code_regressions_5_{inp,out}.cpp` covering
+   all four edge cases plus the original reported shape), `real_code_regressions_1_out.cpp`
+   updated to the corrected 4-space `} // while`, and — since this changes core `ScopePipeline`
+   logic, not just a leaf rule — re-ran the full `martinus/nanobench` round-trip check from Bug
+   #6/#7 above: still byte-for-byte idempotent (`diff round1 round2` empty) and still compiles
+   clean with `g++ -std=c++20 -fsyntax-only` (this second check is what caught the `case`-label
+   edge case above; the initial `make test` pass alone did not exercise it).
+
 **NEXT SESSION — continue here:** Continue the real-code testing methodology against the
 remaining C/C++ candidates, in this order unless the user redirects:
 `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`, then the additional candidates

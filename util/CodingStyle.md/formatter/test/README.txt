@@ -168,6 +168,22 @@ Real-code regressions:
                                 <typename T>\nstruct Foo;`) -- only the
                                 function-forward-declaration renderer emitted it.
 
+  real_code_regressions_5_inp/out.cpp -- Distilled from a user-reported bug (a `while`
+                                loop's own closing `}` staying indented to match its
+                                body instead of the frame that opened it) and the
+                                edge cases found fixing it: a scope's closing-brace
+                                gap is now force-reindented to the frame's own
+                                indent, unless (a) a `case`/`default` label shares a
+                                span with the construct that follows it (the
+                                anchor-finding walk must skip past the label, not
+                                land on it), (b) a comment sits directly in the
+                                trailing gap (e.g. between a block and a following
+                                `else`) -- left untouched, (c) it's a bare compound
+                                block (`{ ... }` with no preceding keyword) -- the
+                                `{` itself is the anchor, or (d) the body is
+                                empty/whitespace-only (`{}`) -- must not be expanded
+                                into `{\n}`.
+
 
 How Tests Are Run
 -----------------

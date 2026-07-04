@@ -423,18 +423,113 @@ public class ScopePipeline {
      *  token -- i.e. the indentation of the named construct whose one-liner body we are about
      *  to pre-expand.  Scans forward to the first non-gap token, then backward to the preceding
      *  newline; the text between that newline and the token is the indentation. */
+    /** True iff {@code colonIdx} is the terminating `:` of a `case EXPR :` / `default :` switch
+     *  label, found by scanning backward over the label's constant-expression tokens (bare
+     *  identifiers/numbers/`::`-qualified names) until the `case`/`default` keyword itself is
+     *  reached, or a `;`/`}`/`{`/`:` is hit first (in which case this is some other kind of
+     *  colon -- inheritance list, ternary, constructor initializer list -- and not a label). */
+    private boolean isCaseOrDefaultLabelColon(final List<Token> tokens, final int colonIdx) {
+        for (int i = colonIdx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (t.type == TokenType.KEYWORD && ("case".equals(t.text) || "default".equals(t.text))) {
+                return true;
+            }
+            if (isPunct(t, ";") || isPunct(t, "}") || isPunct(t, "{") || isOp(t, ":")) {
+                return false;
+            }
+        }
+        return false;
+    }
+
     private String findParentIndent(final List<Token> tokens, final Span span) {
-        for (int i = span.start; i < span.openBraceIdx; i++) {
-            if (!isGapToken(tokens.get(i))) {
-                for (int j = i - 1; j >= span.start; j--) {
-                    if (tokens.get(j).type == TokenType.NEWLINE) {
-                        return joinText(tokens, j + 1, i);
-                    }
-                }
-                return "";
+        // Find where the construct actually governing openBraceIdx begins -- NOT simply the
+        // first significant token in the whole span, since a span can carry more than one
+        // leading statement/label ahead of the one that opens this brace (e.g. `case 1:` is not
+        // its own span -- see splitTopLevelSpans -- so a span for the `if` immediately following
+        // a `case` label has that label's tokens sitting before `if` within the SAME span; using
+        // the span's own first token as anchor would incorrectly land on `case` and later return
+        // that label's line indent instead of the `if`'s own). Scan backward from openBraceIdx
+        // instead, skipping over balanced parens/brackets, stopping at the nearest top-level
+        // `;`, `}`, or `case`/`default` label colon -- whichever comes first identifies the true
+        // start of the statement that owns this brace.
+        int stmtStart = span.start;
+        int parenDepth = 0;
+        for (int i = span.openBraceIdx - 1; i >= span.start; i--) {
+            final Token tok = tokens.get(i);
+            if (isPunct(tok, ")") || isPunct(tok, "]")) {
+                parenDepth++;
+                continue;
+            }
+            if (isPunct(tok, "(") || isPunct(tok, "[")) {
+                parenDepth--;
+                continue;
+            }
+            if (parenDepth > 0) {
+                continue;
+            }
+            if (isPunct(tok, ";") || isPunct(tok, "}")) {
+                stmtStart = i + 1;
+                break;
+            }
+            if (isOp(tok, ":") && isCaseOrDefaultLabelColon(tokens, i)) {
+                stmtStart = i + 1;
+                break;
+            }
+        }
+        // Anchor on the first significant token at or after stmtStart: normally the construct's
+        // own keyword/name (`class Foo {`), but for a bare compound statement (`{ ... }` with no
+        // preceding keyword) the `{` itself is the first significant token, so openBraceIdx
+        // doubles as the anchor in that case.
+        int anchor = span.openBraceIdx;
+        for (int i = stmtStart; i < span.openBraceIdx; i++) {
+            // A preprocessor directive belonging to this span's own leading gap (e.g. a
+            // preceding sibling span ends right where a `#endif` starts) always sits at column
+            // 0 and is never part of the actual construct -- skip it like a gap token so the
+            // real first token (e.g. `public`) becomes the anchor instead.
+            if (!isGapToken(tokens.get(i)) && tokens.get(i).type != TokenType.PREPROCESSOR) {
+                anchor = i;
+                break;
+            }
+        }
+        // Search backward across the whole token list, not just from span.start: a preceding
+        // sibling span (e.g. one ending in a preprocessor directive) can leave this span's own
+        // start coinciding with its first significant token, with the actual leading
+        // newline+indent having been consumed as part of the PREVIOUS span instead -- bounding
+        // the search at span.start would then find nothing and silently fall back to "".
+        for (int j = anchor - 1; j >= 0; j--) {
+            final Token tok = tokens.get(j);
+            if (tok.type == TokenType.NEWLINE) {
+                return joinText(tokens, j + 1, anchor);
+            }
+            // The anchor is not the first significant token on its own physical line (e.g. a
+            // still-K&R `} else {`, before Formatter's later placeElseOnOwnLine pass converts it
+            // to Allman) -- there's no well-defined frame indent to derive here yet; scanning
+            // further back would cross into a PRECEDING statement/block's own text (as happened
+            // here, once returning a string that included a stray `}`). Signal "unknown" so the
+            // caller leaves the closing-brace gap untouched instead.
+            if (!isGapToken(tok)) {
+                return null;
             }
         }
         return "";
+    }
+
+    /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
+     *  scope's original, unnormalized gap before its closing `}` so a fresh {@code "\n" + indent}
+     *  can be appended in its place. */
+    private String trimTrailingWhitespace(final String s) {
+        int end = s.length();
+        while (end > 0) {
+            final char c = s.charAt(end - 1);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            end--;
+        }
+        return s.substring(0, end);
     }
 
     private Map<Token, Integer> buildIndexMap(final List<Token> tokens) {
@@ -838,7 +933,9 @@ public class ScopePipeline {
                 final String trimmed = childSource.trim();
                 if (!trimmed.isEmpty()) {
                     final String parentIndent = findParentIndent(current, span);
-                    childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
+                    if (parentIndent != null) {
+                        childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
+                    }
                 }
             }
             final String childResult;
@@ -857,7 +954,31 @@ public class ScopePipeline {
                 // every other named construct (class/struct/enum) or function/loop body -- so
                 // it must not consume an indentation level the way `depth + 1` otherwise would.
                 final int childDepth = isNamespaceScope(current, span.openBraceIdx) ? depth : depth + 1;
-                childResult = processScope(tokenize(childSource, childStartFrozen), childDepth, childStartFrozen);
+                final String rawChildResult = processScope(tokenize(childSource, childStartFrozen), childDepth,
+                        childStartFrozen);
+                // The gap between the last statement and the closing `}` belongs to no
+                // statement, so no pass above ever re-derives its indentation from depth --
+                // it is otherwise carried through verbatim from the original source (e.g. a
+                // misindented `}` that happened to line up with its own body rather than with
+                // the frame that opened it). Force it to the frame's own indent here, unless
+                // the closing brace or its immediate content is a frozen (JXM_CFMT_DIS) region
+                // that must be left byte-for-byte untouched.
+                // Only force-reindent when the original gap right before `}` is pure
+                // whitespace: a comment sitting there (e.g. between a block and a following
+                // `else`) is content other passes already position/associate correctly, and
+                // blindly reindenting around it has been observed to corrupt that placement.
+                final String parentIndent = findParentIndent(current, span);
+                if (anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
+                        || trailingGapHasComment(current, span.closeBraceIdx) || parentIndent == null
+                        || rawChildResult.trim().isEmpty()) {
+                    // An empty/whitespace-only body (`{}`/`{ }`) has no statement to hang a
+                    // trailing gap off of -- forcing a "\n" + indent here would turn a genuinely
+                    // empty body into an expanded `{\n}`, which a prior fix deliberately stopped
+                    // doing (see STATE.md's java_modern empty-named-construct-body entry).
+                    childResult = rawChildResult;
+                } else {
+                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + parentIndent;
+                }
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
@@ -891,6 +1012,22 @@ public class ScopePipeline {
         for (int i = fromInclusive; i < toExclusive; i++) {
             if (tokens.get(i).frozen) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /** True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token sits anywhere in the pure-gap
+     *  run immediately before {@code closeBraceIdx} (i.e. between it and the nearest preceding
+     *  non-gap token). */
+    private boolean trailingGapHasComment(final List<Token> tokens, final int closeBraceIdx) {
+        for (int i = closeBraceIdx - 1; i >= 0; i--) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+            if (!isGapToken(tokens.get(i))) {
+                return false;
             }
         }
         return false;

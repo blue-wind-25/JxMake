@@ -45,7 +45,7 @@ int list(int ret)
             TE_PURE, some_variant(te_builtins::te_comma),
             { ret, level1(ret) }
         );
-        } // while
+    } // while
 
     return ret;
 }

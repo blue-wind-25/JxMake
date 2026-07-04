@@ -594,9 +594,45 @@ narrow case of a frozen region overlapping the guard itself.
 point (commit `0d36924`) -- no separate per-rule guards needed in those two
 classes themselves.
 
-**Next:** all rule files are now guarded. Add new test fixture(s) with marker
-regions (line + block comment forms, plus `--format-off`), register in
-`test/README.txt` + this checklist, update `README.md` with the marker syntax
+New test fixture `test/format_toggle_inp/out.java` added (both marker forms,
+mid-class-body, misformatted frozen content with normally-formatted
+declarations immediately before/between/after each region), registered in the
+Makefile's `INP_FILES` and `test/README.txt`. Writing and idempotency-checking
+this fixture surfaced two real bugs in the frozen-guard plumbing, both fixed:
+
+1. `applyDeclarationsPass`/`applyAssignmentsPass`/`applyGetterSetterPass`'s
+   frozen-span checks used each group's/member's full `Span`/`memberFrom`,
+   whose *leading gap* can contain a previous statement's own trailing
+   `JXM_CFMT_ENA`/`DIS` marker (the marker token itself is always stamped
+   frozen by design, so its re-tokenizes survive). That falsely marked the
+   *next*, wholly-unfrozen declaration/assignment/member as frozen and skipped
+   it. Fixed by checking from each group's own first real token (`firstIdx`/
+   `sigIdx`) instead of the span's/member's raw start.
+2. `ScopePipeline.processScope`'s recursion into a child scope (`{...}` body)
+   re-tokenizes the extracted substring from scratch, independently re-running
+   `markFrozenSpans` on just that text -- so if a scope's own `{` was already
+   frozen on entry (the `JXM_CFMT_DIS` marker that caused it lives *outside*
+   the substring, e.g. before the method's own signature, or via
+   `--format-off`), the substring's own re-tokenize had no way to know that,
+   and defaulted to "not frozen" -- silently reformatting content the outer
+   guards had already promised to leave untouched. Fixed by threading the
+   scope's own frozen-entry state as an explicit `startFrozen` parameter
+   through `processScope`/`tokenize` (rather than the previous fixed
+   `formatOff` field), seeded from `current.get(span.openBraceIdx).frozen` at
+   each recursion point -- this also correctly handles a `JXM_CFMT_ENA` marker
+   appearing *inside* a scope that itself started frozen (e.g.
+   `--format-off` + a mid-class resume marker), which an earlier, more naive
+   "skip recursion entirely if the open brace is frozen" attempt did not.
+
+Verified via `make test` (16/16 PASS, forward + idempotency) plus manual
+`--diff`/`--format-off` smoke tests covering: whole-file `--format-off` with
+no resume marker (no diff at all), `--format-off` with a `JXM_CFMT_ENA` resume
+marker mid-class (content before frozen, after reformatted), and a
+partial in-body freeze (content outside the marker pair reformats normally,
+inside stays byte-for-byte untouched).
+
+**Next:** add `--format-off` and both marker forms to `README.md`'s
+documentation (marker syntax + CLI flag).
 and `--format-off` flag documentation, then run full `make test` to confirm
 zero regressions.
 

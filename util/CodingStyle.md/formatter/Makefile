@@ -77,6 +77,8 @@ INP_FILES += c_comments_inp.c
 INP_FILES += cpp_comments_inp.cpp
 INP_FILES += java_comments_inp.java
 
+INP_FILES += format_toggle_inp.java
+
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # make test 2>/dev/null

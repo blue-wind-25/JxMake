@@ -68,10 +68,13 @@ public class ScopePipeline {
     }
 
     /** Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
-     *  re-tokenize, same as {@code Formatter}'s tokenizer wrapper. */
-    private List<Token> tokenize(final String s) {
+     *  re-tokenize, same as {@code Formatter}'s tokenizer wrapper. {@code startFrozen} must be the
+     *  frozen state observed at {@code s}'s own starting boundary -- a substring extracted mid-file
+     *  (a recursed-into child scope) may not textually contain the JXM_CFMT_DIS marker that caused
+     *  that state, so it cannot be re-derived by scanning {@code s} alone. */
+    private List<Token> tokenize(final String s, final boolean startFrozen) {
         final List<Token> tokens = tokenizer.tokenize(s);
-        TokenizerCore.markFrozenSpans(tokens, formatOff);
+        TokenizerCore.markFrozenSpans(tokens, startFrozen);
         return tokens;
     }
 
@@ -467,7 +470,11 @@ public class ScopePipeline {
             final int lastIdx = indexOf.get(last.name);
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
-            if (anyFrozen(tokens, firstSpan.start, lastSpan.end)) {
+            // Use firstIdx (the declaration's own first real token), not firstSpan.start: the
+            // span's leading gap can contain a previous statement's trailing JXM_CFMT_ENA/DIS
+            // marker (always itself stamped frozen -- see markFrozenSpans), which must not cause
+            // this unrelated, unfrozen declaration to be mistaken for frozen content.
+            if (anyFrozen(tokens, firstIdx, lastSpan.end)) {
                 continue;
             }
 
@@ -523,7 +530,9 @@ public class ScopePipeline {
             final int lastIdx = indexOf.get(last.target);
             final Span firstSpan = findSpanContaining(spans, firstIdx);
             final Span lastSpan = findSpanContaining(spans, lastIdx);
-            if (anyFrozen(tokens, firstSpan.start, lastSpan.end)) {
+            // See applyDeclarationsPass: use firstIdx, not firstSpan.start, so a marker in the
+            // leading gap doesn't falsely mark this unfrozen assignment group as frozen.
+            if (anyFrozen(tokens, firstIdx, lastSpan.end)) {
                 continue;
             }
 
@@ -761,11 +770,14 @@ public class ScopePipeline {
             final List<String> lines = getterSetterRule.render(tokens, filtered);
             for (int i = 0; i < filtered.size(); i++) {
                 final Member m = filtered.get(i);
-                if (anyFrozen(tokens, m.memberFrom, m.memberTo)) {
-                    continue;
-                }
                 final int startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
                 final int sigIdx = m.modifiers.isEmpty() ? startIdx : indexOf.get(m.modifiers.get(0));
+                // Use sigIdx (the member's own first real token), not m.memberFrom: memberFrom's
+                // leading gap can contain a previous statement's trailing marker comment (always
+                // itself stamped frozen), which must not falsely freeze this unrelated member.
+                if (anyFrozen(tokens, sigIdx, m.memberTo)) {
+                    continue;
+                }
                 final String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
                 replacements.add(new Replacement(m.memberFrom, m.memberTo, leadingGap + lines.get(i)));
             }
@@ -781,12 +793,12 @@ public class ScopePipeline {
      * recurses outer-first into every child block found in the final token list, splicing each
      * child's processed text back in place.
      */
-    private String processScope(final List<Token> tokens, final int depth) {
+    private String processScope(final List<Token> tokens, final int depth, final boolean scopeStartFrozen) {
         List<Token> current = tokens;
-        current = tokenize(applyDeclarationsPass(current));
-        current = tokenize(applyAssignmentsPass(current));
-        current = tokenize(applySignaturePass(current, depth));
-        current = tokenize(applyGetterSetterPass(current));
+        current = tokenize(applyDeclarationsPass(current), scopeStartFrozen);
+        current = tokenize(applyAssignmentsPass(current), scopeStartFrozen);
+        current = tokenize(applySignaturePass(current, depth), scopeStartFrozen);
+        current = tokenize(applyGetterSetterPass(current), scopeStartFrozen);
 
         final List<Span> spans = splitTopLevelSpans(current);
         final List<Replacement> replacements = new ArrayList<>();
@@ -794,6 +806,11 @@ public class ScopePipeline {
             if (span.openBraceIdx < 0) {
                 continue;
             }
+            // A child scope extracted as raw text below may not textually contain the
+            // JXM_CFMT_DIS marker that caused its own `{` to already be frozen on entry (the
+            // marker can live outside this span entirely) -- re-tokenizing it must seed that
+            // same frozen state explicitly rather than defaulting to unfrozen (RDD_KEY_90 §A).
+            final boolean childStartFrozen = current.get(span.openBraceIdx).frozen;
             String childSource = joinText(current, span.openBraceIdx + 1, span.closeBraceIdx);
             final boolean isNamedScope = current.get(span.openBraceIdx).name != null;
             // Pre-expand named-construct one-liner bodies (`struct Foo { int a; int b; };`)
@@ -824,7 +841,7 @@ public class ScopePipeline {
                 // every other named construct (class/struct/enum) or function/loop body -- so
                 // it must not consume an indentation level the way `depth + 1` otherwise would.
                 final int childDepth = isNamespaceScope(current, span.openBraceIdx) ? depth : depth + 1;
-                childResult = processScope(tokenize(childSource), childDepth);
+                childResult = processScope(tokenize(childSource, childStartFrozen), childDepth, childStartFrozen);
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
         }
@@ -834,7 +851,7 @@ public class ScopePipeline {
     /** Public entry point: tokenizes {@code source} and runs the recursive scope pipeline,
      *  starting at depth 0. The one method {@code Main.java} calls once per file. */
     public String process(final String source) {
-        return processScope(tokenize(source), 0);
+        return processScope(tokenize(source, formatOff), 0, formatOff);
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

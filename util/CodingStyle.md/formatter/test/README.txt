@@ -35,6 +35,13 @@ Java:
                                 trailing on array initializers, multi-line block
                                 comments inside methods.
 
+  format_toggle_inp/out.java -- JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers
+                                (both the `//%` line-comment and `/*% */` block-comment
+                                forms), each wrapping a deliberately misformatted method
+                                or field that must survive byte-for-byte untouched, with
+                                normally-formatted declarations immediately before,
+                                between, and after each frozen region.
+
   combined_inp/out.java      -- All of the above in one realistic file: sealed class
                                 with nested record, enum, inner classes; switch
                                 expressions; pattern matching; text blocks; var;

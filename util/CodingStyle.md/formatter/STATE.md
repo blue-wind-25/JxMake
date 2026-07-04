@@ -713,6 +713,42 @@ written as `~` below so this file never embeds the actual account/user name):
 
 - **SMALL**: `github.com/google/google-java-format` — small, expected to catch formatter logic
   bugs specifically (not just tokenizer/lexer edge cases like the raw-string bug above).
+  **IN PROGRESS (started 2026-07-05).** Idempotency check (format all 84 `.java` files twice,
+  diff round1 vs round2) initially found 5 diverging files: `JavaOutput.java`,
+  `CommandLineOptionsParser.java`, `Doc.java`, `JavadocFormatter.java`,
+  `JavaInputAstVisitor.java`.
+  - `JavaOutput.java` — **FIXED.** Root cause: `SwitchRule.ensureBlankLineInGap` forced a blank
+    line before the *first* comment found in a case body's trailing gap, on the assumption it's
+    always a leading comment glued to the next label/case (the documented exception for e.g.
+    `// comment before case\ncase 1:`). But when that first comment is instead a *trailing*
+    same-line comment on the case's own last statement (e.g. `} // if`, itself added by an
+    earlier `addClosingComments` pass — so this only reproduces on the *second* format of
+    already-formatted output), the same logic wrongly split it onto its own line
+    (`}\n\n // if`). Fixed by adding a `startsOwnLine` check so the "leading comment" exception
+    only applies to a comment that starts its own new line, not one trailing prior content on
+    the same line. See `test/real_code_regressions_6_inp/out.java`. Diagnosed via targeted debug
+    prints across `Formatter.java`'s phase boundaries (bisected to right after
+    `formatNonInlineSwitches`), `ScopePipeline.java` (ruled out — its closing-brace reindent
+    fix from the previous session correctly skips gaps with comments here), and
+    `BlockStructureRule.addClosingComments` (ruled out — behaves correctly given its input); all
+    debug prints have been removed.
+  - `CommandLineOptionsParser.java`, `Doc.java`, `JavadocFormatter.java`,
+    `JavaInputAstVisitor.java` — **NOT YET FIXED**, separate bug. Re-running the full-tree
+    idempotency check after the fix above still shows these 4 files diverging. Example
+    (`Doc.java`, round1 vs round2): a method's closing `}` inside an enum constant body loses
+    its indent on the second pass —
+    ```
+    boolean isReal()
+      {
+        return this == REAL;
+      }        <- round1 (correct, matches the `{`'s 6-space indent)
+        }      <- round2 (wrong, drifts to 8 spaces matching the body)
+    ```
+    Not yet root-caused; likely a different rule (indentation/reindent logic for a brace whose
+    opening `{` sits on its own line directly under a method header with no blank line before
+    it, inside an enum body) misjudging the anchor on a re-format. Next step: minimize a repro
+    (a short enum with a method whose `{` is Allman-style on its own line) and re-apply the same
+    debug-print bisection methodology used for the `JavaOutput.java` bug above.
 - **MEDIUM**: `github.com/javaparser/javaparser` — excellent grammar coverage, good candidate for
   finding parsing-edge-case bugs across a wide variety of Java constructs.
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the

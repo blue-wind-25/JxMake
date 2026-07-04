@@ -184,6 +184,24 @@ Real-code regressions:
                                 empty/whitespace-only (`{}`) -- must not be expanded
                                 into `{\n}`.
 
+  real_code_regressions_6_inp/out.java -- Found via real-code idempotency testing on
+                                google-java-format (github.com/google/google-java-format).
+                                A case body ending in a trailing same-line closing
+                                comment left by an earlier format pass (e.g. `} // if`
+                                before the next `case`/`default` label or the switch's
+                                own closing brace) was wrongly treated by
+                                SwitchRule.ensureBlankLineInGap as a *leading* comment
+                                glued to what follows (the doc'd exception meant for
+                                e.g. `// comment before case\ncase 1:`), forcing a blank
+                                line to be inserted directly before it and splitting it
+                                onto its own orphaned line (`}\n\n // if`) -- reproduced
+                                only on the *second* format of already-formatted output.
+                                Fixed by only treating a comment as that "leading
+                                comment" exception when it starts its own new line
+                                (checked via the new startsOwnLine helper), not when
+                                it's a trailing comment on the same line as preceding
+                                content.
+
 
 How Tests Are Run
 -----------------

@@ -287,12 +287,16 @@ public class SwitchRule {
      *  `case 1:`) stays right where it is -- the blank line is still guaranteed, but only in the
      *  sub-gap before that first comment, same as {@code BlockStructureRule.ensureBlankLine}'s
      *  own comment-preserving precedent (never relocate a comment, just still ensure the blank
-     *  line around it). */
+     *  line around it). Only a comment that starts its own new line qualifies for that treatment
+     *  -- a comment trailing on the same line as the preceding content (e.g. `} // if`, a
+     *  closing-comment left by an earlier format pass) is that content's own trailing comment,
+     *  not a leading comment for what follows, and must not be treated as a blocking anchor here
+     *  (doing so previously split it from its `}` onto its own orphaned line). */
     private void ensureBlankLineInGap(final List<Token> tokens, final int fromIdx,
             final int toIdxExclusive, final Map<Integer, String> insertAfter) {
         int firstCommentIdx = -1;
         for (int i = fromIdx; i < toIdxExclusive; i++) {
-            if (isComment(tokens.get(i))) {
+            if (isComment(tokens.get(i)) && startsOwnLine(tokens, i, fromIdx - 1)) {
                 firstCommentIdx = i;
                 break;
             }
@@ -317,6 +321,23 @@ public class SwitchRule {
         } else {
             insertAfter.merge(firstNewlineIdx, "\n", String::concat);
         }
+    }
+
+    /** True if the token at {@code idx} is the first thing on its own line: scanning backward
+     *  from it, only WHITESPACE is found before hitting a NEWLINE or {@code floor} (the last
+     *  real-content token before the gap being searched, guaranteed non-whitespace/non-newline,
+     *  so reaching it without a NEWLINE means {@code idx} is still on that content's own line). */
+    private boolean startsOwnLine(final List<Token> tokens, final int idx, final int floor) {
+        for (int i = idx - 1; i >= floor; i--) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+            if (t.type != TokenType.WHITESPACE) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private void applyNonInlineCaseIndent(final List<Token> tokens, final SwitchBlock sw,

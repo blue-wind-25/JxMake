@@ -718,16 +718,33 @@ written as `~` below so this file never embeds the actual account/user name):
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
   smaller candidates above are exhausted.
 
-**Local PCPP-heavy Java source — test this one FIRST (before the candidates above):**
-`../../../src/jxm/ugc/ARMCortexMThumbC.java.in` (relative to this `formatter/` directory; 938
-lines, 21 `#`-directive lines as of 2026-07-05). Does not compile standalone (a `.java.in`
-template, not real compilable Java — presumably JxMake's own preprocessor-templated source for
-generating per-target ARM Cortex-M Thumb C variants). Since `javac` isn't available as a
-correctness check here, use the GCC preprocessor instead: run `gcc -E` (or
-`/opt/gcc-12.2.0/bin/gcc -E`) over both the original file and the formatted output and diff the
-two preprocessed results — if the formatter only touched whitespace/comments/layout (as it
-should), the two preprocessed outputs must be identical. This is a substitute for the usual
-"does it compile" check, specific to this heavily-macro/PCPP file.
+**Local PCPP-heavy Java source (`../../../src/jxm/ugc/ARMCortexMThumbC.java.in`, relative to
+this `formatter/` directory) — tested 2026-07-05, DONE, no bug found:**
+938 lines, 21 `#`-directive lines. Not standalone-compilable (a `.java.in` template, not real
+Java -- JxMake's own preprocessor-templated source for generating per-target ARM Cortex-M Thumb
+C variants). `.java.in` isn't a recognized extension (`Main.inferLanguage`), so it was copied to
+a scratch path ending in `.java` before running the formatter.
+
+Plain `gcc -E`/`cpp` does NOT work as a correctness check here -- it enforces strict ISO C `##`
+token-pasting rules and hard-errors on constructs this file relies on (e.g. pasting `.` from
+`super.` onto an expanded macro argument, `error: pasting "." and "$b" does not give a valid
+preprocessing token`). The project's actual preprocessor is the real one: the prebuilt jar at
+`3rd_party/tools/pcpp_java/pcpp-java-1.30.jar` (relative to the JxMake repo root), invoked
+directly with `java -jar` (single-file form: `java -jar pcpp-java-1.30.jar <input> -o <output>`
+-- note input before `-o`, not after, or it misparses the input as another output path and
+reports "number of output files does not match number of input files"). This one accepts the
+file's actual macro usage and preprocesses both the original and the formatted file cleanly.
+
+Verification methodology used (a repeatable pattern for any future PCPP-heavy candidate): run
+`pcpp_java` on both the pre-format and post-format source, strip `#line` directives from both
+(these legitimately shift when the formatter changes line counts -- not a bug), then tokenize
+each (`grep -oE '[A-Za-z0-9_$]+|[^A-Za-z0-9_$ \t\n]'`, i.e. identifiers/punctuation only, all
+whitespace differences discarded) and diff the token streams -- if the formatter only changed
+layout, the token streams must be byte-identical. Confirmed here: 0-line diff on 105366 tokens
+each. Also confirmed idempotent (round1 == round2) and that the formatter doesn't crash/mangle
+anything despite `#define`-heavy, backslash-continued, `##`/`#` (stringize/paste) macro bodies --
+a shape none of the other current fixtures exercise. No bug surfaced; no new fixture needed since
+nothing was wrong.
 
 For each new bug found: minimal isolated repro first, fix, verify against the full source
 round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (a new

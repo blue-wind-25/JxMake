@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -38,10 +39,10 @@ public class CppSpecificRule {
      *  {@code JavaSpecificRule.DEFAULT_INDENT_UNIT}/{@code SwitchRule.DEFAULT_INDENT_UNIT}. */
     private static final String DEFAULT_INDENT_UNIT = "    ";
 
-    private final String language;
+    private final Lang lang;
 
-    public CppSpecificRule(final String language) {
-        this.language = language;
+    public CppSpecificRule(final Lang lang) {
+        this.lang = lang;
     }
 
     /**
@@ -71,7 +72,7 @@ public class CppSpecificRule {
      * file's existing "a comment in the gap blocks the rewrite" posture).
      */
     public String enforceEmptyParameterList(final List<Token> tokens) {
-        final boolean isC = "c".equals(language);
+        final boolean isC = lang.isC;
         final Map<Integer, Integer> spans = new HashMap<>();
         for (int i = 0; i < tokens.size(); i++) {
             if (!isPunct(tokens.get(i), "(") || !isCandidateSignatureName(tokens, i)) {

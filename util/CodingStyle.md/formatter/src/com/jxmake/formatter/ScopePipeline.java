@@ -38,21 +38,21 @@ import java.util.Map;
  */
 public class ScopePipeline {
 
-    private final String language;
+    private final Lang lang;
     private final String indentStyle;
     private final TokenizerCore tokenizer;
     private final DeclarationAlignmentRule declarationRule;
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
 
-    public ScopePipeline(final String language, final String indentStyle,
+    public ScopePipeline(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod) {
-        this.language = language;
+        this.lang = lang;
         this.indentStyle = indentStyle;
-        this.tokenizer = new TokenizerCore(language);
-        this.declarationRule = new DeclarationAlignmentRule(language);
-        this.getterSetterRule = new GetterSetterRule(language);
-        this.miscRule = new MiscRule(language, normalizeCommentStartCase, normalizeCommentEndPeriod);
+        this.tokenizer = new TokenizerCore(lang);
+        this.declarationRule = new DeclarationAlignmentRule(lang);
+        this.getterSetterRule = new GetterSetterRule(lang);
+        this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod);
     }
 
     // ── Top-level span splitting ─────────────────────────────────────────────────
@@ -542,7 +542,7 @@ public class ScopePipeline {
             // For Java: handle a `throws` clause between `)` and `{`.
             int throwsEndIdx = -1;
             if (!isPunct(tokens.get(closeParenIdx), ")")) {
-                if (!"java".equals(language)) {
+                if (!lang.isJava) {
                     continue;
                 }
                 final int realCloseParen = findCloseParenBeforeThrows(tokens, closeParenIdx);
@@ -556,7 +556,7 @@ public class ScopePipeline {
             if (openParenIdx < 0 || !isCandidateSignatureName(tokens, openParenIdx)) {
                 continue;
             }
-            if ("java".equals(language) && isEnumConstantBody(tokens, span.openBraceIdx)) {
+            if (lang.isJava && isEnumConstantBody(tokens, span.openBraceIdx)) {
                 continue;
             }
 
@@ -572,7 +572,7 @@ public class ScopePipeline {
             // stay verbatim in leadingGap rather than being pulled into parseSignature,
             // where it would be collapsed with the return type onto one line.
             final int sigLeadStart;
-            if ("java".equals(language)) {
+            if (lang.isJava) {
                 sigLeadStart = skipAnnotations(tokens, leadStart, closeParenIdx);
             } else {
                 final int nameIdx = prevSignificantIndex(tokens, openParenIdx);

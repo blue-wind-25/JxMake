@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
@@ -33,8 +34,6 @@ public class JavaSpecificRule {
      *  body indentation -- same precedent as {@code SwitchRule.DEFAULT_INDENT_UNIT}. */
     private static final String DEFAULT_INDENT_UNIT = "    ";
 
-    private final String language;
-
     /** The six fixed classification buckets every import is sorted into, per the resolved
      *  STYLE_JAVA.md §7 reading (see STATE.md "§7 import group order/count contradiction" --
      *  trust the worked example). {@code groupOrder} passed into {@link #enforceImportOrdering}
@@ -43,8 +42,7 @@ public class JavaSpecificRule {
     private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>(
             Arrays.asList("java", "com", "org", "other", "local", "static"));
 
-    public JavaSpecificRule(final String language) {
-        this.language = language;
+    public JavaSpecificRule(final Lang lang) {
     }
 
     /**

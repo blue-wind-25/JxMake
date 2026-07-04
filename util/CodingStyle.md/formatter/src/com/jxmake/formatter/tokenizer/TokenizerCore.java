@@ -7,6 +7,8 @@
 
 package com.jxmake.formatter.tokenizer;
 
+import com.jxmake.formatter.Lang;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -133,6 +135,8 @@ public class TokenizerCore {
     };
 
     private final String language;
+    private final boolean isC;
+    private final boolean isJava;
     private final Set<String> keywords;
     private final Set<String> namedConstructKeywords;
 
@@ -180,8 +184,10 @@ public class TokenizerCore {
         return syntaxError;
     }
 
-    public TokenizerCore(final String language) {
-        this.language = language;
+    public TokenizerCore(final Lang lang) {
+        this.language = lang.language;
+        this.isC = lang.isC;
+        this.isJava = lang.isJava;
         switch (language) {
             case "c":
                 this.keywords = KEYWORDS_C;
@@ -271,7 +277,7 @@ public class TokenizerCore {
             }
         }
 
-        if (!syntaxError && !"c".equals(language)) {
+        if (!syntaxError && !isC) {
             reclassifyAngleBrackets(tokens);
         }
 
@@ -595,7 +601,7 @@ public class TokenizerCore {
      *  block's entire multi-line content -- braces, indentation, everything -- to every other rule
      *  in the pipeline). */
     private boolean isTextBlockOpener() {
-        return "java".equals(language) && peek(1) == '"' && peek(2) == '"';
+        return isJava && peek(1) == '"' && peek(2) == '"';
     }
 
     /**

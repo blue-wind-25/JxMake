@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -59,13 +60,13 @@ public class MiscRule {
             "throws", "transient", "try", "var", "void", "volatile", "while", "yield", "null",
             "true", "false");
 
-    private final String language;
+    private final Lang lang;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
 
-    public MiscRule(final String language, final boolean normalizeCommentStartCase,
+    public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod) {
-        this.language = language;
+        this.lang = lang;
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
@@ -2278,15 +2279,15 @@ public class MiscRule {
         return content;
     }
 
-    /** True iff `word` is a keyword in the current file's language ({@link #language}) that must
+    /** True iff `word` is a keyword in the current file's language ({@link #lang}) that must
      *  never be titlecased when it starts a comment sentence -- checked against the
      *  language-specific set only, so a C/C++-only keyword like `inline` never suppresses
      *  capitalization in a Java comment, and vice versa. */
     private boolean isCommentNoCapitalizeWord(final String word) {
-        if ("java".equals(language)) {
+        if (lang.isJava) {
             return COMMENT_NO_CAPITALIZE_JAVA.contains(word);
         }
-        if ("cpp".equals(language)) {
+        if (lang.isCpp) {
             return COMMENT_NO_CAPITALIZE_C.contains(word) || COMMENT_NO_CAPITALIZE_CPP.contains(word);
         }
         return COMMENT_NO_CAPITALIZE_C.contains(word);

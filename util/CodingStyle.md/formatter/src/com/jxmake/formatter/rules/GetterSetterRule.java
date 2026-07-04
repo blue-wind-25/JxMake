@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.grid.JavaModifierPriority;
 import com.jxmake.formatter.grid.ModifierPriority;
@@ -22,13 +23,11 @@ import java.util.List;
  */
 public class GetterSetterRule {
 
-    private final String language;
     private final boolean isJava;
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
 
-    public GetterSetterRule(final String language) {
-        this.language = language;
-        this.isJava = "java".equals(language);
+    public GetterSetterRule(final Lang lang) {
+        this.isJava = lang.isJava;
         this.modifierPriority = isJava ? new JavaModifierPriority() : null;
     }
 

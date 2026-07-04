@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.grid.CppModifierPriority;
 import com.jxmake.formatter.grid.JavaModifierPriority;
@@ -36,18 +37,18 @@ public class DeclarationAlignmentRule {
     private static final Set<String> TYPE_KEYWORDS_JAVA = setOf(
             "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "var");
 
-    private final String language;
+    private final Lang lang;
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
 
-    public DeclarationAlignmentRule(final String language) {
-        this.language = language;
-        if ("java".equals(language)) {
+    public DeclarationAlignmentRule(final Lang lang) {
+        this.lang = lang;
+        if (lang.isJava) {
             this.modifierPriority = new JavaModifierPriority();
             this.typeKeywords = TYPE_KEYWORDS_JAVA;
         } else {
             this.modifierPriority = new CppModifierPriority();
-            this.typeKeywords = "cpp".equals(language) ? TYPE_KEYWORDS_CPP : TYPE_KEYWORDS_C;
+            this.typeKeywords = lang.isCpp ? TYPE_KEYWORDS_CPP : TYPE_KEYWORDS_C;
         }
     }
 
@@ -233,7 +234,7 @@ public class DeclarationAlignmentRule {
      */
     public List<String> render(final List<Declaration> originalGroup) {
         // C/C++ declarations must not be reordered -- changing order can alter semantics.
-        final List<Declaration> group = "java".equals(language) ? reorderStatics(originalGroup) : originalGroup;
+        final List<Declaration> group = lang.isJava ? reorderStatics(originalGroup) : originalGroup;
 
         // Function forward declarations use a simpler 2-column layout (no modifier columns).
         boolean allAreFuncDecls = !group.isEmpty();
@@ -247,7 +248,7 @@ public class DeclarationAlignmentRule {
             return renderFunctionForwardGroup(group);
         }
 
-        final boolean isJava = "java".equals(language);
+        final boolean isJava = lang.isJava;
         final int modifierColumns = modifierPriority.columnCount();
         final boolean[] modifierActive = new boolean[modifierColumns];
         boolean postConstActive = false;
@@ -272,7 +273,7 @@ public class DeclarationAlignmentRule {
         }
 
         boolean isStructuredBinding = false;
-        if ("cpp".equals(language)) {
+        if (lang.isCpp) {
             for (final Declaration d : group) {
                 if ("[".equals(d.name.text)) {
                     isStructuredBinding = true;
@@ -467,7 +468,7 @@ public class DeclarationAlignmentRule {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
                     if (t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
-                        && ("c".equals(language) || "cpp".equals(language))) {
+                        && (lang.isC || lang.isCpp)) {
                         // pointer dereference: add nothing
                     }
                     else if (isPunct(prev, ")") && isCStyleCastClose(tokens, i - 1)) {
@@ -783,7 +784,7 @@ public class DeclarationAlignmentRule {
 
         int i = 0;
         List<Token> templatePrefix = Collections.emptyList();
-        if ("cpp".equals(language) && i < body.size() && body.get(i).type == TokenType.KEYWORD
+        if (lang.isCpp && i < body.size() && body.get(i).type == TokenType.KEYWORD
                 && "template".equals(body.get(i).text) && i + 1 < body.size()
                 && isOp(body.get(i + 1), "<")) {
             int depth = 0;
@@ -814,7 +815,7 @@ public class DeclarationAlignmentRule {
             return null;
         }
 
-        if ("cpp".equals(language)) {
+        if (lang.isCpp) {
             final Declaration binding = parseStructuredBinding(stmt, modifiers, body, i, trailingComment, blankBefore);
             if (binding != null) {
                 return binding;

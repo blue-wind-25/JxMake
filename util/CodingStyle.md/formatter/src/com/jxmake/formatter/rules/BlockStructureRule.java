@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -40,15 +41,15 @@ public class BlockStructureRule {
     // STYLE.md §7 default; overridable via `closing-comment-min-lines` once Config.java exists.
     private static final int DEFAULT_CLOSING_COMMENT_MIN_LINES = 5;
 
-    private final String language;
+    private final Lang lang;
     private final int closingCommentMinLines;
 
-    public BlockStructureRule(final String language) {
-        this(language, DEFAULT_CLOSING_COMMENT_MIN_LINES);
+    public BlockStructureRule(final Lang lang) {
+        this(lang, DEFAULT_CLOSING_COMMENT_MIN_LINES);
     }
 
-    public BlockStructureRule(final String language, final int closingCommentMinLines) {
-        this.language = language;
+    public BlockStructureRule(final Lang lang, final int closingCommentMinLines) {
+        this.lang = lang;
         this.closingCommentMinLines = closingCommentMinLines;
     }
 
@@ -346,7 +347,7 @@ public class BlockStructureRule {
      */
     private boolean isLambdaBrace(final List<Token> tokens, final int prevIdx) {
         final Token prev = tokens.get(prevIdx);
-        if ("java".equals(language)) {
+        if (lang.isJava) {
             return isOp(prev, "->");
         }
         if (isPunct(prev, "]")) {
@@ -1044,7 +1045,7 @@ public class BlockStructureRule {
             return Frame.named(braceIdx, "concept " + name);
         }
 
-        if ("java".equals(language)) {
+        if (lang.isJava) {
             final int recordCloseParen = findRecordComponentListClose(tokens, braceIdx);
             if (recordCloseParen >= 0) {
                 // `record Name(...) [implements TypeList] {` -- the component list (and an optional
@@ -1169,7 +1170,7 @@ public class BlockStructureRule {
      * spirit as `isCppTrailingReturnLambda`'s scan cap above.
      */
     private boolean isAnonymousClassBrace(final List<Token> tokens, final int prevIdx) {
-        if (!"java".equals(language) || !isPunct(tokens.get(prevIdx), ")")) {
+        if (!lang.isJava || !isPunct(tokens.get(prevIdx), ")")) {
             return false;
         }
         final int openParen = matchOpenBackward(tokens, prevIdx);

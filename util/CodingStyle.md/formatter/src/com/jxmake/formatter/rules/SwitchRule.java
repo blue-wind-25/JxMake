@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -24,12 +25,10 @@ public class SwitchRule {
     // actual indent unit (see deriveUnit) -- STYLE.md §1 default.
     private static final String DEFAULT_INDENT_UNIT = "    ";
 
-    private final String language;
     private final TokenizerCore tokenizer;
 
-    public SwitchRule(final String language) {
-        this.language = language;
-        this.tokenizer = new TokenizerCore(language);
+    public SwitchRule(final Lang lang) {
+        this.tokenizer = new TokenizerCore(lang);
     }
 
     // ── Switch/case structure discovery ─────────────────────────────────────────

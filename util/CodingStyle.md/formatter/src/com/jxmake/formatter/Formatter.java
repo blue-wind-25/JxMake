@@ -20,21 +20,22 @@ public final class Formatter {
 
     public static String formatOne(final String content, final String language, final String filePath,
             final Config config) {
-        final TokenizerCore tokenizer = new TokenizerCore(language);
-        final boolean isCpp = "cpp".equals(language);
-        final boolean isC = "c".equals(language);
+        final Lang lang = new Lang(language);
+        final TokenizerCore tokenizer = new TokenizerCore(lang);
+        final boolean isCpp = lang.isCpp;
+        final boolean isC = lang.isC;
         final boolean isCOrCpp = isCpp || isC;
-        final boolean isJava = "java".equals(language);
+        final boolean isJava = lang.isJava;
 
-        final BlockStructureRule blockRule = new BlockStructureRule(language, config.closingCommentMinLines());
-        final SwitchRule switchRule = new SwitchRule(language);
-        final MiscRule miscRule = new MiscRule(language, config.isNormalizeCommentStartCase(),
+        final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines());
+        final SwitchRule switchRule = new SwitchRule(lang);
+        final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod());
-        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(language) : null;
-        final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(language) : null;
+        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(lang) : null;
+        final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(lang) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
-        String text = new ScopePipeline(language, config.indentStyle(), config.isNormalizeCommentStartCase(),
+        String text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod()).process(content);
 
         // Phase 1: structural/brace passes.

@@ -676,7 +676,7 @@ consistent with the existing `test` target — this project's Makefile uses tab
 size 8.
 
 ### E — Code cleanups
-1. These comparison:
+1. These comparison: (DONE)
      "c".equals()
      "cpp".equals()
      "java".equals()
@@ -685,6 +685,21 @@ size 8.
    `isC`/`isCpp`/`isJava` (or an equivalent boolean/enum) once per file in
    `Formatter.formatOne` and thread it down instead of re-doing the string
    comparison in every rule method.
+
+   Implemented: new top-level `Lang` class (`isC`/`isCpp`/`isJava` computed once from the raw
+   `language` string in its constructor). `Formatter.formatOne` constructs exactly one `Lang`
+   instance per file and passes it into every rule class's constructor (`BlockStructureRule`,
+   `SwitchRule`, `MiscRule`, `CppSpecificRule`, `JavaSpecificRule`, `GetterSetterRule`,
+   `DeclarationAlignmentRule`, `ScopePipeline`, `TokenizerCore`) instead of the raw `language`
+   string; each rule stores the `Lang` (or, where only one flag was ever read, e.g.
+   `GetterSetterRule`/`TokenizerCore`, just the derived booleans) and reads `lang.isC`/
+   `lang.isCpp`/`lang.isJava` at every call site that used to re-run `"x".equals(language)`.
+   The only remaining `"java".equals(...)`/`"cpp".equals(...)`/`"c".equals(...)` call sites in
+   `src/` are `Lang`'s own constructor and one unrelated string check in
+   `JavaSpecificRule.java:668` (`"java".equals(first)`/`"javax".equals(first)`, an import-prefix
+   comparison, not a language check). Verified via `make test`: 15/15 file-pairs still PASS
+   (forward + idempotency), zero regressions.
+
 2. Checkings such as:
      isOp(...)
      isPunct(...)

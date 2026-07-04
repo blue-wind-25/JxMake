@@ -193,14 +193,61 @@ public class JavaSpecificRule {
     }
 
     /** True iff no {@code NEWLINE} token appears between {@code braceIdx} and {@code closeBraceIdx}
-     *  inclusive -- the whole `{ ... }` span is one physical line. */
+     *  inclusive -- the whole `{ ... }` span is one physical line -- AND the body isn't predicted
+     *  to be broken across lines later by {@code MiscRule.enforceCallLineBreaking} (Phase 1, later
+     *  in the pipeline) anyway. Without that second condition, a fresh format sees the body still
+     *  on one physical line (still short, pre-call-breaking) and keeps `{` K&amp;R inline, but
+     *  reformatting that already-broken output sees a genuinely multi-line body and moves `{` to
+     *  Allman -- a pass-ordering idempotency bug identical in shape to the one already documented
+     *  on {@code GetterSetterRule.parseOneLinerMember}. The prediction only has to agree with
+     *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once this
+     *  method predicts "too long" and goes Allman, the body only ever grows more lines after that
+     *  (never re-collapses), so every later pass keeps agreeing. */
     private boolean isSingleLineBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
         for (int i = braceIdx; i <= closeBraceIdx; i++) {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 return false;
             }
         }
+        if (hasBreakableCall(tokens, braceIdx, closeBraceIdx)) {
+            final int lineStart = lineStartIndex(tokens, braceIdx);
+            int width = 0;
+            for (int k = lineStart; k <= closeBraceIdx; k++) {
+                width += tokens.get(k).text.length();
+            }
+            if (width > MiscRule.LINE_LENGTH_LIMIT) {
+                return false;
+            }
+        }
         return true;
+    }
+
+    /** True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
+     *  argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later break across
+     *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
+     *  comment). Duplicated from {@code GetterSetterRule}'s identical helper -- same "each rule
+     *  class matches its own local conventions" precedent as {@code isSingleLineBody} itself,
+     *  already duplicated across this class and {@code CppSpecificRule}. */
+    private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to) {
+        for (int i = from; i <= to; i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.IDENTIFIER) {
+                continue;
+            }
+            final int parenIdx = nextSignificantIndex(tokens, i);
+            if (parenIdx < 0 || parenIdx > to || !isPunct(tokens.get(parenIdx), "(")) {
+                continue;
+            }
+            final int closeIdx = matchParenForward(tokens, parenIdx);
+            if (closeIdx < 0 || closeIdx > to) {
+                continue;
+            }
+            final int argsFrom = nextSignificantIndex(tokens, parenIdx);
+            if (argsFrom >= 0 && argsFrom < closeIdx) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isMethodDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx) {

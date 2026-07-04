@@ -773,8 +773,8 @@ public class ScopePipeline {
      * STATE.md's checklist note on this). A group that drops below 2 members after exclusion is
      * skipped entirely, per {@code excludeOutliers}'s own contract.
      */
-    private String applyGetterSetterPass(final List<Token> tokens) {
-        final List<List<Member>> groups = getterSetterRule.groupOneLiners(tokens);
+    private String applyGetterSetterPass(final List<Token> tokens, final int depth) {
+        final List<List<Member>> groups = getterSetterRule.groupOneLiners(tokens, depth);
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
         final List<Replacement> replacements = new ArrayList<>();
 
@@ -814,7 +814,7 @@ public class ScopePipeline {
         current = tokenize(applyDeclarationsPass(current), scopeStartFrozen);
         current = tokenize(applyAssignmentsPass(current), scopeStartFrozen);
         current = tokenize(applySignaturePass(current, depth), scopeStartFrozen);
-        current = tokenize(applyGetterSetterPass(current), scopeStartFrozen);
+        current = tokenize(applyGetterSetterPass(current, depth), scopeStartFrozen);
 
         final List<Span> spans = splitTopLevelSpans(current);
         final List<Replacement> replacements = new ArrayList<>();

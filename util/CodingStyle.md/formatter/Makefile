@@ -82,6 +82,7 @@ INP_FILES += format_toggle_inp.java
 INP_FILES += java_preprocessor_method_inp.java
 
 INP_FILES += real_code_regressions_inp.cpp
+INP_FILES += real_code_regressions_2_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

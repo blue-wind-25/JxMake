@@ -182,8 +182,8 @@ public class TokenizerCore {
     // source starts with, so "<=>" must precede "<=" (a strict prefix of it) or the spaceship
     // operator would be split into "<=" + ">".
     private static final String[] MULTI_CHAR_OPS = {
-            "<<=", ">>=", "...", "->*",
-            "<=>", "::", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||",
+            "<<=", ">>>=", ">>=", "...", "->*",
+            "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "[[", "]]"
     };

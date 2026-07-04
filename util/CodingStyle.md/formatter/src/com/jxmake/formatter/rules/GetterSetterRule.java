@@ -91,15 +91,21 @@ public class GetterSetterRule {
      * at least one access-specifier label (public:/private:/protected:), which identifies the
      * scope as a C++ class/struct body. In Java, declaration grouping is always enabled since
      * Java class bodies have no such labels.
+     *
+     * @param depth nesting depth of {@code scopeTokens}' enclosing scope (0 = file/namespace
+     *              level), used only to estimate each candidate's rendered column for the
+     *              line-length pre-check in {@link #parseOneLinerMember} -- same {@code depth}
+     *              {@link com.jxmake.formatter.ScopePipeline#processScope} already threads to
+     *              {@code applySignaturePass}'s own inline-fit check.
      */
-    public List<List<Member>> groupOneLiners(final List<Token> scopeTokens) {
+    public List<List<Member>> groupOneLiners(final List<Token> scopeTokens, final int depth) {
         final boolean isClassScope = isJava || hasAccessSpecifier(scopeTokens);
         final List<int[]> spans = splitMembers(scopeTokens);
         final List<List<Member>> groups = new ArrayList<>();
         List<Member> current = new ArrayList<>();
 
         for (final int[] span : spans) {
-            Member m = parseOneLinerMember(scopeTokens, span[0], span[1]);
+            Member m = parseOneLinerMember(scopeTokens, span[0], span[1], depth);
             // In file/namespace scope, only process definitions; skip declarations.
             if (m != null && !isClassScope && !m.isDefinition) {
                 m = null;
@@ -468,9 +474,24 @@ public class GetterSetterRule {
      * </ul>
      * Returns null for: constructors, methods with {@code override} qualifier (those are
      * implementing a base-class contract, not getter/setter pairs), {@code throws} clauses,
-     * fields, multi-line members, and any other unrecognised shape.
+     * fields, multi-line members, members whose one-line rendering would exceed
+     * {@link MiscRule#LINE_LENGTH_LIMIT} at their estimated column (see below), and any other
+     * unrecognised shape.
+     *
+     * <p>The length pre-check exists because {@code enforceCallLineBreaking} runs in a later
+     * pipeline phase and would break an over-long one-liner body across multiple lines anyway --
+     * without this check, a fresh format groups/pads such a member as if it were staying inline
+     * (using its original single-line text, still short at this point), only for the later phase
+     * to break it, leaving the group's column padding stale; reformatting that already-broken
+     * output then correctly excludes the now-multi-line member via {@code hasNewlineBetween}
+     * above, changing the surviving members' padding on the second pass. Excluding it here too,
+     * on the very first pass, keeps the decision (and thus the padding) stable across repeated
+     * formats. The check is approximate (raw pre-padding text length, not the exact final
+     * rendering), but only has to agree with {@code enforceCallLineBreaking}'s own verdict well
+     * enough to avoid flip-flopping, since once excluded here it can never re-enter a group (a
+     * broken-across-lines member always fails {@code hasNewlineBetween} on every later pass).
      */
-    private Member parseOneLinerMember(final List<Token> tokens, final int from, final int to) {
+    private Member parseOneLinerMember(final List<Token> tokens, final int from, final int to, final int nestDepth) {
         final int firstSig = firstSignificantIndex(tokens, from, to);
         if (firstSig < 0) {
             return null;
@@ -479,7 +500,6 @@ public class GetterSetterRule {
         if (hasNewlineBetween(tokens, firstSig, to)) {
             return null;
         }
-
         int pos = firstSig;
         final List<Token> modifiers = new ArrayList<>();
         if (isJava) {
@@ -734,9 +754,56 @@ public class GetterSetterRule {
             return null; // throws clause or other unrecognised form
         }
 
+        // A body containing a non-empty-arg call (as opposed to a trivial `return x;`/`x = y;`
+        // statement) is exactly the shape `enforceCallLineBreaking` (Phase 1, later in the
+        // pipeline) may break across multiple lines if the full rendered line doesn't fit --
+        // check that predicted width here so grouping/padding is decided consistently whether
+        // this is a fresh format (body still on one physical line) or a reformat of output
+        // already broken by that later phase (see this method's class-level doc comment). Bodies
+        // with no such call (only field access/assignment) are never touched by that pass
+        // regardless of line length, so the check must not apply to them, or legitimately long
+        // column-aligned one-liners (e.g. verbose template-qualified C++ names) would be wrongly
+        // excluded.
+        if (isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo)) {
+            final int estimatedColumn = nestDepth * MiscRule.INDENT_WIDTH;
+            final int estimatedWidth = estimatedColumn + cellText(tokens, firstSig, to).length();
+            if (estimatedWidth > MiscRule.LINE_LENGTH_LIMIT) {
+                return null;
+            }
+        }
+
         return new Member(modifiers, templatePrefixFrom, templatePrefixTo, effectiveReturnTypeFrom, returnTypeTo,
                 nameFrom, nameIdx, paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,
                 postParenQualifier, pureSpecifier, isDefinition);
+    }
+
+    /** True if {@code [bodyFrom, bodyTo)} contains at least one {@code name(args)} call with a
+     *  non-empty argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later
+     *  break across lines if it doesn't fit ({@code name()} zero-arg calls are never broken, see
+     *  that method's own doc comment). */
+    private boolean hasBreakableCall(final List<Token> tokens, final int bodyFrom, final int bodyTo) {
+        if (bodyFrom < 0) {
+            return false;
+        }
+        for (int i = bodyFrom; i < bodyTo; i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.IDENTIFIER) {
+                continue;
+            }
+            final int parenIdx = nextSignificant(tokens, i + 1, bodyTo);
+            if (parenIdx < 0 || !isPunct(tokens.get(parenIdx), "(")) {
+                continue;
+            }
+            final int closeIdx = matchBracket(tokens, parenIdx, "(", ")");
+            if (closeIdx < 0) {
+                continue;
+            }
+            final int argsFrom = nextSignificant(tokens, parenIdx + 1, closeIdx);
+            if (argsFrom >= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

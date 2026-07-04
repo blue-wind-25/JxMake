@@ -49,8 +49,17 @@ public final class Formatter {
         final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(lang) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
-        String text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), formatOff).process(content);
+        // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise
+        // GetterSetterRule's body-column width can be measured against a body's pre-padding text
+        // (e.g. `Math.max( 0, lvl )`) which Phase 1's own enforceComplexityPadding call later
+        // shrinks (e.g. to `Math.max(0, lvl)`), leaving a sibling member's trailing padding stale
+        // by the amount stripped -- stable only on a second format pass, when the input is already
+        // post-padding. enforceComplexityPadding is idempotent, so re-running it in Phase 1 after
+        // Phase 0's own transformations (which can introduce new one-liner bodies) is still needed
+        // and safe.
+        String text = miscRule.enforceComplexityPadding(tokenizer.apply(content));
+        text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
+                config.isNormalizeCommentEndPeriod(), formatOff).process(text);
 
         // Phase 1: structural/brace passes.
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));
@@ -85,6 +94,16 @@ public final class Formatter {
         // github.com/blake-madden/tinyexpr-plusplus).
         text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
+        // enforceCallLineBreaking can join a call whose args originally spanned multiple lines
+        // (each side's own gap blocked the pass above from touching its spacing, since a NEWLINE
+        // in the gap suppresses the rewrite for that side) onto a single line, replacing the
+        // newline with a plain single space with no complexity-padding awareness of its own. On a
+        // fresh format that plain-space join is exactly what "loose" padding looks like, even for
+        // an argument list with no nested `(`/`[` that should render tight -- stable only on a
+        // second pass, once there's no longer a NEWLINE in the gap to block the rewrite. Re-running
+        // enforceComplexityPadding here (idempotent, purely paren-local) re-tightens/loosens any
+        // call whose layout enforceCallLineBreaking just finalized.
+        text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
         text = switchRule.formatNonInlineSwitches(tokenizer.apply(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
 

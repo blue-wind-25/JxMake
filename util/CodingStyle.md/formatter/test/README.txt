@@ -116,6 +116,29 @@ Headers:
                                 template base class, concrete subclass, factory
                                 declaration, extern "C" block.
 
+Real-code regressions:
+  real_code_regressions_inp/out.cpp   -- Distilled from bugs found testing against
+                                real, compiling third-party C++ (tinyexpr-plusplus):
+                                same-line-sibling call-argument mis-split, call
+                                "does it fit" length undercount, and a
+                                enforceComplexityPadding/enforceCallLineBreaking
+                                pass-ordering idempotency bug.
+
+  real_code_regressions_2_inp/out.java -- Distilled from bugs found testing against
+                                real, compiling third-party Java (RobotCoding's
+                                gui_frontend): `>>>` unsigned-right-shift mis-tokenized
+                                as `>>`+`>`; GetterSetterRule body-column padding
+                                computed against pre-padding text, stale after Phase 1
+                                shrinks it; enforceCallLineBreaking joining a
+                                multi-line call losing complexity-padding awareness;
+                                and GetterSetterRule grouping / one-liner
+                                Allman-brace-avoidance not predicting that an
+                                over-long one-liner body would later be broken
+                                across lines by enforceCallLineBreaking, causing
+                                the grouping/brace-style decision (and thus output)
+                                to differ between a fresh format and a reformat of
+                                already-formatted output.
+
 
 How Tests Are Run
 -----------------

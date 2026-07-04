@@ -445,31 +445,74 @@ concrete, fixable bugs quickly; the earlier from-scratch dogfood idempotency fai
 every self-format file changing on a second pass) was broad and hard to triage by comparison.
 Prefer real-code testing over synthetic dogfooding when hunting for formatter bugs.
 
-**NEXT SESSION — continue here:** tinyexpr-plusplus is done (idempotent + compiles clean,
-see above). Continue the real-code testing methodology, now **interleaving C/C++ candidates
-with a real Java codebase** rather than doing all C/C++ first:
+**Java candidate — DONE (RobotCoding gui_frontend, `../../../../RobotCoding/gui_frontend/src/`,
+71 `.java` files, compiled with `/opt/openjdk-25_linux-x64_bin/jdk-25/bin/javac`):** found and
+fixed 4 bugs, all pass-ordering idempotency issues (round1 = fresh format, round2 = format of
+round1's own output, must be byte-identical):
 
-- C/C++ candidates remaining, in this order unless the user redirects:
-  `martinus/nanobench` → `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`.
-  Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs newer;
-  confirm any compile failure also reproduces against the *unmodified* original source before
-  treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20 requirement).
-- Java candidate: a real, already-compiling Java source tree at (path relative to this
-  `formatter/` directory, do not expand to an absolute home-directory path):
-  `../../../../RobotCoding/gui_frontend/src/`
-  (subdirs at last check: `blocks`, `gf`, `gui`, `jcom`, `rc`, `runtime`, `toolbar`, plus
-  `COMMAND_PROTOCOL.txt`). Use JDK at
-  `/opt/openjdk-25_linux-x64_bin/jdk-25/bin/` (`javac`/`java`) to compile round1 output,
-  same round1→round2 diff + compile methodology as the C++ candidates (format once, format
-  the output again, diff must be empty, `javac` the result with zero errors — compare any
-  compile failure against the unmodified original source first, same as the C++ side, before
-  treating it as formatter-induced).
+1. **`>>>` (unsigned right shift) tokenized as `>>` + `>`** — compile-breaking
+   (`jcom/winmd/WinMDReader.java`). Fixed by adding `>>>`/`>>>=` to
+   `TokenizerCore.MULTI_CHAR_OPS` (longest-prefix-first still respected).
+2. **`GetterSetterRule` body-column padding measured pre-padding** (`blocks/Block.java`) —
+   a one-liner body's width was measured before `enforceComplexityPadding` had shrunk its
+   interior spacing (e.g. `Math.max( 0, lvl )` → `Math.max(0, lvl)`), so a sibling's trailing
+   padding went stale by the amount stripped, stable only on a second pass. Fixed by adding a
+   pre-pass `enforceComplexityPadding` call in `Formatter.formatOne` before Phase 0's
+   `ScopePipeline.process()`.
+3. **`enforceCallLineBreaking` joining a multi-line call loses complexity-padding awareness**
+   (`gui/BlockDialogs.java`) — a call whose args originally spanned multiple lines has each
+   side's spacing gap-blocked from the tight/loose rewrite (a NEWLINE in the gap suppresses
+   it); `enforceCallLineBreaking` can later collapse that call onto one line with a plain
+   space join, which looks like "loose" padding regardless of whether the args actually
+   contain a nested `(`/`[`, stable only on a second pass once there's no NEWLINE left to
+   block the rewrite. Fixed by re-running `enforceComplexityPadding` immediately after
+   `enforceCallLineBreaking` in `Formatter.formatOne` (both calls documented in-code).
+4. **`GetterSetterRule` grouping / `JavaSpecificRule` one-liner Allman-brace-avoidance don't
+   predict later line-breaking** (`gui/BlockCanvas.java`, `actionEdit`/`actionCut`/
+   `actionCopy`/`actionDelete`) — both `GetterSetterRule.parseOneLinerMember` (rejects a
+   candidate via `hasNewlineBetween`) and `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`
+   (via `isSingleLineBody`) decide "is this a one-liner" purely from whether the body is
+   *currently* on one physical line — true on a fresh format (original source), false on a
+   reformat of output where `enforceCallLineBreaking` already broke an over-long body across
+   lines, so the grouping/brace-style decision (and thus padding/output) differed between
+   passes. Fixed in both rule classes by adding a same-verdict-both-times pre-check: if the
+   one-liner body contains a "breakable call" (an identifier's `(args)` with non-empty args --
+   the exact shape `enforceCallLineBreaking` may later break; a bare `return x;`/`x = y;` body
+   never qualifies) *and* the body+signature's predicted rendered width exceeds
+   `MiscRule.LINE_LENGTH_LIMIT`, treat it as not a one-liner from the very first pass (in
+   `GetterSetterRule`, `nestDepth` is now threaded through `groupOneLiners`/
+   `parseOneLinerMember` from `ScopePipeline.processScope`'s own `depth`, same precedent as
+   `applySignaturePass`, to estimate indentation column via `MiscRule.INDENT_WIDTH`). The
+   check is deliberately narrow (only fires for candidates with an actual breakable call) --
+   an early version without the "has breakable call" guard wrongly excluded legitimate,
+   intentionally-long column-aligned one-liners with no call at all (e.g. C++ out-of-line
+   `template<...>` class-template member definitions in `combined_out.cpp`, which
+   `enforceCallLineBreaking` never touches regardless of length), regressing that fixture.
+   `JavaSpecificRule`'s own copy of the "has breakable call" helper initially had an
+   off-by-one bug (`nextSignificantIndex(tokens, from)` scans starting at `from+1`, not
+   `from`, unlike `GetterSetterRule`'s differently-named `nextSignificant(tokens, from, to)`
+   which is inclusive of `from`) that silently made it always return false; caught via a
+   debug-print smoke test on an isolated repro before it reached `make test`.
 
-For each new bug found (either language): minimal isolated repro first, fix, verify against
-the full source round-trip, `make test`, then a permanent fixture under
-`test/real_code_regressions_*` (or a new `_2`/`_3` suffixed fixture pair if the existing one
-gets too large) — same pattern as this session. Update this section (and the dogfood
-checklist above, if revisited) as each candidate (C/C++ library or the Java tree) completes.
+Verified: `make test` 20/20 PASS (added permanent fixture
+`test/real_code_regressions_2_{inp,out}.java` covering all 4 bug shapes, registered in the
+Makefile's `INP_FILES` and `test/README.txt`), the full 71-file RobotCoding tree is
+byte-for-byte idempotent (`diff -rq round1 round2` empty), and `javac`-compiles with zero
+formatter-induced errors (22 remaining errors are the known pre-existing `javax.jmdns`
+missing-dependency issue in `toolbar/WifiStaDialog.java`, confirmed identical against the
+unmodified original source).
+
+**NEXT SESSION — continue here:** Java candidate is done. Continue the real-code testing
+methodology against the remaining C/C++ candidates, in this order unless the user redirects:
+`martinus/nanobench` → `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`.
+Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs newer;
+confirm any compile failure also reproduces against the *unmodified* original source before
+treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20 requirement).
+
+For each new bug found: minimal isolated repro first, fix, verify against the full source
+round-trip, `make test`, then a permanent fixture under `test/real_code_regressions_*` (a new
+`_3`/`_4` suffixed pair if an existing one gets too large) — same pattern as this session.
+Update this section as each candidate completes.
 
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/
 `renderDeclarationPreserveGroups` (Option 2, "preserve original line groups" for a multi-line

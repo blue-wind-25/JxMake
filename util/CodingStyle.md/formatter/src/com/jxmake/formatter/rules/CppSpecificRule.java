@@ -86,6 +86,9 @@ public class CppSpecificRule {
             if (closeIdx < 0 || hasCommentBetween(tokens, i, closeIdx)) {
                 continue;
             }
+            if (anyFrozen(tokens, i, closeIdx + 1)) {
+                continue;
+            }
             if (isC) {
                 if (isEmptyBetween(tokens, i, closeIdx) && isFollowedByFunctionBody(tokens, closeIdx)) {
                     spans.put(i, closeIdx);
@@ -257,6 +260,9 @@ public class CppSpecificRule {
             // Keep single-line bodies K&R -- never Allman-convert a one-liner (RDD_KEY_75).
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
+                continue;
+            }
+            if (anyFrozen(tokens, funcCloseParen, i + 1)) {
                 continue;
             }
             gapToBrace.put(gapStart, i);
@@ -481,7 +487,8 @@ public class CppSpecificRule {
             final boolean afterOpen = lastSignificant != null
                     && lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
             final boolean beforeClose = t.type == TokenType.ANGLE_BRACKET_CLOSE;
-            final boolean gapHasBlocker = hasCommentOrNewline(gap);
+            final boolean gapHasBlocker = hasCommentOrNewline(gap) || t.frozen
+                    || (lastSignificant != null && lastSignificant.frozen);
 
             if ((afterOpen || beforeClose) && !gapHasBlocker) {
                 final boolean pad = (afterOpen && needsPadding.contains(lastSignificantIdx))
@@ -601,6 +608,9 @@ public class CppSpecificRule {
                 continue;
             }
             if (hasCommentBetween(tokens, closeParenIdx, clauseEndIdx)) {
+                continue;
+            }
+            if (anyFrozen(tokens, closeParenIdx, clauseEndIdx)) {
                 continue;
             }
 
@@ -734,7 +744,7 @@ public class CppSpecificRule {
     public String enforceHeaderFileStructure(final List<Token> tokens, final String filePath,
             final boolean renameGuard) {
         final HeaderZones z = detectHeaderZones(tokens);
-        if (z == null) {
+        if (z == null || anyFrozen(tokens, 0, z.isPragmaOnce ? z.guardOpenIdx + 1 : z.endifIdx + 1)) {
             return joinVerbatim(tokens);
         }
 
@@ -1090,6 +1100,16 @@ public class CppSpecificRule {
             if (run.size() < 2) {
                 continue;
             }
+            boolean runFrozen = false;
+            for (final int idx : run) {
+                if (tokens.get(idx).frozen) {
+                    runFrozen = true;
+                    break;
+                }
+            }
+            if (runFrozen) {
+                continue;
+            }
             int maxNameLen = 0;
             final Map<Integer, String> names = new HashMap<>();
             for (final int idx : run) {
@@ -1136,5 +1156,14 @@ public class CppSpecificRule {
             }
         }
         return newlineCount == 1;
+    }
+
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 }

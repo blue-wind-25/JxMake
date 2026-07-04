@@ -119,7 +119,8 @@ public class JavaSpecificRule {
                 final int throwsCloseParen = findCloseParenBeforeThrows(tokens, prevIdx);
                 if (throwsCloseParen >= 0 && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
                         && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
-                        && !isEnumConstantBody(tokens, i)) {
+                        && !isEnumConstantBody(tokens, i)
+                        && !anyFrozen(tokens, throwsCloseParen, i + 1)) {
                     final int closeBraceIdx = matchBraceForward(tokens, i);
                     if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
                         final int openParenIdx = matchParenBackward(tokens, throwsCloseParen);
@@ -130,7 +131,8 @@ public class JavaSpecificRule {
                         gapToBrace.put(prevIdx + 1, i);
                     }
                 } else if (isCompactConstructorBrace(tokens, prevIdx, i)
-                        && !hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
+                        && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
+                        && !anyFrozen(tokens, prevIdx, i + 1)) {
                     gapToBrace.put(prevIdx + 1, i);
                 }
                 continue;
@@ -143,6 +145,9 @@ public class JavaSpecificRule {
                 continue;
             }
             if (isEnumConstantBody(tokens, i)) {
+                continue;
+            }
+            if (anyFrozen(tokens, closeParenIdx, i + 1)) {
                 continue;
             }
             final int closeBraceIdx = matchBraceForward(tokens, i);
@@ -382,7 +387,7 @@ public class JavaSpecificRule {
                     depth--;
                 } else if (depth == 0 && isPunct(t, ";")) {
                     final int next = nextSignificantIndex(tokens, p + 1);
-                    if (next >= 0 && next < closeBraceIdx) {
+                    if (next >= 0 && next < closeBraceIdx && !anyFrozen(tokens, firstMember, closeBraceIdx)) {
                         result.put(p, indent);
                     }
                     break;
@@ -500,6 +505,10 @@ public class JavaSpecificRule {
                 }
                 final ParsedImport parsed = parseImportStatement(tokens, i);
                 if (parsed == null) {
+                    blocked = true;
+                    break;
+                }
+                if (anyFrozen(tokens, i, parsed.semicolonIdx + 1)) {
                     blocked = true;
                     break;
                 }
@@ -735,6 +744,9 @@ public class JavaSpecificRule {
             if (types == null) {
                 continue;
             }
+            if (anyFrozen(tokens, declStart, openBraceIdx + 1)) {
+                continue;
+            }
 
             final String baseIndent = lineIndent(tokens, declStart);
             final String collapsedFull = baseIndent + collapseToOneLine(tokens, declStart, openBraceIdx);
@@ -938,7 +950,7 @@ public class JavaSpecificRule {
                     break;
                 }
             }
-            if (!anyBlockBody) {
+            if (!anyBlockBody && !anyFrozen(tokens, openBraceIdx, closeBraceIdx + 1)) {
                 applyArrowAlignment(cases, overrides);
             }
         }
@@ -1199,6 +1211,15 @@ public class JavaSpecificRule {
             }
         }
         return -1;
+    }
+
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

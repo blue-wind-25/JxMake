@@ -569,12 +569,30 @@ zero regressions -- this step only adds the frozen-tagging plumbing, no rule yet
 actually checks `t.frozen`, so behavior is unchanged pending the per-rule guard work
 below.
 
-**Next:** add per-rule frozen guards (two-tier: token-level render-loop passthrough
-vs. span-level structural-pass skip, see plan) file-by-file in order: `MiscRule` →
-`BlockStructureRule` → `SwitchRule` → `DeclarationAlignmentRule` → `GetterSetterRule`
-→ `CppSpecificRule`/`JavaSpecificRule` → `ScopePipeline`'s own grouping passes. Run
-`make test` after each file. Then add new test fixture(s) with marker regions,
-register in `test/README.txt` + this checklist, update `README.md`.
+Per-rule frozen guards landed so far (each following `make test` 15/15 PASS
+forward + idempotency, zero regressions): `MiscRule`, `BlockStructureRule`,
+`SwitchRule`, `ScopePipeline`'s own splice-back passes, and now
+`JavaSpecificRule`/`CppSpecificRule` -- every public method in both files
+(`enforceMethodDefinitionAllmanBraceStyle`, `separateEnumConstantListTerminator`,
+`enforceImportOrdering`, `enforcePermitsClauseLineBreaking`,
+`enforceSwitchExpressionArrowAlignment` in `JavaSpecificRule`;
+`enforceEmptyParameterList`, `enforceFunctionDefinitionAllmanBraceStyle`,
+`enforceTemplateAngleBracketSpacing`, `enforceRequiresClausePlacement`,
+`enforceHeaderFileStructure`, `alignMacroDefinitions` in `CppSpecificRule`) now
+either skip a frozen candidate span/token (leaving it untouched) or -- for the
+few whole-file passes (`enforceImportOrdering`, `enforceHeaderFileStructure`) --
+bail the entire pass unchanged if any token in the relevant zone is frozen.
+`CppSpecificRule.enforceHeaderFileStructure` is largely whole-file/zone-boundary
+work with no per-content-span rewrite (the body itself is already passed through
+verbatim); guarded anyway by bailing the whole pass if any token in the detected
+header-zone span (copyright through the guard/`#endif`) is frozen, covering the
+narrow case of a frozen region overlapping the guard itself.
+
+**Next:** add per-rule frozen guards to `DeclarationAlignmentRule` and
+`GetterSetterRule` (two-tier: token-level render-loop passthrough vs.
+span-level structural-pass skip, see plan). Run `make test` after each file.
+Then add new test fixture(s) with marker regions, register in
+`test/README.txt` + this checklist, update `README.md`.
 
 Via comments inside the code:
 

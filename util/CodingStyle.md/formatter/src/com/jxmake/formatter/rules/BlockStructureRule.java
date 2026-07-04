@@ -81,7 +81,7 @@ public class BlockStructureRule {
             if (t.type == TokenType.KEYWORD && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
                 final ControlBlock block = matchControlBlock(tokens, i);
                 if (block != null && block.openBraceIndex >= 0) {
-                    if (!isPartOfElseChain(tokens, i, block, n)) {
+                    if (!isPartOfElseChain(tokens, i, block, n) && !anyFrozen(tokens, i, block.closeBraceIndex + 1)) {
                         final String collapsed = tryCollapse(tokens, i, block);
                         if (collapsed != null) {
                             out.append(collapsed);
@@ -296,7 +296,7 @@ public class BlockStructureRule {
             }
 
             if (isPunct(t, "{") && gap.stream().noneMatch(Token::isComment)
-                    && qualifiesForKAndR(tokens, i)) {
+                    && qualifiesForKAndR(tokens, i) && !t.frozen && gap.stream().noneMatch(g -> g.frozen)) {
                 out.append(' ');
             } else {
                 for (final Token g : gap) {
@@ -494,7 +494,8 @@ public class BlockStructureRule {
 
             if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lastSigIdx >= 0
                     && isPunct(tokens.get(lastSigIdx), "}")
-                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
+                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)
+                    && !t.frozen && !tokens.get(lastSigIdx).frozen) {
                 final String indent = indentBefore(tokens, lastSigIdx);
                 out.append('\n').append(indent);
                 for (final Token g : gap) {
@@ -560,7 +561,8 @@ public class BlockStructureRule {
                     && ("catch".equals(t.text) || "finally".equals(t.text))
                     && lastSigIdx >= 0
                     && isPunct(tokens.get(lastSigIdx), "}")
-                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)) {
+                    && gap.stream().noneMatch(g -> g.type == TokenType.NEWLINE)
+                    && !t.frozen && !tokens.get(lastSigIdx).frozen) {
                 final String indent = indentBefore(tokens, lastSigIdx);
                 out.append('\n').append(indent);
                 for (final Token g : gap) {
@@ -630,7 +632,7 @@ public class BlockStructureRule {
                 continue;
             }
             final Integer closeIdx = matchClose.get(i);
-            if (closeIdx == null) {
+            if (closeIdx == null || anyFrozen(tokens, i, closeIdx + 1)) {
                 continue;
             }
             blankBeforeIdx.add(skipGuardForward(tokens, i));
@@ -887,6 +889,9 @@ public class BlockStructureRule {
                     continue;
                 }
                 final Frame f = stack.pop();
+                if (anyFrozen(tokens, f.openIdx, i + 1)) {
+                    continue;
+                }
                 final String comment = decideComment(tokens, f, i);
                 final int insertAt = commentInsertionIndex(tokens, i);
                 final int existingCommentIdx = findExistingLineComment(tokens, insertAt, n);
@@ -1376,7 +1381,7 @@ public class BlockStructureRule {
                     break;
                 }
             }
-            if (headerStart >= 0) {
+            if (headerStart >= 0 && !anyFrozen(tokens, headerStart, i + 1)) {
                 for (int j = headerStart; j < i; j++) {
                     collapse[j] = true;
                 }
@@ -1468,5 +1473,17 @@ public class BlockStructureRule {
             return sig.get(1).text;
         }
         return null;
+    }
+
+    /** {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
+     *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
+     *  to partially rewrite it. */
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
     }
 }

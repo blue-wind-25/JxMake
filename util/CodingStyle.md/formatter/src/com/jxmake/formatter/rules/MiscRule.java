@@ -1226,13 +1226,18 @@ public class MiscRule {
      *  a line break (still inside an unclosed paren from the previous line) as if it were a local
      *  top-level split point, corrupting the rendered output (see RDD_KEY_5 addendum). Trailing/
      *  leading empty parts (a dangling comma with nothing after it before the closing paren) are
-     *  dropped. */
+     *  dropped. A depth-0 {@code NEWLINE} only counts as starting a new row if it occurs *before*
+     *  the part's first significant token (a leading newline) -- a trailing newline after a part's
+     *  last significant token (e.g. the newline before a lone closing-paren line) must not
+     *  retroactively mark that already-started part as beginning a new row, or a sibling argument
+     *  that legitimately shared a source line with it gets wrongly split onto its own line. */
     private List<List<List<Token>>> groupByOriginalLine(final List<Token> paramsSlice) {
         final List<List<Token>> parts = new ArrayList<>();
         final List<Boolean> startsNewRow = new ArrayList<>();
         List<Token> current = new ArrayList<>();
+        boolean currentHasSignificant = false;
         int depth = 0;
-        boolean sawNewlineSinceLastComma = true; // first part always starts a new row
+        boolean pendingNewRow = true; // first part always starts a new row
         for (final Token t : paramsSlice) {
             if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
                 depth++;
@@ -1240,17 +1245,21 @@ public class MiscRule {
                 depth--;
             } else if (depth == 0 && isPunct(t, ",")) {
                 parts.add(current);
-                startsNewRow.add(sawNewlineSinceLastComma);
+                startsNewRow.add(pendingNewRow);
                 current = new ArrayList<>();
-                sawNewlineSinceLastComma = false;
+                currentHasSignificant = false;
+                pendingNewRow = false;
                 continue;
-            } else if (depth == 0 && t.type == TokenType.NEWLINE) {
-                sawNewlineSinceLastComma = true;
+            } else if (depth == 0 && t.type == TokenType.NEWLINE && !currentHasSignificant) {
+                pendingNewRow = true;
             }
             current.add(t);
+            if (!isGapToken(t)) {
+                currentHasSignificant = true;
+            }
         }
         parts.add(current);
-        startsNewRow.add(sawNewlineSinceLastComma);
+        startsNewRow.add(pendingNewRow);
 
         final List<List<List<Token>>> rows = new ArrayList<>();
         for (int i = 0; i < parts.size(); i++) {

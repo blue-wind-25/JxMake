@@ -726,6 +726,16 @@ public class DeclarationAlignmentRule {
      * nested `{` and no `;` inside -- i.e. a flat aggregate init like `{ a, b, c }`
      * that can be rendered verbatim on one line and safely column-aligned.
      */
+    /** Last non-gap token index in {@code [from, to)}, or -1 if none. */
+    private int lastSignificantIdx(final List<Token> tokens, final int from, final int to) {
+        for (int k = to - 1; k >= from; k--) {
+            if (!isGapToken(tokens.get(k))) {
+                return k;
+            }
+        }
+        return -1;
+    }
+
     private boolean isFlatAggregateInit(final List<Token> initTokens) {
         if (!isPunct(initTokens.get(0), "{")) {
             return false;
@@ -867,9 +877,23 @@ public class DeclarationAlignmentRule {
             }
         }
 
+        // Depth-aware: a bitfield's `:` is always at the declarator's own top level
+        // (`int x : 3;`). A `:` nested inside `(`/`[`/`{` -- e.g. a range-based `for( auto v :
+        // values )` that ended up embedded in this statement because an earlier misparse
+        // treated a whole function/class body as a declarator's brace-initializer -- must never
+        // be mistaken for one; scanning without depth-tracking previously misrouted such
+        // statements into parseBitfield, which has no multi-line render path and collapsed the
+        // entire embedded body onto one line (see the `frozen`/`catch.hpp` real-code-testing
+        // notes in STATE.md).
         int colonIdx = -1;
+        int colonScanDepth = 0;
         for (int j = i; j < body.size(); j++) {
-            if (isOp(body.get(j), ":")) {
+            final Token bt = body.get(j);
+            if (isPunct(bt, "(") || isPunct(bt, "[") || isPunct(bt, "{")) {
+                colonScanDepth++;
+            } else if (isPunct(bt, ")") || isPunct(bt, "]") || isPunct(bt, "}")) {
+                colonScanDepth--;
+            } else if (colonScanDepth == 0 && isOp(bt, ":")) {
                 colonIdx = j;
                 break;
             }
@@ -885,14 +909,47 @@ public class DeclarationAlignmentRule {
                 break;
             }
         }
-        final List<Token> initTokens;
-        final int end;
+        List<Token> initTokens;
+        int end;
         if (eqIdx >= 0) {
             initTokens = new ArrayList<>(body.subList(eqIdx + 1, body.size()));
             end = eqIdx;
         } else {
             initTokens = new ArrayList<>();
             end = body.size();
+            // C++11 direct-list-init has no `=` at all (`Type name{args};`), and this branch
+            // deliberately leaves `initTokens` empty for it -- the flat case (`int x{};`,
+            // `Vec2 v{3, 4}`) is already rendered correctly by the generic declarator path
+            // below, and a genuine named-construct body (`enum class Foo { A, B };`) is also
+            // already handled correctly downstream, so this must not disturb either. But a
+            // NON-flat trailing `{...}` here (nested braces, e.g. a function/method body that
+            // got this far misparsed as if it were a declarator, such as
+            // `struct S { int bar() {...} };` briefly parsed as "type=struct, name=S,
+            // init={...}") can't be safely rendered by that generic path either -- it would
+            // collapse the whole nested body onto one line and corrupt the trailing `;` into
+            // `};;` (see STATE.md real-code-testing notes on `frozen`'s `catch.hpp`). Reject
+            // that shape outright, leaving the statement untouched, same as the `eqIdx >= 0`
+            // branch's own non-flat rejection just below.
+            final int lastSig = lastSignificantIdx(body, i, end);
+            if (lastSig >= 0 && isPunct(body.get(lastSig), "}")) {
+                int braceDepth = 0;
+                int openIdx = -1;
+                for (int k = lastSig; k >= i; k--) {
+                    final Token bt = body.get(k);
+                    if (isPunct(bt, "}")) {
+                        braceDepth++;
+                    } else if (isPunct(bt, "{")) {
+                        braceDepth--;
+                        if (braceDepth == 0) {
+                            openIdx = k;
+                            break;
+                        }
+                    }
+                }
+                if (openIdx >= 0 && !isFlatAggregateInit(body.subList(openIdx, lastSig + 1))) {
+                    return null;
+                }
+            }
         }
         // Reject if the initializer ends with `}` and isn't a flat aggregate init (e.g. a
         // lambda body, class/struct body, or nested-brace init) -- those can't safely be

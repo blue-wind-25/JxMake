@@ -479,13 +479,54 @@ fixtures.
   unrelated error in `src/log.c`, a duplicate `tsm_log_impl` definition — same before and
   after).
 
-**NEXT SESSION — continue here:** Continue the real-code testing methodology against the
-remaining C/C++ candidates, in this order unless the user redirects:
-`serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`, then the additional candidates
-below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if a library needs
-newer; confirm any compile failure also reproduces against the *unmodified* original source
-before treating it as formatter-induced, same check done for tinyexpr-plusplus's C++20
-requirement and nanobench above). For any C++ candidate distributed under a `.h`/`.hpp`
+- **C++20**: `github.com/serge-sans-paille/frozen` — IN PROGRESS (2026-07-06), not yet DONE.
+  44 `.h` files (all actually C++, renamed to `.hpp` before testing per the "extension lies"
+  lesson) plus a bundled `tests/catch.hpp` (11K+ lines). Round1/round2 idempotency testing found
+  4 distinct bugs; 1 fixed so far (the most severe):
+  1. **FIXED** — `tests/catch.hpp`: a struct with a virtual destructor, a long-signature
+     pure-virtual method, and a template method-with-body got silently corrupted on the FIRST
+     format pass (not merely non-idempotent): all members merged into one garbled blob, the
+     destructor's `~` gained a stray trailing space (`~ ClassName()`), and the struct's closing
+     `};` accumulated an extra semicolon on every repeated pass (`};` → `};;` → `};;;` ...).
+     Root cause: two separate depth-tracking bugs in `DeclarationAlignmentRule.parseDeclaration`,
+     both triggered only when a struct's last member is/contains a braceless-body control
+     statement (e.g. a bodyless `for(...) stmt;`) immediately followed by the class's own `};`:
+     (a) the statement-level colon scan used to detect bitfields (`int x : 3;`) was not
+     depth-aware, so a `:` inside a nested range-based `for( auto v : values )` was mistaken for
+     a bitfield colon at the OUTER struct-body scope, misrouting the entire multi-member struct
+     into `parseBitfield`, which has no multi-line render path; (b) separately, the no-`=`
+     direct-list-init branch (`Type name{args};`, e.g. `int x{};`) left `initTokens` empty and
+     never checked whether a trailing `{...}` was flat, so a non-flat trailing brace body (nested
+     braces, e.g. a function/method body) could slip through unrejected in other call shapes.
+     Fixed by (a) making the colon scan track `(`/`[`/`{` depth so only a genuine top-level `:`
+     triggers the bitfield path, and (b) adding an explicit non-flat-trailing-`{...}` rejection
+     to the no-`=` branch, mirroring the existing `eqIdx >= 0` branch's own rejection, while
+     leaving the already-correct flat cases (`enum class Foo { A, B };`, `int x{};`) untouched.
+     Fixture: `test/real_code_regressions_12_{inp,out}.hpp`. Verified: `make test` 30/30 (no
+     regressions); full 44-file `frozen` tree + `catch.hpp` round1/round2 re-test confirms this
+     specific corruption is gone (no more member-merging, no more `};;`, destructor spacing
+     correct).
+  2. **NOT YET FIXED** — `map.hpp`: a getter one-liner's body-column padding grows by 2 extra
+     spaces on every repeated format pass (classic growing-padding idempotency bug).
+  3. **NOT YET FIXED** — `set.hpp`: K&R-vs-Allman brace placement flips for one-liner operator
+     bodies (`operator==`, `operator<`, `operator>`) once they get broken across multiple lines
+     by call-line-breaking.
+  4. **NOT YET FIXED** — `tests/catch.hpp`, remaining smaller issues (confirmed still present
+     after the fix above, via full-tree round1/round2 diff): indentation drift on `}; // enum X`
+     closing-comment lines (gains a leading space each pass); a `for(...)` loop condition
+     spacing/line-break instability; an indentation-narrowing bug on one closing brace (~line
+     10138 of the formatted file); and call-breaking threshold instability for
+     `LambdaInvoker<...>::invoke(...)` and `Config::benchmarkWarmupTime()`'s chrono call. None of
+     these four have been individually isolated/repro'd yet — only observed in the full-file
+     diff so far.
+
+**NEXT SESSION — continue here:** Finish `serge-sans-paille/frozen` (bugs 2–4 above) before
+moving on, then continue the real-code testing methodology against the remaining C/C++
+candidates, in this order unless the user redirects: `fmtlib/fmt` → `taocpp/PEGTL`, then the
+additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
+a library needs newer; confirm any compile failure also reproduces against the *unmodified*
+original source before treating it as formatter-induced, same check done for tinyexpr-plusplus's
+C++20 requirement and nanobench above). For any C++ candidate distributed under a `.h`/`.hpp`
 extension, check which it actually is before testing (nanobench's own `.h`-vs-content mismatch
 above cost real bisection time chasing a non-bug) — copy to `.hpp` first if the content is
 really C++.

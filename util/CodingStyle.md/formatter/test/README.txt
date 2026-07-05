@@ -289,6 +289,42 @@ Real-code regressions:
                                 would exceed lineLengthLimit -- same reasoning as the
                                 existing `//`-comment guard on the same code path.
 
+  real_code_regressions_12_inp/out.hpp -- Found via real-code idempotency testing
+                                on serge-sans-paille/frozen (specifically its bundled
+                                tests/catch.hpp). A struct containing a virtual
+                                destructor, a long-signature pure-virtual method, and a
+                                template method-with-body got silently corrupted on the
+                                FIRST format pass (not just non-idempotent): all members
+                                merged into one garbled blob, the destructor's `~` gained
+                                a stray trailing space (`~ ClassName()`), and the
+                                struct's closing `};` accumulated an extra semicolon on
+                                every repeated pass (`};` -> `};;` -> `};;;` ...). Root
+                                cause: two separate depth-tracking bugs in
+                                DeclarationAlignmentRule.parseDeclaration, both triggered
+                                only when the struct's LAST member is/contains a
+                                braceless-body control statement (e.g. a bodyless
+                                `for(...) stmt;`) immediately followed by the class's own
+                                `};`: (1) the top-level statement-colon scan that detects
+                                bitfields (`int x : 3;`) was not depth-aware, so a `:`
+                                inside a nested range-based `for( auto v : values )`
+                                was mistaken for a bitfield colon at the OUTER
+                                struct-body scope, misrouting the entire multi-member
+                                struct into parseBitfield, which has no multi-line
+                                render path; (2) separately, the no-`=` direct-list-init
+                                branch (`Type name{args};`, e.g. `int x{};`) left
+                                initTokens empty and never checked whether a trailing
+                                `{...}` was flat before falling through to the generic
+                                declarator render, so a NON-flat trailing brace body
+                                (nested braces, e.g. a function/method body) could still
+                                slip through uncollapsed-checked in other call shapes.
+                                Fixed by (1) making the colon scan track `(`/`[`/`{`
+                                depth so only a genuine top-level `:` triggers the
+                                bitfield path, and (2) adding an explicit
+                                non-flat-trailing-`{...}` rejection to the no-`=` branch,
+                                mirroring the existing `eqIdx >= 0` branch's own
+                                rejection, while leaving the already-correct flat cases
+                                (enum/direct-list-init) untouched.
+
 
 How Tests Are Run
 -----------------

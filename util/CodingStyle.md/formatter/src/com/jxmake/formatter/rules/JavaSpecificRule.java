@@ -46,7 +46,14 @@ public class JavaSpecificRule {
     private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>(
             Arrays.asList("java", "com", "org", "other", "local", "static"));
 
+    private final int lineLengthLimit;
+
     public JavaSpecificRule(final Lang lang) {
+        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public JavaSpecificRule(final Lang lang, final int lineLengthLimit) {
+        this.lineLengthLimit = lineLengthLimit;
     }
 
     /**
@@ -215,7 +222,7 @@ public class JavaSpecificRule {
             for (int k = lineStart; k <= closeBraceIdx; k++) {
                 width += tokens.get(k).text.length();
             }
-            if (width > MiscRule.LINE_LENGTH_LIMIT) {
+            if (width > lineLengthLimit) {
                 return false;
             }
         }
@@ -753,7 +760,7 @@ public class JavaSpecificRule {
      * STYLE_JAVA17.md §2: line-breaks a {@code permits} clause -- inline if the full
      * class/interface declaration line (from the {@code class}/{@code interface} keyword's own
      * line start through the body's opening {@code {}) fits within {@code
-     * MiscRule.LINE_LENGTH_LIMIT}, otherwise one permitted type per line, column-aligned under the
+     * lineLengthLimit}, otherwise one permitted type per line, column-aligned under the
      * first type, with the body's {@code {} trailing the last type. Always re-decides from
      * scratch regardless of the file's current wrapped/unwrapped shape -- same "regenerate, don't
      * preserve" posture as {@link #enforceImportOrdering}'s static reordering, so the pass is
@@ -797,7 +804,7 @@ public class JavaSpecificRule {
 
             final String baseIndent = lineIndent(tokens, declStart);
             final String collapsedFull = baseIndent + collapseToOneLine(tokens, declStart, openBraceIdx);
-            final String rendered = collapsedFull.length() <= MiscRule.LINE_LENGTH_LIMIT
+            final String rendered = collapsedFull.length() <= lineLengthLimit
                     ? renderPermitsInline(types)
                     : renderPermitsWrapped(tokens, baseIndent, openBraceIdx, types);
 

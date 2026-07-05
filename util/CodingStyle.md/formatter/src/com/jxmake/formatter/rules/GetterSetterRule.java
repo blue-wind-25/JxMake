@@ -28,10 +28,18 @@ public class GetterSetterRule {
 
     private final boolean isJava;
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
+    private final int indentWidth;
+    private final int lineLengthLimit;
 
     public GetterSetterRule(final Lang lang) {
+        this(lang, MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public GetterSetterRule(final Lang lang, final int indentWidth, final int lineLengthLimit) {
         this.isJava = lang.isJava;
         this.modifierPriority = isJava ? new JavaModifierPriority() : null;
+        this.indentWidth = indentWidth;
+        this.lineLengthLimit = lineLengthLimit;
     }
 
     /** One parsed one-liner method candidate -- all fields are index ranges into the caller's token list. */
@@ -475,7 +483,7 @@ public class GetterSetterRule {
      * Returns null for: constructors, methods with {@code override} qualifier (those are
      * implementing a base-class contract, not getter/setter pairs), {@code throws} clauses,
      * fields, multi-line members, members whose one-line rendering would exceed
-     * {@link MiscRule#LINE_LENGTH_LIMIT} at their estimated column (see below), and any other
+     * {@link #lineLengthLimit} at their estimated column (see below), and any other
      * unrecognised shape.
      *
      * <p>The length pre-check exists because {@code enforceCallLineBreaking} runs in a later
@@ -765,9 +773,9 @@ public class GetterSetterRule {
         // column-aligned one-liners (e.g. verbose template-qualified C++ names) would be wrongly
         // excluded.
         if (isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo)) {
-            final int estimatedColumn = nestDepth * MiscRule.INDENT_WIDTH;
+            final int estimatedColumn = nestDepth * indentWidth;
             final int estimatedWidth = estimatedColumn + cellText(tokens, firstSig, to).length();
-            if (estimatedWidth > MiscRule.LINE_LENGTH_LIMIT) {
+            if (estimatedWidth > lineLengthLimit) {
                 return null;
             }
         }

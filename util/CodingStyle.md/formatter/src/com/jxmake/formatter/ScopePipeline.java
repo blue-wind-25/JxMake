@@ -58,12 +58,20 @@ public class ScopePipeline {
     public ScopePipeline(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean formatOff) {
+        this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, formatOff,
+                MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public ScopePipeline(final Lang lang, final String indentStyle,
+            final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
+            final boolean formatOff, final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(lang);
         this.declarationRule = new DeclarationAlignmentRule(lang);
-        this.getterSetterRule = new GetterSetterRule(lang);
-        this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod);
+        this.getterSetterRule = new GetterSetterRule(lang, indentWidth, lineLengthLimit);
+        this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
+                indentWidth, lineLengthLimit);
         this.formatOff = formatOff;
     }
 
@@ -346,26 +354,27 @@ public class ScopePipeline {
         return s.substring(0, end);
     }
 
-    /** Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link MiscRule#INDENT_WIDTH}.
+    /** Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link MiscRule#indentWidth}.
      *  Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
-     *  multiple of INDENT_WIDTH).  Only non-zero non-multiples (e.g. 2-space source) are touched. */
+     *  multiple of indentWidth).  Only non-zero non-multiples (e.g. 2-space source) are touched. */
     private String normalizeIndent(final String rawIndent) {
+        final int indentWidth = miscRule.indentWidth;
         int width = 0;
         for (int i = 0; i < rawIndent.length(); i++) {
             final char c = rawIndent.charAt(i);
             if (c == '\t') {
-                width = ((width / MiscRule.INDENT_WIDTH) + 1) * MiscRule.INDENT_WIDTH;
+                width = ((width / indentWidth) + 1) * indentWidth;
             } else {
                 width++;
             }
         }
-        // Zero-width is valid (global/top-level scope, column 0).  Multiples of INDENT_WIDTH
+        // Zero-width is valid (global/top-level scope, column 0).  Multiples of indentWidth
         // are valid.  Only round up a non-zero non-multiple (malformed indentation in source).
-        if (width == 0 || width % MiscRule.INDENT_WIDTH == 0) {
+        if (width == 0 || width % indentWidth == 0) {
             return rawIndent;
         }
-        final int normalized = ((width + MiscRule.INDENT_WIDTH - 1) / MiscRule.INDENT_WIDTH)
-                * MiscRule.INDENT_WIDTH;
+        final int normalized = ((width + indentWidth - 1) / indentWidth)
+                * indentWidth;
         final StringBuilder sb = new StringBuilder(normalized);
         for (int i = 0; i < normalized; i++) {
             sb.append(' ');

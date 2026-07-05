@@ -67,12 +67,22 @@ public class MiscRule {
     private final Lang lang;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    public final int indentWidth;
+    public final int lineLengthLimit;
 
     public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod) {
+        this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, DEFAULT_INDENT_WIDTH,
+                DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod, final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+        this.indentWidth = indentWidth;
+        this.lineLengthLimit = lineLengthLimit;
     }
 
     private static Set<String> setOf(final String... words) {
@@ -80,9 +90,10 @@ public class MiscRule {
     }
 
     // ── §1 Indentation ───────────────────────────────────────────────────────────
-    /** Tab display size and spaces-per-level, per STYLE.md §1. Shared by any rule (this one or a
+    /** Tab display size and spaces-per-level default, per STYLE.md §1 -- overridable via the
+     *  `indent-size` config key (see {@link #indentWidth}). Shared by any rule (this one or a
      *  future one, e.g. §8's signature wrapping) that needs to *generate* new indentation. */
-    public static final int INDENT_WIDTH = 4;
+    public static final int DEFAULT_INDENT_WIDTH = 4;
 
     /**
      * Converts every line's leading indentation run to the requested style, per STYLE.md §1's
@@ -94,8 +105,8 @@ public class MiscRule {
      * call this method with that choice, so this method itself never has to interpret "auto".
      * Only the whitespace run at the very start of each line is touched; whitespace elsewhere
      * (mid-line alignment padding, trailing whitespace) is never indentation. A line whose
-     * indentation width (tabs expanded at {@link #INDENT_WIDTH}) is not an exact multiple of
-     * {@link #INDENT_WIDTH} is irregular/malformed indentation and is left completely untouched
+     * indentation width (tabs expanded at {@link #indentWidth}) is not an exact multiple of
+     * {@link #indentWidth} is irregular/malformed indentation and is left completely untouched
      * rather than guessed at.
      */
     public String convertIndentation(final List<Token> tokens, final String indentStyle) {
@@ -125,12 +136,12 @@ public class MiscRule {
     private String renderIndent(final String original, final String indentStyle) {
         int width = 0;
         for (int i = 0; i < original.length(); i++) {
-            width += (original.charAt(i) == '\t') ? (INDENT_WIDTH - (width % INDENT_WIDTH)) : 1;
+            width += (original.charAt(i) == '\t') ? (indentWidth - (width % indentWidth)) : 1;
         }
-        if (width % INDENT_WIDTH != 0) {
+        if (width % indentWidth != 0) {
             return original;
         }
-        return indentText(width / INDENT_WIDTH, indentStyle);
+        return indentText(width / indentWidth, indentStyle);
     }
 
     /** Renders `level` indent levels in the requested style -- shared by §1's line converter
@@ -139,7 +150,7 @@ public class MiscRule {
     private String indentText(final int level, final String indentStyle) {
         final boolean tabs = "tabs".equals(indentStyle);
         final char unit = tabs ? '\t' : ' ';
-        final int count = tabs ? level : level * INDENT_WIDTH;
+        final int count = tabs ? level : level * indentWidth;
         final StringBuilder sb = new StringBuilder(count);
         for (int i = 0; i < count; i++) {
             sb.append(unit);
@@ -149,12 +160,13 @@ public class MiscRule {
 
     // ── §2 Line Length ───────────────────────────────────────────────────────────
     /**
-     * STYLE.md §2's 100-char soft limit. No rule in this class acts on it directly: §2 itself
+     * STYLE.md §2's 100-char soft limit default -- overridable via the `line-length` config key
+     * (see {@link #lineLengthLimit}). No rule in this class acts on it directly: §2 itself
      * defers its only described mechanical fix (line-breaking) to §8 (Function Signatures, not
      * yet implemented), and describes no other mechanical rewrite for an over-length line --
      * §2 is therefore a no-op section here beyond exposing this constant for §8's eventual use.
      */
-    public static final int LINE_LENGTH_LIMIT = 100;
+    public static final int DEFAULT_LINE_LENGTH_LIMIT = 100;
 
     // ── §3.2 Keyword spacing ─────────────────────────────────────────────────────
     /**
@@ -1349,8 +1361,8 @@ public class MiscRule {
     }
 
     /**
-     * Renders one signature (STYLE.md §8) inline if it fits within {@link #LINE_LENGTH_LIMIT}
-     * at its starting column (`indentLevel * INDENT_WIDTH`, per STYLE.md §1's tab-display-size-4
+     * Renders one signature (STYLE.md §8) inline if it fits within {@link #lineLengthLimit}
+     * at its starting column (`indentLevel * indentWidth`, per STYLE.md §1's tab-display-size-4
      * convention -- visual column, not raw character count, so the comparison is meaningful
      * regardless of `indentStyle`), or broken to one parameter per line otherwise. A zero-param
      * signature (including an explicit C `(void)`) is always rendered inline -- breaking achieves
@@ -1374,7 +1386,7 @@ public class MiscRule {
                         Collections.<Token>emptySet(), Collections.<Token>emptySet());
         final String head = (lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "")) + sig.name.text + "(";
         final String inline = head + renderParamsInline(sig) + ")";
-        final int startColumn = indentLevel * INDENT_WIDTH;
+        final int startColumn = indentLevel * indentWidth;
 
         // Param comments don't count toward the line-length break decision -- only the code
         // itself should trigger wrapping to the multi-line param-per-line form.
@@ -1395,7 +1407,7 @@ public class MiscRule {
             }
         }
         if (!hasLineComment
-                && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= LINE_LENGTH_LIMIT)) {
+                && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= lineLengthLimit)) {
             return Collections.singletonList(inline);
         }
 
@@ -2536,7 +2548,7 @@ public class MiscRule {
 
         final String wholeLine = baseIndent
                 + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), lineEndIndex(tokens, closeIdx) - 1);
-        if (wholeLine.length() <= LINE_LENGTH_LIMIT) {
+        if (wholeLine.length() <= lineLengthLimit) {
             return null; // Option 0 -- already fits, no change
         }
 
@@ -2550,10 +2562,10 @@ public class MiscRule {
      *  level under {@code baseIndent}, with `)` on its own line back at {@code baseIndent} --
      *  mirrors {@link #renderParamsInline}'s join. Returns {@code null} (caller falls back to
      *  {@link #renderOnePerLine}, Option 3) if even this single params line exceeds
-     *  {@link #LINE_LENGTH_LIMIT}. */
+     *  {@link #lineLengthLimit}. */
     private List<String> renderDropped(final Signature sig, final String baseIndent) {
         final String paramsLine = baseIndent + DEFAULT_INDENT_UNIT + renderParamsInline(sig);
-        if (paramsLine.length() > LINE_LENGTH_LIMIT) {
+        if (paramsLine.length() > lineLengthLimit) {
             return null;
         }
         return Arrays.asList(paramsLine, baseIndent + ")");
@@ -2616,7 +2628,7 @@ public class MiscRule {
             argsText.append(collapseTokensToOneLine(args.get(i)));
         }
         final String paramsLine = baseIndent + DEFAULT_INDENT_UNIT + argsText;
-        if (paramsLine.length() > LINE_LENGTH_LIMIT) {
+        if (paramsLine.length() > lineLengthLimit) {
             return null;
         }
         return Arrays.asList(paramsLine, baseIndent + ")");
@@ -2772,7 +2784,7 @@ public class MiscRule {
      *  run collapses to exactly one space -- same precedent as
      *  `CppSpecificRule.collapseToOneLine`, duplicated here (see {@link #hasCommentBetween}'s doc
      *  comment); used only to *measure* a would-be single-line rendering against
-     *  {@link #LINE_LENGTH_LIMIT}, never committed to output as-is. */
+     *  {@link #lineLengthLimit}, never committed to output as-is. */
     private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
         final StringBuilder sb = new StringBuilder();
         for (int i = fromInclusive; i <= toInclusive; i++) {

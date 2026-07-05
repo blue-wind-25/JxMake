@@ -44,9 +44,15 @@ public class CppSpecificRule {
     private static final String DEFAULT_INDENT_UNIT = "    ";
 
     private final Lang lang;
+    private final int lineLengthLimit;
 
     public CppSpecificRule(final Lang lang) {
+        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public CppSpecificRule(final Lang lang, final int lineLengthLimit) {
         this.lang = lang;
+        this.lineLengthLimit = lineLengthLimit;
     }
 
     /**
@@ -575,7 +581,7 @@ public class CppSpecificRule {
      * STYLE_CPP20.md §2.2/§2.3: a trailing `requires` clause on a function/template signature
      * always trails the closing `)` of the parameter list -- on the same line if the combined
      * line (the physical line the `)` already sits on, plus ` requires <clause>`) fits within
-     * {@link MiscRule#LINE_LENGTH_LIMIT}, otherwise wrapped to its own line indented one level
+     * {@link #lineLengthLimit}, otherwise wrapped to its own line indented one level
      * under the function name's line-leading indent. Detection: a KEYWORD `requires` token whose
      * previous significant token is `)` is a trailing clause (it follows a parameter list);
      * anything else (`=`, or no previous token at all) is a requires-<i>expression</i> body
@@ -620,7 +626,7 @@ public class CppSpecificRule {
             final String combined = baseIndent + collapseToOneLine(tokens, lineStartIdx, closeParenIdx)
                     + " requires " + clauseExpr;
 
-            final String rendered = combined.length() <= MiscRule.LINE_LENGTH_LIMIT
+            final String rendered = combined.length() <= lineLengthLimit
                     ? " requires " + clauseExpr
                     : "\n" + baseIndent + DEFAULT_INDENT_UNIT + "requires " + clauseExpr;
 
@@ -681,7 +687,7 @@ public class CppSpecificRule {
 
     /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
      *  run collapses to exactly one space -- used to measure a would-be single-line rendering
-     *  against {@link MiscRule#LINE_LENGTH_LIMIT} without actually committing to it. */
+     *  against {@link #lineLengthLimit} without actually committing to it. */
     private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
         final StringBuilder sb = new StringBuilder();
         for (int i = fromInclusive; i <= toInclusive; i++) {

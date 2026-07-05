@@ -41,12 +41,14 @@ public final class Formatter {
             return tokens;
         };
 
+        final int indentWidth = config.indentSize();
+        final int lineLengthLimit = config.lineLength();
         final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines());
         final SwitchRule switchRule = new SwitchRule(lang);
         final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod());
-        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(lang) : null;
-        final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(lang) : null;
+                config.isNormalizeCommentEndPeriod(), indentWidth, lineLengthLimit);
+        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(lang, lineLengthLimit) : null;
+        final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(lang, lineLengthLimit) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
         // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise
@@ -59,7 +61,7 @@ public final class Formatter {
         // and safe.
         String text = miscRule.enforceComplexityPadding(tokenizer.apply(content));
         text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), formatOff).process(text);
+                config.isNormalizeCommentEndPeriod(), formatOff, indentWidth, lineLengthLimit).process(text);
 
         // Phase 1: structural/brace passes.
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));

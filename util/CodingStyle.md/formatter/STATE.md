@@ -536,6 +536,55 @@ written as `~` below so this file never embeds the actual account/user name):
 - **Local**: `../../../../VMA-GIT/anemonesoft/` (relative to this `formatter/` directory,
   contains `gui/` and `i18n/` subdirs at minimum) — not yet tested.
 
+**Config-key wiring audit (2026-07-06), done ahead of the `Doc.java` bug above at user
+request.** While investigating the `Doc.java` idempotency divergence, root-caused it to
+`ScopePipeline.normalizeIndent()` rounding any indent that isn't a multiple of a
+hardcoded `INDENT_WIDTH=4` up to the next multiple — this corrupts 2-space (Google-style)
+source like google-java-format's own code at every odd nesting depth. Testing whether the
+`indent-size` config could already control this showed it had **zero effect** — confirmed
+`MiscRule.INDENT_WIDTH`/`MiscRule.LINE_LENGTH_LIMIT` were `public static final` constants,
+completely disconnected from `Config.indentSize()`/`Config.lineLength()`, despite both
+getters existing and being parsed from the config file. User asked for a full audit of
+every key in the example `.jxmake-code-formatter` config against actual codebase usage.
+Audit result: **only `line-length` and `indent-size` were dead/unwired**; every other key
+(`indent-style`, `server-port`, `line-endings`, `normalize-comment-start-case`,
+`normalize-comment-end-period`, `closing-comment-min-lines`, `format-macros`,
+`header-guard-rename`, `java-import-order`, `java-import-sort`, `java-import-depth`,
+`java-import-blank-lines`) was already confirmed wired via existing call sites. Note:
+`header-guard-style` is a documented, deliberate non-implementation (see
+`CppSpecificRule.java`'s own doc comment on that method), not a wiring bug, so it was left
+untouched.
+
+Fixed by converting `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` from static constants to
+instance fields (`indentWidth`/`lineLengthLimit`), renaming the old static defaults to
+`DEFAULT_INDENT_WIDTH`/`DEFAULT_LINE_LENGTH_LIMIT`, and threading the two values through
+every constructor that needs them: `MiscRule`, `GetterSetterRule`, `JavaSpecificRule`,
+`CppSpecificRule`, and `ScopePipeline` (which now also passes them into the `MiscRule`/
+`GetterSetterRule` instances it builds internally). `ScopePipeline.normalizeIndent()` now
+rounds against `this.miscRule.indentWidth` instead of the removed static. `Formatter.java`
+now reads `config.indentSize()`/`config.lineLength()` once per file and passes them into
+every rule constructor, matching the existing pattern already used for
+`closingCommentMinLines` → `BlockStructureRule`. Every one-arg legacy constructor
+(`MiscRule(lang, ...)`, `GetterSetterRule(lang)`, etc.) is kept and now delegates to the
+new full constructor using the `DEFAULT_*` constants, so every other call site in the
+codebase (tests, `ScopePipeline`'s own no-config constructors) is unaffected — this is why
+`make test` shows zero regressions with no fixture changes needed (defaults are unchanged:
+4-space indent, 100-col line length).
+
+Verified live: with a `.jxmake-code-formatter` containing `indent-size = 2`, standalone
+mode now actually reindents to 2 spaces (previously had zero effect). `make test`: 23/23
+forward + 23/23 idempotency, PASS, no fixture changes.
+
+Note: this fix does NOT itself resolve the `Doc.java`/`CommandLineOptionsParser.java`/
+`JavadocFormatter.java`/`JavaInputAstVisitor.java` google-java-format idempotency
+divergence above — `ScopePipeline`'s callers (`Formatter.formatOne`, `Main`, etc.) still
+default to `indentSize=4` unless a project config file sets otherwise, and
+google-java-format's own source has no such config file, so this formatter still
+processes it at the default 4-space assumption. Whether/how to actually fix the
+2-space-source idempotency bug itself (build a real reindent engine vs. a narrower patch
+vs. treat as permanently out of scope) is still an open question — deferred, per explicit
+user instruction, pending further direction.
+
 **Local PCPP-heavy Java source (`../../../src/jxm/ugc/ARMCortexMThumbC.java.in`, relative to
 this `formatter/` directory) — tested 2026-07-05, DONE, no bug found:**
 938 lines, 21 `#`-directive lines. Not standalone-compilable (a `.java.in` template, not real

@@ -13,6 +13,29 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 Bug fix for the `*_inp.*` formatting test:
 
 ####################################################################################################
+
+See which one of these use C++23 and test with it:
+`github.com/basvas-jkj/cpp_modules`
+`github.com/V1niciosLins/StartCpp`
+If both use C++23 test with the smaller one.
+
+When you find and fixed regression, create new text fixture `test/real_code_regressions_*_inp/_out*`
+then update `Makefile` and `test/README.txt`. Use this standard copyright for the test:
+```java
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+```
+
+`github.com/Tongsuo-Project/tongsuo-mini`
+
+
+`serge-sans-paille/frozen`
+`fmtlib/fmt`
+`taocpp/PEGTL`
+
+####################################################################################################
 ####################################################################################################
 ####################################################################################################
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Example Corp.
+ * Copyright (C) 2024 Example Corp.
  * SPDX-License-Identifier: MIT
  */
 #ifndef AUDIO_ENGINE_H

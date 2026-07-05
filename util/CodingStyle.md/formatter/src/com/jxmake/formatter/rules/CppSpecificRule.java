@@ -38,21 +38,31 @@ public class CppSpecificRule {
     /** STYLE_C_CPP.md §10: number of blank lines required between header zones. */
     private static final int HEADER_ZONE_BLANK_LINES = 2;
 
-    /** One indentation level, used by {@link #enforceRequiresClausePlacement} when wrapping a
-     *  trailing `requires` clause to its own line -- same precedent as
-     *  {@code JavaSpecificRule.DEFAULT_INDENT_UNIT}/{@code SwitchRule.DEFAULT_INDENT_UNIT}. */
-    private static final String DEFAULT_INDENT_UNIT = "    ";
-
     private final Lang lang;
     private final int lineLengthLimit;
+
+    /** One indentation level, used by {@link #enforceRequiresClausePlacement} when wrapping a
+     *  trailing `requires` clause to its own line -- built from the configured `indent-size`
+     *  (see the constructor), not a hardcoded literal, same bug class as
+     *  `SwitchRule.deriveUnit`'s own former fallback. */
+    private final String indentUnit;
 
     public CppSpecificRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public CppSpecificRule(final Lang lang, final int lineLengthLimit) {
+        this(lang, lineLengthLimit, MiscRule.DEFAULT_INDENT_WIDTH);
+    }
+
+    public CppSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.indentUnit = sb.toString();
     }
 
     /**
@@ -628,7 +638,7 @@ public class CppSpecificRule {
 
             final String rendered = combined.length() <= lineLengthLimit
                     ? " requires " + clauseExpr
-                    : "\n" + baseIndent + DEFAULT_INDENT_UNIT + "requires " + clauseExpr;
+                    : "\n" + baseIndent + indentUnit + "requires " + clauseExpr;
 
             // End the replaced span just past the last non-gap token in the clause, so the
             // original whitespace/newline before `{`/`;` is preserved verbatim in the output.

@@ -34,10 +34,6 @@ import java.util.Set;
  */
 public class JavaSpecificRule {
 
-    /** Fallback one-indent-level unit when it can't be derived from the class/interface's own
-     *  body indentation -- same precedent as {@code SwitchRule.DEFAULT_INDENT_UNIT}. */
-    private static final String DEFAULT_INDENT_UNIT = "    ";
-
     /** The six fixed classification buckets every import is sorted into, per the resolved
      *  STYLE_JAVA.md §7 reading (see STATE.md "§7 import group order/count contradiction" --
      *  trust the worked example). {@code groupOrder} passed into {@link #enforceImportOrdering}
@@ -47,13 +43,26 @@ public class JavaSpecificRule {
             Arrays.asList("java", "com", "org", "other", "local", "static"));
 
     private final int lineLengthLimit;
+    /** Fallback one-indent-level unit when it can't be derived from the class/interface's own
+     *  body indentation -- built from the configured `indent-size` (see the constructor), not a
+     *  hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own former fallback. */
+    private final String defaultIndentUnit;
 
     public JavaSpecificRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public JavaSpecificRule(final Lang lang, final int lineLengthLimit) {
+        this(lang, lineLengthLimit, MiscRule.DEFAULT_INDENT_WIDTH);
+    }
+
+    public JavaSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.defaultIndentUnit = sb.toString();
     }
 
     /**
@@ -834,7 +843,7 @@ public class JavaSpecificRule {
 
     /** Derives the one-indent-level unit from the gap between the declaration's own indent and its
      *  body's first member's indent (same precedent as {@code SwitchRule.deriveUnit}), falling back
-     *  to {@link #DEFAULT_INDENT_UNIT}. */
+     *  to {@link #defaultIndentUnit}. */
     private String renderPermitsWrapped(final List<Token> tokens, final String baseIndent,
             final int openBraceIdx, final List<String> types) {
         final String unit = deriveIndentUnit(tokens, baseIndent, openBraceIdx);
@@ -858,13 +867,13 @@ public class JavaSpecificRule {
     private String deriveIndentUnit(final List<Token> tokens, final String baseIndent, final int openBraceIdx) {
         final int firstBodySig = nextSignificantIndex(tokens, openBraceIdx);
         if (firstBodySig < 0) {
-            return DEFAULT_INDENT_UNIT;
+            return defaultIndentUnit;
         }
         final String bodyIndent = lineIndent(tokens, firstBodySig);
         if (bodyIndent.length() > baseIndent.length() && bodyIndent.startsWith(baseIndent)) {
             return bodyIndent.substring(baseIndent.length());
         }
-        return DEFAULT_INDENT_UNIT;
+        return defaultIndentUnit;
     }
 
     private String repeatChar(final char c, final int count) {

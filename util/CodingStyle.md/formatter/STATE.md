@@ -405,6 +405,25 @@ Full bug-by-bug root-cause narratives for each completed candidate below have be
 out of this file — they remain fully available via `git log`/`git show` on the noted commits/
 fixtures.
 
+When an idempotency (or forward-pass) failure doesn't reproduce at the default config, try
+re-testing with a `.jxmake-code-formatter` overriding `indent-size`, `indent-style`, etc. to
+match the candidate's own actual convention before concluding "no bug" — several real bugs
+(the `SwitchRule`/`fmtlib-fmt` flush-case-label fix, the `MiscRule` dead-config-key audit) were
+only observable at a non-default `indent-size`. When a bug is found and fixed, add a new
+permanent fixture pair `test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`)
+reproducing it minimally, then register it in `Makefile`'s `INP_FILES` and document it in
+`test/README.txt` — unless, per the precedent set by the `indent-size = 2` config-wiring
+fixes, the bug is a no-op at the test harness's own default config (in which case document the
+fix and its non-default-config verification in this file instead, without adding a fixture that
+would be indistinguishable from a no-op at default settings). Use this standard copyright
+header on every new test fixture file:
+```
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+```
+
 - **`blake-madden/tinyexpr-plusplus`** (C++20, `g++ -std=c++20`) — DONE. 3 bugs fixed, all in
   `MiscRule`'s multi-line call/declaration rendering and `Formatter`'s pass ordering
   (`groupByOriginalLine` same-line-sibling mis-split; `renderCallCandidate` line-length
@@ -479,10 +498,31 @@ fixtures.
   unrelated error in `src/log.c`, a duplicate `tsm_log_impl` definition — same before and
   after).
 
-- **C++20**: `github.com/serge-sans-paille/frozen` — DONE (2026-07-06). 44 `.h` files (all
-  actually C++, renamed to `.hpp` before testing per the "extension lies" lesson) plus a bundled
-  `tests/catch.hpp` (11K+ lines). Round1/round2 idempotency testing found 2 distinct bugs, both
-  fixed:
+- **C++20**: `github.com/serge-sans-paille/frozen` — **RE-OPENED** (2026-07-06, corrected same
+  day). 44 `.h` files (all actually C++, renamed to `.hpp` before testing per the "extension
+  lies" lesson) plus a bundled `tests/catch.hpp` (11K+ lines). Round1/round2 idempotency
+  testing found 2 distinct bugs, both fixed (bugs 1/2 below); a subsequent re-test session
+  incorrectly marked the whole library DONE, claiming the previously-catalogued `map.hpp`
+  getter-padding growth and `set.hpp` brace-placement flip "did not reproduce against the fixed
+  jar" — that claim is **wrong**: a same-day re-test (still at the plain **default**
+  `indent-size = 4`, no override config present) confirms all three bugs still reproduce
+  exactly as before:
+  - `include/frozen/map.hpp`: two `key_comp()` one-liner getters (lines 208, 355) gain 2 extra
+    trailing spaces before the body's closing `}` on every repeated pass (unbounded growth,
+    same shape as the getter-padding growth bug class).
+  - `include/frozen/set.hpp`: `operator==`/`operator<`/`operator>` one-liners flip from K&R
+    (`... const { return ...` on one line) to Allman (signature and `{` split across two
+    lines) between round1 and round2 — not idempotent.
+  - `tests/catch.hpp`: `}; // enum X` lines (5+ occurrences) gain a stray leading space between
+    round1 and round2.
+  None of these are config-wiring bugs (no `.jxmake-code-formatter` override was in play for
+  this re-test) — they are genuine, unresolved idempotency bugs. Likely explanation for the
+  earlier false "DONE": that session's re-verification ran against a stale/pre-fix jar, per its
+  own hedge ("or artifacts of testing against a stale jar in an earlier session — not
+  independently re-isolated") — that hedge should have blocked the DONE verdict, not been
+  waved past it. **Lesson for future re-verification claims: never mark a library DONE off a
+  hedge you didn't resolve — re-isolate or don't claim it.** These 3 bugs need root-causing
+  from scratch next session before this library can be marked DONE again.
   1. **FIXED** — `tests/catch.hpp`: a struct with a virtual destructor, a long-signature
      pure-virtual method, and a template method-with-body got silently corrupted on the FIRST
      format pass (not merely non-idempotent): all members merged into one garbled blob, the
@@ -517,16 +557,12 @@ fixtures.
      the `}` is not already alone on its own line, and moves it there at the declaration's own
      indent (`}` on its own line, matching this codebase's general Allman/`}; // struct Foo`
      closing-brace convention). Fixture: updated `test/real_code_regressions_11_out.c`.
-     Both fixes verified: `make test` 30/30 (no regressions); full 44-file `frozen` tree
-     round1/round2 re-test is now **fully idempotent** (`diff -rq round1 round2` empty across
-     every file) — the previously-catalogued `map.hpp` getter-padding growth and `set.hpp`
-     brace-placement flip did not reproduce against the fixed jar (round1 output for both is
-     stable; likely the same root causes as bug 1/2 above, or artifacts of testing against a
-     stale jar in an earlier session — not independently re-isolated). `tests/catch.hpp` still
-     has one cosmetic pre-existing wart not worth chasing further right now: `}; // enum X`
-     lines are indented with one stray leading space in the *first* format pass (differs from
-     the original source's zero-indent), but this is now stable/idempotent on repeat passes, not
-     growing or corrupting.
+     Both fixes verified: `make test` 30/30 (no regressions). **Correction (same day): the
+     claim below this line that the full 44-file tree was "fully idempotent" was false** — see
+     the RE-OPENED note above this entry. The `map.hpp` getter-padding growth, `set.hpp`
+     brace-placement flip, and `tests/catch.hpp` stray-leading-space-on-`}; // enum X` bug all
+     still reproduce at plain default settings on a same-day re-test. Do not trust a "no longer
+     reproduces" verdict without re-isolating it independently before marking DONE.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources
   (renamed `.h`→`.hpp` before testing). Round1/round2 at the default `indent-size = 4` found
@@ -554,9 +590,10 @@ fixtures.
   by re-running the full 44-file `fmt` include+src tree at `indent-size = 2`: round1/round2 is
   now fully idempotent (empty `diff -rq`).
 
-**NEXT SESSION — continue here:** `serge-sans-paille/frozen` and `fmtlib/fmt` are both DONE.
-Continue the real-code testing methodology against the remaining C/C++ candidates, in this
-order unless the user redirects: `taocpp/PEGTL`, then the
+**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is
+**RE-OPENED** — root-cause and fix the `map.hpp`/`set.hpp`/`catch.hpp` idempotency bugs
+documented above before moving on. After that, continue the real-code testing methodology
+against the remaining C/C++ candidates, in this order unless the user redirects: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
 a library needs newer; confirm any compile failure also reproduces against the *unmodified*
 original source before treating it as formatter-induced, same check done for tinyexpr-plusplus's
@@ -735,6 +772,45 @@ codebase (tests, `ScopePipeline`'s own no-config constructors) is unaffected —
 Verified live: with a `.jxmake-code-formatter` containing `indent-size = 2`, standalone
 mode now actually reindents to 2 spaces (previously had zero effect). `make test`: 23/23
 forward + 23/23 idempotency, PASS, no fixture changes.
+
+**Follow-up audit (2026-07-06, same day): a second, separate class of dead-`indent-size`
+literal.** The audit above fixed `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT`, but missed that
+several rule classes *also* carry their own independent
+`private static final String DEFAULT_INDENT_UNIT = "    ";` literal (a pre-rendered 4-space
+string, not an int width) used as a fallback when a real indent unit can't be derived from
+surrounding context — this is exactly the bug that caused the `SwitchRule`/`fmtlib-fmt`
+flush-case-label growth documented above, and it turned out `SwitchRule` was not the only
+offender. Found and fixed the same class in:
+- `MiscRule`'s own §8 call/declaration-wrapping pass — was the ONLY source of new indentation
+  for that pass (no derive-then-fallback, just used the literal directly); replaced with a new
+  `indentUnit` instance field built from `indentWidth` spaces in the constructor.
+- `JavaSpecificRule.deriveIndentUnit` — same derive-then-fallback shape as `SwitchRule`;
+  replaced the static literal with an instance `defaultIndentUnit` field, added a new 3-arg
+  constructor `JavaSpecificRule(Lang, int lineLengthLimit, int indentWidth)`.
+- `CppSpecificRule.enforceRequiresClausePlacement` — used the literal directly with no derive
+  step; replaced with an instance `indentUnit` field, added a new 3-arg constructor
+  `CppSpecificRule(Lang, int lineLengthLimit, int indentWidth)`.
+
+`Formatter.formatOne` updated to pass `indentWidth` into both `new CppSpecificRule(...)` and
+`new JavaSpecificRule(...)` (previously only 2-arg, `lang`+`lineLengthLimit`). Grepped
+`src/`+`test/` for any other `new CppSpecificRule`/`new JavaSpecificRule` call sites — none
+found, so `Formatter.java` was the only call site needing the update.
+
+At the default `indent-size = 4` all three fixes are no-ops (old literal already equaled the
+new default), so `make test` needed zero fixture changes (30/30, no regressions). Verified live
+at non-default `indent-size = 2` with a synthetic C++ repro (`void f() { longCall(...); }`
+forcing §8's call-wrapping pass): confirmed the wrapped-argument line now indents by
+`baseIndent + indentWidth` (2+2=4 spaces) instead of the old hardcoded `baseIndent + 4`
+mismatch, and round1/round2 on that repro is idempotent. Re-ran the full `fmt` 19-file tree at
+`indent-size = 2` again post-fix: still fully idempotent (no new divergence introduced).
+
+Also re-ran the full `frozen` 44-file tree round1/round2 at **default** `indent-size = 4`
+while re-verifying these fixes, which is what surfaced the RE-OPENED finding above (`map.hpp`/
+`set.hpp`/`catch.hpp` bugs still reproduce) — unrelated to this indent-unit audit; those bugs
+reproduce with or without these fixes and need separate root-causing next session.
+
+`header-guard-style` re-confirmed as the same deliberate non-implementation noted in the audit
+above — still not a wiring bug.
 
 Note: this fix does NOT itself resolve the `Doc.java`/`CommandLineOptionsParser.java`/
 `JavadocFormatter.java`/`JavaInputAstVisitor.java` google-java-format idempotency

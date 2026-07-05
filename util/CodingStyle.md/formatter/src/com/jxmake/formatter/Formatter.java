@@ -47,8 +47,10 @@ public final class Formatter {
         final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
         final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), indentWidth, lineLengthLimit);
-        final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(lang, lineLengthLimit) : null;
-        final JavaSpecificRule javaRule = isJava ? new JavaSpecificRule(lang, lineLengthLimit) : null;
+        final CppSpecificRule cppRule = isCOrCpp
+                ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
+        final JavaSpecificRule javaRule = isJava
+                ? new JavaSpecificRule(lang, lineLengthLimit, indentWidth) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
         // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise

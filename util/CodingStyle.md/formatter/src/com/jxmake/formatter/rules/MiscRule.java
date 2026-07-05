@@ -69,6 +69,7 @@ public class MiscRule {
     private final boolean normalizeCommentEndPeriod;
     public final int indentWidth;
     public final int lineLengthLimit;
+    private final String indentUnit;
 
     public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod) {
@@ -83,6 +84,11 @@ public class MiscRule {
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
         this.indentWidth = indentWidth;
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.indentUnit = sb.toString();
     }
 
     private static Set<String> setOf(final String... words) {
@@ -2413,16 +2419,17 @@ public class MiscRule {
     }
 
     // ── §8 Function Calls and Forward Declarations ──────────────────────────────
-    /** Same literal-4-space unit as `CppSpecificRule`/`JavaSpecificRule`/`SwitchRule`'s own
-     *  `DEFAULT_INDENT_UNIT` -- this pass generates new indentation as raw text appended to an
-     *  existing line's own leading whitespace (see {@link #lineIndent}), the same precedent as
+    /** This pass generates new indentation as raw text appended to an existing line's own
+     *  leading whitespace (see {@link #lineIndent}), the same precedent as
      *  `CppSpecificRule.enforceRequiresClausePlacement`, rather than going through
      *  {@link #indentText}'s `indentLevel`+`indentStyle` scheme: this is a flat whole-file token
      *  pass with no tracked recursion depth (unlike `ScopePipeline.applySignaturePass`, which is
      *  why true signatures already have an integer depth to call {@link #render} with and calls/
-     *  declarations here don't). The later §1 `convertIndentation` pass normalizes whichever style
-     *  the project actually wants from this raw text. */
-    private static final String DEFAULT_INDENT_UNIT = "    ";
+     *  declarations here don't). Built from {@link #indentWidth} (see the constructor) rather
+     *  than a hardcoded literal -- the later §1 `convertIndentation` pass only ever normalizes
+     *  spaces-vs-tabs *style* from whichever raw text is generated here, never re-derives its
+     *  per-level *width*, so a literal here would silently ignore a non-default `indent-size`
+     *  (the exact bug class fixed in `SwitchRule.deriveUnit`'s own hardcoded fallback). */
 
     /**
      * Finds every call/forward-declaration candidate -- an IDENTIFIER immediately followed by a
@@ -2564,7 +2571,7 @@ public class MiscRule {
      *  {@link #renderOnePerLine}, Option 3) if even this single params line exceeds
      *  {@link #lineLengthLimit}. */
     private List<String> renderDropped(final Signature sig, final String baseIndent) {
-        final String paramsLine = baseIndent + DEFAULT_INDENT_UNIT + renderParamsInline(sig);
+        final String paramsLine = baseIndent + indentUnit + renderParamsInline(sig);
         if (paramsLine.length() > lineLengthLimit) {
             return null;
         }
@@ -2574,7 +2581,7 @@ public class MiscRule {
     /** Option 3 (one-per-line) for a forward declaration -- same type-column-padded shape as
      *  {@link #render}'s broken form, parameterized by raw {@code baseIndent} text instead of an
      *  integer level (this pass has no tracked recursion depth, see
-     *  {@link #DEFAULT_INDENT_UNIT}'s doc comment), so this is a deliberate sibling rather than a
+     *  {@link #indentUnit}'s doc comment), so this is a deliberate sibling rather than a
      *  direct reuse of {@link #render}. */
     private List<String> renderOnePerLine(final Signature sig, final String baseIndent) {
         int maxTypeLen = 0;
@@ -2584,7 +2591,7 @@ public class MiscRule {
             }
         }
         final int typeColWidth = maxTypeLen + 1;
-        final String paramIndent = baseIndent + DEFAULT_INDENT_UNIT;
+        final String paramIndent = baseIndent + indentUnit;
         int maxNameCommaLen = 0;
         for (int i = 0; i < sig.params.size(); i++) {
             final Param p = sig.params.get(i);
@@ -2627,7 +2634,7 @@ public class MiscRule {
             }
             argsText.append(collapseTokensToOneLine(args.get(i)));
         }
-        final String paramsLine = baseIndent + DEFAULT_INDENT_UNIT + argsText;
+        final String paramsLine = baseIndent + indentUnit + argsText;
         if (paramsLine.length() > lineLengthLimit) {
             return null;
         }
@@ -2641,7 +2648,7 @@ public class MiscRule {
      *  {@link #renderCallDropped}. */
     private List<String> renderCallOnePerLine(final List<Token> paramsSlice, final String baseIndent) {
         final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
-        final String argIndent = baseIndent + DEFAULT_INDENT_UNIT;
+        final String argIndent = baseIndent + indentUnit;
 
         final List<String> lines = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
@@ -2671,7 +2678,7 @@ public class MiscRule {
             return null; // shouldn't happen -- caller only calls this when a newline was found -- bail safe
         }
 
-        final String argIndent = baseIndent + DEFAULT_INDENT_UNIT;
+        final String argIndent = baseIndent + indentUnit;
         final List<String> lines = new ArrayList<>();
         for (int r = 0; r < rows.size(); r++) {
             final List<List<Token>> row = rows.get(r);
@@ -2736,7 +2743,7 @@ public class MiscRule {
             grid.addRow(cells);
         }
 
-        final String argIndent = baseIndent + DEFAULT_INDENT_UNIT;
+        final String argIndent = baseIndent + indentUnit;
         final List<String> lines = new ArrayList<>();
         for (final String[] row : grid.flush()) {
             lines.add(argIndent + String.join(" ", row));

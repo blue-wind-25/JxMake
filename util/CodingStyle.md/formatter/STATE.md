@@ -453,6 +453,14 @@ fixtures.
   `test/real_code_regressions_5_{inp,out}.cpp`. `make test` 23/23; re-ran the full nanobench
   round-trip too (this is what caught the `case`-label edge case) — still idempotent and
   compiles clean.
+- **Local `../../../3rd_party/tools/pcpp_java/src/`** (JxMake's own Java preprocessor tool
+  source, 41 `.java` files) — DONE (2026-07-06). 2 idempotency bugs fixed: `SwitchRule`
+  inline-alignment overflow (same bug class as `real_code_regressions_7`) and
+  `ScopePipeline.processScope`'s raw-newline one-liner-body check misfiring on a call already
+  broken across lines by `enforceCallLineBreaking`. Fixtures:
+  `test/real_code_regressions_9_{inp,out}.java`, `test/real_code_regressions_10_{inp,out}.java`.
+  `make test` 28/28, full 41-file tree idempotent, compiles clean. Full bug-by-bug detail in the
+  "Real-code testing methodology" section below (kept there rather than duplicated here).
 - **C17**: `github.com/Tongsuo-Project/tongsuo-mini` — DONE (2026-07-06). 56 `.c`/`.h` files.
   1 bug found and fixed: `DeclarationAlignmentRule.parseDeclaration` accepted any flat
   `{ a, b, c }` aggregate init (no nested braces, no `//` comments) as safely collapsible to
@@ -485,11 +493,6 @@ really C++.
 Additional candidates the user has since supplied (not yet started, path relative to home dir
 written as `~` below so this file never embeds the actual account/user name):
 
-- **C17**: `github.com/Tongsuo-Project/tongsuo-mini` — a crypto/TLS codebase, likely macro-heavy
-  (good match for this formatter's own history of macro-related bugs). Compile-check with the
-  ARM toolchain at `/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` (`-fsyntax-only`,
-  confirmed to at least launch and run a real `-fsyntax-only` pass in this environment) or
-  `/opt/gcc-12.2.0` with `-std=c17`, whichever the checkout needs.
 - **C++23**: `github.com/basvas-jkj/cpp_modules` — DONE (2026-07-06). Confirmed it does use
   C++20/23 language modules (`import`/`export module`/`module;` global fragment) throughout,
   the exact risk flagged below — never previously exercised by this formatter. Compared against
@@ -616,8 +619,6 @@ written as `~` below so this file never embeds the actual account/user name):
   finding parsing-edge-case bugs across a wide variety of Java constructs.
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
   smaller candidates above are exhausted.
-- **Local**: `../../../3rd_party/tools/pcpp_java/src/` (relative to this `formatter/`
-  directory) — the JxMake repo's own pcpp_java tool sources; not yet tested.
 - **Local**: `../../../../VMA-GIT/anemonesoft/` (relative to this `formatter/` directory,
   contains `gui/` and `i18n/` subdirs at minimum) — not yet tested.
 

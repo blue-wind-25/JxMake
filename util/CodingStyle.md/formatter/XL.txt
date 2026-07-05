@@ -13,9 +13,36 @@ To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug
 Bug fix for the `*_inp.*` formatting test:
 
 ####################################################################################################
+Howa about these configs, are they all wired too:
+    line-length
+    indent-style
+
+    line-endings
+    normalize-comment-start-case
+    normalize-comment-end-period
+    closing-comment-min-lines
+    format-macros
+
+    header-guard-rename
+    header-guard-style
+
+    java-import-order
+    java-import-sort
+    java-import-depth
+    java-import-blank-lines
+
+
+
+
 
 Continue with (download the repo as needed):
-`serge-sans-paille/frozen`
+`taocpp/PEGTL`
+
+
+`../../../../VMA-GIT/anemonesoft/`
+
+
+
 When you find and fixed regressions, create new text fixtures `test/real_code_regressions_*_inp/_out*`
 as needed and then update `Makefile` and `test/README.txt`. Use this standard copyright for the test
 fixtures:
@@ -25,13 +52,7 @@ fixtures:
  * SPDX-License-Identifier: MIT
  */
 ```
-
-
-
-`../../../../VMA-GIT/anemonesoft/`
-
-`fmtlib/fmt`
-`taocpp/PEGTL`
+Try to use the config setting `indent-size`, `indent-style`, etc. as needed when idempotency tests failed.
 
 ####################################################################################################
 ####################################################################################################

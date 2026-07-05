@@ -29,6 +29,11 @@ Java:
                                 classes, switch expressions (arrow form + block body),
                                 text blocks, var, pattern-matching instanceof.
 
+  java_combined_inp/out.java -- All of the above in one realistic file: sealed class
+                                with nested record, enum, inner classes; switch
+                                expressions; pattern matching; text blocks; var;
+                                getter/setter groups; import ordering.
+
   java_comments_inp/out.java -- Uncommon comment placements: // and /* */ between
                                 annotations and declarations, inside method signatures,
                                 inside if/for/switch headers, between else and brace,
@@ -49,16 +54,16 @@ Java:
                                 lines and a `throws` clause, must not be joined onto
                                 the method's own modifier line.
 
-  java_combined_inp/out.java -- All of the above in one realistic file: sealed class
-                                with nested record, enum, inner classes; switch
-                                expressions; pattern matching; text blocks; var;
-                                getter/setter groups; import ordering.
-
 C:
   c_core_inp/out.c           -- C11 constructs: declaration alignment, bitfields,
                                 pointer placement, struct/enum/typedef, function
                                 Allman braces, control-flow K&R, pre-increment,
                                 static reordering, assignment alignment.
+
+  c_combined_inp/out.c       -- All C constructs together in one realistic file:
+                                macros, enums with closing comments, structs, forward
+                                declarations, global state alignment, public API,
+                                internal functions, inline comments.
 
   c_comments_inp/out.c       -- Uncommon comment placements in C: inside struct,
                                 between params, inside if/for headers, between else
@@ -71,11 +76,6 @@ C:
                                 group, and direct function-pointer declarations
                                 (including multi-star `(**cb)`) joining a group.
 
-  c_combined_inp/out.c       -- All C constructs together in one realistic file:
-                                macros, enums with closing comments, structs, forward
-                                declarations, global state alignment, public API,
-                                internal functions, inline comments.
-
 C++:
   cpp_core_inp/out.cpp       -- C++11/14 constructs: class with access specifiers,
                                 template class, lambdas, auto return type, initializer
@@ -86,31 +86,30 @@ C++:
                                 consteval/constinit, operator<=>, coroutines
                                 (co_yield/co_return).
 
-  cpp_comments_inp/out.cpp   -- Uncommon comment placements in C++: inside template
-                                parameter lists, inside concept requires expressions,
-                                between class specifier and base, inside function
-                                params, inside structured bindings, inside requires
-                                clauses.
-
   cpp_combined_inp/out.cpp   -- All C++ constructs together: concepts, enum class,
                                 template class with nested Config struct, structured
                                 bindings, init-statement if/switch, consteval/constinit,
                                 operator<=>, lambda with auto return, extern "C",
                                 trailing comments on declarations.
 
+  cpp_comments_inp/out.cpp   -- Uncommon comment placements in C++: inside template
+                                parameter lists, inside concept requires expressions,
+                                between class specifier and base, inside function
+                                params, inside structured bindings, inside requires
+                                clauses.
 Headers:
   h_core_inp/out.h           -- C header with #ifndef guard: header zone spacing,
                                 include ordering (angle vs quote), struct alignment,
                                 pointer declarations, #ifdef __cplusplus extern "C".
 
+  h_combined_inp/out.h       -- Combined C header: guard zones, macros alignment,
+                                named enum/struct with closing comments, full API
+                                declaration group, extern "C".
+
   hpp_core_inp/out.hpp       -- C++ header with #pragma once: pragma once zone
                                 spacing, concepts, enum class, structs with
                                 operator<=>, abstract class interface, concrete
                                 derived classes.
-
-  h_combined_inp/out.h       -- Combined C header: guard zones, macros alignment,
-                                named enum/struct with closing comments, full API
-                                declaration group, extern "C".
 
   hpp_combined_inp/out.hpp   -- Combined C++ header: pragma once zones, concepts,
                                 template base class, concrete subclass, factory

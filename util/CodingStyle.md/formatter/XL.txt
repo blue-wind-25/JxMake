@@ -15,7 +15,7 @@ Bug fix for the `*_inp.*` formatting test:
 ####################################################################################################
 
 Continue with (download the repo as needed):
-`github.com/Tongsuo-Project/tongsuo-mini`
+`serge-sans-paille/frozen`
 When you find and fixed regressions, create new text fixtures `test/real_code_regressions_*_inp/_out*`
 as needed and then update `Makefile` and `test/README.txt`. Use this standard copyright for the test
 fixtures:
@@ -30,7 +30,6 @@ fixtures:
 
 `../../../../VMA-GIT/anemonesoft/`
 
-`serge-sans-paille/frozen`
 `fmtlib/fmt`
 `taocpp/PEGTL`
 

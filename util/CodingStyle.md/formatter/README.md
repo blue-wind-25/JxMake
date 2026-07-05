@@ -156,7 +156,6 @@ format-macros                = off             # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename          = off             # off | on (warn only by default)
-header-guard-style           = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
 java-import-order            = java, com, org, other, local, static

@@ -220,7 +220,6 @@ normalize-comment-end-period = on            # on | off
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename        = off             # off | on
-header-guard-style         = preserve        # preserve | ifndef | pragma-once
 
 # ── Java ──────────────────────────────────────────────────────────────────────
 java-import-order          = java, com, org, other, local, static
@@ -749,9 +748,10 @@ Audit result: **only `line-length` and `indent-size` were dead/unwired**; every 
 `normalize-comment-end-period`, `closing-comment-min-lines`, `format-macros`,
 `header-guard-rename`, `java-import-order`, `java-import-sort`, `java-import-depth`,
 `java-import-blank-lines`) was already confirmed wired via existing call sites. Note:
-`header-guard-style` is a documented, deliberate non-implementation (see
-`CppSpecificRule.java`'s own doc comment on that method), not a wiring bug, so it was left
-untouched.
+`header-guard-style` was a documented, deliberate non-implementation (see
+`CppSpecificRule.java`'s own doc comment on that method) at the time of this audit -- since
+removed entirely from the config surface (key, field, getter, parser, docs) rather than kept
+as a dead/no-op setting; see the later removal note below.
 
 Fixed by converting `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` from static constants to
 instance fields (`indentWidth`/`lineLengthLimit`), renaming the old static defaults to
@@ -811,6 +811,18 @@ reproduce with or without these fixes and need separate root-causing next sessio
 
 `header-guard-style` re-confirmed as the same deliberate non-implementation noted in the audit
 above — still not a wiring bug.
+
+**Removal (2026-07-06, same day): `header-guard-style` removed entirely.** User asked whether
+a documented-but-unimplemented config key should just be removed rather than left as
+silently-dead config surface (it accepted `ifndef`/`pragma-once` values that had zero effect
+-- worse than a plain no-op key, since a user setting it would reasonably expect a behavior
+change that never happens). Agreed and removed it completely: `Config.java` (the `ALL_KEYS`
+entry, `HEADER_GUARD_STYLE_CHOICES`, the `headerGuardStyle` field, its getter, and the
+`parseChoice` call in `fromRawMap`), `README.md`'s and this file's sample
+`.jxmake-code-formatter` listings, and updated `CppSpecificRule.enforceHeaderFileStructure`'s
+doc comment to stop describing a config key that no longer exists (see that file). If guard-
+style conversion (`ifndef` ↔ `pragma-once`) is ever actually implemented, re-add the config key
+at that point rather than resurrecting the dead one.
 
 Note: this fix does NOT itself resolve the `Doc.java`/`CommandLineOptionsParser.java`/
 `JavadocFormatter.java`/`JavaInputAstVisitor.java` google-java-format idempotency

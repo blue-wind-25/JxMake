@@ -30,14 +30,13 @@ public final class Config {
         "line-length", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-end-period",
-        "header-guard-rename", "header-guard-style",
+        "header-guard-rename",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines"
     };
 
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
-    private static final String[] HEADER_GUARD_STYLE_CHOICES = { "preserve", "ifndef", "pragma-once" };
 
     public static final String DEFAULT_INDENT_STYLE = "spaces";
     public static final int DEFAULT_INDENT_SIZE = 4;
@@ -52,7 +51,6 @@ public final class Config {
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
     private boolean headerGuardRename = false;
-    private String headerGuardStyle = "preserve";
     private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
     private boolean javaImportSort = true;
     private int javaImportDepth = 2;
@@ -99,10 +97,6 @@ public final class Config {
 
     public boolean isHeaderGuardRename() {
         return headerGuardRename;
-    }
-
-    public String headerGuardStyle() {
-        return headerGuardStyle;
     }
 
     public List<String> javaImportOrder() {
@@ -210,7 +204,6 @@ public final class Config {
         config.normalizeCommentEndPeriod = parseBoolean(raw, "normalize-comment-end-period",
                 config.normalizeCommentEndPeriod);
         config.headerGuardRename = parseBoolean(raw, "header-guard-rename", config.headerGuardRename);
-        config.headerGuardStyle = parseChoice(raw, "header-guard-style", config.headerGuardStyle, HEADER_GUARD_STYLE_CHOICES);
         config.javaImportOrder = parseStringList(raw, "java-import-order", config.javaImportOrder);
         config.javaImportSort = parseBoolean(raw, "java-import-sort", config.javaImportSort);
         config.javaImportDepth = parseInt(raw, "java-import-depth", config.javaImportDepth);

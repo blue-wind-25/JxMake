@@ -752,10 +752,10 @@ public class CppSpecificRule {
      * already matches, the existing name is kept and only spacing/the `#endif` comment are
      * normalized. The actual "warn, don't rename" side effect that default implies has nowhere to
      * go yet (no `Config`/CLI output mechanism exists) and is deferred to whoever wires this
-     * method into `Main.java`. `header-guard-style` (preserve/ifndef/pragma-once) needs no code at
-     * all right now -- this method already only ever normalizes within whichever of the two forms
-     * is already present and never converts between them, which is exactly the documented default
-     * ("preserve existing") with nothing else implemented to switch to yet.
+     * method into `Main.java`. This method already only ever normalizes within whichever of the
+     * two guard forms (`#ifndef`/`#pragma once`) is already present and never converts between
+     * them -- there used to be a `header-guard-style` config key for this, removed since nothing
+     * ever implemented the conversion; re-add it if that ever happens.
      */
     public String enforceHeaderFileStructure(final List<Token> tokens, final String filePath,
             final boolean renameGuard) {

@@ -461,12 +461,27 @@ written as `~` below so this file never embeds the actual account/user name):
   ARM toolchain at `/opt/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi` (`-fsyntax-only`,
   confirmed to at least launch and run a real `-fsyntax-only` pass in this environment) or
   `/opt/gcc-12.2.0` with `-std=c17`, whichever the checkout needs.
-- **C++23**: `github.com/basvas-jkj/cpp_modules` — check first whether this actually uses C++20/23
-  *language modules* (`import`/`export module`) before committing to it as a candidate; that
-  syntax is a real risk both for the formatter (never exercised against `import`/`module`
-  keyword contexts) and for whichever toolchain compiles it.
-- **C++23**: `github.com/V1niciosLins/StartCpp` — smaller/likely learner-style repo; treat as a
-  quick filler candidate, lower priority, not expected to surface new bugs.
+- **C++23**: `github.com/basvas-jkj/cpp_modules` — DONE (2026-07-06). Confirmed it does use
+  C++20/23 language modules (`import`/`export module`/`module;` global fragment) throughout,
+  the exact risk flagged below — never previously exercised by this formatter. Compared against
+  `github.com/V1niciosLins/StartCpp` first: `StartCpp` turned out to be a 499-line Bash project
+  *generator* script (scaffolds new C++23/Modules projects on demand) with no actual C++ source
+  of its own to format, so `cpp_modules` (93 total lines across 7 small `.cpp`/`.hpp`/`.mpp`
+  files) was the only real candidate and also the smaller of the two by actual content. Tested
+  all 7 files (the one `.mpp` copied to `.hpp` and `.cpp` files renamed to unique names, since
+  Main.java doesn't infer a language from `.mpp` and several files share the name `main.cpp`):
+  round1/round2 diff empty (idempotent) on every file. No formatter bug found; the one
+  suspicious-looking diff (`println(...)` → `println( ... )` gaining interior padding when an
+  argument is itself a call, e.g. `foo(bar())` → `foo( bar() )`) is confirmed intentional per
+  the "universal complexity padding" design (commit `7b4c80d`, smoke-tested with this exact
+  `func( other() )` shape), not a regression. Compile-check via
+  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++ -std=c++23 -fsyntax-only`: every file fails
+  identically pre- and post-format (`'print' file not found` / `module 'std'|'cwl' not found` /
+  missing `cr.hpp`) — expected, since this checkout has no compiled `std`/header-unit BMI cache
+  or the repo's own missing `cr.hpp`; the identical failures on both original and formatted
+  content confirm the formatter didn't change compileability. No fixture added (no bug found).
+- **C++23**: `github.com/V1niciosLins/StartCpp` — DONE, see note above (not a C++ codebase to
+  format; superseded by testing `cpp_modules` instead).
 - **Clang 22.1.8**, already downloaded and extracted by the user to
   `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/` (a prebuilt Linux-X64 LLVM release, run directly
   on this CentOS7 box — no `patchelf`/glibc-2.41 repointing needed after all; the release binary

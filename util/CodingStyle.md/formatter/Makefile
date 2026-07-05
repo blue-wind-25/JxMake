@@ -56,28 +56,25 @@ clean:
 #     make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
 INP_FILES :=
+
 INP_FILES += h_core_inp.h
 INP_FILES += c_core_inp.c
+INP_FILES += h_combined_inp.h
+INP_FILES += c_combined_inp.c
+INP_FILES += c_comments_inp.c
+INP_FILES += c_cpp_decl_gaps_inp.c
 
 INP_FILES += hpp_core_inp.hpp
 INP_FILES += cpp_core_inp.cpp
-INP_FILES += java_core_inp.java
-
 INP_FILES += cpp_modern_inp.cpp
-INP_FILES += java_modern_inp.java
-
-INP_FILES += h_combined_inp.h
-INP_FILES += c_combined_inp.c
 INP_FILES += hpp_combined_inp.hpp
 INP_FILES += cpp_combined_inp.cpp
-INP_FILES += java_combined_inp.java
-
-INP_FILES += c_comments_inp.c
 INP_FILES += cpp_comments_inp.cpp
+
+INP_FILES += java_core_inp.java
+INP_FILES += java_modern_inp.java
+INP_FILES += java_combined_inp.java
 INP_FILES += java_comments_inp.java
-
-INP_FILES += c_cpp_decl_gaps_inp.c
-
 INP_FILES += java_format_toggle_inp.java
 INP_FILES += java_preprocessor_method_inp.java
 

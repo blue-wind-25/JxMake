@@ -14,22 +14,21 @@ Bug fix for the `*_inp.*` formatting test:
 
 ####################################################################################################
 
-See which one of these use C++23 and test with it:
-`github.com/basvas-jkj/cpp_modules`
-`github.com/V1niciosLins/StartCpp`
-If both use C++23 test with the smaller one.
-
-When you find and fixed regression, create new text fixture `test/real_code_regressions_*_inp/_out*`
-then update `Makefile` and `test/README.txt`. Use this standard copyright for the test:
-```java
+Continue with (download the repo as needed):
+`github.com/Tongsuo-Project/tongsuo-mini`
+When you find and fixed regressions, create new text fixtures `test/real_code_regressions_*_inp/_out*`
+as needed and then update `Makefile` and `test/README.txt`. Use this standard copyright for the test
+fixtures:
+```
 /*
  * Copyright (C) 2024 Example Corp.
  * SPDX-License-Identifier: MIT
  */
 ```
 
-`github.com/Tongsuo-Project/tongsuo-mini`
 
+
+`../../../../VMA-GIT/anemonesoft/`
 
 `serge-sans-paille/frozen`
 `fmtlib/fmt`

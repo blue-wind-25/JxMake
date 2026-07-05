@@ -112,7 +112,8 @@ util/CodingStyle.md/formatter/
       rules/
         KotlinSpecificRule.java         ← NOT STARTED
   test/
-    kotlin_core_inp.kt / kotlin_core_out.kt   ← NOT STARTED (first fixture pair)
+    kt_combined_inp.kt / kt_combined_out.kt   ← NOT STARTED
+    kt_comments_inp.kt / kt_comments_out.kt   ← NOT STARTED
 ```
 
 Existing shared files listed under Hard Constraint above are modified

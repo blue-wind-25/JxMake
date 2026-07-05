@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 // Regression coverage for three DeclarationAlignmentRule fixes recorded under
 // STATE.md's "Known Gaps -- Fixed": the `* const` column gap, `typedef`
 // Alignment inside a plain-variable group, and direct function-pointer

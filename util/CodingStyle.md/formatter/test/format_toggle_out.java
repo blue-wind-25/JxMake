@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 package com.example.toggle;
 
 // Exercises the JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers (STATE.md Task A):

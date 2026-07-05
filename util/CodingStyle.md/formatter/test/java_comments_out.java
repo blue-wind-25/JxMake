@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 package com.example.comments;
 
 // Test file: uncommon // and /* */ comment locations in Java

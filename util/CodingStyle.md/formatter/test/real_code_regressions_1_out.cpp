@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 // Regression coverage for three formatter bugs found by dogfood-testing against
 // Real-world C++ (github.com/blake-madden/tinyexpr-plusplus): (1) a multi-line call whose
 // Sole argument is itself a nested call wrapping onto a second line got a duplicated comma;

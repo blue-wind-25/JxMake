@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 package com.example.pp;
 
 // Regression coverage for the "preprocessor directive glued onto a following Java

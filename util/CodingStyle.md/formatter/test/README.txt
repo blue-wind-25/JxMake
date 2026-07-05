@@ -35,7 +35,7 @@ Java:
                                 trailing on array initializers, multi-line block
                                 comments inside methods.
 
-  format_toggle_inp/out.java -- JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers
+  java_format_toggle_inp/out.java -- JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers
                                 (both the `//%` line-comment and `/*% */` block-comment
                                 forms), each wrapping a deliberately misformatted method
                                 or field that must survive byte-for-byte untouched, with
@@ -49,7 +49,7 @@ Java:
                                 lines and a `throws` clause, must not be joined onto
                                 the method's own modifier line.
 
-  combined_inp/out.java      -- All of the above in one realistic file: sealed class
+  java_combined_inp/out.java -- All of the above in one realistic file: sealed class
                                 with nested record, enum, inner classes; switch
                                 expressions; pattern matching; text blocks; var;
                                 getter/setter groups; import ordering.
@@ -71,7 +71,7 @@ C:
                                 group, and direct function-pointer declarations
                                 (including multi-star `(**cb)`) joining a group.
 
-  combined_inp/out.c         -- All C constructs together in one realistic file:
+  c_combined_inp/out.c       -- All C constructs together in one realistic file:
                                 macros, enums with closing comments, structs, forward
                                 declarations, global state alignment, public API,
                                 internal functions, inline comments.
@@ -92,7 +92,7 @@ C++:
                                 params, inside structured bindings, inside requires
                                 clauses.
 
-  combined_inp/out.cpp       -- All C++ constructs together: concepts, enum class,
+  cpp_combined_inp/out.cpp   -- All C++ constructs together: concepts, enum class,
                                 template class with nested Config struct, structured
                                 bindings, init-statement if/switch, consteval/constinit,
                                 operator<=>, lambda with auto return, extern "C",
@@ -108,11 +108,11 @@ Headers:
                                 operator<=>, abstract class interface, concrete
                                 derived classes.
 
-  combined_inp/out.h         -- Combined C header: guard zones, macros alignment,
+  h_combined_inp/out.h       -- Combined C header: guard zones, macros alignment,
                                 named enum/struct with closing comments, full API
                                 declaration group, extern "C".
 
-  combined_inp/out.hpp       -- Combined C++ header: pragma once zones, concepts,
+  hpp_combined_inp/out.hpp   -- Combined C++ header: pragma once zones, concepts,
                                 template base class, concrete subclass, factory
                                 declaration, extern "C" block.
 

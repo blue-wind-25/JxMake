@@ -66,11 +66,11 @@ INP_FILES += java_core_inp.java
 INP_FILES += cpp_modern_inp.cpp
 INP_FILES += java_modern_inp.java
 
-INP_FILES += combined_inp.h
-INP_FILES += combined_inp.c
-INP_FILES += combined_inp.hpp
-INP_FILES += combined_inp.cpp
-INP_FILES += combined_inp.java
+INP_FILES += h_combined_inp.h
+INP_FILES += c_combined_inp.c
+INP_FILES += hpp_combined_inp.hpp
+INP_FILES += cpp_combined_inp.cpp
+INP_FILES += java_combined_inp.java
 
 INP_FILES += c_comments_inp.c
 INP_FILES += cpp_comments_inp.cpp
@@ -78,7 +78,7 @@ INP_FILES += java_comments_inp.java
 
 INP_FILES += c_cpp_decl_gaps_inp.c
 
-INP_FILES += format_toggle_inp.java
+INP_FILES += java_format_toggle_inp.java
 INP_FILES += java_preprocessor_method_inp.java
 
 INP_FILES += real_code_regressions_1_inp.cpp

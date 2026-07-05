@@ -453,7 +453,7 @@ public class ScopePipeline {
         return false;
     }
 
-    private String findParentIndent(final List<Token> tokens, final Span span) {
+    private String findParentIndent(final List<Token> tokens, final Span span, final int depth) {
         // Find where the construct actually governing openBraceIdx begins -- NOT simply the
         // first significant token in the whole span, since a span can carry more than one
         // leading statement/label ahead of the one that opens this brace (e.g. `case 1:` is not
@@ -523,7 +523,27 @@ public class ScopePipeline {
                 return null;
             }
         }
-        return "";
+        // Ran off the start of `tokens` without ever finding a NEWLINE. At true top level
+        // (depth 0, called with the whole file's token list) that legitimately means
+        // "column 0, no indent". But `tokens` here can also be a recursively-extracted child
+        // fragment (see `processScope`'s `joinText(current, span.openBraceIdx + 1,
+        // span.closeBraceIdx)`) whose very first line is a NESTED named construct that shared
+        // its opening line with the parent's own `{` (e.g. `struct Foo { enum Bar {` on one
+        // source line) -- that line's real leading indent was never captured in this fragment
+        // at all, since the fragment starts strictly after the parent's `{`. Trusting "" there
+        // would force this construct's own closing `}` back to column 0, corrupting otherwise
+        // well-formed nesting (see STATE.md's `frozen`/`CaseSensitive`/`enum Choice` bug).
+        // `depth` (already correctly tracked by `processScope`'s own recursion, independent of
+        // any text-based derivation) resolves the ambiguity: depth 0 keeps the legitimate "",
+        // depth > 0 falls back to depth-based indentation instead of the misleading "".
+        if (depth == 0) {
+            return "";
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < depth * miscRule.indentWidth; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
     }
 
     /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
@@ -1028,7 +1048,7 @@ public class ScopePipeline {
             if (isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
                 final String trimmed = childSource.trim();
                 if (!trimmed.isEmpty()) {
-                    final String parentIndent = findParentIndent(current, span);
+                    final String parentIndent = findParentIndent(current, span, depth);
                     if (parentIndent != null) {
                         childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
                     }
@@ -1063,7 +1083,7 @@ public class ScopePipeline {
                 // whitespace: a comment sitting there (e.g. between a block and a following
                 // `else`) is content other passes already position/associate correctly, and
                 // blindly reindenting around it has been observed to corrupt that placement.
-                final String parentIndent = findParentIndent(current, span);
+                final String parentIndent = findParentIndent(current, span, depth);
                 if (anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
                         || trailingGapHasComment(current, span.closeBraceIdx) || parentIndent == null
                         || rawChildResult.trim().isEmpty()) {

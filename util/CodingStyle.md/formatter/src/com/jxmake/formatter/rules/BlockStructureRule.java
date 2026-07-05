@@ -47,14 +47,29 @@ public class BlockStructureRule {
 
     private final Lang lang;
     private final int closingCommentMinLines;
+    /** One indentation level, used by {@link #insertNamedConstructBlankLines} to synthesize a
+     *  properly indented line when splitting a same-line nested body (e.g. `struct Foo { enum
+     *  Bar {`) onto its own line -- built from the configured `indent-size` (see the
+     *  constructor), not a hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own
+     *  former fallback. */
+    private final String indentUnit;
 
     public BlockStructureRule(final Lang lang) {
         this(lang, DEFAULT_CLOSING_COMMENT_MIN_LINES);
     }
 
     public BlockStructureRule(final Lang lang, final int closingCommentMinLines) {
+        this(lang, closingCommentMinLines, MiscRule.DEFAULT_INDENT_WIDTH);
+    }
+
+    public BlockStructureRule(final Lang lang, final int closingCommentMinLines, final int indentWidth) {
         this.lang = lang;
         this.closingCommentMinLines = closingCommentMinLines;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.indentUnit = sb.toString();
     }
 
     private static Set<String> setOf(final String... words) {
@@ -624,8 +639,18 @@ public class BlockStructureRule {
         // sits directly against the brace with no blank line of its own, the boundary moves past
         // it: the blank line separates the guard from the real body content, not the brace from
         // the guard immediately touching it.
+        //
+        // `blankBeforeIndent`/`blankAfterIndent` cover the case where the split point never was
+        // the start of its own physical line to begin with (e.g. `struct Foo { enum Bar {` --
+        // the whole nested construct started life on one source line): with no pre-existing
+        // NEWLINE in that gap for `ensureBlankLine` to anchor indentation on, the body-first-line
+        // gets the construct's own line indent plus one level, and the `}`-line gets the
+        // construct's own line indent, mirroring where those lines would already be if this
+        // hadn't been a same-line body.
         final Set<Integer> blankBeforeIdx = new HashSet<>();
         final Set<Integer> blankAfterIdx = new HashSet<>();
+        final Map<Integer, String> blankBeforeIndent = new HashMap<>();
+        final Map<Integer, String> blankAfterIndent = new HashMap<>();
         for (int i = 0; i < n; i++) {
             final Token t = tokens.get(i);
             if (!isPunct(t, "{") || t.name == null || isEmptyBraceBody(tokens, i)) {
@@ -635,8 +660,13 @@ public class BlockStructureRule {
             if (closeIdx == null || anyFrozen(tokens, i, closeIdx + 1)) {
                 continue;
             }
-            blankBeforeIdx.add(skipGuardForward(tokens, i));
-            blankAfterIdx.add(skipGuardBackward(tokens, closeIdx));
+            final int beforeIdx = skipGuardForward(tokens, i);
+            final int afterIdx = skipGuardBackward(tokens, closeIdx);
+            blankBeforeIdx.add(beforeIdx);
+            blankAfterIdx.add(afterIdx);
+            final String baseIndent = lineIndent(tokens, i);
+            blankBeforeIndent.put(beforeIdx, baseIndent + indentUnit);
+            blankAfterIndent.put(afterIdx, baseIndent);
         }
 
         final StringBuilder out = new StringBuilder();
@@ -648,10 +678,12 @@ public class BlockStructureRule {
                 gap.add(t);
                 continue;
             }
-            final boolean needBlank = blankBeforeIdx.contains(i)
-                    || (lastSignificant >= 0 && blankAfterIdx.contains(lastSignificant));
-            if (needBlank) {
-                out.append(ensureBlankLine(gap));
+            final boolean needBefore = blankBeforeIdx.contains(i);
+            final boolean needAfter = lastSignificant >= 0 && blankAfterIdx.contains(lastSignificant);
+            if (needBefore || needAfter) {
+                final String indentIfNoNewline = needBefore ? blankBeforeIndent.get(i)
+                        : blankAfterIndent.get(lastSignificant);
+                out.append(ensureBlankLine(gap, indentIfNoNewline));
             } else {
                 for (final Token g : gap) {
                     out.append(g.text);
@@ -665,6 +697,23 @@ public class BlockStructureRule {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    /** Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
+     *  line has no leading whitespace (column-0 start). */
+    private String lineIndent(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int afterNewline = newlineIdx + 1;
+        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
+            return tokens.get(afterNewline).text;
+        }
+        return "";
     }
 
     /** True iff nothing but whitespace and exactly one NEWLINE sits between tokens at indices
@@ -746,7 +795,14 @@ public class BlockStructureRule {
      * blank line is still guaranteed in the remainder of the gap, right after the comment's own
      * line, rather than being dropped entirely.
      */
-    private String ensureBlankLine(final List<Token> gap) {
+    /**
+     * @param indentIfNoNewline indentation to use for the resumed content when the gap has no
+     *     pre-existing NEWLINE at all (i.e. the content was never the first token of its own
+     *     physical line -- a same-line nested body being split apart here for the first time).
+     *     May be {@code null} if no such indentation was computed (kept permissive rather than
+     *     throwing, since a stray same-line separator is still better than a crash).
+     */
+    private String ensureBlankLine(final List<Token> gap, final String indentIfNoNewline) {
         int firstCommentIdx = -1;
         boolean newlineBeforeFirstComment = false;
         for (int i = 0; i < gap.size(); i++) {
@@ -768,7 +824,7 @@ public class BlockStructureRule {
             for (int i = 0; i <= firstCommentIdx; i++) {
                 sb.append(gap.get(i).text);
             }
-            sb.append(ensureBlankLine(gap.subList(firstCommentIdx + 1, gap.size())));
+            sb.append(ensureBlankLine(gap.subList(firstCommentIdx + 1, gap.size()), indentIfNoNewline));
             return sb.toString();
         }
 
@@ -782,15 +838,29 @@ public class BlockStructureRule {
 
         final StringBuilder sb = new StringBuilder();
         if (newlineCount == 0) {
+            // No existing NEWLINE in the gap to anchor indentation on -- discard the stale
+            // inline separator (a bare same-line space, e.g. `{ enum Bar {`'s single space)
+            // rather than reusing it as the new line's indentation, and synthesize a properly
+            // indented line instead.
             sb.append("\n\n");
-        }
-        boolean insertedExtra = newlineCount != 1;
-        for (int i = 0; i < prefixEnd; i++) {
-            final Token g = gap.get(i);
-            sb.append(g.text);
-            if (!insertedExtra && g.type == TokenType.NEWLINE) {
-                sb.append('\n');
-                insertedExtra = true;
+            if (indentIfNoNewline != null) {
+                sb.append(indentIfNoNewline);
+            }
+            for (int i = 0; i < prefixEnd; i++) {
+                final Token g = gap.get(i);
+                if (g.type != TokenType.WHITESPACE) {
+                    sb.append(g.text);
+                }
+            }
+        } else {
+            boolean insertedExtra = newlineCount != 1;
+            for (int i = 0; i < prefixEnd; i++) {
+                final Token g = gap.get(i);
+                sb.append(g.text);
+                if (!insertedExtra && g.type == TokenType.NEWLINE) {
+                    sb.append('\n');
+                    insertedExtra = true;
+                }
             }
         }
         for (int i = prefixEnd; i < gap.size(); i++) {

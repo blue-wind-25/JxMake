@@ -522,6 +522,59 @@ header on every new test fixture file:
   waved past it. **Lesson for future re-verification claims: never mark a library DONE off a
   hedge you didn't resolve — re-isolate or don't claim it.** These 3 bugs need root-causing
   from scratch next session before this library can be marked DONE again.
+  0. **IN PROGRESS (2026-07-06)** — root-causing `catch.hpp`'s `}; // enum X` stray-space bug
+     (bug listed above). Confirmed root cause: `ScopePipeline.findParentIndent` (lines ~456-527)
+     scans backward from a construct's anchor token for a NEWLINE to derive its closing-brace
+     indent; when called on a recursively-extracted child fragment (e.g. `struct Foo { enum Bar {`
+     on one physical source line — `processScope`'s `joinText` extraction for `struct`'s own body
+     starts strictly after `struct`'s `{`, so `enum`'s own line-start context, and thus any
+     preceding NEWLINE, is never present in the fragment `findParentIndent` searches), the
+     backward scan runs off the start of the list and previously fell through to `return "";`
+     unconditionally — indistinguishable from genuine top-level (depth 0), producing a
+     zero-indent closing brace for a construct that is actually nested.
+     - **Partial fix applied, NOT fully correct yet**: threaded `depth` (already tracked correctly
+       by `processScope`'s own recursion) into `findParentIndent(tokens, span, depth)`; when the
+       backward scan exhausts the list, return `depth * indentWidth` spaces instead of `""`
+       (depth 0 still legitimately returns `""`). Both call sites in `processScope` (~line 1051,
+       ~1086) updated to pass `depth`. Compiles clean; also finished/kept the separate
+       `BlockStructureRule.insertNamedConstructBlankLines`/`ensureBlankLine` fix from earlier this
+       session (adds an `indentUnit` field + `lineIndent` helper so a same-line nested construct's
+       opening line gets properly-derived indentation instead of a stray single-space inline
+       separator) — that fix correctly resolves the "before"/opening-line side.
+     - **Remaining bug, NOT yet fixed**: `depth` passed to `findParentIndent` at the closing-brace
+       call site (~line 1086) is the CURRENT `processScope` call's own depth (the depth at which
+       THIS call's body content is being scanned), not the nested span's own one-deeper depth. For
+       `namespace Catch { struct CaseSensitive { enum Choice { Yes, No }; }; }`: namespace body is
+       processed at depth 0 (namespaces don't consume a depth level, see `isNamespaceScope` check),
+       struct body at depth 1, enum span is *found while iterating struct's body* (i.e. within the
+       depth=1 call) — so `findParentIndent(current, enumSpan, depth=1)` synthesizes 1 indent unit
+       (4 spaces) for enum's closing `};`, but enum's opening line (`enum Choice {`) is correctly
+       placed at 2 units (8 spaces) by the separate `BlockStructureRule` fix (base indent of
+       struct's own line + one indentUnit) — an off-by-one mismatch between opening (8) and closing
+       (4). Verified via `/tmp/repro1.hpp` round1/round2 diff: still NOT idempotent — round2 shows
+       `        }; // enum Choice` (8) where round1 had `    }; // enum Choice` (4), i.e. the
+       SECOND pass corrects what the FIRST pass got wrong, meaning round1's own output is
+       self-inconsistent and round2 "fixes" it via the same `BlockStructureRule` opening-side logic
+       re-deriving from (by round2) already-correct sibling context.
+     - **Diagnosis for next session**: the closing-brace call site (~line 1086) needs the nested
+       span's own depth-one-deeper value, not the current call's depth — likely needs
+       `findParentIndent(current, span, depth + 1)` at that specific call site (NOT the
+       pre-expand-one-liner call site ~line 1051, which may have different correct semantics —
+       re-verify both independently), OR could reconsider deriving indent structurally from
+       `BlockStructureRule`'s own already-correct opening-line-based logic instead of
+       `ScopePipeline`'s separate depth-counting scheme, so the two passes can't disagree.
+     - Debug technique used (repeat if needed): `/tmp/repro1.hpp` contains a minimal 4-line repro
+       (`namespace Catch { struct CaseSensitive { enum Choice { Yes, No }; }; }`-shaped). Test via
+       `java -jar target/code-formatter-1.00.jar --standalone --out /tmp/repro_out1 /tmp/repro1.hpp`
+       then reformat that output to `/tmp/repro_out2` and `diff` the two — non-empty diff means
+       still not idempotent.
+     - Temporary `System.err.println` debug statements that were added to `Formatter.java` this
+       session (to bisect which pipeline phase introduces the corruption) have been REVERTED — see
+       `/tmp/Formatter.java.bak` if that bisection technique needs to be redone for `map.hpp` or
+       `set.hpp` (not yet investigated at all this session — unknown whether they share this same
+       `findParentIndent` root cause or are separate bugs).
+     - Do NOT re-run `make test` / commit until the off-by-one is actually fixed and
+       `/tmp/repro1.hpp` round1/round2 diff is empty.
   1. **FIXED** — `tests/catch.hpp`: a struct with a virtual destructor, a long-signature
      pure-virtual method, and a template method-with-body got silently corrupted on the FIRST
      format pass (not merely non-idempotent): all members merged into one garbled blob, the

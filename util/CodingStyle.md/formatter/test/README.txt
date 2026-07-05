@@ -274,6 +274,22 @@ Real-code regressions:
                                 (`hasTopLevelNewline`) that only counts a newline at
                                 depth 0 as evidence of a real multi-statement body.
 
+  real_code_regressions_11_inp/out.c -- Found via real-code idempotency/round-trip
+                                testing on tongsuo-mini (a C17 crypto/TLS codebase).
+                                DeclarationAlignmentRule.parseDeclaration accepted any
+                                flat `{ a, b, c }` aggregate init (no nested braces, no
+                                `//` comments) as safely collapsible to one rendered
+                                line, with no check against lineLengthLimit -- so a
+                                large byte/word table (e.g. an S-box) that was
+                                originally spread across many source lines collapsed
+                                into a single line thousands of characters long, since
+                                this class has no multi-line-initializer render path to
+                                re-wrap it afterward. Fixed by estimating the flat
+                                aggregate init's own rendered width and rejecting the
+                                collapse (leaving the statement untouched) if it alone
+                                would exceed lineLengthLimit -- same reasoning as the
+                                existing `//`-comment guard on the same code path.
+
 
 How Tests Are Run
 -----------------

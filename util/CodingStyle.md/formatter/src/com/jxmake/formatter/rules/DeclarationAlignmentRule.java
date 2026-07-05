@@ -44,9 +44,15 @@ public class DeclarationAlignmentRule {
     private final Lang lang;
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
+    private final int lineLengthLimit;
 
     public DeclarationAlignmentRule(final Lang lang) {
+        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public DeclarationAlignmentRule(final Lang lang, final int lineLengthLimit) {
         this.lang = lang;
+        this.lineLengthLimit = lineLengthLimit;
         if (lang.isJava) {
             this.modifierPriority = new JavaModifierPriority();
             this.typeKeywords = TYPE_KEYWORDS_JAVA;
@@ -744,6 +750,24 @@ public class DeclarationAlignmentRule {
         return depth == 0;
     }
 
+    /** Estimates the rendered width of a flat `{ a, b, c }` aggregate init on its own, as
+     *  `render(group)` would emit it: `{`/`}` padded with one space, elements comma-separated
+     *  with one space after each comma. Does not include the declaration's own type/name/`=`
+     *  prefix -- callers only need this as a lower-bound check against `lineLengthLimit`. */
+    private int flatAggregateInitRenderedWidth(final List<Token> rawInit) {
+        int width = 0;
+        for (int k = 0; k < rawInit.size(); k++) {
+            final Token t = rawInit.get(k);
+            width += t.text.length();
+            if (isPunct(t, "{") || isPunct(t, ",")) {
+                width++; // one space after `{` or `,`
+            } else if (k < rawInit.size() - 1 && isPunct(rawInit.get(k + 1), "}")) {
+                width++; // one space before the closing `}`
+            }
+        }
+        return width;
+    }
+
     /** Finds {@code openTok}/{@code closeTok} (by identity -- they come from {@code stmt} itself,
      *  just filtered through {@code significantOnly}) within {@code stmt} and returns the raw
      *  inclusive slice between them, comments and all. Returns {@code null} if either token
@@ -892,6 +916,15 @@ public class DeclarationAlignmentRule {
                     if (t.type == TokenType.COMMENT_LINE) {
                         return null;
                     }
+                }
+                // A flat aggregate init that was already spread across multiple source lines
+                // (e.g. a large byte/word table) can collapse to a single rendered line far past
+                // `lineLengthLimit` -- this class has no multi-line-initializer render path, so
+                // such a collapse can't be re-wrapped afterward. Bail out and leave the statement
+                // untouched rather than emit an over-length line, same reasoning as the
+                // `//`-comment guard above.
+                if (flatAggregateInitRenderedWidth(rawInit) > lineLengthLimit) {
+                    return null;
                 }
             }
         }

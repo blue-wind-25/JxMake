@@ -68,7 +68,7 @@ public class ScopePipeline {
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(lang);
-        this.declarationRule = new DeclarationAlignmentRule(lang);
+        this.declarationRule = new DeclarationAlignmentRule(lang, lineLengthLimit);
         this.getterSetterRule = new GetterSetterRule(lang, indentWidth, lineLengthLimit);
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 indentWidth, lineLengthLimit);

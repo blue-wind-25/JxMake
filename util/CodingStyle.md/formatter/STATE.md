@@ -453,6 +453,24 @@ fixtures.
   `test/real_code_regressions_5_{inp,out}.cpp`. `make test` 23/23; re-ran the full nanobench
   round-trip too (this is what caught the `case`-label edge case) — still idempotent and
   compiles clean.
+- **C17**: `github.com/Tongsuo-Project/tongsuo-mini` — DONE (2026-07-06). 56 `.c`/`.h` files.
+  1 bug found and fixed: `DeclarationAlignmentRule.parseDeclaration` accepted any flat
+  `{ a, b, c }` aggregate init (no nested braces, no `//` comments) as safely collapsible to
+  one rendered line with no check against `lineLengthLimit` — a large byte/word table (e.g.
+  `sm4.c`'s `SM4_S`/`SM4_SBOX_T*` S-boxes, originally spread across many source lines)
+  collapsed into a single rendered line thousands of characters long, since this class has no
+  multi-line-initializer render path to re-wrap it afterward. Fixed by threading
+  `lineLengthLimit` into a new 2-arg `DeclarationAlignmentRule` constructor (legacy 1-arg
+  constructor delegates to `MiscRule.DEFAULT_LINE_LENGTH_LIMIT`, wired via `ScopePipeline`) and
+  adding `flatAggregateInitRenderedWidth` to estimate the flat aggregate init's own rendered
+  width, rejecting the collapse (leaving the statement untouched) if it alone would exceed the
+  limit — same reasoning/pattern as the existing `//`-comment guard on the same code path.
+  Fixture: `test/real_code_regressions_11_{inp,out}.c`. Verified: `make test` 29/29; full
+  56-file tree round1/round2 diff empty (idempotent); `gcc -std=gnu99 -fsyntax-only` per-file
+  error counts identical between original and formatted tree (1 pre-existing, formatter-
+  unrelated error in `src/log.c`, a duplicate `tsm_log_impl` definition — same before and
+  after).
+
 **NEXT SESSION — continue here:** Continue the real-code testing methodology against the
 remaining C/C++ candidates, in this order unless the user redirects:
 `serge-sans-paille/frozen` → `fmtlib/fmt` → `taocpp/PEGTL`, then the additional candidates

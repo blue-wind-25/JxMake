@@ -39,6 +39,21 @@ java -jar code-formatter-1.00.jar include/Module.h
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
 `.java` → Java).
 
+For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
+override detection with `--lang`:
+
+```sh
+java -jar code-formatter-1.00.jar --lang java Template.java.in
+java -jar code-formatter-1.00.jar --lang cpp Module.inc
+```
+
+`--lang` accepts exactly one of `c`, `cpp`, `java`, and applies to every file given on that
+command line (mixing file types with a single forced `--lang` in one invocation isn't
+supported — run the formatter once per language instead). Without `--lang`, a file whose
+extension can't be recognized is an error. `--lang` also works with server mode (below) — the
+client sends the chosen language to the server, which uses it in place of its own
+extension-based guess for that request.
+
 ### Output modes
 
 ```sh
@@ -230,6 +245,29 @@ Newer-language-construct support:
   concepts/`requires`, `consteval`/`constinit`)
 
 See `STATE.md`'s Phase Status / End Goal sections for current progress.
+
+---
+
+## Server Wire Protocol
+
+The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
+`17173`, override with `--port N` / `server-port` config key):
+
+- `POST /format?path=<abs-path>&lang=<c|cpp|java>[&format-off=true]` — request body is the
+  file's raw content (UTF-8); response body is the formatted content (UTF-8), HTTP 200. The
+  `lang` parameter is required by the client and always takes priority over any
+  extension-based guess the server could make from `path` — this is how `--lang` (above)
+  reaches the server, and is also why the server itself never needs its own `--lang`-style
+  flag. An unrecognized `lang` value, or a request missing `path`, gets HTTP 400 with a plain
+  text error body. Any other failure (e.g. a malformed file) gets HTTP 500.
+- `POST /shutdown` — asks the server to stop; responds `200 shutting down` immediately, then
+  terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
+
+Clients are expected to auto-detect a running server via the lockfile at
+`~/.config/jxmake-code-formatter/server.lock` (PID on line 1, port on line 2) rather than
+talking to a hardcoded port — see `ServerMode.findRunningServerPort()`. This is the same
+protocol the bundled CLI's own auto-connect logic (`--standalone` to disable it) uses; a
+third-party client only needs to speak this HTTP protocol, not link against the JAR.
 
 ---
 

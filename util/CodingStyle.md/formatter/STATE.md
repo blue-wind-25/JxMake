@@ -291,6 +291,17 @@ accept `final` there). This applies to all `.java` files under `src/`.
 
 - [x] CLI arg parsing (`--server`, `--stop`, `--standalone`, `--diff`, `--check`,
       `--out DIR`, `--port N`, file paths); unknown flags / bad usage → exit 2 (RDD_KEY_88)
+- [x] `--lang c|cpp|java` (2026-07-06): explicit language override for files whose
+      extension `inferLanguage` can't recognize. One flag applies to every file in that
+      invocation (no per-file override), validated against exactly `c`/`cpp`/`java` (exit 2
+      otherwise). Threaded through `processFile` ahead of the extension-based
+      `inferLanguage` fallback; `--server`/`--stop` reject `--lang` (nothing to format).
+      Wire protocol: the `/format` HTTP endpoint already accepted an optional `lang` query
+      parameter that takes priority over its own path-extension guess (`Main.delegateToServer`
+      already always sent it) — no client/server protocol shape change was needed, only
+      validation added on the server side (`ServerMode.FormatHandler` now 400s on an
+      unrecognized `lang` value instead of silently mis-formatting). `README.md` updated.
+      `make test` 25/25, no regressions.
 - [x] Four output modes: in-place (default), `--diff` (self-written unified diff,
       single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
 - [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting

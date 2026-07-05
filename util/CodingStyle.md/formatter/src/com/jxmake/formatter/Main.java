@@ -57,6 +57,7 @@ public final class Main {
         OutputMode outputMode = OutputMode.IN_PLACE;
         String outDir = null;
         Integer port = null;
+        String explicitLanguage = null;
         final List<String> files = new ArrayList<String>();
 
         for (int i = 0; i < args.length; i++) {
@@ -98,6 +99,15 @@ public final class Main {
                 } catch (final NumberFormatException e) {
                     return usageError("--port requires a numeric argument, got: " + portArg);
                 }
+            } else if ("--lang".equals(arg)) {
+                if (i + 1 >= args.length) {
+                    return usageError("--lang requires an argument (c, cpp, or java)");
+                }
+                final String langArg = args[++i];
+                if (!"c".equals(langArg) && !"cpp".equals(langArg) && !"java".equals(langArg)) {
+                    return usageError("--lang must be one of: c, cpp, java (got: " + langArg + ")");
+                }
+                explicitLanguage = langArg;
             } else if (arg.startsWith("--")) {
                 return usageError("unknown flag: " + arg);
             } else {
@@ -110,6 +120,9 @@ public final class Main {
         }
         if ((serverMode || stopMode) && !files.isEmpty()) {
             return usageError("--server/--stop do not take file arguments");
+        }
+        if ((serverMode || stopMode) && explicitLanguage != null) {
+            return usageError("--server/--stop do not take --lang");
         }
 
         final Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
@@ -133,7 +146,8 @@ public final class Main {
         boolean anyError = false;
         for (final String file : files) {
             try {
-                if (processFile(Paths.get(file), outputMode, outDir, standalone, formatOff, cliOverrides)) {
+                if (processFile(Paths.get(file), outputMode, outDir, standalone, formatOff, cliOverrides,
+                        explicitLanguage)) {
                     anyChanged = true;
                 }
             } catch (final Exception e) {
@@ -157,7 +171,7 @@ public final class Main {
     }
 
     private static void printUsage() {
-        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] "
+        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] [--lang c|cpp|java] "
                 + "[--diff | --check | --out DIR] [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");
@@ -165,14 +179,15 @@ public final class Main {
 
     /** Returns {@code true} if the file's formatted content differs from its original content. */
     private static boolean processFile(final Path path, final OutputMode outputMode, final String outDir,
-            final boolean standalone, final boolean formatOff, final Map<String, String> cliOverrides)
-            throws IOException {
+            final boolean standalone, final boolean formatOff, final Map<String, String> cliOverrides,
+            final String explicitLanguage) throws IOException {
         if (!Files.isRegularFile(path)) {
             throw new IOException("no such file: " + path);
         }
-        final String language = inferLanguage(path);
+        final String language = explicitLanguage != null ? explicitLanguage : inferLanguage(path);
         if (language == null) {
-            throw new IOException("could not infer language from file extension: " + path);
+            throw new IOException("could not infer language from file extension: " + path
+                    + " (use --lang c|cpp|java to override)");
         }
 
         final String original = readFile(path);

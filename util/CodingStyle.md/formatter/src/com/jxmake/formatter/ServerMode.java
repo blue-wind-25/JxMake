@@ -286,9 +286,14 @@ public final class ServerMode {
                 if (language == null) {
                     language = inferLanguage(path);
                     if (language == null) {
-                        respond(exchange, 400, "could not infer language from path extension: " + path);
+                        respond(exchange, 400, "could not infer language from path extension: " + path
+                                + " (client should pass an explicit 'lang' query parameter)");
                         return;
                     }
+                } else if (!"c".equals(language) && !"cpp".equals(language) && !"java".equals(language)) {
+                    respond(exchange, 400, "'lang' query parameter must be one of: c, cpp, java (got: "
+                            + language + ")");
+                    return;
                 }
 
                 final boolean formatOff = "true".equals(params.get("format-off"));

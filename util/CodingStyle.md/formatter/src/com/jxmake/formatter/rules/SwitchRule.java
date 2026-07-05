@@ -27,20 +27,30 @@ import java.util.Map;
 
 public class SwitchRule {
 
-    // Fallback when a switch's own line indentation can't be used to derive the project's
-    // actual indent unit (see deriveUnit) -- STYLE.md §1 default.
-    private static final String DEFAULT_INDENT_UNIT = "    ";
+    // Fallback unit-width when a switch's own line indentation can't be used to derive the
+    // project's actual indent unit (see deriveUnit) -- STYLE.md §1 default.
+    private static final int DEFAULT_INDENT_WIDTH = MiscRule.DEFAULT_INDENT_WIDTH;
 
     private final TokenizerCore tokenizer;
     private final int lineLengthLimit;
+    private final String defaultIndentUnit;
 
     public SwitchRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public SwitchRule(final Lang lang, final int lineLengthLimit) {
+        this(lang, lineLengthLimit, DEFAULT_INDENT_WIDTH);
+    }
+
+    public SwitchRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.tokenizer = new TokenizerCore(lang);
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.defaultIndentUnit = sb.toString();
     }
 
     // ── Switch/case structure discovery ─────────────────────────────────────────
@@ -412,7 +422,7 @@ public class SwitchRule {
         if (caseIndent.length() > switchIndent.length() && caseIndent.startsWith(switchIndent)) {
             return caseIndent.substring(switchIndent.length());
         }
-        return DEFAULT_INDENT_UNIT;
+        return defaultIndentUnit;
     }
 
     private boolean containsNewline(final List<Token> tokens, final int from, final int to) {

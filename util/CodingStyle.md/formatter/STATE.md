@@ -528,9 +528,35 @@ fixtures.
      the original source's zero-indent), but this is now stable/idempotent on repeat passes, not
      growing or corrupting.
 
-**NEXT SESSION — continue here:** `serge-sans-paille/frozen` is DONE. Continue the real-code
-testing methodology against the remaining C/C++ candidates, in this order unless the user
-redirects: `fmtlib/fmt` → `taocpp/PEGTL`, then the
+- **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources
+  (renamed `.h`→`.hpp` before testing). Round1/round2 at the default `indent-size = 4` found
+  no divergence at all in the forward pass, but this codebase's real style is 2-space indent
+  (Google style) with `case`/`default` labels flush with (same indent as) their enclosing
+  `switch` — so re-testing with a `.jxmake-code-formatter` containing `indent-size = 2`
+  (same technique used for the earlier google-java-format indent-size verification, see
+  above) surfaced a real bug: 3 files (`base.hpp`, `chrono.hpp`, `format.hpp`) were NOT
+  idempotent, with a `default: { ... }`/`case N: { ... }` body's indentation growing deeper
+  on every repeated pass. Root cause: `SwitchRule.deriveUnit` assumes a case label is always
+  exactly one indent level deeper than its switch, and falls back to a hardcoded
+  `DEFAULT_INDENT_UNIT = "    "` (4 spaces) whenever that assumption doesn't hold (e.g. this
+  codebase's flush case-label style) — completely disconnected from the actual configured
+  `indent-size`, exactly the same class of dead/unwired-config bug fixed for
+  `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` previously (see the "only `line-length` and
+  `indent-size` were dead/unwired" entry above), just never caught there because
+  `SwitchRule` was never touched by that pass. Fixed by threading `indentWidth` through
+  `SwitchRule`'s constructor (new 3-arg overload) from `Formatter.formatOne`, same pattern as
+  every other rule, and building the fallback unit as `indentWidth` spaces instead of a
+  hardcoded literal. At the default `indent-size = 4` this is a no-op (the old hardcoded
+  value already happened to equal the new default), which is why `make test` needed zero
+  fixture changes (30/30, no regressions) — the bug is only observable at non-default
+  `indent-size` values, so per the same "verified live, no fixture changes" precedent as the
+  earlier `indent-size = 2` MiscRule verification, no new fixture was added; verified instead
+  by re-running the full 44-file `fmt` include+src tree at `indent-size = 2`: round1/round2 is
+  now fully idempotent (empty `diff -rq`).
+
+**NEXT SESSION — continue here:** `serge-sans-paille/frozen` and `fmtlib/fmt` are both DONE.
+Continue the real-code testing methodology against the remaining C/C++ candidates, in this
+order unless the user redirects: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
 a library needs newer; confirm any compile failure also reproduces against the *unmodified*
 original source before treating it as formatter-induced, same check done for tinyexpr-plusplus's

@@ -234,6 +234,46 @@ Real-code regressions:
                                 whose first significant token is the `case`/`default`
                                 keyword before the name/return-type heuristics run.
 
+  real_code_regressions_9_inp/out.java -- Found via real-code idempotency testing on
+                                pcpp_java (a Java preprocessor tool). SwitchRule's
+                                inline-switch column alignment never checked a row's
+                                rendered length against lineLengthLimit before writing
+                                it: padding a short label (e.g. `default`) out to match
+                                a much wider sibling label's column could push that
+                                row past the limit even though the switch's original,
+                                unpadded text fit. A fresh format produced a stable-
+                                looking over-length aligned line that
+                                MiscRule.enforceCallLineBreaking (an earlier pipeline
+                                phase) never got to react to; reformatting that output
+                                let enforceCallLineBreaking break the now-over-length
+                                line apart, after which the alignment pass no longer
+                                recognized the row shape and left it un-aligned -- not
+                                idempotent. Fixed by predicting every row's final
+                                rendered length before committing to any padding,
+                                leaving the whole switch's cases byte-for-byte
+                                untouched if even one row would overflow.
+
+  real_code_regressions_10_inp/out.java -- Found via real-code idempotency testing on
+                                pcpp_java. ScopePipeline.processScope decided whether a
+                                non-named scope body (e.g. an `if` one-liner body kept
+                                on its original single physical line) was still a
+                                single-statement "one-liner" via a raw
+                                `childSource.contains("\n")` check. On a fresh format
+                                that's correct -- a one-liner body has no embedded
+                                newline at all -- but MiscRule.enforceCallLineBreaking
+                                can break an over-length call inside that same one-liner
+                                body across multiple physical lines while leaving it one
+                                logical statement; reformatting that already-broken
+                                output then made the raw newline check see newlines
+                                that are strictly inside the call's own parens and
+                                wrongly treat the body as a real multi-statement block,
+                                recursing into it and column-splitting/reindenting its
+                                statements -- corrupting output that was already
+                                correctly formatted. Fixed by replacing the raw
+                                substring check with a paren/bracket-depth-aware scan
+                                (`hasTopLevelNewline`) that only counts a newline at
+                                depth 0 as evidence of a real multi-statement body.
+
 
 How Tests Are Run
 -----------------

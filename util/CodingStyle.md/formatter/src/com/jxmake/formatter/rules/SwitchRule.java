@@ -32,9 +32,15 @@ public class SwitchRule {
     private static final String DEFAULT_INDENT_UNIT = "    ";
 
     private final TokenizerCore tokenizer;
+    private final int lineLengthLimit;
 
     public SwitchRule(final Lang lang) {
+        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public SwitchRule(final Lang lang, final int lineLengthLimit) {
         this.tokenizer = new TokenizerCore(lang);
+        this.lineLengthLimit = lineLengthLimit;
     }
 
     // ── Switch/case structure discovery ─────────────────────────────────────────
@@ -519,7 +525,7 @@ public class SwitchRule {
             if (rows == null) {
                 continue;
             }
-            applyInlineAlignment(rows, overrides);
+            applyInlineAlignment(tokens, rows, overrides);
         }
 
         return render(tokens, overrides, Collections.emptyMap());
@@ -732,8 +738,22 @@ public class SwitchRule {
      * space before its grid padding is computed, since `ColumnGrid` only adds padding when a cell
      * is shorter than the column's widest entry -- without that baked-in space, the row with the
      * single widest label would render with no gap at all before its `:`.
+     *
+     * <p>Column-padding a row can push it past {@link #lineLengthLimit} even when its original,
+     * unpadded form fit -- and since this rule never breaks a row across lines (it only aligns
+     * columns), a padded row that overflows has nowhere else for the extra width to go. Left
+     * unchecked, that overflowing row would then be re-measured -- and re-broken -- by
+     * `MiscRule.enforceCallLineBreaking` the next time the file is formatted (it runs earlier in
+     * the pipeline than this pass and never re-runs after it), which is not idempotent: this
+     * pass would see the resulting multi-line call and, no longer recognizing the case as
+     * one-statement-per-line, leave the switch alone -- silently un-fixing its own output the
+     * second time round. So every row's final rendered length is checked against the limit before
+     * any override is committed; if even one row would overflow, the whole switch is left
+     * byte-for-byte untouched instead, same conservative posture as every other
+     * can't-confidently-reconstruct case in this class.
      */
-    private void applyInlineAlignment(final List<CaseRow> rows, final Map<Integer, String> overrides) {
+    private void applyInlineAlignment(final List<Token> tokens, final List<CaseRow> rows,
+            final Map<Integer, String> overrides) {
         final ColumnGrid callGrid = new ColumnGrid();
         for (final CaseRow row : rows) {
             if (row.callShaped) {
@@ -773,16 +793,25 @@ public class SwitchRule {
         }
         final List<String[]> outerPadded = outerGrid.flush();
 
+        final String[] rowText = new String[rows.size()];
         for (int i = 0; i < rows.size(); i++) {
             final CaseRow row = rows.get(i);
             final String[] cell = outerPadded.get(i);
-            final String text;
             if (!row.hasContent && !row.hasBreak) {
                 // 2-cell row: cell[1] is empty sentinel used only to force label padding.
-                text = cell[0] + ":" + (row.fallthrough ? " /* FALL-THROUGH */" : "");
+                rowText[i] = cell[0] + ":" + (row.fallthrough ? " /* FALL-THROUGH */" : "");
             } else {
-                text = cell[0] + ":" + " " + cell[1] + cell[2];
+                rowText[i] = cell[0] + ":" + " " + cell[1] + cell[2];
             }
+            final int indentLen = indentBefore(tokens, row.kwIdx).length();
+            if (indentLen + rowText[i].length() > lineLengthLimit) {
+                return;
+            }
+        }
+
+        for (int i = 0; i < rows.size(); i++) {
+            final CaseRow row = rows.get(i);
+            final String text = rowText[i];
             overrides.put(row.kwIdx, text);
             for (int k = row.kwIdx + 1; k <= row.lastIdx; k++) {
                 overrides.put(k, "");

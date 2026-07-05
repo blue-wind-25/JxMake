@@ -44,7 +44,7 @@ public final class Formatter {
         final int indentWidth = config.indentSize();
         final int lineLengthLimit = config.lineLength();
         final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines());
-        final SwitchRule switchRule = new SwitchRule(lang);
+        final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit);
         final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), indentWidth, lineLengthLimit);
         final CppSpecificRule cppRule = isCOrCpp ? new CppSpecificRule(lang, lineLengthLimit) : null;

@@ -938,7 +938,7 @@ public class ScopePipeline {
             // child scope see newline-separated source and produce correctly-indented output.
             // Non-named scopes (function/loop/lambda bodies) are left alone -- their one-liner
             // bodies must stay inline for getter/setter grouping and Allman detection.
-            if (isNamedScope && !childSource.contains("\n")) {
+            if (isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
                 final String trimmed = childSource.trim();
                 if (!trimmed.isEmpty()) {
                     final String parentIndent = findParentIndent(current, span);
@@ -948,7 +948,7 @@ public class ScopePipeline {
                 }
             }
             final String childResult;
-            if (!isNamedScope && !childSource.contains("\n")) {
+            if (!isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
                 // One-liner non-named body (method/constructor/loop `{ ... }` kept on its
                 // original single line) -- recursing would run it through the §5/§6
                 // declaration/assignment grouping passes, which assume a real multi-statement
@@ -1015,6 +1015,31 @@ public class ScopePipeline {
      *  in the untouched source right after the replaced span, duplicating it in the output). */
     private boolean isWhitespaceOrNewline(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE;
+    }
+
+    /**
+     * True iff a {@code NEWLINE} appears anywhere in {@code [fromInclusive, toExclusive)} while
+     * paren/bracket depth (relative to {@code fromInclusive}) is exactly 0. Used instead of a
+     * raw {@code String.contains("\n")} check to decide whether a one-liner body is still a
+     * single logical statement: on a fresh format a one-liner body never contains a newline at
+     * all, but on a *reformat* of already-formatted output, {@code MiscRule.enforceCallLineBreaking}
+     * may have already broken an over-length call's argument list across multiple physical
+     * lines while leaving it one logical statement -- those newlines are strictly inside the
+     * call's own parens (depth > 0) and must not be mistaken for a real multi-statement body.
+     */
+    private boolean hasTopLevelNewline(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        int depth = 0;
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.PUNCT && ("(".equals(t.text) || "[".equals(t.text))) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && (")".equals(t.text) || "]".equals(t.text))) {
+                depth--;
+            } else if (t.type == TokenType.NEWLINE && depth == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {

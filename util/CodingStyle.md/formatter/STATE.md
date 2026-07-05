@@ -685,6 +685,47 @@ round-trip, `make test`, then a permanent fixture under `test/real_code_regressi
 `_4`/`_5`/`_6` suffixed pair if an existing one gets too large) — same pattern as this session.
 Update this section as each candidate completes.
 
+**`../../../3rd_party/tools/pcpp_java/src/` (local, Java preprocessor tool source, 41 `.java`
+files)** — DONE (2026-07-06). 2 idempotency bugs found and fixed via the round1/round2 diff
+methodology:
+- `Evaluator.java` — **FIXED.** `SwitchRule.alignInlineSwitches`/`applyInlineAlignment` never
+  checked a row's rendered length against `lineLengthLimit` before committing column-padding
+  overrides: padding a short label (e.g. `default`) out to match a much wider sibling label's
+  column could push that one row past the limit even though the switch's original, unpadded
+  text fit. A fresh format produced a stable-looking over-length aligned line that
+  `MiscRule.enforceCallLineBreaking` (an earlier pipeline phase) never got to react to;
+  reformatting that output let `enforceCallLineBreaking` break the now-over-length line apart,
+  after which the alignment pass no longer recognized the row shape and left it un-aligned —
+  not idempotent. Same bug class as `real_code_regressions_7`'s arrow-join overflow. Fixed by
+  threading `lineLengthLimit` into `SwitchRule` (new 2-arg constructor, legacy 1-arg
+  constructor delegating to `MiscRule.DEFAULT_LINE_LENGTH_LIMIT`) and predicting every row's
+  final rendered length before writing any override, leaving the whole switch's cases
+  byte-for-byte untouched if even one row would overflow. Fixture:
+  `test/real_code_regressions_9_{inp,out}.java`.
+- `Value.java` — **FIXED.** `ScopePipeline.processScope` decided whether a non-named scope
+  body (e.g. an `if` one-liner body kept on its original single physical line) was still a
+  single-statement "one-liner" via a raw `childSource.contains("\n")` check. On a fresh format
+  that's correct — a one-liner body has no embedded newline at all — but
+  `MiscRule.enforceCallLineBreaking` can break an over-length call inside that same one-liner
+  body across multiple physical lines while leaving it one logical statement (e.g.
+  `if (last == 'u' || last == 'U') { unsigned = true; s = s.substring(0, s.length() - 1); }`
+  wrapped only at the `substring(...)` call). Reformatting that already-broken output made the
+  raw newline check see newlines strictly inside the call's own parens and wrongly treat the
+  body as a real multi-statement block, recursing into it and column-splitting/reindenting its
+  statements — corrupting output that was already correctly formatted, with a misplaced/
+  misindented closing `}` and spurious column-padding inserted before an unrelated `=`. Fixed
+  by adding `hasTopLevelNewline` (a paren/bracket-depth-aware scan over the token range, not a
+  raw string search) and using it in place of `childSource.contains("\n")` at both call sites
+  in `processScope` — only a `NEWLINE` token seen at depth 0 now counts as evidence of a real
+  multi-statement body. Fixture: `test/real_code_regressions_10_{inp,out}.java`.
+- `Preprocessor.java` — investigated, no formatter bug: its round1/round2 diff was fully
+  explained by the two fixes above (both files are formatted as part of the same tree pass);
+  once `SwitchRule`/`ScopePipeline` were fixed, its diff went empty too.
+
+Verified: `make test` 28/28 (26 → 28 with the two new fixtures), full 41-file pcpp_java tree
+re-diffed round1 vs round2 — empty (idempotent) on every file — and both the original and the
+round1-formatted tree compile clean with `javac` (0 errors, matching counts).
+
 **Bug found and fixed via the dogfood compile check:** `MiscRule.renderCallPreserveGroups`/
 `renderDeclarationPreserveGroups` (Option 2, "preserve original line groups" for a multi-line
 call/declaration argument list) used to split each original source line's tokens on top-level

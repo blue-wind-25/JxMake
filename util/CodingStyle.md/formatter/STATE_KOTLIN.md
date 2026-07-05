@@ -6,6 +6,24 @@ file depends on is restated below. This file is **not yet linked** from
 `STATE.md`'s own index — do not add a cross-reference there until explicitly
 told to.
 
+### Guard — Unexpected Read of This File
+
+As of this writing, nothing in `CLAUDE.md` or `STATE.md` routes a session here
+automatically — the only legitimate way to be reading this file is that the
+user named it explicitly for the current task. If you are reading this file
+for any other reason (an automatic session-start read, a stale pointer, a
+cross-reference followed without the user asking), **stop and ask the user
+before doing anything else** — do not proceed as if this file's context is
+the right one for the current task.
+
+**This guard is temporary and self-limiting.** Once `STATE.md` contains its
+own conditional redirect into this file (a one-line addition the user
+maintains outside this file, added only once real Kotlin implementation work
+begins), a routed read via that line becomes expected and legitimate — this
+guard's premise ("nothing routes here") no longer holds at that point, and
+the guard should be reworded or removed rather than left to false-trigger on
+a now-legitimate routed read.
+
 ---
 
 ## Purpose
@@ -48,6 +66,16 @@ session working from this file alone must not skip it for lack of having read
 Kotlin-only work belongs in new files (see Project Layout below), added
 alongside the existing per-language files (`JavaSpecificRule.java`,
 `CppSpecificRule.java`) rather than folded into them.
+
+**Before modifying a shared class, grep first — do not read `STATE.md` in
+full.** Run `grep -Fm1 'ClassName' STATE_rdd_log.md` (substitute the class or
+method you're about to touch) to surface any existing `RDD_KEY_n` decisions
+that already explain its shape — e.g. why `TokenizerCore`'s multi-char
+operator table is structured the way it is (RDD_KEY_69), or why a rule class
+re-derives named-construct-ness from raw tokens instead of trusting one flag
+(RDD_KEY_84/85). This is almost always sufficient. Only read `STATE.md`'s
+Project Layout section specifically (never its Checklist or full history) if
+the grep hits don't explain what you're looking at.
 
 ---
 
@@ -203,3 +231,31 @@ existing test suite after this step, before moving to Step 1.
   already applied to this session's own README.md/README.txt review.
 - No link from `STATE.md`'s own Project Layout or checklist — explicit
   instruction, revisit only when told to.
+
+---
+
+## Handoff Note — When Linking This File From `STATE.md`
+
+When the user tells you to link this file (i.e. Kotlin JAR implementation
+work is actually starting), do both of the following as one checkpoint
+commit — this section is instruction for that moment, not just a reminder:
+
+1. **In `STATE.md`:** add this paragraph as the very first thing after the
+   title line, before the existing "Do NOT read `README.md`..." note, so it
+   is seen before any other instruction in that file:
+
+   ```
+   If the current task concerns Kotlin JAR support, stop here and read
+   STATE_KOTLIN.md instead — it is self-contained and does not require the
+   rest of this file.
+   ```
+
+2. **In this file:** remove (or reword) the "Guard — Unexpected Read of This
+   File" section near the top. Its premise — "nothing routes here
+   automatically" — stops being true the moment step 1 lands; left as-is, it
+   would tell every legitimately-routed session to stop and ask the user,
+   defeating the redirect you just added.
+
+Do not perform either edit before the user explicitly says Kotlin
+implementation work is starting — both remain deferred until then, per the
+Explicit Non-Goals above.

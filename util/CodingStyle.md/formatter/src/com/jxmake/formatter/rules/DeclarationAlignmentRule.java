@@ -790,6 +790,14 @@ public class DeclarationAlignmentRule {
         if (body.isEmpty()) {
             return null;
         }
+        // A `case ...` / `default ...` switch label is never a declaration -- reject it here
+        // rather than letting the generic type/name heuristics below misparse its label tokens
+        // (e.g. Java's `case CLASS, INTERFACE -> ...;`) as a bogus type/name split, which then
+        // grid-aligns garbage padding into an unrelated sibling case's body (see STATE.md).
+        if (body.get(0).type == TokenType.KEYWORD
+                && ("case".equals(body.get(0).text) || "default".equals(body.get(0).text))) {
+            return null;
+        }
 
         int i = 0;
         List<Token> templatePrefix = Collections.emptyList();

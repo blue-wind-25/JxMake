@@ -508,6 +508,16 @@ public class GetterSetterRule {
         if (hasNewlineBetween(tokens, firstSig, to)) {
             return null;
         }
+        // A `case ...` / `default ...` switch label is never a getter/setter-style member --
+        // reject it here rather than letting `findNameBeforeParen` below treat its label tokens
+        // (up through the `->`) as a bogus "return type" in front of the arrow body's own
+        // trailing call (e.g. Java's `default -> throw new AssertionError(x);` misparsed as
+        // return-type "default -> throw new" + name "AssertionError"), which then grid-aligns
+        // garbage padding into an unrelated sibling case's body (see STATE.md).
+        if (isJava && tokens.get(firstSig).type == TokenType.KEYWORD
+                && ("case".equals(tokens.get(firstSig).text) || "default".equals(tokens.get(firstSig).text))) {
+            return null;
+        }
         int pos = firstSig;
         final List<Token> modifiers = new ArrayList<>();
         if (isJava) {

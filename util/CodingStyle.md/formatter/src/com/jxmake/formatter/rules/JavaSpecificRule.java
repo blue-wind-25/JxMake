@@ -1005,7 +1005,7 @@ public class JavaSpecificRule {
                 }
             }
             if (!anyBlockBody && !anyFrozen(tokens, openBraceIdx, closeBraceIdx + 1)) {
-                applyArrowAlignment(cases, overrides);
+                applyArrowAlignment(tokens, cases, closeBraceIdx, overrides);
             }
         }
 
@@ -1084,7 +1084,8 @@ public class JavaSpecificRule {
     /** Pads every case's label to the widest in {@code cases} (trailing-cell trick, same precedent
      *  as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the label span --
      *  body content from {@code bodyStartIdx} onward is left completely untouched. */
-    private void applyArrowAlignment(final List<ArrowCase> cases, final Map<Integer, String> overrides) {
+    private void applyArrowAlignment(final List<Token> tokens, final List<ArrowCase> cases,
+            final int closeBraceIdx, final Map<Integer, String> overrides) {
         final ColumnGrid grid = new ColumnGrid();
         for (final ArrowCase c : cases) {
             grid.addRow(new String[] {c.label + " ", ""});
@@ -1093,11 +1094,38 @@ public class JavaSpecificRule {
 
         for (int i = 0; i < cases.size(); i++) {
             final ArrowCase c = cases.get(i);
-            overrides.put(c.kwIdx, padded.get(i)[0] + "-> ");
+            final String labelPart = padded.get(i)[0] + "-> ";
+            // Predict the resulting single physical line's width before actually joining --
+            // otherwise a case whose body was originally split onto its own line (fitting there)
+            // can be joined here into a line that overflows lineLengthLimit, a decision
+            // MiscRule.enforceCallLineBreaking (Phase 1, earlier in the pipeline) never gets a
+            // chance to react to since it already ran against the pre-join layout. Left
+            // unchecked, this flip-flops across reformats: fresh format joins+overflows, then
+            // reformatting the already-joined (over-length) output lets enforceCallLineBreaking
+            // finally see and break the too-long call -- not idempotent. Same
+            // predict-before-committing posture as isSingleLineBody above.
+            final int bodyEndIdx = i + 1 < cases.size() ? cases.get(i + 1).kwIdx - 1 : closeBraceIdx - 1;
+            final int indent = lineIndentWidth(tokens, c.kwIdx);
+            final String bodyOneLine = collapseToOneLine(tokens, c.bodyStartIdx, bodyEndIdx);
+            if (indent + labelPart.length() + bodyOneLine.length() > lineLengthLimit) {
+                continue; // leave this one case's label/body untouched, byte-for-byte
+            }
+            overrides.put(c.kwIdx, labelPart);
             for (int k = c.kwIdx + 1; k < c.bodyStartIdx; k++) {
                 overrides.put(k, "");
             }
         }
+    }
+
+    /** Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
+     *  the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
+     *  on its line, i.e. no WHITESPACE token directly precedes it). */
+    private int lineIndentWidth(final List<Token> tokens, final int idx) {
+        int width = 0;
+        for (int i = idx - 1; i >= 0 && tokens.get(i).type == TokenType.WHITESPACE; i--) {
+            width += tokens.get(i).text.length();
+        }
+        return width;
     }
 
     /** Renders {@code tokens} with each entry in {@code overrides} substituted for that token's

@@ -510,23 +510,64 @@ written as `~` below so this file never embeds the actual account/user name):
     fix from the previous session correctly skips gaps with comments here), and
     `BlockStructureRule.addClosingComments` (ruled out — behaves correctly given its input); all
     debug prints have been removed.
-  - `CommandLineOptionsParser.java`, `Doc.java`, `JavadocFormatter.java`,
-    `JavaInputAstVisitor.java` — **NOT YET FIXED**, separate bug. Re-running the full-tree
-    idempotency check after the fix above still shows these 4 files diverging. Example
-    (`Doc.java`, round1 vs round2): a method's closing `}` inside an enum constant body loses
-    its indent on the second pass —
-    ```
-    boolean isReal()
-      {
-        return this == REAL;
-      }        <- round1 (correct, matches the `{`'s 6-space indent)
-        }      <- round2 (wrong, drifts to 8 spaces matching the body)
-    ```
-    Not yet root-caused; likely a different rule (indentation/reindent logic for a brace whose
-    opening `{` sits on its own line directly under a method header with no blank line before
-    it, inside an enum body) misjudging the anchor on a re-format. Next step: minimize a repro
-    (a short enum with a method whose `{` is Allman-style on its own line) and re-apply the same
-    debug-print bisection methodology used for the `JavaOutput.java` bug above.
+  - `Doc.java` — **FIXED (2026-07-06), via the config-wiring fix above, not a further code
+    change.** Root cause (see the "Config-key wiring audit" entry above): `ScopePipeline`'s
+    depth-based indent math (`normalizeIndent`, and `MiscRule.render(sig, depth, ...)`'s own
+    depth-derived indentation) assumed a fixed indent width, hardcoded to 4, that didn't match
+    google-java-format's own 2-space source. At 3-level nesting (odd multiple of 2, non-multiple
+    of 4) this produced the observed divergence: a method's closing `}` inside an enum constant
+    body matched its opening `{`'s 6-space indent on round1, then drifted to 8 (rounded up to the
+    next multiple of 4) on round2. Once `indent-size` was wired through to actual effect (prior
+    entry), re-testing with a `.jxmake-code-formatter` containing `indent-size = 2` for this
+    checkout makes `Doc.java` byte-identical round1 vs round2 — confirmed via direct round-trip
+    test. No further code change was needed; this was purely a config-value-not-taking-effect
+    bug, already fixed. Same real-code-testing principle as any linter/formatter: a project
+    written in a non-default style needs its own config to match that style.
+  - `CommandLineOptionsParser.java`, `JavadocFormatter.java` — **FIXED (2026-07-06).** Root
+    cause: `JavaSpecificRule.applyArrowAlignment` (arrow-switch `case X -> body;` label/body
+    joining) unconditionally joined a case's label onto the same line as its body, with no check
+    on whether the resulting single-line width would exceed `lineLengthLimit`. On a fresh format
+    this could produce an over-length joined line that `enforceCallLineBreaking` (Phase 1,
+    earlier in the pipeline) never got a chance to react to, since it already ran against the
+    pre-join layout; reformatting that already-joined, over-length output then let
+    `enforceCallLineBreaking` finally see and re-break it apart — not idempotent. Fixed by
+    predicting the joined line's width (reusing the existing `collapseToOneLine` helper) before
+    committing to the join, and leaving any one case whose join would overflow byte-for-byte
+    untouched instead. Verified via `make test` (23/23, no regressions) and live round-trip
+    testing on both real files. Permanent fixture: `test/real_code_regressions_7_inp/out.java`
+    (registered in `Makefile`'s `INP_FILES`).
+  - `JavaInputAstVisitor.java` — **FIXED (2026-07-06), third/unrelated bug.** Symptom: extra
+    spaces inserted mid-statement (e.g. `default -> throw new     AssertionError(...)`) only on
+    the first format pass of an arrow-form `switch` containing a comma-joined case label (e.g.
+    `case CLASS, INTERFACE -> ...;`) followed by a `default -> throw new X(...);` arm — reproduces
+    with as few as those two case arms alone, independent of surrounding context (earlier belief
+    that it was context-dependent was a red herring from an invalid first repro attempt). Root
+    cause: `GetterSetterRule.parseOneLinerMember` (the getter/setter one-liner column-alignment
+    pass, invoked per-scope by `ScopePipeline.applyGetterSetterPass`) treats every one-physical-line
+    top-level statement in a scope as a candidate "member", and its `findNameBeforeParen` heuristic
+    misparsed each `case`/`default` arrow-arm as a fake member: for
+    `case CLASS, INTERFACE -> visitClassDeclaration(tree);`, it read "return type" =
+    `case CLASS , INTERFACE ->` and "name" = `visitClassDeclaration`; for
+    `default -> throw new AssertionError(tree.getKind());`, "return type" = `default -> throw new`
+    and "name" = `AssertionError`. Grouping these two fake members together and column-aligning
+    the "return type" cell to the wider sibling's width is exactly what inserted the padding
+    between `new` and `AssertionError`. Fixed by rejecting any one-liner whose first significant
+    token is the `case`/`default` keyword at the very top of `parseOneLinerMember`, before the
+    name/return-type heuristics run — same posture as the analogous guard added to
+    `DeclarationAlignmentRule.parseDeclaration` while investigating this (that guard turned out to
+    be for a different, never-actually-triggered misparse path in this specific bug, but is a
+    correct defensive fix in its own right and was kept). Diagnosed via `JXM_DEBUG` bisection
+    across `Formatter.java`'s phase boundaries (all pipeline stages, including immediately after
+    `ScopePipeline.process()`, showed the bug already present, narrowing it to *inside*
+    `ScopePipeline`) plus a temporary per-group debug print in
+    `ScopePipeline.applyDeclarationsPass` (showed zero matches, ruling out
+    `DeclarationAlignmentRule` as the active cause) and manual line-by-line truncation/bisection of
+    the real file down to a 2-statement minimal repro. All debug instrumentation removed. Verified
+    via `make test` (23/23, no regressions) and live round-trip testing on all four previously
+    diverging files (`Doc.java`, `CommandLineOptionsParser.java`, `JavadocFormatter.java`,
+    `JavaInputAstVisitor.java`) — all four now byte-identical round1 vs round2. Permanent
+    fixture: `test/real_code_regressions_8_inp/out.java` (registered in `Makefile`'s
+    `INP_FILES`).
 - **MEDIUM**: `github.com/javaparser/javaparser` — excellent grammar coverage, good candidate for
   finding parsing-edge-case bugs across a wide variety of Java constructs.
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the

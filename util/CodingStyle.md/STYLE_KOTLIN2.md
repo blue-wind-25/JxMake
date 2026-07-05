@@ -54,6 +54,11 @@ rules already established in STYLE_KOTLIN.md:
   STYLE_KOTLIN.md §16 (string templates preserved exactly as written).
 - **Context parameters** (experimental, 2.1+) — not yet in scope; revisit once
   the feature stabilizes and appears in actual project code.
+- **Unnamed placeholder `_`** in a lambda parameter list (`{ _, value -> ... }`) —
+  formatted identically to any other lambda parameter for spacing purposes
+  (STYLE_KOTLIN.md §17.1's arrow spacing, normal comma spacing). See
+  STYLE_KOTLIN.md §12 for the destructuring-declaration form of the same
+  placeholder.
 
 ---
 
@@ -64,3 +69,4 @@ rules already established in STYLE_KOTLIN.md:
 | File scope | Intentionally short — most 2.0+ features extend STYLE_KOTLIN.md rules rather than needing new ones |
 | Guard conditions | Extend existing `when` arrow-alignment rule, no new formatting logic |
 | `data object` | Formatted identically to `object` |
+| Unnamed placeholder `_` (lambda params) | No new rule — formatted like any other lambda parameter for spacing purposes |

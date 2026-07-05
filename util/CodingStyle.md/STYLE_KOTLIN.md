@@ -62,7 +62,7 @@ as written — the formatter neither adds nor removes it. It is a separate,
 independent detail from the mandatory `;`; the two are not interchangeable
 (`,` separates entries from each other, `;` separates the entry list from members).
 
-Enum body brace is K&R, same as `class`/`interface` (§4), and always receives the
+Enum body brace is K&R, same as `class`/`interface` (§3), and always receives the
 closing comment (STYLE.md §7), same as Java.
 
 ---
@@ -141,6 +141,51 @@ catch(e: IOException) {
 finally {
     cleanup()
 }
+```
+
+### 3.3 Secondary Constructors
+
+A secondary constructor's body is a function-definition body — same treatment as
+any other function body (this section's lead rule): **Allman**, `{` on its own
+line, regardless of whether it delegates to the primary constructor via
+`: this(...)` or to a superclass via `: super(...)`. The delegation clause stays
+attached to the constructor's own parameter list, same posture as a Java
+constructor's own signature line — it does not get its own line unless the
+signature itself needs to break per §7:
+
+```kotlin
+class Foo(val x: Int, val y: Int) {
+
+    constructor(x: Int) : this(x, 0)
+    {
+        // ...
+    }
+
+} // class Foo
+```
+
+A constructor with no body (`constructor(x: Int) : this(x, 0)`, no trailing `{}`)
+needs no brace-style decision at all — it is a single-line delegation-only
+declaration.
+
+### 3.4 `init` Blocks
+
+`init { }` is treated as a named construct (STYLE.md §7's named-construct rule) —
+K&R brace, always a blank line after `{` and before `}` regardless of content
+length, always a closing comment (`// init`), same posture as §3.1's
+class/object/companion-object treatment, not gated by
+`closing-comment-min-lines`:
+
+```kotlin
+class Foo(x: Int) {
+
+    init {
+
+        require(x > 0)
+
+    } // init
+
+} // class Foo
 ```
 
 ---
@@ -279,6 +324,15 @@ foo(
 )
 ```
 
+### 7.2 Trailing Comma
+
+A trailing comma after the last parameter/argument in a broken (one-per-line)
+constructor, function, or call parameter list — `val age : Int,` before the closing
+`)` — is **preserved exactly as written**, same "don't impose an opinion the input
+didn't have" posture already established for the enum trailing comma (§2). The
+formatter neither adds nor removes it in any parameter-list context, not only
+enum entries.
+
 ---
 
 ## 8. Property Accessors (`get`/`set`)
@@ -308,7 +362,39 @@ getter/setter group alignment rule (STYLE.md §14 / STYLE_JAVA.md §5).
 
 ---
 
-## 9. `for` Loops and Ranges
+## 9. Expression-Bodied Functions
+
+`fun foo(): Int = x` is the function-level analog of §8's expression-body
+accessor — same preserve-as-is posture: the formatter never converts an
+expression body to a block body or vice versa.
+
+**Standalone, fits inline** — left exactly as written:
+```kotlin
+fun square(x: Int): Int = x * x
+```
+
+**Adjacent to other one-liner members** (other expression-bodied functions,
+block-bodied one-liners, or accessors) — participates in the same §14/STYLE.md
+getter/setter-style aligned group §8 already defers to. An expression-bodied
+function is just another one-liner shape for that grouping, not a separate
+mechanism.
+
+**Doesn't fit in 100 chars** — break the parameter list first, per §7's existing
+rule. If `) : ReturnType = expr` still doesn't fit once the parameter list is
+broken, wrap `= expr` onto its own line, indented one level, mirroring how §7.1's
+named-argument `=` wraps rather than inventing a new break rule:
+
+```kotlin
+fun reallyLongFunctionName(
+    x: Int,
+    y: Int
+): Int =
+    x * x + y * y
+```
+
+---
+
+## 10. `for` Loops and Ranges
 
 `for(...)` follows the same tight/loose complexity-padding detector as `if`/`while`
 conditions (STYLE.md §3.1), extended with the range keywords `in`, `until`,
@@ -326,7 +412,32 @@ word-operators and get normal spacing — same tight/loose rule applies once nes
 
 ---
 
-## 10. Destructuring Declarations
+## 11. Labeled Jumps
+
+`return@label`, `break@loop`, `continue@loop` — the `@label`/`@loop` part is
+spaced like a normal keyword followed by an identifier, not tight:
+
+```kotlin
+listOf(1, 2, 3).forEach {
+    if(it == 2) return@forEach
+
+    println(it)
+}
+
+outer@ for(i in 1..10) {
+    for(j in 1..10) {
+        if(j == 5) break@outer
+    }
+}
+```
+
+The label declaration itself (`outer@`) is likewise spaced from what follows it.
+A jump's value expression, when present (`return@label value`), is spaced from
+the label the same way a normal `return value` is spaced from `return`.
+
+---
+
+## 12. Destructuring Declarations
 
 ```kotlin
 val (a, b)        = pair
@@ -343,9 +454,14 @@ one-per-line break gains no readability. This is a deliberate, documented
 exception to the general >100-char breaking rule: destructuring lists are allowed
 to overflow.
 
+The unnamed placeholder `_` (skipping a component) is just another identifier for
+spacing purposes — same comma/alignment treatment as any other destructured name,
+no special-case needed. See STYLE_KOTLIN2.md §3 for the lambda-parameter form of
+the same placeholder.
+
 ---
 
-## 11. Generics: Variance (`in`/`out`)
+## 13. Generics: Variance (`in`/`out`)
 
 Normal generic-type spacing (tight against `<`), with `in`/`out` inserted as a
 token before the type parameter:
@@ -361,11 +477,57 @@ nested-generic rule.
 
 ---
 
-## 12. Infix Functions
+## 14. Generic `where` Clause
+
+Multiple upper bounds on a type parameter (`where T : BoundA, T : BoundB`) are a
+trailing qualifier on the function signature — same "trailing qualifier attaches
+to the signature, breaks only at its own natural token, never restructured
+further than necessary" posture already established elsewhere in this style
+(e.g. a C++ trailing `requires` clause).
+
+**Fits inline** — `where` stays on the same line as the signature's return type:
+
+```kotlin
+fun <T> merge(x: T, y: T): T where T : Comparable<T>, T : Serializable {
+    ...
+}
+```
+
+**Doesn't fit** — `where` drops to its own line, indented one level under `fun`;
+bounds break one-per-line at the comma (never at the bound's own `:`, which stays
+glued to its type parameter same as every other `:` in this style), column-aligned
+under the first bound's type parameter:
+
+```kotlin
+fun <T> merge(x: T, y: T): T
+    where T : Comparable<T>,
+          T : Serializable
+{
+    ...
+}
+```
+
+**A single bound line still doesn't fit** — allowed to overflow, same deliberate
+exception already established for destructuring lists (§12). There is no
+further, finer-grained break point below one-bound-per-line that this style
+defines a rule for:
+
+```kotlin
+fun <T> merge(x: T, y: T): T
+    where T : Comparable<T>,
+          T : SuperVeryVeryLongLongNameClass<T>
+{
+    ...
+}
+```
+
+---
+
+## 15. Infix Functions
 
 `infix` is a modifier token occupying the same slot-handling as `suspend`/
 `inline`/etc. (§6). Call-site usage is a word-operator, spaced like `until`/
-`downTo` (§9):
+`downTo` (§10):
 
 ```kotlin
 infix fun Int.times(str: String): String = ...
@@ -375,7 +537,7 @@ val result = 3 times "abc"
 
 ---
 
-## 13. Annotation Use-Site Targets
+## 16. Annotation Use-Site Targets
 
 `@field:`, `@get:`, `@param:`, `@set:`, etc. — `:` is tight between the annotation
 name and its use-site target. Annotation placement (own line vs. inline) follows
@@ -388,7 +550,7 @@ val x: Int = 0
 
 ---
 
-## 14. Lambda-with-Receiver / Function Types
+## 17. Lambda-with-Receiver / Function Types
 
 `Type.(Params) -> ReturnType` is recognized as a single function-type token, not
 a nested-paren construct — exempt from the tight/loose nesting detector the same
@@ -407,9 +569,27 @@ fun build(block: StringBuilder.(Int, String) -> Unit) { }
 handled by the exemption above — falls back to default spacing, may not look
 ideal. See STYLE.md Known Gaps section.
 
+### 17.1 Lambda Parameter Arrow Spacing
+
+A lambda's own parameter-list arrow (`{ x, y -> x + y }`) is spaced on both
+sides, same treatment as the function-type arrow above and `when`'s arrow (§4) —
+one consistent arrow-spacing rule across all three constructs, not a
+lambda-specific exception:
+
+```kotlin
+list.map { x, y -> x + y }
+
+list.map { item ->
+    item.transform()
+}
+```
+
+This applies whether the lambda is single-line or the body spans multiple lines
+(K&R brace per §3's lambda exception either way).
+
 ---
 
-## 15. `vararg`
+## 18. `vararg`
 
 Modifier token on a parameter, same slot-position handling as Java varargs
 (`Object... args`), just spelled as a leading keyword instead of trailing `...`:
@@ -420,7 +600,7 @@ fun foo(vararg args: Int) { }
 
 ---
 
-## 16. String Templates
+## 19. String Templates
 
 `"$x"` (bare) vs `"${x}"` (braced) — **preserved exactly as the user wrote it.**
 No normalization in either direction. Same "don't impose an opinion the input
@@ -428,35 +608,35 @@ didn't have" posture as enum trailing-comma handling (§2).
 
 ---
 
-## 17. Sealed Classes / Interfaces
+## 20. Sealed Classes / Interfaces
 
 Subtypes (nested or file-level `class`/`object` declarations) follow normal
 `class`/`object` K&R rules (§3, §3.1) — no special layout beyond that.
 
 ---
 
-## 18. Type Aliases
+## 21. Type Aliases
 
 `typealias Foo = ...` is a single-line declaration; treated like any other
 single-line `val`-style statement for spacing (`=` spaced, normal token spacing).
 
 ---
 
-## 19. Extension Functions
+## 22. Extension Functions
 
 `fun String.foo()` — `fun` is just a keyword/modifier token like `static`; no
 special treatment for the receiver-type prefix beyond normal token spacing.
 
 ---
 
-## 20. Known Gaps
+## 23. Known Gaps
 
 - Doubly-nested function types as parameters of an outer function type
-  (§14) — not yet detected/exempted correctly by the tight/loose detector.
+  (§17) — not yet detected/exempted correctly by the tight/loose detector.
 
 ---
 
-## 21. Resolved Design Decisions (Q&A session)
+## 24. Resolved Design Decisions (Q&A session)
 
 | Topic | Decision |
 |---|---|
@@ -476,3 +656,10 @@ special treatment for the receiver-type prefix beyond normal token spacing.
 | Destructuring | No forced break past 100 chars — allowed to overflow, since there's no alignment anchor |
 | String templates | Preserved exactly as written, no normalization |
 | Lambda-with-receiver `()` | Exempt from nesting detector as a function-type token; doubly-nested case flagged as a known gap |
+| Secondary constructors | Body is a function-definition body — Allman, same as any other function body; delegation clause (`: this(...)`/`: super(...)`) stays attached to the signature |
+| `init` blocks | Named-construct treatment — always blank lines + closing comment (`// init`), not gated by the closing-comment-min-lines threshold |
+| Trailing comma (function/constructor params) | Same preserve-as-written posture as the enum trailing comma — extends to every broken parameter/argument list, not just enum entries |
+| Labeled jumps | `@label`/`@loop` spaced like a normal keyword+identifier, not tight |
+| Lambda parameter arrow | Spaced both sides — one consistent arrow-spacing rule shared with `when` and function-type arrows |
+| Expression-bodied functions | Same preserve-as-is posture as accessors (§8); participates in §14/STYLE.md one-liner aligned groups as just another one-liner shape; breaks via §7 param rules then wraps `= expr` on its own line if still too long |
+| Generic `where` clause | Trailing-qualifier posture: inline if it fits; else `where` drops to its own line, bounds break one-per-line at the comma (never at the bound's own `:`), column-aligned; a single overlong bound line is allowed to overflow, same precedent as destructuring |

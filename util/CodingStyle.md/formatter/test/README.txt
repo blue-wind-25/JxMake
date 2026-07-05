@@ -325,6 +325,28 @@ Real-code regressions:
                                 rejection, while leaving the already-correct flat cases
                                 (enum/direct-list-init) untouched.
 
+  real_code_regressions_11_out.c -- (updated, same fixture as above) Once a
+                                large brace-initializer is too wide to
+                                collapse to one line, DeclarationAlignmentRule
+                                correctly leaves it byte-for-byte untouched --
+                                but that meant its closing `}` stayed wherever
+                                the original source put it, typically glued
+                                onto the end of the last data line
+                                (`... 0xAC, 0x62};`) rather than on its own
+                                line at the declaration's indent. Added
+                                ScopePipeline.applyOversizedAggregateInitClosingBracePass,
+                                a dedicated pass run right after
+                                applyDeclarationsPass: finds `name = { ... };`
+                                where the `{...}` already spans a newline (a
+                                short flat init DeclarationAlignmentRule
+                                successfully collapsed to one line has no
+                                newline left inside it by this point, so this
+                                pass is a no-op for it) and the `}` is not
+                                already alone on its own line, and moves it
+                                there. Verified against the full 44-file
+                                serge-sans-paille/frozen tree: round1/round2
+                                is now fully idempotent (empty `diff -rq`).
+
 
 How Tests Are Run
 -----------------

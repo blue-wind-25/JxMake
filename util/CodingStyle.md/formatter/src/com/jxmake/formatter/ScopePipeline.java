@@ -615,6 +615,92 @@ public class ScopePipeline {
         return splice(tokens, replacements);
     }
 
+    // ── Oversized aggregate-init closing-brace pass ────────────────────────────────
+
+    /**
+     * A brace-initializer (`name = { ... };`) too large or otherwise ineligible for
+     * {@code DeclarationAlignmentRule}'s one-line collapse (e.g. a byte/word table spanning many
+     * source lines, left untouched by the width guard in `parseDeclaration`) still has its
+     * closing `}` dangling at the end of the last data line, e.g. {@code ... 0xAC, 0x62};}. Move
+     * that `}` onto its own line at the declaration's own indent -- matching this codebase's
+     * general convention of a closing brace on its own line (STYLE.md's Allman-style bodies,
+     * `}; // struct Foo` for named constructs) -- without touching any of the untouched data
+     * lines above it. Only fires when the brace-initializer's own `{...}` already spans a
+     * newline (a short flat init that {@code DeclarationAlignmentRule} successfully collapsed to
+     * one line by this point has no newline left inside it, so this pass is a no-op for it) and
+     * the `}` is not already alone on its own line.
+     */
+    private String applyOversizedAggregateInitClosingBracePass(final List<Token> tokens) {
+        final List<Replacement> replacements = new ArrayList<>();
+        final int n = tokens.size();
+        for (int idx = 0; idx < n; idx++) {
+            if (!isOp(tokens.get(idx), "=")) {
+                continue;
+            }
+            final int openIdx = nextSignificantIndex(tokens, idx);
+            if (openIdx < 0 || !isPunct(tokens.get(openIdx), "{")) {
+                continue;
+            }
+            int depth = 1;
+            int k = openIdx + 1;
+            boolean hasNewlineInside = false;
+            while (k < n && depth > 0) {
+                final Token tk = tokens.get(k);
+                if (isPunct(tk, "{")) {
+                    depth++;
+                } else if (isPunct(tk, "}")) {
+                    depth--;
+                    if (depth == 0) {
+                        break;
+                    }
+                } else if (tk.type == TokenType.NEWLINE) {
+                    hasNewlineInside = true;
+                }
+                k++;
+            }
+            if (depth != 0 || !hasNewlineInside) {
+                continue;
+            }
+            final int closeIdx = k;
+            final int semiIdx = nextSignificantIndex(tokens, closeIdx);
+            if (semiIdx < 0 || !isPunct(tokens.get(semiIdx), ";")) {
+                continue;
+            }
+            int wsStart = closeIdx;
+            boolean sameLine = false;
+            while (wsStart > openIdx + 1) {
+                final Token pt = tokens.get(wsStart - 1);
+                if (pt.type == TokenType.NEWLINE) {
+                    break;
+                }
+                if (pt.type == TokenType.WHITESPACE) {
+                    wsStart--;
+                    continue;
+                }
+                sameLine = true;
+                break;
+            }
+            if (!sameLine) {
+                continue; // `}` is already alone on its own line -- nothing to do
+            }
+            String indent = "";
+            for (int p = openIdx - 1; p >= 0; p--) {
+                if (tokens.get(p).type == TokenType.NEWLINE) {
+                    final StringBuilder sb = new StringBuilder();
+                    int q = p + 1;
+                    while (q < openIdx && tokens.get(q).type == TokenType.WHITESPACE) {
+                        sb.append(tokens.get(q).text);
+                        q++;
+                    }
+                    indent = sb.toString();
+                    break;
+                }
+            }
+            replacements.add(new Replacement(wsStart, closeIdx, "\n" + indent));
+        }
+        return splice(tokens, replacements);
+    }
+
     // ── §6 assignments pass ──────────────────────────────────────────────────────
 
     /** Identical shape to {@link #applyDeclarationsPass} using {@code MiscRule.groupAssignments}/
@@ -916,6 +1002,7 @@ public class ScopePipeline {
     private String processScope(final List<Token> tokens, final int depth, final boolean scopeStartFrozen) {
         List<Token> current = tokens;
         current = tokenize(applyDeclarationsPass(current), scopeStartFrozen);
+        current = tokenize(applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen);
         current = tokenize(applyAssignmentsPass(current), scopeStartFrozen);
         current = tokenize(applySignaturePass(current, depth), scopeStartFrozen);
         current = tokenize(applyGetterSetterPass(current, depth), scopeStartFrozen);

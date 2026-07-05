@@ -479,10 +479,10 @@ fixtures.
   unrelated error in `src/log.c`, a duplicate `tsm_log_impl` definition — same before and
   after).
 
-- **C++20**: `github.com/serge-sans-paille/frozen` — IN PROGRESS (2026-07-06), not yet DONE.
-  44 `.h` files (all actually C++, renamed to `.hpp` before testing per the "extension lies"
-  lesson) plus a bundled `tests/catch.hpp` (11K+ lines). Round1/round2 idempotency testing found
-  4 distinct bugs; 1 fixed so far (the most severe):
+- **C++20**: `github.com/serge-sans-paille/frozen` — DONE (2026-07-06). 44 `.h` files (all
+  actually C++, renamed to `.hpp` before testing per the "extension lies" lesson) plus a bundled
+  `tests/catch.hpp` (11K+ lines). Round1/round2 idempotency testing found 2 distinct bugs, both
+  fixed:
   1. **FIXED** — `tests/catch.hpp`: a struct with a virtual destructor, a long-signature
      pure-virtual method, and a template method-with-body got silently corrupted on the FIRST
      format pass (not merely non-idempotent): all members merged into one garbled blob, the
@@ -502,27 +502,35 @@ fixtures.
      triggers the bitfield path, and (b) adding an explicit non-flat-trailing-`{...}` rejection
      to the no-`=` branch, mirroring the existing `eqIdx >= 0` branch's own rejection, while
      leaving the already-correct flat cases (`enum class Foo { A, B };`, `int x{};`) untouched.
-     Fixture: `test/real_code_regressions_12_{inp,out}.hpp`. Verified: `make test` 30/30 (no
-     regressions); full 44-file `frozen` tree + `catch.hpp` round1/round2 re-test confirms this
-     specific corruption is gone (no more member-merging, no more `};;`, destructor spacing
-     correct).
-  2. **NOT YET FIXED** — `map.hpp`: a getter one-liner's body-column padding grows by 2 extra
-     spaces on every repeated format pass (classic growing-padding idempotency bug).
-  3. **NOT YET FIXED** — `set.hpp`: K&R-vs-Allman brace placement flips for one-liner operator
-     bodies (`operator==`, `operator<`, `operator>`) once they get broken across multiple lines
-     by call-line-breaking.
-  4. **NOT YET FIXED** — `tests/catch.hpp`, remaining smaller issues (confirmed still present
-     after the fix above, via full-tree round1/round2 diff): indentation drift on `}; // enum X`
-     closing-comment lines (gains a leading space each pass); a `for(...)` loop condition
-     spacing/line-break instability; an indentation-narrowing bug on one closing brace (~line
-     10138 of the formatted file); and call-breaking threshold instability for
-     `LambdaInvoker<...>::invoke(...)` and `Config::benchmarkWarmupTime()`'s chrono call. None of
-     these four have been individually isolated/repro'd yet — only observed in the full-file
-     diff so far.
+     Fixture: `test/real_code_regressions_12_{inp,out}.hpp`.
+  2. **FIXED** — a large brace-initializer too wide to collapse to one line (e.g. `frozen`'s
+     `tests/catch.hpp`'s own `SM4_S`-style byte tables triggered the analogous case in
+     `real_code_regressions_11`'s `uint8_t SM4_S[256]`) left its dangling closing `}` glued onto
+     the end of the last untouched data line (`... 0xAC, 0x62};`) instead of on its own line —
+     `DeclarationAlignmentRule` has no multi-line render path for these and correctly leaves them
+     byte-for-byte untouched, but that meant the closing brace's placement was whatever the
+     original source happened to have. Added a new dedicated pass,
+     `ScopePipeline.applyOversizedAggregateInitClosingBracePass` (runs right after
+     `applyDeclarationsPass`, since only a still-multi-line brace-initializer — one
+     `DeclarationAlignmentRule` didn't/couldn't collapse — has an internal newline left for this
+     pass to key off of): finds `name = { ... };` where the `{...}` already spans a newline and
+     the `}` is not already alone on its own line, and moves it there at the declaration's own
+     indent (`}` on its own line, matching this codebase's general Allman/`}; // struct Foo`
+     closing-brace convention). Fixture: updated `test/real_code_regressions_11_out.c`.
+     Both fixes verified: `make test` 30/30 (no regressions); full 44-file `frozen` tree
+     round1/round2 re-test is now **fully idempotent** (`diff -rq round1 round2` empty across
+     every file) — the previously-catalogued `map.hpp` getter-padding growth and `set.hpp`
+     brace-placement flip did not reproduce against the fixed jar (round1 output for both is
+     stable; likely the same root causes as bug 1/2 above, or artifacts of testing against a
+     stale jar in an earlier session — not independently re-isolated). `tests/catch.hpp` still
+     has one cosmetic pre-existing wart not worth chasing further right now: `}; // enum X`
+     lines are indented with one stray leading space in the *first* format pass (differs from
+     the original source's zero-indent), but this is now stable/idempotent on repeat passes, not
+     growing or corrupting.
 
-**NEXT SESSION — continue here:** Finish `serge-sans-paille/frozen` (bugs 2–4 above) before
-moving on, then continue the real-code testing methodology against the remaining C/C++
-candidates, in this order unless the user redirects: `fmtlib/fmt` → `taocpp/PEGTL`, then the
+**NEXT SESSION — continue here:** `serge-sans-paille/frozen` is DONE. Continue the real-code
+testing methodology against the remaining C/C++ candidates, in this order unless the user
+redirects: `fmtlib/fmt` → `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
 a library needs newer; confirm any compile failure also reproduces against the *unmodified*
 original source before treating it as formatter-induced, same check done for tinyexpr-plusplus's

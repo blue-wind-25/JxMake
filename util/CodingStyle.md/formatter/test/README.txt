@@ -202,6 +202,38 @@ Real-code regressions:
                                 it's a trailing comment on the same line as preceding
                                 content.
 
+  real_code_regressions_7_inp/out.java -- Found via real-code idempotency testing on
+                                google-java-format. JavaSpecificRule.applyArrowAlignment
+                                unconditionally joined an arrow-form `case X -> body;`
+                                label onto the same line as its body, with no check on
+                                whether the resulting single line would exceed
+                                lineLengthLimit. A fresh format could produce an
+                                over-length joined line that enforceCallLineBreaking
+                                (an earlier pipeline phase) never got to react to;
+                                reformatting that already-joined output then let
+                                enforceCallLineBreaking break it back apart -- not
+                                idempotent. Fixed by predicting the joined line's width
+                                before committing to the join, leaving any case whose
+                                join would overflow byte-for-byte untouched instead.
+
+  real_code_regressions_8_inp/out.java -- Found via real-code idempotency testing on
+                                google-java-format. GetterSetterRule.parseOneLinerMember
+                                (the getter/setter one-liner column-alignment pass)
+                                treated every one-physical-line top-level statement in a
+                                scope as a candidate member, so an arrow-form
+                                `case`/`default` switch arm got misparsed as a bogus
+                                getter/setter: e.g. `case CLASS, INTERFACE ->
+                                visitClassDeclaration(tree);` read as return-type `case
+                                CLASS , INTERFACE ->` + name `visitClassDeclaration`,
+                                and `default -> throw new AssertionError(x);` read as
+                                return-type `default -> throw new` + name
+                                `AssertionError`. Grouping these fake members together
+                                and column-aligning the "return type" cell to the wider
+                                sibling's width injected garbage padding into the
+                                shorter case's body. Fixed by rejecting any one-liner
+                                whose first significant token is the `case`/`default`
+                                keyword before the name/return-type heuristics run.
+
 
 How Tests Are Run
 -----------------

@@ -339,6 +339,33 @@ Real-code regressions:
                                            branch's own rejection, while leaving the already-correct
                                            flat cases (enum/direct-list-init) untouched.
 
+  real_code_regressions_13_inp/out.hpp  -- Found via real-code idempotency testing on
+                                           serge-sans-paille/frozen (specifically its bundled
+                                           tests/catch.hpp, in the Objective-C-interop
+                                           registerTestMethods() block). A `for(...)` loop nested a
+                                           few scopes deep came out of the FIRST format pass
+                                           genuinely corrupted: the loop's own closing `}` and the
+                                           following `return` statement's indentation were thrown
+                                           off. Root cause: TokenizerCore.emitPreprocessor() (used
+                                           for every directive except `#define`) had no
+                                           backslash-line-continuation handling, unlike its sibling
+                                           emitMacroDef(). A real multi-line `#if` condition split
+                                           across a trailing `\` had its continuation line's own
+                                           `(`/`)` tokens lexed as ordinary code instead of being
+                                           swallowed as part of one opaque PREPROCESSOR token,
+                                           permanently desyncing the paren/brace-depth counter used
+                                           by DeclarationAlignmentRule.splitStatements for the rest
+                                           of the file -- since applyDeclarationsPass runs once over
+                                           the entire flat token stream before any scope recursion
+                                           splits it apart, a drift introduced this early reaches
+                                           arbitrarily deep nested constructs much later in the same
+                                           file. Fixed by giving emitPreprocessor() the same
+                                           backslash-continuation loop emitMacroDef() already had.
+                                           Verified against the full 44-file serge-sans-paille/frozen
+                                           tree: round1/round2 is fully idempotent for every file
+                                           except catch.hpp's separate, still-open brace-alignment
+                                           issue around analyse() (STATE.md item 7).
+
 
 
 How Tests Are Run

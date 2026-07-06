@@ -691,7 +691,12 @@ header on every new test fixture file:
      `emitPreprocessor()` the same continuation-line loop as `emitMacroDef()`. Verified: isolated
      repro, `make test` 24/24 no regressions, full rebuild, and the real `tests/catch.hpp`
      for-loop now formats correctly on round1 (`for(u_int m = 0; m < count ; ++m) { ... }`,
-     properly split across the two body statements).
+     properly split across the two body statements). Fixture:
+     `test/real_code_regressions_13_{inp,out}.hpp` (a minimal repro nesting the trigger `#if`
+     and the vulnerable `for` loop at the same relative depth as `catch.hpp`; a smaller version
+     without the surrounding `namespace`/function/loop nesting did not reproduce the bug pre-fix,
+     confirming the desync requires enough intervening scope depth, not just the bad `#if` and a
+     bare `for` loop back to back).
   7. **Bug B STILL OPEN (2026-07-07)** — a brace-alignment mismatch around `if`/`else` (and
      separately `try`/`catch`) pairs, e.g. `tests/catch.hpp`'s `SampleAnalysis<Duration>
      analyse(...)` (originally ~line 7238) and the startup-exceptions `try`/`catch` in `Session`

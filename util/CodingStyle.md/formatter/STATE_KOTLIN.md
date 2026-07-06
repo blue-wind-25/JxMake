@@ -81,8 +81,8 @@ the grep hits don't explain what you're looking at.
   asked (they are the reference output files that show the expected results).
 - Ignore `XL.txt`, that is the user tracker file.
 - Use `/tmp` for temporary smoke-test and mini-test files.
-- Do not perform filesystem-wide find; search first in `/tmp/claude-1000`, if not found,
-  ask me.
+- NEVER perform filesystem-wide find; search first in `/tmp/claude-1000` or the project root.
+  If still not found, ask me.
 - Do not use static analysis as the primary method of bug diagnosis or regression checking.
   Prefer evidence over reasoning (using debug prints). Keep static analysis minimal—only
   enough to identify where to insert debug prints.
@@ -306,6 +306,29 @@ existing test suite after this step, before moving to Step 1.
 
 - [ ] Implement each section flagged "(c)" in Step 1's scoping table, one
       section at a time, each as its own checkpoint commit.
+- [x] **§1 Semicolons.** `KotlinSpecificRule.stripOptionalSemicolons(List<Token>)`
+      strips every optional statement-terminating `;`, keeping only an `enum
+      class` body's entries/members separator, and only when member
+      declarations actually follow it (an entries-only enum body's trailing
+      `;` is optional too and gets stripped, matching §1's own stated
+      rationale). Implemented as a token-list state machine: tracks a
+      brace-depth stack of `EnumBodyState` (armed when the immediately-open
+      `{` was preceded by `enum` then `class`, tolerating any
+      generics/constructor-args/supertype-clause tokens in between since
+      Kotlin's grammar has `enum`/`class` strictly adjacent modulo
+      whitespace); the first top-level `;` inside an armed body is kept iff a
+      non-`}` token follows before that body's own closing `}`. Verified with
+      a standalone tokenize-then-strip harness (not committed, scratchpad
+      only, per this file's own "prefer evidence" rule): flat declarations,
+      an enum with no trailing members, an enum with trailing members, a
+      nested enum-with-constructor-args-and-supertype-clause inside an outer
+      class, and a same-line entries-only enum — all stripped/kept correctly.
+      One real bug caught and fixed during this verification: the initial
+      version reset its `enum`/`class`-pending flags on the class *name*
+      token itself, before ever reaching the body's `{`, so no enum body was
+      ever armed — fixed by only resetting those flags on `;`/`{`/`}`, not on
+      arbitrary header tokens. Full C/C++/Java suite still 25/25 (this file
+      is new, so no shared-class change to worry about here).
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

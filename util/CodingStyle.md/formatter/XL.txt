@@ -7,6 +7,13 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
+Start with the initial Kotlin work:
+1. If you want to use plan mode, append the resulting plan to `STATE_KOTLIN.md`
+2. When writing the Kotlin formatter files, do you prefer me to increase effort to medium or keep
+   using low effort with many iteration?
+Confirm with me first.
+
+
 
 Continue with (download the repo as needed):
 `taocpp/PEGTL`
@@ -15,16 +22,17 @@ Continue with (download the repo as needed):
 
 
 
-When you find and fixed regressions, create new text fixtures `test/real_code_regressions_*_inp/_out*`
-as needed and then update `Makefile` and `test/README.txt`. Use this standard copyright for the test
-fixtures:
+Try to use the config setting `indent-size`, `indent-style`, etc. as needed when idempotency
+tests failed.
+
+Create new text fixtures `test/real_code_regressions_*_inp/_out*` for the newly fixed regressions
+and then update `Makefile` and `test/README.txt`. Use this standard copyright for the test fixtures:
 ```
 /*
  * Copyright (C) 2024 Example Corp.
  * SPDX-License-Identifier: MIT
  */
 ```
-Try to use the config setting `indent-size`, `indent-style`, etc. as needed when idempotency tests failed.
 
 ####################################################################################################
 ####################################################################################################

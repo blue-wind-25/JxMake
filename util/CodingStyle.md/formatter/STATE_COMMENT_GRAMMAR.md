@@ -17,6 +17,48 @@ formatter actually mutates text.
 Source design discussion: `Hybrid_Linear_Classifier_for_Comment_Grammar.md` (uploaded
 reference doc, not part of the repo).
 
+### During implementation
+- Implement one checklist section at a time
+- After completing a section (or when the cumulative diff across all changed files
+  exceeds ~50 lines, whichever comes first), do a checkpoint commit:
+  1. Update STATE_COMMENT_GRAMMAR.md — check off completed items and update the active checklist.
+  2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
+  3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
+  4. `git commit -m "<message>"` — short descriptive message, no strict format required,
+     trailer ending with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
+- Small related items within a section may be grouped into one commit if they
+  are trivially connected — use judgment based on line count (~50 lines threshold)
+- Never let implemented files and STATE_COMMENT_GRAMMAR.md drift out of sync — STATE_COMMENT_GRAMMAR.md must
+  always reflect the true current state at every commit
+- Never modify the files `util/CodingStyle.md/formatter/test/*_inp.*` unless they contain
+  syntax errors (they are the test input files).
+- Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
+  asked (they are the reference output files that show the expected results).
+- Ignore `XL.txt`, that is the user tracker file.
+- Use `/tmp` for temporary smoke-test and mini-test files.
+- Do not perform filesystem-wide find; search first in `/tmp/claude-1000`, if not found,
+  ask me.
+
+## Commit Workflow
+
+Same discipline as `STATE.md`'s own (restated, not cross-referenced, per the
+self-contained requirement above):
+
+- Implement one checklist section at a time.
+- Checkpoint commit after each section or when the cumulative diff exceeds
+  ~50 lines, whichever comes first: update this file's checklist, then
+  `git add`/commit the formatter directory (excluding `target/`).
+- Trailer: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+- **On any ambiguity:** stop, add the question to Open Questions below, mark
+  the checklist item `[~]`, commit this file only, and wait for an answer.
+  Once resolved: append the full decision to `STATE_rdd_log.md` (next
+  `RDD_KEY_n`, continuing the shared sequence — do not restart numbering for
+  Kotlin), add the key + topic to this file's own Resolved Design Decisions
+  index below, then continue.
+- **On any shared-class change:** re-run the full existing C/C++/Java test
+  suite before committing, per the Hard Constraint above. Record the
+  before/after test count in the commit message.
+
 ## Hard architectural constraint
 
 **The classifier decides. It does not format.**

@@ -14,9 +14,6 @@ This tracker covers replacing/augmenting the *decision* those two gates currentl
 (purely deterministic) with an optional classifier-backed decision, without touching how the
 formatter actually mutates text.
 
-Source design discussion: `Hybrid_Linear_Classifier_for_Comment_Grammar.md` (uploaded
-reference doc, not part of the repo).
-
 ### During implementation
 - Implement one checklist section at a time
 - After completing a section (or when the cumulative diff across all changed files

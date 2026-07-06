@@ -142,6 +142,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_91 | `STATE_KOTLIN.md` — self-contained tracker, not linked from `STATE.md` yet |
 | RDD_KEY_92 | Shared-tokenizer approach — extend `TokenizerCore.java` in place, no separate Kotlin tokenizer |
 | RDD_KEY_93 | Checklist ordering — tokenizer support first, then a `JavaSpecificRule`-style scoping pass, before any `KotlinSpecificRule.java` code |
+| RDD_KEY_99 | Kotlin headless named-construct classification (`companion object {}`, anonymous `object [: Super] {}`, `init {}`) — §3.1/§3.4; also fixed a related tokenizer bug (`:` wrongly arming the supertype name as the construct name) |
 
 ---
 
@@ -250,10 +251,10 @@ existing test suite after this step, before moving to Step 1.
 | 1 | Semicolons (strip optional `;`) | (c) | No shared class strips statement-terminating `;` for any language today (C/Java require it) — wholly new `KotlinSpecificRule` pass. Must special-case enum-with-members' mandatory `;` (kept) and deliberate same-line multi-statement `;` (kept). |
 | 2 | `enum class` with members | (a)/(c) | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The mandatory `;` itself is just §1's stripper *not* stripping this one case — no separate logic. **Not yet verified:** the blank-line "emphasis" spacing around the entry-list/`;`/members shown in the style doc's example — needs a real fixture to confirm `insertNamedConstructBlankLines` produces it as-is or needs extension. |
 | 3 | Brace style (Allman fn bodies / K&R everything else) | (a) | `BlockStructureRule.qualifiesForKAndR`'s `PAREN_KR_KEYWORDS`/`BARE_KR_KEYWORDS` sets already cover Kotlin's exact same control-flow keyword vocabulary (`if/while/for/switch/catch`, `else/do/try/finally`); function bodies default to Allman the same way C/Java ones do (a brace after `)` with no named-construct/control-flow keyword before it). `isLambdaBrace`'s K&R lambda exception is already language-general. |
-| 3.1 | Class/Object/Companion Object bodies | (c) | Named `class Foo {`/`object Foo {` already work (brace gets a real `name` from the tokenizer, `classifyNamed` labels it, `NAMED` frames always get blank-lines + closing comment per `decideComment`'s `NAMED` case — no min-lines gating, matching §3.1 exactly). **Gap found:** headless constructs — anonymous `companion object {}`, anonymous `object : Interface {}`, and `init {}` — never arm `pendingNamedConstructName` (no identifier follows the construct keyword), so `classifyBrace` falls through to `Frame.other`, losing the mandatory blank-lines/closing-comment treatment entirely. Needs an additive extension to `BlockStructureRule.classifyBrace` parallel to the existing `isAnonymousClassBrace` special-case (Java's anonymous class already gets `Frame.named(braceIdx, "class")` with no real name) — same shape, new keywords (`companion`+`object`, `object` alone before `:`/`{`, and `init`). |
+| 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named `class Foo {`/`object Foo {` already worked. Headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}` never arming `pendingNamedConstructName`) fixed via `RDD_KEY_99`: additive `BlockStructureRule.classifyKotlinHeadlessNamed`, gated by new `Lang.isKotlin`, parallel to the existing `isAnonymousClassBrace` precedent. Also fixed a related tokenizer bug found during verification (see RDD_KEY_99): `:` was wrongly arming a following supertype identifier as the construct's own name. |
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b) | Add `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — the set isn't language-partitioned, so this is a pure no-op for C/C++/Java (they have no `when` keyword/token at all). |
 | 3.3 | Secondary constructors (Allman body) | (a) | A constructor body's `{` follows `)` with no named-construct/control keyword before it — same generic "default to Allman" path as any other function body, no special-case needed. |
-| 3.4 | `init` blocks | (c) | Same headless-named-construct gap as §3.1 — grouped with it. |
+| 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
 | 4 | `when` expression (arrow alignment, closing comment, blank lines) | (b)/(c) | Structurally the same shape as Java's arrow-form `switch` expression (STYLE_JAVA17.md §3.1), but `SwitchRule.java` is keyed off the literal `"switch"` keyword throughout (needs to be read in full during Step 3 to judge whether generalizing it to also accept `"when"` is a clean additive change or warrants a parallel `KotlinSpecificRule` method — deferred, not yet read in full per this step's own "don't read more than needed" discipline). |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c) | No shared class does general expression-level operator re-spacing today — `MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering, and assignment RHS values are joined **verbatim** (`MiscRule.joinVerbatim`, no re-spacing at all). Enforcing this for arbitrary expressions (not just declarations) is wholly new `KotlinSpecificRule` scope. |
 | 6 | Variable/property declaration alignment | (c) — **major, see Open Questions** | `DeclarationAlignmentRule.Declaration` is `[modifiers] [typeTokens] [name] [= initTokens]` — C/Java's type-before-name grammar. Kotlin's `val name : Type = init` is the reverse order. Column-grid reuse (§6's `:`-alignment, `=`-alignment) needs either a shared-model extension (behavior change — stop-and-ask territory per Hard Constraint) or an independent Kotlin-only declaration parser/renderer in `KotlinSpecificRule.java` that only reuses `ColumnGrid`/`ModifierPriority`-level primitives, not `Declaration` itself. |
@@ -329,6 +330,16 @@ existing test suite after this step, before moving to Step 1.
       ever armed — fixed by only resetting those flags on `;`/`{`/`}`, not on
       arbitrary header tokens. Full C/C++/Java suite still 25/25 (this file
       is new, so no shared-class change to worry about here).
+- [x] **§3.1/§3.4 Class/Object/Companion Object/`init` bodies.** Fixed as
+      `RDD_KEY_99` — a shared-class extension (`Lang.isKotlin`,
+      `BlockStructureRule.classifyKotlinHeadlessNamed`), not a
+      `KotlinSpecificRule.java` method, since the fix belongs in the same
+      brace-classification machinery that already handles every other
+      named-construct shape. Also fixed a related tokenizer bug found during
+      verification (`:` wrongly arming a supertype identifier as the
+      construct's own name for anonymous `object : Super {}`). Full
+      C/C++/Java suite 25/25 before and after each of the three shared-class
+      edits. See `RDD_KEY_99` for full detail.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

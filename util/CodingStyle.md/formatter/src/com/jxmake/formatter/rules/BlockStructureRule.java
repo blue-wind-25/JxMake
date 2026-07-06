@@ -1066,6 +1066,12 @@ public class BlockStructureRule {
         if (isAnonymousClassBrace(tokens, prevIdx)) {
             return Frame.named(braceIdx, "class");
         }
+        if (lang.isKotlin) {
+            final String kotlinHeadlessLabel = classifyKotlinHeadlessNamed(tokens, prevIdx);
+            if (kotlinHeadlessLabel != null) {
+                return Frame.named(braceIdx, kotlinHeadlessLabel);
+            }
+        }
 
         final Token prev = tokens.get(prevIdx);
         if (isPunct(prev, ")")) {
@@ -1255,6 +1261,66 @@ public class BlockStructureRule {
         final int newIdx = prevSignificantIndex(tokens, beforeOpen - 1);
         return newIdx >= 0 && tokens.get(newIdx).type == TokenType.KEYWORD
                 && "new".equals(tokens.get(newIdx).text);
+    }
+
+    /**
+     * Kotlin-only: recognizes a headless (nameless) `init { }`, `companion object { }`, or
+     * anonymous `object [: SuperType(...), Iface<T>] { }` body brace -- none of these ever arm
+     * the tokenizer's {@code pendingNamedConstructName} (it requires a following IDENTIFIER,
+     * which these shapes never have), so {@code brace.name} is always null for them and they'd
+     * otherwise fall through to {@link Frame#other}, losing STYLE_KOTLIN.md SS3.1/SS3.4's mandatory
+     * blank-lines/closing-comment treatment. Named `object Foo { }`/`companion object Foo { }`
+     * DO get a real name from the tokenizer and are handled generically by {@link #classifyNamed}
+     * already -- this method is only reached when {@code brace.name == null}.
+     *
+     * <p>Walks backward from the brace across an optional `: SuperType(...), Iface<T>, ...`
+     * clause looking for a bare `object` keyword (bounded-effort scan, same spirit as
+     * {@link #isAnonymousClassBrace} above): anything encountered that isn't part of such a
+     * clause (an operator, a `;`/`{`/`}` boundary, ...) aborts the scan and returns null.
+     */
+    private String classifyKotlinHeadlessNamed(final List<Token> tokens, final int prevIdx) {
+        final Token prev = tokens.get(prevIdx);
+        if (prev.type == TokenType.KEYWORD && "init".equals(prev.text)) {
+            return "init";
+        }
+        int i = prevIdx;
+        while (i >= 0) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && "object".equals(t.text)) {
+                final int beforeObject = prevSignificantIndex(tokens, i - 1);
+                if (beforeObject >= 0 && tokens.get(beforeObject).type == TokenType.KEYWORD
+                        && "companion".equals(tokens.get(beforeObject).text)) {
+                    return "companion object";
+                }
+                return "object";
+            }
+            if (t.type == TokenType.IDENTIFIER || t.type == TokenType.KEYWORD) {
+                i = prevSignificantIndex(tokens, i - 1);
+                continue;
+            }
+            if (isPunct(t, ")")) {
+                final int open = matchOpenBackward(tokens, i);
+                if (open < 0) {
+                    return null;
+                }
+                i = prevSignificantIndex(tokens, open - 1);
+                continue;
+            }
+            if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                final int open = matchAngleOpenBackward(tokens, i);
+                if (open < 0) {
+                    return null;
+                }
+                i = prevSignificantIndex(tokens, open - 1);
+                continue;
+            }
+            if (isPunct(t, ",") || isOp(t, ":") || isPunct(t, ".")) {
+                i = prevSignificantIndex(tokens, i - 1);
+                continue;
+            }
+            return null;
+        }
+        return null;
     }
 
     /** Index of the `<` matching the `>` at closeIdx, via local backward depth counting, or -1. */

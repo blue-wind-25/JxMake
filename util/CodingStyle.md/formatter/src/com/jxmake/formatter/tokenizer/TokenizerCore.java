@@ -395,6 +395,16 @@ public class TokenizerCore {
                     namedConstructKeywordSeen = false;
                 } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
                     namedConstructKeywordSeen = false;
+                } else if (t.type == TokenType.OP && ":".equals(t.text) && namedConstructKeywordSeen) {
+                    // A named-construct keyword directly followed by `:` with no identifier in
+                    // between (Kotlin's anonymous `object : Comparable<Int> {`) has no name to
+                    // arm -- without this, the next IDENTIFIER found (the supertype name,
+                    // `Comparable`) would be wrongly captured as the construct's own name. Never
+                    // fires for C/C++/Java: their named constructs always require a name token
+                    // before any inheritance-clause `:`, so namedConstructKeywordSeen is already
+                    // false (cleared by the arm-on-IDENTIFIER branch below) by the time a `:` is
+                    // reached in those languages.
+                    namedConstructKeywordSeen = false;
                 } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1) {
                     // Entering the outermost paren group (a function's parameter list) -- clear
                     // pendingNamedConstructName so the function body's `{` doesn't pick up the

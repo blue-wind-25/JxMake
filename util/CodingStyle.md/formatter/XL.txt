@@ -8,8 +8,9 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Do you want to work on `**Bug B STILL OPEN (2026-07-07)**` or continue working on Kotlin work`
-because the former seems difficult?
+Continue with  C/C++/Java `**Bug B STILL OPEN (2026-07-07)**`
+
+Continue with Kotlin §7.
 
 
 

@@ -36,8 +36,8 @@ reference doc, not part of the repo).
   asked (they are the reference output files that show the expected results).
 - Ignore `XL.txt`, that is the user tracker file.
 - Use `/tmp` for temporary smoke-test and mini-test files.
-- Do not perform filesystem-wide find; search first in `/tmp/claude-1000`, if not found,
-  ask me.
+- NEVER perform filesystem-wide find; search first in `/tmp/claude-1000` or the project root.
+  If still not found, ask me.
 - Do not use static analysis as the primary method of bug diagnosis or regression checking.
   Prefer evidence over reasoning (using debug prints). Keep static analysis minimal—only
   enough to identify where to insert debug prints.

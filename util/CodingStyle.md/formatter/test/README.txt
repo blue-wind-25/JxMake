@@ -377,6 +377,20 @@ Adding New Tests
 The *_out files are the ground truth. If a formatter fix intentionally changes
 the output for a rule, update the corresponding *_out file in the same commit.
 
+  real_code_regressions_13_inp/out.java -- Based on the PCPP-preprocessed Java
+                                pattern used in src/jxm/ugc/ARMCortexMThumbC.java.in
+                                (a `.java.in` file run through a C-macro
+                                preprocessor before compilation, per README.md's
+                                "C-preprocessor directives in Java source" note).
+                                A `#define`-style function-like macro precedes a
+                                class and is invoked with loosely-spaced call
+                                arguments (`__GEN_CXI_NPR_NPR__( clrex, ... )`).
+                                Confirms the `#define` line itself passes through
+                                untouched (recognized/skipped like any other
+                                preprocessor directive) while the macro
+                                invocation lines still get normal call-padding
+                                tightening (`(clrex, ...)`) and are idempotent.
+
 
 Dogfood Test (Self-Formatting)
 ------------------------------

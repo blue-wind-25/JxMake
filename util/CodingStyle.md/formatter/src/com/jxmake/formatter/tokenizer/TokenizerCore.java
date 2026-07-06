@@ -210,10 +210,8 @@ public class TokenizerCore {
             "[[", "]]"
     };
 
+    private final Lang lang;
     private final String language;
-    private final boolean isC;
-    private final boolean isCpp;
-    private final boolean isJava;
     private final Set<String> keywords;
     private final Set<String> namedConstructKeywords;
 
@@ -262,10 +260,8 @@ public class TokenizerCore {
     }
 
     public TokenizerCore(final Lang lang) {
+        this.lang = lang;
         this.language = lang.language;
-        this.isC = lang.isC;
-        this.isCpp = lang.isCpp;
-        this.isJava = lang.isJava;
         switch (language) {
             case "c":
                 this.keywords = KEYWORDS_C;
@@ -328,7 +324,7 @@ public class TokenizerCore {
                 t = emitBlockComment();
             } else if (c == '"' && isTextBlockOpener()) {
                 t = emitTextBlock();
-            } else if ((isC || isCpp) && rawStringPrefixLength() >= 0) {
+            } else if ((lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0) {
                 t = emitRawString(rawStringPrefixLength());
             } else if (c == '"') {
                 t = emitString();
@@ -361,7 +357,7 @@ public class TokenizerCore {
             }
         }
 
-        if (!syntaxError && !isC) {
+        if (!syntaxError && !lang.isC) {
             reclassifyAngleBrackets(tokens);
         }
 
@@ -718,7 +714,7 @@ public class TokenizerCore {
      *  block's entire multi-line content -- braces, indentation, everything -- to every other rule
      *  in the pipeline). */
     private boolean isTextBlockOpener() {
-        return isJava && peek(1) == '"' && peek(2) == '"';
+        return lang.isJava && peek(1) == '"' && peek(2) == '"';
     }
 
     /**

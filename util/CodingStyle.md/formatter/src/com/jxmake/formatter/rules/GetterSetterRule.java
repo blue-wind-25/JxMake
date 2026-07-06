@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class GetterSetterRule {
 
-    private final boolean isJava;
+    private final Lang lang;
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
     private final int indentWidth;
     private final int lineLengthLimit;
@@ -36,8 +36,8 @@ public class GetterSetterRule {
     }
 
     public GetterSetterRule(final Lang lang, final int indentWidth, final int lineLengthLimit) {
-        this.isJava = lang.isJava;
-        this.modifierPriority = isJava ? new JavaModifierPriority() : null;
+        this.lang = lang;
+        this.modifierPriority = lang.isJava ? new JavaModifierPriority() : null;
         this.indentWidth = indentWidth;
         this.lineLengthLimit = lineLengthLimit;
     }
@@ -107,7 +107,7 @@ public class GetterSetterRule {
      *              {@code applySignaturePass}'s own inline-fit check.
      */
     public List<List<Member>> groupOneLiners(final List<Token> scopeTokens, final int depth) {
-        final boolean isClassScope = isJava || hasAccessSpecifier(scopeTokens);
+        final boolean isClassScope = lang.isJava || hasAccessSpecifier(scopeTokens);
         final List<int[]> spans = splitMembers(scopeTokens);
         final List<List<Member>> groups = new ArrayList<>();
         List<Member> current = new ArrayList<>();
@@ -237,9 +237,9 @@ public class GetterSetterRule {
         }
 
         // Modifier columns (Java only).
-        final int modifierColumns = isJava ? modifierPriority.columnCount() : 0;
+        final int modifierColumns = lang.isJava ? modifierPriority.columnCount() : 0;
         final boolean[] modifierActive = new boolean[modifierColumns];
-        if (isJava) {
+        if (lang.isJava) {
             for (final Member m : group) {
                 for (final Token mod : m.modifiers) {
                     final int rank = modifierPriority.priorityOf(mod.text);
@@ -339,7 +339,7 @@ public class GetterSetterRule {
             final Member m = group.get(idx);
             final List<String> cells = new ArrayList<>();
 
-            if (isJava) {
+            if (lang.isJava) {
                 final String[] modCells = new String[modifierColumns];
                 Arrays.fill(modCells, "");
                 for (final Token mod : m.modifiers) {
@@ -514,13 +514,13 @@ public class GetterSetterRule {
         // trailing call (e.g. Java's `default -> throw new AssertionError(x);` misparsed as
         // return-type "default -> throw new" + name "AssertionError"), which then grid-aligns
         // garbage padding into an unrelated sibling case's body (see STATE.md).
-        if (isJava && tokens.get(firstSig).type == TokenType.KEYWORD
+        if (lang.isJava && tokens.get(firstSig).type == TokenType.KEYWORD
                 && ("case".equals(tokens.get(firstSig).text) || "default".equals(tokens.get(firstSig).text))) {
             return null;
         }
         int pos = firstSig;
         final List<Token> modifiers = new ArrayList<>();
-        if (isJava) {
+        if (lang.isJava) {
             while (pos < to) {
                 final Token t = tokens.get(pos);
                 if (isInsignificant(t)) {
@@ -543,7 +543,7 @@ public class GetterSetterRule {
         // identifier/cast-keyword, precedes the `<`).
         int templatePrefixFrom = pos;
         int templatePrefixTo = pos;
-        if (!isJava) {
+        if (!lang.isJava) {
             final int templateKwIdx = nextSignificant(tokens, pos, to);
             if (templateKwIdx >= 0 && tokens.get(templateKwIdx).type == TokenType.KEYWORD
                     && "template".equals(tokens.get(templateKwIdx).text)) {
@@ -994,7 +994,7 @@ public class GetterSetterRule {
     /** True iff {@code t} is a C++ post-paren qualifier that can appear between {@code )} and
      *  the function body or terminator (const, volatile, noexcept, override, final). */
     private boolean isPostParenQualifier(final Token t) {
-        if (isJava || t.type != TokenType.KEYWORD) {
+        if (lang.isJava || t.type != TokenType.KEYWORD) {
             return false;
         }
         switch (t.text) {

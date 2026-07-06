@@ -35,7 +35,7 @@ import java.util.Set;
 public class MiscRule {
 
     private static final Set<String> TIGHT_PAREN_KEYWORDS =
-            setOf("if", "while", "for", "switch", "catch");
+            setOf("if", "while", "for", "switch", "catch", "when");
 
     // Keywords that must never be titlecased when they start a comment sentence, split by the
     // language they actually belong to -- a C/C++-only keyword like `inline` must not suppress
@@ -177,8 +177,10 @@ public class MiscRule {
     // ── §3.2 Keyword spacing ─────────────────────────────────────────────────────
     /**
      * Collapses any whitespace-only gap between a control-flow keyword (`if`/`while`/`for`/
-     * `switch` -- exactly STYLE.md §3.2's four keywords) and its following `(` down to zero
-     * width. A comment or a `NEWLINE` in the gap blocks the rewrite for that occurrence, same
+     * `switch`/`catch` -- STYLE.md §3.2's keywords, plus Kotlin's `when` per STYLE_KOTLIN.md
+     * §3.2, harmless for C/C++/Java since they have no `when` keyword at all) and its following
+     * `(` down to zero width. A comment or a `NEWLINE` in the gap blocks the rewrite for that
+     * occurrence, same
      * conservative posture as `BlockStructureRule`'s brace-style passes -- relocating a comment
      * unambiguously is out of scope. This method never touches what's *inside* the `(...)`;
      * deciding whether the contents are padded is STYLE.md §3.1, already implemented as the

@@ -143,6 +143,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_92 | Shared-tokenizer approach — extend `TokenizerCore.java` in place, no separate Kotlin tokenizer |
 | RDD_KEY_93 | Checklist ordering — tokenizer support first, then a `JavaSpecificRule`-style scoping pass, before any `KotlinSpecificRule.java` code |
 | RDD_KEY_99 | Kotlin headless named-construct classification (`companion object {}`, anonymous `object [: Super] {}`, `init {}`) — §3.1/§3.4; also fixed a related tokenizer bug (`:` wrongly arming the supertype name as the construct name) |
+| RDD_KEY_100 | Kotlin `when` no-space-before-`(` — §3.2; added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a pure no-op for C/C++/Java |
 
 ---
 
@@ -252,7 +253,7 @@ existing test suite after this step, before moving to Step 1.
 | 2 | `enum class` with members | (a)/(c) | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The mandatory `;` itself is just §1's stripper *not* stripping this one case — no separate logic. **Not yet verified:** the blank-line "emphasis" spacing around the entry-list/`;`/members shown in the style doc's example — needs a real fixture to confirm `insertNamedConstructBlankLines` produces it as-is or needs extension. |
 | 3 | Brace style (Allman fn bodies / K&R everything else) | (a) | `BlockStructureRule.qualifiesForKAndR`'s `PAREN_KR_KEYWORDS`/`BARE_KR_KEYWORDS` sets already cover Kotlin's exact same control-flow keyword vocabulary (`if/while/for/switch/catch`, `else/do/try/finally`); function bodies default to Allman the same way C/Java ones do (a brace after `)` with no named-construct/control-flow keyword before it). `isLambdaBrace`'s K&R lambda exception is already language-general. |
 | 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named `class Foo {`/`object Foo {` already worked. Headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}` never arming `pendingNamedConstructName`) fixed via `RDD_KEY_99`: additive `BlockStructureRule.classifyKotlinHeadlessNamed`, gated by new `Lang.isKotlin`, parallel to the existing `isAnonymousClassBrace` precedent. Also fixed a related tokenizer bug found during verification (see RDD_KEY_99): `:` was wrongly arming a following supertype identifier as the construct's own name. |
-| 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b) | Add `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — the set isn't language-partitioned, so this is a pure no-op for C/C++/Java (they have no `when` keyword/token at all). |
+| 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — RDD_KEY_100. Pure no-op for C/C++/Java (no `when` keyword/token in any of their keyword sets). |
 | 3.3 | Secondary constructors (Allman body) | (a) | A constructor body's `{` follows `)` with no named-construct/control keyword before it — same generic "default to Allman" path as any other function body, no special-case needed. |
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
 | 4 | `when` expression (arrow alignment, closing comment, blank lines) | (b)/(c) | Structurally the same shape as Java's arrow-form `switch` expression (STYLE_JAVA17.md §3.1), but `SwitchRule.java` is keyed off the literal `"switch"` keyword throughout (needs to be read in full during Step 3 to judge whether generalizing it to also accept `"when"` is a clean additive change or warrants a parallel `KotlinSpecificRule` method — deferred, not yet read in full per this step's own "don't read more than needed" discipline). |
@@ -340,6 +341,14 @@ existing test suite after this step, before moving to Step 1.
       construct's own name for anonymous `object : Super {}`). Full
       C/C++/Java suite 25/25 before and after each of the three shared-class
       edits. See `RDD_KEY_99` for full detail.
+- [x] **§3.2 `when` no space before `(`.** Fixed as `RDD_KEY_100` — added
+      `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a shared-class one-line
+      change, not a `KotlinSpecificRule.java` method, since the set is
+      already unpartitioned by language and `when` simply never matches for
+      C/C++/Java (no such keyword in their keyword sets). Verified via a
+      standalone harness calling `enforceKeywordSpacing` directly on
+      tokenized `when (x) { 1 -> "a" }`, confirming the collapse to
+      `when(x) { ... }`. Full C/C++/Java suite 25/25 before and after.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

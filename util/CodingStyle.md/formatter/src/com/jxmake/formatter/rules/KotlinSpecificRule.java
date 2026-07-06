@@ -482,4 +482,65 @@ public class KotlinSpecificRule {
         }
         return out.toString();
     }
+
+    // ── §5 Null-safety operators ─────────────────────────────────────────────────
+    /**
+     * STYLE_KOTLIN.md §5: `?.` and `!!` are tight (no surrounding space, same treatment as
+     * C/C++'s `*`/`&`); `?:` is spaced like a normal binary operator (`&&`, `+`). Unlike §4, this
+     * isn't scoped to one construct -- these operators can appear in any expression anywhere in
+     * the file, and no shared class does general expression-level operator re-spacing today
+     * (`MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering,
+     * and assignment RHS values are joined verbatim). This is therefore a single flat pass over
+     * the whole token stream, collapsing/normalizing the whitespace gap on either side of every
+     * `?.`/`!!`/`?:` occurrence -- conservative like every other whitespace-collapsing pass in
+     * this codebase: a gap containing a comment, a NEWLINE, or a frozen token is left completely
+     * untouched (never risk relocating a comment or reflowing a frozen/disabled span).
+     */
+    public String enforceNullSafetyOperatorSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToTightOp = isTightNullOp(lastSignificant) || isTightNullOp(t);
+            final boolean adjacentToElvis = !adjacentToTightOp && (isElvisOp(lastSignificant) || isElvisOp(t));
+
+            if (gapBlocked || (!adjacentToTightOp && !adjacentToElvis)) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else if (adjacentToElvis) {
+                out.append(' ');
+            }
+            // adjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended.
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isTightNullOp(final Token t) {
+        return t != null && (isOp(t, "?.") || isOp(t, "!!"));
+    }
+
+    private boolean isElvisOp(final Token t) {
+        return t != null && isOp(t, "?:");
+    }
 }

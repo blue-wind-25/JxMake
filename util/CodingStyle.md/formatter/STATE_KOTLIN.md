@@ -145,6 +145,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_99 | Kotlin headless named-construct classification (`companion object {}`, anonymous `object [: Super] {}`, `init {}`) — §3.1/§3.4; also fixed a related tokenizer bug (`:` wrongly arming the supertype name as the construct name) |
 | RDD_KEY_100 | Kotlin `when` no-space-before-`(` — §3.2; added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a pure no-op for C/C++/Java |
 | RDD_KEY_101 | Kotlin `when` expression arrow alignment/closing comment/blank lines — §4; new `KotlinSpecificRule.formatWhenExpressions`, not a `JavaSpecificRule`/`BlockStructureRule` extension (keyword-less branches, non-all-or-nothing block-body alignment, forced blank lines) |
+| RDD_KEY_102 | Kotlin null-safety operator spacing (`?.`/`!!` tight, `?:` spaced) — §5; new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file pass since no shared class does general expression-level operator re-spacing |
 
 ---
 
@@ -258,7 +259,7 @@ existing test suite after this step, before moving to Step 1.
 | 3.3 | Secondary constructors (Allman body) | (a) | A constructor body's `{` follows `)` with no named-construct/control keyword before it — same generic "default to Allman" path as any other function body, no special-case needed. |
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
 | 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **done** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
-| 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c) | No shared class does general expression-level operator re-spacing today — `MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering, and assignment RHS values are joined **verbatim** (`MiscRule.joinVerbatim`, no re-spacing at all). Enforcing this for arbitrary expressions (not just declarations) is wholly new `KotlinSpecificRule` scope. |
+| 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing` — a single flat whole-file whitespace-collapsing pass, not scoped to any one construct, since no shared class does general expression-level operator re-spacing today. RDD_KEY_102. |
 | 6 | Variable/property declaration alignment | (c) — **major, see Open Questions** | `DeclarationAlignmentRule.Declaration` is `[modifiers] [typeTokens] [name] [= initTokens]` — C/Java's type-before-name grammar. Kotlin's `val name : Type = init` is the reverse order. Column-grid reuse (§6's `:`-alignment, `=`-alignment) needs either a shared-model extension (behavior change — stop-and-ask territory per Hard Constraint) or an independent Kotlin-only declaration parser/renderer in `KotlinSpecificRule.java` that only reuses `ColumnGrid`/`ModifierPriority`-level primitives, not `Declaration` itself. |
 | 7 | Constructor/function parameter lists | (c) | Same reversed-grammar issue as §6 applies to `MiscRule.Param`/`Signature` (also assumes type-then-name); tied to §6's resolution. |
 | 7.1 | Named/default arguments (`=` spacing/alignment) | (c) | Depends on §6/§7's resolution — reuses whatever declaration/assignment grid ends up handling Kotlin's reversed grammar. |
@@ -380,6 +381,29 @@ existing test suite after this step, before moving to Step 1.
       block-body-mixed alignment case. Full C/C++/Java suite 25/25 (this
       method isn't wired into any shared class or `Formatter.formatOne` yet —
       that's deferred to whenever `KotlinSpecificRule` itself gets wired in).
+- [x] **§5 Null-safety operators (`?.`/`!!` tight, `?:` spaced).** Fixed as
+      `RDD_KEY_102` — new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`.
+      Unlike every other Step 3 item so far, this one isn't scoped to a single
+      construct: `?.`/`!!`/`?:` can appear in any expression anywhere in a
+      file, and (per this row's own scoping note) no shared class does
+      general expression-level operator re-spacing today, so this is a single
+      flat pass over the whole token stream. For each significant token,
+      checks whether either it or its immediate predecessor is `?.`/`!!`
+      (collapse the gap between them to nothing) or `?:` (normalize the gap
+      to exactly one space); otherwise the gap is left byte-for-byte as-is
+      (in particular, plain `.` spacing is untouched either way — out of
+      scope here, same as everywhere else in the codebase). Conservative
+      per-gap bailout: any gap containing a comment, a NEWLINE, or a frozen
+      token is left completely alone, so a null-safety operator split across
+      lines or adjacent to a disabled span is never touched. Verified via a
+      standalone harness: `str ?. length ?: 0` → `str?.length ?: 0`;
+      `user !! . name` → `user!!.` kept tight with the pre-existing space
+      before the unrelated `.name` left alone (confirms `.` itself is
+      correctly out of scope); an already-correct `a?.b?.c!!.d ?: e` staying
+      byte-identical; a `?:` split across a newline and a `?.` followed by a
+      trailing comment both left completely untouched. Full C/C++/Java suite
+      25/25 (new method, no shared-class change, not yet wired into
+      `Formatter.formatOne`).
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

@@ -671,23 +671,50 @@ header on every new test fixture file:
      `make test` 24/24, no regressions. Fixing this and bug 4 above also incidentally resolved
      two more `catch.hpp` diffs not previously catalogued (a lambda-argument line-wrap and a
      function-body-on-its-own-line divergence) — same root causes, different trigger sites.
-  6. **STILL OPEN, newly found (2026-07-07)** — re-testing the full 44-file tree after bugs
-     3–5 above surfaces exactly 2 remaining `catch.hpp` round1/round2 diffs, neither previously
-     catalogued:
-     - A `for(u_int m = 0; m < count; m++) { ... }` loop (originally at `tests/catch.hpp:4921`,
-       inside an Objective-C-interop block) comes out of round1 genuinely CORRUPTED, not merely
-       non-idempotent: the increment clause is pushed onto its own line with stray padding
-       (`m <         count;` / `++m) { SEL selector   = method_getName( methods[m] );`), and the
-       loop body's first two statements get merged onto that same line with the `{`, losing their
-       own line breaks entirely. This looks like a first-pass corruption bug (data loss), not just
-       a stability bug — root-cause not yet started.
-     - A brace-alignment mismatch around `tests/catch.hpp:10141` (an `if`/`else` pair where a
-       nested braceless `if` body's closing indent doesn't match its own construct — one round
-       shows it at a shallower indent than the other). Root-cause not yet started.
-     Compile-check confirms bugs 3–5's fixes introduced no regressions (map.hpp/set.hpp
+  6. **Bug A FIXED (2026-07-07)** — the `for(u_int m = 0; m < count; m++) { ... }` corruption
+     (originally at `tests/catch.hpp:4921`, inside an Objective-C-interop block). Root cause:
+     `TokenizerCore.emitPreprocessor()` (used for every directive except `#define`, e.g.
+     `#if`/`#elif`) only ever consumed one physical line, with no backslash-continuation handling
+     — unlike its sibling `emitMacroDef()`, which already had that logic for `#define`. Far
+     earlier in `catch.hpp` (line ~231) there's a multi-line `#if !((__cplusplus >= 201103L) &&
+     defined(_GLIBCXX_USE_C99) \` / `    && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))`. The
+     directive's first physical line (with 3 of its 4 parens) got swallowed into one opaque
+     PREPROCESSOR token as intended, but the continuation line was then re-tokenized as *ordinary
+     code* — its own `(` and 2×`)` got lexed as real PUNCT tokens, netting -1 into every
+     paren/brace-depth counter for the rest of the file (`DeclarationAlignmentRule.splitStatements`
+     among them). That permanent depth desync is what later made a plain `for(...)`'s own `;`s
+     look like they were at depth 0 (when the real depth was already off by one), causing
+     `groupDeclarations` to misparse the for-loop's second clause and body as bogus standalone
+     declarations. Confirmed content-independent/pure-offset-dependent behavior from earlier
+     bisection was really this drift accumulating differently depending on how much of the file
+     (and how many such directives) preceded the target construct. Fixed by giving
+     `emitPreprocessor()` the same continuation-line loop as `emitMacroDef()`. Verified: isolated
+     repro, `make test` 24/24 no regressions, full rebuild, and the real `tests/catch.hpp`
+     for-loop now formats correctly on round1 (`for(u_int m = 0; m < count ; ++m) { ... }`,
+     properly split across the two body statements).
+  7. **Bug B STILL OPEN (2026-07-07)** — a brace-alignment mismatch around `if`/`else` (and
+     separately `try`/`catch`) pairs, e.g. `tests/catch.hpp`'s `SampleAnalysis<Duration>
+     analyse(...)` (originally ~line 7238) and the startup-exceptions `try`/`catch` in `Session`
+     (originally ~line 13429): the closing `}` of the first branch, and the following branch's
+     body, come out under-indented by one level, and round1 vs round2 disagree on exactly how
+     much. Bisection this session found the *first* prefix-length trigger point sits right at
+     this `analyse()` function's own `if (...) { ... } else { ... }` (bad only once the whole
+     function, including its trailing `return {...};` aggregate-init, is included) — but two
+     separate isolated repros (the bare `if`/`else` alone, and the same wrapped in the real
+     `namespace Catch { namespace Benchmark { namespace Detail { ... } } }` nesting) both format
+     *correctly* standalone, so the trigger still requires more of the real surrounding file than
+     has been isolated so far. Given bug A's actual root cause turned out to be a tokenizer-level
+     depth-counter desync from an earlier, unrelated construct, bug B's investigation should start
+     by checking for other not-yet-fixed multi-line/continuation constructs in `catch.hpp` (or a
+     similar depth-tracking bug in whichever pass computes `if`/`else`/`try`/`catch` body
+     indentation — likely `ScopePipeline`'s `findParentIndent` or `BlockStructureRule`'s
+     `placeElseOnOwnLine`/`placeCatchFinallyOnOwnLine`) before re-attempting isolation. Root-cause
+     not yet found.
+     Compile-check confirms bug A's fix introduced no regressions (map.hpp/set.hpp
      pre-existing-vs-formatted error counts identical, both before and after: 1/1). Full 44-file
-     `frozen` tree `diff -rq` round1 vs round2 now shows only `tests/catch.hpp` differing (was
-     3 files differing before this session: `catch.hpp`, `map.hpp`, `set.hpp`).
+     `frozen` tree `diff -rq` round1 vs round2 now shows only `tests/catch.hpp` differing, with
+     exactly 3 diff hunks remaining (all bug B / if-else-try-catch indent mismatches, at lines
+     ~8444, ~15479, ~19869 of the round1 output).
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources
   (renamed `.h`→`.hpp` before testing). Round1/round2 at the default `indent-size = 4` found
@@ -716,10 +743,10 @@ header on every new test fixture file:
   now fully idempotent (empty `diff -rq`).
 
 **NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is still
-**RE-OPENED**, but narrower now — `map.hpp`/`set.hpp` and the originally-catalogued `catch.hpp`
-bug are all fixed (see bugs 3–5 above). Two NEW, previously-uncatalogued `catch.hpp` bugs remain
-(bug 6 above, one of which is a genuine first-pass corruption, not just non-idempotency) —
-root-cause and fix those before marking the library DONE. After that, continue the real-code testing methodology
+**RE-OPENED**, but narrower now — `map.hpp`/`set.hpp`, the originally-catalogued `catch.hpp` bug,
+and bug A (the `for(u_int m...)` first-pass corruption) are all fixed (see bugs 3–6 above). One
+bug remains: bug B (§7 above, an `if`/`else`/`try`/`catch` brace-indent mismatch) — root-cause
+and fix it before marking the library DONE. After that, continue the real-code testing methodology
 against the remaining C/C++ candidates, in this order unless the user redirects: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
 a library needs newer; confirm any compile failure also reproduces against the *unmodified*

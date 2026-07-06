@@ -620,10 +620,33 @@ public class TokenizerCore {
                 parenDepth, null);
     }
 
+    /** Like {@link #emitMacroDef}, a {@code #if}/{@code #elif}/etc. directive can itself span
+     *  multiple physical lines via a trailing {@code \} continuation (e.g. a long boolean
+     *  condition) -- failing to consume those continuation lines here left their real `(`/`)`
+     *  tokens to be lexed as ordinary PUNCT by the caller, permanently desyncing every
+     *  brace/paren-depth counter for the remainder of the file from that point on. */
     private Token emitPreprocessor() {
         final int start = pos;
-        while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
-            pos++;
+        while (true) {
+            while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
+                pos++;
+            }
+            int q = pos - 1;
+            while (q >= start && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
+                q--;
+            }
+            final boolean continues = q >= start && source.charAt(q) == '\\';
+            if (!continues || pos >= length) {
+                break;
+            }
+            if (source.charAt(pos) == '\r') {
+                pos++;
+                if (pos < length && source.charAt(pos) == '\n') {
+                    pos++;
+                }
+            } else {
+                pos++;
+            }
         }
         return new Token(TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null);
     }

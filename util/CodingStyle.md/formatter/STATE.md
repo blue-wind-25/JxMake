@@ -28,6 +28,8 @@ in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at 
   asked (they are the reference output files that show the expected results).
 - Ignore `XL.txt`, that is the user tracker file.
 - Use `/tmp` for temporary smoke-test and mini-test files.
+- Do not perform filesystem-wide find; search first in `/tmp/claude-1000`, if not found,
+  ask me.
 
 ### When hitting an ambiguity or open question
 1. **Stop coding immediately** — do not guess or proceed past the ambiguity
@@ -615,6 +617,77 @@ header on every new test fixture file:
      brace-placement flip, and `tests/catch.hpp` stray-leading-space-on-`}; // enum X` bug all
      still reproduce at plain default settings on a same-day re-test. Do not trust a "no longer
      reproduces" verdict without re-isolating it independently before marking DONE.
+  3. **FIXED (2026-07-07)** — `ScopePipeline.findParentIndent`'s remaining off-by-one (the
+     `catch.hpp` `}; // enum X` stray-leading-space bug, item 0 above): the closing-brace call
+     site (`processScope`, ~line 1086) passed the CURRENT `processScope` call's own `depth` into
+     `findParentIndent`'s fallback (only reached when the backward newline-scan runs off the
+     start of the fragment — the same-source-line scenario, e.g. `struct Foo { enum Bar {`).
+     That fallback's `depth == 0` branch legitimately means column 0 in TWO different contexts
+     that both reach it: the true file root, and a `namespace` body (namespaces never consume a
+     depth level, so a construct found directly inside one is also `depth == 0`, and namespace
+     content is correctly never indented per STYLE_C_CPP.md §7) — so `depth == 0` must stay `""`
+     unconditionally. But once `depth > 0`, the fallback under-counted by exactly one level
+     relative to the sibling construct's own already-correct opening-line indent (derived
+     separately by `BlockStructureRule`), because reaching this fallback at all means one level
+     of newline context was lost to the same-line-sharing scenario. Fixed by synthesizing
+     `(depth + 1) * indentWidth` spaces instead of `depth * indentWidth`, but ONLY inside the
+     `depth > 0` branch — leaving the `depth == 0` branch (both its true-root and namespace-body
+     legitimate uses) completely untouched. (An earlier attempt in this same session applied
+     `depth + 1` at the call site instead, uniformly — that broke the true-root case, since a
+     top-level construct's `depth == 0` became `1` and got a spurious 4-space indent on its own
+     closing brace; reverted in favor of this narrower fix inside `findParentIndent` itself.)
+     Verified via `/tmp/repro1.hpp` (the `namespace Catch { struct CaseSensitive { enum Choice {`
+     repro from the earlier diagnosis): round1/round2 now empty diff, and namespace's own closing
+     `}` stays at column 0. `make test` 24/24 forward + 24/24 idempotency, no regressions.
+  4. **FIXED (2026-07-07)** — `map.hpp`'s `key_comp()`/`value_comp()` getter-padding growth.
+     Root cause: a Phase-0/Phase-4 pass-ordering bug, same class already fixed once for
+     `(`/`[` padding (see the `enforceComplexityPadding` "pulled forward" comment in
+     `Formatter.java`) but never applied to the analogous `CppSpecificRule.
+     enforceTemplateAngleBracketSpacing` (template `<...>` padding, e.g. `static_cast<T>` ->
+     `static_cast< T >` for a "loose" nested arg) — that pass ran only in Phase 4, long after
+     `ScopePipeline`'s `GetterSetterRule` column-width measurement in Phase 0, so on a FRESH
+     format `value_comp()`'s body (containing an unpadded `static_cast<...>`) measured 2
+     characters narrower than its own final rendered width; `key_comp()`'s alignment padding was
+     computed against that stale, too-narrow width, then grew once the sibling got its angle
+     brackets padded on a later pass. Fixed by calling `cppRule.enforceTemplateAngleBracketSpacing`
+     once more, right before `ScopePipeline.process`, mirroring `enforceComplexityPadding`'s
+     existing precedent exactly (the Phase 4 call stays too, still needed for brackets introduced
+     by later passes). Verified via isolated `map.hpp`: round1/round2 empty diff. `make test`
+     24/24, no regressions.
+  5. **FIXED (2026-07-07)** — `set.hpp`'s `operator==`/`operator<`/`operator>` K&R-to-Allman
+     brace flip. Root cause: another Phase-ordering bug. `CppSpecificRule.
+     enforceFunctionDefinitionAllmanBraceStyle` runs in Phase 1 and deliberately skips
+     single-line (one-liner K&R) function bodies (RDD_KEY_75) — correct when it runs, since at
+     that point in a FRESH format the body is still one physical line. Later in Phase 1,
+     `enforceCallLineBreaking` wraps an overlong call inside that same body across multiple
+     lines, turning it into a genuinely multi-line body — but the Allman-brace decision is never
+     re-derived, so the brace stays stranded K&R on a now-multi-line body. On a REFORMAT of that
+     already-broken output, `enforceFunctionDefinitionAllmanBraceStyle` sees a genuinely
+     multi-line body from the very start and correctly Allman-converts it — hence the flip
+     between round1 and round2. Fixed by re-running
+     `cppRule.enforceFunctionDefinitionAllmanBraceStyle` once more, right after
+     `enforceCallLineBreaking` (idempotent: a no-op on anything already Allman, still one line,
+     or otherwise untouched). Verified via isolated `set.hpp`: round1/round2 empty diff.
+     `make test` 24/24, no regressions. Fixing this and bug 4 above also incidentally resolved
+     two more `catch.hpp` diffs not previously catalogued (a lambda-argument line-wrap and a
+     function-body-on-its-own-line divergence) — same root causes, different trigger sites.
+  6. **STILL OPEN, newly found (2026-07-07)** — re-testing the full 44-file tree after bugs
+     3–5 above surfaces exactly 2 remaining `catch.hpp` round1/round2 diffs, neither previously
+     catalogued:
+     - A `for(u_int m = 0; m < count; m++) { ... }` loop (originally at `tests/catch.hpp:4921`,
+       inside an Objective-C-interop block) comes out of round1 genuinely CORRUPTED, not merely
+       non-idempotent: the increment clause is pushed onto its own line with stray padding
+       (`m <         count;` / `++m) { SEL selector   = method_getName( methods[m] );`), and the
+       loop body's first two statements get merged onto that same line with the `{`, losing their
+       own line breaks entirely. This looks like a first-pass corruption bug (data loss), not just
+       a stability bug — root-cause not yet started.
+     - A brace-alignment mismatch around `tests/catch.hpp:10141` (an `if`/`else` pair where a
+       nested braceless `if` body's closing indent doesn't match its own construct — one round
+       shows it at a shallower indent than the other). Root-cause not yet started.
+     Compile-check confirms bugs 3–5's fixes introduced no regressions (map.hpp/set.hpp
+     pre-existing-vs-formatted error counts identical, both before and after: 1/1). Full 44-file
+     `frozen` tree `diff -rq` round1 vs round2 now shows only `tests/catch.hpp` differing (was
+     3 files differing before this session: `catch.hpp`, `map.hpp`, `set.hpp`).
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources
   (renamed `.h`→`.hpp` before testing). Round1/round2 at the default `indent-size = 4` found
@@ -642,9 +715,11 @@ header on every new test fixture file:
   by re-running the full 44-file `fmt` include+src tree at `indent-size = 2`: round1/round2 is
   now fully idempotent (empty `diff -rq`).
 
-**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is
-**RE-OPENED** — root-cause and fix the `map.hpp`/`set.hpp`/`catch.hpp` idempotency bugs
-documented above before moving on. After that, continue the real-code testing methodology
+**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is still
+**RE-OPENED**, but narrower now — `map.hpp`/`set.hpp` and the originally-catalogued `catch.hpp`
+bug are all fixed (see bugs 3–5 above). Two NEW, previously-uncatalogued `catch.hpp` bugs remain
+(bug 6 above, one of which is a genuine first-pass corruption, not just non-idempotency) —
+root-cause and fix those before marking the library DONE. After that, continue the real-code testing methodology
 against the remaining C/C++ candidates, in this order unless the user redirects: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump the standard flag if
 a library needs newer; confirm any compile failure also reproduces against the *unmodified*

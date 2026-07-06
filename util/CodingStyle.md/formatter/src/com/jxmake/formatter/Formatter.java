@@ -62,6 +62,18 @@ public final class Formatter {
         // Phase 0's own transformations (which can introduce new one-liner bodies) is still needed
         // and safe.
         String text = miscRule.enforceComplexityPadding(tokenizer.apply(content));
+        // Same reasoning applies to template angle-bracket spacing (e.g. `static_cast<T>` ->
+        // `static_cast< T >` for a "loose" nested template arg): Phase 4's own
+        // enforceTemplateAngleBracketSpacing call runs long after this Phase 0 column-width
+        // measurement, so a getter/setter body containing an unpadded `static_cast<...>` measures
+        // narrower here than its final rendered width -- a sibling's alignment padding then goes
+        // stale by exactly the padding later added, stable only on a second format pass (see
+        // STATE.md's `frozen`/`map.hpp` `key_comp()`/`value_comp()` bug). Pulled forward here,
+        // same as enforceComplexityPadding above; the Phase 4 call stays too (idempotent, and
+        // still needed for any angle brackets introduced by Phase 0-3's own transformations).
+        if (isCpp) {
+            text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
+        }
         text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), formatOff, indentWidth, lineLengthLimit).process(text);
 
@@ -98,6 +110,19 @@ public final class Formatter {
         // github.com/blake-madden/tinyexpr-plusplus).
         text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
+        // enforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
+        // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman
+        // BraceStyle already ran earlier, above, back when the body still looked like a one-liner,
+        // and deliberately left its brace K&R per RDD_KEY_75 ("never Allman-convert a one-liner").
+        // That decision is now stale: the body is no longer a one-liner, so it should have been
+        // Allman-converted. Stable only on a second format pass, once the input already has the
+        // call pre-wrapped, so the earlier call sees a genuinely-multi-line body from the start
+        // (see STATE.md's `frozen`/`set.hpp` `operator==`/`operator<`/`operator>` bug). Re-running
+        // it here (idempotent: a no-op on anything already Allman, still-one-line, or otherwise
+        // untouched) re-derives the brace placement against the now-final line count.
+        if (isCOrCpp) {
+            text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
+        }
         // enforceCallLineBreaking can join a call whose args originally spanned multiple lines
         // (each side's own gap blocked the pass above from touching its spacing, since a NEWLINE
         // in the gap suppresses the rewrite for that side) onto a single line, replacing the

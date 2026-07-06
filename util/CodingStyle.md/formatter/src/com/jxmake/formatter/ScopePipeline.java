@@ -524,23 +524,31 @@ public class ScopePipeline {
             }
         }
         // Ran off the start of `tokens` without ever finding a NEWLINE. At true top level
-        // (depth 0, called with the whole file's token list) that legitimately means
-        // "column 0, no indent". But `tokens` here can also be a recursively-extracted child
-        // fragment (see `processScope`'s `joinText(current, span.openBraceIdx + 1,
-        // span.closeBraceIdx)`) whose very first line is a NESTED named construct that shared
-        // its opening line with the parent's own `{` (e.g. `struct Foo { enum Bar {` on one
-        // source line) -- that line's real leading indent was never captured in this fragment
-        // at all, since the fragment starts strictly after the parent's `{`. Trusting "" there
-        // would force this construct's own closing `}` back to column 0, corrupting otherwise
-        // well-formed nesting (see STATE.md's `frozen`/`CaseSensitive`/`enum Choice` bug).
+        // (depth 0, called with the whole file's token list, OR a namespace body -- namespaces
+        // never consume a depth level, see `isNamespaceScope` in `processScope` -- whose own
+        // opening line is itself at column 0) that legitimately means "column 0, no indent".
+        // But `tokens` here can also be a recursively-extracted child fragment (see
+        // `processScope`'s `joinText(current, span.openBraceIdx + 1, span.closeBraceIdx)`) whose
+        // very first line is a NESTED named construct that shared its opening line with the
+        // parent's own `{` (e.g. `struct Foo { enum Bar {` on one source line) -- that line's
+        // real leading indent was never captured in this fragment at all, since the fragment
+        // starts strictly after the parent's `{`. Trusting "" there would force this construct's
+        // own closing `}` back to column 0, corrupting otherwise well-formed nesting (see
+        // STATE.md's `frozen`/`CaseSensitive`/`enum Choice` bug).
         // `depth` (already correctly tracked by `processScope`'s own recursion, independent of
-        // any text-based derivation) resolves the ambiguity: depth 0 keeps the legitimate "",
-        // depth > 0 falls back to depth-based indentation instead of the misleading "".
+        // any text-based derivation) resolves the ambiguity: depth 0 keeps the legitimate "" --
+        // this is the only case ever reached with a truly-zero nesting level (whether genuine
+        // file root or a non-indenting namespace body, both correctly want column 0 here -- do
+        // NOT special-case them apart). depth > 0 means this fallback fired one level further in
+        // than `depth` itself accounts for (the same-source-line scenario above always loses
+        // exactly one level of newline context relative to `depth`'s own bookkeeping), so it
+        // must synthesize depth + 1 indent units, not depth, to match the sibling construct's
+        // already-correctly-placed opening line (see `BlockStructureRule`'s own placement).
         if (depth == 0) {
             return "";
         }
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < depth * miscRule.indentWidth; i++) {
+        for (int i = 0; i < (depth + 1) * miscRule.indentWidth; i++) {
             sb.append(' ');
         }
         return sb.toString();

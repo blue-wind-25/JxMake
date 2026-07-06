@@ -28,4 +28,7 @@ public class Toggle {
     {
     }
 
+    __GEN_CXI_NPR_NPR__(clrex, __NONE__, clrex_c, $clrex)
+    __GEN_CXI_NPR_NPR__(dmb, _sy, dmb_sy_c, $dmb_sy)
+
 } // class Toggle

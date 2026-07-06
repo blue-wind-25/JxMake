@@ -54,6 +54,21 @@ Java:
                                 lines and a `throws` clause, must not be joined onto
                                 the method's own modifier line.
 
+  java_preprocessor_method_inp/out.java -- Based on the PCPP-preprocessed Java
+                                pattern used in src/jxm/ugc/ARMCortexMThumbC.java.in
+                                (a `.java.in` file run through a C-macro
+                                preprocessor before compilation, per README.md's
+                                "C-preprocessor directives in Java source" note).
+                                A `#define`-style function-like macro precedes a
+                                class and is invoked with loosely-spaced call
+                                arguments (`__GEN_CXI_NPR_NPR__( clrex, ... )`).
+                                Confirms the `#define` line itself passes through
+                                untouched (recognized/skipped like any other
+                                preprocessor directive) while the macro
+                                invocation lines still get normal call-padding
+                                tightening (`(clrex, ...)`) and are idempotent.
+
+
 C:
   c_core_inp/out.c           -- C11 constructs: declaration alignment, bitfields,
                                 pointer placement, struct/enum/typedef, function
@@ -289,6 +304,28 @@ Real-code regressions:
                                 would exceed lineLengthLimit -- same reasoning as the
                                 existing `//`-comment guard on the same code path.
 
+  real_code_regressions_11_out.c -- (updated, same fixture as above) Once a
+                                large brace-initializer is too wide to
+                                collapse to one line, DeclarationAlignmentRule
+                                correctly leaves it byte-for-byte untouched --
+                                but that meant its closing `}` stayed wherever
+                                the original source put it, typically glued
+                                onto the end of the last data line
+                                (`... 0xAC, 0x62};`) rather than on its own
+                                line at the declaration's indent. Added
+                                ScopePipeline.applyOversizedAggregateInitClosingBracePass,
+                                a dedicated pass run right after
+                                applyDeclarationsPass: finds `name = { ... };`
+                                where the `{...}` already spans a newline (a
+                                short flat init DeclarationAlignmentRule
+                                successfully collapsed to one line has no
+                                newline left inside it by this point, so this
+                                pass is a no-op for it) and the `}` is not
+                                already alone on its own line, and moves it
+                                there. Verified against the full 44-file
+                                serge-sans-paille/frozen tree: round1/round2
+                                is now fully idempotent (empty `diff -rq`).
+
   real_code_regressions_12_inp/out.hpp -- Found via real-code idempotency testing
                                 on serge-sans-paille/frozen (specifically its bundled
                                 tests/catch.hpp). A struct containing a virtual
@@ -325,27 +362,6 @@ Real-code regressions:
                                 rejection, while leaving the already-correct flat cases
                                 (enum/direct-list-init) untouched.
 
-  real_code_regressions_11_out.c -- (updated, same fixture as above) Once a
-                                large brace-initializer is too wide to
-                                collapse to one line, DeclarationAlignmentRule
-                                correctly leaves it byte-for-byte untouched --
-                                but that meant its closing `}` stayed wherever
-                                the original source put it, typically glued
-                                onto the end of the last data line
-                                (`... 0xAC, 0x62};`) rather than on its own
-                                line at the declaration's indent. Added
-                                ScopePipeline.applyOversizedAggregateInitClosingBracePass,
-                                a dedicated pass run right after
-                                applyDeclarationsPass: finds `name = { ... };`
-                                where the `{...}` already spans a newline (a
-                                short flat init DeclarationAlignmentRule
-                                successfully collapsed to one line has no
-                                newline left inside it by this point, so this
-                                pass is a no-op for it) and the `}` is not
-                                already alone on its own line, and moves it
-                                there. Verified against the full 44-file
-                                serge-sans-paille/frozen tree: round1/round2
-                                is now fully idempotent (empty `diff -rq`).
 
 
 How Tests Are Run
@@ -376,20 +392,6 @@ Adding New Tests
 
 The *_out files are the ground truth. If a formatter fix intentionally changes
 the output for a rule, update the corresponding *_out file in the same commit.
-
-  real_code_regressions_13_inp/out.java -- Based on the PCPP-preprocessed Java
-                                pattern used in src/jxm/ugc/ARMCortexMThumbC.java.in
-                                (a `.java.in` file run through a C-macro
-                                preprocessor before compilation, per README.md's
-                                "C-preprocessor directives in Java source" note).
-                                A `#define`-style function-like macro precedes a
-                                class and is invoked with loosely-spaced call
-                                arguments (`__GEN_CXI_NPR_NPR__( clrex, ... )`).
-                                Confirms the `#define` line itself passes through
-                                untouched (recognized/skipped like any other
-                                preprocessor directive) while the macro
-                                invocation lines still get normal call-padding
-                                tightening (`(clrex, ...)`) and are idempotent.
 
 
 Dogfood Test (Self-Formatting)

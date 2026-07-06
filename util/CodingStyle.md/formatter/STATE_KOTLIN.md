@@ -3,9 +3,9 @@
 **This file is self-contained. Do not assume `STATE.md` has been read in this
 session.** If you have not read `STATE.md`, that is fine — every convention this
 file depends on is restated below. This file is routed to from `CLAUDE.md`'s
-job table (Kotlin JAR support → this file) — it is still **not** linked from
-`STATE.md`'s own index; do not add a cross-reference there until explicitly
-told to (see "Handoff Note" below for when that happens).
+job table (Kotlin JAR support → this file), and, since Kotlin implementation
+work has now started, also from a redirect at the top of `STATE.md` itself
+(see "Handoff Note" below for the history of that link).
 
 ---
 

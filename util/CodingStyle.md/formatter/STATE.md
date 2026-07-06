@@ -2,6 +2,12 @@
 
 ---
 
+If the current task concerns Kotlin JAR support, stop here and read
+STATE_KOTLIN.md instead — it is self-contained and does not require the rest
+of this file.
+
+---
+
 **Do NOT read `README.md`** unless the user explicitly asks. All decisions relevant to
 implementation are recorded in the **Resolved Design Decisions** index below (full text
 in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at a time via

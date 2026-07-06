@@ -144,6 +144,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_93 | Checklist ordering — tokenizer support first, then a `JavaSpecificRule`-style scoping pass, before any `KotlinSpecificRule.java` code |
 | RDD_KEY_99 | Kotlin headless named-construct classification (`companion object {}`, anonymous `object [: Super] {}`, `init {}`) — §3.1/§3.4; also fixed a related tokenizer bug (`:` wrongly arming the supertype name as the construct name) |
 | RDD_KEY_100 | Kotlin `when` no-space-before-`(` — §3.2; added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a pure no-op for C/C++/Java |
+| RDD_KEY_101 | Kotlin `when` expression arrow alignment/closing comment/blank lines — §4; new `KotlinSpecificRule.formatWhenExpressions`, not a `JavaSpecificRule`/`BlockStructureRule` extension (keyword-less branches, non-all-or-nothing block-body alignment, forced blank lines) |
 
 ---
 
@@ -256,7 +257,7 @@ existing test suite after this step, before moving to Step 1.
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — RDD_KEY_100. Pure no-op for C/C++/Java (no `when` keyword/token in any of their keyword sets). |
 | 3.3 | Secondary constructors (Allman body) | (a) | A constructor body's `{` follows `)` with no named-construct/control keyword before it — same generic "default to Allman" path as any other function body, no special-case needed. |
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
-| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (b)/(c) | Structurally the same shape as Java's arrow-form `switch` expression (STYLE_JAVA17.md §3.1), but `SwitchRule.java` is keyed off the literal `"switch"` keyword throughout (needs to be read in full during Step 3 to judge whether generalizing it to also accept `"when"` is a clean additive change or warrants a parallel `KotlinSpecificRule` method — deferred, not yet read in full per this step's own "don't read more than needed" discipline). |
+| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **done** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c) | No shared class does general expression-level operator re-spacing today — `MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering, and assignment RHS values are joined **verbatim** (`MiscRule.joinVerbatim`, no re-spacing at all). Enforcing this for arbitrary expressions (not just declarations) is wholly new `KotlinSpecificRule` scope. |
 | 6 | Variable/property declaration alignment | (c) — **major, see Open Questions** | `DeclarationAlignmentRule.Declaration` is `[modifiers] [typeTokens] [name] [= initTokens]` — C/Java's type-before-name grammar. Kotlin's `val name : Type = init` is the reverse order. Column-grid reuse (§6's `:`-alignment, `=`-alignment) needs either a shared-model extension (behavior change — stop-and-ask territory per Hard Constraint) or an independent Kotlin-only declaration parser/renderer in `KotlinSpecificRule.java` that only reuses `ColumnGrid`/`ModifierPriority`-level primitives, not `Declaration` itself. |
 | 7 | Constructor/function parameter lists | (c) | Same reversed-grammar issue as §6 applies to `MiscRule.Param`/`Signature` (also assumes type-then-name); tied to §6's resolution. |
@@ -349,14 +350,44 @@ existing test suite after this step, before moving to Step 1.
       standalone harness calling `enforceKeywordSpacing` directly on
       tokenized `when (x) { 1 -> "a" }`, confirming the collapse to
       `when(x) { ... }`. Full C/C++/Java suite 25/25 before and after.
+- [x] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
+      Fixed as `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`,
+      not a shared-class extension. `SwitchRule.java` (read in full, 896
+      lines) turned out to be entirely colon-form switch STATEMENT handling
+      (STYLE.md §13) with zero `"->"` logic; the real arrow-form
+      switch-EXPRESSION logic is
+      `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`/`findArrowCases`,
+      but two things block reusing it: (1) it anchors each label's start on a
+      `case`/`default` KEYWORD token, which Kotlin `when` branches don't have
+      (just a bare condition expression); (2) it bails out of alignment
+      entirely for the whole `switch` if any case has a block body, but
+      STYLE_KOTLIN.md §4's own worked example keeps `->` aligned even with
+      one block-body branch present — the opposite rule. New method finds
+      branch boundaries by requiring one branch per physical line (a depth-0
+      `->` starts a body; a depth-0 NEWLINE after a non-block body, or a
+      block body's own matching `}`, ends it) and bails (leaves that whole
+      `when` untouched) if this shape isn't met. Also forces a blank line
+      after `{`/before `}` (control-flow blocks like `if`/`for`/`while`/
+      `switch` only ever *preserve* existing blank lines via
+      `BlockStructureRule.insertNamedConstructBlankLines` — never force them
+      — so this needed its own logic here too) and an unconditional
+      `// when subject` closing comment (bare `// when` for a subject-less
+      `when { ... }`), with no length gating, unlike FOR/WHILE/SWITCH's
+      closing comments in `BlockStructureRule.addClosingComments`. Verified
+      via a standalone harness covering a simple `when(x) { ... }`, a mixed
+      simple/block-body `when`, and a subject-less `when { ... }` — all three
+      matched STYLE_KOTLIN.md §4's exact expected output, including the
+      block-body-mixed alignment case. Full C/C++/Java suite 25/25 (this
+      method isn't wired into any shared class or `Formatter.formatOne` yet —
+      that's deferred to whenever `KotlinSpecificRule` itself gets wired in).
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
       covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,
       same methodology as the existing `*_inp/out` pairs for other languages.
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
-      for uncommon comment locations, same methodology as the existing
-      `*_inp/out` pairs for other languages.
+      for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
+      same methodology as the existing `*_inp/out` pairs for other languages.
 - [ ] Additional fixture pairs as needed for KOTLIN2-specific constructs
       (guard conditions, `data object`).
 - [ ] After every fixture addition or shared-class change: full existing

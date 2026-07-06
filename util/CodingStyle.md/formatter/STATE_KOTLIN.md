@@ -147,7 +147,34 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 
 ## Open Questions
 
-*(none)*
+- **Reversed declaration grammar (§6/§7, found during Step 1).**
+  `DeclarationAlignmentRule.Declaration` (and `MiscRule`'s parameter/signature
+  model) assume C/Java's `[modifiers] Type name [= init]` token order.
+  Kotlin's actual grammar is `[modifiers] val/var name : Type [= init]` —
+  name comes first, type is optional and trails after `:`. This affects both
+  variable/property declarations (§6) and function parameter lists (§7),
+  which the style doc expects to align into the same kind of column grid C/Java
+  declarations do (name column, `:`/type column, `=` column).
+  Two ways forward:
+  1. Extend `DeclarationAlignmentRule`'s shared `Declaration` model to support
+     a name-before-type grammar mode — touches an already-COMPLETE shared
+     class's *behavior*, not just additive keyword recognition, so per the
+     Hard Constraint this needs to stop and ask before doing it.
+  2. Give `KotlinSpecificRule.java` its own independent declaration/parameter
+     parser and renderer, reusing only lower-level shared primitives
+     (`ColumnGrid`, `ModifierPriority`) rather than `Declaration` itself —
+     no shared-class behavior change, more duplicated logic.
+  Not resolved this session — needs the user's direction before Step 2/3 can
+  proceed into §6/§7 territory (Step 2's `KotlinModifierPriority.java` column
+  work is unaffected either way and can start regardless).
+- **String template tokenizing (§19, found during Step 1).** Not yet verified
+  whether `TokenizerCore.emitString()` correctly closes a Kotlin string when a
+  `${...}` interpolation contains its own nested `"..."` (e.g.
+  `"${foo("x")}"`). `emitString()` was written for C/Java strings, which never
+  nest quotes. This is a tokenizer-correctness risk, not a style question —
+  should be resolved with a debug-print/dump harness against real nested-quote
+  input (per this file's evidence-over-reasoning rule) before trusting any
+  Kotlin fixture that uses string templates. Not yet investigated in depth.
 
 ---
 
@@ -200,19 +227,57 @@ existing test suite after this step, before moving to Step 1.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 
-- [ ] Cross-check every section of `STYLE_KOTLIN.md` and `STYLE_KOTLIN2.md`
+- [x] Cross-check every section of `STYLE_KOTLIN.md` and `STYLE_KOTLIN2.md`
       against the already-COMPLETE shared rule classes (`DeclarationAlignmentRule`,
       `BlockStructureRule`, `SwitchRule`, `GetterSetterRule`, `MiscRule`) to
       determine, per section: (a) already satisfied as-is by shared logic once
       Step 0's tokenizer work lands, (b) satisfied by a small additive
       extension to a shared class, or (c) needs a new method in
-      `KotlinSpecificRule.java`. Record the outcome as a table appended to
-      this file (same pattern as `RDD_KEY_59`'s Java scoping breakdown), not
-      just as an implicit assumption.
-- [ ] Flag anything found during scoping that would require changing
-      already-COMPLETE shared-class *behavior* (not just adding to it) — per
-      the Hard Constraint, that requires stopping and asking before proceeding,
-      same as `STATE.md`'s own posture toward already-COMPLETE files.
+      `KotlinSpecificRule.java`. Table below.
+- [x] Flag anything found during scoping that would require changing
+      already-COMPLETE shared-class *behavior* (not just adding to it) — see
+      **Open Questions** below: `DeclarationAlignmentRule`'s `Declaration`
+      model assumes C/Java's `[modifiers] Type name [= init]` token order,
+      which is structurally reversed from Kotlin's `[modifiers] val/var name : Type
+      [= init]`. Stopped here rather than guessing a direction.
+
+**Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` = `STYLE_KOTLIN2.md` §N):
+
+| § | Topic | Outcome | Notes |
+|---|---|---|---|
+| 1 | Semicolons (strip optional `;`) | (c) | No shared class strips statement-terminating `;` for any language today (C/Java require it) — wholly new `KotlinSpecificRule` pass. Must special-case enum-with-members' mandatory `;` (kept) and deliberate same-line multi-statement `;` (kept). |
+| 2 | `enum class` with members | (a)/(c) | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The mandatory `;` itself is just §1's stripper *not* stripping this one case — no separate logic. **Not yet verified:** the blank-line "emphasis" spacing around the entry-list/`;`/members shown in the style doc's example — needs a real fixture to confirm `insertNamedConstructBlankLines` produces it as-is or needs extension. |
+| 3 | Brace style (Allman fn bodies / K&R everything else) | (a) | `BlockStructureRule.qualifiesForKAndR`'s `PAREN_KR_KEYWORDS`/`BARE_KR_KEYWORDS` sets already cover Kotlin's exact same control-flow keyword vocabulary (`if/while/for/switch/catch`, `else/do/try/finally`); function bodies default to Allman the same way C/Java ones do (a brace after `)` with no named-construct/control-flow keyword before it). `isLambdaBrace`'s K&R lambda exception is already language-general. |
+| 3.1 | Class/Object/Companion Object bodies | (c) | Named `class Foo {`/`object Foo {` already work (brace gets a real `name` from the tokenizer, `classifyNamed` labels it, `NAMED` frames always get blank-lines + closing comment per `decideComment`'s `NAMED` case — no min-lines gating, matching §3.1 exactly). **Gap found:** headless constructs — anonymous `companion object {}`, anonymous `object : Interface {}`, and `init {}` — never arm `pendingNamedConstructName` (no identifier follows the construct keyword), so `classifyBrace` falls through to `Frame.other`, losing the mandatory blank-lines/closing-comment treatment entirely. Needs an additive extension to `BlockStructureRule.classifyBrace` parallel to the existing `isAnonymousClassBrace` special-case (Java's anonymous class already gets `Frame.named(braceIdx, "class")` with no real name) — same shape, new keywords (`companion`+`object`, `object` alone before `:`/`{`, and `init`). |
+| 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b) | Add `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — the set isn't language-partitioned, so this is a pure no-op for C/C++/Java (they have no `when` keyword/token at all). |
+| 3.3 | Secondary constructors (Allman body) | (a) | A constructor body's `{` follows `)` with no named-construct/control keyword before it — same generic "default to Allman" path as any other function body, no special-case needed. |
+| 3.4 | `init` blocks | (c) | Same headless-named-construct gap as §3.1 — grouped with it. |
+| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (b)/(c) | Structurally the same shape as Java's arrow-form `switch` expression (STYLE_JAVA17.md §3.1), but `SwitchRule.java` is keyed off the literal `"switch"` keyword throughout (needs to be read in full during Step 3 to judge whether generalizing it to also accept `"when"` is a clean additive change or warrants a parallel `KotlinSpecificRule` method — deferred, not yet read in full per this step's own "don't read more than needed" discipline). |
+| 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c) | No shared class does general expression-level operator re-spacing today — `MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering, and assignment RHS values are joined **verbatim** (`MiscRule.joinVerbatim`, no re-spacing at all). Enforcing this for arbitrary expressions (not just declarations) is wholly new `KotlinSpecificRule` scope. |
+| 6 | Variable/property declaration alignment | (c) — **major, see Open Questions** | `DeclarationAlignmentRule.Declaration` is `[modifiers] [typeTokens] [name] [= initTokens]` — C/Java's type-before-name grammar. Kotlin's `val name : Type = init` is the reverse order. Column-grid reuse (§6's `:`-alignment, `=`-alignment) needs either a shared-model extension (behavior change — stop-and-ask territory per Hard Constraint) or an independent Kotlin-only declaration parser/renderer in `KotlinSpecificRule.java` that only reuses `ColumnGrid`/`ModifierPriority`-level primitives, not `Declaration` itself. |
+| 7 | Constructor/function parameter lists | (c) | Same reversed-grammar issue as §6 applies to `MiscRule.Param`/`Signature` (also assumes type-then-name); tied to §6's resolution. |
+| 7.1 | Named/default arguments (`=` spacing/alignment) | (c) | Depends on §6/§7's resolution — reuses whatever declaration/assignment grid ends up handling Kotlin's reversed grammar. |
+| 7.2 | Trailing comma (preserved as-is) | (a) | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. |
+| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a) | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. |
+| 9 | Expression-bodied functions | (a)/(c) | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part is new behavior, tied to §6/§7's signature-wrapping work. |
+| 10 | `for` loops and ranges | (b)/(c) | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — needs `in`/`until`/`downTo`/`step` recognized as ordinary word-operator tokens for its nested-bracket detection to see through them correctly (additive keyword-set entries, (b)). The `..`/`..<` range operator's own *tight* spacing is the same kind of gap as §5 (c). |
+| 11 | Labeled jumps (`@label` spacing) | (c) | No existing mechanism recognizes this token shape (keyword/identifier followed by `@identifier`) — new, scoped, `KotlinSpecificRule` logic. |
+| 12 | Destructuring declarations | (c) | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — needs its own parsing, though it can likely still feed the existing `=`-alignment renderer once parsed. Comma spacing itself needs no new code (general commas aren't respaced by anything today, same reasoning as §7.2). |
+| 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
+| 14 | Generic `where` clause | (c) | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — needs its own `KotlinSpecificRule` method (can use the C++ one as a reference pattern during Step 3). |
+| 15 | Infix functions (modifier slot; call-site spacing) | (a) | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). |
+| 16 | Annotation use-site targets (`@field:` tight `:`) | (c) | No existing annotation-colon handling (Java annotations have no use-site-target shape) — small new `KotlinSpecificRule` logic. |
+| 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (c) | Needs `Type.(...) -> Ret` recognized as one atomic function-type token by whatever handles nested-paren/bracket detection (`ComplexityPaddingEvaluator` or a Kotlin-specific pre-pass) — new. |
+| 17.1 | Lambda parameter arrow spacing | (c) | Same category as §5 — active operator spacing outside declarations, nothing shared does this today. |
+| 18 | `vararg` | (a) | Modifier-slot handling is Step 2 scope; no general spacing concern beyond that. |
+| 19 | String templates (preserve `"$x"`/`"${x}"` exactly) | (c) — **tokenizer-level, feeds back into Step 0** | Not yet verified whether `TokenizerCore.emitString()` can correctly find a Kotlin string's closing `"` when a `${...}` interpolation contains its own nested `"..."` (e.g. `"${foo("x")}"`). `emitString()` was written for C/Java string literals, which have no such nesting. This is a real risk, not a style question — needs a dedicated Step 0 follow-up before any Kotlin fixture with string templates can be trusted. Flagged, not yet investigated in depth (avoiding guessing ahead of an actual failing case, per this step's own discipline; a concrete failing fixture should drive the actual fix). |
+| 20 | Sealed classes/interfaces | (a) | Normal `class`/`object` K&R rules apply unchanged, no special layout. |
+| 21 | Type aliases | (a) | Single-line `=`-spaced statement, no new behavior. |
+| 22 | Extension functions | (a) | `fun` behaves like any other modifier/keyword token for spacing purposes. |
+| 23 | Known Gaps | (a), excluded | Explicitly out of scope, same posture as STYLE_JAVA.md's own excluded "unresolved" section (RDD_KEY_59). |
+| K2.1 | Guard conditions in `when` | (b)/(c) | Extends §4's arrow-alignment logic as-is per the style doc — tied to §4's `SwitchRule` generalization question. |
+| K2.2 | `data object` | (a), once §3.1 lands | Formatted exactly like `object` — `"data"` just needs to be treated as a skippable modifier prefix by whatever §3.1 fix recognizes anonymous/headless `object` (small addendum to that fix, not separate new work). |
+| K2.3 | Other 2.0/2.1 features | (a), excluded | Explicitly "no new formatting rules" in the style doc itself. |
 
 ### Step 2 — `KotlinModifierPriority.java`
 
@@ -228,10 +293,12 @@ existing test suite after this step, before moving to Step 1.
       section at a time, each as its own checkpoint commit.
 
 ### Step 4 — Test Fixtures
-
-- [ ] `test/kotlin_core_inp.kt` / `kotlin_core_out.kt` — first fixture pair,
-      covering STYLE_KOTLIN.md's baseline sections end to end, same
-      methodology as the existing `*_core_inp/out` pairs for other languages.
+- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
+      covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,
+      same methodology as the existing `*_inp/out` pairs for other languages.
+- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
+      for uncommon comment locations, same methodology as the existing
+      `*_inp/out` pairs for other languages.
 - [ ] Additional fixture pairs as needed for KOTLIN2-specific constructs
       (guard conditions, `data object`).
 - [ ] After every fixture addition or shared-class change: full existing

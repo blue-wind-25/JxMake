@@ -5,6 +5,9 @@
 
 package com.example.pp;
 
+#define __GEN_CXI_NPR_NPR__(NAME, SUFFIX, FIMPL, FBASE) \
+    public ARMCortexMThumb NAME##SUFFIX() throws JXMAsmError { return FIMPL(); }
+
 // Regression coverage for the "preprocessor directive glued onto a following Java
 // Method definition" bug recorded in STATE.md's Known Gaps: a `#endif` (or any
 // Preprocessor line) sitting directly before a method definition inside a class

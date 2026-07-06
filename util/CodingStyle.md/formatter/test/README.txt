@@ -47,27 +47,29 @@ Java:
                                 normally-formatted declarations immediately before,
                                 between, and after each frozen region.
 
-  java_preprocessor_method_inp/out.java -- Regression coverage for the "preprocessor
-                                directive glued onto a following method definition"
-                                bug (STATE.md Known Gaps): a `#endif` directly before
-                                a method inside a class body, with and without blank
-                                lines and a `throws` clause, must not be joined onto
-                                the method's own modifier line.
-
-  java_preprocessor_method_inp/out.java -- Based on the PCPP-preprocessed Java
-                                pattern used in src/jxm/ugc/ARMCortexMThumbC.java.in
-                                (a `.java.in` file run through a C-macro
-                                preprocessor before compilation, per README.md's
-                                "C-preprocessor directives in Java source" note).
-                                A `#define`-style function-like macro precedes a
-                                class and is invoked with loosely-spaced call
-                                arguments (`__GEN_CXI_NPR_NPR__( clrex, ... )`).
-                                Confirms the `#define` line itself passes through
-                                untouched (recognized/skipped like any other
-                                preprocessor directive) while the macro
+  java_preprocessor_method_inp/out.java -- Regression coverage for Java source
+                                using C-preprocessor directives, including the
+                                "preprocessor directive glued onto a following
+                                method definition" bug (STATE.md Known Gaps):
+                                a `#endif` directly before a method inside a
+                                class body, with and without blank lines and a
+                                `throws` clause, must not be joined onto the
+                                method's own modifier line. Also covers the
+                                PCPP-preprocessed Java pattern used in
+                                `src/jxm/ugc/ARMCortexMThumbC.java.in` (a
+                                `.java.in` file run through a C-macro
+                                preprocessor before compilation, per
+                                README.md's "C-preprocessor directives in Java
+                                source" note): a `#define`-style function-like
+                                macro precedes a class and is invoked with
+                                loosely-spaced call arguments
+                                (`__GEN_CXI_NPR_NPR__( clrex, ... )`).
+                                Confirms the `#define` line itself passes
+                                through untouched (recognized/skipped like any
+                                other preprocessor directive) while the macro
                                 invocation lines still get normal call-padding
-                                tightening (`(clrex, ...)`) and are idempotent.
-
+                                tightening (`(clrex, ...)`) and are
+                                idempotent.
 
 C:
   c_core_inp/out.c           -- C11 constructs: declaration alignment, bitfields,
@@ -112,6 +114,7 @@ C++:
                                 between class specifier and base, inside function
                                 params, inside structured bindings, inside requires
                                 clauses.
+
 Headers:
   h_core_inp/out.h           -- C header with #ifndef guard: header zone spacing,
                                 include ordering (angle vs quote), struct alignment,
@@ -303,28 +306,15 @@ Real-code regressions:
                                 collapse (leaving the statement untouched) if it alone
                                 would exceed lineLengthLimit -- same reasoning as the
                                 existing `//`-comment guard on the same code path.
-
-  real_code_regressions_11_out.c -- (updated, same fixture as above) Once a
-                                large brace-initializer is too wide to
-                                collapse to one line, DeclarationAlignmentRule
-                                correctly leaves it byte-for-byte untouched --
-                                but that meant its closing `}` stayed wherever
-                                the original source put it, typically glued
-                                onto the end of the last data line
-                                (`... 0xAC, 0x62};`) rather than on its own
-                                line at the declaration's indent. Added
-                                ScopePipeline.applyOversizedAggregateInitClosingBracePass,
-                                a dedicated pass run right after
-                                applyDeclarationsPass: finds `name = { ... };`
-                                where the `{...}` already spans a newline (a
-                                short flat init DeclarationAlignmentRule
-                                successfully collapsed to one line has no
-                                newline left inside it by this point, so this
-                                pass is a no-op for it) and the `}` is not
-                                already alone on its own line, and moves it
-                                there. Verified against the full 44-file
-                                serge-sans-paille/frozen tree: round1/round2
-                                is now fully idempotent (empty `diff -rq`).
+                                Oversized initializers left multi-line also have their
+                                closing `}` normalized onto its own declaration-indented
+                                line instead of remaining glued to the last data line
+                                (e.g. `... 0xAC, 0x62};`). This normalization applies
+                                only when the initializer already spans multiple lines,
+                                so initializers successfully collapsed to one line are
+                                unaffected. Verified against the full 44-file
+                                serge-sans-paille/frozen tree: round1/round2 is fully
+                                idempotent (empty `diff -rq`).
 
   real_code_regressions_12_inp/out.hpp -- Found via real-code idempotency testing
                                 on serge-sans-paille/frozen (specifically its bundled

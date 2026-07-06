@@ -30,10 +30,7 @@ public final class Formatter {
             final Config config, final boolean formatOff) {
         final Lang lang = new Lang(language);
         final TokenizerCore tokenizerCore = new TokenizerCore(lang);
-        final boolean isCpp = lang.isCpp;
-        final boolean isC = lang.isC;
-        final boolean isCOrCpp = isCpp || isC;
-        final boolean isJava = lang.isJava;
+        final boolean isCOrCpp = lang.isCpp || lang.isC;
 
         final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
@@ -49,7 +46,7 @@ public final class Formatter {
                 config.isNormalizeCommentEndPeriod(), indentWidth, lineLengthLimit);
         final CppSpecificRule cppRule = isCOrCpp
                 ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
-        final JavaSpecificRule javaRule = isJava
+        final JavaSpecificRule javaRule = lang.isJava
                 ? new JavaSpecificRule(lang, lineLengthLimit, indentWidth) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
@@ -71,7 +68,7 @@ public final class Formatter {
         // STATE.md's `frozen`/`map.hpp` `key_comp()`/`value_comp()` bug). Pulled forward here,
         // same as enforceComplexityPadding above; the Phase 4 call stays too (idempotent, and
         // still needed for any angle brackets introduced by Phase 0-3's own transformations).
-        if (isCpp) {
+        if (lang.isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
         }
         text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
@@ -87,10 +84,10 @@ public final class Formatter {
         if (isCOrCpp) {
             text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
             text = cppRule.enforceEmptyParameterList(tokenizer.apply(text));
-            if (isCpp) {
+            if (lang.isCpp) {
                 text = cppRule.enforceRequiresClausePlacement(tokenizer.apply(text));
             }
-        } else if (isJava) {
+        } else if (lang.isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.apply(text));
             text = javaRule.separateEnumConstantListTerminator(tokenizer.apply(text));
@@ -148,7 +145,7 @@ public final class Formatter {
         text = switchRule.markFallthrough(tokenizer.apply(text));
         text = switchRule.alignInlineSwitches(tokenizer.apply(text));
         text = blockRule.addClosingComments(tokenizer.apply(text));
-        if (isJava) {
+        if (lang.isJava) {
             text = javaRule.enforceSwitchExpressionArrowAlignment(tokenizer.apply(text));
         }
 
@@ -156,7 +153,7 @@ public final class Formatter {
         text = miscRule.enforceKeywordSpacing(tokenizer.apply(text));
         text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
         text = miscRule.enforcePreIncrement(tokenizer.apply(text));
-        if (isCpp) {
+        if (lang.isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
         }
         if (isCOrCpp && config.isFormatMacros()) {
@@ -166,7 +163,7 @@ public final class Formatter {
         // Phase 5: file-header-level structure.
         if (isCOrCpp) {
             text = cppRule.enforceHeaderFileStructure(tokenizer.apply(text), filePath, config.isHeaderGuardRename());
-        } else if (isJava) {
+        } else if (lang.isJava) {
             text = javaRule.enforceImportOrdering(tokenizer.apply(text), config.javaImportOrder(),
                     config.isJavaImportSort(), config.javaImportDepth(), config.javaImportBlankLines());
         }

@@ -92,7 +92,6 @@ public class CppSpecificRule {
      * file's existing "a comment in the gap blocks the rewrite" posture).
      */
     public String enforceEmptyParameterList(final List<Token> tokens) {
-        final boolean isC = lang.isC;
         final Map<Integer, Integer> spans = new HashMap<>();
         for (int i = 0; i < tokens.size(); i++) {
             if (!isPunct(tokens.get(i), "(") || !isCandidateSignatureName(tokens, i)) {
@@ -105,7 +104,7 @@ public class CppSpecificRule {
             if (anyFrozen(tokens, i, closeIdx + 1)) {
                 continue;
             }
-            if (isC) {
+            if (lang.isC) {
                 if (isEmptyBetween(tokens, i, closeIdx) && isFollowedByFunctionBody(tokens, closeIdx)) {
                     spans.put(i, closeIdx);
                 }
@@ -119,7 +118,7 @@ public class CppSpecificRule {
         while (i < tokens.size()) {
             final Integer closeIdx = spans.get(i);
             if (closeIdx != null) {
-                out.append(isC ? "(void)" : "()");
+                out.append(lang.isC ? "(void)" : "()");
                 i = closeIdx + 1;
             } else {
                 out.append(tokens.get(i).text);

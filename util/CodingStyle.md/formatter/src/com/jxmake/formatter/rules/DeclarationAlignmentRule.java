@@ -258,7 +258,6 @@ public class DeclarationAlignmentRule {
             return renderFunctionForwardGroup(group);
         }
 
-        final boolean isJava = lang.isJava;
         final int modifierColumns = modifierPriority.columnCount();
         final boolean[] modifierActive = new boolean[modifierColumns];
         boolean postConstActive = false;
@@ -275,7 +274,7 @@ public class DeclarationAlignmentRule {
                     modifierActive[rank] = true;
                 }
             }
-            final TypeSplit split = isJava ? null : splitCppType(d.typeTokens);
+            final TypeSplit split = lang.isJava ? null : splitCppType(d.typeTokens);
             if (split != null && !split.postConst.isEmpty()) {
                 postConstActive = true;
             }
@@ -321,7 +320,7 @@ public class DeclarationAlignmentRule {
                 }
             }
 
-            if (isJava) {
+            if (lang.isJava) {
                 cells.add(renderTokens(d.typeTokens));
             } else {
                 final TypeSplit split = splits.get(idx);

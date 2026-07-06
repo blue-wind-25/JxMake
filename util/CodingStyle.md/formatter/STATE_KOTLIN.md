@@ -164,9 +164,11 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
      parser and renderer, reusing only lower-level shared primitives
      (`ColumnGrid`, `ModifierPriority`) rather than `Declaration` itself —
      no shared-class behavior change, more duplicated logic.
-  Not resolved this session — needs the user's direction before Step 2/3 can
-  proceed into §6/§7 territory (Step 2's `KotlinModifierPriority.java` column
-  work is unaffected either way and can start regardless).
+  **Resolved:** user chose option 2 — `KotlinSpecificRule.java` will implement
+  its own independent declaration/parameter parser and renderer for §6/§7,
+  reusing only `ColumnGrid`/`ModifierPriority`-level primitives (including the
+  new `KotlinModifierPriority`, Step 2). `DeclarationAlignmentRule` itself is
+  not touched. This is Step 3 scope, not yet implemented.
 - **String template tokenizing (§19, found during Step 1).** Not yet verified
   whether `TokenizerCore.emitString()` correctly closes a Kotlin string when a
   `${...}` interpolation contains its own nested `"..."` (e.g.
@@ -281,11 +283,24 @@ existing test suite after this step, before moving to Step 1.
 
 ### Step 2 — `KotlinModifierPriority.java`
 
-- [ ] Column order for Kotlin's modifier set (`public/private/protected/
+- [x] Column order for Kotlin's modifier set (`public/private/protected/
       internal`, `open/final/abstract/sealed`, `override`, `const`,
       `lateinit`, `val`/`var` sharing one slot per STYLE_KOTLIN.md §6) —
       confirm no cross-declaration-kind conflict analogous to the one resolved
       for Java in RDD_KEY_83 before assuming a single flat map suffices.
+      **No such conflict found**: unlike Java's `abstract`/`volatile` case
+      (where a single rank for `abstract` forced an unwanted rank shift for
+      `volatile` on fields), none of Kotlin's modifiers here need a *different*
+      relative order depending on which declaration kind they appear on —
+      `const` (properties only), `lateinit` (var properties only), `override`
+      (members only), and `open`/`final`/`abstract`/`sealed` (mutually
+      exclusive modality, one or none per declaration) never fight over
+      column order across kinds. Implemented as
+      `grid/KotlinModifierPriority.java`: columns 0 (visibility) / 1 (modality:
+      `open`/`final`/`abstract`/`sealed`, shared) / 2 (`override`) / 3
+      (`const`) / 4 (`lateinit`) / 5 (`val`/`var`, shared). Compiles clean
+      standalone; not yet wired into any rule class (that's Step 3's job, once
+      `KotlinSpecificRule.java` exists to use it).
 
 ### Step 3 — `KotlinSpecificRule.java`
 

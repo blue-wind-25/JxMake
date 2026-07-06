@@ -160,27 +160,43 @@ Every addition here must be additive (new keyword/operator recognition) and
 must not change how any existing C/C++/Java token is lexed. Re-run the full
 existing test suite after this step, before moving to Step 1.
 
-- [ ] Survey `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` for every token not already
-      lexed correctly by `TokenizerCore.java`: `?.`, `!!`, `?:`, `->` (already
-      exists for Java lambdas — confirm Kotlin's lambda/function-type/`when`
-      arrow reuses the same token type), `..`, `..<` (KOTLIN2), `@` in labeled
-      jumps (`return@label`, `outer@`), and confirm no collision with existing
-      `MULTI_CHAR_OPS` entries (e.g. the `.*` collision already documented in
-      RDD_KEY_69 for a different reason — check every new Kotlin operator
-      against that table before adding).
-- [ ] Add a Kotlin keyword set (`KEYWORDS_KOTLIN`), parallel to
-      `KEYWORDS_JAVA`/`KEYWORDS_CPP`, covering at minimum: `val`, `var`, `fun`,
-      `when`, `is`, `as`, `in`, `out`, `object`, `companion`, `init`,
-      `constructor`, `data`, `sealed`, `infix`, `suspend`, `vararg`, `where`,
-      `by`.
-- [ ] Add Kotlin named-construct detection (`NAMED_CONSTRUCT_KOTLIN` or reuse
-      the existing mechanism) for `class`, `object`, `companion object`,
-      `interface`, `enum class`, `init` — confirm `computeConstructName()`'s
-      lookback window is sufficient for each shape, extending it the same way
-      `record`/`concept` needed extending (RDD_KEY_84/RDD_KEY_85), not by
-      guessing ahead of an actual failing case.
-- [ ] Re-run full existing C/C++/Java test suite. Zero regressions required
-      before proceeding to Step 1.
+- [x] Survey `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` for every token not already
+      lexed correctly by `TokenizerCore.java`. Added to `MULTI_CHAR_OPS`: `?.`,
+      `?:`, `!!`, `..<`, `..` (longest-prefix-first: `..<` before `..`, same
+      requirement as the existing `...`/`->*` ordering). `->` already existed
+      and is reused as-is for Kotlin's lambda/function-type/`when` arrow — no
+      new token needed. `@` in labeled jumps (`return@label`, `outer@`) needs
+      no new operator entry either: it already falls through to `emitOperator`'s
+      single-char fallback as its own `OP` token, which is sufficient (the
+      surrounding spacing rule is a Step 3 `KotlinSpecificRule` concern, not a
+      tokenizer one).
+      **Found and fixed a real bug in the process (not just additive):**
+      `emitNumber()` unconditionally consumed every `.` character, so
+      `1..10` lexed as one bogus `NUMBER` token `"1..10"` (and `1..<10` as
+      `NUMBER "1.."` + `OP "<"` + `NUMBER "10"`) instead of `NUMBER "1"` + new
+      range `OP`. Fixed by stopping number consumption when a `.` is followed
+      by another `.` — a decimal point is never followed by a second `.` in
+      any of C/C++/Java/Kotlin, so this is safe for all four languages.
+      Verified via direct `TokenizerCore` dump (all Kotlin operators lex to
+      the expected token stream) and `make test` (25/25 C/C++/Java fixtures
+      unaffected, including the fixture with the most numeric-literal density).
+- [x] Add a Kotlin keyword set (`KEYWORDS_KOTLIN`), parallel to
+      `KEYWORDS_JAVA`/`KEYWORDS_CPP` — includes all hard keywords plus the
+      modifier/soft keywords listed in the checklist's original "at minimum"
+      set (unconditionally reserved, same simplification already made for
+      Java's `var`/`record`, both contextual in real Java but listed
+      unconditionally in `KEYWORDS_JAVA`).
+- [x] Add Kotlin named-construct detection (`NAMED_CONSTRUCT_KOTLIN` =
+      `class`, `object`, `interface`, `enum`, `init`). Deliberately did **not**
+      special-case `companion object`, `enum class`, or verify
+      `computeConstructName()`'s lookback window for each shape yet — that
+      cross-check against actual formatter behavior is Step 1's job (it
+      re-examines every named-construct shape against the already-COMPLETE
+      shared rule classes); adding it here would be guessing ahead of an
+      actual failing case, which this step's own instructions warn against.
+- [x] Re-run full existing C/C++/Java test suite. **25/25 pass, zero
+      regressions** (24 pre-existing + the unrelated `real_code_regressions_13`
+      fixture added the same session, before this Kotlin work started).
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 

@@ -157,11 +157,29 @@ public class TokenizerCore {
             "synchronized", "this", "throw", "throws", "transient", "true", "false", "null", "try",
             "var", "void", "volatile", "while");
 
+    // Kotlin 1.0-1.9 hard + soft/modifier keywords (STYLE_KOTLIN.md/STYLE_KOTLIN2.md). Soft
+    // keywords (e.g. `by`, `data`, `get`/`set`) are only reserved in specific positions in real
+    // Kotlin, but the formatter has no need to allow them as plain identifiers elsewhere -- same
+    // simplification already made for Java's `var`/`record` (both contextual in real Java, both
+    // listed unconditionally in KEYWORDS_JAVA above).
+    private static final Set<String> KEYWORDS_KOTLIN = setOf(
+            "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in",
+            "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
+            "true", "try", "typealias", "typeof", "val", "var", "when", "while",
+            "by", "catch", "companion", "const", "constructor", "crossinline", "data",
+            "dynamic", "enum", "external", "field", "file", "final", "finally", "get",
+            "import", "infix", "init", "inline", "inner", "internal", "lateinit", "noinline",
+            "open", "operator", "out", "override", "param", "private", "property", "protected",
+            "public", "receiver", "reified", "sealed", "set", "setparam", "suspend", "tailrec",
+            "vararg", "where");
+
     private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
     private static final Set<String> NAMED_CONSTRUCT_CPP =
             setOf("class", "struct", "enum", "namespace", "concept");
     private static final Set<String> NAMED_CONSTRUCT_JAVA =
             setOf("class", "interface", "enum", "record");
+    private static final Set<String> NAMED_CONSTRUCT_KOTLIN =
+            setOf("class", "object", "interface", "enum", "init");
 
     // Keywords that may legally appear inside a generic/template argument list without
     // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
@@ -181,10 +199,14 @@ public class TokenizerCore {
     // Longest-prefix-first order matters: emitOperator() matches the first entry whose text the
     // source starts with, so "<=>" must precede "<=" (a strict prefix of it) or the spaceship
     // operator would be split into "<=" + ">".
+    // Kotlin operators added here (`?.`, `!!`, `?:`, `..<`, `..`) are new entries, not shared with
+    // C/C++/Java -- "..<" must precede ".." (a strict prefix of it), same longest-prefix-first
+    // requirement already noted above for "..." vs "->"/"<=".
     private static final String[] MULTI_CHAR_OPS = {
-            "<<=", ">>>=", ">>=", "...", "->*",
+            "<<=", ">>>=", ">>=", "...", "->*", "..<",
             "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
+            "?.", "?:", "!!", "..",
             "[[", "]]"
     };
 
@@ -256,6 +278,10 @@ public class TokenizerCore {
             case "java":
                 this.keywords = KEYWORDS_JAVA;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_JAVA;
+                break;
+            case "kotlin":
+                this.keywords = KEYWORDS_KOTLIN;
+                this.namedConstructKeywords = NAMED_CONSTRUCT_KOTLIN;
                 break;
             default:
                 throw new IllegalArgumentException("Unknown language: " + language);
@@ -834,6 +860,12 @@ public class TokenizerCore {
         final int start = pos;
         while (pos < length) {
             final char c = source.charAt(pos);
+            // A `.` followed by another `.` is never a decimal point -- it's the start of
+            // Kotlin's `..`/`..<` range operator (e.g. `1..10`), which must not be swallowed
+            // into the number literal.
+            if (c == '.' && peek(1) == '.') {
+                break;
+            }
             if (Character.isLetterOrDigit(c) || c == '.' || c == '_' || c == '\'') {
                 pos++;
                 continue;

@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
 
+
 import textwrap
+
 
 INPUT_FILE = "README.txt"
 
-# Maximum output line width.
+# Maximum output line width
 LINE_WIDTH = 100
 
 SOURCE_EXTS = (
-    ".java",
-    ".c",
-    ".cpp",
     ".h",
+    ".c",
     ".hpp",
+    ".cpp",
+    ".java",
+    ".kt",
 )
 
 
 def parse_entry(line):
     """
     Returns (indent, filename, description) if this is a test entry,
-    otherwise None.
+    otherwise None
     """
     if " -- " not in line:
         return None
@@ -38,7 +41,7 @@ def parse_entry(line):
 def format_entries(lines):
     entries = []
 
-    # Detect the current description column automatically.
+    # Detect the current description column automatically
     desc_col = 0
     for line in lines:
         if parse_entry(line) is None:
@@ -66,11 +69,11 @@ def format_entries(lines):
 
         while j < len(lines):
 
-            # Blank line ends the description.
+            # Blank line ends the description
             if lines[j].strip() == "":
                 break
 
-            # Next test entry starts here.
+            # Next test entry starts here
             if parse_entry(lines[j]) is not None:
                 break
 

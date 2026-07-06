@@ -146,6 +146,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_100 | Kotlin `when` no-space-before-`(` — §3.2; added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a pure no-op for C/C++/Java |
 | RDD_KEY_101 | Kotlin `when` expression arrow alignment/closing comment/blank lines — §4; new `KotlinSpecificRule.formatWhenExpressions`, not a `JavaSpecificRule`/`BlockStructureRule` extension (keyword-less branches, non-all-or-nothing block-body alignment, forced blank lines) |
 | RDD_KEY_102 | Kotlin null-safety operator spacing (`?.`/`!!` tight, `?:` spaced) — §5; new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file pass since no shared class does general expression-level operator re-spacing |
+| RDD_KEY_103 | Kotlin variable/property declaration alignment — §6; new `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (visibility-loosen-then-extend, superseding the earlier "independent parser" resolution), own statement splitter/parser/renderer for the name-before-type parts |
 
 ---
 
@@ -168,11 +169,24 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
      parser and renderer, reusing only lower-level shared primitives
      (`ColumnGrid`, `ModifierPriority`) rather than `Declaration` itself —
      no shared-class behavior change, more duplicated logic.
-  **Resolved:** user chose option 2 — `KotlinSpecificRule.java` will implement
-  its own independent declaration/parameter parser and renderer for §6/§7,
-  reusing only `ColumnGrid`/`ModifierPriority`-level primitives (including the
-  new `KotlinModifierPriority`, Step 2). `DeclarationAlignmentRule` itself is
-  not touched. This is Step 3 scope, not yet implemented.
+  **Resolved (superseded for §6, RDD_KEY_103):** originally the user chose
+  option 2 (independent parser/renderer in `KotlinSpecificRule.java`,
+  `DeclarationAlignmentRule` untouched). For §6 specifically, the user later
+  reconsidered and chose a third approach instead: loosen
+  `DeclarationAlignmentRule`'s visibility (several C/C++/Java-agnostic private
+  helpers — `splitStatements`, `hasBlankLineBefore`, `hasCommentBefore`,
+  `significantOnly`, `renderTokens`, `findTrailingComment` — raised to
+  `protected`, a purely additive/behavior-neutral change), then create
+  `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` reusing
+  those helpers plus `ColumnGrid`/`KotlinModifierPriority`, with its own
+  `KotlinDecl` model, statement splitter (`splitKotlinStatements` — Kotlin
+  properties are newline- not `;`-terminated, so the inherited
+  `splitStatements` can't be reused for boundary-finding, only for its other
+  generic helpers), parser (`parseKotlinDeclaration`), and grid renderer
+  (`renderPropertyGroup`) for the parts that are irreducibly
+  name-before-type-specific. §7 (constructor/function parameter lists) has
+  not been decided yet and may follow either this pattern or the original
+  option 2 — revisit when §7 is picked up.
 - **String template tokenizing (§19, found during Step 1).** Not yet verified
   whether `TokenizerCore.emitString()` correctly closes a Kotlin string when a
   `${...}` interpolation contains its own nested `"..."` (e.g.
@@ -260,7 +274,7 @@ existing test suite after this step, before moving to Step 1.
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
 | 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **done** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing` — a single flat whole-file whitespace-collapsing pass, not scoped to any one construct, since no shared class does general expression-level operator re-spacing today. RDD_KEY_102. |
-| 6 | Variable/property declaration alignment | (c) — **major, see Open Questions** | `DeclarationAlignmentRule.Declaration` is `[modifiers] [typeTokens] [name] [= initTokens]` — C/Java's type-before-name grammar. Kotlin's `val name : Type = init` is the reverse order. Column-grid reuse (§6's `:`-alignment, `=`-alignment) needs either a shared-model extension (behavior change — stop-and-ask territory per Hard Constraint) or an independent Kotlin-only declaration parser/renderer in `KotlinSpecificRule.java` that only reuses `ColumnGrid`/`ModifierPriority`-level primitives, not `Declaration` itself. |
+| 6 | Variable/property declaration alignment | (c), **done** | New `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (user-directed: loosen shared-class visibility, then extend, rather than an independent parser in `KotlinSpecificRule.java`). Reuses `splitStatements`/`hasBlankLineBefore`/`hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment` (raised private → protected, no behavior change) plus `ColumnGrid`/`KotlinModifierPriority`; writes its own `KotlinDecl` model, `splitKotlinStatements` (newline-terminated statement splitting — Kotlin has no `;`), `parseKotlinDeclaration`, and `renderPropertyGroup` (per-column `ColumnGrid`, not `Declaration`/`render()`). RDD_KEY_103. |
 | 7 | Constructor/function parameter lists | (c) | Same reversed-grammar issue as §6 applies to `MiscRule.Param`/`Signature` (also assumes type-then-name); tied to §6's resolution. |
 | 7.1 | Named/default arguments (`=` spacing/alignment) | (c) | Depends on §6/§7's resolution — reuses whatever declaration/assignment grid ends up handling Kotlin's reversed grammar. |
 | 7.2 | Trailing comma (preserved as-is) | (a) | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. |
@@ -403,6 +417,46 @@ existing test suite after this step, before moving to Step 1.
       byte-identical; a `?:` split across a newline and a `?.` followed by a
       trailing comment both left completely untouched. Full C/C++/Java suite
       25/25 (new method, no shared-class change, not yet wired into
+      `Formatter.formatOne`).
+- [x] **§6 Variable/property declaration alignment.** Fixed as `RDD_KEY_103`.
+      Per the user's revised decision (superseding the earlier "independent
+      `KotlinSpecificRule` parser" resolution, see Open Questions), raised
+      `DeclarationAlignmentRule`'s `splitStatements`/`hasBlankLineBefore`/
+      `hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment`
+      from `private` to `protected` (additive, no behavior change — full
+      C/C++/Java suite unaffected), then created
+      `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule`.
+      New `KotlinDecl` model (`modifiers` incl. `val`/`var`, `name`,
+      `typeTokens`, `initTokens`, `trailingComment`). Discovered during
+      verification that the inherited `splitStatements` can't be reused for
+      finding statement boundaries: it only splits on `;`/`}`, but Kotlin
+      properties are conventionally newline-terminated with no `;` at all —
+      reusing it verbatim merged an entire scope's declarations into one
+      "statement". Wrote a parallel `splitKotlinStatements`: same depth
+      tracking, but also splits on a depth-0 NEWLINE that follows at least one
+      significant token (one declaration per line, matching every
+      STYLE_KOTLIN.md §6 worked example; a declaration whose initializer
+      genuinely spans multiple lines will fail `parseKotlinDeclaration`
+      instead of being mis-parsed, and is conservatively left out of its
+      group). `parseKotlinDeclaration` walks `[modifiers] val|var name
+      [: type] [= init]` directly (returns null — breaks the group — for
+      anything else, e.g. a function call or control-flow statement).
+      `renderPropertyGroup` uses `ColumnGrid` with one column per field
+      (modifiers, name, `: type`, `= init`, trailing comment), each
+      conditionally added only if some row in the group uses it — same
+      "only emit active columns" precedent as the base class's render(). Also
+      found and fixed a cross-feature integration gap: `renderTokens`'s
+      inherited tight-token table doesn't know about §5's `?.`/`!!` tight
+      operators (that's a separate whole-file pass, not wired into this
+      grid-cell renderer), so a small `renderKotlinTokens` wrapper strips the
+      one leftover space `renderTokens` would otherwise leave around them.
+      Verified via a standalone harness against both STYLE_KOTLIN.md §6
+      worked examples (visibility/modality/override group with aligned `:`;
+      `val`-only group with aligned `=`, including `?.`/`!!`/`?:` inside an
+      initializer) plus a blank-line-broken group, a no-type/no-init mix, and
+      a non-declaration statement breaking the group — all matched expected
+      output exactly. Full C/C++/Java suite 25/25 (visibility-only base-class
+      change, confirmed no regression; new subclass not yet wired into
       `Formatter.formatOne`).
 
 ### Step 4 — Test Fixtures

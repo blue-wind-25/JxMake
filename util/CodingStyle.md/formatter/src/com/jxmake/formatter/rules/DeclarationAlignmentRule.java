@@ -443,7 +443,9 @@ public class DeclarationAlignmentRule {
      * attach tightly per STYLE_C_CPP.md §4 conventions (e.g. `uint8_t*`,
      * `std::vector<int>`, `buffer[64]`); everything else gets a single space.
      */
-    private String renderTokens(final List<Token> tokens) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected String renderTokens(final List<Token> tokens) {
         final StringBuilder sb = new StringBuilder();
         Token prev = null;
         for (final Token t : tokens) {
@@ -576,7 +578,9 @@ public class DeclarationAlignmentRule {
     }
 
     // ── Statement splitting ─────────────────────────────────────────────────────
-    private List<List<Token>> splitStatements(final List<Token> scopeTokens) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected List<List<Token>> splitStatements(final List<Token> scopeTokens) {
         final List<List<Token>> statements = new ArrayList<>();
         List<Token> current = new ArrayList<>();
         final int n = scopeTokens.size();
@@ -686,7 +690,9 @@ public class DeclarationAlignmentRule {
      *  fields, so a directive's raw text embedded mid-group (not caught by
      *  {@code applyDeclarationsPass}'s leading-gap capture, which only covers the group's very
      *  first statement) would otherwise be silently dropped. */
-    private boolean hasCommentBefore(final List<Token> stmt) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected boolean hasCommentBefore(final List<Token> stmt) {
         for (final Token t : stmt) {
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK
                     || t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF) {
@@ -699,7 +705,9 @@ public class DeclarationAlignmentRule {
         return false;
     }
 
-    private boolean hasBlankLineBefore(final List<Token> stmt) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected boolean hasBlankLineBefore(final List<Token> stmt) {
         int newlineRun = 0;
         for (final Token t : stmt) {
             if (t.type == TokenType.NEWLINE) {
@@ -726,7 +734,9 @@ public class DeclarationAlignmentRule {
      * that can be rendered verbatim on one line and safely column-aligned.
      */
     /** Last non-gap token index in {@code [from, to)}, or -1 if none. */
-    private int lastSignificantIdx(final List<Token> tokens, final int from, final int to) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected int lastSignificantIdx(final List<Token> tokens, final int from, final int to) {
         for (int k = to - 1; k >= from; k--) {
             if (!isGapToken(tokens.get(k))) {
                 return k;
@@ -1285,7 +1295,9 @@ public class DeclarationAlignmentRule {
                 new ArrayList<Token>(), widthTokens, trailingComment, blankBefore);
     }
 
-    private Token findTrailingComment(final List<Token> stmt) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected Token findTrailingComment(final List<Token> stmt) {
         for (int k = stmt.size() - 1; k >= 0; k--) {
             final Token t = stmt.get(k);
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
@@ -1298,7 +1310,9 @@ public class DeclarationAlignmentRule {
         return null;
     }
 
-    private List<Token> significantOnly(final List<Token> stmt) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
+    protected List<Token> significantOnly(final List<Token> stmt) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : stmt) {
             switch (t.type) {

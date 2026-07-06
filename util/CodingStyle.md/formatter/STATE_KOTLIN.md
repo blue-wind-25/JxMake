@@ -2,27 +2,10 @@
 
 **This file is self-contained. Do not assume `STATE.md` has been read in this
 session.** If you have not read `STATE.md`, that is fine — every convention this
-file depends on is restated below. This file is **not yet linked** from
-`STATE.md`'s own index — do not add a cross-reference there until explicitly
-told to.
-
-### Guard — Unexpected Read of This File
-
-As of this writing, nothing in `CLAUDE.md` or `STATE.md` routes a session here
-automatically — the only legitimate way to be reading this file is that the
-user named it explicitly for the current task. If you are reading this file
-for any other reason (an automatic session-start read, a stale pointer, a
-cross-reference followed without the user asking), **stop and ask the user
-before doing anything else** — do not proceed as if this file's context is
-the right one for the current task.
-
-**This guard is temporary and self-limiting.** Once `STATE.md` contains its
-own conditional redirect into this file (a one-line addition the user
-maintains outside this file, added only once real Kotlin implementation work
-begins), a routed read via that line becomes expected and legitimate — this
-guard's premise ("nothing routes here") no longer holds at that point, and
-the guard should be reworded or removed rather than left to false-trigger on
-a now-legitimate routed read.
+file depends on is restated below. This file is routed to from `CLAUDE.md`'s
+job table (Kotlin JAR support → this file) — it is still **not** linked from
+`STATE.md`'s own index; do not add a cross-reference there until explicitly
+told to (see "Handoff Note" below for when that happens).
 
 ---
 

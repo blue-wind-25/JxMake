@@ -327,6 +327,8 @@ public class TokenizerCore {
                 t = emitBlockComment();
             } else if (c == '"' && isTextBlockOpener()) {
                 t = emitTextBlock();
+            } else if (c == '"' && isKotlinRawStringOpener()) {
+                t = emitKotlinRawString();
             } else if ((lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0) {
                 t = emitRawString(rawStringPrefixLength());
             } else if (c == '"') {
@@ -766,6 +768,64 @@ public class TokenizerCore {
                 null);
     }
 
+    /** True iff {@code pos} sits on the opening `"""` of a Kotlin raw string. Neither
+     *  STYLE_KOTLIN.md nor STYLE_KOTLIN2.md mentions raw strings at all -- surfaced as a
+     *  side-finding while fixing §19's interpolation-nesting risk (RDD_KEY_116) and confirmed via
+     *  harness to be badly broken: without this check, `"""hello "world" end"""` mis-lexed as five
+     *  tokens (`""` / `"hello "` / `world` (a bare `IDENTIFIER`!) / `" end"` / `""`) instead of one,
+     *  and a multi-line raw string mis-lexed a spurious `NEWLINE` token into the middle of what
+     *  should be one opaque string -- exposing the content's real newlines to every indentation/
+     *  scope pass in the pipeline exactly the way an unrecognized text block would. */
+    private boolean isKotlinRawStringOpener() {
+        return lang.isKotlin && peek(1) == '"' && peek(2) == '"';
+    }
+
+    /**
+     * Lexes a Kotlin raw string (`"""..."""`) as a single opaque STRING token, same "one token,
+     * internal newlines embedded in its own text" precedent as {@link #emitTextBlock}/{@link
+     * #emitBlockComment}. Two rules make this a different scan from every other string helper in
+     * this file:
+     * <ul>
+     *   <li>No backslash-escape processing at all -- unlike every other Kotlin/C/Java string or
+     *       char literal, `\` is a plain literal character inside a raw string (this is the whole
+     *       point of the construct), so a lone trailing `\` right before the closing `"""` must
+     *       not swallow the first delimiter quote the way an escape pair would elsewhere.</li>
+     *   <li>Termination is greedy on the *first* `"""` encountered, exactly matching the real
+     *       Kotlin compiler: a raw string is free to contain runs of one or two unescaped `"`
+     *       characters as plain content (e.g. `"""hello "world" end"""`), but the moment three
+     *       land in a row, that's the close -- even if a fourth immediately follows (a literal
+     *       trailing `"` right at the end needs `${'"'}` in real Kotlin source; this tokenizer
+     *       doesn't need to solve that, it only needs to match where the closing delimiter falls).</li>
+     * </ul>
+     * `${...}` interpolation is still recognized and depth-tracked via {@link
+     * #skipKotlinInterpolationBlock} exactly as in {@link #skipKotlinString} -- interpolation
+     * works identically inside a raw string, including a nested raw string inside the
+     * interpolation expression itself ({@code "${"""nested"""}"}), which {@code
+     * skipKotlinInterpolationBlock} now dispatches back into this same method for.
+     */
+    private int skipKotlinRawString(final int openIdx) {
+        int p = openIdx + 3;
+        while (p < length) {
+            final char c = source.charAt(p);
+            if (c == '"' && p + 2 < length && source.charAt(p + 1) == '"' && source.charAt(p + 2) == '"') {
+                return p + 3;
+            }
+            if (c == '$' && p + 1 < length && source.charAt(p + 1) == '{') {
+                p = skipKotlinInterpolationBlock(p + 2);
+                continue;
+            }
+            p++;
+        }
+        return p;
+    }
+
+    private Token emitKotlinRawString() {
+        final int start = pos;
+        pos = skipKotlinRawString(pos);
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
+    }
+
     private static final String[] RAW_STRING_PREFIXES = { "u8R", "uR", "UR", "LR", "R" };
 
     /** C++11 raw string literals (`R"delim(...)delim"`, optionally prefixed by an encoding
@@ -902,6 +962,10 @@ public class TokenizerCore {
         int depth = 1;
         while (p < length && depth > 0) {
             final char c = source.charAt(p);
+            if (c == '"' && p + 2 < length && source.charAt(p + 1) == '"' && source.charAt(p + 2) == '"') {
+                p = skipKotlinRawString(p);
+                continue;
+            }
             if (c == '"') {
                 p = skipKotlinString(p);
                 continue;

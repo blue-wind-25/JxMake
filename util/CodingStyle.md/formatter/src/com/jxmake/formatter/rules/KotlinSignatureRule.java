@@ -339,6 +339,136 @@ public class KotlinSignatureRule extends MiscRule {
         return sb.toString();
     }
 
+    /** STYLE_KOTLIN.md §9: everything after a function signature's parameter-list close paren --
+     *  an optional `: ReturnType` and/or an optional expression body (`= expr`). Either or both may
+     *  be empty/absent (a block-bodied function with an inferred return type has neither; one with
+     *  an explicit return type but a `{ ... }` block body has {@code returnTypeTokens} only). The
+     *  leading `:` and `=` themselves are stripped here (not carried in the token lists), matching
+     *  {@link KotlinParam}'s own established convention of rendering its `: type`/`= default` cells
+     *  with an explicit literal prefix rather than keeping the operator token in the slice. */
+    public static final class FunctionTail {
+        public final List<Token> returnTypeTokens; // empty if no explicit return type
+        public final List<Token> exprTokens; // empty if not expression-bodied
+        public final boolean hasEqual;
+
+        FunctionTail(final List<Token> returnTypeTokens, final List<Token> exprTokens, final boolean hasEqual) {
+            this.returnTypeTokens = returnTypeTokens;
+            this.exprTokens = exprTokens;
+            this.hasEqual = hasEqual;
+        }
+    }
+
+    /** Parses the tokens following a signature's closing `)` -- everything up to (not including)
+     *  the function's own body-opening `{` for a block-bodied function, or through the end of the
+     *  expression for an expression-bodied one. Returns null only if given no tokens to parse
+     *  (there is always at least a valid, possibly-empty {@link FunctionTail} otherwise). */
+    public FunctionTail parseFunctionTail(final List<Token> tailTokens) {
+        final List<Token> sig = significantWithComments(tailTokens);
+        int i = 0;
+        List<Token> returnType = Collections.emptyList();
+        if (i < sig.size() && isOp(sig.get(i), ":")) {
+            i++;
+            final int start = i;
+            while (i < sig.size() && !isOp(sig.get(i), "=")) {
+                i++;
+            }
+            returnType = new ArrayList<>(sig.subList(start, i));
+        }
+        List<Token> expr = Collections.emptyList();
+        boolean hasEqual = false;
+        if (i < sig.size() && isOp(sig.get(i), "=")) {
+            hasEqual = true;
+            i++;
+            expr = new ArrayList<>(sig.subList(i, sig.size()));
+        }
+        return new FunctionTail(returnType, expr, hasEqual);
+    }
+
+    /**
+     * STYLE_KOTLIN.md §9: renders a full function signature including its `: ReturnType`/`= expr`
+     * tail, extending {@link #render}'s params-only line-breaking with one further fallback level.
+     * Three tiers, tried in order: (1) everything -- lead, params, tail -- fits on one line as
+     * written, left exactly as-is (STYLE_KOTLIN.md §9's "standalone, fits inline" case); (2) break
+     * the parameter list first (delegating to {@link #render} exactly as §7 already does) and
+     * append the tail to the resulting `)` line -- if that combined line now fits, stop there; (3)
+     * only if the tail includes an expression body (`= expr`) and tier 2 still doesn't fit, wrap
+     * `= expr` onto its own line indented one level past the signature, mirroring how §7.1's
+     * named-argument `=` wraps rather than inventing a new break rule (per the style doc's own
+     * text). A `: ReturnType` with no `=` (an explicit-return-type block-bodied function) has
+     * nothing left to wrap once tier 2 fails -- STYLE_KOTLIN.md §9 only documents the expression-
+     * bodied case, so tier 3 is a no-op for that shape and the combined line is used as-is.
+     */
+    public List<String> renderWithTail(final KotlinSignature sig, final FunctionTail tail,
+            final int indentLevel, final String indentStyle) {
+        final String returnTypeStr = tail.returnTypeTokens.isEmpty() ? "" : ": " + renderTokens(tail.returnTypeTokens);
+        final String exprStr = tail.hasEqual ? "= " + renderTokens(tail.exprTokens) : "";
+        final String tailStr = returnTypeStr.isEmpty() ? exprStr
+                : (exprStr.isEmpty() ? returnTypeStr : returnTypeStr + " " + exprStr);
+
+        final String lead = renderTokens(sig.leadTokens);
+        final String head = (lead.isEmpty() ? "" : lead + " ") + sig.name.text + "(";
+        final String inline = appendTailPart(head + renderParamsInline(sig) + ")", tailStr);
+        final int startColumn = indentLevel * indentWidth;
+
+        boolean hasLineComment = false;
+        int commentLen = 0;
+        for (final KotlinParam p : sig.params) {
+            if (p.comment != null) {
+                commentLen += p.comment.text.length() + 1;
+                if (p.comment.type == TokenType.COMMENT_LINE) {
+                    hasLineComment = true;
+                }
+            }
+        }
+        if (!hasLineComment && startColumn + inline.length() - commentLen <= lineLengthLimit) {
+            return Collections.singletonList(inline);
+        }
+
+        final List<String> lines;
+        final String lastLine;
+        if (!sig.params.isEmpty()) {
+            // render() may itself decide the params-only inline form already fits (its own
+            // bypass check has no knowledge of the tail this method is appending), returning an
+            // immutable Collections.singletonList -- always re-wrap in a fresh mutable list since
+            // this method may still need to rewrite that one line below.
+            lines = new ArrayList<>(render(sig, indentLevel, indentStyle));
+            lastLine = lines.get(lines.size() - 1);
+        } else {
+            // Nothing to break in an empty parameter list -- the tail is the only thing that
+            // might still need to wrap (tier 3 below).
+            lastLine = head + ")";
+            lines = new ArrayList<>();
+            lines.add(lastLine);
+        }
+
+        if (tailStr.isEmpty()) {
+            return lines;
+        }
+        final String combined = appendTailPart(lastLine, tailStr);
+        if (combined.length() <= lineLengthLimit || !tail.hasEqual) {
+            lines.set(lines.size() - 1, combined);
+            return lines;
+        }
+
+        final String closeLine = appendTailPart(lastLine, returnTypeStr) + " =";
+        lines.set(lines.size() - 1, closeLine);
+        lines.add(indentText(indentLevel + 1, indentStyle) + renderTokens(tail.exprTokens));
+        return lines;
+    }
+
+    /** Joins {@code tailPart} onto {@code base} with no space if it's a `: ReturnType` cell (its
+     *  leading `:` is tight against the preceding `)`, matching every other STYLE_KOTLIN.md `:`
+     *  placement in this file) or with one space if it's an `= expr` cell (a normal binary-operator
+     *  spacing) -- distinguished by {@code tailPart}'s own leading character, since both shapes are
+     *  passed through this same join point (inline, params-broken-but-tail-fits, and the
+     *  return-type-only half of the wrap-`=` case all share it). No-op if {@code tailPart} is empty. */
+    private String appendTailPart(final String base, final String tailPart) {
+        if (tailPart.isEmpty()) {
+            return base;
+        }
+        return tailPart.startsWith(":") ? base + tailPart : base + " " + tailPart;
+    }
+
     private String trimTrailingSpaces(final String s) {
         int end = s.length();
         while (end > 0 && s.charAt(end - 1) == ' ') {

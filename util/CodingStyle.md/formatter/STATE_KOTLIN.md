@@ -155,6 +155,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
 | RDD_KEY_111 | Kotlin `enum class` with members blank-line "emphasis" around the mandatory `;` — §2; `insertNamedConstructBlankLines` (shared) confirmed to only handle the body-open/close blank lines, not the `;`-separator emphasis — new `KotlinSpecificRule.separateEnumConstantListTerminator` (+ helpers), structurally mirroring `JavaSpecificRule.separateEnumConstantListTerminator` (per-language precedent, same as §14/RDD_KEY_106) rather than reusing/relocating it, since that class isn't shared and its own helper names aren't present in any shared class either |
+| RDD_KEY_112 | Kotlin expression-bodied functions — §9; new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier inline/params-broken/wrap-`=` fallback delegating to §7's existing `render` for the middle tier — plus a **shared-class fix**, `MiscRule.isTightToken`'s `*`/`&` tight-token treatment gated off for Kotlin (was collapsing ordinary multiplication spacing, `x* x`, surfaced by this work's own harness reproducing the style doc's `x * x + y * y` worked example) |
 
 ---
 
@@ -278,7 +279,7 @@ existing test suite after this step, before moving to Step 1.
 | 7.1 | Named/default arguments (`=` spacing/alignment) | (c), **done for declarations** | Folded into §7's `KotlinSignatureRule.parseKotlinParam`/`render` — a default value is just one more optional trailing part of a single parameter's grammar, so no separate method was needed. **Not covered:** the call-site named-argument shape (`foo(x = 1, y = 2)`) shown in STYLE_KOTLIN.md §7.1's own worked example is a function *call*, not a declaration — no type column, different token shape (`name = value` only) — genuinely out of `KotlinSignature`'s scope as parsed here; would need its own small parser/renderer analogous to `MiscRule`'s `renderCallOnePerLine`/`renderCallPreserveGroups` family if picked up later. |
 | 7.2 | Trailing comma (preserved as-is) | (a) | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. |
 | 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a) | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. |
-| 9 | Expression-bodied functions | (a)/(c) | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part is new behavior, tied to §6/§7's signature-wrapping work. |
+| 9 | Expression-bodied functions | (a)/(c), **done** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. |
 | 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — `in`/`until`/`downTo`/`step` turned out to already be inert w.r.t. its nested-bracket detection with zero code changes (`in` is `TokenType.KEYWORD`, the other three are plain `TokenType.IDENTIFIER`, confirmed via harness — reclassified (b)→(a)). The `..`/`..<` range operator's own *tight* spacing needed new code, same kind of gap as §5 — new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`, a separate group stream from §6's own. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. |
@@ -431,6 +432,23 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       byte-for-byte; no-trailing-members, trailing-`;`-with-no-members-after,
       and trailing-comma-preservation cases all correctly left untouched. No
       shared-class change. `make test` 32/32.
+- [x] **§9 Expression-bodied functions.** `RDD_KEY_112` — "preserve as-is"
+      part free (same reasoning as §8). New `KotlinSignatureRule.FunctionTail`
+      (parses `: ReturnType`/`= expr` after a signature's `)`) +
+      `parseFunctionTail` + `renderWithTail`, a three-tier fallback: fits
+      fully inline as written; else break params first (delegates straight
+      to §7's existing `render`, unchanged) and append the tail if that now
+      fits; else, only if expression-bodied, wrap `= expr` onto its own line
+      indented one level (mirrors §7.1's named-argument `=`-wrap). An explicit
+      return type with no `=` and still too long after breaking params is
+      left as the combined line — nothing documented left to wrap for that
+      shape. **Shared-class change**: `MiscRule.isTightToken`'s `*`/`&`
+      tight-token treatment (a C/C++ pointer/reference-declarator convention)
+      gated off for Kotlin via `!lang.isKotlin` — unconditionally applied, it
+      was collapsing ordinary Kotlin multiplication spacing (`x * x` →
+      `x* x`) in any expression rendered through the shared `renderTokens`,
+      caught via a harness reproducing the style doc's own `x * x + y * y`
+      worked example byte-for-byte. `make test` 32/32 before and after.
 
 ### Step 3.5 — Configuration Property Wiring
 

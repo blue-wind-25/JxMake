@@ -1558,7 +1558,16 @@ public class MiscRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
-        return Token.isRepOp(t, '*') || Token.isRepOp(t, '&') || isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        // `*`/`&` are C/C++ pointer/reference declarator sigils here (tight against the type
+        // they modify, `int* p`) -- Kotlin has no such use of either symbol (its `*` is always
+        // multiplication or the spread operator, its expressions never use bare `&`), so treating
+        // them as tight there would wrongly collapse ordinary arithmetic spacing in any Kotlin
+        // expression rendered through this shared join point (STYLE_KOTLIN.md §9's `= expr`
+        // rendering surfaced this: `x * x` was joining as `x* x`).
+        if (!lang.isKotlin && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&'))) {
+            return true;
+        }
+        return isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     protected List<Token> significantOnly(final List<Token> stmt) {

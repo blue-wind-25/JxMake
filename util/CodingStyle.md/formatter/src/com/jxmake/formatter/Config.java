@@ -32,7 +32,9 @@ public final class Config {
         "normalize-comment-start-case", "normalize-comment-end-period",
         "header-guard-rename",
         "java-import-order", "java-import-sort", "java-import-depth",
-        "java-import-blank-lines"
+        "java-import-blank-lines",
+        "kotlin-import-order", "kotlin-import-sort", "kotlin-import-depth",
+        "kotlin-import-blank-lines"
     };
 
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
@@ -55,6 +57,10 @@ public final class Config {
     private boolean javaImportSort = true;
     private int javaImportDepth = 2;
     private int javaImportBlankLines = 1;
+    private List<String> kotlinImportOrder = Arrays.asList("kotlin", "java", "com", "org", "other", "local");
+    private boolean kotlinImportSort = true;
+    private int kotlinImportDepth = 2;
+    private int kotlinImportBlankLines = 1;
 
     private Config() {
     }
@@ -113,6 +119,22 @@ public final class Config {
 
     public int javaImportBlankLines() {
         return javaImportBlankLines;
+    }
+
+    public List<String> kotlinImportOrder() {
+        return kotlinImportOrder;
+    }
+
+    public boolean isKotlinImportSort() {
+        return kotlinImportSort;
+    }
+
+    public int kotlinImportDepth() {
+        return kotlinImportDepth;
+    }
+
+    public int kotlinImportBlankLines() {
+        return kotlinImportBlankLines;
     }
 
     public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides) {
@@ -208,6 +230,10 @@ public final class Config {
         config.javaImportSort = parseBoolean(raw, "java-import-sort", config.javaImportSort);
         config.javaImportDepth = parseInt(raw, "java-import-depth", config.javaImportDepth);
         config.javaImportBlankLines = parseInt(raw, "java-import-blank-lines", config.javaImportBlankLines);
+        config.kotlinImportOrder = parseStringList(raw, "kotlin-import-order", config.kotlinImportOrder);
+        config.kotlinImportSort = parseBoolean(raw, "kotlin-import-sort", config.kotlinImportSort);
+        config.kotlinImportDepth = parseInt(raw, "kotlin-import-depth", config.kotlinImportDepth);
+        config.kotlinImportBlankLines = parseInt(raw, "kotlin-import-blank-lines", config.kotlinImportBlankLines);
         return config;
     }
 

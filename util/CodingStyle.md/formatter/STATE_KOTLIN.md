@@ -161,6 +161,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_115 | Kotlin semicolon stripping — §1; fixed a real bug in the pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`, predating this session's RDD-log convention) — it only protected the enum-with-members mandatory `;`, silently stripping a deliberate same-line multi-statement `;` too (would have merged two statements into one invalid line); rewritten around a single positive-evidence `isTrailingSemicolon` rule (only strip a `;` that's the last significant thing on its physical line), reusing §2's `findEnumConstantListTerminators` for the enum exclusion; also fixed a stray-trailing-space gap the old version had |
 | RDD_KEY_116 | Kotlin string template tokenizer risk — §19; **shared-class fix** — `TokenizerCore.emitString`'s naive scan-to-next-`"` misread a nested string inside a `${...}` interpolation (`"${foo("x")}"`) as three tokens instead of one, a genuine correctness risk (a later spacing pass could insert whitespace inside the literal's actual text); fixed with a Kotlin-only `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar` path (depth-tracks `${...}`'s own `{`/`}` nesting, recurses for nested strings/chars, arbitrarily deep), gated behind `lang.isKotlin`, non-Kotlin scan untouched; surfaced triple-quoted raw strings as a related, explicitly out-of-scope gap (new row 19.1, not fixed — undocumented in either style doc) |
 | RDD_KEY_117 | Kotlin triple-quoted raw string tokenizer support — row 19.1, **shared-class fix**; badly broken before this (`"""hello "world" end"""` mis-lexed as five tokens including a bare `IDENTIFIER`; multi-line raw strings leaked a spurious `NEWLINE` token into the content); fixed with Kotlin-only `isKotlinRawStringOpener`/`emitKotlinRawString`/`skipKotlinRawString` — no backslash-escape processing (literal `\` by design), greedy termination at the first `"""` (matches real Kotlin compiler semantics); `${...}` interpolation still recognized via `skipKotlinInterpolationBlock`, extended to also recognize a nested raw string inside an interpolation expression; non-Kotlin paths (Java text block, C++ raw string, plain C string) confirmed untouched |
+| RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
 
@@ -616,15 +617,33 @@ values yet, since no pipeline path exists for the language at all.
       mechanism. Also documents that aliased imports (`import foo.Bar as
       Baz`) and wildcards sort/group by their original qualified name, not
       the alias. Spec only — no code written yet (see next item).
-- [ ] **Implementation** — add `kotlin-import-order`, `kotlin-import-sort`,
+- [x] **Implementation** — added `kotlin-import-order`, `kotlin-import-sort`,
       `kotlin-import-depth`, `kotlin-import-blank-lines` to `Config.java`'s
-      known-keys list and parsing (mirroring the existing `java-import-*`
-      keys exactly), then implement the actual Kotlin `import` statement
-      ordering/sorting/grouping logic against the now-written §24 spec. Not
-      started — no Kotlin import handling exists anywhere yet. Can be built
-      and harness-verified without crossing the deferred `Main.java`/pipeline
-      boundary, same as every other unwired Kotlin rule class so far — only
-      wiring it into `Formatter.formatOne` itself needs to wait.
+      known-keys list, fields, getters, and `fromRawMap` parsing (mirroring
+      the existing `java-import-*` keys exactly; default group order
+      `kotlin, java, com, org, other, local`, matching §24's documented
+      default). Implemented `enforceKotlinImportOrdering` in
+      `KotlinSpecificRule.java`, mirroring `JavaSpecificRule.
+      enforceImportOrdering`'s structure with two Kotlin-specific
+      adaptations: no `static` bucket (classification priority local >
+      kotlin > java/javax > org > com > other), and an import statement's
+      end is an optional `;` or NEWLINE/EOF rather than a required `;`.
+      Added `ParsedKotlinImport`, `parseKotlinImportStatement` (recognizes
+      an optional `as Alias` suffix — `as` lexes as `TokenType.KEYWORD` for
+      Kotlin, confirmed via `TokenizerCore.KEYWORDS_KOTLIN`), plus new
+      `appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/
+      `classifyKotlinImportGroup`/`matchesPrefix` helpers (per-language
+      mirroring, not shared-class reuse). Reused the file's existing
+      `hasCommentBetween`/`anyFrozen` helpers verbatim. `groupOrder`
+      permutation validation throws `IllegalArgumentException`, same
+      config-validation posture as Java. Verified via a standalone 10-case
+      scratch harness (default grouping/sorting, wildcard imports, aliased
+      imports, optional-`;` tolerance, custom group order/blank-lines,
+      `sortAlphabetically = false`, zero-imports no-op, comment-blocks-pass,
+      no-`package`-declaration, invalid-groupOrder-throws) — all 10 passed.
+      `make test` 32/32 before and after (Kotlin-only change, no
+      shared-class touch). Not yet wired into `Formatter.formatOne`, same as
+      every other unwired Kotlin rule class so far. RDD_KEY_118.
 - [ ] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
       the underlying implementation (`TokenizerCore`'s marker regexes,
       `ScopePipeline`'s frozen-region handling) is already shared and
@@ -643,8 +662,6 @@ values yet, since no pipeline path exists for the language at all.
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
       for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
       same methodology as the existing `*_inp/out` pairs for other languages.
-- [ ] Additional fixture pairs as needed for KOTLIN2-specific constructs
-      (guard conditions, `data object`).
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
 

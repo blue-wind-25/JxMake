@@ -18,6 +18,7 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1449,5 +1450,322 @@ public class KotlinSpecificRule {
             return false;
         }
         return true;
+    }
+
+    /** The six fixed classification buckets every Kotlin import is sorted into, per
+     *  STYLE_KOTLIN.md §24. Mirrors {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s six-bucket
+     *  shape, but swaps {@code static} for {@code kotlin} -- Kotlin has no {@code import static}
+     *  keyword, so "this is a static import" isn't lexically detectable the way it is in Java (a
+     *  companion-object-member or top-level-function import uses the exact same {@code import
+     *  a.b.c} syntax as any other import). {@code groupOrder} passed into {@link
+     *  #enforceKotlinImportOrdering} configures only the *emission order* of these always-the-same
+     *  six buckets, never which buckets exist -- so it must be a permutation of exactly this set. */
+    private static final Set<String> KOTLIN_IMPORT_GROUP_KEYS = new HashSet<>(
+            Arrays.asList("kotlin", "java", "com", "org", "other", "local"));
+
+    /**
+     * STYLE_KOTLIN.md §24: groups every top-level {@code import} statement into six fixed buckets
+     * (kotlin, java/javax, org, com, local, other), sorts within each bucket, and re-renders the
+     * whole import block in {@code groupOrder}'s order, separated by {@code blankLines} blank
+     * line(s) between non-empty groups. Mirrors {@code JavaSpecificRule.enforceImportOrdering}'s
+     * overall shape (per-language mirroring, not shared-class reuse -- same precedent as every
+     * other Kotlin-only method in this file), with two Kotlin-specific differences:
+     * <ul>
+     *   <li>No {@code static} bucket (see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment) --
+     *       classification priority is local &gt; kotlin &gt; java/javax &gt; org &gt; com &gt;
+     *       other, one step shorter than Java's static-first chain.</li>
+     *   <li>An import statement is never required to be {@code ;}-terminated (STYLE_KOTLIN.md §1
+     *       strips the optional trailing {@code ;} elsewhere in the pipeline) -- its own end is
+     *       whichever comes first: an optional {@code ;}, or a NEWLINE/EOF. A tolerated trailing
+     *       {@code ;}, if present, is simply dropped on regeneration, consistent with §1's own
+     *       posture, never preserved.</li>
+     * </ul>
+     *
+     * <p>Local-package detection, comment-blocking, and frozen-span-blocking all follow the exact
+     * same posture as the Java version: the first {@code package a.b.c} declaration supplies the
+     * local prefix (its top {@code importDepth} dot-components); any comment found anywhere inside
+     * one import statement or floating between two import statements aborts the entire pass
+     * unchanged (losing a comment via silent reordering is not an acceptable failure mode); a file
+     * with zero imports is a no-op; "unused imports are not removed" is honored by construction (no
+     * usage analysis performed). Import aliases ({@code import foo.Bar as Baz}) sort/group by the
+     * pre-alias path per STYLE_KOTLIN.md §24's own text, and are re-emitted with their {@code as
+     * Baz} suffix intact.
+     *
+     * @param groupOrder must be a permutation of exactly the six fixed bucket names in
+     *        {@link #KOTLIN_IMPORT_GROUP_KEYS} -- a config-validation precondition, not a per-file
+     *        content-shape judgment call, so an invalid value throws rather than silently dropping
+     *        a bucket's imports
+     */
+    public String enforceKotlinImportOrdering(final List<Token> tokens, final List<String> groupOrder,
+            final boolean sortAlphabetically, final int importDepth, final int blankLines) {
+        if (!new HashSet<>(groupOrder).equals(KOTLIN_IMPORT_GROUP_KEYS)
+                || groupOrder.size() != KOTLIN_IMPORT_GROUP_KEYS.size()) {
+            throw new IllegalArgumentException(
+                    "groupOrder must be a permutation of " + KOTLIN_IMPORT_GROUP_KEYS + ", got: " + groupOrder);
+        }
+
+        final List<String> localPrefix = findLocalPackagePrefix(tokens, importDepth);
+
+        int depth = 0;
+        int firstImportIdx = -1;
+        int prevEndIdx = -1;
+        int lastEndIdx = -1;
+        boolean blocked = false;
+        final List<ParsedKotlinImport> imports = new ArrayList<>();
+        final int n = tokens.size();
+        int i = 0;
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                depth++;
+                i++;
+                continue;
+            }
+            if (isPunct(t, "}")) {
+                depth--;
+                i++;
+                continue;
+            }
+            if (depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text)) {
+                if (firstImportIdx < 0) {
+                    firstImportIdx = i;
+                } else if (hasCommentBetween(tokens, prevEndIdx, i)) {
+                    blocked = true;
+                    break;
+                }
+                final ParsedKotlinImport parsed = parseKotlinImportStatement(tokens, i);
+                if (parsed == null) {
+                    blocked = true;
+                    break;
+                }
+                if (anyFrozen(tokens, i, parsed.endIdx + 1)) {
+                    blocked = true;
+                    break;
+                }
+                imports.add(parsed);
+                prevEndIdx = parsed.endIdx;
+                lastEndIdx = parsed.endIdx;
+                i = parsed.endIdx + 1;
+                continue;
+            }
+            i++;
+        }
+
+        if (blocked || imports.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final Map<String, List<ParsedKotlinImport>> buckets = new HashMap<>();
+        for (final String key : KOTLIN_IMPORT_GROUP_KEYS) {
+            buckets.put(key, new ArrayList<>());
+        }
+        for (final ParsedKotlinImport imp : imports) {
+            buckets.get(classifyKotlinImportGroup(imp, localPrefix)).add(imp);
+        }
+        if (sortAlphabetically) {
+            for (final List<ParsedKotlinImport> group : buckets.values()) {
+                group.sort((a, b) -> a.path.compareTo(b.path));
+            }
+        }
+
+        final StringBuilder body = new StringBuilder();
+        boolean emittedAnyGroup = false;
+        for (final String groupKey : groupOrder) {
+            final List<ParsedKotlinImport> members = buckets.get(groupKey);
+            if (members.isEmpty()) {
+                continue;
+            }
+            if (emittedAnyGroup) {
+                for (int b = 0; b < blankLines + 1; b++) {
+                    body.append('\n');
+                }
+            }
+            for (int m = 0; m < members.size(); m++) {
+                if (m > 0) {
+                    body.append('\n');
+                }
+                final ParsedKotlinImport imp = members.get(m);
+                body.append("import ").append(imp.path);
+                if (imp.alias != null) {
+                    body.append(" as ").append(imp.alias);
+                }
+            }
+            emittedAnyGroup = true;
+        }
+
+        final StringBuilder out = new StringBuilder();
+        appendRange(out, tokens, 0, firstImportIdx);
+        out.append(body);
+        appendRange(out, tokens, lastEndIdx + 1, n);
+        return out.toString();
+    }
+
+    /** One successfully-parsed `import a.b.c[.*] [as Alias]` statement. {@code alias} is
+     *  {@code null} when no `as` clause is present. */
+    private static final class ParsedKotlinImport {
+        final String path;
+        final String alias;
+        final int endIdx;
+
+        ParsedKotlinImport(final String path, final String alias, final int endIdx) {
+            this.path = path;
+            this.alias = alias;
+            this.endIdx = endIdx;
+        }
+    }
+
+    /**
+     * Parses one `import a.b.c[.*] [as Alias][;]` statement starting at the `import` keyword
+     * token at {@code importIdx}. Unlike Java, a trailing `;` is never required -- the statement's
+     * own end is whichever comes first: a `;`, or a NEWLINE/EOF (see {@link
+     * #enforceKotlinImportOrdering}'s doc comment). Returns {@code null} -- signaling "bail the
+     * entire pass" to the caller -- if a comment is found anywhere inside the statement, or if any
+     * token other than WHITESPACE, an IDENTIFIER/dot/star path token, the `as` keyword (only after
+     * at least one path token), or its alias IDENTIFIER is encountered before the statement ends.
+     * Never guesses past an unrecognized import shape.
+     */
+    private ParsedKotlinImport parseKotlinImportStatement(final List<Token> tokens, final int importIdx) {
+        boolean sawPathToken = false;
+        boolean sawAs = false;
+        String alias = null;
+        final StringBuilder path = new StringBuilder();
+        final int n = tokens.size();
+        int p = importIdx + 1;
+        int lastContentIdx = importIdx;
+        while (p < n) {
+            final Token t = tokens.get(p);
+            if (t.type == TokenType.WHITESPACE) {
+                p++;
+                continue;
+            }
+            if (t.type == TokenType.NEWLINE) {
+                break;
+            }
+            if (isComment(t)) {
+                return null;
+            }
+            if (isPunct(t, ";")) {
+                lastContentIdx = p;
+                p++;
+                break;
+            }
+            if (!sawAs && sawPathToken && t.type == TokenType.KEYWORD && "as".equals(t.text)) {
+                sawAs = true;
+                lastContentIdx = p;
+                p++;
+                continue;
+            }
+            if (sawAs && alias == null && t.type == TokenType.IDENTIFIER) {
+                alias = t.text;
+                lastContentIdx = p;
+                p++;
+                continue;
+            }
+            if (!sawAs && (t.type == TokenType.IDENTIFIER || isPathOp(t))) {
+                path.append(t.text);
+                sawPathToken = true;
+                lastContentIdx = p;
+                p++;
+                continue;
+            }
+            return null;
+        }
+        if (!sawPathToken || (sawAs && alias == null)) {
+            return null;
+        }
+        return new ParsedKotlinImport(path.toString(), alias, lastContentIdx);
+    }
+
+    /** True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
+     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCore}'s combined `.*` multi-char
+     *  pointer-to-member OP token (shared across all languages, so a wildcard import's trailing
+     *  `.*` lexes as one combined OP token here too, same discovery as
+     *  {@code JavaSpecificRule.isPathOp}'s own doc comment). */
+    private boolean isPathOp(final Token t) {
+        if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < t.text.length(); i++) {
+            final char c = t.text.charAt(i);
+            if (c != '.' && c != '*') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Reads the first {@code package a.b.c} declaration in {@code tokens} (best-effort lookup,
+     *  not a rewrite) and returns its top {@code importDepth} dot-components. Empty list if no
+     *  `package` declaration exists. Kotlin's `package` statement, like `import`, is never
+     *  `;`-terminated in practice -- this scan stops at whichever comes first, `;` or NEWLINE/EOF,
+     *  same posture as {@link #parseKotlinImportStatement}. */
+    private List<String> findLocalPackagePrefix(final List<Token> tokens, final int importDepth) {
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && "package".equals(t.text)) {
+                final List<String> components = new ArrayList<>();
+                int p = i + 1;
+                while (p < tokens.size() && tokens.get(p).type != TokenType.NEWLINE
+                        && !isPunct(tokens.get(p), ";")) {
+                    if (tokens.get(p).type == TokenType.IDENTIFIER) {
+                        components.add(tokens.get(p).text);
+                    }
+                    p++;
+                }
+                return components.subList(0, Math.min(importDepth, components.size()));
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    /** Classification priority: local &gt; kotlin &gt; java/javax &gt; org &gt; com &gt; other --
+     *  see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment for why there is no `static` bucket. */
+    private String classifyKotlinImportGroup(final ParsedKotlinImport imp, final List<String> localPrefix) {
+        final String[] parts = imp.path.split("\\.");
+        if (!localPrefix.isEmpty() && matchesPrefix(parts, localPrefix)) {
+            return "local";
+        }
+        final String first = parts.length > 0 ? parts[0] : "";
+        if ("kotlin".equals(first)) {
+            return "kotlin";
+        }
+        if ("java".equals(first) || "javax".equals(first)) {
+            return "java";
+        }
+        if ("org".equals(first)) {
+            return "org";
+        }
+        if ("com".equals(first)) {
+            return "com";
+        }
+        return "other";
+    }
+
+    private boolean matchesPrefix(final String[] parts, final List<String> prefix) {
+        if (parts.length < prefix.size()) {
+            return false;
+        }
+        for (int i = 0; i < prefix.size(); i++) {
+            if (!parts[i].equals(prefix.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim. */
+    private void appendRange(final StringBuilder out, final List<Token> tokens, final int fromInclusive,
+            final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            out.append(tokens.get(i).text);
+        }
+    }
+
+    private String joinVerbatim(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        for (final Token t : tokens) {
+            out.append(t.text);
+        }
+        return out.toString();
     }
 }

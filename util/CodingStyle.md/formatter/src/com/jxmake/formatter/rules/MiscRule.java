@@ -153,7 +153,7 @@ public class MiscRule {
     /** Renders `level` indent levels in the requested style -- shared by §1's line converter
      *  above and §8's signature-wrapping below, which both need to *generate* brand-new
      *  indentation (as opposed to converting indentation that already exists in source). */
-    private String indentText(final int level, final String indentStyle) {
+    protected String indentText(final int level, final String indentStyle) {
         final boolean tabs = "tabs".equals(indentStyle);
         final char unit = tabs ? '\t' : ' ';
         final int count = tabs ? level : level * indentWidth;
@@ -571,7 +571,7 @@ public class MiscRule {
         return out.toString();
     }
 
-    private int matchParenForward(final List<Token> tokens, final int openIdx) {
+    protected int matchParenForward(final List<Token> tokens, final int openIdx) {
         int depth = 0;
         for (int i = openIdx; i < tokens.size(); i++) {
             if (isPunct(tokens.get(i), "(")) {
@@ -1223,7 +1223,7 @@ public class MiscRule {
         return new Signature(leadTokens, name, params, false);
     }
 
-    private List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
+    protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
         final List<List<Token>> parts = new ArrayList<>();
         List<Token> current = new ArrayList<>();
         int depth = 0;
@@ -1485,7 +1485,7 @@ public class MiscRule {
      *  `DeclarationAlignmentRule.renderTokens`'s tight-attachment rules (`*`/`&`/`::`/generics/
      *  `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
      *  these as a shared utility (each rule class keeps its own small token-joining helpers). */
-    private String renderTokens(final List<Token> tokens) {
+    protected String renderTokens(final List<Token> tokens) {
         final Set<Token> templateOpens = new HashSet<>();
         final Set<Token> templateCloses = new HashSet<>();
         templateAngleTokens(tokens, templateOpens, templateCloses);
@@ -1561,7 +1561,7 @@ public class MiscRule {
         return Token.isRepOp(t, '*') || Token.isRepOp(t, '&') || isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
-    private List<Token> significantOnly(final List<Token> stmt) {
+    protected List<Token> significantOnly(final List<Token> stmt) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : stmt) {
             if (!isGapToken(t)) {
@@ -1574,7 +1574,7 @@ public class MiscRule {
     /** Like {@link #significantOnly}, but keeps comment tokens -- used by {@link #parseSignature}
      *  so a parameter's inline block comment survives parsing instead of being silently dropped;
      *  only whitespace/newlines are gap tokens here. */
-    private List<Token> significantWithComments(final List<Token> stmt) {
+    protected List<Token> significantWithComments(final List<Token> stmt) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : stmt) {
             if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {

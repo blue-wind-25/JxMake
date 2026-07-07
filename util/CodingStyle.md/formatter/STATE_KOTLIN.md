@@ -147,6 +147,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_101 | Kotlin `when` expression arrow alignment/closing comment/blank lines — §4; new `KotlinSpecificRule.formatWhenExpressions`, not a `JavaSpecificRule`/`BlockStructureRule` extension (keyword-less branches, non-all-or-nothing block-body alignment, forced blank lines) |
 | RDD_KEY_102 | Kotlin null-safety operator spacing (`?.`/`!!` tight, `?:` spaced) — §5; new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file pass since no shared class does general expression-level operator re-spacing |
 | RDD_KEY_103 | Kotlin variable/property declaration alignment — §6; new `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (visibility-loosen-then-extend, superseding the earlier "independent parser" resolution), own statement splitter/parser/renderer for the name-before-type parts |
+| RDD_KEY_104 | Kotlin constructor/function parameter list line-breaking and column alignment — §7/§7.1; new `KotlinSignatureRule extends MiscRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103, user-directed), own `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based renderer for the name-before-type parts; also covers §7.2 (trailing comma preservation) |
 
 ---
 
@@ -184,9 +185,16 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   `splitStatements` can't be reused for boundary-finding, only for its other
   generic helpers), parser (`parseKotlinDeclaration`), and grid renderer
   (`renderPropertyGroup`) for the parts that are irreducibly
-  name-before-type-specific. §7 (constructor/function parameter lists) has
-  not been decided yet and may follow either this pattern or the original
-  option 2 — revisit when §7 is picked up.
+  name-before-type-specific.
+  **Resolved (§7, RDD_KEY_104):** same choice, asked directly and confirmed —
+  loosen `MiscRule`'s visibility (`matchParenForward`, `significantWithComments`,
+  `splitTopLevelCommas`, `renderTokens`, `indentText`, `significantOnly` raised
+  to `protected`), then `KotlinSignatureRule extends MiscRule` with its own
+  `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based
+  renderer, mirroring RDD_KEY_103's structure exactly (down to the pattern of
+  duplicating the small name/open-paren boundary-finding loop rather than
+  extracting it as a shared method, matching this file's established
+  precedent for `renderTokens`).
 - **String template tokenizing (§19, found during Step 1).** Not yet verified
   whether `TokenizerCore.emitString()` correctly closes a Kotlin string when a
   `${...}` interpolation contains its own nested `"..."` (e.g.
@@ -275,8 +283,8 @@ existing test suite after this step, before moving to Step 1.
 | 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **done** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing` — a single flat whole-file whitespace-collapsing pass, not scoped to any one construct, since no shared class does general expression-level operator re-spacing today. RDD_KEY_102. |
 | 6 | Variable/property declaration alignment | (c), **done** | New `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (user-directed: loosen shared-class visibility, then extend, rather than an independent parser in `KotlinSpecificRule.java`). Reuses `splitStatements`/`hasBlankLineBefore`/`hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment` (raised private → protected, no behavior change) plus `ColumnGrid`/`KotlinModifierPriority`; writes its own `KotlinDecl` model, `splitKotlinStatements` (newline-terminated statement splitting — Kotlin has no `;`), `parseKotlinDeclaration`, and `renderPropertyGroup` (per-column `ColumnGrid`, not `Declaration`/`render()`). RDD_KEY_103. |
-| 7 | Constructor/function parameter lists | (c) | Same reversed-grammar issue as §6 applies to `MiscRule.Param`/`Signature` (also assumes type-then-name); tied to §6's resolution. |
-| 7.1 | Named/default arguments (`=` spacing/alignment) | (c) | Depends on §6/§7's resolution — reuses whatever declaration/assignment grid ends up handling Kotlin's reversed grammar. |
+| 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature` instead of `DeclarationAlignmentRule.Declaration`. Fixed as `RDD_KEY_104` — new `KotlinSignatureRule extends MiscRule`, same visibility-loosen-then-extend pattern as §6. |
+| 7.1 | Named/default arguments (`=` spacing/alignment) | (c), **done for declarations** | Folded into §7's `KotlinSignatureRule.parseKotlinParam`/`render` — a default value is just one more optional trailing part of a single parameter's grammar, so no separate method was needed. **Not covered:** the call-site named-argument shape (`foo(x = 1, y = 2)`) shown in STYLE_KOTLIN.md §7.1's own worked example is a function *call*, not a declaration — no type column, different token shape (`name = value` only) — genuinely out of `KotlinSignature`'s scope as parsed here; would need its own small parser/renderer analogous to `MiscRule`'s `renderCallOnePerLine`/`renderCallPreserveGroups` family if picked up later. |
 | 7.2 | Trailing comma (preserved as-is) | (a) | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. |
 | 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a) | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. |
 | 9 | Expression-bodied functions | (a)/(c) | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part is new behavior, tied to §6/§7's signature-wrapping work. |
@@ -458,6 +466,68 @@ existing test suite after this step, before moving to Step 1.
       output exactly. Full C/C++/Java suite 25/25 (visibility-only base-class
       change, confirmed no regression; new subclass not yet wired into
       `Formatter.formatOne`).
+- [x] **§7/§7.1 Constructor/function parameter lists, named/default arguments.**
+      Fixed as `RDD_KEY_104`. Per the user's direct decision (mirroring
+      RDD_KEY_103's precedent, offered explicitly as a question rather than
+      guessed), raised six `MiscRule` internals from `private` to `protected`
+      — `matchParenForward`, `significantOnly`, `significantWithComments`,
+      `splitTopLevelCommas`, `renderTokens`, `indentText` — each confirmed
+      generic (no reference to `Param`/`Signature`'s type-before-name
+      assumptions), then created `KotlinSignatureRule extends MiscRule`. New
+      `KotlinParam` (`modifiers`, `name`, `typeTokens` — never empty on a
+      successful parse, since Kotlin requires an explicit type on every
+      function/constructor param unlike an inferred-type §6 property —
+      `defaultTokens`, comments) and `KotlinSignature` (`leadTokens`, `name`,
+      `params`, `trailingComma`) models. `parseKotlinSignature` duplicates
+      `MiscRule.parseSignature`'s small name/open-paren boundary-finding loop
+      rather than extracting it as a shared method (same "exact copy, not
+      shared utility" precedent already established for this file's
+      `renderTokens` lineage) since the loop itself is only ~15 lines and
+      isn't type-order-dependent either way. `parseKotlinParam` walks
+      `[modifiers] name : type [= default]` directly, requiring the `:` and a
+      non-empty type (returns null — bails the whole signature, matching
+      `MiscRule.parseParam`'s own posture for an unrecognized default-value
+      shape — otherwise). Trailing-comma detection (§7.2, "preserve exactly as
+      written"): `splitTopLevelCommas` leaves an empty final part when the
+      source's last param is itself followed by a comma before `)` — captured
+      as `KotlinSignature.trailingComma` before being dropped, then
+      re-emitted (or not) on render, both inline and broken. `render` reuses
+      the same fits-inline-else-break-one-per-line decision as
+      `MiscRule.render(Signature, ...)`, but the broken form uses a
+      `ColumnGrid` (name, `: type`, `= default`) rather than the base class's
+      manual width pre-computation — same "grammar simple enough that the
+      grid alone produces the alignment" reasoning as `KotlinDeclarationAlignmentRule
+      renderPropertyGroup`. **One real bug caught and fixed during
+      verification, not anticipated in the original design**: the trailing
+      comma was initially modeled as its own grid column, which made
+      `ColumnGrid` pad every row's `: type` cell out to its widest sibling
+      *before* the comma (`val id    : Long   ,` — three stray spaces before
+      the comma) — `ColumnGrid.flush()` only ever leaves a row's own true
+      *last* cell unpadded, and a bare `,` cell was consuming that "last cell"
+      slot instead of the type text itself. Fixed by attaching the comma
+      directly onto whichever cell is actually semantically last for that row
+      (the type cell if no default, the default cell if one is present)
+      instead of giving it a column of its own — verified this now exactly
+      matches STYLE_KOTLIN.md §7's own worked example (`val id    : Long,`, no
+      gap before the comma). Verified via a standalone harness: the exact §7
+      short/inline and long/broken `data class Point`/`User` worked examples
+      (byte-for-byte match, including the fixed comma spacing); a broken
+      signature with a trailing comma preserved (both inline and broken
+      forms); a `fun foo(x: Int = 10, y: Int = 20)` inline default-value case
+      (§7.1); a broken signature where every parameter has a default value,
+      confirming the `:`/`=` columns both align correctly together (§7.1
+      "same as §6"); and a `vararg` modifier-bearing parameter parsing and
+      rendering correctly inline. **Not covered** (see §7.1's scoping table
+      note above): call-site named arguments (`foo(x = 1, y = 2)`), a
+      structurally different, type-less shape outside `KotlinSignature`'s
+      declaration-only scope. Full C/C++/Java suite 32/32 (up from 25/25 at
+      the time of RDD_KEY_103 — three intervening, unrelated `frozen`/
+      `catch.hpp` fixture/idempotency-bug-fix sessions landed in between; the
+      six-helper visibility-only `MiscRule` change here itself introduced zero
+      regressions, confirmed before and after). New file not yet wired into
+      `Formatter.formatOne` or covered by a `test/kt_*` fixture — both
+      deferred to Step 4/5, same "verified standalone, not end-to-end" caveat
+      as every other Step 3 item so far.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

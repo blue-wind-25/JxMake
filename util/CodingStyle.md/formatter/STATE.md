@@ -416,14 +416,16 @@ When an idempotency (or forward-pass) failure doesn't reproduce at the default c
 re-testing with a `.jxmake-code-formatter` overriding `indent-size`, `indent-style`, etc. to
 match the candidate's own actual convention before concluding "no bug" — several real bugs
 (the `SwitchRule`/`fmtlib-fmt` flush-case-label fix, the `MiscRule` dead-config-key audit) were
-only observable at a non-default `indent-size`. When a bug is found and fixed, add a new
-permanent fixture pair `test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`)
-reproducing it minimally, then register it in `Makefile`'s `INP_FILES` and document it in
-`test/README.txt` — unless, per the precedent set by the `indent-size = 2` config-wiring
-fixes, the bug is a no-op at the test harness's own default config (in which case document the
-fix and its non-default-config verification in this file instead, without adding a fixture that
-would be indistinguishable from a no-op at default settings). Use this standard copyright
-header on every new test fixture file:
+only observable at a non-default `indent-size`.
+
+**When a bug is found and fixed, add a new permanent fixture pair:**
+`test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`) reproducing it minimally,
+then register it in `Makefile`'s `INP_FILES` and document it in `test/README.txt` — unless,
+per the precedent set by the `indent-size = 2` config-wiring fixes, the bug is a no-op at the
+test harness's own default config (in which case document the fix and its non-default-config
+verification in this file instead, without adding a fixture that would be indistinguishable
+from a no-op at default settings). Try to combine multiple bugs in the same text fixture if
+possible. Use this standard copyright header on every new test fixture file:
 ```
 /*
  * Copyright (C) 2024 Example Corp.
@@ -534,20 +536,42 @@ header on every new test fixture file:
      loop. Fixture: `test/real_code_regressions_13`.
   All six verified via `make test` (24/24) plus isolated round1/round2 diffs.
 
-  **7. STILL OPEN** — an `if`/`else` (and separately `try`/`catch`) brace-indent mismatch: the
-     closing `}` of the first branch, and the following branch's body, come out under-indented by
-     one level, and round1 vs round2 disagree by how much. Reproduces inside `catch.hpp`'s real
-     `analyse()` function and the `Session` `try`/`catch` (~line 7238, ~13429 of the original),
-     but two isolated repros (bare `if`/`else`; same wrapped in the real `namespace Catch {
-     namespace Benchmark { namespace Detail { ... } } }` nesting) both format correctly standalone
-     — the trigger needs more surrounding file context than isolated so far. Given bug 6's root
-     cause was a tokenizer-depth desync from an unrelated earlier construct, start by checking for
-     other unfixed multi-line/continuation constructs in `catch.hpp`, or a similar depth bug in
-     whichever pass derives `if`/`else`/`try`/`catch` body indentation (likely `ScopePipeline.
-     findParentIndent` or `BlockStructureRule.placeElseOnOwnLine`/`placeCatchFinallyOnOwnLine`).
-     3 diff hunks remain in the full 44-file tree's round1 vs round2 (all this same bug), at
-     lines ~8444/~15479/~19869 of the round1 output. Root cause not yet found — next thing to fix
-     before marking this library DONE.
+  **7. PARTIALLY FIXED (2026-07-07)** — an `if`/`else` (and separately `try`/`catch`) brace-indent
+     mismatch: the closing `}` of the first branch, and the following branch's body, came out
+     under-indented, sometimes to column 0.
+     - General fix landed: `ScopePipeline.findParentIndent`'s fallback (used when a construct is
+       the first statement in a recursively-extracted child fragment, so no real newline precedes
+       it locally) used to synthesize indent from `depth * indentWidth` — wrong whenever a
+       `namespace` nests in between, since `processScope`'s `depth` counter deliberately does not
+       increment for namespace bodies (they don't consume an indent level *conceptually*, but
+       *textually* their content is still genuinely indented one level in real source). Fixed by
+       threading a second, real accumulated indent string (`inheritedIndent`) through the
+       `processScope`/`findParentIndent` recursion in parallel with `depth`, incremented by one
+       `indentWidth` unit on every recursive descent unconditionally (regardless of scope kind);
+       the fallback now just returns `inheritedIndent` instead of guessing from `depth`. Verified
+       no regression: `make test` 30/30. This is a real, general bug fix, independent of the
+       `catch.hpp` repro below — keep it.
+     - `catch.hpp` specifically is **not** fixed by the above and still shows 3 round1/round2 diff
+       hunks (same lines as before: ~8444/~15479/~19869). Root-caused with debug instrumentation:
+       the real cause is a **tokenizer bug**, unrelated to `ScopePipeline` depth/indent bookkeeping.
+       `catch.hpp` has an `#ifdef __OBJC__` block with genuine Objective-C (the formatter doesn't
+       strip `#ifdef` bodies, so it tokenizes them anyway). Nested Objective-C message sends like
+       `[[NSString alloc] initWithFormat:...]` produce adjacent `[[`; `TokenizerCore` misreads that
+       as a single C++17 attribute-open token (`[[attr]]` syntax) instead of two separate `[`
+       PUNCT tokens, while the two matching `]` are still tokenized as two separate PUNCT tokens.
+       Net effect: a permanent bracket-depth desync (lose 2 per `[[` occurrence) in
+       `ScopePipeline.splitTopLevelSpans`'s running depth counter for the rest of the file, so by
+       the time the scan reaches `analyse()` thousands of lines later, its `if` block gets
+       misidentified as a top-level span spanning the whole file instead of being nested 5 levels
+       deep. Confirmed via a standalone `TokenizerCore` harness tokenizing
+       `[[NSString alloc] initWithFormat:...]` in isolation — it emits `OP[[[]` (merged) followed
+       by two separate `PUNCT[]]` closes.
+     - **Not yet fixed, tracked separately for a future session**: teach `TokenizerCore` to only
+       merge `[[`/`]]` into a C++ attribute token when it's actually attribute syntax (e.g. followed
+       by a recognized attribute identifier and not preceded by an expression/identifier the way an
+       Objective-C message-send receiver would be), or otherwise make `[[` bracket-counting safe
+       regardless of attribute-vs-ObjC-message ambiguity. This is required before `frozen` can be
+       marked DONE.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
   Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-
@@ -559,8 +583,9 @@ header on every new test fixture file:
   tree now fully idempotent.
 
 **NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is
-IN PROGRESS: only bug 7 (§ above, the `if`/`else`/`try`/`catch` brace-indent mismatch) remains
-— root-cause and fix it before marking the library DONE. After that, continue real-code testing
+IN PROGRESS: bug 7 (§ above) is partially fixed — the general `ScopePipeline` indent-threading fix
+landed, but `catch.hpp` still needs the `TokenizerCore` `[[` attribute-vs-Objective-C-message-send
+bracket-counting fix (§ above) before the library can be marked DONE. After that, continue real-code testing
 against remaining C/C++ candidates in this order unless redirected: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs
 newer; confirm any compile failure also reproduces against the unmodified original before

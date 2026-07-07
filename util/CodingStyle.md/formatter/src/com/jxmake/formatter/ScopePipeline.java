@@ -453,7 +453,7 @@ public class ScopePipeline {
         return false;
     }
 
-    private String findParentIndent(final List<Token> tokens, final Span span, final int depth) {
+    private String findParentIndent(final List<Token> tokens, final Span span, final String inheritedIndent) {
         // Find where the construct actually governing openBraceIdx begins -- NOT simply the
         // first significant token in the whole span, since a span can carry more than one
         // leading statement/label ahead of the one that opens this brace (e.g. `case 1:` is not
@@ -523,35 +523,22 @@ public class ScopePipeline {
                 return null;
             }
         }
-        // Ran off the start of `tokens` without ever finding a NEWLINE. At true top level
-        // (depth 0, called with the whole file's token list, OR a namespace body -- namespaces
-        // never consume a depth level, see `isNamespaceScope` in `processScope` -- whose own
-        // opening line is itself at column 0) that legitimately means "column 0, no indent".
-        // But `tokens` here can also be a recursively-extracted child fragment (see
-        // `processScope`'s `joinText(current, span.openBraceIdx + 1, span.closeBraceIdx)`) whose
-        // very first line is a NESTED named construct that shared its opening line with the
-        // parent's own `{` (e.g. `struct Foo { enum Bar {` on one source line) -- that line's
-        // real leading indent was never captured in this fragment at all, since the fragment
-        // starts strictly after the parent's `{`. Trusting "" there would force this construct's
-        // own closing `}` back to column 0, corrupting otherwise well-formed nesting (see
-        // STATE.md's `frozen`/`CaseSensitive`/`enum Choice` bug).
-        // `depth` (already correctly tracked by `processScope`'s own recursion, independent of
-        // any text-based derivation) resolves the ambiguity: depth 0 keeps the legitimate "" --
-        // this is the only case ever reached with a truly-zero nesting level (whether genuine
-        // file root or a non-indenting namespace body, both correctly want column 0 here -- do
-        // NOT special-case them apart). depth > 0 means this fallback fired one level further in
-        // than `depth` itself accounts for (the same-source-line scenario above always loses
-        // exactly one level of newline context relative to `depth`'s own bookkeeping), so it
-        // must synthesize depth + 1 indent units, not depth, to match the sibling construct's
-        // already-correctly-placed opening line (see `BlockStructureRule`'s own placement).
-        if (depth == 0) {
-            return "";
-        }
-        final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < (depth + 1) * miscRule.indentWidth; i++) {
-            sb.append(' ');
-        }
-        return sb.toString();
+        // Ran off the start of `tokens` without ever finding a NEWLINE. `tokens` here is a
+        // recursively-extracted child fragment (see `processScope`'s `joinText(current,
+        // span.openBraceIdx + 1, span.closeBraceIdx)`) whose very first line is a nested
+        // construct that shares no captured newline with the fragment's own start -- either it
+        // shares its opening line with the parent's own `{` (e.g. `struct Foo { enum Bar {` on
+        // one source line), or it is simply the first statement in the fragment and an earlier
+        // pass stripped the leading newline/indent before this point was reached. Either way,
+        // this construct occupies the same textual "slot" a normal statement directly inside
+        // the current frame would -- i.e. exactly `inheritedIndent`, the real indent `processScope`
+        // already resolved (recursively, text-first) for the frame currently being processed.
+        // Trusting a synthesized "" or a depth-derived guess here previously corrupted nesting
+        // whenever the frame's real indent didn't match a naive per-level assumption -- see
+        // STATE.md's `frozen`/`CaseSensitive`/`enum Choice` bug (depth-based guess) and the
+        // `catch.hpp` `analyse()` if/else bug (namespaces don't consume a `depth` level but their
+        // body content is still genuinely indented one level in the real source).
+        return inheritedIndent;
     }
 
     /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
@@ -1027,7 +1014,8 @@ public class ScopePipeline {
      * recurses outer-first into every child block found in the final token list, splicing each
      * child's processed text back in place.
      */
-    private String processScope(final List<Token> tokens, final int depth, final boolean scopeStartFrozen) {
+    private String processScope(final List<Token> tokens, final int depth, final boolean scopeStartFrozen,
+            final String inheritedIndent) {
         List<Token> current = tokens;
         current = tokenize(applyDeclarationsPass(current), scopeStartFrozen);
         current = tokenize(applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen);
@@ -1048,6 +1036,11 @@ public class ScopePipeline {
             final boolean childStartFrozen = current.get(span.openBraceIdx).frozen;
             String childSource = joinText(current, span.openBraceIdx + 1, span.closeBraceIdx);
             final boolean isNamedScope = current.get(span.openBraceIdx).name != null;
+            // This span's own real indent (text-derived where possible, else propagated from
+            // the frame currently being processed -- see `findParentIndent`'s fallback). Used
+            // for (1) pre-expanding a named one-liner body below, (2) the indent inherited by
+            // whatever is recursed into below, and (3) this span's own closing-brace placement.
+            final String spanIndent = findParentIndent(current, span, inheritedIndent);
             // Pre-expand named-construct one-liner bodies (`struct Foo { int a; int b; };`)
             // into multi-line form so that applyDeclarationsPass/applyAssignmentsPass in the
             // child scope see newline-separated source and produce correctly-indented output.
@@ -1055,13 +1048,17 @@ public class ScopePipeline {
             // bodies must stay inline for getter/setter grouping and Allman detection.
             if (isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
                 final String trimmed = childSource.trim();
-                if (!trimmed.isEmpty()) {
-                    final String parentIndent = findParentIndent(current, span, depth);
-                    if (parentIndent != null) {
-                        childSource = "\n" + parentIndent + "    " + trimmed + "\n" + parentIndent;
-                    }
+                if (!trimmed.isEmpty() && spanIndent != null) {
+                    childSource = "\n" + spanIndent + "    " + trimmed + "\n" + spanIndent;
                 }
             }
+            // The indent statements directly inside the recursed-into child scope should have --
+            // one level deeper than this span's own line, regardless of scope kind (`depth`
+            // itself deliberately does NOT increment for `namespace` bodies for other reasons,
+            // but a namespace body is still genuinely indented one level in real source, so the
+            // *real*-indent thread below must increment unconditionally to match).
+            final String childInheritedIndent = (spanIndent != null ? spanIndent : inheritedIndent)
+                    + indentUnit();
             final String childResult;
             if (!isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
                 // One-liner non-named body (method/constructor/loop `{ ... }` kept on its
@@ -1079,7 +1076,7 @@ public class ScopePipeline {
                 // it must not consume an indentation level the way `depth + 1` otherwise would.
                 final int childDepth = isNamespaceScope(current, span.openBraceIdx) ? depth : depth + 1;
                 final String rawChildResult = processScope(tokenize(childSource, childStartFrozen), childDepth,
-                        childStartFrozen);
+                        childStartFrozen, childInheritedIndent);
                 // The gap between the last statement and the closing `}` belongs to no
                 // statement, so no pass above ever re-derives its indentation from depth --
                 // it is otherwise carried through verbatim from the original source (e.g. a
@@ -1091,9 +1088,8 @@ public class ScopePipeline {
                 // whitespace: a comment sitting there (e.g. between a block and a following
                 // `else`) is content other passes already position/associate correctly, and
                 // blindly reindenting around it has been observed to corrupt that placement.
-                final String parentIndent = findParentIndent(current, span, depth);
                 if (anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
-                        || trailingGapHasComment(current, span.closeBraceIdx) || parentIndent == null
+                        || trailingGapHasComment(current, span.closeBraceIdx) || spanIndent == null
                         || rawChildResult.trim().isEmpty()) {
                     // An empty/whitespace-only body (`{}`/`{ }`) has no statement to hang a
                     // trailing gap off of -- forcing a "\n" + indent here would turn a genuinely
@@ -1101,7 +1097,7 @@ public class ScopePipeline {
                     // doing (see STATE.md's java_modern empty-named-construct-body entry).
                     childResult = rawChildResult;
                 } else {
-                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + parentIndent;
+                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + spanIndent;
                 }
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
@@ -1109,10 +1105,19 @@ public class ScopePipeline {
         return splice(current, replacements);
     }
 
+    /** One indentation level's worth of literal spaces, per {@link MiscRule#indentWidth}. */
+    private String indentUnit() {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < miscRule.indentWidth; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
+    }
+
     /** Public entry point: tokenizes {@code source} and runs the recursive scope pipeline,
      *  starting at depth 0. The one method {@code Main.java} calls once per file. */
     public String process(final String source) {
-        return processScope(tokenize(source, formatOff), 0, formatOff);
+        return processScope(tokenize(source, formatOff), 0, formatOff, "");
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

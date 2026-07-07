@@ -290,7 +290,7 @@ existing test suite after this step, before moving to Step 1.
 | 21 | Type aliases | (a) | Single-line `=`-spaced statement, no new behavior. |
 | 22 | Extension functions | (a) | `fun` behaves like any other modifier/keyword token for spacing purposes. |
 | 23 | Known Gaps | (a), excluded | Explicitly out of scope, same posture as STYLE_JAVA.md's own excluded "unresolved" section (RDD_KEY_59). |
-| K2.1 | Guard conditions in `when` | (b)/(c) | Extends §4's arrow-alignment logic as-is per the style doc — tied to §4's `SwitchRule` generalization question. |
+| K2.1 | Guard conditions in `when` | (a), **verified** | Extends §4's arrow-alignment logic as-is per the style doc — no new rule. Confirmed by direct harness test (not committed): `KotlinSpecificRule.formatWhenExpressions` (§4/RDD_KEY_101) already handles a guarded branch (`is String if x.isNotEmpty() -> foo()`) correctly with zero code changes, since the guard's `if <condition>` is just ordinary label text scanned up to the first top-level `->` — `->` alignment, forced blank lines, and the closing comment all work identically whether or not a branch carries a guard. Output matched STYLE_KOTLIN2.md §1's own worked example byte-for-byte, including a second harness case with multiple guarded branches confirming the arrow column stays aligned across guarded and unguarded branches together. |
 | K2.2 | `data object` | (a), once §3.1 lands | Formatted exactly like `object` — `"data"` just needs to be treated as a skippable modifier prefix by whatever §3.1 fix recognizes anonymous/headless `object` (small addendum to that fix, not separate new work). |
 | K2.3 | Other 2.0/2.1 features | (a), excluded | Explicitly "no new formatting rules" in the style doc itself. |
 

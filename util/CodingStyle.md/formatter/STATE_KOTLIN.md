@@ -364,6 +364,55 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       declaration's `label@` (tight before, one space after) from an unrelated
       `@Annotation`. `make test` 32/32.
 
+### Step 3.5 — Configuration Property Wiring
+
+Found during a cross-check requested by the user: none of the properties below
+are actually reachable for `.kt` files today, for one shared root cause —
+`Main.java` has no Kotlin language dispatch yet (see Explicit Non-Goals: no
+`Main.java` changes until Steps 0–4 are complete). `Config.java` already
+parses all of them (`line-length`, `indent-size`, `indent-style`,
+`closing-comment-min-lines`, `format-macros`, `line-endings`,
+`normalize-comment-start-case`, `normalize-comment-end-period`), and the
+existing Kotlin rule classes (`KotlinSpecificRule`, `KotlinSignatureRule`,
+`KotlinDeclarationAlignmentRule`) already *accept* `lineLengthLimit`/
+`indentWidth` as constructor params — but nothing in `Formatter.java`/
+`ScopePipeline.java` constructs those rule classes with Kotlin's `Config`
+values yet, since no pipeline path exists for the language at all.
+
+- [ ] `line-length` / `indent-size` / `indent-style`: wire from `Config` into
+      Kotlin rule construction once a Kotlin pipeline path exists (Step 4/5
+      territory — depends on the `Main.java` wiring currently deferred).
+- [ ] `closing-comment-min-lines`: confirm Kotlin's named-construct closing
+      comments (§2/§3.1, `BlockStructureRule`-derived) respect this once wired
+      — untested for Kotlin specifically.
+- [ ] `format-macros`: likely a no-op for Kotlin (no preprocessor macros in the
+      language) — confirm and document as intentionally inert rather than
+      silently ignored.
+- [ ] `line-endings`: shared/global concern (`Formatter.java` line-ending
+      normalization) — confirm it already applies file-type-agnostically once
+      Kotlin files flow through `Formatter.java` at all.
+- [ ] `normalize-comment-start-case` / `normalize-comment-end-period`: confirm
+      these apply to Kotlin's `//`/`/* */` comments unchanged (comment syntax
+      itself is identical to Java) once wired.
+- [ ] New Kotlin import-ordering properties, parallel to
+      `java-import-order`/`java-import-sort`/`java-import-depth`/
+      `java-import-blank-lines` (today handled inline in `Formatter.java`, not
+      a separate rule class): add `kotlin-import-order`, `kotlin-import-sort`,
+      `kotlin-import-depth`, `kotlin-import-blank-lines` to `Config.java`'s
+      known-keys list and parsing, then implement the actual Kotlin `import`
+      statement ordering/sorting/grouping logic (not started — no Kotlin
+      import handling exists anywhere yet, this is genuinely new work, not
+      just config plumbing).
+- [ ] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
+      the underlying implementation (`TokenizerCore`'s marker regexes,
+      `ScopePipeline`'s frozen-region handling) is already shared and
+      language-generic — no Kotlin-specific token shape breaks it. Currently
+      unreachable for `.kt` files for the same `Main.java`-wiring reason as
+      above. Confirm behavior with a real Kotlin fixture once wired; only then
+      update `README.md`'s "Disabling formatting for part or all of a file"
+      section to mention Kotlin (per the existing Explicit Non-Goal: no
+      `README.md` update until Step 5's dogfood pass is clean).
+
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
       covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,

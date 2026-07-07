@@ -558,6 +558,63 @@ public class KotlinSpecificRule {
         return t != null && isOp(t, "?:");
     }
 
+    // ── §10 Range operator spacing ────────────────────────────────────────────────
+    /**
+     * STYLE_KOTLIN.md §10: the range operator (`..`/`..<`) stays tight, same treatment as §5's
+     * `?.`/`!!` -- no spaced variant to worry about (unlike `?:`), so this is a simpler one-sided
+     * version of {@link #enforceNullSafetyOperatorSpacing}'s state machine, kept as its own
+     * method rather than folded into that one since it's a different STYLE_KOTLIN.md section
+     * with its own RDD entry. The loop head's own keywords (`in`, `until`, `downTo`, `step`) need
+     * no code here at all -- `in` is already lexed as `TokenType.KEYWORD` and `until`/`downTo`/
+     * `step` as plain `TokenType.IDENTIFIER` (confirmed via a standalone harness), so none of them
+     * are mistaken for a `(`/`[` by {@link com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator#isLoose}
+     * and their own spacing is already left alone by every shared class, same passive-preservation
+     * reasoning as §15's infix-call word-operator spacing. Same conservative bailout as every
+     * other pass in this file: a gap containing a comment, a NEWLINE, or a frozen token is left
+     * completely untouched.
+     */
+    public String enforceRangeOperatorSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToRangeOp = isRangeOp(lastSignificant) || isRangeOp(t);
+
+            if (!gapBlocked && adjacentToRangeOp) {
+                // gap dropped entirely, nothing appended -- tight on both sides.
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isRangeOp(final Token t) {
+        return t != null && (isOp(t, "..") || isOp(t, "..<"));
+    }
+
     // ── §11 Labeled jumps ────────────────────────────────────────────────────────
     /** Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
      *  `label@` declaration, as tokens are consumed left to right. */

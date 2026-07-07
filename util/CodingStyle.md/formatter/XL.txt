@@ -8,7 +8,7 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Continue with Kotlin §7.
+Continue with Kotlin §12.
 
 
 
@@ -25,6 +25,8 @@ Try to use the config setting `indent-size`, `indent-style`, etc. as needed when
 tests failed.
 
 `../../../../VMA-GIT/anemonesoft/`
+`github.com/javaparser/javaparser`
+`github.com/openrewrite/rewrite`
 
 
 

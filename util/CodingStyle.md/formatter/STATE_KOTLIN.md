@@ -148,6 +148,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_102 | Kotlin null-safety operator spacing (`?.`/`!!` tight, `?:` spaced) — §5; new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file pass since no shared class does general expression-level operator re-spacing |
 | RDD_KEY_103 | Kotlin variable/property declaration alignment — §6; new `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (visibility-loosen-then-extend, superseding the earlier "independent parser" resolution), own statement splitter/parser/renderer for the name-before-type parts |
 | RDD_KEY_104 | Kotlin constructor/function parameter list line-breaking and column alignment — §7/§7.1; new `KotlinSignatureRule extends MiscRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103, user-directed), own `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based renderer for the name-before-type parts; also covers §7.2 (trailing comma preservation) |
+| RDD_KEY_105 | Kotlin labeled jump / label declaration spacing (`return@label`, `label@`) — §11; new `KotlinSpecificRule.enforceLabeledJumpSpacing`, a flat whole-file pass with a small state machine, same shape as RDD_KEY_102 |
 
 ---
 
@@ -289,7 +290,7 @@ existing test suite after this step, before moving to Step 1.
 | 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a) | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. |
 | 9 | Expression-bodied functions | (a)/(c) | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part is new behavior, tied to §6/§7's signature-wrapping work. |
 | 10 | `for` loops and ranges | (b)/(c) | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — needs `in`/`until`/`downTo`/`step` recognized as ordinary word-operator tokens for its nested-bracket detection to see through them correctly (additive keyword-set entries, (b)). The `..`/`..<` range operator's own *tight* spacing is the same kind of gap as §5 (c). |
-| 11 | Labeled jumps (`@label` spacing) | (c) | No existing mechanism recognizes this token shape (keyword/identifier followed by `@identifier`) — new, scoped, `KotlinSpecificRule` logic. |
+| 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c) | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — needs its own parsing, though it can likely still feed the existing `=`-alignment renderer once parsed. Comma spacing itself needs no new code (general commas aren't respaced by anything today, same reasoning as §7.2). |
 | 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
 | 14 | Generic `where` clause | (c) | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — needs its own `KotlinSpecificRule` method (can use the C++ one as a reference pattern during Step 3). |
@@ -528,6 +529,44 @@ existing test suite after this step, before moving to Step 1.
       `Formatter.formatOne` or covered by a `test/kt_*` fixture — both
       deferred to Step 4/5, same "verified standalone, not end-to-end" caveat
       as every other Step 3 item so far.
+- [x] **§11 Labeled jumps (`@label` spacing).** Fixed as `RDD_KEY_105`. No
+      shared class recognizes a keyword or identifier immediately glued to
+      `@` — this token shape doesn't appear in C/C++/Java at all — so this
+      is a new, self-contained `KotlinSpecificRule.enforceLabeledJumpSpacing`,
+      a single flat pass over the whole token stream (same shape as §5's
+      `enforceNullSafetyOperatorSpacing`/RDD_KEY_102), with a small
+      left-to-right state machine (`JumpState`) to classify each `@` as it's
+      reached: `return`/`break`/`continue` immediately followed by `@` is a
+      jump, whose `@label` is tight on both sides (`return@forEach`); a bare
+      identifier immediately followed by `@` is a label declaration
+      (`outer@`), tight before the `@` but spaced exactly one space after it
+      from whatever the label is attached to (`outer@ for(...)`); an
+      unclassified `@` (e.g. an `@Override`-style annotation, or a §16
+      use-site target) is left completely untouched, since neither
+      predecessor pattern matches. A jump's own trailing value expression,
+      when present, is spaced from the label the same way (`return@label
+      value`) — handled by the same "force exactly one space" branch as the
+      label-declaration case, since both are "spaced from what follows"
+      per STYLE_KOTLIN.md §11's text. Same conservative bailout as §5: any
+      gap containing a comment, a NEWLINE, or a frozen token is left
+      completely untouched — in particular, a bare `return@label` with
+      nothing after it on the same line is never forced to grow a trailing
+      space, since that gap is the statement's own closing NEWLINE. Verified
+      via a standalone harness (scratchpad only, not committed) covering:
+      the exact `return@forEach`/`break@outer`/`outer@ for` worked examples
+      from STYLE_KOTLIN.md §11 itself, each with deliberately mis-spaced
+      input (`return @ forEach`, `outer @  for`, `break  @  outer`) to
+      confirm the pass actually normalizes rather than merely preserving
+      already-correct input; a bare `continue@loop` with nothing following
+      on its line (confirmed no space wrongly appended before the
+      newline); and `return@label value` with a trailing value expression,
+      both already-correct and deliberately mis-spaced. All matched
+      §11's expected output exactly. Full C/C++/Java suite 32/32 (new
+      method, no shared-class change — no `MiscRule`/`DeclarationAlignmentRule`
+      visibility changes were needed for this one, since it's self-contained
+      within `KotlinSpecificRule` and needs nothing from the C/C++/Java-side
+      shared classes). Not yet wired into `Formatter.formatOne` or covered
+      by a `test/kt_*` fixture, same caveat as every other Step 3 item so far.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

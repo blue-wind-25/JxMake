@@ -543,4 +543,91 @@ public class KotlinSpecificRule {
     private boolean isElvisOp(final Token t) {
         return t != null && isOp(t, "?:");
     }
+
+    // ── §11 Labeled jumps ────────────────────────────────────────────────────────
+    /** Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
+     *  `label@` declaration, as tokens are consumed left to right. */
+    private enum JumpState {
+        NONE, AFTER_JUMP_KEYWORD, AFTER_JUMP_AT, AFTER_JUMP_LABEL, AFTER_PLAIN_IDENT, AFTER_DECL_AT
+    }
+
+    /**
+     * STYLE_KOTLIN.md §11: `return@label`/`break@loop`/`continue@loop` are tight around the `@`
+     * (no space either side of it or between it and the keyword/label), and a label declaration
+     * (`outer@`) is likewise tight between the identifier and the `@`. What follows the label --
+     * a jump's value expression, or whatever the declared label is attached to (`outer@ for(...)`)
+     * -- is spaced from it with exactly one space, same as a normal keyword-followed-by-identifier
+     * gap. No shared class recognizes this token shape (a keyword or identifier immediately glued
+     * to `@`), so this is its own flat pass over the whole token stream, tracking a small left-to-
+     * right state machine to tell a jump's `@label` apart from a declaration's `label@`. Same
+     * conservative bailout as §5: any gap containing a comment, a NEWLINE, or a frozen token is
+     * left completely untouched (never risk relocating a comment or reflowing a frozen span, and
+     * never force a space onto a jump with no trailing value, where the gap is just the statement's
+     * closing NEWLINE).
+     */
+    public String enforceLabeledJumpSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        JumpState state = JumpState.NONE;
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean tightBeforeAt = isOp(t, "@")
+                    && (state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_PLAIN_IDENT);
+            final boolean tightAfterJumpAt = state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER;
+            final boolean forceSpace = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
+
+            if (gapBlocked) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else if (forceSpace) {
+                out.append(' ');
+            } else if (!tightBeforeAt && !tightAfterJumpAt) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            // tightBeforeAt || tightAfterJumpAt, unblocked: gap dropped entirely.
+
+            gap.clear();
+            out.append(t.text);
+
+            if (t.type == TokenType.KEYWORD && isJumpKeyword(t.text)) {
+                state = JumpState.AFTER_JUMP_KEYWORD;
+            } else if (state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@")) {
+                state = JumpState.AFTER_JUMP_AT;
+            } else if (state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER) {
+                state = JumpState.AFTER_JUMP_LABEL;
+            } else if (t.type == TokenType.IDENTIFIER) {
+                state = JumpState.AFTER_PLAIN_IDENT;
+            } else if (state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@")) {
+                state = JumpState.AFTER_DECL_AT;
+            } else {
+                state = JumpState.NONE;
+            }
+
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isJumpKeyword(final String text) {
+        return "return".equals(text) || "break".equals(text) || "continue".equals(text);
+    }
 }

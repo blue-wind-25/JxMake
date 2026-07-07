@@ -334,7 +334,9 @@ public class TokenizerCore {
                 t = emitNumber();
             } else if (isIdentifierStart(c)) {
                 t = emitIdentifierOrKeyword();
-            } else if ((c == '[' && peek(1) == '[') || (c == ']' && peek(1) == ']')) {
+            } else if (c == '[' && peek(1) == '[' && looksLikeAttributeOpen()) {
+                t = emitOperator();
+            } else if (c == ']' && peek(1) == ']') {
                 t = emitOperator();
             } else if (c == '{') {
                 t = emitOpenBrace();
@@ -897,6 +899,35 @@ public class TokenizerCore {
         final String text = source.substring(start, pos);
         final TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
         return new Token(type, text, braceDepth, parenDepth, null);
+    }
+
+    // Guards the "[[" -> single-OP-token merge (C++17 attribute syntax, e.g. `[[noreturn]]`)
+    // against Objective-C nested message sends like `[[NSString alloc] initWithFormat:...]`,
+    // which also start with two adjacent '[' but whose brackets close separately (`] ... ]`,
+    // never `]]`). Real attribute-lists are short and self-contained: scans forward from just
+    // after the "[[" for a '[' at paren-depth 0 that is immediately followed by another ']'
+    // (i.e. a genuine "]]" close with nothing but identifiers/`::`/parenthesized args in
+    // between). Bails (returns false) on anything that couldn't appear in attribute syntax --
+    // a bare single ']', a string/char literal, a statement terminator, or a brace -- which is
+    // exactly what a message-send receiver/argument list looks like.
+    private boolean looksLikeAttributeOpen() {
+        int depth = 0;
+        final int limit = Math.min(length, pos + 200);
+        for (int i = pos + 2; i < limit; i++) {
+            final char c = source.charAt(i);
+            if (c == '\n' || c == '\r' || c == ';' || c == '{' || c == '}'
+                    || c == '"' || c == '\'') {
+                return false;
+            }
+            if (c == '(') {
+                depth++;
+            } else if (c == ')') {
+                depth--;
+            } else if (c == ']' && depth == 0) {
+                return i + 1 < length && source.charAt(i + 1) == ']';
+            }
+        }
+        return false;
     }
 
     private Token emitOperator() {

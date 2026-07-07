@@ -34,8 +34,8 @@ in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at 
   asked (they are the reference output files that show the expected results).
 - Ignore `XL.txt`, that is the user tracker file.
 - Use `/tmp` for temporary smoke-test and mini-test files.
-- Do not perform filesystem-wide find; search first in `/tmp/claude-1000`, if not found,
-  ask me.
+- NEVER perform filesystem-wide find; search first in `/tmp/claude-1000` or the project root.
+  If still not found, ask me.
 
 ### When hitting an ambiguity or open question
 1. **Stop coding immediately** — do not guess or proceed past the ambiguity
@@ -553,27 +553,51 @@ possible. Use this standard copyright header on every new test fixture file:
        general bug fix, independent of the `catch.hpp` repro below — keep it. Fixture:
        `test/real_code_regressions_14_{inp,out}.hpp` (minimal `struct Foo { enum Bar {`
        same-line-sharing repro, two namespace levels deep).
-     - `catch.hpp` specifically is **not** fixed by the above and still shows 3 round1/round2 diff
-       hunks (same lines as before: ~8444/~15479/~19869). Root-caused with debug instrumentation:
-       the real cause is a **tokenizer bug**, unrelated to `ScopePipeline` depth/indent bookkeeping.
-       `catch.hpp` has an `#ifdef __OBJC__` block with genuine Objective-C (the formatter doesn't
-       strip `#ifdef` bodies, so it tokenizes them anyway). Nested Objective-C message sends like
-       `[[NSString alloc] initWithFormat:...]` produce adjacent `[[`; `TokenizerCore` misreads that
-       as a single C++17 attribute-open token (`[[attr]]` syntax) instead of two separate `[`
-       PUNCT tokens, while the two matching `]` are still tokenized as two separate PUNCT tokens.
-       Net effect: a permanent bracket-depth desync (lose 2 per `[[` occurrence) in
-       `ScopePipeline.splitTopLevelSpans`'s running depth counter for the rest of the file, so by
-       the time the scan reaches `analyse()` thousands of lines later, its `if` block gets
-       misidentified as a top-level span spanning the whole file instead of being nested 5 levels
-       deep. Confirmed via a standalone `TokenizerCore` harness tokenizing
-       `[[NSString alloc] initWithFormat:...]` in isolation — it emits `OP[[[]` (merged) followed
-       by two separate `PUNCT[]]` closes.
-     - **Not yet fixed, tracked separately for a future session**: teach `TokenizerCore` to only
-       merge `[[`/`]]` into a C++ attribute token when it's actually attribute syntax (e.g. followed
-       by a recognized attribute identifier and not preceded by an expression/identifier the way an
-       Objective-C message-send receiver would be), or otherwise make `[[` bracket-counting safe
-       regardless of attribute-vs-ObjC-message ambiguity. This is required before `frozen` can be
-       marked DONE.
+     - `catch.hpp` originally still showed 3 round1/round2 diff hunks (~8444/~15479/~19869) after
+       the above fix. Root-caused with debug instrumentation to a **tokenizer bug**, unrelated to
+       `ScopePipeline` depth/indent bookkeeping. `catch.hpp` has an `#ifdef __OBJC__` block with
+       genuine Objective-C (the formatter doesn't strip `#ifdef` bodies, so it tokenizes them
+       anyway). Nested Objective-C message sends like `[[NSString alloc] initWithFormat:...]`
+       produce adjacent `[[`; `TokenizerCore` misread that as a single C++17 attribute-open token
+       (`[[attr]]` syntax) instead of two separate `[` PUNCT tokens, while the two matching `]`
+       were still tokenized as two separate PUNCT tokens. Net effect: a permanent bracket-depth
+       desync (lose 2 per `[[` occurrence) in `ScopePipeline.splitTopLevelSpans`'s running depth
+       counter for the rest of the file, so by the time the scan reaches `analyse()` thousands of
+       lines later, its `if` block got misidentified as a top-level span spanning the whole file
+       instead of being nested 5 levels deep. Confirmed via a standalone `TokenizerCore` harness
+       tokenizing `[[NSString alloc] initWithFormat:...]` in isolation — it emitted `OP[[[]`
+       (merged) followed by two separate `PUNCT[]]` closes.
+     - **FIXED (2026-07-07).** `TokenizerCore` now only merges `[[` into a single attribute-open
+       token when a forward scan (`looksLikeAttributeOpen`) finds a genuine attribute-shaped close
+       within 200 chars: a `]` at paren-depth 0 immediately followed by another `]` (a real `]]`),
+       with nothing but identifiers/`::`/parenthesized args in between, bailing (treating the `[[`
+       as two ordinary `[` opens instead) on a statement terminator, brace, or string/char literal
+       first — exactly what an Objective-C message-send receiver/argument list looks like and an
+       attribute-list never does. `]]` merging is unchanged (not the source of the desync — the
+       real repro's closes were never textually adjacent). Verified: (1) `make test` 32/32 after
+       adding the fixture below; (2) the original 3 `catch.hpp` hunks above (~8441/15476/19866,
+       the `analyse()`/if-else brace-indent mismatch) are gone from round1/round2 comparison,
+       confirmed by diffing against the pre-fix build. Fixture:
+       `test/real_code_regressions_15_{inp,out}.hpp` (message send followed by nested
+       `namespace`/`struct`/`try`-`catch`/`if`-`else if`-`else`, discriminates old vs new — verified
+       old build mis-indents several closing braces here, new build doesn't).
+     - **New, unrelated bugs surfaced by this fix, not yet fixed — tracked separately for a future
+       session.** With the depth desync gone, `catch.hpp`'s round1/round2 diff now shows 4
+       *different* small hunks that were previously masked by the file-wide misindentation
+       cascading past them:
+       - `~5655`: a wrapped parameter list (`getAnnotation(\n    Class cls,\n    ...\n)`) loses one
+         indent level on the second format pass — looks like a call/declaration-wrapping
+         reindent-drift bug, likely `MiscRule`'s §8 wrapping pass or similar.
+       - `~9539`, `~17121`: member-initializer-list argument spacing drifts between passes
+         (`m_isNegated( other.m_isNegated )` → `m_isNegated(other. m_isNegated)`, `( &tagAliases )`
+         → `(& tagAliases)`) — looks like a spacing-around-`.`/`&` idempotency bug specific to
+         single-argument parenthesized initializers.
+       - `~12738`: `struct sigaction sa = {};;` gains an extra `;` on every re-format
+         (`{};;` → `{};;;` → ...) — an unbounded-growth idempotency bug, likely in whatever pass
+         normalizes/collapses empty-brace-init statement terminators.
+       None of these four are related to `[[`/attributes/Objective-C; they're pre-existing bugs in
+       unrelated passes that this fix's improved depth-tracking simply stopped hiding. `frozen`
+       remains IN PROGRESS pending these.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
   Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-
@@ -585,9 +609,9 @@ possible. Use this standard copyright header on every new test fixture file:
   tree now fully idempotent.
 
 **NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is
-IN PROGRESS: bug 7 (§ above) is partially fixed — the general `ScopePipeline` indent-threading fix
-landed, but `catch.hpp` still needs the `TokenizerCore` `[[` attribute-vs-Objective-C-message-send
-bracket-counting fix (§ above) before the library can be marked DONE. After that, continue real-code testing
+IN PROGRESS: bug 7's two indent/tokenizer fixes have both landed (§ above), but `catch.hpp` still
+needs the 4 newly-surfaced, unrelated small idempotency bugs (§ above, "New, unrelated bugs
+surfaced by this fix") fixed before the library can be marked DONE. After that, continue real-code testing
 against remaining C/C++ candidates in this order unless redirected: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs
 newer; confirm any compile failure also reproduces against the unmodified original before

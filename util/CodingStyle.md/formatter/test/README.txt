@@ -385,6 +385,31 @@ Real-code regressions:
                                            recursive descent, regardless of scope kind), so the
                                            fallback returns that instead of guessing from `depth`.
 
+  real_code_regressions_15_inp/out.hpp  -- Minimal repro for STATE.md item 7's TokenizerCore `[[`
+                                           fix. `catch.hpp` has an `#ifdef __OBJC__` block with
+                                           genuine Objective-C nested message sends like
+                                           `[[NSString alloc] init]`. TokenizerCore used to merge
+                                           any adjacent `[[` into one C++17-attribute-style OP
+                                           token (`[[attr]]` syntax) regardless of context, while
+                                           the two matching `]` closes (never textually adjacent
+                                           in a message send) stayed as two separate PUNCT tokens
+                                           -- permanently losing 2 from ScopePipeline.
+                                           splitTopLevelSpans's running bracket-depth counter for
+                                           the rest of the file, eventually misjudging brace
+                                           nesting in unrelated code far below. Fixed by only
+                                           merging "[[" when a forward scan finds a genuine
+                                           attribute-shaped close (a "]]" at paren-depth 0 with
+                                           nothing but identifiers/`::`/parenthesized args in
+                                           between, bailing on statement terminators, braces, or
+                                           string/char literals) -- see
+                                           TokenizerCore.looksLikeAttributeOpen. This fixture
+                                           reproduces the resulting misindentation (closing
+                                           braces collapsing to the wrong depth several
+                                           constructs after the message send) against the
+                                           pre-fix build; the ugly `[ [NSString alloc] init ]`
+                                           spacing in the expected output is accepted collateral
+                                           since this formatter has no real Objective-C support.
+
 
 
 How Tests Are Run

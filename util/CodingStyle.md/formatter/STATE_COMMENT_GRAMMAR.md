@@ -5,8 +5,8 @@
 ## Purpose
 
 This tracks an **accuracy upgrade** to the existing deterministic comment-normalization
-rules (`normalize-comment-start-case` / `normalize-comment-end-period`, Task B in STATE.md,
-already DONE). It is not a new feature — those two config keys already exist, default `on`,
+rules (`normalize-comment-start-case` / `normalize-comment-end-period`, `### B — New config entries`
+in STATE.md, already DONE). It is not a new feature — those two config keys already exist, default `on`,
 and are gated in `MiscRule` at the two shared comment-normalization call sites every comment
 call site funnels through.
 
@@ -73,10 +73,10 @@ self-contained requirement above):
 
 ## New config key
 
-Extends the Task B config family (`normalize-comment-start-case`, `normalize-comment-end-period`,
-default `on`/`on`).
+Extends the `### B — New config entries` config family (`normalize-comment-start-case`,
+`normalize-comment-end-period`, default `on`/`on`).
 
-```
+```properties
 comment-normalization-classifier = off   (default)
 ```
 
@@ -135,7 +135,7 @@ Suggested order:
 3. Only then: generate weights (frontier-model-assisted per RDD_KEY_97) using a real example
    set per language, and set the threshold from RDD_KEY_98's precision target.
 4. `make test` must pass with the new key `off` (default) showing zero behavior change from
-   current Task B output, before touching weight generation.
+   current `### B — New config entries` output, before touching weight generation.
 5. README.md config entry added at the end, once the feature is real.
 
 Do not attempt to expand this to non-Latin-script grammar support (e.g. a German- or

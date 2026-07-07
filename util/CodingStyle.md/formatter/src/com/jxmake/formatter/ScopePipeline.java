@@ -11,6 +11,12 @@ import com.jxmake.formatter.rules.DeclarationAlignmentRule;
 import com.jxmake.formatter.rules.DeclarationAlignmentRule.Declaration;
 import com.jxmake.formatter.rules.GetterSetterRule;
 import com.jxmake.formatter.rules.GetterSetterRule.Member;
+import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule;
+import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.DestructuringDecl;
+import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.KotlinDecl;
+import com.jxmake.formatter.rules.KotlinSignatureRule;
+import com.jxmake.formatter.rules.KotlinSignatureRule.FunctionTail;
+import com.jxmake.formatter.rules.KotlinSignatureRule.KotlinSignature;
 import com.jxmake.formatter.rules.MiscRule;
 import com.jxmake.formatter.rules.MiscRule.Assignment;
 import com.jxmake.formatter.rules.MiscRule.Signature;
@@ -48,6 +54,12 @@ public class ScopePipeline {
     private final DeclarationAlignmentRule declarationRule;
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
+    // STYLE_KOTLIN.md §6/§7/§7.1/§7.2/§9/§12: reversed `name : type` grammar needs its own parser/
+    // renderer (see KotlinDeclarationAlignmentRule/KotlinSignatureRule's own class comments) --
+    // null for every other language, same "constructed only if needed" precedent as Formatter's
+    // own kotlinRule.
+    private final KotlinDeclarationAlignmentRule kotlinDeclarationRule;
+    private final KotlinSignatureRule kotlinSignatureRule;
     private final boolean formatOff;
 
     public ScopePipeline(final Lang lang, final String indentStyle,
@@ -72,6 +84,10 @@ public class ScopePipeline {
         this.getterSetterRule = new GetterSetterRule(lang, indentWidth, lineLengthLimit);
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 indentWidth, lineLengthLimit);
+        this.kotlinDeclarationRule = lang.isKotlin
+                ? new KotlinDeclarationAlignmentRule(lang, lineLengthLimit) : null;
+        this.kotlinSignatureRule = lang.isKotlin
+                ? new KotlinSignatureRule(lang, indentWidth, lineLengthLimit) : null;
         this.formatOff = formatOff;
     }
 
@@ -589,6 +605,9 @@ public class ScopePipeline {
      * the statement's trailing `;`/comment via the identical depth-aware algorithm.
      */
     private String applyDeclarationsPass(final List<Token> tokens) {
+        if (lang.isKotlin) {
+            return applyKotlinDeclarationsPass(tokens);
+        }
         final List<List<Declaration>> groups = declarationRule.groupDeclarations(tokens);
         final List<Span> spans = splitTopLevelSpans(tokens);
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
@@ -642,6 +661,68 @@ public class ScopePipeline {
             replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
         }
         return splice(tokens, replacements);
+    }
+
+    /** STYLE_KOTLIN.md §6/§12 -- Kotlin's `[modifiers] val|var name [: type] [= init]` grammar is
+     *  reversed relative to C/Java's `[modifiers] Type name [= init]`, so {@code
+     *  KotlinDeclarationAlignmentRule} parses/renders it with its own {@code KotlinDecl}/{@code
+     *  DestructuringDecl} models rather than the base {@code Declaration} model above. Kotlin
+     *  properties/locals are conventionally newline-terminated with no `;`, so {@code
+     *  splitTopLevelSpans} (built around `;`/`}`-terminated C/Java statements) cannot be reused to
+     *  find each declaration's own span -- instead this anchors directly on each decl's own leading
+     *  token ({@code modifiers.get(0)}/{@code startToken}, never empty) and trailing token ({@code
+     *  trailingComment}, else the last {@code initTokens}/{@code typeTokens} token, else the name),
+     *  both always present in {@code tokens} by identity, via {@code buildIndexMap}. */
+    private String applyKotlinDeclarationsPass(final List<Token> tokens) {
+        final Map<Token, Integer> indexOf = buildIndexMap(tokens);
+        final List<Replacement> replacements = new ArrayList<>();
+
+        for (final List<KotlinDecl> group : kotlinDeclarationRule.groupPropertyDeclarations(tokens)) {
+            final KotlinDecl first = group.get(0);
+            final KotlinDecl last = group.get(group.size() - 1);
+            final Token lastAnchor = last.trailingComment != null ? last.trailingComment
+                    : !last.initTokens.isEmpty() ? last.initTokens.get(last.initTokens.size() - 1)
+                    : !last.typeTokens.isEmpty() ? last.typeTokens.get(last.typeTokens.size() - 1)
+                    : last.name;
+            addKotlinDeclReplacement(tokens, indexOf, replacements, first.modifiers.get(0), lastAnchor,
+                    kotlinDeclarationRule.renderPropertyGroup(group));
+        }
+        for (final List<DestructuringDecl> group : kotlinDeclarationRule.groupDestructuringDeclarations(tokens)) {
+            final DestructuringDecl first = group.get(0);
+            final DestructuringDecl last = group.get(group.size() - 1);
+            final Token lastAnchor = last.trailingComment != null ? last.trailingComment
+                    : last.initTokens.get(last.initTokens.size() - 1);
+            addKotlinDeclReplacement(tokens, indexOf, replacements, first.startToken, lastAnchor,
+                    kotlinDeclarationRule.renderDestructuringGroup(group));
+        }
+        return splice(tokens, replacements);
+    }
+
+    /** Shared splice-range/leading-gap computation for one Kotlin declaration group -- same
+     *  idempotent leading-padding-strip logic as {@link #applyDeclarationsPass}, but the group's
+     *  own leading-gap boundary is derived from the previous significant token (there is no
+     *  {@code Span} to anchor on for newline-terminated Kotlin statements) and the trailing
+     *  boundary is exactly one past {@code lastAnchor} (already the group's true last token --
+     *  no trailing whitespace to trim, unlike a `;`/`}`-terminated C/Java span). */
+    private void addKotlinDeclReplacement(final List<Token> tokens, final Map<Token, Integer> indexOf,
+            final List<Replacement> replacements, final Token firstAnchor, final Token lastAnchor,
+            final List<String> lines) {
+        final int firstIdx = indexOf.get(firstAnchor);
+        final int lastIdx = indexOf.get(lastAnchor);
+        if (anyFrozen(tokens, firstIdx, lastIdx + 1)) {
+            return;
+        }
+        final int gapStart = prevSignificantIndex(tokens, firstIdx) + 1;
+        final String rawLeadingGapFull = joinText(tokens, gapStart, firstIdx);
+        final int freshPad = leadingSpaceCount(lines.get(0));
+        final int trailingSpaces = leadingSpaceCount(new StringBuilder(rawLeadingGapFull).reverse().toString());
+        final String rawLeadingGap = trailingSpaces >= freshPad
+                ? stripTrailingSpaces(rawLeadingGapFull, freshPad) : rawLeadingGapFull;
+        final String rawIndent = trailingIndent(rawLeadingGap);
+        final String indent = normalizeIndent(rawIndent);
+        final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
+        final String text = leadingGap + String.join("\n" + indent, lines);
+        replacements.add(new Replacement(gapStart, lastIdx + 1, text));
     }
 
     // ── Oversized aggregate-init closing-brace pass ────────────────────────────────
@@ -812,16 +893,28 @@ public class ScopePipeline {
             }
             // For Java: handle a `throws` clause between `)` and `{`.
             int throwsEndIdx = -1;
+            // For Kotlin: handle an explicit `: ReturnType` between `)` and `{` (STYLE_KOTLIN.md
+            // §9) -- absent entirely for a `Unit`-inferred function/constructor, where closeParenIdx
+            // above is already the real `)` and this is a no-op.
+            int kotlinTailEndIdx = -1;
             if (!isPunct(tokens.get(closeParenIdx), ")")) {
-                if (!lang.isJava) {
+                if (lang.isKotlin) {
+                    final int realCloseParen = findLastTopLevelCloseParen(tokens, span.start, span.openBraceIdx);
+                    if (realCloseParen < 0) {
+                        continue;
+                    }
+                    kotlinTailEndIdx = closeParenIdx;
+                    closeParenIdx = realCloseParen;
+                } else if (lang.isJava) {
+                    final int realCloseParen = findCloseParenBeforeThrows(tokens, closeParenIdx);
+                    if (realCloseParen < 0) {
+                        continue;
+                    }
+                    throwsEndIdx = closeParenIdx;
+                    closeParenIdx = realCloseParen;
+                } else {
                     continue;
                 }
-                final int realCloseParen = findCloseParenBeforeThrows(tokens, closeParenIdx);
-                if (realCloseParen < 0) {
-                    continue;
-                }
-                throwsEndIdx = closeParenIdx;
-                closeParenIdx = realCloseParen;
             }
             final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
             if (openParenIdx < 0 || !isCandidateSignatureName(tokens, openParenIdx)) {
@@ -851,7 +944,8 @@ public class ScopePipeline {
             if (leadStart < 0) {
                 continue;
             }
-            if (anyFrozen(tokens, leadStart, (throwsEndIdx >= 0 ? throwsEndIdx : closeParenIdx) + 1)) {
+            if (anyFrozen(tokens, leadStart,
+                    (throwsEndIdx >= 0 ? throwsEndIdx : kotlinTailEndIdx >= 0 ? kotlinTailEndIdx : closeParenIdx) + 1)) {
                 continue;
             }
             // For Java: skip past any leading @Annotation tokens so they stay verbatim in
@@ -885,6 +979,26 @@ public class ScopePipeline {
                 } else {
                     sigLeadStart = leadStart;
                 }
+            }
+            if (lang.isKotlin) {
+                final KotlinSignature kotlinSig = kotlinSignatureRule.parseKotlinSignature(
+                        tokens.subList(sigLeadStart, closeParenIdx + 1));
+                if (kotlinSig == null) {
+                    continue;
+                }
+                final int tailEnd = kotlinTailEndIdx >= 0 ? kotlinTailEndIdx
+                        : prevSignificantIndex(tokens, span.openBraceIdx);
+                final FunctionTail tail = kotlinSignatureRule.parseFunctionTail(
+                        tokens.subList(closeParenIdx + 1, tailEnd + 1));
+                final List<String> kotlinLines =
+                        kotlinSignatureRule.renderWithTail(kotlinSig, tail, depth, indentStyle);
+                final String kotlinLeadingGap = joinText(tokens, span.start, sigLeadStart);
+                final StringBuilder kotlinText = new StringBuilder(kotlinLeadingGap).append(kotlinLines.get(0));
+                for (int i = 1; i < kotlinLines.size(); i++) {
+                    kotlinText.append('\n').append(kotlinLines.get(i));
+                }
+                replacements.add(new Replacement(span.start, tailEnd + 1, kotlinText.toString()));
+                continue;
             }
             final Signature sig = miscRule.parseSignature(
                     tokens.subList(sigLeadStart, closeParenIdx + 1));
@@ -972,6 +1086,27 @@ public class ScopePipeline {
      *  (the parameter list's own close paren) and not itself part of `::`. Returns -1 if none
      *  found (an ordinary function/control-flow body, or a C++11 base-class-in-braces case with
      *  no initializer list at all). */
+    /** Finds the last depth-0 `)` in {@code [from, to)} -- for Kotlin, the parameter list's own
+     *  closing paren, when it isn't the token immediately before {@code to} (an explicit `:
+     *  ReturnType` tail sits between them, STYLE_KOTLIN.md §9). Angle brackets (`<T>` generics,
+     *  `List<Int>` in a return type) don't affect `(`/`)` depth so need no special handling here. */
+    private int findLastTopLevelCloseParen(final List<Token> tokens, final int from, final int to) {
+        int depth = 0;
+        int found = -1;
+        for (int i = from; i < to; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(")) {
+                depth++;
+            } else if (isPunct(t, ")")) {
+                depth--;
+                if (depth == 0) {
+                    found = i;
+                }
+            }
+        }
+        return found;
+    }
+
     private int findTopLevelMemberInitColon(final List<Token> tokens, final int from, final int to) {
         int depth = 0;
         for (int i = from; i < to; i++) {

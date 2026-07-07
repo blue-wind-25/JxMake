@@ -325,12 +325,18 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         public final String lhsText; // e.g. "val (a, b)" -- modifiers + val/var + normalized list
         public final List<Token> initTokens;
         public final Token trailingComment;
+        // The statement's own first token (first plain modifier, or the val/var keyword itself if
+        // there is none) -- exposed so a caller (ScopePipeline) can locate this declaration's own
+        // token-index span in the original stream for splice-back, since lhsText is already a
+        // pre-rendered string disconnected from token indices.
+        public final Token startToken;
 
         DestructuringDecl(final String lhsText, final List<Token> initTokens,
-                final Token trailingComment) {
+                final Token trailingComment, final Token startToken) {
             this.lhsText = lhsText;
             this.initTokens = initTokens;
             this.trailingComment = trailingComment;
+            this.startToken = startToken;
         }
     }
 
@@ -463,7 +469,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         }
         lhs.append(')');
 
-        return new DestructuringDecl(lhs.toString(), initTokens, findTrailingComment(stmt));
+        return new DestructuringDecl(lhs.toString(), initTokens, findTrailingComment(stmt), modifiers.get(0));
     }
 
     /**

@@ -564,6 +564,13 @@ public class DeclarationAlignmentRule {
         if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
             return true;
         }
+        // Kotlin's bare `?` (type nullability suffix, e.g. `Int?`) is always tight against the
+        // preceding type token -- see MiscRule.isTightToken's identical, already-established
+        // reasoning for this same rule (STYLE_KOTLIN.md's `Type?` rendering via
+        // KotlinDeclarationAlignmentRule.renderKotlinTokens, which reuses this method).
+        if (lang.isKotlin && isOp(t, "?")) {
+            return true;
+        }
         return Token.isRepOp(t, '*') || Token.isRepOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 

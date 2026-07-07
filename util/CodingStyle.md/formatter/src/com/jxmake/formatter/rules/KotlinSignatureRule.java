@@ -251,7 +251,7 @@ public class KotlinSignatureRule extends MiscRule {
      */
     public List<String> render(final KotlinSignature sig, final int indentLevel, final String indentStyle) {
         final String lead = renderTokens(sig.leadTokens);
-        final String head = (lead.isEmpty() ? "" : lead + " ") + sig.name.text + "(";
+        final String head = (lead.isEmpty() || lead.endsWith(".") ? lead : lead + " ") + sig.name.text + "(";
         final String inline = head + renderParamsInline(sig) + ")";
         final int startColumn = indentLevel * indentWidth;
 
@@ -406,7 +406,7 @@ public class KotlinSignatureRule extends MiscRule {
                 : (exprStr.isEmpty() ? returnTypeStr : returnTypeStr + " " + exprStr);
 
         final String lead = renderTokens(sig.leadTokens);
-        final String head = (lead.isEmpty() ? "" : lead + " ") + sig.name.text + "(";
+        final String head = (lead.isEmpty() || lead.endsWith(".") ? lead : lead + " ") + sig.name.text + "(";
         final String inline = appendTailPart(head + renderParamsInline(sig) + ")", tailStr);
         final int startColumn = indentLevel * indentWidth;
 

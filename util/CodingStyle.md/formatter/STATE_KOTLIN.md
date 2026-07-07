@@ -308,7 +308,7 @@ existing test suite after this step, before moving to Step 1.
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — RDD_KEY_100. Pure no-op for C/C++/Java (no `when` keyword/token in any of their keyword sets). |
 | 3.3 | Secondary constructors (Allman body) | (c), **done** | Covered by the same §3 method (`KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`) in one pass, as planned: a secondary constructor is recognized by the token immediately before `(` being the `constructor` keyword itself. Verified via harness: `class Foo { constructor(x: Int) { ... } }` correctly converts the constructor body to Allman. RDD_KEY_114. |
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
-| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **done** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
+| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **NOT idempotent — see Step 4 known-bugs punch list** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing` — a single flat whole-file whitespace-collapsing pass, not scoped to any one construct, since no shared class does general expression-level operator re-spacing today. RDD_KEY_102. |
 | 6 | Variable/property declaration alignment | (c), **done** | New `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (user-directed: loosen shared-class visibility, then extend, rather than an independent parser in `KotlinSpecificRule.java`). Reuses `splitStatements`/`hasBlankLineBefore`/`hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment` (raised private → protected, no behavior change) plus `ColumnGrid`/`KotlinModifierPriority`; writes its own `KotlinDecl` model, `splitKotlinStatements` (newline-terminated statement splitting — Kotlin has no `;`), `parseKotlinDeclaration`, and `renderPropertyGroup` (per-column `ColumnGrid`, not `Declaration`/`render()`). RDD_KEY_103. |
 | 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature` instead of `DeclarationAlignmentRule.Declaration`. Fixed as `RDD_KEY_104` — new `KotlinSignatureRule extends MiscRule`, same visibility-loosen-then-extend pattern as §6. |
@@ -376,7 +376,11 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
 - [x] **§3.2 `when` no space before `(`.** `RDD_KEY_100` — added `"when"` to
       `MiscRule.TIGHT_PAREN_KEYWORDS`, a one-line shared-class change (pure no-op
       for C/C++/Java, no such keyword in their keyword sets). `make test` 25/25.
-- [x] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
+- [ ] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
+      NOT idempotent — see Step 4's known-bugs punch list (body-squishing +
+      closing-comment capitalization instability on re-format). Was marked
+      done from standalone-harness testing; standalone testing didn't catch
+      the interaction with an earlier generic blank-line-collapsing pass.
       `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`, not a
       `SwitchRule`/`JavaSpecificRule` extension (keyword-less branch labels,
       non-all-or-nothing block-body alignment, and forced rather than merely
@@ -656,14 +660,87 @@ values yet, since no pipeline path exists for the language at all.
 - [ ] Update `README.md` for the new `kotlin-import-*` keys.
 
 ### Step 4 — Test Fixtures
+
+**IN PROGRESS, not wired into `Makefile` yet.** `test/kt_combined_inp.kt` and
+`test/kt_combined_out.kt` exist on disk (untracked by `Makefile`'s
+`INP_FILES` — do NOT add them there yet, see below) capturing STYLE_KOTLIN.md
++ STYLE_KOTLIN2.md end-to-end coverage. `test/kt_comments_inp.kt`/`_out.kt`
+(uncommon comment locations + JXM_CFMT_DIS/ENA) have **not been started**.
+
+Blocking discovery this session: `ScopePipeline` never dispatched to the
+already-built `KotlinSignatureRule`/`KotlinDeclarationAlignmentRule` — fixed
+(now wired for both the declarations pass and the signature pass). This
+surfaced a second, smaller gap in `KotlinSignatureRule`'s inherited
+`renderTokens`/`isTightToken` (generic `<T>` after `fun`, bare `?` nullable
+suffix, extension-receiver-dot spacing) — also fixed, across
+`TokenizerCore.reclassifyAngleBrackets`, `MiscRule.isTightToken`/
+`needsSpaceBetween`, `DeclarationAlignmentRule.isTightToken`, and
+`KotlinSignatureRule.render`/`renderWithTail`. All four verified with zero
+C/C++/Java regressions (`make test` still 32/32).
+
+**§4 `when`-expression support is NOT actually done, despite the Step-4-era
+checklist below marking it done.** Dogfooding `kt_combined_inp.kt` surfaced:
+a `when` with a block body (`val label = when (x) { ... }`) reliably corrupts
+its own body (branches get squished onto one line, losing their newlines)
+and is *not idempotent*: `KotlinSpecificRule.formatWhenExpressions`'s
+`applyClosingComment` only appends the `// when subject` closing comment
+when the `}` is immediately followed by a bare NEWLINE (no comment yet); on
+a second format, some earlier generic pass (before Phase 2's
+`enforceCommentStyle`, not yet identified — likely a general
+blank-line-before-`}` collapse that doesn't know Kotlin's `when` needs its
+forced blank line preserved) strips the blank line `KotlinSpecificRule`
+itself inserted, so Phase 2 sees the closing comment sitting directly after
+`"..."`+`}` on one line (not "alone on its own line") and wrongly
+capitalizes it via `MiscRule.isClosingBraceLabelComment`; the second pass
+then never restores the pre-capitalization text (verified with a debug
+trace: `isClosingBraceLabelComment` returns `false` on the *first*
+(pre-Kotlin-Phase-4) call of a re-format, `true` on later calls). Net effect:
+formatting a `when`-block twice never converges. This is a real bug in
+already-"done" §4 work, not a new item — demote its checklist status above.
+
+Because of this, `kt_combined_inp.kt`/`kt_combined_out.kt` as currently
+written on disk **do reflect real single-pass (`make test`'s "forward pass")
+formatter output** but will **fail the idempotency pass** on the `when`
+block's closing-comment line (`// when status` vs `// When status`) if
+wired into `Makefile` right now. Per explicit user instruction this session
+("write the fixtures first, bug fix later"), the fixture content itself is
+intentionally left as real captured output including this and other known
+bugs — but it must NOT be added to `Makefile`'s `INP_FILES` until either (a)
+this idempotency bug is fixed, or (b) the fixture's `when` usage is
+simplified to a shape that avoids it, to avoid leaving `make test` red.
+Next session: decide (a) vs (b), then wire into `Makefile`, then write the
+second (`kt_comments_*`) pair, then re-run the full suite.
+
+Known-bugs punch list (all deferred by explicit user instruction, "bug fix
+later" — do not start fixing without being asked):
+1. §4 `when`-block idempotency + body-squishing (detailed above — the big one).
+2. Property-accessor closing-brace indentation: `Widget.count`'s `set(value) { field = value` +
+   trailing `}` renders under-indented (see `/tmp/ktfix4` capture in prior
+   session transcript for exact shape).
+3. `val safe = x?.let { it + 1 } ?: 0`-style lambda/assignment spacing:
+   double space before `=` and missing space before lambda `{`, from the
+   generic (non-Kotlin-gated) `applyAssignmentsPass`.
+4. Enum body: a blank line is inserted before the enum's terminating `;`
+   that STYLE_KOTLIN.md doesn't call for (cosmetic only).
+
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
       covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,
       same methodology as the existing `*_inp/out` pairs for other languages.
+      **Content written; NOT yet added to `Makefile` — see note above.**
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
       for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
       same methodology as the existing `*_inp/out` pairs for other languages.
+      **Not started.**
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
+
+Use this standard copyright header on every new test fixture file:
+```
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+```
 
 ### Step 5 — Dogfood / Real-Code Testing
 

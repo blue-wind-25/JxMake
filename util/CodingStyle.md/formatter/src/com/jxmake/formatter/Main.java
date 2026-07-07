@@ -386,6 +386,9 @@ public final class Main {
                 || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
             return "cpp";
         }
+        if (lower.endsWith(".kt") || lower.endsWith(".kts")) {
+            return "kotlin";
+        }
         return null;
     }
 

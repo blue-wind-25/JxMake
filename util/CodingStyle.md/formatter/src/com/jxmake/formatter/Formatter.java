@@ -10,6 +10,7 @@ package com.jxmake.formatter;
 import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
 import com.jxmake.formatter.rules.JavaSpecificRule;
+import com.jxmake.formatter.rules.KotlinSpecificRule;
 import com.jxmake.formatter.rules.MiscRule;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
@@ -48,6 +49,8 @@ public final class Formatter {
                 ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
         final JavaSpecificRule javaRule = lang.isJava
                 ? new JavaSpecificRule(lang, lineLengthLimit, indentWidth) : null;
+        final KotlinSpecificRule kotlinRule = lang.isKotlin
+                ? new KotlinSpecificRule(lang, lineLengthLimit, indentWidth) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
         // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise
@@ -91,6 +94,13 @@ public final class Formatter {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
             text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.apply(text));
             text = javaRule.separateEnumConstantListTerminator(tokenizer.apply(text));
+        } else if (lang.isKotlin) {
+            text = kotlinRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
+            text = kotlinRule.separateEnumConstantListTerminator(tokenizer.apply(text));
+            // No mandatory `;` in Kotlin (STYLE_KOTLIN.md §1) -- strip optional trailing `;`
+            // right after this phase's own structural rewrites settle, same "run once brace/enum
+            // shape is final" reasoning as those two calls above.
+            text = kotlinRule.stripOptionalSemicolons(tokenizer.apply(text));
         }
         // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
         // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line
@@ -159,6 +169,15 @@ public final class Formatter {
         if (isCOrCpp && config.isFormatMacros()) {
             text = cppRule.alignMacroDefinitions(tokenizer.apply(text));
         }
+        if (lang.isKotlin) {
+            text = kotlinRule.formatWhenExpressions(tokenizer.apply(text));
+            text = kotlinRule.enforceNullSafetyOperatorSpacing(tokenizer.apply(text));
+            text = kotlinRule.enforceRangeOperatorSpacing(tokenizer.apply(text));
+            text = kotlinRule.enforceLabeledJumpSpacing(tokenizer.apply(text));
+            text = kotlinRule.enforceArrowSpacing(tokenizer.apply(text));
+            text = kotlinRule.enforceAnnotationUseSiteTargetSpacing(tokenizer.apply(text));
+            text = kotlinRule.enforceWhereClausePlacement(tokenizer.apply(text));
+        }
 
         // Phase 5: file-header-level structure.
         if (isCOrCpp) {
@@ -166,6 +185,9 @@ public final class Formatter {
         } else if (lang.isJava) {
             text = javaRule.enforceImportOrdering(tokenizer.apply(text), config.javaImportOrder(),
                     config.isJavaImportSort(), config.javaImportDepth(), config.javaImportBlankLines());
+        } else if (lang.isKotlin) {
+            text = kotlinRule.enforceKotlinImportOrdering(tokenizer.apply(text), config.kotlinImportOrder(),
+                    config.isKotlinImportSort(), config.kotlinImportDepth(), config.kotlinImportBlankLines());
         }
 
         // Phase 6: final whitespace normalization, last.

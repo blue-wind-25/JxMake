@@ -1534,6 +1534,14 @@ public class MiscRule {
 
     private boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
             final Set<Token> templateCloses) {
+        // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
+        // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
+        // opener (`Foo<T>`, `foo<T>(...)`) directly follows the identifier it qualifies, but this
+        // one follows the `fun` keyword itself and needs the normal keyword-then-clause space.
+        if (lang.isKotlin && cur.type == TokenType.ANGLE_BRACKET_OPEN
+                && prev.type == TokenType.KEYWORD && "fun".equals(prev.text)) {
+            return true;
+        }
         if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
             return false;
         }
@@ -1565,6 +1573,13 @@ public class MiscRule {
         // expression rendered through this shared join point (STYLE_KOTLIN.md §9's `= expr`
         // rendering surfaced this: `x * x` was joining as `x* x`).
         if (!lang.isKotlin && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&'))) {
+            return true;
+        }
+        // Kotlin's bare `?` only ever appears as a type's nullability suffix (`Type?`) -- its
+        // other two `?`-led operators (`?.` safe call, `?:` elvis) are each their own multi-char
+        // token, never plain `?`, and Kotlin has no C-style ternary `?` to confuse this with -- so
+        // it is always tight against the preceding type token, unlike C/Java's ternary `?`.
+        if (lang.isKotlin && isOp(t, "?")) {
             return true;
         }
         return isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");

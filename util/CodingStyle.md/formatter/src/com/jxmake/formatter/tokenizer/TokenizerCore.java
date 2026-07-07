@@ -1175,7 +1175,14 @@ public class TokenizerCore {
 
             if (cur.type == TokenType.OP && "<".equals(cur.text)) {
                 final Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
-                if (prev != null && (prev.type == TokenType.IDENTIFIER || isCastKeyword(prev))) {
+                // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause has no
+                // identifier before its own `<` (it precedes the function name, not follows it,
+                // unlike `class Foo<T>`/`foo<T>(...)` which are already covered by the IDENTIFIER
+                // check above) -- recognize `fun` itself as a valid opener in that language only.
+                final boolean kotlinGenericFunClause = lang.isKotlin && prev != null
+                        && prev.type == TokenType.KEYWORD && "fun".equals(prev.text);
+                if (prev != null && (prev.type == TokenType.IDENTIFIER || isCastKeyword(prev)
+                        || kotlinGenericFunClause)) {
                     openStack.push(new int[] {idx, 1});
                 } else if (!openStack.isEmpty()) {
                     invalidateAll(openStack);

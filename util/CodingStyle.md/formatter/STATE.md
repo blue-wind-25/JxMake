@@ -640,10 +640,9 @@ written as `~` below so this file never embeds the actual account/user name):
 
 **Java candidates the user has since supplied (not yet started):**
 
-- **SMALL**: `github.com/google/google-java-format` — small, expected to catch formatter logic
-  bugs specifically (not just tokenizer/lexer edge cases like the raw-string bug above).
-  **IN PROGRESS (started 2026-07-05).** Idempotency check (format all 84 `.java` files twice,
-  diff round1 vs round2) initially found 5 diverging files: `JavaOutput.java`,
+- **SMALL**: `github.com/google/google-java-format` — DONE (2026-07-06). Idempotency check
+  (format all 84 `.java` files twice, diff round1 vs round2) initially found 5 diverging files:
+  `JavaOutput.java`,
   `CommandLineOptionsParser.java`, `Doc.java`, `JavadocFormatter.java`,
   `JavaInputAstVisitor.java`.
   - `JavaOutput.java` — **FIXED.** `SwitchRule.ensureBlankLineInGap` wrongly split a *trailing*
@@ -666,8 +665,10 @@ written as `~` below so this file never embeds the actual account/user name):
     `case X, Y -> call(...);`/`default -> throw new Err(...);` arrow arms as fake one-liner
     "members" and column-aligned them together, inserting stray mid-statement padding. Fixed by
     rejecting any one-liner starting with `case`/`default` before the name/return-type heuristics
-    run. Fixture: `test/real_code_regressions_8_inp/out.java`. All four previously-diverging
-    files confirmed byte-identical round1/round2 after this fix; `make test` 23/23.
+    run. Fixture: `test/real_code_regressions_8_inp/out.java`. All five previously-diverging
+    files (`JavaOutput.java`, `Doc.java`, `CommandLineOptionsParser.java`,
+    `JavadocFormatter.java`, `JavaInputAstVisitor.java`) confirmed byte-identical round1/round2
+    after this fix; `make test` 23/23. Library marked DONE.
 - **MEDIUM**: `github.com/javaparser/javaparser` — excellent grammar coverage, good candidate for
   finding parsing-edge-case bugs across a wide variety of Java constructs.
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
@@ -709,15 +710,16 @@ removed from `Config.java` (key, field, getter, choices, parser call), `README.m
 file's sample config; `CppSpecificRule.enforceHeaderFileStructure`'s doc comment updated to
 match. Re-add the key if guard-style conversion is ever actually implemented.
 
-Note: this fix does NOT itself resolve the `Doc.java`/`CommandLineOptionsParser.java`/
-`JavadocFormatter.java`/`JavaInputAstVisitor.java` google-java-format idempotency
-divergence above — `ScopePipeline`'s callers (`Formatter.formatOne`, `Main`, etc.) still
-default to `indentSize=4` unless a project config file sets otherwise, and
-google-java-format's own source has no such config file, so this formatter still
-processes it at the default 4-space assumption. Whether/how to actually fix the
-2-space-source idempotency bug itself (build a real reindent engine vs. a narrower patch
-vs. treat as permanently out of scope) is still an open question — deferred, per explicit
-user instruction, pending further direction.
+Note (superseded, kept for history): this fix was first believed to NOT resolve the
+`Doc.java`/`CommandLineOptionsParser.java`/`JavadocFormatter.java`/`JavaInputAstVisitor.java`
+google-java-format idempotency divergence, since `ScopePipeline`'s callers default to
+`indentSize=4` unless a project config sets otherwise, and google-java-format's own checkout has
+no such config file. That's still true of the *checkout itself* — but testing was actually done
+by dropping a project config file (`indent-size = 2`) alongside the checkout before running the
+formatter, not relying on any config shipped by google-java-format. Once that was done, `Doc.java`
+came out byte-identical round1/round2, confirming the config-wiring fix above resolved it (see
+the google-java-format entry earlier in this section, now marked DONE) — there was no separate
+2-space-reindent-engine work needed after all.
 
 **Local PCPP-heavy Java source (`../../../src/jxm/ugc/ARMCortexMThumbC.java.in`) — tested
 2026-07-05, DONE, no bug found.** Not standalone-compilable (a `.java.in` template); verified via

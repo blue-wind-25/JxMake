@@ -17,13 +17,13 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Kotlin-only STYLE_KOTLIN.md/STYLE_KOTLIN2.md sections flagged "(c)" in `STATE_KOTLIN.md`'s
@@ -56,100 +56,6 @@ public class KotlinSpecificRule {
             sb.append(' ');
         }
         this.indentUnit = sb.toString();
-    }
-
-    /** Tracks, for one open `{`, whether it is an `enum class` body and whether its
-     *  mandatory entries/members `;` separator has already been located. */
-    private static final class EnumBodyState {
-        final boolean isEnumClass;
-        boolean separatorFound;
-
-        EnumBodyState(final boolean isEnumClass) {
-            this.isEnumClass = isEnumClass;
-        }
-    }
-
-    /**
-     * STYLE_KOTLIN.md §1: strip all optional statement-terminating `;`. The only `;` kept is an
-     * `enum class` body's entries/members separator (§2), and only when member declarations
-     * actually follow it -- if nothing follows before the closing `}`, that `;` is optional too
-     * and gets stripped like any other.
-     */
-    public List<Token> stripOptionalSemicolons(final List<Token> tokens) {
-        final Deque<EnumBodyState> enumBodies = new ArrayDeque<>();
-        boolean sawEnum = false;
-        boolean sawEnumClass = false;
-
-        // Pass 1: identify which `;` token indices are the mandatory enum separator.
-        final boolean[] keep = new boolean[tokens.size()];
-        for (int i = 0; i < tokens.size(); i++) {
-            final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
-            }
-            if (t.type == TokenType.KEYWORD && "enum".equals(t.text)) {
-                sawEnum = true;
-                continue;
-            }
-            if (t.type == TokenType.KEYWORD && "class".equals(t.text) && sawEnum) {
-                sawEnumClass = true;
-                sawEnum = false;
-                continue;
-            }
-            if (isPunct(t, "{")) {
-                enumBodies.push(new EnumBodyState(sawEnumClass));
-                sawEnumClass = false;
-                sawEnum = false;
-                continue;
-            }
-            if (isPunct(t, "}")) {
-                if (!enumBodies.isEmpty()) {
-                    enumBodies.pop();
-                }
-                sawEnum = false;
-                sawEnumClass = false;
-                continue;
-            }
-            if (isPunct(t, ";")) {
-                final EnumBodyState body = enumBodies.isEmpty() ? null : enumBodies.peek();
-                if (body != null && body.isEnumClass && !body.separatorFound
-                        && hasMoreContentBeforeClose(tokens, i)) {
-                    body.separatorFound = true;
-                    keep[i] = true;
-                }
-                sawEnum = false;
-                sawEnumClass = false;
-                continue;
-            }
-            // Any other token (the class name, generics, a supertype/constructor clause) is
-            // part of the still-open `enum class ... {` header -- leave the pending flags alone
-            // so they survive until the body's opening `{` is reached. `enum` on its own (with no
-            // `class` yet observed) is cleared only by reaching another `enum`/`class`/`{`/`}`/`;`.
-        }
-
-        // Pass 2: rebuild the list, dropping every `;` not marked to keep.
-        final List<Token> result = new ArrayList<>(tokens.size());
-        for (int i = 0; i < tokens.size(); i++) {
-            final Token t = tokens.get(i);
-            if (isPunct(t, ";") && !keep[i]) {
-                continue;
-            }
-            result.add(t);
-        }
-        return result;
-    }
-
-    /** True if there is at least one non-gap, non-`}` token between {@code semicolonIdx} and
-     *  the `}` that closes the current brace depth -- i.e. member declarations actually follow. */
-    private boolean hasMoreContentBeforeClose(final List<Token> tokens, final int semicolonIdx) {
-        for (int j = semicolonIdx + 1; j < tokens.size(); j++) {
-            final Token t = tokens.get(j);
-            if (isGapToken(t)) {
-                continue;
-            }
-            return !isPunct(t, "}");
-        }
-        return false;
     }
 
     // ── §4 `when` expression ─────────────────────────────────────────────────────
@@ -1472,6 +1378,75 @@ public class KotlinSpecificRule {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    // ── §1 Semicolon stripping ──────────────────────────────────────────────
+    /**
+     * STYLE_KOTLIN.md §1: strip every statement-terminating `;` that the language doesn't
+     * actually require. Kept only where required: (1) an enum entry-list's own mandatory
+     * terminator when member declarations follow (§2's `findEnumConstantListTerminators` --
+     * reused here, not re-derived, to keep the "what counts as mandatory" definition in exactly
+     * one place); (2) a `;` deliberately separating two statements kept on the same physical
+     * line -- removing that one without also merging/splitting the statements would silently
+     * change meaning, so it's left untouched rather than guessed at.
+     *
+     * <p>A `;` qualifies for stripping when nothing but whitespace/comments follows it before
+     * the next {@code NEWLINE} (or end of file) -- i.e. it is the last significant thing on its
+     * line, per {@link #isTrailingSemicolon}. Any whitespace immediately preceding a stripped
+     * `;` is removed along with it, so `foo() ;` doesn't leave a stray trailing space.
+     */
+    public String stripOptionalSemicolons(final List<Token> tokens) {
+        final Map<Integer, String> enumTerminators = findEnumConstantListTerminators(tokens);
+        final Set<Integer> skip = new HashSet<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), ";") || enumTerminators.containsKey(i)) {
+                continue;
+            }
+            if (anyFrozen(tokens, i, i + 1)) {
+                continue;
+            }
+            if (!isTrailingSemicolon(tokens, i)) {
+                continue;
+            }
+            skip.add(i);
+            int w = i - 1;
+            while (w >= 0 && tokens.get(w).type == TokenType.WHITESPACE) {
+                skip.add(w);
+                w--;
+            }
+        }
+        if (skip.isEmpty()) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token t : tokens) {
+                sb.append(t.text);
+            }
+            return sb.toString();
+        }
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (skip.contains(i)) {
+                continue;
+            }
+            out.append(tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    /** True iff the `;` at {@code idx} is the last significant thing on its physical line --
+     *  the next non-gap token (if any) starts on a later line, or there is none (end of file).
+     *  A trailing line/block comment after the `;` does not count as "another statement". */
+    private boolean isTrailingSemicolon(final List<Token> tokens, final int idx) {
+        for (int i = idx + 1; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+            if (isGapToken(t)) {
+                continue;
+            }
+            return false;
         }
         return true;
     }

@@ -158,6 +158,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_112 | Kotlin expression-bodied functions — §9; new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier inline/params-broken/wrap-`=` fallback delegating to §7's existing `render` for the middle tier — plus a **shared-class fix**, `MiscRule.isTightToken`'s `*`/`&` tight-token treatment gated off for Kotlin (was collapsing ordinary multiplication spacing, `x* x`, surfaced by this work's own harness reproducing the style doc's `x * x + y * y` worked example) |
 | RDD_KEY_113 | Kotlin generic variance (`in`/`out`) — §13; **shared-class fix** — `TokenizerCore.GENERIC_SAFE_KEYWORDS` extended with `"in"`/`"out"` so `reclassifyAngleBrackets` recognizes `Box<out T>`/`Comparable<in T>` as generic `<`/`>` pairs rather than comparisons; pure no-op for C/C++/Java (neither keyword exists in their keyword sets); tokenizer-level fix, no rendering pass needed |
 | RDD_KEY_114 | Kotlin function/secondary-constructor body Allman-brace conversion — §3/§3.3; new `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` (+ `isFunctionOrConstructorCloseParen`/`findSignatureCloseParenBeforeBrace`/`isAngleOpen`/`isAngleClose`/`skipAngleBracketsBackward`), structurally mirroring `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`/`CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` but with a much more conservative candidate signal (backward-scan must land on `fun`/`constructor`, since Kotlin has no `new` keyword to rule out trailing-lambda calls the way Java/C++ rule out ordinary calls) — also handles `: ReturnType` sitting between `)` and `{`, and tolerates the tokenizer's non-reclassified plain-`OP` `<T>` after `fun` (both discovered only via harness) |
+| RDD_KEY_115 | Kotlin semicolon stripping — §1; fixed a real bug in the pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`, predating this session's RDD-log convention) — it only protected the enum-with-members mandatory `;`, silently stripping a deliberate same-line multi-statement `;` too (would have merged two statements into one invalid line); rewritten around a single positive-evidence `isTrailingSemicolon` rule (only strip a `;` that's the last significant thing on its physical line), reusing §2's `findEnumConstantListTerminators` for the enum exclusion; also fixed a stray-trailing-space gap the old version had |
 
 ---
 
@@ -273,7 +274,7 @@ existing test suite after this step, before moving to Step 1.
 
 | § | Topic | Outcome | Notes |
 |---|---|---|---|
-| 1 | Semicolons (strip optional `;`) | (c) | No shared class strips statement-terminating `;` for any language today (C/Java require it) — wholly new `KotlinSpecificRule` pass. Must special-case enum-with-members' mandatory `;` (kept) and deliberate same-line multi-statement `;` (kept). |
+| 1 | Semicolons (strip optional `;`) | (c), **done** | No shared class strips statement-terminating `;` for any language today (C/Java require it) — Kotlin-only `KotlinSpecificRule.stripOptionalSemicolons` pass. An earlier-session version of this method (`b0e778f`) only protected the enum-with-members mandatory `;` and stripped every other `;` unconditionally, silently mis-handling the deliberate-same-line-multi-statement case — rewritten around a single positive-evidence rule (`isTrailingSemicolon`: only strip a `;` that's the last significant thing on its line), which naturally keeps a same-line multi-statement `;` untouched with no special-casing, plus reuses §2's `findEnumConstantListTerminators` for the enum-mandatory-`;` exclusion. RDD_KEY_115. |
 | 2 | `enum class` with members | (a)/(c), **done** | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The body-open/close blank lines are already produced for free by the shared `insertNamedConstructBlankLines` — verified via harness, zero changes. The blank-line emphasis around the entry-list-terminating `;` itself is a separate pass, not covered by that method; implemented as new `KotlinSpecificRule.separateEnumConstantListTerminator` (+ helpers), mirroring `JavaSpecificRule.separateEnumConstantListTerminator`. See RDD_KEY_111. |
 | 3 | Brace style (Allman fn bodies / K&R everything else) | (a) for K&R-enforcement direction, **verified**; (c) for Allman-conversion direction, **done** | `BlockStructureRule.qualifiesForKAndR`'s `PAREN_KR_KEYWORDS`/`BARE_KR_KEYWORDS` sets already cover Kotlin's exact same control-flow keyword vocabulary (`if/while/for/switch/catch`, `else/do/try/finally`) — confirmed via harness, K&R already gets correctly enforced onto a same-line-with-`)`-before-K&R-construct brace. The *other* direction — converting a function body's brace from K&R to Allman — needed a new Kotlin-only method: `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`, mirroring `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`/`CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` but with a much more conservative candidate signal, since Kotlin's trailing-lambda call syntax (`someCall(args) { ... }`) is token-shape-identical to a function definition's body brace and Kotlin has no `new` keyword to rule ordinary calls out the way Java/C++ do — requires a backward scan from the candidate name (through an optional extension-receiver chain and/or `<T>` clause) to land exactly on `fun`, or the token before `(` to be `constructor` itself; anything else bails, same posture as an ordinary call being left untouched. Also handles a `: ReturnType` sitting between `)` and `{`, and a one-liner body staying K&R (RDD_KEY_75/RDD_KEY_89 exception, same as Java/C++). RDD_KEY_114. |
 | 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named `class Foo {`/`object Foo {` already worked. Headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}` never arming `pendingNamedConstructName`) fixed via `RDD_KEY_99`: additive `BlockStructureRule.classifyKotlinHeadlessNamed`, gated by new `Lang.isKotlin`, parallel to the existing `isAnonymousClassBrace` precedent. Also fixed a related tokenizer bug found during verification (see RDD_KEY_99): `:` was wrongly arming a following supertype identifier as the construct's own name. |
@@ -485,6 +486,33 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       still converts); enum-entry anonymous body (untouched); control-flow
       block (untouched); plain call with no body (untouched). No shared-
       class change. `make test` 32/32.
+- [x] **§1 Semicolon stripping.** `RDD_KEY_115` — re-examined the
+      pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`,
+      before this session's own RDD-log/scoping-table-marker convention
+      existed, hence the row still read plain "(c)" with no "**done**")
+      rather than assuming it was already correct, and found a real bug: it
+      only ever protected the enum-with-members mandatory `;` (§2) and
+      stripped every other `;` unconditionally — including a deliberate
+      same-line multi-statement `;` (`val a = 1; val b = 2`), which would
+      have silently merged the two statements into one invalid line, not
+      just a style nit. Rewrote around a single positive-evidence rule,
+      `isTrailingSemicolon`: only strip a `;` that is the last significant
+      thing on its physical line (next non-gap token, skipping whitespace/
+      comments, either starts a new line or none remain) — this naturally
+      leaves the multi-statement-same-line case untouched with no special-
+      casing needed. Reuses §2/RDD_KEY_111's `findEnumConstantListTerminators`
+      directly for the enum-mandatory-`;` exclusion rather than re-deriving
+      a separate enum/class/brace-tracking state machine. Also fixed a
+      stray-trailing-space gap the old version had (`foo() ;` → `foo() `
+      instead of `foo()`) by dropping any whitespace immediately preceding a
+      stripped `;` too. Verified via an 8-case harness: plain flat
+      declarations (stripped); space-padded `;` (no stray trailing space);
+      multi-statement-same-line (now correctly kept — the bug this re-check
+      caught); trailing line comment after `;` (still stripped); enum with
+      members after its mandatory `;` (kept); enum with a trailing `;` but
+      no members after (stripped, optional); no semicolons at all
+      (untouched); `;` at literal end-of-file (stripped). No shared-class
+      change. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 

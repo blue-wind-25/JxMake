@@ -149,6 +149,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_103 | Kotlin variable/property declaration alignment — §6; new `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (visibility-loosen-then-extend, superseding the earlier "independent parser" resolution), own statement splitter/parser/renderer for the name-before-type parts |
 | RDD_KEY_104 | Kotlin constructor/function parameter list line-breaking and column alignment — §7/§7.1; new `KotlinSignatureRule extends MiscRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103, user-directed), own `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based renderer for the name-before-type parts; also covers §7.2 (trailing comma preservation) |
 | RDD_KEY_105 | Kotlin labeled jump / label declaration spacing (`return@label`, `label@`) — §11; new `KotlinSpecificRule.enforceLabeledJumpSpacing`, a flat whole-file pass with a small state machine, same shape as RDD_KEY_102 |
+| RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
 
 ---
 
@@ -277,7 +278,7 @@ existing test suite after this step, before moving to Step 1.
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c) | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — needs its own parsing, though it can likely still feed the existing `=`-alignment renderer once parsed. Comma spacing itself needs no new code (general commas aren't respaced by anything today, same reasoning as §7.2). |
 | 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
-| 14 | Generic `where` clause | (c) | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — needs its own `KotlinSpecificRule` method (can use the C++ one as a reference pattern during Step 3). |
+| 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a) | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). |
 | 16 | Annotation use-site targets (`@field:` tight `:`) | (c) | No existing annotation-colon handling (Java annotations have no use-site-target shape) — small new `KotlinSpecificRule` logic. |
 | 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (c) | Needs `Type.(...) -> Ret` recognized as one atomic function-type token by whatever handles nested-paren/bracket detection (`ComplexityPaddingEvaluator` or a Kotlin-specific pre-pass) — new. |
@@ -363,6 +364,16 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       machine distinguishing a jump's `@label` (tight both sides) from a label
       declaration's `label@` (tight before, one space after) from an unrelated
       `@Annotation`. `make test` 32/32.
+- [x] **§14 Generic `where` clause.** `RDD_KEY_106` — new, fully self-contained
+      `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirroring
+      `CppSpecificRule.enforceRequiresClausePlacement` (fits-inline vs. wraps to
+      its own indented line, based on `lineLengthLimit`), but always breaking
+      every bound one-per-line at the top-level comma (never within a bound)
+      once wrapped, column-aligned under the first bound's start column, per
+      STYLE_KOTLIN.md §14's own worked examples. Added a new
+      `KotlinSpecificRule(Lang, int lineLengthLimit, int indentWidth)`
+      constructor (this class's first method needing indent width, not just
+      line length). No shared-class change. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 
@@ -412,6 +423,7 @@ values yet, since no pipeline path exists for the language at all.
       update `README.md`'s "Disabling formatting for part or all of a file"
       section to mention Kotlin (per the existing Explicit Non-Goal: no
       `README.md` update until Step 5's dogfood pass is clean).
+- [ ] Update `README.md` for the new `kotlin-import-*` keys.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

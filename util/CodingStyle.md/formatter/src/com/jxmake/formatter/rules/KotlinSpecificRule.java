@@ -35,13 +35,27 @@ public class KotlinSpecificRule {
     private final Lang lang;
     private final int lineLengthLimit;
 
+    /** One indentation level, used by {@link #enforceWhereClausePlacement} when wrapping a
+     *  trailing `where` clause to its own line -- built from the configured `indent-size` (see
+     *  the constructor), not a hardcoded literal, same precedent as `CppSpecificRule.indentUnit`. */
+    private final String indentUnit;
+
     public KotlinSpecificRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public KotlinSpecificRule(final Lang lang, final int lineLengthLimit) {
+        this(lang, lineLengthLimit, MiscRule.DEFAULT_INDENT_WIDTH);
+    }
+
+    public KotlinSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.indentUnit = sb.toString();
     }
 
     /** Tracks, for one open `{`, whether it is an `enum class` body and whether its
@@ -629,5 +643,250 @@ public class KotlinSpecificRule {
 
     private boolean isJumpKeyword(final String text) {
         return "return".equals(text) || "break".equals(text) || "continue".equals(text);
+    }
+
+    // ── §14 Generic `where` clause ───────────────────────────────────────────────
+    /** One `TypeParam : Bound` entry of a `where` clause, found between two top-level commas
+     *  (or between `where` and the clause's own end for the first/only entry). */
+    private static final class WhereBound {
+        final int start;
+        final int end; // inclusive, last significant token of the bound
+
+        WhereBound(final int start, final int end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    /**
+     * STYLE_KOTLIN.md §14: a trailing generic `where` clause (`fun <T> merge(...): T where T :
+     * Comparable<T>, T : Serializable {`) stays on the signature's own line if the whole thing
+     * (signature line + ` where ` + all bounds joined with `, `) fits within {@link
+     * #lineLengthLimit}; otherwise `where` drops to its own line indented one level under the
+     * signature's own line-leading indent, and every bound breaks onto its own line at the
+     * top-level comma (never at a bound's own `:`), column-aligned under the first bound's start
+     * column -- same "trailing qualifier attaches to the signature, breaks only at its own
+     * natural token" posture as `CppSpecificRule.enforceRequiresClausePlacement`, which this
+     * mirrors structurally (this file's own precedent, not a shared-class extension, since
+     * `CppSpecificRule` is itself a per-language file). Bound text itself (including whatever `:`
+     * spacing already exists) is never rewritten -- only the placement of `where` and the commas
+     * between bounds. A single bound line that still doesn't fit is left to overflow, per
+     * STYLE_KOTLIN.md §14's own explicit exception (same posture as §12's destructuring lists) --
+     * there is no finer-grained break point below one-bound-per-line. A comment anywhere in the
+     * clause, or a frozen token, blocks the rewrite for that occurrence entirely, same
+     * conservative posture as every other rule in this file.
+     */
+    public String enforceWhereClausePlacement(final List<Token> tokens) {
+        final Map<Integer, String> overrides = new HashMap<>();
+        final Map<Integer, String> insertAfter = new HashMap<>();
+        final java.util.Set<Integer> suppressed = new java.util.HashSet<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !"where".equals(t.text)) {
+                continue;
+            }
+            final int clauseEndIdx = findWhereClauseEnd(tokens, i);
+            if (clauseEndIdx < 0 || clauseEndIdx <= i + 1) {
+                continue;
+            }
+            if (anyFrozen(tokens, i, clauseEndIdx)) {
+                continue;
+            }
+
+            final List<WhereBound> bounds = splitWhereBounds(tokens, i + 1, clauseEndIdx);
+            if (bounds.isEmpty() || hasCommentBetween(tokens, i, clauseEndIdx)) {
+                continue;
+            }
+
+            final int lineStartIdx = lineStartIndex(tokens, i);
+            final String baseIndent = lineIndent(tokens, i);
+            final String sigLine = collapseToOneLine(tokens, lineStartIdx, i - 1);
+            final List<String> boundTexts = new ArrayList<>();
+            for (final WhereBound b : bounds) {
+                boundTexts.add(literalSlice(tokens, b.start, b.end + 1).trim());
+            }
+            final String combined = baseIndent + sigLine + " where " + String.join(", ", boundTexts);
+
+            if (combined.length() <= lineLengthLimit) {
+                continue; // already fits inline as-is -- leave byte-for-byte untouched
+            }
+
+            // Wrap: `where` onto its own line one indent level under the signature; each bound
+            // onto its own line, aligned under the first bound's start column.
+            final String whereIndent = baseIndent + indentUnit;
+            final String boundIndent = spaces(whereIndent.length() + "where ".length());
+
+            overrides.put(i, "\n" + whereIndent + "where");
+            for (int j = i - 1; j >= 0 && isGapToken(tokens.get(j)); j--) {
+                suppressed.add(j);
+            }
+            for (int j = i + 1; j < bounds.get(0).start; j++) {
+                suppressed.add(j);
+            }
+            for (int k = 0; k < bounds.size(); k++) {
+                final WhereBound b = bounds.get(k);
+                final String prefix = k == 0 ? " " : "\n" + boundIndent;
+                overrides.put(b.start, prefix + boundTexts.get(k));
+                for (int j = b.start + 1; j <= b.end; j++) {
+                    suppressed.add(j);
+                }
+                if (k < bounds.size() - 1) {
+                    final int commaIdx = nextSignificantIndex(tokens, b.end + 1);
+                    overrides.put(commaIdx, ",");
+                    final int nextStart = bounds.get(k + 1).start;
+                    for (int j = commaIdx + 1; j < nextStart; j++) {
+                        suppressed.add(j);
+                    }
+                }
+                // The gap after the last bound (up to clauseEndIdx, the `{`/`;`) is left
+                // untouched -- same "don't overwrite a newline an Allman-brace pass already
+                // placed there" posture as CppSpecificRule.enforceRequiresClausePlacement.
+            }
+        }
+
+        return renderSuppressing(tokens, overrides, insertAfter, suppressed);
+    }
+
+    /** The first `{`/`;` reached scanning forward from {@code whereIdx}, or -1 if neither is
+     *  found -- the clause's own end (exclusive), per {@link #enforceWhereClausePlacement}'s doc
+     *  comment. */
+    private int findWhereClauseEnd(final List<Token> tokens, final int whereIdx) {
+        for (int i = whereIdx + 1; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{") || isPunct(t, ";")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Splits [fromInclusive, toExclusive) into bounds at every top-level comma -- depth tracked
+     *  over parens/brackets/braces and the tokenizer's own reclassified generic angle brackets
+     *  (`ANGLE_BRACKET_OPEN`/`_CLOSE`), so a bound's own generic argument (`Comparable<T>`) is
+     *  never mistaken for a bound separator. */
+    private List<WhereBound> splitWhereBounds(final List<Token> tokens, final int fromInclusive,
+            final int toExclusive) {
+        final List<WhereBound> bounds = new ArrayList<>();
+        int depth = 0;
+        int start = nextSignificantIndex(tokens, fromInclusive);
+        int lastSig = -1;
+        for (int i = start; i >= 0 && i < toExclusive; i++) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")
+                    || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")
+                    || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ",")) {
+                if (lastSig < 0) {
+                    return Collections.emptyList();
+                }
+                bounds.add(new WhereBound(start, lastSig));
+                start = nextSignificantIndex(tokens, i + 1);
+                lastSig = -1;
+                continue;
+            }
+            lastSig = i;
+        }
+        if (lastSig < 0 || start < 0) {
+            return Collections.emptyList();
+        }
+        bounds.add(new WhereBound(start, lastSig));
+        return bounds;
+    }
+
+    /** True if a comment token lies anywhere in {@code (fromExclusive, toExclusive)} -- blocks
+     *  the rewrite entirely, same posture as {@code CppSpecificRule.hasCommentBetween}. */
+    private boolean hasCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            if (isComment(tokens.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String spaces(final int count) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
+    }
+
+    /** The index of the first significant token on the physical line containing {@code idx} --
+     *  same purpose as {@code CppSpecificRule.lineStartIndex}. */
+    private int lineStartIndex(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int firstSig = nextSignificantIndex(tokens, newlineIdx < 0 ? 0 : newlineIdx);
+        return firstSig < 0 ? idx : firstSig;
+    }
+
+    /** Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
+     *  line has no leading whitespace (column-0 start). Same purpose as
+     *  {@code CppSpecificRule.lineIndent}. */
+    private String lineIndent(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int afterNewline = newlineIdx + 1;
+        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
+            return tokens.get(afterNewline).text;
+        }
+        return "";
+    }
+
+    /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
+     *  run collapses to exactly one space -- used to measure a would-be single-line rendering
+     *  against {@link #lineLengthLimit} without actually committing to it. Same purpose as
+     *  {@code CppSpecificRule.collapseToOneLine}. */
+    private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = fromInclusive; i <= toInclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+                    sb.append(' ');
+                }
+                continue;
+            }
+            sb.append(t.text);
+        }
+        return sb.toString().trim();
+    }
+
+    /** Same as {@link #render} but drops any token index present in {@code suppressed} entirely
+     *  (used to elide a bound's interior gap tokens once its whole span has been replaced by a
+     *  single override at its start index). */
+    private String renderSuppressing(final List<Token> tokens, final Map<Integer, String> overrides,
+            final Map<Integer, String> insertAfter, final java.util.Set<Integer> suppressed) {
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (suppressed.contains(i)) {
+                continue;
+            }
+            final String override = overrides.get(i);
+            out.append(override != null ? override : tokens.get(i).text);
+            final String extra = insertAfter.get(i);
+            if (extra != null) {
+                out.append(extra);
+            }
+        }
+        return out.toString();
     }
 }

@@ -297,4 +297,200 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         }
         return s.substring(0, end);
     }
+
+    // ── §12 Destructuring declarations ──────────────────────────────────────────
+    /** One component of a destructuring declaration's parenthesized name list (`a` or `id:
+     *  Long`); {@code typeTokens} is empty if the component has no explicit type (the common
+     *  case -- STYLE_KOTLIN.md §12's own examples never type-annotate a component). The
+     *  unnamed placeholder `_` needs no special handling here -- it tokenizes as a plain
+     *  IDENTIFIER, per STYLE_KOTLIN.md §12's own "just another identifier for spacing
+     *  purposes" framing. */
+    public static final class Component {
+        public final Token name;
+        public final List<Token> typeTokens;
+
+        Component(final Token name, final List<Token> typeTokens) {
+            this.name = name;
+            this.typeTokens = typeTokens;
+        }
+    }
+
+    /** One parsed `val`/`var (a, b, ...) = value` destructuring declaration. Unlike {@link
+     *  KotlinDecl}, there is no per-component type column to grid-align -- STYLE_KOTLIN.md §12
+     *  is explicit that "a destructuring list has no type annotations to anchor a column grid"
+     *  -- so this carries a single pre-rendered {@code lhsText} (`(a, b)`, comma-normalized)
+     *  rather than a per-component token list, mirroring {@code MiscRule.Assignment}'s own
+     *  single-{@code lhsText}-cell shape for the same reason. */
+    public static final class DestructuringDecl {
+        public final String lhsText; // e.g. "val (a, b)" -- modifiers + val/var + normalized list
+        public final List<Token> initTokens;
+        public final Token trailingComment;
+
+        DestructuringDecl(final String lhsText, final List<Token> initTokens,
+                final Token trailingComment) {
+            this.lhsText = lhsText;
+            this.initTokens = initTokens;
+            this.trailingComment = trailingComment;
+        }
+    }
+
+    /**
+     * Splits one scope's direct-content tokens into groups of consecutive destructuring
+     * declaration statements -- same grouping-break rule as {@link #groupPropertyDeclarations}
+     * (STYLE_KOTLIN.md §12: "same as §6, unless there's an outlier breaking the group"): a
+     * blank line, a standalone leading comment, or any statement that doesn't parse as a
+     * destructuring declaration breaks the current group. Deliberately a separate group stream
+     * from {@link #groupPropertyDeclarations} rather than merged with it -- a destructuring
+     * row's `(a, b)` LHS and a plain declaration's bare name have no shared column shape to
+     * align together, and no STYLE_KOTLIN.md worked example shows the two mixed in one group.
+     */
+    public List<List<DestructuringDecl>> groupDestructuringDeclarations(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
+        final List<List<DestructuringDecl>> groups = new ArrayList<>();
+        List<DestructuringDecl> current = new ArrayList<>();
+
+        for (final List<Token> stmt : statements) {
+            final DestructuringDecl decl = parseDestructuringDeclaration(stmt);
+            if (decl == null) {
+                if (!current.isEmpty()) {
+                    groups.add(current);
+                    current = new ArrayList<>();
+                }
+                continue;
+            }
+            final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
+            if (breakBefore && !current.isEmpty()) {
+                groups.add(current);
+                current = new ArrayList<>();
+            }
+            current.add(decl);
+        }
+        if (!current.isEmpty()) {
+            groups.add(current);
+        }
+        return groups;
+    }
+
+    /**
+     * Parses one statement's tokens as {@code [modifiers] val|var ( comp (, comp)* ) = value},
+     * or returns null if it doesn't match this shape -- in particular, a plain single-name
+     * declaration (§6's own shape) correctly falls through to null here (no `(` right after
+     * `val`/`var`), so it never gets absorbed into a destructuring group by mistake. Modifiers
+     * are preserved in source order rather than reordered by {@code KotlinModifierPriority} --
+     * unlike {@link #renderPropertyGroup}'s multi-column grid, this renders the whole LHS as one
+     * cell (see {@link DestructuringDecl}), and no STYLE_KOTLIN.md §12 worked example shows a
+     * modifier-bearing destructuring declaration to justify guessing at a canonical order for
+     * one.
+     */
+    private DestructuringDecl parseDestructuringDeclaration(final List<Token> stmt) {
+        final List<Token> sig = significantOnly(stmt);
+        if (sig.isEmpty()) {
+            return null;
+        }
+
+        int i = 0;
+        final List<Token> modifiers = new ArrayList<>();
+        while (i < sig.size() && isPlainModifier(sig.get(i))) {
+            modifiers.add(sig.get(i));
+            i++;
+        }
+        if (i >= sig.size() || !isValOrVar(sig.get(i))) {
+            return null;
+        }
+        modifiers.add(sig.get(i));
+        i++;
+
+        if (i >= sig.size() || !isPunct(sig.get(i), "(")) {
+            return null;
+        }
+        i++;
+
+        final List<Component> components = new ArrayList<>();
+        while (true) {
+            if (i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER) {
+                return null;
+            }
+            final Token compName = sig.get(i);
+            i++;
+            List<Token> typeTokens = new ArrayList<>();
+            if (i < sig.size() && isOp(sig.get(i), ":")) {
+                i++;
+                final int typeStart = i;
+                while (i < sig.size() && !isPunct(sig.get(i), ",") && !isPunct(sig.get(i), ")")) {
+                    i++;
+                }
+                typeTokens = sig.subList(typeStart, i);
+            }
+            components.add(new Component(compName, typeTokens));
+
+            if (i >= sig.size()) {
+                return null;
+            }
+            if (isPunct(sig.get(i), ",")) {
+                i++;
+                continue;
+            }
+            if (isPunct(sig.get(i), ")")) {
+                i++;
+                break;
+            }
+            return null;
+        }
+        if (components.size() < 2) {
+            return null; // a single-component `(a)` has no STYLE_KOTLIN.md §12 worked example
+        }
+
+        if (i >= sig.size() || !isOp(sig.get(i), "=")) {
+            return null;
+        }
+        i++;
+        final List<Token> initTokens = sig.subList(i, sig.size());
+        if (initTokens.isEmpty()) {
+            return null;
+        }
+
+        final StringBuilder lhs = new StringBuilder();
+        lhs.append(renderTokens(modifiers)).append(" (");
+        for (int c = 0; c < components.size(); c++) {
+            if (c > 0) {
+                lhs.append(", ");
+            }
+            final Component comp = components.get(c);
+            lhs.append(comp.name.text);
+            if (!comp.typeTokens.isEmpty()) {
+                lhs.append(": ").append(renderTokens(comp.typeTokens));
+            }
+        }
+        lhs.append(')');
+
+        return new DestructuringDecl(lhs.toString(), initTokens, findTrailingComment(stmt));
+    }
+
+    /**
+     * Renders one group of consecutive {@link DestructuringDecl}s as a two-column
+     * {@link ColumnGrid} (LHS, {@code "= " + value}, optional trailing comment) -- same shape as
+     * {@code MiscRule.render(List<Assignment>)}'s own two-column pad, and for the same reason:
+     * STYLE_KOTLIN.md §12 is explicit that a destructuring list has no type annotations to anchor
+     * a finer-grained grid, so the whole LHS aligns as a single cell. The initializer's own
+     * token text (including internal spacing) is reproduced verbatim via {@link #renderTokens},
+     * same "don't reformat the RHS" posture as every other declaration/assignment renderer in
+     * this codebase.
+     */
+    public List<String> renderDestructuringGroup(final List<DestructuringDecl> group) {
+        final ColumnGrid grid = new ColumnGrid();
+        for (final DestructuringDecl d : group) {
+            final List<String> cells = new ArrayList<>();
+            cells.add(d.lhsText);
+            cells.add("= " + renderKotlinTokens(d.initTokens));
+            if (d.trailingComment != null) {
+                cells.add(d.trailingComment.text);
+            }
+            grid.addRow(cells.toArray(new String[0]));
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(trimTrailingSpaces(String.join(" ", row)));
+        }
+        return lines;
+    }
 }

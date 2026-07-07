@@ -150,6 +150,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_104 | Kotlin constructor/function parameter list line-breaking and column alignment — §7/§7.1; new `KotlinSignatureRule extends MiscRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103, user-directed), own `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based renderer for the name-before-type parts; also covers §7.2 (trailing comma preservation) |
 | RDD_KEY_105 | Kotlin labeled jump / label declaration spacing (`return@label`, `label@`) — §11; new `KotlinSpecificRule.enforceLabeledJumpSpacing`, a flat whole-file pass with a small state machine, same shape as RDD_KEY_102 |
 | RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
+| RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; own group stream, never merged with §6's |
 
 ---
 
@@ -276,7 +277,7 @@ existing test suite after this step, before moving to Step 1.
 | 9 | Expression-bodied functions | (a)/(c) | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part is new behavior, tied to §6/§7's signature-wrapping work. |
 | 10 | `for` loops and ranges | (b)/(c) | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — needs `in`/`until`/`downTo`/`step` recognized as ordinary word-operator tokens for its nested-bracket detection to see through them correctly (additive keyword-set entries, (b)). The `..`/`..<` range operator's own *tight* spacing is the same kind of gap as §5 (c). |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
-| 12 | Destructuring declarations | (c) | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — needs its own parsing, though it can likely still feed the existing `=`-alignment renderer once parsed. Comma spacing itself needs no new code (general commas aren't respaced by anything today, same reasoning as §7.2). |
+| 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`, a separate group stream from §6's own. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. |
 | 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
 | 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a) | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). |
@@ -374,6 +375,15 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       `KotlinSpecificRule(Lang, int lineLengthLimit, int indentWidth)`
       constructor (this class's first method needing indent width, not just
       line length). No shared-class change. `make test` 32/32.
+- [x] **§12 Destructuring declarations.** `RDD_KEY_107` — new `DestructuringDecl`
+      model, `groupDestructuringDeclarations`/`parseDestructuringDeclaration`/
+      `renderDestructuringGroup` added directly to `KotlinDeclarationAlignmentRule.java`
+      (reuses that class's §6 infrastructure rather than a new file). Single
+      pre-rendered `lhsText` cell (no per-component type grid, per §12's own
+      "no type annotations to anchor a column grid" text) rendered via a
+      two-column `ColumnGrid`, same shape as `MiscRule.Assignment`'s render.
+      Own group stream, never merged with §6's property-declaration groups.
+      No shared-class change. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 

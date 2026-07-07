@@ -1248,4 +1248,231 @@ public class KotlinSpecificRule {
         }
         return -1;
     }
+
+    // ── §3/§3.3 Function/secondary-constructor body Allman conversion ──────────
+    /**
+     * STYLE_KOTLIN.md §3/§3.3: a Kotlin function or secondary-constructor definition's own body
+     * `{` moves to its own line (Allman) whenever it is currently K&amp;R/same-line, mirroring
+     * {@code JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle}/
+     * {@code CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle} -- confirmed via harness
+     * (STATE_KOTLIN.md's §3/§3.3 reclassification) that no shared logic does this for Kotlin;
+     * {@code BlockStructureRule.enforceKAndRBraceStyle} only ever adds K&amp;R, never removes it.
+     * Control-flow blocks, named-construct bodies (`class`/`object`/`interface`/`enum`/`init`,
+     * tagged via {@code Token.name} by the tokenizer), and lambda bodies are untouched here, same
+     * as the Java/C++ versions -- lambda bodies in particular never reach this method's candidate
+     * shape, since a lambda's `{` is never directly preceded by a bare `)` the way a signature's
+     * closing paren is.
+     *
+     * <p>Candidate signature detection deliberately differs from Java/C++'s "IDENTIFIER-before-
+     * paren, not preceded by `new`" signal -- Kotlin has no `new` keyword, and critically, Kotlin's
+     * trailing-lambda call syntax (`someCall(args) { ... }`, extremely common) is token-shape-
+     * identical to a function definition (`)` directly followed by `{`) with no `new`-style signal
+     * to rule it out. Guessing past this would misfire constantly on ordinary calls. Instead, this
+     * method requires unambiguous positive evidence: scanning backward from the parameter list's
+     * name past an optional extension-receiver chain (`Type.`/`Type&lt;Args&gt;.`) and an optional
+     * `&lt;T&gt;` function type-parameter clause, the scan must land exactly on the `fun` keyword
+     * (see {@link #isFunctionOrConstructorCloseParen}) -- or, for a secondary constructor, the
+     * token immediately before `(` must be the `constructor` keyword itself. Anything else (an
+     * ordinary call, however shaped) bails out (not a candidate) rather than guessing, same "give
+     * up rather than guess" posture as {@code KotlinSignatureRule.parseKotlinSignature}'s null
+     * return. This scan shape also incidentally excludes a Kotlin enum entry's own anonymous body
+     * (`RED(0xFF0000) { override fun toString() = ... }`) for free -- an enum entry name is never
+     * preceded by `fun`, so it can never satisfy this method's positive-evidence requirement,
+     * unlike Java's version which needs a separate, explicit {@code isEnumConstantBody} exclusion.
+     *
+     * <p>A `{` already on its own line (gap already contains a `NEWLINE`) is left untouched --
+     * idempotent. A body whose entire `{ ... }` span sits on one physical line is never converted
+     * (same one-liner exception as the Java/C++ versions, RDD_KEY_75/RDD_KEY_89) -- unlike those
+     * two, this method has no call-line-breaking-prediction refinement, since no Kotlin equivalent
+     * of {@code MiscRule.enforceCallLineBreaking} exists yet; if one is added later, this method
+     * may need the same idempotency refinement those two already carry.
+     */
+    public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
+        final Map<Integer, Integer> gapToBrace = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), "{") || tokens.get(i).name != null) {
+                continue;
+            }
+            final int lastBeforeBrace = prevSignificantIndex(tokens, i - 1);
+            if (lastBeforeBrace < 0) {
+                continue;
+            }
+            final int closeParenIdx = findSignatureCloseParenBeforeBrace(tokens, lastBeforeBrace);
+            if (closeParenIdx < 0 || !isFunctionOrConstructorCloseParen(tokens, closeParenIdx)) {
+                continue;
+            }
+            if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
+                continue;
+            }
+            if (anyFrozen(tokens, closeParenIdx, i + 1)) {
+                continue;
+            }
+            final int closeBraceIdx = matchBraceForward(tokens, i);
+            if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
+                continue;
+            }
+            gapToBrace.put(lastBeforeBrace + 1, i);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        while (i < tokens.size()) {
+            final Integer braceIdx = gapToBrace.get(i);
+            if (braceIdx != null) {
+                out.append('\n').append(lineIndent(tokens, i - 1));
+                out.append(tokens.get(braceIdx).text);
+                i = braceIdx + 1;
+            } else {
+                out.append(tokens.get(i).text);
+                i++;
+            }
+        }
+        return out.toString();
+    }
+
+    /** Given the last significant token before a candidate body `{`, returns the index of the
+     *  signature's parameter-list `)` -- either {@code lastBeforeBrace} itself (no return type),
+     *  or, if a `: ReturnType` sits between the `)` and the `{` (e.g. `fun f(): String {`), the
+     *  `)` found by scanning back over the return-type span for a depth-0 `:`. Returns -1 for any
+     *  other shape (bail, not a candidate). */
+    private int findSignatureCloseParenBeforeBrace(final List<Token> tokens, final int lastBeforeBrace) {
+        if (isPunct(tokens.get(lastBeforeBrace), ")")) {
+            return lastBeforeBrace;
+        }
+        int depth = 0;
+        int i = lastBeforeBrace;
+        while (i >= 0) {
+            final Token t = tokens.get(i);
+            if (isAngleClose(t) || isPunct(t, ")") || isPunct(t, "]")) {
+                depth++;
+            } else if (isAngleOpen(t) || isPunct(t, "(") || isPunct(t, "[")) {
+                depth--;
+                if (depth < 0) {
+                    return -1;
+                }
+            } else if (depth == 0 && isOp(t, ":")) {
+                final int before = prevSignificantIndex(tokens, i - 1);
+                return (before >= 0 && isPunct(tokens.get(before), ")")) ? before : -1;
+            }
+            i = prevSignificantIndex(tokens, i - 1);
+        }
+        return -1;
+    }
+
+    /** True iff the `)` at {@code closeParenIdx} is a function or secondary-constructor
+     *  definition's parameter-list close paren -- see {@link #enforceFunctionDefinitionAllmanBraceStyle}'s
+     *  own doc comment for the backward-scan shape and why it's deliberately conservative. */
+    private boolean isFunctionOrConstructorCloseParen(final List<Token> tokens, final int closeParenIdx) {
+        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        if (openParenIdx < 0) {
+            return false;
+        }
+        int p = prevSignificantIndex(tokens, openParenIdx - 1);
+        if (p < 0) {
+            return false;
+        }
+        if (tokens.get(p).type == TokenType.KEYWORD && "constructor".equals(tokens.get(p).text)) {
+            return true;
+        }
+        if (tokens.get(p).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        int q = prevSignificantIndex(tokens, p - 1);
+        if (q >= 0 && isOp(tokens.get(q), ".")) {
+            // Extension-function receiver chain: `Type.` or `Type<Args>.` before the name.
+            int r = prevSignificantIndex(tokens, q - 1);
+            if (r < 0) {
+                return false;
+            }
+            if (isAngleClose(tokens.get(r))) {
+                r = skipAngleBracketsBackward(tokens, r);
+                if (r < 0) {
+                    return false;
+                }
+                r = prevSignificantIndex(tokens, r - 1);
+                if (r < 0) {
+                    return false;
+                }
+            }
+            if (tokens.get(r).type != TokenType.IDENTIFIER) {
+                return false;
+            }
+            q = prevSignificantIndex(tokens, r - 1);
+        }
+        if (q >= 0 && isAngleClose(tokens.get(q))) {
+            // The function's own `<T>` type-parameter clause: `fun <T> ...`.
+            q = skipAngleBracketsBackward(tokens, q);
+            if (q < 0) {
+                return false;
+            }
+            q = prevSignificantIndex(tokens, q - 1);
+        }
+        return q >= 0 && tokens.get(q).type == TokenType.KEYWORD && "fun".equals(tokens.get(q).text);
+    }
+
+    /** True for either a reclassified {@code ANGLE_BRACKET_CLOSE} or a plain {@code OP(">")} --
+     *  the tokenizer only reclassifies `<`/`>` into angle-bracket tokens in contexts it recognizes
+     *  as generic-usage-like (e.g. `List<T>`); a function's own `<T>` type-parameter clause right
+     *  after `fun` is not one of those contexts, so it stays plain `OP` tokens (confirmed via
+     *  harness). Both shapes mean the same thing here, so both are accepted. */
+    private boolean isAngleClose(final Token t) {
+        return t.type == TokenType.ANGLE_BRACKET_CLOSE || isOp(t, ">");
+    }
+
+    private boolean isAngleOpen(final Token t) {
+        return t.type == TokenType.ANGLE_BRACKET_OPEN || isOp(t, "<");
+    }
+
+    /** Given the index of an angle-close token (real or plain `OP(">")`), returns the index of its
+     *  matching angle-open token, or -1 if unbalanced. */
+    private int skipAngleBracketsBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 0;
+        for (int i = closeIdx; i >= 0; i--) {
+            if (isAngleClose(tokens.get(i))) {
+                depth++;
+            } else if (isAngleOpen(tokens.get(i))) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 0;
+        for (int i = closeIdx; i >= 0; i--) {
+            if (isPunct(tokens.get(i), ")")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "(")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private boolean hasNewlineOrCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
+     *  inclusive -- the whole `{ ... }` body sits on one physical line, always left K&amp;R. */
+    private boolean isSingleLineBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
+        for (int i = braceIdx; i <= closeBraceIdx; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

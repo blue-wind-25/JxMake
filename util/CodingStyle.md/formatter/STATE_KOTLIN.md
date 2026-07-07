@@ -151,6 +151,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_105 | Kotlin labeled jump / label declaration spacing (`return@label`, `label@`) — §11; new `KotlinSpecificRule.enforceLabeledJumpSpacing`, a flat whole-file pass with a small state machine, same shape as RDD_KEY_102 |
 | RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
 | RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; own group stream, never merged with §6's |
+| RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 
 ---
 
@@ -281,7 +282,7 @@ existing test suite after this step, before moving to Step 1.
 | 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
 | 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a) | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). |
-| 16 | Annotation use-site targets (`@field:` tight `:`) | (c) | No existing annotation-colon handling (Java annotations have no use-site-target shape) — small new `KotlinSpecificRule` logic. |
+| 16 | Annotation use-site targets (`@field:` tight `:`) | (c), **done** | No existing annotation-colon handling (Java annotations have no use-site-target shape) — new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, a flat whole-file state-machine pass. RDD_KEY_108. |
 | 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (c) | Needs `Type.(...) -> Ret` recognized as one atomic function-type token by whatever handles nested-paren/bracket detection (`ComplexityPaddingEvaluator` or a Kotlin-specific pre-pass) — new. |
 | 17.1 | Lambda parameter arrow spacing | (c) | Same category as §5 — active operator spacing outside declarations, nothing shared does this today. |
 | 18 | `vararg` | (a) | Modifier-slot handling is Step 2 scope; no general spacing concern beyond that. |
@@ -384,6 +385,14 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       two-column `ColumnGrid`, same shape as `MiscRule.Assignment`'s render.
       Own group stream, never merged with §6's property-declaration groups.
       No shared-class change. `make test` 32/32.
+- [x] **§16 Annotation use-site targets.** `RDD_KEY_108` — new
+      `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, a flat
+      whole-file state-machine pass (`@` → target → `:` → name) matching
+      target keywords by token text (not `TokenType.KEYWORD`, since
+      `delegate` isn't tokenizer-lexed as one). Tightens only the `:` on
+      both sides; `@`-to-target spacing left unenforced (no textual
+      backing, no codebase precedent for reformatting plain annotation
+      spacing). No shared-class change. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 

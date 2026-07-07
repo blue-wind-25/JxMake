@@ -645,6 +645,77 @@ public class KotlinSpecificRule {
         return "return".equals(text) || "break".equals(text) || "continue".equals(text);
     }
 
+    // ── §16 Annotation use-site targets ──────────────────────────────────────────
+    private static final java.util.Set<String> USE_SITE_TARGETS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "file", "property", "field", "get", "set", "receiver", "param", "setparam", "delegate"));
+
+    private enum UseSiteState {
+        NONE, AFTER_AT, AFTER_TARGET, AFTER_COLON
+    }
+
+    /**
+     * STYLE_KOTLIN.md §16: an annotation use-site target (`@field:`, `@get:`, `@param:`, `@set:`,
+     * etc.) is tight around its `:` -- no space either side of it between the target keyword and
+     * the annotation name that follows. Matched purely on token text against the fixed set of
+     * legal Kotlin use-site targets (not `TokenType.KEYWORD`, since not all of them --
+     * `delegate` in particular -- are lexed as keywords), so this needs no tokenizer change.
+     * Deliberately narrow: only the target-to-`:`-to-name shape is touched; the gap between `@`
+     * and the target itself, and everything after the annotation name, is left completely alone,
+     * matching this codebase's existing posture of never actively enforcing general annotation
+     * spacing (no rule anywhere reformats plain `@Override`-style spacing either). Same
+     * conservative bailout as every other pass in this file: any gap containing a comment, a
+     * NEWLINE, or a frozen token is left untouched.
+     */
+    public String enforceAnnotationUseSiteTargetSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        UseSiteState state = UseSiteState.NONE;
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET && isOp(t, ":");
+            final boolean tightAfterColon = state == UseSiteState.AFTER_COLON;
+
+            if (gapBlocked || (!tightBeforeColon && !tightAfterColon)) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            // tightBeforeColon || tightAfterColon, unblocked: gap dropped entirely.
+
+            gap.clear();
+            out.append(t.text);
+
+            if (isOp(t, "@")) {
+                state = UseSiteState.AFTER_AT;
+            } else if (state == UseSiteState.AFTER_AT && USE_SITE_TARGETS.contains(t.text)) {
+                state = UseSiteState.AFTER_TARGET;
+            } else if (state == UseSiteState.AFTER_TARGET && isOp(t, ":")) {
+                state = UseSiteState.AFTER_COLON;
+            } else {
+                state = UseSiteState.NONE;
+            }
+
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
     // ── §14 Generic `where` clause ───────────────────────────────────────────────
     /** One `TypeParam : Bound` entry of a `where` clause, found between two top-level commas
      *  (or between `where` and the clause's own end for the first/only entry). */

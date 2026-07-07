@@ -832,24 +832,119 @@ public class TokenizerCore {
 
     private Token emitString() {
         final int start = pos;
-        pos++;
-        while (pos < length) {
-            final char c = source.charAt(pos);
-            if (c == '\\' && pos + 1 < length) {
-                pos += 2;
-                continue;
-            }
-            if (c == '"') {
-                pos++;
-                break;
-            }
-            if (c == '\n' || c == '\r') {
-                break;
-            }
+        if (lang.isKotlin) {
+            pos = skipKotlinString(pos);
+        } else {
             pos++;
+            while (pos < length) {
+                final char c = source.charAt(pos);
+                if (c == '\\' && pos + 1 < length) {
+                    pos += 2;
+                    continue;
+                }
+                if (c == '"') {
+                    pos++;
+                    break;
+                }
+                if (c == '\n' || c == '\r') {
+                    break;
+                }
+                pos++;
+            }
         }
         return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
                 null);
+    }
+
+    /**
+     * Kotlin-only string scan (STYLE_KOTLIN.md §19): unlike the plain scan-to-next-quote above
+     * (correct for C/Java, which have no string interpolation), a Kotlin `"..."` string can
+     * contain a `${...}` interpolation block whose expression may itself contain nested string
+     * literals -- each with its own `${...}` -- nested `{ }` (e.g. a lambda argument passed inside
+     * the interpolation), and nested char literals, any of which can contain a `"` that must not
+     * be mistaken for this string's own closing quote. Confirmed via harness that the naive scan
+     * misreads `"${foo("x")}"` as three tokens (`"${foo("` / `x` / `")}"`) rather than one,
+     * corrupting the token stream (a later spacing pass could then insert whitespace *inside* the
+     * string literal, since it no longer looks like one token). {@code $x} (bare interpolation, no
+     * braces) needs no special handling here -- the `$` itself introduces no nesting risk, so it's
+     * simply ordinary string content as far as quote-matching is concerned.
+     */
+    private int skipKotlinString(final int openQuoteIdx) {
+        int p = openQuoteIdx + 1;
+        while (p < length) {
+            final char c = source.charAt(p);
+            if (c == '\\' && p + 1 < length) {
+                p += 2;
+                continue;
+            }
+            if (c == '"') {
+                return p + 1;
+            }
+            if (c == '\n' || c == '\r') {
+                return p;
+            }
+            if (c == '$' && p + 1 < length && source.charAt(p + 1) == '{') {
+                p = skipKotlinInterpolationBlock(p + 2);
+                continue;
+            }
+            p++;
+        }
+        return p;
+    }
+
+    /** Scans from just after a `${`'s opening `{` to just past its matching `}`, skipping over any
+     *  nested `{`/`}` (e.g. a lambda literal passed inside the interpolation expression), string
+     *  literals (recursively, via {@link #skipKotlinString}), and char literals encountered along
+     *  the way -- so a `"`/`{`/`}` inside any of those never desynchronizes the depth count or gets
+     *  mistaken for this block's own closing `}`. */
+    private int skipKotlinInterpolationBlock(final int startIdx) {
+        int p = startIdx;
+        int depth = 1;
+        while (p < length && depth > 0) {
+            final char c = source.charAt(p);
+            if (c == '"') {
+                p = skipKotlinString(p);
+                continue;
+            }
+            if (c == '\'') {
+                p = skipKotlinChar(p);
+                continue;
+            }
+            if (c == '{') {
+                depth++;
+                p++;
+                continue;
+            }
+            if (c == '}') {
+                depth--;
+                p++;
+                continue;
+            }
+            p++;
+        }
+        return p;
+    }
+
+    /** Same scan as {@link #emitChar} but returning the end index rather than allocating a
+     *  {@code Token} -- used by {@link #skipKotlinInterpolationBlock} to skip a char literal
+     *  without misreading its own quote as structurally significant. */
+    private int skipKotlinChar(final int openQuoteIdx) {
+        int p = openQuoteIdx + 1;
+        while (p < length) {
+            final char c = source.charAt(p);
+            if (c == '\\' && p + 1 < length) {
+                p += 2;
+                continue;
+            }
+            if (c == '\'') {
+                return p + 1;
+            }
+            if (c == '\n' || c == '\r') {
+                return p;
+            }
+            p++;
+        }
+        return p;
     }
 
     private Token emitChar() {

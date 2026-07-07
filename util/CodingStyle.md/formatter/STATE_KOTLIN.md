@@ -159,6 +159,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_113 | Kotlin generic variance (`in`/`out`) — §13; **shared-class fix** — `TokenizerCore.GENERIC_SAFE_KEYWORDS` extended with `"in"`/`"out"` so `reclassifyAngleBrackets` recognizes `Box<out T>`/`Comparable<in T>` as generic `<`/`>` pairs rather than comparisons; pure no-op for C/C++/Java (neither keyword exists in their keyword sets); tokenizer-level fix, no rendering pass needed |
 | RDD_KEY_114 | Kotlin function/secondary-constructor body Allman-brace conversion — §3/§3.3; new `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` (+ `isFunctionOrConstructorCloseParen`/`findSignatureCloseParenBeforeBrace`/`isAngleOpen`/`isAngleClose`/`skipAngleBracketsBackward`), structurally mirroring `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`/`CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` but with a much more conservative candidate signal (backward-scan must land on `fun`/`constructor`, since Kotlin has no `new` keyword to rule out trailing-lambda calls the way Java/C++ rule out ordinary calls) — also handles `: ReturnType` sitting between `)` and `{`, and tolerates the tokenizer's non-reclassified plain-`OP` `<T>` after `fun` (both discovered only via harness) |
 | RDD_KEY_115 | Kotlin semicolon stripping — §1; fixed a real bug in the pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`, predating this session's RDD-log convention) — it only protected the enum-with-members mandatory `;`, silently stripping a deliberate same-line multi-statement `;` too (would have merged two statements into one invalid line); rewritten around a single positive-evidence `isTrailingSemicolon` rule (only strip a `;` that's the last significant thing on its physical line), reusing §2's `findEnumConstantListTerminators` for the enum exclusion; also fixed a stray-trailing-space gap the old version had |
+| RDD_KEY_116 | Kotlin string template tokenizer risk — §19; **shared-class fix** — `TokenizerCore.emitString`'s naive scan-to-next-`"` misread a nested string inside a `${...}` interpolation (`"${foo("x")}"`) as three tokens instead of one, a genuine correctness risk (a later spacing pass could insert whitespace inside the literal's actual text); fixed with a Kotlin-only `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar` path (depth-tracks `${...}`'s own `{`/`}` nesting, recurses for nested strings/chars, arbitrarily deep), gated behind `lang.isKotlin`, non-Kotlin scan untouched; surfaced triple-quoted raw strings as a related, explicitly out-of-scope gap (new row 19.1, not fixed — undocumented in either style doc) |
 
 ---
 
@@ -253,6 +254,17 @@ existing test suite after this step, before moving to Step 1.
       `Comparable<in T>`) as a generic `<`/`>` pair rather than a comparison.
       Pure no-op for C/C++/Java (neither keyword exists in their keyword
       sets). `make test` 32/32 before and after. RDD_KEY_113.
+- [x] **Follow-up (surfaced during Step 1's §19 cross-check):** added a
+      Kotlin-only interpolation-aware string scan (`skipKotlinString` /
+      `skipKotlinInterpolationBlock` / `skipKotlinChar`) inside
+      `emitString()`, gated behind `lang.isKotlin` — the shared naive
+      scan-to-next-`"` misread a nested string inside a `${...}`
+      interpolation (`"${foo("x")}"`) as three tokens instead of one,
+      confirmed via harness before writing the fix. Depth-tracks `${...}`'s
+      own `{`/`}` nesting (so a lambda literal inside the interpolation
+      doesn't break early either) and recurses for any nested string/char
+      literal, arbitrarily deep. Non-Kotlin scan left byte-for-byte as the
+      original. `make test` 32/32 before and after. RDD_KEY_116.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 
@@ -299,7 +311,8 @@ existing test suite after this step, before moving to Step 1.
 | 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (b), **done** | `ComplexityPaddingEvaluator.isLoose` (shared) extended to skip a `.`-preceded/`->`-followed `(...)` span rather than counting it as nesting — pure no-op for C/C++/Java, `make test` 32/32 before/after. Known Gap (function type nested as a parameter of another) deliberately left unhandled, per the style doc's own text. RDD_KEY_109. |
 | 17.1 | Lambda parameter arrow spacing | (c), **done** | New `KotlinSpecificRule.enforceArrowSpacing` — flat whole-file single-space-both-sides pass over every `->`, covering the function-type arrow (§17) and lambda-parameter arrow (§17.1) together as "one consistent arrow-spacing rule." Excludes `when`-branch arrows via `collectWhenBranchArrowIndices` (owned by §4's alignment instead). RDD_KEY_109. |
 | 18 | `vararg` | (a), **verified** | Modifier-slot handling is Step 2 scope; no general spacing concern beyond that. Confirmed via harness that a `vararg` param itself is inert to every brace-style pass tried. |
-| 19 | String templates (preserve `"$x"`/`"${x}"` exactly) | (c) — **tokenizer-level, feeds back into Step 0** | Not yet verified whether `TokenizerCore.emitString()` can correctly find a Kotlin string's closing `"` when a `${...}` interpolation contains its own nested `"..."` (e.g. `"${foo("x")}"`). `emitString()` was written for C/Java string literals, which have no such nesting. This is a real risk, not a style question — needs a dedicated Step 0 follow-up before any Kotlin fixture with string templates can be trusted. Flagged, not yet investigated in depth (avoiding guessing ahead of an actual failing case, per this step's own discipline; a concrete failing fixture should drive the actual fix). |
+| 19 | String templates (preserve `"$x"`/`"${x}"` exactly) | (c) — **tokenizer-level, done** | Investigated and confirmed the flagged risk was real: `TokenizerCore.emitString()`'s naive scan-to-next-`"` misreads `"${foo("x")}"` as three tokens instead of one correctly-bounded `STRING` token, since a nested string inside a `${...}` interpolation terminates the scan early — confirmed via a token-dump harness before writing any fix. This is a genuine correctness risk (not cosmetic): with the string's own boundary lost, a later spacing pass could insert whitespace *inside* the literal's actual text. Fixed with a Kotlin-only path (`skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar`, gated behind `lang.isKotlin`, non-Kotlin scan left byte-for-byte as the original) that depth-tracks `${...}`'s own `{`/`}` nesting (so a lambda literal inside the interpolation, `"${list.map { it * 2 }}"`, doesn't break early either) and recurses back into itself for any nested string/char literal encountered along the way, arbitrarily deep. Bare `$x` needed no special handling — it introduces no nesting risk. RDD_KEY_116. Triple-quoted raw strings (`"""..."""`) are a related but explicitly out-of-scope risk surfaced during this investigation — see new row 19.1 below; neither style doc mentions them and they have entirely different lexical rules, so left as a flagged, not-yet-investigated gap rather than folded into this fix. |
+| 19.1 | Triple-quoted raw strings (`"""..."""`) | **not investigated, flagged only** | Surfaced as a side-finding while fixing §19's interpolation-nesting risk (RDD_KEY_116): Kotlin raw strings use `"""`, have no backslash-escape processing, terminate only at 3+ `"`, and still support `${...}` interpolation with its own nesting concerns — none of which `emitString`/`skipKotlinString` handle (a leading `"""` would currently tokenize as an empty `""` string immediately followed by a stray `"`). Neither STYLE_KOTLIN.md nor STYLE_KOTLIN2.md mentions triple-quoted strings at all (unlike Java's `"""` text block, an explicitly documented and implemented feature via `isJavaTextBlockOpen`/`emitJavaTextBlock`), so this needs its own dedicated Step 0 investigation/design before any Kotlin fixture using raw strings can be trusted — not attempted here, since scope-creeping the §19 fix to cover an undocumented, structurally different construct risks guessing at rules the style doc never specified. |
 | 20 | Sealed classes/interfaces | (a), **verified** | Normal `class`/`object` K&R rules apply unchanged, no special layout. Confirmed via harness: `sealed class Result { ... }` gets the same K&R brace + closing comment (`} // class Result`) as a plain `class`. |
 | 21 | Type aliases | (a), **verified** | Single-line `=`-spaced statement, no new behavior. Confirmed via harness: `typealias Handler = (Int) -> Unit` passes through every brace-style pass untouched. |
 | 22 | Extension functions | (a), **verified** | `fun` behaves like any other modifier/keyword token for spacing purposes. Confirmed via harness: `KotlinSignatureRule.parseKotlinSignature` correctly parses `fun String.reverseWords()`, placing `fun String .` in `leadTokens` and `reverseWords` as the signature name — the receiver-type-before-name shape needs no special-casing beyond what §7's existing name-detection (IDENTIFIER immediately before the first depth-0 `(`) already does. |
@@ -513,6 +526,26 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       no members after (stripped, optional); no semicolons at all
       (untouched); `;` at literal end-of-file (stripped). No shared-class
       change. `make test` 32/32.
+- [x] **§19 String templates — tokenizer-level fix.** `RDD_KEY_116` —
+      **shared-class change.** Confirmed the flagged risk was real: a nested
+      string inside a `${...}` interpolation (`"${foo("x")}"`) terminated
+      `TokenizerCore.emitString()`'s naive scan-to-next-`"` early, splitting
+      the literal into three tokens instead of one. Fixed with a Kotlin-only
+      `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar`
+      path, gated behind `lang.isKotlin`, that depth-tracks `${...}`'s own
+      `{`/`}` nesting (so a lambda literal inside the interpolation doesn't
+      break early either) and recurses for any nested string/char literal,
+      arbitrarily deep. Non-Kotlin scan is byte-for-byte the original.
+      Verified via an 11-case harness (bare `$x`; braced `${x}`; the
+      original failing nested-string case; a lambda literal inside
+      interpolation; two adjacent interpolation blocks; a doubly-nested
+      string-inside-interpolation-inside-string; an unterminated string;
+      plain string with no interpolation; escaped `\$`; a char literal with
+      `\"` immediately before an interpolation containing its own char
+      literal with a `"`; and a plain C string through the non-Kotlin path
+      as a sanity check) — all round-tripped byte-for-byte and tokenized as
+      expected. `make test` 32/32 before and after. Surfaces triple-quoted
+      raw strings as a separate, undocumented, out-of-scope gap (row 19.1).
 
 ### Step 3.5 — Configuration Property Wiring
 

@@ -244,6 +244,12 @@ existing test suite after this step, before moving to Step 1.
 - [x] Re-run full existing C/C++/Java test suite. **25/25 pass, zero
       regressions** (24 pre-existing + the unrelated `real_code_regressions_13`
       fixture added the same session, before this Kotlin work started).
+- [x] **Follow-up (surfaced during Step 1's §13 cross-check):** added
+      `"in"`/`"out"` to `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets`
+      correctly recognizes declaration-site variance (`Box<out T>`,
+      `Comparable<in T>`) as a generic `<`/`>` pair rather than a comparison.
+      Pure no-op for C/C++/Java (neither keyword exists in their keyword
+      sets). `make test` 32/32 before and after. RDD_KEY_113.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 
@@ -283,7 +289,7 @@ existing test suite after this step, before moving to Step 1.
 | 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — `in`/`until`/`downTo`/`step` turned out to already be inert w.r.t. its nested-bracket detection with zero code changes (`in` is `TokenType.KEYWORD`, the other three are plain `TokenType.IDENTIFIER`, confirmed via harness — reclassified (b)→(a)). The `..`/`..<` range operator's own *tight* spacing needed new code, same kind of gap as §5 — new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`, a separate group stream from §6's own. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. |
-| 13 | Generics variance (`in`/`out`) | (b) | `TokenizerCore.GENERIC_SAFE_KEYWORDS` doesn't yet include `"in"`/`"out"` — without it, `reclassifyAngleBrackets` may fail to recognize `Box<out T>`'s `<`/`>` as a generic pair rather than comparison operators. Small additive fix (belongs with Step 0 in spirit, catalogued here since it surfaced during this section's cross-check). |
+| 13 | Generics variance (`in`/`out`) | (b), **done** | `TokenizerCore.GENERIC_SAFE_KEYWORDS` extended with `"in"`/`"out"` — confirmed via harness these were previously misread as comparison `OP` tokens, now correctly `ANGLE_BRACKET_OPEN`/`_CLOSE` for `Box<out T>`/`Comparable<in T>`/`Pair<in T, out U>`; plain comparisons unaffected. Pure no-op for C/C++/Java (neither keyword exists in their keyword sets). Tokenizer-level fix, no rendering/spacing pass needed beyond correct classification. RDD_KEY_113. |
 | 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a), **verified** | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). Confirmed via harness. |
 | 16 | Annotation use-site targets (`@field:` tight `:`) | (c), **done** | No existing annotation-colon handling (Java annotations have no use-site-target shape) — new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, a flat whole-file state-machine pass. RDD_KEY_108. |

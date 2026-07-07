@@ -185,10 +185,13 @@ public class TokenizerCore {
     // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
     // `<? extends T>`. Builtin C/C++ type keywords were missing here originally, which silently
     // blocked reclassification of the single most common template shape (`vector<int>`).
+    // "in"/"out" (STYLE_KOTLIN.md §13, declaration-site use-site/generic variance -- `Box<out T>`,
+    // `Comparable<in T>`) are Kotlin-only keywords, absent from every other language's keyword set,
+    // so this is a pure no-op for C/C++/Java.
     private static final Set<String> GENERIC_SAFE_KEYWORDS = setOf(
             "extends", "super", "const", "typename", "class",
             "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
-            "short", "signed", "unsigned", "void", "wchar_t");
+            "short", "signed", "unsigned", "void", "wchar_t", "in", "out");
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them

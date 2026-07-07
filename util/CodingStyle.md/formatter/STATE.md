@@ -549,8 +549,10 @@ possible. Use this standard copyright header on every new test fixture file:
        `processScope`/`findParentIndent` recursion in parallel with `depth`, incremented by one
        `indentWidth` unit on every recursive descent unconditionally (regardless of scope kind);
        the fallback now just returns `inheritedIndent` instead of guessing from `depth`. Verified
-       no regression: `make test` 30/30. This is a real, general bug fix, independent of the
-       `catch.hpp` repro below — keep it.
+       no regression: `make test` 30/30 (31/31 after adding the fixture below). This is a real,
+       general bug fix, independent of the `catch.hpp` repro below — keep it. Fixture:
+       `test/real_code_regressions_14_{inp,out}.hpp` (minimal `struct Foo { enum Bar {`
+       same-line-sharing repro, two namespace levels deep).
      - `catch.hpp` specifically is **not** fixed by the above and still shows 3 round1/round2 diff
        hunks (same lines as before: ~8444/~15479/~19869). Root-caused with debug instrumentation:
        the real cause is a **tokenizer bug**, unrelated to `ScopePipeline` depth/indent bookkeeping.

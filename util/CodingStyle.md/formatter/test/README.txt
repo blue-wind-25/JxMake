@@ -366,6 +366,25 @@ Real-code regressions:
                                            except catch.hpp's separate, still-open brace-alignment
                                            issue around analyse() (STATE.md item 7).
 
+  real_code_regressions_14_inp/out.hpp  -- Minimal repro for STATE.md item 7's general fix (the
+                                           catch.hpp analyse()/if-else case itself turned out to be
+                                           a separate, still-open tokenizer bug -- see STATE.md).
+                                           A named construct sharing its opening line with its
+                                           parent's own `{` (`struct Foo { enum Bar {`) nested two
+                                           namespace levels deep came out under-indented by one
+                                           level. Root cause: ScopePipeline.findParentIndent's
+                                           fallback (used when no real newline precedes the
+                                           construct in its recursively-extracted fragment)
+                                           synthesized indent from `depth * indentWidth`, but
+                                           `processScope`'s `depth` counter deliberately doesn't
+                                           increment for `namespace` bodies -- even though their
+                                           content is still genuinely indented one level in real
+                                           source. Fixed by threading a second, real accumulated
+                                           indent string through the processScope/findParentIndent
+                                           recursion (incremented unconditionally on every
+                                           recursive descent, regardless of scope kind), so the
+                                           fallback returns that instead of guessing from `depth`.
+
 
 
 How Tests Are Run

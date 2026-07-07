@@ -1123,4 +1123,129 @@ public class KotlinSpecificRule {
         }
         return out.toString();
     }
+
+    // ── §2 `enum class` with members ────────────────────────────────────────────
+    /**
+     * STYLE_KOTLIN.md §2: when a Kotlin `enum class` body has trailing members after its entry
+     * list, the mandatory `;` separating them is detached onto its own line with a blank line
+     * before and after it -- the same "emphasis" shape as Java's optional enum-constant-list `;`
+     * (`JavaSpecificRule.separateEnumConstantListTerminator`, which this method mirrors rather
+     * than reuses -- that class is per-language, not shared, so a Kotlin call path into it would
+     * cross the C/C++/Java-vs-Kotlin file boundary this codebase otherwise keeps strict). The
+     * blank line right after `enum class XXX {` and right before the body's own closing `}` is
+     * already produced for free by the shared `BlockStructureRule.insertNamedConstructBlankLines`
+     * (confirmed via a standalone harness before writing this method -- Kotlin's `enum`/`class`
+     * keywords already satisfy that method's existing "keyword before `class` is `enum`" check,
+     * no code needed there) -- this method only adds the blank lines around the `;` itself, which
+     * that method does not touch. An enum with no trailing members (the `;` is absent, or is the
+     * very last thing before the enum's own `}`) is left untouched: nothing to separate the entry
+     * list from. A frozen span anywhere between the entry list and the closing brace blocks the
+     * rewrite for that enum body entirely, same conservative posture as every other pass in this
+     * file.
+     */
+    public String separateEnumConstantListTerminator(final List<Token> tokens) {
+        final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
+        if (terminators.isEmpty()) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token t : tokens) {
+                sb.append(t.text);
+            }
+            return sb.toString();
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        int lastSignificant = -1;
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                continue;
+            }
+            final boolean thisIsTerminator = terminators.containsKey(i);
+            final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(lastSignificant);
+            if (thisIsTerminator || prevWasTerminator) {
+                final String indent = thisIsTerminator ? terminators.get(i) : terminators.get(lastSignificant);
+                out.append('\n').append('\n').append(indent);
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = i;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Finds every Kotlin `enum class` body's entry-list-terminating `;` that has at least one
+     *  more member after it before the enum's own `}` -- keyed by token index, valued by the
+     *  indent string of the enum body's member lines (derived from its first member's own line). */
+    private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens) {
+        final Map<Integer, String> result = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), "{") || !isEnumBodyBrace(tokens, i)) {
+                continue;
+            }
+            final int closeBraceIdx = matchBraceForward(tokens, i);
+            if (closeBraceIdx < 0) {
+                continue;
+            }
+            final int firstMember = nextSignificantIndex(tokens, i + 1);
+            if (firstMember < 0 || firstMember >= closeBraceIdx) {
+                continue;
+            }
+            final String indent = lineIndent(tokens, firstMember);
+            int depth = 0;
+            for (int p = i + 1; p < closeBraceIdx; p++) {
+                final Token t = tokens.get(p);
+                if (isGapToken(t)) {
+                    continue;
+                }
+                if (isPunct(t, "(") || isPunct(t, "{")) {
+                    depth++;
+                } else if (isPunct(t, ")") || isPunct(t, "}")) {
+                    depth--;
+                } else if (depth == 0 && isPunct(t, ";")) {
+                    final int next = nextSignificantIndex(tokens, p + 1);
+                    if (next >= 0 && next < closeBraceIdx && !anyFrozen(tokens, firstMember, closeBraceIdx)) {
+                        result.put(p, indent);
+                    }
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    /** True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
+     *  past the enum's name and any supertype/generic-bound clause tokens until it finds the
+     *  `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
+     *  Same shape as {@code JavaSpecificRule.isEnumBodyBrace}. */
+    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx) {
+        int p = prevSignificantIndex(tokens, braceIdx - 1);
+        while (p >= 0) {
+            final Token t = tokens.get(p);
+            if (t.type == TokenType.KEYWORD && "enum".equals(t.text)) {
+                return true;
+            }
+            if (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";")) {
+                return false;
+            }
+            p = prevSignificantIndex(tokens, p - 1);
+        }
+        return false;
+    }
+
+    private int prevSignificantIndex(final List<Token> tokens, final int from) {
+        for (int i = from; i >= 0; i--) {
+            if (!isGapToken(tokens.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
 }

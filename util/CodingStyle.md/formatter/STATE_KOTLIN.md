@@ -154,6 +154,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
+| RDD_KEY_111 | Kotlin `enum class` with members blank-line "emphasis" around the mandatory `;` — §2; `insertNamedConstructBlankLines` (shared) confirmed to only handle the body-open/close blank lines, not the `;`-separator emphasis — new `KotlinSpecificRule.separateEnumConstantListTerminator` (+ helpers), structurally mirroring `JavaSpecificRule.separateEnumConstantListTerminator` (per-language precedent, same as §14/RDD_KEY_106) rather than reusing/relocating it, since that class isn't shared and its own helper names aren't present in any shared class either |
 
 ---
 
@@ -264,7 +265,7 @@ existing test suite after this step, before moving to Step 1.
 | § | Topic | Outcome | Notes |
 |---|---|---|---|
 | 1 | Semicolons (strip optional `;`) | (c) | No shared class strips statement-terminating `;` for any language today (C/Java require it) — wholly new `KotlinSpecificRule` pass. Must special-case enum-with-members' mandatory `;` (kept) and deliberate same-line multi-statement `;` (kept). |
-| 2 | `enum class` with members | (a)/(c) | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The mandatory `;` itself is just §1's stripper *not* stripping this one case — no separate logic. **Not yet verified:** the blank-line "emphasis" spacing around the entry-list/`;`/members shown in the style doc's example — needs a real fixture to confirm `insertNamedConstructBlankLines` produces it as-is or needs extension. |
+| 2 | `enum class` with members | (a)/(c), **done** | The `"enum class " + name` closing-comment label already falls out of `BlockStructureRule.classifyNamed`'s existing "keyword before `class` is `enum`" check (originally written for C++) — works for free once `enum`/`class` are both Kotlin keywords (Step 0, done). The body-open/close blank lines are already produced for free by the shared `insertNamedConstructBlankLines` — verified via harness, zero changes. The blank-line emphasis around the entry-list-terminating `;` itself is a separate pass, not covered by that method; implemented as new `KotlinSpecificRule.separateEnumConstantListTerminator` (+ helpers), mirroring `JavaSpecificRule.separateEnumConstantListTerminator`. See RDD_KEY_111. |
 | 3 | Brace style (Allman fn bodies / K&R everything else) | (a) | `BlockStructureRule.qualifiesForKAndR`'s `PAREN_KR_KEYWORDS`/`BARE_KR_KEYWORDS` sets already cover Kotlin's exact same control-flow keyword vocabulary (`if/while/for/switch/catch`, `else/do/try/finally`); function bodies default to Allman the same way C/Java ones do (a brace after `)` with no named-construct/control-flow keyword before it). `isLambdaBrace`'s K&R lambda exception is already language-general. |
 | 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named `class Foo {`/`object Foo {` already worked. Headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}` never arming `pendingNamedConstructName`) fixed via `RDD_KEY_99`: additive `BlockStructureRule.classifyKotlinHeadlessNamed`, gated by new `Lang.isKotlin`, parallel to the existing `isAnonymousClassBrace` precedent. Also fixed a related tokenizer bug found during verification (see RDD_KEY_99): `:` was wrongly arming a following supertype identifier as the construct's own name. |
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — RDD_KEY_100. Pure no-op for C/C++/Java (no `when` keyword/token in any of their keyword sets). |
@@ -417,6 +418,19 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       tightens `..`/`..<` on both sides (simpler one-sided sibling of §5's
       state machine, no spaced variant to handle). No shared-class change.
       `make test` 32/32.
+- [x] **§2 `enum class` with members.** `RDD_KEY_111` — closing-comment
+      label and body-open/close blank lines already free (Step 0 +
+      `insertNamedConstructBlankLines`, verified via harness, zero changes).
+      New `KotlinSpecificRule.separateEnumConstantListTerminator` (+
+      `findEnumConstantListTerminators`/`isEnumBodyBrace`/`prevSignificantIndex`)
+      adds the blank-line emphasis around the mandatory entry-list-terminating
+      `;`, mirroring `JavaSpecificRule.separateEnumConstantListTerminator`
+      (per-language precedent, not a shared-class reuse — same reasoning as
+      §14/RDD_KEY_106). Reuses this file's own existing `lineIndent` helper.
+      Verified via harness: reproduces the style doc's worked example
+      byte-for-byte; no-trailing-members, trailing-`;`-with-no-members-after,
+      and trailing-comma-preservation cases all correctly left untouched. No
+      shared-class change. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 

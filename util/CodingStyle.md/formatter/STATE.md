@@ -507,145 +507,50 @@ possible. Use this standard copyright header on every new test fixture file:
   unrelated error in `src/log.c`, a duplicate `tsm_log_impl` definition — same before and
   after).
 
-- **C++20**: `github.com/serge-sans-paille/frozen` — IN PROGRESS. 44 `.hpp` files (`.h` renamed,
-  confirmed real C++) plus `tests/catch.hpp`. 6 bugs found and fixed so far (full root-cause
-  narratives compacted out of this file — available via `git log`/`git show` on commits touching
-  `ScopePipeline.java`/`DeclarationAlignmentRule.java`/`TokenizerCore.java`/`CppSpecificRule.java`
-  around 2026-07-06/07):
-  1. `ScopePipeline.findParentIndent` off-by-one when a nested construct shares a source line
-     with its parent (e.g. `struct Foo { enum Bar {`) — under-derived closing-brace indent by one
-     level once `depth > 0` (fixed: synthesize `(depth + 1) * indentWidth` only in that branch;
-     `depth == 0`, true root and namespace bodies, untouched). Fixed `catch.hpp`'s `}; // enum X`
-     stray-space bug.
-  2. `DeclarationAlignmentRule.parseDeclaration` — two depth-tracking bugs only when a struct's
-     last member is a braceless-body control statement immediately before the class's own `};`
-     (nested range-`for`'s `:` mistaken for a bitfield colon; a non-flat trailing `{...}` slipping
-     through the no-`=` direct-list-init branch). Fixture: `test/real_code_regressions_12`.
+- **C++20**: `github.com/serge-sans-paille/frozen` — DONE (2026-07-07). 44 `.hpp` files (`.h`
+  renamed, confirmed real C++) plus `tests/catch.hpp`. 10 bugs found and fixed total; full
+  root-cause narratives compacted out of this file — available via `git log`/`git show` on
+  commits touching `ScopePipeline.java`/`DeclarationAlignmentRule.java`/`TokenizerCore.java`/
+  `CppSpecificRule.java` around 2026-07-06/07. One-line summary each:
+  1. `ScopePipeline.findParentIndent` off-by-one indent when a nested construct shares a source
+     line with its parent (`struct Foo { enum Bar {`).
+  2. `DeclarationAlignmentRule.parseDeclaration` depth-tracking bugs when a struct's last member
+     is a braceless control statement before the class's own `};`. Fixture:
+     `test/real_code_regressions_12`.
   3. Oversized brace-initializer's dangling `}` left glued to the last data line — new
-     `ScopePipeline.applyOversizedAggregateInitClosingBracePass`. Fixture updated:
+     `ScopePipeline.applyOversizedAggregateInitClosingBracePass`. Fixture:
      `test/real_code_regressions_11_out.c`.
-  4. `map.hpp` getter-padding growth — `CppSpecificRule.enforceTemplateAngleBracketSpacing` only
-     ran in Phase 4, after `GetterSetterRule`'s Phase 0 column-width measurement; added an earlier
-     call, same precedent as `enforceComplexityPadding`'s existing "pulled forward" call.
-  5. `set.hpp` operator one-liners flipping K&R→Allman between passes — `enforceCallLineBreaking`
-     can make a one-liner multi-line without re-deriving the Allman-brace decision; fixed by
-     re-running `enforceFunctionDefinitionAllmanBraceStyle` once more right after it.
-  6. `catch.hpp`'s `for(u_int m...)` first-pass corruption — `TokenizerCore.emitPreprocessor()`
-     didn't handle backslash-continued directives (unlike `emitMacroDef()`), permanently
-     desyncing paren/brace depth for the rest of the file. Fixed with the same continuation-line
-     loop. Fixture: `test/real_code_regressions_13`.
-  All six verified via `make test` (24/24) plus isolated round1/round2 diffs.
-
-  **7. PARTIALLY FIXED (2026-07-07)** — an `if`/`else` (and separately `try`/`catch`) brace-indent
-     mismatch: the closing `}` of the first branch, and the following branch's body, came out
-     under-indented, sometimes to column 0.
-     - General fix landed: `ScopePipeline.findParentIndent`'s fallback (used when a construct is
-       the first statement in a recursively-extracted child fragment, so no real newline precedes
-       it locally) used to synthesize indent from `depth * indentWidth` — wrong whenever a
-       `namespace` nests in between, since `processScope`'s `depth` counter deliberately does not
-       increment for namespace bodies (they don't consume an indent level *conceptually*, but
-       *textually* their content is still genuinely indented one level in real source). Fixed by
-       threading a second, real accumulated indent string (`inheritedIndent`) through the
-       `processScope`/`findParentIndent` recursion in parallel with `depth`, incremented by one
-       `indentWidth` unit on every recursive descent unconditionally (regardless of scope kind);
-       the fallback now just returns `inheritedIndent` instead of guessing from `depth`. Verified
-       no regression: `make test` 30/30 (31/31 after adding the fixture below). This is a real,
-       general bug fix, independent of the `catch.hpp` repro below — keep it. Fixture:
-       `test/real_code_regressions_14_{inp,out}.hpp` (minimal `struct Foo { enum Bar {`
-       same-line-sharing repro, two namespace levels deep).
-     - `catch.hpp` originally still showed 3 round1/round2 diff hunks (~8444/~15479/~19869) after
-       the above fix. Root-caused with debug instrumentation to a **tokenizer bug**, unrelated to
-       `ScopePipeline` depth/indent bookkeeping. `catch.hpp` has an `#ifdef __OBJC__` block with
-       genuine Objective-C (the formatter doesn't strip `#ifdef` bodies, so it tokenizes them
-       anyway). Nested Objective-C message sends like `[[NSString alloc] initWithFormat:...]`
-       produce adjacent `[[`; `TokenizerCore` misread that as a single C++17 attribute-open token
-       (`[[attr]]` syntax) instead of two separate `[` PUNCT tokens, while the two matching `]`
-       were still tokenized as two separate PUNCT tokens. Net effect: a permanent bracket-depth
-       desync (lose 2 per `[[` occurrence) in `ScopePipeline.splitTopLevelSpans`'s running depth
-       counter for the rest of the file, so by the time the scan reaches `analyse()` thousands of
-       lines later, its `if` block got misidentified as a top-level span spanning the whole file
-       instead of being nested 5 levels deep. Confirmed via a standalone `TokenizerCore` harness
-       tokenizing `[[NSString alloc] initWithFormat:...]` in isolation — it emitted `OP[[[]`
-       (merged) followed by two separate `PUNCT[]]` closes.
-     - **FIXED (2026-07-07).** `TokenizerCore` now only merges `[[` into a single attribute-open
-       token when a forward scan (`looksLikeAttributeOpen`) finds a genuine attribute-shaped close
-       within 200 chars: a `]` at paren-depth 0 immediately followed by another `]` (a real `]]`),
-       with nothing but identifiers/`::`/parenthesized args in between, bailing (treating the `[[`
-       as two ordinary `[` opens instead) on a statement terminator, brace, or string/char literal
-       first — exactly what an Objective-C message-send receiver/argument list looks like and an
-       attribute-list never does. `]]` merging is unchanged (not the source of the desync — the
-       real repro's closes were never textually adjacent). Verified: (1) `make test` 32/32 after
-       adding the fixture below; (2) the original 3 `catch.hpp` hunks above (~8441/15476/19866,
-       the `analyse()`/if-else brace-indent mismatch) are gone from round1/round2 comparison,
-       confirmed by diffing against the pre-fix build. Fixture:
-       `test/real_code_regressions_15_{inp,out}.hpp` (message send followed by nested
-       `namespace`/`struct`/`try`-`catch`/`if`-`else if`-`else`, discriminates old vs new — verified
-       old build mis-indents several closing braces here, new build doesn't).
-     - **4 unrelated bugs surfaced by this fix — FIXED (2026-07-07).** With the depth desync gone,
-       `catch.hpp`'s round1/round2 diff showed 4 *different* small hunks that were previously masked
-       by the file-wide misindentation cascading past them. All four are now fixed:
-       - `~5655`: a wrapped parameter list (`getAnnotation(\n    Class cls,\n    ...\n)`) lost one
-         indent level on the second format pass. Root cause:
-         `ScopePipeline.isNamespaceScope`'s backward scan for the `namespace` keyword called
-         `prevSignificantIndex(tokens, idx - 1)` — but that helper already scans starting at
-         `from - 1`, so passing `idx - 1` skipped the token immediately before `idx` entirely. This
-         silently misjudged some `namespace NAME{` occurrences (no space before `{`, as originally
-         written) as *not* a namespace on a fresh/not-yet-reformatted source (where the missing
-         space still exists), while correctly recognizing the identical namespace once reformatted
-         output added the space — giving `depth` two different values for the same nesting depth
-         across rounds. Fixed by passing `idx`/`p`/`q` directly (not `- 1`) to `prevSignificantIndex`
-         at all 3 call sites in that method, matching this file's own established convention
-         elsewhere (e.g. line ~794's `prevSignificantIndex(tokens, span.openBraceIdx)`).
-       - `~9539`, `~17121`: member-initializer-list argument spacing drifted between passes
-         (`m_isNegated( other.m_isNegated )` → `m_isNegated(other. m_isNegated)`, `( &tagAliases )`
-         → `(& tagAliases)`). Root cause: `applySignaturePass` finds a span's closing paren via
-         "nearest `)` before the body `{`" — but when a constructor has a member-initializer list
-         (`: field(val), other(val2)`), that nearest paren is the *last initializer's own* closing
-         paren, not the constructor's. `parseSignature` was then fed a token range anchored on that
-         wrong paren, and — only once the signature had grown long enough to need wrapping (multi-line
-         constructor) — its own "same physical line as the name" heuristic mistook the
-         wrapped-signature's `)` line (`) : m_isNegated(...) {}`) as the true continuation and
-         misparsed the last initializer call as if it *were* the signature, corrupting its internal
-         spacing on render. Fixed by `ScopePipeline.findTopLevelMemberInitColon`: scans for a
-         top-level `:` immediately preceded by `)` (the member-init-list's own introducing shape) and
-         redirects `closeParenIdx` back to that real parameter-list close paren. This surfaced a
-         second, previously-unreachable instability: once the real signature was correctly found and
-         wrapped, the line-length "does it fit inline" check only measured the signature's own text,
-         not the member-initializer-list opener immediately following on the same output line
-         (`) : tag(`) — invisible to `MiscRule.render()`, so a signature near the line-length boundary
-         could measure "fits" on one pass and "doesn't fit" on the next once that trailing text
-         entered the count differently. Fixed by threading a `trailingLen` parameter through
-         `applySignaturePass` into a new `render(sig, indentLevel, indentStyle, trailingLen)`
-         overload, computed *only* for this member-init-list case — an ordinary function/method
-         body's `{` hasn't been Allman-placed onto its own line yet at this point in the pipeline (that
-         runs in a later phase), so folding a same-line `{` into this same trailing-length check would
-         itself have reintroduced round-to-round instability (confirmed by trying the unrestricted
-         version first: it broke 5 unrelated, non-member-init signatures elsewhere in `catch.hpp`).
-       - `~12738`: `struct sigaction sa = {};;` gained an extra `;` on every re-format
-         (`{};;` → `{};;;` → ...). Root cause: `ScopePipeline.isScopeOpeningBrace`'s backward scan for
-         a construct keyword (`class`/`struct`/...) matched `struct` anywhere in the span, with no
-         check for an intervening `=` — but `struct sigaction sa = { };` is an elaborated-type
-         variable declaration (`sigaction` is a referenced type tag, not a construct being declared),
-         not a `struct` body definition, and no genuine construct declaration ever contains a
-         top-level `=` before its body brace. This misdetection made `splitTopLevelSpans` treat the
-         statement's own trailing `;` as a separate, spurious empty span, which then picked up a
-         second `;` from the same machinery that terminates a real `struct Foo {...};`. Fixed by
-         bailing out of `isScopeOpeningBrace` on any top-level `=` found in the scanned range. Also
-         hardened `TokenizerCore.trackSignificant` while investigating this: `pendingNamedConstructName`
-         stayed armed on the elaborated type's tag identifier (`sigaction`) when the very next
-         significant token was a second bare `IDENTIFIER` (`sa`) rather than `::` — now cleared in
-         that case, so this shape can never be mistaken for a named construct by any consumer of
-         `Token.name`/`computeConstructName` (this alone didn't fully explain the bug, since
-         `emitOpenBrace`'s fallback `computeConstructName()` also returns null here since the last
-         token before `{` is `=` — but it closes an unrelated gap in the same tracking logic found
-         along the way).
-       Verified: `make test` 32/32; the full `frozen`/`catch.hpp` round1/round2 diff is now empty
-       (was 12 lines across the 3 remaining hunks before this fix); the full 156-file `frozen` tree
-       (all `.c`/`.h`/`.cpp`/`.hpp` files) is fully idempotent round1-vs-round2. New fixture:
-       `test/real_code_regressions_16_{inp,out}.hpp`, covering all 4 shapes in one file (nested
-       namespace + wrapped signature; two-arg and one-arg member-initializer-list constructors, one
-       needing to wrap; elaborated-type empty-aggregate-init declaration).
-       `serge-sans-paille/frozen` is now fully DONE.
+  4. `map.hpp` getter-padding growth — `enforceTemplateAngleBracketSpacing` ran after
+     `GetterSetterRule`'s column-width measurement; pulled forward.
+  5. `set.hpp` operator one-liners flipping K&R→Allman between passes — re-run
+     `enforceFunctionDefinitionAllmanBraceStyle` once more after `enforceCallLineBreaking`.
+  6. `catch.hpp` first-pass corruption — `TokenizerCore.emitPreprocessor()` didn't handle
+     backslash-continued directives. Fixture: `test/real_code_regressions_13`.
+  7. `ScopePipeline.findParentIndent`'s fallback used `depth * indentWidth`, wrong whenever a
+     `namespace` nests in between (namespace bodies don't increment `depth`). Fixed by threading
+     a real accumulated `inheritedIndent` string through the recursion in parallel with `depth`.
+     Fixture: `test/real_code_regressions_14`.
+  8. `catch.hpp`'s `#ifdef __OBJC__` Objective-C block: nested message sends (`[[NSString alloc]
+     ...]`) were mistokenized as a C++17 `[[attribute]]` open, permanently desyncing bracket
+     depth for the rest of the file. Fixed with a forward-scan `looksLikeAttributeOpen` guard in
+     `TokenizerCore` that only merges `[[` when a genuine attribute-shaped close follows.
+     Fixture: `test/real_code_regressions_15`.
+  9. Once bug 8's file-wide desync was gone, 4 further small `catch.hpp` divergences surfaced:
+     (a) `ScopePipeline.isNamespaceScope` passed `idx - 1` to a helper that already offsets by
+     one, double-skipping and misjudging some `namespace NAME{` forms; (b)/(c) member-
+     initializer-list signatures (`Ctor(...) : field(val)`) found their closing paren via
+     "nearest `)` before `{`", which lands on the *last initializer's* paren, not the
+     constructor's — fixed via `ScopePipeline.findTopLevelMemberInitColon` redirecting to the
+     real paren, plus a `trailingLen` parameter threaded into `MiscRule.render` so the line-fit
+     check accounts for the member-init-list opener that follows on the same output line
+     (deliberately scoped to only this case, not general trailing same-line text, since an
+     un-Allman'd function body's `{` would otherwise reintroduce instability elsewhere); (d)
+     `struct sigaction sa = {};` (elaborated-type declaration, not a struct body) was misdetected
+     by `isScopeOpeningBrace` as a construct definition, duplicating its trailing `;` on every
+     reformat — fixed by bailing out on an intervening top-level `=`. Fixture:
+     `test/real_code_regressions_16` (all 4 shapes combined in one file).
+  Verified: `make test` 32/32; full `frozen`/`catch.hpp` round1/round2 diff empty; full 156-file
+  `frozen` tree (`.c`/`.h`/`.cpp`/`.hpp`) fully idempotent round1-vs-round2.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
   Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-

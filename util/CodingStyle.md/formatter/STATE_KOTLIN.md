@@ -171,31 +171,15 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
      parser and renderer, reusing only lower-level shared primitives
      (`ColumnGrid`, `ModifierPriority`) rather than `Declaration` itself —
      no shared-class behavior change, more duplicated logic.
-  **Resolved (superseded for §6, RDD_KEY_103):** originally the user chose
-  option 2 (independent parser/renderer in `KotlinSpecificRule.java`,
-  `DeclarationAlignmentRule` untouched). For §6 specifically, the user later
-  reconsidered and chose a third approach instead: loosen
-  `DeclarationAlignmentRule`'s visibility (several C/C++/Java-agnostic private
-  helpers — `splitStatements`, `hasBlankLineBefore`, `hasCommentBefore`,
-  `significantOnly`, `renderTokens`, `findTrailingComment` — raised to
-  `protected`, a purely additive/behavior-neutral change), then create
-  `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` reusing
-  those helpers plus `ColumnGrid`/`KotlinModifierPriority`, with its own
-  `KotlinDecl` model, statement splitter (`splitKotlinStatements` — Kotlin
-  properties are newline- not `;`-terminated, so the inherited
-  `splitStatements` can't be reused for boundary-finding, only for its other
-  generic helpers), parser (`parseKotlinDeclaration`), and grid renderer
-  (`renderPropertyGroup`) for the parts that are irreducibly
-  name-before-type-specific.
-  **Resolved (§7, RDD_KEY_104):** same choice, asked directly and confirmed —
-  loosen `MiscRule`'s visibility (`matchParenForward`, `significantWithComments`,
-  `splitTopLevelCommas`, `renderTokens`, `indentText`, `significantOnly` raised
-  to `protected`), then `KotlinSignatureRule extends MiscRule` with its own
-  `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based
-  renderer, mirroring RDD_KEY_103's structure exactly (down to the pattern of
-  duplicating the small name/open-paren boundary-finding loop rather than
-  extracting it as a shared method, matching this file's established
-  precedent for `renderTokens`).
+  **Resolved for both §6 (RDD_KEY_103) and §7 (RDD_KEY_104):** originally the
+  user chose option 2 for §6 (independent parser in `KotlinSpecificRule.java`),
+  but reconsidered before implementing either and picked a third approach for
+  both sections instead — loosen the relevant shared class's visibility on its
+  C/C++/Java-agnostic private helpers (additive, behavior-neutral), then
+  extend it (`KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule`
+  for §6; `KotlinSignatureRule extends MiscRule` for §7), each with its own
+  name-before-type model/parser/`ColumnGrid` renderer. See the Step 3
+  checklist and `RDD_KEY_103`/`RDD_KEY_104` for full implementation detail.
 - **String template tokenizing (§19, found during Step 1).** Not yet verified
   whether `TokenizerCore.emitString()` correctly closes a Kotlin string when a
   `${...}` interpolation contains its own nested `"..."` (e.g.
@@ -333,240 +317,52 @@ existing test suite after this step, before moving to Step 1.
 
 - [ ] Implement each section flagged "(c)" in Step 1's scoping table, one
       section at a time, each as its own checkpoint commit.
-- [x] **§1 Semicolons.** `KotlinSpecificRule.stripOptionalSemicolons(List<Token>)`
-      strips every optional statement-terminating `;`, keeping only an `enum
-      class` body's entries/members separator, and only when member
-      declarations actually follow it (an entries-only enum body's trailing
-      `;` is optional too and gets stripped, matching §1's own stated
-      rationale). Implemented as a token-list state machine: tracks a
-      brace-depth stack of `EnumBodyState` (armed when the immediately-open
-      `{` was preceded by `enum` then `class`, tolerating any
-      generics/constructor-args/supertype-clause tokens in between since
-      Kotlin's grammar has `enum`/`class` strictly adjacent modulo
-      whitespace); the first top-level `;` inside an armed body is kept iff a
-      non-`}` token follows before that body's own closing `}`. Verified with
-      a standalone tokenize-then-strip harness (not committed, scratchpad
-      only, per this file's own "prefer evidence" rule): flat declarations,
-      an enum with no trailing members, an enum with trailing members, a
-      nested enum-with-constructor-args-and-supertype-clause inside an outer
-      class, and a same-line entries-only enum — all stripped/kept correctly.
-      One real bug caught and fixed during this verification: the initial
-      version reset its `enum`/`class`-pending flags on the class *name*
-      token itself, before ever reaching the body's `{`, so no enum body was
-      ever armed — fixed by only resetting those flags on `;`/`{`/`}`, not on
-      arbitrary header tokens. Full C/C++/Java suite still 25/25 (this file
-      is new, so no shared-class change to worry about here).
-- [x] **§3.1/§3.4 Class/Object/Companion Object/`init` bodies.** Fixed as
-      `RDD_KEY_99` — a shared-class extension (`Lang.isKotlin`,
-      `BlockStructureRule.classifyKotlinHeadlessNamed`), not a
-      `KotlinSpecificRule.java` method, since the fix belongs in the same
-      brace-classification machinery that already handles every other
-      named-construct shape. Also fixed a related tokenizer bug found during
-      verification (`:` wrongly arming a supertype identifier as the
-      construct's own name for anonymous `object : Super {}`). Full
-      C/C++/Java suite 25/25 before and after each of the three shared-class
-      edits. See `RDD_KEY_99` for full detail.
-- [x] **§3.2 `when` no space before `(`.** Fixed as `RDD_KEY_100` — added
-      `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`, a shared-class one-line
-      change, not a `KotlinSpecificRule.java` method, since the set is
-      already unpartitioned by language and `when` simply never matches for
-      C/C++/Java (no such keyword in their keyword sets). Verified via a
-      standalone harness calling `enforceKeywordSpacing` directly on
-      tokenized `when (x) { 1 -> "a" }`, confirming the collapse to
-      `when(x) { ... }`. Full C/C++/Java suite 25/25 before and after.
+Full implementation/verification narratives for every checked item below have been
+compacted out of this file — each is still fully recorded, in the same level of
+detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`).
+- [x] **§1 Semicolons.** `KotlinSpecificRule.stripOptionalSemicolons` strips every
+      optional statement-terminating `;`, keeping only an armed `enum class` body's
+      entries/members separator when member declarations actually follow it. New
+      file, no shared-class change. `make test` 25/25.
+- [x] **§3.1/§3.4 Class/Object/Companion Object/`init` bodies.** `RDD_KEY_99` —
+      shared-class extension (`Lang.isKotlin`,
+      `BlockStructureRule.classifyKotlinHeadlessNamed`), plus a related tokenizer
+      fix (`:` wrongly arming a supertype identifier as the construct's own name
+      for anonymous `object : Super {}`). `make test` 25/25.
+- [x] **§3.2 `when` no space before `(`.** `RDD_KEY_100` — added `"when"` to
+      `MiscRule.TIGHT_PAREN_KEYWORDS`, a one-line shared-class change (pure no-op
+      for C/C++/Java, no such keyword in their keyword sets). `make test` 25/25.
 - [x] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
-      Fixed as `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`,
-      not a shared-class extension. `SwitchRule.java` (read in full, 896
-      lines) turned out to be entirely colon-form switch STATEMENT handling
-      (STYLE.md §13) with zero `"->"` logic; the real arrow-form
-      switch-EXPRESSION logic is
-      `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`/`findArrowCases`,
-      but two things block reusing it: (1) it anchors each label's start on a
-      `case`/`default` KEYWORD token, which Kotlin `when` branches don't have
-      (just a bare condition expression); (2) it bails out of alignment
-      entirely for the whole `switch` if any case has a block body, but
-      STYLE_KOTLIN.md §4's own worked example keeps `->` aligned even with
-      one block-body branch present — the opposite rule. New method finds
-      branch boundaries by requiring one branch per physical line (a depth-0
-      `->` starts a body; a depth-0 NEWLINE after a non-block body, or a
-      block body's own matching `}`, ends it) and bails (leaves that whole
-      `when` untouched) if this shape isn't met. Also forces a blank line
-      after `{`/before `}` (control-flow blocks like `if`/`for`/`while`/
-      `switch` only ever *preserve* existing blank lines via
-      `BlockStructureRule.insertNamedConstructBlankLines` — never force them
-      — so this needed its own logic here too) and an unconditional
-      `// when subject` closing comment (bare `// when` for a subject-less
-      `when { ... }`), with no length gating, unlike FOR/WHILE/SWITCH's
-      closing comments in `BlockStructureRule.addClosingComments`. Verified
-      via a standalone harness covering a simple `when(x) { ... }`, a mixed
-      simple/block-body `when`, and a subject-less `when { ... }` — all three
-      matched STYLE_KOTLIN.md §4's exact expected output, including the
-      block-body-mixed alignment case. Full C/C++/Java suite 25/25 (this
-      method isn't wired into any shared class or `Formatter.formatOne` yet —
-      that's deferred to whenever `KotlinSpecificRule` itself gets wired in).
-- [x] **§5 Null-safety operators (`?.`/`!!` tight, `?:` spaced).** Fixed as
-      `RDD_KEY_102` — new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`.
-      Unlike every other Step 3 item so far, this one isn't scoped to a single
-      construct: `?.`/`!!`/`?:` can appear in any expression anywhere in a
-      file, and (per this row's own scoping note) no shared class does
-      general expression-level operator re-spacing today, so this is a single
-      flat pass over the whole token stream. For each significant token,
-      checks whether either it or its immediate predecessor is `?.`/`!!`
-      (collapse the gap between them to nothing) or `?:` (normalize the gap
-      to exactly one space); otherwise the gap is left byte-for-byte as-is
-      (in particular, plain `.` spacing is untouched either way — out of
-      scope here, same as everywhere else in the codebase). Conservative
-      per-gap bailout: any gap containing a comment, a NEWLINE, or a frozen
-      token is left completely alone, so a null-safety operator split across
-      lines or adjacent to a disabled span is never touched. Verified via a
-      standalone harness: `str ?. length ?: 0` → `str?.length ?: 0`;
-      `user !! . name` → `user!!.` kept tight with the pre-existing space
-      before the unrelated `.name` left alone (confirms `.` itself is
-      correctly out of scope); an already-correct `a?.b?.c!!.d ?: e` staying
-      byte-identical; a `?:` split across a newline and a `?.` followed by a
-      trailing comment both left completely untouched. Full C/C++/Java suite
-      25/25 (new method, no shared-class change, not yet wired into
-      `Formatter.formatOne`).
-- [x] **§6 Variable/property declaration alignment.** Fixed as `RDD_KEY_103`.
-      Per the user's revised decision (superseding the earlier "independent
-      `KotlinSpecificRule` parser" resolution, see Open Questions), raised
-      `DeclarationAlignmentRule`'s `splitStatements`/`hasBlankLineBefore`/
-      `hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment`
-      from `private` to `protected` (additive, no behavior change — full
-      C/C++/Java suite unaffected), then created
-      `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule`.
-      New `KotlinDecl` model (`modifiers` incl. `val`/`var`, `name`,
-      `typeTokens`, `initTokens`, `trailingComment`). Discovered during
-      verification that the inherited `splitStatements` can't be reused for
-      finding statement boundaries: it only splits on `;`/`}`, but Kotlin
-      properties are conventionally newline-terminated with no `;` at all —
-      reusing it verbatim merged an entire scope's declarations into one
-      "statement". Wrote a parallel `splitKotlinStatements`: same depth
-      tracking, but also splits on a depth-0 NEWLINE that follows at least one
-      significant token (one declaration per line, matching every
-      STYLE_KOTLIN.md §6 worked example; a declaration whose initializer
-      genuinely spans multiple lines will fail `parseKotlinDeclaration`
-      instead of being mis-parsed, and is conservatively left out of its
-      group). `parseKotlinDeclaration` walks `[modifiers] val|var name
-      [: type] [= init]` directly (returns null — breaks the group — for
-      anything else, e.g. a function call or control-flow statement).
-      `renderPropertyGroup` uses `ColumnGrid` with one column per field
-      (modifiers, name, `: type`, `= init`, trailing comment), each
-      conditionally added only if some row in the group uses it — same
-      "only emit active columns" precedent as the base class's render(). Also
-      found and fixed a cross-feature integration gap: `renderTokens`'s
-      inherited tight-token table doesn't know about §5's `?.`/`!!` tight
-      operators (that's a separate whole-file pass, not wired into this
-      grid-cell renderer), so a small `renderKotlinTokens` wrapper strips the
-      one leftover space `renderTokens` would otherwise leave around them.
-      Verified via a standalone harness against both STYLE_KOTLIN.md §6
-      worked examples (visibility/modality/override group with aligned `:`;
-      `val`-only group with aligned `=`, including `?.`/`!!`/`?:` inside an
-      initializer) plus a blank-line-broken group, a no-type/no-init mix, and
-      a non-declaration statement breaking the group — all matched expected
-      output exactly. Full C/C++/Java suite 25/25 (visibility-only base-class
-      change, confirmed no regression; new subclass not yet wired into
-      `Formatter.formatOne`).
+      `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`, not a
+      `SwitchRule`/`JavaSpecificRule` extension (keyword-less branch labels,
+      non-all-or-nothing block-body alignment, and forced rather than merely
+      preserved blank lines all differ from the Java arrow-switch precedent).
+      Not wired into `Formatter.formatOne` yet. `make test` 25/25.
+- [x] **§5 Null-safety operators (`?.`/`!!` tight, `?:` spaced).** `RDD_KEY_102` —
+      new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file
+      pass (no shared class does general expression-level operator re-spacing).
+      `make test` 25/25.
+- [x] **§6 Variable/property declaration alignment.** `RDD_KEY_103` — raised six
+      `DeclarationAlignmentRule` helpers `private`→`protected` (additive, no
+      behavior change), then `KotlinDeclarationAlignmentRule extends
+      DeclarationAlignmentRule` with its own `KotlinDecl` model,
+      `splitKotlinStatements` (newline-terminated, not `;`-terminated),
+      `parseKotlinDeclaration`, and `ColumnGrid`-based `renderPropertyGroup`.
+      User-directed: loosen shared-class visibility, then extend, rather than an
+      independent parser. `make test` 25/25.
 - [x] **§7/§7.1 Constructor/function parameter lists, named/default arguments.**
-      Fixed as `RDD_KEY_104`. Per the user's direct decision (mirroring
-      RDD_KEY_103's precedent, offered explicitly as a question rather than
-      guessed), raised six `MiscRule` internals from `private` to `protected`
-      — `matchParenForward`, `significantOnly`, `significantWithComments`,
-      `splitTopLevelCommas`, `renderTokens`, `indentText` — each confirmed
-      generic (no reference to `Param`/`Signature`'s type-before-name
-      assumptions), then created `KotlinSignatureRule extends MiscRule`. New
-      `KotlinParam` (`modifiers`, `name`, `typeTokens` — never empty on a
-      successful parse, since Kotlin requires an explicit type on every
-      function/constructor param unlike an inferred-type §6 property —
-      `defaultTokens`, comments) and `KotlinSignature` (`leadTokens`, `name`,
-      `params`, `trailingComma`) models. `parseKotlinSignature` duplicates
-      `MiscRule.parseSignature`'s small name/open-paren boundary-finding loop
-      rather than extracting it as a shared method (same "exact copy, not
-      shared utility" precedent already established for this file's
-      `renderTokens` lineage) since the loop itself is only ~15 lines and
-      isn't type-order-dependent either way. `parseKotlinParam` walks
-      `[modifiers] name : type [= default]` directly, requiring the `:` and a
-      non-empty type (returns null — bails the whole signature, matching
-      `MiscRule.parseParam`'s own posture for an unrecognized default-value
-      shape — otherwise). Trailing-comma detection (§7.2, "preserve exactly as
-      written"): `splitTopLevelCommas` leaves an empty final part when the
-      source's last param is itself followed by a comma before `)` — captured
-      as `KotlinSignature.trailingComma` before being dropped, then
-      re-emitted (or not) on render, both inline and broken. `render` reuses
-      the same fits-inline-else-break-one-per-line decision as
-      `MiscRule.render(Signature, ...)`, but the broken form uses a
-      `ColumnGrid` (name, `: type`, `= default`) rather than the base class's
-      manual width pre-computation — same "grammar simple enough that the
-      grid alone produces the alignment" reasoning as `KotlinDeclarationAlignmentRule
-      renderPropertyGroup`. **One real bug caught and fixed during
-      verification, not anticipated in the original design**: the trailing
-      comma was initially modeled as its own grid column, which made
-      `ColumnGrid` pad every row's `: type` cell out to its widest sibling
-      *before* the comma (`val id    : Long   ,` — three stray spaces before
-      the comma) — `ColumnGrid.flush()` only ever leaves a row's own true
-      *last* cell unpadded, and a bare `,` cell was consuming that "last cell"
-      slot instead of the type text itself. Fixed by attaching the comma
-      directly onto whichever cell is actually semantically last for that row
-      (the type cell if no default, the default cell if one is present)
-      instead of giving it a column of its own — verified this now exactly
-      matches STYLE_KOTLIN.md §7's own worked example (`val id    : Long,`, no
-      gap before the comma). Verified via a standalone harness: the exact §7
-      short/inline and long/broken `data class Point`/`User` worked examples
-      (byte-for-byte match, including the fixed comma spacing); a broken
-      signature with a trailing comma preserved (both inline and broken
-      forms); a `fun foo(x: Int = 10, y: Int = 20)` inline default-value case
-      (§7.1); a broken signature where every parameter has a default value,
-      confirming the `:`/`=` columns both align correctly together (§7.1
-      "same as §6"); and a `vararg` modifier-bearing parameter parsing and
-      rendering correctly inline. **Not covered** (see §7.1's scoping table
-      note above): call-site named arguments (`foo(x = 1, y = 2)`), a
-      structurally different, type-less shape outside `KotlinSignature`'s
-      declaration-only scope. Full C/C++/Java suite 32/32 (up from 25/25 at
-      the time of RDD_KEY_103 — three intervening, unrelated `frozen`/
-      `catch.hpp` fixture/idempotency-bug-fix sessions landed in between; the
-      six-helper visibility-only `MiscRule` change here itself introduced zero
-      regressions, confirmed before and after). New file not yet wired into
-      `Formatter.formatOne` or covered by a `test/kt_*` fixture — both
-      deferred to Step 4/5, same "verified standalone, not end-to-end" caveat
-      as every other Step 3 item so far.
-- [x] **§11 Labeled jumps (`@label` spacing).** Fixed as `RDD_KEY_105`. No
-      shared class recognizes a keyword or identifier immediately glued to
-      `@` — this token shape doesn't appear in C/C++/Java at all — so this
-      is a new, self-contained `KotlinSpecificRule.enforceLabeledJumpSpacing`,
-      a single flat pass over the whole token stream (same shape as §5's
-      `enforceNullSafetyOperatorSpacing`/RDD_KEY_102), with a small
-      left-to-right state machine (`JumpState`) to classify each `@` as it's
-      reached: `return`/`break`/`continue` immediately followed by `@` is a
-      jump, whose `@label` is tight on both sides (`return@forEach`); a bare
-      identifier immediately followed by `@` is a label declaration
-      (`outer@`), tight before the `@` but spaced exactly one space after it
-      from whatever the label is attached to (`outer@ for(...)`); an
-      unclassified `@` (e.g. an `@Override`-style annotation, or a §16
-      use-site target) is left completely untouched, since neither
-      predecessor pattern matches. A jump's own trailing value expression,
-      when present, is spaced from the label the same way (`return@label
-      value`) — handled by the same "force exactly one space" branch as the
-      label-declaration case, since both are "spaced from what follows"
-      per STYLE_KOTLIN.md §11's text. Same conservative bailout as §5: any
-      gap containing a comment, a NEWLINE, or a frozen token is left
-      completely untouched — in particular, a bare `return@label` with
-      nothing after it on the same line is never forced to grow a trailing
-      space, since that gap is the statement's own closing NEWLINE. Verified
-      via a standalone harness (scratchpad only, not committed) covering:
-      the exact `return@forEach`/`break@outer`/`outer@ for` worked examples
-      from STYLE_KOTLIN.md §11 itself, each with deliberately mis-spaced
-      input (`return @ forEach`, `outer @  for`, `break  @  outer`) to
-      confirm the pass actually normalizes rather than merely preserving
-      already-correct input; a bare `continue@loop` with nothing following
-      on its line (confirmed no space wrongly appended before the
-      newline); and `return@label value` with a trailing value expression,
-      both already-correct and deliberately mis-spaced. All matched
-      §11's expected output exactly. Full C/C++/Java suite 32/32 (new
-      method, no shared-class change — no `MiscRule`/`DeclarationAlignmentRule`
-      visibility changes were needed for this one, since it's self-contained
-      within `KotlinSpecificRule` and needs nothing from the C/C++/Java-side
-      shared classes). Not yet wired into `Formatter.formatOne` or covered
-      by a `test/kt_*` fixture, same caveat as every other Step 3 item so far.
+      `RDD_KEY_104` — same visibility-loosen-then-extend pattern as §6, six
+      `MiscRule` helpers promoted, new `KotlinSignatureRule extends MiscRule` with
+      its own `KotlinParam`/`KotlinSignature` model and `ColumnGrid`-based broken
+      form; also covers §7.2 trailing-comma preservation. **Not covered**:
+      call-site named arguments (`foo(x = 1, y = 2)`), a structurally different
+      type-less shape. `make test` 32/32.
+- [x] **§11 Labeled jumps (`@label` spacing).** `RDD_KEY_105` — new, fully
+      self-contained `KotlinSpecificRule.enforceLabeledJumpSpacing` (no shared-class
+      change needed at all), a flat whole-file pass with a small `JumpState`
+      machine distinguishing a jump's `@label` (tight both sides) from a label
+      declaration's `label@` (tight before, one space after) from an unrelated
+      `@Annotation`. `make test` 32/32.
 
 ### Step 4 — Test Fixtures
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,

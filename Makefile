@@ -112,6 +112,9 @@ sdiff:
 xdiff: sclean
 	@diff -ru ../Shadow/jxmake . | grep -v '^Only in' | perl 3rd_party/tools/colordiff/colordiff.pl | more
 
+xstat:
+	@git push && git pull && git branch -a && svn update && svn cleanup && git status && svn status
+
 
 ##### Archive the whole project
 arcv: distclean

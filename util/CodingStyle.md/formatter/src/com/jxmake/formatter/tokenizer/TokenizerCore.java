@@ -431,6 +431,13 @@ public class TokenizerCore {
                     final Token prev = arr[arr.length - 2];
                     if (prev.type == TokenType.OP && "::".equals(prev.text)) {
                         pendingNamedConstructName = pendingNamedConstructName + "::" + t.text;
+                    } else if (prev.type == TokenType.IDENTIFIER) {
+                        // Elaborated-type variable declaration (`struct sigaction sa = { };`):
+                        // the first identifier after `struct` is a previously-declared type tag,
+                        // not a new construct name, and this second identifier is the variable
+                        // being declared -- the `{` that may follow is that variable's aggregate
+                        // initializer, not a construct body.
+                        pendingNamedConstructName = null;
                     }
                 }
         }

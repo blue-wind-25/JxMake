@@ -581,23 +581,71 @@ possible. Use this standard copyright header on every new test fixture file:
        `test/real_code_regressions_15_{inp,out}.hpp` (message send followed by nested
        `namespace`/`struct`/`try`-`catch`/`if`-`else if`-`else`, discriminates old vs new — verified
        old build mis-indents several closing braces here, new build doesn't).
-     - **New, unrelated bugs surfaced by this fix, not yet fixed — tracked separately for a future
-       session.** With the depth desync gone, `catch.hpp`'s round1/round2 diff now shows 4
-       *different* small hunks that were previously masked by the file-wide misindentation
-       cascading past them:
-       - `~5655`: a wrapped parameter list (`getAnnotation(\n    Class cls,\n    ...\n)`) loses one
-         indent level on the second format pass — looks like a call/declaration-wrapping
-         reindent-drift bug, likely `MiscRule`'s §8 wrapping pass or similar.
-       - `~9539`, `~17121`: member-initializer-list argument spacing drifts between passes
+     - **4 unrelated bugs surfaced by this fix — FIXED (2026-07-07).** With the depth desync gone,
+       `catch.hpp`'s round1/round2 diff showed 4 *different* small hunks that were previously masked
+       by the file-wide misindentation cascading past them. All four are now fixed:
+       - `~5655`: a wrapped parameter list (`getAnnotation(\n    Class cls,\n    ...\n)`) lost one
+         indent level on the second format pass. Root cause:
+         `ScopePipeline.isNamespaceScope`'s backward scan for the `namespace` keyword called
+         `prevSignificantIndex(tokens, idx - 1)` — but that helper already scans starting at
+         `from - 1`, so passing `idx - 1` skipped the token immediately before `idx` entirely. This
+         silently misjudged some `namespace NAME{` occurrences (no space before `{`, as originally
+         written) as *not* a namespace on a fresh/not-yet-reformatted source (where the missing
+         space still exists), while correctly recognizing the identical namespace once reformatted
+         output added the space — giving `depth` two different values for the same nesting depth
+         across rounds. Fixed by passing `idx`/`p`/`q` directly (not `- 1`) to `prevSignificantIndex`
+         at all 3 call sites in that method, matching this file's own established convention
+         elsewhere (e.g. line ~794's `prevSignificantIndex(tokens, span.openBraceIdx)`).
+       - `~9539`, `~17121`: member-initializer-list argument spacing drifted between passes
          (`m_isNegated( other.m_isNegated )` → `m_isNegated(other. m_isNegated)`, `( &tagAliases )`
-         → `(& tagAliases)`) — looks like a spacing-around-`.`/`&` idempotency bug specific to
-         single-argument parenthesized initializers.
-       - `~12738`: `struct sigaction sa = {};;` gains an extra `;` on every re-format
-         (`{};;` → `{};;;` → ...) — an unbounded-growth idempotency bug, likely in whatever pass
-         normalizes/collapses empty-brace-init statement terminators.
-       None of these four are related to `[[`/attributes/Objective-C; they're pre-existing bugs in
-       unrelated passes that this fix's improved depth-tracking simply stopped hiding. `frozen`
-       remains IN PROGRESS pending these.
+         → `(& tagAliases)`). Root cause: `applySignaturePass` finds a span's closing paren via
+         "nearest `)` before the body `{`" — but when a constructor has a member-initializer list
+         (`: field(val), other(val2)`), that nearest paren is the *last initializer's own* closing
+         paren, not the constructor's. `parseSignature` was then fed a token range anchored on that
+         wrong paren, and — only once the signature had grown long enough to need wrapping (multi-line
+         constructor) — its own "same physical line as the name" heuristic mistook the
+         wrapped-signature's `)` line (`) : m_isNegated(...) {}`) as the true continuation and
+         misparsed the last initializer call as if it *were* the signature, corrupting its internal
+         spacing on render. Fixed by `ScopePipeline.findTopLevelMemberInitColon`: scans for a
+         top-level `:` immediately preceded by `)` (the member-init-list's own introducing shape) and
+         redirects `closeParenIdx` back to that real parameter-list close paren. This surfaced a
+         second, previously-unreachable instability: once the real signature was correctly found and
+         wrapped, the line-length "does it fit inline" check only measured the signature's own text,
+         not the member-initializer-list opener immediately following on the same output line
+         (`) : tag(`) — invisible to `MiscRule.render()`, so a signature near the line-length boundary
+         could measure "fits" on one pass and "doesn't fit" on the next once that trailing text
+         entered the count differently. Fixed by threading a `trailingLen` parameter through
+         `applySignaturePass` into a new `render(sig, indentLevel, indentStyle, trailingLen)`
+         overload, computed *only* for this member-init-list case — an ordinary function/method
+         body's `{` hasn't been Allman-placed onto its own line yet at this point in the pipeline (that
+         runs in a later phase), so folding a same-line `{` into this same trailing-length check would
+         itself have reintroduced round-to-round instability (confirmed by trying the unrestricted
+         version first: it broke 5 unrelated, non-member-init signatures elsewhere in `catch.hpp`).
+       - `~12738`: `struct sigaction sa = {};;` gained an extra `;` on every re-format
+         (`{};;` → `{};;;` → ...). Root cause: `ScopePipeline.isScopeOpeningBrace`'s backward scan for
+         a construct keyword (`class`/`struct`/...) matched `struct` anywhere in the span, with no
+         check for an intervening `=` — but `struct sigaction sa = { };` is an elaborated-type
+         variable declaration (`sigaction` is a referenced type tag, not a construct being declared),
+         not a `struct` body definition, and no genuine construct declaration ever contains a
+         top-level `=` before its body brace. This misdetection made `splitTopLevelSpans` treat the
+         statement's own trailing `;` as a separate, spurious empty span, which then picked up a
+         second `;` from the same machinery that terminates a real `struct Foo {...};`. Fixed by
+         bailing out of `isScopeOpeningBrace` on any top-level `=` found in the scanned range. Also
+         hardened `TokenizerCore.trackSignificant` while investigating this: `pendingNamedConstructName`
+         stayed armed on the elaborated type's tag identifier (`sigaction`) when the very next
+         significant token was a second bare `IDENTIFIER` (`sa`) rather than `::` — now cleared in
+         that case, so this shape can never be mistaken for a named construct by any consumer of
+         `Token.name`/`computeConstructName` (this alone didn't fully explain the bug, since
+         `emitOpenBrace`'s fallback `computeConstructName()` also returns null here since the last
+         token before `{` is `=` — but it closes an unrelated gap in the same tracking logic found
+         along the way).
+       Verified: `make test` 32/32; the full `frozen`/`catch.hpp` round1/round2 diff is now empty
+       (was 12 lines across the 3 remaining hunks before this fix); the full 156-file `frozen` tree
+       (all `.c`/`.h`/`.cpp`/`.hpp` files) is fully idempotent round1-vs-round2. New fixture:
+       `test/real_code_regressions_16_{inp,out}.hpp`, covering all 4 shapes in one file (nested
+       namespace + wrapped signature; two-arg and one-arg member-initializer-list constructors, one
+       needing to wrap; elaborated-type empty-aggregate-init declaration).
+       `serge-sans-paille/frozen` is now fully DONE.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
   Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-
@@ -608,10 +656,8 @@ possible. Use this standard copyright header on every new test fixture file:
   `indent-size` (30/30, no fixture changes); verified live at `indent-size = 2` — full 44-file
   tree now fully idempotent.
 
-**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is
-IN PROGRESS: bug 7's two indent/tokenizer fixes have both landed (§ above), but `catch.hpp` still
-needs the 4 newly-surfaced, unrelated small idempotency bugs (§ above, "New, unrelated bugs
-surfaced by this fix") fixed before the library can be marked DONE. After that, continue real-code testing
+**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is now DONE
+(all bugs fixed, full 156-file tree idempotent). Continue real-code testing
 against remaining C/C++ candidates in this order unless redirected: `taocpp/PEGTL`, then the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs
 newer; confirm any compile failure also reproduces against the unmodified original before

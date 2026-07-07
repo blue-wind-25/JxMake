@@ -1388,6 +1388,14 @@ public class MiscRule {
      * `indentLevel + 1`.
      */
     public List<String> render(final Signature sig, final int indentLevel, final String indentStyle) {
+        return render(sig, indentLevel, indentStyle, 0);
+    }
+
+    /** @param trailingLen length of any trailing same-line text after the signature's own `)`
+     *  (e.g. a constructor's member-initializer-list opener, `: field(`) that the line-length
+     *  wrap decision below must also account for. */
+    public List<String> render(final Signature sig, final int indentLevel, final String indentStyle,
+            final int trailingLen) {
         final String lead = renderTokens(sig.leadTokens);
         final boolean leadNeedsSpace = !sig.leadTokens.isEmpty()
                 && needsSpaceBetween(sig.leadTokens.get(sig.leadTokens.size() - 1), sig.name,
@@ -1415,7 +1423,8 @@ public class MiscRule {
             }
         }
         if (!hasLineComment
-                && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= lineLengthLimit)) {
+                && (sig.params.isEmpty()
+                        || startColumn + inline.length() + trailingLen - commentLen <= lineLengthLimit)) {
             return Collections.singletonList(inline);
         }
 

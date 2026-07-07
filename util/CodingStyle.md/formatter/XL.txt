@@ -8,8 +8,6 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Continue with  C/C++/Java `**Bug B STILL OPEN (2026-07-07)**`
-
 Continue with Kotlin §7.
 
 
@@ -30,15 +28,12 @@ tests failed.
 
 
 
-Create new text fixtures )`test/real_code_regressions_*_inp/_out*)` for the newly
-fixed regressions/bugs (put them in one file if possible) and then update `Makefile`
-and `test/README.txt`. Use this standard copyright for the test fixtures:
-```
-/*
- * Copyright (C) 2024 Example Corp.
- * SPDX-License-Identifier: MIT
- */
-```
+Now the bug(s) are fixed, read and execute the instruction for creating new test fixture pair in:
+**When a bug is found and fixed, add a new permanent fixture pair:**
+
+So it is worth to create a new test fixture pair for the XXX fix? If so, read and
+execute the instruction for creating new test fixture pair in:
+**When a bug is found and fixed, add a new permanent fixture pair:**
 
 ####################################################################################################
 ####################################################################################################

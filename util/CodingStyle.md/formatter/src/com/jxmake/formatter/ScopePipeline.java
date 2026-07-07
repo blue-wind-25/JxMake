@@ -217,16 +217,30 @@ public class ScopePipeline {
      * intervening base-class list (`: public Base`), attribute-specifier (`alignas(16)`), or
      * template header doesn't defeat the match. A brace-initializer's span never contains such a
      * keyword (its lead tokens are a type/`auto` and `=`, or nothing at all), so this scan
-     * distinguishes the two shapes cleanly.
+     * distinguishes the two shapes cleanly -- except for a C-style elaborated-type declarator
+     * (`struct sigaction sa = { };`), whose lead tokens genuinely do contain the keyword (the type
+     * tag being referenced, not declared) followed by an `=` and a brace-initializer. A top-level
+     * `=` anywhere in the scanned range rules out a construct declaration outright (neither a
+     * class/struct/union/enum header nor its optional base-class list/attributes/template header
+     * can contain one), so it unambiguously flags this as the elaborated-type-declarator shape
+     * instead.
      */
     private boolean isScopeOpeningBrace(final List<Token> tokens, final int braceIdx, final int spanStart) {
+        boolean sawConstructKeyword = false;
+        int depth = 0;
         for (int i = spanStart; i < braceIdx; i++) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.KEYWORD && isNamedConstructStartKeyword(t.text)) {
-                return true;
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, "=")) {
+                return false;
+            } else if (t.type == TokenType.KEYWORD && isNamedConstructStartKeyword(t.text)) {
+                sawConstructKeyword = true;
             }
         }
-        return false;
+        return sawConstructKeyword;
     }
 
     /** True iff {@code tokens[start, colonIdx)} contains exactly one significant token and it is
@@ -408,22 +422,22 @@ public class ScopePipeline {
         if (tokens.get(braceIdx).name == null) {
             return false;
         }
-        int p = prevSignificantIndex(tokens, braceIdx - 1);
+        int p = prevSignificantIndex(tokens, braceIdx);
         if (p < 0 || tokens.get(p).type != TokenType.IDENTIFIER) {
             return false;
         }
         while (true) {
-            final int q = prevSignificantIndex(tokens, p - 1);
+            final int q = prevSignificantIndex(tokens, p);
             if (q < 0 || !isOp(tokens.get(q), "::")) {
                 break;
             }
-            final int r = prevSignificantIndex(tokens, q - 1);
+            final int r = prevSignificantIndex(tokens, q);
             if (r < 0 || tokens.get(r).type != TokenType.IDENTIFIER) {
                 break;
             }
             p = r;
         }
-        final int kwIdx = prevSignificantIndex(tokens, p - 1);
+        final int kwIdx = prevSignificantIndex(tokens, p);
         return kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
                 && "namespace".equals(tokens.get(kwIdx).text);
     }
@@ -779,6 +793,23 @@ public class ScopePipeline {
             if (closeParenIdx < 0) {
                 continue;
             }
+            // A C++ constructor's member-initializer list (`: field(val), other(val2)`) sits
+            // between the parameter list's own `)` and the body `{`, so the "nearest paren before
+            // `{`" found above is actually the last initializer's own closing paren, not the
+            // signature's -- redirect back to the `)` immediately before the list's introducing
+            // top-level `:` when one is found, so the signature-parsing below sees the real
+            // parameter list instead of misparsing the last initializer as a bogus signature.
+            int memberInitColonIdx = -1;
+            if (lang.isCpp) {
+                final int colonIdx = findTopLevelMemberInitColon(tokens, span.start, span.openBraceIdx);
+                if (colonIdx >= 0) {
+                    final int realClose = prevSignificantIndex(tokens, colonIdx);
+                    if (realClose >= 0 && isPunct(tokens.get(realClose), ")")) {
+                        closeParenIdx = realClose;
+                        memberInitColonIdx = colonIdx;
+                    }
+                }
+            }
             // For Java: handle a `throws` clause between `)` and `{`.
             int throwsEndIdx = -1;
             if (!isPunct(tokens.get(closeParenIdx), ")")) {
@@ -861,7 +892,26 @@ public class ScopePipeline {
                 continue;
             }
 
-            final List<String> lines = miscRule.render(sig, depth, indentStyle);
+            // A member-initializer list can start right after the signature's `)` on the very
+            // same output line (`) : tag(` above) -- that trailing text counts against the line
+            // length just as much as the signature itself, so the wrap decision must include it.
+            // Otherwise a signature at the boundary can measure as "fits" here while the actual
+            // rendered line (with `: field(` appended) runs over, only to get wrapped on a later
+            // pass once the input already has it pre-wrapped -- unstable across repeated formats.
+            // Restricted to this member-init-list case specifically (rather than any trailing
+            // same-line text): an ordinary function/method body's `{` hasn't been Allman-placed
+            // onto its own line yet at this point in the pipeline (that's a later phase), so a
+            // same-line `{` here is not yet the real, final same-line neighbor and including it
+            // would itself be a source of round-to-round instability.
+            int trailingLen = 0;
+            if (memberInitColonIdx >= 0) {
+                int trailingLineEnd = closeParenIdx + 1;
+                while (trailingLineEnd < tokens.size() && tokens.get(trailingLineEnd).type != TokenType.NEWLINE) {
+                    trailingLineEnd++;
+                }
+                trailingLen = joinText(tokens, closeParenIdx + 1, trailingLineEnd).length();
+            }
+            final List<String> lines = miscRule.render(sig, depth, indentStyle, trailingLen);
             final String leadingGap = joinText(tokens, span.start, sigLeadStart);
             final StringBuilder text = new StringBuilder(leadingGap).append(lines.get(0));
             for (int i = 1; i < lines.size(); i++) {
@@ -917,6 +967,29 @@ public class ScopePipeline {
     /** True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded
      *  by `new` -- the candidate-signature-name signal, ported from
      *  {@code JavaSpecificRule.isCandidateMethodName}/{@code CppSpecificRule.isCandidateSignatureName}. */
+    /** Finds a top-level (depth-0) `:` between {@code from} and {@code to} that introduces a
+     *  constructor's member-initializer list -- recognized by being immediately preceded by `)`
+     *  (the parameter list's own close paren) and not itself part of `::`. Returns -1 if none
+     *  found (an ordinary function/control-flow body, or a C++11 base-class-in-braces case with
+     *  no initializer list at all). */
+    private int findTopLevelMemberInitColon(final List<Token> tokens, final int from, final int to) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, ":")) {
+                final int prev = prevSignificantIndex(tokens, i);
+                if (prev >= 0 && isPunct(tokens.get(prev), ")")) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
     private boolean isCandidateSignatureName(final List<Token> tokens, final int openIdx) {
         final int nameIdx = prevSignificantIndex(tokens, openIdx);
         if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {

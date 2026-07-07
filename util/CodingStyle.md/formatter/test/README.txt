@@ -410,6 +410,67 @@ Real-code regressions:
                                            spacing in the expected output is accepted collateral
                                            since this formatter has no real Objective-C support.
 
+  real_code_regressions_16_inp/out.hpp  -- Covers the 4 unrelated idempotency bugs that fixture
+                                           15's `[[` fix surfaced in `catch.hpp` (previously masked
+                                           by the bracket-depth desync corrupting everything below
+                                           it). All 4 are ScopePipeline/TokenizerCore bugs unrelated
+                                           to `[[` itself:
+                                           (1) applySignaturePass's `depth` int deliberately skips
+                                           namespace nesting when computing a wrapped signature's
+                                           indent level -- ScopePipeline.isNamespaceScope's own
+                                           backward scan for the `namespace` keyword used
+                                           `prevSignificantIndex(tokens, idx - 1)`, an off-by-one
+                                           that skipped the token immediately before `idx` (that
+                                           function already scans from `from - 1`), so it silently
+                                           misjudged some `namespace NAME{` occurrences (no space
+                                           before `{`) as not-a-namespace, giving wrong depth only
+                                           on a fresh, not-yet-reformatted source.
+                                           (2)/(3) A member-initializer list (`: field(val), ...`)
+                                           sitting between a constructor's own `)` and its body `{`
+                                           was mistaken by applySignaturePass for the space between
+                                           an ordinary function's `)` and `{`, so the *initializer's*
+                                           own closing paren -- not the constructor's -- was treated
+                                           as the signature's close paren; parseSignature would then
+                                           misparse the last initializer's own call
+                                           (`m_isNegated(other.m_isNegated)`) as if it were the real
+                                           signature, corrupting its internal spacing. Fixed by
+                                           ScopePipeline.findTopLevelMemberInitColon, which detects
+                                           a top-level `:` immediately preceded by `)` and redirects
+                                           back to that `)` as the true close paren. This exposed a
+                                           second, previously-unreachable bug: the line-length
+                                           wrap-fits check only measured the signature's own text,
+                                           not the member-initializer-list opener immediately
+                                           following it on the same line (`) : tag(`) -- unstable
+                                           across passes since that trailing text isn't visible to
+                                           MiscRule.render() otherwise. Fixed by threading a
+                                           `trailingLen` parameter through applySignaturePass into
+                                           render(), computed only for this member-init-list case
+                                           (an ordinary function/method body's `{` hasn't been
+                                           Allman-placed onto its own line yet at this point in the
+                                           pipeline, so including a same-line `{` in this same way
+                                           would itself have been a fresh source of instability).
+                                           (4) `struct sigaction sa = { };` (an elaborated-type
+                                           variable declaration with an empty aggregate initializer)
+                                           was misdetected by ScopePipeline.isScopeOpeningBrace as a
+                                           genuine `struct` body declaration, since its backward
+                                           scan for a construct keyword found `struct` anywhere in
+                                           the statement with no check for an intervening `=` --
+                                           real construct declarations never contain one. This made
+                                           splitTopLevelSpans treat the statement's own trailing `;`
+                                           as a separate, spurious empty statement, which then got a
+                                           second `;` appended by the same machinery that terminates
+                                           a real `struct Foo {...};` declaration, so `{}` grew an
+                                           extra `;` on every pass (`{};` -> `{};;` -> `{};;;` ...).
+                                           Fixed by bailing out of isScopeOpeningBrace on any
+                                           top-level `=` in the scanned range. Also fixed a related
+                                           TokenizerCore gap while investigating (1): an elaborated
+                                           type's tag identifier (`struct sigaction sa`'s
+                                           `sigaction`) stayed armed as `pendingNamedConstructName`
+                                           when the very next token was a second bare IDENTIFIER
+                                           (`sa`) rather than `::` -- now cleared in that case, so
+                                           `computeConstructName`/`isNamespaceScope`-style consumers
+                                           never see this shape as naming a construct.
+
 
 
 How Tests Are Run

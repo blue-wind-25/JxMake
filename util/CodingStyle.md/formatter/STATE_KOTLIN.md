@@ -152,6 +152,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
 | RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; own group stream, never merged with §6's |
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
+| RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 
 ---
 
@@ -283,8 +284,8 @@ existing test suite after this step, before moving to Step 1.
 | 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a) | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). |
 | 16 | Annotation use-site targets (`@field:` tight `:`) | (c), **done** | No existing annotation-colon handling (Java annotations have no use-site-target shape) — new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, a flat whole-file state-machine pass. RDD_KEY_108. |
-| 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (c) | Needs `Type.(...) -> Ret` recognized as one atomic function-type token by whatever handles nested-paren/bracket detection (`ComplexityPaddingEvaluator` or a Kotlin-specific pre-pass) — new. |
-| 17.1 | Lambda parameter arrow spacing | (c) | Same category as §5 — active operator spacing outside declarations, nothing shared does this today. |
+| 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (b), **done** | `ComplexityPaddingEvaluator.isLoose` (shared) extended to skip a `.`-preceded/`->`-followed `(...)` span rather than counting it as nesting — pure no-op for C/C++/Java, `make test` 32/32 before/after. Known Gap (function type nested as a parameter of another) deliberately left unhandled, per the style doc's own text. RDD_KEY_109. |
+| 17.1 | Lambda parameter arrow spacing | (c), **done** | New `KotlinSpecificRule.enforceArrowSpacing` — flat whole-file single-space-both-sides pass over every `->`, covering the function-type arrow (§17) and lambda-parameter arrow (§17.1) together as "one consistent arrow-spacing rule." Excludes `when`-branch arrows via `collectWhenBranchArrowIndices` (owned by §4's alignment instead). RDD_KEY_109. |
 | 18 | `vararg` | (a) | Modifier-slot handling is Step 2 scope; no general spacing concern beyond that. |
 | 19 | String templates (preserve `"$x"`/`"${x}"` exactly) | (c) — **tokenizer-level, feeds back into Step 0** | Not yet verified whether `TokenizerCore.emitString()` can correctly find a Kotlin string's closing `"` when a `${...}` interpolation contains its own nested `"..."` (e.g. `"${foo("x")}"`). `emitString()` was written for C/Java string literals, which have no such nesting. This is a real risk, not a style question — needs a dedicated Step 0 follow-up before any Kotlin fixture with string templates can be trusted. Flagged, not yet investigated in depth (avoiding guessing ahead of an actual failing case, per this step's own discipline; a concrete failing fixture should drive the actual fix). |
 | 20 | Sealed classes/interfaces | (a) | Normal `class`/`object` K&R rules apply unchanged, no special layout. |
@@ -393,6 +394,20 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
       both sides; `@`-to-target spacing left unenforced (no textual
       backing, no codebase precedent for reformatting plain annotation
       spacing). No shared-class change. `make test` 32/32.
+- [x] **§17/§17.1 Lambda-with-receiver / function-type nesting exemption +
+      arrow spacing.** `RDD_KEY_109` — **shared-class change**:
+      `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/
+      `->`-followed `(...)` span (a lambda-with-receiver's own invocation
+      parens) rather than counting it as nesting, so an enclosing
+      parenthesized type annotation stays tight (`(StringBuilder.() -> Unit)`)
+      instead of incorrectly loose-padding. Pure no-op for C/C++/Java
+      (neither has this token shape); `make test` 32/32 before and after.
+      Known Gap (function type nested as a parameter of another) deliberately
+      left unhandled per the style doc. Also new Kotlin-only
+      `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`
+      — flat whole-file single-space arrow pass covering both constructs,
+      explicitly excluding `when`-branch arrows (owned by §4's column
+      alignment) by index. `make test` 32/32.
 
 ### Step 3.5 — Configuration Property Wiring
 

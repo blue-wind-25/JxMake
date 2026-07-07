@@ -645,6 +645,112 @@ public class KotlinSpecificRule {
         return "return".equals(text) || "break".equals(text) || "continue".equals(text);
     }
 
+    // ── §17/§17.1 Function-type / lambda-parameter arrow spacing ────────────────
+    /**
+     * STYLE_KOTLIN.md §17/§17.1: every `->` -- a function type's own arrow (`(Int) -> String`,
+     * `Type.(Params) -> ReturnType`) and a lambda literal's own parameter-list arrow (`{ x, y ->
+     * x + y }`) alike -- is spaced exactly one space on each side, "one consistent arrow-spacing
+     * rule across all three constructs" per §17.1's own text (the third construct being `when`'s
+     * arrow, §4). A `when`-branch's own selector arrow is excluded here -- {@link
+     * #formatWhenExpressions} already fully owns that arrow's spacing (column-aligned padding,
+     * not a flat single space), so this pass must never touch it or it would collapse that
+     * alignment back down to one space regardless of which pass happens to run first/last once
+     * these are eventually wired together. {@link #collectWhenBranchArrowIndices} identifies
+     * exactly those arrow token indices (by walking every `when` block the same way {@link
+     * #formatWhenExpressions} does) so they can be skipped by index, not by construct-shape
+     * guessing. Same conservative bailout as every other pass in this file: a gap containing a
+     * comment, a NEWLINE, or a frozen token on either side of the arrow is left completely
+     * untouched for that side (critical for the multi-line lambda body case, `{ item ->\n
+     * item.transform()\n}`, where forcing a space before the newline would introduce trailing
+     * whitespace).
+     */
+    public String enforceArrowSpacing(final List<Token> tokens) {
+        final java.util.Set<Integer> whenArrows = collectWhenBranchArrowIndices(tokens);
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        int lastSignificantIdx = -1;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean blocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean forceSpaceBefore = !blocked && isOp(t, "->") && !whenArrows.contains(i);
+            final boolean forceSpaceAfter = !blocked && lastSignificant != null && isOp(lastSignificant, "->")
+                    && !whenArrows.contains(lastSignificantIdx);
+
+            if (forceSpaceBefore || forceSpaceAfter) {
+                out.append(' ');
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            lastSignificantIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Every `when`-branch selector arrow's own token index, across every `when` block in
+     *  {@code tokens} -- walks the same `when(...) { ... }` shape {@link #formatWhenExpressions}
+     *  recognizes, so {@link #enforceArrowSpacing} can exclude exactly those arrows (already
+     *  owned by §4's column alignment) without duplicating that method's alignment logic. */
+    private java.util.Set<Integer> collectWhenBranchArrowIndices(final List<Token> tokens) {
+        final java.util.Set<Integer> arrows = new java.util.HashSet<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.KEYWORD || !"when".equals(t.text)) {
+                continue;
+            }
+            int j = nextSignificantIndex(tokens, i + 1);
+            if (j < 0) {
+                continue;
+            }
+            if (isPunct(tokens.get(j), "(")) {
+                final int closeParen = matchParenForward(tokens, j);
+                if (closeParen < 0) {
+                    continue;
+                }
+                j = nextSignificantIndex(tokens, closeParen + 1);
+            }
+            if (j < 0 || !isPunct(tokens.get(j), "{")) {
+                continue;
+            }
+            final int openBrace = j;
+            final int closeBrace = matchBraceForward(tokens, openBrace);
+            if (closeBrace < 0) {
+                continue;
+            }
+            final List<WhenBranch> branches = findWhenBranches(tokens, openBrace, closeBrace);
+            if (branches == null) {
+                continue;
+            }
+            for (final WhenBranch b : branches) {
+                final int arrowIdx = findTopLevelArrow(tokens, b.labelStart, b.bodyStart);
+                if (arrowIdx >= 0) {
+                    arrows.add(arrowIdx);
+                }
+            }
+        }
+        return arrows;
+    }
+
     // ── §16 Annotation use-site targets ──────────────────────────────────────────
     private static final java.util.Set<String> USE_SITE_TARGETS = new java.util.HashSet<>(java.util.Arrays.asList(
             "file", "property", "field", "get", "set", "receiver", "param", "setparam", "delegate"));

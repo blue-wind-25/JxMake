@@ -582,24 +582,49 @@ values yet, since no pipeline path exists for the language at all.
 - [ ] `closing-comment-min-lines`: confirm Kotlin's named-construct closing
       comments (§2/§3.1, `BlockStructureRule`-derived) respect this once wired
       — untested for Kotlin specifically.
-- [ ] `format-macros`: likely a no-op for Kotlin (no preprocessor macros in the
-      language) — confirm and document as intentionally inert rather than
-      silently ignored.
+- [x] `format-macros`: confirmed a permanent no-op for Kotlin, not just
+      "not wired yet" — its only consumer is `CppSpecificRule`'s `#define`
+      column-alignment logic (`format-macros = on`), only ever constructed
+      and called from `Formatter.java`'s `isCOrCpp` branch. Kotlin has no
+      preprocessor and never will, so there is no future wiring step where
+      this property becomes meaningful for `.kt` files — this is categorically
+      different from the other items below (which are blocked only pending
+      the deferred pipeline wiring). `TokenizerCore.isPreprocessorLanguage()`
+      unconditionally returns `true` for every language (its own comment notes
+      Java source sometimes carries PCPP-style directives), so a stray `#` at
+      line-start in a Kotlin file (e.g. a Kotlin script's `#!/usr/bin/env
+      kotlin` shebang) still lexes as an opaque `PREPROCESSOR` token rather
+      than erroring — harmless and unrelated to `format-macros` itself, noted
+      here only because it was checked as part of confirming this item.
 - [ ] `line-endings`: shared/global concern (`Formatter.java` line-ending
       normalization) — confirm it already applies file-type-agnostically once
       Kotlin files flow through `Formatter.java` at all.
 - [ ] `normalize-comment-start-case` / `normalize-comment-end-period`: confirm
       these apply to Kotlin's `//`/`/* */` comments unchanged (comment syntax
       itself is identical to Java) once wired.
-- [ ] New Kotlin import-ordering properties, parallel to
-      `java-import-order`/`java-import-sort`/`java-import-depth`/
-      `java-import-blank-lines` (today handled inline in `Formatter.java`, not
-      a separate rule class): add `kotlin-import-order`, `kotlin-import-sort`,
+- [x] **Spec written** — STYLE_KOTLIN.md §24 "Import Ordering" now documents
+      the Kotlin `kotlin-import-order`/`kotlin-import-sort`/`kotlin-import-depth`/
+      `kotlin-import-blank-lines` properties, derived directly from
+      STYLE_JAVA.md §7. One deliberate difference from the Java spec: no
+      `static` group, since Kotlin has no `import static` keyword — a
+      companion-object-member or top-level-function import uses the exact
+      same `import a.b.c` syntax as any other import, so "this is a static
+      import" isn't lexically detectable the way Java's `import static` is. A
+      leading `kotlin` group (for `kotlin.*` stdlib imports) takes its place.
+      Local-import detection (read the local prefix from the file's own
+      `package` declaration, depth-configurable) is identical to Java's
+      mechanism. Also documents that aliased imports (`import foo.Bar as
+      Baz`) and wildcards sort/group by their original qualified name, not
+      the alias. Spec only — no code written yet (see next item).
+- [ ] **Implementation** — add `kotlin-import-order`, `kotlin-import-sort`,
       `kotlin-import-depth`, `kotlin-import-blank-lines` to `Config.java`'s
-      known-keys list and parsing, then implement the actual Kotlin `import`
-      statement ordering/sorting/grouping logic (not started — no Kotlin
-      import handling exists anywhere yet, this is genuinely new work, not
-      just config plumbing).
+      known-keys list and parsing (mirroring the existing `java-import-*`
+      keys exactly), then implement the actual Kotlin `import` statement
+      ordering/sorting/grouping logic against the now-written §24 spec. Not
+      started — no Kotlin import handling exists anywhere yet. Can be built
+      and harness-verified without crossing the deferred `Main.java`/pipeline
+      boundary, same as every other unwired Kotlin rule class so far — only
+      wiring it into `Formatter.formatOne` itself needs to wait.
 - [ ] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
       the underlying implementation (`TokenizerCore`'s marker regexes,
       `ScopePipeline`'s frozen-region handling) is already shared and

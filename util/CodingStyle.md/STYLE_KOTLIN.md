@@ -636,7 +636,75 @@ special treatment for the receiver-type prefix beyond normal token spacing.
 
 ---
 
-## 24. Resolved Design Decisions (Q&A session)
+## 24. Import Ordering
+
+Imports are arranged in groups separated by **exactly 1 blank line**. Within
+each group, imports are sorted alphabetically (configurable). Derived directly
+from STYLE_JAVA.md §7, with one Kotlin-specific difference: **there is no
+`static` group**, because Kotlin has no `import static` keyword — an import of
+a companion object member or a top-level function is written with the exact
+same `import a.b.c` syntax as any other import, so "this is a static import"
+isn't something the tokenizer can tell apart from an ordinary one. In its
+place, a leading group is added for Kotlin's own standard library.
+
+**Default group order:**
+
+```kotlin
+import kotlin.*              // Group 1: kotlin.* (Kotlin stdlib)
+
+import java.*                // Group 2: java.* and javax.* (JVM interop)
+import javax.*
+
+import com.*                 // Group 3: com.*
+
+import org.*                 // Group 4: org.*
+
+import <other>.*             // Group 5: <other>.*
+
+import mycompany.myproject   // Group 6: local / in-project imports
+```
+
+**Local import detection:** identical mechanism to STYLE_JAVA.md §7 — the
+project's root package is read from the `package` declaration at the top of
+the file being formatted, and the top two package components (e.g.
+`com.mycompany` from `package com.mycompany.myproject.audio`) define the local
+prefix. All imports sharing that prefix are placed in the local group.
+
+Configurable:
+```
+kotlin-import-order       = kotlin, java, com, org, other, local   # group order
+kotlin-import-sort        = on                                     # alphabetical within group
+kotlin-import-depth       = 2                                       # components defining "local"
+kotlin-import-blank-lines = 1                                       # blank lines between groups
+```
+
+**Unused imports** — the formatter does not remove unused imports, same
+posture as STYLE_JAVA.md §7. That is the responsibility of the IDE or a
+separate lint tool.
+
+**Import aliases** (`import foo.Bar as Baz`) and wildcard imports
+(`import foo.bar.*`) sort and group by their original (pre-alias) qualified
+name, not the aliased name — consistent with treating the import statement's
+own textual identity, not its usage-site name, as what group/sort order acts
+on.
+
+---
+
+**Once the Kotlin formatter is wired into the formatter application**
+(`Main.java`'s `.kt`/`.kts` dispatch, per `STATE_KOTLIN.md`'s Step 4/5), update
+these three files to advertise Kotlin JAR support, same as STYLE_JAVA.md's own
+inclusion in them:
+
+- `AI_PREAMBLE_FULL.md`
+- `AI_PREAMBLE_AESTHETIC.md`
+- `README.txt`
+
+Not done yet — premature while the formatter can't actually be invoked on
+`.kt`/`.kts` files at all.
+
+---
+
+## 25. Resolved Design Decisions (Q&A session)
 
 | Topic | Decision |
 |---|---|
@@ -663,3 +731,4 @@ special treatment for the receiver-type prefix beyond normal token spacing.
 | Lambda parameter arrow | Spaced both sides — one consistent arrow-spacing rule shared with `when` and function-type arrows |
 | Expression-bodied functions | Same preserve-as-is posture as accessors (§8); participates in §14/STYLE.md one-liner aligned groups as just another one-liner shape; breaks via §7 param rules then wraps `= expr` on its own line if still too long |
 | Generic `where` clause | Trailing-qualifier posture: inline if it fits; else `where` drops to its own line, bounds break one-per-line at the comma (never at the bound's own `:`), column-aligned; a single overlong bound line is allowed to overflow, same precedent as destructuring |
+| Import ordering | Same group/sort/local-detection mechanism as STYLE_JAVA.md §7; the `static` group is dropped (Kotlin has no `import static` keyword, so a "static import" isn't lexically detectable) and replaced with a leading `kotlin` group for `kotlin.*`/`kotlin.**.*` stdlib imports |

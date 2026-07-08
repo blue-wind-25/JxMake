@@ -205,13 +205,3 @@ String describe(Object obj) {
 Same §3 arrow-form alignment rules apply — the `->` column aligns across cases
 regardless of whether the label is a type pattern, a record deconstruction
 pattern, or a plain value.
-
----
-
-## 7. Resolved Design Decisions (Q&A session)
-
-| Topic | Decision |
-|---|---|
-| Switch expr `->` alignment + block body | Block-body case breaks the whole switch expression's `->` alignment — no case gets aligned. Same all-or-nothing posture as STYLE.md §13 |
-| Record component broken form (§1) | Follows §8 exactly — `)` on its own line at the `record` keyword's indentation column (see worked example in §1 above) |
-| `sealed`/`non-sealed` exact column in `JavaModifierPriority` | `abstract → sealed → non-sealed → final` — see §2 above for full priority table |

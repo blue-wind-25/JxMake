@@ -23,9 +23,12 @@ Do **not** use this preamble with small on-device models (Qwen2.5-Coder-3B, Llam
 3.2 3B, etc.) — they fail inconsistently on column alignment and bracket-padding rules.
 
 This preamble is language-agnostic; combine it with the style files for the target
-language (see README.txt). For Kotlin, this is currently the **only** available
-workflow — the deterministic JAR does not yet implement Kotlin support, so there is
-no post-JAR layout-judgment pass for Kotlin files until that lands.
+language (see README.txt). For Kotlin, the deterministic JAR now implements Kotlin
+support (`.kt`/`.kts`, auto-detected) — prefer running the JAR first, same as
+C/C++/Java. There is still no post-JAR layout-judgment pass for Kotlin files
+(`AI_PREAMBLE_AESTHETIC.md`'s two aesthetic decisions are scoped to C/C++/Java only),
+so this full-file pass remains the fallback for any Kotlin construct the JAR doesn't
+yet handle.
 
 ---
 

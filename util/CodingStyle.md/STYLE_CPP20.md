@@ -163,21 +163,3 @@ No special rule needed. STYLE.md §3.1's `isLoose` check applies to the full
 condition content as usual — the `;` is just another token. A condition like
 `auto x = 10; x > 0` containing no `(` or `[` tokens is correctly classified
 tight; one like `auto x = f(); x > 0` containing a call `(` is correctly loose.
-
----
-
-## 5. Resolved Design Decisions (Q&A session)
-
-| Topic | Decision |
-|---|---|
-| `concept` brace style | K&R — `requires { }` is an expression body, same as lambda |
-| `requires` clause line-break trigger | Trails `)` always; wraps to own line only when `) requires ...` exceeds 100 chars |
-| Multi-line `requires { }` body | Standard block indent; nested `{ ... } -> type` compound requirements left untouched |
-| `constexpr` / `consteval` / `constinit` column order | `constexpr → consteval → constinit` together; verify `constexpr` already present before adding |
-| `<=>` spacing | Single space each side; no RHS operator alignment |
-| Coroutines | Identical to `return`/`throw` — no special rule |
-| `if`/`switch` init-statement | No special rule; `isLoose` already handles correctly via `(` / `[` detection |
-
-**§1 structured bindings implementation note:** verify the atomic-name-cell reading
-against a worked example with a trailing comment before implementing, to confirm
-STYLE.md §5's comment-alignment column still lines up when the name cell is `[a, b, c]`.

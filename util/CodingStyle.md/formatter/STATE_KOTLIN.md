@@ -121,7 +121,7 @@ util/CodingStyle.md/formatter/
         KotlinSpecificRule.java
   test/
     kt_combined_inp.kt / kt_combined_out.kt
-    kt_comments_inp.kt / kt_comments_out.kt   ← NOT STARTED
+    kt_comments_inp.kt / kt_comments_out.kt
 ```
 
 Existing shared files listed under Hard Constraint above are modified
@@ -678,7 +678,6 @@ Use the result to fix the formatter.
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
       for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
       same methodology as the existing `*_inp/out` pairs for other languages.
-      **Not available yet.**
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
 

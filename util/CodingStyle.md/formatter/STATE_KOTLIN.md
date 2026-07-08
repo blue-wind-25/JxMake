@@ -167,6 +167,28 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 
 ## Open Questions
 
+- **First-statement double-indentation bug (found during Step 4, while
+  fixing punch-list item 2/RDD_KEY_120).** A Kotlin `val`/`var` declaration
+  that is the very first statement inside a function or class body gets
+  double-indented (8 spaces instead of 4 at default `indent-size`), e.g.
+  `fun sumAll(...) { var total = 0 ... }` renders `var total`'s line at 8
+  spaces. Confirmed via bisection (`git checkout HEAD~1` /
+  `git stash`) to predate both RDD_KEY_119 and RDD_KEY_120 entirely — a
+  pre-existing bug, not a regression from this session's other fixes.
+  Reproduces with a minimal two-line function body, no `for` loop or class
+  involved. Root cause not yet fully isolated — traced as far as
+  `ScopePipeline.addKotlinDeclReplacement`'s leading-gap-vs-fresh-render
+  splice logic (shared with the `applyDeclarationsPass`/`processScope`
+  family), which computes a `gapStart`/`rawLeadingGapFull`/`freshPad`
+  interaction meant to avoid double-counting indentation between the raw
+  source gap and `KotlinDeclarationAlignmentRule.renderPropertyGroup`'s own
+  rendered line — but `renderPropertyGroup`'s output has no leading
+  whitespace of its own (confirmed by reading it), so the doubling must come
+  from `ScopePipeline`'s recursive per-scope child-fragment extraction
+  (`processScope`) re-adding an indent level that the splice logic also
+  adds; not yet confirmed with a debug-print harness. Out of scope for
+  RDD_KEY_120 (a `BlockStructureRule.tryCollapse` fix, unrelated file/pass) —
+  flagged here rather than guessed at.
 - **Reversed declaration grammar (§6/§7, found during Step 1).**
   `DeclarationAlignmentRule.Declaration` (and `MiscRule`'s parameter/signature
   model) assume C/Java's `[modifiers] Type name [= init]` token order.
@@ -760,8 +782,19 @@ working map, not a spec):
    clearing the just-armed class/enum-class name before its own body `{`
    consumed it, since a primary constructor's `(` has the identical
    keyword-IDENTIFIER-`(` shape. Gated off for Kotlin. `make test` 32/32.
-2. [ ] `for(n in numbers) { total += n }` does not collapse to
-   `for(n in numbers) total += n` — not yet fixed, in progress.
+2. [x] `for(n in numbers) { total += n }` does not collapse to
+   `for(n in numbers) total += n`. **Fixed — RDD_KEY_120.** Root cause:
+   `BlockStructureRule.tryCollapse` required exactly one top-level `;` in the
+   body, unconditionally — Kotlin has no mandatory `;`, so a Kotlin
+   single-statement body always had `semiCount == 0` and was rejected
+   outright, a total blind spot rather than an edge case. Added a
+   Kotlin-only newline-boundary-based single-statement check
+   (`isKotlinSingleStatementBody`), parallel to the existing `;`-based path.
+   `make test` 32/32. **Surfaced but not fixed (out of scope for this bug):**
+   a pre-existing, fully independent `ScopePipeline`/
+   `KotlinDeclarationAlignmentRule` splice bug that double-indents a
+   `val`/`var` declaration when it's the first statement inside a Kotlin
+   function/class body — see Open Questions.
 3. [ ] `when(status) { ... }` block badly mangled (branches squished onto one
    line, wrong indentation, closing comment capitalized "When status") — not
    yet fixed, in progress. Known not-idempotent per §4/RDD_KEY_101.

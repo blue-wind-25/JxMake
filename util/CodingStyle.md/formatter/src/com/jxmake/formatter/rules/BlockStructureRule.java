@@ -209,21 +209,33 @@ public class BlockStructureRule {
                 semiIdx = k;
             }
         }
-        if (semiCount != 1) {
+        if (semiCount == 1) {
+            for (int k = semiIdx + 1; k < sig.size(); k++) {
+                final TokenType ty = sig.get(k).type;
+                if (ty != TokenType.COMMENT_LINE && ty != TokenType.COMMENT_BLOCK) {
+                    return null;
+                }
+            }
+            for (int k = 0; k < semiIdx; k++) {
+                final TokenType ty = sig.get(k).type;
+                if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                    return null;
+                }
+            }
+        } else if (semiCount == 0 && lang.isKotlin) {
+            // Kotlin has no mandatory statement-terminating `;` (STYLE_KOTLIN.md §1) -- a
+            // single-statement body here is delimited by newlines, not a `;`, so the `;`-counting
+            // logic above never applies. `isKotlinSingleStatementBody` re-derives "exactly one
+            // top-level statement" from newline boundaries instead (a depth-0 NEWLINE separates
+            // statements; a NEWLINE inside an unclosed `(`/`[`/`{` -- a multi-line call argument
+            // list -- does not). Bails conservatively (no collapse) if any comment token is
+            // present in the body, same "don't guess past a comment" posture as the `;`-based
+            // path's own comment checks above.
+            if (!isKotlinSingleStatementBody(contents)) {
+                return null;
+            }
+        } else {
             return null;
-        }
-
-        for (int k = semiIdx + 1; k < sig.size(); k++) {
-            final TokenType ty = sig.get(k).type;
-            if (ty != TokenType.COMMENT_LINE && ty != TokenType.COMMENT_BLOCK) {
-                return null;
-            }
-        }
-        for (int k = 0; k < semiIdx; k++) {
-            final TokenType ty = sig.get(k).type;
-            if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
-                return null;
-            }
         }
 
         final Token first = sig.get(0);
@@ -234,6 +246,44 @@ public class BlockStructureRule {
         final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /** Kotlin-only sibling of the `;`-count check above: true iff {@code contents} (a braced
+     *  body's interior, including whitespace/newlines) holds exactly one top-level statement,
+     *  where "top-level" means outside any `(`/`[`/`{` nesting and no comment tokens are present
+     *  anywhere in the body. A depth-0 {@code NEWLINE} after some content has already been seen
+     *  marks a statement boundary; any further significant token after that boundary means more
+     *  than one statement, so the body doesn't qualify for the §10 single-statement omission. */
+    private boolean isKotlinSingleStatementBody(final List<Token> contents) {
+        int depth = 0;
+        boolean sawContent = false;
+        boolean sawBoundaryAfterContent = false;
+        for (final Token t : contents) {
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return false;
+            }
+            if (t.type == TokenType.PUNCT) {
+                if ("(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text)) {
+                    depth++;
+                } else if (")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text)) {
+                    depth--;
+                }
+            }
+            if (t.type == TokenType.NEWLINE && depth == 0) {
+                if (sawContent) {
+                    sawBoundaryAfterContent = true;
+                }
+                continue;
+            }
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                continue;
+            }
+            if (sawBoundaryAfterContent) {
+                return false;
+            }
+            sawContent = true;
+        }
+        return sawContent;
     }
 
     /** True if the `if` at {@code kwIndex} is part of an {@code else}/

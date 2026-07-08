@@ -660,6 +660,9 @@ values yet, since no pipeline path exists for the language at all.
 
 **IN PROGRESS**
 
+**The test fixtures are handwritten and may have syntax error.
+Confirm with the user as needed.***
+
 `test/kt_combined_inp.kt` and `test/kt_combined_out.kt`
 capture STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end coverage.
 

@@ -763,6 +763,7 @@ Use this standard copyright header when adding a new test fixture file:
       (`../../../../RobotCoding/gui_frontend_android/app/src/main/java/*.kt`) - NOT STARTED
 
 The Kotlin compiler should be accessible using:
+
 ```bash
 CP="\
 $HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/1.9.25/6e698f23ca1f74d6672827f61e92c2fe015d1b88/kotlin-compiler-embeddable-1.9.25.jar:\
@@ -777,3 +778,5 @@ $HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.intellij.deps/trove4j/1.0
 
 exec java  -cp "$CP" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib "$@"
 ```
+
+If the above compiler cannot perform syntax-check, suggest me the alternatives.

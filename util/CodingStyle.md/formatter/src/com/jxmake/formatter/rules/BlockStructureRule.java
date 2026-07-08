@@ -104,6 +104,26 @@ public class BlockStructureRule {
                             continue;
                         }
                     }
+                } else if (block != null && block.openBraceIndex < 0 && lang.isKotlin) {
+                    // Kotlin's braceless `if`/`while`/`for` body can start life already
+                    // brace-free but spread across two physical lines (`if(x)\n    stmt` --
+                    // e.g. `test/kt_combined_inp.kt`'s `if(i <= 5)\n    return@forEach`), unlike
+                    // C/C++/Java where a braceless body is only ever produced BY this same pass
+                    // collapsing an originally-braced one -- there is no pre-existing
+                    // "already-braceless-but-multi-line" input shape for those languages to
+                    // exercise this branch against. STYLE.md §10's own worked examples
+                    // (`if(x) return y;`) show the collapsed form as the target either way, so a
+                    // braceless multi-line body still needs joining onto one line here.
+                    if (!isPartOfElseChainBraceless(tokens, i, block, n)
+                            && !anyFrozen(tokens, i, block.closeParenIndex + 1)) {
+                        final int[] bodyEnd = new int[1];
+                        final String collapsed = tryCollapseBraceless(tokens, i, block, bodyEnd);
+                        if (collapsed != null) {
+                            out.append(collapsed);
+                            i = bodyEnd[0];
+                            continue;
+                        }
+                    }
                 }
             }
             out.append(t.text);
@@ -284,6 +304,99 @@ public class BlockStructureRule {
             sawContent = true;
         }
         return sawContent;
+    }
+
+    /** Kotlin-only sibling of {@link #tryCollapse} for a body that is already brace-free but
+     *  spans more than one physical line (`if(x)\n    stmt`) -- joins the condition and its sole
+     *  statement onto one line per STYLE.md §10, mirroring the braced path's single-statement
+     *  and no-nested-compound-body checks. Scans forward from right after the condition's `)`,
+     *  tracking `(`/`[`/`{` nesting depth, until a depth-0 {@code NEWLINE} following some
+     *  content (the statement's own end) or a depth-going-negative `}` (this body was the last
+     *  statement in its enclosing scope) is reached; bails (returns null, leaving the input
+     *  untouched) on any comment token in the body, an empty body, or a nested compound-body
+     *  keyword as the sole statement -- same conservative posture as {@link #tryCollapse}. On
+     *  success, {@code outBodyEnd[0]} is set to the token index one past the joined body (so the
+     *  caller's main loop can resume scanning from there). */
+    private String tryCollapseBraceless(final List<Token> tokens, final int kwIndex,
+            final ControlBlock block, final int[] outBodyEnd) {
+        final int n = tokens.size();
+        final int bodyStart = skipNonSignificant(tokens, block.closeParenIndex + 1);
+        if (bodyStart >= n) {
+            return null;
+        }
+        int depth = 0;
+        boolean sawContent = false;
+        int bodyEnd = -1;
+        for (int k = bodyStart; k < n; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return null;
+            }
+            if (t.type == TokenType.PUNCT) {
+                if ("(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text)) {
+                    depth++;
+                } else if (")".equals(t.text) || "]".equals(t.text)) {
+                    depth--;
+                } else if ("}".equals(t.text)) {
+                    if (depth == 0) {
+                        bodyEnd = k; // this body was the last statement in its enclosing scope
+                        break;
+                    }
+                    depth--;
+                }
+            }
+            if (t.type == TokenType.NEWLINE && depth == 0) {
+                if (sawContent) {
+                    bodyEnd = k;
+                    break;
+                }
+                continue;
+            }
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                continue;
+            }
+            sawContent = true;
+        }
+        if (!sawContent) {
+            return null;
+        }
+        if (bodyEnd < 0) {
+            bodyEnd = n; // ran off the end of `tokens` (e.g. this if is the very last statement)
+        }
+        final List<Token> contents = tokens.subList(bodyStart, bodyEnd);
+        final List<Token> sig = new ArrayList<>();
+        for (final Token t : contents) {
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                sig.add(t);
+            }
+        }
+        if (sig.isEmpty()) {
+            return null;
+        }
+        final Token first = sig.get(0);
+        if (first.type == TokenType.KEYWORD && COMPOUND_BODY_KEYWORDS.contains(first.text)) {
+            return null;
+        }
+
+        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
+        final String body = renderInline(contents);
+        outBodyEnd[0] = bodyEnd;
+        return prefix + " " + body;
+    }
+
+    /** Braceless-body sibling of {@link #isPartOfElseChain}: true iff the statement right after
+     *  the joined one-liner body is {@code else}, or {@code kwIndex} itself is directly preceded
+     *  by {@code else} (an {@code else if} branch) -- same "leave the whole chain alone" posture,
+     *  adapted since a braceless body has no closing `}` to anchor the forward lookup on. */
+    private boolean isPartOfElseChainBraceless(final List<Token> tokens, final int kwIndex,
+            final ControlBlock block, final int n) {
+        int prev = kwIndex - 1;
+        while (prev >= 0 && (tokens.get(prev).type == TokenType.WHITESPACE
+                || tokens.get(prev).type == TokenType.NEWLINE)) {
+            prev--;
+        }
+        return prev >= 0 && tokens.get(prev).type == TokenType.KEYWORD
+                && "else".equals(tokens.get(prev).text);
     }
 
     /** True if the `if` at {@code kwIndex} is part of an {@code else}/

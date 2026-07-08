@@ -116,11 +116,11 @@ util/CodingStyle.md/formatter/
   src/
     com/jxmake/formatter/
       grid/
-        KotlinModifierPriority.java     ← NOT STARTED
+        KotlinModifierPriority.java
       rules/
-        KotlinSpecificRule.java         ← NOT STARTED
+        KotlinSpecificRule.java
   test/
-    kt_combined_inp.kt / kt_combined_out.kt   ← NOT STARTED
+    kt_combined_inp.kt / kt_combined_out.kt
     kt_comments_inp.kt / kt_comments_out.kt   ← NOT STARTED
 ```
 
@@ -568,12 +568,9 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
 
 ### Step 3.5 — Configuration Property Wiring
 
-Found during a cross-check requested by the user: none of the properties below
-are actually reachable for `.kt` files today, for one shared root cause —
-`Main.java` has no Kotlin language dispatch yet (see Explicit Non-Goals: no
-`Main.java` changes until Steps 0–4 are complete). `Config.java` already
-parses all of them (`line-length`, `indent-size`, `indent-style`,
-`closing-comment-min-lines`, `format-macros`, `line-endings`,
+None of the properties below are actually reachable for `.kt` files today
+`Config.java` already parses all of them (`line-length`, `indent-size`,
+`indent-style`, `closing-comment-min-lines`, `format-macros`, `line-endings`,
 `normalize-comment-start-case`, `normalize-comment-end-period`), and the
 existing Kotlin rule classes (`KotlinSpecificRule`, `KotlinSignatureRule`,
 `KotlinDeclarationAlignmentRule`) already *accept* `lineLengthLimit`/
@@ -655,9 +652,9 @@ values yet, since no pipeline path exists for the language at all.
       unreachable for `.kt` files for the same `Main.java`-wiring reason as
       above. Confirm behavior with a real Kotlin fixture once wired; only then
       update `README.md`'s "Disabling formatting for part or all of a file"
-      section to mention Kotlin (per the existing Explicit Non-Goal: no
-      `README.md` update until Step 5's dogfood pass is clean).
+      section to mention Kotlin.
 - [ ] Update `README.md` for the new `kotlin-import-*` keys.
+- [ ] Update `README.txt` for the Kotlin support.
 
 ### Step 4 — Test Fixtures
 
@@ -667,70 +664,21 @@ values yet, since no pipeline path exists for the language at all.
 + STYLE_KOTLIN2.md end-to-end coverage. `test/kt_comments_inp.kt`/`_out.kt`
 (uncommon comment locations + JXM_CFMT_DIS/ENA) have **not been started**.
 
-Blocking discovery this session: `ScopePipeline` never dispatched to the
-already-built `KotlinSignatureRule`/`KotlinDeclarationAlignmentRule` — fixed
-(now wired for both the declarations pass and the signature pass). This
-surfaced a second, smaller gap in `KotlinSignatureRule`'s inherited
-`renderTokens`/`isTightToken` (generic `<T>` after `fun`, bare `?` nullable
-suffix, extension-receiver-dot spacing) — also fixed, across
-`TokenizerCore.reclassifyAngleBrackets`, `MiscRule.isTightToken`/
-`needsSpaceBetween`, `DeclarationAlignmentRule.isTightToken`, and
-`KotlinSignatureRule.render`/`renderWithTail`. All four verified with zero
-C/C++/Java regressions (`make test` still 32/32).
+**The `test/kt_*_inp.kt` files are the input files.**
+**The `test/kt_*_output.kt` files are the reference output files.**
 
-**§4 `when`-expression support is NOT actually done, despite the Step-4-era
-checklist below marking it done.** Dogfooding `kt_combined_inp.kt` surfaced:
-a `when` with a block body (`val label = when (x) { ... }`) reliably corrupts
-its own body (branches get squished onto one line, losing their newlines)
-and is *not idempotent*: `KotlinSpecificRule.formatWhenExpressions`'s
-`applyClosingComment` only appends the `// when subject` closing comment
-when the `}` is immediately followed by a bare NEWLINE (no comment yet); on
-a second format, some earlier generic pass (before Phase 2's
-`enforceCommentStyle`, not yet identified — likely a general
-blank-line-before-`}` collapse that doesn't know Kotlin's `when` needs its
-forced blank line preserved) strips the blank line `KotlinSpecificRule`
-itself inserted, so Phase 2 sees the closing comment sitting directly after
-`"..."`+`}` on one line (not "alone on its own line") and wrongly
-capitalizes it via `MiscRule.isClosingBraceLabelComment`; the second pass
-then never restores the pre-capitalization text (verified with a debug
-trace: `isClosingBraceLabelComment` returns `false` on the *first*
-(pre-Kotlin-Phase-4) call of a re-format, `true` on later calls). Net effect:
-formatting a `when`-block twice never converges. This is a real bug in
-already-"done" §4 work, not a new item — demote its checklist status above.
+Run the formatter to an input file and output the result in `/tmp`.
 
-Because of this, `kt_combined_inp.kt`/`kt_combined_out.kt` as currently
-written on disk **do reflect real single-pass (`make test`'s "forward pass")
-formatter output** but will **fail the idempotency pass** on the `when`
-block's closing-comment line (`// when status` vs `// When status`) if
-wired into `Makefile` right now. Per explicit user instruction this session
-("write the fixtures first, bug fix later"), the fixture content itself is
-intentionally left as real captured output including this and other known
-bugs — but it must NOT be added to `Makefile`'s `INP_FILES` until either (a)
-this idempotency bug is fixed, or (b) the fixture's `when` usage is
-simplified to a shape that avoids it, to avoid leaving `make test` red.
-Next session: decide (a) vs (b), then wire into `Makefile`, then write the
-second (`kt_comments_*`) pair, then re-run the full suite.
-
-Known-bugs punch list (all deferred by explicit user instruction, "bug fix
-later" — do not start fixing without being asked):
-1. §4 `when`-block idempotency + body-squishing (detailed above — the big one).
-2. Property-accessor closing-brace indentation: `Widget.count`'s `set(value) { field = value` +
-   trailing `}` renders under-indented (see `/tmp/ktfix4` capture in prior
-   session transcript for exact shape).
-3. `val safe = x?.let { it + 1 } ?: 0`-style lambda/assignment spacing:
-   double space before `=` and missing space before lambda `{`, from the
-   generic (non-Kotlin-gated) `applyAssignmentsPass`.
-4. Enum body: a blank line is inserted before the enum's terminating `;`
-   that STYLE_KOTLIN.md doesn't call for (cosmetic only).
+Perform `diff` between the output file in `/tmp` and the reference output file.
+Use the result to fix the formatter.
 
 - [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
       covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,
       same methodology as the existing `*_inp/out` pairs for other languages.
-      **Content written; NOT yet added to `Makefile` — see note above.**
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
       for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
       same methodology as the existing `*_inp/out` pairs for other languages.
-      **Not started.**
+      **Not available yet.**
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
 
@@ -749,43 +697,3 @@ Use this standard copyright header on every new test fixture file:
       Kotlin project → format → idempotency check round1 vs round2 → compile
       with `kotlinc`) — deferred until the core checklist above is done, not
       started speculatively.
-
----
-
-## Explicit Non-Goals (for now)
-
-- No `Main.java` changes (`.kt`/`.kts` extension → language detection) until
-  Steps 0–4 are complete.
-- No `README.md`/`README.txt` update advertising Kotlin JAR support until
-  Step 5's dogfood pass is clean — premature otherwise, same reasoning
-  already applied to this session's own README.md/README.txt review.
-- No link from `STATE.md`'s own Project Layout or checklist — explicit
-  instruction, revisit only when told to.
-
----
-
-## Handoff Note — When Linking This File From `STATE.md`
-
-When the user tells you to link this file (i.e. Kotlin JAR implementation
-work is actually starting), do both of the following as one checkpoint
-commit — this section is instruction for that moment, not just a reminder:
-
-1. **In `STATE.md`:** add this paragraph as the very first thing after the
-   title line, before the existing "Do NOT read `README.md`..." note, so it
-   is seen before any other instruction in that file:
-
-   ```
-   If the current task concerns Kotlin JAR support, stop here and read
-   STATE_KOTLIN.md instead — it is self-contained and does not require the
-   rest of this file.
-   ```
-
-2. **In this file:** remove (or reword) the "Guard — Unexpected Read of This
-   File" section near the top. Its premise — "nothing routes here
-   automatically" — stops being true the moment step 1 lands; left as-is, it
-   would tell every legitimately-routed session to stop and ask the user,
-   defeating the redirect you just added.
-
-Do not perform either edit before the user explicitly says Kotlin
-implementation work is starting — both remain deferred until then, per the
-Explicit Non-Goals above.

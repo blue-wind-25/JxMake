@@ -744,15 +744,15 @@ public class JavaSpecificRule {
         if ("java".equals(first) || "javax".equals(first)) {
             return "java";
         }
-        if ("org".equals(first)) {
-            return "org";
-        }
         if ("com".equals(first)) {
             return "com";
         }
+        if ("org".equals(first)) {
+            return "org";
+        }
         return "other";
     }
-
+    
     private boolean matchesPrefix(final String[] parts, final List<String> prefix) {
         if (parts.length < prefix.size()) {
             return false;

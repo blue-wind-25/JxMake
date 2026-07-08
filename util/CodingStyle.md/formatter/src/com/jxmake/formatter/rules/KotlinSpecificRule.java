@@ -1461,7 +1461,7 @@ public class KotlinSpecificRule {
      *  #enforceKotlinImportOrdering} configures only the *emission order* of these always-the-same
      *  six buckets, never which buckets exist -- so it must be a permutation of exactly this set. */
     private static final Set<String> KOTLIN_IMPORT_GROUP_KEYS = new HashSet<>(
-            Arrays.asList("kotlin", "java", "com", "org", "other", "local"));
+            Arrays.asList("kotlin", "java", "android", "com", "org", "other", "local"));
 
     /**
      * STYLE_KOTLIN.md §24: groups every top-level {@code import} statement into six fixed buckets
@@ -1732,11 +1732,14 @@ public class KotlinSpecificRule {
         if ("java".equals(first) || "javax".equals(first)) {
             return "java";
         }
-        if ("org".equals(first)) {
-            return "org";
+        if ("android".equals(first)) {
+            return "android";
         }
         if ("com".equals(first)) {
             return "com";
+        }
+        if ("org".equals(first)) {
+            return "org";
         }
         return "other";
     }

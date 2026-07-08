@@ -9,6 +9,9 @@ import org.junit.Test
 import kotlin.math.max
 import com.mycompany.myproject.util.Helper
 import java.util.List as JList
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 
 enum class Status(val code: Int) {
     OK(200),
@@ -66,10 +69,48 @@ class Widget(val name: String, val id: Int) {
         this.block()
     }
 
+    fun test(): int {
+        val result = "123".let parse@{
+            if (it.isEmpty())
+                return@parse 0
+
+            it.toInt()
+        }
+        val result = "123".let {
+            if (it.isEmpty())
+                0
+            else
+                it.toInt()
+        }
+        val value = runCatching outer@{
+            if (System.currentTimeMillis() < 0)
+                return@outer 42
+
+            100
+        }.getOrThrow()
+        return 0
+    }
+
     fun findFirst(items: List<Int>): Int {
+        items.forEach { i ->
+            if(i <= 5)
+                return@forEach
+            return i
+        }
         for (i in 1..10) {
-            if (i > 5) return@findFirst i
+            if (i > 5) return i
         }
         return -1
+    }
+
+    fun findFirstX(items: List<Int>): Int {
+        return run search@{
+            for (i in items) {
+                if (i > 5)
+                    return@search i
+            }
+
+            -1
+        }
     }
 }

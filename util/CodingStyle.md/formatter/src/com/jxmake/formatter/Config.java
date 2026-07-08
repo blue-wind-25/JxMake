@@ -57,7 +57,8 @@ public final class Config {
     private boolean javaImportSort = true;
     private int javaImportDepth = 2;
     private int javaImportBlankLines = 1;
-    private List<String> kotlinImportOrder = Arrays.asList("kotlin", "java", "com", "org", "other", "local");
+
+    private List<String> kotlinImportOrder = Arrays.asList("kotlin", "java", "android", "com", "org", "other", "local");
     private boolean kotlinImportSort = true;
     private int kotlinImportDepth = 2;
     private int kotlinImportBlankLines = 1;

@@ -8,20 +8,6 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Before continuing with Kotlin: `kt_combined_inp/_out.kt`, I see two methods forward:
-
-1. Run the formatter on `kt_combined_inp.kt` to produce `kt_combined_out.kt`. Inspect `kt_combined_out.kt` formatting, if it does not match the style rules, fix the formatter and re-run until it matches.
-
-2. You write `kt_combined_out.kt` manually with the expected formatting and use it as the reference. Run the formatter on 'kt_combined_inp.kt` but put the output to `/tmp`. Then use `diff` to inspect the differences between the reference and the actual output to fix the formatter.
-
-The previous session used method #1. Please check if using method #2 will actually be more efficient than using method #1.
-
-After deciding between methods #1 and #2, write the decision in `STATE_KOTLIN.md` so future test fixtures (currently only `test/kt_comments_inp.kt/_out.kt`) will use the same method.
-
-If unsure, tell me the advantages and disadvantages of both methods and let me choose based on your recommendations.
-
-
-
 Continue with Kotlin: kt_combined_inp/_out.kt
 
 

@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the MIT License.
+ * See the LICENSE file in the formatter root directory for the full MIT license text.
+ */
+
 package com.jxmake.formatter.classifier;
 
 /** Output of {@link CommentClassifier}. Per STATE_COMMENT_GRAMMAR.md's hard architectural

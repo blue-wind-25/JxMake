@@ -658,11 +658,13 @@ values yet, since no pipeline path exists for the language at all.
 
 ### Step 4 — Test Fixtures
 
-**IN PROGRESS, not wired into `Makefile` yet.** `test/kt_combined_inp.kt` and
-`test/kt_combined_out.kt` exist on disk (untracked by `Makefile`'s
-`INP_FILES` — do NOT add them there yet, see below) capturing STYLE_KOTLIN.md
-+ STYLE_KOTLIN2.md end-to-end coverage. `test/kt_comments_inp.kt`/`_out.kt`
-(uncommon comment locations + JXM_CFMT_DIS/ENA) have **not been started**.
+**IN PROGRESS**
+
+`test/kt_combined_inp.kt` and `test/kt_combined_out.kt`
+capture STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end coverage.
+
+`test/kt_comments_inp.kt` and `test/kt_comments_out.kt`
+capture uncommon comment locations + JXM_CFMT_DIS/ENA).
 
 **The `test/kt_*_inp.kt` files are the input files.**
 **The `test/kt_*_output.kt` files are the reference output files.**
@@ -672,16 +674,12 @@ Run the formatter to an input file and output the result in `/tmp`.
 Perform `diff` between the output file in `/tmp` and the reference output file.
 Use the result to fix the formatter.
 
-- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — first fixture pair,
-      covering STYLE_KOTLIN.md's and STYLE_KOTLIN2.md's sections end to end,
-      same methodology as the existing `*_inp/out` pairs for other languages.
-- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — second fixture pair,
-      for uncommon comment locations (including JXM_CFMT_DIS/JXM_CFMT_ENA),
-      same methodology as the existing `*_inp/out` pairs for other languages.
+- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt`
+- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt`
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
 
-Use this standard copyright header on every new test fixture file:
+Use this standard copyright header when adding a new test fixture file:
 ```
 /*
  * Copyright (C) 2024 Example Corp.
@@ -696,3 +694,22 @@ Use this standard copyright header on every new test fixture file:
       Kotlin project → format → idempotency check round1 vs round2 → compile
       with `kotlinc`) — deferred until the core checklist above is done, not
       started speculatively.
+
+      Candidate **RobotCoding `gui_frontend_android`**
+      (`../../../../RobotCoding/gui_frontend_android/app/src/main/java/*.kt`) - NOT STARTED
+
+The Kotlin compiler should be accessible using:
+```bash
+CP="\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/1.9.25/6e698f23ca1f74d6672827f61e92c2fe015d1b88/kotlin-compiler-embeddable-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.9.25/f700a2f2b8f0d6d0fde48f56d894dc722fb029d7/kotlin-stdlib-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/1.9.25/43cdc99e4582c67c2b60f609d0e4c015d33a8e89/kotlin-script-runtime-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-common/1.9.25/91c60ba89e416e5f856c8434ef8cf4f94a7fa5f5/kotlin-scripting-common-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-jvm/1.9.25/68086b208d6c6bca0daaa3ab51861a2d9c75b6c9/kotlin-scripting-jvm-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-compiler-embeddable/1.9.25/bbc471c7ebad2f9179537c7044e917c276b49b0d/kotlin-scripting-compiler-embeddable-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-compiler-impl-embeddable/1.9.25/cdf3facb2388abb12962d2a501a879ddfa640e90/kotlin-scripting-compiler-impl-embeddable-1.9.25.jar:\
+$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.intellij.deps/trove4j/1.0.20200330/3afb14d5f9ceb459d724e907a21145e8ff394f02/trove4j-1.0.20200330.jar\
+"
+
+exec java  -cp "$CP" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib "$@"
+```

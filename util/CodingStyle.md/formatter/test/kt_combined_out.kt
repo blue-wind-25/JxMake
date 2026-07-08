@@ -91,6 +91,7 @@ class Widget(val name: String, val id: Int) {
     {
         val result1 = "123".let parse@ {
             if( it.isEmpty() ) return@parse 0
+
             it.toInt()
         }
         val result2 = "123".let {
@@ -99,6 +100,7 @@ class Widget(val name: String, val id: Int) {
         }
         val value = runCatching outer@ {
             if( System.currentTimeMillis() < 0 ) return@outer 42
+
             100
         }.getOrThrow()
 
@@ -124,6 +126,7 @@ class Widget(val name: String, val id: Int) {
             for(i in items) {
                 if(i > 5) return@search i
             }
+            
             -1
         }
     }

@@ -86,8 +86,7 @@ class Widget(
             Status.NOT_FOUND -> "missing"
         };
 
-        val safe = x?.let { it + 1 } /* nullable */ ?: 0
-
+        val safe   = x?.let { it + 1 } /* nullable */ ?: 0
         val (a, b) = Pair(
             1, // first
             2  // second
@@ -145,6 +144,24 @@ class Widget(
     }
 
     fun findFirstX(items: List<Int>): Int {
+        if (it.isEmpty())
+            return@parse 1
+
+        //% JXM_CFMT_DIS
+        if (it.isEmpty())
+            return@parse 2
+        //% JXM_CFMT_ENA
+
+        if (it.isEmpty())
+            return@parse 3
+
+        /*% JXM_CFMT_DIS */
+        if (it.isEmpty())
+            return@parse 4
+        /*% JXM_CFMT_ENA */
+
+        if (it.isEmpty())
+            return@parse 5
 
         return run search@{
 

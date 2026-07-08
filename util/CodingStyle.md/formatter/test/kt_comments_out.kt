@@ -62,30 +62,33 @@ infix fun Int.combineWith(other: Int): Int
 fun Int.double(): Int = this * 2
 
 fun sumAll(
-    vararg numbers: Int // values
+    vararg numbers : Int // Values
 ): Int
 {
     var total = 0
 
     for(n in numbers) {
-        total += n
+        total += n // Accumulate
     } // for n
 
     return total
 }
 
-class Widget(val name: String, val id: Int) {
+class Widget(
+    val name : String, // Widget name
+    /* Identifier */ val id : Int
+) {
 
     // Comment before property
-    var count: Int = 0 // Current count
+    var count : Int = 0 // Current count
         get() = field
         set(value) {
             field = value
         }
 
     fun describe(
-        status: Status, // Current status
-        /* Nullable */ x: Int?
+        status : Status, // Current status
+        /* Nullable */ x : Int?
     ): String
     {
         val label = when(status) {
@@ -98,10 +101,7 @@ class Widget(val name: String, val id: Int) {
 
         } // when status
 
-        val safe = x?.let {
-            it + 1
-        } /* Nullable */ ?: 0
-
+        val safe   = x?.let { it + 1 } /* Nullable */ ?: 0
         val (a, b) = Pair(
             1, // First
             2  // Second
@@ -130,7 +130,7 @@ class Widget(val name: String, val id: Int) {
         }
 
         val value = runCatching outer@ {
-            if /* Time check */ (System.currentTimeMillis() < 0) return@outer 42
+            if /* Time check */ ( System.currentTimeMillis() < 0 ) return@outer 42
 
             100
         }.getOrThrow()
@@ -157,6 +157,22 @@ class Widget(val name: String, val id: Int) {
 
     fun findFirstX(items: List<Int>): Int
     {
+        if( it.isEmpty() ) return@parse 1
+
+        //% JXM_CFMT_DIS
+        if (it.isEmpty())
+            return@parse 2
+        //% JXM_CFMT_ENA
+
+        if( it.isEmpty() ) return@parse 3
+
+        /*% JXM_CFMT_DIS */
+        if (it.isEmpty())
+            return@parse 4
+        /*% JXM_CFMT_ENA */
+
+        if( it.isEmpty() ) return@parse 5
+
         return run search@ {
             for(i in items) {
                 if(i > 5) return@search i

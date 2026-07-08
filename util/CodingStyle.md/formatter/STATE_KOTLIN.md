@@ -852,23 +852,48 @@ Use this standard copyright header when adding a new test fixture file:
       started speculatively.
 
       Candidate **RobotCoding `gui_frontend_android`**
-      (`../../../../RobotCoding/gui_frontend_android/app/src/main/java/*.kt`) - NOT STARTED
+      (`/home/aloysius/Projects/RobotCoding/gui_frontend_android/app/src/main/java/*.kt`,
+      not actually reachable via the `../../../../` relative path originally
+      written here — that project lives outside the `JxMake` tree entirely,
+      under `~/Projects/RobotCoding/`, a sibling of `~/Projects/JxMake/`) -
+      NOT STARTED
 
-The Kotlin compiler should be accessible using:
+**Standalone `K2JVMCompiler` classpath — rejected, do not use.** The recipe
+that used to live here (a bare `kotlin-compiler-embeddable` +
+`kotlin-stdlib` classpath) cannot syntax-check this candidate: every file
+under `gui_frontend_android/app/src/main/java/*.kt` imports `android.*` /
+AndroidX APIs, which only exist in the Android SDK jars pulled in by the
+project's own Gradle build — a bare compiler classpath with just the Kotlin
+stdlib on it has no way to resolve those symbols, so it would fail on
+essentially every real file in this project, not just report genuine syntax
+errors.
+
+**Use instead:** the project's own Gradle wrapper, via its own env script —
+but run it against a **copy** of the project under `/tmp`, not the original
+checkout in `~/Projects/RobotCoding/`. The dogfood workflow here is
+format-then-compile, which writes formatted `.kt` files back to disk; doing
+that against the real, in-use RobotCoding working tree risks clobbering
+uncommitted work there, so copy the whole project (or at least
+`gui_frontend_android/` — it needs its sibling Gradle config, so copy the
+full checkout to be safe) into a scratch directory under `/tmp` first, run
+the format + Gradle compile there, and never touch the original in place.
+`gui_frontend_android/env.sh` sets `ANDROID_HOME` and puts Gradle 8.9 and
+JDK 21 on `PATH` — source it (or replicate just its `export` lines; it also
+`cd`s and `exec bash`s into an interactive shell, which isn't wanted for a
+scripted run) from within the `/tmp` copy, then run the copy's own
+`./gradlew` with a compile-only task, e.g.:
 
 ```bash
-CP="\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/1.9.25/6e698f23ca1f74d6672827f61e92c2fe015d1b88/kotlin-compiler-embeddable-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.9.25/f700a2f2b8f0d6d0fde48f56d894dc722fb029d7/kotlin-stdlib-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/1.9.25/43cdc99e4582c67c2b60f609d0e4c015d33a8e89/kotlin-script-runtime-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-common/1.9.25/91c60ba89e416e5f856c8434ef8cf4f94a7fa5f5/kotlin-scripting-common-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-jvm/1.9.25/68086b208d6c6bca0daaa3ab51861a2d9c75b6c9/kotlin-scripting-jvm-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-compiler-embeddable/1.9.25/bbc471c7ebad2f9179537c7044e917c276b49b0d/kotlin-scripting-compiler-embeddable-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-compiler-impl-embeddable/1.9.25/cdf3facb2388abb12962d2a501a879ddfa640e90/kotlin-scripting-compiler-impl-embeddable-1.9.25.jar:\
-$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.intellij.deps/trove4j/1.0.20200330/3afb14d5f9ceb459d724e907a21145e8ff394f02/trove4j-1.0.20200330.jar\
-"
-
-exec java  -cp "$CP" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib "$@"
+cp -r /home/aloysius/Projects/RobotCoding /tmp/robotcoding-kotlin-dogfood
+cd /tmp/robotcoding-kotlin-dogfood/gui_frontend_android
+export ANDROID_HOME=~/android_devel
+export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/gradle-8.9/bin
+export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
+./gradlew compileDebugKotlin
 ```
 
-If the above compiler cannot perform syntax-check, suggest me the alternatives.
+(`env.sh` ends by `exec bash` into an interactive session — for a
+non-interactive/scripted run, source only its `export`/`cd` lines instead of
+running the whole script.) This gives a real syntax+type check against the
+actual Android SDK/AndroidX dependency graph the source expects, which the
+rejected standalone recipe could not.

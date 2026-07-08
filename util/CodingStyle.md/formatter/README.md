@@ -4,6 +4,13 @@ A deterministic code formatter for C, C++, and Java implementing the
 [CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer plus
 recursive descent on bounded token slices.
 
+Kotlin (`.kt`/`.kts`) support also exists end-to-end (auto-detected by
+extension; see [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) /
+[`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md)), but is newer than the C/C++/Java
+support and has not yet been through the same real-world dogfood testing —
+see `STATE_KOTLIN.md` for current status before relying on it for a large
+existing codebase.
+
 ---
 
 ## Requirements
@@ -37,7 +44,7 @@ java -jar code-formatter-1.00.jar include/Module.h
 ```
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
-`.java` → Java).
+`.java` → Java, `.kt`/`.kts` → Kotlin).
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -49,10 +56,11 @@ java -jar code-formatter-1.00.jar --lang cpp Module.inc
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, and applies to every file given on that
 command line (mixing file types with a single forced `--lang` in one invocation isn't
-supported — run the formatter once per language instead). Without `--lang`, a file whose
-extension can't be recognized is an error. `--lang` also works with server mode (below) — the
-client sends the chosen language to the server, which uses it in place of its own
-extension-based guess for that request.
+supported — run the formatter once per language instead). There is no `--lang kotlin`
+override — Kotlin files must be recognized by their `.kt`/`.kts` extension. Without
+`--lang`, a file whose extension can't be recognized is an error. `--lang` also works with
+server mode (below) — the client sends the chosen language to the server, which uses it in
+place of its own extension-based guess for that request.
 
 ### Output modes
 
@@ -162,6 +170,12 @@ java-import-order            = java, com, org, other, local, static
 java-import-sort             = on
 java-import-depth            = 2
 java-import-blank-lines      = 1
+
+# ── Kotlin ────────────────────────────────────────────────────────────────────
+kotlin-import-order          = kotlin, java, android, com, org, other, local
+kotlin-import-sort           = on
+kotlin-import-depth          = 2
+kotlin-import-blank-lines    = 1
 ```
 
 ### `.jxmake-code-formatter` inheritance
@@ -177,6 +191,17 @@ local prefix is `com.mycompany`).
 
 For pre-Java-9 projects without module descriptors, the same `package` declaration
 is used — no module system involvement required.
+
+### Kotlin import groups
+
+`kotlin-import-depth` works the same way as `java-import-depth`, reading the local
+prefix from the file's own `package` declaration. There is no `static` group — Kotlin
+has no `import static` keyword; a companion-object-member or top-level-function import
+uses the exact same `import a.b.c` syntax as any other import, so "this is a static
+import" isn't lexically detectable the way Java's `import static` is. A leading `kotlin`
+group (for `kotlin.*` stdlib imports) takes its place in the default order. Aliased
+imports (`import foo.Bar as Baz`) and wildcard imports sort/group by their original
+qualified name, not the alias.
 
 ### C-preprocessor directives in Java source
 
@@ -233,6 +258,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE.md`](../STYLE.md) — common rules (all languages)
 - [`../STYLE_C_CPP.md`](../STYLE_C_CPP.md) — C and C++ extensions
 - [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
+- [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) — Kotlin extensions (baseline)
 - [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
 - [`STATE.md`](STATE.md) — implementation progress tracker (all phases, including
   Java 17+/C++20+ support and the call/declaration line-breaking work)
@@ -242,8 +268,11 @@ Newer-language-construct support:
   classes, switch expressions, text blocks, pattern matching)
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
   concepts/`requires`, `consteval`/`constinit`)
+- [`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md) — Kotlin 2.0/2.1 constructs
+  (guard conditions, `data object`), read after `STYLE_KOTLIN.md`
 
-See `STATE.md`'s Phase Status / End Goal sections for current progress.
+See `STATE.md`'s Phase Status / End Goal sections for current progress, and
+[`STATE_KOTLIN.md`](STATE_KOTLIN.md) for the Kotlin support tracker specifically.
 
 ---
 

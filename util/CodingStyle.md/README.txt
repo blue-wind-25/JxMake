@@ -16,17 +16,21 @@ Files in this directory
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
   1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
-  for C, C++, and Java. Run it first for those languages. The AI workflows
+  for C, C++, Java, and Kotlin. Run it first for those languages. The AI workflows
   described here cover the remaining Tier-3 aesthetic decisions the JAR
   intentionally leaves untouched:
     - Function argument list layout (when the source is already multi-line and
       the author's grouping intent should be preserved or improved)
     - Getter/setter groups with non-standard naming conventions
 
-  NOTE — Kotlin: the JAR does not yet implement Kotlin support (see STATE.md
-  for status). Until it does, the full-file AI pass is the only way to apply
-  STYLE_KOTLIN.md / STYLE_KOTLIN2.md; there is no post-JAR layout-judgment
-  workflow for Kotlin files yet.
+  NOTE — Kotlin: JAR support for STYLE_KOTLIN.md / STYLE_KOTLIN2.md now exists
+  (`.kt`/`.kts` files are auto-detected), but it is newer than the C/C++/Java
+  support and has not yet been through the same real-world dogfood testing --
+  see formatter/STATE_KOTLIN.md for current status. The full-file AI pass
+  below remains a fallback for Kotlin files if you hit a JAR gap; there is no
+  post-JAR layout-judgment workflow for Kotlin files yet (same limitation as
+  before -- AI_PREAMBLE_AESTHETIC.md's two aesthetic decisions are scoped to
+  C/C++/Java only).
 
   There are two AI passes, described below. Use only one per file per run.
 
@@ -230,7 +234,7 @@ Usage:
   # Layout judgment pass (post-JAR file):
   python3 reformat_file.py src/Utils.c c aesthetic
 
-  # Kotlin full-file pass (no JAR support yet, so this is the only path):
+  # Kotlin full-file pass (fallback if the JAR doesn't handle a construct yet):
   python3 reformat_file.py src/Utils.kt kotlin
 
 

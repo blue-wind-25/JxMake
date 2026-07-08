@@ -673,8 +673,19 @@ against scratch `.kt` fixtures with a `.jxmake-code-formatter` config file,
       Kotlin-specific gap. `README.md`'s "Disabling formatting for part or
       all of a file" section still needs updating to mention Kotlin (tracked
       below, unchanged).
-- [ ] Update `README.md` for the new `kotlin-import-*` keys.
-- [ ] Update `README.txt` for the Kotlin support.
+- [x] Update `README.md` for the new `kotlin-import-*` keys — added the
+      `kotlin-import-*` config block (mirroring `java-import-*`), a "Kotlin
+      import groups" subsection (no `static` bucket, `kotlin` group instead,
+      alias/wildcard sort-by-original-name note), `.kt`/`.kts` extension
+      detection in the Usage section, a top-of-file note on Kotlin support
+      existing but being newer/less dogfooded than C/C++/Java, and
+      `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md`/`STATE_KOTLIN.md` links in the
+      Style Guide Reference section.
+- [x] Update `README.txt` for the Kotlin support — corrected the top-level
+      "JAR does not yet implement Kotlin support" note (now stale) to reflect
+      that JAR support exists but is newer/less dogfooded than C/C++/Java;
+      corrected the "no JAR support yet" comment on the Kotlin full-file-pass
+      Python example to describe it as a fallback for JAR gaps instead.
 
 ### Step 4 — Test Fixtures
 

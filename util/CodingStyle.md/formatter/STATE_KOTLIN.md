@@ -167,28 +167,30 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 
 ## Open Questions
 
-- **First-statement double-indentation bug (found during Step 4, while
-  fixing punch-list item 2/RDD_KEY_120).** A Kotlin `val`/`var` declaration
-  that is the very first statement inside a function or class body gets
-  double-indented (8 spaces instead of 4 at default `indent-size`), e.g.
-  `fun sumAll(...) { var total = 0 ... }` renders `var total`'s line at 8
-  spaces. Confirmed via bisection (`git checkout HEAD~1` /
-  `git stash`) to predate both RDD_KEY_119 and RDD_KEY_120 entirely — a
-  pre-existing bug, not a regression from this session's other fixes.
-  Reproduces with a minimal two-line function body, no `for` loop or class
-  involved. Root cause not yet fully isolated — traced as far as
-  `ScopePipeline.addKotlinDeclReplacement`'s leading-gap-vs-fresh-render
-  splice logic (shared with the `applyDeclarationsPass`/`processScope`
-  family), which computes a `gapStart`/`rawLeadingGapFull`/`freshPad`
-  interaction meant to avoid double-counting indentation between the raw
-  source gap and `KotlinDeclarationAlignmentRule.renderPropertyGroup`'s own
-  rendered line — but `renderPropertyGroup`'s output has no leading
-  whitespace of its own (confirmed by reading it), so the doubling must come
-  from `ScopePipeline`'s recursive per-scope child-fragment extraction
-  (`processScope`) re-adding an indent level that the splice logic also
-  adds; not yet confirmed with a debug-print harness. Out of scope for
-  RDD_KEY_120 (a `BlockStructureRule.tryCollapse` fix, unrelated file/pass) —
-  flagged here rather than guessed at.
+- ~~**First-statement double-indentation bug**~~ **RESOLVED — was a
+  test-harness artifact, not a real formatter bug.** Root-caused with a
+  debug-print harness (see RDD_KEY_122): a stray
+  `/tmp/kt_test/.jxmake-code-formatter` config file left over from earlier
+  ad-hoc testing this session had `indent-size=8`, silently picked up by
+  every fixture copy formatted under that directory (config discovery walks
+  up from the file being formatted). `normalizeIndent` was correctly
+  rounding a real 4-space indent up to the nearest multiple of the
+  wrongly-configured 8-width, doubling it. With that stray config deleted
+  and a clean default `indent-size=4`, the symptom does not reproduce at
+  all — confirmed against both the minimal `fun sumAll(...) { var total = 0
+  ... }` repro and the full `kt_combined_inp.kt` fixture. The related item 4
+  from the Step 4 punch list ("nested `for` gets a spurious `} // for`
+  comment") also stopped reproducing once the same stray config
+  (`closing-comment-min-lines=1`) was removed — also concluded to be the
+  same artifact, not a real bug. **A different, real bug was found in the
+  same area while re-testing with a clean config and fixed under
+  RDD_KEY_122**: a Kotlin property's `set(value) { ... }` accessor body,
+  immediately following a `;`-less `var`/`val` declaration line, had its
+  closing `}` under-indented by one level — `ScopePipeline.findParentIndent`
+  didn't recognize a Kotlin newline-terminated declaration as a statement
+  boundary, only C/Java's `;`. Fixed with a narrowly-scoped Kotlin-only rule
+  (depth-0 `NEWLINE` immediately followed by `get`/`set`). See STATE_rdd_log.md
+  RDD_KEY_122 for full detail.
 - **Reversed declaration grammar (§6/§7, found during Step 1).**
   `DeclarationAlignmentRule.Declaration` (and `MiscRule`'s parameter/signature
   model) assume C/Java's `[modifiers] Type name [= init]` token order.
@@ -835,14 +837,6 @@ working map, not a spec):
    item, not a formatter bug; not touched**, per instruction not to guess at
    `kt_combined_inp.kt`'s exact intended fix.
 
-Use this standard copyright header when adding a new test fixture file:
-```
-/*
- * Copyright (C) 2024 Example Corp.
- * SPDX-License-Identifier: MIT
- */
-```
-
 ### Step 5 — Dogfood / Real-Code Testing
 
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
@@ -897,3 +891,18 @@ non-interactive/scripted run, source only its `export`/`cd` lines instead of
 running the whole script.) This gives a real syntax+type check against the
 actual Android SDK/AndroidX dependency graph the source expects, which the
 rejected standalone recipe could not.
+
+**When a bug is found and fixed, add a new permanent fixture pair:**
+`test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`) reproducing it minimally,
+then register it in `Makefile`'s `INP_FILES` and document it in `test/README.txt` — unless,
+per the precedent set by the `indent-size = 2` config-wiring fixes, the bug is a no-op at the
+test harness's own default config (in which case document the fix and its non-default-config
+verification in this file instead, without adding a fixture that would be indistinguishable
+from a no-op at default settings). Try to combine multiple bugs in the same text fixture if
+possible. Use this standard copyright header on every new test fixture file:
+```
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+```

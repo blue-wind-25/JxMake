@@ -517,6 +517,31 @@ public class ScopePipeline {
                 stmtStart = i + 1;
                 break;
             }
+            // Kotlin-only: a property's `get`/`set` accessor body (`set(value) { ... }`) is a
+            // separate statement from the property declaration line right above it
+            // (`var count: Int = 0`), but that declaration line is conventionally
+            // newline-terminated with no `;` (STYLE_KOTLIN.md §1) -- invisible to the `;`/`}`
+            // check above, written for C/Java's semicolon-terminated grammar. Without this, the
+            // backward scan for `set(value) {`'s owning statement walks straight past the
+            // newline separating it from the property declaration and keeps going (no `;` to
+            // stop it), landing `stmtStart`/the anchor on the property declaration's own first
+            // token (`var`) instead of `set` -- `findParentIndent` then returns the property's
+            // shallower indent instead of the accessor's own deeper one, under-indenting the
+            // accessor body's closing `}` by one level. Scoped narrowly to a depth-0 NEWLINE
+            // immediately followed (ignoring gap tokens) by the `get`/`set` soft keyword, rather
+            // than any Kotlin newline-terminated statement boundary in general, since a broader
+            // rule would also misfire on legitimate multi-line fluent call chains (`foo()\n
+            // .bar()\n.baz { }`) where a leading `.`/`?.` on the continuation line means the
+            // newline is NOT a statement boundary -- not attempted here, out of scope for this
+            // fix, no evidence of that shape in any fixture.
+            if (lang.isKotlin && tok.type == TokenType.NEWLINE) {
+                final int next = nextSignificantIndex(tokens, i);
+                if (next >= 0 && next < span.openBraceIdx && tokens.get(next).type == TokenType.KEYWORD
+                        && ("get".equals(tokens.get(next).text) || "set".equals(tokens.get(next).text))) {
+                    stmtStart = next;
+                    break;
+                }
+            }
         }
         // Anchor on the first significant token at or after stmtStart: normally the construct's
         // own keyword/name (`class Foo {`), but for a bare compound statement (`{ ... }` with no

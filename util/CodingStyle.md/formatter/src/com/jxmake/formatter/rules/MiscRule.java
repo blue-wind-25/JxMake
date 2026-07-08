@@ -1750,9 +1750,24 @@ public class MiscRule {
         while (closeParen >= 0 && isFunctionBodyQualifier(tokens.get(closeParen))) {
             closeParen = prevSignificantIndex(tokens, closeParen - 1);
         }
-        // Also handle trailing return type: `auto foo() -> ReturnType {`
-        if (closeParen >= 0 && !isPunct(tokens.get(closeParen), ")")) {
+        // Also handle trailing return type: `auto foo() -> ReturnType {`. Kotlin-only: skip this
+        // C++-shaped `->` scan entirely rather than running it first and letting it clobber
+        // `closeParen` to -1 on every Kotlin function (Kotlin never has `->` here, so the scan
+        // always runs off the front of the signature and fails) before the Kotlin-specific `:`
+        // check below ever gets a chance to see the original, still-valid `closeParen`.
+        if (closeParen >= 0 && !isPunct(tokens.get(closeParen), ")") && !lang.isKotlin) {
             closeParen = findCloseParenBeforeTrailingReturnType(tokens, closeParen);
+        }
+        // Kotlin's own return-type shape is different again: `fun foo(): ReturnType {` -- a `:`
+        // rather than C++'s `->` (STYLE_KOTLIN.md §7). Without this, `isFunctionBodyBrace` never
+        // recognized any Kotlin function *with* an explicit return type as a function body at
+        // all (the C/Java-shaped check just above requires `)` to directly precede `{`, and the
+        // C++ `->`-based check right above this one obviously never matches Kotlin's `:` either)
+        // -- silently disabling `insertBlankLineBeforeReturn`/STYLE.md §9 for every such function,
+        // never for a Kotlin function with an inferred/omitted return type (which has no `:` at
+        // all and already falls straight through to the plain `)` check above, unaffected).
+        if (closeParen >= 0 && !isPunct(tokens.get(closeParen), ")") && lang.isKotlin) {
+            closeParen = findCloseParenBeforeKotlinReturnType(tokens, closeParen);
         }
         if (closeParen < 0 || !isPunct(tokens.get(closeParen), ")")) {
             return false;
@@ -1801,6 +1816,35 @@ public class MiscRule {
             return fromIdx;
         }
         return fromIdx;
+    }
+
+    /** Kotlin analog of {@link #findCloseParenBeforeTrailingReturnType}: scans backward from
+     *  {@code fromIdx} through a Kotlin return type (`: ReturnType`), tracking angle-bracket and
+     *  paren depth; returns the function's close paren that precedes the top-level `:`, or -1 if
+     *  not found. */
+    private int findCloseParenBeforeKotlinReturnType(final List<Token> tokens, final int fromIdx) {
+        int depth = 0;
+        for (int i = fromIdx; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, ">") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (isPunct(t, "<") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            } else if (isPunct(t, ")")) {
+                depth++;
+            } else if (isPunct(t, "(")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, ":")) {
+                final int beforeColon = prevSignificantIndex(tokens, i - 1);
+                return (beforeColon >= 0 && isPunct(tokens.get(beforeColon), ")")) ? beforeColon : -1;
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     private boolean isFunctionBodyQualifier(final Token t) {

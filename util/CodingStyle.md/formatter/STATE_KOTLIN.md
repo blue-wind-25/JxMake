@@ -255,6 +255,18 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   fixed, `AI_PREAMBLE_AESTHETIC.md`'s Rule 2 ("JAR aligns standard-prefix
   getter/setter groups automatically") is **not true for Kotlin** — flagged
   there with a caveat rather than silently relying on it.
+- **Bare `else` single-statement collapse not handled (found while verifying
+  RDD_KEY_124).** `kt_combined_out.kt` shows a bare `else` (no condition of
+  its own, following an `if(...)  0`-shaped one-liner) collapsed onto one
+  line and column-padded to align with the `if` branch above it:
+  `else               it.toInt()`. RDD_KEY_124's fix only handles `if`/
+  `while`/`for` (each keyed off its own `(...)` condition) — `collapseSingle
+  ExpressionBlocks`'s loop never triggers on a standalone `else` keyword at
+  all, so this is left as multi-line. Whether this is (a) a natural extension
+  of RDD_KEY_124's braceless-collapse family, or (b) a separate padding/
+  alignment feature (the expected output's column-alignment between an `if`
+  branch and its `else` branch has no §10 worked example to confirm), is not
+  resolved — flagged rather than guessed at.
 
 ---
 
@@ -836,6 +848,44 @@ working map, not a spec):
    run-together-statements shape) — **reported as an open fixture-ambiguity
    item, not a formatter bug; not touched**, per instruction not to guess at
    `kt_combined_inp.kt`'s exact intended fix.
+6. [x] Double-indentation of the first `var`/`val` statement in a
+   function/class body — **not a formatter bug, RESOLVED as a test-harness
+   artifact.** See RDD_KEY_122 / Open Questions above for full detail: a
+   stray `/tmp/kt_test/.jxmake-code-formatter` config (`indent-size=8`) left
+   over from earlier ad-hoc testing silently affected every fixture copy
+   formatted under that directory. No code change needed for this item; a
+   different, real bug in the same area (`set(value) { ... }` accessor
+   closing-brace indentation) was found and fixed under RDD_KEY_122 instead.
+7. [x] `val safe = ...` alignment/blank-line spacing near the `when`-block
+   fix — **split into two parts.** The `.let{ it + 1 }` missing-space part is
+   **fixed — RDD_KEY_123** (`DeclarationAlignmentRule.needsSpaceBetween`'s
+   C/C++/Java-only brace-initializer tight-spacing rule was wrongly firing
+   for Kotlin's trailing-lambda syntax; gated with `!lang.isKotlin`). The
+   column-alignment part (`val safe` padded to align with the next line's
+   `val (a, b) = ...` destructuring declaration) is **not fixed, flagged as
+   ambiguous** — see Open Questions below, contradicts RDD_KEY_107's
+   documented design decision.
+8. [x] `if(...) return@X` / `if(...) expr` single-line-collapse cases not
+   firing in `findFirst`/`findFirstX`/`test()` — **fixed, RDD_KEY_124.**
+   Same family as RDD_KEY_120's `for`-loop collapse but a distinct root
+   cause: `BlockStructureRule.collapseSingleExpressionBlocks` never handled
+   an already-braceless multi-line body at all (`block.openBraceIndex == -1`
+   fell through untouched) — a shape only Kotlin's grammar can produce as
+   *input*. New `tryCollapseBraceless`/`isPartOfElseChainBraceless` helpers,
+   Kotlin-gated. **Explicitly out of scope:** a bare `else\n    stmt` (no
+   condition of its own) is not collapsed by this fix — `kt_combined_out.kt`'s
+   `else               it.toInt()` line remains a diff, a related but
+   distinct construct-plus-alignment gap, not guessed at.
+9. [x] **Newly surfaced while re-verifying the full fixture diff (not part of
+   the original 4-item punch list):** Kotlin functions with an explicit
+   return type (`fun foo(...): Int { ... }`) never got STYLE.md §9's
+   blank-line-before-`return` at all. **Fixed — RDD_KEY_125**
+   (`MiscRule.isFunctionBodyBrace` didn't recognize Kotlin's `: ReturnType`
+   shape between `)` and `{`; also fixed an unrelated ordering bug where the
+   pre-existing C++ `->`-scan ran first and clobbered `closeParen` before the
+   new Kotlin check could see it, plus an `isPunct`-vs-`isOp` mismatch for
+   `:`). All four blank-line-before-`return` diffs in the real fixture are
+   now resolved.
 
 ### Step 5 — Dogfood / Real-Code Testing
 

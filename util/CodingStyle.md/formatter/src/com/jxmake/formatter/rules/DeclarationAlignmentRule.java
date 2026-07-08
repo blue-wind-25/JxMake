@@ -547,7 +547,14 @@ public class DeclarationAlignmentRule {
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
-        if (isPunct(cur, "{")
+        // C/C++/Java-only: a brace-initializer directly after a type/identifier (`int arr[] =
+        // {1,2,3}`, C++'s uniform-init `Widget w{}`) is tight, no space before `{`. Kotlin has no
+        // such shape -- its only identifier-then-`{` construct is a trailing lambda (`x?.let {
+        // it + 1 }`), which STYLE_KOTLIN.md's own worked examples always show with a space before
+        // the `{` -- so this must not fire for Kotlin (was wrongly collapsing `.let { ... }` to
+        // `.let{ ... }` before this gate, since `renderKotlinTokens`/`renderTokens` reuses this
+        // same shared method for a declaration's initializer tokens).
+        if (isPunct(cur, "{") && !lang.isKotlin
                 && (prev.type == TokenType.IDENTIFIER || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }

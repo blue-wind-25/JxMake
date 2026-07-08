@@ -194,15 +194,50 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
 
         List<Token> initTokens = new ArrayList<>();
         if (i < sig.size() && isOp(sig.get(i), "=")) {
+            final Token eqToken = sig.get(i);
             i++;
             initTokens = sig.subList(i, sig.size());
             i = sig.size();
+            if (!initTokens.isEmpty() && spansMultipleLines(stmt, eqToken)) {
+                // The initializer contains a source-level NEWLINE after `=` -- a multi-line
+                // block-expression initializer (`when(...) { ... }`, `if(...) { ... } else { ... }`,
+                // a multi-line lambda, etc.), not the short single-line init every §6 worked
+                // example shows. `initTokens` above is built from `sig` (significant-only, so its
+                // own NEWLINE tokens were already stripped) and gets rendered by
+                // `renderPropertyGroup`/`renderKotlinTokens` as one flat joined-with-spaces line --
+                // correct for a real one-line init, but silently collapsing a multi-line block
+                // expression onto one line here runs *before* (and corrupts the input for) later
+                // passes that assume the block's own internal line structure is still intact, e.g.
+                // `KotlinSpecificRule.formatWhenExpressions`'s per-branch newline-based body
+                // detection. Bail out (leave this declaration out of the group entirely, rendered
+                // verbatim) rather than guess how to re-flow an arbitrary block expression --same
+                // "never guess past an unrecognized shape" posture as this method's other bailouts.
+                return null;
+            }
         }
 
         if (i != sig.size()) {
             return null; // trailing tokens this parser doesn't understand -- never guess
         }
         return new KotlinDecl(modifiers, name, typeTokens, initTokens, findTrailingComment(stmt));
+    }
+
+    /** True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
+     *  {@code NEWLINE} token anywhere after {@code afterToken} (found by identity, since {@code
+     *  stmt} and the caller's filtered {@code sig}/{@code initTokens} share the same {@code
+     *  Token} objects) -- i.e. the initializer starting right after {@code afterToken} spans more
+     *  than one physical source line. */
+    private boolean spansMultipleLines(final List<Token> stmt, final Token afterToken) {
+        boolean seen = false;
+        for (final Token t : stmt) {
+            if (seen && t.type == TokenType.NEWLINE) {
+                return true;
+            }
+            if (t == afterToken) {
+                seen = true;
+            }
+        }
+        return false;
     }
 
     private boolean isPlainModifier(final Token t) {

@@ -360,7 +360,7 @@ existing test suite after this step, before moving to Step 1.
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS` — RDD_KEY_100. Pure no-op for C/C++/Java (no `when` keyword/token in any of their keyword sets). |
 | 3.3 | Secondary constructors (Allman body) | (c), **done** | Covered by the same §3 method (`KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`) in one pass, as planned: a secondary constructor is recognized by the token immediately before `(` being the `constructor` keyword itself. Verified via harness: `class Foo { constructor(x: Int) { ... } }` correctly converts the constructor body to Allman. RDD_KEY_114. |
 | 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` now returns `"init"` from `classifyKotlinHeadlessNamed`, grouped in the same `RDD_KEY_99` commit. |
-| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c), **NOT idempotent — see Step 4 known-bugs punch list** | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. |
+| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c) | `SwitchRule.java` turned out to be colon-form-statement-only (STYLE.md §13), unrelated; the real arrow-form logic is `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`, but its `case`/`default`-keyword label scan and all-or-nothing block-body bailout both don't fit Kotlin's keyword-less, non-all-or-nothing `when` — implemented as new `KotlinSpecificRule.formatWhenExpressions` instead. RDD_KEY_101. Body-squishing non-idempotency bug fixed under RDD_KEY_121 (root cause was `KotlinDeclarationAlignmentRule`, not this method). |
 | 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing` — a single flat whole-file whitespace-collapsing pass, not scoped to any one construct, since no shared class does general expression-level operator re-spacing today. RDD_KEY_102. |
 | 6 | Variable/property declaration alignment | (c), **done** | New `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (user-directed: loosen shared-class visibility, then extend, rather than an independent parser in `KotlinSpecificRule.java`). Reuses `splitStatements`/`hasBlankLineBefore`/`hasCommentBefore`/`significantOnly`/`renderTokens`/`findTrailingComment` (raised private → protected, no behavior change) plus `ColumnGrid`/`KotlinModifierPriority`; writes its own `KotlinDecl` model, `splitKotlinStatements` (newline-terminated statement splitting — Kotlin has no `;`), `parseKotlinDeclaration`, and `renderPropertyGroup` (per-column `ColumnGrid`, not `Declaration`/`render()`). RDD_KEY_103. |
 | 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature` instead of `DeclarationAlignmentRule.Declaration`. Fixed as `RDD_KEY_104` — new `KotlinSignatureRule extends MiscRule`, same visibility-loosen-then-extend pattern as §6. |
@@ -428,16 +428,21 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
 - [x] **§3.2 `when` no space before `(`.** `RDD_KEY_100` — added `"when"` to
       `MiscRule.TIGHT_PAREN_KEYWORDS`, a one-line shared-class change (pure no-op
       for C/C++/Java, no such keyword in their keyword sets). `make test` 25/25.
-- [ ] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
-      NOT idempotent — see Step 4's known-bugs punch list (body-squishing +
-      closing-comment capitalization instability on re-format). Was marked
-      done from standalone-harness testing; standalone testing didn't catch
-      the interaction with an earlier generic blank-line-collapsing pass.
+- [x] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
+      Was marked NOT idempotent — see Step 4's known-bugs punch list item 3
+      (body-squishing on re-format). Root cause found and fixed under
+      `RDD_KEY_121`: not an issue in `formatWhenExpressions` itself or an
+      "interaction with an earlier generic blank-line-collapsing pass" as
+      originally guessed, but `KotlinDeclarationAlignmentRule.
+      parseKotlinDeclaration` stripping a multi-line `when` initializer's
+      internal newlines before `formatWhenExpressions` ever ran. Now wired
+      into `Formatter.formatOne` (Phase 4) and confirmed clean against
+      `test/kt_combined_inp.kt`.
       `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`, not a
       `SwitchRule`/`JavaSpecificRule` extension (keyword-less branch labels,
       non-all-or-nothing block-body alignment, and forced rather than merely
       preserved blank lines all differ from the Java arrow-switch precedent).
-      Not wired into `Formatter.formatOne` yet. `make test` 25/25.
+      `make test` 32/32.
 - [x] **§5 Null-safety operators (`?.`/`!!` tight, `?:` spaced).** `RDD_KEY_102` —
       new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file
       pass (no shared class does general expression-level operator re-spacing).
@@ -795,11 +800,36 @@ working map, not a spec):
    `KotlinDeclarationAlignmentRule` splice bug that double-indents a
    `val`/`var` declaration when it's the first statement inside a Kotlin
    function/class body — see Open Questions.
-3. [ ] `when(status) { ... }` block badly mangled (branches squished onto one
-   line, wrong indentation, closing comment capitalized "When status") — not
-   yet fixed, in progress. Known not-idempotent per §4/RDD_KEY_101.
-4. [ ] `fun test(): int` not capitalized to `fun test(): Int` — not yet
-   fixed, in progress.
+3. [x] `when(status) { ... }` block badly mangled (branches squished onto one
+   line, wrong indentation). **Fixed — RDD_KEY_121.** Root cause was upstream
+   of `formatWhenExpressions`/RDD_KEY_101 entirely — confirmed via
+   `JXM_DEBUG`-gated debug prints in `Formatter.formatOne` that the squishing
+   was already present right after Phase 0's `ScopePipeline.process` call.
+   Traced to `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`: it
+   builds a `val`/`var` declaration's `initTokens` from `significantOnly(stmt)`,
+   which strips all `NEWLINE` tokens, so a multi-line block-expression
+   initializer (`when(...) { ... }`) loses its internal line structure before
+   `renderPropertyGroup`/`renderKotlinTokens` joins it onto one flat line —
+   correct for a normal one-line init, silently wrong for any multi-line one.
+   Fixed with a new `spansMultipleLines` check right after the declaration's
+   `=` token: if the raw (unfiltered) statement has a `NEWLINE` anywhere after
+   `=`, `parseKotlinDeclaration` now returns `null` (same "don't guess past an
+   unrecognized shape" bailout as its other cases) so the declaration is left
+   out of the alignment group and rendered verbatim, preserving line structure
+   for later phases (`formatWhenExpressions`) to correctly re-flow. `diff`
+   against `kt_combined_out.kt` for this block is now clean. `make test`
+   32/32. (The "closing comment capitalized 'When status'" symptom from the
+   original bug report did not reproduce in the isolated repro or the real
+   fixture — closing comment renders correctly as lowercase "when status" in
+   both; likely was a stale/secondary observation from before RDD_KEY_119 was
+   fixed, not a separate bug.)
+4. [x] `fun test(): int` not capitalized to `fun test(): Int` — **not a
+   formatter bug.** Investigated and confirmed the formatter has no
+   type-name-case-mangling pass at all (an isolated `fun test(): int { return
+   0 }` repro round-trips `int` unchanged); neither STYLE_KOTLIN.md nor
+   STYLE_KOTLIN2.md documents any such rule. This was a typo in the fixture
+   itself, fixed directly by the user in `test/kt_combined_inp.kt`
+   (`int` -> `Int`). No formatter code change needed or made.
 5. Lines 88-90 of `kt_combined_inp.kt` (the `val result`/`val result` +
    run-together-statements shape) — **reported as an open fixture-ambiguity
    item, not a formatter bug; not touched**, per instruction not to guess at

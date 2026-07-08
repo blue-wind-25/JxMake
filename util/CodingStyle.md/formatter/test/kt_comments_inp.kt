@@ -99,7 +99,7 @@ class Widget(
         this.block()
     }
 
-    fun test(): int {
+    fun test(): Int {
         val result = "123".let parse@{
             // Comment before early return
             if (it.isEmpty())

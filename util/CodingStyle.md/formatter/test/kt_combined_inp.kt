@@ -69,7 +69,7 @@ class Widget(val name: String, val id: Int) {
         this.block()
     }
 
-    fun test(): int {
+    fun test(): Int {
         val result = "123".let parse@{
             if (it.isEmpty())
                 return@parse 0

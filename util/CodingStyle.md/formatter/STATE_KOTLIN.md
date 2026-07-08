@@ -568,22 +568,33 @@ detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`)
 
 ### Step 3.5 — Configuration Property Wiring
 
-None of the properties below are actually reachable for `.kt` files today
-`Config.java` already parses all of them (`line-length`, `indent-size`,
-`indent-style`, `closing-comment-min-lines`, `format-macros`, `line-endings`,
-`normalize-comment-start-case`, `normalize-comment-end-period`), and the
-existing Kotlin rule classes (`KotlinSpecificRule`, `KotlinSignatureRule`,
-`KotlinDeclarationAlignmentRule`) already *accept* `lineLengthLimit`/
-`indentWidth` as constructor params — but nothing in `Formatter.java`/
-`ScopePipeline.java` constructs those rule classes with Kotlin's `Config`
-values yet, since no pipeline path exists for the language at all.
+**Correction (this session):** the framing below ("no pipeline path exists
+for the language at all", "Main.java wiring currently deferred") was stale —
+found to be **already fully wired** when re-checked against the actual code,
+contradicting the unchecked items that follow. `Main.java:389`'s
+`inferLanguage` already returns `"kotlin"` for `.kt`/`.kts` (auto-detection;
+`--lang` only restricts the *explicit-override* flag to c/cpp/java, which
+doesn't block auto-detection), and `Formatter.java` already constructs
+`KotlinSpecificRule`/`KotlinSignatureRule`/`KotlinDeclarationAlignmentRule`
+with `Config`'s `lineLengthLimit`/`indentWidth` and runs every Kotlin rule
+through the same pipeline as Java/C++ (lines 52-53, 97-104, 172-180,
+188-190). Likely stale from an earlier session snapshot that predates this
+wiring landing. Every item below was re-verified live (standalone JAR run
+against scratch `.kt` fixtures with a `.jxmake-code-formatter` config file,
+`key=value` format — not YAML), not just re-read from code.
 
-- [ ] `line-length` / `indent-size` / `indent-style`: wire from `Config` into
-      Kotlin rule construction once a Kotlin pipeline path exists (Step 4/5
-      territory — depends on the `Main.java` wiring currently deferred).
-- [ ] `closing-comment-min-lines`: confirm Kotlin's named-construct closing
-      comments (§2/§3.1, `BlockStructureRule`-derived) respect this once wired
-      — untested for Kotlin specifically.
+- [x] `line-length` / `indent-size` / `indent-style`: confirmed wired and
+      working. `indent-size=2` correctly sizes newly-generated indentation
+      (e.g. wrapped parameter lines); `line-length=30` correctly triggers
+      Kotlin parameter-list line-breaking (`KotlinSignatureRule`). Neither
+      retroactively re-flows pre-existing indentation levels in the input —
+      confirmed this is the same behavior as Java/C++, not a Kotlin gap.
+- [x] `closing-comment-min-lines`: confirmed Kotlin's named-construct closing
+      comments (`} // class Foo`) respect this — `closing-comment-min-lines=1`
+      correctly added a closing comment to a short `class Foo { ... }` via
+      the shared `BlockStructureRule.addClosingComments`/`classifyNamed`
+      path, byte-for-byte parallel to the same test against an equivalent
+      `.java` file.
 - [x] `format-macros`: confirmed a permanent no-op for Kotlin, not just
       "not wired yet" — its only consumer is `CppSpecificRule`'s `#define`
       column-alignment logic (`format-macros = on`), only ever constructed
@@ -598,12 +609,20 @@ values yet, since no pipeline path exists for the language at all.
       kotlin` shebang) still lexes as an opaque `PREPROCESSOR` token rather
       than erroring — harmless and unrelated to `format-macros` itself, noted
       here only because it was checked as part of confirming this item.
-- [ ] `line-endings`: shared/global concern (`Formatter.java` line-ending
-      normalization) — confirm it already applies file-type-agnostically once
-      Kotlin files flow through `Formatter.java` at all.
-- [ ] `normalize-comment-start-case` / `normalize-comment-end-period`: confirm
-      these apply to Kotlin's `//`/`/* */` comments unchanged (comment syntax
-      itself is identical to Java) once wired.
+- [x] `line-endings`: confirmed language-agnostic — `Main.java`'s
+      `applyLineEndings` runs after `Formatter.formatOne` regardless of
+      language. `line-endings=crlf` correctly produced `\r\n` line endings
+      on a `.kt` file.
+- [x] `normalize-comment-start-case` / `normalize-comment-end-period`:
+      confirmed via `on`/`off` config values (the actual accepted format —
+      `true`/`false` is rejected with a warning and falls back to default,
+      for every language, not a Kotlin-specific issue). Start-case
+      capitalization applies to Kotlin `//` comments identically to Java.
+      End-period normalization added no period in either the Kotlin or an
+      equivalent Java test (`// comment without period` stayed period-less
+      in both) — confirmed this is existing cross-language behavior (line
+      comments apparently aren't in scope for that pass), not a Kotlin gap,
+      so nothing further to fix here.
 - [x] **Spec written** — STYLE_KOTLIN.md §24 "Import Ordering" now documents
       the Kotlin `kotlin-import-order`/`kotlin-import-sort`/`kotlin-import-depth`/
       `kotlin-import-blank-lines` properties, derived directly from
@@ -645,14 +664,15 @@ values yet, since no pipeline path exists for the language at all.
       `make test` 32/32 before and after (Kotlin-only change, no
       shared-class touch). Not yet wired into `Formatter.formatOne`, same as
       every other unwired Kotlin rule class so far. RDD_KEY_118.
-- [ ] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
-      the underlying implementation (`TokenizerCore`'s marker regexes,
-      `ScopePipeline`'s frozen-region handling) is already shared and
-      language-generic — no Kotlin-specific token shape breaks it. Currently
-      unreachable for `.kt` files for the same `Main.java`-wiring reason as
-      above. Confirm behavior with a real Kotlin fixture once wired; only then
-      update `README.md`'s "Disabling formatting for part or all of a file"
-      section to mention Kotlin.
+- [x] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
+      confirmed with a live `.kt` fixture — a `//% JXM_CFMT_DIS` /
+      `//% JXM_CFMT_ENA` pair correctly froze only the enclosed
+      declaration (left its ugly spacing untouched) while formatting the
+      declarations before/after normally; `--format-off` correctly froze an
+      entire `.kt` file end-to-end. Language-generic implementation, no
+      Kotlin-specific gap. `README.md`'s "Disabling formatting for part or
+      all of a file" section still needs updating to mention Kotlin (tracked
+      below, unchanged).
 - [ ] Update `README.md` for the new `kotlin-import-*` keys.
 - [ ] Update `README.txt` for the Kotlin support.
 

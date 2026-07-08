@@ -201,6 +201,36 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   should be resolved with a debug-print/dump harness against real nested-quote
   input (per this file's evidence-over-reasoning rule) before trusting any
   Kotlin fixture that uses string templates. Not yet investigated in depth.
+- **§8/§9 one-liner getter/setter grouping never actually fires for Kotlin
+  (found post-Step-3.5, while auditing `AI_PREAMBLE_AESTHETIC.md`/
+  `AI_PREAMBLE_FULL.md` for Kotlin accuracy).** §8's/§9's scoping-table rows
+  (RDD_KEY_112 and the §8 row above it) assert Kotlin one-liner
+  accessors/expression-bodied functions "participate in the same §14/STYLE.md
+  getter/setter-style aligned group" as a free consequence of the shared
+  `GetterSetterRule` — but this was never actually harness-verified for the
+  *grouping* behavior itself, only for the "preserve as written" /
+  no-wrong-collapse behavior of a single standalone one-liner. Live-tested
+  just now (standalone JAR, `.jxmake-code-formatter` config, scratch `.kt`
+  fixture) and confirmed **broken**: three adjacent `fun getX(): Int = 1`
+  /`getY`/`getZ` one-liners get zero column alignment, where the equivalent
+  Java (`int getX() { return 1; }` etc.) correctly aligns. Reproduced with and
+  without an explicit `public` modifier — no difference. Root cause (read,
+  not yet fixed): `GetterSetterRule.groupOneLiners`'s `isClassScope` gate is
+  `lang.isJava || hasAccessSpecifier(...)` — `hasAccessSpecifier` looks for
+  C++-style `public:`/`private:` labels, which don't exist in Kotlin, so
+  `isClassScope` is always `false` for Kotlin. More fundamentally,
+  `parseOneLinerMember`'s modifier-consuming loop is gated `if (lang.isJava)`
+  only, and the rest of that method assumes C/Java's
+  `[modifiers] ReturnType name(...)` token order to find the member's name —
+  the exact same reversed-grammar problem already resolved for §6/§7 above
+  (RDD_KEY_103/104), just not yet extended to this shared class. Not fixed in
+  this session (documentation-only session) — same "loosen shared-class
+  visibility, then extend with a Kotlin-aware subclass/method" pattern as
+  RDD_KEY_103/104 is the likely fix shape, but needs its own stop-and-think
+  before touching `GetterSetterRule`'s behavior per the Hard Constraint. Until
+  fixed, `AI_PREAMBLE_AESTHETIC.md`'s Rule 2 ("JAR aligns standard-prefix
+  getter/setter groups automatically") is **not true for Kotlin** — flagged
+  there with a caveat rather than silently relying on it.
 
 ---
 
@@ -314,8 +344,8 @@ existing test suite after this step, before moving to Step 1.
 | 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature` instead of `DeclarationAlignmentRule.Declaration`. Fixed as `RDD_KEY_104` — new `KotlinSignatureRule extends MiscRule`, same visibility-loosen-then-extend pattern as §6. |
 | 7.1 | Named/default arguments (`=` spacing/alignment) | (c), **done for declarations** | Folded into §7's `KotlinSignatureRule.parseKotlinParam`/`render` — a default value is just one more optional trailing part of a single parameter's grammar, so no separate method was needed. **Not covered:** the call-site named-argument shape (`foo(x = 1, y = 2)`) shown in STYLE_KOTLIN.md §7.1's own worked example is a function *call*, not a declaration — no type column, different token shape (`name = value` only) — genuinely out of `KotlinSignature`'s scope as parsed here; would need its own small parser/renderer analogous to `MiscRule`'s `renderCallOnePerLine`/`renderCallPreserveGroups` family if picked up later. |
 | 7.2 | Trailing comma (preserved as-is) | (a), **verified** | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. Confirmed via harness: `KotlinSignature.trailingComma` round-trips correctly through `KotlinSignatureRule.render` for `fun foo(x: Int,)`. |
-| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a), **verified** | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. Confirmed via harness for both a block-bodied `set(v) { field = v }` (left completely untouched, including its own Allman `{`, since §3's Allman-conversion gap applies here too but the *block form itself* isn't collapsed) and an expression-bodied `get() = computeY()` (untouched). |
-| 9 | Expression-bodied functions | (a)/(c), **done** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. |
+| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a), **verified for single-standalone case only — grouping is BROKEN, see Open Questions** | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. Confirmed via harness for both a block-bodied `set(v) { field = v }` (left completely untouched, including its own Allman `{`, since §3's Allman-conversion gap applies here too but the *block form itself* isn't collapsed) and an expression-bodied `get() = computeY()` (untouched). **Correction (post-Step-3.5):** the claim that this "participates in the same §14/STYLE.md getter/setter-style aligned group" was never actually harness-verified — live-tested and found broken, `GetterSetterRule.groupOneLiners` never groups Kotlin one-liners at all. See Open Questions. |
+| 9 | Expression-bodied functions | (a)/(c), **done for standalone case — grouping is BROKEN, see Open Questions** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. **Correction (post-Step-3.5):** same grouping claim/gap as §8 above — never harness-verified, confirmed broken. See Open Questions. |
 | 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — `in`/`until`/`downTo`/`step` turned out to already be inert w.r.t. its nested-bracket detection with zero code changes (`in` is `TokenType.KEYWORD`, the other three are plain `TokenType.IDENTIFIER`, confirmed via harness — reclassified (b)→(a)). The `..`/`..<` range operator's own *tight* spacing needed new code, same kind of gap as §5 — new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`, a separate group stream from §6's own. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. |

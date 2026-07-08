@@ -103,6 +103,13 @@ someFunction(
 The JAR aligns getter/setter groups automatically when methods use standard naming
 prefixes (`get`, `set`, `is`). It cannot detect groups using non-standard names.
 
+**Kotlin exception:** the JAR's standard-prefix grouping does not currently fire for
+Kotlin one-liner accessors/expression-bodied functions (`fun getX(): Int = 1` and
+similar) at all — a known gap, see `formatter/STATE_KOTLIN.md`'s Open Questions. For
+Kotlin files, treat *every* one-liner accessor/getter/setter group as if it were
+non-standard: align it per the rule below regardless of whether its naming prefix is
+`get`/`set`/`is`.
+
 When you find a cluster of short accessor-style methods that form a logical group but
 use non-standard prefixes (`fetch`, `retrieve`, `assign`, `enable`, `toggle`, etc.),
 apply the same inline alignment the JAR uses for standard groups (STYLE.md §14):

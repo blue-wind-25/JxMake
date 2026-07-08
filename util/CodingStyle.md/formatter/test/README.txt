@@ -56,6 +56,15 @@ Java:
                                            any other preprocessor directive) while the macro invocation lines still get
                                            normal call-padding tightening (`(clrex, ...)`) and are idempotent.
 
+  kt_combined_inp/out.kt                -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end coverage: enum class
+                                           with members, sealed classes, data classes, type aliases, generics/variance,
+                                           where clauses, infix/extension functions, null-safety operators, when
+                                           expressions, property accessors, destructuring declarations, labeled jumps,
+                                           and ranges, all in one realistic file. See STATE_KOTLIN.md Step 4.
+
+  kt_comments_inp/out.kt                -- Uncommon comment placements in Kotlin, plus JXM_CFMT_DIS/JXM_CFMT_ENA
+                                           formatting-toggle markers. See STATE_KOTLIN.md Step 4.
+
 C:
   c_core_inp/out.c                      -- C11 constructs: declaration alignment, bitfields, pointer placement,
                                            struct/enum/typedef, function Allman braces, control-flow K&R, pre-increment,

@@ -408,10 +408,21 @@ public class TokenizerCore {
                     // false (cleared by the arm-on-IDENTIFIER branch below) by the time a `:` is
                     // reached in those languages.
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1) {
+                } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1
+                        && !lang.isKotlin) {
                     // Entering the outermost paren group (a function's parameter list) -- clear
                     // pendingNamedConstructName so the function body's `{` doesn't pick up the
                     // surrounding class/struct name.
+                    // Gated off for Kotlin: a Kotlin class/enum-class's primary constructor
+                    // parameter list (`class Foo(val x: Int) {`) has this exact same
+                    // keyword-IDENTIFIER-`(` shape, but the `(` there sits between the just-armed
+                    // construct name and its own body brace, not a separate function's parameter
+                    // list -- clearing here would wrongly leave that class/enum-class body brace
+                    // nameless (no closing comment, no name-driven blank lines). Never fires for
+                    // C/C++/Java either way (this is a Kotlin-only case: their named constructs
+                    // never have a parenthesized list directly after the name before `{`, aside
+                    // from Java's `record`, which already survives via the separate
+                    // `pendingRecordName` field, never touching `pendingNamedConstructName`).
                     pendingNamedConstructName = null;
                 } else if (t.type == TokenType.KEYWORD && namedConstructKeywords.contains(t.text)
                         && !"concept".equals(t.text)) {

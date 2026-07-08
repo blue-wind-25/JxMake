@@ -738,10 +738,39 @@ Run the formatter to an input file and output the result in `/tmp`.
 Perform `diff` between the output file in `/tmp` and the reference output file.
 Use the result to fix the formatter.
 
-- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt`
+Also perform idempotency test.
+
+- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — **in progress, see
+      punch list below.**
 - [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt`
 - [ ] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions.
+
+**Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
+`kt_combined_out.kt`; re-verify each against a fresh `diff`, this list is a
+working map, not a spec):
+
+1. [x] `enum class Status(val code: Int) { ... }` missing blank line before
+   closing brace + missing `} // enum class Status` closing comment. **Fixed
+   — RDD_KEY_119.** Root cause was **not** enum-specific or a
+   closing-comment-min-lines threshold issue — it affects any Kotlin
+   `class`/`enum class` with a primary constructor parameter list;
+   `TokenizerCore`'s clear-on-outermost-`(` branch (meant to stop a member
+   function's `{` from picking up a surrounding class name) was wrongly also
+   clearing the just-armed class/enum-class name before its own body `{`
+   consumed it, since a primary constructor's `(` has the identical
+   keyword-IDENTIFIER-`(` shape. Gated off for Kotlin. `make test` 32/32.
+2. [ ] `for(n in numbers) { total += n }` does not collapse to
+   `for(n in numbers) total += n` — not yet fixed, in progress.
+3. [ ] `when(status) { ... }` block badly mangled (branches squished onto one
+   line, wrong indentation, closing comment capitalized "When status") — not
+   yet fixed, in progress. Known not-idempotent per §4/RDD_KEY_101.
+4. [ ] `fun test(): int` not capitalized to `fun test(): Int` — not yet
+   fixed, in progress.
+5. Lines 88-90 of `kt_combined_inp.kt` (the `val result`/`val result` +
+   run-together-statements shape) — **reported as an open fixture-ambiguity
+   item, not a formatter bug; not touched**, per instruction not to guess at
+   `kt_combined_inp.kt`'s exact intended fix.
 
 Use this standard copyright header when adding a new test fixture file:
 ```

@@ -138,6 +138,31 @@ Suggested order:
    current `### B — New config entries` output, before touching weight generation.
 5. README.md config entry added at the end, once the feature is real.
 
+## Checklist
+
+- [x] Boilerplate package `com.jxmake.formatter.classifier` created with empty/stubbed class
+      files, each `throw new UnsupportedOperationException(...)` on unimplemented methods and a
+      `TODO(comment-grammar)` pointing at the relevant step below. Not wired into `MiscRule` or
+      `Config` — zero behavior change, `make test` re-run clean (68/68 PASS lines, "All tests
+      passed").
+  - `CommentDecision` — the `YES`/`NO`/`ABSTAIN` enum (this one is fully implemented, it's just
+    a data type with no logic).
+  - `CommentFeatureVector` — placeholder data holder, fields TODO.
+  - `CommentFeatureExtractor` — stub for step 1's feature-extraction half.
+  - `NonLatinScriptGate` — stub for step 1's RDD_KEY_95 gate.
+  - `KeywordAmbiguityGate` — stub for step 1's RDD_KEY_96 two-stage gate.
+  - `CommentClassifierWeights` — `BIAS`/`THRESHOLD` constants, currently `0.0` placeholders per
+    RDD_KEY_97/98; real values are a later step, not part of this scaffolding.
+  - `CommentClassifier` — stub entry point (`classify(CommentFeatureVector) -> CommentDecision`).
+- [ ] Step 1: implement `CommentFeatureExtractor`, `NonLatinScriptGate`,
+      `KeywordAmbiguityGate` for real, as pure functions, unit-testable with zero weights.
+- [ ] Step 2: wire `comment-normalization-classifier` config key into `Config.java` and
+      `MiscRule`'s two funnel points (`capitalizeFirstLetter`, `stripSoleTrailingPeriod` /
+      `stripSoleTrailingPeriodAcrossLines`), `off` by default.
+- [ ] Step 3: generate real weights (RDD_KEY_97) and threshold (RDD_KEY_98) — blocked until
+      then, do not implement early per "Scope split" above.
+- [ ] Step 4: README.md config entry.
+
 Do not attempt to expand this to non-Latin-script grammar support (e.g. a German- or
 Japanese-aware classifier) — that was explicitly scoped out (RDD_KEY_95) as a separate,
 much larger effort, not a natural extension of this one.

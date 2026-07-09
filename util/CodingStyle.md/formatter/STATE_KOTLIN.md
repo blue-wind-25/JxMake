@@ -11,14 +11,15 @@ work has now started, also from a redirect at the top of `STATE.md` itself
 
 ## Next Session
 
-Pick up here: **fix §8/§9 one-liner getter/setter grouping for Kotlin**,
-confirmed BROKEN and still unfixed (see Open Questions below and the Step 3
-checklist header). `GetterSetterRule.groupOneLiners`'s `isClassScope` gate
-never recognizes Kotlin, so Kotlin one-liner accessors (`get()`/`set()`) and
-expression-bodied functions never get grouped/column-aligned the way the
-equivalent Java case does. This is a **shared-class change**
-(`GetterSetterRule`) — re-run the full C/C++/Java suite before/after per the
-Hard Constraint above.
+§9 one-liner getter/setter grouping (expression-bodied functions) is now
+fixed (`KotlinGetterSetterRule`, RDD_KEY_132) — see Resolved Design
+Decisions and the Step 3 checklist. **Remaining open item, if picked up:**
+§8 `get()`/`set()` property-accessor one-liner grouping is still unhandled
+(structurally different shape from §9 — no `fun` keyword, embedded inside a
+property declaration; §8's "preserve as written" requirement is still met,
+only the alignment upgrade is missing). Otherwise, Step 5 (Dogfood / Real-
+Code Testing against RobotCoding `gui_frontend_android`, see that section's
+own setup instructions) is the next unstarted checklist item.
 
 ## Purpose
 
@@ -176,6 +177,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_115 | Kotlin semicolon stripping — §1; fixed a real bug in the pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`, predating this session's RDD-log convention) — it only protected the enum-with-members mandatory `;`, silently stripping a deliberate same-line multi-statement `;` too (would have merged two statements into one invalid line); rewritten around a single positive-evidence `isTrailingSemicolon` rule (only strip a `;` that's the last significant thing on its physical line), reusing §2's `findEnumConstantListTerminators` for the enum exclusion; also fixed a stray-trailing-space gap the old version had |
 | RDD_KEY_116 | Kotlin string template tokenizer risk — §19; **shared-class fix** — `TokenizerCore.emitString`'s naive scan-to-next-`"` misread a nested string inside a `${...}` interpolation (`"${foo("x")}"`) as three tokens instead of one, a genuine correctness risk (a later spacing pass could insert whitespace inside the literal's actual text); fixed with a Kotlin-only `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar` path (depth-tracks `${...}`'s own `{`/`}` nesting, recurses for nested strings/chars, arbitrarily deep), gated behind `lang.isKotlin`, non-Kotlin scan untouched; surfaced triple-quoted raw strings as a related, explicitly out-of-scope gap (new row 19.1, not fixed — undocumented in either style doc) |
 | RDD_KEY_117 | Kotlin triple-quoted raw string tokenizer support — row 19.1, **shared-class fix**; badly broken before this (`"""hello "world" end"""` mis-lexed as five tokens including a bare `IDENTIFIER`; multi-line raw strings leaked a spurious `NEWLINE` token into the content); fixed with Kotlin-only `isKotlinRawStringOpener`/`emitKotlinRawString`/`skipKotlinRawString` — no backslash-escape processing (literal `\` by design), greedy termination at the first `"""` (matches real Kotlin compiler semantics); `${...}` interpolation still recognized via `skipKotlinInterpolationBlock`, extended to also recognize a nested raw string inside an interpolation expression; non-Kotlin paths (Java text block, C++ raw string, plain C string) confirmed untouched |
+| RDD_KEY_132 | Kotlin §8/§9 one-liner getter/setter grouping — new `KotlinGetterSetterRule extends GetterSetterRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103/104), own newline-terminated member splitter, `[modifiers] fun name(params) [: ReturnType] = expr` parser, and 3-column grid render; scope limited to expression-bodied one-liner functions (§9) — `get()`/`set()` property accessors (§8) remain an unhandled, structurally different shape; new `test/kt_combined_inp.kt`/`kt_combined_out.kt` `class Accessors` case |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -240,9 +242,20 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
   should be resolved with a debug-print/dump harness against real nested-quote
   input (per this file's evidence-over-reasoning rule) before trusting any
   Kotlin fixture that uses string templates. Not yet investigated in depth.
-- **§8/§9 one-liner getter/setter grouping never actually fires for Kotlin
-  (found post-Step-3.5, while auditing `AI_PREAMBLE_AESTHETIC.md`/
-  `AI_PREAMBLE_FULL.md` for Kotlin accuracy).** §8's/§9's scoping-table rows
+- **§8/§9 one-liner getter/setter grouping never actually fires for Kotlin —
+  RESOLVED for §9 (expression-bodied functions), still an open gap for §8
+  (`get()`/`set()` property accessors).** New `KotlinGetterSetterRule extends
+  GetterSetterRule` (RDD_KEY_132) fixes the confirmed-broken case below for
+  `fun name(params): ReturnType = expr` one-liners — verified via harness
+  (`fun getX(): Int = 1` / `getLongName` / `getZ` now column-align, including
+  correct outlier exclusion when one sibling's body is disproportionately
+  wide) and a new `test/kt_combined_inp.kt` fixture case. `get()`/`set()`
+  property-accessor one-liners (a structurally different shape — no `fun`
+  keyword, embedded inside a property declaration, not addressed by this
+  fix) remain unhandled; §8's "preserve as written" requirement is still met
+  for them (nothing in `KotlinGetterSetterRule` touches a shape outside its
+  own `fun`-anchored parser), only the alignment upgrade is still missing.
+  Original bug report preserved below for context. §8's/§9's scoping-table rows
   (RDD_KEY_112 and the §8 row above it) assert Kotlin one-liner
   accessors/expression-bodied functions "participate in the same §14/STYLE.md
   getter/setter-style aligned group" as a free consequence of the shared
@@ -446,11 +459,12 @@ existing test suite after this step, before moving to Step 1.
 
 ### Step 3 — `KotlinSpecificRule.java`
 
-- [ ] Implement each section flagged "(c)" in Step 1's scoping table, one
+- [x] Implement each section flagged "(c)" in Step 1's scoping table, one
       section at a time, each as its own checkpoint commit.
-      **Still unchecked because it's still true**: §8/§9 one-liner
-      getter/setter grouping is confirmed BROKEN and unfixed (see Open
-      Questions) — every other flagged section below is done.
+      §8/§9 one-liner getter/setter grouping: §9 (expression-bodied
+      functions) fixed via `KotlinGetterSetterRule`, RDD_KEY_132. §8
+      (`get()`/`set()` accessors) remains an open, documented gap (see Open
+      Questions) — every other flagged section is done.
 Full implementation/verification narratives for every item below are recorded
 in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
 - [x] §1 Semicolons — `KotlinSpecificRule.stripOptionalSemicolons`. RDD_KEY_115
@@ -481,6 +495,10 @@ in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
       RDD_KEY_114.
 - [x] §19/§19.1 String templates + triple-quoted raw strings — tokenizer-level
       fix (shared-class change). RDD_KEY_116, RDD_KEY_117.
+- [x] §8/§9 one-liner getter/setter grouping (expression-bodied functions
+      only) — new `KotlinGetterSetterRule extends GetterSetterRule`.
+      RDD_KEY_132. `get()`/`set()` property-accessor one-liners (§8) remain
+      unhandled — see Open Questions.
 
 ### Step 3.5 — Configuration Property Wiring
 

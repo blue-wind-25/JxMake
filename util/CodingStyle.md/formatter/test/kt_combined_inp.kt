@@ -114,3 +114,9 @@ class Widget(val name: String, val id: Int) {
         }
     }
 }
+
+class Accessors {
+    fun getX(): Int = 111
+    fun getLongName(): Int = 222
+    fun getZ(): String = "abcxyz"
+}

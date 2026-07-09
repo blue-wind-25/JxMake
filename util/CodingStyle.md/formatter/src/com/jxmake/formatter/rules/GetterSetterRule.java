@@ -403,7 +403,7 @@ public class GetterSetterRule {
         return sb.toString();
     }
 
-    private String cellText(final List<Token> tokens, final int from, final int to) {
+    protected String cellText(final List<Token> tokens, final int from, final int to) {
         final StringBuilder sb = new StringBuilder();
         for (int i = from; i < to; i++) {
             sb.append(tokens.get(i).text);
@@ -499,7 +499,7 @@ public class GetterSetterRule {
      * enough to avoid flip-flopping, since once excluded here it can never re-enter a group (a
      * broken-across-lines member always fails {@code hasNewlineBetween} on every later pass).
      */
-    private Member parseOneLinerMember(final List<Token> tokens, final int from, final int to, final int nestDepth) {
+    protected Member parseOneLinerMember(final List<Token> tokens, final int from, final int to, final int nestDepth) {
         final int firstSig = firstSignificantIndex(tokens, from, to);
         if (firstSig < 0) {
             return null;
@@ -899,7 +899,7 @@ public class GetterSetterRule {
     }
 
     // ── Local bracket matching ──────────────────────────────────────────────────
-    private int matchBracket(final List<Token> tokens, final int openIdx, final String open,
+    protected int matchBracket(final List<Token> tokens, final int openIdx, final String open,
             final String close) {
         int depth = 1;
         int i = openIdx + 1;
@@ -917,12 +917,12 @@ public class GetterSetterRule {
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────
-    private boolean isInsignificant(final Token t) {
+    protected boolean isInsignificant(final Token t) {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
                 || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK;
     }
 
-    private int firstSignificantIndex(final List<Token> tokens, final int from, final int to) {
+    protected int firstSignificantIndex(final List<Token> tokens, final int from, final int to) {
         for (int i = from; i < to; i++) {
             if (!isInsignificant(tokens.get(i))) {
                 return i;
@@ -940,11 +940,11 @@ public class GetterSetterRule {
         return -1;
     }
 
-    private int nextSignificant(final List<Token> tokens, final int from, final int to) {
+    protected int nextSignificant(final List<Token> tokens, final int from, final int to) {
         return firstSignificantIndex(tokens, from, to);
     }
 
-    private int trimLeadingWs(final List<Token> tokens, final int from, final int to) {
+    protected int trimLeadingWs(final List<Token> tokens, final int from, final int to) {
         int start = from;
         while (start < to && isInsignificant(tokens.get(start))) {
             start++;
@@ -952,7 +952,7 @@ public class GetterSetterRule {
         return start;
     }
 
-    private int trimTrailingWs(final List<Token> tokens, final int from, final int to) {
+    protected int trimTrailingWs(final List<Token> tokens, final int from, final int to) {
         int end = to;
         while (end > from && isInsignificant(tokens.get(end - 1))) {
             end--;
@@ -961,7 +961,7 @@ public class GetterSetterRule {
     }
 
     /** True iff any `NEWLINE` token appears in [from, to) -- i.e. the span crosses a source line. */
-    private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to) {
+    protected boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to) {
         for (int i = from; i < to; i++) {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 return true;
@@ -971,7 +971,7 @@ public class GetterSetterRule {
     }
 
     /** Same blank-line-before detection as `DeclarationAlignmentRule.hasBlankLineBefore`. */
-    private boolean hasBlankLineRun(final List<Token> tokens, final int from, final int to) {
+    protected boolean hasBlankLineRun(final List<Token> tokens, final int from, final int to) {
         int newlineRun = 0;
         for (int i = from; i < to; i++) {
             final Token t = tokens.get(i);

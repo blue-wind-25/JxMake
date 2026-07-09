@@ -88,7 +88,9 @@ public class ScopePipeline {
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(lang);
         this.declarationRule = new DeclarationAlignmentRule(lang, lineLengthLimit);
-        this.getterSetterRule = new GetterSetterRule(lang, indentWidth, lineLengthLimit);
+        this.getterSetterRule = lang.isKotlin
+                ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)
+                : new GetterSetterRule(lang, indentWidth, lineLengthLimit);
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 commentNormalizationClassifier, indentWidth, lineLengthLimit);
         this.kotlinDeclarationRule = lang.isKotlin

@@ -160,7 +160,9 @@ public class Patterns {
 
     public String describe(Object obj)
     {
-        if(obj instanceof String s) return "string: " + s.toUpperCase(); else if(obj instanceof Integer i) return "int: " + i; else if(obj instanceof List<?> list) return "list of " + list.size();
+        if(obj instanceof String s)          return "string: " + s.toUpperCase();
+        else if(obj instanceof Integer i)    return "int: " + i;
+        else if(obj instanceof List<?> list) return "list of " + list.size();
 
         return "unknown";
     }

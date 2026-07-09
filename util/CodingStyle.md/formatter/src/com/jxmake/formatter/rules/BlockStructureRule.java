@@ -100,7 +100,9 @@ public class BlockStructureRule {
                         final String collapsed = tryCollapse(tokens, i, block);
                         if (collapsed != null) {
                             out.append(collapsed);
-                            i = block.closeBraceIndex + 1;
+                            final int afterBrace = block.closeBraceIndex + 1;
+                            i = appendChainNewlineBeforeElse(tokens, afterBrace, n, out,
+                                    mostRecentLineIndent(tokens, i));
                             continue;
                         }
                     }
@@ -279,6 +281,47 @@ public class BlockStructureRule {
         final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /**
+     * Indentation (spaces/tabs) of the physical source line that {@code index} sits on, found
+     * by walking backward for the nearest {@code NEWLINE} token and reading the
+     * {@code WHITESPACE} token right after it. For a K&R `} else if (...)` line this is the
+     * closing brace's own indent, which is what a collapsed chain's `else`/`else if` line should
+     * inherit -- it always matches the opening `if`'s indent in practice, since the `}` that
+     * used to sit there was itself aligned with its `if`. Returns "" if no indent is found (e.g.
+     * {@code index} is on the first line of the file).
+     */
+    private String mostRecentLineIndent(final List<Token> tokens, final int index) {
+        int p = Math.min(index, tokens.size()) - 1;
+        while (p >= 0 && tokens.get(p).type != TokenType.NEWLINE) {
+            p--;
+        }
+        final int wsIdx = p + 1;
+        if (wsIdx < tokens.size() && tokens.get(wsIdx).type == TokenType.WHITESPACE) {
+            return tokens.get(wsIdx).text;
+        }
+        return "";
+    }
+
+    /**
+     * After a chain member (`if`/`else if`) has just been collapsed to one line, forces the
+     * following `else` (if the next significant token is one) onto its own line at
+     * {@code indent}, discarding whatever whitespace/newline previously separated them --
+     * K&R input has `} else` sitting on the same physical line as the closing brace, which
+     * {@link #collapseSingleExpressionBlocks} would otherwise reproduce verbatim, joining the
+     * whole chain onto a single line instead of the Allman-per-branch, column-aligned shape
+     * {@link #alignBracelessElseIfChain} expects to align. Returns the index to resume
+     * scanning from (unchanged if the next token is not `else`).
+     */
+    private int appendChainNewlineBeforeElse(final List<Token> tokens, final int from, final int n,
+            final StringBuilder out, final String indent) {
+        final int next = skipWhitespaceOnly(tokens, from);
+        if (next < n && tokens.get(next).type == TokenType.KEYWORD && "else".equals(tokens.get(next).text)) {
+            out.append('\n').append(indent);
+            return next;
+        }
+        return from;
     }
 
     /** True iff {@code contents} (a braced body's interior) holds exactly one qualifying

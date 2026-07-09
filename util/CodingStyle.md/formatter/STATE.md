@@ -858,3 +858,21 @@ evidence over reasoning" rule above:
 
 Both sections removed from `AI_PREAMBLE_FULL.md` as redundant with already-COMPLETE JAR
 behavior — nothing left there for an AI reader to act on manually.
+
+### H — Comment-grammar classifier accuracy upgrade (DONE)
+Formerly tracked in its own `STATE_COMMENT_GRAMMAR.md` (deleted once complete — see
+`RDD_LOG.md`'s `RDD_KEY_94`–`RDD_KEY_98` for the full design history). Adds an optional
+classifier-backed decision path for the `normalize-comment-start-case`/
+`normalize-comment-end-period` keys, behind a new `comment-normalization-classifier` config key
+(default `off`, zero behavior change when off). New `com.jxmake.formatter.classifier` package:
+`CommentFeatureExtractor`/`CommentFeatureVector` (pure feature extraction), `NonLatinScriptGate`
+(RDD_KEY_95: any non-Latin codepoint disables the classifier for that comment), `KeywordAmbiguityGate`
+(RDD_KEY_96: per-language keyword lists + two-stage ambiguity check for a keyword-leading comment
+word, e.g. "static" as an English adjective vs. the C keyword), `CommentClassifier`/
+`CommentClassifierWeights` (score/threshold decision, `YES`/`NO`/`ABSTAIN`; `ABSTAIN` behaves
+exactly like `off` for that one comment — never guess). Weights (RDD_KEY_97: frontier-model-assisted,
+not corpus-trained, for v1) generated from 40 labeled per-language examples under `cwg/` via
+`cwg/derive_weights.py` (L2-regularized logistic regression, reproducible/reusable for future
+re-derivation — see `cwg/README.md` and `cwg/weights.md`). `make test` 70/70 PASS unchanged
+(default `off`); classifier `on` verified via a 4-language `/tmp` smoke test and 38/40 against the
+labeled example set (two documented feature-set limits, not defects — see `cwg/weights.md`).

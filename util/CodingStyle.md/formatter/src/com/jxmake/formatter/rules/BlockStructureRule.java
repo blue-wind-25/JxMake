@@ -153,6 +153,41 @@ public class BlockStructureRule {
                         continue;
                     }
                 }
+            } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && !lang.isKotlin) {
+                // C/C++/Java sibling of the Kotlin bare-`else` branch above: the braced-body path
+                // (line 96-127) only ever collapses `if`/`else if` keywords, never a *bare*
+                // terminal `else { ... }`, which has no condition of its own to anchor the main
+                // loop's SINGLE_EXPR_KEYWORDS dispatch. Handled here instead, gated by the same
+                // whole-chain opt-in safety check as every other branch in this feature
+                // (chainAllBranchesCollapsible, invoked from this else's own chain-start `if`).
+                final int next = skipWhitespaceOnly(tokens, i + 1);
+                final boolean isElseIf = next < n && tokens.get(next).type == TokenType.KEYWORD
+                        && "if".equals(tokens.get(next).text);
+                if (!isElseIf && next < n && isPunct(tokens.get(next), "{")
+                        && !anyFrozen(tokens, i, next + 1)) {
+                    final int chainStart = findChainStart(tokens, i);
+                    if (chainStart >= 0 && chainAllBranchesCollapsible(tokens, chainStart, n)) {
+                        int depth = 1;
+                        int j = next + 1;
+                        while (j < n && depth > 0) {
+                            final Token tk = tokens.get(j);
+                            if (isPunct(tk, "{")) {
+                                depth++;
+                            } else if (isPunct(tk, "}")) {
+                                depth--;
+                            }
+                            j++;
+                        }
+                        if (depth == 0) {
+                            final List<Token> contents = tokens.subList(next + 1, j - 1);
+                            if (isSingleStatementBody(contents) && !anyFrozen(tokens, i, j)) {
+                                out.append("else " + renderInline(contents));
+                                i = j;
+                                continue;
+                            }
+                        }
+                    }
+                }
             }
             out.append(t.text);
             i++;
@@ -238,7 +273,20 @@ public class BlockStructureRule {
             final ControlBlock block) {
         final List<Token> contents = tokens.subList(block.openBraceIndex + 1,
                 block.closeBraceIndex);
+        if (!isSingleStatementBody(contents)) {
+            return null;
+        }
+        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
+        final String body = renderInline(contents);
+        return prefix + " " + body;
+    }
 
+    /** True iff {@code contents} (a braced body's interior) holds exactly one qualifying
+     *  top-level statement per STYLE.md §10 -- extracted out of {@link #tryCollapse} so the
+     *  same check can be dry-run, without producing any rendered text, over every branch of an
+     *  {@code if}/{@code else if}/{@code else} chain (see {@link #chainAllBranchesCollapsible})
+     *  to decide whether the *whole* chain qualifies before any single branch is touched. */
+    private boolean isSingleStatementBody(final List<Token> contents) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : contents) {
             if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
@@ -246,7 +294,7 @@ public class BlockStructureRule {
             }
         }
         if (sig.isEmpty()) {
-            return null;
+            return false;
         }
 
         int semiCount = 0;
@@ -261,13 +309,13 @@ public class BlockStructureRule {
             for (int k = semiIdx + 1; k < sig.size(); k++) {
                 final TokenType ty = sig.get(k).type;
                 if (ty != TokenType.COMMENT_LINE && ty != TokenType.COMMENT_BLOCK) {
-                    return null;
+                    return false;
                 }
             }
             for (int k = 0; k < semiIdx; k++) {
                 final TokenType ty = sig.get(k).type;
                 if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
-                    return null;
+                    return false;
                 }
             }
         } else if (semiCount == 0 && lang.isKotlin) {
@@ -280,20 +328,14 @@ public class BlockStructureRule {
             // present in the body, same "don't guess past a comment" posture as the `;`-based
             // path's own comment checks above.
             if (!isKotlinSingleStatementBody(contents)) {
-                return null;
+                return false;
             }
         } else {
-            return null;
+            return false;
         }
 
         final Token first = sig.get(0);
-        if (first.type == TokenType.KEYWORD && COMPOUND_BODY_KEYWORDS.contains(first.text)) {
-            return null;
-        }
-
-        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
-        final String body = renderInline(contents);
-        return prefix + " " + body;
+        return first.type != TokenType.KEYWORD || !COMPOUND_BODY_KEYWORDS.contains(first.text);
     }
 
     /** Kotlin-only sibling of the `;`-count check above: true iff {@code contents} (a braced
@@ -455,9 +497,26 @@ public class BlockStructureRule {
     /** True if the `if` at {@code kwIndex} is part of an {@code else}/
      *  {@code else if} chain -- either its closing `}` is followed by {@code else},
      *  or the keyword itself is directly preceded by {@code else} (i.e. it is an
-     *  {@code else if} branch). In either case collapsing the branch to a one-liner
-     *  is suppressed so all branches in the chain keep braces (STYLE_C_CPP.md §10). */
+     *  {@code else if} branch). For Kotlin, membership alone suppresses collapse of this
+     *  particular braced branch (unchanged legacy behavior -- Kotlin's own chain collapse is
+     *  driven entirely through the already-braceless path, see
+     *  {@link #isPartOfElseChainBraceless}). For C/C++/Java, membership only suppresses
+     *  collapse when the *whole* chain does not qualify to collapse together
+     *  (see {@link #chainAllBranchesCollapsible}) -- STYLE_C_CPP.md §10's all-or-nothing rule
+     *  cuts both ways: a chain where every branch is a qualifying single statement is free to
+     *  drop braces on every branch at once, opt-in only, never partially. */
     private boolean isPartOfElseChain(final List<Token> tokens, final int kwIndex,
+            final ControlBlock block, final int n) {
+        if (!isElseChainMember(tokens, kwIndex, block, n)) {
+            return false;
+        }
+        if (lang.isKotlin) {
+            return true;
+        }
+        return !chainAllBranchesCollapsible(tokens, kwIndex, n);
+    }
+
+    private boolean isElseChainMember(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int n) {
         final int afterClose = skipNonSignificant(tokens, block.closeBraceIndex + 1);
         if (afterClose < n && tokens.get(afterClose).type == TokenType.KEYWORD
@@ -471,6 +530,208 @@ public class BlockStructureRule {
         }
         return prev >= 0 && tokens.get(prev).type == TokenType.KEYWORD
                 && "else".equals(tokens.get(prev).text);
+    }
+
+    /** C/C++/Java-only whole-chain brace-safety scan (STYLE_C_CPP.md §10 opt-in, per user
+     *  instruction: collapse every branch of an {@code if}/{@code else if}/{@code else} chain
+     *  to braceless only when NONE of them needs to keep its braces -- a single multi-statement
+     *  or otherwise non-qualifying branch anywhere in the chain leaves the *entire* chain
+     *  untouched, byte-for-byte, never a partial collapse. Walks from the chain's first `if`
+     *  (found by walking backward over any preceding {@code else}) forward through every
+     *  {@code else if}/bare {@code else} branch; a branch that is already brace-free is
+     *  trivially fine (nothing to remove) and does not block the scan. Returns {@code false}
+     *  (chain stays fully braced) on any malformed/unbalanced structure, matching this class's
+     *  conservative "don't guess" posture elsewhere. */
+    private boolean chainAllBranchesCollapsible(final List<Token> tokens, final int kwIndex, final int n) {
+        final int start = findChainStart(tokens, kwIndex);
+        if (start < 0) {
+            return false;
+        }
+
+        int pos = start;
+        while (true) {
+            if (tokens.get(pos).type == TokenType.KEYWORD && "else".equals(tokens.get(pos).text)) {
+                final int next = skipWhitespaceOnly(tokens, pos + 1);
+                if (next < n && (tokens.get(next).type == TokenType.COMMENT_LINE
+                        || tokens.get(next).type == TokenType.COMMENT_BLOCK)) {
+                    return false;
+                }
+                if (next < n && tokens.get(next).type == TokenType.KEYWORD && "if".equals(tokens.get(next).text)) {
+                    pos = next;
+                    continue;
+                }
+                // Bare (terminal) else.
+                if (next >= n) {
+                    return true;
+                }
+                if (isPunct(tokens.get(next), "{")) {
+                    int depth = 1;
+                    int j = next + 1;
+                    while (j < n && depth > 0) {
+                        final Token tk = tokens.get(j);
+                        if (isPunct(tk, "{")) {
+                            depth++;
+                        } else if (isPunct(tk, "}")) {
+                            depth--;
+                        }
+                        j++;
+                    }
+                    if (depth != 0) {
+                        return false;
+                    }
+                    return isSingleStatementBody(tokens.subList(next + 1, j - 1));
+                }
+                return true; // Already brace-free bare else -- nothing to collapse, chain ends here.
+            }
+
+            // `pos` is an `if`.
+            final ControlBlock block = matchControlBlock(tokens, pos);
+            if (block == null) {
+                return false;
+            }
+            if (block.openBraceIndex >= 0) {
+                if (!isSingleStatementBody(tokens.subList(block.openBraceIndex + 1, block.closeBraceIndex))) {
+                    return false;
+                }
+                final int after = skipWhitespaceOnly(tokens, block.closeBraceIndex + 1);
+                if (after < n && (tokens.get(after).type == TokenType.COMMENT_LINE
+                        || tokens.get(after).type == TokenType.COMMENT_BLOCK)) {
+                    return false; // Comment between this branch and the next -- don't guess past it.
+                }
+                if (after >= n || tokens.get(after).type != TokenType.KEYWORD || !"else".equals(tokens.get(after).text)) {
+                    return true; // Chain ends here, every branch so far qualifies.
+                }
+                pos = after;
+                continue;
+            }
+            // Already brace-free branch: this session scopes the collapsible-chain check to
+            // chains built entirely of originally-braced branches (the shape STYLE_C_CPP.md
+            // §10's worked examples and this feature's own fixtures exercise); a chain with a
+            // pre-existing brace-free branch bails conservatively rather than guessing at its
+            // (harder to locate without a closing brace) statement boundary.
+            return false;
+        }
+    }
+
+    /** Skips backward over a run of WHITESPACE/NEWLINE tokens only (comments deliberately NOT
+     *  skipped -- see {@link #findChainStart}); returns the index of the nearest non-gap token,
+     *  or -1 if none remains. */
+    private int skipWhitespaceOnlyBackward(final List<Token> tokens, final int from) {
+        int i = from;
+        while (i >= 0 && (tokens.get(i).type == TokenType.WHITESPACE || tokens.get(i).type == TokenType.NEWLINE)) {
+            i--;
+        }
+        return i;
+    }
+
+    /** Given the index of a `}` that is claimed to close the previous branch of an else-if
+     *  chain, matches it backward to its `{`, then further back through the branch's own
+     *  `( ... )` condition to the `if` keyword that opens it. Returns -1 if {@code closeBraceIdx}
+     *  is not actually a `}`, or the structure is unbalanced/malformed. */
+    private int closeBraceToOwningIf(final List<Token> tokens, final int closeBraceIdx) {
+        if (closeBraceIdx < 0 || !isPunct(tokens.get(closeBraceIdx), "}")) {
+            return -1;
+        }
+        int depth = 1;
+        int k = closeBraceIdx - 1;
+        while (k >= 0 && depth > 0) {
+            final Token tk = tokens.get(k);
+            if (isPunct(tk, "}")) {
+                depth++;
+            } else if (isPunct(tk, "{")) {
+                depth--;
+            }
+            k--;
+        }
+        if (depth != 0) {
+            return -1;
+        }
+        final int openBrace = k + 1;
+        final int beforeOpen = skipWhitespaceOnlyBackward(tokens, openBrace - 1);
+        if (beforeOpen < 0 || !isPunct(tokens.get(beforeOpen), ")")) {
+            return -1;
+        }
+        int pdepth = 1;
+        int m = beforeOpen - 1;
+        while (m >= 0 && pdepth > 0) {
+            final Token tk = tokens.get(m);
+            if (isPunct(tk, ")")) {
+                pdepth++;
+            } else if (isPunct(tk, "(")) {
+                pdepth--;
+            }
+            m--;
+        }
+        if (pdepth != 0) {
+            return -1;
+        }
+        final int openParen = m + 1;
+        final int beforeParen = skipWhitespaceOnlyBackward(tokens, openParen - 1);
+        if (beforeParen >= 0 && tokens.get(beforeParen).type == TokenType.KEYWORD
+                && "if".equals(tokens.get(beforeParen).text)) {
+            return beforeParen;
+        }
+        return -1;
+    }
+
+    /** For the `if`/`else` keyword at {@code kwIndex} (a member of some else-if chain), finds
+     *  the immediately preceding branch's own `if` keyword, if one exists. Returns -2 if
+     *  {@code kwIndex} is an `if` with no `else` immediately before it (i.e. it has no
+     *  predecessor -- it IS the chain's first branch). Returns -1 on a malformed/unbalanced
+     *  structure, or if a comment sits in a gap this must see past to judge (conservative
+     *  "don't guess past a comment" bail, matching this class's posture elsewhere -- e.g.
+     *  `real_code_regressions_5_inp.cpp`'s `withComment`, a `/* ... *\/` directly between a
+     *  branch's `}` and the following `else`). */
+    private int prevChainBranchIf(final List<Token> tokens, final int kwIndex) {
+        final boolean isElseTok = tokens.get(kwIndex).type == TokenType.KEYWORD && "else".equals(tokens.get(kwIndex).text);
+        if (isElseTok) {
+            final int beforeElse = skipWhitespaceOnlyBackward(tokens, kwIndex - 1);
+            if (beforeElse < 0 || tokens.get(beforeElse).type == TokenType.COMMENT_LINE
+                    || tokens.get(beforeElse).type == TokenType.COMMENT_BLOCK) {
+                return -1;
+            }
+            return closeBraceToOwningIf(tokens, beforeElse);
+        }
+        // kwIndex is an `if`: an else-if only if directly preceded by `else`.
+        final int beforeIf = skipWhitespaceOnlyBackward(tokens, kwIndex - 1);
+        if (beforeIf < 0) {
+            return -2;
+        }
+        if (tokens.get(beforeIf).type == TokenType.COMMENT_LINE || tokens.get(beforeIf).type == TokenType.COMMENT_BLOCK) {
+            // A comment directly before this `if` can never mean it's an else-if (grammar
+            // requires the literal `else` token immediately before, comments aside don't change
+            // that), so this is just this chain's own first branch -- no predecessor to find.
+            return -2;
+        }
+        if (tokens.get(beforeIf).type != TokenType.KEYWORD || !"else".equals(tokens.get(beforeIf).text)) {
+            return -2;
+        }
+        final int beforeElse = skipWhitespaceOnlyBackward(tokens, beforeIf - 1);
+        if (beforeElse < 0 || tokens.get(beforeElse).type == TokenType.COMMENT_LINE
+                || tokens.get(beforeElse).type == TokenType.COMMENT_BLOCK) {
+            return -1;
+        }
+        return closeBraceToOwningIf(tokens, beforeElse);
+    }
+
+    /** Walks backward from {@code anchorIndex} (an `if` or bare `else` token that is some
+     *  member of an else-if chain) to the index of the chain's very first `if`, by repeatedly
+     *  hopping to {@link #prevChainBranchIf}'s result. Returns -1 on any unbalanced structure or
+     *  comment this must see past (see {@link #prevChainBranchIf}'s javadoc) -- notably NOT on
+     *  reaching a branch with no predecessor, which just ends the walk successfully (that branch
+     *  IS the chain start). */
+    private int findChainStart(final List<Token> tokens, final int anchorIndex) {
+        int cur = anchorIndex;
+        while (true) {
+            final int prevIf = prevChainBranchIf(tokens, cur);
+            if (prevIf == -1) {
+                return -1;
+            }
+            if (prevIf == -2) {
+                return cur;
+            }
+            cur = prevIf;
+        }
     }
 
     /** Joins tokens onto one line: any run of whitespace/newlines between tokens becomes one space. */
@@ -677,6 +938,20 @@ public class BlockStructureRule {
             i--;
         }
         return depth == 0 ? i + 1 : -1;
+    }
+
+    /** Like {@link #skipNonSignificant} but stops AT a comment token instead of skipping past
+     *  it -- used by the chain-collapse safety checks, where a comment sitting between two
+     *  branches (`}` /* ... *\/ else {`) must block collapse of that gap rather than being
+     *  silently skipped over, same "don't guess past a comment" posture as everywhere else in
+     *  this class (see e.g. `real_code_regressions_5_inp.cpp`'s `withComment`). */
+    private int skipWhitespaceOnly(final List<Token> tokens, final int from) {
+        final int n = tokens.size();
+        int i = from;
+        while (i < n && (tokens.get(i).type == TokenType.WHITESPACE || tokens.get(i).type == TokenType.NEWLINE)) {
+            i++;
+        }
+        return i;
     }
 
     private int skipNonSignificant(final List<Token> tokens, final int from) {
@@ -1846,5 +2121,142 @@ public class BlockStructureRule {
             }
         }
         return false;
+    }
+
+    /** Joins tokens' literal text verbatim, with no whitespace normalization (unlike
+     *  {@link #renderInline}) -- used by {@link #alignBracelessElseIfChain}, which works on the
+     *  already fully-formatted line-by-line text rather than a token stream. */
+    private String joinVerbatim(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        for (final Token t : tokens) {
+            out.append(t.text);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Column-aligns the collapsed one-line bodies of an {@code if}/{@code else if}/{@code else}
+     * chain so every branch's body starts at the same column -- the widest of the chain's own
+     * {@code if(...) }/{@code else if(...) } condition widths, never the bare final
+     * {@code else}'s (which has no condition of its own to contribute). Originally Kotlin-only
+     * (RDD_KEY_128); moved here and generalized to run for every language once C/C++/Java grew
+     * their own opt-in braceless chain-collapse ({@link #chainAllBranchesCollapsible}) --
+     * nothing about this pass is Kotlin-specific, it is pure line/text matching over whatever
+     * {@code if(}/{@code else if(}/{@code else } lines {@link #collapseSingleExpressionBlocks}
+     * already produced.
+     *
+     * <p>Deliberately implemented as its own final, line-based, text-level pass -- not folded
+     * into {@code collapseSingleExpressionBlocks} (which produces the one-line body in the first
+     * place) -- because at collapse time the `if` branch's own rendered width is not yet final:
+     * later passes (e.g. STYLE.md §3.1's complexity-padding tightening) can still change a
+     * condition's rendered width. Waiting until every earlier pass has settled the `if` line's
+     * final text -- this method runs last, after Phase 4 -- avoids staleness entirely; column
+     * widths are simply counted from the final rendered characters.
+     *
+     * <p>Only fires on a maximal run of consecutive, byte-identical-indent lines starting with
+     * {@code if(}, followed by zero or more {@code else if(} lines, optionally terminated by one
+     * bare {@code else} line -- any line breaking that shape (different indent, a braced body,
+     * anything else) ends the run there, same conservative "only touch what unambiguously
+     * matches" posture as the rest of this class.
+     */
+    public String alignBracelessElseIfChain(final List<Token> tokens) {
+        final String[] lines = joinVerbatim(tokens).split("\n", -1);
+        int i = 0;
+        while (i < lines.length) {
+            final int indentLen = leadingWhitespaceLength(lines[i]);
+            if (!lines[i].regionMatches(indentLen, "if(", 0, 3)) {
+                i++;
+                continue;
+            }
+            final List<Integer> chain = new ArrayList<>();
+            chain.add(i);
+            int j = i + 1;
+            while (j < lines.length && leadingWhitespaceLength(lines[j]) == indentLen) {
+                if (lines[j].regionMatches(indentLen, "else if(", 0, 8)) {
+                    chain.add(j);
+                    j++;
+                    continue;
+                }
+                if (lines[j].regionMatches(indentLen, "else ", 0, 5)
+                        && !lines[j].regionMatches(indentLen, "else if", 0, 7)) {
+                    chain.add(j);
+                    j++;
+                }
+                break;
+            }
+            if (chain.size() < 2) {
+                i++;
+                continue;
+            }
+
+            final int[] prefixEnd = new int[chain.size()];
+            int target = -1;
+            boolean ok = true;
+            for (int k = 0; k < chain.size(); k++) {
+                final String line = lines[chain.get(k)];
+                final boolean isElseIf = line.regionMatches(indentLen, "else if(", 0, 8);
+                final boolean isBareElse = line.regionMatches(indentLen, "else ", 0, 5) && !isElseIf;
+                if (isBareElse) {
+                    prefixEnd[k] = indentLen + "else".length();
+                    continue;
+                }
+                final int openParen = isElseIf ? indentLen + "else if".length() : indentLen + 2;
+                int depth = 0;
+                int closeParen = -1;
+                for (int c = openParen; c < line.length(); c++) {
+                    final char ch = line.charAt(c);
+                    if (ch == '(') {
+                        depth++;
+                    } else if (ch == ')') {
+                        depth--;
+                        if (depth == 0) {
+                            closeParen = c;
+                            break;
+                        }
+                    }
+                }
+                if (closeParen < 0 || closeParen + 2 > line.length() || line.charAt(closeParen + 1) != ' ') {
+                    ok = false;
+                    break;
+                }
+                prefixEnd[k] = closeParen + 1;
+                target = Math.max(target, prefixEnd[k] + 1); // +1: desired body column, one past the space
+            }
+            if (!ok || target < 0) {
+                i = j;
+                continue;
+            }
+
+            for (int k = 0; k < chain.size(); k++) {
+                final int lineIdx = chain.get(k);
+                final String line = lines[lineIdx];
+                final int end = prefixEnd[k];
+                String body = line.substring(end);
+                while (!body.isEmpty() && body.charAt(0) == ' ') {
+                    body = body.substring(1);
+                }
+                if (body.isEmpty()) {
+                    continue;
+                }
+                final int spaces = Math.max(1, target - end);
+                final StringBuilder sb = new StringBuilder(line.substring(0, end));
+                for (int s = 0; s < spaces; s++) {
+                    sb.append(' ');
+                }
+                sb.append(body);
+                lines[lineIdx] = sb.toString();
+            }
+            i = j;
+        }
+        return String.join("\n", lines);
+    }
+
+    /** Length of the whitespace run (spaces/tabs only) at the start of {@code line}. */
+    private int leadingWhitespaceLength(final String line) {
+        int n = 0;
+        while (n < line.length() && (line.charAt(n) == ' ' || line.charAt(n) == '\t')) {
+            n++;
+        }
+        return n;
     }
 }

@@ -179,11 +179,12 @@ public final class Formatter {
             text = kotlinRule.enforceArrowSpacing(tokenizer.apply(text));
             text = kotlinRule.enforceAnnotationUseSiteTargetSpacing(tokenizer.apply(text));
             text = kotlinRule.enforceWhereClausePlacement(tokenizer.apply(text));
-            // RDD_KEY_128: must run after every earlier paren-tightening/spacing pass has
-            // settled a braceless collapsed `if(...) body` line's final rendered width -- see
-            // this method's own javadoc for why an earlier collapse-time attempt was stale.
-            text = kotlinRule.alignBracelessElseIfChain(tokenizer.apply(text));
         }
+        // Must run after every earlier paren-tightening/spacing pass has settled a braceless
+        // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc
+        // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
+        // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
+        text = blockRule.alignBracelessElseIfChain(tokenizer.apply(text));
 
         // Phase 5: file-header-level structure.
         if (isCOrCpp) {

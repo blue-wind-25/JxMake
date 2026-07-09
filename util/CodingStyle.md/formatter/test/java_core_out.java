@@ -58,12 +58,13 @@ public class CoreExample extends Base implements Runnable, Cloneable {
         if(items == null) throw new IllegalArgumentException("items must not be null");
         for( int i = 0; i < items.size(); ++i ) {
             String item = items.get(i);
-            if( item.startsWith(PREFIX) ) {
-                System.out.println(item);
-            }
-            else {
-                System.err.println("skipping: " + item);
-            }
+            if( item.startsWith(
+                PREFIX
+            ) ) System.out.println(
+                item
+            ); else System.err.println(
+                "skipping: " + item
+            );
         } // for
         // while loop
         int idx = 0;

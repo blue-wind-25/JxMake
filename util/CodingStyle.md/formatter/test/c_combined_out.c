@@ -111,12 +111,11 @@ ProcessResult audio_process(float* buf, uint32_t frames)
         ProcessResult r = { false, 0, "not running" };
         return r;
     }
-    if(g_muted) {
-        memset( buf, 0, frames * sizeof(float) );
-    }
-    else {
-        audio_apply_gain(buf, frames, g_gain);
-    }
+    if(g_muted) memset(
+        buf, 0, frames * sizeof(float)
+    ); else audio_apply_gain(
+        buf, frames, g_gain
+    );
     g_frame_count += frames;
 
     ProcessResult r = { true, (int)frames, NULL };

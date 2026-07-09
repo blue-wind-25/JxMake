@@ -273,12 +273,8 @@ void attributeExamples(int x)
         --x;
     }
 
-    if(x > 0) {
-        [[likely]] ++x;
-    }
-    else {
-        [[unlikely]] --x;
-    }
+    if(x > 0) [[likely]] ++x;
+    else      [[unlikely]] --x;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

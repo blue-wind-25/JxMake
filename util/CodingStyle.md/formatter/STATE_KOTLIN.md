@@ -11,15 +11,18 @@ work has now started, also from a redirect at the top of `STATE.md` itself
 
 ## Next Session
 
-§9 one-liner getter/setter grouping (expression-bodied functions) is now
-fixed (`KotlinGetterSetterRule`, RDD_KEY_132) — see Resolved Design
-Decisions and the Step 3 checklist. **Remaining open item, if picked up:**
-§8 `get()`/`set()` property-accessor one-liner grouping is still unhandled
-(structurally different shape from §9 — no `fun` keyword, embedded inside a
-property declaration; §8's "preserve as written" requirement is still met,
-only the alignment upgrade is missing). Otherwise, Step 5 (Dogfood / Real-
-Code Testing against RobotCoding `gui_frontend_android`, see that section's
-own setup instructions) is the next unstarted checklist item.
+§9 one-liner getter/setter grouping (expression-bodied functions) is fixed
+(`KotlinGetterSetterRule`, RDD_KEY_132). §8 `get()`/`set()` property-accessor
+one-liner grouping is now also fixed, scoped to the plain expression-bodied
+getter-only shape (`val x: Int` / `get() = 1`, no initializer, no `set(...)`)
+— RDD_KEY_133, see Resolved Design Decisions and the Step 3 checklist.
+**Remaining documented gap, if picked up:** block-bodied accessors
+(`get() { ... }`/`set(v) { ... }`), a property with both a getter and a
+setter, and a property with both an initializer and a custom accessor are
+all still left "preserved as written, not grouped" — same kind of scoping
+narrowing the §9 session took for block-bodied functions. Otherwise, Step 5
+(Dogfood / Real-Code Testing against RobotCoding `gui_frontend_android`, see
+that section's own setup instructions) is the next unstarted checklist item.
 
 ## Purpose
 
@@ -178,6 +181,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_116 | Kotlin string template tokenizer risk — §19; **shared-class fix** — `TokenizerCore.emitString`'s naive scan-to-next-`"` misread a nested string inside a `${...}` interpolation (`"${foo("x")}"`) as three tokens instead of one, a genuine correctness risk (a later spacing pass could insert whitespace inside the literal's actual text); fixed with a Kotlin-only `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar` path (depth-tracks `${...}`'s own `{`/`}` nesting, recurses for nested strings/chars, arbitrarily deep), gated behind `lang.isKotlin`, non-Kotlin scan untouched; surfaced triple-quoted raw strings as a related, explicitly out-of-scope gap (new row 19.1, not fixed — undocumented in either style doc) |
 | RDD_KEY_117 | Kotlin triple-quoted raw string tokenizer support — row 19.1, **shared-class fix**; badly broken before this (`"""hello "world" end"""` mis-lexed as five tokens including a bare `IDENTIFIER`; multi-line raw strings leaked a spurious `NEWLINE` token into the content); fixed with Kotlin-only `isKotlinRawStringOpener`/`emitKotlinRawString`/`skipKotlinRawString` — no backslash-escape processing (literal `\` by design), greedy termination at the first `"""` (matches real Kotlin compiler semantics); `${...}` interpolation still recognized via `skipKotlinInterpolationBlock`, extended to also recognize a nested raw string inside an interpolation expression; non-Kotlin paths (Java text block, C++ raw string, plain C string) confirmed untouched |
 | RDD_KEY_132 | Kotlin §8/§9 one-liner getter/setter grouping — new `KotlinGetterSetterRule extends GetterSetterRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103/104), own newline-terminated member splitter, `[modifiers] fun name(params) [: ReturnType] = expr` parser, and 3-column grid render; scope limited to expression-bodied one-liner functions (§9) — `get()`/`set()` property accessors (§8) remain an unhandled, structurally different shape; new `test/kt_combined_inp.kt`/`kt_combined_out.kt` `class Accessors` case |
+| RDD_KEY_133 | Kotlin §8 property-accessor (`get()`/`set()`) one-liner grouping, the remaining gap RDD_KEY_132 left open — new `parseKotlinAccessorMember`/`isAccessorMember`/`renderAccessorGroup` in `KotlinGetterSetterRule.java` (Kotlin-only file, no new shared-class methods), scoped to a plain no-initializer `val`/`var` property immediately followed by a bare `get() = expr` (no `set`, no block body); merges the two-line source into one Kotlin-legal line and column-aligns via `ColumnGrid`, mirroring §9's 4-cell shape; two idempotency bugs found and fixed — a **shared-class fix** (`DeclarationAlignmentRule.needsSpaceBetween`, Kotlin-gated carve-out so `get`/`set` keywords are tight against a following `(` like an ordinary call name) and a `KotlinDeclarationAlignmentRule.parseKotlinDeclaration` fix (bails rather than swallowing a re-parsed merged line's `get`/`set` into its type-token scan, which was also cross-contaminating an unrelated sibling's column width when wrongly grouped together) |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -243,19 +247,30 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
   input (per this file's evidence-over-reasoning rule) before trusting any
   Kotlin fixture that uses string templates. Not yet investigated in depth.
 - **§8/§9 one-liner getter/setter grouping never actually fires for Kotlin —
-  RESOLVED for §9 (expression-bodied functions), still an open gap for §8
-  (`get()`/`set()` property accessors).** New `KotlinGetterSetterRule extends
-  GetterSetterRule` (RDD_KEY_132) fixes the confirmed-broken case below for
-  `fun name(params): ReturnType = expr` one-liners — verified via harness
-  (`fun getX(): Int = 1` / `getLongName` / `getZ` now column-align, including
-  correct outlier exclusion when one sibling's body is disproportionately
-  wide) and a new `test/kt_combined_inp.kt` fixture case. `get()`/`set()`
-  property-accessor one-liners (a structurally different shape — no `fun`
-  keyword, embedded inside a property declaration, not addressed by this
-  fix) remain unhandled; §8's "preserve as written" requirement is still met
-  for them (nothing in `KotlinGetterSetterRule` touches a shape outside its
-  own `fun`-anchored parser), only the alignment upgrade is still missing.
-  Original bug report preserved below for context. §8's/§9's scoping-table rows
+  RESOLVED for both §9 (expression-bodied functions, RDD_KEY_132) and §8
+  (plain expression-bodied `get()` property accessors, RDD_KEY_133).** New
+  `KotlinGetterSetterRule extends GetterSetterRule` (RDD_KEY_132) fixes the
+  confirmed-broken case below for `fun name(params): ReturnType = expr`
+  one-liners — verified via harness (`fun getX(): Int = 1` / `getLongName` /
+  `getZ` now column-align, including correct outlier exclusion when one
+  sibling's body is disproportionately wide) and a new `test/kt_combined_inp.kt`
+  fixture case. **§8 fix (RDD_KEY_133):** a plain, no-initializer
+  `val`/`var name: Type` property immediately followed by a bare
+  `get() = expr` accessor (no `set`, no block body) is now merged onto one
+  Kotlin-legal line and column-aligned across adjacent siblings, verified via
+  harness (`val x: Int` / `get() = 1` and same-shape siblings with varying
+  name widths now merge and align; outlier exclusion, mixed §8+§9-adjacent
+  groups staying separate, block-bodied/setter/initializer cases staying
+  untouched, and a trailing-comment case all confirmed) plus a new
+  `class PropertyAccessors { ... }` case appended to `test/kt_combined_inp.kt`/
+  `kt_combined_out.kt`. **Remaining documented gap:** block-bodied accessors
+  (`get() { ... }`/`set(v) { ... }`), a property pairing a getter with a
+  setter, and a property with both an initializer and a custom accessor are
+  all still left "preserved as written, not grouped" — §8's "preserve as
+  written" requirement is still met for them (nothing in this fix touches a
+  shape outside its own narrow getter-only parser), only the alignment
+  upgrade for those wider shapes remains out of scope. Original bug report
+  preserved below for context. §8's/§9's scoping-table rows
   (RDD_KEY_112 and the §8 row above it) assert Kotlin one-liner
   accessors/expression-bodied functions "participate in the same §14/STYLE.md
   getter/setter-style aligned group" as a free consequence of the shared
@@ -414,8 +429,8 @@ existing test suite after this step, before moving to Step 1.
 | 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature` instead of `DeclarationAlignmentRule.Declaration`. Fixed as `RDD_KEY_104` — new `KotlinSignatureRule extends MiscRule`, same visibility-loosen-then-extend pattern as §6. |
 | 7.1 | Named/default arguments (`=` spacing/alignment) | (c), **done for declarations** | Folded into §7's `KotlinSignatureRule.parseKotlinParam`/`render` — a default value is just one more optional trailing part of a single parameter's grammar, so no separate method was needed. **Not covered:** the call-site named-argument shape (`foo(x = 1, y = 2)`) shown in STYLE_KOTLIN.md §7.1's own worked example is a function *call*, not a declaration — no type column, different token shape (`name = value` only) — genuinely out of `KotlinSignature`'s scope as parsed here; would need its own small parser/renderer analogous to `MiscRule`'s `renderCallOnePerLine`/`renderCallPreserveGroups` family if picked up later. |
 | 7.2 | Trailing comma (preserved as-is) | (a), **verified** | No existing pass adds or strips a trailing comma in any parameter/argument list for any language — trivially satisfied by doing nothing. Confirmed via harness: `KotlinSignature.trailingComma` round-trips correctly through `KotlinSignatureRule.render` for `fun foo(x: Int,)`. |
-| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a), **verified for single-standalone case only — grouping is BROKEN, see Open Questions** | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. Confirmed via harness for both a block-bodied `set(v) { field = v }` (left completely untouched, including its own Allman `{`, since §3's Allman-conversion gap applies here too but the *block form itself* isn't collapsed) and an expression-bodied `get() = computeY()` (untouched). **Correction (post-Step-3.5):** the claim that this "participates in the same §14/STYLE.md getter/setter-style aligned group" was never actually harness-verified — live-tested and found broken, `GetterSetterRule.groupOneLiners` never groups Kotlin one-liners at all. See Open Questions. |
-| 9 | Expression-bodied functions | (a)/(c), **done for standalone case — grouping is BROKEN, see Open Questions** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. **Correction (post-Step-3.5):** same grouping claim/gap as §8 above — never harness-verified, confirmed broken. See Open Questions. |
+| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a)/(c), **done for the plain expression-bodied getter shape (RDD_KEY_133); block-bodied/setter/initializer shapes remain preserve-as-written-only** | "Preserve as-is" is satisfied by not writing code that touches it. One risk checked: `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` is `{if, while, for}` only — an accessor's `set(v) { field = v }` block body is never a match, so it won't get wrongly collapsed to bare-statement form. Confirmed via harness for both a block-bodied `set(v) { field = v }` (left completely untouched, including its own Allman `{`, since §3's Allman-conversion gap applies here too but the *block form itself* isn't collapsed) and an expression-bodied `get() = computeY()` (untouched). **Grouping fixed under RDD_KEY_133** for the plain getter-only shape (no initializer, no `set`, no block body): new `parseKotlinAccessorMember`/`renderAccessorGroup` in `KotlinGetterSetterRule.java` merges an adjacent group of `val x: Int` / `get() = expr` two-line units onto one Kotlin-legal line each and column-aligns them, mirroring §9's grid shape. Block-bodied accessors, getter+setter pairs, and initializer+accessor properties remain unhandled — still correctly "preserved as written," only the alignment upgrade is out of scope for those wider shapes. See Open Questions for the full narrative. |
+| 9 | Expression-bodied functions | (a)/(c), **done, including grouping** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. **Grouping fixed under RDD_KEY_132**: new `KotlinGetterSetterRule extends GetterSetterRule` column-aligns adjacent one-liner expression-bodied functions, mirroring Java's equivalent behavior. §8 (`get()`/`set()` accessor one-liners) remains a separate, still-open gap — see that row. |
 | 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — `in`/`until`/`downTo`/`step` turned out to already be inert w.r.t. its nested-bracket detection with zero code changes (`in` is `TokenType.KEYWORD`, the other three are plain `TokenType.IDENTIFIER`, confirmed via harness — reclassified (b)→(a)). The `..`/`..<` range operator's own *tight* spacing needed new code, same kind of gap as §5 — new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
 | 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. **Group-stream merge revised under RDD_KEY_126:** now merges into the same column-aligned group as an adjacent plain §6 declaration (per user request, C++ structured-bindings precedent) instead of staying in its own never-merged stream. |
@@ -463,8 +478,10 @@ existing test suite after this step, before moving to Step 1.
       section at a time, each as its own checkpoint commit.
       §8/§9 one-liner getter/setter grouping: §9 (expression-bodied
       functions) fixed via `KotlinGetterSetterRule`, RDD_KEY_132. §8
-      (`get()`/`set()` accessors) remains an open, documented gap (see Open
-      Questions) — every other flagged section is done.
+      (plain expression-bodied `get()` accessors) fixed via the same class,
+      RDD_KEY_133 — block-bodied/setter/initializer accessor shapes remain
+      an open, documented gap (see Open Questions) — every other flagged
+      section is done.
 Full implementation/verification narratives for every item below are recorded
 in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
 - [x] §1 Semicolons — `KotlinSpecificRule.stripOptionalSemicolons`. RDD_KEY_115
@@ -495,10 +512,13 @@ in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
       RDD_KEY_114.
 - [x] §19/§19.1 String templates + triple-quoted raw strings — tokenizer-level
       fix (shared-class change). RDD_KEY_116, RDD_KEY_117.
-- [x] §8/§9 one-liner getter/setter grouping (expression-bodied functions
-      only) — new `KotlinGetterSetterRule extends GetterSetterRule`.
-      RDD_KEY_132. `get()`/`set()` property-accessor one-liners (§8) remain
-      unhandled — see Open Questions.
+- [x] §8/§9 one-liner getter/setter grouping — new
+      `KotlinGetterSetterRule extends GetterSetterRule`. §9 (expression-bodied
+      functions) fixed under RDD_KEY_132. §8 (plain expression-bodied
+      `get()` property accessors, no initializer, no `set`) fixed under
+      RDD_KEY_133. Block-bodied accessors, getter+setter pairs, and
+      initializer+accessor properties remain unhandled (preserved as
+      written, not grouped) — see Open Questions.
 
 ### Step 3.5 — Configuration Property Wiring
 

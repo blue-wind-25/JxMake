@@ -191,6 +191,18 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
             i++;
             final int typeStart = i;
             while (i < sig.size() && !isOp(sig.get(i), "=")) {
+                // A bare `get`/`set` keyword can never legally appear inside a type expression --
+                // its presence here means this "declaration" is actually a KotlinGetterSetterRule
+                // §8 merged one-liner (`val x : Int get() = 1`, RDD_KEY_133) being re-parsed on a
+                // second/idempotency pass. Bail out (never guess) rather than let it get silently
+                // swallowed into typeTokens -- that would corrupt this statement's own rendering
+                // AND cross-contaminate any sibling declaration's column width if grouped together
+                // (found via harness: an adjacent unrelated `var z : Int = 0` got its own type
+                // column padded out to match a wrongly-widened `Int get()` sibling).
+                if (sig.get(i).type == TokenType.KEYWORD
+                        && ("get".equals(sig.get(i).text) || "set".equals(sig.get(i).text))) {
+                    return null;
+                }
                 i++;
             }
             typeTokens = sig.subList(typeStart, i);

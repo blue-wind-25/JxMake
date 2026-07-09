@@ -140,3 +140,15 @@ class Accessors {
     fun getZ()        : String = "abcxyz"
 
 } // class Accessors
+
+class PropertyAccessors {
+
+    val x        : Int get() = 1
+    val longName : Int get() = 22
+    val z        : Int get() = 333
+    var count : Int = 0
+        set(v) {
+            field = v
+        }
+
+} // class PropertyAccessors

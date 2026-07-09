@@ -120,3 +120,16 @@ class Accessors {
     fun getLongName(): Int = 222
     fun getZ(): String = "abcxyz"
 }
+
+class PropertyAccessors {
+    val x: Int
+        get() = 1
+    val longName: Int
+        get() = 22
+    val z: Int
+        get() = 333
+    var count: Int = 0
+        set(v) {
+            field = v
+        }
+}

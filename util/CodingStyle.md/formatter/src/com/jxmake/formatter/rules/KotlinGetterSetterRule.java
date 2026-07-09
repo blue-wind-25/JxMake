@@ -38,20 +38,43 @@ import java.util.List;
  * function's {@code = expr} span rather than a brace-delimited block body, so
  * {@code excludeOutliers}'s width-based outlier exclusion still works unmodified).
  *
- * <p>Scope: only expression-bodied one-liner functions (§9) -- the shape harness-confirmed
- * broken in STATE_KOTLIN.md's Open Questions (`fun getX(): Int = 1` / `getY` / `getZ` failing to
- * column-align). Property accessor one-liners ({@code get()}/{@code set()}, §8) are a separate,
- * structurally different shape (no {@code fun} keyword, embedded inside a property declaration)
- * and are intentionally left unhandled here -- STYLE_KOTLIN.md §8's "preserve as written"
- * requirement is still satisfied for them (this class never touches anything that doesn't match
- * its own {@code fun}-anchored shape), it is only the alignment *upgrade* that remains out of
- * scope for that shape.
+ * <p>Scope: expression-bodied one-liner functions (§9) -- the shape harness-confirmed broken in
+ * STATE_KOTLIN.md's Open Questions (`fun getX(): Int = 1` / `getY` / `getZ` failing to
+ * column-align) -- fixed under RDD_KEY_132.
+ *
+ * <p><b>§8 property accessors (RDD_KEY_133):</b> also handles the structurally different shape
+ * of a {@code val}/{@code var} property declaration immediately followed by its own
+ * expression-bodied {@code get() = expr} accessor line (e.g. {@code val x: Int} /
+ * {@code get() = 1}), grouping adjacent instances of that two-line unit and rendering each as a
+ * single merged, column-aligned line ({@code val x    : Int    get() = 1}), the same "collapse
+ * one-liner shapes into a grid" posture already used for §9 -- the two-line source form is a
+ * legal Kotlin *default* rendering for a standalone accessor (STYLE_KOTLIN.md §8's own worked
+ * example), not a hard requirement preserved even when the accessor is one of 2+ adjacent
+ * one-liner siblings sharing a group, mirroring §9's already-established willingness to
+ * reformat/collapse an otherwise-legal multi-token shape for the sake of group alignment.
+ * Deliberately scoped to the plain getter-only shape: a bare {@code get() = expr} with no
+ * modifiers of its own, no accompanying {@code set(...)}, and no initializer on the property
+ * line -- block-bodied accessors ({@code get() { ... }} / {@code set(v) { ... }}), any property
+ * that pairs a getter with a setter, and any property with both an initializer and a custom
+ * accessor are all left completely untouched (still "preserved as written" per §8's own
+ * requirement, same posture §9's own scoping note took for block-bodied functions). See
+ * STATE_KOTLIN.md's Open Questions for the full narrative and remaining gaps.
  */
 public class KotlinGetterSetterRule extends GetterSetterRule {
 
     private static final List<String> FUN_MODIFIERS = Arrays.asList(
             "public", "private", "protected", "internal", "override", "open", "final",
             "abstract", "inline", "suspend", "operator", "infix", "tailrec", "external");
+
+    /** Modifiers that can precede a `val`/`var` property declaration (STYLE_KOTLIN.md §6/§8). */
+    private static final List<String> PROPERTY_MODIFIERS = Arrays.asList(
+            "public", "private", "protected", "internal", "override", "open", "final",
+            "abstract", "const", "lateinit");
+
+    /** {@link Member#pureSpecifier} marker distinguishing a §8 property-accessor member (this
+     *  field is otherwise unused/null for Kotlin, so it is repurposed here as a shape tag rather
+     *  than adding a new field to the shared {@code Member} class). */
+    private static final String ACCESSOR_MARKER = "ACCESSOR";
 
     public KotlinGetterSetterRule(final Lang lang) {
         super(lang);
@@ -73,27 +96,173 @@ public class KotlinGetterSetterRule extends GetterSetterRule {
         final List<List<Member>> groups = new ArrayList<>();
         List<Member> current = new ArrayList<>();
 
-        for (final int[] span : spans) {
-            final Member m = parseKotlinOneLinerMember(scopeTokens, span[0], span[1], depth);
+        int i = 0;
+        while (i < spans.size()) {
+            final int[] span = spans.get(i);
+            Member m = parseKotlinOneLinerMember(scopeTokens, span[0], span[1], depth);
+            int consumed = 1;
+            if (m == null && i + 1 < spans.size()) {
+                final int[] accSpan = spans.get(i + 1);
+                m = parseKotlinAccessorMember(scopeTokens, span, accSpan);
+                if (m != null) {
+                    consumed = 2;
+                }
+            }
             if (m == null) {
                 if (current.size() >= 2) {
                     groups.add(current);
                 }
                 current = new ArrayList<>();
+                i += 1;
                 continue;
             }
-            if (m.blankLineBefore && !current.isEmpty()) {
+            final boolean shapeChanged = !current.isEmpty()
+                    && isAccessorMember(current.get(current.size() - 1)) != isAccessorMember(m);
+            if ((m.blankLineBefore || shapeChanged) && !current.isEmpty()) {
                 if (current.size() >= 2) {
                     groups.add(current);
                 }
                 current = new ArrayList<>();
             }
             current.add(m);
+            i += consumed;
         }
         if (current.size() >= 2) {
             groups.add(current);
         }
         return groups;
+    }
+
+    private boolean isAccessorMember(final Member m) {
+        return ACCESSOR_MARKER.equals(m.pureSpecifier);
+    }
+
+    /**
+     * Recognises a two-line STYLE_KOTLIN.md §8 unit: a {@code [modifiers] val/var name [: Type]}
+     * property declaration (no initializer) immediately followed -- no blank line, no comment
+     * gap -- by a bare {@code get() = expr} expression-bodied accessor line. Returns null for
+     * anything else (initializer present, `set` present, block-bodied accessor, multi-line
+     * expression, or any other unrecognised shape) -- same "never guess past an unrecognized
+     * shape" posture as {@link #parseKotlinOneLinerMember}.
+     */
+    private Member parseKotlinAccessorMember(final List<Token> tokens, final int[] declSpan, final int[] accSpan) {
+        final int declFrom = declSpan[0];
+        final int declTo = declSpan[1];
+        final int firstSig = firstSignificantIndex(tokens, declFrom, declTo);
+        if (firstSig < 0) {
+            return null;
+        }
+        final boolean blankBefore = hasBlankLineRun(tokens, declFrom, firstSig);
+
+        int pos = firstSig;
+        while (pos < declTo) {
+            final Token t = tokens.get(pos);
+            if (isInsignificant(t)) {
+                pos++;
+                continue;
+            }
+            if (t.type == TokenType.KEYWORD && PROPERTY_MODIFIERS.contains(t.text)) {
+                pos++;
+                continue;
+            }
+            break;
+        }
+        final int valVarIdx = nextSignificant(tokens, pos, declTo);
+        if (valVarIdx < 0 || valVarIdx != pos || tokens.get(valVarIdx).type != TokenType.KEYWORD
+                || !("val".equals(tokens.get(valVarIdx).text) || "var".equals(tokens.get(valVarIdx).text))) {
+            return null;
+        }
+        final int declLeadFrom = firstSig;
+        final int declLeadTo = valVarIdx + 1;
+
+        final int nameIdx = nextSignificant(tokens, valVarIdx + 1, declTo);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+            return null;
+        }
+
+        String typeText = "";
+        int scanFrom = nameIdx + 1;
+        final int colonIdx = nextSignificant(tokens, scanFrom, declTo);
+        if (colonIdx >= 0 && isOp(tokens.get(colonIdx), ":")) {
+            final int typeStart = nextSignificant(tokens, colonIdx + 1, declTo);
+            if (typeStart < 0) {
+                return null;
+            }
+            final int typeEnd = trimTrailingWs(tokens, typeStart, declTo);
+            if (typeEnd <= typeStart) {
+                return null;
+            }
+            typeText = cellText(tokens, typeStart, typeEnd);
+            scanFrom = typeEnd;
+        }
+        // No `=` initializer allowed on the declaration line itself -- out of scope (a property
+        // with both an initializer and a custom accessor is a different, more complex shape).
+        if (nextSignificant(tokens, scanFrom, declTo) >= 0) {
+            return null;
+        }
+
+        // Accessor span: must start (after any leading gap) directly at `get` -- no blank line,
+        // no leading comment -- and be a bare `get() = expr` with nothing else in the span.
+        final int accFrom = accSpan[0];
+        final int accTo = accSpan[1];
+        final int accFirstSig = firstSignificantIndex(tokens, accFrom, accTo);
+        if (accFirstSig < 0 || hasBlankLineRun(tokens, accFrom, accFirstSig)) {
+            return null;
+        }
+        // Reject a leading comment on the accessor line -- keeps the merge conservative (a
+        // comment documenting the accessor stays attached to the two-line form, untouched).
+        for (int k = accFrom; k < accFirstSig; k++) {
+            final TokenType kt = tokens.get(k).type;
+            if (kt == TokenType.COMMENT_LINE || kt == TokenType.COMMENT_BLOCK) {
+                return null;
+            }
+        }
+        if (tokens.get(accFirstSig).type != TokenType.KEYWORD || !"get".equals(tokens.get(accFirstSig).text)) {
+            return null;
+        }
+        final int parenOpenIdx = nextSignificant(tokens, accFirstSig + 1, accTo);
+        if (parenOpenIdx < 0 || !isPunct(tokens.get(parenOpenIdx), "(")) {
+            return null;
+        }
+        final int parenCloseIdx = nextSignificant(tokens, parenOpenIdx + 1, accTo);
+        if (parenCloseIdx < 0 || !isPunct(tokens.get(parenCloseIdx), ")")) {
+            return null; // a parameterized/non-empty accessor parens -- not a bare getter
+        }
+        final int eqIdx = nextSignificant(tokens, parenCloseIdx + 1, accTo);
+        if (eqIdx < 0 || !isOp(tokens.get(eqIdx), "=")) {
+            return null; // block-bodied getter, or something else entirely
+        }
+        if (hasNewlineBetween(tokens, eqIdx + 1, accTo)) {
+            return null; // multi-line expression body -- not a one-liner
+        }
+
+        int lastIdx = accTo - 1;
+        while (lastIdx > eqIdx && (tokens.get(lastIdx).type == TokenType.WHITESPACE
+                || tokens.get(lastIdx).type == TokenType.NEWLINE)) {
+            lastIdx--;
+        }
+        if (lastIdx <= eqIdx) {
+            return null; // no expression body
+        }
+        Token trailingComment = null;
+        int bodyTo;
+        if (tokens.get(lastIdx).type == TokenType.COMMENT_LINE || tokens.get(lastIdx).type == TokenType.COMMENT_BLOCK) {
+            trailingComment = tokens.get(lastIdx);
+            bodyTo = trimTrailingWs(tokens, eqIdx + 1, lastIdx);
+        } else {
+            bodyTo = lastIdx + 1;
+        }
+        final int bodyFrom = trimLeadingWs(tokens, eqIdx + 1, bodyTo);
+        if (bodyFrom >= bodyTo) {
+            return null; // empty expression body
+        }
+
+        return new Member(new ArrayList<Token>(), declLeadFrom, declLeadFrom,
+                declLeadFrom, declLeadTo,
+                nameIdx, nameIdx, nameIdx, nameIdx,
+                bodyFrom, bodyTo, declFrom, accTo,
+                trailingComment, blankBefore,
+                typeText, ACCESSOR_MARKER, false);
     }
 
     /**
@@ -283,6 +452,9 @@ public class KotlinGetterSetterRule extends GetterSetterRule {
      */
     @Override
     public List<String> render(final List<Token> tokens, final List<Member> group) {
+        if (!group.isEmpty() && isAccessorMember(group.get(0))) {
+            return renderAccessorGroup(tokens, group);
+        }
         final ColumnGrid grid = new ColumnGrid();
         for (final Member m : group) {
             final List<String> cells = new ArrayList<>();
@@ -292,6 +464,33 @@ public class KotlinGetterSetterRule extends GetterSetterRule {
             cells.add(callCell);
             cells.add(m.postParenQualifier.isEmpty() ? "" : ": " + m.postParenQualifier);
             cells.add("= " + cellText(tokens, m.bodyFrom, m.bodyTo));
+            if (m.trailingComment != null) {
+                cells.add(m.trailingComment.text);
+            }
+            grid.addRow(cells.toArray(new String[0]));
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(String.join(" ", row));
+        }
+        return lines;
+    }
+
+    /**
+     * Renders one aligned group of §8 property-accessor one-liners as a single merged,
+     * column-aligned line per member: {@code [modifiers] val/var} / {@code name} /
+     * {@code [: Type]} / {@code get() = expr}, mirroring §9's {@code render}'s 4-column shape
+     * (declaration lead / name-or-call / colon-qualifier / tail) with a Kotlin-legal single-line
+     * property+accessor rendering (e.g. {@code val x    : Int    get() = 1}).
+     */
+    private List<String> renderAccessorGroup(final List<Token> tokens, final List<Member> group) {
+        final ColumnGrid grid = new ColumnGrid();
+        for (final Member m : group) {
+            final List<String> cells = new ArrayList<>();
+            cells.add(cellText(tokens, m.returnTypeFrom, m.returnTypeTo));
+            cells.add(cellText(tokens, m.nameFrom, m.nameIdx + 1));
+            cells.add(m.postParenQualifier.isEmpty() ? "" : ": " + m.postParenQualifier);
+            cells.add("get() = " + cellText(tokens, m.bodyFrom, m.bodyTo));
             if (m.trailingComment != null) {
                 cells.add(m.trailingComment.text);
             }

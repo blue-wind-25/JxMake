@@ -547,6 +547,16 @@ public class DeclarationAlignmentRule {
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;
         }
+        // Kotlin `get`/`set` accessor keywords act like an ordinary call name immediately before
+        // `(` (e.g. a merged §8 one-liner property, `val x : Int get() = 1`, RDD_KEY_133) --
+        // `get`/`set` are lexed as TokenType.KEYWORD (STYLE_KOTLIN.md's soft-keyword list), not
+        // IDENTIFIER, so the general identifier-before-`(` tight rule above doesn't fire for them
+        // without this carve-out. Gated to Kotlin only; no-op for C/C++/Java (neither keyword is
+        // reserved there, so this case never reaches this method for them).
+        if (lang.isKotlin && isPunct(cur, "(") && prev.type == TokenType.KEYWORD
+                && ("get".equals(prev.text) || "set".equals(prev.text))) {
+            return false;
+        }
         // C/C++/Java-only: a brace-initializer directly after a type/identifier (`int arr[] =
         // {1,2,3}`, C++'s uniform-init `Widget w{}`) is tight, no space before `{`. Kotlin has no
         // such shape -- its only identifier-then-`{` construct is a trailing lambda (`x?.let {

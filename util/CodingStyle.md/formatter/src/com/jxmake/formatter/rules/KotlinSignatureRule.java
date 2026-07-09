@@ -270,9 +270,15 @@ public class KotlinSignatureRule extends MiscRule {
             return Collections.singletonList(inline);
         }
 
+        // A param carrying its own leading same-line comment (e.g. `/* Nullable */ x : Int?`) is
+        // excluded from the shared ColumnGrid, same "exclude it from the group -- don't let it
+        // distort the alignment of the others" precedent as STYLE.md's getter/setter grouping: the
+        // grid only sees each row's bare name cell, not the leading-comment prefix rendered ahead of
+        // it, so including such a row would silently pad its sibling rows' name columns out to a
+        // width that never actually lines up visually once the prefix is prepended.
         final ColumnGrid grid = new ColumnGrid();
-        final List<String> leadPrefixes = new ArrayList<>();
-        final List<Token> leadingComments = new ArrayList<>();
+        final List<Integer> gridParamIdx = new ArrayList<>();
+        final String[] soloLine = new String[sig.params.size()];
         for (int idx = 0; idx < sig.params.size(); idx++) {
             final KotlinParam p = sig.params.get(idx);
             final boolean isLast = idx == sig.params.size() - 1;
@@ -295,18 +301,26 @@ public class KotlinSignatureRule extends MiscRule {
             if (p.comment != null) {
                 cells.add(p.comment.text);
             }
-            grid.addRow(cells.toArray(new String[0]));
-            leadPrefixes.add(p.leadingComment != null ? p.leadingComment.text + " " : "");
-            leadingComments.add(p.leadingComment);
+            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
+            if (p.leadingComment != null) {
+                soloLine[idx] = leadPrefix + trimTrailingSpaces(String.join(" ", cells));
+            } else {
+                grid.addRow(cells.toArray(new String[0]));
+                gridParamIdx.add(idx);
+            }
         }
 
         final List<String> lines = new ArrayList<>();
         lines.add(head);
         final String paramIndent = indentText(indentLevel + 1, indentStyle);
         final List<String[]> rows = grid.flush();
-        for (int idx = 0; idx < rows.size(); idx++) {
-            final String joined = trimTrailingSpaces(String.join(" ", rows.get(idx)));
-            lines.add(paramIndent + leadPrefixes.get(idx) + joined);
+        final String[] renderedLine = new String[sig.params.size()];
+        for (int r = 0; r < rows.size(); r++) {
+            renderedLine[gridParamIdx.get(r)] = trimTrailingSpaces(String.join(" ", rows.get(r)));
+        }
+        for (int idx = 0; idx < sig.params.size(); idx++) {
+            final String line = soloLine[idx] != null ? soloLine[idx] : renderedLine[idx];
+            lines.add(paramIndent + line);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
         return lines;

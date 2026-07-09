@@ -113,6 +113,10 @@ test: $(JAR_FILE)
 		passed="$(TEST_TMP)/passed.list";                                        \
 		rm -f "$$passed";                                                        \
 		fail=0;                                                                  \
+		forward_pass=0;                                                          \
+		forward_total=0;                                                         \
+		idem_pass=0;                                                             \
+		idem_total=0;                                                            \
 		for inp in $(addprefix $(TEST_DIR)/,$(INP_FILES)); do                    \
 			base=$$(basename "$$inp");                                       \
 			ext="$${base##*_inp.}";                                          \
@@ -122,11 +126,13 @@ test: $(JAR_FILE)
 				echo "SKIP $$inp (no matching $$out)";                   \
 				continue;                                                \
 			fi;                                                              \
+			forward_total=$$((forward_total + 1));                           \
 			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$inp"; \
 			result="$(TEST_TMP)/$$base";                                     \
 			if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
 				echo "PASS $$inp";                                       \
 				echo "$$out" >> "$$passed";                              \
+				forward_pass=$$((forward_pass + 1));                     \
 			else                                                             \
 				echo "FAIL $$inp";                                       \
 				diff -u "$$out" "$$result";                              \
@@ -137,10 +143,12 @@ test: $(JAR_FILE)
 		echo "=== Idempotency pass (out → out) ===";                             \
 		while IFS= read -r out; do                                               \
 			base=$$(basename "$$out");                                       \
+			idem_total=$$((idem_total + 1));                                 \
 			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$out"; \
 			result="$(TEST_TMP)/$$base";                                     \
 			if diff -u "$$out" "$$result" > /dev/null 2>&1; then             \
 				echo "PASS $$out";                                       \
+				idem_pass=$$((idem_pass + 1));                           \
 			else                                                             \
 				echo "FAIL $$out (not idempotent)";                      \
 				diff -u "$$out" "$$result";                              \
@@ -150,8 +158,10 @@ test: $(JAR_FILE)
 		rm -f "$$passed";                                                        \
 		echo "";                                                                 \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                    \
-		echo "All tests passed.";                                                \
-		echo "";                                                                 \
+		printf "All tests passed:\n";                                            \
+		printf "    %2d/%2d forward\n"     $$forward_pass $$forward_total;       \
+		printf "    %2d/%2d idempotency\n" $$idem_pass $$idem_total;             \
+		printf "\n";                                                             \
 	)
 
 
@@ -168,49 +178,53 @@ test: $(JAR_FILE)
 # Override JAVA or JAR_FILE on the command line if needed, same as `make test`.
 #
 bench: $(JAR_FILE)
-	@(                                                                                                        \
-		mkdir -p $(TEST_TMP);                                                                             \
-		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                   \
-		set -- $$files; probe="$$1";                                                                      \
-		clear;                                                                                            \
-		echo "";                                                                                          \
-		echo "=== Bench: standalone, one-by-one ===";                                                     \
-		start=$$(date +%s%N);                                                                             \
-		for f in $$files; do                                                                              \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";                            \
-		done;                                                                                             \
-		end=$$(date +%s%N);                                                                               \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
-		echo "";                                                                                          \
-		echo "=== Bench: standalone, all-at-once ===";                                                    \
-		start=$$(date +%s%N);                                                                             \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;                                  \
-		end=$$(date +%s%N);                                                                               \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
-		echo "";                                                                                          \
-		$(JAVA) -jar $(JAR_FILE) --server 2>&1 &                                                          \
-		sleep 1;                                                                                          \
-		echo "";                                                                                          \
-		echo "=== Bench: client-server, one-by-one ===";                                                  \
-		tries=0;                                                                                          \
-		while [ $$tries -lt 50 ]; do                                                                      \
-			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi; \
-			tries=$$((tries + 1));                                                                    \
-			sleep 0.1;                                                                                \
-		done;                                                                                             \
-		start=$$(date +%s%N);                                                                             \
-		for f in $$files; do                                                                              \
-			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                                         \
-		done;                                                                                             \
-		end=$$(date +%s%N);                                                                               \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
-		echo "";                                                                                          \
-		echo "=== Bench: client-server, all-at-once ===";                                                 \
-		start=$$(date +%s%N);                                                                             \
-		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                               \
-		end=$$(date +%s%N);                                                                               \
-		echo "Total: $$(( (end - start) / 1000000 )) ms";                                                 \
-		echo "";                                                                                          \
-		$(JAVA) -jar $(JAR_FILE) --stop;                                                                  \
-		echo "";                                                                                          \
+	@(                                                                                                                                              \
+		mkdir -p $(TEST_TMP);                                                                                                                   \
+		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                         \
+		set -- $$files; probe="$$1";                                                                                                            \
+		clear;                                                                                                                                  \
+		echo "";                                                                                                                                \
+		echo "=== Bench: standalone, one-by-one ===";                                                                                           \
+		start=$$(date +%s%N);                                                                                                                   \
+		for f in $$files; do                                                                                                                    \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";                                                                  \
+		done;                                                                                                                                   \
+		end=$$(date +%s%N);                                                                                                                     \
+		base_ns=$$(( end - start ));                                                                                                            \
+		printf "Total: %4dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
+		echo "";                                                                                                                                \
+		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
+		start=$$(date +%s%N);                                                                                                                   \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;                                                                        \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		$(JAVA) -jar $(JAR_FILE) --server 2>&1 &                                                                                                \
+		sleep 1;                                                                                                                                \
+		echo "";                                                                                                                                \
+		echo "=== Bench: client-server, one-by-one ===";                                                                                        \
+		tries=0;                                                                                                                                \
+		while [ $$tries -lt 50 ]; do                                                                                                            \
+			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi;                                       \
+			tries=$$((tries + 1));                                                                                                          \
+			sleep 0.1;                                                                                                                      \
+		done;                                                                                                                                   \
+		start=$$(date +%s%N);                                                                                                                   \
+		for f in $$files; do                                                                                                                    \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                                                                               \
+		done;                                                                                                                                   \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		echo "=== Bench: client-server, all-at-once ===";                                                                                       \
+		start=$$(date +%s%N);                                                                                                                   \
+		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                                                                     \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
+		echo "";                                                                                                                                \
 	)

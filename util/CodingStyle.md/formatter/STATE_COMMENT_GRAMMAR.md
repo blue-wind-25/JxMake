@@ -51,7 +51,7 @@ self-contained requirement above):
 - Trailer: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - **On any ambiguity:** stop, add the question to Open Questions below, mark
   the checklist item `[~]`, commit this file only, and wait for an answer.
-  Once resolved: append the full decision to `STATE_rdd_log.md` (next
+  Once resolved: append the full decision to `RDD_LOG.md` (next
   `RDD_KEY_n`, continuing the shared sequence — do not restart numbering for
   Kotlin), add the key + topic to this file's own Resolved Design Decisions
   index below, then continue.
@@ -109,7 +109,7 @@ step.
 
 ## Resolved design decisions
 
-Full entries live in `STATE_rdd_log.md` (shared RDD_KEY sequence). This tracker only lists
+Full entries live in `RDD_LOG.md` (shared RDD_KEY sequence). This tracker only lists
 which keys apply here, for quick reference:
 
 | RDD_KEY | One-line summary |
@@ -120,10 +120,10 @@ which keys apply here, for quick reference:
 | RDD_KEY_97 | Weight determination for v1 is frontier-model-assisted (offline, one-time, baked into JAR as constants) — not hand-tuned, not corpus-trained; corpus training is a future swappable upgrade |
 | RDD_KEY_98 | Accuracy/coverage target: 99% precision on the positive decision, threshold-set from data, coverage measured not targeted; ABSTAIN is zero-cost, false positive is a visible bug — asymmetric risk drives the default |
 
-**Action for CLI:** append full RDD_KEY_94–98 entries to `STATE_rdd_log.md` following its
+**Action for CLI:** append full RDD_KEY_94–98 entries to `RDD_LOG.md` following its
 existing entry format (see RDD_KEY_90 as the most recent example of the expected level of
 detail) before or during implementation. This tracker should not duplicate that content —
-if the two ever disagree, `STATE_rdd_log.md` is authoritative.
+if the two ever disagree, `RDD_LOG.md` is authoritative.
 
 ## Handoff note (for the future session that implements this)
 

@@ -10,7 +10,7 @@ of this file.
 
 **Do NOT read `README.md`** unless the user explicitly asks. All decisions relevant to
 implementation are recorded in the **Resolved Design Decisions** index below (full text
-in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at a time via
+in `RDD_LOG.md` — **do not read that file in full**, look up one key at a time via
 `grep -Fm1`).
 
 **ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
@@ -43,7 +43,7 @@ in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at 
    checklist item with `[~]` and a note
 3. Commit STATE.md only.
 4. Ask the user and wait for an answer before continuing
-5. Once resolved: append the full decision as a new row to `STATE_rdd_log.md`
+5. Once resolved: append the full decision as a new row to `RDD_LOG.md`
    (next `RDD_KEY_n` number), add the key + topic to the **Resolved Design
    Decisions** index in this file, remove from **Open Questions**, unblock
    the checklist item, then continue
@@ -63,7 +63,7 @@ in `STATE_rdd_log.md` — **do not read that file in full**, look up one key at 
 ```
 util/CodingStyle.md/formatter/
   STATE.md                  ← this file
-  STATE_rdd_log.md           ← full Resolved Design Decisions text (do not read in full)
+  RDD_LOG.md           ← full Resolved Design Decisions text (do not read in full)
   STATE_NEXT_AI.md           ← deferred AI-assist design and NOT FEASIBLE rationale
   README.md
   Makefile
@@ -99,13 +99,13 @@ util/CodingStyle.md/formatter/
 
 ## Resolved Design Decisions
 
-Full decision text lives in `STATE_rdd_log.md` — **do not read that file in full**.
+Full decision text lives in `RDD_LOG.md` — **do not read that file in full**.
 To look up a specific decision during implementation:
 ```
-grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/STATE_rdd_log.md
+grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
 ```
-**Do not add the `-An` parameter to `grep` for `STATE_rdd_log.md`, as the lines in
-`STATE_rdd_log.md` are very long.**
+**Do not add the `-An` parameter to `grep` for `RDD_LOG.md`, as the lines in
+`RDD_LOG.md` are very long.**
 
 | Key | Topic |
 |---|---|

@@ -68,7 +68,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * {@code groupDeclarations} (STYLE.md §5): a blank line, a standalone leading comment, or
      * any statement that doesn't parse as a `val`/`var` declaration breaks the current group.
      * @deprecated superseded by {@link #groupAlignableDeclarations} (RDD_KEY_107's "own group
-     *     stream, never merged" design was revisited and reversed -- see STATE_rdd_log.md's
+     *     stream, never merged" design was revisited and reversed -- see RDD_LOG.md's
      *     RDD_KEY_107 entry) -- kept only because {@link #parseKotlinDeclaration} is still used
      *     standalone by the merged pass; no longer called from {@code ScopePipeline} directly.
      */
@@ -568,7 +568,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * equivalent: one {@link Row} model that carries either a plain identifier or a pre-rendered
      * `(a, b)` list as its {@code nameCell}, so both shapes share the same {@link ColumnGrid}
      * columns (modifiers, name, optional `:` type, optional `=` init) -- superseding the "own
-     * group stream, never merged" half of RDD_KEY_107 (see STATE_rdd_log.md's RDD_KEY_107 entry
+     * group stream, never merged" half of RDD_KEY_107 (see RDD_LOG.md's RDD_KEY_107 entry
      * for the full revision note). A destructuring row's name column is always its whole
      * `(a, b)` text as one cell (STYLE_KOTLIN.md §12 still has no per-component type grid to
      * anchor a finer split), and its type column is always blank (destructuring declarations

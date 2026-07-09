@@ -70,9 +70,9 @@ llama.cpp on Raspberry Pi CM5):
 
 ---
 
-## RDD_EXT entries (AI-assist architecture, not in STATE_rdd_log.md)
+## RDD_EXT entries (AI-assist architecture, not in RDD_LOG.md)
 
-These decisions were never externally logged — they have no entry in `STATE_rdd_log.md`
+These decisions were never externally logged — they have no entry in `RDD_LOG.md`
 and no collision risk with RDD_KEY_n numbering. The related `RDD_KEY_86`/`87`/`88`
 decisions that *are* externally logged appear in the main index in `STATE.md`.
 

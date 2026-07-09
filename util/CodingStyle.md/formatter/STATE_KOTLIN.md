@@ -62,7 +62,7 @@ alongside the existing per-language files (`JavaSpecificRule.java`,
 `CppSpecificRule.java`) rather than folded into them.
 
 **Before modifying a shared class, grep first — do not read `STATE.md` in
-full.** Run `grep -Fm1 'ClassName' STATE_rdd_log.md` (substitute the class or
+full.** Run `grep -Fm1 'ClassName' RDD_LOG.md` (substitute the class or
 method you're about to touch) to surface any existing `RDD_KEY_n` decisions
 that already explain its shape — e.g. why `TokenizerCore`'s multi-char
 operator table is structured the way it is (RDD_KEY_69), or why a rule class
@@ -110,7 +110,7 @@ self-contained requirement above):
 - Trailer: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - **On any ambiguity:** stop, add the question to Open Questions below, mark
   the checklist item `[~]`, commit this file only, and wait for an answer.
-  Once resolved: append the full decision to `STATE_rdd_log.md` (next
+  Once resolved: append the full decision to `RDD_LOG.md` (next
   `RDD_KEY_n`, continuing the shared sequence — do not restart numbering for
   Kotlin), add the key + topic to this file's own Resolved Design Decisions
   index below, then continue.
@@ -143,9 +143,9 @@ have (e.g. a new operator token) — they are not duplicated per-language.
 
 ## Resolved Design Decisions
 
-Full text of each decision lives in `STATE_rdd_log.md` (shared with
+Full text of each decision lives in `RDD_LOG.md` (shared with
 `STATE.md` — continue its existing `RDD_KEY_n` numbering, do not restart).
-Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
+Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 (no `-A`, its lines are long).
 
 | Key | Topic |
@@ -203,7 +203,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   closing `}` under-indented by one level — `ScopePipeline.findParentIndent`
   didn't recognize a Kotlin newline-terminated declaration as a statement
   boundary, only C/Java's `;`. Fixed with a narrowly-scoped Kotlin-only rule
-  (depth-0 `NEWLINE` immediately followed by `get`/`set`). See STATE_rdd_log.md
+  (depth-0 `NEWLINE` immediately followed by `get`/`set`). See RDD_LOG.md
   RDD_KEY_122 for full detail.
 - **Reversed declaration grammar (§6/§7, found during Step 1).**
   `DeclarationAlignmentRule.Declaration` (and `MiscRule`'s parameter/signature
@@ -451,7 +451,7 @@ existing test suite after this step, before moving to Step 1.
       getter/setter grouping is confirmed BROKEN and unfixed (see Open
       Questions) — every other flagged section below is done.
 Full implementation/verification narratives for every item below are recorded
-in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
+in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
 - [x] §1 Semicolons — `KotlinSpecificRule.stripOptionalSemicolons`. RDD_KEY_115
       (supersedes an earlier flawed version, `b0e778f`).
 - [x] §3.1/§3.4 Class/Object/Companion Object/`init` bodies. RDD_KEY_99.
@@ -559,7 +559,7 @@ Also perform idempotency test.
       `kt_combined_inp.kt`, forward and idempotency passes both green).
 
 **Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
-`kt_combined_out.kt`) — all resolved. Full narratives in `STATE_rdd_log.md`;
+`kt_combined_out.kt`) — all resolved. Full narratives in `RDD_LOG.md`;
 one-line summary each:
 
 1. [x] Missing blank line/closing comment on `class`/`enum class` with a

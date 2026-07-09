@@ -708,7 +708,7 @@ public class ScopePipeline {
      *  one merged pass here -- RDD_KEY_107's original "own group stream, never merged" design was
      *  revisited and reversed on explicit user request, matching this codebase's existing C++
      *  structured-bindings precedent (`auto [b, c] = ...` already aligns in the same group as a
-     *  plain `int a = ...`); see STATE_rdd_log.md's RDD_KEY_107 entry for the full revision note. */
+     *  plain `int a = ...`); see RDD_LOG.md's RDD_KEY_107 entry for the full revision note. */
     private String applyKotlinDeclarationsPass(final List<Token> tokens) {
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
         final List<Replacement> replacements = new ArrayList<>();

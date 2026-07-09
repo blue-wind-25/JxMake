@@ -1176,7 +1176,13 @@ public class KotlinSpecificRule {
             final int commentIdx = scan;
             final List<Token> moved = new ArrayList<>();
             if (wsIdx >= 0) {
-                moved.add(tokens.get(wsIdx));
+                // The relocated `;` itself is dropped from this line entirely (moved onto its own
+                // line by the caller's forced-blank-line rewrite), so the comment's original
+                // same-line whitespace -- sized to align past `NOT_FOUND(404);` -- is now one
+                // character short of the same visual column past bare `NOT_FOUND(404)`. Pad it back
+                // out by the width of the terminator being removed.
+                final Token ws = tokens.get(wsIdx);
+                moved.add(new Token(ws.type, ws.text + " ", ws.braceDepth, ws.parenDepth, ws.name));
             }
             moved.add(tokens.get(commentIdx));
             final List<Token> next = new ArrayList<>(tokens);

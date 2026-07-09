@@ -26,6 +26,7 @@ public final class CommentFeatureVector {
     public final String previousWord;
     public final String nextWord;
     public final boolean nextCharIsOpenParen;
+    public final boolean nextTokenIsArrow;
     public final boolean containsSemicolon;
     public final boolean containsUrlOrFilenameOrNumber;
     public final TokenType commentType;
@@ -33,13 +34,14 @@ public final class CommentFeatureVector {
     public final boolean hasLeadingKeywordMatch;
 
     public CommentFeatureVector(final String targetWord, final String previousWord, final String nextWord,
-            final boolean nextCharIsOpenParen, final boolean containsSemicolon,
+            final boolean nextCharIsOpenParen, final boolean nextTokenIsArrow, final boolean containsSemicolon,
             final boolean containsUrlOrFilenameOrNumber, final TokenType commentType,
             final boolean hasNonLatinScript, final boolean hasLeadingKeywordMatch) {
         this.targetWord = targetWord;
         this.previousWord = previousWord;
         this.nextWord = nextWord;
         this.nextCharIsOpenParen = nextCharIsOpenParen;
+        this.nextTokenIsArrow = nextTokenIsArrow;
         this.containsSemicolon = containsSemicolon;
         this.containsUrlOrFilenameOrNumber = containsUrlOrFilenameOrNumber;
         this.commentType = commentType;

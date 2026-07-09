@@ -95,14 +95,17 @@ public final class KeywordAmbiguityGate {
      *  returns true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static"
      *  as an English adjective vs. the language keyword). Weights and derivation: see
      *  {@code cwg/weights.md}. Returns {@code true} only when the comment reads as ordinary
-     *  prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code containsSemicolon},
-     *  or {@code containsUrlOrFilenameOrNumber} is enough on its own to push the score below
-     *  threshold, per that file's "asymmetric risk" rationale -- a false skip is zero-cost, a
-     *  false positive is a visible bug. */
+     *  prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code nextTokenIsArrow},
+     *  {@code containsSemicolon}, or {@code containsUrlOrFilenameOrNumber} is enough on its own
+     *  to push the score below threshold, per that file's "asymmetric risk" rationale -- a false
+     *  skip is zero-cost, a false positive is a visible bug. */
     public static boolean resolveAmbiguousKeyword(final CommentFeatureVector features) {
         double score = CommentClassifierWeights.KEYWORD_BIAS;
         if (features.nextCharIsOpenParen) {
             score += CommentClassifierWeights.KEYWORD_WEIGHT_PAREN;
+        }
+        if (features.nextTokenIsArrow) {
+            score += CommentClassifierWeights.KEYWORD_WEIGHT_ARROW;
         }
         if (features.containsSemicolon) {
             score += CommentClassifierWeights.KEYWORD_WEIGHT_SEMICOLON;

@@ -11,30 +11,30 @@ src/com/jxmake/formatter/classifier/CommentClassifierWeights.java.
 import math
 
 # One row per labeled example across cwg/examples_{c,cpp,java,kotlin}.md.
-# (source, index, paren, semicolon, url_or_number, label) -- label 1 = YES (normalize), 0 = NO.
+# (source, index, paren, arrow, semicolon, url_or_number, label) -- label 1 = YES (normalize),
+# 0 = NO. "arrow" is CommentFeatureVector.nextTokenIsArrow -- added to catch a when/match-branch
+# shape like "is Foo -> handle(foo)" that the other three features can't see (kotlin #2 below).
 DATASET = [
     # examples_c.md
-    ("c", 1, 0, 0, 0, 1), ("c", 2, 0, 1, 0, 0), ("c", 3, 1, 0, 0, 0),
-    ("c", 4, 0, 0, 0, 1), ("c", 5, 0, 1, 0, 0), ("c", 6, 0, 0, 1, 1),
-    ("c", 7, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 1),
-    ("c", 10, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0),
+    ("c", 1, 0, 0, 0, 0, 1), ("c", 2, 0, 0, 1, 0, 0), ("c", 3, 1, 0, 0, 0, 0),
+    ("c", 4, 0, 0, 0, 0, 1), ("c", 5, 0, 0, 1, 0, 0), ("c", 6, 0, 0, 0, 1, 1),
+    ("c", 7, 0, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 0, 1),
+    ("c", 10, 0, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0, 0),
     # examples_cpp.md
-    ("cpp", 1, 0, 0, 0, 1), ("cpp", 2, 1, 1, 0, 0), ("cpp", 3, 0, 0, 0, 1),
-    ("cpp", 4, 1, 0, 1, 0), ("cpp", 5, 0, 0, 0, 1), ("cpp", 6, 1, 1, 0, 0),
-    ("cpp", 7, 0, 0, 0, 1), ("cpp", 8, 1, 1, 0, 0), ("cpp", 9, 0, 0, 0, 1),
-    ("cpp", 10, 0, 0, 1, 0),
+    ("cpp", 1, 0, 0, 0, 0, 1), ("cpp", 2, 1, 0, 1, 0, 0), ("cpp", 3, 0, 0, 0, 0, 1),
+    ("cpp", 4, 1, 0, 0, 1, 0), ("cpp", 5, 0, 0, 0, 0, 1), ("cpp", 6, 1, 0, 1, 0, 0),
+    ("cpp", 7, 0, 0, 0, 0, 1), ("cpp", 8, 1, 0, 1, 0, 0), ("cpp", 9, 0, 0, 0, 0, 1),
+    ("cpp", 10, 0, 0, 0, 1, 0),
     # examples_java.md
-    ("java", 1, 0, 0, 0, 1), ("java", 2, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 1),
-    ("java", 4, 1, 1, 0, 0), ("java", 5, 0, 0, 0, 1), ("java", 6, 0, 1, 1, 0),
-    ("java", 7, 0, 0, 0, 1), ("java", 8, 1, 1, 0, 0), ("java", 9, 0, 0, 0, 1),
-    ("java", 10, 0, 1, 0, 0),
-    # examples_kotlin.md -- row 2 is a documented outlier (label NO, but no mechanical feature
-    # fires; the ambiguity is a "->" + capitalized-identifier pattern this feature set can't see).
-    # Kept in the dataset on purpose so the printed report below surfaces it as a misclassification
-    # rather than silently excluding inconvenient data.
-    ("kotlin", 1, 0, 0, 0, 1), ("kotlin", 2, 0, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 1),
-    ("kotlin", 4, 1, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 1), ("kotlin", 6, 0, 1, 0, 0),
-    ("kotlin", 7, 0, 0, 0, 1), ("kotlin", 8, 1, 1, 0, 0),
+    ("java", 1, 0, 0, 0, 0, 1), ("java", 2, 0, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 0, 1),
+    ("java", 4, 1, 0, 1, 0, 0), ("java", 5, 0, 0, 0, 0, 1), ("java", 6, 0, 0, 1, 1, 0),
+    ("java", 7, 0, 0, 0, 0, 1), ("java", 8, 1, 0, 1, 0, 0), ("java", 9, 0, 0, 0, 0, 1),
+    ("java", 10, 0, 0, 1, 0, 0),
+    # examples_kotlin.md -- row 2 ("is Foo -> handle(foo)") used to be a documented outlier (label
+    # NO, no mechanical feature fired) before nextTokenIsArrow existed; now arrow=1 catches it.
+    ("kotlin", 1, 0, 0, 0, 0, 1), ("kotlin", 2, 0, 1, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 0, 1),
+    ("kotlin", 4, 1, 0, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 0, 1), ("kotlin", 6, 0, 0, 1, 0, 0),
+    ("kotlin", 7, 0, 0, 0, 0, 1), ("kotlin", 8, 1, 0, 1, 0, 0),
 ]
 
 LEARNING_RATE = 0.5
@@ -54,39 +54,40 @@ def sigmoid(z):
 
 
 def train():
-    # weights: [bias, w_paren, w_semicolon, w_url_or_number]
-    w = [0.0, 0.0, 0.0, 0.0]
+    # weights: [bias, w_paren, w_arrow, w_semicolon, w_url_or_number]
+    w = [0.0, 0.0, 0.0, 0.0, 0.0]
     n = len(DATASET)
     for _ in range(EPOCHS):
-        grad = [0.0, 0.0, 0.0, 0.0]
-        for _, _, paren, semi, urlnum, label in DATASET:
-            x = [1.0, float(paren), float(semi), float(urlnum)]
+        grad = [0.0, 0.0, 0.0, 0.0, 0.0]
+        for _, _, paren, arrow, semi, urlnum, label in DATASET:
+            x = [1.0, float(paren), float(arrow), float(semi), float(urlnum)]
             pred = sigmoid(sum(wi * xi for wi, xi in zip(w, x)))
             err = pred - label
-            for i in range(4):
+            for i in range(5):
                 grad[i] += err * x[i]
         # L2 penalty gradient is lambda * w for each regularized weight (skip index 0, the bias).
-        for i in range(1, 4):
+        for i in range(1, 5):
             grad[i] += L2_LAMBDA * w[i]
         w = [wi - LEARNING_RATE * gi / n for wi, gi in zip(w, grad)]
     return w
 
 
 def report(w):
-    bias, w_paren, w_semi, w_urlnum = w
+    bias, w_paren, w_arrow, w_semi, w_urlnum = w
     print()
     print("====================================================================================================")
     print("Trained keyword-ambiguity weights (logistic regression, %d epochs, lr=%.2f):" % (EPOCHS, LEARNING_RATE))
     print("    KEYWORD_BIAS                 = %+.5f" % bias)
     print("    KEYWORD_WEIGHT_PAREN         = %+.5f" % w_paren)
+    print("    KEYWORD_WEIGHT_ARROW         = %+.5f" % w_arrow)
     print("    KEYWORD_WEIGHT_SEMICOLON     = %+.5f" % w_semi)
     print("    KEYWORD_WEIGHT_URL_OR_NUMBER = %+.5f" % w_urlnum)
     print("    KEYWORD_THRESHOLD            =  0.00000 (sigmoid decision boundary)")
     print()
     print("Per-example check (score = w.x + bias, predicted YES iff score > 0):")
     mistakes = 0
-    for source, idx, paren, semi, urlnum, label in DATASET:
-        score = bias + w_paren * paren + w_semi * semi + w_urlnum * urlnum
+    for source, idx, paren, arrow, semi, urlnum, label in DATASET:
+        score = bias + w_paren * paren + w_arrow * arrow + w_semi * semi + w_urlnum * urlnum
         predicted = 1 if score > 0 else 0
         expected = "YES" if label else "NO"
         got = "YES" if predicted else "NO"

@@ -873,6 +873,19 @@ word, e.g. "static" as an English adjective vs. the C keyword), `CommentClassifi
 exactly like `off` for that one comment — never guess). Weights (RDD_KEY_97: frontier-model-assisted,
 not corpus-trained, for v1) generated from 40 labeled per-language examples under `cwg/` via
 `cwg/derive_weights.py` (L2-regularized logistic regression, reproducible/reusable for future
-re-derivation — see `cwg/README.md` and `cwg/weights.md`). `make test` 70/70 PASS unchanged
-(default `off`); classifier `on` verified via a 4-language `/tmp` smoke test and 38/40 against the
-labeled example set (two documented feature-set limits, not defects — see `cwg/weights.md`).
+re-derivation — see `cwg/README.md` and `cwg/weights.md`). Four features feed the
+keyword-ambiguity path's scoring (`nextCharIsOpenParen`, `nextTokenIsArrow`, `containsSemicolon`,
+`containsUrlOrFilenameOrNumber`); `nextTokenIsArrow` was added after the initial weight pass to
+close a real miss on a Kotlin `when`-branch shape (`is Foo -> handle(foo)`) — see
+`cwg/weights.md`'s "Adding a feature" for the worked example and the recipe for adding another.
+`make test` 70/70 PASS unchanged (default `off`); classifier `on` verified via a 4-language `/tmp`
+smoke test and 39/40 against the labeled example set (one documented accepted tradeoff remains,
+not a defect — see `cwg/weights.md`).
+
+**TODO:** the 40-example `cwg/` set is synthetic (written by the assisting AI, not pulled from
+real code), and covers only the four features that exist today. Growing it — especially with
+real comments pulled from this codebase or the `test/` fixtures, per the "is it easy to add more
+examples" discussion — would firm up the weight magnitudes and might surface new feature-set
+gaps the same way `nextTokenIsArrow` did. This is independent of the C/C++/Java formatter's own
+test suite (`make test`'s 70 fixtures) — the classifier defaults to `off` and ships no runtime
+AI dependency, so this TODO is about `cwg/`'s example quality only, not formatter correctness.

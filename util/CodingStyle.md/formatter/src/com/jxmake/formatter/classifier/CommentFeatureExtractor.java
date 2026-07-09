@@ -35,13 +35,19 @@ public final class CommentFeatureExtractor {
         final String previousWord = ""; // targetWord is always the comment's leading word (see class javadoc)
         final String nextWord = nextWord(commentText, targetBounds[1]);
         final boolean nextCharIsOpenParen = nextNonWhitespaceCharIs(commentText, targetBounds[1], '(');
+        // Deliberately scans the whole tail after the target word, not just the immediate next
+        // token -- catches a when/match-branch shape like "is Foo -> handle(foo)" where the
+        // arrow follows an intervening identifier, not the target word directly. Same permissive
+        // philosophy as URL_OR_FILENAME_OR_NUMBER: a false-positive arrow match only ever costs
+        // an ABSTAIN, never a wrong YES.
+        final boolean nextTokenIsArrow = commentText.indexOf("->", targetBounds[1]) >= 0;
         final boolean containsSemicolon = commentText.indexOf(';') >= 0;
         final boolean containsUrlOrFilenameOrNumber = URL_OR_FILENAME_OR_NUMBER.matcher(commentText).find();
         final boolean hasNonLatinScript = NonLatinScriptGate.containsNonLatinScript(commentText);
         final boolean hasLeadingKeywordMatch = KeywordAmbiguityGate.hasLeadingKeywordMatch(commentText, lang);
         return new CommentFeatureVector(targetWord, previousWord, nextWord, nextCharIsOpenParen,
-                containsSemicolon, containsUrlOrFilenameOrNumber, commentType, hasNonLatinScript,
-                hasLeadingKeywordMatch);
+                nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,
+                hasNonLatinScript, hasLeadingKeywordMatch);
     }
 
     /** [start, end) of the first contiguous run of letters/digits/underscore after skipping

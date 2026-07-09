@@ -26,12 +26,14 @@ public final class CommentClassifierWeights {
     // logistic regression trained on all 40 labeled examples across
     // cwg/examples_{c,cpp,java,kotlin}.md by cwg/derive_weights.py (lambda=0.1, 5000 epochs,
     // lr=0.5) -- see cwg/weights.md "Keyword-ambiguity path" for the derivation and the
-    // per-example verification (38/40, same two documented outliers as the prior hand-picked
-    // values).
-    public static final double KEYWORD_BIAS = 2.16510;
-    public static final double KEYWORD_WEIGHT_PAREN = -3.73682;
-    public static final double KEYWORD_WEIGHT_SEMICOLON = -4.68148;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -2.52881;
+    // per-example verification (39/40; one documented accepted-tradeoff outlier remains, see that
+    // file). KEYWORD_WEIGHT_ARROW covers a when/match-branch shape (e.g. "is Foo -> handle(foo)")
+    // the other three features can't see on their own.
+    public static final double KEYWORD_BIAS = 2.48420;
+    public static final double KEYWORD_WEIGHT_PAREN = -3.96297;
+    public static final double KEYWORD_WEIGHT_ARROW = -3.22603;
+    public static final double KEYWORD_WEIGHT_SEMICOLON = -4.93396;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -2.80469;
     public static final double KEYWORD_THRESHOLD = 0.0;
 
     private CommentClassifierWeights() {

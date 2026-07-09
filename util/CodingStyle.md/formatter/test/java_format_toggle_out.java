@@ -11,6 +11,7 @@ package com.example.toggle;
 // Formatting still applies immediately before and after each frozen region.
 
 public class FormatToggle {
+
     private int before = 1;
 
     //% JXM_CFMT_DIS
@@ -33,4 +34,5 @@ public class FormatToggle {
     /*% JXM_CFMT_ENA */
 
     private int after = 3;
-}
+
+} // class FormatToggle

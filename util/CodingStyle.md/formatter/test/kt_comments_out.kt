@@ -96,7 +96,6 @@ class Widget(
 
             // Success case
             Status.OK        -> "ok"
-
             /* Failure case */
             Status.NOT_FOUND -> "missing"
 

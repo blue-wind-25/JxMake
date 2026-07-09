@@ -165,6 +165,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_126 | **REVISES RDD_KEY_107.** Merges §12 destructuring-declaration alignment into the same column-aligned group stream as an adjacent plain §6 `val`/`var` declaration, per user request citing this codebase's own C++ structured-bindings precedent; new merged `Row`/`groupAlignableDeclarations`/`renderAlignedGroup`/`toRow` in `KotlinDeclarationAlignmentRule.java` (old `groupPropertyDeclarations`/`groupDestructuringDeclarations`/`renderPropertyGroup`/`renderDestructuringGroup` kept, `@deprecated`, still used internally for parsing); `ScopePipeline.applyKotlinDeclarationsPass` simplified to one merged loop |
 | RDD_KEY_127 | Bare Kotlin `else\n    stmt` (no condition of its own) never collapsed to one line — distinct gap from RDD_KEY_124 (keyed off `if`/`while`/`for`'s own `(...)` condition, never a standalone `else`); new shared `collapseBracelessBody` helper extracted from `tryCollapseBraceless`, plus a dedicated `else`-keyword branch in `collapseSingleExpressionBlocks`'s main loop; collapse-to-one-line half fixed, column-padding-to-align-with-preceding-`if`-branch half left as an open question **(now resolved — see RDD_KEY_128)** |
 | RDD_KEY_128 | **RESOLVES RDD_KEY_127's open column-padding question**, user-confirmed via the now-enabled `kt_combined_inp.kt` fixture: a collapsed single-line `else` body pads with spaces to start at the same column as its preceding single-line `if(...)` branch's own body; new standalone, last-running `KotlinSpecificRule.alignBracelessElseWithIf` (line-based, on fully-formatted text) rather than computed at collapse time — an earlier collapse-time attempt was root-caused stale by one column since `MiscRule.enforceComplexityPadding`'s `if (`→`if(` tightening still runs after the collapse pass |
+| RDD_KEY_131 | `test/kt_comments_inp.kt`/`kt_comments_out.kt` — fixed all four remaining bugs (comment-led `when`-branch blank line, comment-led `return` blank line, leading-blank stripping in non-declaration-led bodies, outermost-class closing comment suppressed by an unrelated nested frozen region) and enabled the fixture in the `Makefile`. Full narrative in `RDD_LOG.md`; see Step 4 punch list below for the one-line-per-bug summary. Note: RDD_KEY_129/130 are used by unrelated C/C++/Java braceless-`if`/`else`-chain work tracked in `STATE.md`, not this file — 131 is the correct next-available key. |
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
@@ -510,10 +511,9 @@ has been removed. Config uses `.jxmake-code-formatter`, `key=value` format
 
 ### Step 4 — Test Fixtures
 
-**IN PROGRESS — `kt_combined_inp.kt`/`kt_combined_out.kt` fully DONE; only
-`kt_comments_inp.kt`/`kt_comments_out.kt` remains (deliberately still
-disabled in the `Makefile`, has its own separate open bugs, out of scope for
-now — see checklist below).**
+**DONE — both `kt_combined_inp.kt`/`kt_combined_out.kt` and
+`kt_comments_inp.kt`/`kt_comments_out.kt` fully pass, both now enabled in the
+`Makefile`.**
 
 **The test fixtures are handwritten and may have syntax error.
 Confirm with the user as needed.***
@@ -542,16 +542,16 @@ Also perform idempotency test.
       the fixture, not a formatter change) and item 4 (trailing whitespace on
       the EOF blank line, already correctly flagged as intentional test
       content, not a bug).
-- [ ] `test/kt_comments_inp.kt` / `test/kt_comments_out.kt` — still
-      commented out in the `Makefile`. A manual check (not a fix attempt) —
-      formatting `kt_comments_inp.kt` and diffing the result against
-      `kt_comments_out.kt` — showed multiple unrelated
-      comment-placement/preservation bugs; none investigated. Needs its own
-      dedicated pass before enabling.
+- [x] `test/kt_comments_inp.kt` / `test/kt_comments_out.kt` — **DONE.**
+      Enabled in the `Makefile`'s `INP_FILES`. All four bugs found by the
+      earlier manual check were root-caused and fixed; round-trips clean,
+      both the forward (`inp`→`out`) and idempotency (`out`→`out`) passes.
+      See punch list below. RDD_KEY_131.
 - [x] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions. **`make test`
-      35/35** (34 prior C/C++/Java + real_code_regressions fixtures, plus
-      `kt_combined_inp.kt`, forward and idempotency passes both green).
+      36/36** (34 prior C/C++/Java + real_code_regressions fixtures, plus
+      `kt_combined_inp.kt` and `kt_comments_inp.kt`, forward and idempotency
+      passes both green).
 
 **Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
 `kt_combined_out.kt`) — all resolved. Full narratives in `RDD_LOG.md`;
@@ -588,6 +588,33 @@ one-line summary each:
    STYLE.md §9's blank-line-before-`return`. RDD_KEY_125
    (`MiscRule.isFunctionBodyBrace` didn't recognize Kotlin's `: ReturnType`
    shape; also fixed an unrelated C++ `->`-scan ordering bug it surfaced).
+
+**Step 4 known-bugs punch list** (against `test/kt_comments_inp.kt` /
+`kt_comments_out.kt`) — all resolved. Full narrative in `RDD_LOG.md`
+RDD_KEY_131; one-line summary each:
+
+1. [x] Missing blank line before a `when` branch led by its own standalone
+   comment (`// Success case` right after `when(status) {`).
+   `KotlinSpecificRule.ensureBlankLineInGap` bailed out on any comment
+   anywhere in the gap; replaced with `SwitchRule`'s comment-anchored version.
+2. [x] Missing blank line before a `return` directly preceded by its own
+   standalone leading comment. Kotlin-only carve-out in
+   `MiscRule.insertBlankLineBeforeReturn` (`appendGapWithForcedBlankAfterLastComment`)
+   — confirmed Java's own accepted fixture wants the opposite, so this is
+   gated `lang.isKotlin`, not a shared-class change.
+3. [x] Leading blank line inside a function/lambda body not stripped when
+   the first statement isn't a `val`/`var` declaration. New
+   `KotlinSpecificRule.stripLeadingBlankBeforeNonDeclarationStatement`,
+   wired into `Formatter.java`'s Kotlin-only Phase 1 block.
+4. [x] Outermost `class Widget` missing its closing blank line + `} //
+   class Widget` comment. Root cause: `BlockStructureRule.addClosingComments`
+   and `insertNamedConstructBlankLines` both scanned the *entire* block span
+   for any frozen (JXM_CFMT_DIS/ENA) token instead of just the boundary gap
+   being rewritten — an unrelated frozen region nested deep inside
+   `findFirstX` suppressed the outer class's own blank line/comment. Shared-
+   class fix; also fixed a latent identical bug in
+   `test/java_format_toggle_out.java` (updated that reference fixture to add
+   its own previously-missing blank line + `} // class FormatToggle`).
 
 ### Step 5 — Dogfood / Real-Code Testing
 

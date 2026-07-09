@@ -1679,7 +1679,19 @@ public class MiscRule {
             final boolean hasComment = gap.stream()
                     .anyMatch(g -> g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK);
             final long newlineCount = gap.stream().filter(g -> g.type == TokenType.NEWLINE).count();
-            if (shouldForceBlankBeforeReturn(tokens, i, stack) && !hasComment && newlineCount >= 1) {
+            if (shouldForceBlankBeforeReturn(tokens, i, stack) && hasComment && lang.isKotlin) {
+                // RDD_KEY_129, Kotlin-only carve-out: a `return` directly preceded by its own
+                // standalone leading comment (e.g. `// Comment before return` on the line right
+                // above) still gets STYLE.md §9's forced blank line -- but the blank belongs
+                // *between the comment and the `return`*, not before the comment (which may
+                // already have its own blank line separating it from whatever precedes it, and
+                // must not be relocated). Java/C++ deliberately keep the original "leave
+                // untouched" behavior here (see java_comments_out.java's own
+                // "// Line comment before return" case, confirmed via that existing fixture to
+                // want no blank line inserted at all) -- this is a genuine per-language style
+                // difference, not a shared-class gap.
+                appendGapWithForcedBlankAfterLastComment(out, gap);
+            } else if (shouldForceBlankBeforeReturn(tokens, i, stack) && !hasComment && newlineCount >= 1) {
                 appendGapWithForcedBlank(out, gap, newlineCount);
             } else {
                 for (final Token g : gap) {
@@ -1717,6 +1729,44 @@ public class MiscRule {
             return false;
         }
         return !isBraceLessControlFlowReturn(tokens, idx);
+    }
+
+    /** Kotlin-only sibling of {@link #appendGapWithForcedBlank} (see RDD_KEY_129): forces the
+     *  blank line into the sub-gap strictly after the *last* comment token in {@code gap} (the
+     *  return statement's own standalone leading comment), leaving everything at/before that
+     *  comment untouched -- if the sub-gap after it already has 2+ newlines, nothing changes; if
+     *  it has exactly 1, a second is inserted right after it; if it has 0 (comment glued to the
+     *  same line as the `return`), left untouched, same "no worked example to guess from" posture
+     *  as the zero-newline case in {@link #appendGapWithForcedBlank}'s caller. */
+    private void appendGapWithForcedBlankAfterLastComment(final StringBuilder out, final List<Token> gap) {
+        int lastCommentIdx = -1;
+        for (int k = 0; k < gap.size(); k++) {
+            final Token g = gap.get(k);
+            if (g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) {
+                lastCommentIdx = k;
+            }
+        }
+        long afterNewlineCount = 0;
+        for (int k = lastCommentIdx + 1; k < gap.size(); k++) {
+            if (gap.get(k).type == TokenType.NEWLINE) {
+                afterNewlineCount++;
+            }
+        }
+        if (afterNewlineCount == 0 || afterNewlineCount >= 2) {
+            for (final Token g : gap) {
+                out.append(g.text);
+            }
+            return;
+        }
+        boolean inserted = false;
+        for (int k = 0; k < gap.size(); k++) {
+            final Token g = gap.get(k);
+            out.append(g.text);
+            if (!inserted && k > lastCommentIdx && g.type == TokenType.NEWLINE) {
+                out.append('\n');
+                inserted = true;
+            }
+        }
     }
 
     private void appendGapWithForcedBlank(final StringBuilder out, final List<Token> gap, final long newlineCount) {

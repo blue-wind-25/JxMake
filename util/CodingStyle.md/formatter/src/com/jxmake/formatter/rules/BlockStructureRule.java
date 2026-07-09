@@ -1191,11 +1191,20 @@ public class BlockStructureRule {
                 continue;
             }
             final Integer closeIdx = matchClose.get(i);
-            if (closeIdx == null || anyFrozen(tokens, i, closeIdx + 1)) {
+            if (closeIdx == null) {
                 continue;
             }
             final int beforeIdx = skipGuardForward(tokens, i);
             final int afterIdx = skipGuardBackward(tokens, closeIdx);
+            // Only the two boundary gaps this method actually rewrites need to be frozen-checked
+            // -- not the entire body span. RDD_KEY_129: the old whole-span `anyFrozen(tokens, i,
+            // closeIdx + 1)` check meant one unrelated JXM_CFMT_DIS/ENA region nested anywhere
+            // inside this named construct's body (e.g. a frozen method deep inside an outer
+            // class) silently suppressed the guaranteed blank line at the *outer* construct's own
+            // `{`/`}`, even though neither boundary gap itself was ever going to be touched.
+            if (anyFrozen(tokens, i, beforeIdx + 1) || anyFrozen(tokens, afterIdx, closeIdx + 1)) {
+                continue;
+            }
             blankBeforeIdx.add(beforeIdx);
             blankAfterIdx.add(afterIdx);
             final String baseIndent = lineIndent(tokens, i);
@@ -1493,12 +1502,21 @@ public class BlockStructureRule {
                     continue;
                 }
                 final Frame f = stack.pop();
-                if (anyFrozen(tokens, f.openIdx, i + 1)) {
+                final int insertAt = commentInsertionIndex(tokens, i);
+                final int existingCommentIdx = findExistingLineComment(tokens, insertAt, n);
+                // Only the tokens this method might actually rewrite need to be frozen-checked --
+                // the closing brace itself through the insertion point (plus any existing trailing
+                // comment there). RDD_KEY_129: this used to scan the *entire* block span
+                // `[f.openIdx, i]` for any frozen token, which meant one unrelated
+                // JXM_CFMT_DIS/ENA region nested anywhere inside an outer named construct (e.g. a
+                // frozen method body inside a class) silently suppressed that outer construct's
+                // own closing comment too, even though nothing about the outer `}` itself was
+                // ever going to be touched.
+                final int frozenCheckEnd = Math.max(insertAt, existingCommentIdx) + 1;
+                if (anyFrozen(tokens, i, frozenCheckEnd)) {
                     continue;
                 }
                 final String comment = decideComment(tokens, f, i);
-                final int insertAt = commentInsertionIndex(tokens, i);
-                final int existingCommentIdx = findExistingLineComment(tokens, insertAt, n);
                 if (comment != null) {
                     if (safeToCommentAfter(tokens, insertAt)) {
                         comments.put(insertAt, comment);

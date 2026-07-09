@@ -221,21 +221,31 @@ public class KotlinSpecificRule {
         return -1;
     }
 
-    /** Guarantees the gap [fromIdx, toExclusive) contains a blank line, same mechanism as
-     *  {@code SwitchRule.ensureBlankLineInGap}. A comment anywhere in the gap blocks the rewrite
-     *  for that occurrence entirely -- conservative, since deciding where the blank line belongs
-     *  relative to the comment isn't needed for this method's narrower callers (both call sites
-     *  only ever cover a single-line gap, unlike {@code SwitchRule}'s per-comment-anchored variant). */
+    /** Guarantees the gap [fromIdx, toExclusive) contains a blank line, same comment-anchored
+     *  mechanism as {@code SwitchRule.ensureBlankLineInGap} (RDD_KEY_129 revision -- the original
+     *  version here bailed out entirely whenever any comment token appeared anywhere in the gap,
+     *  which meant a `when` branch led by its own standalone comment (e.g. `// Success case`
+     *  right after the `when(...) {`) never got its blank line at all, since {@code
+     *  findWhenBranches}'s {@code labelStart} is the branch's first *significant* token --
+     *  {@code nextSignificantIndex} skips comments -- so the comment ends up inside the scanned
+     *  gap even though it visually belongs to the branch, not the `when`'s own opening). A
+     *  standalone comment that starts its own line is now treated as the anchor: the blank line
+     *  is guaranteed in the sub-gap strictly before it, and the comment itself is left exactly
+     *  where it is (never relocated). A comment trailing on the same line as what precedes it is
+     *  not treated as an anchor -- it belongs to that preceding content. */
     private void ensureBlankLineInGap(final List<Token> tokens, final int fromIdx,
             final int toExclusive, final Map<Integer, String> insertAfter) {
+        int firstCommentIdx = -1;
         for (int i = fromIdx; i < toExclusive; i++) {
-            if (isComment(tokens.get(i))) {
-                return;
+            if (isComment(tokens.get(i)) && startsOwnLine(tokens, i, fromIdx - 1)) {
+                firstCommentIdx = i;
+                break;
             }
         }
+        final int scanEnd = firstCommentIdx < 0 ? toExclusive : firstCommentIdx;
         int newlineCount = 0;
         int firstNewlineIdx = -1;
-        for (int i = fromIdx; i < toExclusive; i++) {
+        for (int i = fromIdx; i < scanEnd; i++) {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 newlineCount++;
                 if (firstNewlineIdx < 0) {
@@ -251,6 +261,25 @@ public class KotlinSpecificRule {
         } else {
             insertAfter.merge(firstNewlineIdx, "\n", String::concat);
         }
+    }
+
+    /** True if the token at {@code idx} is the first thing on its own line: scanning backward
+     *  from it, only WHITESPACE is found before hitting a NEWLINE or {@code floor} (the last
+     *  real-content token before the gap being searched, guaranteed non-whitespace/non-newline,
+     *  so reaching it without a NEWLINE means {@code idx} is still on that content's own line).
+     *  Same helper as {@code SwitchRule.startsOwnLine}, duplicated here since that class is not
+     *  shared infrastructure this file extends. */
+    private boolean startsOwnLine(final List<Token> tokens, final int idx, final int floor) {
+        for (int i = idx - 1; i >= floor; i--) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+            if (t.type != TokenType.WHITESPACE) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /** Appends `// when subject` (or bare `// when` if {@code subject} is null/empty) after
@@ -1881,4 +1910,116 @@ public class KotlinSpecificRule {
 
     // alignBracelessElseIfChain moved to BlockStructureRule (now shared across all languages,
     // once C/C++/Java grew their own opt-in braceless chain-collapse) -- see its javadoc there.
+
+    // ── Leading blank line stripping in function/lambda bodies (found via kt_comments fixture) ──
+    /**
+     * RDD_KEY_129: strips a leading blank line immediately after a function or lambda body's own
+     * `{` when the block's first statement is not a `val`/`var` declaration -- found via
+     * `test/kt_comments_inp.kt`/`kt_comments_out.kt`: `fun findFirst(...): Int { <blank>
+     * items.forEach { ... } }` and `return run search@ { <blank> for(...) { ... } }` both have
+     * their leading blank line removed in the reference output, but `fun describe(...): String {
+     * <blank> val label = when(...) { ... } }` keeps it. The distinguishing signal, confirmed by
+     * exhausting every other candidate against the fixture (nesting depth, presence of a further
+     * nested `{`, control-flow-shaped first statement) and finding only this one consistent: a
+     * block whose first statement is a property/variable declaration keeps a pre-existing leading
+     * blank line (declarations already get their own blank-line-as-group-separator treatment
+     * elsewhere, via {@code KotlinDeclarationAlignmentRule}/RDD_KEY_103), while any other kind of
+     * first statement (a bare call, `for`, or anything else) does not.
+     * <p>Deliberately excludes control-flow bodies (`if`/`while`/`for`/`catch`/`do`/`try`/`else`)
+     * and `when` bodies -- STYLE.md's own text says control-flow blocks never have blank lines
+     * added or removed, and `when` bodies already have their own dedicated blank-line handling in
+     * {@link #formatWhenExpressions}. Named-construct bodies (`class`/`object`/`interface`/
+     * `enum`/`init`, tagged via {@code Token.name}) are excluded too -- they always keep exactly
+     * one blank line via the shared {@code BlockStructureRule.insertNamedConstructBlankLines},
+     * unconditionally, regardless of first-statement shape; this method must not fight that. What
+     * remains after all those exclusions is exactly "function bodies and lambda bodies", which
+     * this method does not need to tell apart from each other -- both get the same treatment.
+     * <p>A gap containing a comment is left untouched (no established worked example for that
+     * shape). A gap with exactly one newline (no blank to begin with) is a no-op by construction.
+     */
+    public String stripLeadingBlankBeforeNonDeclarationStatement(final List<Token> tokens) {
+        final Set<Integer> stripFrom = new HashSet<>();
+        final int n = tokens.size();
+        for (int i = 0; i < n; i++) {
+            if (!isPunct(tokens.get(i), "{") || isControlFlowOrWhenOrNamedBrace(tokens, i)) {
+                continue;
+            }
+            final int firstSig = nextSignificantIndex(tokens, i + 1);
+            if (firstSig < 0 || isPunct(tokens.get(firstSig), "}")) {
+                continue; // empty body
+            }
+            if (tokens.get(firstSig).type == TokenType.KEYWORD
+                    && ("val".equals(tokens.get(firstSig).text) || "var".equals(tokens.get(firstSig).text))) {
+                continue; // declaration-led -- keep any existing leading blank line
+            }
+            boolean hasComment = false;
+            int newlineCount = 0;
+            int firstNewlineIdx = -1;
+            for (int k = i + 1; k < firstSig; k++) {
+                final Token g = tokens.get(k);
+                if (isComment(g)) {
+                    hasComment = true;
+                    break;
+                }
+                if (g.type == TokenType.NEWLINE) {
+                    newlineCount++;
+                    if (firstNewlineIdx < 0) {
+                        firstNewlineIdx = k;
+                    }
+                }
+            }
+            if (hasComment || newlineCount < 2 || firstNewlineIdx < 0) {
+                continue;
+            }
+            // Collapse every NEWLINE in [i+1, firstSig) down to the single one at firstNewlineIdx.
+            for (int k = firstNewlineIdx + 1; k < firstSig; k++) {
+                if (tokens.get(k).type == TokenType.NEWLINE) {
+                    stripFrom.add(k);
+                }
+            }
+        }
+
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            if (!stripFrom.contains(i)) {
+                out.append(tokens.get(i).text);
+            }
+        }
+        return out.toString();
+    }
+
+    /** True if the `{` at {@code braceIdx} is a named-construct body (already handled elsewhere),
+     *  a `when` body (own dedicated handling), or a control-flow body (`if`/`while`/`for`/
+     *  `catch`/`do`/`try`/`else`/`finally`, per STYLE.md's "never add/remove blank lines inside a
+     *  control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}. */
+    private boolean isControlFlowOrWhenOrNamedBrace(final List<Token> tokens, final int braceIdx) {
+        if (tokens.get(braceIdx).name != null) {
+            return true;
+        }
+        final int prevSig = prevSignificantIndex(tokens, braceIdx - 1);
+        if (prevSig < 0) {
+            return true;
+        }
+        final Token prev = tokens.get(prevSig);
+        if (prev.type == TokenType.KEYWORD
+                && ("else".equals(prev.text) || "try".equals(prev.text) || "do".equals(prev.text)
+                        || "finally".equals(prev.text) || "when".equals(prev.text))) {
+            return true;
+        }
+        if (isPunct(prev, ")")) {
+            final int openParen = matchParenBackward(tokens, prevSig);
+            if (openParen >= 0) {
+                final int kwIdx = prevSignificantIndex(tokens, openParen - 1);
+                if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
+                        && CONTROL_FLOW_PAREN_KEYWORDS.contains(tokens.get(kwIdx).text)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static final Set<String> CONTROL_FLOW_PAREN_KEYWORDS =
+            Collections.unmodifiableSet(new HashSet<>(
+                    Arrays.asList("if", "while", "for", "catch", "when", "switch")));
 }

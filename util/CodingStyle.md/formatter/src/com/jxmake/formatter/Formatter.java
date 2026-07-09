@@ -103,6 +103,7 @@ public final class Formatter {
             // right after this phase's own structural rewrites settle, same "run once brace/enum
             // shape is final" reasoning as those two calls above.
             text = kotlinRule.stripOptionalSemicolons(tokenizer.apply(text));
+            text = kotlinRule.stripLeadingBlankBeforeNonDeclarationStatement(tokenizer.apply(text));
         }
         // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
         // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line

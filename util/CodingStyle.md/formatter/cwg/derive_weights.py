@@ -74,11 +74,13 @@ def train():
 
 def report(w):
     bias, w_paren, w_semi, w_urlnum = w
+    print()
+    print("====================================================================================================")
     print("Trained keyword-ambiguity weights (logistic regression, %d epochs, lr=%.2f):" % (EPOCHS, LEARNING_RATE))
-    print("    KEYWORD_BIAS                 = %.5f" % bias)
-    print("    KEYWORD_WEIGHT_PAREN         = %.5f" % w_paren)
-    print("    KEYWORD_WEIGHT_SEMICOLON     = %.5f" % w_semi)
-    print("    KEYWORD_WEIGHT_URL_OR_NUMBER = %.5f" % w_urlnum)
+    print("    KEYWORD_BIAS                 = %+.5f" % bias)
+    print("    KEYWORD_WEIGHT_PAREN         = %+.5f" % w_paren)
+    print("    KEYWORD_WEIGHT_SEMICOLON     = %+.5f" % w_semi)
+    print("    KEYWORD_WEIGHT_URL_OR_NUMBER = %+.5f" % w_urlnum)
     print("    KEYWORD_THRESHOLD            =  0.00000 (sigmoid decision boundary)")
     print()
     print("Per-example check (score = w.x + bias, predicted YES iff score > 0):")
@@ -98,6 +100,8 @@ def report(w):
     print("Main path (CommentClassifier.classify, no leading-keyword ambiguity): everything")
     print("reaching that path already cleared both gates, so BIAS=1.0 / THRESHOLD=0.0 (always YES)")
     print("is not derived from this dataset -- see cwg/weights.md 'Main path'.")
+    print("====================================================================================================")
+    print()
 
 
 if __name__ == "__main__":

@@ -542,17 +542,12 @@ Also perform idempotency test.
       the fixture, not a formatter change) and item 4 (trailing whitespace on
       the EOF blank line, already correctly flagged as intentional test
       content, not a bug).
-- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — **still commented out
-      in the `Makefile`, deliberately out of scope for this pass.** A quick
-      manual `diff` check (not a fix attempt) shows it still has multiple
-      open, unrelated bugs — mostly comment-placement/preservation issues
-      (a trailing same-line comment on an enum constant not preserved, a
-      standalone comment before a member dropped, several `// end for`/
-      `// end forEach`-style trailing comments not preserved, a `/* Nullable
-      */ x : Int?` inline-comment spacing difference, a multi-line
-      destructuring declaration with per-component trailing comments not
-      handled, and others) — none of these were investigated or fixed here;
-      this fixture needs its own dedicated pass before it can be enabled.
+- [ ] `test/kt_comments_inp.kt` / `test/kt_comments_out.kt` — still
+      commented out in the `Makefile`. A manual check (not a fix attempt) —
+      formatting `kt_comments_inp.kt` and diffing the result against
+      `kt_comments_out.kt` — showed multiple unrelated
+      comment-placement/preservation bugs; none investigated. Needs its own
+      dedicated pass before enabling.
 - [x] After every fixture addition or shared-class change: full existing
       C/C++/Java suite + new Kotlin fixtures, zero regressions. **`make test`
       35/35** (34 prior C/C++/Java + real_code_regressions fixtures, plus
@@ -603,7 +598,7 @@ one-line summary each:
       started speculatively.
 
       Candidate **RobotCoding `gui_frontend_android`**
-      (`/home/aloysius/Projects/RobotCoding/gui_frontend_android/app/src/main/java/*.kt`,
+      (`~/Projects/RobotCoding/gui_frontend_android/app/src/main/java/*.kt`,
       not actually reachable via the `../../../../` relative path originally
       written here — that project lives outside the `JxMake` tree entirely,
       under `~/Projects/RobotCoding/`, a sibling of `~/Projects/JxMake/`) -
@@ -620,23 +615,50 @@ essentially every real file in this project, not just report genuine syntax
 errors.
 
 **Use instead:** the project's own Gradle wrapper, via its own env script —
-but run it against a **copy** of the project under `/tmp`, not the original
+but run it against a **copy** of `gui_frontend_android/`, not the original
 checkout in `~/Projects/RobotCoding/`. The dogfood workflow here is
 format-then-compile, which writes formatted `.kt` files back to disk; doing
 that against the real, in-use RobotCoding working tree risks clobbering
-uncommitted work there, so copy the whole project (or at least
-`gui_frontend_android/` — it needs its sibling Gradle config, so copy the
-full checkout to be safe) into a scratch directory under `/tmp` first, run
-the format + Gradle compile there, and never touch the original in place.
+uncommitted work there. `gui_frontend_android/` is a standalone Gradle/Android
+module — the rest of RobotCoding (used by the project's other, non-Android
+parts) builds via `make` or Arduino tooling, not Gradle, so only
+`gui_frontend_android/` itself needs to be copied; it does not depend on
+sibling directories.
+
+Copy it once into a **persistent** location —
+`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — rather than `/tmp`, so
+it survives reboots and doesn't need re-copying (and re-editing, see below)
+every session. If this directory already exists, skip the copy step and go
+straight to the one-time `gradle.properties` edit check / compile.
+
+**One-time setup after the copy:** the original `gradle.properties` points
+its build output at the real project's own external build dir
+(`project.buildDir=~/Projects/Shadow/rc_gui_frontend_android_build`)
+so it does not collide with anything under `~/Projects/RobotCoding/`. Since
+that path is external to `gui_frontend_android/` itself, a plain copy would
+still write build output back into the *original* project's build dir —
+edit `gradle.properties` in the dogfood copy so `project.buildDir` is a
+plain relative value instead:
+
+```
+project.buildDir=build
+```
+
+(Gradle resolves a relative `project.buildDir` against the project directory
+it's declared in, so this keeps build output fully inside the dogfood copy
+with no absolute path needed.) This only needs doing once per copy — if the
+dogfood dir is ever deleted and recopied, redo this edit before compiling.
+
 `gui_frontend_android/env.sh` sets `ANDROID_HOME` and puts Gradle 8.9 and
 JDK 21 on `PATH` — source it (or replicate just its `export` lines; it also
 `cd`s and `exec bash`s into an interactive shell, which isn't wanted for a
-scripted run) from within the `/tmp` copy, then run the copy's own
+scripted run) from within the dogfood copy, then run the copy's own
 `./gradlew` with a compile-only task, e.g.:
 
 ```bash
-cp -r /home/aloysius/Projects/RobotCoding /tmp/robotcoding-kotlin-dogfood
-cd /tmp/robotcoding-kotlin-dogfood/gui_frontend_android
+cp -r ~/Projects/RobotCoding/gui_frontend_android ~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD
+cd ~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD
+# one-time only: edit gradle.properties, set project.buildDir=build
 export ANDROID_HOME=~/android_devel
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/gradle-8.9/bin
 export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH

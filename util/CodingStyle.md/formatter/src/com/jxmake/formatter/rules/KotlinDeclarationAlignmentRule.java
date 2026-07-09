@@ -218,12 +218,51 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
                 // "never guess past an unrecognized shape" posture as this method's other bailouts.
                 return null;
             }
+            if (hasCommentAfter(stmt, eqToken)) {
+                // An embedded comment inside the initializer expression (e.g. `x?.let { it + 1 }
+                // /* nullable */ ?: 0`) would otherwise be silently dropped: initTokens above is
+                // built from `sig` (significant-only, so comments are already stripped out of it)
+                // and rendering never consults the raw, unfiltered stmt again. Bail out rather
+                // than lose the comment -- same "never guess past an unrecognized shape" posture
+                // as the multi-line-initializer bailout just above.
+                return null;
+            }
         }
 
         if (i != sig.size()) {
             return null; // trailing tokens this parser doesn't understand -- never guess
         }
         return new KotlinDecl(modifiers, name, typeTokens, initTokens, findTrailingComment(stmt));
+    }
+
+    /** True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
+     *  {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token anywhere strictly between {@code
+     *  afterToken} (found by identity, same approach as {@link #spansMultipleLines}) and {@code
+     *  stmt}'s own last significant token -- i.e. an *embedded* comment inside the initializer
+     *  expression that a comment-free {@code significantOnly} rebuild would otherwise silently
+     *  drop. A trailing end-of-line comment (after the last significant token) is deliberately
+     *  excluded -- that one is already carried separately via {@link #findTrailingComment} and
+     *  rendered back, so flagging it here would needlessly break grouping for the common case of
+     *  a plain `val x = 1 // comment` declaration. */
+    private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken) {
+        int lastSigIdx = -1;
+        for (int k = 0; k < stmt.size(); k++) {
+            if (!isGapToken(stmt.get(k))) {
+                lastSigIdx = k;
+            }
+        }
+        boolean seen = false;
+        for (int k = 0; k < stmt.size(); k++) {
+            final Token t = stmt.get(k);
+            if (seen && k < lastSigIdx
+                    && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
+                return true;
+            }
+            if (t == afterToken) {
+                seen = true;
+            }
+        }
+        return false;
     }
 
     /** True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a

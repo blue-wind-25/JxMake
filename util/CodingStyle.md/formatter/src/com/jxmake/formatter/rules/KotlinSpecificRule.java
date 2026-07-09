@@ -1050,7 +1050,8 @@ public class KotlinSpecificRule {
      * rewrite for that enum body entirely, same conservative posture as every other pass in this
      * file.
      */
-    public String separateEnumConstantListTerminator(final List<Token> tokens) {
+    public String separateEnumConstantListTerminator(final List<Token> rawTokens) {
+        final List<Token> tokens = relocateEnumTerminatorTrailingComments(rawTokens);
         final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
         if (terminators.isEmpty()) {
             final StringBuilder sb = new StringBuilder();
@@ -1072,7 +1073,7 @@ public class KotlinSpecificRule {
             final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(lastSignificant);
             if (thisIsTerminator || prevWasTerminator) {
                 final String indent = thisIsTerminator ? terminators.get(i) : terminators.get(lastSignificant);
-                out.append('\n').append('\n').append(indent);
+                out.append(forceBlankLine(gap, indent));
             } else {
                 for (final Token g : gap) {
                     out.append(g.text);
@@ -1086,6 +1087,106 @@ public class KotlinSpecificRule {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    /** Renders a gap that straddles the enum-list-terminating `;` as a forced blank line, without
+     *  discarding any comment the original gap carried (e.g. a same-line trailing comment on the
+     *  `;` itself, or a standalone comment on its own line before the next member/declaration) --
+     *  the naive fixed "\n\n" + indent replacement used to silently drop both. A same-line trailing
+     *  comment (anything before the gap's first {@code NEWLINE}) is preserved verbatim right after
+     *  the terminator; everything from that first newline onward is preserved too, with only the
+     *  run of blank newlines immediately following it collapsed down to exactly one forced blank
+     *  line (comments and their own surrounding newlines further into the gap are left untouched). */
+    private String forceBlankLine(final List<Token> gap, final String indent) {
+        boolean hasComment = false;
+        for (final Token g : gap) {
+            if (g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) {
+                hasComment = true;
+                break;
+            }
+        }
+        if (!hasComment) {
+            return "\n\n" + indent;
+        }
+        final StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < gap.size() && gap.get(i).type != TokenType.NEWLINE) {
+            sb.append(gap.get(i).text);
+            i++;
+        }
+        sb.append('\n').append('\n');
+        if (i >= gap.size()) {
+            // No newline followed the same-line part (e.g. a trailing comment right before the
+            // terminator) -- nothing else in the gap supplies the next line's indentation.
+            sb.append(indent);
+            return sb.toString();
+        }
+        i++;
+        while (i < gap.size() && gap.get(i).type == TokenType.NEWLINE) {
+            i++;
+        }
+        sb.append(indent);
+        if (i < gap.size() && gap.get(i).type == TokenType.WHITESPACE) {
+            // Skip one leading indentation token from the original gap -- we just supplied our own.
+            i++;
+        }
+        while (i < gap.size()) {
+            sb.append(gap.get(i).text);
+            i++;
+        }
+        return sb.toString();
+    }
+
+    /** The mandatory `;` this method relocates onto its own line often carries a same-line
+     *  trailing comment (`NOT_FOUND(404);   // missing`) that, textually, trails the `;` -- but
+     *  semantically describes the entry before it, not the relocated `;` itself. Left in place, the
+     *  forced blank-line rewrite below would either strand it awkwardly after the relocated `;` or
+     *  (before this fix existed) silently drop it. This pass moves such a comment (and its single
+     *  leading whitespace token, if any) back before the terminator, so it reads as the entry's own
+     *  trailing comment once the `;` moves to its own line. Recomputes terminators after each move
+     *  since a move shifts every later token's index. */
+    private List<Token> relocateEnumTerminatorTrailingComments(final List<Token> tokensIn) {
+        List<Token> tokens = tokensIn;
+        while (true) {
+            final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
+            Integer target = null;
+            for (final Integer p : terminators.keySet()) {
+                int scan = p + 1;
+                int wsIdx = -1;
+                if (scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE) {
+                    wsIdx = scan;
+                    scan++;
+                }
+                if (scan < tokens.size() && (tokens.get(scan).type == TokenType.COMMENT_LINE
+                        || tokens.get(scan).type == TokenType.COMMENT_BLOCK)) {
+                    target = p;
+                    break;
+                }
+            }
+            if (target == null) {
+                return tokens;
+            }
+            final int p = target;
+            int scan = p + 1;
+            int wsIdx = -1;
+            if (scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE) {
+                wsIdx = scan;
+                scan++;
+            }
+            final int commentIdx = scan;
+            final List<Token> moved = new ArrayList<>();
+            if (wsIdx >= 0) {
+                moved.add(tokens.get(wsIdx));
+            }
+            moved.add(tokens.get(commentIdx));
+            final List<Token> next = new ArrayList<>(tokens);
+            next.remove(commentIdx);
+            if (wsIdx >= 0) {
+                next.remove(wsIdx);
+            }
+            next.addAll(p, moved);
+            tokens = next;
+        }
     }
 
     /** Finds every Kotlin `enum class` body's entry-list-terminating `;` that has at least one

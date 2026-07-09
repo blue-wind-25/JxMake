@@ -70,13 +70,13 @@ class Widget(val name: String, val id: Int) {
     }
 
     fun test(): Int {
-        val result = "123".let parse@{
+        val result1 = "123".let parse@{
             if (it.isEmpty())
                 return@parse 0
 
             it.toInt()
         }
-        val result = "123".let {
+        val result2 = "123".let {
             if (it.isEmpty())
                 0
             else

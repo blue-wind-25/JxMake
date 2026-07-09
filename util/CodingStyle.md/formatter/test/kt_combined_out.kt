@@ -126,7 +126,7 @@ class Widget(val name: String, val id: Int) {
             for(i in items) {
                 if(i > 5) return@search i
             }
-            
+
             -1
         }
     }

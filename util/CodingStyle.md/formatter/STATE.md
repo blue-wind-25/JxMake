@@ -889,3 +889,37 @@ examples" discussion — would firm up the weight magnitudes and might surface n
 gaps the same way `nextTokenIsArrow` did. This is independent of the C/C++/Java formatter's own
 test suite (`make test`'s 70 fixtures) — the classifier defaults to `off` and ships no runtime
 AI dependency, so this TODO is about `cwg/`'s example quality only, not formatter correctness.
+
+### I — C/C++/Java braceless else-if chain collapse + alignment (DONE)
+User request: extend Kotlin's braceless if/else-if/else collapse + column alignment
+(RDD_KEY_124/127/128) to C/C++/Java, but only when **every** branch in the chain already
+qualifies for single-statement collapse — a mixed or fully-braced chain must be left
+untouched byte-for-byte, never partially collapsed (RDD_KEY_129). New whole-chain scan
+`BlockStructureRule.chainAllBranchesCollapsible`, backed by `findChainStart`/
+`prevChainBranchIf` (only ever hops backward through an explicit `else` token, never a bare
+`}` alone — an early version that did so incorrectly absorbed an unrelated standalone `if`
+statement preceding a real chain into the chain-start search) and comment-aware
+`skipWhitespaceOnly`/`skipWhitespaceOnlyBackward` (a comment between branches blocks the
+whole chain, is never silently skipped past). `isPartOfElseChain` restructured: Kotlin's
+per-branch-suppression behavior is unchanged; C/C++/Java now suppresses only when the whole
+chain fails to qualify. A new bare-terminal-`else{...}` collapse path was added (previously
+unreachable — the main loop only ever dispatched on `if`/`while`/`for`, which have a `(...)`
+condition to anchor on). `alignBracelessElseIfChain` moved from `KotlinSpecificRule.java`
+into the shared `BlockStructureRule.java` and now runs for all languages from
+`Formatter.java`'s Phase 4, after every paren-tightening/spacing pass has settled.
+
+Two follow-up defects found and fixed immediately after, both in the same feature
+(RDD_KEY_130): (1) an idempotency bug in `alignBracelessElseIfChain`'s render loop — it
+stripped only one leading space when re-extracting an already-padded `else` line's body,
+so alignment spacing grew on every successive formatting pass; fixed by stripping all
+leading spaces before re-padding. (2) a K&R `} else` (same physical line as the closing
+brace) caused an entire chain to collapse onto one giant line instead of the user's actual
+intent — Allman-style, one branch per line, column-aligned, matching Kotlin's own shape;
+fixed by `mostRecentLineIndent`/`appendChainNewlineBeforeElse`, which force a `\n` + the
+chain's original indent before a following `else` instead of letting K&R same-line
+whitespace pass through unchanged.
+
+`make test` full suite green (forward + idempotency) after both RDD_KEY_129 and
+RDD_KEY_130. Fixtures updated: `test/c_combined_out.c`, `test/cpp_modern_out.cpp`,
+`test/java_combined_out.java`, `test/java_core_out.java`, `test/java_modern_out.java`,
+`test/real_code_regressions_15_out.hpp`.

@@ -538,9 +538,18 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         if (i >= sig.size() || !isOp(sig.get(i), "=")) {
             return null;
         }
+        final Token eqToken = sig.get(i);
         i++;
         final List<Token> initTokens = sig.subList(i, sig.size());
         if (initTokens.isEmpty()) {
+            return null;
+        }
+        // Same "never guess/never drop content" bailouts as parseKotlinDeclaration's own §6
+        // multi-line-initializer and embedded-comment checks -- initTokens here is likewise built
+        // from `sig` (comments and source-level NEWLINEs already stripped), so a multi-line call
+        // (e.g. `Pair(\n 1, // first\n 2 // second\n)`) would otherwise get silently squished onto
+        // one line, and any embedded comment inside it silently dropped.
+        if (spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken)) {
             return null;
         }
 

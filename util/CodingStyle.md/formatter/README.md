@@ -150,33 +150,33 @@ precedence (later sources override earlier ones):
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
-line-length                  = 100
-indent-size                  = 4
-indent-style                 = spaces          # spaces | tabs | auto
-server-port                  = 17173
+line-length                      = 100
+indent-size                      = 4
+indent-style                     = spaces      # spaces | tabs | auto
+server-port                      = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                     = lf              # lf | crlf | preserve
-normalize-comment-start-case     = on              # on | off
-normalize-comment-end-period     = on              # on | off
-comment-normalization-classifier = off             # off | on
+line-endings                     = lf          # lf | crlf | preserve
+normalize-comment-start-case     = on          # on | off
+normalize-comment-end-period     = on          # on | off
+comment-normalization-classifier = off         # off | on
 closing-comment-min-lines        = 5
-format-macros                    = off             # off | on
+format-macros                    = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename          = off             # off | on (warn only by default)
+header-guard-rename              = off         # off | on (warn only by default)
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order            = java, com, org, other, local, static
-java-import-sort             = on
-java-import-depth            = 2
-java-import-blank-lines      = 1
+java-import-order                = java, com, org, other, local, static
+java-import-sort                 = on
+java-import-depth                = 2
+java-import-blank-lines          = 1
 
 # ── Kotlin ────────────────────────────────────────────────────────────────────
-kotlin-import-order          = kotlin, java, android, com, org, other, local
-kotlin-import-sort           = on
-kotlin-import-depth          = 2
-kotlin-import-blank-lines    = 1
+kotlin-import-order              = kotlin, java, android, com, org, other, local
+kotlin-import-sort               = on
+kotlin-import-depth              = 2
+kotlin-import-blank-lines        = 1
 ```
 
 ### `.jxmake-code-formatter` inheritance

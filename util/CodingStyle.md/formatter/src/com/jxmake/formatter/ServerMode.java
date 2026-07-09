@@ -290,7 +290,7 @@ public final class ServerMode {
                                 + " (client should pass an explicit 'lang' query parameter)");
                         return;
                     }
-                } else if (!"c".equals(language) && !"cpp".equals(language) && !"java".equals(language)) {
+                } else if (!"c".equals(language) && !"cpp".equals(language) && !"java".equals(language) && !"kotlin".equals(language)) {
                     respond(exchange, 400, "'lang' query parameter must be one of: c, cpp, java (got: "
                             + language + ")");
                     return;

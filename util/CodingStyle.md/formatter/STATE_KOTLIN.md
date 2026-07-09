@@ -9,6 +9,17 @@ work has now started, also from a redirect at the top of `STATE.md` itself
 
 ---
 
+## Next Session
+
+Pick up here: **fix §8/§9 one-liner getter/setter grouping for Kotlin**,
+confirmed BROKEN and still unfixed (see Open Questions below and the Step 3
+checklist header). `GetterSetterRule.groupOneLiners`'s `isClassScope` gate
+never recognizes Kotlin, so Kotlin one-liner accessors (`get()`/`set()`) and
+expression-bodied functions never get grouped/column-aligned the way the
+equivalent Java case does. This is a **shared-class change**
+(`GetterSetterRule`) — re-run the full C/C++/Java suite before/after per the
+Hard Constraint above.
+
 ## Purpose
 
 Tracks implementation of Kotlin support in the deterministic JAR formatter
@@ -436,336 +447,66 @@ existing test suite after this step, before moving to Step 1.
 
 - [ ] Implement each section flagged "(c)" in Step 1's scoping table, one
       section at a time, each as its own checkpoint commit.
-Full implementation/verification narratives for every checked item below have been
-compacted out of this file — each is still fully recorded, in the same level of
-detail, in its `RDD_KEY_n` entry in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`).
-- [x] **§1 Semicolons.** `KotlinSpecificRule.stripOptionalSemicolons` strips every
-      optional statement-terminating `;`, keeping only an armed `enum class` body's
-      entries/members separator when member declarations actually follow it. New
-      file, no shared-class change. `make test` 25/25.
-- [x] **§3.1/§3.4 Class/Object/Companion Object/`init` bodies.** `RDD_KEY_99` —
-      shared-class extension (`Lang.isKotlin`,
-      `BlockStructureRule.classifyKotlinHeadlessNamed`), plus a related tokenizer
-      fix (`:` wrongly arming a supertype identifier as the construct's own name
-      for anonymous `object : Super {}`). `make test` 25/25.
-- [x] **§3.2 `when` no space before `(`.** `RDD_KEY_100` — added `"when"` to
-      `MiscRule.TIGHT_PAREN_KEYWORDS`, a one-line shared-class change (pure no-op
-      for C/C++/Java, no such keyword in their keyword sets). `make test` 25/25.
-- [x] **§4 `when` expression (arrow alignment, closing comment, blank lines).**
-      Was marked NOT idempotent — see Step 4's known-bugs punch list item 3
-      (body-squishing on re-format). Root cause found and fixed under
-      `RDD_KEY_121`: not an issue in `formatWhenExpressions` itself or an
-      "interaction with an earlier generic blank-line-collapsing pass" as
-      originally guessed, but `KotlinDeclarationAlignmentRule.
-      parseKotlinDeclaration` stripping a multi-line `when` initializer's
-      internal newlines before `formatWhenExpressions` ever ran. Now wired
-      into `Formatter.formatOne` (Phase 4) and confirmed clean against
-      `test/kt_combined_inp.kt`.
-      `RDD_KEY_101` — new `KotlinSpecificRule.formatWhenExpressions`, not a
-      `SwitchRule`/`JavaSpecificRule` extension (keyword-less branch labels,
-      non-all-or-nothing block-body alignment, and forced rather than merely
-      preserved blank lines all differ from the Java arrow-switch precedent).
-      `make test` 32/32.
-- [x] **§5 Null-safety operators (`?.`/`!!` tight, `?:` spaced).** `RDD_KEY_102` —
-      new `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, a flat whole-file
-      pass (no shared class does general expression-level operator re-spacing).
-      `make test` 25/25.
-- [x] **§6 Variable/property declaration alignment.** `RDD_KEY_103` — raised six
-      `DeclarationAlignmentRule` helpers `private`→`protected` (additive, no
-      behavior change), then `KotlinDeclarationAlignmentRule extends
-      DeclarationAlignmentRule` with its own `KotlinDecl` model,
-      `splitKotlinStatements` (newline-terminated, not `;`-terminated),
-      `parseKotlinDeclaration`, and `ColumnGrid`-based `renderPropertyGroup`.
-      User-directed: loosen shared-class visibility, then extend, rather than an
-      independent parser. `make test` 25/25.
-- [x] **§7/§7.1 Constructor/function parameter lists, named/default arguments.**
-      `RDD_KEY_104` — same visibility-loosen-then-extend pattern as §6, six
-      `MiscRule` helpers promoted, new `KotlinSignatureRule extends MiscRule` with
-      its own `KotlinParam`/`KotlinSignature` model and `ColumnGrid`-based broken
-      form; also covers §7.2 trailing-comma preservation. **Not covered**:
-      call-site named arguments (`foo(x = 1, y = 2)`), a structurally different
-      type-less shape. `make test` 32/32.
-- [x] **§11 Labeled jumps (`@label` spacing).** `RDD_KEY_105` — new, fully
-      self-contained `KotlinSpecificRule.enforceLabeledJumpSpacing` (no shared-class
-      change needed at all), a flat whole-file pass with a small `JumpState`
-      machine distinguishing a jump's `@label` (tight both sides) from a label
-      declaration's `label@` (tight before, one space after) from an unrelated
-      `@Annotation`. `make test` 32/32.
-- [x] **§14 Generic `where` clause.** `RDD_KEY_106` — new, fully self-contained
-      `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirroring
-      `CppSpecificRule.enforceRequiresClausePlacement` (fits-inline vs. wraps to
-      its own indented line, based on `lineLengthLimit`), but always breaking
-      every bound one-per-line at the top-level comma (never within a bound)
-      once wrapped, column-aligned under the first bound's start column, per
-      STYLE_KOTLIN.md §14's own worked examples. Added a new
-      `KotlinSpecificRule(Lang, int lineLengthLimit, int indentWidth)`
-      constructor (this class's first method needing indent width, not just
-      line length). No shared-class change. `make test` 32/32.
-- [x] **§12 Destructuring declarations.** `RDD_KEY_107` — new `DestructuringDecl`
-      model, `groupDestructuringDeclarations`/`parseDestructuringDeclaration`/
-      `renderDestructuringGroup` added directly to `KotlinDeclarationAlignmentRule.java`
-      (reuses that class's §6 infrastructure rather than a new file). Single
-      pre-rendered `lhsText` cell (no per-component type grid, per §12's own
-      "no type annotations to anchor a column grid" text) rendered via a
-      two-column `ColumnGrid`, same shape as `MiscRule.Assignment`'s render.
-      Own group stream, never merged with §6's property-declaration groups.
-      No shared-class change. `make test` 32/32.
-- [x] **§16 Annotation use-site targets.** `RDD_KEY_108` — new
-      `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, a flat
-      whole-file state-machine pass (`@` → target → `:` → name) matching
-      target keywords by token text (not `TokenType.KEYWORD`, since
-      `delegate` isn't tokenizer-lexed as one). Tightens only the `:` on
-      both sides; `@`-to-target spacing left unenforced (no textual
-      backing, no codebase precedent for reformatting plain annotation
-      spacing). No shared-class change. `make test` 32/32.
-- [x] **§17/§17.1 Lambda-with-receiver / function-type nesting exemption +
-      arrow spacing.** `RDD_KEY_109` — **shared-class change**:
-      `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/
-      `->`-followed `(...)` span (a lambda-with-receiver's own invocation
-      parens) rather than counting it as nesting, so an enclosing
-      parenthesized type annotation stays tight (`(StringBuilder.() -> Unit)`)
-      instead of incorrectly loose-padding. Pure no-op for C/C++/Java
-      (neither has this token shape); `make test` 32/32 before and after.
-      Known Gap (function type nested as a parameter of another) deliberately
-      left unhandled per the style doc. Also new Kotlin-only
-      `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`
-      — flat whole-file single-space arrow pass covering both constructs,
-      explicitly excluding `when`-branch arrows (owned by §4's column
-      alignment) by index. `make test` 32/32.
-- [x] **§10 `for` loops and ranges.** `RDD_KEY_110` — `in`/`until`/`downTo`/
-      `step` reclassified (b)→(a): already inert w.r.t.
-      `ComplexityPaddingEvaluator.isLoose` with zero code changes (`in` is
-      `TokenType.KEYWORD`, the rest are plain `TokenType.IDENTIFIER`,
-      confirmed via harness). New `KotlinSpecificRule.enforceRangeOperatorSpacing`
-      tightens `..`/`..<` on both sides (simpler one-sided sibling of §5's
-      state machine, no spaced variant to handle). No shared-class change.
-      `make test` 32/32.
-- [x] **§2 `enum class` with members.** `RDD_KEY_111` — closing-comment
-      label and body-open/close blank lines already free (Step 0 +
-      `insertNamedConstructBlankLines`, verified via harness, zero changes).
-      New `KotlinSpecificRule.separateEnumConstantListTerminator` (+
-      `findEnumConstantListTerminators`/`isEnumBodyBrace`/`prevSignificantIndex`)
-      adds the blank-line emphasis around the mandatory entry-list-terminating
-      `;`, mirroring `JavaSpecificRule.separateEnumConstantListTerminator`
-      (per-language precedent, not a shared-class reuse — same reasoning as
-      §14/RDD_KEY_106). Reuses this file's own existing `lineIndent` helper.
-      Verified via harness: reproduces the style doc's worked example
-      byte-for-byte; no-trailing-members, trailing-`;`-with-no-members-after,
-      and trailing-comma-preservation cases all correctly left untouched. No
-      shared-class change. `make test` 32/32.
-- [x] **§9 Expression-bodied functions.** `RDD_KEY_112` — "preserve as-is"
-      part free (same reasoning as §8). New `KotlinSignatureRule.FunctionTail`
-      (parses `: ReturnType`/`= expr` after a signature's `)`) +
-      `parseFunctionTail` + `renderWithTail`, a three-tier fallback: fits
-      fully inline as written; else break params first (delegates straight
-      to §7's existing `render`, unchanged) and append the tail if that now
-      fits; else, only if expression-bodied, wrap `= expr` onto its own line
-      indented one level (mirrors §7.1's named-argument `=`-wrap). An explicit
-      return type with no `=` and still too long after breaking params is
-      left as the combined line — nothing documented left to wrap for that
-      shape. **Shared-class change**: `MiscRule.isTightToken`'s `*`/`&`
-      tight-token treatment (a C/C++ pointer/reference-declarator convention)
-      gated off for Kotlin via `!lang.isKotlin` — unconditionally applied, it
-      was collapsing ordinary Kotlin multiplication spacing (`x * x` →
-      `x* x`) in any expression rendered through the shared `renderTokens`,
-      caught via a harness reproducing the style doc's own `x * x + y * y`
-      worked example byte-for-byte. `make test` 32/32 before and after.
-- [x] **§3/§3.3 Function/secondary-constructor body Allman-brace
-      conversion.** `RDD_KEY_114` — new
-      `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` (+
-      `isFunctionOrConstructorCloseParen`/`findSignatureCloseParenBeforeBrace`/
-      `isAngleOpen`/`isAngleClose`/`skipAngleBracketsBackward`), mirroring
-      `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle`/
-      `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s overall
-      shape but with a far more conservative candidate signal: Kotlin's
-      trailing-lambda call syntax (`someCall(args) { ... }`) is token-shape-
-      identical to a function definition's body brace, and Kotlin has no
-      `new` keyword to rule ordinary calls out the way Java/C++ do, so a
-      candidate is only accepted if a backward scan from the name (through
-      an optional extension-receiver chain and/or `<T>` clause) lands
-      exactly on `fun`, or the token before `(` is `constructor` itself —
-      anything else bails, same "give up rather than guess" posture as
-      `KotlinSignatureRule.parseKotlinSignature`. Also handles a
-      `: ReturnType` sitting between `)` and `{`, and tolerates the
-      tokenizer's non-reclassified plain-`OP` `<T>` right after `fun`
-      (`fun <T> ...` doesn't get `ANGLE_BRACKET_OPEN`/`_CLOSE` the way
-      `List<T>` does) — both discovered only via harness, not anticipated
-      up front. One-liner bodies stay K&R (RDD_KEY_75/RDD_KEY_89 exception).
-      Verified via an 11-case harness: plain function, secondary
-      constructor, extension function, generic function, generic extension
-      function (all K&R→Allman); already-Allman (idempotent); one-liner
-      (stays K&R); trailing-lambda call (untouched, enclosing real function
-      still converts); enum-entry anonymous body (untouched); control-flow
-      block (untouched); plain call with no body (untouched). No shared-
-      class change. `make test` 32/32.
-- [x] **§1 Semicolon stripping.** `RDD_KEY_115` — re-examined the
-      pre-existing `stripOptionalSemicolons` (committed earlier, `b0e778f`,
-      before this session's own RDD-log/scoping-table-marker convention
-      existed, hence the row still read plain "(c)" with no "**done**")
-      rather than assuming it was already correct, and found a real bug: it
-      only ever protected the enum-with-members mandatory `;` (§2) and
-      stripped every other `;` unconditionally — including a deliberate
-      same-line multi-statement `;` (`val a = 1; val b = 2`), which would
-      have silently merged the two statements into one invalid line, not
-      just a style nit. Rewrote around a single positive-evidence rule,
-      `isTrailingSemicolon`: only strip a `;` that is the last significant
-      thing on its physical line (next non-gap token, skipping whitespace/
-      comments, either starts a new line or none remain) — this naturally
-      leaves the multi-statement-same-line case untouched with no special-
-      casing needed. Reuses §2/RDD_KEY_111's `findEnumConstantListTerminators`
-      directly for the enum-mandatory-`;` exclusion rather than re-deriving
-      a separate enum/class/brace-tracking state machine. Also fixed a
-      stray-trailing-space gap the old version had (`foo() ;` → `foo() `
-      instead of `foo()`) by dropping any whitespace immediately preceding a
-      stripped `;` too. Verified via an 8-case harness: plain flat
-      declarations (stripped); space-padded `;` (no stray trailing space);
-      multi-statement-same-line (now correctly kept — the bug this re-check
-      caught); trailing line comment after `;` (still stripped); enum with
-      members after its mandatory `;` (kept); enum with a trailing `;` but
-      no members after (stripped, optional); no semicolons at all
-      (untouched); `;` at literal end-of-file (stripped). No shared-class
-      change. `make test` 32/32.
-- [x] **§19 String templates — tokenizer-level fix.** `RDD_KEY_116` —
-      **shared-class change.** Confirmed the flagged risk was real: a nested
-      string inside a `${...}` interpolation (`"${foo("x")}"`) terminated
-      `TokenizerCore.emitString()`'s naive scan-to-next-`"` early, splitting
-      the literal into three tokens instead of one. Fixed with a Kotlin-only
-      `skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar`
-      path, gated behind `lang.isKotlin`, that depth-tracks `${...}`'s own
-      `{`/`}` nesting (so a lambda literal inside the interpolation doesn't
-      break early either) and recurses for any nested string/char literal,
-      arbitrarily deep. Non-Kotlin scan is byte-for-byte the original.
-      Verified via an 11-case harness (bare `$x`; braced `${x}`; the
-      original failing nested-string case; a lambda literal inside
-      interpolation; two adjacent interpolation blocks; a doubly-nested
-      string-inside-interpolation-inside-string; an unterminated string;
-      plain string with no interpolation; escaped `\$`; a char literal with
-      `\"` immediately before an interpolation containing its own char
-      literal with a `"`; and a plain C string through the non-Kotlin path
-      as a sanity check) — all round-tripped byte-for-byte and tokenized as
-      expected. `make test` 32/32 before and after. Surfaces triple-quoted
-      raw strings as a separate, undocumented, out-of-scope gap (row 19.1).
+      **Still unchecked because it's still true**: §8/§9 one-liner
+      getter/setter grouping is confirmed BROKEN and unfixed (see Open
+      Questions) — every other flagged section below is done.
+Full implementation/verification narratives for every item below are recorded
+in `STATE_rdd_log.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
+- [x] §1 Semicolons — `KotlinSpecificRule.stripOptionalSemicolons`. RDD_KEY_115
+      (supersedes an earlier flawed version, `b0e778f`).
+- [x] §3.1/§3.4 Class/Object/Companion Object/`init` bodies. RDD_KEY_99.
+- [x] §3.2 `when` no space before `(`. RDD_KEY_100.
+- [x] §4 `when` expression (arrow alignment, closing comment, blank lines).
+      RDD_KEY_101; idempotency bug fixed under RDD_KEY_121.
+- [x] §5 Null-safety operators (`?.`/`!!` tight, `?:` spaced). RDD_KEY_102.
+- [x] §6 Variable/property declaration alignment — `KotlinDeclarationAlignmentRule
+      extends DeclarationAlignmentRule`. RDD_KEY_103.
+- [x] §7/§7.1 Constructor/function parameter lists, named/default arguments —
+      `KotlinSignatureRule extends MiscRule`. RDD_KEY_104. Call-site named
+      arguments (`foo(x = 1, y = 2)`) not covered — different shape.
+- [x] §11 Labeled jumps (`@label` spacing). RDD_KEY_105.
+- [x] §14 Generic `where` clause. RDD_KEY_106.
+- [x] §12 Destructuring declarations. RDD_KEY_107, revised under RDD_KEY_126
+      (now merges into the adjacent §6 alignment group, C++
+      structured-bindings precedent, per user request).
+- [x] §16 Annotation use-site targets. RDD_KEY_108.
+- [x] §17/§17.1 Lambda-with-receiver/function-type nesting exemption + arrow
+      spacing. RDD_KEY_109 (shared-class change: `ComplexityPaddingEvaluator.isLoose`).
+- [x] §10 `for` loops and ranges. RDD_KEY_110.
+- [x] §2 `enum class` with members. RDD_KEY_111.
+- [x] §9 Expression-bodied functions. RDD_KEY_112 (shared-class change:
+      `MiscRule.isTightToken` gated off for Kotlin `*`/`&`).
+- [x] §3/§3.3 Function/secondary-constructor body Allman-brace conversion.
+      RDD_KEY_114.
+- [x] §19/§19.1 String templates + triple-quoted raw strings — tokenizer-level
+      fix (shared-class change). RDD_KEY_116, RDD_KEY_117.
 
 ### Step 3.5 — Configuration Property Wiring
 
-**Correction (this session):** the framing below ("no pipeline path exists
-for the language at all", "Main.java wiring currently deferred") was stale —
-found to be **already fully wired** when re-checked against the actual code,
-contradicting the unchecked items that follow. `Main.java:389`'s
-`inferLanguage` already returns `"kotlin"` for `.kt`/`.kts` (auto-detection;
-`--lang` only restricts the *explicit-override* flag to c/cpp/java, which
-doesn't block auto-detection), and `Formatter.java` already constructs
-`KotlinSpecificRule`/`KotlinSignatureRule`/`KotlinDeclarationAlignmentRule`
-with `Config`'s `lineLengthLimit`/`indentWidth` and runs every Kotlin rule
-through the same pipeline as Java/C++ (lines 52-53, 97-104, 172-180,
-188-190). Likely stale from an earlier session snapshot that predates this
-wiring landing. Every item below was re-verified live (standalone JAR run
-against scratch `.kt` fixtures with a `.jxmake-code-formatter` config file,
-`key=value` format — not YAML), not just re-read from code.
+**Correction (this session):** the pipeline is already fully wired (verified
+live, not just re-read) — `Main.java` `inferLanguage` auto-detects `.kt`/`.kts`,
+`Formatter.java` already constructs and runs every Kotlin rule class through
+the same pipeline as Java/C++. An earlier stale framing implying otherwise
+has been removed. Config uses `.jxmake-code-formatter`, `key=value` format
+(not YAML); boolean keys accept `on`/`off` only, not `true`/`false`.
 
-- [x] `line-length` / `indent-size` / `indent-style`: confirmed wired and
-      working. `indent-size=2` correctly sizes newly-generated indentation
-      (e.g. wrapped parameter lines); `line-length=30` correctly triggers
-      Kotlin parameter-list line-breaking (`KotlinSignatureRule`). Neither
-      retroactively re-flows pre-existing indentation levels in the input —
-      confirmed this is the same behavior as Java/C++, not a Kotlin gap.
-- [x] `closing-comment-min-lines`: confirmed Kotlin's named-construct closing
-      comments (`} // class Foo`) respect this — `closing-comment-min-lines=1`
-      correctly added a closing comment to a short `class Foo { ... }` via
-      the shared `BlockStructureRule.addClosingComments`/`classifyNamed`
-      path, byte-for-byte parallel to the same test against an equivalent
-      `.java` file.
-- [x] `format-macros`: confirmed a permanent no-op for Kotlin, not just
-      "not wired yet" — its only consumer is `CppSpecificRule`'s `#define`
-      column-alignment logic (`format-macros = on`), only ever constructed
-      and called from `Formatter.java`'s `isCOrCpp` branch. Kotlin has no
-      preprocessor and never will, so there is no future wiring step where
-      this property becomes meaningful for `.kt` files — this is categorically
-      different from the other items below (which are blocked only pending
-      the deferred pipeline wiring). `TokenizerCore.isPreprocessorLanguage()`
-      unconditionally returns `true` for every language (its own comment notes
-      Java source sometimes carries PCPP-style directives), so a stray `#` at
-      line-start in a Kotlin file (e.g. a Kotlin script's `#!/usr/bin/env
-      kotlin` shebang) still lexes as an opaque `PREPROCESSOR` token rather
-      than erroring — harmless and unrelated to `format-macros` itself, noted
-      here only because it was checked as part of confirming this item.
-- [x] `line-endings`: confirmed language-agnostic — `Main.java`'s
-      `applyLineEndings` runs after `Formatter.formatOne` regardless of
-      language. `line-endings=crlf` correctly produced `\r\n` line endings
-      on a `.kt` file.
-- [x] `normalize-comment-start-case` / `normalize-comment-end-period`:
-      confirmed via `on`/`off` config values (the actual accepted format —
-      `true`/`false` is rejected with a warning and falls back to default,
-      for every language, not a Kotlin-specific issue). Start-case
-      capitalization applies to Kotlin `//` comments identically to Java.
-      End-period normalization added no period in either the Kotlin or an
-      equivalent Java test (`// comment without period` stayed period-less
-      in both) — confirmed this is existing cross-language behavior (line
-      comments apparently aren't in scope for that pass), not a Kotlin gap,
-      so nothing further to fix here.
-- [x] **Spec written** — STYLE_KOTLIN.md §24 "Import Ordering" now documents
-      the Kotlin `kotlin-import-order`/`kotlin-import-sort`/`kotlin-import-depth`/
-      `kotlin-import-blank-lines` properties, derived directly from
-      STYLE_JAVA.md §7. One deliberate difference from the Java spec: no
-      `static` group, since Kotlin has no `import static` keyword — a
-      companion-object-member or top-level-function import uses the exact
-      same `import a.b.c` syntax as any other import, so "this is a static
-      import" isn't lexically detectable the way Java's `import static` is. A
-      leading `kotlin` group (for `kotlin.*` stdlib imports) takes its place.
-      Local-import detection (read the local prefix from the file's own
-      `package` declaration, depth-configurable) is identical to Java's
-      mechanism. Also documents that aliased imports (`import foo.Bar as
-      Baz`) and wildcards sort/group by their original qualified name, not
-      the alias. Spec only — no code written yet (see next item).
-- [x] **Implementation** — added `kotlin-import-order`, `kotlin-import-sort`,
-      `kotlin-import-depth`, `kotlin-import-blank-lines` to `Config.java`'s
-      known-keys list, fields, getters, and `fromRawMap` parsing (mirroring
-      the existing `java-import-*` keys exactly; default group order
-      `kotlin, java, com, org, other, local`, matching §24's documented
-      default). Implemented `enforceKotlinImportOrdering` in
-      `KotlinSpecificRule.java`, mirroring `JavaSpecificRule.
-      enforceImportOrdering`'s structure with two Kotlin-specific
-      adaptations: no `static` bucket (classification priority local >
-      kotlin > java/javax > org > com > other), and an import statement's
-      end is an optional `;` or NEWLINE/EOF rather than a required `;`.
-      Added `ParsedKotlinImport`, `parseKotlinImportStatement` (recognizes
-      an optional `as Alias` suffix — `as` lexes as `TokenType.KEYWORD` for
-      Kotlin, confirmed via `TokenizerCore.KEYWORDS_KOTLIN`), plus new
-      `appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/
-      `classifyKotlinImportGroup`/`matchesPrefix` helpers (per-language
-      mirroring, not shared-class reuse). Reused the file's existing
-      `hasCommentBetween`/`anyFrozen` helpers verbatim. `groupOrder`
-      permutation validation throws `IllegalArgumentException`, same
-      config-validation posture as Java. Verified via a standalone 10-case
-      scratch harness (default grouping/sorting, wildcard imports, aliased
-      imports, optional-`;` tolerance, custom group order/blank-lines,
-      `sortAlphabetically = false`, zero-imports no-op, comment-blocks-pass,
-      no-`package`-declaration, invalid-groupOrder-throws) — all 10 passed.
-      `make test` 32/32 before and after (Kotlin-only change, no
-      shared-class touch). Not yet wired into `Formatter.formatOne`, same as
-      every other unwired Kotlin rule class so far. RDD_KEY_118.
-- [x] JXM_CFMT_DIS/JXM_CFMT_ENA marker-comment disabling and `--format-off`:
-      confirmed with a live `.kt` fixture — a `//% JXM_CFMT_DIS` /
-      `//% JXM_CFMT_ENA` pair correctly froze only the enclosed
-      declaration (left its ugly spacing untouched) while formatting the
-      declarations before/after normally; `--format-off` correctly froze an
-      entire `.kt` file end-to-end. Language-generic implementation, no
-      Kotlin-specific gap. `README.md`'s "Disabling formatting for part or
-      all of a file" section still needs updating to mention Kotlin (tracked
-      below, unchanged).
-- [x] Update `README.md` for the new `kotlin-import-*` keys — added the
-      `kotlin-import-*` config block (mirroring `java-import-*`), a "Kotlin
-      import groups" subsection (no `static` bucket, `kotlin` group instead,
-      alias/wildcard sort-by-original-name note), `.kt`/`.kts` extension
-      detection in the Usage section, a top-of-file note on Kotlin support
-      existing but being newer/less dogfooded than C/C++/Java, and
-      `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md`/`STATE_KOTLIN.md` links in the
-      Style Guide Reference section.
-- [x] Update `README.txt` for the Kotlin support — corrected the top-level
-      "JAR does not yet implement Kotlin support" note (now stale) to reflect
-      that JAR support exists but is newer/less dogfooded than C/C++/Java;
-      corrected the "no JAR support yet" comment on the Kotlin full-file-pass
-      Python example to describe it as a fallback for JAR gaps instead.
+- [x] `line-length`/`indent-size`/`indent-style`: wired, same behavior as Java/C++.
+- [x] `closing-comment-min-lines`: wired via shared `BlockStructureRule`.
+- [x] `format-macros`: permanent no-op for Kotlin (no preprocessor) — not a gap.
+- [x] `line-endings`: language-agnostic, applied post-format in `Main.java`.
+- [x] `normalize-comment-start-case`/`normalize-comment-end-period`: wired,
+      same cross-language behavior as Java (line comments not end-period-normalized).
+- [x] Kotlin import ordering — STYLE_KOTLIN.md §24 spec + implementation:
+      `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` config keys,
+      `KotlinSpecificRule.enforceKotlinImportOrdering` (mirrors
+      `JavaSpecificRule.enforceImportOrdering`; no `static` bucket — replaced
+      by a `kotlin` group, since Kotlin has no `import static` keyword;
+      aliased/wildcard imports sort by original qualified name). RDD_KEY_118.
+      Not yet wired into `Formatter.formatOne`.
+- [x] JXM_CFMT_DIS/JXM_CFMT_ENA + `--format-off`: confirmed working for
+      Kotlin, language-generic implementation, no gap.
+- [x] README.md/README.txt updated for Kotlin support (config keys, import
+      groups, `.kt`/`.kts` detection, stale "not implemented" notes corrected).
 
 ### Step 4 — Test Fixtures
 
@@ -818,125 +559,40 @@ Also perform idempotency test.
       `kt_combined_inp.kt`, forward and idempotency passes both green).
 
 **Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
-`kt_combined_out.kt`; re-verify each against a fresh `diff`, this list is a
-working map, not a spec):
+`kt_combined_out.kt`) — all resolved. Full narratives in `STATE_rdd_log.md`;
+one-line summary each:
 
-1. [x] `enum class Status(val code: Int) { ... }` missing blank line before
-   closing brace + missing `} // enum class Status` closing comment. **Fixed
-   — RDD_KEY_119.** Root cause was **not** enum-specific or a
-   closing-comment-min-lines threshold issue — it affects any Kotlin
-   `class`/`enum class` with a primary constructor parameter list;
-   `TokenizerCore`'s clear-on-outermost-`(` branch (meant to stop a member
-   function's `{` from picking up a surrounding class name) was wrongly also
-   clearing the just-armed class/enum-class name before its own body `{`
-   consumed it, since a primary constructor's `(` has the identical
-   keyword-IDENTIFIER-`(` shape. Gated off for Kotlin. `make test` 32/32.
-2. [x] `for(n in numbers) { total += n }` does not collapse to
-   `for(n in numbers) total += n`. **Fixed — RDD_KEY_120.** Root cause:
-   `BlockStructureRule.tryCollapse` required exactly one top-level `;` in the
-   body, unconditionally — Kotlin has no mandatory `;`, so a Kotlin
-   single-statement body always had `semiCount == 0` and was rejected
-   outright, a total blind spot rather than an edge case. Added a
-   Kotlin-only newline-boundary-based single-statement check
-   (`isKotlinSingleStatementBody`), parallel to the existing `;`-based path.
-   `make test` 32/32. **Surfaced but not fixed (out of scope for this bug):**
-   a pre-existing, fully independent `ScopePipeline`/
-   `KotlinDeclarationAlignmentRule` splice bug that double-indents a
-   `val`/`var` declaration when it's the first statement inside a Kotlin
-   function/class body — see Open Questions.
-3. [x] `when(status) { ... }` block badly mangled (branches squished onto one
-   line, wrong indentation). **Fixed — RDD_KEY_121.** Root cause was upstream
-   of `formatWhenExpressions`/RDD_KEY_101 entirely — confirmed via
-   `JXM_DEBUG`-gated debug prints in `Formatter.formatOne` that the squishing
-   was already present right after Phase 0's `ScopePipeline.process` call.
-   Traced to `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`: it
-   builds a `val`/`var` declaration's `initTokens` from `significantOnly(stmt)`,
-   which strips all `NEWLINE` tokens, so a multi-line block-expression
-   initializer (`when(...) { ... }`) loses its internal line structure before
-   `renderPropertyGroup`/`renderKotlinTokens` joins it onto one flat line —
-   correct for a normal one-line init, silently wrong for any multi-line one.
-   Fixed with a new `spansMultipleLines` check right after the declaration's
-   `=` token: if the raw (unfiltered) statement has a `NEWLINE` anywhere after
-   `=`, `parseKotlinDeclaration` now returns `null` (same "don't guess past an
-   unrecognized shape" bailout as its other cases) so the declaration is left
-   out of the alignment group and rendered verbatim, preserving line structure
-   for later phases (`formatWhenExpressions`) to correctly re-flow. `diff`
-   against `kt_combined_out.kt` for this block is now clean. `make test`
-   32/32. (The "closing comment capitalized 'When status'" symptom from the
-   original bug report did not reproduce in the isolated repro or the real
-   fixture — closing comment renders correctly as lowercase "when status" in
-   both; likely was a stale/secondary observation from before RDD_KEY_119 was
-   fixed, not a separate bug.)
-4. [x] `fun test(): int` not capitalized to `fun test(): Int` — **not a
-   formatter bug.** Investigated and confirmed the formatter has no
-   type-name-case-mangling pass at all (an isolated `fun test(): int { return
-   0 }` repro round-trips `int` unchanged); neither STYLE_KOTLIN.md nor
-   STYLE_KOTLIN2.md documents any such rule. This was a typo in the fixture
-   itself, fixed directly by the user in `test/kt_combined_inp.kt`
-   (`int` -> `Int`). No formatter code change needed or made.
-5. Lines 88-90 of `kt_combined_inp.kt` (the `val result`/`val result` +
-   run-together-statements shape) — **reported as an open fixture-ambiguity
-   item, not a formatter bug; not touched**, per instruction not to guess at
-   `kt_combined_inp.kt`'s exact intended fix.
-6. [x] Double-indentation of the first `var`/`val` statement in a
-   function/class body — **not a formatter bug, RESOLVED as a test-harness
-   artifact.** See RDD_KEY_122 / Open Questions above for full detail: a
-   stray `/tmp/kt_test/.jxmake-code-formatter` config (`indent-size=8`) left
-   over from earlier ad-hoc testing silently affected every fixture copy
-   formatted under that directory. No code change needed for this item; a
-   different, real bug in the same area (`set(value) { ... }` accessor
-   closing-brace indentation) was found and fixed under RDD_KEY_122 instead.
-7. [x] `val safe = ...` alignment/blank-line spacing near the `when`-block
-   fix — **split into two parts.** The `.let{ it + 1 }` missing-space part is
-   **fixed — RDD_KEY_123** (`DeclarationAlignmentRule.needsSpaceBetween`'s
-   C/C++/Java-only brace-initializer tight-spacing rule was wrongly firing
-   for Kotlin's trailing-lambda syntax; gated with `!lang.isKotlin`). The
-   column-alignment part (`val safe` padded to align with the next line's
-   `val (a, b) = ...` destructuring declaration) is **now also fixed — RDD_KEY_126.**
-   RDD_KEY_107's original "own group stream, never merged with §6's" design
-   decision was revisited and **reversed** on explicit user request (C++
-   structured-bindings precedent: `auto [b, c] = ...` already aligns with a
-   preceding `int a = ...` in this codebase, so Kotlin's destructuring
-   declaration should do the same). New merged `Row`/`groupAlignableDeclarations`/
-   `renderAlignedGroup` in `KotlinDeclarationAlignmentRule.java` replace the
-   old two-group-stream split; `val safe`/`val (a, b)` now column-align on
-   both the `val` keyword column and the name-start column, matching the
-   fixture exactly. See RDD_KEY_126's own log entry and RDD_KEY_107's
-   "REVISED under RDD_KEY_126" note for full detail.
-8. [x] `if(...) return@X` / `if(...) expr` single-line-collapse cases not
-   firing in `findFirst`/`findFirstX`/`test()` — **fixed, RDD_KEY_124.**
-   Same family as RDD_KEY_120's `for`-loop collapse but a distinct root
-   cause: `BlockStructureRule.collapseSingleExpressionBlocks` never handled
-   an already-braceless multi-line body at all (`block.openBraceIndex == -1`
-   fell through untouched) — a shape only Kotlin's grammar can produce as
-   *input*. New `tryCollapseBraceless`/`isPartOfElseChainBraceless` helpers,
-   Kotlin-gated. **Explicitly out of scope at the time:** a bare `else\n    stmt`
-   (no condition of its own) was not collapsed by this fix.
-   **Fixed — RDD_KEY_127 (collapse-to-one-line half) + RDD_KEY_128
-   (column-padding half).** RDD_KEY_127: the bare `else\n    stmt` collapse-
-   to-one-line half (new shared `collapseBracelessBody` helper, extracted
-   from `tryCollapseBraceless`, plus a new `else`-keyword branch in
-   `collapseSingleExpressionBlocks`'s main loop). RDD_KEY_128 (this session,
-   user-confirmed via the now-enabled `kt_combined_inp.kt`/`kt_combined_out.kt`
-   fixture): the remaining column-padding half — the collapsed `else`'s body
-   is now padded to align with the preceding `if` branch's own collapsed
-   body (`kt_combined_out.kt`'s `else               it.toInt()`) — via a new,
-   standalone, last-running `KotlinSpecificRule.alignBracelessElseWithIf`
-   pass (line-based, operating on fully-formatted text, deliberately *not*
-   folded into `collapseSingleExpressionBlocks` — see RDD_KEY_128's own log
-   entry for why an earlier attempt at computing the padding at collapse
-   time was stale). No longer an open question; removed from Open Questions
-   below.
-9. [x] **Newly surfaced while re-verifying the full fixture diff (not part of
-   the original 4-item punch list):** Kotlin functions with an explicit
-   return type (`fun foo(...): Int { ... }`) never got STYLE.md §9's
-   blank-line-before-`return` at all. **Fixed — RDD_KEY_125**
+1. [x] Missing blank line/closing comment on `class`/`enum class` with a
+   primary constructor. RDD_KEY_119 (tokenizer, Kotlin-gated).
+2. [x] `for(...) { stmt }` not collapsing to one line (no `;` to count).
+   RDD_KEY_120.
+3. [x] `when(status) { ... }` squished/mis-indented — root cause was
+   `KotlinDeclarationAlignmentRule.parseKotlinDeclaration` stripping newlines
+   from a multi-line block-expression initializer. RDD_KEY_121.
+4. [x] `fun test(): int` — not a formatter bug, a fixture typo (`int`→`Int`),
+   fixed directly by the user.
+5. Lines 88-90 (`val result`/`val result` + run-together statements) —
+   reported as fixture ambiguity, not touched; later fixed by the user
+   directly (`result1`/`result2` rename).
+6. [x] Apparent double-indentation of a body's first `val`/`var` — not a
+   formatter bug, a stray leftover `/tmp/kt_test/.jxmake-code-formatter`
+   (`indent-size=8`) test-harness artifact. RDD_KEY_122 fixed a real, separate
+   bug found in the same area (`set(value) { ... }` accessor closing-brace
+   indentation).
+7. [x] `val safe = ...` spacing/alignment near the `when` fix — two parts:
+   missing space in `.let{ }` (RDD_KEY_123, Kotlin-gated
+   `DeclarationAlignmentRule.needsSpaceBetween`), and column-alignment with
+   the following `val (a, b) = ...` destructuring line (RDD_KEY_126 —
+   reverses RDD_KEY_107's "never merged" decision per user request, C++
+   structured-bindings precedent).
+8. [x] `if(...) return@X` / `if(...) expr` braceless collapse not firing.
+   RDD_KEY_124 (main case), RDD_KEY_127 (bare `else` collapse),
+   RDD_KEY_128 (collapsed `else` body column-padding, new standalone
+   `KotlinSpecificRule.alignBracelessElseWithIf` pass).
+9. [x] Explicit-return-type functions (`fun foo(...): Int { ... }`) missing
+   STYLE.md §9's blank-line-before-`return`. RDD_KEY_125
    (`MiscRule.isFunctionBodyBrace` didn't recognize Kotlin's `: ReturnType`
-   shape between `)` and `{`; also fixed an unrelated ordering bug where the
-   pre-existing C++ `->`-scan ran first and clobbered `closeParen` before the
-   new Kotlin check could see it, plus an `isPunct`-vs-`isOp` mismatch for
-   `:`). All four blank-line-before-`return` diffs in the real fixture are
-   now resolved.
+   shape; also fixed an unrelated C++ `->`-scan ordering bug it surfaced).
 
 ### Step 5 — Dogfood / Real-Code Testing
 

@@ -7,20 +7,81 @@
 
 package com.jxmake.formatter.classifier;
 
+import java.util.regex.Pattern;
+
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /** Builds a {@link CommentFeatureVector} from raw comment text. Pure function, no formatter
  *  mutation -- see STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Not yet wired into
  *  {@code MiscRule}; implementation is step 1 of that file's "Handoff note" suggested order. */
 public final class CommentFeatureExtractor {
 
+    // Deliberately permissive -- a false-positive URL/filename/number match only ever costs a
+    // classifier ABSTAIN (per the hard constraint's "never guess" rule), never a wrong YES.
+    private static final Pattern URL_OR_FILENAME_OR_NUMBER = Pattern.compile(
+            "https?://\\S+|\\b\\w+\\.[A-Za-z]{1,4}\\b|\\d+");
+
     private CommentFeatureExtractor() {
     }
 
-    // TODO(comment-grammar): implement per STATE_COMMENT_GRAMMAR.md "Suggested order" step 1 --
-    // pure-function feature extraction, testable with zero weights. Takes comment text + lang so
-    // callers can produce a CommentFeatureVector without touching MiscRule's funnel points yet.
     public static CommentFeatureVector extract(final String commentText, final Lang lang) {
-        throw new UnsupportedOperationException("CommentFeatureExtractor not yet implemented");
+        return extract(commentText, lang, TokenType.COMMENT_LINE);
+    }
+
+    public static CommentFeatureVector extract(final String commentText, final Lang lang, final TokenType commentType) {
+        final int[] targetBounds = leadingWordBounds(commentText);
+        final String targetWord = commentText.substring(targetBounds[0], targetBounds[1]);
+        final String previousWord = ""; // targetWord is always the comment's leading word (see class javadoc)
+        final String nextWord = nextWord(commentText, targetBounds[1]);
+        final boolean nextCharIsOpenParen = nextNonWhitespaceCharIs(commentText, targetBounds[1], '(');
+        final boolean containsSemicolon = commentText.indexOf(';') >= 0;
+        final boolean containsUrlOrFilenameOrNumber = URL_OR_FILENAME_OR_NUMBER.matcher(commentText).find();
+        final boolean hasNonLatinScript = NonLatinScriptGate.containsNonLatinScript(commentText);
+        final boolean hasLeadingKeywordMatch = KeywordAmbiguityGate.hasLeadingKeywordMatch(commentText, lang);
+        return new CommentFeatureVector(targetWord, previousWord, nextWord, nextCharIsOpenParen,
+                containsSemicolon, containsUrlOrFilenameOrNumber, commentType, hasNonLatinScript,
+                hasLeadingKeywordMatch);
+    }
+
+    /** [start, end) of the first contiguous run of letters/digits/underscore after skipping
+     *  leading whitespace -- same extraction MiscRule.capitalizeFirstLetter and
+     *  KeywordAmbiguityGate.hasLeadingKeywordMatch use, kept in sync by construction here since
+     *  both callers now route through this. */
+    private static int[] leadingWordBounds(final String commentText) {
+        int start = 0;
+        while (start < commentText.length() && Character.isWhitespace(commentText.charAt(start))) {
+            start++;
+        }
+        int end = start;
+        while (end < commentText.length()
+                && (Character.isLetterOrDigit(commentText.charAt(end)) || commentText.charAt(end) == '_')) {
+            end++;
+        }
+        return new int[] {start, end};
+    }
+
+    /** The next contiguous word (letters/digits/underscore) starting at or after {@code from},
+     *  skipping any non-word characters in between, or "" if there is none. */
+    private static String nextWord(final String commentText, final int from) {
+        int start = from;
+        while (start < commentText.length()
+                && !Character.isLetterOrDigit(commentText.charAt(start)) && commentText.charAt(start) != '_') {
+            start++;
+        }
+        int end = start;
+        while (end < commentText.length()
+                && (Character.isLetterOrDigit(commentText.charAt(end)) || commentText.charAt(end) == '_')) {
+            end++;
+        }
+        return commentText.substring(start, end);
+    }
+
+    private static boolean nextNonWhitespaceCharIs(final String commentText, final int from, final char c) {
+        int i = from;
+        while (i < commentText.length() && Character.isWhitespace(commentText.charAt(i))) {
+            i++;
+        }
+        return i < commentText.length() && commentText.charAt(i) == c;
     }
 }

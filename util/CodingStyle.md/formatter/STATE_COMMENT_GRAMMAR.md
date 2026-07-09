@@ -165,10 +165,20 @@ Suggested order:
         list" requirement; added a Kotlin set, previously absent from any comment-normalization
         keyword list). Leading-word extraction mirrors `MiscRule.capitalizeFirstLetter`'s. Smoke
         tested per-language incl. Kotlin and empty-string; `make test` 70/70 PASS unchanged.
-  - [ ] `KeywordAmbiguityGate.resolveAmbiguousKeyword` (stage 2) — blocked on
-        `CommentFeatureVector`'s fields existing (needs previous/next word etc.), so deferred
-        until `CommentFeatureVector` + `CommentFeatureExtractor` are implemented.
-  - [ ] `CommentFeatureVector` fields + `CommentFeatureExtractor.extract`.
+  - [ ] `KeywordAmbiguityGate.resolveAmbiguousKeyword` (stage 2) — `CommentFeatureVector` no
+        longer blocks this (see below, now implemented), but real contextual scoring needs
+        actual weights, which is blocked on RDD_KEY_97/98 per "Scope split" above. Do not
+        implement with invented/placeholder per-feature weights; leave as the stub until real
+        weight generation happens.
+  - [x] `CommentFeatureVector` fields (`targetWord`/`previousWord`/`nextWord`,
+        `nextCharIsOpenParen`, `containsSemicolon`, `containsUrlOrFilenameOrNumber`,
+        `commentType`, `hasNonLatinScript`, `hasLeadingKeywordMatch`) +
+        `CommentFeatureExtractor.extract`. `targetWord` is always the comment's leading word
+        (the only funnel-point ambiguity in scope today); `previousWord` is therefore always ""
+        by construction, documented in the class javadoc rather than left unexplained.
+        Smoke-tested (keyword leading word, next-word extraction, next-char-is-`(`, semicolon,
+        URL/filename/number detection, non-Latin propagation, empty string, default-overload
+        comment type) in `/tmp`; `make test` 70/70 PASS unchanged.
 - [ ] Step 2: wire `comment-normalization-classifier` config key into `Config.java` and
       `MiscRule`'s two funnel points (`capitalizeFirstLetter`, `stripSoleTrailingPeriod` /
       `stripSoleTrailingPeriodAcrossLines`), `off` by default.

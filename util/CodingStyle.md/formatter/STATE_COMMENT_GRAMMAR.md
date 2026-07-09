@@ -179,9 +179,30 @@ Suggested order:
         Smoke-tested (keyword leading word, next-word extraction, next-char-is-`(`, semicolon,
         URL/filename/number detection, non-Latin propagation, empty string, default-overload
         comment type) in `/tmp`; `make test` 70/70 PASS unchanged.
-- [ ] Step 2: wire `comment-normalization-classifier` config key into `Config.java` and
+- [x] Step 2: wired `comment-normalization-classifier` config key into `Config.java` and
       `MiscRule`'s two funnel points (`capitalizeFirstLetter`, `stripSoleTrailingPeriod` /
       `stripSoleTrailingPeriodAcrossLines`), `off` by default.
+  - `Config.java`: new key added to `ALL_KEYS`, `commentNormalizationClassifier` field (default
+    `false`), `isCommentNormalizationClassifier()` getter, parsed in `fromRawMap`.
+  - `MiscRule`: new `commentNormalizationClassifier` field threaded through a new most-specific
+    constructor overload (old 5-arg overload now delegates with `false`, so no other caller
+    breaks). When on, each funnel point calls a new private `classifyComment(content)` helper
+    (`CommentFeatureExtractor.extract` + `CommentClassifier.classify`) instead of its
+    deterministic logic; anything other than `CommentDecision.YES` behaves as `off` for that one
+    comment, per the hard architectural constraint. The two funnel points classify
+    independently (own content each), not a single shared decision -- matches how they're
+    literally two separate "funnel points" per this file's own intro, and some callers invoke
+    only one of the two (e.g. `capitalizePreprocessorTrailingComment` only capitalizes).
+  - `CommentClassifier.classify` implemented (was a stub, now a live call path): applies the
+    non-Latin gate, then the keyword stage-1 gate (falling straight to ABSTAIN on a stage-1 match
+    since stage 2 is still a stub -- see Step 1's note above), then the score/threshold compare.
+    With placeholder zero weights this always resolves to ABSTAIN, exactly as designed.
+  - `ScopePipeline`/`Formatter.java`: threaded the new flag through the one production call
+    chain (`Formatter.formatOne` -> `new MiscRule(...)` and `new ScopePipeline(...)`) via a new
+    most-specific `ScopePipeline` constructor overload, old overloads delegate with `false`.
+  - Verified end-to-end in `/tmp`: `off` still capitalizes/strips periods exactly as before;
+    `on` leaves both alone (classifier ABSTAINs on placeholder weights, no crash). `make test`
+    70/70 PASS, unchanged (default is `off`).
 - [ ] Step 3: generate real weights (RDD_KEY_97) and threshold (RDD_KEY_98) — blocked until
       then, do not implement early per "Scope split" above.
 - [ ] Step 4: README.md config entry.

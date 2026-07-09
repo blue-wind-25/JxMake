@@ -30,6 +30,7 @@ public final class Config {
         "line-length", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-end-period",
+        "comment-normalization-classifier",
         "header-guard-rename",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines",
@@ -52,6 +53,7 @@ public final class Config {
     private String lineEndings = "lf";
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
+    private boolean commentNormalizationClassifier = false;
     private boolean headerGuardRename = false;
     private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
     private boolean javaImportSort = true;
@@ -100,6 +102,10 @@ public final class Config {
 
     public boolean isNormalizeCommentEndPeriod() {
         return normalizeCommentEndPeriod;
+    }
+
+    public boolean isCommentNormalizationClassifier() {
+        return commentNormalizationClassifier;
     }
 
     public boolean isHeaderGuardRename() {
@@ -226,6 +232,8 @@ public final class Config {
                 config.normalizeCommentStartCase);
         config.normalizeCommentEndPeriod = parseBoolean(raw, "normalize-comment-end-period",
                 config.normalizeCommentEndPeriod);
+        config.commentNormalizationClassifier = parseBoolean(raw, "comment-normalization-classifier",
+                config.commentNormalizationClassifier);
         config.headerGuardRename = parseBoolean(raw, "header-guard-rename", config.headerGuardRename);
         config.javaImportOrder = parseStringList(raw, "java-import-order", config.javaImportOrder);
         config.javaImportSort = parseBoolean(raw, "java-import-sort", config.javaImportSort);

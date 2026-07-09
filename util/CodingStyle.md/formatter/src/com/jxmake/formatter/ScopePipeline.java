@@ -76,13 +76,21 @@ public class ScopePipeline {
     public ScopePipeline(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean formatOff, final int indentWidth, final int lineLengthLimit) {
+        this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, false,
+                formatOff, indentWidth, lineLengthLimit);
+    }
+
+    public ScopePipeline(final Lang lang, final String indentStyle,
+            final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
+            final boolean commentNormalizationClassifier, final boolean formatOff,
+            final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCore(lang);
         this.declarationRule = new DeclarationAlignmentRule(lang, lineLengthLimit);
         this.getterSetterRule = new GetterSetterRule(lang, indentWidth, lineLengthLimit);
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
-                indentWidth, lineLengthLimit);
+                commentNormalizationClassifier, indentWidth, lineLengthLimit);
         this.kotlinDeclarationRule = lang.isKotlin
                 ? new KotlinDeclarationAlignmentRule(lang, lineLengthLimit) : null;
         this.kotlinSignatureRule = lang.isKotlin

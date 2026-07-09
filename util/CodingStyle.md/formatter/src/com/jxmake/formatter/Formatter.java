@@ -44,7 +44,8 @@ public final class Formatter {
         final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines(), indentWidth);
         final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
         final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), indentWidth, lineLengthLimit);
+                config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
+                indentWidth, lineLengthLimit);
         final CppSpecificRule cppRule = isCOrCpp
                 ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
         final JavaSpecificRule javaRule = lang.isJava
@@ -75,7 +76,8 @@ public final class Formatter {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
         }
         text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), formatOff, indentWidth, lineLengthLimit).process(text);
+                config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
+                formatOff, indentWidth, lineLengthLimit).process(text);
 
         // Phase 1: structural/brace passes.
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));

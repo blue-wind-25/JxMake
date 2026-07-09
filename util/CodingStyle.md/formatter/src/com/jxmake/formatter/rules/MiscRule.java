@@ -8,6 +8,9 @@
 package com.jxmake.formatter.rules;
 
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.classifier.CommentClassifier;
+import com.jxmake.formatter.classifier.CommentDecision;
+import com.jxmake.formatter.classifier.CommentFeatureExtractor;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -67,6 +70,7 @@ public class MiscRule {
     private final Lang lang;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    private final boolean commentNormalizationClassifier;
     public final int indentWidth;
     public final int lineLengthLimit;
     private final String indentUnit;
@@ -79,9 +83,16 @@ public class MiscRule {
 
     public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod, final int indentWidth, final int lineLengthLimit) {
+        this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, false, indentWidth, lineLengthLimit);
+    }
+
+    public MiscRule(final Lang lang, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
+            final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+        this.commentNormalizationClassifier = commentNormalizationClassifier;
         this.indentWidth = indentWidth;
         this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
@@ -2396,6 +2407,10 @@ public class MiscRule {
         if (!normalizeCommentEndPeriod || lines.isEmpty()) {
             return;
         }
+        if (commentNormalizationClassifier
+                && classifyComment(String.join("\n", lines)) != CommentDecision.YES) {
+            return;
+        }
         int dotCount = 0;
         for (final String l : lines) {
             for (int i = 0; i < l.length(); i++) {
@@ -2441,6 +2456,12 @@ public class MiscRule {
                 continue;
             }
             if (Character.isLetter(c) && Character.isLowerCase(c)) {
+                if (commentNormalizationClassifier) {
+                    if (classifyComment(content) != CommentDecision.YES) {
+                        return content;
+                    }
+                    return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
+                }
                 // Extract the first word to check whether it is a keyword.
                 int end = i;
                 while (end < content.length()
@@ -2456,6 +2477,18 @@ public class MiscRule {
             break;
         }
         return content;
+    }
+
+    /** RDD_KEY_94/STATE_COMMENT_GRAMMAR.md's classifier-backed decision path -- only consulted
+     *  when {@link #commentNormalizationClassifier} is on, replacing the purely-deterministic
+     *  {@link #isCommentNoCapitalizeWord}/dot-count logic for that one comment. Per the hard
+     *  architectural constraint, {@link CommentDecision#ABSTAIN} (and, symmetrically here,
+     *  {@link CommentDecision#NO}) must behave exactly as if the relevant {@code
+     *  normalize-comment-*} key were {@code off} for that one comment -- callers check
+     *  {@code != CommentDecision.YES}, not {@code == CommentDecision.ABSTAIN}, so a future
+     *  NO-capable classifier doesn't silently start normalizing on NO. */
+    private CommentDecision classifyComment(final String content) {
+        return CommentClassifier.classify(CommentFeatureExtractor.extract(content, lang));
     }
 
     /** True iff `word` is a keyword in the current file's language ({@link #lang}) that must
@@ -2476,6 +2509,9 @@ public class MiscRule {
      *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1. */
     private String stripSoleTrailingPeriod(final String content) {
         if (!normalizeCommentEndPeriod) {
+            return content;
+        }
+        if (commentNormalizationClassifier && classifyComment(content) != CommentDecision.YES) {
             return content;
         }
         int end = content.length();

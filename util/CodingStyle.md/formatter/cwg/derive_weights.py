@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Derives CommentClassifierWeights constants from the labeled examples in
+cwg/examples_{c,cpp,java,kotlin}.md via a small logistic regression trained in this script
+(pure Python, no dependencies). Run with: python3 cwg/derive_weights.py
+
+This is the reusable counterpart to the by-hand derivation in cwg/weights.md -- extend the
+DATASET below when adding new labeled examples, re-run, and copy the printed constants into
+src/com/jxmake/formatter/classifier/CommentClassifierWeights.java.
+"""
+
+import math
+
+# One row per labeled example across cwg/examples_{c,cpp,java,kotlin}.md.
+# (source, index, paren, semicolon, url_or_number, label) -- label 1 = YES (normalize), 0 = NO.
+DATASET = [
+    # examples_c.md
+    ("c", 1, 0, 0, 0, 1), ("c", 2, 0, 1, 0, 0), ("c", 3, 1, 0, 0, 0),
+    ("c", 4, 0, 0, 0, 1), ("c", 5, 0, 1, 0, 0), ("c", 6, 0, 0, 1, 1),
+    ("c", 7, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 1),
+    ("c", 10, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0),
+    # examples_cpp.md
+    ("cpp", 1, 0, 0, 0, 1), ("cpp", 2, 1, 1, 0, 0), ("cpp", 3, 0, 0, 0, 1),
+    ("cpp", 4, 1, 0, 1, 0), ("cpp", 5, 0, 0, 0, 1), ("cpp", 6, 1, 1, 0, 0),
+    ("cpp", 7, 0, 0, 0, 1), ("cpp", 8, 1, 1, 0, 0), ("cpp", 9, 0, 0, 0, 1),
+    ("cpp", 10, 0, 0, 1, 0),
+    # examples_java.md
+    ("java", 1, 0, 0, 0, 1), ("java", 2, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 1),
+    ("java", 4, 1, 1, 0, 0), ("java", 5, 0, 0, 0, 1), ("java", 6, 0, 1, 1, 0),
+    ("java", 7, 0, 0, 0, 1), ("java", 8, 1, 1, 0, 0), ("java", 9, 0, 0, 0, 1),
+    ("java", 10, 0, 1, 0, 0),
+    # examples_kotlin.md -- row 2 is a documented outlier (label NO, but no mechanical feature
+    # fires; the ambiguity is a "->" + capitalized-identifier pattern this feature set can't see).
+    # Kept in the dataset on purpose so the printed report below surfaces it as a misclassification
+    # rather than silently excluding inconvenient data.
+    ("kotlin", 1, 0, 0, 0, 1), ("kotlin", 2, 0, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 1),
+    ("kotlin", 4, 1, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 1), ("kotlin", 6, 0, 1, 0, 0),
+    ("kotlin", 7, 0, 0, 0, 1), ("kotlin", 8, 1, 1, 0, 0),
+]
+
+LEARNING_RATE = 0.5
+EPOCHS = 5000
+
+
+def sigmoid(z):
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def train():
+    # weights: [bias, w_paren, w_semicolon, w_url_or_number]
+    w = [0.0, 0.0, 0.0, 0.0]
+    n = len(DATASET)
+    for _ in range(EPOCHS):
+        grad = [0.0, 0.0, 0.0, 0.0]
+        for _, _, paren, semi, urlnum, label in DATASET:
+            x = [1.0, float(paren), float(semi), float(urlnum)]
+            pred = sigmoid(sum(wi * xi for wi, xi in zip(w, x)))
+            err = pred - label
+            for i in range(4):
+                grad[i] += err * x[i]
+        w = [wi - LEARNING_RATE * gi / n for wi, gi in zip(w, grad)]
+    return w
+
+
+def report(w):
+    bias, w_paren, w_semi, w_urlnum = w
+    print("Trained keyword-ambiguity weights (logistic regression, %d epochs, lr=%.2f):" % (EPOCHS, LEARNING_RATE))
+    print("  KEYWORD_BIAS                 = %.4f" % bias)
+    print("  KEYWORD_WEIGHT_PAREN          = %.4f" % w_paren)
+    print("  KEYWORD_WEIGHT_SEMICOLON      = %.4f" % w_semi)
+    print("  KEYWORD_WEIGHT_URL_OR_NUMBER  = %.4f" % w_urlnum)
+    print("  KEYWORD_THRESHOLD             = 0.0000  (sigmoid decision boundary)")
+    print()
+    print("Per-example check (score = w.x + bias, predicted YES iff score > 0):")
+    mistakes = 0
+    for source, idx, paren, semi, urlnum, label in DATASET:
+        score = bias + w_paren * paren + w_semi * semi + w_urlnum * urlnum
+        predicted = 1 if score > 0 else 0
+        expected = "YES" if label else "NO"
+        got = "YES" if predicted else "NO"
+        flag = "" if predicted == label else "  <-- MISMATCH"
+        if predicted != label:
+            mistakes += 1
+        print("  %-6s #%-2d score=%+.3f expected=%-3s predicted=%-3s%s" % (source, idx, score, expected, got, flag))
+    print()
+    print("%d/%d examples classified as expected (%d mismatch(es))." % (len(DATASET) - mistakes, len(DATASET), mistakes))
+    print()
+    print("Main path (CommentClassifier.classify, no leading-keyword ambiguity): everything")
+    print("reaching that path already cleared both gates, so BIAS=1.0 / THRESHOLD=0.0 (always YES)")
+    print("is not derived from this dataset -- see cwg/weights.md 'Main path'.")
+
+
+if __name__ == "__main__":
+    report(train())

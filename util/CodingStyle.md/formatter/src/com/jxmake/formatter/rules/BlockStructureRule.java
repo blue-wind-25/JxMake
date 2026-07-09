@@ -125,6 +125,34 @@ public class BlockStructureRule {
                         }
                     }
                 }
+            } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin) {
+                // Bare `else` (not `else if` -- that's still an `if`, handled by the branch
+                // above once the main loop reaches it) with an already-braceless multi-line body
+                // (`else\n    stmt`, RDD_KEY_124's sibling gap -- e.g. `test/kt_combined_inp.kt`'s
+                // `if (it.isEmpty())\n    0\nelse\n    it.toInt()`) is the one shape RDD_KEY_124
+                // deliberately left unhandled (that fix is keyed off `if`/`while`/`for`'s own `(
+                // ...)` condition, which a bare `else` never has). Collapsing it to one line
+                // (`else it.toInt()`) is the same STYLE.md §10 single-statement omission,
+                // structurally -- but `kt_combined_out.kt` additionally column-pads `else`'s body
+                // to align with the *preceding* `if` branch's own body (`if(...) 0` / `else
+                // it.toInt()`, both starting at the same column), which has no STYLE_KOTLIN.md
+                // worked example to justify as a general rule (one fixture occurrence isn't
+                // enough evidence to derive a trigger condition from) -- so only the collapse
+                // itself is done here, with a plain single space, same as every other collapse in
+                // this method; the padding gap is left open (see STATE_KOTLIN.md Open Questions).
+                final int next = skipNonSignificant(tokens, i + 1);
+                final boolean isElseIf = next < n && tokens.get(next).type == TokenType.KEYWORD
+                        && "if".equals(tokens.get(next).text);
+                final boolean isBraced = next < n && isPunct(tokens.get(next), "{");
+                if (!isElseIf && !isBraced && !anyFrozen(tokens, i, i + 1)) {
+                    final int[] bodyEnd = new int[1];
+                    final String collapsed = collapseBracelessBody(tokens, i + 1, "else", bodyEnd);
+                    if (collapsed != null) {
+                        out.append(collapsed);
+                        i = bodyEnd[0];
+                        continue;
+                    }
+                }
             }
             out.append(t.text);
             i++;
@@ -319,8 +347,23 @@ public class BlockStructureRule {
      *  caller's main loop can resume scanning from there). */
     private String tryCollapseBraceless(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int[] outBodyEnd) {
+        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
+        return collapseBracelessBody(tokens, block.closeParenIndex + 1, prefix, outBodyEnd);
+    }
+
+    /**
+     * Shared body-scanning/rendering core of {@link #tryCollapseBraceless}, generalized to start
+     * scanning from an arbitrary {@code fromIndex} rather than always right after an `if`/`while`/
+     * `for` condition's closing `)` -- lets a bare braceless `else\n    stmt` (no condition of its
+     * own to anchor on) reuse the exact same single-statement/no-comment/no-nested-compound-body
+     * qualification logic via the caller passing {@code elseKwIndex + 1} instead. {@code prefix}
+     * is prepended verbatim (already-rendered `if(...)`/`while(...)`/`for(...)`, or the literal
+     * `"else"`) ahead of a single space and the rendered body.
+     */
+    private String collapseBracelessBody(final List<Token> tokens, final int fromIndex,
+            final String prefix, final int[] outBodyEnd) {
         final int n = tokens.size();
-        final int bodyStart = skipNonSignificant(tokens, block.closeParenIndex + 1);
+        final int bodyStart = skipNonSignificant(tokens, fromIndex);
         if (bodyStart >= n) {
             return null;
         }
@@ -361,7 +404,7 @@ public class BlockStructureRule {
             return null;
         }
         if (bodyEnd < 0) {
-            bodyEnd = n; // ran off the end of `tokens` (e.g. this if is the very last statement)
+            bodyEnd = n; // ran off the end of `tokens` (e.g. this body is the very last statement)
         }
         final List<Token> contents = tokens.subList(bodyStart, bodyEnd);
         final List<Token> sig = new ArrayList<>();
@@ -378,7 +421,6 @@ public class BlockStructureRule {
             return null;
         }
 
-        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
         final String body = renderInline(contents);
         outBodyEnd[0] = bodyEnd;
         return prefix + " " + body;

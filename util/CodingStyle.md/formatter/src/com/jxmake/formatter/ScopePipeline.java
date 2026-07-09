@@ -12,8 +12,7 @@ import com.jxmake.formatter.rules.DeclarationAlignmentRule.Declaration;
 import com.jxmake.formatter.rules.GetterSetterRule;
 import com.jxmake.formatter.rules.GetterSetterRule.Member;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule;
-import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.DestructuringDecl;
-import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.KotlinDecl;
+import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.Row;
 import com.jxmake.formatter.rules.KotlinSignatureRule;
 import com.jxmake.formatter.rules.KotlinSignatureRule.FunctionTail;
 import com.jxmake.formatter.rules.KotlinSignatureRule.KotlinSignature;
@@ -690,35 +689,27 @@ public class ScopePipeline {
 
     /** STYLE_KOTLIN.md §6/§12 -- Kotlin's `[modifiers] val|var name [: type] [= init]` grammar is
      *  reversed relative to C/Java's `[modifiers] Type name [= init]`, so {@code
-     *  KotlinDeclarationAlignmentRule} parses/renders it with its own {@code KotlinDecl}/{@code
-     *  DestructuringDecl} models rather than the base {@code Declaration} model above. Kotlin
-     *  properties/locals are conventionally newline-terminated with no `;`, so {@code
-     *  splitTopLevelSpans} (built around `;`/`}`-terminated C/Java statements) cannot be reused to
-     *  find each declaration's own span -- instead this anchors directly on each decl's own leading
-     *  token ({@code modifiers.get(0)}/{@code startToken}, never empty) and trailing token ({@code
-     *  trailingComment}, else the last {@code initTokens}/{@code typeTokens} token, else the name),
-     *  both always present in {@code tokens} by identity, via {@code buildIndexMap}. */
+     *  KotlinDeclarationAlignmentRule} parses/renders it with its own {@code Row} model rather
+     *  than the base {@code Declaration} model above. Kotlin properties/locals are conventionally
+     *  newline-terminated with no `;`, so {@code splitTopLevelSpans} (built around `;`/`}`-
+     *  terminated C/Java statements) cannot be reused to find each declaration's own span --
+     *  instead this anchors directly on each row's own leading token ({@code firstAnchor}, never
+     *  empty) and trailing token ({@code lastAnchor}), both always present in {@code tokens} by
+     *  identity, via {@code buildIndexMap}.
+     *  <p>A plain declaration (§6) and a destructuring declaration (§12) are grouped together in
+     *  one merged pass here -- RDD_KEY_107's original "own group stream, never merged" design was
+     *  revisited and reversed on explicit user request, matching this codebase's existing C++
+     *  structured-bindings precedent (`auto [b, c] = ...` already aligns in the same group as a
+     *  plain `int a = ...`); see STATE_rdd_log.md's RDD_KEY_107 entry for the full revision note. */
     private String applyKotlinDeclarationsPass(final List<Token> tokens) {
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
         final List<Replacement> replacements = new ArrayList<>();
 
-        for (final List<KotlinDecl> group : kotlinDeclarationRule.groupPropertyDeclarations(tokens)) {
-            final KotlinDecl first = group.get(0);
-            final KotlinDecl last = group.get(group.size() - 1);
-            final Token lastAnchor = last.trailingComment != null ? last.trailingComment
-                    : !last.initTokens.isEmpty() ? last.initTokens.get(last.initTokens.size() - 1)
-                    : !last.typeTokens.isEmpty() ? last.typeTokens.get(last.typeTokens.size() - 1)
-                    : last.name;
-            addKotlinDeclReplacement(tokens, indexOf, replacements, first.modifiers.get(0), lastAnchor,
-                    kotlinDeclarationRule.renderPropertyGroup(group));
-        }
-        for (final List<DestructuringDecl> group : kotlinDeclarationRule.groupDestructuringDeclarations(tokens)) {
-            final DestructuringDecl first = group.get(0);
-            final DestructuringDecl last = group.get(group.size() - 1);
-            final Token lastAnchor = last.trailingComment != null ? last.trailingComment
-                    : last.initTokens.get(last.initTokens.size() - 1);
-            addKotlinDeclReplacement(tokens, indexOf, replacements, first.startToken, lastAnchor,
-                    kotlinDeclarationRule.renderDestructuringGroup(group));
+        for (final List<Row> group : kotlinDeclarationRule.groupAlignableDeclarations(tokens)) {
+            final Row first = group.get(0);
+            final Row last = group.get(group.size() - 1);
+            addKotlinDeclReplacement(tokens, indexOf, replacements, first.firstAnchor, last.lastAnchor,
+                    kotlinDeclarationRule.renderAlignedGroup(group));
         }
         return splice(tokens, replacements);
     }

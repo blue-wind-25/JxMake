@@ -150,7 +150,9 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_104 | Kotlin constructor/function parameter list line-breaking and column alignment — §7/§7.1; new `KotlinSignatureRule extends MiscRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103, user-directed), own `KotlinParam`/`KotlinSignature` model, parser, and `ColumnGrid`-based renderer for the name-before-type parts; also covers §7.2 (trailing comma preservation) |
 | RDD_KEY_105 | Kotlin labeled jump / label declaration spacing (`return@label`, `label@`) — §11; new `KotlinSpecificRule.enforceLabeledJumpSpacing`, a flat whole-file pass with a small state machine, same shape as RDD_KEY_102 |
 | RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
-| RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; own group stream, never merged with §6's |
+| RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; **originally its own group stream, never merged with §6's — REVISED under RDD_KEY_126, see below, per user request** |
+| RDD_KEY_126 | **REVISES RDD_KEY_107.** Merges §12 destructuring-declaration alignment into the same column-aligned group stream as an adjacent plain §6 `val`/`var` declaration, per user request citing this codebase's own C++ structured-bindings precedent; new merged `Row`/`groupAlignableDeclarations`/`renderAlignedGroup`/`toRow` in `KotlinDeclarationAlignmentRule.java` (old `groupPropertyDeclarations`/`groupDestructuringDeclarations`/`renderPropertyGroup`/`renderDestructuringGroup` kept, `@deprecated`, still used internally for parsing); `ScopePipeline.applyKotlinDeclarationsPass` simplified to one merged loop |
+| RDD_KEY_127 | Bare Kotlin `else\n    stmt` (no condition of its own) never collapsed to one line — distinct gap from RDD_KEY_124 (keyed off `if`/`while`/`for`'s own `(...)` condition, never a standalone `else`); new shared `collapseBracelessBody` helper extracted from `tryCollapseBraceless`, plus a dedicated `else`-keyword branch in `collapseSingleExpressionBlocks`'s main loop; collapse-to-one-line half fixed, column-padding-to-align-with-preceding-`if`-branch half left as an open question (no style-doc precedent, one fixture occurrence insufficient evidence) |
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
@@ -255,18 +257,23 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   fixed, `AI_PREAMBLE_AESTHETIC.md`'s Rule 2 ("JAR aligns standard-prefix
   getter/setter groups automatically") is **not true for Kotlin** — flagged
   there with a caveat rather than silently relying on it.
-- **Bare `else` single-statement collapse not handled (found while verifying
-  RDD_KEY_124).** `kt_combined_out.kt` shows a bare `else` (no condition of
-  its own, following an `if(...)  0`-shaped one-liner) collapsed onto one
-  line and column-padded to align with the `if` branch above it:
-  `else               it.toInt()`. RDD_KEY_124's fix only handles `if`/
-  `while`/`for` (each keyed off its own `(...)` condition) — `collapseSingle
-  ExpressionBlocks`'s loop never triggers on a standalone `else` keyword at
-  all, so this is left as multi-line. Whether this is (a) a natural extension
-  of RDD_KEY_124's braceless-collapse family, or (b) a separate padding/
-  alignment feature (the expected output's column-alignment between an `if`
-  branch and its `else` branch has no §10 worked example to confirm), is not
-  resolved — flagged rather than guessed at.
+- **Bare `else` single-statement collapse — RESOLVED for the collapse half,
+  still open for the column-padding half (RDD_KEY_127).** `kt_combined_out.kt`
+  shows a bare `else` (no condition of its own, following an `if(...)  0`-
+  shaped one-liner) collapsed onto one line and column-padded to align with
+  the `if` branch above it: `else               it.toInt()`. RDD_KEY_124's
+  fix only handled `if`/`while`/`for` (each keyed off its own `(...)`
+  condition) — `collapseSingleExpressionBlocks`'s loop never triggered on a
+  standalone `else` keyword at all. **RDD_KEY_127 fixes the collapse-to-
+  one-line half** (new shared `collapseBracelessBody` helper + a dedicated
+  `else`-keyword branch in the main loop) — `else it.toInt()` now correctly
+  renders on one line. The **column-padding half remains open**: no
+  STYLE_KOTLIN.md/STYLE_KOTLIN2.md worked example covers this specific
+  if/else single-expression-body column-alignment shape (the only "else"-
+  alignment example in either doc is `when`-expression arrow alignment, a
+  different construct), and one fixture occurrence is not enough evidence to
+  safely derive a general trigger condition without guessing — left flagged
+  rather than implemented.
 
 ---
 
@@ -384,7 +391,7 @@ existing test suite after this step, before moving to Step 1.
 | 9 | Expression-bodied functions | (a)/(c), **done for standalone case — grouping is BROKEN, see Open Questions** | "Preserve as-is" part is free (same reasoning as §8). The "wrap `= expr` onto its own line if signature-breaking alone isn't enough" part implemented as new `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, a three-tier fallback delegating to §7's existing `render` for the middle tier. Also fixed a **shared-class bug** this work surfaced: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. See RDD_KEY_112. **Correction (post-Step-3.5):** same grouping claim/gap as §8 above — never harness-verified, confirmed broken. See Open Questions. |
 | 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding itself is already generic (`ComplexityPaddingEvaluator`, STYLE.md §3.1) — `in`/`until`/`downTo`/`step` turned out to already be inert w.r.t. its nested-bracket detection with zero code changes (`in` is `TokenType.KEYWORD`, the other three are plain `TokenType.IDENTIFIER`, confirmed via harness — reclassified (b)→(a)). The `..`/`..<` range operator's own *tight* spacing needed new code, same kind of gap as §5 — new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
 | 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a small left-to-right state machine over a flat whole-file token pass (same shape as §5/RDD_KEY_102), telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated annotation `@Foo` (untouched). RDD_KEY_105. |
-| 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`, a separate group stream from §6's own. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. |
+| 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s assumed single `target` token — implemented directly in `KotlinDeclarationAlignmentRule.java` (reuses its existing §6 infrastructure) as new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup`. Comma spacing is normalized for free as a side effect of rebuilding `lhsText` from the parsed component list, not a passive default. RDD_KEY_107. **Group-stream merge revised under RDD_KEY_126:** now merges into the same column-aligned group as an adjacent plain §6 declaration (per user request, C++ structured-bindings precedent) instead of staying in its own never-merged stream. |
 | 13 | Generics variance (`in`/`out`) | (b), **done** | `TokenizerCore.GENERIC_SAFE_KEYWORDS` extended with `"in"`/`"out"` — confirmed via harness these were previously misread as comparison `OP` tokens, now correctly `ANGLE_BRACKET_OPEN`/`_CLOSE` for `Box<out T>`/`Comparable<in T>`/`Pair<in T, out U>`; plain comparisons unaffected. Pure no-op for C/C++/Java (neither keyword exists in their keyword sets). Tokenizer-level fix, no rendering/spacing pass needed beyond correct classification. RDD_KEY_113. |
 | 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling, but that's a per-language file, not shared — implemented as new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern per this row's own note. RDD_KEY_106. |
 | 15 | Infix functions (modifier slot; call-site spacing) | (a), **verified** | Modifier slot itself is Step 2 (`KotlinModifierPriority`) scope, not Step 1. Call-site word-operator spacing (`3 times "abc"`) is ordinary expression spacing, already left alone by every shared class (same reasoning as §5's baseline, no active interference to worry about). Confirmed via harness. |
@@ -862,9 +869,17 @@ working map, not a spec):
    C/C++/Java-only brace-initializer tight-spacing rule was wrongly firing
    for Kotlin's trailing-lambda syntax; gated with `!lang.isKotlin`). The
    column-alignment part (`val safe` padded to align with the next line's
-   `val (a, b) = ...` destructuring declaration) is **not fixed, flagged as
-   ambiguous** — see Open Questions below, contradicts RDD_KEY_107's
-   documented design decision.
+   `val (a, b) = ...` destructuring declaration) is **now also fixed — RDD_KEY_126.**
+   RDD_KEY_107's original "own group stream, never merged with §6's" design
+   decision was revisited and **reversed** on explicit user request (C++
+   structured-bindings precedent: `auto [b, c] = ...` already aligns with a
+   preceding `int a = ...` in this codebase, so Kotlin's destructuring
+   declaration should do the same). New merged `Row`/`groupAlignableDeclarations`/
+   `renderAlignedGroup` in `KotlinDeclarationAlignmentRule.java` replace the
+   old two-group-stream split; `val safe`/`val (a, b)` now column-align on
+   both the `val` keyword column and the name-start column, matching the
+   fixture exactly. See RDD_KEY_126's own log entry and RDD_KEY_107's
+   "REVISED under RDD_KEY_126" note for full detail.
 8. [x] `if(...) return@X` / `if(...) expr` single-line-collapse cases not
    firing in `findFirst`/`findFirstX`/`test()` — **fixed, RDD_KEY_124.**
    Same family as RDD_KEY_120's `for`-loop collapse but a distinct root
@@ -872,10 +887,19 @@ working map, not a spec):
    an already-braceless multi-line body at all (`block.openBraceIndex == -1`
    fell through untouched) — a shape only Kotlin's grammar can produce as
    *input*. New `tryCollapseBraceless`/`isPartOfElseChainBraceless` helpers,
-   Kotlin-gated. **Explicitly out of scope:** a bare `else\n    stmt` (no
-   condition of its own) is not collapsed by this fix — `kt_combined_out.kt`'s
-   `else               it.toInt()` line remains a diff, a related but
-   distinct construct-plus-alignment gap, not guessed at.
+   Kotlin-gated. **Explicitly out of scope at the time:** a bare `else\n    stmt`
+   (no condition of its own) was not collapsed by this fix.
+   **Partially fixed — RDD_KEY_127:** the bare `else\n    stmt` collapse-to-
+   one-line half is now handled (new shared `collapseBracelessBody` helper,
+   extracted from `tryCollapseBraceless`, plus a new `else`-keyword branch in
+   `collapseSingleExpressionBlocks`'s main loop). The remaining half —
+   column-padding the collapsed `else`'s body to align with the preceding
+   `if` branch's own collapsed body (`kt_combined_out.kt`'s
+   `else               it.toInt()`) — is still **not fixed, still flagged as
+   an open question** (see Open Questions below): no STYLE_KOTLIN.md/
+   STYLE_KOTLIN2.md worked example covers this if/else column-alignment
+   shape, and one fixture occurrence is not enough evidence to safely derive
+   a general trigger condition without guessing.
 9. [x] **Newly surfaced while re-verifying the full fixture diff (not part of
    the original 4-item punch list):** Kotlin functions with an explicit
    return type (`fun foo(...): Int { ... }`) never got STYLE.md §9's

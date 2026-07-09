@@ -67,6 +67,10 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * declaration statements -- same grouping-break rule as the base class's
      * {@code groupDeclarations} (STYLE.md §5): a blank line, a standalone leading comment, or
      * any statement that doesn't parse as a `val`/`var` declaration breaks the current group.
+     * @deprecated superseded by {@link #groupAlignableDeclarations} (RDD_KEY_107's "own group
+     *     stream, never merged" design was revisited and reversed -- see STATE_rdd_log.md's
+     *     RDD_KEY_107 entry) -- kept only because {@link #parseKotlinDeclaration} is still used
+     *     standalone by the merged pass; no longer called from {@code ScopePipeline} directly.
      */
     public List<List<KotlinDecl>> groupPropertyDeclarations(final List<Token> scopeTokens) {
         final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
@@ -358,6 +362,15 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      *  single-{@code lhsText}-cell shape for the same reason. */
     public static final class DestructuringDecl {
         public final String lhsText; // e.g. "val (a, b)" -- modifiers + val/var + normalized list
+        // modifiers (including val/var itself, RDD_KEY_103's shared slot 5) and nameText (just the
+        // "(a, b)" component list, no modifiers prefix) exposed separately -- alongside the
+        // pre-joined lhsText above -- so RDD_KEY_107's merged alignment pass (see
+        // groupAlignableDeclarations/Row below) can grid-align this row's val/var column and name
+        // column against an adjacent plain KotlinDecl's own val/var and name columns, the same way
+        // C++ structured-bindings (`auto [b, c] = ...`) align against a plain `int a = ...` in the
+        // same group.
+        public final List<Token> modifiers;
+        public final String nameText; // e.g. "(a, b)" -- no modifiers prefix, unlike lhsText
         public final List<Token> initTokens;
         public final Token trailingComment;
         // The statement's own first token (first plain modifier, or the val/var keyword itself if
@@ -366,9 +379,11 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         // pre-rendered string disconnected from token indices.
         public final Token startToken;
 
-        DestructuringDecl(final String lhsText, final List<Token> initTokens,
-                final Token trailingComment, final Token startToken) {
+        DestructuringDecl(final String lhsText, final List<Token> modifiers, final String nameText,
+                final List<Token> initTokens, final Token trailingComment, final Token startToken) {
             this.lhsText = lhsText;
+            this.modifiers = modifiers;
+            this.nameText = nameText;
             this.initTokens = initTokens;
             this.trailingComment = trailingComment;
             this.startToken = startToken;
@@ -380,10 +395,10 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * declaration statements -- same grouping-break rule as {@link #groupPropertyDeclarations}
      * (STYLE_KOTLIN.md §12: "same as §6, unless there's an outlier breaking the group"): a
      * blank line, a standalone leading comment, or any statement that doesn't parse as a
-     * destructuring declaration breaks the current group. Deliberately a separate group stream
-     * from {@link #groupPropertyDeclarations} rather than merged with it -- a destructuring
-     * row's `(a, b)` LHS and a plain declaration's bare name have no shared column shape to
-     * align together, and no STYLE_KOTLIN.md worked example shows the two mixed in one group.
+     * destructuring declaration breaks the current group.
+     * @deprecated superseded by {@link #groupAlignableDeclarations} (RDD_KEY_107 revision) --
+     *     kept only because {@link #parseDestructuringDeclaration} is still used standalone by
+     *     the merged pass; no longer called from {@code ScopePipeline} directly.
      */
     public List<List<DestructuringDecl>> groupDestructuringDeclarations(final List<Token> scopeTokens) {
         final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
@@ -490,21 +505,23 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
             return null;
         }
 
-        final StringBuilder lhs = new StringBuilder();
-        lhs.append(renderTokens(modifiers)).append(" (");
+        final StringBuilder name = new StringBuilder("(");
         for (int c = 0; c < components.size(); c++) {
             if (c > 0) {
-                lhs.append(", ");
+                name.append(", ");
             }
             final Component comp = components.get(c);
-            lhs.append(comp.name.text);
+            name.append(comp.name.text);
             if (!comp.typeTokens.isEmpty()) {
-                lhs.append(": ").append(renderTokens(comp.typeTokens));
+                name.append(": ").append(renderTokens(comp.typeTokens));
             }
         }
-        lhs.append(')');
+        name.append(')');
+        final String nameText = name.toString();
+        final String lhs = renderTokens(modifiers) + " " + nameText;
 
-        return new DestructuringDecl(lhs.toString(), initTokens, findTrailingComment(stmt), modifiers.get(0));
+        return new DestructuringDecl(lhs, modifiers, nameText, initTokens, findTrailingComment(stmt),
+                modifiers.get(0));
     }
 
     /**
@@ -516,6 +533,8 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * token text (including internal spacing) is reproduced verbatim via {@link #renderTokens},
      * same "don't reformat the RHS" posture as every other declaration/assignment renderer in
      * this codebase.
+     * @deprecated superseded by {@link #renderAlignedGroup} (RDD_KEY_107 revision) -- kept only
+     *     as a standalone fallback renderer, no longer called from {@code ScopePipeline} directly.
      */
     public List<String> renderDestructuringGroup(final List<DestructuringDecl> group) {
         final ColumnGrid grid = new ColumnGrid();
@@ -534,4 +553,180 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
         }
         return lines;
     }
+
+    // ── RDD_KEY_107 revision: merged §6/§12 alignment ───────────────────────────────
+    /**
+     * RDD_KEY_107 originally kept a plain {@code val}/{@code var} declaration (§6) and a
+     * destructuring declaration (§12) in two entirely separate group streams, reasoning that a
+     * destructuring row's `(a, b)` LHS and a plain declaration's bare name "have no shared column
+     * shape to align together." Revisited on explicit user request: C++'s structured bindings
+     * already set the opposite precedent in this same codebase --
+     * {@code auto [b, c] = somePair;} aligns in the very same group as a preceding
+     * {@code int a = xxx;} (its `[b, c]` is just one more name-column cell, no special-casing
+     * needed there because the base {@code Declaration} model already treats a bracketed
+     * structured-binding list as an ordinary name token sequence). This revision does the Kotlin
+     * equivalent: one {@link Row} model that carries either a plain identifier or a pre-rendered
+     * `(a, b)` list as its {@code nameCell}, so both shapes share the same {@link ColumnGrid}
+     * columns (modifiers, name, optional `:` type, optional `=` init) -- superseding the "own
+     * group stream, never merged" half of RDD_KEY_107 (see STATE_rdd_log.md's RDD_KEY_107 entry
+     * for the full revision note). A destructuring row's name column is always its whole
+     * `(a, b)` text as one cell (STYLE_KOTLIN.md §12 still has no per-component type grid to
+     * anchor a finer split), and its type column is always blank (destructuring declarations
+     * have no type-annotation slot of their own to show there).
+     */
+    public static final class Row {
+        public final List<Token> modifiers; // includes val/var itself, shared slot 5
+        public final String nameCell; // plain identifier text, or "(a, b)" for a destructuring row
+        public final List<Token> typeTokens; // always empty for a destructuring row
+        public final List<Token> initTokens;
+        public final Token trailingComment;
+        public final Token firstAnchor; // modifiers.get(0) -- splice-back start
+        public final Token lastAnchor; // splice-back end (inclusive)
+
+        Row(final List<Token> modifiers, final String nameCell, final List<Token> typeTokens,
+                final List<Token> initTokens, final Token trailingComment, final Token firstAnchor,
+                final Token lastAnchor) {
+            this.modifiers = modifiers;
+            this.nameCell = nameCell;
+            this.typeTokens = typeTokens;
+            this.initTokens = initTokens;
+            this.trailingComment = trailingComment;
+            this.firstAnchor = firstAnchor;
+            this.lastAnchor = lastAnchor;
+        }
+    }
+
+    /** Wraps a parsed {@link KotlinDecl} as a {@link Row} for the merged §6/§12 pass -- same
+     *  last-anchor fallback chain (trailing comment, else last init token, else last type token,
+     *  else the name itself) {@code ScopePipeline}'s pre-revision two-pass code used to compute
+     *  inline for the §6 side. */
+    private Row toRow(final KotlinDecl d) {
+        final Token lastAnchor = d.trailingComment != null ? d.trailingComment
+                : !d.initTokens.isEmpty() ? d.initTokens.get(d.initTokens.size() - 1)
+                : !d.typeTokens.isEmpty() ? d.typeTokens.get(d.typeTokens.size() - 1)
+                : d.name;
+        return new Row(d.modifiers, d.name.text, d.typeTokens, d.initTokens, d.trailingComment,
+                d.modifiers.get(0), lastAnchor);
+    }
+
+    /** Wraps a parsed {@link DestructuringDecl} as a {@link Row} -- always has a non-empty
+     *  {@code initTokens} ({@link #parseDestructuringDeclaration} rejects a destructuring
+     *  declaration with no initializer, so no name-token fallback is ever needed here, unlike
+     *  {@link #toRow(KotlinDecl)} above). */
+    private Row toRow(final DestructuringDecl d) {
+        final Token lastAnchor = d.trailingComment != null ? d.trailingComment
+                : d.initTokens.get(d.initTokens.size() - 1);
+        return new Row(d.modifiers, d.nameText, java.util.Collections.emptyList(), d.initTokens,
+                d.trailingComment, d.startToken, lastAnchor);
+    }
+
+    /**
+     * Splits one scope's direct-content tokens into groups of consecutive `val`/`var`
+     * declarations, mixing plain (§6) and destructuring (§12) statements freely in the same
+     * group -- the merged replacement for the pre-revision {@link #groupPropertyDeclarations}/
+     * {@link #groupDestructuringDeclarations} two-stream split (RDD_KEY_107 revision). Each
+     * statement is tried first as a plain declaration, then as a destructuring declaration; the
+     * first one that matches wins (a plain declaration's grammar starts with an identifier right
+     * after `val`/`var`, a destructuring declaration's with `(`, so the two shapes are mutually
+     * exclusive and try-order doesn't matter). Same grouping-break rule as both predecessors: a
+     * blank line, a standalone leading comment, or any statement that parses as neither shape
+     * breaks the current group.
+     */
+    public List<List<Row>> groupAlignableDeclarations(final List<Token> scopeTokens) {
+        final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
+        final List<List<Row>> groups = new ArrayList<>();
+        List<Row> current = new ArrayList<>();
+
+        for (final List<Token> stmt : statements) {
+            final KotlinDecl plain = parseKotlinDeclaration(stmt);
+            Row row = null;
+            if (plain != null) {
+                row = toRow(plain);
+            } else {
+                final DestructuringDecl destructuring = parseDestructuringDeclaration(stmt);
+                if (destructuring != null) {
+                    row = toRow(destructuring);
+                }
+            }
+            if (row == null) {
+                if (!current.isEmpty()) {
+                    groups.add(current);
+                    current = new ArrayList<>();
+                }
+                continue;
+            }
+            final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
+            if (breakBefore && !current.isEmpty()) {
+                groups.add(current);
+                current = new ArrayList<>();
+            }
+            current.add(row);
+        }
+        if (!current.isEmpty()) {
+            groups.add(current);
+        }
+        return groups;
+    }
+
+    /**
+     * Renders one merged group of {@link Row}s into a single STYLE_KOTLIN.md §6/§12 column grid
+     * -- same modifier-column model as {@link #renderPropertyGroup}, but {@code nameCell} is
+     * already a fully-rendered string (a plain identifier for a §6 row, a whole `(a, b)` list for
+     * a §12 row) rather than a {@code Token}, so both shapes share one name column for free. A
+     * §12 row's type column is always blank (it has none), same "only emit active columns"
+     * precedent as {@link #renderPropertyGroup} -- the type column itself is only emitted at all
+     * if some row in the group actually has one.
+     */
+    public List<String> renderAlignedGroup(final List<Row> group) {
+        final int modifierColumns = modifierPriority.columnCount();
+        final boolean[] modifierActive = new boolean[modifierColumns];
+        boolean anyType = false;
+        boolean anyInit = false;
+        for (final Row r : group) {
+            for (final Token m : r.modifiers) {
+                final int rank = modifierPriority.priorityOf(m.text);
+                if (rank >= 0) {
+                    modifierActive[rank] = true;
+                }
+            }
+            anyType = anyType || !r.typeTokens.isEmpty();
+            anyInit = anyInit || !r.initTokens.isEmpty();
+        }
+
+        final ColumnGrid grid = new ColumnGrid();
+        for (final Row r : group) {
+            final List<String> cells = new ArrayList<>();
+            final String[] modCells = new String[modifierColumns];
+            Arrays.fill(modCells, "");
+            for (final Token m : r.modifiers) {
+                final int rank = modifierPriority.priorityOf(m.text);
+                if (rank >= 0) {
+                    modCells[rank] = m.text;
+                }
+            }
+            for (int c = 0; c < modifierColumns; c++) {
+                if (modifierActive[c]) {
+                    cells.add(modCells[c]);
+                }
+            }
+            cells.add(r.nameCell);
+            if (anyType) {
+                cells.add(r.typeTokens.isEmpty() ? "" : ": " + renderKotlinTokens(r.typeTokens));
+            }
+            if (anyInit) {
+                cells.add(r.initTokens.isEmpty() ? "" : "= " + renderKotlinTokens(r.initTokens));
+            }
+            if (r.trailingComment != null) {
+                cells.add(r.trailingComment.text);
+            }
+            grid.addRow(cells.toArray(new String[0]));
+        }
+
+        final List<String> lines = new ArrayList<>();
+        for (final String[] row : grid.flush()) {
+            lines.add(trimTrailingSpaces(String.join(" ", row)));
+        }
+        return lines;
+    }
+
 }

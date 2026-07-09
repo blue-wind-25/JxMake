@@ -115,6 +115,17 @@ class Widget(
                 it.toInt() // parsed value
         }
 
+        val classified = "123".let {
+            if (it.isEmpty())
+                0
+            else if (it.length > 2)
+                1
+            else if (it.length > 100000)
+                2
+            else
+                it.toInt() // parsed value
+        }
+
         val value = runCatching outer@{
             if /* time check */ (System.currentTimeMillis() < 0)
                 return@outer 42

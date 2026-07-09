@@ -439,19 +439,17 @@ public class BlockStructureRule {
         return prefix + " " + body;
     }
 
-    /** Braceless-body sibling of {@link #isPartOfElseChain}: true iff the statement right after
-     *  the joined one-liner body is {@code else}, or {@code kwIndex} itself is directly preceded
-     *  by {@code else} (an {@code else if} branch) -- same "leave the whole chain alone" posture,
-     *  adapted since a braceless body has no closing `}` to anchor the forward lookup on. */
+    /** Braceless-body sibling of {@link #isPartOfElseChain} -- unlike the braced-body case
+     *  (STYLE_C_CPP.md §10, whole chain forced to stay braced together), a braceless `else if`
+     *  branch has no such all-or-nothing rule: each branch of an {@code if}/{@code else if}/
+     *  {@code else} chain collapses to one line independently, same STYLE.md §10 single-statement
+     *  omission as a standalone {@code if}. {@link KotlinSpecificRule#alignBracelessElseIfChain}
+     *  runs afterward to column-align the whole collapsed chain's bodies. Always {@code false} --
+     *  kept as a named hook (rather than inlined at the one call site) documenting that this was a
+     *  deliberate choice, not an oversight. */
     private boolean isPartOfElseChainBraceless(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int n) {
-        int prev = kwIndex - 1;
-        while (prev >= 0 && (tokens.get(prev).type == TokenType.WHITESPACE
-                || tokens.get(prev).type == TokenType.NEWLINE)) {
-            prev--;
-        }
-        return prev >= 0 && tokens.get(prev).type == TokenType.KEYWORD
-                && "else".equals(tokens.get(prev).text);
+        return false;
     }
 
     /** True if the `if` at {@code kwIndex} is part of an {@code else}/

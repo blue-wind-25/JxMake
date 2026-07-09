@@ -69,7 +69,7 @@ fun sumAll(
 
     for(n in numbers) {
         total += n // Accumulate
-    } // for n
+    }
 
     return total
 }
@@ -91,6 +91,7 @@ class Widget(
         /* Nullable */ x : Int?
     ): String
     {
+
         val label = when(status) {
 
             // Success case
@@ -115,7 +116,7 @@ class Widget(
         this.block()
     }
 
-    fun test(): int
+    fun test(): Int
     {
         val result = "123".let parse@ {
             // Comment before early return
@@ -127,6 +128,13 @@ class Widget(
         val result = "123".let {
             if( it.isEmpty() ) 0
             else               it.toInt() // Parsed value
+        }
+
+        val classified = "123".let {
+            if( it.isEmpty() )          0
+            else if(it.length > 2)      1
+            else if(it.length > 100000) 2
+            else                        it.toInt() // Parsed value
         }
 
         val value = runCatching outer@ {
@@ -146,11 +154,11 @@ class Widget(
             if /* Small value */ (i <= 5) return@forEach
 
             return i
-        } // end forEach
+        }
 
         for(i in 1..10) {
             if(i > 5) return i
-        } // end for
+        }
 
         return -1
     }

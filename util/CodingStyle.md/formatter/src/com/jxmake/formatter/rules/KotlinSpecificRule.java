@@ -1913,59 +1913,107 @@ public class KotlinSpecificRule {
      * need *fewer* than one space of padding (the `if` line is narrower than `else` plus its own
      * body) still gets exactly one space, same floor as every other single-space join in this
      * codebase -- never a negative pad.
+     *
+     * <p>Generalized beyond the original single {@code if}/{@code else} pair to a full
+     * {@code if}/{@code else if}/.../{@code else} chain: every collapsed one-line branch in the
+     * chain (each independently collapsed by {@code BlockStructureRule.collapseSingleExpressionBlocks}
+     * once {@code isPartOfElseChainBraceless} stopped suppressing {@code else if}) pads its body to
+     * the same target column -- the widest of the chain's own {@code if(...)      /
+     * else if(...)} condition widths, never the bare final {@code else}'s (which has no condition
+     * of its own to contribute). A chain here is a maximal run of consecutive, byte-identical-indent
+     * lines starting with {@code if(}, followed by zero or more {@code else if(} lines, optionally
+     * terminated by one bare {@code else} line -- any line breaking that shape (different indent,
+     * a braced body, anything else) ends the run there, same conservative "only touch what
+     * unambiguously matches" posture as the rest of this pass.
      */
-    public String alignBracelessElseWithIf(final List<Token> tokens) {
+    public String alignBracelessElseIfChain(final List<Token> tokens) {
         final String[] lines = joinVerbatim(tokens).split("\n", -1);
-        for (int i = 0; i + 1 < lines.length; i++) {
-            final String ifLine = lines[i];
-            final String elseLine = lines[i + 1];
-            final int indentLen = leadingWhitespaceLength(ifLine);
-            if (indentLen != leadingWhitespaceLength(elseLine)
-                    || !ifLine.regionMatches(indentLen, "if(", 0, 3)) {
+        int i = 0;
+        while (i < lines.length) {
+            final int indentLen = leadingWhitespaceLength(lines[i]);
+            if (!lines[i].regionMatches(indentLen, "if(", 0, 3)) {
+                i++;
                 continue;
             }
-            if (!elseLine.regionMatches(indentLen, "else ", 0, 5)
-                    || elseLine.regionMatches(indentLen, "else if", 0, 7)) {
+            final List<Integer> chain = new ArrayList<>();
+            chain.add(i);
+            int j = i + 1;
+            while (j < lines.length && leadingWhitespaceLength(lines[j]) == indentLen) {
+                if (lines[j].regionMatches(indentLen, "else if(", 0, 8)) {
+                    chain.add(j);
+                    j++;
+                    continue;
+                }
+                if (lines[j].regionMatches(indentLen, "else ", 0, 5)
+                        && !lines[j].regionMatches(indentLen, "else if", 0, 7)) {
+                    chain.add(j);
+                    j++;
+                }
+                break;
+            }
+            if (chain.size() < 2) {
+                i++;
                 continue;
             }
-            final int openParen = indentLen + 2; // right after "if"
-            int depth = 0;
-            int closeParen = -1;
-            for (int c = openParen; c < ifLine.length(); c++) {
-                final char ch = ifLine.charAt(c);
-                if (ch == '(') {
-                    depth++;
-                } else if (ch == ')') {
-                    depth--;
-                    if (depth == 0) {
-                        closeParen = c;
-                        break;
+
+            final int[] prefixEnd = new int[chain.size()];
+            int target = -1;
+            boolean ok = true;
+            for (int k = 0; k < chain.size(); k++) {
+                final String line = lines[chain.get(k)];
+                final boolean isElseIf = line.regionMatches(indentLen, "else if(", 0, 8);
+                final boolean isBareElse = line.regionMatches(indentLen, "else ", 0, 5) && !isElseIf;
+                if (isBareElse) {
+                    prefixEnd[k] = indentLen + "else".length();
+                    continue;
+                }
+                final int openParen = isElseIf ? indentLen + "else if".length() : indentLen + 2;
+                int depth = 0;
+                int closeParen = -1;
+                for (int c = openParen; c < line.length(); c++) {
+                    final char ch = line.charAt(c);
+                    if (ch == '(') {
+                        depth++;
+                    } else if (ch == ')') {
+                        depth--;
+                        if (depth == 0) {
+                            closeParen = c;
+                            break;
+                        }
                     }
                 }
+                if (closeParen < 0 || closeParen + 2 > line.length() || line.charAt(closeParen + 1) != ' ') {
+                    ok = false;
+                    break;
+                }
+                prefixEnd[k] = closeParen + 1;
+                target = Math.max(target, prefixEnd[k] + 1); // +1: desired body column, one past the space
             }
-            if (closeParen < 0 || closeParen + 2 > ifLine.length()
-                    || ifLine.charAt(closeParen + 1) != ' ' || closeParen + 2 == ifLine.length()) {
-                continue; // not a single-line `if(...) <body>` shape
-            }
-            final int ifBodyCol = closeParen + 2;
-            final String elseIndent = elseLine.substring(0, indentLen);
-            String elseBody = elseLine.substring(indentLen + "else".length());
-            int elseBodyStart = 0;
-            while (elseBodyStart < elseBody.length() && elseBody.charAt(elseBodyStart) == ' ') {
-                elseBodyStart++;
-            }
-            elseBody = elseBody.substring(elseBodyStart);
-            if (elseBody.isEmpty()) {
+            if (!ok || target < 0) {
+                i = j;
                 continue;
             }
-            final int elsePrefixLen = indentLen + "else".length();
-            final int spaces = Math.max(1, ifBodyCol - elsePrefixLen);
-            final StringBuilder sb = new StringBuilder(elseIndent).append("else");
-            for (int s = 0; s < spaces; s++) {
-                sb.append(' ');
+
+            for (int k = 0; k < chain.size(); k++) {
+                final int lineIdx = chain.get(k);
+                final String line = lines[lineIdx];
+                final int end = prefixEnd[k];
+                String body = line.substring(end);
+                if (!body.isEmpty() && body.charAt(0) == ' ') {
+                    body = body.substring(1);
+                }
+                if (body.isEmpty()) {
+                    continue;
+                }
+                final int spaces = Math.max(1, target - end);
+                final StringBuilder sb = new StringBuilder(line.substring(0, end));
+                for (int s = 0; s < spaces; s++) {
+                    sb.append(' ');
+                }
+                sb.append(body);
+                lines[lineIdx] = sb.toString();
             }
-            sb.append(elseBody);
-            lines[i + 1] = sb.toString();
+            i = j;
         }
         return String.join("\n", lines);
     }

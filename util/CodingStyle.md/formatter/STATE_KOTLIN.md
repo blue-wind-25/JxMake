@@ -641,6 +641,15 @@ RDD_KEY_131; one-line summary each:
 
 ### Step 5 — Dogfood / Real-Code Testing
 
+**Next Session: pick up here.** Environment prep is done and the baseline
+compiles clean (see below) — next step is to actually run the formatter over
+`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD`'s `.kt` files, check
+idempotency (round1 vs round2), then recompile with
+`./gradlew compileDebugKotlin` (env-sourcing recipe below) and diff against
+the clean baseline to attribute any new failures to the formatter. Do not
+touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the dogfood
+copy.
+
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
       methodology `STATE.md` used for C/C++/Java (clone a real, compiling
       Kotlin project → format → idempotency check round1 vs round2 → compile

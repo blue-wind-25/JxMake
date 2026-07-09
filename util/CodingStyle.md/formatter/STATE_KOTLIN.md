@@ -9,21 +9,6 @@ work has now started, also from a redirect at the top of `STATE.md` itself
 
 ---
 
-## Next Session
-
-§9 one-liner getter/setter grouping (expression-bodied functions) is fixed
-(`KotlinGetterSetterRule`, RDD_KEY_132). §8 `get()`/`set()` property-accessor
-one-liner grouping is now also fixed, scoped to the plain expression-bodied
-getter-only shape (`val x: Int` / `get() = 1`, no initializer, no `set(...)`)
-— RDD_KEY_133, see Resolved Design Decisions and the Step 3 checklist.
-**Remaining documented gap, if picked up:** block-bodied accessors
-(`get() { ... }`/`set(v) { ... }`), a property with both a getter and a
-setter, and a property with both an initializer and a custom accessor are
-all still left "preserved as written, not grouped" — same kind of scoping
-narrowing the §9 session took for block-bodied functions. Otherwise, Step 5
-(Dogfood / Real-Code Testing against RobotCoding `gui_frontend_android`, see
-that section's own setup instructions) is the next unstarted checklist item.
-
 ## Purpose
 
 Tracks implementation of Kotlin support in the deterministic JAR formatter
@@ -668,6 +653,19 @@ RDD_KEY_131; one-line summary each:
       written here — that project lives outside the `JxMake` tree entirely,
       under `~/Projects/RobotCoding/`, a sibling of `~/Projects/JxMake/`) -
       NOT STARTED
+
+      **Preparation done (this session), formatting pass itself still NOT
+      STARTED:** dogfood environment is now set up —
+      `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` created as a `cp -r`
+      of the original `~/Projects/RobotCoding/gui_frontend_android` (original
+      untouched), one-time `gradle.properties` edit
+      (`project.buildDir=build`) applied, Gradle 8.9/JDK 21 env sourced per
+      the recipe above, and `./gradlew compileDebugKotlin` run against the
+      copy's current (unformatted) source as a baseline. **Baseline compile
+      is clean**: `BUILD SUCCESSFUL`, only two pre-existing deprecation
+      warnings (`WifiStaDialog.kt:170`/`177`, unrelated `NsdManager` API
+      usage), zero errors. This confirms a future format-then-compile pass
+      can attribute any new compile failure to the formatter itself.
 
 **Standalone `K2JVMCompiler` classpath — rejected, do not use.** The recipe
 that used to live here (a bare `kotlin-compiler-embeddable` +

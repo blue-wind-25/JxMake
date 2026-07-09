@@ -152,7 +152,8 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
 | RDD_KEY_106 | Kotlin generic `where` clause line-breaking and bound alignment — §14; new `KotlinSpecificRule.enforceWhereClausePlacement`, structurally mirrors `CppSpecificRule.enforceRequiresClausePlacement` (per-language file precedent, not a shared-class extension); new `KotlinSpecificRule(Lang, int, int)` indent-width-aware constructor |
 | RDD_KEY_107 | Kotlin destructuring declarations — §12; new `DestructuringDecl`/`groupDestructuringDeclarations`/`parseDestructuringDeclaration`/`renderDestructuringGroup` in `KotlinDeclarationAlignmentRule.java` (not a new file — reuses that class's existing §6/RDD_KEY_103 infrastructure); single pre-rendered `lhsText` cell, no per-component type grid, since §12 has no type annotations to anchor one; **originally its own group stream, never merged with §6's — REVISED under RDD_KEY_126, see below, per user request** |
 | RDD_KEY_126 | **REVISES RDD_KEY_107.** Merges §12 destructuring-declaration alignment into the same column-aligned group stream as an adjacent plain §6 `val`/`var` declaration, per user request citing this codebase's own C++ structured-bindings precedent; new merged `Row`/`groupAlignableDeclarations`/`renderAlignedGroup`/`toRow` in `KotlinDeclarationAlignmentRule.java` (old `groupPropertyDeclarations`/`groupDestructuringDeclarations`/`renderPropertyGroup`/`renderDestructuringGroup` kept, `@deprecated`, still used internally for parsing); `ScopePipeline.applyKotlinDeclarationsPass` simplified to one merged loop |
-| RDD_KEY_127 | Bare Kotlin `else\n    stmt` (no condition of its own) never collapsed to one line — distinct gap from RDD_KEY_124 (keyed off `if`/`while`/`for`'s own `(...)` condition, never a standalone `else`); new shared `collapseBracelessBody` helper extracted from `tryCollapseBraceless`, plus a dedicated `else`-keyword branch in `collapseSingleExpressionBlocks`'s main loop; collapse-to-one-line half fixed, column-padding-to-align-with-preceding-`if`-branch half left as an open question (no style-doc precedent, one fixture occurrence insufficient evidence) |
+| RDD_KEY_127 | Bare Kotlin `else\n    stmt` (no condition of its own) never collapsed to one line — distinct gap from RDD_KEY_124 (keyed off `if`/`while`/`for`'s own `(...)` condition, never a standalone `else`); new shared `collapseBracelessBody` helper extracted from `tryCollapseBraceless`, plus a dedicated `else`-keyword branch in `collapseSingleExpressionBlocks`'s main loop; collapse-to-one-line half fixed, column-padding-to-align-with-preceding-`if`-branch half left as an open question **(now resolved — see RDD_KEY_128)** |
+| RDD_KEY_128 | **RESOLVES RDD_KEY_127's open column-padding question**, user-confirmed via the now-enabled `kt_combined_inp.kt` fixture: a collapsed single-line `else` body pads with spaces to start at the same column as its preceding single-line `if(...)` branch's own body; new standalone, last-running `KotlinSpecificRule.alignBracelessElseWithIf` (line-based, on fully-formatted text) rather than computed at collapse time — an earlier collapse-time attempt was root-caused stale by one column since `MiscRule.enforceComplexityPadding`'s `if (`→`if(` tightening still runs after the collapse pass |
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
@@ -257,23 +258,24 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' STATE_rdd_log.md`
   fixed, `AI_PREAMBLE_AESTHETIC.md`'s Rule 2 ("JAR aligns standard-prefix
   getter/setter groups automatically") is **not true for Kotlin** — flagged
   there with a caveat rather than silently relying on it.
-- **Bare `else` single-statement collapse — RESOLVED for the collapse half,
-  still open for the column-padding half (RDD_KEY_127).** `kt_combined_out.kt`
-  shows a bare `else` (no condition of its own, following an `if(...)  0`-
-  shaped one-liner) collapsed onto one line and column-padded to align with
-  the `if` branch above it: `else               it.toInt()`. RDD_KEY_124's
-  fix only handled `if`/`while`/`for` (each keyed off its own `(...)`
-  condition) — `collapseSingleExpressionBlocks`'s loop never triggered on a
-  standalone `else` keyword at all. **RDD_KEY_127 fixes the collapse-to-
-  one-line half** (new shared `collapseBracelessBody` helper + a dedicated
-  `else`-keyword branch in the main loop) — `else it.toInt()` now correctly
-  renders on one line. The **column-padding half remains open**: no
-  STYLE_KOTLIN.md/STYLE_KOTLIN2.md worked example covers this specific
-  if/else single-expression-body column-alignment shape (the only "else"-
-  alignment example in either doc is `when`-expression arrow alignment, a
-  different construct), and one fixture occurrence is not enough evidence to
-  safely derive a general trigger condition without guessing — left flagged
-  rather than implemented.
+- **Bare `else` single-statement collapse — fully RESOLVED (RDD_KEY_127 +
+  RDD_KEY_128).** `kt_combined_out.kt` shows a bare `else` (no condition of
+  its own, following an `if(...)  0`-shaped one-liner) collapsed onto one
+  line and column-padded to align with the `if` branch above it:
+  `else               it.toInt()`. RDD_KEY_124's fix only handled
+  `if`/`while`/`for` (each keyed off its own `(...)` condition) —
+  `collapseSingleExpressionBlocks`'s loop never triggered on a standalone
+  `else` keyword at all. RDD_KEY_127 fixed the collapse-to-one-line half
+  (new shared `collapseBracelessBody` helper + a dedicated `else`-keyword
+  branch in the main loop). RDD_KEY_128 (this session, user-confirmed via
+  the fixture once enabled in the `Makefile`) fixed the remaining column-
+  padding half: a new standalone `KotlinSpecificRule.alignBracelessElseWithIf`
+  pass, deliberately run *last* in the pipeline (after every paren-
+  tightening/spacing pass has settled the `if` line's final rendered width)
+  rather than folded into the early collapse pass — an earlier attempt at
+  computing the padding at collapse time was root-caused to be stale by one
+  column because `MiscRule.enforceComplexityPadding` still tightens `if (`
+  to `if(` in a pass that runs *after* the collapse. No longer open.
 
 ---
 
@@ -767,7 +769,10 @@ against scratch `.kt` fixtures with a `.jxmake-code-formatter` config file,
 
 ### Step 4 — Test Fixtures
 
-**IN PROGRESS**
+**IN PROGRESS — `kt_combined_inp.kt`/`kt_combined_out.kt` fully DONE; only
+`kt_comments_inp.kt`/`kt_comments_out.kt` remains (deliberately still
+disabled in the `Makefile`, has its own separate open bugs, out of scope for
+now — see checklist below).**
 
 **The test fixtures are handwritten and may have syntax error.
 Confirm with the user as needed.***
@@ -788,11 +793,29 @@ Use the result to fix the formatter.
 
 Also perform idempotency test.
 
-- [ ] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — **in progress, see
-      punch list below.**
-- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt`
-- [ ] After every fixture addition or shared-class change: full existing
-      C/C++/Java suite + new Kotlin fixtures, zero regressions.
+- [x] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — **DONE.** Enabled in
+      the `Makefile`'s `INP_FILES` (no longer commented out); round-trips
+      clean, both the forward (`inp`→`out`) and idempotency (`out`→`out`)
+      passes. Every punch-list item below is resolved except item 2
+      (`result1`/`result2` fixture naming, resolved by the user directly in
+      the fixture, not a formatter change) and item 4 (trailing whitespace on
+      the EOF blank line, already correctly flagged as intentional test
+      content, not a bug).
+- [ ] `test/kt_comments_inp.kt` / `kt_comments_inp.kt` — **still commented out
+      in the `Makefile`, deliberately out of scope for this pass.** A quick
+      manual `diff` check (not a fix attempt) shows it still has multiple
+      open, unrelated bugs — mostly comment-placement/preservation issues
+      (a trailing same-line comment on an enum constant not preserved, a
+      standalone comment before a member dropped, several `// end for`/
+      `// end forEach`-style trailing comments not preserved, a `/* Nullable
+      */ x : Int?` inline-comment spacing difference, a multi-line
+      destructuring declaration with per-component trailing comments not
+      handled, and others) — none of these were investigated or fixed here;
+      this fixture needs its own dedicated pass before it can be enabled.
+- [x] After every fixture addition or shared-class change: full existing
+      C/C++/Java suite + new Kotlin fixtures, zero regressions. **`make test`
+      35/35** (34 prior C/C++/Java + real_code_regressions fixtures, plus
+      `kt_combined_inp.kt`, forward and idempotency passes both green).
 
 **Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
 `kt_combined_out.kt`; re-verify each against a fresh `diff`, this list is a
@@ -889,17 +912,21 @@ working map, not a spec):
    *input*. New `tryCollapseBraceless`/`isPartOfElseChainBraceless` helpers,
    Kotlin-gated. **Explicitly out of scope at the time:** a bare `else\n    stmt`
    (no condition of its own) was not collapsed by this fix.
-   **Partially fixed — RDD_KEY_127:** the bare `else\n    stmt` collapse-to-
-   one-line half is now handled (new shared `collapseBracelessBody` helper,
-   extracted from `tryCollapseBraceless`, plus a new `else`-keyword branch in
-   `collapseSingleExpressionBlocks`'s main loop). The remaining half —
-   column-padding the collapsed `else`'s body to align with the preceding
-   `if` branch's own collapsed body (`kt_combined_out.kt`'s
-   `else               it.toInt()`) — is still **not fixed, still flagged as
-   an open question** (see Open Questions below): no STYLE_KOTLIN.md/
-   STYLE_KOTLIN2.md worked example covers this if/else column-alignment
-   shape, and one fixture occurrence is not enough evidence to safely derive
-   a general trigger condition without guessing.
+   **Fixed — RDD_KEY_127 (collapse-to-one-line half) + RDD_KEY_128
+   (column-padding half).** RDD_KEY_127: the bare `else\n    stmt` collapse-
+   to-one-line half (new shared `collapseBracelessBody` helper, extracted
+   from `tryCollapseBraceless`, plus a new `else`-keyword branch in
+   `collapseSingleExpressionBlocks`'s main loop). RDD_KEY_128 (this session,
+   user-confirmed via the now-enabled `kt_combined_inp.kt`/`kt_combined_out.kt`
+   fixture): the remaining column-padding half — the collapsed `else`'s body
+   is now padded to align with the preceding `if` branch's own collapsed
+   body (`kt_combined_out.kt`'s `else               it.toInt()`) — via a new,
+   standalone, last-running `KotlinSpecificRule.alignBracelessElseWithIf`
+   pass (line-based, operating on fully-formatted text, deliberately *not*
+   folded into `collapseSingleExpressionBlocks` — see RDD_KEY_128's own log
+   entry for why an earlier attempt at computing the padding at collapse
+   time was stale). No longer an open question; removed from Open Questions
+   below.
 9. [x] **Newly surfaced while re-verifying the full fixture diff (not part of
    the original 4-item punch list):** Kotlin functions with an explicit
    return type (`fun foo(...): Int { ... }`) never got STYLE.md §9's

@@ -1771,4 +1771,104 @@ public class KotlinSpecificRule {
         }
         return out.toString();
     }
+
+    /**
+     * RDD_KEY_128: `kt_combined_out.kt` (user-verified, not guessed) wants a collapsed
+     * single-line `else` body (RDD_KEY_127) padded with spaces so it starts at the same column as
+     * its immediately preceding single-line {@code if(...) body} branch's own body -- e.g.
+     * {@code if( it.isEmpty() ) 0} / {@code else               it.toInt()}, both bodies starting
+     * at the same column.
+     *
+     * <p>Deliberately implemented as its own final, line-based, text-level pass -- not folded into
+     * {@code BlockStructureRule.collapseSingleExpressionBlocks} (which produces the one-line
+     * {@code else} body in the first place, RDD_KEY_127) -- because at collapse time the `if`
+     * branch's own rendered width is not yet final: STYLE.md §3.1's complexity-padding tightening
+     * (`enforceComplexityPadding`, e.g. turning a condition's `if (` into tight `if(`) still runs
+     * *after* the collapse pass in {@code Formatter.formatOne}'s pipeline, more than once. An
+     * initial attempt computed the target column at collapse time from the `if` line's
+     * then-current rendered width and threaded it through to the `else` line's render -- root-
+     * caused via debug prints to be stale by exactly one column in this fixture: the second
+     * `if (it.isEmpty())` occurrence in `kt_combined_inp.kt` had not yet been tightened to
+     * `if(...)` at collapse time, so the snapshotted width was one character too wide, and the
+     * resulting padding one space too many. Waiting until every earlier pass has settled the
+     * `if` line's final text -- this method runs last, after Phase 4 -- avoids that staleness
+     * entirely; column widths are simply counted from the final rendered characters.
+     *
+     * <p>Only fires on an exact `<indent>if(...) <body>` line immediately followed by an
+     * `<indent>else <body>` line with byte-identical indentation -- the `if` condition's matching
+     * close paren is found via local depth counting (handles a nested call in the condition, e.g.
+     * `if( System.currentTimeMillis() < 0 )`), and the pairing is trusted by construction: Kotlin's
+     * grammar only ever places a bare `else` directly after its own `if`'s body, so any two
+     * adjacent lines matching this exact shape are definitionally one `if`/`else` pair, never an
+     * unrelated coincidence. Skips (leaves untouched) `else if` (a different, non-terminal branch)
+     * and a braced `else {` (unrelated, pre-existing gap -- braced `else` bodies are never touched
+     * by this pass or by RDD_KEY_127/124's collapse, out of scope here too). A body that would
+     * need *fewer* than one space of padding (the `if` line is narrower than `else` plus its own
+     * body) still gets exactly one space, same floor as every other single-space join in this
+     * codebase -- never a negative pad.
+     */
+    public String alignBracelessElseWithIf(final List<Token> tokens) {
+        final String[] lines = joinVerbatim(tokens).split("\n", -1);
+        for (int i = 0; i + 1 < lines.length; i++) {
+            final String ifLine = lines[i];
+            final String elseLine = lines[i + 1];
+            final int indentLen = leadingWhitespaceLength(ifLine);
+            if (indentLen != leadingWhitespaceLength(elseLine)
+                    || !ifLine.regionMatches(indentLen, "if(", 0, 3)) {
+                continue;
+            }
+            if (!elseLine.regionMatches(indentLen, "else ", 0, 5)
+                    || elseLine.regionMatches(indentLen, "else if", 0, 7)) {
+                continue;
+            }
+            final int openParen = indentLen + 2; // right after "if"
+            int depth = 0;
+            int closeParen = -1;
+            for (int c = openParen; c < ifLine.length(); c++) {
+                final char ch = ifLine.charAt(c);
+                if (ch == '(') {
+                    depth++;
+                } else if (ch == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        closeParen = c;
+                        break;
+                    }
+                }
+            }
+            if (closeParen < 0 || closeParen + 2 > ifLine.length()
+                    || ifLine.charAt(closeParen + 1) != ' ' || closeParen + 2 == ifLine.length()) {
+                continue; // not a single-line `if(...) <body>` shape
+            }
+            final int ifBodyCol = closeParen + 2;
+            final String elseIndent = elseLine.substring(0, indentLen);
+            String elseBody = elseLine.substring(indentLen + "else".length());
+            int elseBodyStart = 0;
+            while (elseBodyStart < elseBody.length() && elseBody.charAt(elseBodyStart) == ' ') {
+                elseBodyStart++;
+            }
+            elseBody = elseBody.substring(elseBodyStart);
+            if (elseBody.isEmpty()) {
+                continue;
+            }
+            final int elsePrefixLen = indentLen + "else".length();
+            final int spaces = Math.max(1, ifBodyCol - elsePrefixLen);
+            final StringBuilder sb = new StringBuilder(elseIndent).append("else");
+            for (int s = 0; s < spaces; s++) {
+                sb.append(' ');
+            }
+            sb.append(elseBody);
+            lines[i + 1] = sb.toString();
+        }
+        return String.join("\n", lines);
+    }
+
+    /** Length of the whitespace run (spaces/tabs only) at the start of {@code line}. */
+    private int leadingWhitespaceLength(final String line) {
+        int n = 0;
+        while (n < line.length() && (line.charAt(n) == ' ' || line.charAt(n) == '\t')) {
+            n++;
+        }
+        return n;
+    }
 }

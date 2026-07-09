@@ -40,6 +40,14 @@ DATASET = [
 LEARNING_RATE = 0.5
 EPOCHS = 5000
 
+# L2 regularization strength. Without this, gradient descent on (near-)separable data never
+# converges -- weights just keep growing every epoch to push predictions closer to 0/1 confidence,
+# so the raw magnitude is an arbitrary function of EPOCHS rather than a meaningful number. The
+# penalty term caps that growth at a finite optimum, at the cost of some prediction confidence.
+# Bias is deliberately excluded from the penalty (standard practice -- regularizing bias just
+# shifts the decision boundary off zero for no benefit).
+L2_LAMBDA = 0.1
+
 
 def sigmoid(z):
     return 1.0 / (1.0 + math.exp(-z))
@@ -57,6 +65,9 @@ def train():
             err = pred - label
             for i in range(4):
                 grad[i] += err * x[i]
+        # L2 penalty gradient is lambda * w for each regularized weight (skip index 0, the bias).
+        for i in range(1, 4):
+            grad[i] += L2_LAMBDA * w[i]
         w = [wi - LEARNING_RATE * gi / n for wi, gi in zip(w, grad)]
     return w
 
@@ -64,11 +75,11 @@ def train():
 def report(w):
     bias, w_paren, w_semi, w_urlnum = w
     print("Trained keyword-ambiguity weights (logistic regression, %d epochs, lr=%.2f):" % (EPOCHS, LEARNING_RATE))
-    print("  KEYWORD_BIAS                 = %.4f" % bias)
-    print("  KEYWORD_WEIGHT_PAREN          = %.4f" % w_paren)
-    print("  KEYWORD_WEIGHT_SEMICOLON      = %.4f" % w_semi)
-    print("  KEYWORD_WEIGHT_URL_OR_NUMBER  = %.4f" % w_urlnum)
-    print("  KEYWORD_THRESHOLD             = 0.0000  (sigmoid decision boundary)")
+    print("    KEYWORD_BIAS                 = %.5f" % bias)
+    print("    KEYWORD_WEIGHT_PAREN         = %.5f" % w_paren)
+    print("    KEYWORD_WEIGHT_SEMICOLON     = %.5f" % w_semi)
+    print("    KEYWORD_WEIGHT_URL_OR_NUMBER = %.5f" % w_urlnum)
+    print("    KEYWORD_THRESHOLD            =  0.00000 (sigmoid decision boundary)")
     print()
     print("Per-example check (score = w.x + bias, predicted YES iff score > 0):")
     mistakes = 0
@@ -77,10 +88,10 @@ def report(w):
         predicted = 1 if score > 0 else 0
         expected = "YES" if label else "NO"
         got = "YES" if predicted else "NO"
-        flag = "" if predicted == label else "  <-- MISMATCH"
+        flag = "" if predicted == label else " <-- MISMATCH"
         if predicted != label:
             mistakes += 1
-        print("  %-6s #%-2d score=%+.3f expected=%-3s predicted=%-3s%s" % (source, idx, score, expected, got, flag))
+        print("  %-6s #%-2d score=%+9.5f expected=%-3s predicted=%-3s%s" % (source, idx, score, expected, got, flag))
     print()
     print("%d/%d examples classified as expected (%d mismatch(es))." % (len(DATASET) - mistakes, len(DATASET), mistakes))
     print()

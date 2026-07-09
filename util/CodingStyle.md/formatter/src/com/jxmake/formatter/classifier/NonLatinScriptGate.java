@@ -15,10 +15,18 @@ public final class NonLatinScriptGate {
     private NonLatinScriptGate() {
     }
 
-    // TODO(comment-grammar): implement per RDD_KEY_95 / STATE_COMMENT_GRAMMAR.md "Mechanical"
-    // scope. Returns true iff any codepoint in commentText falls outside Latin script, meaning
-    // the caller must treat the comment as ABSTAIN-equivalent without ever reaching scoring.
     public static boolean containsNonLatinScript(final String commentText) {
-        throw new UnsupportedOperationException("NonLatinScriptGate not yet implemented");
+        int i = 0;
+        while (i < commentText.length()) {
+            final int codepoint = commentText.codePointAt(i);
+            i += Character.charCount(codepoint);
+            final Character.UnicodeScript script = Character.UnicodeScript.of(codepoint);
+            if (script != Character.UnicodeScript.LATIN
+                    && script != Character.UnicodeScript.COMMON
+                    && script != Character.UnicodeScript.INHERITED) {
+                return true;
+            }
+        }
+        return false;
     }
 }

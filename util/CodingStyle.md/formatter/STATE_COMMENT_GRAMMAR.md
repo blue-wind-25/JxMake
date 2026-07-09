@@ -154,8 +154,21 @@ Suggested order:
   - `CommentClassifierWeights` — `BIAS`/`THRESHOLD` constants, currently `0.0` placeholders per
     RDD_KEY_97/98; real values are a later step, not part of this scaffolding.
   - `CommentClassifier` — stub entry point (`classify(CommentFeatureVector) -> CommentDecision`).
-- [ ] Step 1: implement `CommentFeatureExtractor`, `NonLatinScriptGate`,
+- [~] Step 1: implement `CommentFeatureExtractor`, `NonLatinScriptGate`,
       `KeywordAmbiguityGate` for real, as pure functions, unit-testable with zero weights.
+  - [x] `NonLatinScriptGate.containsNonLatinScript` — per-codepoint `Character.UnicodeScript`
+        check, excluding LATIN/COMMON/INHERITED (so digits, punctuation, and emoji don't
+        false-trigger). Smoke-tested (ASCII, accented Latin, Cyrillic, emoji, empty string) in
+        `/tmp`; `make test` 70/70 PASS unchanged.
+  - [x] `KeywordAmbiguityGate.hasLeadingKeywordMatch` (stage 1) — own per-language keyword sets
+        (C/C++/Java mirror `MiscRule`'s `COMMENT_NO_CAPITALIZE_*` per RDD_KEY_96's "no shared
+        list" requirement; added a Kotlin set, previously absent from any comment-normalization
+        keyword list). Leading-word extraction mirrors `MiscRule.capitalizeFirstLetter`'s. Smoke
+        tested per-language incl. Kotlin and empty-string; `make test` 70/70 PASS unchanged.
+  - [ ] `KeywordAmbiguityGate.resolveAmbiguousKeyword` (stage 2) — blocked on
+        `CommentFeatureVector`'s fields existing (needs previous/next word etc.), so deferred
+        until `CommentFeatureVector` + `CommentFeatureExtractor` are implemented.
+  - [ ] `CommentFeatureVector` fields + `CommentFeatureExtractor.extract`.
 - [ ] Step 2: wire `comment-normalization-classifier` config key into `Config.java` and
       `MiscRule`'s two funnel points (`capitalizeFirstLetter`, `stripSoleTrailingPeriod` /
       `stripSoleTrailingPeriodAcrossLines`), `off` by default.

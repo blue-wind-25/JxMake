@@ -156,11 +156,12 @@ indent-style                 = spaces          # spaces | tabs | auto
 server-port                  = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                 = lf              # lf | crlf | preserve
-normalize-comment-start-case = on              # on | off
-normalize-comment-end-period = on              # on | off
-closing-comment-min-lines    = 5
-format-macros                = off             # off | on
+line-endings                     = lf              # lf | crlf | preserve
+normalize-comment-start-case     = on              # on | off
+normalize-comment-end-period     = on              # on | off
+comment-normalization-classifier = off             # off | on
+closing-comment-min-lines        = 5
+format-macros                    = off             # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename          = off             # off | on (warn only by default)

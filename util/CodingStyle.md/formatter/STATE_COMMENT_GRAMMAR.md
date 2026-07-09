@@ -205,7 +205,9 @@ Suggested order:
     70/70 PASS, unchanged (default is `off`).
 - [ ] Step 3: generate real weights (RDD_KEY_97) and threshold (RDD_KEY_98) — blocked until
       then, do not implement early per "Scope split" above.
-- [ ] Step 4: README.md config entry.
+- [x] Step 4: README.md config entry added (`### Config file format`'s `# ── Behavior ──` block),
+      `off | on`, default `off` -- realigned that block's `=` column to fit the new key's longer
+      name.
 
 Do not attempt to expand this to non-Latin-script grammar support (e.g. a German- or
 Japanese-aware classifier) — that was explicitly scoped out (RDD_KEY_95) as a separate,

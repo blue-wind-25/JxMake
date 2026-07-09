@@ -1732,7 +1732,16 @@ public class BlockStructureRule {
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < n; i++) {
             final Token t = tokens.get(i);
-            if (collapse[i] && t.type == TokenType.WHITESPACE) {
+            // A header spanning multiple physical lines (e.g. a Kotlin primary constructor's
+            // parameter list broken one-per-line before the class body `{`) has its own
+            // per-line leading indentation as WHITESPACE tokens too -- collapsing those down to
+            // a single space along with genuine mid-line multi-space runs would destroy that
+            // indentation entirely (found via a Kotlin `class Widget(\n val name: String,\n ...)
+            // {` fixture, where every param line lost its real indent down to one column). Only
+            // collapse a WHITESPACE run that sits on the same line as what precedes it -- i.e.
+            // not immediately preceded by a NEWLINE (or the very start of the token stream).
+            final boolean isLineIndent = i == 0 || tokens.get(i - 1).type == TokenType.NEWLINE;
+            if (collapse[i] && t.type == TokenType.WHITESPACE && !isLineIndent) {
                 out.append(' ');
             } else {
                 out.append(t.text);

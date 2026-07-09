@@ -91,10 +91,25 @@ public final class KeywordAmbiguityGate {
         return commentText.substring(i, end);
     }
 
-    // TODO(comment-grammar): stage 2 -- contextual scoring, only invoked when stage 1 returns
-    // true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static" as an
-    // English adjective vs. the language keyword).
+    /** Stage 2 -- contextual scoring, only invoked when stage 1 ({@link #hasLeadingKeywordMatch})
+     *  returns true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static"
+     *  as an English adjective vs. the language keyword). Weights and derivation: see
+     *  {@code cwg/weights.md}. Returns {@code true} only when the comment reads as ordinary
+     *  prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code containsSemicolon},
+     *  or {@code containsUrlOrFilenameOrNumber} is enough on its own to push the score below
+     *  threshold, per that file's "asymmetric risk" rationale -- a false skip is zero-cost, a
+     *  false positive is a visible bug. */
     public static boolean resolveAmbiguousKeyword(final CommentFeatureVector features) {
-        throw new UnsupportedOperationException("KeywordAmbiguityGate stage 2 not yet implemented");
+        double score = CommentClassifierWeights.KEYWORD_BIAS;
+        if (features.nextCharIsOpenParen) {
+            score += CommentClassifierWeights.KEYWORD_WEIGHT_PAREN;
+        }
+        if (features.containsSemicolon) {
+            score += CommentClassifierWeights.KEYWORD_WEIGHT_SEMICOLON;
+        }
+        if (features.containsUrlOrFilenameOrNumber) {
+            score += CommentClassifierWeights.KEYWORD_WEIGHT_URL_OR_NUMBER;
+        }
+        return score > CommentClassifierWeights.KEYWORD_THRESHOLD;
     }
 }

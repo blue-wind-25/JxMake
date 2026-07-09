@@ -165,11 +165,13 @@ Suggested order:
         list" requirement; added a Kotlin set, previously absent from any comment-normalization
         keyword list). Leading-word extraction mirrors `MiscRule.capitalizeFirstLetter`'s. Smoke
         tested per-language incl. Kotlin and empty-string; `make test` 70/70 PASS unchanged.
-  - [ ] `KeywordAmbiguityGate.resolveAmbiguousKeyword` (stage 2) — `CommentFeatureVector` no
-        longer blocks this (see below, now implemented), but real contextual scoring needs
-        actual weights, which is blocked on RDD_KEY_97/98 per "Scope split" above. Do not
-        implement with invented/placeholder per-feature weights; leave as the stub until real
-        weight generation happens.
+  - [x] `KeywordAmbiguityGate.resolveAmbiguousKeyword` (stage 2) — implemented with real weights
+        from `cwg/weights.md` (paren/semicolon/url-or-number each independently force ABSTAIN;
+        no-signal case is YES). `CommentClassifier.classify` now calls it instead of hard-coding
+        ABSTAIN on `hasLeadingKeywordMatch`. Verified against all 40 labeled examples across
+        `cwg/examples_{c,cpp,java,kotlin}.md` (see that file's verification table) plus an 11-case
+        `/tmp` smoke test spanning all four languages. `make test` 70/70 PASS unchanged (default
+        `off`).
   - [x] `CommentFeatureVector` fields (`targetWord`/`previousWord`/`nextWord`,
         `nextCharIsOpenParen`, `containsSemicolon`, `containsUrlOrFilenameOrNumber`,
         `commentType`, `hasNonLatinScript`, `hasLeadingKeywordMatch`) +
@@ -203,8 +205,15 @@ Suggested order:
   - Verified end-to-end in `/tmp`: `off` still capitalizes/strips periods exactly as before;
     `on` leaves both alone (classifier ABSTAINs on placeholder weights, no crash). `make test`
     70/70 PASS, unchanged (default is `off`).
-- [ ] Step 3: generate real weights (RDD_KEY_97) and threshold (RDD_KEY_98) — blocked until
-      then, do not implement early per "Scope split" above.
+- [x] Step 3: generated real weights (RDD_KEY_97) and threshold (RDD_KEY_98). Labeled example
+      sets (40 examples, 10 per language) added under `cwg/` (`examples_c.md`, `examples_cpp.md`,
+      `examples_java.md`, `examples_kotlin.md`), derivation and per-example verification in
+      `cwg/weights.md`. `CommentClassifierWeights` now holds real `BIAS`/`THRESHOLD` (main path,
+      always YES once both gates clear — restores pre-classifier behavior) and
+      `KEYWORD_BIAS`/`KEYWORD_WEIGHT_PAREN`/`KEYWORD_WEIGHT_SEMICOLON`/
+      `KEYWORD_WEIGHT_URL_OR_NUMBER`/`KEYWORD_THRESHOLD` (stage-2 keyword-ambiguity path). No
+      false positive against any of the 40 labeled examples; one accepted false-skip
+      (`cwg/examples_c.md` #6) traded for precision per the 99%-target asymmetric-risk rationale.
 - [x] Step 4: README.md config entry added (`### Config file format`'s `# ── Behavior ──` block),
       `off | on`, default `off` -- realigned that block's `=` column to fit the new key's longer
       name.

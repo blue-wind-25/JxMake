@@ -100,19 +100,3 @@ for a standard group (STYLE.md §14). Do not rename the methods — alignment on
 If the non-standard names are inconsistent within the group (e.g. `fetchX` alongside
 `getY`), flag the inconsistency in a comment at the end of the file rather than
 silently aligning a mixed group.
-
-### Unresolved — `else` / `else if` closing comments
-
-Never add a closing comment after an `else` or `else if` block.
-
-### Unresolved — `type* const` in a mixed declaration group
-
-Treat `* const` as a two-token suffix of the base type. Pad all types in the group to
-match the widest (including `* const`), then align names normally:
-
-```c
-uint8_t        value;
-uint8_t*       ptr;
-uint8_t* const cptr;
-uint16_t       count;
-```

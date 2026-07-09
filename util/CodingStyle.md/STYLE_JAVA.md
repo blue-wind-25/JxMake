@@ -168,6 +168,6 @@ responsibility of the IDE or a separate lint tool.
 
 ---
 
-## 8. Unresolved / Preserve-As-Is Cases
+## 8. Preserve-As-Is Cases
 
 - `else`/`else if` closing comments: never add them — see STYLE.md §7.

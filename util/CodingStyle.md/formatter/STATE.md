@@ -838,3 +838,23 @@ polls until ready before the timer starts, excluding startup/lockfile-race time.
 under "Known Gaps — Fixed" (`* const` column gap, `typedef` grouping, function-pointer
 declarations). `make test` 17/17 PASS. This was the final F sweep after Task A landed; each
 of A/B/C/D/E's own fixtures were added as each task landed, not batched here.
+
+### G — Verify `AI_PREAMBLE_FULL.md`'s `### Edge Case` sections against actual JAR behavior (DONE)
+Both of `../AI_PREAMBLE_FULL.md`'s `### Edge Case` sections (renamed from `### Unresolved`)
+turned out to already be enforced by the JAR, not genuine gaps requiring manual AI
+judgment — confirmed with real `--standalone` runs, not static analysis, per the "prefer
+evidence over reasoning" rule above:
+1. **`else`/`else if` closing comments** — `BlockStructureRule.classifyBrace` returns
+   `Frame.excluded(braceIdx)` for both the `else`/`if` brace immediately after an `else`
+   keyword and a bare `else` brace, so neither ever reaches the closing-comment-adding path
+   (only `IF`/`FOR`/`WHILE`/`SWITCH` frame kinds do). Verified on a fresh
+   `if`/`else if`/`else` fixture (6-line bodies each, over `closing-comment-min-lines`): only
+   the leading `if`'s `}` got `// if`; both `else if`'s and `else`'s `}` got no comment.
+2. **`type* const` in a mixed declaration group** — `DeclarationAlignmentRule.splitCppType`
+   renders the whole type including any trailing `* const` as a single cell, so the existing
+   widest-cell-pads-all column logic already pads `uint8_t* const cptr;` in a group with
+   `uint8_t value;`/`uint8_t* ptr;`/`uint16_t count;` exactly as `AI_PREAMBLE_FULL.md`'s own
+   worked example shows. Verified byte-for-byte against that example via `--standalone`.
+
+Both sections removed from `AI_PREAMBLE_FULL.md` as redundant with already-COMPLETE JAR
+behavior — nothing left there for an AI reader to act on manually.

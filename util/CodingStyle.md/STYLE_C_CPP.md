@@ -168,7 +168,7 @@ uint16_t       count;
 The `* const` tokens stay together as a unit — they are never split across the
 type and modifier columns.
 
-## 9. Unresolved / Preserve-As-Is Cases
+## 9. Preserve-As-Is Cases
 
 - `else`/`else if` closing comments: never add them — see STYLE.md §7.
 

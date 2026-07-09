@@ -369,10 +369,23 @@ public class BlockStructureRule {
         }
         int depth = 0;
         boolean sawContent = false;
+        boolean sawTrailingComment = false;
         int bodyEnd = -1;
         for (int k = bodyStart; k < n; k++) {
             final Token t = tokens.get(k);
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                // A comment embedded before the rest of the body's own content would need to move
+                // out of place to render inline -- bail, same conservative posture as everywhere
+                // else in this class. But a genuine *trailing* same-line comment on the single
+                // statement (nothing but the comment itself between it and the body's terminating
+                // newline/`}`) is safe to carry along verbatim onto the collapsed line.
+                if (!sawContent) {
+                    return null;
+                }
+                sawTrailingComment = true;
+                continue;
+            }
+            if (sawTrailingComment && t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
                 return null;
             }
             if (t.type == TokenType.PUNCT) {

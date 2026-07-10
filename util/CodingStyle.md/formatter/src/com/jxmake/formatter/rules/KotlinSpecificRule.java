@@ -1509,14 +1509,66 @@ public class KotlinSpecificRule {
     }
 
     /** True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
-     *  inclusive -- the whole `{ ... }` body sits on one physical line, always left K&amp;R. */
+     *  inclusive -- the whole `{ ... }` body sits on one physical line -- AND the body isn't
+     *  predicted to be broken across lines later by {@code MiscRule.enforceCallLineBreaking}
+     *  (Phase 1, later in the pipeline) anyway. Without that second condition, a fresh format
+     *  sees the body still on one physical line (still short, pre-call-breaking) and keeps `{`
+     *  K&amp;R inline, but reformatting that already-broken output sees a genuinely multi-line
+     *  body and moves `{` to Allman -- a pass-ordering idempotency bug identical in shape to the
+     *  one already documented and fixed on {@code JavaSpecificRule.isSingleLineBody}/
+     *  {@code GetterSetterRule.parseOneLinerMember}, never previously ported to this Kotlin
+     *  sibling (RDD_KEY_140). The prediction only has to agree with
+     *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once
+     *  this method predicts "too long" and goes Allman, the body only ever grows more lines
+     *  after that (never re-collapses), so every later pass keeps agreeing. */
     private boolean isSingleLineBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
         for (int i = braceIdx; i <= closeBraceIdx; i++) {
             if (tokens.get(i).type == TokenType.NEWLINE) {
                 return false;
             }
         }
+        if (hasBreakableCall(tokens, braceIdx, closeBraceIdx)) {
+            final int lineStart = lineStartIndex(tokens, braceIdx);
+            int width = lineIndent(tokens, braceIdx).length();
+            for (int k = lineStart; k <= closeBraceIdx; k++) {
+                if (tokens.get(k).type == TokenType.WHITESPACE || tokens.get(k).type == TokenType.NEWLINE) {
+                    continue;
+                }
+                width += tokens.get(k).text.length() + 1;
+            }
+            if (width > lineLengthLimit) {
+                return false;
+            }
+        }
         return true;
+    }
+
+    /** True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
+     *  argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later break across
+     *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
+     *  comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRule}'s identical
+     *  helper -- same "each rule class matches its own local conventions" precedent already used
+     *  across those classes. */
+    private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to) {
+        for (int i = from; i <= to; i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.IDENTIFIER) {
+                continue;
+            }
+            final int parenIdx = nextSignificantIndex(tokens, i + 1);
+            if (parenIdx < 0 || parenIdx > to || !isPunct(tokens.get(parenIdx), "(")) {
+                continue;
+            }
+            final int closeIdx = matchParenForward(tokens, parenIdx);
+            if (closeIdx < 0 || closeIdx > to) {
+                continue;
+            }
+            final int argsFrom = nextSignificantIndex(tokens, parenIdx + 1);
+            if (argsFrom >= 0 && argsFrom < closeIdx) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ── §1 Semicolon stripping ──────────────────────────────────────────────

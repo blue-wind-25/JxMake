@@ -173,6 +173,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_137 | Follow-up dogfood investigation (`MainViewModel.kt`/`ToolbarActions.kt`'s statement-joining-without-separator bug RDD_KEY_136 flagged): a `val`/`var` declaration whose initializer is a parenthesized if/else expression (`val display = (if (cond) a else b)`), immediately followed by another statement, was fused onto that statement's line with no separator — compile-breaking. Minimized via six repros to the precise trigger: both the wrapping parens AND the if/else together are required. Root cause: `BlockStructureRule.collapseSingleExpressionBlocks`'s main dispatch fires on every `if`/`else` keyword with no notion of Kotlin's `if`-as-value-expression; a wrapped, braceless expression-position `if` fell into the Kotlin-only "braceless statement body" collapse branch (and the separate bare-`else` branch), which then consumed past the wrapping `)` and ate the following statement's separating newline. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): a running unmatched-`(`/`[`-depth counter in the main dispatch loop refuses to treat `if`/bare `else` as collapsible while depth > 0 — a statement-position `if`/`else` is never itself nested inside a paren this pass didn't open and fully consume via its own condition matching. Deliberately does NOT also gate on the preceding token (e.g. `=`) — an early broader attempt regressed `real_code_regressions_18` (an unparenthesized expression-position `if` that legitimately depends on this same collapse path per RDD_KEY_135); reverted to the depth-only signal. New `test/real_code_regressions_20_inp.kt`/`_out.kt`. Fixes the last 2 of the original 9 dogfood non-idempotent files (`MainViewModel.kt`, `ToolbarActions.kt`); 4 diffs remain, see Step 5 below. |
 | RDD_KEY_138 | Follow-up dogfood investigation (`BlockCanvasView.kt`'s missing-space-before-`&&` diff): a `val`/`var` declaration whose initializer contains a top-level `&&` lost its preceding space (`a > 1&& b`) — reproduced on a fresh first-pass format, not just idempotency; scoped specifically to declaration initializers (plain assignments/returns/call arguments were unaffected). Root cause: `DeclarationAlignmentRule.isTightToken`'s `Token.isRepOp(t, '*') || Token.isRepOp(t, '&')` check, ungated by language — meant for C/C++'s repeated pointer/reference declarator sigils (`**`, `&&` as an rvalue-reference type), but `Token.isRepOp` matches ANY run of `&` characters including Kotlin's `&&` logical-AND operator, which Kotlin has no unary/repeated `*`/`&` construct to be confused with. `MiscRule.isTightToken` (the sibling shared-join-point method used by non-declaration expression rendering) already carried the correct `!lang.isKotlin &&` gate for this exact reason; `DeclarationAlignmentRule.isTightToken` was simply the one copy that had never received it. **Shared-class fix**: added the identical `!lang.isKotlin &&` gate, mirroring `MiscRule.isTightToken` verbatim. New `test/real_code_regressions_21_inp.kt`/`_out.kt`. Fixes `BlockCanvasView.kt`'s last remaining diff; 2 diffs remain (`BlockPalette.kt`'s two separate diffs), see Step 5 below. |
 | RDD_KEY_139 | Follow-up dogfood investigation (`BlockPalette.kt`'s §9 one-liner column-width-flapping diff): a run of adjacent §9 expression-bodied one-liner functions had different column-alignment widths on round1 vs round2 — round1 padded all members uniformly, round2 split them into narrower subgroups. Root cause: `KotlinGetterSetterRule.parseKotlinOneLinerMember` never got the length pre-check `GetterSetterRule.parseOneLinerMember` (the C/C++/Java base rule) already has for this exact reason — a member whose body contains a call that a later phase (`MiscRule.enforceCallLineBreaking`) might wrap is estimated for width at grouping time; on a fresh format all members are still single-line, so the too-long one groups/pads with the rest, only for the later phase to wrap it and leave the padding stale; reformatting that already-wrapped output then correctly excludes it, splitting the run differently. **Shared-class fix**: raised `GetterSetterRule.indentWidth`/`lineLengthLimit`/`hasBreakableCall` from `private` to `protected` (same reuse pattern as RDD_KEY_103/104/133), then ported the identical length pre-check into `parseKotlinOneLinerMember`. New `test/real_code_regressions_22_inp.kt`/`_out.kt`. Fixes `BlockPalette.kt`'s §9 diff; 1 diff remains (the file's Allman-brace idempotency gap), see Step 5 below. |
+| RDD_KEY_140 | Follow-up dogfood investigation (`BlockPalette.kt`'s last remaining diff, the Allman-brace idempotency gap): an `override fun draw(...) { _drawBlock(...) }` method body nested inside an anonymous `object : Block() { ... }` stayed K&R on round1 (call wrapped internally by a later phase) but flipped to Allman on round2. Root cause: `KotlinSpecificRule.isSingleLineBody` never got the width-prediction pre-check `JavaSpecificRule.isSingleLineBody` (the C/C++/Java sibling) already has for this exact bug class — same "decision made before a later call-wrapping phase runs" shape as RDD_KEY_139, this time for the K&R-vs-Allman brace choice. **Fix**: ported `hasBreakableCall` + an estimated-width pre-check into `KotlinSpecificRule.isSingleLineBody` as a **duplicated** local helper (not shared/inherited — `KotlinSpecificRule` is a sibling of, not a subclass of, `JavaSpecificRule`), adapted to this class's own helper API (`nextSignificantIndex`'s inclusive-of-`from` semantics; `matchParenForward`). A first port compiled but had no effect — traced to `JavaSpecificRule`'s width formula itself (summing only token text lengths, no allowance for indentation or inter-token spaces), an undercount too small to matter at `JavaSpecificRule`'s shallower call sites but large enough at this Kotlin method's deeper object-nested indentation to false-negative. Corrected the formula (added indent length + 1 space per token) rather than porting it unmodified. New `test/real_code_regressions_23_inp.kt`/`_out.kt`. Fixes `BlockPalette.kt`'s last remaining diff — the file is now fully round1-vs-round2 idempotent. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -648,13 +649,12 @@ RDD_KEY_131; one-line summary each:
 ### Step 5 — Dogfood / Real-Code Testing
 
 **Next Session: pick up here.** The formatting-and-idempotency-check pass
-has now started (see below) — six rounds of fixes landed so far
-(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137, RDD_KEY_138, RDD_KEY_139). Next step: pick one of the
-remaining files below, root-cause its diff the same way (minimal standalone
-repro, `--diff` in isolation, fix, fixture, RDD entry, checkpoint commit),
-then once all are resolved (or explicitly triaged as non-compile-breaking
-style-only gaps), proceed to `./gradlew compileDebugKotlin` against the
-fully-formatted dogfood tree and diff against the clean baseline. Do not
+has now started (see below) — seven rounds of fixes landed so far
+(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137, RDD_KEY_138, RDD_KEY_139,
+RDD_KEY_140). All 9 originally-flagged non-idempotent dogfood files,
+including both of `BlockPalette.kt`'s diffs, are now resolved. Next step:
+proceed to `./gradlew compileDebugKotlin` against the fully-formatted
+dogfood tree and diff against the clean baseline — not yet started. Do not
 touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the
 dogfood copy. **Caution established this session**: the dogfood copy at
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` can itself hold
@@ -716,13 +716,20 @@ member's body (containing a call a later phase might line-wrap) needs to
 be excluded from the group at grouping time itself, on the very first
 pass, or the padding decision goes stale once that later phase wraps it.
 Fixed by porting the identical `hasBreakableCall` + estimated-width
-pre-check into the Kotlin sibling method. **1 diff remains unresolved, not
-yet root-caused, in `BlockPalette.kt`:** an Allman-brace idempotency gap
-(`override fun draw(...) { _drawBlock(` on round1 vs. round1's own output
-re-split onto `override fun draw(...)` + `{ _drawBlock(` on round2).
-
-This remaining diff has not been confirmed merely cosmetic — that
-determination is still part of its own root-cause work.
+pre-check into the Kotlin sibling method. **RDD_KEY_140 fixed the root
+cause for `BlockPalette.kt`'s last remaining diff**, an Allman-brace
+idempotency gap (`override fun draw(...) { _drawBlock(` on round1 vs.
+round1's own output re-split onto `override fun draw(...)` + `{
+_drawBlock(` on round2): `KotlinSpecificRule.isSingleLineBody` lacked the
+same width-prediction pre-check `JavaSpecificRule.isSingleLineBody` already
+has; fixed by porting `hasBreakableCall` + an estimated-width pre-check as a
+duplicated local helper (adapted to this class's own helper API), and
+correcting the width formula itself (ported from `JavaSpecificRule`) to
+include indentation and inter-token spacing, which it had omitted — a
+shortfall that mattered at this method's deeper object-nested indentation
+even though it apparently didn't at `JavaSpecificRule`'s shallower call
+sites. **All 9 originally-flagged non-idempotent dogfood files are now
+resolved**; `BlockPalette.kt` is fully round1-vs-round2 idempotent.
 
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
       methodology `STATE.md` used for C/C++/Java (clone a real, compiling

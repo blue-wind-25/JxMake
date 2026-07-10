@@ -957,6 +957,14 @@ public class ScopePipeline {
                     if (realCloseParen < 0) {
                         continue;
                     }
+                    final int afterParen = nextSignificantIndex(tokens, realCloseParen);
+                    if (afterParen < 0 || !isOp(tokens.get(afterParen), ":")) {
+                        // No `:` immediately after the found `)` -- not a `: ReturnType` tail,
+                        // just an unrelated top-level `)` (e.g. a preceding call in a fluent
+                        // chain like `x.foo().bar { ... }`). Bail rather than misread it as a
+                        // signature.
+                        continue;
+                    }
                     kotlinTailEndIdx = closeParenIdx;
                     closeParenIdx = realCloseParen;
                 } else if (lang.isJava) {

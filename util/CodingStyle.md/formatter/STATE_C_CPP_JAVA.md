@@ -1,60 +1,8 @@
-# STATE.md — Formatter Implementation Tracker
+# STATE_C_CPP_JAVA.md — C/C++/Java Formatter Implementation Tracker
 
----
-
-If the current task concerns Kotlin JAR support, stop here and read
-STATE_KOTLIN.md instead — it is self-contained and does not require the rest
-of this file.
-
----
-
-**Do NOT read `README.md`** unless the user explicitly asks. All decisions relevant to
-implementation are recorded in the **Resolved Design Decisions** index below (full text
-in `RDD_LOG.md` — **do not read that file in full**, look up one key at a time via
-`grep -Fm1`).
-
-**ONLY** read the Java source file you are currently implementing or directly modifying. Do NOT read other source files unless a specific checklist item or ambiguity requires it.
-
-### During implementation
-- Implement one checklist section at a time
-- After completing a section (or when the cumulative diff across all changed files
-  exceeds ~50 lines, whichever comes first), do a checkpoint commit:
-  1. Update STATE.md — check off completed items and update the active checklist.
-  2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
-  3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -m "<message>"` — short descriptive message, no strict format required,
-     trailer ending with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
-- Small related items within a section may be grouped into one commit if they
-  are trivially connected — use judgment based on line count (~50 lines threshold)
-- Never let implemented files and STATE.md drift out of sync — STATE.md must
-  always reflect the true current state at every commit
-- Never modify the files `util/CodingStyle.md/formatter/test/*_inp.*` unless they contain
-  syntax errors (they are the test input files).
-- Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
-  asked (they are the reference output files that show the expected results).
-- Ignore `XL.txt`, that is the user tracker file.
-- Use `/tmp` for temporary smoke-test and mini-test files.
-- NEVER perform filesystem-wide find; search first in `/tmp/claude-1000` or the project root.
-  If still not found, ask me.
-
-### When hitting an ambiguity or open question
-1. **Stop coding immediately** — do not guess or proceed past the ambiguity
-2. Update STATE.md: add the question to **Open Questions**, mark the blocked
-   checklist item with `[~]` and a note
-3. Commit STATE.md only.
-4. Ask the user and wait for an answer before continuing
-5. Once resolved: append the full decision as a new row to `RDD_LOG.md`
-   (next `RDD_KEY_n` number), add the key + topic to the **Resolved Design
-   Decisions** index in this file, remove from **Open Questions**, unblock
-   the checklist item, then continue
-
-### When a file reaches COMPLETE
-1. Update the relevant checklist in STATE.md.
-2. Commit STATE.md together with the completed source file.
-
-### Session end
-- Always leave STATE.md committed and up to date before ending the session
-- The next session will resume from the first unchecked item in the current checklist
+Read `STATE_COMMON.md` first — it has the shared commit/ambiguity/testing
+conventions this file assumes. `STATE_KOTLIN.md` is a separate job's file
+and is NOT required reading for this one.
 
 ---
 
@@ -291,12 +239,8 @@ accept `final` there). This applies to all `.java` files under `src/`.
 - The same ask-first rule applies to the self-dogfood pass: if formatting
   the formatter's own source produces unexpected changes, stop and report
   the diff to the user before fixing anything.
-- To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes
-  prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where
-  to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes.
-  Do not use static analysis as the primary method of bug diagnosis or regression checking.
-  After the fix is verified with `make test`, remove all debug prints and then commit the
-  files you have modified (ignore files you have not modified). If unsure ask me.
+- To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes,
+  apply STATE_COMMON.md's "evidence over reasoning" rule strictly here.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
 `/tmp/jxmake-code-formatter-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
@@ -409,36 +353,15 @@ hand and may themselves contain errors.**
       much closer to passing given the pass-ordering fix, but there may be other Java-only
       convergence bugs the C++ testing below wouldn't have exercised.
 
-**Real-code testing (pivoted from synthetic dogfooding — found bugs faster):** methodology
-(repeatable for future libraries/languages): clone real, compiling third-party code → format
-once (round1) → format round1's output again (round2) → `diff round1 round2` must be empty
-(idempotency) → compile round1 with the appropriate toolchain, must succeed with the same
-error count as the unmodified original. Prefer this over synthetic dogfooding — it found
-concrete, fixable bugs far faster than the from-scratch dogfood idempotency failure did.
+**Real-code testing (pivoted from synthetic dogfooding — found bugs faster):** see
+STATE_COMMON.md's "Real-code testing methodology" for the repeatable round1/round2/compile
+recipe and the fixture-registration convention — prefer this over synthetic dogfooding, it
+found concrete, fixable bugs far faster than the from-scratch dogfood idempotency failure did.
 Full bug-by-bug root-cause narratives for each completed candidate below have been compacted
 out of this file — they remain fully available via `git log`/`git show` on the noted commits/
-fixtures.
-
-When an idempotency (or forward-pass) failure doesn't reproduce at the default config, try
-re-testing with a `.jxmake-code-formatter` overriding `indent-size`, `indent-style`, etc. to
-match the candidate's own actual convention before concluding "no bug" — several real bugs
-(the `SwitchRule`/`fmtlib-fmt` flush-case-label fix, the `MiscRule` dead-config-key audit) were
-only observable at a non-default `indent-size`.
-
-**When a bug is found and fixed, add a new permanent fixture pair:**
-`test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`) reproducing it minimally,
-then register it in `Makefile`'s `INP_FILES` and document it in `test/README.txt` — unless,
-per the precedent set by the `indent-size = 2` config-wiring fixes, the bug is a no-op at the
-test harness's own default config (in which case document the fix and its non-default-config
-verification in this file instead, without adding a fixture that would be indistinguishable
-from a no-op at default settings). Try to combine multiple bugs in the same text fixture if
-possible. Use this standard copyright header on every new test fixture file:
-```
-/*
- * Copyright (C) 2024 Example Corp.
- * SPDX-License-Identifier: MIT
- */
-```
+fixtures. Several real bugs here (the `SwitchRule`/`fmtlib-fmt` flush-case-label fix, the
+`MiscRule` dead-config-key audit) were only observable at a non-default `indent-size` — a
+concrete example of STATE_COMMON.md's "re-test at the candidate's own convention" advice.
 
 - **`blake-madden/tinyexpr-plusplus`** (C++20, `g++ -std=c++20`) — DONE. 3 bugs fixed, all in
   `MiscRule`'s multi-line call/declaration rendering and `Formatter`'s pass ordering
@@ -842,8 +765,8 @@ of A/B/C/D/E's own fixtures were added as each task landed, not batched here.
 ### G — Verify `AI_PREAMBLE_FULL.md`'s `### Edge Case` sections against actual JAR behavior (DONE)
 Both of `../AI_PREAMBLE_FULL.md`'s `### Edge Case` sections (renamed from `### Unresolved`)
 turned out to already be enforced by the JAR, not genuine gaps requiring manual AI
-judgment — confirmed with real `--standalone` runs, not static analysis, per the "prefer
-evidence over reasoning" rule above:
+judgment — confirmed with real `--standalone` runs, not static analysis, per
+STATE_COMMON.md's "evidence over reasoning" rule:
 1. **`else`/`else if` closing comments** — `BlockStructureRule.classifyBrace` returns
    `Frame.excluded(braceIdx)` for both the `else`/`if` brace immediately after an `else`
    keyword and a bare `else` brace, so neither ever reaches the closing-comment-adding path

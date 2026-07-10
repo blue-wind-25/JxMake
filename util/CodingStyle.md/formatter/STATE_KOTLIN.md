@@ -1,11 +1,8 @@
 # STATE_KOTLIN.md — Kotlin JAR Implementation Tracker
 
-**This file is self-contained. Do not assume `STATE.md` has been read in this
-session.** If you have not read `STATE.md`, that is fine — every convention this
-file depends on is restated below. This file is routed to from `CLAUDE.md`'s
-job table (Kotlin JAR support → this file), and, since Kotlin implementation
-work has now started, also from a redirect at the top of `STATE.md` itself
-(see "Handoff Note" below for the history of that link).
+Read `STATE_COMMON.md` first — it has the shared commit/ambiguity/testing
+conventions this file assumes. `STATE_C_CPP_JAVA.md` (the other job's file)
+is NOT required reading for this one — only `STATE_COMMON.md` is.
 
 ---
 
@@ -41,71 +38,25 @@ Formatter.java
 **Any change to one of these files for Kotlin's benefit must not change
 behavior for C/C++/Java.** Before and after every such change, re-run the
 formatter's full existing test suite (`make test` — all C/C++/Java fixtures
-under `test/`) and confirm zero regressions. This is the same discipline
-`STATE.md` already applies to its own commits; it is restated here because a
-session working from this file alone must not skip it for lack of having read
-`STATE.md`.
+under `test/`) and confirm zero regressions — same discipline STATE_COMMON.md
+requires generally, called out here explicitly because shared-class edits are
+this job's biggest risk. Record the before/after test count in the commit
+message.
 
 Kotlin-only work belongs in new files (see Project Layout below), added
 alongside the existing per-language files (`JavaSpecificRule.java`,
 `CppSpecificRule.java`) rather than folded into them.
 
-**Before modifying a shared class, grep first — do not read `STATE.md` in
-full.** Run `grep -Fm1 'ClassName' RDD_LOG.md` (substitute the class or
+**Before modifying a shared class, grep first — do not read `STATE_C_CPP_JAVA.md`
+in full.** Run `grep -Fm1 'ClassName' RDD_LOG.md` (substitute the class or
 method you're about to touch) to surface any existing `RDD_KEY_n` decisions
 that already explain its shape — e.g. why `TokenizerCore`'s multi-char
 operator table is structured the way it is (RDD_KEY_69), or why a rule class
 re-derives named-construct-ness from raw tokens instead of trusting one flag
-(RDD_KEY_84/85). This is almost always sufficient. Only read `STATE.md`'s
-Project Layout section specifically (never its Checklist or full history) if
-the grep hits don't explain what you're looking at.
-
----
-
-### During implementation
-- Implement one checklist section at a time
-- After completing a section (or when the cumulative diff across all changed files
-  exceeds ~50 lines, whichever comes first), do a checkpoint commit:
-  1. Update STATE_KOTLIN.md — check off completed items and update the active checklist.
-  2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
-  3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -m "<message>"` — short descriptive message, no strict format required,
-     trailer ending with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
-- Small related items within a section may be grouped into one commit if they
-  are trivially connected — use judgment based on line count (~50 lines threshold)
-- Never let implemented files and STATE_KOTLIN.md drift out of sync — STATE_KOTLIN.md must
-  always reflect the true current state at every commit
-- Never modify the files `util/CodingStyle.md/formatter/test/*_inp.*` unless they contain
-  syntax errors (they are the test input files).
-- Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless explicitly
-  asked (they are the reference output files that show the expected results).
-- Ignore `XL.txt`, that is the user tracker file.
-- Use `/tmp` for temporary smoke-test and mini-test files.
-- NEVER perform filesystem-wide find; search first in `/tmp/claude-1000` or the project root.
-  If still not found, ask me.
-- Do not use static analysis as the primary method of bug diagnosis or regression checking.
-  Prefer evidence over reasoning (using debug prints). Keep static analysis minimal—only
-  enough to identify where to insert debug prints.
-
-## Commit Workflow
-
-Same discipline as `STATE.md`'s own (restated, not cross-referenced, per the
-self-contained requirement above):
-
-- Implement one checklist section at a time.
-- Checkpoint commit after each section or when the cumulative diff exceeds
-  ~50 lines, whichever comes first: update this file's checklist, then
-  `git add`/commit the formatter directory (excluding `target/`).
-- Trailer: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
-- **On any ambiguity:** stop, add the question to Open Questions below, mark
-  the checklist item `[~]`, commit this file only, and wait for an answer.
-  Once resolved: append the full decision to `RDD_LOG.md` (next
-  `RDD_KEY_n`, continuing the shared sequence — do not restart numbering for
-  Kotlin), add the key + topic to this file's own Resolved Design Decisions
-  index below, then continue.
-- **On any shared-class change:** re-run the full existing C/C++/Java test
-  suite before committing, per the Hard Constraint above. Record the
-  before/after test count in the commit message.
+(RDD_KEY_84/85). This is almost always sufficient. Only read
+`STATE_C_CPP_JAVA.md`'s Project Layout section specifically (never its
+Checklist or full history) if the grep hits don't explain what you're
+looking at.
 
 ---
 
@@ -133,9 +84,8 @@ have (e.g. a new operator token) — they are not duplicated per-language.
 ## Resolved Design Decisions
 
 Full text of each decision lives in `RDD_LOG.md` (shared with
-`STATE.md` — continue its existing `RDD_KEY_n` numbering, do not restart).
-Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
-(no `-A`, its lines are long).
+`STATE_C_CPP_JAVA.md` — continue its existing `RDD_KEY_n` numbering, do not
+restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 | Key | Topic |
 |---|---|
@@ -154,7 +104,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_126 | **REVISES RDD_KEY_107.** Merges §12 destructuring-declaration alignment into the same column-aligned group stream as an adjacent plain §6 `val`/`var` declaration, per user request citing this codebase's own C++ structured-bindings precedent; new merged `Row`/`groupAlignableDeclarations`/`renderAlignedGroup`/`toRow` in `KotlinDeclarationAlignmentRule.java` (old `groupPropertyDeclarations`/`groupDestructuringDeclarations`/`renderPropertyGroup`/`renderDestructuringGroup` kept, `@deprecated`, still used internally for parsing); `ScopePipeline.applyKotlinDeclarationsPass` simplified to one merged loop |
 | RDD_KEY_127 | Bare Kotlin `else\n    stmt` (no condition of its own) never collapsed to one line — distinct gap from RDD_KEY_124 (keyed off `if`/`while`/`for`'s own `(...)` condition, never a standalone `else`); new shared `collapseBracelessBody` helper extracted from `tryCollapseBraceless`, plus a dedicated `else`-keyword branch in `collapseSingleExpressionBlocks`'s main loop; collapse-to-one-line half fixed, column-padding-to-align-with-preceding-`if`-branch half left as an open question **(now resolved — see RDD_KEY_128)** |
 | RDD_KEY_128 | **RESOLVES RDD_KEY_127's open column-padding question**, user-confirmed via the now-enabled `kt_combined_inp.kt` fixture: a collapsed single-line `else` body pads with spaces to start at the same column as its preceding single-line `if(...)` branch's own body; new standalone, last-running `KotlinSpecificRule.alignBracelessElseWithIf` (line-based, on fully-formatted text) rather than computed at collapse time — an earlier collapse-time attempt was root-caused stale by one column since `MiscRule.enforceComplexityPadding`'s `if (`→`if(` tightening still runs after the collapse pass |
-| RDD_KEY_131 | `test/kt_comments_inp.kt`/`kt_comments_out.kt` — fixed all four remaining bugs (comment-led `when`-branch blank line, comment-led `return` blank line, leading-blank stripping in non-declaration-led bodies, outermost-class closing comment suppressed by an unrelated nested frozen region) and enabled the fixture in the `Makefile`. Full narrative in `RDD_LOG.md`; see Step 4 punch list below for the one-line-per-bug summary. Note: RDD_KEY_129/130 are used by unrelated C/C++/Java braceless-`if`/`else`-chain work tracked in `STATE.md`, not this file — 131 is the correct next-available key. |
+| RDD_KEY_131 | `test/kt_comments_inp.kt`/`kt_comments_out.kt` — fixed all four remaining bugs (comment-led `when`-branch blank line, comment-led `return` blank line, leading-blank stripping in non-declaration-led bodies, outermost-class closing comment suppressed by an unrelated nested frozen region) and enabled the fixture in the `Makefile`. Full narrative in `RDD_LOG.md`; see Step 4 punch list below for the one-line-per-bug summary. Note: RDD_KEY_129/130 are used by unrelated C/C++/Java braceless-`if`/`else`-chain work tracked in `STATE_C_CPP_JAVA.md`, not this file — 131 is the correct next-available key. |
 | RDD_KEY_108 | Kotlin annotation use-site target `:` spacing — §16; new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`, small state machine over a flat whole-file pass (same shape as §11/RDD_KEY_105); new `USE_SITE_TARGETS` set matched by token text (not `TokenType.KEYWORD`) since `delegate` is a soft keyword, not tokenizer-lexed; `@`-to-target spacing deliberately left unenforced (no textual backing, no codebase precedent for reformatting plain annotation spacing) |
 | RDD_KEY_109 | Kotlin lambda-with-receiver nesting exemption + arrow spacing — §17/§17.1; **shared-class change** — `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span (a lambda-with-receiver's own invocation parens) rather than counting it as nesting, pure no-op for C/C++/Java (confirmed via harness, `make test` 32/32 before/after); new Kotlin-only `KotlinSpecificRule.enforceArrowSpacing` + `collectWhenBranchArrowIndices`, a flat whole-file single-space arrow pass that explicitly excludes `when`-branch arrows (owned by §4's column alignment) |
 | RDD_KEY_110 | Kotlin `for` loops and ranges — §10; `in`/`until`/`downTo`/`step` reclassified (b)→(a), already inert w.r.t. `ComplexityPaddingEvaluator.isLoose` with zero code changes (verified via harness, not a keyword-set addition as originally guessed); new `KotlinSpecificRule.enforceRangeOperatorSpacing`, a simpler one-sided sibling of §5/RDD_KEY_102's state machine tightening `..`/`..<` on both sides (no spaced variant, unlike `?:`) |
@@ -779,11 +729,11 @@ even though it apparently didn't at `JavaSpecificRule`'s shallower call
 sites. **All 9 originally-flagged non-idempotent dogfood files are now
 resolved**; `BlockPalette.kt` is fully round1-vs-round2 idempotent.
 
-- [ ] Once Steps 0–4 are complete, apply the same real-code-testing
-      methodology `STATE.md` used for C/C++/Java (clone a real, compiling
-      Kotlin project → format → idempotency check round1 vs round2 → compile
-      with `kotlinc`) — deferred until the core checklist above is done, not
-      started speculatively.
+- [x] Once Steps 0–4 are complete, apply STATE_COMMON.md's real-code-testing
+      methodology (clone a real, compiling Kotlin project → format →
+      idempotency check round1 vs round2 → compile with `kotlinc`) —
+      deferred until the core checklist above is done, not started
+      speculatively.
 
       Candidate **RobotCoding `gui_frontend_android`**
       (`~/Projects/RobotCoding/gui_frontend_android/app/src/main/java/*.kt`,
@@ -872,17 +822,36 @@ running the whole script.) This gives a real syntax+type check against the
 actual Android SDK/AndroidX dependency graph the source expects, which the
 rejected standalone recipe could not.
 
-**When a bug is found and fixed, add a new permanent fixture pair:**
-`test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`) reproducing it minimally,
-then register it in `Makefile`'s `INP_FILES` and document it in `test/README.txt` — unless,
-per the precedent set by the `indent-size = 2` config-wiring fixes, the bug is a no-op at the
-test harness's own default config (in which case document the fix and its non-default-config
-verification in this file instead, without adding a fixture that would be indistinguishable
-from a no-op at default settings). Try to combine multiple bugs in the same text fixture if
-possible. Use this standard copyright header on every new test fixture file:
+Follow STATE_COMMON.md's fixture-registration convention when a bug is found and fixed here
+(`test/real_code_regressions_N_{inp,out}.kt`, registered in `Makefile`'s `INP_FILES`, documented
+in `test/README.txt`, standard copyright header) — same precedent as the `indent-size = 2`
+config-wiring no-op exception noted there.
+
+**Further candidates the user has since supplied (not yet started).** Unlike
+`gui_frontend_android` above, none of these are Android/Gradle projects, so
+they don't need the dogfood-copy/`gradle.properties` dance — compile
+directly with the standalone Kotlin compiler instead:
+
 ```
-/*
- * Copyright (C) 2024 Example Corp.
- * SPDX-License-Identifier: MIT
- */
+~/xsdk/kotlin-compiler-2.4.0/kotlinc
+/opt/openjdk-21_linux-x64_bin/jdk-21
 ```
+
+(put the JDK's `bin/` on `PATH` ahead of any other JDK, then invoke
+`kotlinc` directly, e.g. `PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
+~/xsdk/kotlin-compiler-2.4.0/kotlinc/bin/kotlinc ...`). Some of these
+projects have their own multiplatform/Gradle build and external
+dependencies (coroutines, arrow's own multi-module structure) that a bare
+`kotlinc` invocation can't resolve — same caveat as the rejected standalone
+`K2JVMCompiler` classpath approach noted above; if a candidate's own Gradle
+wrapper is needed instead, treat it the same way as
+`gui_frontend_android` (copy first, format the copy, never write to the
+original checkout).
+
+- **`github.com/square/okio`** — not yet started.
+- **`github.com/Kotlin/kotlinx.coroutines`** — not yet started.
+- **`github.com/square/kotlinpoet`** — not yet started.
+- **`github.com/arrow-kt/arrow`** — not yet started.
+- **`github.com/JetBrains/kotlin`** — the Kotlin compiler's own source tree;
+  large, likely the most demanding candidate for grammar coverage — not yet
+  started.

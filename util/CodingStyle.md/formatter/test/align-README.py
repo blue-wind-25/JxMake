@@ -7,7 +7,7 @@ import textwrap
 INPUT_FILE = "README.txt"
 
 # Maximum output line width
-LINE_WIDTH = 120
+LINE_WIDTH = 100
 
 SOURCE_EXTS = (
     ".h",

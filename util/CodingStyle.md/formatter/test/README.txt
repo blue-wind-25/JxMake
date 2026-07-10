@@ -66,6 +66,7 @@ Java:
                                             lines still get normal call-padding tightening (`(clrex,
                                             ...)`) and are idempotent.
 
+Kotlin:
   kt_combined_inp/out.kt                 -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end
                                             coverage: enum class with members, sealed classes, data
                                             classes, type aliases, generics/variance, where clauses,
@@ -122,7 +123,7 @@ C++:
                                             params, inside structured bindings, inside requires
                                             clauses.
 
-Headers:
+C/C++ Headers:
   h_core_inp/out.h                       -- C header with #ifndef guard: header zone spacing,
                                             include ordering (angle vs quote), struct alignment,
                                             pointer declarations, #ifdef __cplusplus extern "C".
@@ -323,6 +324,27 @@ Real-code regressions:
                                             the brace's own physical-line indent, when deeper than
                                             the statement-start indent, for the child body's
                                             inherited indent and its closing-brace placement.
+
+  real_code_regressions_20_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's ToolbarActions.kt/
+                                            MainViewModel.kt (surfaced once RDD_KEY_136 stopped
+                                            masking it): a val whose initializer is a parenthesized
+                                            if/else expression (`(if (cond) a else b)`), immediately
+                                            followed by another statement in the same scope, was
+                                            fused onto that following statement's line with no
+                                            separator at all -- invalid Kotlin.
+                                            BlockStructureRule.collapseSingleExpressionBlocks has no
+                                            notion of expression- vs statement-position `if`/`else`;
+                                            it fired on the expression-position `if` (which has no
+                                            braced body, since it's a value expression) and treated
+                                            everything up to and past the wrapping `)` as if it were
+                                            a braceless statement body, swallowing the newline
+                                            before the next statement. Fixed (Kotlin-only) by
+                                            tracking a running unmatched-paren depth and refusing to
+                                            treat `if`/bare `else` as a collapsible statement while
+                                            inside one -- a statement-position `if`/`else` is never
+                                            itself nested inside a paren this same pass didn't open
+                                            and fully consume via its own condition matching.
 
 
 How Tests Are Run

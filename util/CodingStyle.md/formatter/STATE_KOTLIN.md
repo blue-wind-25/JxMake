@@ -170,6 +170,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_134 | Kotlin Step 5 dogfood testing found a compile-breaking bug (not just idempotency): `MiscRule.renderCallCandidate`'s Option 2 (`renderCallPreserveGroups`, via `groupByOriginalLine`) collapsed a multi-line trailing-lambda call argument (`Thread({ ...multi-statement body... }, "tcp-reader")`) onto one line with no statement separators — invalid Kotlin, since (unlike C/C++/Java) Kotlin has no `;` to fall back on. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new bail in `renderCallCandidate` when any top-level call argument contains both a newline and a `{` (new `containsBrace` helper); confirmed a non-gated version broke the pre-existing C++ `real_code_regressions_1` fixture, so the gate is required, not optional. New `test/real_code_regressions_17_inp.kt`/`_out.kt` fixture. Fixes 2 of 3 known compile-breaking dogfood cases (`RobotTcpSession.kt`, `WifiStaDialog.kt`'s `postDelayed` callback); `BleDeviceSelectDialog.kt`'s own `postDelayed` callback still shows an idempotency diff, not yet root-caused. |
 | RDD_KEY_135 | Follow-up dogfood idempotency bug (`PlayMusicBlock.kt`, §6 declaration alignment): `KotlinDeclarationAlignmentRule.spansMultipleLines` treated a call-wrapped-but-single-statement initializer the same as a genuine multi-line block, wrongly bailing a declaration out of its alignment group on a second format pass. Fixed with paren/brace-depth-aware newline classification (mirrors `ScopePipeline.hasTopLevelNewline`'s "ignore newlines inside a call's parens" idiom): bail only on a newline inside a real `{`...`}` body or at true top level; ignore a newline strictly inside a call's parens with no enclosing brace. First attempt (paren-depth only, no brace-depth check) was too permissive and regressed RDD_KEY_134's own fixture — corrected once `make test` caught it. New `test/real_code_regressions_18_inp.kt`/`_out.kt`. Resolves 2 more of the original 9 dogfood non-idempotent files (`PlayMusicBlock.kt`, `BleDeviceSelectDialog.kt`'s `val filter`); 5 remain, see Step 5 below. |
 | RDD_KEY_136 | Follow-up dogfood investigation (`MainActivity.kt`'s `_checkRecovery()`): a closing-brace indentation drift, confirmed broken even on a fresh format (not just round1-vs-round2). Root cause: a trailing lambda argument's `{` opening on a continuation line of a multi-line fluent chain (`.setPositiveButton("Ok") {`), deeper than the chain statement's own first line (`AlertDialog.Builder(this)`) — `ScopePipeline.processScope` derived the lambda body's indent, and its closing `}`'s placement, from `findParentIndent`'s whole-statement-first-line anchor (needed elsewhere for `case 1:` labels) instead of the brace's own physical line. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new `ScopePipeline.braceLineIndent` helper (derives indent from the brace's own physical line, no statement-boundary reasoning) feeding a new `effectiveSpanIndent` (brace-line indent when deeper than/where `findParentIndent`'s `spanIndent` is null) used for the child body's inherited indent and closing-brace placement; the named-scope one-liner pre-expansion path is unaffected, still using `spanIndent`. New `test/real_code_regressions_19_inp.kt`/`_out.kt`. Fixes 2 more of the original 9 dogfood non-idempotent files (`MainActivity.kt`, `BlePermissions.kt`) plus confirms `ToolbarActions.kt`'s prior diff shared this root cause — but re-checking `ToolbarActions.kt` against the true pristine original (not the stale dogfood copy) surfaced a different, previously-masked statement-joining-without-separator bug, shared with `MainViewModel.kt`; 5 diffs remain, see Step 5 below. |
+| RDD_KEY_137 | Follow-up dogfood investigation (`MainViewModel.kt`/`ToolbarActions.kt`'s statement-joining-without-separator bug RDD_KEY_136 flagged): a `val`/`var` declaration whose initializer is a parenthesized if/else expression (`val display = (if (cond) a else b)`), immediately followed by another statement, was fused onto that statement's line with no separator — compile-breaking. Minimized via six repros to the precise trigger: both the wrapping parens AND the if/else together are required. Root cause: `BlockStructureRule.collapseSingleExpressionBlocks`'s main dispatch fires on every `if`/`else` keyword with no notion of Kotlin's `if`-as-value-expression; a wrapped, braceless expression-position `if` fell into the Kotlin-only "braceless statement body" collapse branch (and the separate bare-`else` branch), which then consumed past the wrapping `)` and ate the following statement's separating newline. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): a running unmatched-`(`/`[`-depth counter in the main dispatch loop refuses to treat `if`/bare `else` as collapsible while depth > 0 — a statement-position `if`/`else` is never itself nested inside a paren this pass didn't open and fully consume via its own condition matching. Deliberately does NOT also gate on the preceding token (e.g. `=`) — an early broader attempt regressed `real_code_regressions_18` (an unparenthesized expression-position `if` that legitimately depends on this same collapse path per RDD_KEY_135); reverted to the depth-only signal. New `test/real_code_regressions_20_inp.kt`/`_out.kt`. Fixes the last 2 of the original 9 dogfood non-idempotent files (`MainViewModel.kt`, `ToolbarActions.kt`); 4 diffs remain, see Step 5 below. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -645,8 +646,8 @@ RDD_KEY_131; one-line summary each:
 ### Step 5 — Dogfood / Real-Code Testing
 
 **Next Session: pick up here.** The formatting-and-idempotency-check pass
-has now started (see below) — three rounds of fixes landed so far
-(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136). Next step: pick one of the
+has now started (see below) — four rounds of fixes landed so far
+(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137). Next step: pick one of the
 remaining files below, root-cause its diff the same way (minimal standalone
 repro, `--diff` in isolation, fix, fixture, RDD entry, checkpoint commit),
 then once all are resolved (or explicitly triaged as non-compile-breaking
@@ -681,22 +682,16 @@ re-checking it against the true pristine original (not the stale dogfood
 copy) surfaced a **different, previously-masked bug**: a severe
 statement-joining-without-separator diff (see below), present in the
 original all along but hidden behind the closing-brace-drift diff that
-obscured the file's other differences. **5 diffs remain unresolved, not
-yet root-caused, in no particular priority order:**
-- `MainViewModel.kt` — a severe, apparently pre-existing
-  statement-joining-without-separator bug: functions/statements get
-  concatenated onto one line with no newline or `;` between them (e.g.
-  `"...text" _showMessage(` glues a string-interpolation call's last
-  statement directly onto the next function's signature) — not yet
-  root-caused; likely the same bug family as RDD_KEY_134
-  (`MiscRule.renderCallCandidate`'s multi-line-lambda-argument collapse)
-  but clearly a different trigger shape, since RDD_KEY_134's own fix didn't
-  cover it. Compile-breaking on its face (concatenated identifiers with no
-  separator are not valid Kotlin).
-- `ToolbarActions.kt` — the **same** statement-joining-without-separator
-  bug as `MainViewModel.kt` (confirmed same `"...text" _showMessage(`-style
-  shape), newly surfaced once RDD_KEY_136 stopped masking it. Root-cause
-  together with `MainViewModel.kt` as one investigation, not two.
+obscured the file's other differences. **RDD_KEY_137 fixed the root cause
+for this statement-joining-without-separator bug**, resolving both
+`MainViewModel.kt` and `ToolbarActions.kt` — root cause was
+`BlockStructureRule.collapseSingleExpressionBlocks` mishandling Kotlin's
+`if` as a value expression (`val display = (if (cond) a else b)`): a
+wrapped, braceless expression-position `if`/`else` was misread as a
+braceless *statement* body, swallowing the newline that separated it from
+the following statement. Fixed with a Kotlin-only unmatched-paren-depth
+gate. **4 diffs remain unresolved, not yet root-caused, in no particular
+priority order:**
 - `BleDeviceSelectDialog.kt` — its own `postDelayed { ... }` callback still
   shows a diff (the file's `val filter` diff is fixed by RDD_KEY_135, but
   this is a **separate, still-unresolved** diff in the same file) — **not**
@@ -716,20 +711,18 @@ yet root-caused, in no particular priority order:**
   + `{ _drawBlock(` on round2) — unrelated to (1), needs its own
   root-cause too
 
-Likely worth root-causing as three grouped investigations rather than five
-independent ones: (a) the statement-joining-without-separator bug
-(`MainViewModel.kt`, `ToolbarActions.kt` — same shape, likely same root
-cause, compile-breaking), (b) `BlockPalette.kt`'s §9 one-liner-function
+Likely worth root-causing as two grouped investigations rather than four
+independent ones: (a) `BlockPalette.kt`'s §9 one-liner-function
 column-width flapping in `KotlinGetterSetterRule` (a likely close sibling
-of RDD_KEY_135's §6 fix, same bug class, different class/code path), (c)
-two one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
+of RDD_KEY_135's §6 fix, same bug class, different class/code path), (b)
+three one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
 `BlockPalette.kt`'s Allman-brace gap, `BleDeviceSelectDialog.kt`'s
 remaining `postDelayed` diff) that don't obviously share a root cause with
 anything else yet.
 
-None of these 5 remaining diffs have been confirmed merely cosmetic —
-(a) above is confirmed compile-breaking on its face; (b) and (c) still need
-that determination as part of their own root-cause work.
+None of these 4 remaining diffs have been confirmed merely cosmetic — (a)
+and (b) still need that determination as part of their own root-cause
+work.
 
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
       methodology `STATE.md` used for C/C++/Java (clone a real, compiling

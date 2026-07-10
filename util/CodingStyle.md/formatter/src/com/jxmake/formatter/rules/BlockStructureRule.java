@@ -90,10 +90,46 @@ public class BlockStructureRule {
         final StringBuilder out = new StringBuilder();
         final int n = tokens.size();
         int i = 0;
+        // Kotlin-only running depth of unmatched `(`/`[` seen so far (never touched for
+        // C/C++/Java, whose `if`/`else` are only ever statements). See the `isKotlinExpressionIf`
+        // comment below for why this matters; also used directly to gate the bare `else` branch,
+        // which has no condition of its own to anchor a similar check against.
+        int kotlinParenDepth = 0;
 
         while (i < n) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.KEYWORD && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
+            if (lang.isKotlin) {
+                if (isPunct(t, "(") || isPunct(t, "[")) {
+                    kotlinParenDepth++;
+                } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                    kotlinParenDepth--;
+                }
+            }
+            // Kotlin-only: unlike C/C++/Java, `if` doubles as a value expression (`val x = if
+            // (c) a else b`), and such an expression-position `if` can itself be wrapped in
+            // parens as part of some larger expression (`(if (c) a else b) + rest`). A
+            // statement-position `if`/`else` never sits inside an unmatched `(`/`[` that this
+            // same pass didn't itself open -- matchControlBlock always fully consumes its own
+            // condition's parens before returning, so by the time the main loop reaches the
+            // `if` keyword itself, kotlinParenDepth is always back to whatever it was before
+            // that `if`'s own condition -- but a *wrapping* paren around the whole if-expression
+            // (opened before the `if` keyword and not yet closed) leaves depth > 0 here, which
+            // is exactly the signal that distinguishes this shape. Left un-collapsed, the
+            // braceless-collapse branch further below misreads the `else`-arm's trailing value
+            // plus whatever follows the wrapping paren as if they were the tail of a braceless
+            // statement body, eating the newline that separates this statement from the next
+            // one entirely (found via dogfood-testing against RobotCoding
+            // gui_frontend_android's ToolbarActions.kt / MainViewModel.kt: `val display = (if
+            // (x != null) "..." else "") ...` got fused onto the same line as the following
+            // `showMessage(...)` call with no separator -- invalid Kotlin). An *unparenthesized*
+            // expression-position `if` (`val x = if (c) a else b`, depth 0 here) is deliberately
+            // left alone -- STYLE_KOTLIN.md's own worked examples (and `real_code_regressions_18`)
+            // rely on this same braceless-collapse path to wrap it, and it does not have this
+            // bug: with no wrapping paren to hide behind, the whole if/else IS the statement's
+            // entire RHS, so there is no following sibling content within the same statement for
+            // it to over-consume.
+            final boolean isKotlinExpressionIf = lang.isKotlin && "if".equals(t.text) && kotlinParenDepth > 0;
+            if (!isKotlinExpressionIf && t.type == TokenType.KEYWORD && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
                 final ControlBlock block = matchControlBlock(tokens, i);
                 if (block != null && block.openBraceIndex >= 0) {
                     if (!isPartOfElseChain(tokens, i, block, n) && !anyFrozen(tokens, i, block.closeBraceIndex + 1)) {
@@ -127,7 +163,8 @@ public class BlockStructureRule {
                         }
                     }
                 }
-            } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin) {
+            } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin
+                    && kotlinParenDepth == 0) {
                 // Bare `else` (not `else if` -- that's still an `if`, handled by the branch
                 // above once the main loop reaches it) with an already-braceless multi-line body
                 // (`else\n    stmt`, RDD_KEY_124's sibling gap -- e.g. `test/kt_combined_inp.kt`'s

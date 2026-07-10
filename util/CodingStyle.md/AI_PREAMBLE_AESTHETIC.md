@@ -103,12 +103,15 @@ someFunction(
 The JAR aligns getter/setter groups automatically when methods use standard naming
 prefixes (`get`, `set`, `is`). It cannot detect groups using non-standard names.
 
-**Kotlin exception:** the JAR's standard-prefix grouping does not currently fire for
-Kotlin one-liner accessors/expression-bodied functions (`fun getX(): Int = 1` and
-similar) at all — a known gap, see `formatter/STATE_KOTLIN.md`'s Open Questions. For
-Kotlin files, treat *every* one-liner accessor/getter/setter group as if it were
-non-standard: align it per the rule below regardless of whether its naming prefix is
-`get`/`set`/`is`.
+**Kotlin exception:** the JAR now groups/aligns the common Kotlin one-liner-accessor
+shapes automatically — expression-bodied functions (`fun getX(): Int = 1`) and plain
+no-initializer `get() = expr` properties. A narrower gap remains, see
+`formatter/STATE_KOTLIN.md`'s Open Questions: block-bodied accessors
+(`get() {...}`/`set(v) {...}`), a property pairing a getter with a setter, and a
+property with both an initializer and a custom accessor are all still left
+preserved-as-written, not grouped. For Kotlin files, treat only *these three shapes*
+as if they were non-standard groups: align them per the rule below. Leave any
+already-aligned expression-bodied/`get() = expr` group the JAR produced untouched.
 
 When you find a cluster of short accessor-style methods that form a logical group but
 use non-standard prefixes (`fetch`, `retrieve`, `assign`, `enable`, `toggle`, etc.),

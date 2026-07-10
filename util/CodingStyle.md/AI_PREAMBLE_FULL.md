@@ -28,10 +28,14 @@ support (`.kt`/`.kts`, auto-detected) — prefer running the JAR first, same as
 C/C++/Java. There is still no post-JAR layout-judgment pass for Kotlin files
 (`AI_PREAMBLE_AESTHETIC.md`'s two aesthetic decisions are scoped to C/C++/Java only),
 so this full-file pass remains the fallback for any Kotlin construct the JAR doesn't
-yet handle — including a known gap where the JAR does not group/align adjacent
-Kotlin one-liner accessors or expression-bodied functions at all (see
-`formatter/STATE_KOTLIN.md`'s Open Questions), so this pass should apply STYLE.md
-§14's getter/setter alignment to those groups manually when reformatting Kotlin.
+yet handle. The JAR now groups/aligns the common Kotlin one-liner-accessor shapes
+(expression-bodied functions and plain no-initializer `get() = expr` properties) —
+a remaining gap covers only block-bodied accessors (`get() {...}`/`set(v) {...}`), a
+property pairing a getter with a setter, and a property with both an initializer and
+a custom accessor, all of which the JAR still leaves preserved-as-written rather than
+grouped (see `formatter/STATE_KOTLIN.md`'s Open Questions). Apply STYLE.md §14's
+getter/setter alignment manually only to those three residual shapes when
+reformatting Kotlin.
 
 ---
 

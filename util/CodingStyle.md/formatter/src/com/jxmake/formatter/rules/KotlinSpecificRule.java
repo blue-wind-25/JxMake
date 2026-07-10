@@ -591,7 +591,8 @@ public class KotlinSpecificRule {
             final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
                     || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean tightBeforeAt = isOp(t, "@")
-                    && (state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_PLAIN_IDENT);
+                    && (state == JumpState.AFTER_JUMP_KEYWORD
+                            || (state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(tokens, i + 1)));
             final boolean tightAfterJumpAt = state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER;
             final boolean forceSpace = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
 
@@ -613,13 +614,23 @@ public class KotlinSpecificRule {
 
             if (t.type == TokenType.KEYWORD && isJumpKeyword(t.text)) {
                 state = JumpState.AFTER_JUMP_KEYWORD;
-            } else if (state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@")) {
+            } else if (state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@") && !gapBlocked) {
                 state = JumpState.AFTER_JUMP_AT;
             } else if (state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_JUMP_LABEL;
             } else if (t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_PLAIN_IDENT;
-            } else if (state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@")) {
+            } else if (state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@") && !gapBlocked
+                    && isLoopLabelTarget(tokens, i + 1)) {
+                // Only a genuine `label@` declaration (identifier directly glued to `@`, no gap,
+                // AND actually prefixing a `for`/`while`/`do` loop -- the only constructs Kotlin
+                // labels can target) reaches here. An identifier merely followed by an unrelated
+                // `@` must never be mistaken for one, or the forced-space-after-`@` rule below
+                // would wrongly split that `@` from its own following identifier -- either across
+                // a blocked gap (a NEWLINE/comment/frozen span, e.g. an annotation like
+                // `@Volatile` starting the next statement/line) or, just as easily, tight on the
+                // very same line (e.g. `class Foo @JvmOverloads constructor(...)`, where
+                // `@JvmOverloads` is an annotation on the primary constructor, not a loop label).
                 state = JumpState.AFTER_DECL_AT;
             } else {
                 state = JumpState.NONE;
@@ -636,6 +647,28 @@ public class KotlinSpecificRule {
 
     private boolean isJumpKeyword(final String text) {
         return "return".equals(text) || "break".equals(text) || "continue".equals(text);
+    }
+
+    /** True iff the next significant token at or after {@code from} is `for`/`while`/`do`, or a
+     *  `{` (a labeled lambda literal, e.g. `"123".let parse@ { ... }`) -- the only constructs a
+     *  Kotlin label (`label@`) can prefix. Used by {@link #enforceLabeledJumpSpacing} to tell a
+     *  genuine label declaration apart from an unrelated `@Annotation` that merely happens to sit
+     *  right after some other identifier (a class name, an enum constant, etc.), which is never a
+     *  valid label target. */
+    private boolean isLoopLabelTarget(final List<Token> tokens, final int from) {
+        int j = from;
+        while (j < tokens.size() && isGapToken(tokens.get(j))) {
+            j++;
+        }
+        if (j >= tokens.size()) {
+            return false;
+        }
+        final Token next = tokens.get(j);
+        if (isPunct(next, "{")) {
+            return true;
+        }
+        return next.type == TokenType.KEYWORD
+                && ("for".equals(next.text) || "while".equals(next.text) || "do".equals(next.text));
     }
 
     // ── §17/§17.1 Function-type / lambda-parameter arrow spacing ────────────────

@@ -445,6 +445,28 @@ Real-code regressions:
                                             Kotlin return-type-tail branch in applySignaturePass;
                                             otherwise bail (continue) rather than misdetect.
 
+  real_code_regressions_25_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's BlockCanvasView.kt (`class
+                                            BlockCanvasView @JvmOverloads constructor(`) and
+                                            ToolbarActions.kt (a second adjacent `@Volatile private
+                                            var` declaration): KotlinSpecificRule.
+                                            enforceLabeledJumpSpacing's state machine, meant to
+                                            detect Kotlin's `label@` loop-label declaration syntax
+                                            (STYLE_KOTLIN.md §11), had no way to tell a genuine
+                                            label apart from an unrelated `@Annotation` sitting
+                                            right after some other identifier (a class name, or an
+                                            enum constant ending the previous statement) --
+                                            silently corrupting `@JvmOverloads`/`@Volatile` into
+                                            `@ JvmOverloads`/`@ Volatile`, a parse error on the very
+                                            first format pass. Fixed by adding a lookahead,
+                                            isLoopLabelTarget, requiring the token after `@` to
+                                            actually be `for`/`while`/`do` or `{` (a labeled lambda
+                                            literal) -- the only constructs a Kotlin label can
+                                            legally prefix -- before treating an `IDENTIFIER @`
+                                            sequence as a label declaration, both for the state
+                                            transition and for the tightBeforeAt spacing decision
+                                            itself.
+
 
 How Tests Are Run
 -----------------

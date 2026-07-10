@@ -673,16 +673,24 @@ the second call's name as a return-type tail. Confirmed on real dogfood
 files `ConnectTypeDialog.kt` and `WifiApDialog.kt`
 (`.show().also { ... }` → `.show() { ... }`, losing `.also`). Fixed by
 requiring a genuine top-level `:` immediately after the found `)` before
-accepting the Kotlin return-type-tail branch. **Not yet re-verified**
-whether this fix resolves all ~50 originally-seen compile errors or
-whether some of the others (`MainToolbar.kt`'s `scrollX`/`scrollY`
-unresolved references, `MainViewModel.kt`'s `sorted()`/type-mismatch
-errors, `ToolbarActions.kt`'s `@`-annotation parse error, `XMLSaveLoad.kt`'s
-"Unexpected tokens" syntax error) are the same root cause manifesting
-differently or entirely separate bugs — **next step: re-format the dogfood
-tree with the RDD_KEY_141-fixed jar and re-run
-`./gradlew compileDebugKotlin`**, then root-cause whatever remains,
-one bug at a time, per this project's established protocol. Do not
+accepting the Kotlin return-type-tail branch. **Re-formatted the dogfood
+tree with the RDD_KEY_141-fixed jar and re-ran `./gradlew
+compileDebugKotlin`**: confirmed RDD_KEY_141 fully resolved
+`ConnectTypeDialog.kt`, `WifiApDialog.kt`, `WifiStaDialog.kt`,
+`BlePermissions.kt`, and `MainViewModel.kt` (none appear in the error list
+any more). **Errors remain in 5 files, each a separate, not-yet-root-caused
+bug**: `BlockCanvasView.kt` (many `Unresolved reference` +
+`Modifier '...' is not applicable to local function` errors starting at
+line 495 — looks like a lost closing brace or misplaced nesting, not yet
+investigated); `BlockPalette.kt` (`Unresolved reference: startHolding`, a
+*different* error than the ones RDD_KEY_139/140 fixed — not yet
+investigated); `MainToolbar.kt` (`Unresolved reference: scrollX`/`scrollY`,
+repeated); `ToolbarActions.kt` (`Expected annotation identifier after '@'`
+at line 67 — a parse error, likely an annotation mis-rendered);
+`XMLSaveLoad.kt` (`Unexpected tokens` at line 430:87). Next step:
+root-cause each of these 5 remaining files one bug at a time, per this
+project's established protocol (minimal repro → fix → fixture → RDD_LOG
+entry → commit), starting with whichever is easiest to isolate. Do not
 touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the
 dogfood copy. **Caution established this session**: the dogfood copy at
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` can itself hold

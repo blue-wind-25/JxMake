@@ -281,6 +281,30 @@ Real-code regressions:
                                             initializer list) are unaffected since `;` still
                                             disambiguates statement boundaries there.
 
+  real_code_regressions_18_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's PlayMusicBlock.kt: another
+                                            idempotency bug, this time in
+                                            KotlinDeclarationAlignmentRule.spansMultipleLines (§6
+                                            declaration alignment). A braceless `if(cond) expr else
+                                            expr` initializer short enough to stay on one line
+                                            groups and column-aligns normally with an adjacent
+                                            `val` sibling on a fresh format -- but once its own
+                                            nested call gets wrapped across lines by
+                                            MiscRule.enforceCallLineBreaking (statement too long to
+                                            fit), a *second* pass saw those wrapping newlines and
+                                            wrongly treated the initializer as a genuine multi-line
+                                            block expression, bailing it out of its alignment group
+                                            -- shrinking the sibling `val`'s own column padding on
+                                            every successive pass. Fixed with paren/brace-depth-
+                                            aware newline tracking (mirroring
+                                            ScopePipeline.hasTopLevelNewline's own "ignore newlines
+                                            inside a call's parens" idiom): a newline strictly
+                                            inside a call's parens with no enclosing brace no
+                                            longer counts as "multi-line", but a newline inside an
+                                            actual `{`...`}` block/lambda body still does (needed
+                                            to avoid reintroducing the RDD_KEY_134 compile-breaking
+                                            bug for `{`-bodied trailing-lambda arguments).
+
 
 How Tests Are Run
 -----------------

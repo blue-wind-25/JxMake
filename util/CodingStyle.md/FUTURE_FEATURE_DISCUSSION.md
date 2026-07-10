@@ -65,3 +65,78 @@ One area looks meaningfully harder:
 
 Nothing above should be read as a commitment to implement C++26 support —
 this is a note for later, not a plan.
+
+## JSON / JSON5
+
+Supports:
+- JSON (RFC 8259)
+- JSON5
+
+TODO
+
+---
+
+## XML
+
+Supports:
+- XML 1.0
+- XHTML
+- SVG
+- MathML
+- RSS
+- Atom
+- Android XML
+- Maven POM
+- Ant build.xml
+- IntelliJ XML
+- etc.
+
+TODO
+
+---
+
+## JavaScript
+
+Supports:
+- Latest supported ECMAScript (currently ES2024+)
+
+TODO
+
+---
+
+## TypeScript
+
+Supports:
+- Latest supported TypeScript (currently 5.x)
+
+TODO
+
+---
+
+## CSS
+
+Supports:
+- Modern CSS (currently CSS 3+ modules)
+
+TODO
+
+---
+
+## HTML5
+
+Uses:
+- HTML formatter
+- CSS formatter (for <style>)
+- JavaScript formatter (for <script>)
+
+TODO
+
+---
+
+## Python3
+
+Supports:
+- Latest supported Python 3 (currently 3.15+)
+- Python 2 not supported
+
+TODO

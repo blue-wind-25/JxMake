@@ -8,7 +8,8 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Continue with Kotlin: `### Step 5 — Dogfood / Real-Code Testing` `**Next Session: pick up here.**`
+Please compact `test/README.txt` from `real_code_regressions_17_inp/out.kt` until the end of the
+`real_code_regressions_27_inp/out.kt` list.
 
 
 
@@ -16,23 +17,22 @@ I jave run `make test` and all test passed.
 
 
 
+Continue with Kotlin work (download the repo as needed):
+`github.com/square/okio`
+
+`github.com/Kotlin/kotlinx.coroutines`
+`github.com/square/kotlinpoet`
+`github.com/arrow-kt/arrow`
+`github.com/JetBrains/kotlin`
+
+
+
 Continue with C/C++/Java work (download the repo as needed):
 `taocpp/PEGTL`
-Try to use the config setting `indent-size`, `indent-style`, etc. as needed when idempotency
-tests failed.
 
 `../../../../VMA-GIT/anemonesoft/`
 `github.com/javaparser/javaparser`
 `github.com/openrewrite/rewrite`
-
-
-
-Now the bug(s) are fixed, read and execute the instruction for creating new test fixture pair in:
-**When a bug is found and fixed, add a new permanent fixture pair:**
-
-So it is worth to create a new test fixture pair for the XXX fix? If so, read and
-execute the instruction for creating new test fixture pair in:
-**When a bug is found and fixed, add a new permanent fixture pair:**
 
 ####################################################################################################
 ####################################################################################################

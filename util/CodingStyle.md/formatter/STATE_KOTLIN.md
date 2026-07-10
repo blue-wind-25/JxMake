@@ -171,6 +171,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_135 | Follow-up dogfood idempotency bug (`PlayMusicBlock.kt`, §6 declaration alignment): `KotlinDeclarationAlignmentRule.spansMultipleLines` treated a call-wrapped-but-single-statement initializer the same as a genuine multi-line block, wrongly bailing a declaration out of its alignment group on a second format pass. Fixed with paren/brace-depth-aware newline classification (mirrors `ScopePipeline.hasTopLevelNewline`'s "ignore newlines inside a call's parens" idiom): bail only on a newline inside a real `{`...`}` body or at true top level; ignore a newline strictly inside a call's parens with no enclosing brace. First attempt (paren-depth only, no brace-depth check) was too permissive and regressed RDD_KEY_134's own fixture — corrected once `make test` caught it. New `test/real_code_regressions_18_inp.kt`/`_out.kt`. Resolves 2 more of the original 9 dogfood non-idempotent files (`PlayMusicBlock.kt`, `BleDeviceSelectDialog.kt`'s `val filter`); 5 remain, see Step 5 below. |
 | RDD_KEY_136 | Follow-up dogfood investigation (`MainActivity.kt`'s `_checkRecovery()`): a closing-brace indentation drift, confirmed broken even on a fresh format (not just round1-vs-round2). Root cause: a trailing lambda argument's `{` opening on a continuation line of a multi-line fluent chain (`.setPositiveButton("Ok") {`), deeper than the chain statement's own first line (`AlertDialog.Builder(this)`) — `ScopePipeline.processScope` derived the lambda body's indent, and its closing `}`'s placement, from `findParentIndent`'s whole-statement-first-line anchor (needed elsewhere for `case 1:` labels) instead of the brace's own physical line. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new `ScopePipeline.braceLineIndent` helper (derives indent from the brace's own physical line, no statement-boundary reasoning) feeding a new `effectiveSpanIndent` (brace-line indent when deeper than/where `findParentIndent`'s `spanIndent` is null) used for the child body's inherited indent and closing-brace placement; the named-scope one-liner pre-expansion path is unaffected, still using `spanIndent`. New `test/real_code_regressions_19_inp.kt`/`_out.kt`. Fixes 2 more of the original 9 dogfood non-idempotent files (`MainActivity.kt`, `BlePermissions.kt`) plus confirms `ToolbarActions.kt`'s prior diff shared this root cause — but re-checking `ToolbarActions.kt` against the true pristine original (not the stale dogfood copy) surfaced a different, previously-masked statement-joining-without-separator bug, shared with `MainViewModel.kt`; 5 diffs remain, see Step 5 below. |
 | RDD_KEY_137 | Follow-up dogfood investigation (`MainViewModel.kt`/`ToolbarActions.kt`'s statement-joining-without-separator bug RDD_KEY_136 flagged): a `val`/`var` declaration whose initializer is a parenthesized if/else expression (`val display = (if (cond) a else b)`), immediately followed by another statement, was fused onto that statement's line with no separator — compile-breaking. Minimized via six repros to the precise trigger: both the wrapping parens AND the if/else together are required. Root cause: `BlockStructureRule.collapseSingleExpressionBlocks`'s main dispatch fires on every `if`/`else` keyword with no notion of Kotlin's `if`-as-value-expression; a wrapped, braceless expression-position `if` fell into the Kotlin-only "braceless statement body" collapse branch (and the separate bare-`else` branch), which then consumed past the wrapping `)` and ate the following statement's separating newline. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): a running unmatched-`(`/`[`-depth counter in the main dispatch loop refuses to treat `if`/bare `else` as collapsible while depth > 0 — a statement-position `if`/`else` is never itself nested inside a paren this pass didn't open and fully consume via its own condition matching. Deliberately does NOT also gate on the preceding token (e.g. `=`) — an early broader attempt regressed `real_code_regressions_18` (an unparenthesized expression-position `if` that legitimately depends on this same collapse path per RDD_KEY_135); reverted to the depth-only signal. New `test/real_code_regressions_20_inp.kt`/`_out.kt`. Fixes the last 2 of the original 9 dogfood non-idempotent files (`MainViewModel.kt`, `ToolbarActions.kt`); 4 diffs remain, see Step 5 below. |
+| RDD_KEY_138 | Follow-up dogfood investigation (`BlockCanvasView.kt`'s missing-space-before-`&&` diff): a `val`/`var` declaration whose initializer contains a top-level `&&` lost its preceding space (`a > 1&& b`) — reproduced on a fresh first-pass format, not just idempotency; scoped specifically to declaration initializers (plain assignments/returns/call arguments were unaffected). Root cause: `DeclarationAlignmentRule.isTightToken`'s `Token.isRepOp(t, '*') || Token.isRepOp(t, '&')` check, ungated by language — meant for C/C++'s repeated pointer/reference declarator sigils (`**`, `&&` as an rvalue-reference type), but `Token.isRepOp` matches ANY run of `&` characters including Kotlin's `&&` logical-AND operator, which Kotlin has no unary/repeated `*`/`&` construct to be confused with. `MiscRule.isTightToken` (the sibling shared-join-point method used by non-declaration expression rendering) already carried the correct `!lang.isKotlin &&` gate for this exact reason; `DeclarationAlignmentRule.isTightToken` was simply the one copy that had never received it. **Shared-class fix**: added the identical `!lang.isKotlin &&` gate, mirroring `MiscRule.isTightToken` verbatim. New `test/real_code_regressions_21_inp.kt`/`_out.kt`. Fixes `BlockCanvasView.kt`'s last remaining diff; 2 diffs remain (`BlockPalette.kt`'s two separate diffs), see Step 5 below. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -646,8 +647,8 @@ RDD_KEY_131; one-line summary each:
 ### Step 5 — Dogfood / Real-Code Testing
 
 **Next Session: pick up here.** The formatting-and-idempotency-check pass
-has now started (see below) — four rounds of fixes landed so far
-(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137). Next step: pick one of the
+has now started (see below) — five rounds of fixes landed so far
+(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137, RDD_KEY_138). Next step: pick one of the
 remaining files below, root-cause its diff the same way (minimal standalone
 repro, `--diff` in isolation, fix, fixture, RDD entry, checkpoint commit),
 then once all are resolved (or explicitly triaged as non-compile-breaking
@@ -690,37 +691,36 @@ for this statement-joining-without-separator bug**, resolving both
 wrapped, braceless expression-position `if`/`else` was misread as a
 braceless *statement* body, swallowing the newline that separated it from
 the following statement. Fixed with a Kotlin-only unmatched-paren-depth
-gate. **4 diffs remain unresolved, not yet root-caused, in no particular
-priority order:**
-- `BleDeviceSelectDialog.kt` — its own `postDelayed { ... }` callback still
-  shows a diff (the file's `val filter` diff is fixed by RDD_KEY_135, but
-  this is a **separate, still-unresolved** diff in the same file) — **not**
-  the same root cause as the `RobotTcpSession.kt`/`WifiStaDialog.kt`
-  compile-breaker (that shape is fixed); needs its own fresh root-cause
-- `BlockCanvasView.kt` — a missing space before `&&` appears on round2 only
-  (`sel.size > 1&& _pendingIndent`) — looks like an operator-spacing pass
-  ordering/idempotency gap, not yet root-caused
-- `BlockPalette.kt` — **two separate diffs in this one file, neither fixed
-  by RDD_KEY_135/136**: (1) a §9 one-liner-function column-width-flapping
-  shape (`private fun _addMove()  = ...` etc. — analogous to the §6 bug
+gate. `BleDeviceSelectDialog.kt`'s `postDelayed { ... }` callback diff was
+re-checked after RDD_KEY_137 landed and no longer reproduces —
+round1-vs-round2 is now byte-identical and the callback's rendered content
+is well-formed; most likely resolved incidentally by RDD_KEY_137's fix,
+since the file's surrounding code also relies on if/else-expression
+collapse. Not confirmed which exact prior fix resolved it, and no RDD_LOG
+entry was added for that finding since no code change was needed; treated
+purely as re-verification. **RDD_KEY_138 fixed the root cause for
+`BlockCanvasView.kt`'s missing-space-before-`&&` diff**: a `val`/`var`
+declaration initializer containing a top-level `&&` lost its preceding
+space — root cause was `DeclarationAlignmentRule.isTightToken`'s
+`Token.isRepOp(t, '&')` check being ungated by language (meant for C/C++'s
+repeated pointer/reference sigils, but matching Kotlin's `&&` too); fixed
+by adding the same `!lang.isKotlin` gate `MiscRule.isTightToken` already
+had. **2 diffs remain unresolved, not yet root-caused, both in
+`BlockPalette.kt`:**
+- (1) a §9 one-liner-function column-width-flapping shape
+  (`private fun _addMove()  = ...` etc. — analogous to the §6 bug
   RDD_KEY_135 fixed, but §9 one-liners are grouped by
   `KotlinGetterSetterRule`, a different class entirely, so RDD_KEY_135's
-  fix to `KotlinDeclarationAlignmentRule` doesn't cover it), and (2) an
-  Allman-brace idempotency gap (`override fun draw(...) { _drawBlock(` on
-  round1 vs. round1's own output re-split onto `override fun draw(...)`
+  fix to `KotlinDeclarationAlignmentRule` doesn't cover it)
+- (2) an Allman-brace idempotency gap (`override fun draw(...) { _drawBlock(`
+  on round1 vs. round1's own output re-split onto `override fun draw(...)`
   + `{ _drawBlock(` on round2) — unrelated to (1), needs its own
   root-cause too
 
-Likely worth root-causing as two grouped investigations rather than four
-independent ones: (a) `BlockPalette.kt`'s §9 one-liner-function
-column-width flapping in `KotlinGetterSetterRule` (a likely close sibling
-of RDD_KEY_135's §6 fix, same bug class, different class/code path), (b)
-three one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
-`BlockPalette.kt`'s Allman-brace gap, `BleDeviceSelectDialog.kt`'s
-remaining `postDelayed` diff) that don't obviously share a root cause with
-anything else yet.
+These two remain worth root-causing as separate investigations — they
+don't obviously share a root cause with each other.
 
-None of these 4 remaining diffs have been confirmed merely cosmetic — (a)
+None of these 3 remaining diffs have been confirmed merely cosmetic — (a)
 and (b) still need that determination as part of their own root-cause
 work.
 

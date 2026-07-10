@@ -346,6 +346,23 @@ Real-code regressions:
                                             itself nested inside a paren this same pass didn't open
                                             and fully consume via its own condition matching.
 
+  real_code_regressions_21_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's BlockCanvasView.kt: a `val`
+                                            declaration whose initializer contains a logical-AND
+                                            expression lost the space before `&&`, rendering it
+                                            flush against the preceding token (e.g. `a > 1&& b`).
+                                            Root cause: DeclarationAlignmentRule.isTightToken's
+                                            `Token.isRepOp(t, '*') || Token.isRepOp(t, '&')` check
+                                            -- meant for C/C++'s repeated pointer/reference
+                                            declarator sigils (`**`, `&&` as an rvalue-reference
+                                            type) -- matches ANY token consisting solely of `&`
+                                            characters, including Kotlin's `&&` logical-AND
+                                            operator, which Kotlin has no unary/repeated `*`/`&`
+                                            construct to be confused with. Fixed by gating both
+                                            checks to non-Kotlin languages, mirroring the identical
+                                            gate MiscRule.isTightToken already had for the same
+                                            reason.
+
 
 How Tests Are Run
 -----------------

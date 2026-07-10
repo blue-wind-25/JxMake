@@ -588,7 +588,14 @@ public class DeclarationAlignmentRule {
         if (lang.isKotlin && isOp(t, "?")) {
             return true;
         }
-        return Token.isRepOp(t, '*') || Token.isRepOp(t, '&') || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        // Token.isRepOp(t, '&') matches ANY run of `&` characters, including Kotlin's `&&`
+        // logical-AND operator -- it was written for C/C++'s repeated pointer/reference
+        // operators (`**`, `&&` as an rvalue-reference declarator), which don't exist in
+        // Kotlin. Without this gate, `val x = a && b` loses its space before `&&` (rendered
+        // as `a&& b`) because isTightToken wrongly treats `&&` as tight. Kotlin has no
+        // unary/repeated `*`/`&` construct at all, so both checks are gated to non-Kotlin.
+        return (!lang.isKotlin && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&')))
+                || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
     /** True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,

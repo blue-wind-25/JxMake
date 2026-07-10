@@ -434,6 +434,25 @@ public class KotlinGetterSetterRule extends GetterSetterRule {
             return null; // empty expression body
         }
 
+        // A body containing a non-empty-arg call is exactly the shape `enforceCallLineBreaking`
+        // (later in the pipeline) may break across multiple lines if it doesn't fit -- check that
+        // predicted width here so grouping/padding is decided consistently whether this is a
+        // fresh format (body still on one physical line) or a reformat of output already broken
+        // by that later phase. Without this, a fresh format groups/pads a too-long member using
+        // its original single-line text (still short at this point), only for the later phase to
+        // break it; reformatting that already-broken output then correctly excludes the
+        // now-multi-line member via `hasNewlineBetween` above, splitting the run into different
+        // subgroups with different padding on the second pass (RDD_KEY_138) -- same length
+        // pre-check GetterSetterRule.parseOneLinerMember already uses for this exact reason (its
+        // own doc comment explains the flip-flop), never previously ported to this Kotlin sibling.
+        if (hasBreakableCall(tokens, bodyFrom, bodyTo)) {
+            final int estimatedColumn = nestDepth * indentWidth;
+            final int estimatedWidth = estimatedColumn + cellText(tokens, firstSig, to).length();
+            if (estimatedWidth > lineLengthLimit) {
+                return null;
+            }
+        }
+
         return new Member(new ArrayList<Token>(), returnTypeFrom, returnTypeFrom,
                 returnTypeFrom, returnTypeTo,
                 nameIdx, nameIdx, paramsFrom, paramsTo,

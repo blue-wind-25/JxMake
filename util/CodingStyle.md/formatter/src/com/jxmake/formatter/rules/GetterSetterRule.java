@@ -28,8 +28,11 @@ public class GetterSetterRule {
 
     private final Lang lang;
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
-    private final int indentWidth;
-    private final int lineLengthLimit;
+    /** Visibility raised private -> protected for {@code KotlinGetterSetterRule} reuse
+     *  (RDD_KEY_138, same "loosen shared-class visibility, then extend" pattern as
+     *  RDD_KEY_103/104/133) -- purely additive, no behavior change. */
+    protected final int indentWidth;
+    protected final int lineLengthLimit;
 
     public GetterSetterRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
@@ -798,8 +801,9 @@ public class GetterSetterRule {
     /** True if {@code [bodyFrom, bodyTo)} contains at least one {@code name(args)} call with a
      *  non-empty argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later
      *  break across lines if it doesn't fit ({@code name()} zero-arg calls are never broken, see
-     *  that method's own doc comment). */
-    private boolean hasBreakableCall(final List<Token> tokens, final int bodyFrom, final int bodyTo) {
+     *  that method's own doc comment). Visibility raised private -> protected for
+     *  {@code KotlinGetterSetterRule} reuse (RDD_KEY_138) -- purely additive, no behavior change. */
+    protected boolean hasBreakableCall(final List<Token> tokens, final int bodyFrom, final int bodyTo) {
         if (bodyFrom < 0) {
             return false;
         }

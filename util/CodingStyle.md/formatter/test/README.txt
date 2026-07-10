@@ -363,6 +363,32 @@ Real-code regressions:
                                             gate MiscRule.isTightToken already had for the same
                                             reason.
 
+  real_code_regressions_22_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's BlockPalette.kt: a run of
+                                            adjacent §9 expression-bodied one-liner functions, one
+                                            of which has a body long enough that a later phase
+                                            (MiscRule.enforceCallLineBreaking) wraps its call
+                                            across multiple lines once column-padding is added. On
+                                            a fresh format the run's column width was computed
+                                            from every member's original (still short) text,
+                                            including the long one's -- only for that later
+                                            wrapping phase to break it afterward, leaving the
+                                            group's padding stale. Reformatting that already-
+                                            wrapped output then correctly excluded the now-multi-
+                                            line member via `hasNewlineBetween`, splitting the run
+                                            into different subgroups with different (narrower)
+                                            column widths on the second pass -- an idempotency
+                                            flap. This exact bug class was already fixed for the
+                                            C/C++/Java base class
+                                            (GetterSetterRule.parseOneLinerMember's own length
+                                            pre-check) but never ported to the Kotlin sibling
+                                            method. Fixed by adding the same `hasBreakableCall` +
+                                            estimated-width pre-check to
+                                            KotlinGetterSetterRule.parseKotlinOneLinerMember,
+                                            excluding a too-long member from the group on the very
+                                            first pass too, so the decision stays stable across
+                                            repeated formats.
+
 
 How Tests Are Run
 -----------------

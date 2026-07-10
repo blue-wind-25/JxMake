@@ -543,6 +543,17 @@ public class DeclarationAlignmentRule {
         if (isTightToken(cur)) {
             return false;
         }
+        // Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single tight
+        // lexical unit -- STYLE_KOTLIN.md renders them with no space between `!` and the
+        // keyword, unlike a plain `is`/`in` (`a is B`, always spaced). The tokenizer still
+        // lexes `!` and `is`/`in` as two separate tokens, so without this check the generic
+        // KEYWORD-gets-a-leading-space default below inserted a space here, corrupting `!is`/
+        // `!in` into `! is`/`! in` -- a Kotlin parse error found via dogfood-testing
+        // RobotCoding gui_frontend_android's ProgramBuilder.kt (`it !is _FunctionItem`).
+        if (lang.isKotlin && isOp(prev, "!") && cur.type == TokenType.KEYWORD
+                && ("is".equals(cur.text) || "in".equals(cur.text))) {
+            return false;
+        }
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
             return false;

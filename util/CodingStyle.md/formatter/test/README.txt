@@ -467,6 +467,46 @@ Real-code regressions:
                                             transition and for the tightBeforeAt spacing decision
                                             itself.
 
+  real_code_regressions_26_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's Optimizer.kt: a `when`
+                                            expression's `else -> { ... }` branch with a
+                                            multi-statement block body was flattened onto a single
+                                            line with no `;` separators between statements -- a
+                                            parse error on the very first format pass. Root cause:
+                                            BlockStructureRule.collapseSingleExpressionBlocks's
+                                            bare-`else` handling (meant for a real `if`/`else`
+                                            chain's braceless single-statement body, STYLE.md §10)
+                                            matched any KEYWORD "else" not immediately followed by
+                                            "if" or "{" -- which also matches a `when` arm's `else`
+                                            label, since its body is introduced by `->`, not a
+                                            brace. Fixed by also checking whether the token after
+                                            `else` is `->`, and bailing out of the
+                                            braceless-collapse path in that case.
+
+  real_code_regressions_27_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's ProgramBuilder.kt: two separate,
+                                            unrelated bugs co-occurring in the same statement. (1)
+                                            DeclarationAlignmentRule.needsSpaceBetween had no case
+                                            for Kotlin's `!is`/`!in` negated type-check/containment
+                                            operators (a single tight lexical unit with no space),
+                                            so the generic KEYWORD-gets-a-leading-space default
+                                            corrupted `!is`/`!in` into `! is`/`! in`. (2)
+                                            MiscRule.enforceCallLineBreaking's renderCallCandidate
+                                            used parseSignature (a C/C++/Java-style "type name"
+                                            declaration parser) to distinguish a forward
+                                            declaration's parameter list from a plain call's
+                                            argument list -- but Kotlin has no such shape at all, so
+                                            parseParam's generic heuristic misparsed the call
+                                            argument `it.func.funcName` (no top-level comma) as a
+                                            `Type name` pair, inserting a spurious space once the
+                                            call needed line-wrapping and corrupting it into
+                                            `it.func. funcName`. Fixed by forcing Kotlin's
+                                            render-path selection through the untyped call-argument
+                                            path via a separate `sigForRender` variable, while
+                                            keeping the original `sig`-driven zero-param bail-out
+                                            intact (an initial attempt that gated `sig` itself to
+                                            null broke fixture 22's zero-param declaration).
+
 
 How Tests Are Run
 -----------------

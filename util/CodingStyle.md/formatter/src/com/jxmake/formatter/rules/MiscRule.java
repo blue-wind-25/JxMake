@@ -2696,6 +2696,25 @@ public class MiscRule {
         if (sig != null && sig.params.isEmpty()) {
             return null; // zero-param -- never broken, see this method's class-level doc comment
         }
+        // This C/C++/Java-style `type name` signature parse exists to tell a real forward
+        // declaration's parameter list apart from a plain call's argument list (both are just
+        // "IDENTIFIER ( ... )" at this scan's level) -- but Kotlin has no such prototype-only
+        // declaration shape at all (a Kotlin function signature always starts with `fun` and
+        // uses the reversed `name: Type` order, handled entirely by ScopePipeline elsewhere, not
+        // this pass). Used only for its zero-param bail-out above (still needed -- a Kotlin
+        // function's own empty `()` param list must never be wrapped either, and non-Kotlin
+        // reasoning doesn't otherwise change here), the typed rendering paths below (`sig != null`
+        // branches) must never be selected for Kotlin: parseParam's generic "last IDENTIFIER is
+        // the name, everything before it is the type" heuristic can misparse an ordinary call
+        // argument that happens to be a dotted member-access expression with no top-level comma
+        // (e.g. `calledFunctions.contains(it.func.funcName)`) as if `it.func.funcName` were a
+        // `Type name` pair (type `it.func.`, name `funcName`) -- then the typed dropped/
+        // one-per-line render path inserts a column-separator space between them, corrupting the
+        // expression into `it.func. funcName`, a parse error (found via dogfood-testing
+        // RobotCoding gui_frontend_android's ProgramBuilder.kt). Forcing every Kotlin candidate's
+        // render-path selection through the untyped call-argument path instead never inserts a
+        // space where the source had none.
+        final Signature sigForRender = lang.isKotlin ? null : sig;
 
         final List<Token> paramsSlice = tokens.subList(openIdx + 1, closeIdx);
         final String baseIndent = lineIndent(tokens, nameIdx);
@@ -2733,7 +2752,7 @@ public class MiscRule {
                     }
                 }
             }
-            final List<String> lines = (sig != null)
+            final List<String> lines = (sigForRender != null)
                     ? renderDeclarationPreserveGroups(paramsSlice, baseIndent)
                     : renderCallPreserveGroups(paramsSlice, baseIndent);
             return lines == null ? null : "(\n" + String.join("\n", lines);
@@ -2745,9 +2764,9 @@ public class MiscRule {
             return null; // Option 0 -- already fits, no change
         }
 
-        final List<String> dropped = (sig != null) ? renderDropped(sig, baseIndent) : renderCallDropped(paramsSlice, baseIndent);
+        final List<String> dropped = (sigForRender != null) ? renderDropped(sigForRender, baseIndent) : renderCallDropped(paramsSlice, baseIndent);
         final List<String> lines = (dropped != null) ? dropped
-                : (sig != null) ? renderOnePerLine(sig, baseIndent) : renderCallOnePerLine(paramsSlice, baseIndent);
+                : (sigForRender != null) ? renderOnePerLine(sigForRender, baseIndent) : renderCallOnePerLine(paramsSlice, baseIndent);
         return "(\n" + String.join("\n", lines);
     }
 

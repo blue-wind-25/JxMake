@@ -183,7 +183,17 @@ public class BlockStructureRule {
                 final boolean isElseIf = next < n && tokens.get(next).type == TokenType.KEYWORD
                         && "if".equals(tokens.get(next).text);
                 final boolean isBraced = next < n && isPunct(tokens.get(next), "{");
-                if (!isElseIf && !isBraced && !anyFrozen(tokens, i, i + 1)) {
+                // A `when` expression's `else -> body` branch label is lexically identical to a
+                // bare statement-`else` up to this point (a KEYWORD "else" not followed by "if"
+                // or "{"), but its body is introduced by `->`, not implicitly braceless the way a
+                // real `if`/`else` chain's single-statement body is -- collapseBracelessBody
+                // would otherwise treat everything from `->` up to the arm's true end as one
+                // undifferentiated braceless statement span and join multiple statements onto one
+                // line with no `;` between them (found via dogfood-testing RobotCoding
+                // gui_frontend_android's Optimizer.kt: an `else -> { var x = ...; for(...) {...};
+                // x }` block-bodied arm got flattened to one line, a Kotlin parse error).
+                final boolean isWhenArrow = next < n && isOp(tokens.get(next), "->");
+                if (!isElseIf && !isBraced && !isWhenArrow && !anyFrozen(tokens, i, i + 1)) {
                     final int[] bodyEnd = new int[1];
                     final String collapsed = collapseBracelessBody(tokens, i + 1, "else", bodyEnd);
                     if (collapsed != null) {

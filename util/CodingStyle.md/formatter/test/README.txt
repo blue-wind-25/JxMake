@@ -305,6 +305,25 @@ Real-code regressions:
                                             to avoid reintroducing the RDD_KEY_134 compile-breaking
                                             bug for `{`-bodied trailing-lambda arguments).
 
+  real_code_regressions_19_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                            gui_frontend_android's MainActivity.kt: a closing-brace
+                                            indentation drift bug in ScopePipeline.processScope. A
+                                            trailing lambda argument's `{` can sit on a continuation
+                                            line of a multi-line fluent chain
+                                            (`.setPositiveButton("Ok") {`), deeper than the chain's
+                                            own first line (`AlertDialog.Builder(this)`).
+                                            processScope derived the lambda body's indent, and its
+                                            closing `}`'s alignment, from the whole statement's
+                                            first line (via findParentIndent, needed elsewhere for
+                                            e.g. `case 1:` labels) instead of the brace's own
+                                            physical line -- under-indenting the body by one level
+                                            and misplacing a nested if/else block's closing braces
+                                            to match, even on a fresh format. Fixed (Kotlin-only,
+                                            via a new ScopePipeline.braceLineIndent helper) by using
+                                            the brace's own physical-line indent, when deeper than
+                                            the statement-start indent, for the child body's
+                                            inherited indent and its closing-brace placement.
+
 
 How Tests Are Run
 -----------------

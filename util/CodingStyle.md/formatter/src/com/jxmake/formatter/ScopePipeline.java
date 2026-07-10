@@ -605,6 +605,34 @@ public class ScopePipeline {
         return inheritedIndent;
     }
 
+    /** Returns the leading whitespace of the physical line containing {@code idx} (typically an
+     *  {@code openBraceIdx}), or {@code null} if no NEWLINE precedes it within {@code tokens}.
+     *  Unlike {@link #findParentIndent}, which anchors on the STATEMENT's own start (skipping
+     *  back over a multi-line fluent chain to, e.g., `AlertDialog.Builder(this)`), this looks at
+     *  only the immediate physical line the brace itself sits on -- e.g. the `.setPositiveButton(
+     *  "Ok") {` continuation line, not the chain's first line. A trailing-lambda body's own
+     *  indent, and its closing `}`'s alignment, follow the brace's own line, not the whole
+     *  statement's first line -- see the Kotlin `MainActivity._checkRecovery()` closing-brace
+     *  indentation drift bug (RDD_KEY_136). */
+    private String braceLineIndent(final List<Token> tokens, final int idx) {
+        int i = idx - 1;
+        while (i >= 0 && tokens.get(i).type != TokenType.NEWLINE) {
+            i--;
+        }
+        if (i < 0) {
+            return null;
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int j = i + 1; j < idx; j++) {
+            final Token t = tokens.get(j);
+            if (t.type != TokenType.WHITESPACE) {
+                break;
+            }
+            sb.append(t.text);
+        }
+        return sb.toString();
+    }
+
     /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
      *  scope's original, unnormalized gap before its closing `}` so a fresh {@code "\n" + indent}
      *  can be appended in its place. */
@@ -1275,6 +1303,29 @@ public class ScopePipeline {
             // for (1) pre-expanding a named one-liner body below, (2) the indent inherited by
             // whatever is recursed into below, and (3) this span's own closing-brace placement.
             final String spanIndent = findParentIndent(current, span, inheritedIndent);
+            // Kotlin-only: a trailing lambda argument's `{` can sit on a continuation line of a
+            // multi-line fluent chain (e.g. `AlertDialog.Builder(this)\n    .setTitle(...)\n
+            // .setPositiveButton("Ok") {`), deeper than the chain's own first line. `spanIndent`
+            // above (via `findParentIndent`) anchors on that FIRST line (`AlertDialog.Builder`),
+            // since it deliberately walks back to the whole statement's start (needed for, e.g.,
+            // `case 1:` labels). But the lambda body's own indent, and its closing `}`'s
+            // alignment, follow the brace's own physical line (`.setPositiveButton(...)`), not
+            // the chain's first line -- using `spanIndent` here under-indented the body by
+            // whatever the chain's own continuation indent added, and misplaced the closing `}`
+            // to match (RDD_KEY_136, `MainActivity._checkRecovery()`'s closing-brace drift).
+            // Gated to Kotlin: C/C++/Java's `;`-terminated, brace-anchored control-flow bodies
+            // don't commonly place a block-opening `{` at the end of a multi-line fluent chain
+            // the way a Kotlin trailing lambda does, and this fix is unverified for those
+            // languages' own multi-line-chain shapes.
+            final String braceIndent = lang.isKotlin ? braceLineIndent(current, span.openBraceIdx) : null;
+            final String effectiveSpanIndent;
+            if (braceIndent == null) {
+                effectiveSpanIndent = spanIndent;
+            } else if (spanIndent == null || braceIndent.length() > spanIndent.length()) {
+                effectiveSpanIndent = braceIndent;
+            } else {
+                effectiveSpanIndent = spanIndent;
+            }
             // Pre-expand named-construct one-liner bodies (`struct Foo { int a; int b; };`)
             // into multi-line form so that applyDeclarationsPass/applyAssignmentsPass in the
             // child scope see newline-separated source and produce correctly-indented output.
@@ -1291,7 +1342,7 @@ public class ScopePipeline {
             // itself deliberately does NOT increment for `namespace` bodies for other reasons,
             // but a namespace body is still genuinely indented one level in real source, so the
             // *real*-indent thread below must increment unconditionally to match).
-            final String childInheritedIndent = (spanIndent != null ? spanIndent : inheritedIndent)
+            final String childInheritedIndent = (effectiveSpanIndent != null ? effectiveSpanIndent : inheritedIndent)
                     + indentUnit();
             final String childResult;
             if (!isNamedScope && !hasTopLevelNewline(current, span.openBraceIdx + 1, span.closeBraceIdx)) {
@@ -1323,7 +1374,7 @@ public class ScopePipeline {
                 // `else`) is content other passes already position/associate correctly, and
                 // blindly reindenting around it has been observed to corrupt that placement.
                 if (anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
-                        || trailingGapHasComment(current, span.closeBraceIdx) || spanIndent == null
+                        || trailingGapHasComment(current, span.closeBraceIdx) || effectiveSpanIndent == null
                         || rawChildResult.trim().isEmpty()) {
                     // An empty/whitespace-only body (`{}`/`{ }`) has no statement to hang a
                     // trailing gap off of -- forcing a "\n" + indent here would turn a genuinely
@@ -1331,7 +1382,7 @@ public class ScopePipeline {
                     // doing (see STATE.md's java_modern empty-named-construct-body entry).
                     childResult = rawChildResult;
                 } else {
-                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + spanIndent;
+                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + effectiveSpanIndent;
                 }
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));

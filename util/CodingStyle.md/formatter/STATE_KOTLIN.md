@@ -169,6 +169,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_133 | Kotlin §8 property-accessor (`get()`/`set()`) one-liner grouping, the remaining gap RDD_KEY_132 left open — new `parseKotlinAccessorMember`/`isAccessorMember`/`renderAccessorGroup` in `KotlinGetterSetterRule.java` (Kotlin-only file, no new shared-class methods), scoped to a plain no-initializer `val`/`var` property immediately followed by a bare `get() = expr` (no `set`, no block body); merges the two-line source into one Kotlin-legal line and column-aligns via `ColumnGrid`, mirroring §9's 4-cell shape; two idempotency bugs found and fixed — a **shared-class fix** (`DeclarationAlignmentRule.needsSpaceBetween`, Kotlin-gated carve-out so `get`/`set` keywords are tight against a following `(` like an ordinary call name) and a `KotlinDeclarationAlignmentRule.parseKotlinDeclaration` fix (bails rather than swallowing a re-parsed merged line's `get`/`set` into its type-token scan, which was also cross-contaminating an unrelated sibling's column width when wrongly grouped together) |
 | RDD_KEY_134 | Kotlin Step 5 dogfood testing found a compile-breaking bug (not just idempotency): `MiscRule.renderCallCandidate`'s Option 2 (`renderCallPreserveGroups`, via `groupByOriginalLine`) collapsed a multi-line trailing-lambda call argument (`Thread({ ...multi-statement body... }, "tcp-reader")`) onto one line with no statement separators — invalid Kotlin, since (unlike C/C++/Java) Kotlin has no `;` to fall back on. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new bail in `renderCallCandidate` when any top-level call argument contains both a newline and a `{` (new `containsBrace` helper); confirmed a non-gated version broke the pre-existing C++ `real_code_regressions_1` fixture, so the gate is required, not optional. New `test/real_code_regressions_17_inp.kt`/`_out.kt` fixture. Fixes 2 of 3 known compile-breaking dogfood cases (`RobotTcpSession.kt`, `WifiStaDialog.kt`'s `postDelayed` callback); `BleDeviceSelectDialog.kt`'s own `postDelayed` callback still shows an idempotency diff, not yet root-caused. |
 | RDD_KEY_135 | Follow-up dogfood idempotency bug (`PlayMusicBlock.kt`, §6 declaration alignment): `KotlinDeclarationAlignmentRule.spansMultipleLines` treated a call-wrapped-but-single-statement initializer the same as a genuine multi-line block, wrongly bailing a declaration out of its alignment group on a second format pass. Fixed with paren/brace-depth-aware newline classification (mirrors `ScopePipeline.hasTopLevelNewline`'s "ignore newlines inside a call's parens" idiom): bail only on a newline inside a real `{`...`}` body or at true top level; ignore a newline strictly inside a call's parens with no enclosing brace. First attempt (paren-depth only, no brace-depth check) was too permissive and regressed RDD_KEY_134's own fixture — corrected once `make test` caught it. New `test/real_code_regressions_18_inp.kt`/`_out.kt`. Resolves 2 more of the original 9 dogfood non-idempotent files (`PlayMusicBlock.kt`, `BleDeviceSelectDialog.kt`'s `val filter`); 5 remain, see Step 5 below. |
+| RDD_KEY_136 | Follow-up dogfood investigation (`MainActivity.kt`'s `_checkRecovery()`): a closing-brace indentation drift, confirmed broken even on a fresh format (not just round1-vs-round2). Root cause: a trailing lambda argument's `{` opening on a continuation line of a multi-line fluent chain (`.setPositiveButton("Ok") {`), deeper than the chain statement's own first line (`AlertDialog.Builder(this)`) — `ScopePipeline.processScope` derived the lambda body's indent, and its closing `}`'s placement, from `findParentIndent`'s whole-statement-first-line anchor (needed elsewhere for `case 1:` labels) instead of the brace's own physical line. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new `ScopePipeline.braceLineIndent` helper (derives indent from the brace's own physical line, no statement-boundary reasoning) feeding a new `effectiveSpanIndent` (brace-line indent when deeper than/where `findParentIndent`'s `spanIndent` is null) used for the child body's inherited indent and closing-brace placement; the named-scope one-liner pre-expansion path is unaffected, still using `spanIndent`. New `test/real_code_regressions_19_inp.kt`/`_out.kt`. Fixes 2 more of the original 9 dogfood non-idempotent files (`MainActivity.kt`, `BlePermissions.kt`) plus confirms `ToolbarActions.kt`'s prior diff shared this root cause — but re-checking `ToolbarActions.kt` against the true pristine original (not the stale dogfood copy) surfaced a different, previously-masked statement-joining-without-separator bug, shared with `MainViewModel.kt`; 5 diffs remain, see Step 5 below. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -644,18 +645,21 @@ RDD_KEY_131; one-line summary each:
 ### Step 5 — Dogfood / Real-Code Testing
 
 **Next Session: pick up here.** The formatting-and-idempotency-check pass
-has now started (see below) — two rounds of fixes landed so far
-(RDD_KEY_134, RDD_KEY_135), bringing the dogfood non-idempotent count down
-from 9/46 to 5/46. None of the remaining 5 are yet confirmed
-compile-breaking (that was only established for the 2 files RDD_KEY_134
-resolved). Next step: pick one of the remaining 5 files below, root-cause
-its diff the same way (minimal standalone repro, `--diff` in isolation,
-fix, fixture, RDD entry, checkpoint commit), then once all are resolved (or
-explicitly triaged as non-compile-breaking style-only gaps), proceed to
-`./gradlew compileDebugKotlin` against the fully-formatted dogfood tree and
-diff against the clean baseline. Do not touch
-`~/Projects/RobotCoding/gui_frontend_android` itself — only the dogfood
-copy.
+has now started (see below) — three rounds of fixes landed so far
+(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136). Next step: pick one of the
+remaining files below, root-cause its diff the same way (minimal standalone
+repro, `--diff` in isolation, fix, fixture, RDD entry, checkpoint commit),
+then once all are resolved (or explicitly triaged as non-compile-breaking
+style-only gaps), proceed to `./gradlew compileDebugKotlin` against the
+fully-formatted dogfood tree and diff against the clean baseline. Do not
+touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the
+dogfood copy. **Caution established this session**: the dogfood copy at
+`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` can itself hold
+*already-formatted, pre-fix* output from an earlier session's round1/round2
+runs — always re-verify a fix against the true pristine originals under
+`~/Projects/RobotCoding/gui_frontend_android` (read-only, never write
+there), not just the dogfood copy, or a stale idempotency check can falsely
+look unfixed (or falsely look fixed).
 
 **Idempotency findings (round1 vs round2 diff, 46 `.kt` files under
 `app/src/main/java`):** 9 files originally non-idempotent.
@@ -665,14 +669,34 @@ copy.
 separator" shape, confirmed compile-breaking). **RDD_KEY_135 fixed the
 root cause for 2 more** (`PlayMusicBlock.kt` and `BleDeviceSelectDialog.kt`'s
 `val filter` declaration — both the same §6 declaration-alignment
-call-wrapped-initializer idempotency shape). **`ToolbarActions.kt` also
-dropped off the diff with no dedicated fix** — its earlier closing-brace
-indentation drift apparently shared a root cause with one of the two fixes
-above (not independently confirmed which; if it resurfaces, don't assume
-it's already covered). **5 remain unresolved, not yet root-caused, in no
-particular priority order:**
-- `MainActivity.kt` — a closing-brace indentation drifts by one level
-  between passes
+call-wrapped-initializer idempotency shape). **RDD_KEY_136 fixed the root
+cause for 2 more** (`MainActivity.kt` and `BlePermissions.kt`'s
+closing-brace indentation drift — a trailing lambda's `{` opening on a
+continuation line of a multi-line fluent chain, deeper than the chain
+statement's own first line; `ScopePipeline.processScope` derived the
+lambda body's indent from the whole statement's first line instead of the
+brace's own physical line). **`ToolbarActions.kt`'s own closing-brace-drift
+diff is also confirmed fixed by RDD_KEY_136** (same root cause) — but
+re-checking it against the true pristine original (not the stale dogfood
+copy) surfaced a **different, previously-masked bug**: a severe
+statement-joining-without-separator diff (see below), present in the
+original all along but hidden behind the closing-brace-drift diff that
+obscured the file's other differences. **5 diffs remain unresolved, not
+yet root-caused, in no particular priority order:**
+- `MainViewModel.kt` — a severe, apparently pre-existing
+  statement-joining-without-separator bug: functions/statements get
+  concatenated onto one line with no newline or `;` between them (e.g.
+  `"...text" _showMessage(` glues a string-interpolation call's last
+  statement directly onto the next function's signature) — not yet
+  root-caused; likely the same bug family as RDD_KEY_134
+  (`MiscRule.renderCallCandidate`'s multi-line-lambda-argument collapse)
+  but clearly a different trigger shape, since RDD_KEY_134's own fix didn't
+  cover it. Compile-breaking on its face (concatenated identifiers with no
+  separator are not valid Kotlin).
+- `ToolbarActions.kt` — the **same** statement-joining-without-separator
+  bug as `MainViewModel.kt` (confirmed same `"...text" _showMessage(`-style
+  shape), newly surfaced once RDD_KEY_136 stopped masking it. Root-cause
+  together with `MainViewModel.kt` as one investigation, not two.
 - `BleDeviceSelectDialog.kt` — its own `postDelayed { ... }` callback still
   shows a diff (the file's `val filter` diff is fixed by RDD_KEY_135, but
   this is a **separate, still-unresolved** diff in the same file) — **not**
@@ -682,8 +706,8 @@ particular priority order:**
   (`sel.size > 1&& _pendingIndent`) — looks like an operator-spacing pass
   ordering/idempotency gap, not yet root-caused
 - `BlockPalette.kt` — **two separate diffs in this one file, neither fixed
-  by RDD_KEY_135**: (1) a §9 one-liner-function column-width-flapping shape
-  (`private fun _addMove()  = ...` etc. — analogous to the §6 bug
+  by RDD_KEY_135/136**: (1) a §9 one-liner-function column-width-flapping
+  shape (`private fun _addMove()  = ...` etc. — analogous to the §6 bug
   RDD_KEY_135 fixed, but §9 one-liners are grouped by
   `KotlinGetterSetterRule`, a different class entirely, so RDD_KEY_135's
   fix to `KotlinDeclarationAlignmentRule` doesn't cover it), and (2) an
@@ -691,16 +715,11 @@ particular priority order:**
   round1 vs. round1's own output re-split onto `override fun draw(...)`
   + `{ _drawBlock(` on round2) — unrelated to (1), needs its own
   root-cause too
-- `MainViewModel.kt` — closing-brace indentation drift, same shape as
-  `MainActivity.kt`
-- `BlePermissions.kt` — closing-brace indentation drift, same shape as
-  `MainActivity.kt`/`MainViewModel.kt`
 
 Likely worth root-causing as three grouped investigations rather than five
-independent ones: (a) closing-brace indentation drift (`MainActivity.kt`,
-`MainViewModel.kt`, `BlePermissions.kt` — the same shape `ToolbarActions.kt`
-had before it incidentally resolved, so fixing this shape may also explain
-why that one disappeared), (b) `BlockPalette.kt`'s §9 one-liner-function
+independent ones: (a) the statement-joining-without-separator bug
+(`MainViewModel.kt`, `ToolbarActions.kt` — same shape, likely same root
+cause, compile-breaking), (b) `BlockPalette.kt`'s §9 one-liner-function
 column-width flapping in `KotlinGetterSetterRule` (a likely close sibling
 of RDD_KEY_135's §6 fix, same bug class, different class/code path), (c)
 two one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
@@ -708,8 +727,9 @@ two one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
 remaining `postDelayed` diff) that don't obviously share a root cause with
 anything else yet.
 
-None of these 5 remaining diffs have been confirmed compile-breaking or
-merely cosmetic — that determination is itself the next step for each.
+None of these 5 remaining diffs have been confirmed merely cosmetic —
+(a) above is confirmed compile-breaking on its face; (b) and (c) still need
+that determination as part of their own root-cause work.
 
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
       methodology `STATE.md` used for C/C++/Java (clone a real, compiling

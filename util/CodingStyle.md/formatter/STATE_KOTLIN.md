@@ -652,11 +652,12 @@ RDD_KEY_131; one-line summary each:
 
 ### Step 5 — Dogfood / Real-Code Testing
 
-**Next Session: pick up here.** The formatting-and-idempotency-check pass
-has now started (see below) — seven rounds of fixes landed so far
-(RDD_KEY_134, RDD_KEY_135, RDD_KEY_136, RDD_KEY_137, RDD_KEY_138, RDD_KEY_139,
-RDD_KEY_140). All 9 originally-flagged non-idempotent dogfood files,
-including both of `BlockPalette.kt`'s diffs, are now resolved.
+**Status: dogfood tree now compiles clean end-to-end (see below) — Step 5's
+core goal is met.** Any future session picking this up should treat it as
+regression-watching / further polish, not a known-broken state. The
+formatting-and-idempotency-check pass ran through many rounds of fixes
+(RDD_KEY_134 through RDD_KEY_144). All 9 originally-flagged non-idempotent
+dogfood files, including both of `BlockPalette.kt`'s diffs, are resolved.
 `./gradlew compileDebugKotlin` against the fully-formatted dogfood tree was
 then attempted and **failed** with ~50 Kotlin compiler errors across 9
 files (`BlockPalette.kt`, `ConnectTypeDialog.kt`, `MainToolbar.kt`,
@@ -681,19 +682,27 @@ tree with the RDD_KEY_141-fixed jar and re-ran `./gradlew
 compileDebugKotlin`**: confirmed RDD_KEY_141 fully resolved
 `ConnectTypeDialog.kt`, `WifiApDialog.kt`, `WifiStaDialog.kt`,
 `BlePermissions.kt`, and `MainViewModel.kt` (none appear in the error list
-any more). **Errors remain in 5 files, each a separate, not-yet-root-caused
-bug**: `BlockCanvasView.kt` (many `Unresolved reference` +
-`Modifier '...' is not applicable to local function` errors starting at
-line 495 — looks like a lost closing brace or misplaced nesting, not yet
-investigated); `BlockPalette.kt` (`Unresolved reference: startHolding`, a
-*different* error than the ones RDD_KEY_139/140 fixed — not yet
-investigated); `MainToolbar.kt` (`Unresolved reference: scrollX`/`scrollY`,
-repeated); `ToolbarActions.kt` (`Expected annotation identifier after '@'`
-at line 67 — a parse error, likely an annotation mis-rendered);
-`XMLSaveLoad.kt` (`Unexpected tokens` at line 430:87). Next step:
-root-cause each of these 5 remaining files one bug at a time, per this
+any more). **Errors were then root-caused and fixed one file at a time, per this
 project's established protocol (minimal repro → fix → fixture → RDD_LOG
-entry → commit), starting with whichever is easiest to isolate. Do not
+entry → commit) across several follow-up sessions**:
+`BlockCanvasView.kt`/`ToolbarActions.kt` (RDD_KEY_142, `label@` state-machine
+false-positive on `@Annotation`); `Optimizer.kt` (RDD_KEY_143, `when`
+expression's `else -> { ... }` arm wrongly matched by
+`BlockStructureRule`'s bare-`else` braceless-collapse logic, flattening a
+multi-statement block onto one line); `ProgramBuilder.kt` (RDD_KEY_144, two
+unrelated bugs: `!is`/`!in` getting a spurious inserted space, and a call
+argument `it.func.funcName` getting misparsed as a C-style typed declaration
+once its enclosing call needed line-wrapping, also inserting a spurious
+space). `MainToolbar.kt`'s and `BlockPalette.kt`'s errors turned out to
+already be resolved by that point (not independently investigated further —
+see the fresh whole-tree recompile below). **Fresh whole-tree recompile
+confirms all originally-flagged files, and the entire dogfood tree, now
+compile clean**: recreated the dogfood copy from the pristine original,
+reformatted all 46 `.kt` files with the RDD_KEY_144-fixed jar, and ran
+`./gradlew compileDebugKotlin` — `BUILD SUCCESSFUL`, zero errors (only two
+pre-existing, unrelated deprecation warnings in `WifiStaDialog.kt` remain).
+Step 5's dogfood/real-code testing goal (a full, real Android app's Kotlin
+sources reformatted end-to-end and still compiling) is now met. Do not
 touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the
 dogfood copy. **Caution established this session**: the dogfood copy at
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` can itself hold

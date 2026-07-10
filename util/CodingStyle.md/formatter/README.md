@@ -208,10 +208,9 @@ qualified name, not the alias.
 
 Some projects run `.java` files through a C-macro preprocessor (e.g. PCPP-style)
 before compilation, as a poor man's template mechanism. `#define`/`#ifdef`/`#endif`/etc.
-lines are recognized and passed through untouched, same as in `.c`/`.cpp`/`.h` files.
-Note: a preprocessor directive placed immediately before a method definition is
-currently known to get glued onto the same output line — avoid that specific
-placement until it's fixed.
+lines are recognized and passed through untouched, same as in `.c`/`.cpp`/`.h` files,
+including a directive placed immediately before a method definition (previously a
+known gap; see `test/java_preprocessor_method_inp/out.java`).
 
 ---
 

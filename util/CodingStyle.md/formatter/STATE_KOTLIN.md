@@ -167,6 +167,7 @@ Look up one key at a time via `grep -Fm1 'RDD_KEY_n' RDD_LOG.md`
 | RDD_KEY_117 | Kotlin triple-quoted raw string tokenizer support — row 19.1, **shared-class fix**; badly broken before this (`"""hello "world" end"""` mis-lexed as five tokens including a bare `IDENTIFIER`; multi-line raw strings leaked a spurious `NEWLINE` token into the content); fixed with Kotlin-only `isKotlinRawStringOpener`/`emitKotlinRawString`/`skipKotlinRawString` — no backslash-escape processing (literal `\` by design), greedy termination at the first `"""` (matches real Kotlin compiler semantics); `${...}` interpolation still recognized via `skipKotlinInterpolationBlock`, extended to also recognize a nested raw string inside an interpolation expression; non-Kotlin paths (Java text block, C++ raw string, plain C string) confirmed untouched |
 | RDD_KEY_132 | Kotlin §8/§9 one-liner getter/setter grouping — new `KotlinGetterSetterRule extends GetterSetterRule` (same visibility-loosen-then-extend pattern as RDD_KEY_103/104), own newline-terminated member splitter, `[modifiers] fun name(params) [: ReturnType] = expr` parser, and 3-column grid render; scope limited to expression-bodied one-liner functions (§9) — `get()`/`set()` property accessors (§8) remain an unhandled, structurally different shape; new `test/kt_combined_inp.kt`/`kt_combined_out.kt` `class Accessors` case |
 | RDD_KEY_133 | Kotlin §8 property-accessor (`get()`/`set()`) one-liner grouping, the remaining gap RDD_KEY_132 left open — new `parseKotlinAccessorMember`/`isAccessorMember`/`renderAccessorGroup` in `KotlinGetterSetterRule.java` (Kotlin-only file, no new shared-class methods), scoped to a plain no-initializer `val`/`var` property immediately followed by a bare `get() = expr` (no `set`, no block body); merges the two-line source into one Kotlin-legal line and column-aligns via `ColumnGrid`, mirroring §9's 4-cell shape; two idempotency bugs found and fixed — a **shared-class fix** (`DeclarationAlignmentRule.needsSpaceBetween`, Kotlin-gated carve-out so `get`/`set` keywords are tight against a following `(` like an ordinary call name) and a `KotlinDeclarationAlignmentRule.parseKotlinDeclaration` fix (bails rather than swallowing a re-parsed merged line's `get`/`set` into its type-token scan, which was also cross-contaminating an unrelated sibling's column width when wrongly grouped together) |
+| RDD_KEY_134 | Kotlin Step 5 dogfood testing found a compile-breaking bug (not just idempotency): `MiscRule.renderCallCandidate`'s Option 2 (`renderCallPreserveGroups`, via `groupByOriginalLine`) collapsed a multi-line trailing-lambda call argument (`Thread({ ...multi-statement body... }, "tcp-reader")`) onto one line with no statement separators — invalid Kotlin, since (unlike C/C++/Java) Kotlin has no `;` to fall back on. **Shared-class fix**, Kotlin-gated (`lang.isKotlin`): new bail in `renderCallCandidate` when any top-level call argument contains both a newline and a `{` (new `containsBrace` helper); confirmed a non-gated version broke the pre-existing C++ `real_code_regressions_1` fixture, so the gate is required, not optional. New `test/real_code_regressions_17_inp.kt`/`_out.kt` fixture. Fixes 2 of 3 known compile-breaking dogfood cases (`RobotTcpSession.kt`, `WifiStaDialog.kt`'s `postDelayed` callback); `BleDeviceSelectDialog.kt`'s own `postDelayed` callback still shows an idempotency diff, not yet root-caused. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ `ParsedKotlinImport`/`parseKotlinImportStatement`/`appendRange`/`joinVerbatim`/`isPathOp`/`findLocalPackagePrefix`/`classifyKotlinImportGroup`/`matchesPrefix`), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys added to `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
 
 ---
@@ -641,14 +642,64 @@ RDD_KEY_131; one-line summary each:
 
 ### Step 5 — Dogfood / Real-Code Testing
 
-**Next Session: pick up here.** Environment prep is done and the baseline
-compiles clean (see below) — next step is to actually run the formatter over
-`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD`'s `.kt` files, check
-idempotency (round1 vs round2), then recompile with
-`./gradlew compileDebugKotlin` (env-sourcing recipe below) and diff against
-the clean baseline to attribute any new failures to the formatter. Do not
-touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the dogfood
+**Next Session: pick up here.** The formatting-and-idempotency-check pass
+has now started (see below) — one compile-breaking bug found and fixed
+(RDD_KEY_134). 8 of 46 dogfood files are still non-idempotent as of this
+session; none of the remaining 8 are yet confirmed compile-breaking (that
+was only established for the 2 the RDD_KEY_134 fix resolved). Next step:
+pick one of the remaining 8 files below, root-cause its diff the same way
+(minimal standalone repro, `--diff` in isolation, fix, fixture, RDD entry,
+checkpoint commit), then once all are resolved (or explicitly triaged as
+non-compile-breaking style-only gaps), proceed to
+`./gradlew compileDebugKotlin` against the fully-formatted dogfood tree and
+diff against the clean baseline. Do not touch
+`~/Projects/RobotCoding/gui_frontend_android` itself — only the dogfood
 copy.
+
+**Idempotency findings, this session (round1 vs round2 diff, 46 `.kt` files
+under `app/src/main/java`):** 9 files originally non-idempotent;
+**RDD_KEY_134 fixed the root cause for 2** (`RobotTcpSession.kt` and
+`WifiStaDialog.kt`'s `postDelayed` scan-timeout callback — both were the
+same "multi-line trailing-lambda call argument gets collapsed with no
+statement separator" shape, confirmed compile-breaking). **7 remain
+unresolved, not yet root-caused, in no particular priority order:**
+- `PlayMusicBlock.kt` — declaration-alignment column width appears to grow
+  between passes (`val full` / `val display` column padding differs
+  round1 vs round2)
+- `MainActivity.kt` — a closing-brace indentation drifts by one level
+  between passes
+- `BleDeviceSelectDialog.kt` — **two separate diffs in this one file**: (1)
+  a `val filter` declaration-alignment column width diff (same shape as
+  `PlayMusicBlock.kt`'s), and (2) its own `postDelayed { ... }` callback
+  still shows a diff even after RDD_KEY_134 — **not the same root cause**
+  as the `RobotTcpSession.kt`/`WifiStaDialog.kt` case (that one is fixed);
+  this file's remaining `postDelayed` diff needs its own fresh root-cause,
+  not an assumption that RDD_KEY_134 covers it
+- `BlockCanvasView.kt` — a missing space before `&&` appears on round2 only
+  (`sel.size > 1&& _pendingIndent`) — looks like an operator-spacing pass
+  ordering/idempotency gap, not yet root-caused
+- `BlockPalette.kt` — same declaration-alignment column-width-flapping
+  shape as `PlayMusicBlock.kt`/`BleDeviceSelectDialog.kt` (widest-sibling
+  padding differs across passes) — likely one shared root cause across all
+  three files, worth investigating together
+- `MainViewModel.kt` — closing-brace indentation drift, same shape as
+  `MainActivity.kt`
+- `ToolbarActions.kt` — closing-brace indentation drift, same shape as
+  `MainActivity.kt`/`MainViewModel.kt`
+- `BlePermissions.kt` — closing-brace indentation drift, same shape as the
+  above three
+
+Likely worth root-causing as three grouped investigations rather than eight
+independent ones: (a) declaration-alignment column-width flapping
+(`PlayMusicBlock.kt`, `BlockPalette.kt`, `BleDeviceSelectDialog.kt`'s `val
+filter`), (b) closing-brace indentation drift (`MainActivity.kt`,
+`MainViewModel.kt`, `ToolbarActions.kt`, `BlePermissions.kt`), (c) two
+one-off diffs (`BlockCanvasView.kt`'s missing `&&` space,
+`BleDeviceSelectDialog.kt`'s remaining `postDelayed` diff) that don't
+obviously share a root cause with anything else yet.
+
+None of these 7 remaining diffs have been confirmed compile-breaking or
+merely cosmetic — that determination is itself the next step for each.
 
 - [ ] Once Steps 0–4 are complete, apply the same real-code-testing
       methodology `STATE.md` used for C/C++/Java (clone a real, compiling

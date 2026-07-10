@@ -219,6 +219,22 @@ Real-code regressions:
                                            sigaction sa = { };`) misdetected as a struct body, appending an
                                            extra `;` on every pass.
 
+  real_code_regressions_17_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
+                                           gui_frontend_android's RobotTcpSession.kt: a compile-breaking bug,
+                                           not just an idempotency mismatch. enforceCallLineBreaking's Option 2
+                                           (renderCallPreserveGroups) groups a multi-line call's arguments by
+                                           original source line, not by argument -- when one sibling argument
+                                           is itself a multi-line brace body (a trailing lambda,
+                                           `Thread({ ... }, "name")`), every line inside that body became its
+                                           own row and got collapsed, and since Kotlin has no `;` to separate
+                                           statements the way C/C++/Java do, this silently merged separate
+                                           statements onto one line with no separator between them, producing
+                                           invalid Kotlin. Fixed by bailing (leaving the call untouched) when,
+                                           for Kotlin only, a top-level argument contains both a newline and a
+                                           `{` -- C/C++/Java brace-bodied multi-line arguments (e.g. an
+                                           initializer list) are unaffected since `;` still disambiguates
+                                           statement boundaries there.
+
 
 How Tests Are Run
 -----------------

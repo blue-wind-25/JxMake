@@ -2709,8 +2709,29 @@ public class MiscRule {
             // per-line would misdetect a nested comma sitting at a line break as a local top-level
             // split point and then append a synthetic comma on top of the one already present,
             // duplicating it. Leave such single-argument candidates untouched (Option 0).
-            if (splitTopLevelCommas(paramsSlice).size() <= 1) {
+            final List<List<Token>> topLevelArgs = splitTopLevelCommas(paramsSlice);
+            if (topLevelArgs.size() <= 1) {
                 return null;
+            }
+            // Kotlin-only: same "leave untouched" posture as the single-argument case above,
+            // extended to a multi-argument call where one of the *siblings* is itself a
+            // multi-line brace body (e.g. a trailing/leading lambda argument,
+            // `Thread({ ...multi-line... }, "name")`). renderCallPreserveGroups groups by
+            // *original source line*, not by argument -- every line inside such a brace body
+            // becomes its own row, and since Kotlin (unlike C/C++/Java, which always terminates
+            // a statement with `;`) has no separator to fall back on, collapsing those rows back
+            // onto fewer output lines can silently merge what were separate statements onto one
+            // line with nothing between them, producing invalid Kotlin. C/C++/Java are unaffected
+            // by this bail -- their brace-bodied multi-line arguments (e.g. an initializer list)
+            // are safe to reflow since `;` still disambiguates statement boundaries, and
+            // `real_code_regressions_1` fixture's `combine(..., { ret, level1(ret) })` call
+            // depends on that reflow still happening for them.
+            if (lang.isKotlin) {
+                for (final List<Token> arg : topLevelArgs) {
+                    if (containsNewline(arg) && containsBrace(arg)) {
+                        return null;
+                    }
+                }
             }
             final List<String> lines = (sig != null)
                     ? renderDeclarationPreserveGroups(paramsSlice, baseIndent)
@@ -2922,6 +2943,18 @@ public class MiscRule {
     private boolean containsNewline(final List<Token> tokens) {
         for (final Token t : tokens) {
             if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True iff any token in {@code tokens} is a {@code {} -- the "this argument is itself a
+     *  brace-bodied block, not a plain expression" detection signal used alongside
+     *  {@link #containsNewline} by {@link #renderCallCandidate}'s Option 2 branch. */
+    private boolean containsBrace(final List<Token> tokens) {
+        for (final Token t : tokens) {
+            if (isPunct(t, "{")) {
                 return true;
             }
         }

@@ -1,9 +1,19 @@
 # STATE_NEXT_AI.md — Deferred AI-Assist Design Reference
 
-This file documents the background, architecture, and NOT FEASIBLE determination for
-the JAR's built-in `ai-assist` feature (Step 2). It is **not part of the active
-implementation tracker** — do not read this file during a normal CLI session. It is
-reference material for any future revisit of AI-assisted Tier-3 formatting.
+This file documents the background and architecture for the JAR's built-in
+`ai-assist` feature. It is **not part of the active implementation tracker** — do
+not read this file during a normal CLI session. It is reference material for any
+future revisit of AI-assisted Tier-3 formatting.
+
+Two separate determinations live here, for two different decision points — they are
+not in tension with each other:
+
+- **Step 2** (argument-layout / getter-setter-grouping candidate selection) —
+  **NOT FEASIBLE**. No tractable grouping-intent signal exists for the JAR to hand an
+  LLM, at any model size tested.
+- **Step 3** (comment-classifier abstain-case resolution) — **FEASIBLE**. This is a
+  narrow classification decision, not a layout-authorship judgment call, and reuses
+  Step 2's confirmed infrastructure pattern retargeted at a different decision point.
 
 ---
 
@@ -26,7 +36,7 @@ reference material for any future revisit of AI-assisted Tier-3 formatting.
 > Tier-3 aesthetic decisions (argument layout, non-standard getter/setter grouping) are
 > handled by the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md` instead.
 
-Checklist status (all NOT FEASIBLE — no implementation needed):
+Checklist status — Step 2 (all NOT FEASIBLE — no implementation needed):
 
 - [~] `Config.java` ai-assist keys — NOT FEASIBLE
 - [~] `AiDecisionClient.java` — NOT FEASIBLE
@@ -34,6 +44,19 @@ Checklist status (all NOT FEASIBLE — no implementation needed):
 - [~] `MiscRule.java` Tier-3 AI hooks — NOT FEASIBLE
 - [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session)
 - [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision (NOT STARTED)
+
+Checklist status — Step 3 (FEASIBLE, design-only — see full section below; nothing
+started, this is a design note, not scoped implementation work yet):
+
+- [ ] Search Hugging Face for a current small instruction-tuned model per hardware
+      tier (Pi CM5 / Core i5 CPU-only / <1GB VRAM GPU / 1–2GB VRAM GPU) — NOT STARTED,
+      deliberately deferred to implementation time (see Step 3 below)
+- [ ] `Config.java` — new keys for enabling the LLM abstain-fallback and pointing at
+      an endpoint — NOT STARTED
+- [ ] Wire the LLM fallback into the existing `CommentClassifier` ABSTAIN path —
+      NOT STARTED
+- [ ] `com.jxmake.formatter.classifier.lstm` package (future option only, not v1) —
+      NOT STARTED, only pursue if the LLM step proves to be a bottleneck
 
 ---
 
@@ -90,7 +113,158 @@ decisions that *are* externally logged appear in the main index in `STATE.md`.
 
 ---
 
-## TODO: `//` comment sentence-boundary detection defeated by mid-word dots (NOT FEASIBLE deterministically)
+## Step 3 — Comment-Classifier Abstain Resolution: FEASIBLE
+
+Unlike Step 2, this is not a layout-authorship judgment call — it's a narrow
+classification decision (does this word function as a keyword or as prose here; is
+this trailing dot a sentence-ender or part of a token) that a small model can plausibly
+handle as a pure classifier, not a generator. Builds on the already-implemented
+rule-based comment-grammar classifier (Task H in `STATE.md`, `RDD_KEY_94`–`98`):
+`CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
+`KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
+(`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier` (default `off`).
+
+### Proposed pipeline
+
+```text
+Rule-based classifier (already implemented, Task H)
+        │
+        ├── High confidence (YES/NO) → use classifier result
+        │
+        └── ABSTAIN
+                    │
+             Small instruction-tuned LLM, used purely as a classifier
+             (single-class output, not generation — e.g. "is 'return' used
+             as a programming keyword, an English word, or an identifier
+             here? Return only the class.")
+                    │
+               Final decision
+```
+
+Reuses Step 2's already-confirmed architecture pattern rather than reinventing it:
+grammar-constrained short response, `temperature = 0.0`, `/v1/chat/completions` via
+llama.cpp/Ollama/vLLM/LM Studio, fail-safe fallback to `ABSTAIN`-equivalent behavior
+(classifier `off`) on an unreachable endpoint, and the same endpoint-unavailability
+caching described in `RDD_EXT_9`. Only the target decision changes — a class label
+instead of a layout-candidate index.
+
+### Why an LLM over an LSTM for v1
+
+A small LSTM (~100k params) is technically feasible and would be faster/lighter, but:
+requires implementing and maintaining a training/inference pipeline, requires
+collecting and validating a labeled training set from scratch, and is limited by
+that training data — no broad world knowledge, no multi-language understanding.
+
+A small instruction-tuned LLM already understands programming terminology, multiple
+natural languages, comment/code conventions, and common technical phrases out of the
+box — no training set required for v1. The LSTM is kept as a **future option only**,
+to be inserted as an intermediate confidence gate ahead of the LLM if profiling later
+shows too many abstained cases are reaching the LLM step:
+
+```text
+Rules
+   │
+   ├── High confidence
+   │
+   └── Abstain
+         │
+      Small LSTM/MLP (future option, not v1)
+         │
+   High confidence?
+      │        │
+     Yes      No
+      │        │
+   Accept   Small LLM
+```
+
+This optimization should only be pursued if the LLM step becomes a measurable
+latency/resource bottleneck — not built preemptively.
+
+### Non-Latin comments
+
+`RDD_KEY_95`'s `NonLatinScriptGate` currently disables the rule-based classifier
+entirely (equivalent to `ABSTAIN`) for any comment containing a non-Latin codepoint,
+deferring those comments to the full-file AI pass instead. The small LLM's
+multi-language understanding means some non-Latin/mixed-language ABSTAIN cases could
+now route to the same Step 3 LLM fallback rather than falling all the way back to a
+full-file pass. **This is flagged as an open option, not a decision** — changing
+`RDD_KEY_95`'s established behavior needs its own stop-and-ask per `STATE.md`'s
+ambiguity process before implementation, since it changes already-shipped classifier
+behavior rather than adding new behavior behind a new gate.
+
+### Model selection — search at implementation time, not now
+
+Do not pin a specific Hugging Face model in this document — open-weight model
+availability and quality shift too quickly for a name written today to still be the
+right pick later. When this is actually implemented, search Hugging Face at that time
+and recommend a model against these criteria, evaluated **separately per target
+hardware tier** since each has different constraints:
+
+- **Raspberry Pi CM5** (ARM, no GPU) — must stay compatible with the same llama.cpp
+  runtime path Step 2 already validated on this hardware; since this is now a
+  secondary abstain-fallback rather than the primary decision-maker, prefer something
+  smaller than Step 2's 3B reference point if quality allows.
+- **Core i5, no dedicated GPU** — CPU-only inference via llama.cpp; more RAM headroom
+  than the Pi, but still latency-sensitive since this sits in the formatter's hot
+  path — check realistic tokens/sec for a single-class response, not just that it
+  loads.
+- **Cheap dedicated GPU, VRAM < 1GB** — forces a heavily quantized ~0.5B-class model;
+  confirm a GGUF/quantized variant actually exists at this footprint before assuming
+  the model qualifies.
+- **Cheap dedicated GPU, VRAM 1–2GB** — opens up more of the small instruction-tuned
+  range; still confirm quantized (Q4/Q5) VRAM footprint against the 2GB ceiling, not
+  just the unquantized parameter count.
+
+For each tier, check: instruction-tuned (not base), a maintained GGUF/quantized
+release exists, and realistic single-token/short-response latency on that hardware —
+then document the chosen model(s) here the same way Step 2 documents its tested
+Qwen2.5-Coder-3B reference.
+
+### If the future LSTM/MLP option is pursued
+
+Design layout for when/if this is picked up:
+
+**Files** (new `com.jxmake.formatter.classifier.lstm` package, parallel to the
+existing `com.jxmake.formatter.classifier` package):
+- `LstmClassifier.java` — inference-only runtime code, shipped in the JAR. Loads a
+  trained weights file at startup; never contains literal weight arrays in source
+  (unlike `CommentClassifierWeights`'s baked-in linear-model constants — a neural
+  net's weight count isn't hand-editable the same way, and retraining shouldn't
+  require a JAR rebuild).
+- `LstmWeights.java` — loader/schema for the external weights file (JSON or a flat
+  binary tensor dump; JSON preferred for v1 for easy diffing/inspection over a
+  binary format).
+- A `main()` training entry point in a **separate, non-shipped** location — e.g.
+  `tools/lstm/LstmTrainer.java` or a `cwg/`-sibling directory, not under `src/`, so
+  the runtime JAR never bundles training code or a training-only ML dependency.
+  Takes a labeled example set path + hyperparameters as arguments, writes the
+  trained weights file `LstmClassifier` reads — the trainer **writes a weights
+  file for the Java classifier to read at runtime; it does not overwrite or
+  generate `.java` source**, so a retrain is a resource-file swap, not a
+  recompile.
+
+**Training-set acquisition, verification, fixing** (extends the existing `cwg/`
+pattern from `RDD_KEY_97`, which is already frontier-model-assisted rather than
+corpus-trained):
+- **Acquisition:** grow the existing 40-example synthetic `cwg/` set with real
+  comments pulled from this codebase and the `test/` fixtures (per the open TODO
+  already in `cwg/`'s own notes), rather than only synthetic examples.
+- **Labeling:** frontier-model-assisted labeling (same precedent as `RDD_KEY_97`),
+  with spot-check review rather than blind acceptance.
+- **Verification:** flag likely-mislabeled examples via disagreement between the
+  existing rule-based classifier's confidence and the assigned label, and via
+  held-out accuracy regressions when a new batch is added — not just eyeballing.
+- **Fixing:** relabeling/removal follows the same reproducible-and-versioned pattern
+  `cwg/derive_weights.py`/`cwg/weights.md` already established for the linear
+  classifier's weights — document each addition/correction and re-derive.
+
+**Fail-safe:** a missing or unreadable weights file makes `LstmClassifier` behave as
+`ABSTAIN` (falls through to the LLM step), matching the fail-safe posture everywhere
+else in this design — never blocks formatting.
+
+---
+
+## TODO: `//` comment sentence-boundary detection defeated by mid-word dots (now FEASIBLE — Step 3 candidate)
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only when it
 is the *sole* `.` in the comment text — a deliberately conservative heuristic to avoid
@@ -110,8 +284,10 @@ should still apply).
 Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`, `v1.0`,
 single-letter abbreviations like `extern C.`) from a true sentence-ending dot is a
 natural-language judgment call, not a mechanical token-shape rule — no tractable
-heuristic was found that doesn't risk false positives/negatives on other comments
-(same class of problem as the Step 2 AI-assist deferral above: no reliable signal
-without semantic understanding of the comment text). Deferred as NOT FEASIBLE for
-Tier-1/Tier-2 mechanical rules; a candidate for the same Tier-3 AI-assist workflow
-referenced above if that is ever revisited.
+heuristic was found within Tier-1/Tier-2 mechanical rules alone. **This is exactly
+the class of ambiguous, ABSTAIN-worthy case Step 3's hybrid pipeline above targets**:
+the existing rule-based classifier's `dotCount != 1` case would ABSTAIN here rather
+than guess, and the Step 3 LLM fallback would resolve it with real language
+understanding. No longer blanket NOT FEASIBLE — feasible via Step 3 once that
+pipeline is implemented; until then, remains an accepted mechanical-rule limitation
+(`dotCount != 1` → leave as-is).

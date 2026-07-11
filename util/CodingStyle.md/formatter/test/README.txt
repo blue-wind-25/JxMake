@@ -365,6 +365,29 @@ Real-code regressions:
                                             token its own explicit 1-char ">" text instead of reusing
                                             the original 2-char token via `retype()`.
 
+  real_code_regressions_29_inp/out.java  -- Java, real-code test against local `anemonesoft`
+                                            candidate (HelpBox.java/Spreadsheet.java):
+                                            MiscRule.renderCallCandidate's containsNewline branch
+                                            calls groupByOriginalLine, which tracks only paren/
+                                            bracket/angle-bracket depth, not brace depth -- once a
+                                            multi-argument call's trailing argument is itself a
+                                            multi-line brace body (e.g. `new Timer(0, new
+                                            ActionListener() { ...multi-statement... })`), every
+                                            line inside that body (having no top-level comma to
+                                            split on) gets silently swallowed into a single row and
+                                            rendered via one `collapseTokensToOneLine` call with no
+                                            line-length check, producing an unboundedly long output
+                                            line whose later re-formatting (Java's Allman brace pass
+                                            reacting to the now-multi-line body) made the bug visible
+                                            as an idempotency failure. Fixed by widening an existing
+                                            Kotlin-only "leave such an argument untouched" bail to
+                                            all languages, using a new `containsInternalNewline`
+                                            check (newline strictly between an argument's own first
+                                            and last significant token, not merely in its leading
+                                            formatting gap) so `real_code_regressions_1`'s
+                                            single-line `{ ret, level1(ret) }` brace argument is
+                                            unaffected.
+
 How Tests Are Run
 -----------------
 

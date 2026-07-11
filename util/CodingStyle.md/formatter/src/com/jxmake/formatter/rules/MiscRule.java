@@ -2732,24 +2732,30 @@ public class MiscRule {
             if (topLevelArgs.size() <= 1) {
                 return null;
             }
-            // Kotlin-only: same "leave untouched" posture as the single-argument case above,
-            // extended to a multi-argument call where one of the *siblings* is itself a
-            // multi-line brace body (e.g. a trailing/leading lambda argument,
-            // `Thread({ ...multi-line... }, "name")`). renderCallPreserveGroups groups by
-            // *original source line*, not by argument -- every line inside such a brace body
-            // becomes its own row, and since Kotlin (unlike C/C++/Java, which always terminates
-            // a statement with `;`) has no separator to fall back on, collapsing those rows back
-            // onto fewer output lines can silently merge what were separate statements onto one
-            // line with nothing between them, producing invalid Kotlin. C/C++/Java are unaffected
-            // by this bail -- their brace-bodied multi-line arguments (e.g. an initializer list)
-            // are safe to reflow since `;` still disambiguates statement boundaries, and
-            // `real_code_regressions_1` fixture's `combine(..., { ret, level1(ret) })` call
-            // depends on that reflow still happening for them.
-            if (lang.isKotlin) {
-                for (final List<Token> arg : topLevelArgs) {
-                    if (containsNewline(arg) && containsBrace(arg)) {
-                        return null;
-                    }
+            // Same "leave untouched" posture as the single-argument case above, extended to a
+            // multi-argument call where one of the *siblings* is itself a multi-line brace body
+            // (e.g. a trailing/leading lambda or anonymous-class argument, `Thread({
+            // ...multi-line... }, "name")` / `new Timer(0, new ActionListener() {
+            // ...multi-statement... })`). renderCallPreserveGroups (via groupByOriginalLine)
+            // groups by *original source line* using only paren/bracket/angle-bracket depth, not
+            // brace depth -- it never opens a new row once a part has accumulated significant
+            // content, so every line inside such a brace body (having no top-level comma of its
+            // own to split on) gets silently swallowed into the *same* row as whatever preceded
+            // it, then that whole multi-statement row is rendered via a single
+            // `collapseTokensToOneLine` call with no line-length check at all. For Kotlin this was
+            // already known to be actively invalid (no `;` to disambiguate the merged
+            // statements); found via real-code testing (local `anemonesoft` candidate,
+            // `HelpBox._jumpToTarget`/`Spreadsheet`'s `del_cell` action) that C/C++/Java are not
+            // actually safe either -- merging silently produces a single, unboundedly long output
+            // line (STYLE.md's line-length limit is never applied to it), which is unstable across
+            // reformats once a later pass (e.g. Java's Allman brace pass) reacts differently to
+            // the now-multi-line body on a second pass than the still-one-physical-line original
+            // saw on the first. `real_code_regressions_1` fixture's `combine(..., { ret,
+            // level1(ret) })` call is unaffected by widening this bail -- that brace argument sits
+            // wholly on one original physical line, so `containsNewline(arg)` is false for it.
+            for (final List<Token> arg : topLevelArgs) {
+                if (containsInternalNewline(arg) && containsBrace(arg)) {
+                    return null;
                 }
             }
             final List<String> lines = (sigForRender != null)
@@ -2962,6 +2968,37 @@ public class MiscRule {
     private boolean containsNewline(final List<Token> tokens) {
         for (final Token t : tokens) {
             if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Same signal as {@link #containsNewline}, but only counts a {@code NEWLINE} strictly
+     *  between this argument's own first and last significant tokens -- i.e. a genuinely
+     *  multi-line argument body, not merely a formatting newline that happened to land in this
+     *  argument's *leading* gap because {@link #splitTopLevelCommas} hands the separator's
+     *  trailing whitespace/newline to the next argument. Used by {@link #renderCallCandidate}'s
+     *  per-topLevelArg multi-line-brace-body bail so a short, single-physical-line trailing
+     *  argument (e.g. `real_code_regressions_1`'s `{ ret, level1(ret) }`) that merely starts on
+     *  its own source line right after a comma doesn't get misclassified as "itself spans
+     *  multiple lines" and wrongly bail the whole candidate untouched. */
+    private boolean containsInternalNewline(final List<Token> tokens) {
+        int first = -1;
+        int last = -1;
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isGapToken(tokens.get(i))) {
+                if (first < 0) {
+                    first = i;
+                }
+                last = i;
+            }
+        }
+        if (first < 0 || first == last) {
+            return false;
+        }
+        for (int i = first + 1; i < last; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
                 return true;
             }
         }

@@ -589,7 +589,32 @@ written as `~` below so this file never embeds the actual account/user name):
 - **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
   smaller candidates above are exhausted.
 - **Local**: `../../../../VMA-GIT/anemonesoft/` (relative to this `formatter/` directory,
-  contains `gui/` and `i18n/` subdirs at minimum) — not yet tested.
+  contains `gui/` and `i18n/` subdirs at minimum) — DONE (2026-07-12). Confirmed pure Java (82
+  `.java` files, no C/C++; JDK8-source, built via Makefile with `--release 8` against a JDK21
+  `javac`, no pom/gradle). Copied to `/tmp/anemonesoft_test/` for all testing; original
+  `VMA-GIT/anemonesoft/` tree verified untouched (`git status` clean) both before and after.
+  Idempotency check (all 82 files formatted twice, diff round1 vs round2) initially found 2
+  diverging files: `gui/component/Spreadsheet.java`, `gui/dialog/HelpBox.java`. **FIXED.**
+  `MiscRule.renderCallCandidate`'s `containsNewline` branch calls `groupByOriginalLine`, which
+  tracks only paren/bracket/angle-bracket depth, not brace depth — once a multi-argument call's
+  trailing argument is itself a multi-line brace body (`new Timer(0, new ActionListener() {
+  ...multi-statement... })`), every line inside that body (no top-level comma to split on) gets
+  silently swallowed into one row and rendered via a single `collapseTokensToOneLine` call with
+  no line-length check, producing an unboundedly long output line on the fresh format; a later
+  reformat then reacted differently (Java's Allman brace pass sees a genuinely multi-line body
+  the second time), surfacing as the idempotency failure. Fixed by widening an existing
+  Kotlin-only "leave such an argument untouched" bail (previously justified only by Kotlin's
+  missing `;` statement separator) to all languages, using a new `containsInternalNewline`
+  helper (newline strictly between an argument's own first/last significant token, not merely in
+  its leading formatting gap before the split comma) so `real_code_regressions_1`'s single-line
+  `{ ret, level1(ret) }` brace argument is unaffected. Fixture: `test/real_code_regressions_29_
+  inp/out.java`. `make test` 49/49. Compile-check (`/opt/openjdk-21_linux-x64_bin/jdk-21/bin/javac
+  -d ... -cp . --release 8`, matching the project's own `Makefile.config`/`Makefile.utils`
+  toolchain) of the fixed round1 output: 28 errors, identical set (same files/symbols, only line
+  numbers shifted) to the unmodified original's own 28-error baseline (all pre-existing missing-
+  dependency errors — `package Jama does not exist` / `cannot find symbol: class Matrix` in
+  `stat/*Regression.java`, `stat/Robustness.java` — this checkout has no `Jama` library on its
+  classpath; unrelated to formatting). Library marked DONE.
 
 **Config-key wiring audit (2026-07-06), done ahead of the `Doc.java` bug above at user
 request.** Root-caused `Doc.java`'s divergence to `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT`

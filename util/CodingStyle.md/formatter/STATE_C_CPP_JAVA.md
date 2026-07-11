@@ -553,12 +553,68 @@ written as `~` below so this file never embeds the actual account/user name):
   included) if a genuine glibc-version-mismatch problem is ever hit with some OTHER prebuilt
   binary and patchelf repointing becomes necessary again -- not needed for clang22 itself.
 
-- **Modern C++ candidates the user has since supplied (2026-07-12, not yet started):**
-  - `github.com/NVIDIA/stdexec`
-  - `github.com/ericniebler/range-v3`
-  - `github.com/foonathan/lexy`
-  - `github.com/boostorg/mp11`
-  - `github.com/microsoft/STL`
+- **Modern C++ candidates the user has since supplied (2026-07-12, not yet started).** Each note
+  below is what the repo *is* and what shape of formatter behavior testing it is expected to
+  stress — written ahead of actually cloning any of these, so treat "expected" claims as a
+  prediction to confirm/correct once a candidate is actually run, not settled fact.
+  - **RECOMMENDED NEXT** (2026-07-12, smallest-size/highest-feature-density pick — see rationale
+    at the end of this list): `github.com/foonathan/lexy` — a header-only C++17/20 parser-
+    combinator (PEG-style) library. Small-to-medium source size (~20-40 headers under `include/`,
+    far smaller than `range-v3`/`STL`), but written in a dense, idiomatic modern-C++ style: heavy
+    `template<...>`/`concept`/`requires`-clause use, CRTP, operator overloading (`lexy::dsl`'s
+    whole API is operator-based), `constexpr` functions, nested class hierarchies, and doc
+    comments — expected to exercise `CppSpecificRule`'s concepts/`requires`-clause handling
+    (RDD_KEY_85), template angle-bracket spacing (RDD_KEY_56), and general declaration-alignment
+    grid logic against a lot of short, densely-templated one- or two-line declarations, likely a
+    good ratio of "bugs found" per file compiled/formatted compared to a much larger library.
+  - `github.com/boostorg/mp11` — a tiny, single-purpose C++11 metaprogramming library (a handful
+    of headers, likely the smallest of this whole list by raw line count). Expected to be a fast,
+    low-risk smoke test but a narrow one: almost entirely `template<...>` alias declarations and
+    `using`-based metafunctions, very little runtime control flow (few if/for/while/switch
+    bodies, no classes with member functions to speak of) — good for a quick pass, unlikely to
+    surface many *new* bug classes beyond what `frozen`/`mp11`-style template-heavy testing
+    already covered via `serge-sans-paille/frozen`.
+  - `github.com/NVIDIA/stdexec` — a C++20 implementation of the `std::execution` (P2300)
+    senders/receivers proposal. Header-only, moderate size, heavy use of C++20 concepts,
+    coroutine-adjacent code (though not raw `co_await`/`co_return` itself), and deeply nested
+    template metaprogramming for the sender/receiver customization-point machinery. Expected to
+    stress the same concepts/`requires`-clause and template-angle-bracket paths as `lexy`, but at
+    a deeper nesting nesting depth — a good complexity-padding (RDD_KEY_22) stress test.
+  - `github.com/ericniebler/range-v3` — the pre-standardization Ranges library C++20 ranges were
+    based on. Larger than `lexy`/`stdexec` (a well-known, mature, moderately large codebase),
+    heavy template/concept-emulation-macro use (this predates real C++20 concepts, so it may use
+    its own macro-based concept-emulation layer — a good test of `format-macros` handling).
+    Already effectively superseded in "modern concepts" coverage by `stdexec` above, so lower
+    priority unless a macro-heavy candidate specifically is wanted.
+  - `github.com/microsoft/STL` — Microsoft's actual `std::` implementation. Large (this is a full
+    standard library, not a small focused library) — expected to have the best raw grammar
+    coverage of anything on this list (every STL container/algorithm shape, extensive
+    `_Ugly_reserved_identifier` naming conventions, heavy conditional-compilation
+    `#ifdef _M_X64`/`#if _HAS_CXX23` branching, `constexpr`/`consteval` throughout) but at real
+    cost in testing time given its size — likely the last of this list to pick up, after the
+    smaller candidates above are exhausted, similar posture to `openrewrite/rewrite` in the Java
+    list below.
+  - `github.com/llvm/llvm-project` — the LLVM/Clang/etc. monorepo. Enormous (likely the largest
+    C/C++ codebase available to test against) — expected to have essentially unmatched grammar
+    coverage (every C/C++ construct in wide real-world use, heavy template metaprogramming in
+    Clang's own AST/type code, extensive macro use in LLVM's `TableGen`-adjacent headers) but at
+    a testing-time cost that makes it a last resort, likely only worth a partial/targeted subtree
+    run (e.g. just `clang/lib/Format/` or `llvm/include/llvm/ADT/`) rather than the whole tree.
+  - `github.com/gcc-mirror` (i.e. `gcc-mirror/gcc`) — the GCC monorepo. Similarly enormous to
+    `llvm-project`; also GCC's own C++ source famously targets an older/more conservative C++
+    dialect for bootstrapping reasons in parts of the tree, so it may exercise *less* modern-C++
+    surface than its size would suggest despite being huge — likely the lowest priority of this
+    list for "modern C++ feature testing" specifically, though still valuable for sheer volume/
+    real-world-idiom coverage if picked up later.
+
+  **Smallest-size/highest-feature-density rationale**: `mp11` is the smallest by raw size but
+  narrow in construct diversity (mostly alias templates, few statement-level constructs);
+  `lexy` is judged the better next pick because it's still small/contained but touches operator
+  overloading, concepts, CRTP, and dense declaration-alignment scenarios in the same file —
+  more likely to surface a genuinely new bug per unit of testing effort than either the very
+  narrow `mp11` or the much larger `STL`/`llvm-project`/`gcc-mirror` candidates. (try to test especailly the C++23 feature)
+  - `github.com/llvm/llvm-project` (try to test especailly the C++23 feature)
+  - `github.com/gcc-mirror` (try to test especailly the C++23 feature)
 
 **Java candidates the user has since supplied (not yet started):**
 
@@ -591,10 +647,19 @@ written as `~` below so this file never embeds the actual account/user name):
     files (`JavaOutput.java`, `Doc.java`, `CommandLineOptionsParser.java`,
     `JavadocFormatter.java`, `JavaInputAstVisitor.java`) confirmed byte-identical round1/round2
     after this fix; `make test` 23/23. Library marked DONE.
-- **MEDIUM**: `github.com/javaparser/javaparser` — excellent grammar coverage, good candidate for
-  finding parsing-edge-case bugs across a wide variety of Java constructs.
-- **HUGE**: `github.com/openrewrite/rewrite` — low priority given its size; only pick up once the
-  smaller candidates above are exhausted.
+- **MEDIUM**: `github.com/javaparser/javaparser` — a Java parser/AST library (i.e. it parses Java
+  source into an AST, unrelated to *this* formatter's own tokenizer). Medium size, excellent
+  grammar coverage: expected to exercise generics-heavy declarations, visitor-pattern class
+  hierarchies with deep inheritance, extensive Javadoc comments (a good test of §15
+  comment-scope/sentence detection, RDD_KEY_47-50), and its own large `switch`-heavy visitor
+  dispatch code (§13 switch-rule stress). Good candidate for finding parsing-edge-case bugs
+  across a wide variety of Java constructs without `openrewrite/rewrite`'s size cost.
+- **HUGE**: `github.com/openrewrite/rewrite` — a large-scale automated-refactoring/Java(+other
+  languages) AST-rewrite engine. Low priority given its size (a genuinely large multi-module
+  codebase); only pick up once the smaller candidates above are exhausted. Expected feature
+  coverage is similar in kind to `javaparser` (AST/visitor-heavy code) but at much greater
+  volume, plus likely some annotation-processor-generated or Lombok-style code that could
+  exercise `AI_PREAMBLE`-adjacent gaps not seen elsewhere.
 - **Local**: `../../../../VMA-GIT/anemonesoft/` (relative to this `formatter/` directory,
   contains `gui/` and `i18n/` subdirs at minimum) — DONE (2026-07-12). Confirmed pure Java (82
   `.java` files, no C/C++; JDK8-source, built via Makefile with `--release 8` against a JDK21

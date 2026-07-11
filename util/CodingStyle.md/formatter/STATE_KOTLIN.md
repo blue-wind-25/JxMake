@@ -801,7 +801,20 @@ wrapper is needed instead, treat it the same way as `gui_frontend_android`
   the commonMain-only pass was sufficient to surface real bugs and is
   consistent with this candidate's "no Gradle-copy dance needed" framing,
   but does not by itself prove the *entire* tree compiles clean.
-- **`github.com/Kotlin/kotlinx.coroutines`** — not yet started.
+**Priority note (2026-07-12, user-requested readjustment):** `kotlinpoet`'s remaining 12-file
+idempotency gap (below) is confirmed non-compile-breaking (`kotlinc` finds zero genuine syntax
+errors) — it's an idempotency-only flap, not a correctness bug in either round's output. Given
+that, further digging on it is **not urgent**; it's deprioritized below the fresh candidates
+until a session has spare budget to return to it. `stdexec`/`lexy` (C++) is the actual next pick
+overall — see the "RECOMMENDED NEXT" note in `STATE_C_CPP_JAVA.md`'s Modern C++ candidates list.
+
+- **`github.com/Kotlin/kotlinx.coroutines`** — JetBrains' own coroutines library. Medium-large,
+  multiplatform (`commonMain`/`jvmMain`/`nativeMain`/etc.), heavy real `suspend`/`co_await`-style
+  coroutine-machinery code (raw `suspend fun`, `CoroutineScope` receivers, `Flow`-builder DSLs)
+  — expected to stress §17/§17.1's lambda-with-receiver exemption (RDD_KEY_109) more than any
+  candidate tested so far, since `Flow`/`launch`/`async` builders are exactly that shape used at
+  scale. Will need the Gradle-copy dance (multiplatform build, external deps) per this section's
+  standard caveat, unlike `okio`/`kotlinpoet`.
 - **`github.com/square/kotlinpoet`** — DONE (this session), at kotlinpoet's own
   `.editorconfig` `indent_size=2` convention (like okio, no Gradle-copy dance
   needed). Round1-vs-round2 idempotency diffing across all 131 `.kt` files
@@ -843,8 +856,15 @@ wrapper is needed instead, treat it the same way as `gui_frontend_android`
   as the two fixed bugs; see Open Questions below. `kotlinc` compile-check
   ran only against `kotlinpoet/src/jvmMain` (like okio's `commonMain`-only
   precedent) — a full multiplatform-aware build was not attempted.
-- **`github.com/arrow-kt/arrow`** — not yet started.
-- **`github.com/JetBrains/kotlin`** — the Kotlin compiler's own source tree;
-  large, likely the most demanding candidate for grammar coverage — not yet
-  started.
+- **`github.com/arrow-kt/arrow`** — a functional-programming library (typed errors, optics,
+  effects). Multi-module Gradle structure similar in spirit to `kotlinx.coroutines` (will need
+  the Gradle-copy dance). Expected to exercise heavy generics/variance (§13, RDD_KEY_113),
+  extension-function-heavy DSLs (§22), and infix-function call sites (§15) more than any
+  candidate tested so far — arrow's API leans hard on `infix fun`/operator-like extension
+  functions for its DSL style.
+- **`github.com/JetBrains/kotlin`** — the Kotlin compiler's own source tree; large, likely the
+  most demanding candidate for grammar coverage (compiler-internal code tends to use every
+  language feature, including obscure/edge-case syntax real application code rarely touches) —
+  not yet started, treat as a last-resort/stress candidate similar in posture to
+  `microsoft/STL`/`llvm-project` in the C++ list, given its size.
 </content>

@@ -136,6 +136,8 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_149 | `square/okio` real bug #4 — **found, not fixed, deferred.** A multi-line Kotlin signature's `ColumnGrid`-padded, trailing-comma-preserved param lines (confirmed correct at `KotlinSignatureRule.render`'s own return point via debug print) arrive in the final written file with padding collapsed to one space and the trailing comma stripped — some downstream re-tokenize/re-normalize step (mechanism not yet identified) mangles already-rendered replacement text. See Open Questions below and RDD_LOG.md for full repro/investigation detail. |
 | RDD_KEY_150 | `square/okio` compile-check bug #1 (`kotlinc`, not caught by round1-vs-round2 diffing — broken consistently from the first pass): `TokenizerCore.MULTI_CHAR_OPS` had no `===`/`!==` entry at all, so `next !== this` lexed as two tokens (`!=`, `=`) and got re-spaced into the invalid `!= =`. Fixed by adding `===`/`!==` ahead of their 2-char prefixes. Shared-class change (tokenizer), not gated — inert for C/C++/Java. `make test` 50/50 before/after. |
 | RDD_KEY_151 | `square/okio` compile-check bug #2: `BlockStructureRule`'s braceless-collapse dispatch treated a do-while's trailing `while (cond)` the same as a genuine loop-starting `while`, fusing the following unrelated statement onto the same line with no separator. Fixed with a new `isDoWhileTailKeyword` lookback gating the `while` dispatch entry. Not Kotlin-gated but confirmed inert for C/C++/Java (they always have a `;` right after a do-while's `)`, never reaching the Kotlin-only braceless branch). New combined fixture `test/real_code_regressions_31_inp.kt`/`_out.kt` (with RDD_KEY_150). `make test`: 50/50 before fixture, 51/51 after. |
+| RDD_KEY_152 | `square/kotlinpoet` real-code testing (idempotency bug): a nested `when { ... }` used as a `when` branch's own body had its closing `}`'s indentation flap across rounds — `ScopePipeline.braceLineIndent` (RDD_KEY_136) anchored on the brace's physical line at Phase 0, before `KotlinSpecificRule.formatWhenExpressions`' Phase 4 arrow-alignment pass merges the branch label and the nested `when {` onto one line. Fixed with a new `findMergingWhenBranchLineStart` lookahead anchoring on the eventual post-merge line up front. Kotlin-gated shared-class change. New `test/real_code_regressions_32_inp.kt`/`_out.kt`. `make test`: 51/51 before, 52/52 after. |
+| RDD_KEY_153 | `square/kotlinpoet` real-code testing (compile-check bug, `kotlinc` against `jvmMain`): `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s backward scan for a `: ReturnType` clause had no bail-out on a depth-0 `=`, so an expression-bodied function whose body is itself a trailing-lambda call (`fun addTypes(...): T = apply { ... } as T`) had `apply`'s own `{` wrongly Allman-converted as the function's own body brace, splitting `apply` from `{ ... }` with no valid Kotlin grammar joining them. Fixed with a new depth-0-`=` bail-out. Kotlin-only file, no cross-language risk. New `test/real_code_regressions_33_inp.kt`/`_out.kt`. `make test`: 52/52 before, 53/53 after. |
 
 ---
 
@@ -254,6 +256,38 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   which later pass's `Replacement`/text rewrite touches this span, e.g. by
   diffing the token stream immediately before and after each pass in
   `ScopePipeline`'s pipeline for this specific input.
+- **`square/kotlinpoet` remaining idempotency diff (12 files) — OPEN, found
+  this session (RDD_KEY_152/153 fixed 2 of the original 13).** After both
+  fixes, `CodeWriter.kt`/`FileSpec.kt`/`FunSpec.kt`/`LambdaTypeName.kt`/
+  `MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/`TypeVariableName.kt`/
+  `WildcardTypeName.kt`/`AbstractTypesTest.kt`/`TaggableTest.kt` and 4 files
+  under `interop/kotlin-metadata/` still round1-vs-round2 diff. At least two
+  distinct shapes observed, neither fully root-caused: (1)
+  `MemberSpecHolder.kt`'s `addProperties`/`addFunctions` — an expression-
+  bodied function's parameter list breaks across lines on round1 (`fun
+  addProperties(\n  propertySpecs: Iterable<PropertySpec>\n): T = apply {
+  ... }`) but stays inline on round2 (`fun addProperties(propertySpecs:
+  ...): T = apply { ... }`) — a `KotlinSignatureRule.renderWithTail` tier
+  1-vs-2 fitting decision that disagrees with itself once the file is
+  already formatted, likely because the `apply { ... }` call body's own
+  rendered width (predicted vs. actual, à la RDD_KEY_139/140's "later
+  call-wrapping phase invalidates an earlier width-based decision" shape)
+  differs between a fresh format and a reformat. (2) `CodeWriter.kt`'s
+  earlier-observed call-argument continuation-line indent staleness (an
+  `is FunSpec -> o.emit(\n  codeWriter = this,\n  ...\n)` branch body,
+  itself a variant of the same "Phase 4 arrow-merge changes the branch's
+  physical line, invalidating an earlier phase's physical-line-anchored
+  indent decision" root cause RDD_KEY_152 fixed for `ScopePipeline`, but
+  here manifesting in a different rule (likely `MiscRule.enforceCallLineBreaking`'s
+  own continuation-indent logic) not yet traced to its exact source. Not
+  investigated further this session — time budget spent on the two fixed
+  bugs above. Next step: minimal repros for each of the two shapes (mirror
+  RDD_KEY_152's repro-then-fix approach), starting with `MemberSpecHolder.kt`.
+  `kotlinc` syntax-checking `kotlinpoet/src/jvmMain` after both fixes found
+  **zero** remaining genuine syntax errors (only expected unresolved-
+  reference/multiplatform noise from checking `jvmMain` in isolation) — so
+  none of these 12 remaining files are known to be compile-breaking, only
+  idempotency-flapping.
 
 ---
 
@@ -732,7 +766,47 @@ wrapper is needed instead, treat it the same way as `gui_frontend_android`
   consistent with this candidate's "no Gradle-copy dance needed" framing,
   but does not by itself prove the *entire* tree compiles clean.
 - **`github.com/Kotlin/kotlinx.coroutines`** — not yet started.
-- **`github.com/square/kotlinpoet`** — not yet started.
+- **`github.com/square/kotlinpoet`** — DONE (this session), at kotlinpoet's own
+  `.editorconfig` `indent_size=2` convention (like okio, no Gradle-copy dance
+  needed). Round1-vs-round2 idempotency diffing across all 131 `.kt` files
+  found 13 non-idempotent files; root-caused and fixed 2 of the underlying
+  bugs (both real, both shared-class, both Kotlin-gated):
+  (1) RDD_KEY_152 — `ScopePipeline.braceLineIndent`'s indent decision for a
+  nested `when { ... }` used as a `when` branch's own body went stale once
+  `KotlinSpecificRule.formatWhenExpressions`' later arrow-alignment pass
+  merged the branch label and the nested `when {` onto one physical line;
+  fixed with a new `findMergingWhenBranchLineStart` lookahead anchoring on
+  the eventual post-merge line up front. New fixture
+  `test/real_code_regressions_32_inp.kt`/`_out.kt`. (2) RDD_KEY_153 (see
+  `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s new
+  depth-0-`=` bail) — a genuine **first-pass, compile-breaking** bug found
+  via `kotlinc` syntax-checking (not idempotency diffing):
+  `enforceFunctionDefinitionAllmanBraceStyle`'s backward scan for a `:
+  ReturnType` clause before a candidate body `{` had no bail-out on an
+  intervening depth-0 `=`, so an expression-bodied function whose body is
+  itself a trailing-lambda call (`fun addTypes(...): T = apply { ... } as
+  T`, `TypeSpecHolder.kt`) had `apply`'s own unrelated `{` wrongly
+  Allman-converted as if it were the function's own body brace, splitting
+  `apply` from `{ ... }` across lines with no valid Kotlin grammar joining
+  them — confirmed via `kotlinc`: this was the only genuine "syntax error"
+  in the entire `jvmMain` compile-check (everything else was expected
+  unresolved-reference/multiplatform noise from checking `jvmMain` alone,
+  same posture as okio's `commonMain`-only pass). New key **RDD_KEY_153**;
+  new fixture `test/real_code_regressions_33_inp.kt`/`_out.kt` (reproduces
+  at default config, a first-pass corruption not merely an idempotency
+  flap). `make test`: 51/51 before either fix, 52/52 after RDD_KEY_152's
+  fixture, 53/53 after RDD_KEY_153's.
+  Final state: full-tree idempotency diff still shows 12 remaining
+  non-idempotent files (`CodeWriter.kt`/`FileSpec.kt`/`FunSpec.kt`/
+  `LambdaTypeName.kt`/`MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/
+  `TypeVariableName.kt`/`WildcardTypeName.kt`/`AbstractTypesTest.kt`/
+  `TaggableTest.kt` plus 4 `interop/kotlin-metadata` files) — all showing
+  the same general shape (a `KotlinSignatureRule`/`MiscRule.enforceCallLineBreaking`
+  fitting decision made before a later phase's own line-length-changing
+  rewrite, going stale on reformat), not yet root-caused to the same depth
+  as the two fixed bugs; see Open Questions below. `kotlinc` compile-check
+  ran only against `kotlinpoet/src/jvmMain` (like okio's `commonMain`-only
+  precedent) — a full multiplatform-aware build was not attempted.
 - **`github.com/arrow-kt/arrow`** — not yet started.
 - **`github.com/JetBrains/kotlin`** — the Kotlin compiler's own source tree;
   large, likely the most demanding candidate for grammar coverage — not yet

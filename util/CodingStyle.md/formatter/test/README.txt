@@ -432,6 +432,47 @@ Real-code regressions:
                                             isDoWhileTailKeyword lookback that bails the collapse
                                             for that shape.
 
+  real_code_regressions_32_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
+                                            nested `when { ... }` used as a `when` branch's own
+                                            body (`is Class<*> ->` followed by `when { ... }` on
+                                            the next line in the original source) round1-vs-round2
+                                            flapped its closing `}`'s indentation between two
+                                            different columns. Root cause: ScopePipeline's Kotlin
+                                            braceLineIndent anchors a scope's indent on the
+                                            physical line its opening `{` sits on at the moment
+                                            ScopePipeline runs (Phase 0) -- but
+                                            KotlinSpecificRule.formatWhenExpressions' later
+                                            arrow-alignment pass (Phase 4) merges the branch's
+                                            label line and the nested `when {` onto one physical
+                                            line whenever it fits (always true here, since the
+                                            body's own first line is just `{`). A fresh format
+                                            computes the indent against the pre-merge line; a
+                                            reformat of already-merged output computes it against
+                                            the post-merge line -- disagreeing. Fixed with a new
+                                            findMergingWhenBranchLineStart lookahead in
+                                            ScopePipeline.braceLineIndent that detects this exact
+                                            shape (a lone `when {` line immediately preceded by a
+                                            line ending in a top-level `->`) and anchors on the
+                                            eventual post-merge line up front, Kotlin-gated.
+
+  real_code_regressions_33_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`:
+                                            a real, first-pass, compile-breaking bug found via
+                                            `kotlinc` syntax-checking (not merely idempotency
+                                            diffing) -- an expression-bodied function whose body is
+                                            itself a trailing-lambda call (`fun addTypes(...): T =
+                                            apply { ... } as T`) had `apply`'s own unrelated `{`
+                                            wrongly Allman-converted as if it were the function's
+                                            own body brace, splitting `apply` from `{ ... }` across
+                                            lines with no valid Kotlin grammar joining them. Root
+                                            cause: `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s
+                                            backward scan for a `: ReturnType` clause before a
+                                            candidate body `{` had no bail-out on an intervening
+                                            depth-0 `=` -- it kept scanning past `apply`/`=` and
+                                            found the function's own real `: T` further back,
+                                            wrongly treating the unrelated nested `{` as this
+                                            function's own body brace. Fixed with a new bail-out
+                                            when a depth-0 `=` is encountered before any `:`.
+
 How Tests Are Run
 -----------------
 

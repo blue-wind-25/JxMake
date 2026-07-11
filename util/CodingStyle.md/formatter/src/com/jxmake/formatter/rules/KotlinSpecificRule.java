@@ -1429,6 +1429,17 @@ public class KotlinSpecificRule {
             } else if (depth == 0 && isOp(t, ":")) {
                 final int before = prevSignificantIndex(tokens, i - 1);
                 return (before >= 0 && isPunct(tokens.get(before), ")")) ? before : -1;
+            } else if (depth == 0 && isOp(t, "=")) {
+                // A depth-0 `=` before any `:` was found means this isn't a `: ReturnType` span
+                // at all -- it's an expression-bodied function's `= expr` tail (e.g. `fun f(): T =
+                // apply { ... } as T`), and the `{` under investigation belongs to some call inside
+                // that expression (here, `apply`'s own trailing lambda), not to this function's own
+                // body. Bail rather than keep scanning past it -- continuing on would let the loop
+                // walk all the way back to the function's real `: ReturnType`/`)` and wrongly treat
+                // an unrelated nested `{` as the function's own body brace, Allman-converting it and
+                // corrupting the expression (found via `square/kotlinpoet` real-code testing,
+                // `TypeSpecHolder.kt`'s `addTypes`).
+                return -1;
             }
             i = prevSignificantIndex(tokens, i - 1);
         }

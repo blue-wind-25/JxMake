@@ -622,6 +622,22 @@ public class ScopePipeline {
         if (i < 0) {
             return null;
         }
+        // Kotlin-only anticipation of KotlinSpecificRule.formatWhenExpressions' later
+        // arrow-alignment merge (RDD_KEY_1xx): a nested `when { ... }` used as a `when` branch's
+        // body currently sits with its `when {` alone on its own physical line (this method's
+        // normal read gives that line's indent), but a later phase in the same pipeline merges
+        // the branch's label onto that same line (`is Foo -> when {`) whenever the merged line
+        // still fits -- which it always does here, since the body's own first line is just `{`.
+        // Left unaccounted for, this scope's own indent (and its closing `}`'s placement) is
+        // computed against the PRE-merge physical line on a fresh format, but the POST-merge
+        // physical line on a reformat of already-merged output -- a real idempotency bug found via
+        // `square/kotlinpoet` real-code testing (`TypeName.kt`'s `get(type: Type, ...)`). Detect
+        // the shape up front and anchor on the eventual (post-merge) line instead, so both passes
+        // agree.
+        final int mergedLineStart = findMergingWhenBranchLineStart(tokens, i, idx);
+        if (mergedLineStart >= 0) {
+            i = mergedLineStart;
+        }
         final StringBuilder sb = new StringBuilder();
         for (int j = i + 1; j < idx; j++) {
             final Token t = tokens.get(j);
@@ -631,6 +647,49 @@ public class ScopePipeline {
             sb.append(t.text);
         }
         return sb.toString();
+    }
+
+    /** If {@code openBrace}'s own physical line (whose leading NEWLINE is {@code ownLineNewline})
+     *  consists of nothing but a bare `when {` (i.e. {@code openBrace} is a nested `when`
+     *  expression used as a `when` branch's body), and the immediately preceding physical line
+     *  ends with a top-level `->`, returns the index of the NEWLINE that starts THAT preceding
+     *  line (the branch label's own line) -- the line the two will be merged onto by
+     *  {@code KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass, later in the same
+     *  pipeline. Returns -1 if the shape doesn't match. */
+    private int findMergingWhenBranchLineStart(final List<Token> tokens, final int ownLineNewline,
+            final int openBrace) {
+        if (!lang.isKotlin || ownLineNewline < 0) {
+            return -1;
+        }
+        int j = ownLineNewline + 1;
+        while (j < tokens.size() && tokens.get(j).type == TokenType.WHITESPACE) {
+            j++;
+        }
+        if (j >= openBrace || tokens.get(j).type != TokenType.KEYWORD || !"when".equals(tokens.get(j).text)) {
+            return -1;
+        }
+        int k = j + 1;
+        while (k < openBrace && tokens.get(k).type == TokenType.WHITESPACE) {
+            k++;
+        }
+        if (k != openBrace) {
+            return -1;
+        }
+        // `when` is the first significant token on its own line, immediately followed (modulo
+        // whitespace) by `openBrace` itself -- now check the preceding physical line ends with a
+        // top-level `->`.
+        int p = ownLineNewline - 1;
+        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
+            p--;
+        }
+        if (p < 0 || !isOp(tokens.get(p), "->")) {
+            return -1;
+        }
+        int q = p - 1;
+        while (q >= 0 && tokens.get(q).type != TokenType.NEWLINE) {
+            q--;
+        }
+        return q;
     }
 
     /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a

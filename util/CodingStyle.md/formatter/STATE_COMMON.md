@@ -137,118 +137,13 @@ Use this standard copyright header on every new test fixture file:
 
 ## Shared TODO — Server Protocol: Inline Config Support
 
-**Status:** COMPLETE. Implemented, tested (`make test-server`, plus `make
-test` regression), and documented. Lives here (not in
-`STATE_C_CPP_JAVA.md` or `STATE_KOTLIN.md`) because it's server/protocol
-infrastructure shared by every job, not a per-language formatting rule.
-
-**Motivation:** `POST /format` currently resolves config by looking for a
-`.jxmake-code-formatter` file on disk near the `path` query param. A browser
-client formatting a pasted/in-memory snippet has no real file path and
-nothing on disk for the server to find — it needs a way to hand the server a
-complete config directly in the request.
-
-**Decided design** (resolved via user Q&A across this and a prior session —
-do not re-litigate, treat as settled unless a new ambiguity is found during
-implementation). **Revision note:** an earlier version of this task specified
-a JSON request body (`{"content": ..., "config": {...}}`). That's been
-dropped — see rationale below — in favor of extending the existing query
-string, so **the body stays exactly as it is today: raw file bytes, no
-wrapping, no parsing changes to it at all.**
-
-- **No JSON anywhere in this protocol, by design.** The only field that
-  would ever need JSON-style escaping is the file content itself (arbitrary
-  real-world source: embedded quotes, backslashes, regex literals, unicode
-  identifiers, emoji in comments) — a hand-rolled parser for that is a real
-  correctness risk (silent corruption on a missed escape case, not a loud
-  failure), and pulling in an external JSON library was explicitly rejected
-  (external deps update too often for this project's taste). Query strings
-  sidestep the problem entirely: the body never has to be escaped/parsed as
-  anything, because it never carries config.
-- **Each `config` entry becomes its own optional query parameter** on the
-  same `POST /format` call, reusing exactly the parsing the server already
-  does for `path`/`lang`/`format-off` today — no new parsing code path, just
-  more recognized optional keys:
-  ```
-  POST /format?path=<abs-path>&lang=java&indent-size=2&line-length=120&java-import-order=java,com,org
-  ```
-  Standard URL query-string encoding (browsers get this for free via
-  `URLSearchParams`; the JVM's HTTP server already decodes it) handles
-  commas/spaces/special characters in a config *value* safely — this only
-  ever has to cover short, bounded values (numbers, `on`/`off`, short
-  comma-lists like an import-order list), never arbitrary source code, so
-  there is no meaningful risk class here at all, unlike the body.
-  Keys/values follow exactly the property names in `STATE_C_CPP_JAVA.md`'s
-  **Config Keys and Defaults** table — this is the single source of truth
-  for valid keys; do not invent a separate schema. That table already spans
-  every currently-supported language (structural/behavior keys,
-  `header-guard-rename` for C/C++, `java-import-*` for Java,
-  `kotlin-import-*` for Kotlin) — the validator must accept the full current
-  table, not just a C/C++/Java subset. It must also be kept in sync going
-  forward: any future language support (JSON, XML, JavaScript, TypeScript,
-  CSS, HTML5, Python3 — see `FUTURE_FEATURE_DISCUSSION.md`) that adds its
-  own config keys (e.g. the `json-colon-align`, `css-colon-align`, and
-  `python-*` properties already flagged there) must add them to this same
-  table and this same validator in the same change, not as a follow-up — do
-  not hardcode today's key list as if it were permanent.
-- **`path` becomes optional** when at least one inline config parameter and
-  `lang` are both present in the request (client sends a real path, omits
-  it, or sends a placeholder purely for logging — the server must not
-  attempt disk-based config lookup or extension-based `lang` fallback in
-  this case, since `lang` is already required and always wins per the
-  existing rule). `path` stays required when no inline config parameters are
-  given, unchanged from current behavior.
-- **File-path config lookup and inline config query params are mutually
-  exclusive by client contract** (a well-behaved client sends one or the
-  other, never both) — but defensively, if a request somehow supplies both a
-  resolvable `path`-based config *and* one or more inline config params,
-  **inline wins** rather than erroring.
-- **Unknown config-shaped query keys → HTTP 400** with a plain-text error
-  body, consistent with the existing strict `lang`/`path` validation (a
-  typo'd key should fail loudly, not be silently ignored or silently treated
-  as a no-op override).
-- **Stateless, per-request only.** No session/handshake; every `/format`
-  call that wants inline config must include it every time. Do not add any
-  connection-level or cookie-based config state.
-
-**Backward compatibility:** unlike the JSON-body approach this replaces,
-this design is **purely additive** — the body format is untouched, and every
-existing caller (including the bundled CLI's own auto-connect client) that
-never sends the new query keys keeps working with zero changes. The bundled
-CLI's client only needs updating if/when it wants to *expose* inline config
-to its own users (e.g. a future CLI flag that forwards to these query
-params) — that's optional follow-up work, not a required part of this task.
-
-**Required changes:**
-- [x] Extend `/format`'s existing query-string parsing to recognize the
-      config keys from `STATE_C_CPP_JAVA.md`'s **Config Keys and Defaults**
-      table as additional optional parameters. No body-parsing changes.
-- [x] Wire recognized inline config params into whatever config-resolution
-      path the server already uses for file-based `.jxmake-code-formatter`
-      lookup, with inline taking priority per the rule above.
-- [x] Validate query keys that look like config keys (i.e. match a known
-      property name pattern, or simply: any query key besides
-      `path`/`lang`/`format-off`) against the canonical set in
-      `STATE_C_CPP_JAVA.md` → **Config Keys and Defaults**; HTTP 400 on any
-      unrecognized key. Confirm this covers C/C++/Java *and* Kotlin keys
-      (all already in that one table) — and re-check this validator
-      whenever a future language's config keys land, per the note above.
-- [x] Make `path` optional exactly when at least one inline config param and
-      `lang` are both present; required otherwise (unchanged).
-- [x] Update `README.md`'s **Server Wire Protocol** section to document the
-      new optional query parameters, the optional/required `path` rule, the
-      unknown-key-→-400 behavior, and the mutual-exclusivity-with-inline-
-      wins rule — this section currently only documents `path`/`lang`/
-      `format-off` and will be incomplete (not wrong, since the body/base
-      contract is unchanged) once this lands.
-- [x] Add a server-mode test fixture covering: inline config with no `path`,
-      inline config overriding a would-be file-based config, and the
-      unknown-key-→-400 case. This does **not** belong in `test/README.txt`
-      (that file documents the format input/output fixture pairs only, not
-      server-mode behavior) — place it wherever existing server-mode
-      testing already lives (see Task D's multi-file smoke test in
-      `STATE_C_CPP_JAVA.md` for the closest existing precedent), or ask if
-      no such location exists yet.
-- [x] Follow this file's own **ambiguity-handling** convention above for
-      anything not already resolved here — stop, record in the picking-up
-      job's **Open Questions**, ask, don't guess.
+**Status:** COMPLETE (commit `2d13ca5`). `POST /format` accepts any
+`STATE_C_CPP_JAVA.md` → **Config Keys and Defaults** key as an optional
+query parameter, taking priority over file-based `.jxmake-code-formatter`
+config for the same keys; `path` is optional exactly when `lang` plus at
+least one inline config param are present; unrecognized config-shaped
+query keys get HTTP 400. Body format is unchanged (no JSON — query-string
+only, decided design, do not re-litigate). Covered by the `make
+test-server` Makefile target and documented in `README.md`'s Server Wire
+Protocol section. No follow-up work remains; the bundled CLI exposing
+inline config via its own flags is optional, not required.

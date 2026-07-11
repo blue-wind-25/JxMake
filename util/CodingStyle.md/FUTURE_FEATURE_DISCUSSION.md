@@ -15,9 +15,33 @@ entry here is a discussion point, not a tracked, scoped piece of work.
 
 ---
 
+## Implementation Priority
+
+If any of this is ever picked up, in this order:
+
+1. **C++26** — closest to existing work (STYLE_CPP20.md), mostly additive.
+2. **JSON / JSON5, XML** — data/markup formats, grouped together since both are
+   small additive rule sets layered on existing bracket/complexity logic, with
+   no imperative-language constructs (no functions, no control flow) to design
+   around.
+3. **JavaScript, TypeScript, CSS, HTML5** — the "web" group. Grouped together
+   because HTML5 literally embeds CSS and JavaScript (its formatter dispatches
+   to both), so the three are easiest to design as one connected effort rather
+   than sequentially.
+4. **Python3** — last: its complexity detector and alignment rules are the
+   most novel piece of new design work here (no existing non-brace-delimited
+   language in the formatter today), so it benefits from having the other six
+   done first as reference points.
+
+Nothing in this file is a commitment to implement any of it — this is notes for
+later, not a plan.
+
+---
+
 ## C++26
 
 **Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 1 (highest).
 
 C++26 brings several new constructs. Most look tractable as additive work,
 following the same pattern that added C++17/20/23 support in `STYLE_CPP20.md`
@@ -63,20 +87,86 @@ One area looks meaningfully harder:
    reasoning STATE_KOTLIN.md gives for staying self-contained rather than
    folded into STATE.md.
 
+**File plan:** new `STYLE_CPP26.md`, reads after `STYLE_CPP20.md` (decided above).
+
+**Test-fixture repos** (real reflection code to validate the tokenizer pass
+against, since this is the one piece that can't be trusted from the standard's
+grammar alone):
+- `bloomberg/clang-p2996` — Bloomberg's experimental Clang fork implementing
+  P2996 reflection; the most complete open-source implementation, includes
+  its own test suite under the compiler's test tree.
+- `wrocpp/cpp26-reflection-examples` — blog-series source, small runnable
+  `.cpp` files per post, each independently verified to compile against a
+  pinned `clang-p2996` build; good bite-sized fixtures.
+- `simdjson/experimental_json_builder` — a real library experimenting with
+  P2996-based reflection for JSON (de)serialization, non-trivial real usage
+  rather than toy examples.
+- `stephenberry/glaze` — production JSON/BEVE serialization library with an
+  opt-in P2996 reflection backend; larger, more idiomatic real-world usage.
+
 Nothing above should be read as a commitment to implement C++26 support —
 this is a note for later, not a plan.
 
+---
+
 ## JSON / JSON5
+
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 2.
 
 Supports:
 - JSON (RFC 8259)
 - JSON5
 
-TODO
+**Alignment (new, decided via Q&A):** align the `:` between key and value
+within an object, the same way STYLE.md §5 column-aligns adjacent simple
+variable declarations. Adjacent same-level keys form a group; the group
+breaks at a blank line or a comment line (mirrors §5's own group-break
+behavior), and also breaks across a nesting-depth change (entering/leaving a
+nested object or array). JSON5-specific syntax (unquoted keys, trailing
+commas, inline/block comments) doesn't change the alignment logic itself —
+comments simply break groups, same as blank lines — but does mean the
+tokenizer needs to recognize those productions before any alignment pass can
+run over them.
+
+**Complexity/bracket padding:** reuse STYLE.md §3.1's existing tight/loose
+bracket rule for arrays and nested objects — an array of atoms stays tight
+(`[1, 2, 3]`), an array containing objects/nested arrays goes loose, mirroring
+the existing "contains a call" vs. "atoms only" distinction (a JSON object/
+array has no function calls, but the same nesting-complexity signal applies).
+
+**File plan:** no new standalone `STYLE_JSON.md`. Folds into a shared
+`STYLE_DATA_FORMATS.md` (see XML below) as its own subsection, explicitly
+citing which STYLE.md sections it borrows (§3.1, §5-style alignment) rather
+than inheriting the whole file — STYLE.md's other ~13 sections (function
+signatures, switch formatting, getter/setter grouping, etc.) don't apply to a
+data format with no functions or control flow, and a reader skimming
+STYLE.md's "applies to all languages" framing shouldn't be misled into
+assuming they do.
+
+**Config properties (not yet scoped):** `json-colon-align` (on/off) — toggle
+for the §5-style key/value alignment above. Tracked here, same reasoning as
+the Python3 config-properties note below — not yet in the real config schema
+or a `STATE.md` task.
+
+**Test-fixture repos:**
+- `json5/json5` — the reference JSON5 implementation; ships its own
+  `json5-tests` fixture suite of edge-case `.json5` files.
+- `microsoft/vscode` — huge volume of real hand-authored JSON (settings,
+  launch configs, extension manifests), heavily nested, good density of
+  mixed simple/complex values for the alignment+bracket rules.
+- `babel/babel` — real `.babelrc`/JSON5 config usage in a major, actively
+  maintained project (one of the JSON5 project's own cited "in the wild"
+  adopters).
+- `eslint/eslint` — large real-world JSON config surface (rule configs,
+  package metadata) with plenty of nested-object/array combinations.
 
 ---
 
 ## XML
+
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 2 (alongside JSON/JSON5).
 
 Supports:
 - XML 1.0
@@ -91,52 +181,249 @@ Supports:
 - IntelliJ XML
 - etc.
 
-TODO
+**Formatting:** standard formatting only — no alignment or other new rule
+class needed here (no Q&A required for this section, as originally noted).
+Indentation, attribute wrapping, and self-closing-tag rules follow the same
+shape as an unadorned application of STYLE.md's general bracket/indent rules;
+nothing XML-specific needs inventing beyond tag/attribute tokenizing.
+
+**File plan:** no new standalone `STYLE_XML.md`. Folds into the same shared
+`STYLE_DATA_FORMATS.md` as JSON/JSON5, as its own (short) subsection, since it
+needs essentially no bespoke rules beyond what the tokenizer already has to
+do to recognize tags/attributes.
+
+**Test-fixture repos:**
+- `apache/maven` — POM-heavy real project, exercises the "Maven POM" variant
+  called out above directly.
+- `apache/ant` — build.xml-heavy, exercises the "Ant build.xml" variant.
+- `jenkinsci/jenkins` — large mixed XML surface (plugin configs, job
+  definitions), good density and variety of real-world nesting depth.
+- `w3c/svgwg` — SVG working-group repo; real, spec-adjacent SVG markup for
+  the "SVG" variant rather than hand-wavy samples.
 
 ---
 
 ## JavaScript
 
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 3 (web group).
+
 Supports:
 - Latest supported ECMAScript (currently ES2024+)
 
-TODO
+**Derivation:** close to Java/Kotlin in shape (C-family brace/paren/statement
+structure), so — per the decision to keep this Q&A minimal — this should
+derive its rules directly from STYLE_JAVA.md and STYLE_KOTLIN.md the same way
+STYLE_KOTLIN.md derives from STYLE_JAVA.md today ("same as STYLE_JAVA.md §N"
+where a construct has a direct analog), calling out deltas only:
+destructuring/spread, template literals, arrow functions vs. Kotlin lambdas,
+optional chaining/nullish coalescing (direct analog to Kotlin §5's null-safety
+operators), and `async`/`await`. No fundamentally new rule class expected.
+
+**File plan:** shared `STYLE_JS_TS.md` (decided below, alongside TypeScript)
+rather than a separate file per language — the two are close enough in
+practice (TypeScript is a syntactic superset) that splitting them would mean
+mostly duplicated content, the same reasoning that keeps STYLE_C_CPP.md as one
+file for C and C++ rather than two.
+
+**Test-fixture repos:**
+- `nodejs/node` — large, real, mixed-style JS codebase (core + tooling).
+- `expressjs/express` — smaller, idiomatic, widely-read real-world JS.
+- `lodash/lodash` — dense functional-style JS, good stress test for
+  complexity-based bracket padding (STYLE.md §3.1) on chained calls.
+- `microsoft/TypeScript` — the compiler itself is written in a large,
+  disciplined JS/TS-adjacent style; also doubles as a TypeScript fixture.
 
 ---
 
 ## TypeScript
 
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 3 (web group, alongside JavaScript).
+
 Supports:
 - Latest supported TypeScript (currently 5.x)
 
-TODO
+**Derivation:** same minimal-Q&A reasoning as JavaScript above, plus explicit
+type-annotation formatting (colon spacing after parameter/return types is a
+direct analog to STYLE_KOTLIN.md's `: ReturnType` tail handling, §9 in
+STYLE_KOTLIN.md), generics (`<T>`) reusing the same bracket-complexity
+approach as C++/Java generics, and `interface`/`type` alias declarations
+(structurally close to a Kotlin `data class`/Java record for alignment
+purposes).
+
+**File plan:** same shared `STYLE_JS_TS.md` as JavaScript — this file would
+read as "baseline JS rules, then a TypeScript-specific section for type
+annotations/generics/interfaces," similar in spirit to how STYLE_KOTLIN.md
+sits on top of STYLE_JAVA.md, but kept in one file since unlike Java→Kotlin
+there's no meaningful "someone only needs the baseline" audience (nobody
+formats plain JS files inside a TS-only project's formatter config in a way
+that would need the split).
+
+**Test-fixture repos:**
+- `microsoft/TypeScript` — the compiler itself; canonical, heavily-typed
+  real-world TS at scale.
+- `angular/angular` — large, idiomatic, decorator-heavy real TS.
+- `nestjs/nest` — decorator- and generic-heavy backend TS, good coverage of
+  the type-annotation-alignment cases.
+- `vuejs/core` — modern TS with heavy generics and type-level code.
 
 ---
 
 ## CSS
 
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 3 (web group).
+
 Supports:
 - Modern CSS (currently CSS 3+ modules)
 
-TODO
+**Alignment (new, decided via Q&A):** align the `:` between property and
+value within a rule block, same grouping/group-break shape as JSON's colon
+alignment above (adjacent declarations in the same rule form a group; a blank
+line, a comment, or a nested at-rule/selector boundary breaks the group).
+
+**File plan:** no new standalone `STYLE_CSS.md`. Folds into the shared
+`STYLE_DATA_FORMATS.md` as its own subsection, same reasoning as JSON/XML —
+CSS has no functions, no control flow, and only needs the one borrowed
+alignment rule plus standard bracket/indent handling for rule blocks.
+
+**Config properties (not yet scoped):** `css-colon-align` (on/off) — toggle
+for the property/value alignment above. Same "tracked here, not yet in the
+real schema" reasoning as JSON's and Python3's config-properties notes.
+
+**Test-fixture repos:**
+- `twbs/bootstrap` — large, hand-authored, real-world source Sass/CSS with
+  heavy declaration density per rule block.
+- `necolas/normalize.css` — small, extremely well-known, densely-commented
+  real CSS — good edge cases for the comment-breaks-group rule.
+- `foundation/foundation-sites` — another large real framework, different
+  authorship conventions than Bootstrap for cross-checking the rule isn't
+  overfit to one project's style.
+- `primer/css` — GitHub's own production design-system CSS; real, actively
+  maintained, different declaration-density patterns again.
 
 ---
 
 ## HTML5
 
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 3 (web group).
+
 Uses:
 - HTML formatter
-- CSS formatter (for <style>)
-- JavaScript formatter (for <script>)
+- CSS formatter (for `<style>`)
+- JavaScript formatter (for `<script>`)
 
-TODO
+**Formatting:** standard formatting only — no alignment or other new rule
+class needed here (no Q&A required for this section, as originally noted).
+The main design work is dispatch: routing `<style>`/`<script>` block contents
+to the CSS/JS formatters above and splicing the result back in with correct
+re-indentation, not new formatting rules for HTML markup itself.
+
+**File plan:** no new standalone `STYLE_HTML.md`. Folds into the shared
+`STYLE_DATA_FORMATS.md` as its own (short) subsection — mostly a description
+of the dispatch behavior, since the tag/attribute formatting itself reuses
+the same minimal rules as the XML subsection.
+
+**Test-fixture repos:**
+- `h5bp/html5-boilerplate` — canonical real-world HTML5 template, exercises
+  the "plain markup" path directly.
+- `twbs/bootstrap` — its docs site source has substantial real HTML5 with
+  embedded `<style>`/`<script>`, good for the dispatch path.
+- `mdn/content` — MDN's own content repo, huge volume of real, embedded
+  HTML/CSS/JS example snippets, useful both as fixtures and as a style
+  reference for "how would a well-formatted example actually look."
+- `whatwg/html` — the HTML Living Standard's own source, real large-scale
+  HTML5 authored under the standard itself.
 
 ---
 
 ## Python3
 
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** 4 (last — most novel design work).
+
 Supports:
 - Latest supported Python 3 (currently 3.15+)
 - Python 2 not supported
 
-TODO
+**Complexity detector (new, decided via Q&A — corrected):** the baseline case
+reuses STYLE.md §3.1's tight/loose heuristic (atoms/simple ops tight, a
+call or nested bracket loose, nesting propagates outward), but this is
+**extended, not a straight port** — Python has constructs the C-family
+heuristic has no bucket for at all:
+- **Comprehensions** (`[x for x in y if cond]`) — a fifth content category
+  (a `for` clause plus optional `if` filters, possibly nested), not "atom,"
+  "call," or "nested bracket." Needs its own rule, not an adapted old one.
+- **Slicing** (`a[1:2:3]`, `a[::2]`) — `:` inside `[]` has no analog in
+  C/Java/Kotlin indexing; whether an expression-bearing slice
+  (`a[i+1:j-1]`) counts as "simple ops" (tight) or forces loose is an open
+  design question, not inherited from §3.1.
+- **Star-unpacking** (`*args`, `**kwargs`, `[*a, *b]`) — no direct analog in
+  the bracket contents of any currently-supported language.
+- **Dict vs. set literal ambiguity** — `{}` is an empty dict, `{1, 2}` a
+  set, `{1: 2}` a dict; none of the brace-delimited languages have this
+  dual meaning to disambiguate before applying padding rules.
+
+**Alignment (new, decided via Q&A):** align `=` across adjacent simple
+assignment statements, mirroring STYLE.md §6's compound-operator alignment
+for C/Java/Kotlin. Group/break rules should mirror §6 directly (blank line or
+comment breaks the group; an augmented-assignment operator like `+=` aligns
+in the same group as `=`, same as §6 already does for C-family languages).
+
+**Import sorting (new — flagged, not yet Q&A'd):** also not a straight port
+of Java's import-sorting rule (STYLE_JAVA.md, and `java-import-order` in
+`STATE_C_CPP_JAVA.md`'s config table). Java sorts a flat list by package
+prefix. Python's de facto convention (PEP 8, codified by `isort`) groups
+into four tiers instead — `__future__` first, then standard-library, then
+third-party, then local/first-party — each tier blank-line-separated and
+alphabetized within itself, with its own `import x` vs. `from x import y`
+ordering. The hard part is the **stdlib-vs-third-party classification**
+itself: unlike Java/Kotlin (where sorting never needs to know whether a
+package is "yours" or a dependency), Python's convention requires knowing
+that, which means either bundling a stdlib module list to check against, or
+requiring the user to configure their own project's first-party package
+names. This needs its own Q&A pass before it's scoped, same as the other
+new-rule sections above — noted here so it isn't lost.
+
+**Indentation note:** Python's significant whitespace means this formatter
+would, for the first time, need to treat indentation itself as semantically
+load-bearing rather than purely cosmetic — worth flagging now as the one
+structural difference from every currently-supported language, even though it
+doesn't block the complexity-detector or alignment work above.
+
+**File plan:** new standalone `STYLE_PYTHON3.md` — unlike JSON/XML/CSS/HTML5,
+Python has real imperative-language surface (functions, control flow,
+classes) different enough from the brace-delimited languages that a short
+"borrowed sections" subsection wouldn't be enough; it needs the same kind of
+dedicated file C, Java, and Kotlin each got.
+
+**Config properties (not yet scoped — tracked here so they aren't lost before
+a config schema / `STATE.md` task exists for them):**
+- `python-complexity-detector` (on/off) — toggle for the extended §3.1-style
+  bracket/comprehension/slice heuristic above.
+- `python-assignment-align` (on/off) — toggle for the `=`-alignment rule.
+- `python-import-order`, `python-import-sort`, `python-import-blank-lines` —
+  mirroring the existing `java-import-*`/`kotlin-import-*` shape in
+  `STATE_C_CPP_JAVA.md`'s Config Keys and Defaults table.
+- `python-import-stdlib-list` / `python-import-first-party-packages` — the
+  classification inputs the import-sorting tier logic above depends on.
+
+None of this is implemented or even fully designed — it's a placeholder list
+so the eventual implementation session updates the real config schema and
+`STATE.md`/`STATE_COMMON.md` instead of missing it.
+
+**Test-fixture repos:**
+- `python/cpython` — the reference implementation's own standard library;
+  large, disciplined, real-world Python at scale.
+- `pallets/flask` — small-to-medium, idiomatic, widely-read real Python.
+- `django/django` — large real-world Python with heavy use of decorators,
+  class-based patterns, and dict/list literal density (good complexity-
+  detector stress test).
+- `psf/black` — worth including specifically *because* it's a formatter
+  itself: its own source is real Python, and its test-fixture corpus
+  (`tests/data`) is itself a curated set of formatting edge cases that may be
+  directly reusable rather than just inspirational.
+- `pallets/click` — dense use of decorators and nested call arguments, good
+  additional stress test for the tight/loose bracket heuristic on call sites.

@@ -101,13 +101,23 @@ Repeatable methodology for testing the formatter against real, third-party
 code (preferred over synthetic dogfooding — it finds concrete, fixable bugs
 faster):
 
-1. Clone a real, compiling third-party project.
+1. Clone a real, compiling third-party project. First search `/tmp` for an
+   existing checkout from a prior session (this candidate's name/org may
+   already be present under `/tmp` or a scratchpad dir from earlier work) —
+   reuse it if found. If not found, re-clone fresh. **Never perform a
+   filesystem-wide search** (e.g. `find /`) to locate it — search only within
+   `/tmp`/the scratchpad dir, or ask the user, per the no-filesystem-wide-find
+   rule elsewhere in this file.
 2. Format it once (round1).
 3. Format round1's output again (round2).
 4. `diff round1 round2` must be empty (idempotency).
 5. Compile round1 with the appropriate toolchain — must succeed with the
    same error count as the unmodified original (no new, formatter-induced
    errors).
+
+**Run one candidate at a time, via one sub-agent — never launch multiple
+real-code-testing sub-agents concurrently.** Wait for one to finish (or stop
+it) before starting the next.
 
 When an idempotency (or forward-pass) failure doesn't reproduce at the
 default config, try re-testing with a `.jxmake-code-formatter` overriding

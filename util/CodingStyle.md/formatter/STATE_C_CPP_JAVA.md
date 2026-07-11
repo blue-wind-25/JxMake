@@ -553,6 +553,13 @@ written as `~` below so this file never embeds the actual account/user name):
   included) if a genuine glibc-version-mismatch problem is ever hit with some OTHER prebuilt
   binary and patchelf repointing becomes necessary again -- not needed for clang22 itself.
 
+- **Modern C++ candidates the user has since supplied (2026-07-12, not yet started):**
+  - `github.com/NVIDIA/stdexec`
+  - `github.com/ericniebler/range-v3`
+  - `github.com/foonathan/lexy`
+  - `github.com/boostorg/mp11`
+  - `github.com/microsoft/STL`
+
 **Java candidates the user has since supplied (not yet started):**
 
 - **SMALL**: `github.com/google/google-java-format` — DONE (2026-07-06). Idempotency check

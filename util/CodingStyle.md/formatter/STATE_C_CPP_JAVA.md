@@ -500,14 +500,12 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   `-fsyntax-only`-compile clean (0 errors) against the fixed round1 output, matching the
   unmodified original's 0-error baseline.
 
-**NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is now DONE
-(all bugs fixed, full 156-file tree idempotent). `taocpp/PEGTL` is now DONE (1 bug fixed, full
-355-file tree idempotent at its own indent-size convention). Continue real-code testing
-against remaining C/C++ candidates in this order unless redirected: the
-additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs
-newer; confirm any compile failure also reproduces against the unmodified original before
-treating it as formatter-induced). For any C++ candidate distributed under a `.h`/`.hpp`
-extension, check which it actually is before testing — copy to `.hpp` first if really C++.
+**NEXT SESSION — continue here:** Continue real-code testing against remaining C/C++ candidates
+in this order unless redirected: the additional candidates below.
+Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
+failure also reproduces against the unmodified original before treating it as formatter-induced).
+For any C++ candidate distributed under a `.h`/`.hpp` extension, check which it actually is
+before testing — copy to `.hpp` first if really C++.
 
 Additional candidates the user has since supplied (not yet started, path relative to home dir
 written as `~` below so this file never embeds the actual account/user name):

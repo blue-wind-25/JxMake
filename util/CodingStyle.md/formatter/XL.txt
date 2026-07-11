@@ -12,22 +12,25 @@ I jave run `make test` and all test passed.
 
 
 
-Continue with Kotlin work (download the repo as needed):
-`github.com/square/okio`
+Continue with C/C++/Java work (download the repo as needed; use one sub-agent):
+`github.com/foonathan/lexy`
+`github.com/NVIDIA/stdexec`
+`github.com/ericniebler/range-v3`
+`github.com/boostorg/mp11`
+`github.com/microsoft/STL`
+`github.com/llvm/llvm-project`
+`github.com/gcc-mirror`
 
-`github.com/Kotlin/kotlinx.coroutines`
-`github.com/square/kotlinpoet`
-`github.com/arrow-kt/arrow`
-`github.com/JetBrains/kotlin`
-
-
-
-Continue with C/C++/Java work (download the repo as needed):
-`taocpp/PEGTL`
-
-`../../../../VMA-GIT/anemonesoft/`
 `github.com/javaparser/javaparser`
 `github.com/openrewrite/rewrite`
+
+
+
+Continue with Kotlin work (download the repo as needed; use one sub-agent):
+`github.com/Kotlin/kotlinx.coroutines`
+`github.com/arrow-kt/arrow`
+`github.com/JetBrains/kotlin`
+`github.com/square/kotlinpoet`
 
 ####################################################################################################
 ####################################################################################################

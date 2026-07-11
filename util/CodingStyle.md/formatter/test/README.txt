@@ -263,250 +263,93 @@ Real-code regressions:
                                             sa = { };`) misdetected as a struct body, appending an
                                             extra `;` on every pass.
 
-  real_code_regressions_17_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's RobotTcpSession.kt: a
-                                            compile-breaking bug, not just an idempotency mismatch.
-                                            enforceCallLineBreaking's Option 2
-                                            (renderCallPreserveGroups) groups a multi-line call's
-                                            arguments by original source line, not by argument --
-                                            when one sibling argument is itself a multi-line brace
-                                            body (a trailing lambda, `Thread({ ... }, "name")`),
-                                            every line inside that body became its own row and got
-                                            collapsed, and since Kotlin has no `;` to separate
-                                            statements the way C/C++/Java do, this silently merged
-                                            separate statements onto one line with no separator
-                                            between them, producing invalid Kotlin. Fixed by bailing
-                                            (leaving the call untouched) when, for Kotlin only, a
-                                            top-level argument contains both a newline and a `{` --
-                                            C/C++/Java brace-bodied multi-line arguments (e.g. an
-                                            initializer list) are unaffected since `;` still
-                                            disambiguates statement boundaries there.
+  real_code_regressions_17_inp/out.kt    -- Kotlin dogfood find (RobotTcpSession.kt):
+                                            enforceCallLineBreaking's per-argument-line grouping
+                                            (Option 2) collapsed a multi-line lambda-body sibling
+                                            argument onto one line, merging statements with no `;`
+                                            separator -- invalid Kotlin. Fixed by bailing (Kotlin-
+                                            only) when a top-level argument mixes a newline and `{`.
 
-  real_code_regressions_18_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's PlayMusicBlock.kt: another
-                                            idempotency bug, this time in
-                                            KotlinDeclarationAlignmentRule.spansMultipleLines (§6
-                                            declaration alignment). A braceless `if(cond) expr else
-                                            expr` initializer short enough to stay on one line
-                                            groups and column-aligns normally with an adjacent
-                                            `val` sibling on a fresh format -- but once its own
-                                            nested call gets wrapped across lines by
-                                            MiscRule.enforceCallLineBreaking (statement too long to
-                                            fit), a *second* pass saw those wrapping newlines and
-                                            wrongly treated the initializer as a genuine multi-line
-                                            block expression, bailing it out of its alignment group
-                                            -- shrinking the sibling `val`'s own column padding on
-                                            every successive pass. Fixed with paren/brace-depth-
-                                            aware newline tracking (mirroring
-                                            ScopePipeline.hasTopLevelNewline's own "ignore newlines
-                                            inside a call's parens" idiom): a newline strictly
-                                            inside a call's parens with no enclosing brace no
-                                            longer counts as "multi-line", but a newline inside an
-                                            actual `{`...`}` block/lambda body still does (needed
-                                            to avoid reintroducing the RDD_KEY_134 compile-breaking
-                                            bug for `{`-bodied trailing-lambda arguments).
+  real_code_regressions_18_inp/out.kt    -- Kotlin idempotency (PlayMusicBlock.kt):
+                                            KotlinDeclarationAlignmentRule.spansMultipleLines
+                                            treated a braceless if/else initializer as multi-line
+                                            once a nested call got wrapped by a later pass,
+                                            shrinking the sibling val's alignment on each reformat.
+                                            Fixed with paren/brace-depth-aware newline tracking so
+                                            only real `{`...`}` bodies count as multi-line.
 
-  real_code_regressions_19_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's MainActivity.kt: a closing-brace
-                                            indentation drift bug in ScopePipeline.processScope. A
-                                            trailing lambda argument's `{` can sit on a continuation
-                                            line of a multi-line fluent chain
-                                            (`.setPositiveButton("Ok") {`), deeper than the chain's
-                                            own first line (`AlertDialog.Builder(this)`).
-                                            processScope derived the lambda body's indent, and its
-                                            closing `}`'s alignment, from the whole statement's
-                                            first line (via findParentIndent, needed elsewhere for
-                                            e.g. `case 1:` labels) instead of the brace's own
-                                            physical line -- under-indenting the body by one level
-                                            and misplacing a nested if/else block's closing braces
-                                            to match, even on a fresh format. Fixed (Kotlin-only,
-                                            via a new ScopePipeline.braceLineIndent helper) by using
-                                            the brace's own physical-line indent, when deeper than
-                                            the statement-start indent, for the child body's
-                                            inherited indent and its closing-brace placement.
+  real_code_regressions_19_inp/out.kt    -- Kotlin indent drift (MainActivity.kt):
+                                            ScopePipeline.processScope derived a trailing-lambda
+                                            body's indent/closing-brace from the statement's first
+                                            line instead of the `{`'s own (deeper) physical line,
+                                            under-indenting the body on a fresh format. Fixed via a
+                                            new braceLineIndent helper (Kotlin-only).
 
-  real_code_regressions_20_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's ToolbarActions.kt/
-                                            MainViewModel.kt (surfaced once RDD_KEY_136 stopped
-                                            masking it): a val whose initializer is a parenthesized
-                                            if/else expression (`(if (cond) a else b)`), immediately
-                                            followed by another statement in the same scope, was
-                                            fused onto that following statement's line with no
-                                            separator at all -- invalid Kotlin.
-                                            BlockStructureRule.collapseSingleExpressionBlocks has no
-                                            notion of expression- vs statement-position `if`/`else`;
-                                            it fired on the expression-position `if` (which has no
-                                            braced body, since it's a value expression) and treated
-                                            everything up to and past the wrapping `)` as if it were
-                                            a braceless statement body, swallowing the newline
-                                            before the next statement. Fixed (Kotlin-only) by
-                                            tracking a running unmatched-paren depth and refusing to
-                                            treat `if`/bare `else` as a collapsible statement while
-                                            inside one -- a statement-position `if`/`else` is never
-                                            itself nested inside a paren this same pass didn't open
-                                            and fully consume via its own condition matching.
+  real_code_regressions_20_inp/out.kt    -- Kotlin compile-break
+                                            (ToolbarActions.kt/MainViewModel.kt):
+                                            collapseSingleExpressionBlocks has no expression- vs
+                                            statement-position `if` distinction, so it swallowed the
+                                            newline after a parenthesized `(if (cond) a else b)`
+                                            initializer, fusing it with the next statement. Fixed by
+                                            tracking unmatched-paren depth and refusing to collapse
+                                            `if`/`else` while inside one.
 
-  real_code_regressions_21_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's BlockCanvasView.kt: a `val`
-                                            declaration whose initializer contains a logical-AND
-                                            expression lost the space before `&&`, rendering it
-                                            flush against the preceding token (e.g. `a > 1&& b`).
-                                            Root cause: DeclarationAlignmentRule.isTightToken's
-                                            `Token.isRepOp(t, '*') || Token.isRepOp(t, '&')` check
-                                            -- meant for C/C++'s repeated pointer/reference
-                                            declarator sigils (`**`, `&&` as an rvalue-reference
-                                            type) -- matches ANY token consisting solely of `&`
-                                            characters, including Kotlin's `&&` logical-AND
-                                            operator, which Kotlin has no unary/repeated `*`/`&`
-                                            construct to be confused with. Fixed by gating both
-                                            checks to non-Kotlin languages, mirroring the identical
-                                            gate MiscRule.isTightToken already had for the same
-                                            reason.
+  real_code_regressions_21_inp/out.kt    -- Kotlin spacing bug (BlockCanvasView.kt): isTightToken's
+                                            `&`-repeat check (for C/C++ `&&` rvalue-ref sigils) also
+                                            matched Kotlin's `&&` logical-AND, dropping the space
+                                            before it. Fixed by gating the check to non-Kotlin
+                                            languages, mirroring MiscRule's existing gate.
 
-  real_code_regressions_22_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's BlockPalette.kt: a run of
-                                            adjacent §9 expression-bodied one-liner functions, one
-                                            of which has a body long enough that a later phase
-                                            (MiscRule.enforceCallLineBreaking) wraps its call
-                                            across multiple lines once column-padding is added. On
-                                            a fresh format the run's column width was computed
-                                            from every member's original (still short) text,
-                                            including the long one's -- only for that later
-                                            wrapping phase to break it afterward, leaving the
-                                            group's padding stale. Reformatting that already-
-                                            wrapped output then correctly excluded the now-multi-
-                                            line member via `hasNewlineBetween`, splitting the run
-                                            into different subgroups with different (narrower)
-                                            column widths on the second pass -- an idempotency
-                                            flap. This exact bug class was already fixed for the
-                                            C/C++/Java base class
-                                            (GetterSetterRule.parseOneLinerMember's own length
-                                            pre-check) but never ported to the Kotlin sibling
-                                            method. Fixed by adding the same `hasBreakableCall` +
-                                            estimated-width pre-check to
-                                            KotlinGetterSetterRule.parseKotlinOneLinerMember,
-                                            excluding a too-long member from the group on the very
-                                            first pass too, so the decision stays stable across
-                                            repeated formats.
+  real_code_regressions_22_inp/out.kt    -- Kotlin idempotency (BlockPalette.kt): a one-liner-
+                                            function group's column width was computed from pre-wrap
+                                            text, but a later pass wrapped a too-long member's call,
+                                            leaving stale padding on reformat. Fixed by porting the
+                                            C/Java `hasBreakableCall` + estimated-width pre-check to
+                                            KotlinGetterSetterRule.parseKotlinOneLinerMember.
 
-  real_code_regressions_23_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's BlockPalette.kt: an `override fun
-                                            draw(...)` method body inside an anonymous `object :
-                                            Block() { ... }` whose single call is short enough that
-                                            the whole `{ ... }` body still fits on one physical line
-                                            pre-formatting, but is long enough (at this method's real
-                                            indentation depth) that a later phase
-                                            (MiscRule.enforceCallLineBreaking) wraps the call across
-                                            multiple lines anyway. On a fresh format,
-                                            KotlinSpecificRule.isSingleLineBody saw the body still on
-                                            one physical line (pre-wrap) and kept `{` K&R inline;
-                                            only the later call-wrapping phase split it internally,
-                                            leaving the K&R brace stale. Reformatting that already-
-                                            wrapped output then correctly saw a genuinely multi-line
-                                            body and moved `{` to Allman -- an idempotency flap
-                                            identical in shape to the one already fixed on
-                                            JavaSpecificRule.isSingleLineBody (never previously
-                                            ported to this Kotlin sibling method) and to
-                                            KotlinGetterSetterRule.parseKotlinOneLinerMember
-                                            (RDD_KEY_139). Fixed by adding the same
-                                            `hasBreakableCall` + estimated-width pre-check to
-                                            KotlinSpecificRule.isSingleLineBody, this time also
-                                            correcting the estimated-width formula (ported from
-                                            JavaSpecificRule) to include indentation and inter-token
-                                            spacing, which the original formula omitted -- a
-                                            shortfall too small to matter at JavaSpecificRule's
-                                            shallower nesting depths, but large enough at this
-                                            Kotlin method's deeper (anonymous-object-nested)
-                                            indentation to produce a false "fits" verdict without
-                                            the fix.
+  real_code_regressions_23_inp/out.kt    -- Kotlin idempotency (BlockPalette.kt):
+                                            KotlinSpecificRule.isSingleLineBody kept K&R `{` for a
+                                            body that was pre-wrap one-line but got split by a later
+                                            call-wrapping pass, flipping to Allman on reformat.
+                                            Fixed by porting the same hasBreakableCall + estimated-
+                                            width pre-check, with a corrected width formula that now
+                                            accounts for indentation and spacing.
 
-  real_code_regressions_24_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's ConnectTypeDialog.kt and
-                                            WifiApDialog.kt (`.show().also { ... }`):
-                                            ScopePipeline.applySignaturePass's Kotlin `:
-                                            ReturnType` tail handling (STYLE_KOTLIN.md §9) uses
-                                            findLastTopLevelCloseParen to locate the parameter
-                                            list's own closing paren when it isn't the token
-                                            immediately before the body's `{` -- but that helper
-                                            only scanned for the LAST depth-0 `)` in range, with no
-                                            check that a genuine `:` actually follows it before the
-                                            brace. A fluent chain of the shape `x.foo().bar { ... }`
-                                            -- where the FIRST call has empty parens and the SECOND
-                                            call uses Kotlin's bare/parenless trailing-lambda call
-                                            syntax -- has exactly this token shape (`)` ...
-                                            IDENTIFIER `{`) with no `:` at all, so `foo()`'s `)` was
-                                            wrongly accepted as if it were a signature's parameter
-                                            list and `bar` as if it were a return-type tail, causing
-                                            `.bar` to be silently deleted from the rendered output
-                                            on the very first format pass (not merely an idempotency
-                                            flap -- first-pass wrong/uncompilable output). Fixed by
-                                            requiring a top-level `:` immediately after the found
-                                            `)` (via nextSignificantIndex) before accepting the
-                                            Kotlin return-type-tail branch in applySignaturePass;
-                                            otherwise bail (continue) rather than misdetect.
+  real_code_regressions_24_inp/out.kt    -- Kotlin compile-break
+                                            (ConnectTypeDialog.kt/WifiApDialog.kt):
+                                            findLastTopLevelCloseParen accepted any last depth-0 `)`
+                                            as a signature's param list even with no `:` following,
+                                            so `x.foo().bar { ... }` misdetected `bar` as a return-
+                                            type tail and silently deleted `.bar`. Fixed by
+                                            requiring a top-level `:` immediately after the `)`
+                                            before accepting the Kotlin return-type-tail branch.
 
-  real_code_regressions_25_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's BlockCanvasView.kt (`class
-                                            BlockCanvasView @JvmOverloads constructor(`) and
-                                            ToolbarActions.kt (a second adjacent `@Volatile private
-                                            var` declaration): KotlinSpecificRule.
-                                            enforceLabeledJumpSpacing's state machine, meant to
-                                            detect Kotlin's `label@` loop-label declaration syntax
-                                            (STYLE_KOTLIN.md §11), had no way to tell a genuine
-                                            label apart from an unrelated `@Annotation` sitting
-                                            right after some other identifier (a class name, or an
-                                            enum constant ending the previous statement) --
-                                            silently corrupting `@JvmOverloads`/`@Volatile` into
-                                            `@ JvmOverloads`/`@ Volatile`, a parse error on the very
-                                            first format pass. Fixed by adding a lookahead,
-                                            isLoopLabelTarget, requiring the token after `@` to
-                                            actually be `for`/`while`/`do` or `{` (a labeled lambda
-                                            literal) -- the only constructs a Kotlin label can
-                                            legally prefix -- before treating an `IDENTIFIER @`
-                                            sequence as a label declaration, both for the state
-                                            transition and for the tightBeforeAt spacing decision
-                                            itself.
+  real_code_regressions_25_inp/out.kt    -- Kotlin compile-break
+                                            (BlockCanvasView.kt/ToolbarActions.kt):
+                                            enforceLabeledJumpSpacing's label-detection state
+                                            machine couldn't tell a genuine `label@` from an
+                                            unrelated `@Annotation`, corrupting
+                                            `@JvmOverloads`/`@Volatile` into `@ JvmOverloads`/`@
+                                            Volatile`. Fixed with an isLoopLabelTarget lookahead
+                                            requiring `for`/`while`/`do`/`{` after `@`.
 
-  real_code_regressions_26_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's Optimizer.kt: a `when`
-                                            expression's `else -> { ... }` branch with a
-                                            multi-statement block body was flattened onto a single
-                                            line with no `;` separators between statements -- a
-                                            parse error on the very first format pass. Root cause:
-                                            BlockStructureRule.collapseSingleExpressionBlocks's
-                                            bare-`else` handling (meant for a real `if`/`else`
-                                            chain's braceless single-statement body, STYLE.md §10)
-                                            matched any KEYWORD "else" not immediately followed by
-                                            "if" or "{" -- which also matches a `when` arm's `else`
-                                            label, since its body is introduced by `->`, not a
-                                            brace. Fixed by also checking whether the token after
-                                            `else` is `->`, and bailing out of the
-                                            braceless-collapse path in that case.
+  real_code_regressions_26_inp/out.kt    -- Kotlin compile-break (Optimizer.kt):
+                                            collapseSingleExpressionBlocks's bare-`else` handling
+                                            also matched a `when` arm's `else ->` label (no brace,
+                                            since its body follows `->`), flattening a multi-
+                                            statement block onto one line with no `;` separators.
+                                            Fixed by checking for a following `->` and bailing out
+                                            of the braceless-collapse path.
 
-  real_code_regressions_27_inp/out.kt    -- Found via Kotlin dogfood-testing against RobotCoding
-                                            gui_frontend_android's ProgramBuilder.kt: two separate,
-                                            unrelated bugs co-occurring in the same statement. (1)
-                                            DeclarationAlignmentRule.needsSpaceBetween had no case
-                                            for Kotlin's `!is`/`!in` negated type-check/containment
-                                            operators (a single tight lexical unit with no space),
-                                            so the generic KEYWORD-gets-a-leading-space default
-                                            corrupted `!is`/`!in` into `! is`/`! in`. (2)
-                                            MiscRule.enforceCallLineBreaking's renderCallCandidate
-                                            used parseSignature (a C/C++/Java-style "type name"
-                                            declaration parser) to distinguish a forward
-                                            declaration's parameter list from a plain call's
-                                            argument list -- but Kotlin has no such shape at all, so
-                                            parseParam's generic heuristic misparsed the call
-                                            argument `it.func.funcName` (no top-level comma) as a
-                                            `Type name` pair, inserting a spurious space once the
-                                            call needed line-wrapping and corrupting it into
-                                            `it.func. funcName`. Fixed by forcing Kotlin's
-                                            render-path selection through the untyped call-argument
-                                            path via a separate `sigForRender` variable, while
-                                            keeping the original `sig`-driven zero-param bail-out
-                                            intact (an initial attempt that gated `sig` itself to
-                                            null broke fixture 22's zero-param declaration).
-
+  real_code_regressions_27_inp/out.kt    -- Kotlin, two co-occurring bugs (ProgramBuilder.kt): (1)
+                                            needsSpaceBetween had no case for `!is`/`!in`,
+                                            corrupting them into `! is`/`! in`; (2)
+                                            enforceCallLineBreaking's renderCallCandidate used the
+                                            C/Java-style parseSignature on a call argument
+                                            (`it.func.funcName`), misparsing it as `Type name` and
+                                            inserting a spurious space once wrapped. Fixed by adding
+                                            `!is`/`!in` as tight tokens and routing Kotlin calls
+                                            through a separate untyped sigForRender path.
 
 How Tests Are Run
 -----------------

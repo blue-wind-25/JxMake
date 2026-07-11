@@ -8,11 +8,6 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Please compact `test/README.txt` from `real_code_regressions_17_inp/out.kt` until the end of the
-`real_code_regressions_27_inp/out.kt` list.
-
-
-
 I jave run `make test` and all test passed.
 
 

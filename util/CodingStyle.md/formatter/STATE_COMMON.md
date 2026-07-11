@@ -135,7 +135,7 @@ Use this standard copyright header on every new test fixture file:
 
 ---
 
-## Shared TODO — Server Protocol: Inline Config Support
+## Improving Server Protocol: Inline Config Support
 
 **Status:** COMPLETE (commit `2d13ca5`). `POST /format` accepts any
 `STATE_C_CPP_JAVA.md` → **Config Keys and Defaults** key as an optional

@@ -132,3 +132,95 @@ Use this standard copyright header on every new test fixture file:
  * SPDX-License-Identifier: MIT
  */
 ```
+
+---
+
+## Shared TODO — Server Protocol: Inline Config Support
+
+**Status:** not started. Scoped and ready to pick up. Lives here (not in
+`STATE_C_CPP_JAVA.md` or `STATE_KOTLIN.md`) because it's server/protocol
+infrastructure shared by every job, not a per-language formatting rule.
+
+**Motivation:** `POST /format` currently resolves config by looking for a
+`.jxmake-code-formatter` file on disk near the `path` query param. A browser
+client formatting a pasted/in-memory snippet has no real file path and
+nothing on disk for the server to find — it needs a way to hand the server a
+complete config directly in the request.
+
+**Decided design** (resolved via user Q&A this session — do not re-litigate
+these, treat as settled unless a new ambiguity is found during implementation):
+
+- **Request body becomes JSON**, replacing the current raw-file-content body:
+  ```json
+  { "content": "<raw file text>", "config": { "indent-size": 2, "...": "..." } }
+  ```
+  `config` is optional. When present, its keys/values follow exactly the
+  property names in `STATE_C_CPP_JAVA.md`'s **Config Keys and Defaults**
+  table — this is the single source of truth for valid keys; do not invent a
+  separate schema. That table already spans every currently-supported
+  language (structural/behavior keys, `header-guard-rename` for C/C++,
+  `java-import-*` for Java, `kotlin-import-*` for Kotlin) — the validator
+  must accept the full current table, not just a C/C++/Java subset. It must
+  also be kept in sync going forward: any future language support (JSON,
+  XML, JavaScript, TypeScript, CSS, HTML5, Python3 — see
+  `FUTURE_FEATURE_DISCUSSION.md`) that adds its own config keys (e.g. the
+  `json-colon-align`, `css-colon-align`, and `python-*` properties already
+  flagged there) must add them to this same table and this same validator in
+  the same change, not as a follow-up — do not hardcode today's key list as
+  if it were permanent.
+- **`path` becomes optional** when both `config` and `lang` are present in
+  the request (client sends a real path, or omits it, or sends a placeholder
+  purely for logging — the server must not attempt disk-based config lookup
+  or extension-based `lang` fallback in this case, since `lang` is already
+  required and always wins per the existing rule). `path` stays required in
+  the no-inline-config case, unchanged from current behavior.
+- **File-path config lookup and inline `config` are mutually exclusive by
+  client contract** (a well-behaved client sends one or the other, never
+  both) — but defensively, if a request somehow supplies both a resolvable
+  `path`-based config *and* an inline `config`, **inline wins** rather than
+  erroring.
+- **Unknown keys in `config` → HTTP 400** with a plain-text error body,
+  consistent with the existing strict `lang`/`path` validation. Malformed
+  JSON in the request body is also HTTP 400.
+- **Stateless, per-request only.** No session/handshake; every `/format`
+  call that wants inline config must include it every time. Do not add any
+  connection-level or cookie-based config state.
+
+**Breaking-change note:** this replaces the `/format` body contract (raw
+bytes → JSON envelope) for *all* clients, not just new browser ones —
+including the bundled CLI's own auto-connect client. Since both sides of
+this protocol live in the same repo, treat this as an atomic change: update
+the server, the bundled CLI's `ServerMode` client call, and `test/README.txt`
+/ any server-mode test fixtures together in one pass, not as a
+soft-deprecate-old-format transition. Do not attempt Content-Type-based
+negotiation between the old raw-body and new JSON-body forms unless a real
+external third-party client is known to depend on the old form — none is
+known as of this note.
+
+**Required changes:**
+- [ ] Update `/format` request parsing to accept the new JSON body shape
+      (`content` + optional `config`), replacing raw-body parsing.
+- [ ] Wire inline `config` into whatever config-resolution path the server
+      already uses for file-based `.jxmake-code-formatter` lookup, with
+      inline taking priority per the rule above.
+- [ ] Validate `config` keys against the canonical set in `STATE_C_CPP_JAVA.md`
+      → **Config Keys and Defaults**; HTTP 400 on any unrecognized key or
+      malformed JSON. Confirm this covers C/C++/Java *and* Kotlin keys (all
+      already in that one table) — and re-check this validator whenever a
+      future language's config keys land, per the note above.
+- [ ] Make `path` optional exactly when `config` + `lang` are both present;
+      required otherwise (unchanged).
+- [ ] Update the bundled CLI's own server-client call site to send the new
+      JSON body shape (it becomes a client of its own new protocol).
+- [ ] Update `README.md`'s **Server Wire Protocol** section to document the
+      new JSON body shape, the optional/required `path` rule, the
+      unknown-key-→-400 behavior, and the mutual-exclusivity-with-inline-wins
+      rule — this section currently describes the old raw-body contract and
+      will be actively wrong once this lands.
+- [ ] Add/update a server-mode test fixture (or extend the existing
+      multi-file smoke test from Task D) covering: inline config with no
+      `path`, inline config overriding a would-be file-based config, and the
+      unknown-key-→-400 case.
+- [ ] Follow this file's own **ambiguity-handling** convention above for
+      anything not already resolved here — stop, record in the picking-up
+      job's **Open Questions**, ask, don't guess.

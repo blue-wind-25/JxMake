@@ -267,27 +267,63 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   bodied function's parameter list breaks across lines on round1 (`fun
   addProperties(\n  propertySpecs: Iterable<PropertySpec>\n): T = apply {
   ... }`) but stays inline on round2 (`fun addProperties(propertySpecs:
-  ...): T = apply { ... }`) — a `KotlinSignatureRule.renderWithTail` tier
-  1-vs-2 fitting decision that disagrees with itself once the file is
-  already formatted, likely because the `apply { ... }` call body's own
-  rendered width (predicted vs. actual, à la RDD_KEY_139/140's "later
-  call-wrapping phase invalidates an earlier width-based decision" shape)
-  differs between a fresh format and a reformat. (2) `CodeWriter.kt`'s
-  earlier-observed call-argument continuation-line indent staleness (an
-  `is FunSpec -> o.emit(\n  codeWriter = this,\n  ...\n)` branch body,
-  itself a variant of the same "Phase 4 arrow-merge changes the branch's
-  physical line, invalidating an earlier phase's physical-line-anchored
-  indent decision" root cause RDD_KEY_152 fixed for `ScopePipeline`, but
-  here manifesting in a different rule (likely `MiscRule.enforceCallLineBreaking`'s
-  own continuation-indent logic) not yet traced to its exact source. Not
-  investigated further this session — time budget spent on the two fixed
-  bugs above. Next step: minimal repros for each of the two shapes (mirror
-  RDD_KEY_152's repro-then-fix approach), starting with `MemberSpecHolder.kt`.
-  `kotlinc` syntax-checking `kotlinpoet/src/jvmMain` after both fixes found
-  **zero** remaining genuine syntax errors (only expected unresolved-
-  reference/multiplatform noise from checking `jvmMain` in isolation) — so
-  none of these 12 remaining files are known to be compile-breaking, only
-  idempotency-flapping.
+  ...): T = apply { ... }`). **Narrowed this session (evidence, not yet a
+  fix):** re-repro'd standalone against `orig.kt`/`MemberSpecHolder.kt` at
+  the same `indent-size=2` config used in the original `square/kotlinpoet`
+  test run (confirmed the flap reproduces there; testing at the tool's
+  bare default config additionally surfaces an unrelated, seemingly-stray
+  loose-paren spacing artifact — `addProperty( x, y )` instead of
+  `addProperty(x, y)` — not investigated further and NOT part of this bug,
+  most likely a leftover ad-hoc-testing config artifact same shape as the
+  one RDD_KEY_122 found, but not confirmed). A debug print placed at
+  `KotlinSignatureRule.renderWithTail`'s tier-1 fits-check (right before
+  the `startColumn + inline.length() - commentLen <= lineLengthLimit`
+  branch) shows **byte-identical** `inline`/`tailStr` values on both
+  round1 and round2 (`tailStr=[: T = apply]`, 74 chars, well under the
+  100-col limit) — `renderWithTail` takes the exact same tier-1 early-return
+  branch both times and is NOT where the two rounds diverge, contradicting
+  the previous (RDD_KEY_152/153-session) hypothesis that blamed this
+  method's own fitting decision directly. Also confirmed via
+  `parseFunctionTail`'s tail-token slice that the tail is deliberately cut
+  short right after `apply` — the `{ propertySpecs.map(::addProperty) }
+  as T` portion is NOT part of the rendered tail string at all; it's left
+  as trailing token text in the stream for a later pass to handle. Since
+  `renderWithTail`'s own decision is identical both rounds yet the actual
+  written signature differs (params wrapped on round1, not on round2), the
+  actual flap must be introduced by a **later pass** that re-measures the
+  merged line (signature text + the trailing `{ ... } as T` it doesn't
+  own) and independently chooses to re-wrap the signature's own `(...)` as
+  if it were a generic breakable call/paren group — almost certainly
+  `MiscRule.enforceCallLineBreaking`, not `KotlinSignatureRule`. Not yet
+  traced inside that method to find exactly which width comparison
+  produces a different verdict round1 vs round2 (the debug-print budget
+  this session went into first localizing which class owns the bug, not
+  yet into that class's own internals) — next step is a debug print
+  in `MiscRule.enforceCallLineBreaking`'s wrap-candidate-selection/width-check
+  logic, dumping candidate span text + computed width for the
+  `addProperties(...)` span specifically, round1 vs round2, to find where
+  the numbers disagree. (2) `CodeWriter.kt`'s earlier-observed
+  call-argument continuation-line indent staleness (an `is FunSpec ->
+  o.emit(\n  codeWriter = this,\n  ...\n)` branch body, itself a variant of
+  the same "Phase 4 arrow-merge changes the branch's physical line,
+  invalidating an earlier phase's physical-line-anchored indent decision"
+  root cause RDD_KEY_152 fixed for `ScopePipeline`, but here manifesting in
+  a different rule (likely `MiscRule.enforceCallLineBreaking`'s own
+  continuation-indent logic — plausibly the SAME method as (1) above, worth
+  checking together) not yet traced to its exact source. Not investigated
+  further this session. `kotlinc` syntax-checking `kotlinpoet/src/jvmMain`
+  still finds **zero** genuine syntax errors (only expected
+  unresolved-reference/multiplatform noise from checking `jvmMain` in
+  isolation) — none of these 12 remaining files are known to be
+  compile-breaking, only idempotency-flapping. No fixture added and no
+  fix attempted this session — per STATE_COMMON.md's ambiguity protocol,
+  stopping here to document the narrowed evidence rather than guess inside
+  `MiscRule.enforceCallLineBreaking` without a debug-print-confirmed root
+  cause. All debug instrumentation added while investigating (a
+  `KSR_DEBUG`-gated print in `KotlinSignatureRule.renderWithTail`) was
+  reverted before ending the session; `make test` reconfirmed 53/53
+  forward + 53/53 idempotency with the source tree back at its
+  RDD_KEY_153 state (no code changes this session).
 
 ---
 

@@ -129,7 +129,21 @@ public class BlockStructureRule {
             // entire RHS, so there is no following sibling content within the same statement for
             // it to over-consume.
             final boolean isKotlinExpressionIf = lang.isKotlin && "if".equals(t.text) && kotlinParenDepth > 0;
-            if (!isKotlinExpressionIf && t.type == TokenType.KEYWORD && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
+            // A `while` at the tail of a `do { ... } while (cond)` looks identical, at this
+            // scan's level, to a genuine loop-starting `while (cond)` -- both are a KEYWORD
+            // "while" followed by a `(...)` condition with no `{` after it (a do-while's
+            // trailing `while (cond)` has nothing after its `)` but a statement terminator,
+            // same shape as Kotlin's already-braceless multi-line body). Found via real-code
+            // compile-checking against `square/okio`'s `Buffer.kt`: `} while (!done && head !=
+            // null)` followed on the next (blank-separated) line by an unrelated `size -=
+            // seen.toLong()` statement got misread as this `while`'s own braceless body and
+            // fused onto the same line with no separator -- a first-pass, not merely
+            // idempotency, compile error (RDD_KEY_151). Guard: bail if this "while" is
+            // immediately preceded (skipping non-significant tokens) by a `}` whose matching
+            // `{` is itself immediately preceded by a `do` keyword.
+            final boolean isDoWhileTail = "while".equals(t.text) && isDoWhileTailKeyword(tokens, i);
+            if (!isKotlinExpressionIf && !isDoWhileTail && t.type == TokenType.KEYWORD
+                    && SINGLE_EXPR_KEYWORDS.contains(t.text)) {
                 final ControlBlock block = matchControlBlock(tokens, i);
                 if (block != null && block.openBraceIndex >= 0) {
                     if (!isPartOfElseChain(tokens, i, block, n) && !anyFrozen(tokens, i, block.closeBraceIndex + 1)) {
@@ -325,9 +339,20 @@ public class BlockStructureRule {
         if (!isSingleStatementBody(contents)) {
             return null;
         }
-        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
+        final String prefix = tightenParenPrefix(tokens.get(kwIndex).text,
+                renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1)));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /** Strips the space between {@code keyword} and a following `(` in {@code rendered} if
+     *  {@code keyword} is one of {@link #TIGHT_PAREN_KEYWORDS} -- see {@link #tryCollapseBraceless}
+     *  for why this must happen at collapse time rather than being left to a later pass. */
+    private String tightenParenPrefix(final String keyword, final String rendered) {
+        if (TIGHT_PAREN_KEYWORDS.contains(keyword) && rendered.startsWith(keyword + " (")) {
+            return keyword + rendered.substring(keyword.length() + 1);
+        }
+        return rendered;
     }
 
     /**
@@ -477,9 +502,29 @@ public class BlockStructureRule {
      *  keyword as the sole statement -- same conservative posture as {@link #tryCollapse}. On
      *  success, {@code outBodyEnd[0]} is set to the token index one past the joined body (so the
      *  caller's main loop can resume scanning from there). */
+    /** Keywords whose own text is directly tight against a following `(` with no space
+     *  (`if(`, `while(`, `for(`, `switch(`, `catch(`, `when(`) -- mirrors {@code
+     *  MiscRule.TIGHT_PAREN_KEYWORDS} exactly (kept as its own private copy rather than a shared
+     *  import since the two classes have no other coupling). Used by {@link #tryCollapseBraceless}
+     *  below to make its collapsed prefix already reflect the final tight spacing, rather than the
+     *  original source's `if (` form. */
+    private static final Set<String> TIGHT_PAREN_KEYWORDS =
+            setOf("if", "while", "for", "switch", "catch", "when");
+
     private String tryCollapseBraceless(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int[] outBodyEnd) {
-        final String prefix = renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1));
+        // Tighten `keyword (` -> `keyword(` here, at collapse time, rather than leaving it to a
+        // later pass (MiscRule's own tight-paren-keyword spacing fix). Left untightened, this
+        // collapsed line is one character too wide right at the line-length boundary -- found via
+        // real-code testing against `square/okio`'s `ZipFiles.kt`: a braced `if (...) { throw
+        // IOException("...") }` whose true final-width single-line form is exactly 100 chars (the
+        // limit) collapsed with the untightened `if (` prefix measured 101 chars by a later
+        // call-line-breaking pass that runs before the tight-paren-spacing fixup, wrapping the
+        // call unnecessarily; reformatting that already-wrapped output on a second pass measured
+        // the (by-then-tightened) 100-char line correctly and left it on one line -- a real,
+        // reproducible idempotency bug, not just cosmetic.
+        final String prefix = tightenParenPrefix(tokens.get(kwIndex).text,
+                renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1)));
         return collapseBracelessBody(tokens, block.closeParenIndex + 1, prefix, outBodyEnd);
     }
 
@@ -997,6 +1042,34 @@ public class BlockStructureRule {
             default:
                 return false;
         }
+    }
+
+    /** True iff the `while` keyword at {@code whileIdx} is the tail of a `do { ... } while
+     *  (cond)` construct -- i.e. the nearest preceding significant token is a `}` whose matching
+     *  `{` is itself immediately preceded (skipping non-significant tokens) by a `do` keyword. See
+     *  the call site's comment (RDD_KEY_151) for why this guard exists. */
+    private boolean isDoWhileTailKeyword(final List<Token> tokens, final int whileIdx) {
+        final int closeBraceIdx = prevSignificantIndex(tokens, whileIdx - 1);
+        if (closeBraceIdx < 0 || !isPunct(tokens.get(closeBraceIdx), "}")) {
+            return false;
+        }
+        int depth = 1;
+        int j = closeBraceIdx - 1;
+        while (j >= 0 && depth > 0) {
+            final Token tk = tokens.get(j);
+            if (isPunct(tk, "}")) {
+                depth++;
+            } else if (isPunct(tk, "{")) {
+                depth--;
+            }
+            j--;
+        }
+        if (depth != 0) {
+            return false;
+        }
+        final int beforeOpenBrace = prevSignificantIndex(tokens, j);
+        return beforeOpenBrace >= 0 && tokens.get(beforeOpenBrace).type == TokenType.KEYWORD
+                && "do".equals(tokens.get(beforeOpenBrace).text);
     }
 
     /** Index of the nearest significant token at or before `from`, or -1 if none. */

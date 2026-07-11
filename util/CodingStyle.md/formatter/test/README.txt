@@ -388,6 +388,50 @@ Real-code regressions:
                                             single-line `{ ret, level1(ret) }` brace argument is
                                             unaffected.
 
+  real_code_regressions_30_inp/out.kt    -- Kotlin, real-code test against `square/okio`: three
+                                            co-occurring, unrelated bugs. (1)
+                                            KotlinDeclarationAlignmentRule.renderTokens had no
+                                            notion of unary vs. binary `-`/`+`, unconditionally
+                                            inserting a space between a leading unary minus and its
+                                            operand (`val x = -1` -> `= - 1`); fixed with a new
+                                            isUnaryMinusOperand lookback. (2)
+                                            ScopePipeline.applySignaturePass's Kotlin `:
+                                            ReturnType` tail detection matched a top-level `)` with
+                                            no check that the span to the next `{` stays within one
+                                            statement, so a headerless multiplatform declaration
+                                            followed by a blank line and an unrelated later
+                                            declaration got merged into one bogus signature+tail;
+                                            fixed with a new hasTopLevelBlankLine guard. (3)
+                                            BlockStructureRule's braceless if/while/for collapse
+                                            (both tryCollapse and tryCollapseBraceless) rendered
+                                            the condition prefix with the original source's
+                                            keyword-to-paren space still present, one character
+                                            wider than the final tightened form a later
+                                            MiscRule.TIGHT_PAREN_KEYWORDS pass produces --
+                                            enforceCallLineBreaking's length check measured the
+                                            stale, wider text and over-wrapped a line that fits
+                                            exactly at the line-length limit in its true final
+                                            width, an idempotency bug; fixed by tightening the
+                                            keyword-to-paren space at collapse time in both
+                                            methods.
+
+  real_code_regressions_31_inp/out.kt    -- Kotlin, two more compile-breaking bugs found via
+                                            `kotlinc` compile-checking against `square/okio` (not
+                                            caught by round1-vs-round2 diffing, since both are
+                                            broken consistently from the first pass). (1)
+                                            TokenizerCore.MULTI_CHAR_OPS was entirely missing
+                                            Kotlin's `===`/`!==` referential equality operators --
+                                            `next !== this` lexed as separate `!=`/`=` tokens,
+                                            later re-spaced into the invalid `!= =`; fixed by
+                                            adding `===`/`!==` ahead of their 2-char prefixes. (2)
+                                            BlockStructureRule's braceless-collapse dispatch
+                                            treated a do-while's trailing `while (cond)` (no `{`
+                                            after its `)`) the same as a genuine loop-starting
+                                            `while`, fusing the following unrelated statement onto
+                                            the same line with no separator; fixed with a new
+                                            isDoWhileTailKeyword lookback that bails the collapse
+                                            for that shape.
+
 How Tests Are Run
 -----------------
 

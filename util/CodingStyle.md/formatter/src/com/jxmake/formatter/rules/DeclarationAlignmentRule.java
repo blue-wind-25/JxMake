@@ -539,7 +539,10 @@ public class DeclarationAlignmentRule {
         return true;
     }
 
-    private boolean needsSpaceBetween(final Token prev, final Token cur) {
+    /** Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
+     *  (its own {@code renderTokens} override, real-code testing against {@code square/okio}) --
+     *  purely additive, no behavior change. */
+    protected boolean needsSpaceBetween(final Token prev, final Token cur) {
         if (isTightToken(cur)) {
             return false;
         }

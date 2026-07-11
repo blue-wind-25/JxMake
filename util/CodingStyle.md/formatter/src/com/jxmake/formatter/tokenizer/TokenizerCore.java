@@ -205,9 +205,15 @@ public class TokenizerCore {
     // Kotlin operators added here (`?.`, `!!`, `?:`, `..<`, `..`) are new entries, not shared with
     // C/C++/Java -- "..<" must precede ".." (a strict prefix of it), same longest-prefix-first
     // requirement already noted above for "..." vs "->"/"<=".
+    // "===" / "!==" (Kotlin referential equality/inequality, STYLE_KOTLIN.md) are new entries
+    // here too -- must precede their 2-char prefixes "==" / "!=" for the same longest-prefix-first
+    // reason noted above ("..<" vs ".."). Found missing entirely via real-code compile-checking
+    // against `square/okio`: `if (next !== this)` was lexed as the two tokens "!=" and "="
+    // instead of one "!==" token, which a later paren-tightening pass then re-spaced into the
+    // invalid `!= =` (RDD_KEY_150) -- a pure tokenizer gap, not a rendering-pass bug.
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>>=", ">>=", "...", "->*", "..<",
-            "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "==", "!=", "&&", "||",
+            "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "===", "!==", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "?.", "?:", "!!", "..",
             "[[", "]]"

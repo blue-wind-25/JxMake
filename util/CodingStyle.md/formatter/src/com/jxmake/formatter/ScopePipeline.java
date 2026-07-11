@@ -965,6 +965,19 @@ public class ScopePipeline {
                         // signature.
                         continue;
                     }
+                    if (hasTopLevelBlankLine(tokens, afterParen, span.openBraceIdx)) {
+                        // A genuine `: ReturnType` tail is a single, unbroken type expression
+                        // ending at its own `{`/`=` -- it never contains a blank line. Found via
+                        // real-code testing against `square/okio`: a headerless multiplatform
+                        // declaration with no body of its own (`expect fun getEnv(name: String):
+                        // String?`) has its `)`/`:` wrongly matched as this iteration's
+                        // `realCloseParen`/tail when `span.openBraceIdx` actually belongs to a
+                        // later, unrelated `val ... by lazy { ... }` declaration -- silently
+                        // merging the two into one bogus signature+tail and eating the blank line
+                        // and the `val`'s own leading text. Bail rather than merge across a real
+                        // statement boundary.
+                        continue;
+                    }
                     kotlinTailEndIdx = closeParenIdx;
                     closeParenIdx = realCloseParen;
                 } else if (lang.isJava) {
@@ -1167,6 +1180,26 @@ public class ScopePipeline {
             }
         }
         return found;
+    }
+
+    /** True iff two consecutive {@code TokenType.NEWLINE} tokens (a blank source line) appear
+     *  anywhere in {@code tokens[from, to)} -- used by {@code applySignaturePass}'s Kotlin
+     *  `: ReturnType` tail detection to refuse treating a candidate tail as reaching all the way
+     *  to a later, unrelated declaration's `{` across a genuine statement/paragraph break. */
+    private boolean hasTopLevelBlankLine(final List<Token> tokens, final int from, final int to) {
+        boolean sawNewline = false;
+        for (int i = from; i < to; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.NEWLINE) {
+                if (sawNewline) {
+                    return true;
+                }
+                sawNewline = true;
+            } else if (type != TokenType.WHITESPACE) {
+                sawNewline = false;
+            }
+        }
+        return false;
     }
 
     private int findTopLevelMemberInitColon(final List<Token> tokens, final int from, final int to) {

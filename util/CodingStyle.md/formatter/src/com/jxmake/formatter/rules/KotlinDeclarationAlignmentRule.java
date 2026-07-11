@@ -411,6 +411,52 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
                 .replaceAll("(?<=(\\?\\.|!!))\\s+", "");
     }
 
+    /**
+     * Overrides the base class's {@code renderTokens} to fix a real bug found via real-code
+     * testing against `square/okio`: the base implementation's {@code needsSpaceBetween} is a
+     * strictly pairwise (prev, cur) check with no notion of unary-vs-binary `-`/`+` -- it
+     * unconditionally inserted a space between a leading unary minus/plus and its operand
+     * (`val prefixIndex = -1` rendered as `= - 1`), since it has no way to see the token before
+     * `prev` to tell unary from binary. Only Kotlin's declaration-initializer rendering path
+     * (via {@link #renderKotlinTokens}) hits this from-scratch token-list re-render; C/C++/Java's
+     * own initializer rendering goes through {@code renderInitTokens} instead, which is
+     * untouched. Overriding here (rather than editing the shared base method) keeps this fix
+     * fully Kotlin-scoped with zero risk to C/C++/Java behavior.
+     */
+    @Override
+    protected String renderTokens(final List<Token> tokens) {
+        final StringBuilder sb = new StringBuilder();
+        Token prev = null;
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (prev != null && !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t)) {
+                sb.append(' ');
+            }
+            sb.append(t.text);
+            prev = t;
+        }
+        return sb.toString();
+    }
+
+    /** True iff {@code tokens.get(index)} is the operand immediately following a unary
+     *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded by
+     *  another operand (identifier/number/closing `)`/`]`), which would make it binary instead. */
+    private boolean isUnaryMinusOperand(final List<Token> tokens, final int index) {
+        if (index == 0) {
+            return false;
+        }
+        final Token prevTok = tokens.get(index - 1);
+        if (!(isOp(prevTok, "-") || isOp(prevTok, "+"))) {
+            return false;
+        }
+        if (index - 2 < 0) {
+            return true; // nothing before the sign -- must be unary
+        }
+        final Token beforeSign = tokens.get(index - 2);
+        return !(beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
+                || isPunct(beforeSign, ")") || isPunct(beforeSign, "]"));
+    }
+
     private String trimTrailingSpaces(final String s) {
         int end = s.length();
         while (end > 0 && s.charAt(end - 1) == ' ') {

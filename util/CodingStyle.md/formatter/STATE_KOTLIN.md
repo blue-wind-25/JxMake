@@ -129,6 +129,13 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_143 | Continued dogfood investigation (`Optimizer.kt`'s compile errors, after RDD_KEY_142): a `when` expression's `else -> { ... }` arm with a multi-statement block body was flattened onto one line with no `;` separators — a first-pass parse error. Root cause: `BlockStructureRule.collapseSingleExpressionBlocks`'s bare-`else` handling (meant only for a real `if`/`else` chain's braceless single-statement body) matched any `else` not immediately followed by `if`/`{`, wrongly matching a `when` arm's `else ->` label too. **Fix**: added an `isWhenArrow` check (token after `else` is `->`) to bail out of the braceless-collapse path, leaving `formatWhenExpressions` to handle it. New `test/real_code_regressions_26_inp.kt`/`_out.kt`. `make test`: 45/45 forward+idempotency. Post-RDD_KEY_142 dogfood compile showed 3 files remaining: `Optimizer.kt` (this bug), `ProgramBuilder.kt` (**correction, see RDD_KEY_144**: unrelated bugs), `XMLSaveLoad.kt` (distinct/unconfirmed shape, line 430) — not yet re-verified against a fresh compile. |
 | RDD_KEY_144 | Continued dogfood investigation (`ProgramBuilder.kt`'s compile errors, after RDD_KEY_143): two separate, unrelated bugs in one statement (`it !is _FunctionItem || calledFunctions.contains(it.func.funcName)`). **Bug A**: `DeclarationAlignmentRule.needsSpaceBetween` had no case for Kotlin's `!is`/`!in` negated operators (one tight lexical unit), so the generic KEYWORD-space default corrupted them into `! is`/`! in`; fixed via a Kotlin-gated no-space check. **Bug B**: `MiscRule.enforceCallLineBreaking`'s `renderCallCandidate` used `parseSignature` (a C-style "type name" parser meant to detect real forward declarations) on Kotlin candidates too, so `parseParam`'s heuristic misparsed `it.func.funcName` as a `Type name` pair, inserting a spurious space once wrapped (`it.func. funcName`); fixed by splitting `sig` (drives the existing zero-param bail-out) from a new `sigForRender` (forced `null` for Kotlin, used only for render-path selection) — an initial attempt that nulled `sig` itself broke fixture 22's zero-param declaration, caught by `make test` and corrected. New `test/real_code_regressions_27_inp.kt`/`_out.kt`. `make test`: 47/47 forward+idempotency. |
 | RDD_KEY_118 | Kotlin import-ordering implementation — §24 spec now implemented; new `KotlinSpecificRule.enforceKotlinImportOrdering` (+ parser/helpers), mirroring `JavaSpecificRule.enforceImportOrdering` but with no `static` bucket (priority local > kotlin > java/javax > org > com > other) and an import statement ending on optional `;` or NEWLINE/EOF rather than a required `;`; new `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` keys in `Config.java` mirroring `java-import-*` exactly; verified via a standalone 10-case harness, not yet wired into `Formatter.formatOne` |
+| RDD_KEY_145 | Real-code testing against `square/okio` (Step 5's next queued candidate): initial ~43-file round1-vs-round2 diff was mostly a test-methodology mistake, not a bug — testing at the default `indent-size` (4) against a project whose `.editorconfig` specifies 2 produced spurious indentation "corruption"; re-testing with a `.jxmake-code-formatter` override matching okio's own convention dropped the diff to 7 files. No code change. |
+| RDD_KEY_146 | `square/okio` real bug #1: unary minus/plus mis-spacing in Kotlin declaration initializers (`val x = -1` → `= - 1`) — `KotlinDeclarationAlignmentRule`'s base `needsSpaceBetween` is strictly pairwise, no notion of unary vs. binary; fixed with a new `KotlinDeclarationAlignmentRule.renderTokens` override + `isUnaryMinusOperand` lookback, plus loosening `DeclarationAlignmentRule.needsSpaceBetween` to `protected` (additive). `make test` 49/49 before/after. |
+| RDD_KEY_147 | `square/okio` real bug #2: `ScopePipeline.applySignaturePass`'s Kotlin `: ReturnType` tail detection merged a headerless `expect fun` declaration with a later, unrelated `val ... by lazy { }` across a blank line into one bogus signature+tail. Fixed with a new `hasTopLevelBlankLine` guard bailing the tail match if a blank line separates the candidate `)` from the span's `{`. Shared-class change, not itself Kotlin-gated (surrounding branch already is). `make test` 49/49 before/after. |
+| RDD_KEY_148 | `square/okio` real bug #3 (last of the original 7-file diff): a braceless `if (...) { throw ... }` round1-vs-round2 flapped between one line and multi-line-wrapped — `BlockStructureRule.tryCollapse`/`tryCollapseBraceless` rendered the `keyword (` prefix with the original space still present, one char wider than the tightened `keyword(` form a later pass produces, causing `MiscRule.enforceCallLineBreaking`'s length check to over-wrap a line that fits exactly at the 100-char limit in its true final width. Fixed with a new `tightenParenPrefix` helper (own `TIGHT_PAREN_KEYWORDS` copy) called from both collapse methods. Not Kotlin-gated — general cross-language correctness fix. New combined fixture `test/real_code_regressions_30_inp.kt`/`_out.kt` (covers RDD_KEY_146/147/148 together). `make test`: 49/49 before fixture, 50/50 after. |
+| RDD_KEY_149 | `square/okio` real bug #4 — **found, not fixed, deferred.** A multi-line Kotlin signature's `ColumnGrid`-padded, trailing-comma-preserved param lines (confirmed correct at `KotlinSignatureRule.render`'s own return point via debug print) arrive in the final written file with padding collapsed to one space and the trailing comma stripped — some downstream re-tokenize/re-normalize step (mechanism not yet identified) mangles already-rendered replacement text. See Open Questions below and RDD_LOG.md for full repro/investigation detail. |
+| RDD_KEY_150 | `square/okio` compile-check bug #1 (`kotlinc`, not caught by round1-vs-round2 diffing — broken consistently from the first pass): `TokenizerCore.MULTI_CHAR_OPS` had no `===`/`!==` entry at all, so `next !== this` lexed as two tokens (`!=`, `=`) and got re-spaced into the invalid `!= =`. Fixed by adding `===`/`!==` ahead of their 2-char prefixes. Shared-class change (tokenizer), not gated — inert for C/C++/Java. `make test` 50/50 before/after. |
+| RDD_KEY_151 | `square/okio` compile-check bug #2: `BlockStructureRule`'s braceless-collapse dispatch treated a do-while's trailing `while (cond)` the same as a genuine loop-starting `while`, fusing the following unrelated statement onto the same line with no separator. Fixed with a new `isDoWhileTailKeyword` lookback gating the `while` dispatch entry. Not Kotlin-gated but confirmed inert for C/C++/Java (they always have a `;` right after a do-while's `)`, never reaching the Kotlin-only braceless branch). New combined fixture `test/real_code_regressions_31_inp.kt`/`_out.kt` (with RDD_KEY_150). `make test`: 50/50 before fixture, 51/51 after. |
 
 ---
 
@@ -221,6 +228,32 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   `if` line's final width — an earlier collapse-time attempt was stale by one
   column because `MiscRule.enforceComplexityPadding` tightens `if (` to
   `if(` in a pass that runs after the collapse.
+- **Signature param column-alignment/trailing-comma silently lost after
+  splice-back — OPEN, RDD_KEY_149.** Found via `square/okio` real-code
+  testing (`RealBufferedSink.kt`'s `commonWriteUtf8`, also reproduces in
+  `FakeFileSystem.kt`): a multi-line Kotlin function parameter list that
+  needs to break (doesn't fit inline) is rendered correctly by
+  `KotlinSignatureRule.render`'s `ColumnGrid`-based path — confirmed via a
+  temporary debug print directly at its own return point, e.g.
+  `"string     : String,"`/`"beginIndex : Int,"`/`"endIndex   : Int,"`, each
+  column padded to its sibling's width and the trailing comma preserved. But
+  the text that ends up in the final written file has the padding collapsed
+  to a single space and the trailing comma stripped — neither of which
+  `render()`/`renderWithTail()` produce. Something downstream of the
+  `Replacement` being spliced back into the token/text stream is
+  re-normalizing or re-tokenizing this already-rendered text; grepped for an
+  explicit trailing-comma-stripping pass and found none, so the exact
+  mechanism is still unidentified (leading theory: a later whole-file pass
+  collapses literal multi-space `WHITESPACE` runs down to one space without
+  recognizing intentional column padding inside already-rendered replacement
+  text, though this alone doesn't explain the comma loss). All debug
+  instrumentation added while investigating (`ColumnGrid.flush`'s
+  `CG_DEBUG`-gated print, a per-line print in `KotlinSignatureRule.render`)
+  was reverted before committing — none remains in the source. Left open
+  rather than guessed at further; next step is probably to trace exactly
+  which later pass's `Replacement`/text rewrite touches this span, e.g. by
+  diffing the token stream immediately before and after each pass in
+  `ScopePipeline`'s pipeline for this specific input.
 
 ---
 
@@ -675,7 +708,29 @@ dependencies (coroutines, arrow's own multi-module structure) that a bare
 wrapper is needed instead, treat it the same way as `gui_frontend_android`
 (copy first, format the copy, never write to the original checkout).
 
-- **`github.com/square/okio`** — not yet started.
+- **`github.com/square/okio`** — DONE. Round1/round2 idempotency testing (at
+  okio's own `.editorconfig` `indent-size=2` convention) found and fixed 3
+  bugs (RDD_KEY_146/147/148: unary minus mis-spacing, blank-line
+  signature-tail merge, stale-prefix over-wrap of a braceless `if`),
+  combined into `test/real_code_regressions_30_inp.kt`/`_out.kt`. A 4th bug
+  (RDD_KEY_149: multi-line signature column-alignment/trailing-comma lost
+  after splice-back) was found but not fixed — deferred, see Open
+  Questions. Subsequent `kotlinc` compile-checking of `okio/src/commonMain`
+  (bare standalone-compiler invocation, `expect`/`actual` errors expected
+  and ignored since commonMain alone isn't a multiplatform target) found 2
+  more real, first-pass-broken (not merely idempotency) bugs neither
+  round1/round2 diffing nor RDD_KEY_149 investigation had surfaced
+  (RDD_KEY_150: missing `===`/`!==` tokenizer entries; RDD_KEY_151: a
+  do-while's trailing `while (cond)` misread as a loop-starting `while`,
+  fusing the next statement onto the same line) — fixed, combined into
+  `test/real_code_regressions_31_inp.kt`/`_out.kt`. Final state: `make
+  test` 51/51 forward+idempotency; full okio round1/round2 diff clean
+  except the 2 files still affected by the deferred RDD_KEY_149
+  (`RealBufferedSink.kt`, `FakeFileSystem.kt`); a full-tree `kotlinc`
+  compile pass (multiplatform-aware, not just commonMain) was not run —
+  the commonMain-only pass was sufficient to surface real bugs and is
+  consistent with this candidate's "no Gradle-copy dance needed" framing,
+  but does not by itself prove the *entire* tree compiles clean.
 - **`github.com/Kotlin/kotlinx.coroutines`** — not yet started.
 - **`github.com/square/kotlinpoet`** — not yet started.
 - **`github.com/arrow-kt/arrow`** — not yet started.

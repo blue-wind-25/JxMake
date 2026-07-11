@@ -12,9 +12,13 @@ I jave run `make test` and all test passed.
 
 
 
-Continue with C/C++/Java work (download the repo as needed; use one sub-agent):
-`github.com/foonathan/lexy`
-`github.com/NVIDIA/stdexec`
+Continue with C/C++/Java work (search in /tmp first, download the repo as needed; use one sub-agent):
+`**C++20**: `github.com/NVIDIA/stdexec`
+`**Bug 3 (compile-breaking, found, NOT fixed — budget cap reached at 2 fixes/session)**`
+
+
+
+Continue with C/C++/Java work (search in /tmp first, download the repo as needed; use one sub-agent):
 `github.com/ericniebler/range-v3`
 `github.com/boostorg/mp11`
 `github.com/microsoft/STL`
@@ -26,7 +30,7 @@ Continue with C/C++/Java work (download the repo as needed; use one sub-agent):
 
 
 
-Continue with Kotlin work (download the repo as needed; use one sub-agent):
+Continue with Kotlin work (search in /tmp first, download the repo as needed; use one sub-agent):
 `github.com/Kotlin/kotlinx.coroutines`
 `github.com/arrow-kt/arrow`
 `github.com/JetBrains/kotlin`

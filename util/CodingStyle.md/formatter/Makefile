@@ -24,7 +24,7 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all clean test bench
+.PHONY: all clean test bench test-server
 
 all: $(JAR_FILE)
 
@@ -238,4 +238,63 @@ bench: $(JAR_FILE)
 		echo "";                                                                                                                                \
 		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
 		echo "";                                                                                                                                \
+	)
+
+
+# ── Server-mode test target ───────────────────────────────────────────────────
+#
+# Functional (not benchmark) coverage of the /format inline-config query
+# parameters added for browser/no-real-file clients:
+#
+#     1. inline config, no `path` (path optional when lang + inline present)
+#     2. inline config overriding a `.jxmake-code-formatter` file next to `path`
+#     3. an unrecognized config-shaped query key -> HTTP 400
+#
+# Runs against a dedicated port so it doesn't collide with a server a
+# developer already has running. Always stops its own server on exit, pass
+# or fail.
+#
+TEST_SERVER_PORT := 17999
+TEST_SERVER_TMP   = $(BUILD_DIR)/test-server-out
+
+test-server: $(JAR_FILE)
+	@(                                                                                                                 \
+		mkdir -p $(TEST_SERVER_TMP);                                                                              \
+		fail=0;                                                                                                   \
+		printf 'class X {\n  void f() {\n    if (true) {\n      int y = 1;\n    }\n  }\n}\n'                     \
+			> $(TEST_SERVER_TMP)/Sample.java;                                                                 \
+		printf 'indent-size = 8\n' > $(TEST_SERVER_TMP)/.jxmake-code-formatter;                                  \
+		$(JAVA) -jar $(JAR_FILE) --server --port $(TEST_SERVER_PORT) 2>&1 &                                      \
+		tries=0;                                                                                                  \
+		while [ $$tries -lt 50 ]; do                                                                              \
+			if curl -s -o /dev/null "http://localhost:$(TEST_SERVER_PORT)/format?path=x&lang=java" \
+				--data 'x'; then break; fi;                                                               \
+			tries=$$((tries + 1));                                                                            \
+			sleep 0.1;                                                                                        \
+		done;                                                                                                      \
+		echo "=== Server test: inline config, no path ===";                                                      \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r1 -w '%{http_code}'                                               \
+			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&indent-size=2"                            \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                  \
+		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;      \
+		echo "";                                                                                                  \
+		echo "=== Server test: inline config overrides file-based config ===";                                   \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r2 -w '%{http_code}'                                               \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.java&lang=java&indent-size=2" \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                  \
+		if [ "$$code" = "200" ] && diff -q $(TEST_SERVER_TMP)/r1 $(TEST_SERVER_TMP)/r2 > /dev/null 2>&1; then     \
+			echo "PASS (HTTP $$code, inline result matches no-path result -- file's indent-size=8 was overridden)"; \
+		else                                                                                                      \
+			echo "FAIL (HTTP $$code, or inline override did not match)"; fail=1;                             \
+		fi;                                                                                                        \
+		echo "";                                                                                                  \
+		echo "=== Server test: unrecognized query key -> 400 ===";                                               \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r3 -w '%{http_code}'                                               \
+			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&bogus-key=1"                              \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                  \
+		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;      \
+		echo "";                                                                                                  \
+		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                     \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                     \
+		echo "All server tests passed.";                                                                         \
 	)

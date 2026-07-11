@@ -276,30 +276,49 @@ public final class ServerMode {
         public void handle(final HttpExchange exchange) throws IOException {
             try {
                 final Map<String, String> params = parseQuery(exchange.getRequestURI());
-                final String path = params.get("path");
-                if (path == null) {
-                    respond(exchange, 400, "missing required query parameter 'path'");
-                    return;
+
+                final Map<String, String> inlineConfig = new java.util.LinkedHashMap<String, String>();
+                for (final Map.Entry<String, String> entry : params.entrySet()) {
+                    final String key = entry.getKey();
+                    if ("path".equals(key) || "lang".equals(key) || "format-off".equals(key)) {
+                        continue;
+                    }
+                    if (!Config.isKnownKey(key)) {
+                        respond(exchange, 400, "unrecognized query parameter: " + key);
+                        return;
+                    }
+                    inlineConfig.put(key, entry.getValue());
                 }
 
+                final String path = params.get("path");
                 String language = params.get("lang");
-                if (language == null) {
+
+                if (path == null) {
+                    if (language == null || inlineConfig.isEmpty()) {
+                        respond(exchange, 400, "missing required query parameter 'path'");
+                        return;
+                    }
+                } else if (language == null) {
                     language = inferLanguage(path);
                     if (language == null) {
                         respond(exchange, 400, "could not infer language from path extension: " + path
                                 + " (client should pass an explicit 'lang' query parameter)");
                         return;
                     }
-                } else if (!"c".equals(language) && !"cpp".equals(language) && !"java".equals(language) && !"kotlin".equals(language)) {
-                    respond(exchange, 400, "'lang' query parameter must be one of: c, cpp, java (got: "
+                }
+
+                if (language != null && !"c".equals(language) && !"cpp".equals(language) && !"java".equals(language)
+                        && !"kotlin".equals(language)) {
+                    respond(exchange, 400, "'lang' query parameter must be one of: c, cpp, java, kotlin (got: "
                             + language + ")");
                     return;
                 }
 
                 final boolean formatOff = "true".equals(params.get("format-off"));
                 final String content = readBody(exchange.getRequestBody());
-                final Config config = Config.resolve(Paths.get(path), null);
-                final String formatted = Formatter.formatOne(content, language, path, config, formatOff);
+                final Path targetFile = path == null ? null : Paths.get(path);
+                final Config config = Config.resolve(targetFile, inlineConfig.isEmpty() ? null : inlineConfig);
+                final String formatted = Formatter.formatOne(content, language, path == null ? "" : path, config, formatOff);
                 respond(exchange, 200, formatted);
             } catch (final Exception e) {
                 respond(exchange, 500, e.getMessage() != null ? e.getMessage() : e.toString());

@@ -281,13 +281,26 @@ See `STATE.md`'s Phase Status / End Goal sections for current progress, and
 The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
 `17173`, override with `--port N` / `server-port` config key):
 
-- `POST /format?path=<abs-path>&lang=<c|cpp|java>[&format-off=true]` — request body is the
-  file's raw content (UTF-8); response body is the formatted content (UTF-8), HTTP 200. The
-  `lang` parameter is required by the client and always takes priority over any
-  extension-based guess the server could make from `path` — this is how `--lang` (above)
-  reaches the server, and is also why the server itself never needs its own `--lang`-style
-  flag. An unrecognized `lang` value, or a request missing `path`, gets HTTP 400 with a plain
-  text error body. Any other failure (e.g. a malformed file) gets HTTP 500.
+- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin>[&format-off=true][&<config-key>=<value>...]`
+  — request body is the file's raw content (UTF-8); response body is the formatted content
+  (UTF-8), HTTP 200. The `lang` parameter is required by the client and always takes priority
+  over any extension-based guess the server could make from `path` — this is how `--lang`
+  (above) reaches the server, and is also why the server itself never needs its own
+  `--lang`-style flag. An unrecognized `lang` value gets HTTP 400 with a plain text error body.
+  Any other failure (e.g. a malformed file) gets HTTP 500.
+  - **Inline config.** Any config key from the formatter's config-file property set (e.g.
+    `indent-size`, `line-length`, `java-import-order`) may be passed as its own query
+    parameter, letting a client (e.g. a browser formatting a pasted/in-memory snippet with no
+    real file on disk) hand the server a complete config directly in the request instead of
+    relying on a `.jxmake-code-formatter` file near `path`. Any query key other than
+    `path`/`lang`/`format-off` that isn't a recognized config key gets HTTP 400 (a typo'd key
+    fails loudly rather than being silently ignored).
+  - **`path` becomes optional** exactly when at least one inline config parameter and `lang`
+    are both present in the request; it stays required otherwise. A request missing `path`
+    with no inline config (or no `lang`) gets HTTP 400.
+  - File-based (`.jxmake-code-formatter` near `path`) and inline config are mutually exclusive
+    by client contract, but if a request supplies both, **inline config wins** — it is applied
+    on top of, and overrides, any file-based config for the same keys.
 - `POST /shutdown` — asks the server to stop; responds `200 shutting down` immediately, then
   terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
 

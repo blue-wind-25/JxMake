@@ -38,6 +38,9 @@ public final class Config {
         "kotlin-import-blank-lines"
     };
 
+    private static final java.util.Set<String> ALL_KEYS_SET =
+            Collections.unmodifiableSet(new java.util.LinkedHashSet<String>(Arrays.asList(ALL_KEYS)));
+
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
 
@@ -144,6 +147,15 @@ public final class Config {
         return kotlinImportBlankLines;
     }
 
+    /**
+     * Returns {@code true} if {@code key} is one of the recognized config properties (the same
+     * set documented in {@code STATE_C_CPP_JAVA.md}'s Config Keys and Defaults table). Used by
+     * the server's inline-query-param validation to reject typo'd keys with a 400.
+     */
+    public static boolean isKnownKey(final String key) {
+        return ALL_KEYS_SET.contains(key);
+    }
+
     public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides) {
         final Map<String, String> merged = new LinkedHashMap<String, String>();
 
@@ -152,8 +164,10 @@ public final class Config {
 
         merged.putAll(collectEnvVars());
 
-        for (final Map<String, String> layer : collectStyleFmtLayers(targetFile)) {
-            merged.putAll(layer);
+        if (targetFile != null) {
+            for (final Map<String, String> layer : collectStyleFmtLayers(targetFile)) {
+                merged.putAll(layer);
+            }
         }
 
         if (cliOverrides != null) {

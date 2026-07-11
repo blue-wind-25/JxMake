@@ -137,7 +137,8 @@ Use this standard copyright header on every new test fixture file:
 
 ## Shared TODO — Server Protocol: Inline Config Support
 
-**Status:** not started. Scoped and ready to pick up. Lives here (not in
+**Status:** COMPLETE. Implemented, tested (`make test-server`, plus `make
+test` regression), and documented. Lives here (not in
 `STATE_C_CPP_JAVA.md` or `STATE_KOTLIN.md`) because it's server/protocol
 infrastructure shared by every job, not a per-language formatting rule.
 
@@ -219,28 +220,28 @@ to its own users (e.g. a future CLI flag that forwards to these query
 params) — that's optional follow-up work, not a required part of this task.
 
 **Required changes:**
-- [ ] Extend `/format`'s existing query-string parsing to recognize the
+- [x] Extend `/format`'s existing query-string parsing to recognize the
       config keys from `STATE_C_CPP_JAVA.md`'s **Config Keys and Defaults**
       table as additional optional parameters. No body-parsing changes.
-- [ ] Wire recognized inline config params into whatever config-resolution
+- [x] Wire recognized inline config params into whatever config-resolution
       path the server already uses for file-based `.jxmake-code-formatter`
       lookup, with inline taking priority per the rule above.
-- [ ] Validate query keys that look like config keys (i.e. match a known
+- [x] Validate query keys that look like config keys (i.e. match a known
       property name pattern, or simply: any query key besides
       `path`/`lang`/`format-off`) against the canonical set in
       `STATE_C_CPP_JAVA.md` → **Config Keys and Defaults**; HTTP 400 on any
       unrecognized key. Confirm this covers C/C++/Java *and* Kotlin keys
       (all already in that one table) — and re-check this validator
       whenever a future language's config keys land, per the note above.
-- [ ] Make `path` optional exactly when at least one inline config param and
+- [x] Make `path` optional exactly when at least one inline config param and
       `lang` are both present; required otherwise (unchanged).
-- [ ] Update `README.md`'s **Server Wire Protocol** section to document the
+- [x] Update `README.md`'s **Server Wire Protocol** section to document the
       new optional query parameters, the optional/required `path` rule, the
       unknown-key-→-400 behavior, and the mutual-exclusivity-with-inline-
       wins rule — this section currently only documents `path`/`lang`/
       `format-off` and will be incomplete (not wrong, since the body/base
       contract is unchanged) once this lands.
-- [ ] Add a server-mode test fixture covering: inline config with no `path`,
+- [x] Add a server-mode test fixture covering: inline config with no `path`,
       inline config overriding a would-be file-based config, and the
       unknown-key-→-400 case. This does **not** belong in `test/README.txt`
       (that file documents the format input/output fixture pairs only, not
@@ -248,6 +249,6 @@ params) — that's optional follow-up work, not a required part of this task.
       testing already lives (see Task D's multi-file smoke test in
       `STATE_C_CPP_JAVA.md` for the closest existing precedent), or ask if
       no such location exists yet.
-- [ ] Follow this file's own **ambiguity-handling** convention above for
+- [x] Follow this file's own **ambiguity-handling** convention above for
       anything not already resolved here — stop, record in the picking-up
       job's **Open Questions**, ask, don't guess.

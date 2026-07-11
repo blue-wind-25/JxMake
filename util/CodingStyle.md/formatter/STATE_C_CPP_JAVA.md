@@ -500,6 +500,22 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   `-fsyntax-only`-compile clean (0 errors) against the fixed round1 output, matching the
   unmodified original's 0-error baseline.
 
+- **C++17/20**: `github.com/foonathan/lexy` — DONE (2026-07-12). Header-only parser-combinator
+  library, 121 `.hpp` files under `include/` (both `lexy/` and `lexy_ext/`). No bugs found:
+  round1/round2 diff fully empty (idempotent at default `indent-size = 4`, which also matches
+  lexy's own actual 4-space convention — confirmed via spot-check, so no non-default re-test was
+  needed). Compile-check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only` on all 9 files
+  under `examples/` (`calculator`/`config`/`email`/`ip_address`/`json`/`protobuf`/`shell`/
+  `turing`/`xml.cpp`, which transitively include the bulk of `lexy/dsl.hpp`'s ~50 submodules plus
+  `lexy_ext/report_error.hpp`): 0 errors on both the unmodified original and the round1-formatted
+  tree, identical. Did not build the `tests/` doctest suite (needs an external `doctest` header
+  not vendored in this checkout; out of scope per the no-filesystem-wide-`find` rule) — the
+  examples-based check was judged sufficient coverage given the zero-bug result already found by
+  idempotency. No fixture added (no bug found). Despite the RDD_KEY_85/RDD_KEY_56-adjacent
+  predictions in the candidate note above (concepts/`requires`, CRTP, operator overloading,
+  dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
+  `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
+
 **NEXT SESSION — continue here:** Continue real-code testing against remaining C/C++ candidates
 in this order unless redirected: the additional candidates below.
 Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
@@ -555,16 +571,9 @@ written as `~` below so this file never embeds the actual account/user name):
   below is what the repo *is* and what shape of formatter behavior testing it is expected to
   stress — written ahead of actually cloning any of these, so treat "expected" claims as a
   prediction to confirm/correct once a candidate is actually run, not settled fact.
-  - **RECOMMENDED NEXT** (2026-07-12, smallest-size/highest-feature-density pick — see rationale
-    at the end of this list): `github.com/foonathan/lexy` — a header-only C++17/20 parser-
-    combinator (PEG-style) library. Small-to-medium source size (~20-40 headers under `include/`,
-    far smaller than `range-v3`/`STL`), but written in a dense, idiomatic modern-C++ style: heavy
-    `template<...>`/`concept`/`requires`-clause use, CRTP, operator overloading (`lexy::dsl`'s
-    whole API is operator-based), `constexpr` functions, nested class hierarchies, and doc
-    comments — expected to exercise `CppSpecificRule`'s concepts/`requires`-clause handling
-    (RDD_KEY_85), template angle-bracket spacing (RDD_KEY_56), and general declaration-alignment
-    grid logic against a lot of short, densely-templated one- or two-line declarations, likely a
-    good ratio of "bugs found" per file compiled/formatted compared to a much larger library.
+  - `github.com/foonathan/lexy` — DONE, see the real-code-testing entry above (no bugs found;
+    121-header header-only parser-combinator library, idempotent + compiles clean both before and
+    after formatting).
   - `github.com/boostorg/mp11` — a tiny, single-purpose C++11 metaprogramming library (a handful
     of headers, likely the smallest of this whole list by raw line count). Expected to be a fast,
     low-risk smoke test but a narrow one: almost entirely `template<...>` alias declarations and

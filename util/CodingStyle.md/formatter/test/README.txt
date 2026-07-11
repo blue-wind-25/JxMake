@@ -351,6 +351,20 @@ Real-code regressions:
                                             `!is`/`!in` as tight tokens and routing Kotlin calls
                                             through a separate untyped sigForRender path.
 
+  real_code_regressions_28_inp/out.hpp   -- C++, real-code test against taocpp/PEGTL
+                                            (rematch_input.hpp): TokenizerCore.reclassifyAngleBrackets'
+                                            single-open-`<` branch for splitting a literal `>>` token
+                                            retyped the token to ANGLE_BRACKET_CLOSE via `retype()`,
+                                            which preserves the original 2-char ">>" text, then ALSO
+                                            appended a new 1-char literal `>` OP token -- duplicating
+                                            a character on the very first format pass (e.g.
+                                            `has_eol_rule<Input> >` collapsed to `has_eol_rule<Input>>>`,
+                                            3 close characters instead of 2), breaking compilation of
+                                            an otherwise-untouched `template<...>` forward-declaration
+                                            prefix. Fixed by giving the retyped ANGLE_BRACKET_CLOSE
+                                            token its own explicit 1-char ">" text instead of reusing
+                                            the original 2-char token via `retype()`.
+
 How Tests Are Run
 -----------------
 

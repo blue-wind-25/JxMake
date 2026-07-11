@@ -472,9 +472,38 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   `indent-size` (30/30, no fixture changes); verified live at `indent-size = 2` — full 44-file
   tree now fully idempotent.
 
+- **C++20**: `github.com/taocpp/PEGTL` — DONE (2026-07-12). 355 `.hpp` files under `include/`.
+  1 bug fixed: `TokenizerCore.reclassifyAngleBrackets`'s single-tracked-open-`<` branch for
+  splitting a literal `>>` token (e.g. `has_eol_rule<Input> >` after outer-template-prefix
+  spacing collapse) retyped the `>>` token to `ANGLE_BRACKET_CLOSE` via `retype()`, which
+  preserves the original 2-char `">>"` text, then *also* appended a new 1-char literal `>` OP
+  token for the leftover close — duplicating a character on the very first format pass (breaking
+  compilation of `internal/rematch_input.hpp`'s `template<typename Guard, typename Input, bool =
+  has_eol_rule<Input>>>` forward declaration, `>>>` where only `>>` is valid). The sibling
+  size-≥2 branch (splitting a `>>` that closes 2 tracked nested opens at once) avoids this by
+  using a zero-width placeholder for its second token; the size==1 branch didn't trim the first
+  token's text to match. Fixed by giving the retyped `ANGLE_BRACKET_CLOSE` token its own explicit
+  1-char `">"` text instead of reusing the original 2-char token via `retype()`. Fixture:
+  `test/real_code_regressions_28_{inp,out}.hpp`. Also found (no-op, no fixture, per the
+  `fmtlib/fmt`/`indent-size` precedent): `ScopePipeline.normalizeIndent` rounds only
+  *declaration*-statement indentation up to the nearest `indent-size` multiple
+  (`applyDeclarationsPass`-only), never non-declaration statements in the same scope — at
+  PEGTL's real 3-space indent convention vs. this formatter's default 4-space `indent-size`,
+  that asymmetry between a `case`-block declaration and its non-declaration siblings produces a
+  non-idempotent round1-vs-round2 divergence in exactly 2 files
+  (`debug/internal/analyze_cycles.hpp`, `internal/unwind_guard.hpp`). No-op at default
+  `indent-size` (48/48, unrelated to this candidate); confirmed non-issue by re-testing at
+  `indent-size = 3` (PEGTL's own convention) — full 355-file tree fully idempotent round1-vs-
+  round2 at that setting, with only the above compile-breaking bug (now fixed) remaining
+  otherwise. `make test` 48/48; PEGTL's own 5 `src/example/*.cpp` files
+  (`hello_world`/`json_count`/`s_expression`/`parse_tree`/`proto3_analyze`) all
+  `-fsyntax-only`-compile clean (0 errors) against the fixed round1 output, matching the
+  unmodified original's 0-error baseline.
+
 **NEXT SESSION — continue here:** `fmtlib/fmt` is DONE. `serge-sans-paille/frozen` is now DONE
-(all bugs fixed, full 156-file tree idempotent). Continue real-code testing
-against remaining C/C++ candidates in this order unless redirected: `taocpp/PEGTL`, then the
+(all bugs fixed, full 156-file tree idempotent). `taocpp/PEGTL` is now DONE (1 bug fixed, full
+355-file tree idempotent at its own indent-size convention). Continue real-code testing
+against remaining C/C++ candidates in this order unless redirected: the
 additional candidates below. Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs
 newer; confirm any compile failure also reproduces against the unmodified original before
 treating it as formatter-induced). For any C++ candidate distributed under a `.h`/`.hpp`

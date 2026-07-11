@@ -1227,8 +1227,16 @@ public class TokenizerCore {
                 } else if (openStack.size() == 1) {
                     final int[] open = openStack.pop();
                     if (open[1] == 1) {
+                        // `cur` (the literal `>>` token) represents only ONE real angle-close here
+                        // (the single tracked open `<`) plus one leftover literal `>` (e.g. an
+                        // untracked `template<...>` outer bracket -- see the IDENTIFIER-only guard
+                        // above). Splitting must not duplicate `cur`'s 2-char text onto both the
+                        // retyped angle token and the new literal token, or the rendered output
+                        // gains a spurious extra `>` (RDD_KEY_99-ish: was `retype(cur, ...)`,
+                        // which preserved the full ">>" text on the angle token as well).
                         tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
+                                cur.braceDepth, cur.parenDepth, null));
                         tokens.add(idx + 1,
                                 new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null));
                         shiftSigAfter(sig, s, idx + 1);

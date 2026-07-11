@@ -637,6 +637,27 @@ public class DeclarationAlignmentRule {
             current.add(t);
             idx++;
 
+            // A preprocessor directive reached at top level must always start a fresh statement,
+            // even mid-run: a semicolon-less macro-invocation "statement" (e.g. a bare pragma-push
+            // macro call, no trailing `;`) otherwise never closes `current`, so a `#if`/`#endif`
+            // between it and the next real `;`-terminated statement gets folded into the *middle*
+            // of that statement's token list -- invisible to `parseDeclaration`'s field-based
+            // reconstruction, which silently drops any token it doesn't recognize as part of a
+            // declaration's shape (real compile-breaking bug: an `#if` disappearing while its
+            // paired `#endif`, now the next statement's own leading token, survives -- see
+            // real_code_regressions_34). Back the just-appended directive token out, close out any
+            // real accumulated content as its own statement first, then let it lead a new one --
+            // consistent with `hasCommentBefore`'s already-established leading-directive handling.
+            if (depth == 0 && (t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF)) {
+                current.remove(current.size() - 1);
+                if (!significantOnly(current).isEmpty()) {
+                    statements.add(current);
+                    current = new ArrayList<>();
+                }
+                current.add(t);
+                continue;
+            }
+
             if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
                 depth++;
                 continue;

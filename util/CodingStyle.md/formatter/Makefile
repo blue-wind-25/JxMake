@@ -24,9 +24,9 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all clean test bench test-server
+.PHONY: all build clean test bench test-server
 
-all: $(JAR_FILE)
+all build: $(JAR_FILE)
 
 $(CLASS_DIR):
 	@mkdir -p $(CLASS_DIR)
@@ -114,8 +114,12 @@ INP_FILES += real_code_regressions_30_inp.kt
 INP_FILES += real_code_regressions_31_inp.kt
 INP_FILES += real_code_regressions_32_inp.kt
 INP_FILES += real_code_regressions_33_inp.kt
+INP_FILES += real_code_regressions_34_inp.hpp
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
+
+# svn add util/CodingStyle.md/formatter/test/real_code_regressions*
+# git push && svn commit -m 'Follow GIT changes' && svn stat && git status
 
 # make test
 # make test 2>/dev/null

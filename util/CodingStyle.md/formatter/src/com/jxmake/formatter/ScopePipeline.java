@@ -178,15 +178,23 @@ public class ScopePipeline {
                     // ambiguous `;`-followed case does `isScopeOpeningBrace` disambiguate via a
                     // backward scan for a construct keyword.
                     boolean nextIsSemi = false;
+                    boolean nextIsArrow = false;
                     for (int peek = idx; peek < n; peek++) {
                         final Token nx = tokens.get(peek);
                         if (isGapToken(nx)) {
                             continue;
                         }
                         nextIsSemi = isPunct(nx, ";");
+                        nextIsArrow = isOp(nx, "->");
                         break;
                     }
-                    if (!nextIsSemi || isScopeOpeningBrace(tokens, braceIdx, start)) {
+                    // A `}` immediately followed by `->` is never a genuine scope close -- it can
+                    // only be a C++20 requires-expression compound-requirement
+                    // (`{ expr } -> Concept;`), whose braces must stay part of the enclosing
+                    // `requires { ... }` span, never split out as their own child scope (doing so
+                    // previously mis-recursed into it, corrupting indentation non-idempotently --
+                    // see real_code_regressions_34).
+                    if (!nextIsArrow && (!nextIsSemi || isScopeOpeningBrace(tokens, braceIdx, start))) {
                         idx = pullTrailingSameLine(tokens, idx);
                         spans.add(new Span(start, idx, braceIdx, closeBraceIdx));
                         start = idx;

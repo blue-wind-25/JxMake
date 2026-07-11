@@ -516,6 +516,76 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
   `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
 
+- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), 2 bugs found and fixed (budget-capped
+  at 2 per session), 1 more found but left undocumented-no-longer -- see below; not a clean pass.
+  Header-only `std::execution` (P2300) senders/receivers implementation, 192 `.hpp`/`.cpp` files
+  under `include/`. Toolchain note: `/opt/gcc-12.2.0/bin/g++` needs
+  `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` set first or `cc1plus` fails to load (`libisl.so.15` not
+  found) -- new finding, not previously recorded for this GCC. Also: this GCC's `<execution>`/PSTL
+  headers require Intel TBB 2018+, absent here, producing a fixed deterministic baseline of exactly
+  10 pre-existing (formatter-unrelated) compile errors whenever `<execution>` is transitively
+  included -- confirmed identical against the unmodified original, not formatter-induced.
+  - **Bug 1 (idempotency, fixed)**: a C++20 requires-expression compound-requirement
+    (`requires { { expr } -> Concept; }`, found in `__detail/__stop_token.hpp`'s
+    `unstoppable_token` concept) had its inner `}` -- immediately followed by `->`, never `;` --
+    misidentified by `ScopePipeline.splitTopLevelSpans` as a genuine scope-closing brace (the
+    existing `isScopeOpeningBrace` disambiguation only guarded the `;`-followed case), mis-recursing
+    into it as a child scope and corrupting indentation non-idempotently. Fixed by also checking for
+    an immediately-following `->` and never splitting a span there.
+  - **Bug 2 (compile-breaking, fixed)**: found via `g++ -fsyntax-only`, not merely idempotency
+    diffing. In `stop_token.hpp`, two semicolon-less macro-invocation "statements"
+    (`STDEXEC_PRAGMA_PUSH()` / `STDEXEC_PRAGMA_IGNORE_GNU(...)`) immediately preceding a
+    `#if defined(_MSC_VER) ... #endif` guarding `extern "C" void _mm_pause();` caused
+    `DeclarationAlignmentRule.splitStatements` to never close the current statement before reaching
+    the `#if` (no trailing `;` to trigger the close), folding the directive into the middle of the
+    next real statement's token list -- invisible to `parseDeclaration`'s field-based
+    reconstruction, which silently drops unrecognized tokens. The `#if` vanished from the output
+    while its paired `#endif` (now leading the next statement) survived, producing `#endif without
+    #if` plus 150+ cascading downstream errors in every file transitively including this header.
+    Fixed by adding a depth-0 check in `splitStatements` that always closes any accumulated
+    statement and starts fresh when a `PREPROCESSOR`/`MACRO_DEF` token is reached, matching
+    `hasCommentBefore`'s existing leading-directive handling.
+    Both bugs combined into fixture `test/real_code_regressions_34_{inp,out}.hpp`.
+  - **Bug 3 (compile-breaking, found, NOT fixed — budget cap reached at 2 fixes/session)**:
+    `__detail/__counting_scopes.hpp`'s `struct __base_scope` fails to compile with a
+    50-error cascade rooted in `expected '}' at end of input` (matched open reported at the
+    struct's own `{`) plus multiple `'__bits_'/'__count'/... was not declared in this scope`
+    errors inside the struct's own member functions. Root cause (confirmed via a standalone
+    char-level brace-balance script showing the *whole file* balances fine, so this is NOT a
+    literal missing `}` in the visible text): when the formatter collapses a multi-argument
+    function call onto one line, it joins arguments preceded by trailing `//` line comments with
+    a plain space instead of preserving a line break. E.g. `__bits_.compare_exchange_weak(
+    __old_bits, __new_bits, // comment text\n __std::memory_order_acq_rel, ...)` becomes one
+    physical line where everything after the first `//` -- the remaining arguments, the closing
+    `)`, the `;`, `return true;`, and even the enclosing `}` -- is silently swallowed into the `//`
+    comment and deleted from the token stream, producing the observed unmatched-brace cascade.
+    Concretely: round1 line 466 of `__counting_scopes.hpp`
+    (`if( __bits_.compare_exchange_weak( __old_bits, __new_bits, // on success, ... // that the
+    scope is closed ... __std::memory_order_acq_rel, // on failure, ... __std::memory_order_relaxed)
+    ) return true;`) is a single merged line where round0's original had this same call spread
+    across `__old_bits`/`__new_bits`/two `//`-commented arguments/`)`/`{ return true; }` on
+    separate physical lines (`__start_join_sender`, originally at lines ~478-491). A second,
+    identically-shaped instance exists a few lines later in the same function (round1 line 480,
+    `compare_exchange_weak` in the `else` branch). This is distinct from Bug 1/Bug 2 -- it's a
+    comment-vs-code merging defect in whatever pass performs single-line call-argument collapsing
+    (not yet located to an exact class/method; candidates to check first next session: whatever
+    rule renders/collapses call-argument lists, and any comment-attachment logic feeding it), not
+    a brace-depth-tracking bug in `ScopePipeline`/`DeclarationAlignmentRule` themselves. Left
+    unfixed, no fixture added -- needs a fresh session with full budget to safely
+    locate and fix (this is a serious, generally-applicable bug: any multi-line call with an
+    inline `//` comment between arguments that the formatter chooses to collapse onto one line is
+    at risk of silently deleting real code, not stdexec-specific).
+  - **Known remaining gap (idempotency-only, not investigated further, lower priority per this
+    session's "prioritize compile-breaking bugs" instruction)**: `exec/on_coro_disposition.hpp`'s
+    `task_disposition __d = co_await __get_disposition();` gains roughly 61 spaces of column
+    padding on round2 but not round1 -- confirmed real and confirmed to persist after Bug 1's fix
+    (so it's a distinct issue, not a duplicate), but root cause not isolated. Needs its own
+    bisection session.
+  - `make test`: 54/54 forward, 54/54 idempotency (after adding fixture 34). Compile-check: both
+    fixed bugs verified via minimal repro + full-tree round1 vs round0 comparison; the pre-existing
+    10-error TBB/PSTL baseline is unchanged; Bug 3's 50-error cascade and the
+    `on_coro_disposition.hpp` flap remain open in the full `include/` tree.
+
 **NEXT SESSION — continue here:** Continue real-code testing against remaining C/C++ candidates
 in this order unless redirected: the additional candidates below.
 Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
@@ -581,12 +651,11 @@ written as `~` below so this file never embeds the actual account/user name):
     bodies, no classes with member functions to speak of) — good for a quick pass, unlikely to
     surface many *new* bug classes beyond what `frozen`/`mp11`-style template-heavy testing
     already covered via `serge-sans-paille/frozen`.
-  - `github.com/NVIDIA/stdexec` — a C++20 implementation of the `std::execution` (P2300)
-    senders/receivers proposal. Header-only, moderate size, heavy use of C++20 concepts,
-    coroutine-adjacent code (though not raw `co_await`/`co_return` itself), and deeply nested
-    template metaprogramming for the sender/receiver customization-point machinery. Expected to
-    stress the same concepts/`requires`-clause and template-angle-bracket paths as `lexy`, but at
-    a deeper nesting nesting depth — a good complexity-padding (RDD_KEY_22) stress test.
+  - `github.com/NVIDIA/stdexec` — DONE, see the real-code-testing entry above. Prediction
+    confirmed correct (concepts/`requires`, deep template metaprogramming did surface new bugs) —
+    2 bugs found and fixed this session (budget cap), a 3rd compile-breaking bug found and
+    root-caused but left unfixed pending a future session with full budget, plus one still-open
+    idempotency-only flap.
   - `github.com/ericniebler/range-v3` — the pre-standardization Ranges library C++20 ranges were
     based on. Larger than `lexy`/`stdexec` (a well-known, mature, moderately large codebase),
     heavy template/concept-emulation-macro use (this predates real C++20 concepts, so it may use

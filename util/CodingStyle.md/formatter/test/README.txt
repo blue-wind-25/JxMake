@@ -473,6 +473,41 @@ Real-code regressions:
                                             function's own body brace. Fixed with a new bail-out
                                             when a depth-0 `=` is encountered before any `:`.
 
+  real_code_regressions_34_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`:
+                                            combines two distinct bugs found while formatting
+                                            `include/`. (1) A C++20 requires-expression
+                                            compound-requirement (`requires { { expr } ->
+                                            Concept; }`) had its inner `}` -- immediately followed
+                                            by `->`, never by `;` -- misidentified by
+                                            `ScopePipeline.splitTopLevelSpans` as a genuine
+                                            scope-closing brace, since the existing
+                                            `isScopeOpeningBrace` disambiguation only guarded the
+                                            `;`-followed case; this mis-recursed into the
+                                            compound-requirement as if it were its own child
+                                            scope, corrupting indentation non-idempotently
+                                            (round1 != round2). Fixed by also checking for an
+                                            immediately-following `->` and never splitting a span
+                                            there. (2) A real, first-pass, compile-breaking bug
+                                            found via `g++ -fsyntax-only`: two semicolon-less
+                                            macro-invocation "statements" (no trailing `;`)
+                                            immediately preceding a `#if ... #endif` pair caused
+                                            `DeclarationAlignmentRule.splitStatements` to never
+                                            close the current statement before reaching the `#if`,
+                                            folding the directive into the *middle* of the next
+                                            real statement's token list -- invisible to
+                                            `parseDeclaration`'s field-based reconstruction, which
+                                            silently drops any token it doesn't recognize as part
+                                            of a declaration's shape. The `#if` vanished on
+                                            output while its paired `#endif` (now leading the next
+                                            statement) survived, producing an `#endif without #if`
+                                            error and 150+ cascading downstream errors in any file
+                                            that includes the corrupted header. Fixed by adding a
+                                            depth-0 check in `splitStatements` that always closes
+                                            out any accumulated statement and starts a fresh one
+                                            when a `PREPROCESSOR`/`MACRO_DEF` token is reached,
+                                            consistent with `hasCommentBefore`'s existing
+                                            leading-directive handling.
+
 How Tests Are Run
 -----------------
 

@@ -147,80 +147,107 @@ client formatting a pasted/in-memory snippet has no real file path and
 nothing on disk for the server to find — it needs a way to hand the server a
 complete config directly in the request.
 
-**Decided design** (resolved via user Q&A this session — do not re-litigate
-these, treat as settled unless a new ambiguity is found during implementation):
+**Decided design** (resolved via user Q&A across this and a prior session —
+do not re-litigate, treat as settled unless a new ambiguity is found during
+implementation). **Revision note:** an earlier version of this task specified
+a JSON request body (`{"content": ..., "config": {...}}`). That's been
+dropped — see rationale below — in favor of extending the existing query
+string, so **the body stays exactly as it is today: raw file bytes, no
+wrapping, no parsing changes to it at all.**
 
-- **Request body becomes JSON**, replacing the current raw-file-content body:
-  ```json
-  { "content": "<raw file text>", "config": { "indent-size": 2, "...": "..." } }
+- **No JSON anywhere in this protocol, by design.** The only field that
+  would ever need JSON-style escaping is the file content itself (arbitrary
+  real-world source: embedded quotes, backslashes, regex literals, unicode
+  identifiers, emoji in comments) — a hand-rolled parser for that is a real
+  correctness risk (silent corruption on a missed escape case, not a loud
+  failure), and pulling in an external JSON library was explicitly rejected
+  (external deps update too often for this project's taste). Query strings
+  sidestep the problem entirely: the body never has to be escaped/parsed as
+  anything, because it never carries config.
+- **Each `config` entry becomes its own optional query parameter** on the
+  same `POST /format` call, reusing exactly the parsing the server already
+  does for `path`/`lang`/`format-off` today — no new parsing code path, just
+  more recognized optional keys:
   ```
-  `config` is optional. When present, its keys/values follow exactly the
-  property names in `STATE_C_CPP_JAVA.md`'s **Config Keys and Defaults**
-  table — this is the single source of truth for valid keys; do not invent a
-  separate schema. That table already spans every currently-supported
-  language (structural/behavior keys, `header-guard-rename` for C/C++,
-  `java-import-*` for Java, `kotlin-import-*` for Kotlin) — the validator
-  must accept the full current table, not just a C/C++/Java subset. It must
-  also be kept in sync going forward: any future language support (JSON,
-  XML, JavaScript, TypeScript, CSS, HTML5, Python3 — see
-  `FUTURE_FEATURE_DISCUSSION.md`) that adds its own config keys (e.g. the
-  `json-colon-align`, `css-colon-align`, and `python-*` properties already
-  flagged there) must add them to this same table and this same validator in
-  the same change, not as a follow-up — do not hardcode today's key list as
-  if it were permanent.
-- **`path` becomes optional** when both `config` and `lang` are present in
-  the request (client sends a real path, or omits it, or sends a placeholder
-  purely for logging — the server must not attempt disk-based config lookup
-  or extension-based `lang` fallback in this case, since `lang` is already
-  required and always wins per the existing rule). `path` stays required in
-  the no-inline-config case, unchanged from current behavior.
-- **File-path config lookup and inline `config` are mutually exclusive by
-  client contract** (a well-behaved client sends one or the other, never
-  both) — but defensively, if a request somehow supplies both a resolvable
-  `path`-based config *and* an inline `config`, **inline wins** rather than
-  erroring.
-- **Unknown keys in `config` → HTTP 400** with a plain-text error body,
-  consistent with the existing strict `lang`/`path` validation. Malformed
-  JSON in the request body is also HTTP 400.
+  POST /format?path=<abs-path>&lang=java&indent-size=2&line-length=120&java-import-order=java,com,org
+  ```
+  Standard URL query-string encoding (browsers get this for free via
+  `URLSearchParams`; the JVM's HTTP server already decodes it) handles
+  commas/spaces/special characters in a config *value* safely — this only
+  ever has to cover short, bounded values (numbers, `on`/`off`, short
+  comma-lists like an import-order list), never arbitrary source code, so
+  there is no meaningful risk class here at all, unlike the body.
+  Keys/values follow exactly the property names in `STATE_C_CPP_JAVA.md`'s
+  **Config Keys and Defaults** table — this is the single source of truth
+  for valid keys; do not invent a separate schema. That table already spans
+  every currently-supported language (structural/behavior keys,
+  `header-guard-rename` for C/C++, `java-import-*` for Java,
+  `kotlin-import-*` for Kotlin) — the validator must accept the full current
+  table, not just a C/C++/Java subset. It must also be kept in sync going
+  forward: any future language support (JSON, XML, JavaScript, TypeScript,
+  CSS, HTML5, Python3 — see `FUTURE_FEATURE_DISCUSSION.md`) that adds its
+  own config keys (e.g. the `json-colon-align`, `css-colon-align`, and
+  `python-*` properties already flagged there) must add them to this same
+  table and this same validator in the same change, not as a follow-up — do
+  not hardcode today's key list as if it were permanent.
+- **`path` becomes optional** when at least one inline config parameter and
+  `lang` are both present in the request (client sends a real path, omits
+  it, or sends a placeholder purely for logging — the server must not
+  attempt disk-based config lookup or extension-based `lang` fallback in
+  this case, since `lang` is already required and always wins per the
+  existing rule). `path` stays required when no inline config parameters are
+  given, unchanged from current behavior.
+- **File-path config lookup and inline config query params are mutually
+  exclusive by client contract** (a well-behaved client sends one or the
+  other, never both) — but defensively, if a request somehow supplies both a
+  resolvable `path`-based config *and* one or more inline config params,
+  **inline wins** rather than erroring.
+- **Unknown config-shaped query keys → HTTP 400** with a plain-text error
+  body, consistent with the existing strict `lang`/`path` validation (a
+  typo'd key should fail loudly, not be silently ignored or silently treated
+  as a no-op override).
 - **Stateless, per-request only.** No session/handshake; every `/format`
   call that wants inline config must include it every time. Do not add any
   connection-level or cookie-based config state.
 
-**Breaking-change note:** this replaces the `/format` body contract (raw
-bytes → JSON envelope) for *all* clients, not just new browser ones —
-including the bundled CLI's own auto-connect client. Since both sides of
-this protocol live in the same repo, treat this as an atomic change: update
-the server, the bundled CLI's `ServerMode` client call, and `test/README.txt`
-/ any server-mode test fixtures together in one pass, not as a
-soft-deprecate-old-format transition. Do not attempt Content-Type-based
-negotiation between the old raw-body and new JSON-body forms unless a real
-external third-party client is known to depend on the old form — none is
-known as of this note.
+**Backward compatibility:** unlike the JSON-body approach this replaces,
+this design is **purely additive** — the body format is untouched, and every
+existing caller (including the bundled CLI's own auto-connect client) that
+never sends the new query keys keeps working with zero changes. The bundled
+CLI's client only needs updating if/when it wants to *expose* inline config
+to its own users (e.g. a future CLI flag that forwards to these query
+params) — that's optional follow-up work, not a required part of this task.
 
 **Required changes:**
-- [ ] Update `/format` request parsing to accept the new JSON body shape
-      (`content` + optional `config`), replacing raw-body parsing.
-- [ ] Wire inline `config` into whatever config-resolution path the server
-      already uses for file-based `.jxmake-code-formatter` lookup, with
-      inline taking priority per the rule above.
-- [ ] Validate `config` keys against the canonical set in `STATE_C_CPP_JAVA.md`
-      → **Config Keys and Defaults**; HTTP 400 on any unrecognized key or
-      malformed JSON. Confirm this covers C/C++/Java *and* Kotlin keys (all
-      already in that one table) — and re-check this validator whenever a
-      future language's config keys land, per the note above.
-- [ ] Make `path` optional exactly when `config` + `lang` are both present;
-      required otherwise (unchanged).
-- [ ] Update the bundled CLI's own server-client call site to send the new
-      JSON body shape (it becomes a client of its own new protocol).
+- [ ] Extend `/format`'s existing query-string parsing to recognize the
+      config keys from `STATE_C_CPP_JAVA.md`'s **Config Keys and Defaults**
+      table as additional optional parameters. No body-parsing changes.
+- [ ] Wire recognized inline config params into whatever config-resolution
+      path the server already uses for file-based `.jxmake-code-formatter`
+      lookup, with inline taking priority per the rule above.
+- [ ] Validate query keys that look like config keys (i.e. match a known
+      property name pattern, or simply: any query key besides
+      `path`/`lang`/`format-off`) against the canonical set in
+      `STATE_C_CPP_JAVA.md` → **Config Keys and Defaults**; HTTP 400 on any
+      unrecognized key. Confirm this covers C/C++/Java *and* Kotlin keys
+      (all already in that one table) — and re-check this validator
+      whenever a future language's config keys land, per the note above.
+- [ ] Make `path` optional exactly when at least one inline config param and
+      `lang` are both present; required otherwise (unchanged).
 - [ ] Update `README.md`'s **Server Wire Protocol** section to document the
-      new JSON body shape, the optional/required `path` rule, the
-      unknown-key-→-400 behavior, and the mutual-exclusivity-with-inline-wins
-      rule — this section currently describes the old raw-body contract and
-      will be actively wrong once this lands.
-- [ ] Add/update a server-mode test fixture (or extend the existing
-      multi-file smoke test from Task D) covering: inline config with no
-      `path`, inline config overriding a would-be file-based config, and the
-      unknown-key-→-400 case.
+      new optional query parameters, the optional/required `path` rule, the
+      unknown-key-→-400 behavior, and the mutual-exclusivity-with-inline-
+      wins rule — this section currently only documents `path`/`lang`/
+      `format-off` and will be incomplete (not wrong, since the body/base
+      contract is unchanged) once this lands.
+- [ ] Add a server-mode test fixture covering: inline config with no `path`,
+      inline config overriding a would-be file-based config, and the
+      unknown-key-→-400 case. This does **not** belong in `test/README.txt`
+      (that file documents the format input/output fixture pairs only, not
+      server-mode behavior) — place it wherever existing server-mode
+      testing already lives (see Task D's multi-file smoke test in
+      `STATE_C_CPP_JAVA.md` for the closest existing precedent), or ask if
+      no such location exists yet.
 - [ ] Follow this file's own **ambiguity-handling** convention above for
       anything not already resolved here — stop, record in the picking-up
       job's **Open Questions**, ask, don't guess.

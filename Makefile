@@ -122,18 +122,21 @@ arcv: distclean
 		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                               \
 		echo;                                                                                                 \
 		echo -e "$(C_MAGENTA)Cleaning-up the project tree ...$(C_RESET)";                                     \
-		cp -Rav src/jxm/gcomp  src/jxm/gcomp2 > /dev/null;                                                    \
-		rm -rvf src/jxm/gcomp                 > /dev/null;                                                    \
-		mv      src/jxm/gcomp2 src/jxm/gcomp  > /dev/null;                                                    \
-		cp -Rav src/jxm/tool   src/jxm/tool2  > /dev/null;                                                    \
-		rm -rvf src/jxm/tool                  > /dev/null;                                                    \
-		mv      src/jxm/tool2  src/jxm/tool   > /dev/null;                                                    \
-		cp -Rav src/jxm/ugc    src/jxm/ugc2   > /dev/null;                                                    \
-		rm -rvf src/jxm/ugc                   > /dev/null;                                                    \
-		mv      src/jxm/ugc2   src/jxm/ugc    > /dev/null;                                                    \
-		cp -Rav test           test2          > /dev/null;                                                    \
-		rm -rvf test                          > /dev/null;                                                    \
-		mv      test2          test           > /dev/null;                                                    \
+		cp -Rav util/CodingStyle.md/formatter  util/CodingStyle.md/formatter2 > /dev/null;                    \
+		rm -rvf util/CodingStyle.md/formatter                                 > /dev/null;                    \
+		mv      util/CodingStyle.md/formatter2 util/CodingStyle.md/formatter  > /dev/null;                    \
+		cp -Rav src/jxm/gcomp                  src/jxm/gcomp2                 > /dev/null;                    \
+		rm -rvf src/jxm/gcomp                                                 > /dev/null;                    \
+		mv      src/jxm/gcomp2                 src/jxm/gcomp                  > /dev/null;                    \
+		cp -Rav src/jxm/tool                   src/jxm/tool2                  > /dev/null;                    \
+		rm -rvf src/jxm/tool                                                  > /dev/null;                    \
+		mv      src/jxm/tool2                  src/jxm/tool                   > /dev/null;                    \
+		cp -Rav src/jxm/ugc                    src/jxm/ugc2                   > /dev/null;                    \
+		rm -rvf src/jxm/ugc                                                   > /dev/null;                    \
+		mv      src/jxm/ugc2                   src/jxm/ugc                    > /dev/null;                    \
+		cp -Rav test                           test2                          > /dev/null;                    \
+		rm -rvf test                                                          > /dev/null;                    \
+		mv      test2                          test                           > /dev/null;                    \
 		echo -e "$(C_GREEN)Copying the project tree (excluding '.svn' and '.svn' directories) ...$(C_RESET)"; \
 		cd ..;                                                                                                \
 		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                            \

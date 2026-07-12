@@ -213,27 +213,18 @@ accept `final` there). Applies to all `.java` files under `src/`.
 **Step 1.5 — Dogfood checkpoint (in progress):**
 
 **Critical rules for this step:**
-- The user may specify which `*_inp.*` file to run next — **do not assume sequential
-  order**. Run only the file the user names, unless told to run all remaining.
-- Run test files **one at a time**, not all at once. After each file, if
-  the formatter output does not match the `*_out` file, **stop and ask the
-  user** before attempting any fix — the mismatch may be a bug in the
-  `*_out` file itself (authored by hand, not confirmed by the formatter),
-  not necessarily a formatter bug. Record which files passed and which did
-  not in STATE.md as you go, so progress is preserved if quota runs out.
-- After each individual file test — pass or fail — update the checklist
-  item inline with `(PASS)`, `(FAIL)`, or `(SKIP)` and commit STATE.md
-  immediately. Do not batch multiple results into one commit. This ensures
-  no progress is lost if the session ends mid-way through the 15 files.
-- **Do not remove `[x]` or `(PASS)` entries from this list**, even after all
-  tests pass. Fixing a bug discovered in one file may cause a regression in a
-  previously-passing file; the full list allows the user to ask for a specific
-  file to be re-run at any time.
-- The same ask-first rule applies to the self-dogfood pass: if formatting
-  the formatter's own source produces unexpected changes, stop and report
-  the diff to the user before fixing anything.
-- To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes,
-  apply STATE_COMMON.md's "evidence over reasoning" rule strictly here.
+- The user may name a specific `*_inp.*` file to run next — do not assume sequential
+  order; run only the named file unless told to run all remaining.
+- Run test files one at a time. After each file (including the self-dogfood pass, i.e.
+  formatting the formatter's own source), if output doesn't match `*_out` (or produces
+  unexpected changes), **stop and ask the user** before attempting any fix — the mismatch
+  may be a hand-authored error in the `*_out`/expectation, not necessarily a formatter bug.
+- After each file test — pass or fail — update the checklist item inline with `(PASS)`,
+  `(FAIL)`, or `(SKIP)` and commit immediately (no batching), so no progress is lost.
+- Never remove `[x]`/`(PASS)` entries, even once all tests pass — a later fix could
+  regress a previously-passing file, and the user may ask to re-run any entry at any time.
+- Apply STATE_COMMON.md's "evidence over reasoning" rule strictly here, to limit quota
+  usage and avoid regressing `(PASS)` tests/prior fixes.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
 `/tmp/jxmake-code-formatter-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
@@ -257,9 +248,10 @@ accept `final` there). Applies to all `.java` files under `src/`.
       error, 2 = usage error (RDD_KEY_88)
 - [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
-All 15 file-pair tests below PASS (forward + idempotency), zero known regressions.
-Full bug-by-bug root-cause narratives for each fix have been compacted out of this file —
-they remain fully available via `git log`/`git show` on the commits noted per entry.
+
+All 15 file-pair tests below PASS (forward + idempotency), zero known regressions. Full
+bug-by-bug root-cause narratives have been compacted out of this file — available via
+`git log`/`git show` on the commits noted per entry.
 
 - [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
@@ -327,17 +319,17 @@ they remain fully available via `git log`/`git show` on the commits noted per en
   blank-line preservation via `caseSpansMultipleLines` + sub-gap restriction, flat-aggregate
   initializers with per-element comments left byte-for-byte untouched rather than collapsed).
 
-**If any file-pair test above shows a mismatch: stop, report the full diff to the
-user, and wait for instruction. Do not attempt to fix either the formatter or the
-`*_out` file without explicit user direction — the `*_out` files were authored by
-hand and may themselves contain errors.**
+**If any file-pair test above shows a mismatch: stop, report the full diff to the user, and
+wait for instruction. Do not fix either the formatter or the `*_out` file without explicit
+user direction — `*_out` files are hand-authored and may themselves contain errors.**
 
-**After all 15 file-pair tests pass (or are resolved - ask the user first):**
+**After all 15 file-pair tests pass (or are resolved — ask the user first):**
 - [x] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
       to `target/dogfood-src/`
 - [x] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;
       must compile with zero errors — first run surfaced a real compile-breaking bug (see
-      below), now fixed; verified clean compile after the fix.
+      "Other findings outside the candidate list" below), now fixed; verified clean compile
+      after the fix.
 - [~] Dogfood self-format idempotency / declaration count: superseded by the real-code
       testing approach below, which found and fixed the actual bugs underlying this failure.
       Not re-run standalone against `target/dogfood-src/` since; if revisited, expect it to be
@@ -346,441 +338,226 @@ hand and may themselves contain errors.**
 
 **Real-code testing (pivoted from synthetic dogfooding — found bugs faster):** see
 STATE_COMMON.md's "Real-code testing methodology" for the repeatable round1/round2/compile
-recipe and fixture-registration convention — prefer this over synthetic dogfooding, it found
-concrete, fixable bugs far faster than the from-scratch dogfood idempotency failure did.
-Full bug-by-bug root-cause narratives for each completed candidate below have been compacted
-out of this file — remain fully available via `git log`/`git show` on the noted commits/
-fixtures. Several real bugs here (the `SwitchRule`/`fmtlib-fmt` flush-case-label fix, the
-`MiscRule` dead-config-key audit) were only observable at a non-default `indent-size` — a
-concrete example of STATE_COMMON.md's "re-test at the candidate's own convention" advice.
+recipe and fixture-registration convention. Full bug-by-bug root-cause narratives for
+completed candidates have been compacted out of this file into the "Finished" list below —
+still available via `git log`/`git show` on the noted commits/fixtures.
 
-- **`blake-madden/tinyexpr-plusplus`** (C++20, `g++ -std=c++20`) — DONE. 3 bugs fixed in
-  `MiscRule`'s multi-line call/declaration rendering and `Formatter`'s pass ordering:
-  `groupByOriginalLine` same-line-sibling mis-split; `renderCallCandidate` line-length
-  undercount ignoring trailing same-line text; `enforceComplexityPadding` had to move ahead of
-  `enforceCallLineBreaking` in Phase 1 for idempotency (commits `1c10946`/`26a9715`). Fixture:
-  `test/real_code_regressions_1_{inp,out}.cpp`. `make test` 19/19, full tree idempotent/compiles.
-- **RobotCoding `gui_frontend`** (`../../../../RobotCoding/gui_frontend/src/`, 71 `.java`
-  files, `javac` from `/opt/openjdk-25_linux-x64_bin`) — DONE. 4 pass-ordering idempotency
-  bugs fixed: `>>>` mistokenized as `>>`+`>` (compile-breaking, added to
-  `TokenizerCore.MULTI_CHAR_OPS`); `GetterSetterRule` one-liner body-column padding measured
-  pre-`enforceComplexityPadding`; `enforceCallLineBreaking` joining a multi-line call loses
-  complexity-padding awareness; `GetterSetterRule`/`JavaSpecificRule` one-liner detection
-  didn't predict later line-breaking (both given a "has breakable call + predicted width"
-  pre-check). Fixture: `test/real_code_regressions_2_{inp,out}.java`. `make test` 20/20, full
-  tree idempotent, compiles with only known pre-existing `javax.jmdns` dependency errors.
-- **Self-dogfood** (formatter's own `src/com/jxmake/formatter/`, 20 files) — DONE. 1 more
-  pass-ordering bug: `MiscRule.parseAssignment` rejected any §6 alignment row whose RHS was
-  already wrapped by a later `enforceCallLineBreaking` pass, breaking the group instead of
-  falling through to a verbatim single-line `Assignment`. Fixture:
-  `test/real_code_regressions_3_{inp,out}.java`. `make test` 21/21, idempotent, compiles clean,
-  declaration counts match.
-- **`martinus/nanobench`** (`src/include/nanobench.h`, 3484 lines, formatted as C++ via a
-  `.hpp` copy) — DONE. 2 bugs: (1) `TokenizerCore` had no C++11 raw-string-literal
-  (`R"delim(...)delim"`) support, so `{`/`}` inside nanobench's mustache templates corrupted
-  brace-depth tracking for the rest of the file (up to ~46% content loss); fixed via
-  `rawStringPrefixLength`/`emitRawString`, gated on `isC || isCpp` (an initial `isC`-only gate
-  missed `.hpp`/`.cpp`). (2) `DeclarationAlignmentRule`'s general group renderer silently
-  dropped a `template<...>` prefix on a bare forward declaration (only the
-  function-forward-declaration path emitted it) — compile-breaking. Fixture:
-  `test/real_code_regressions_4_{inp,out}.hpp`. `make test` 22/22, idempotent, compiles clean.
-  Known non-bug: formatting nanobench.h under its actual `.h` (C) extension hits an unrelated
-  out-of-scope mismatch (`CppSpecificRule.enforceEmptyParameterList`'s C-only heuristic
-  misfires on a constructor member-initializer list) — not fixed, real C can't produce that shape.
-- **User-reported bug** (`real_code_regressions_1_out.cpp`'s `} // while` indentation) — DONE.
-  `ScopePipeline` never re-derived a scope's own closing-brace gap from depth, so source
-  misindentation passed through untouched. Fixed by forcing that gap to the frame's own indent
-  in `processScope`'s child recursion, surfacing 4 edge cases in `findParentIndent`: bare
-  compound blocks, preprocessor-directive-adjacent spans, a comment directly in the trailing
-  gap (must not relocate), and a `case`/`default` label sharing a span with the following
-  construct (anchor search had to go backward from `openBraceIdx`, not forward from the span
-  start) — plus an empty-body (`{}`) guard so the fix doesn't re-expand it into `{\n}`.
-  Fixture: `test/real_code_regressions_5_{inp,out}.cpp`. `make test` 23/23; re-ran the full
-  nanobench round-trip too (caught the `case`-label edge case) — still idempotent, compiles clean.
-- **Local `../../../3rd_party/tools/pcpp_java/src/`** (JxMake's own Java preprocessor tool
-  source, 41 `.java` files) — DONE (2026-07-06). 2 idempotency bugs fixed: `SwitchRule`
-  inline-alignment overflow (same bug class as `real_code_regressions_7`) and
-  `ScopePipeline.processScope`'s raw-newline one-liner-body check misfiring on a call already
-  broken across lines by `enforceCallLineBreaking`. Fixtures:
-  `test/real_code_regressions_9_{inp,out}.java`, `test/real_code_regressions_10_{inp,out}.java`.
-  `make test` 28/28, full 41-file tree idempotent, compiles clean. Full bug-by-bug detail in the
-  "Real-code testing methodology" section below.
-- **C17**: `github.com/Tongsuo-Project/tongsuo-mini` — DONE (2026-07-06). 56 `.c`/`.h` files.
-  1 bug: `DeclarationAlignmentRule.parseDeclaration` accepted any flat `{ a, b, c }` aggregate
-  init (no nested braces, no `//` comments) as safely collapsible to one rendered line with no
-  check against `lineLengthLimit` — a large byte/word table (e.g. `sm4.c`'s
-  `SM4_S`/`SM4_SBOX_T*` S-boxes) collapsed into a single line thousands of characters long,
-  since this class has no multi-line-initializer render path to re-wrap it. Fixed by threading
-  `lineLengthLimit` into a new 2-arg `DeclarationAlignmentRule` constructor (legacy 1-arg
-  constructor delegates to `MiscRule.DEFAULT_LINE_LENGTH_LIMIT`, wired via `ScopePipeline`) and
-  adding `flatAggregateInitRenderedWidth` to reject the collapse if it alone would exceed the
-  limit — same pattern as the existing `//`-comment guard on that code path. Fixture:
-  `test/real_code_regressions_11_{inp,out}.c`. `make test` 29/29; full 56-file tree
-  round1/round2 diff empty; `gcc -std=gnu99 -fsyntax-only` per-file error counts identical
-  before/after (1 pre-existing, formatter-unrelated duplicate-definition error in `src/log.c`).
+**Tools/compiler used**
+(1) `gcc -std=gnu99 -fsyntax-only <file>.c` (used for `tongsuo-mini`)
+(2) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,
+    stdexec, and mp11 additionally need `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` with this
+    toolchain
+(3) `clang++ -std=c++23 -fsyntax-only <file>.cpp` (with/without `-stdlib=libc++`) at
+    `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++` — pipe stderr through
+    `grep -v 'no version information available'` to filter a harmless libstdc++
+    symbol-versioning warning (not a compile error); `/opt/glibc-2.41/` is available if a
+    genuine glibc-mismatch/patchelf issue is ever hit with some other prebuilt binary
+(4) `javac` — installs used so far: `/opt/openjdk-25_linux-x64_bin`,
+    `/opt/openjdk-21_linux-x64_bin/jdk-21/bin/javac -d ... -cp . --release 8` (matches a
+    project's own JDK8-source/JDK21-`javac` Makefile convention)
+(5) `pcpp-java-1.30.jar` (JxMake's own C-preprocessor-for-Java tool) —
+    `java -jar pcpp-java-1.30.jar <input> -o <output>`; compare token streams before/after
+    format with `#line` directives stripped first (they legitimately shift with line-count
+    changes); plain `gcc -E`/`cpp` does NOT work as a substitute (hard-errors on real `##`
+    token-pasting tricks)
 
-- **C++20**: `github.com/serge-sans-paille/frozen` — DONE (2026-07-07). 44 `.hpp` files (`.h`
-  renamed, confirmed real C++) plus `tests/catch.hpp`. 10 bugs fixed total; full narratives
-  available via `git log`/`git show` on commits touching `ScopePipeline.java`/
-  `DeclarationAlignmentRule.java`/`TokenizerCore.java`/`CppSpecificRule.java` around
-  2026-07-06/07: parent-indent off-by-one on a shared-line nested construct; struct
-  depth-tracking bug with a trailing braceless member before `};`; dangling `}` after an
-  oversized brace-initializer; getter-padding growth from pass ordering (`map.hpp`); K&R/Allman
-  flapping operator one-liners (`set.hpp`); `catch.hpp` first-pass corruption from unhandled
-  backslash-continued preprocessor directives; `findParentIndent`'s namespace-unaware depth
-  fallback; Objective-C message-send brackets mistokenized as C++17 attributes; and 4 further
-  `catch.hpp` divergences once that desync was fixed (namespace-detection off-by-one,
-  member-initializer-list closing-paren misdetection landing on the wrong paren, and an
-  elaborated-type `struct sigaction sa = {};` misdetected as a struct body, duplicating its
-  `;` every pass). Fixtures: `test/real_code_regressions_12` through `_16`. `make test` 32/32;
-  full 156-file `frozen` tree (`.c`/`.h`/`.cpp`/`.hpp`) fully idempotent round1-vs-round2.
+**Finished dogfood / real-code testing**
+(1) `blake-madden/tinyexpr-plusplus` (C++20) — 3 bugs in `MiscRule`'s multi-line
+    call/declaration rendering + `Formatter` pass ordering (commits `1c10946`/`26a9715`).
+    Verified with (2). Config: default. Fixture: `real_code_regressions_1`.
+(2) RobotCoding `gui_frontend` (71 `.java` files) — 4 pass-ordering idempotency bugs
+    (`>>>` mistokenization, getter/setter + call-line-breaking column-padding ordering).
+    Verified with (4). Config: default. Fixture: `real_code_regressions_2`.
+(3) Self-dogfood (formatter's own `src/`, 20 files) — 1 pass-ordering bug in
+    `MiscRule.parseAssignment` (RHS already wrapped by a later call-line-breaking pass).
+    Verified with (4). Config: default. Fixture: `real_code_regressions_3`.
+(4) `martinus/nanobench` (`nanobench.h`, 3484 lines, tested as `.hpp`) — 2 bugs: missing
+    C++11 raw-string-literal tokenizer support (brace-depth corruption), dropped
+    `template<...>` prefix on a bare forward declaration. Verified with (2). Config: default.
+    Fixture: `real_code_regressions_4`. Known non-bug: testing the same file under its real
+    `.h` (C) extension hits an unrelated, real-C-can't-produce-this-shape mismatch in
+    `CppSpecificRule.enforceEmptyParameterList` — not fixed, out of scope.
+(5) User-reported bug (`real_code_regressions_1_out.cpp`'s `} // while` indentation) —
+    `ScopePipeline` never re-derived a scope's own closing-brace gap from depth; fixed in
+    `processScope`'s child recursion, surfacing 4 `findParentIndent` edge cases. Verified
+    with (2) (re-ran full `nanobench` round-trip too). Config: default.
+    Fixture: `real_code_regressions_5`.
+(6) Local `pcpp_java` tool source (41 `.java` files) — 2 idempotency bugs: `SwitchRule`
+    inline-alignment overflow (no `lineLengthLimit` check), `ScopePipeline.processScope`
+    one-liner-body raw-newline check misfiring on an already-broken call. Verified with (4).
+    Config: default. Fixtures: `real_code_regressions_9`, `real_code_regressions_10`.
+(7) C17 `Tongsuo-Project/tongsuo-mini` (56 `.c`/`.h` files) — 1 bug: flat aggregate-init
+    collapse in `DeclarationAlignmentRule` had no line-length check, producing an
+    unboundedly long rendered line for large byte tables; fixed by threading
+    `lineLengthLimit` through a new constructor. Verified with (1) (identical pre-existing
+    error count in `src/log.c`, unrelated to formatting). Config: default.
+    Fixture: `real_code_regressions_11`.
+(8) C++20 `serge-sans-paille/frozen` (44 `.hpp` + `tests/catch.hpp`) — 10 bugs across
+    `ScopePipeline`/`DeclarationAlignmentRule`/`TokenizerCore`/`CppSpecificRule` (parent-indent
+    off-by-one, struct depth-tracking, oversized-brace-init dangling `}`, getter-padding
+    pass-ordering growth, K&R/Allman flapping one-liners, `catch.hpp` backslash-continued
+    preprocessor corruption + 4 follow-on divergences, namespace-unaware indent fallback,
+    Objective-C-message-send/C++17-attribute mistokenization). Verified via idempotency only
+    (full 156-file tree round1-vs-round2 clean); no compiler used. Config: default.
+    Fixtures: `real_code_regressions_12` through `_16`.
+(9) C++20 `fmtlib/fmt` (15 `.h` + 4 `.cc`) — idempotent at default `indent-size`; re-testing
+    at the codebase's real 2-space/flush-case-label convention found `SwitchRule.deriveUnit`'s
+    hardcoded 4-space fallback (same class as the `MiscRule.INDENT_WIDTH` dead-config bug, see
+    "Other findings" below), causing unbounded case-body indent growth in 3 files; fixed by
+    threading `indentWidth` through `SwitchRule`. No-op at default `indent-size` (no fixture);
+    verified live at `indent-size = 2`.
+(10) C++20 `taocpp/PEGTL` (355 `.hpp` under `include/`) — 1 bug:
+     `TokenizerCore.reclassifyAngleBrackets`'s `>>`-split branch duplicated a character via
+     `retype()` reusing the original 2-char text; fixed by giving the retyped token its own
+     explicit `">"` text. Verified with (2) (PEGTL's 5 example programs, 0 errors, matching
+     baseline). Config: default. Fixture: `real_code_regressions_28`. Also found a no-op:
+     `ScopePipeline.normalizeIndent` only rounds declaration-statement indentation, never
+     non-declaration statements — a real divergence at PEGTL's actual 3-space convention but
+     invisible at the formatter's default 4-space; confirmed non-issue by re-testing at
+     `indent-size = 3` (full tree idempotent there too). No fixture (no-op at default).
+(11) C++17/20 `foonathan/lexy` (121 `.hpp` under `include/`) — no bug found; idempotent at
+     default `indent-size = 4` (matches lexy's own convention). Verified with (2) on all 9
+     `examples/` files (0 errors, matching baseline); `tests/` doctest suite skipped
+     (external `doctest` header not vendored). Despite predicting relevance to the
+     RDD_KEY_85/RDD_KEY_56-adjacent (concepts/`requires`, tight template angle brackets)
+     construct family, none of those surfaced a new defect here — already covered by
+     `frozen`/PEGTL/stdexec. Config: default. No fixture.
+(12) C++20 `NVIDIA/stdexec` (192 `.hpp`/`.cpp` under `include/`) — 4 bugs across three
+     sessions: (1) idempotency — a C++20 requires-expression compound-requirement's inner `}`
+     (followed by `->`) misidentified as a scope-closing brace by
+     `ScopePipeline.splitTopLevelSpans`; (2) compile-breaking — a depth-0
+     `PREPROCESSOR`/`MACRO_DEF` token didn't force-close the current statement in
+     `DeclarationAlignmentRule.splitStatements`, silently dropping `#if`/`#endif` guards;
+     (3) compile-breaking — `BlockStructureRule.tryCollapse`'s `renderInline` absorbed
+     everything after a `//` comment between call arguments into the comment, needs a
+     `containsLineComment` guard; (4) idempotency — `DeclarationAlignmentRule.parseDeclaration`
+     misparsed an already-collapsed one-liner `if`/`while`/`for`/`switch`/`do`/`else` as a
+     bogus declaration on a second pass. Verified with (2) (`LD_LIBRARY_PATH` needed; ~10
+     pre-existing TBB/PSTL errors expected/unrelated). Config: default. Fixtures:
+     `real_code_regressions_34` (bugs 1+2), `_35` (bug 3), `_36` (bug 4).
+(13) C++11 `boostorg/mp11` (34 self-contained `.hpp`, 5483 lines) — no bug found; idempotent
+     at default `indent-size = 4` (matches mp11's own convention). Verified with (2)
+     (`LD_LIBRARY_PATH` needed) on every header standalone (repo's own `test/*.cpp` needs
+     unvendored boost deps, skipped). Config: default. No fixture.
+(14) C++23 `basvas-jkj/cpp_modules` (7 `.cpp`/`.hpp`/`.mpp` files, confirmed real
+     C++20/23 language-modules usage) — no formatter bug found; idempotent on every file. One
+     suspicious-looking diff (`foo(bar())` → `foo( bar() )`) confirmed intentional per the
+     "universal complexity padding" design (commit `7b4c80d`), not a regression. Compile-check
+     via (3): identical pre-/post-format failures on every file (missing `std`/header-unit BMI
+     cache, missing `cr.hpp` — checkout-environment issues, not formatter-induced). Config:
+     default. No fixture. (Compared first against `V1niciosLins/StartCpp`, which turned out to
+     be a project-generator script with no real C++ source of its own to format — not a
+     formatter candidate, superseded by testing `cpp_modules` instead.)
+(15) `google/google-java-format` (SMALL, 84 `.java` files) — idempotency check found 5
+     diverging files, resolved by 3 distinct bug fixes: `SwitchRule.ensureBlankLineInGap`
+     wrongly splitting a trailing same-line comment onto its own line (fixed via
+     `startsOwnLine` check; fixture `real_code_regressions_6`); `Doc.java`'s divergence
+     resolved entirely by the config-key wiring audit (see "Other findings" below, no
+     additional code change, confirmed byte-identical at `indent-size = 2`);
+     `JavaSpecificRule.applyArrowAlignment` joining an arrow-switch case onto its body with no
+     line-length check (fixed by predicting joined width first; fixture
+     `real_code_regressions_7`); `GetterSetterRule.parseOneLinerMember`'s `findNameBeforeParen`
+     misparsing `case X, Y -> call(...);`/`default -> throw ...;` arrow arms as fake one-liner
+     members (fixed by rejecting `case`/`default`-leading one-liners; fixture
+     `real_code_regressions_8`). Verified with (4). Config: default (Doc.java re-verified at
+     indent-size = 2).
+(16) MEDIUM `javaparser/javaparser` — see "Not started" below (queued, not started).
+(17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
+(18) Local `VMA-GIT/anemonesoft/` (`gui/`, `i18n/`, 82 `.java` files, JDK8-source/JDK21-javac)
+     — copied to `/tmp/anemonesoft_test/` for testing (original tree verified untouched
+     before/after). Idempotency check found 2 diverging files, 1 bug:
+     `MiscRule.renderCallCandidate`'s `containsNewline` branch used `groupByOriginalLine`
+     (paren/bracket depth only, not brace depth), swallowing a multi-line brace-bodied trailing
+     argument into one unboundedly-long rendered line; fixed by widening an existing
+     Kotlin-only "leave such an argument untouched" bail to all languages via a new
+     `containsInternalNewline` helper. Verified with (4) (28 pre-existing missing-`Jama`-
+     dependency errors, identical before/after). Config: default.
+     Fixture: `real_code_regressions_29`.
+(19) Local PCPP-heavy `../../../src/jxm/ugc/ARMCortexMThumbC.java.in` (not
+     standalone-compilable, a `.java.in` template) — no bug found; verified with (5), 0-line
+     token-stream diff on 105366 tokens. Config: default.
 
-- **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
-  Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-
-  case-label style (`indent-size = 2`) found `SwitchRule.deriveUnit`'s hardcoded 4-space
-  `DEFAULT_INDENT_UNIT` fallback (same dead-config-value bug class as `MiscRule.INDENT_WIDTH`,
-  see the config-wiring audit below), causing unbounded case-body indent growth in 3 files.
-  Fixed by threading `indentWidth` through `SwitchRule`'s constructor. No-op at default
-  `indent-size` (30/30, no fixture changes); verified live at `indent-size = 2` — full 44-file
-  tree now fully idempotent.
+**Not started dogfood / real-code testing**
+(1) `github.com/ericniebler/range-v3` — pre-standardization Ranges library; heavy
+    template/concept-emulation-macro use (good `format-macros` stress). Lower priority —
+    "modern concepts" coverage already superseded by `stdexec`. Would verify with (2).
+    (NOT STARTED)
+(2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
+    coverage on the list but high testing-time cost; planned as one of the last picked up.
+    Would verify with (2)/(3) (or newer, bump toolchain version if needed). (NOT STARTED)
+(3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
+    partial/targeted subtree run is practical (e.g. `clang/lib/Format/` or
+    `llvm/include/llvm/ADT/`). Try to exercise C++23 features specifically. Would verify with
+    (2)/(3). (NOT STARTED)
+(4) `github.com/gcc-mirror/gcc` — GCC monorepo; similarly enormous, and GCC's own source may
+    target an older/conservative C++ dialect in parts (bootstrapping), so may exercise less
+    modern-C++ surface than its size suggests — lowest priority of the four for
+    modern-feature testing specifically. Try to exercise C++23 features specifically. Would
+    verify with (2)/(3). (NOT STARTED)
+(5) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
+    exercise generics-heavy declarations, deep visitor-pattern hierarchies, extensive Javadoc
+    (§15 comment-scope, RDD_KEY_47-50), large switch-heavy dispatch code (§13). Would verify
+    with (4). (NOT STARTED)
+(6) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
+    priority given size, pick up once smaller candidates are exhausted. Likely some
+    annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
+    verify with (4). (NOT STARTED)
 
-- **C++20**: `github.com/taocpp/PEGTL` — DONE (2026-07-12). 355 `.hpp` files under `include/`.
-  1 bug fixed: `TokenizerCore.reclassifyAngleBrackets`'s single-open-`<` branch for splitting a
-  literal `>>` token retyped it via `retype()` (which preserves the original 2-char text) while
-  also appending a new 1-char literal `>` token — duplicating a character on the first format
-  pass and breaking compilation of `internal/rematch_input.hpp`'s `template<...>` forward
-  declaration (`>>>` where only `>>` is valid). Fixed by giving the retyped token its own
-  explicit 1-char `">"` text instead of reusing the original via `retype()`. Fixture:
-  `test/real_code_regressions_28_{inp,out}.hpp`. Also found a no-op (per the `fmtlib/fmt`/
-  `indent-size` precedent): `ScopePipeline.normalizeIndent` rounds only declaration-statement
-  indentation to the nearest `indent-size` multiple, never non-declaration statements in the
-  same scope — produces a non-idempotent divergence in 2 files at PEGTL's real 3-space
-  convention but is a no-op at the formatter's default 4-space `indent-size` (48/48, unrelated);
-  confirmed non-issue by re-testing at `indent-size = 3` — full 355-file tree fully idempotent
-  at that setting. `make test` 48/48; PEGTL's 5 example programs all `-fsyntax-only`-compile
-  clean (0 errors) against the fixed round1 output, matching the unmodified baseline.
+Priority order for the C/C++ queue above unless the user redirects: `range-v3` → `STL` →
+`llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec` already DONE, see "Finished" above —
+`mp11` was smallest/narrowest, `lexy` next for touching operator overloading/concepts/CRTP/
+dense declaration-alignment in one small tree, `stdexec` for concepts/`requires`/deep
+metaprogramming). For any C/C++ candidate distributed under a `.h`/`.hpp` extension, confirm
+which language it actually is before testing — copy to `.hpp` first if really C++.
 
-- **C++17/20**: `github.com/foonathan/lexy` — DONE (2026-07-12). Header-only parser-combinator
-  library, 121 `.hpp` files under `include/` (both `lexy/` and `lexy_ext/`). No bugs found:
-  round1/round2 diff fully empty (idempotent at default `indent-size = 4`, which also matches
-  lexy's own actual 4-space convention — confirmed via spot-check, so no non-default re-test was
-  needed). Compile-check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only` on all 9 files
-  under `examples/` (`calculator`/`config`/`email`/`ip_address`/`json`/`protobuf`/`shell`/
-  `turing`/`xml.cpp`, which transitively include the bulk of `lexy/dsl.hpp`'s ~50 submodules plus
-  `lexy_ext/report_error.hpp`): 0 errors on both the unmodified original and the round1-formatted
-  tree, identical. Did not build the `tests/` doctest suite (needs an external `doctest` header
-  not vendored in this checkout; out of scope per the no-filesystem-wide-`find` rule) — the
-  examples-based check was judged sufficient coverage given the zero-bug result already found by
-  idempotency. No fixture added (no bug found). Despite the RDD_KEY_85/RDD_KEY_56-adjacent
-  predictions in the candidate note above (concepts/`requires`, CRTP, operator overloading,
-  dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
-  `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
+**In progress dogfood / real-code testing details**
 
-- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), clean pass. Header-only
-  `std::execution` (P2300) senders/receivers implementation, 192 `.hpp`/`.cpp` files under
-  `include/`. 4 bugs found and fixed across three sessions: (1) idempotency — a C++20
-  requires-expression compound-requirement's inner `}` (followed by `->`, not `;`)
-  misidentified by `ScopePipeline.splitTopLevelSpans` as a scope-closing brace, mis-recursing
-  into it and corrupting indentation non-idempotently; fixed by also checking for a following
-  `->`. (2) compile-breaking (found via `g++ -fsyntax-only`) — two semicolon-less
-  macro-invocation statements immediately preceding a `#if`/`#endif` guard caused
-  `DeclarationAlignmentRule.splitStatements` to never close the current statement before
-  reaching the `#if`, silently dropping the directive and cascading 150+ downstream errors;
-  fixed with a depth-0 check that always closes the accumulated statement at a
-  `PREPROCESSOR`/`MACRO_DEF` token. (3) compile-breaking — `BlockStructureRule.tryCollapse`'s
-  `renderInline` flattened a multi-line `if` condition containing a `//` comment between call
-  arguments, silently absorbing every following token (including the closing `}`) into the
-  comment and producing a 50-error unmatched-brace cascade; fixed with a `containsLineComment`
-  guard that refuses the collapse when the condition carries a line comment. (4) idempotency —
-  `DeclarationAlignmentRule.parseDeclaration` misparsed an already-collapsed one-liner
-  `if`/`while`/`for`/`switch`/`do`/`else` statement (produced by STYLE.md §10/§11's collapse) as
-  a bogus declaration on a second pass, padding a neighboring real declaration's column; fixed
-  by rejecting those six leading keywords, mirroring the existing `case`/`default` guard.
-  Toolchain notes: `/opt/gcc-12.2.0/bin/g++` needs `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`; a fixed
-  baseline of ~10 pre-existing TBB/PSTL errors is expected whenever `<execution>` is
-  transitively included (confirmed unrelated to formatting). Fixtures:
-  `test/real_code_regressions_34_{inp,out}.hpp` (bugs 1+2), `_35_{inp,out}.hpp` (bug 3),
-  `_36_{inp,out}.cpp` (bug 4). `make test` 56/56 forward+idempotency; full 192-file `include/`
-  tree round1/round2-diffed clean, no open gaps remain.
+*(none currently — all previously in-progress candidates (`stdexec`, `mp11`) reached DONE
+with no open gaps.)*
 
-- **C++11**: `github.com/boostorg/mp11` — DONE (2026-07-12), clean pass. Tiny metaprogramming
-  library, 34 self-contained `.hpp` headers (no non-mp11 `#include`s besides std headers),
-  5483 lines total under `include/`. Idempotent at default `indent-size = 4` (which also matches
-  mp11's own actual 4-space convention, confirmed by eyeball — no non-default re-test needed).
-  Compile-check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only` (with
-  `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`, same toolchain note as `stdexec`) on every header
-  standalone (each is self-contained, so no `test/`-tree boost dependency was needed — the
-  repo's own `test/*.cpp` files all pull in `boost/core`/`boost/config` etc. not vendored in this
-  checkout, so those were skipped as out of scope): 0 errors on both the unmodified originals and
-  the round1-formatted tree, identical. No bug found — matches the state file's own prediction
-  (narrow construct diversity, mostly `template<...>` alias declarations, little runtime control
-  flow) that this would be a fast, low-risk smoke test. No fixture added. `make test` 56/56,
-  unchanged.
+When a test completes, remove/compact its entry from "Not started" (or its "In progress"
+detail block here) and add it to "Finished dogfood / real-code testing" above — and to
+"Tools/compiler used" too, if it introduces a genuinely new tool not already listed there.
 
-**NEXT SESSION — continue here:** stdexec and mp11 are now both fully DONE (clean passes, no open
-gaps). Continue real-code testing against remaining C/C++ candidates in this order unless
-redirected: `range-v3` / `STL` / `llvm-project` / `gcc-mirror`, per the priority notes below.
-Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
-failure also reproduces against the unmodified original before treating it as formatter-induced).
-For any C++ candidate distributed under a `.h`/`.hpp` extension, check which it actually is
-before testing — copy to `.hpp` first if really C++.
+**Other findings outside the candidate list**
 
-Additional candidates the user has since supplied (not yet started, path relative to home dir
-written as `~` below so this file never embeds the actual account/user name):
+**Config-key wiring audit (2026-07-06)**, done ahead of the `Doc.java` bug above at user
+request. Root-caused `Doc.java`'s divergence to `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT`
+being `public static final` constants disconnected from `Config.indentSize()`/
+`Config.lineLength()`. Full audit of the example `.jxmake-code-formatter`: only
+`line-length`/`indent-size` were dead/unwired; every other key was already correctly wired.
+Fixed by converting those constants to instance fields, threaded through every constructor
+that needs them (`MiscRule`, `GetterSetterRule`, `JavaSpecificRule`, `CppSpecificRule`,
+`ScopePipeline`), with `Formatter.formatOne` reading `config.indentSize()`/`config.lineLength()`
+once per file. No-op at default settings; verified live at `indent-size = 2`.
 
-- **C++23**: `github.com/basvas-jkj/cpp_modules` — DONE (2026-07-06). Confirmed it does use
-  C++20/23 language modules (`import`/`export module`/`module;` global fragment) throughout,
-  the exact risk flagged below — never previously exercised by this formatter. Compared against
-  `github.com/V1niciosLins/StartCpp` first: `StartCpp` turned out to be a 499-line Bash project
-  *generator* script (scaffolds new C++23/Modules projects on demand) with no actual C++ source
-  of its own to format, so `cpp_modules` (93 total lines across 7 small `.cpp`/`.hpp`/`.mpp`
-  files) was the only real candidate and also the smaller of the two by actual content. Tested
-  all 7 files (the one `.mpp` copied to `.hpp` and `.cpp` files renamed to unique names, since
-  Main.java doesn't infer a language from `.mpp` and several files share the name `main.cpp`):
-  round1/round2 diff empty (idempotent) on every file. No formatter bug found; the one
-  suspicious-looking diff (`println(...)` → `println( ... )` gaining interior padding when an
-  argument is itself a call, e.g. `foo(bar())` → `foo( bar() )`) is confirmed intentional per
-  the "universal complexity padding" design (commit `7b4c80d`, smoke-tested with this exact
-  `func( other() )` shape), not a regression. Compile-check via
-  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++ -std=c++23 -fsyntax-only`: every file fails
-  identically pre- and post-format (`'print' file not found` / `module 'std'|'cwl' not found` /
-  missing `cr.hpp`) — expected, since this checkout has no compiled `std`/header-unit BMI cache
-  or the repo's own missing `cr.hpp`; the identical failures on both original and formatted
-  content confirm the formatter didn't change compileability. No fixture added (no bug found).
-- **C++23**: `github.com/V1niciosLins/StartCpp` — DONE, see note above (not a C++ codebase to
-  format; superseded by testing `cpp_modules` instead).
-- **Clang 22.1.8**, already downloaded and extracted by the user to
-  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/` (a prebuilt Linux-X64 LLVM release, run directly
-  on this CentOS7 box — no `patchelf`/glibc-2.41 repointing needed after all; the release binary
-  already runs as-is here). Confirmed working: `clang++ -std=c++23 -fsyntax-only <file>.cpp`
-  both with and without `-stdlib=libc++` returns exit 0 on a trivial translation unit. This is
-  the preferred tool for the two C++23 candidates above (more current explicit C++23 support
-  than `/opt/gcc-12.2.0`). One cosmetic wrinkle: every invocation of any binary under
-  `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/` prints one repeated stderr line per shared-library
-  dependency --
-  `.../clang++: /opt/gcc-12.2.0/lib64/libstdc++.so.6: no version information available (required by .../clang++)`
-  -- this is just an older libstdc++ (picked up from `/opt/gcc-12.2.0`, likely via an
-  already-set `LD_LIBRARY_PATH`) lacking GNU symbol-versioning metadata; it is NOT a functional
-  error (the command still completes and returns the correct exit code) and is unrelated to
-  glibc. Filter it out of captured output rather than treating it as a compile error, e.g.:
-  `<clang++ invocation> 2>&1 | grep -v 'no version information available'`
-  (grep on that fixed substring is safe/stable — don't grep on the changing library path).
-  `/opt/glibc-2.41/` also exists in this environment (full glibc install, dynamic linker
-  included) if a genuine glibc-version-mismatch problem is ever hit with some OTHER prebuilt
-  binary and patchelf repointing becomes necessary again -- not needed for clang22 itself.
-
-- **Modern C++ candidates the user has since supplied (2026-07-12, not yet started).** Each note
-  below is what the repo *is* and what shape of formatter behavior testing it is expected to
-  stress — written ahead of actually cloning any of these, so treat "expected" claims as a
-  prediction to confirm/correct once a candidate is actually run, not settled fact.
-  - `github.com/foonathan/lexy` — DONE, see the real-code-testing entry above (no bugs found;
-    121-header header-only parser-combinator library, idempotent + compiles clean both before and
-    after formatting).
-  - `github.com/boostorg/mp11` — DONE, see the real-code-testing entry above. Prediction
-    confirmed correct: a fast, low-risk, narrow smoke test (34 self-contained headers, almost
-    entirely `template<...>` alias declarations) that found no new bug, consistent with the
-    template-heavy construct family already covered by `frozen`/PEGTL/lexy/stdexec.
-  - `github.com/NVIDIA/stdexec` — DONE, see the real-code-testing entry above. Prediction
-    confirmed correct (concepts/`requires`, deep template metaprogramming did surface new bugs) —
-    2 bugs found and fixed this session (budget cap), a 3rd compile-breaking bug found and
-    root-caused but left unfixed pending a future session with full budget, plus one still-open
-    idempotency-only flap.
-  - `github.com/ericniebler/range-v3` — the pre-standardization Ranges library C++20 ranges were
-    based on. Larger than `lexy`/`stdexec` (a well-known, mature, moderately large codebase),
-    heavy template/concept-emulation-macro use (this predates real C++20 concepts, so it may use
-    its own macro-based concept-emulation layer — a good test of `format-macros` handling).
-    Already effectively superseded in "modern concepts" coverage by `stdexec` above, so lower
-    priority unless a macro-heavy candidate specifically is wanted.
-  - `github.com/microsoft/STL` — Microsoft's actual `std::` implementation. Large (this is a full
-    standard library, not a small focused library) — expected to have the best raw grammar
-    coverage of anything on this list (every STL container/algorithm shape, extensive
-    `_Ugly_reserved_identifier` naming conventions, heavy conditional-compilation
-    `#ifdef _M_X64`/`#if _HAS_CXX23` branching, `constexpr`/`consteval` throughout) but at real
-    cost in testing time given its size — likely the last of this list to pick up, after the
-    smaller candidates above are exhausted, similar posture to `openrewrite/rewrite` in the Java
-    list below.
-  - `github.com/llvm/llvm-project` — the LLVM/Clang/etc. monorepo. Enormous (likely the largest
-    C/C++ codebase available to test against) — expected to have essentially unmatched grammar
-    coverage (every C/C++ construct in wide real-world use, heavy template metaprogramming in
-    Clang's own AST/type code, extensive macro use in LLVM's `TableGen`-adjacent headers) but at
-    a testing-time cost that makes it a last resort, likely only worth a partial/targeted subtree
-    run (e.g. just `clang/lib/Format/` or `llvm/include/llvm/ADT/`) rather than the whole tree.
-  - `github.com/gcc-mirror` (i.e. `gcc-mirror/gcc`) — the GCC monorepo. Similarly enormous to
-    `llvm-project`; also GCC's own C++ source famously targets an older/more conservative C++
-    dialect for bootstrapping reasons in parts of the tree, so it may exercise *less* modern-C++
-    surface than its size would suggest despite being huge — likely the lowest priority of this
-    list for "modern C++ feature testing" specifically, though still valuable for sheer volume/
-    real-world-idiom coverage if picked up later.
-
-  **Smallest-size/highest-feature-density rationale**: `mp11` is the smallest by raw size but
-  narrow in construct diversity (mostly alias templates, few statement-level constructs);
-  `lexy` is judged the better next pick because it's still small/contained but touches operator
-  overloading, concepts, CRTP, and dense declaration-alignment scenarios in the same file —
-  more likely to surface a genuinely new bug per unit of testing effort than either the very
-  narrow `mp11` or the much larger `STL`/`llvm-project`/`gcc-mirror` candidates. (try to test especailly the C++23 feature)
-  - `github.com/llvm/llvm-project` (try to test especailly the C++23 feature)
-  - `github.com/gcc-mirror` (try to test especailly the C++23 feature)
-
-**Java candidates the user has since supplied (not yet started):**
-
-- **SMALL**: `github.com/google/google-java-format` — DONE (2026-07-06). Idempotency check
-  (format all 84 `.java` files twice, diff round1 vs round2) initially found 5 diverging files:
-  `JavaOutput.java`,
-  `CommandLineOptionsParser.java`, `Doc.java`, `JavadocFormatter.java`,
-  `JavaInputAstVisitor.java`.
-  - `JavaOutput.java` — **FIXED.** `SwitchRule.ensureBlankLineInGap` wrongly split a *trailing*
-    same-line comment (e.g. `} // if`, added by an earlier `addClosingComments` pass, so only
-    reproduces on the second format) onto its own line, treating it like a genuine leading
-    comment before the next case. Fixed with a `startsOwnLine` check. Fixture:
-    `test/real_code_regressions_6_inp/out.java`.
-  - `Doc.java` — **FIXED (2026-07-06), via the config-wiring fix below, no further code change.**
-    `ScopePipeline`'s indent math assumed a hardcoded 4-space width, corrupting this codebase's
-    real 2-space source at odd nesting depths. Resolved once `indent-size` was actually wired
-    through (see config-wiring audit below); confirmed byte-identical round1/round2 at
-    `indent-size = 2`.
-  - `CommandLineOptionsParser.java`, `JavadocFormatter.java` — **FIXED (2026-07-06).**
-    `JavaSpecificRule.applyArrowAlignment` joined an arrow-switch case label onto its body with
-    no line-length check, letting `enforceCallLineBreaking` react differently on a fresh format
-    vs. a reformat of the already-joined output. Fixed by predicting the joined width first and
-    leaving any overflowing case untouched. Fixture: `test/real_code_regressions_7_inp/out.java`.
-  - `JavaInputAstVisitor.java` — **FIXED (2026-07-06), unrelated third bug.**
-    `GetterSetterRule.parseOneLinerMember`'s `findNameBeforeParen` heuristic misparsed
-    `case X, Y -> call(...);`/`default -> throw new Err(...);` arrow arms as fake one-liner
-    "members" and column-aligned them together, inserting stray mid-statement padding. Fixed by
-    rejecting any one-liner starting with `case`/`default` before the name/return-type heuristics
-    run. Fixture: `test/real_code_regressions_8_inp/out.java`. All five previously-diverging
-    files (`JavaOutput.java`, `Doc.java`, `CommandLineOptionsParser.java`,
-    `JavadocFormatter.java`, `JavaInputAstVisitor.java`) confirmed byte-identical round1/round2
-    after this fix; `make test` 23/23. Library marked DONE.
-- **MEDIUM**: `github.com/javaparser/javaparser` — a Java parser/AST library (i.e. it parses Java
-  source into an AST, unrelated to *this* formatter's own tokenizer). Medium size, excellent
-  grammar coverage: expected to exercise generics-heavy declarations, visitor-pattern class
-  hierarchies with deep inheritance, extensive Javadoc comments (a good test of §15
-  comment-scope/sentence detection, RDD_KEY_47-50), and its own large `switch`-heavy visitor
-  dispatch code (§13 switch-rule stress). Good candidate for finding parsing-edge-case bugs
-  across a wide variety of Java constructs without `openrewrite/rewrite`'s size cost.
-- **HUGE**: `github.com/openrewrite/rewrite` — a large-scale automated-refactoring/Java(+other
-  languages) AST-rewrite engine. Low priority given its size (a genuinely large multi-module
-  codebase); only pick up once the smaller candidates above are exhausted. Expected feature
-  coverage is similar in kind to `javaparser` (AST/visitor-heavy code) but at much greater
-  volume, plus likely some annotation-processor-generated or Lombok-style code that could
-  exercise `AI_PREAMBLE`-adjacent gaps not seen elsewhere.
-- **Local**: `../../../../VMA-GIT/anemonesoft/` (relative to this `formatter/` directory,
-  contains `gui/` and `i18n/` subdirs at minimum) — DONE (2026-07-12). Confirmed pure Java (82
-  `.java` files, no C/C++; JDK8-source, built via Makefile with `--release 8` against a JDK21
-  `javac`, no pom/gradle). Copied to `/tmp/anemonesoft_test/` for all testing; original
-  `VMA-GIT/anemonesoft/` tree verified untouched (`git status` clean) both before and after.
-  Idempotency check (all 82 files formatted twice, diff round1 vs round2) initially found 2
-  diverging files: `gui/component/Spreadsheet.java`, `gui/dialog/HelpBox.java`. **FIXED.**
-  `MiscRule.renderCallCandidate`'s `containsNewline` branch calls `groupByOriginalLine`, which
-  tracks only paren/bracket/angle-bracket depth, not brace depth — once a multi-argument call's
-  trailing argument is itself a multi-line brace body (`new Timer(0, new ActionListener() {
-  ...multi-statement... })`), every line inside that body (no top-level comma to split on) gets
-  silently swallowed into one row and rendered via a single `collapseTokensToOneLine` call with
-  no line-length check, producing an unboundedly long output line on the fresh format; a later
-  reformat then reacted differently (Java's Allman brace pass sees a genuinely multi-line body
-  the second time), surfacing as the idempotency failure. Fixed by widening an existing
-  Kotlin-only "leave such an argument untouched" bail (previously justified only by Kotlin's
-  missing `;` statement separator) to all languages, using a new `containsInternalNewline`
-  helper (newline strictly between an argument's own first/last significant token, not merely in
-  its leading formatting gap before the split comma) so `real_code_regressions_1`'s single-line
-  `{ ret, level1(ret) }` brace argument is unaffected. Fixture: `test/real_code_regressions_29_
-  inp/out.java`. `make test` 49/49. Compile-check (`/opt/openjdk-21_linux-x64_bin/jdk-21/bin/javac
-  -d ... -cp . --release 8`, matching the project's own `Makefile.config`/`Makefile.utils`
-  toolchain) of the fixed round1 output: 28 errors, identical set (same files/symbols, only line
-  numbers shifted) to the unmodified original's own 28-error baseline (all pre-existing missing-
-  dependency errors — `package Jama does not exist` / `cannot find symbol: class Matrix` in
-  `stat/*Regression.java`, `stat/Robustness.java` — this checkout has no `Jama` library on its
-  classpath; unrelated to formatting). Library marked DONE.
-
-**Config-key wiring audit (2026-07-06), done ahead of the `Doc.java` bug above at user
-request.** Root-caused `Doc.java`'s divergence to `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT`
-being `public static final` constants disconnected from
-`Config.indentSize()`/`Config.lineLength()` despite both getters existing. Full audit of every
-key in the example `.jxmake-code-formatter`: **only `line-length` and `indent-size` were
-dead/unwired**; every other key was already correctly wired. (`header-guard-style` was a
-documented non-implementation at the time — since removed entirely, see below.)
-
-Fixed by converting `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` to instance fields
-(`indentWidth`/`lineLengthLimit`, with `DEFAULT_*` constants for legacy no-config
-constructors), threading them through every constructor that needs them (`MiscRule`,
-`GetterSetterRule`, `JavaSpecificRule`, `CppSpecificRule`, `ScopePipeline`), and having
-`Formatter.formatOne` read `config.indentSize()`/`config.lineLength()` once per file. No-op at
-default settings (`make test` 23/23, no fixture changes); verified live at `indent-size = 2`
-that standalone mode now actually reindents to 2 spaces.
-
-**Follow-up audit (same day): a second, separate class of dead-`indent-size` literal.**
-Several rule classes also carried their own independent
-`private static final String DEFAULT_INDENT_UNIT = "    ";` fallback (same bug class as the
-`SwitchRule`/`fmt` flush-case-label growth above) — found and fixed in `MiscRule`'s §8
+**Follow-up (same day):** several rule classes also carried their own independent hardcoded
+`DEFAULT_INDENT_UNIT = "    "` fallback (same bug class) — found and fixed in `MiscRule`'s §8
 call/declaration-wrapping pass, `JavaSpecificRule.deriveIndentUnit`, and
-`CppSpecificRule.enforceRequiresClausePlacement`, each given an instance field built from
-`indentWidth` instead of the hardcoded literal, threaded through `Formatter.formatOne`'s
-constructor calls. No-op at default `indent-size` (`make test` 30/30); verified live at
-`indent-size = 2` with a synthetic C++ repro. Re-running the `frozen` 44-file tree while
-re-verifying is what surfaced the `map.hpp`/`set.hpp`/`catch.hpp` bugs in that library's entry
-above — unrelated to this indent-unit audit itself.
+`CppSpecificRule.enforceRequiresClausePlacement`. No-op at default `indent-size`; re-running
+the `frozen` tree while re-verifying this is what surfaced the `map.hpp`/`set.hpp`/`catch.hpp`
+bugs in that entry above (unrelated to this audit itself).
 
-**Removal (same day): `header-guard-style` removed entirely** rather than left as
-silently-dead config surface (it accepted `ifndef`/`pragma-once` values with zero effect) —
-removed from `Config.java` (key, field, getter, choices, parser call), `README.md`, and this
-file's sample config; `CppSpecificRule.enforceHeaderFileStructure`'s doc comment updated to
-match. Re-add the key if guard-style conversion is ever actually implemented.
+**Removal (same day):** `header-guard-style` removed entirely (was silently-dead config
+surface — accepted `ifndef`/`pragma-once` with zero effect) from `Config.java`, `README.md`,
+and this file's sample config. Re-add if guard-style conversion is ever actually implemented.
 
-Note (superseded, kept for history): this fix was first believed not to resolve the
-`Doc.java`/`CommandLineOptionsParser.java`/`JavadocFormatter.java`/`JavaInputAstVisitor.java`
-google-java-format idempotency divergence, since `ScopePipeline`'s callers default to
-`indentSize=4` unless a project config sets otherwise and google-java-format's checkout has no
-such config file. Still true of the checkout itself — but testing was done by dropping a
-project config (`indent-size = 2`) alongside the checkout before formatting. Once done,
-`Doc.java` came out byte-identical round1/round2, confirming the config-wiring fix resolved it
-(see the google-java-format entry above, now DONE) — no separate 2-space-reindent-engine work
-was needed after all.
+**Dogfood-compile-check bug** (fixed before the round1/round2 real-code methodology existed —
+this is what the Step A "Dogfood self-format compile" checklist item above refers to):
+`MiscRule.renderCallPreserveGroups`/`renderDeclarationPreserveGroups` split each source line's
+tokens on top-level commas independently, resetting paren/bracket/angle depth to 0 at each line
+start — a nested call whose own arguments wrap onto a second physical line (real depth > 0
+carried across the break) caused a misread trailing comma and a duplicate comma insertion,
+corrupting output (including the formatter's own `TokenizerCore.java`). Fixed with a new
+`groupByOriginalLine` helper that tracks depth cumulatively across the whole multi-line slice;
+the old buggy `splitOnNewlines` removed.
 
-**Local PCPP-heavy Java source (`../../../src/jxm/ugc/ARMCortexMThumbC.java.in`) — tested
-2026-07-05, DONE, no bug found.** Not standalone-compilable (a `.java.in` template); verified via
-the real `pcpp-java-1.30.jar` preprocessor (invoked `java -jar pcpp-java-1.30.jar <input> -o
-<output>`, input before `-o`) on both pre-/post-format source, comparing token streams
-(`#line` directives stripped first, since those legitimately shift with line-count changes) —
-0-line diff on 105366 tokens; idempotent. Repeatable methodology for any future
-PCPP-heavy candidate; plain `gcc -E`/`cpp` does NOT work here (hard-errors on this file's
-intentional `##` token-pasting tricks).
-
-**`../../../3rd_party/tools/pcpp_java/src/` (local, 41 `.java` files)** — DONE (2026-07-06).
-2 idempotency bugs found via round1/round2 diffing:
-- `Evaluator.java` — `SwitchRule.alignInlineSwitches` never checked a row's rendered length
-  against `lineLengthLimit` before column-padding, letting a padded row exceed the limit on a
-  fresh format while `enforceCallLineBreaking` (earlier phase) never got to react — same bug
-  class as `real_code_regressions_7`'s arrow-join overflow. Fixed by threading `lineLengthLimit`
-  into `SwitchRule` and predicting each row's final width first. Fixture:
-  `test/real_code_regressions_9_{inp,out}.java`.
-- `Value.java` — `ScopePipeline.processScope` used a raw `childSource.contains("\n")` check to
-  decide if a scope body was still a one-liner; a call inside it broken across lines by
-  `enforceCallLineBreaking` fooled that check on reformat, wrongly recursing into and corrupting
-  an already-correct one-liner body. Fixed with a depth-aware `hasTopLevelNewline` scan (only a
-  depth-0 `NEWLINE` counts). Fixture: `test/real_code_regressions_10_{inp,out}.java`.
-- `Preprocessor.java` — no formatter bug; its diff was fully explained by the two fixes above.
-
-`make test` 28/28, full 41-file tree idempotent, both trees compile clean with `javac`.
-
-**Dogfood-compile-check bug (fixed before the round1/round2 methodology existed):**
-`MiscRule.renderCallPreserveGroups`/`renderDeclarationPreserveGroups` split each original
-source line's tokens on top-level commas independently, resetting paren/bracket/angle depth to
-0 at each line start — a nested call wrapping its own arguments onto a second physical line
-(real depth > 0 carried across the line break) caused a trailing comma to be misread and a
-synthetic duplicate comma inserted, corrupting output (compile errors in `TokenizerCore.java`'s
-own `new Token(...)` construction, among others). Fixed with a new `groupByOriginalLine` helper
-that tracks depth cumulatively across the whole multi-line slice while still grouping results
-back into per-original-line rows; the old buggy `splitOnNewlines` removed. `make test`
-18/18, dogfood self-format compiles with zero `javac` errors.
-
-Known pre-existing gaps, discovered during Main.java smoke-testing, left unfixed as
-out of scope (flagged to user, not part of this checklist): `ServerMode.FormatHandler`
-doesn't resolve `indent-style = auto` before calling `Formatter.formatOne` (will throw
-on a server-delegated request for such a project — masked in practice by `Main`'s
-fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` is
-applied by `Main.applyLineEndings()` for standalone/in-process formatting but not yet
-by `ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
+**Known pre-existing gaps** (discovered during `Main.java` smoke-testing, left unfixed as
+out of scope, flagged to user): `ServerMode.FormatHandler` doesn't resolve
+`indent-style = auto` before calling `Formatter.formatOne` (masked in practice by `Main`'s
+fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` is applied by
+`Main.applyLineEndings()` for standalone/in-process formatting but not yet by
+`ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
 
 **Step 2 — AI integration: NOT FEASIBLE (deferred) — see `STATE_NEXT_AI.md`.**
 

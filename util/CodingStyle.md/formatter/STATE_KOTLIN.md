@@ -758,6 +758,53 @@ Follow STATE_COMMON.md's fixture-registration convention when a bug is found and
 in `test/README.txt`, standard copyright header) — same precedent as the `indent-size = 2`
 config-wiring no-op exception noted there.
 
+**Lightweight PSI-based syntax-only checker — viable, distinct from the rejected
+full-compilation recipe above.** The "Standalone `K2JVMCompiler` classpath — rejected"
+note above is about a bare classpath doing a *full compile*, which genuinely cannot
+resolve `android.*`/AndroidX imports without Gradle's dependency graph. A **syntax-only**
+checker is a different, much lighter tool: it parses a `.kt` file to a PSI/AST via
+`KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes (parse errors)
+— it does no semantic/type checking and never needs to resolve `android.*` imports at
+all, so the AndroidX objection doesn't apply to it. Built and verified this session:
+`KotlinCoreEnvironment.createForProduction`/`KtPsiFactory.createFile(String)`/
+`PsiTreeUtil.findChildrenOfType(file, PsiErrorElement.class)` all exist with the expected
+signatures in Kotlin compiler 2.4.0 (checked via `javap`); every needed class
+(`com.intellij.openapi.util.Disposer`, `com.intellij.psi.PsiErrorElement`,
+`com.intellij.psi.util.PsiTreeUtil`, and all `org.jetbrains.kotlin.*` PSI/CLI classes) is
+bundled in the single shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
+— no separate intellij-core/trove4j jars needed, confirmed via `unzip -l`. Built as a
+plain classpath-based (not module-path) standalone Java program.
+
+Tool location: `~/Projects/JxMake/0_excluded_directory/personal/kotlin_sc/`
+(`SyntaxCheck.java` + compiled `SyntaxCheck.class`; this directory is gitignored — see
+top-level `.gitignore`'s `0_excluded_directory` entry — so nothing here is or needs to be
+git-tracked).
+
+Build/run (JDK 21, matches this compiler's class file version 52 = Java 8 target, runs
+fine on 21):
+
+```bash
+JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
+cd ~/Projects/JxMake/0_excluded_directory/personal/kotlin_sc
+"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" SyntaxCheck.java
+"$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" SyntaxCheck <file.kt>
+```
+
+Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints each
+`PsiErrorElement`'s description + text range when a parse error is found. Verified
+against this project's own `test/kt_combined_out.kt` (passes clean) and a deliberately
+corrupted copy with injected stray `}}}` (correctly reports `Expecting a top level
+declaration` / `imports are only allowed in the beginning of file` errors at the right
+offsets).
+
+**Recommended use going forward:** for a quick syntax/parse sanity check on formatter
+output (Kotlin or not-yet-Gradle-verified files), run this tool first — it's near-instant
+versus a full Gradle build. It does NOT replace `./gradlew compileDebugKotlin` for real
+dogfood/compile-check testing (no semantic checking, no unresolved-reference detection,
+no guarantee that PSI-valid code is actually semantically valid) — keep using the Gradle
+recipe above for that. Treat this as a fast pre-filter / supplement, not a substitute.
+
 **Further candidates the user has since supplied (not yet started).** Unlike
 `gui_frontend_android` above, none of these are Android/Gradle projects, so
 they don't need the dogfood-copy/`gradle.properties` dance — compile

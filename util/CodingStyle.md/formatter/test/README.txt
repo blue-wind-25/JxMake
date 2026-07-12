@@ -493,6 +493,22 @@ Real-code regressions:
                                             `catch`/`finally` span inherit its preceding span's
                                             resolved indent.
 
+  real_code_regressions_42_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `Kotlin/kotlinx.coroutines`: `ThreadSafeHeap.kt`'s (and
+                                            `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/
+                                            `ExceptionsConstructor.kt`'s) top-level class closing
+                                            brace/comment drifted deeper once a wrapped multi-line
+                                            generic `where` clause put the class's own `{` on a
+                                            deeply-indented continuation line -- `ScopePipeline`'s
+                                            `effectiveSpanIndent` chose `braceIndent` (that
+                                            continuation line's indent) over `spanIndent` (the
+                                            class header's own indent) whenever it was deeper,
+                                            correct for an unnamed trailing-lambda body
+                                            (RDD_KEY_136) but wrong for a NAMED construct
+                                            (class/fun/object), which must always indent relative
+                                            to its own header. Fixed by gating `braceIndent` off
+                                            entirely for named scopes.
+
 How Tests Are Run
 -----------------
 

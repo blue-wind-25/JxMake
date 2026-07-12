@@ -1450,9 +1450,25 @@ public class ScopePipeline {
                     && chainKwIdx >= 0 && chainKwIdx < current.size()
                     && current.get(chainKwIdx).type == TokenType.KEYWORD
                     && ("catch".equals(current.get(chainKwIdx).text) || "finally".equals(current.get(chainKwIdx).text));
+            // A NAMED construct (class/interface/object/fun) must always indent its body relative
+            // to its own header's start column (`spanIndent`), never to the physical line its
+            // `{` happens to land on. A named header can wrap across multiple lines for reasons
+            // that have nothing to do with a trailing-lambda call chain -- e.g. a Kotlin
+            // multi-line generic `where` clause (`enforceWhereClausePlacement`, RDD_KEY_106)
+            // whose continuation lines are indented deep to align under `where`, with the `{`
+            // itself trailing the last constraint line. `braceIndent` reading that continuation
+            // line's indent and `spanIndent == 0 < braceIndent` wrongly won under the plain
+            // `braceIndent.length() > spanIndent.length()` test below, indenting the whole class
+            // body (and its closing `}`/`} // class X` comment) under the `where` continuation
+            // instead of column 0 -- reproduces only on a second format pass, once the `where`
+            // clause is already wrapped in the input text (found via `kotlinx.coroutines`'s
+            // `ThreadSafeHeap.kt`). The `braceIndent`-wins case (RDD_KEY_136) is for UNNAMED
+            // trailing-lambda bodies at the end of a fluent call chain, where the brace's own
+            // physical line genuinely is the body's real anchor -- that shape is never
+            // `isNamedScope`.
             if (isChainedCatchFinally) {
                 effectiveSpanIndent = prevEffectiveSpanIndent;
-            } else if (braceIndent == null) {
+            } else if (braceIndent == null || isNamedScope) {
                 effectiveSpanIndent = spanIndent;
             } else if (spanIndent == null || braceIndent.length() > spanIndent.length()) {
                 effectiveSpanIndent = braceIndent;

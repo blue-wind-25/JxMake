@@ -150,163 +150,6 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 ---
 
-## Open Questions
-
-- **First-statement double-indentation bug — RESOLVED, see RDD_KEY_122.**
-  Asked whether a first-statement double-indentation was a real formatter
-  bug; turned out to be a stray leftover test-harness config
-  (`indent-size=8`) inflating a real 4-space indent, not a bug — but a
-  different, real bug was found in the same area (a Kotlin property's
-  `set(value) { ... }` accessor closing-brace under-indented by one level)
-  and fixed under the same key.
-- **Reversed declaration grammar (§6/§7) — RESOLVED, see RDD_KEY_103/104.**
-  Asked how to reconcile `DeclarationAlignmentRule`/`MiscRule`'s C/Java
-  `[modifiers] Type name [= init]` model with Kotlin's reversed
-  `[modifiers] val/var name : Type [= init]` grammar for §6 (declarations)
-  and §7 (parameter lists). Resolved by loosening the shared classes'
-  private helpers to `protected` and extending them
-  (`KotlinDeclarationAlignmentRule`/`KotlinSignatureRule`), each with its own
-  name-before-type parser/renderer.
-- **String template tokenizing (§19) — RESOLVED, see RDD_KEY_116/117.**
-  Asked whether `TokenizerCore.emitString()` correctly closes a Kotlin
-  string when a `${...}` interpolation contains its own nested `"..."`;
-  confirmed a real tokenizer-correctness risk (also surfacing triple-quoted
-  raw strings as a related gap) and fixed both.
-- **§8/§9 one-liner getter/setter grouping — RESOLVED for §9 (RDD_KEY_132)
-  and §8 plain expression-bodied `get()` accessors (RDD_KEY_133).** Asked
-  why adjacent one-liner Kotlin accessors got no column alignment (Java's
-  equivalent aligns); root cause was the same reversed-grammar problem as
-  §6/§7, not yet extended to `GetterSetterRule`. Fixed via
-  `KotlinGetterSetterRule extends GetterSetterRule` for both shapes.
-  Block-bodied accessors, getter+setter pairs, and initializer+accessor
-  properties remain a documented, deliberately out-of-scope gap (still
-  correctly preserved as written, just not column-aligned).
-- **Bare `else` single-statement collapse — RESOLVED, see RDD_KEY_127 +
-  RDD_KEY_128.** Asked why a bare `else` (no condition of its own) wasn't
-  collapsing/aligning like its `if`/`while`/`for` siblings (RDD_KEY_124 was
-  keyed off each's own `(...)` condition, never a standalone `else`).
-  RDD_KEY_127 fixed the collapse-to-one-line half; RDD_KEY_128 fixed the
-  column-padding half with a standalone pass run last in the pipeline (an
-  earlier collapse-time attempt was stale by one column against a later
-  paren-tightening pass).
-- **Signature param column-alignment/trailing-comma silently lost after
-  splice-back — OPEN, RDD_KEY_149.** Found via `square/okio` real-code
-  testing (`RealBufferedSink.kt`'s `commonWriteUtf8`, also reproduces in
-  `FakeFileSystem.kt`): a multi-line Kotlin function parameter list that
-  needs to break (doesn't fit inline) is rendered correctly by
-  `KotlinSignatureRule.render`'s `ColumnGrid`-based path — confirmed via a
-  temporary debug print directly at its own return point, e.g.
-  `"string     : String,"`/`"beginIndex : Int,"`/`"endIndex   : Int,"`, each
-  column padded to its sibling's width and the trailing comma preserved. But
-  the text that ends up in the final written file has the padding collapsed
-  to a single space and the trailing comma stripped — neither of which
-  `render()`/`renderWithTail()` produce. Something downstream of the
-  `Replacement` being spliced back into the token/text stream is
-  re-normalizing or re-tokenizing this already-rendered text; grepped for an
-  explicit trailing-comma-stripping pass and found none, so the exact
-  mechanism is still unidentified (leading theory: a later whole-file pass
-  collapses literal multi-space `WHITESPACE` runs down to one space without
-  recognizing intentional column padding inside already-rendered replacement
-  text, though this alone doesn't explain the comma loss). All debug
-  instrumentation added while investigating (`ColumnGrid.flush`'s
-  `CG_DEBUG`-gated print, a per-line print in `KotlinSignatureRule.render`)
-  was reverted before committing — none remains in the source. Left open
-  rather than guessed at further; next step is probably to trace exactly
-  which later pass's `Replacement`/text rewrite touches this span, e.g. by
-  diffing the token stream immediately before and after each pass in
-  `ScopePipeline`'s pipeline for this specific input.
-- **`square/kotlinpoet` remaining idempotency diff (12 files) — OPEN, found
-  this session (RDD_KEY_152/153 fixed 2 of the original 13).** After both
-  fixes, `CodeWriter.kt`/`FileSpec.kt`/`FunSpec.kt`/`LambdaTypeName.kt`/
-  `MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/`TypeVariableName.kt`/
-  `WildcardTypeName.kt`/`AbstractTypesTest.kt`/`TaggableTest.kt` and 4 files
-  under `interop/kotlin-metadata/` still round1-vs-round2 diff. At least two
-  distinct shapes observed, neither fully root-caused: (1)
-  `MemberSpecHolder.kt`'s `addProperties`/`addFunctions` — an expression-
-  bodied function's parameter list breaks across lines on round1 (`fun
-  addProperties(\n  propertySpecs: Iterable<PropertySpec>\n): T = apply {
-  ... }`) but stays inline on round2 (`fun addProperties(propertySpecs:
-  ...): T = apply { ... }`). **Narrowed this session (evidence, not yet a
-  fix):** re-repro'd standalone against `orig.kt`/`MemberSpecHolder.kt` at
-  the same `indent-size=2` config used in the original `square/kotlinpoet`
-  test run (confirmed the flap reproduces there; testing at the tool's
-  bare default config additionally surfaces an unrelated, seemingly-stray
-  loose-paren spacing artifact — `addProperty( x, y )` instead of
-  `addProperty(x, y)` — not investigated further and NOT part of this bug,
-  most likely a leftover ad-hoc-testing config artifact same shape as the
-  one RDD_KEY_122 found, but not confirmed). A debug print placed at
-  `KotlinSignatureRule.renderWithTail`'s tier-1 fits-check (right before
-  the `startColumn + inline.length() - commentLen <= lineLengthLimit`
-  branch) shows **byte-identical** `inline`/`tailStr` values on both
-  round1 and round2 (`tailStr=[: T = apply]`, 74 chars, well under the
-  100-col limit) — `renderWithTail` takes the exact same tier-1 early-return
-  branch both times and is NOT where the two rounds diverge, contradicting
-  the previous (RDD_KEY_152/153-session) hypothesis that blamed this
-  method's own fitting decision directly. Also confirmed via
-  `parseFunctionTail`'s tail-token slice that the tail is deliberately cut
-  short right after `apply` — the `{ propertySpecs.map(::addProperty) }
-  as T` portion is NOT part of the rendered tail string at all; it's left
-  as trailing token text in the stream for a later pass to handle. Since
-  `renderWithTail`'s own decision is identical both rounds yet the actual
-  written signature differs (params wrapped on round1, not on round2), the
-  actual flap must be introduced by a **later pass** that re-measures the
-  merged line (signature text + the trailing `{ ... } as T` it doesn't
-  own) and independently chooses to re-wrap the signature's own `(...)` as
-  if it were a generic breakable call/paren group — almost certainly
-  `MiscRule.enforceCallLineBreaking`, not `KotlinSignatureRule`. Not yet
-  traced inside that method to find exactly which width comparison
-  produces a different verdict round1 vs round2 (the debug-print budget
-  this session went into first localizing which class owns the bug, not
-  yet into that class's own internals) — next step is a debug print
-  in `MiscRule.enforceCallLineBreaking`'s wrap-candidate-selection/width-check
-  logic, dumping candidate span text + computed width for the
-  `addProperties(...)` span specifically, round1 vs round2, to find where
-  the numbers disagree. (2) `CodeWriter.kt`'s earlier-observed
-  call-argument continuation-line indent staleness (an `is FunSpec ->
-  o.emit(\n  codeWriter = this,\n  ...\n)` branch body, itself a variant of
-  the same "Phase 4 arrow-merge changes the branch's physical line,
-  invalidating an earlier phase's physical-line-anchored indent decision"
-  root cause RDD_KEY_152 fixed for `ScopePipeline`, but here manifesting in
-  a different rule (likely `MiscRule.enforceCallLineBreaking`'s own
-  continuation-indent logic — plausibly the SAME method as (1) above, worth
-  checking together) not yet traced to its exact source. Not investigated
-  further this session. `kotlinc` syntax-checking `kotlinpoet/src/jvmMain`
-  still finds **zero** genuine syntax errors (only expected
-  unresolved-reference/multiplatform noise from checking `jvmMain` in
-  isolation) — none of these 12 remaining files are known to be
-  compile-breaking, only idempotency-flapping. No fixture added and no
-  fix attempted this session — per STATE_COMMON.md's ambiguity protocol,
-  stopping here to document the narrowed evidence rather than guess inside
-  `MiscRule.enforceCallLineBreaking` without a debug-print-confirmed root
-  cause. All debug instrumentation added while investigating (a
-  `KSR_DEBUG`-gated print in `KotlinSignatureRule.renderWithTail`) was
-  reverted before ending the session; `make test` reconfirmed 53/53
-  forward + 53/53 idempotency with the source tree back at its
-  RDD_KEY_153 state (no code changes this session).
-
-- **`kotlinx.coroutines` idempotency investigation — CLOSED, 0 of 10 files remain open.**
-  After RDD_KEY_154's fix, 10 files round1-vs-round2 diverged (`BufferedChannel.kt`/
-  `AbstractSharedFlow.kt`/`ChannelFlow.kt`/`ConcurrentLinkedList.kt`/`ThreadSafeHeap.kt`/
-  `JobSupport.kt`/`Select.kt`/`DebugProbesImpl.kt`/`ExceptionsConstructor.kt`/`SystemProps.kt`), plus
-  a separate compile-breaking bug found in the same round of testing. All resolved across several
-  sessions: the compile-breaking bug (RDD_KEY_157); `SystemProps.kt`/`Select.kt`/`DebugProbesImpl.kt`
-  (RDD_KEY_157/158); `ThreadSafeHeap.kt`/`AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/
-  `ExceptionsConstructor.kt` (shared named-scope-with-wrapped-header root cause, RDD_KEY_159);
-  `JobSupport.kt`'s call-argument continuation-line indent flap (RDD_KEY_160 -- also confirms the
-  `MiscRule.enforceCallLineBreaking` continuation-indent family theorized as the likely culprit for
-  the still-open `square/kotlinpoet` `CodeWriter.kt` shape below, though that file itself was never
-  re-checked, out of scope); `BufferedChannel.kt`'s bare `}` closing-brace drift (a dangling
-  braceless `else`/`catch`/`finally` mis-anchoring `findParentIndent`, RDD_KEY_161); and finally
-  `ChannelFlow.kt`'s declaration-alignment padding-width flap (`countOrElement`/`emitRef` — alignment
-  padding widening a sibling row enough to trigger a later wrap, whose reflow then failed to re-parse
-  as alignable — fixed by making `KotlinDeclarationAlignmentRule.renderAlignedGroup` indent-width/
-  line-length-limit-aware, RDD_KEY_162). Full narrative and evidence for each lives in RDD_LOG.md's
-  respective `RDD_KEY_n` entries — see there rather than this file for mechanism-level detail.
-  Reusable `/tmp` checkout locations from this investigation (`/tmp/kx_orig` etc.) are now stale
-  scratch state, not referenced by any remaining open item.
-
----
-
 ## Checklist
 
 ### Step 0 — Tokenizer Support (shared file, additive only)
@@ -622,100 +465,40 @@ RDD_KEY_131; one-line summary each:
 
 **Status: dogfood tree now compiles clean end-to-end — Step 5's core goal is
 met.** Any future session picking this up should treat it as
-regression-watching / further polish, not a known-broken state.
-
-**Round-by-round bug history:** the full walkthrough (RDD_KEY_134 through
-RDD_KEY_144, what broke, root cause, and the fix for each) lives in the
-Resolved Design Decisions table above — not repeated here. Summary of the
-overall arc: the idempotency pass (round1 vs round2 diff across 46 `.kt`
-files) initially found 9 non-idempotent files; RDD_KEY_134 through
-RDD_KEY_140 resolved all 9 one root cause at a time (multi-line
-trailing-lambda call collapse, call-wrapped-initializer misclassification,
-lambda-brace indent anchor, if/else-as-value-expression collapse,
-`&&`-vs-C-style-`&`-sigil confusion, §9 column-width flapping, and an
-Allman-brace width-prediction gap — see table for per-bug detail).
-Separately, `./gradlew compileDebugKotlin` against the fully-formatted tree
-then failed with ~50 compiler errors across 9 files, a more severe
-first-pass-compile-breaking class of bug distinct from idempotency; RDD_KEY_141
-through RDD_KEY_144 resolved these one file at a time via this project's
-standard minimal-repro → fix → fixture → RDD_LOG protocol (a
-return-type-tail misdetection eating a fluent-chain method call, a
-label-detection false-positive on `@Annotation`, a `when`-arm `else ->`
-wrongly matched by braceless-`else` collapse, and two unrelated bugs in one
-`ProgramBuilder.kt` statement).
-
-**Final result:** recreated the dogfood copy from the pristine original,
-reformatted all 46 `.kt` files with the RDD_KEY_144-fixed jar, ran
-`./gradlew compileDebugKotlin` — `BUILD SUCCESSFUL`, zero errors (only two
-pre-existing, unrelated deprecation warnings in `WifiStaDialog.kt` remain).
-Step 5's goal (a full, real Android app's Kotlin sources reformatted
-end-to-end and still compiling) is met.
-
-Do not touch `~/Projects/RobotCoding/gui_frontend_android` itself — only the
-dogfood copy. **Caution established this session**: the dogfood copy at
-`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` can itself hold
-*already-formatted, pre-fix* output from an earlier session's round1/round2
-runs — always re-verify a fix against the true pristine originals under
-`~/Projects/RobotCoding/gui_frontend_android` (read-only, never write
-there), not just the dogfood copy, or a stale idempotency check can falsely
-look unfixed (or falsely look fixed). (This caution is what surfaced the
-`ToolbarActions.kt`/`MainViewModel.kt` statement-joining bug masked behind
-RDD_KEY_136's closing-brace-drift diff — see RDD_KEY_137.)
+regression-watching / further polish, not a known-broken state. See
+**Finished dogfood / real-code testing** for completed candidates,
+**Not started dogfood / real-code testing** for queued/deferred ones, and
+**Tools/compiler used** for exact invocations.
 
 - [x] Once Steps 0–4 are complete, apply STATE_COMMON.md's real-code-testing
       methodology (clone a real, compiling Kotlin project → format →
-      idempotency check round1 vs round2 → compile with `kotlinc`) —
-      deferred until the core checklist above is done, not started
-      speculatively.
-
-      Candidate **RobotCoding `gui_frontend_android`**
-      (`~/Projects/RobotCoding/gui_frontend_android/app/src/main/java/*.kt`,
-      not reachable via the `../../../../` relative path originally written
-      here — that project lives outside the `JxMake` tree, under
-      `~/Projects/RobotCoding/`, a sibling of `~/Projects/JxMake/`) — status:
-      **complete, see above.**
+      idempotency check round1 vs round2 → compile-check) — deferred until
+      the core checklist above was done, not started speculatively. See the
+      candidate lists below for status of every candidate run so far.
 
 **Standalone `K2JVMCompiler` classpath — rejected, do not use.** A bare
 `kotlin-compiler-embeddable` + `kotlin-stdlib` classpath cannot syntax-check
-this candidate: every file under `gui_frontend_android/app/src/main/java/*.kt`
-imports `android.*`/AndroidX APIs, which only exist in the Android SDK jars
-pulled in by the project's own Gradle build — a bare compiler classpath would
-fail on essentially every real file, not just report genuine syntax errors.
+an Android/AndroidX candidate: every file under
+`gui_frontend_android/app/src/main/java/*.kt` imports `android.*`/AndroidX
+APIs, which only exist in the Android SDK jars pulled in by the project's own
+Gradle build — a bare compiler classpath would fail on essentially every real
+file, not just report genuine syntax errors. Use the project's own Gradle
+wrapper instead (tool (2) below) for any Android/Gradle candidate.
 
-**Use instead:** the project's own Gradle wrapper, via its own env script —
-run it against a **copy** of `gui_frontend_android/`, never the original
-checkout in `~/Projects/RobotCoding/`, since the dogfood workflow writes
-formatted `.kt` files back to disk and doing that against the real, in-use
-working tree risks clobbering uncommitted work. `gui_frontend_android/` is a
-standalone Gradle/Android module, independent of RobotCoding's other
-`make`/Arduino-built parts — only it needs to be copied.
-
-Copy it once into a **persistent** location —
+For `gui_frontend_android`: copy it once into a **persistent** location —
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — rather than `/tmp`, so
-it survives reboots and doesn't need re-copying (and re-editing, see below)
-every session. If this directory already exists, skip the copy step and go
-straight to the one-time `gradle.properties` edit check / compile.
+it survives reboots and doesn't need re-copying every session. Do not touch
+`~/Projects/RobotCoding/gui_frontend_android` itself (read-only, never write
+there) — only the dogfood copy, and always re-verify a fix against the true
+pristine originals there, not just the dogfood copy (a stale dogfood copy can
+hold already-formatted, pre-fix output from an earlier session and falsely
+look fixed/unfixed).
 
-**One-time setup after the copy:** the original `gradle.properties` points
-its build output at the real project's own external build dir, which would
-still collide with the original project even from a copy since the path is
-external to `gui_frontend_android/` itself — edit `gradle.properties` in the
-dogfood copy so `project.buildDir` is a plain relative value instead:
-
-```
-project.buildDir=build
-```
-
-(Gradle resolves a relative `project.buildDir` against the project directory
-it's declared in, so build output stays fully inside the dogfood copy with
-no absolute path needed.) Do this once per copy — redo it if the dogfood dir
-is ever deleted and recopied.
-
-`gui_frontend_android/env.sh` sets `ANDROID_HOME` and puts Gradle 8.9 and
-JDK 21 on `PATH` — source it (or replicate just its `export` lines; it also
-`cd`s and `exec bash`s into an interactive shell, not wanted for a scripted
-run) from within the dogfood copy, then run the copy's own `./gradlew` with
-a compile-only task, e.g.:
+**One-time setup after the copy:** edit `gradle.properties` in the dogfood
+copy so `project.buildDir=build` (a plain relative value — the original
+points at the real project's own external build dir, which would still
+collide with the original project even from a copy). Do this once per copy —
+redo it if the dogfood dir is ever deleted and recopied.
 
 ```bash
 cp -r ~/Projects/RobotCoding/gui_frontend_android ~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD
@@ -727,41 +510,29 @@ export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
 ./gradlew compileDebugKotlin
 ```
 
-(`env.sh` ends by `exec bash` into an interactive session — for a
-non-interactive/scripted run, source only its `export`/`cd` lines.) This
-gives a real syntax+type check against the actual Android SDK/AndroidX
-dependency graph the source expects, which the rejected standalone recipe
-could not.
+(`gui_frontend_android/env.sh` sets the same `ANDROID_HOME`/`PATH`/JDK but
+ends by `exec bash`-ing into an interactive session — source only its
+`export`/`cd` lines for a scripted run.)
 
-Follow STATE_COMMON.md's fixture-registration convention when a bug is found and fixed here
-(`test/real_code_regressions_N_{inp,out}.kt`, registered in `Makefile`'s `INP_FILES`, documented
-in `test/README.txt`, standard copyright header) — same precedent as the `indent-size = 2`
-config-wiring no-op exception noted there.
-
-**Lightweight PSI-based syntax-only checker — viable, distinct from the rejected
-full-compilation recipe above.** The "Standalone `K2JVMCompiler` classpath — rejected"
-note above is about a bare classpath doing a *full compile*, which genuinely cannot
-resolve `android.*`/AndroidX imports without Gradle's dependency graph. A **syntax-only**
-checker is a different, much lighter tool: it parses a `.kt` file to a PSI/AST via
-`KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes (parse errors)
-— it does no semantic/type checking and never needs to resolve `android.*` imports at
-all, so the AndroidX objection doesn't apply to it. Built and verified this session:
-`KotlinCoreEnvironment.createForProduction`/`KtPsiFactory.createFile(String)`/
-`PsiTreeUtil.findChildrenOfType(file, PsiErrorElement.class)` all exist with the expected
-signatures in Kotlin compiler 2.4.0 (checked via `javap`); every needed class
-(`com.intellij.openapi.util.Disposer`, `com.intellij.psi.PsiErrorElement`,
-`com.intellij.psi.util.PsiTreeUtil`, and all `org.jetbrains.kotlin.*` PSI/CLI classes) is
-bundled in the single shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
-— no separate intellij-core/trove4j jars needed, confirmed via `unzip -l`. Built as a
-plain classpath-based (not module-path) standalone Java program.
+**Lightweight PSI-based syntax-only checker (`SyntaxCheck`) — viable,
+distinct from the rejected full-compilation recipe above.** The rejected
+K2JVMCompiler note above is about a bare classpath doing a *full compile*,
+which genuinely cannot resolve `android.*`/AndroidX imports without Gradle's
+dependency graph. `SyntaxCheck` is a much lighter tool: it parses a `.kt`
+file to a PSI/AST via `KotlinCoreEnvironment`/`KtPsiFactory` and reports
+`PsiErrorElement` nodes (parse errors) — no semantic/type checking, never
+needs to resolve `android.*` imports, so the AndroidX objection doesn't
+apply. Built as a plain classpath-based standalone Java program; every
+needed class is bundled in the single shaded
+`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar` (confirmed via
+`unzip -l`, no separate intellij-core/trove4j jars needed).
 
 Tool location: `~/Projects/JxMake/0_excluded_directory/personal/kotlin_sc/`
-(`SyntaxCheck.java` + compiled `SyntaxCheck.class`; this directory is gitignored — see
-top-level `.gitignore`'s `0_excluded_directory` entry — so nothing here is or needs to be
-git-tracked).
+(`SyntaxCheck.java` + compiled `SyntaxCheck.class`; gitignored via the
+top-level `.gitignore`'s `0_excluded_directory` entry).
 
-Build/run (JDK 21, matches this compiler's class file version 52 = Java 8 target, runs
-fine on 21):
+Build/run (JDK 21, matches this compiler's class file version 52 = Java 8
+target, runs fine on 21):
 
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
@@ -772,141 +543,218 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/kotlin_sc
 ```
 
 Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints each
-`PsiErrorElement`'s description + text range when a parse error is found. Verified
-against this project's own `test/kt_combined_out.kt` (passes clean) and a deliberately
-corrupted copy with injected stray `}}}` (correctly reports `Expecting a top level
-declaration` / `imports are only allowed in the beginning of file` errors at the right
-offsets).
+`PsiErrorElement`'s description + text range when a parse error is found.
+Verified against this project's own `test/kt_combined_out.kt` (passes clean)
+and a deliberately corrupted copy with injected stray `}}}` (correctly
+reports the right errors at the right offsets).
 
-**Recommended use going forward:** for a quick syntax/parse sanity check on formatter
-output (Kotlin or not-yet-Gradle-verified files), run this tool first — it's near-instant
-versus a full Gradle build. It does NOT replace `./gradlew compileDebugKotlin` for real
-dogfood/compile-check testing (no semantic checking, no unresolved-reference detection,
-no guarantee that PSI-valid code is actually semantically valid) — keep using the Gradle
-recipe above for that. Treat this as a fast pre-filter / supplement, not a substitute.
+**Recommended use going forward:** for a quick syntax/parse sanity check on
+formatter output, run `SyntaxCheck` first — near-instant versus a full Gradle
+build. It does NOT replace `./gradlew compileDebugKotlin` for real
+dogfood/compile-check testing (no semantic checking, no unresolved-reference
+detection) — keep using the Gradle recipe for that. Treat it as a fast
+pre-filter / supplement, not a substitute.
 
-**Further candidates the user has since supplied (not yet started).** Unlike
-`gui_frontend_android` above, none of these are Android/Gradle projects, so
-they don't need the dogfood-copy/`gradle.properties` dance — compile
-directly with the standalone Kotlin compiler instead:
+Follow STATE_COMMON.md's fixture-registration convention when a bug is found
+and fixed here (`test/real_code_regressions_N_{inp,out}.kt`, registered in
+`Makefile`'s `INP_FILES`, documented in `test/README.txt`, standard copyright
+header) — same precedent as the `indent-size = 2` config-wiring no-op
+exception noted there.
 
+**Tools/compiler used**
+(1) `kotlinc` — bare standalone compiler, e.g.:
+```bash
+PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH \
+  ~/xsdk/kotlin-compiler-2.4.0/kotlinc/bin/kotlinc <file(s)-or-source-set>
 ```
-~/xsdk/kotlin-compiler-2.4.0/kotlinc
-/opt/openjdk-21_linux-x64_bin/jdk-21
-```
+Sufficient for a non-Android/non-Gradle candidate's own source set (e.g.
+okio's `commonMain`, kotlinpoet's `jvmMain`) since it needs no external
+dependency graph beyond the stdlib; `expect`/`actual`/unresolved-reference
+noise from checking one source set in isolation is expected and ignored.
+Cannot resolve AndroidX or a multi-module Gradle project's own dependencies
+— see the rejected K2JVMCompiler note above and use (2) instead for those.
+(2) `./gradlew compileDebugKotlin` — full command block above (with
+`ANDROID_HOME`/JDK 21 on `PATH`, run against a persistent dogfood copy, never
+the original checkout). Used for Android/Gradle candidates needing the real
+SDK/AndroidX dependency graph (`gui_frontend_android`).
+(3) `SyntaxCheck` — PSI-based syntax-only checker, build/run commands above.
+Used when a full Gradle build is not wanted/needed (`kotlinx.coroutines`, per
+explicit user request) — catches parse errors only, weaker confidence than
+(2) (no semantic/type checking).
 
-(put the JDK's `bin/` on `PATH` ahead of any other JDK, then invoke
-`kotlinc` directly, e.g. `PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
-~/xsdk/kotlin-compiler-2.4.0/kotlinc/bin/kotlinc ...`). Some of these
-projects have their own multiplatform/Gradle build and external
-dependencies (coroutines, arrow's own multi-module structure) that a bare
-`kotlinc` invocation can't resolve — same caveat as the rejected standalone
-`K2JVMCompiler` classpath approach above; if a candidate's own Gradle
-wrapper is needed instead, treat it the same way as `gui_frontend_android`
-(copy first, format the copy, never write to the original checkout).
+**Finished dogfood / real-code testing**
+1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
+   files) — complete, config: default (no override). 9 idempotency bugs
+   found/fixed one root cause at a time (RDD_KEY_134–140: multi-line
+   trailing-lambda call collapse, call-wrapped-initializer
+   misclassification, lambda-brace indent anchor, if/else-as-value-expression
+   collapse, `&&`-vs-C-style-`&` confusion, §9 column-width flapping, Allman
+   width-prediction gap). Separately, `./gradlew compileDebugKotlin` then
+   found ~50 first-pass compile errors across 9 files, resolved one file at a
+   time (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
+   call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
+   mismatched by braceless-`else` collapse, two unrelated bugs in one
+   `ProgramBuilder.kt` statement). Final: `./gradlew compileDebugKotlin` →
+   `BUILD SUCCESSFUL`, zero errors (2 pre-existing, unrelated deprecation
+   warnings in `WifiStaDialog.kt` only). Verified via tool (2).
+2. **`github.com/square/okio`** — core bugs fixed, config:
+   `.jxmake-code-formatter` with `indent-size=2` (matches okio's own
+   `.editorconfig`; RDD_KEY_145 confirmed the default `indent-size=4`
+   produces spurious diffs against this candidate). Fixed: RDD_KEY_146
+   (unary minus mis-spacing), RDD_KEY_147 (blank-line signature-tail merge),
+   RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) — combined into
+   `test/real_code_regressions_30_inp.kt`/`_out.kt`; RDD_KEY_150 (missing
+   `===`/`!==` tokenizer entries), RDD_KEY_151 (do-while trailing `while`
+   misread as loop-start) — combined into
+   `test/real_code_regressions_31_inp.kt`/`_out.kt`. Verified via round1/
+   round2 idempotency diffing + tool (1) against `commonMain` only
+   (full multiplatform-aware build not run). One bug found but **not**
+   fixed — RDD_KEY_149, affecting `RealBufferedSink.kt`/`FakeFileSystem.kt`
+   — see **Not started** below (kept open, not deleted).
+3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config:
+   default (`indent_size=4` matches the project's own `.editorconfig`, no
+   override needed). Scoped to `kotlinx-coroutines-core`'s `common`+`jvm`
+   source sets (163 `.kt` files), per user instruction to use tool (3)
+   instead of a Gradle build. Idempotency: 11 non-idempotent files found,
+   all resolved across RDD_KEY_154 (baked trailing-space growth) and
+   RDD_KEY_158–162 (try/catch-as-expression brace confusion; a shared
+   named-scope-with-wrapped-header root cause across 4 files; a call-argument
+   continuation-indent flap; a dangling braceless-`else` mis-anchoring bare
+   `}` drift; a declaration-alignment padding-width flap — see RDD table for
+   per-bug detail). Compile-check via tool (3): 9 of 163 files had genuine
+   syntax errors, all resolved via RDD_KEY_155 (nesting-unaware block-comment
+   truncation), RDD_KEY_156 (`this@Label` spacing), RDD_KEY_157 (a
+   `synchronized(...)` block's statements fused with no separators). Verified
+   via round1/round2 idempotency diffing + tool (3) only (weaker compile-check
+   confidence than `gui_frontend_android` — no semantic/type checking).
+4. **`github.com/square/kotlinpoet`** — 2 root-caused bugs fixed, config:
+   `indent_size=2` (matches kotlinpoet's own `.editorconfig`, same convention
+   as okio). Fixed: RDD_KEY_152 (stale when-branch nested-brace indent anchor
+   after an arrow-merge pass) and RDD_KEY_153 (Allman-conversion misfiring on
+   an expression-bodied function's own trailing-lambda body — first-pass
+   compile-breaking, found via `kotlinc`). Verified via round1/round2
+   idempotency diffing (131 `.kt` files) + tool (1) against `jvmMain` only
+   (multiplatform-aware build not attempted; zero genuine syntax errors
+   found beyond the one RDD_KEY_153 fixed). 12 files remain non-idempotent,
+   unresolved — deprioritized per user request (2026-07-12) since confirmed
+   non-compile-breaking — see **Not started** below (kept open, not
+   deleted).
 
-- **`github.com/square/okio`** — DONE. Round1/round2 idempotency testing (at
-  okio's own `.editorconfig` `indent-size=2` convention) found and fixed 3
-  bugs (RDD_KEY_146/147/148: unary minus mis-spacing, blank-line
-  signature-tail merge, stale-prefix over-wrap of a braceless `if`),
-  combined into `test/real_code_regressions_30_inp.kt`/`_out.kt`. A 4th bug
-  (RDD_KEY_149: multi-line signature column-alignment/trailing-comma lost
-  after splice-back) was found but not fixed — deferred, see Open
-  Questions. Subsequent `kotlinc` compile-checking of `okio/src/commonMain`
-  (bare standalone-compiler invocation, `expect`/`actual` errors expected
-  and ignored since commonMain alone isn't a multiplatform target) found 2
-  more real, first-pass-broken (not merely idempotency) bugs neither
-  round1/round2 diffing nor RDD_KEY_149 investigation had surfaced
-  (RDD_KEY_150: missing `===`/`!==` tokenizer entries; RDD_KEY_151: a
-  do-while's trailing `while (cond)` misread as a loop-starting `while`,
-  fusing the next statement onto the same line) — fixed, combined into
-  `test/real_code_regressions_31_inp.kt`/`_out.kt`. Final state: `make
-  test` 51/51 forward+idempotency; full okio round1/round2 diff clean
-  except the 2 files still affected by the deferred RDD_KEY_149
-  (`RealBufferedSink.kt`, `FakeFileSystem.kt`); a full-tree `kotlinc`
-  compile pass (multiplatform-aware, not just commonMain) was not run —
-  the commonMain-only pass was sufficient to surface real bugs and is
-  consistent with this candidate's "no Gradle-copy dance needed" framing,
-  but does not by itself prove the *entire* tree compiles clean.
-**Priority note (2026-07-12, user-requested readjustment):** `kotlinpoet`'s remaining 12-file
-idempotency gap (below) is confirmed non-compile-breaking (`kotlinc` finds zero genuine syntax
-errors) — it's an idempotency-only flap, not a correctness bug in either round's output. Given
-that, further digging on it is **not urgent**; it's deprioritized below the fresh candidates
-until a session has spare budget to return to it. `stdexec`/`lexy` (C++) is the actual next pick
-overall — see the "RECOMMENDED NEXT" note in `STATE_C_CPP_JAVA.md`'s Modern C++ candidates list.
+**Not started dogfood / real-code testing**
+1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
+   library (typed errors, optics, effects); multi-module Gradle structure
+   similar in spirit to `kotlinx.coroutines`, will need the Gradle-copy dance
+   (tool (2)). Expected to exercise heavy generics/variance (§13,
+   RDD_KEY_113), extension-function-heavy DSLs (§22), and infix-function call
+   sites (§15) more than any candidate tested so far.
+2. **`github.com/JetBrains/kotlin`** (NOT STARTED) — the Kotlin compiler's
+   own source tree; large, likely the most demanding candidate for grammar
+   coverage (compiler-internal code tends to use every language feature,
+   including obscure/edge-case syntax). Last-resort/stress candidate,
+   similar posture to `microsoft/STL`/`llvm-project` in the C++ list.
+3. **`square/okio`'s RDD_KEY_149 deferred bug** (IN PROGRESS - DEFERRED) —
+   signature param column-alignment/trailing-comma silently lost after
+   splice-back, affecting `RealBufferedSink.kt`/`FakeFileSystem.kt`. Full
+   repro/investigation detail in **In progress dogfood / real-code testing
+   details** below.
+4. **`square/kotlinpoet`'s remaining 12-file idempotency gap** (IN PROGRESS -
+   DEPRIORITIZED) — confirmed non-compile-breaking, deprioritized per user
+   request but not root-caused. Full evidence in **In progress dogfood /
+   real-code testing details** below.
 
-- **`github.com/Kotlin/kotlinx.coroutines`** — DONE (this session). Scoped to
-  `kotlinx-coroutines-core`'s `common`+`jvm` source sets (163 `.kt` files; `.editorconfig`
-  `indent_size=4` matches this tool's default, no override needed) rather than the full
-  multiplatform tree, per user instruction to use the new lightweight `SyntaxCheck` tool instead of
-  a Gradle build. Round1-vs-round2 idempotency diffing found 11 non-idempotent files; root-caused
-  and fixed 1 (RDD_KEY_154, `KotlinSignatureRule.renderWithTail`'s baked trailing space after a
-  bare `=` growing unboundedly across reformats), leaving 10 open (surveyed, not yet root-caused —
-  at least two distinct shapes, a closing-brace indentation drift and a `try`/`catch`-as-expression
-  brace-style/indentation confusion in `SystemProps.kt`; see Open Questions). `SyntaxCheck` against
-  all 163 round1 files found 9 with genuine syntax errors (0 on the unformatted originals);
-  root-caused and fixed 2 (RDD_KEY_155, a nesting-unaware `TokenizerCore.emitBlockComment`
-  truncating `Guidance.kt` by ~330 lines on a KDoc's nested `/* */` code example; RDD_KEY_156, a
-  `this@Label` qualified-this reference corrupted to `this @Label` by
-  `KotlinSpecificRule.enforceLabeledJumpSpacing` having no case for the `this` keyword), bringing
-  the syntax-error count down to 1 remaining (`LimitedDispatcher.kt`'s `when`-branch
-  `synchronized(lock) { multi-statement }` body fused onto one line with no separators — not yet
-  root-caused, left open). New fixtures `test/real_code_regressions_37/38/39_inp.kt`/`_out.kt`.
-  `make test`: 56/56 before this session's fixes, 59/59 after. Per the user's explicit request,
-  only the PSI-based syntax-only `SyntaxCheck` tool was used as the compile-check step here, not a
-  full Gradle build — it catches parse/syntax errors but not semantic/type errors, so it cannot
-  rule out a formatter bug that produces syntactically-valid-but-semantically-wrong Kotlin; treat
-  this candidate's compile-check confidence as weaker than the Gradle-verified `gui_frontend_android`
-  dogfood candidate above.
-- **`github.com/square/kotlinpoet`** — DONE (this session), at kotlinpoet's own
-  `.editorconfig` `indent_size=2` convention (like okio, no Gradle-copy dance
-  needed). Round1-vs-round2 idempotency diffing across all 131 `.kt` files
-  found 13 non-idempotent files; root-caused and fixed 2 of the underlying
-  bugs (both real, both shared-class, both Kotlin-gated):
-  (1) RDD_KEY_152 — `ScopePipeline.braceLineIndent`'s indent decision for a
-  nested `when { ... }` used as a `when` branch's own body went stale once
-  `KotlinSpecificRule.formatWhenExpressions`' later arrow-alignment pass
-  merged the branch label and the nested `when {` onto one physical line;
-  fixed with a new `findMergingWhenBranchLineStart` lookahead anchoring on
-  the eventual post-merge line up front. New fixture
-  `test/real_code_regressions_32_inp.kt`/`_out.kt`. (2) RDD_KEY_153 (see
-  `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s new
-  depth-0-`=` bail) — a genuine **first-pass, compile-breaking** bug found
-  via `kotlinc` syntax-checking (not idempotency diffing):
-  `enforceFunctionDefinitionAllmanBraceStyle`'s backward scan for a `:
-  ReturnType` clause before a candidate body `{` had no bail-out on an
-  intervening depth-0 `=`, so an expression-bodied function whose body is
-  itself a trailing-lambda call (`fun addTypes(...): T = apply { ... } as
-  T`, `TypeSpecHolder.kt`) had `apply`'s own unrelated `{` wrongly
-  Allman-converted as if it were the function's own body brace, splitting
-  `apply` from `{ ... }` across lines with no valid Kotlin grammar joining
-  them — confirmed via `kotlinc`: this was the only genuine "syntax error"
-  in the entire `jvmMain` compile-check (everything else was expected
-  unresolved-reference/multiplatform noise from checking `jvmMain` alone,
-  same posture as okio's `commonMain`-only pass). New key **RDD_KEY_153**;
-  new fixture `test/real_code_regressions_33_inp.kt`/`_out.kt` (reproduces
-  at default config, a first-pass corruption not merely an idempotency
-  flap). `make test`: 51/51 before either fix, 52/52 after RDD_KEY_152's
-  fixture, 53/53 after RDD_KEY_153's.
-  Final state: full-tree idempotency diff still shows 12 remaining
-  non-idempotent files (`CodeWriter.kt`/`FileSpec.kt`/`FunSpec.kt`/
-  `LambdaTypeName.kt`/`MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/
-  `TypeVariableName.kt`/`WildcardTypeName.kt`/`AbstractTypesTest.kt`/
-  `TaggableTest.kt` plus 4 `interop/kotlin-metadata` files) — all showing
-  the same general shape (a `KotlinSignatureRule`/`MiscRule.enforceCallLineBreaking`
-  fitting decision made before a later phase's own line-length-changing
-  rewrite, going stale on reformat), not yet root-caused to the same depth
-  as the two fixed bugs; see Open Questions below. `kotlinc` compile-check
-  ran only against `kotlinpoet/src/jvmMain` (like okio's `commonMain`-only
-  precedent) — a full multiplatform-aware build was not attempted.
-- **`github.com/arrow-kt/arrow`** — a functional-programming library (typed errors, optics,
-  effects). Multi-module Gradle structure similar in spirit to `kotlinx.coroutines` (will need
-  the Gradle-copy dance). Expected to exercise heavy generics/variance (§13, RDD_KEY_113),
-  extension-function-heavy DSLs (§22), and infix-function call sites (§15) more than any
-  candidate tested so far — arrow's API leans hard on `infix fun`/operator-like extension
-  functions for its DSL style.
-- **`github.com/JetBrains/kotlin`** — the Kotlin compiler's own source tree; large, likely the
-  most demanding candidate for grammar coverage (compiler-internal code tends to use every
-  language feature, including obscure/edge-case syntax real application code rarely touches) —
-  not yet started, treat as a last-resort/stress candidate similar in posture to
-  `microsoft/STL`/`llvm-project` in the C++ list, given its size.
+**In progress dogfood / real-code testing details**
+
+*`square/okio` — RDD_KEY_149 (signature param alignment/trailing-comma lost
+after splice-back):* found via `square/okio` real-code testing
+(`RealBufferedSink.kt`'s `commonWriteUtf8`, also reproduces in
+`FakeFileSystem.kt`): a multi-line Kotlin function parameter list that needs
+to break (doesn't fit inline) is rendered correctly by
+`KotlinSignatureRule.render`'s `ColumnGrid`-based path — confirmed via a
+temporary debug print directly at its own return point, e.g.
+`"string     : String,"`/`"beginIndex : Int,"`/`"endIndex   : Int,"`, each
+column padded to its sibling's width and the trailing comma preserved. But
+the text that ends up in the final written file has the padding collapsed to
+a single space and the trailing comma stripped — neither of which
+`render()`/`renderWithTail()` produce. Something downstream of the
+`Replacement` being spliced back into the token/text stream is re-normalizing
+or re-tokenizing this already-rendered text; grepped for an explicit
+trailing-comma-stripping pass and found none, so the exact mechanism is still
+unidentified (leading theory: a later whole-file pass collapses literal
+multi-space `WHITESPACE` runs down to one space without recognizing
+intentional column padding inside already-rendered replacement text, though
+this alone doesn't explain the comma loss). All debug instrumentation added
+while investigating (`ColumnGrid.flush`'s `CG_DEBUG`-gated print, a per-line
+print in `KotlinSignatureRule.render`) was reverted before committing — none
+remains in the source. Next step is probably to trace exactly which later
+pass's `Replacement`/text rewrite touches this span, e.g. by diffing the
+token stream immediately before and after each pass in `ScopePipeline`'s
+pipeline for this specific input.
+
+*`square/kotlinpoet` — remaining 12-file idempotency gap:* after
+RDD_KEY_152/153 fixed 2 of the original 13, `CodeWriter.kt`/`FileSpec.kt`/
+`FunSpec.kt`/`LambdaTypeName.kt`/`MemberSpecHolder.kt`/
+`ParameterizedTypeName.kt`/`TypeVariableName.kt`/`WildcardTypeName.kt`/
+`AbstractTypesTest.kt`/`TaggableTest.kt` and 4 files under
+`interop/kotlin-metadata/` still round1-vs-round2 diff. At least two distinct
+shapes observed, neither fully root-caused: (1) `MemberSpecHolder.kt`'s
+`addProperties`/`addFunctions` — an expression-bodied function's parameter
+list breaks across lines on round1 (`fun addProperties(\n
+propertySpecs: Iterable<PropertySpec>\n): T = apply { ... }`) but stays
+inline on round2 (`fun addProperties(propertySpecs: ...): T = apply { ...
+}`). Re-repro'd standalone against `orig.kt`/`MemberSpecHolder.kt` at the
+same `indent-size=2` config used in the original test run (confirmed the
+flap reproduces there; testing at the tool's bare default config additionally
+surfaces an unrelated, seemingly-stray loose-paren spacing artifact —
+`addProperty( x, y )` instead of `addProperty(x, y)` — not investigated
+further and NOT part of this bug, most likely a leftover ad-hoc-testing
+config artifact, same shape as the one RDD_KEY_122 found, but not confirmed).
+A debug print placed at `KotlinSignatureRule.renderWithTail`'s tier-1
+fits-check (right before the `startColumn + inline.length() - commentLen <=
+lineLengthLimit` branch) shows **byte-identical** `inline`/`tailStr` values
+on both round1 and round2 (`tailStr=[: T = apply]`, 74 chars, well under the
+100-col limit) — `renderWithTail` takes the exact same tier-1 early-return
+branch both times and is NOT where the two rounds diverge, contradicting the
+earlier hypothesis that blamed this method's own fitting decision directly.
+Also confirmed via `parseFunctionTail`'s tail-token slice that the tail is
+deliberately cut short right after `apply` — the `{ propertySpecs.map(::add
+Property) } as T` portion is NOT part of the rendered tail string at all;
+it's left as trailing token text in the stream for a later pass to handle.
+Since `renderWithTail`'s own decision is identical both rounds yet the actual
+written signature differs (params wrapped on round1, not on round2), the
+actual flap must be introduced by a **later pass** that re-measures the
+merged line (signature text + the trailing `{ ... } as T` it doesn't own) and
+independently chooses to re-wrap the signature's own `(...)` as if it were a
+generic breakable call/paren group — almost certainly
+`MiscRule.enforceCallLineBreaking`, not `KotlinSignatureRule`. Not yet traced
+inside that method to find exactly which width comparison produces a
+different verdict round1 vs round2 — next step is a debug print in
+`MiscRule.enforceCallLineBreaking`'s wrap-candidate-selection/width-check
+logic, dumping candidate span text + computed width for the
+`addProperties(...)` span specifically, round1 vs round2, to find where the
+numbers disagree. (2) `CodeWriter.kt`'s earlier-observed call-argument
+continuation-line indent staleness (an `is FunSpec -> o.emit(\n  codeWriter =
+this,\n  ...\n)` branch body, itself a variant of the same "Phase 4
+arrow-merge changes the branch's physical line, invalidating an earlier
+phase's physical-line-anchored indent decision" root cause RDD_KEY_152 fixed
+for `ScopePipeline`, but here manifesting in a different rule — likely
+`MiscRule.enforceCallLineBreaking`'s own continuation-indent logic, plausibly
+the SAME method as (1) above, worth checking together) not yet traced to its
+exact source. **Confirmed by RDD_KEY_160's `kotlinx.coroutines`
+investigation** (`JobSupport.kt`) that `MiscRule.enforceCallLineBreaking`
+does have exactly this "stale pre-merge indent" family of bug and fixed it
+there via a new `effectiveCallBaseIndent` helper — directly relevant to (but
+not itself re-verified against) `CodeWriter.kt`, which has never been
+re-checked since. `kotlinc` syntax-checking `kotlinpoet/src/jvmMain` finds
+**zero** genuine syntax errors (only expected unresolved-reference/
+multiplatform noise from checking `jvmMain` in isolation) — none of these 12
+remaining files are known to be compile-breaking, only idempotency-flapping.
+No fixture added and no fix attempted as of the last session that touched
+this; `make test` reconfirmed passing with the source tree back at its
+RDD_KEY_153 state (no code changes that session). All debug instrumentation
+added while investigating (a `KSR_DEBUG`-gated print in
+`KotlinSignatureRule.renderWithTail`) was reverted before ending the session.
+
+**When a test completes:** move/compact its entry from "Not started" (or its
+"In progress" detail) into "Finished dogfood / real-code testing", and add a
+new numbered entry to "Tools/compiler used" if a genuinely new tool is
+introduced.

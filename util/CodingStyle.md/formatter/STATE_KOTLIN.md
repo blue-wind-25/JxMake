@@ -635,10 +635,21 @@ explicit user request) — catches parse errors only, weaker confidence than
    compile-breaking, found via `kotlinc`). Verified via round1/round2
    idempotency diffing (131 `.kt` files) + tool (1) against `jvmMain` only
    (multiplatform-aware build not attempted; zero genuine syntax errors
-   found beyond the one RDD_KEY_153 fixed). 12 files remain non-idempotent,
-   unresolved — deprioritized per user request (2026-07-12) since confirmed
-   non-compile-breaking — see **Not started** below (kept open, not
-   deleted).
+   found beyond the one RDD_KEY_153 fixed).
+   **Re-checked 2026-07-13** (fresh full-tree round1/round2 re-run, 125 `.kt`
+   files, same `indent-size=2` config, against the source tree as it stood
+   after RDD_KEY_162): confirmed `FileSpec.kt`, `FunSpec.kt`, `TaggableTest.kt`
+   and one `interop/kotlin-metadata` file (`ReflectiveClassInspectorTest.kt`'s
+   sibling shape — the interop diff count dropped from 4 to 3, exact
+   4th-file identity from the original run was never recorded) are now
+   round1-vs-round2 clean, most likely a side effect of RDD_KEY_159–162's
+   "physical-line-anchored decision invalidated by a later pass" fixes (not
+   individually bisected to a single key — no code was touched this session).
+   10 files remain non-idempotent — 4 distinct shapes, none newly fixed this
+   session; see **In progress dogfood / real-code testing details** below for
+   the updated shape breakdown. Not deprioritized-and-untouched anymore in
+   the sense of "unchecked" — this session re-verified the gap is real and
+   current, just not closed.
 
 **Not started dogfood / real-code testing**
 1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
@@ -657,10 +668,13 @@ explicit user request) — catches parse errors only, weaker confidence than
    splice-back, affecting `RealBufferedSink.kt`/`FakeFileSystem.kt`. Full
    repro/investigation detail in **In progress dogfood / real-code testing
    details** below.
-4. **`square/kotlinpoet`'s remaining 12-file idempotency gap** (IN PROGRESS -
+4. **`square/kotlinpoet`'s remaining 10-file idempotency gap** (IN PROGRESS -
    DEPRIORITIZED) — confirmed non-compile-breaking, deprioritized per user
-   request but not root-caused. Full evidence in **In progress dogfood /
-   real-code testing details** below.
+   request but not root-caused. Re-verified current as of 2026-07-13 (down
+   from 13/14 originally tracked to 10, 3-4 files cleaned as an apparent
+   side effect of RDD_KEY_159–162; none of the remaining 10 fixed this
+   session). Full evidence in **In progress dogfood / real-code testing
+   details** below.
 
 **In progress dogfood / real-code testing details**
 
@@ -690,13 +704,80 @@ pass's `Replacement`/text rewrite touches this span, e.g. by diffing the
 token stream immediately before and after each pass in `ScopePipeline`'s
 pipeline for this specific input.
 
-*`square/kotlinpoet` — remaining 12-file idempotency gap:* after
-RDD_KEY_152/153 fixed 2 of the original 13, `CodeWriter.kt`/`FileSpec.kt`/
-`FunSpec.kt`/`LambdaTypeName.kt`/`MemberSpecHolder.kt`/
+*`square/kotlinpoet` — remaining 10-file idempotency gap:* after
+RDD_KEY_152/153 fixed 2 of the original 13/14 tracked files, `CodeWriter.kt`/
+`FileSpec.kt`/`FunSpec.kt`/`LambdaTypeName.kt`/`MemberSpecHolder.kt`/
 `ParameterizedTypeName.kt`/`TypeVariableName.kt`/`WildcardTypeName.kt`/
 `AbstractTypesTest.kt`/`TaggableTest.kt` and 4 files under
-`interop/kotlin-metadata/` still round1-vs-round2 diff. At least two distinct
-shapes observed, neither fully root-caused: (1) `MemberSpecHolder.kt`'s
+`interop/kotlin-metadata/` still round1-vs-round2 diffed as of the last
+check.
+
+**Re-checked 2026-07-13** (fresh full-tree round1/round2 re-run against the
+`/tmp/kotlinpoet_work/kotlinpoet` clone, 125 `.kt` files, `indent-size=2`,
+source tree as it stood after RDD_KEY_162 — no code changes made this
+session): `FileSpec.kt`, `FunSpec.kt`, `TaggableTest.kt`, and one
+`interop/kotlin-metadata` file are now confirmed clean. **10 files remain**,
+sorted into four distinct shapes:
+
+- **Shape 1 (7 files: `CodeWriter.kt`, `LambdaTypeName.kt`,
+  `MemberSpecHolder.kt`, `ParameterizedTypeName.kt`, `TypeVariableName.kt`,
+  `WildcardTypeName.kt`, plus `MemberSpecHolder.kt`'s own pre-existing
+  case)** — a multi-parameter function signature that the ORIGINAL source
+  already had column-broken across lines (with a space before each `:`,
+  e.g. `nullable : Boolean,\n    annotations : List<AnnotationSpec>,\n
+  tags : Map<KClass<*>, Any>`) stays broken/padded on round1 but collapses
+  to one unpadded inline line on round2 (`nullable: Boolean, annotations:
+  List<AnnotationSpec>, tags: Map<KClass<*>, Any>`). Minimized to a
+  standalone repro (`class Foo { public fun addProperties(\n
+  propertySpecs: Iterable<PropertySpec>\n): T = apply { propertySpecs.map(
+  ::addProperty) } }`) — confirms round1 keeps the wrap, round2 merges it.
+  Re-checked `KotlinSignatureRule.renderWithTail`'s tier-1 fits-check by
+  hand (not via debug print this session, but by re-deriving `inline`'s
+  length from `renderTokens` output): `inline` = `head + params + ")" +
+  " = apply"` is well under the 100-col limit regardless of the ORIGINAL
+  source's own line breaks (the rendered token text is identical either
+  way), so if `renderWithTail`'s own decision were the sole authority it
+  would return the same single-line form BOTH rounds — it does not, which
+  reconfirms the prior session's conclusion that a later pass (still
+  believed to be `MiscRule.enforceCallLineBreaking`, since it treats a
+  rendered `name(...)` span as a re-wrappable call candidate) is
+  responsible for the divergence, and that this later pass's decision
+  differs based on round1 vs round2's differing PRIOR physical shape, not
+  on the token content. **RDD_KEY_160's `effectiveCallBaseIndent` fix does
+  NOT resolve this** — confirmed empirically (this shape still reproduces
+  after that fix is in the tree). Not further root-caused this session
+  (would need a fresh debug-print pass inside `enforceCallLineBreaking`
+  itself, per STATE_COMMON's evidence-over-reasoning methodology, which
+  this session did not have scope to do) — still an open question, not a
+  quick/established-pattern fix.
+- **Shape 2 (1 file: `AbstractTypesTest.kt`)** — a multi-line `where`
+  clause's continuation lines are indented one level deeper on round2 than
+  round1 (`where IntersectionOfInterfaces : Runnable,` at 4 spaces round1
+  vs 6 spaces round2, rest of the clause's lines shift correspondingly).
+  Not yet root-caused; distinct from Shape 1 (no signature-wrap flip
+  involved, purely an indent-width flap on an already-wrapped `where`
+  clause) and not obviously the same family as RDD_KEY_106's `where`-clause
+  placement logic, since that logic is confirmed stable elsewhere (e.g.
+  `ThreadSafeHeap.kt`, RDD_KEY_159).
+- **Shape 3 (2 files: `ReflectiveClassInspector.kt`, `kmAnnotations.kt`)**
+  — a lone closing `}` (one plain, one `} // when kotlin`) sits 2 spaces
+  shallower on round2 than round1. Same surface symptom as the
+  closing-brace-indent-drift family RDD_KEY_159/161 fixed for
+  `kotlinx.coroutines`, but neither of those fixes' specific trigger
+  conditions (named-scope header wrap, dangling braceless
+  `else`/`catch`/`finally`) were confirmed present here — not root-caused,
+  just flagged as plausibly-related.
+- **Shape 4 (1 file: `KotlinPoetMetadataSpecsTest.kt`)** — a `val`
+  declaration-alignment padding flap: `val fooAliasData    = ...` is padded
+  to match a sibling's column round1, unpadded round2 (`val fooAliasData =
+  ...`). Same surface symptom as RDD_KEY_162's `ChannelFlow.kt` fix (the
+  "early alignment phase destabilizes a later wrap phase" family), but
+  RDD_KEY_162 is confirmed already in the tree for this re-check, so if
+  this is the same root cause, RDD_KEY_162's fix has a gap for this
+  specific case — not root-caused, just flagged.
+
+Original (pre-2026-07-13) investigation notes on Shape 1, kept for
+continuity: (1) `MemberSpecHolder.kt`'s
 `addProperties`/`addFunctions` — an expression-bodied function's parameter
 list breaks across lines on round1 (`fun addProperties(\n
 propertySpecs: Iterable<PropertySpec>\n): T = apply { ... }`) but stays

@@ -171,7 +171,7 @@ public final class Main {
     }
 
     private static void printUsage() {
-        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] [--lang c|cpp|java] "
+        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] [--lang c|cpp|java|kotlin] "
                 + "[--diff | --check | --out DIR] [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");

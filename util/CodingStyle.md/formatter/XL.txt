@@ -10,7 +10,7 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 
 Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
 
-Compact the narration in `test/README.txt` from `real_code_regressions_37_inp/out.kt` to `real_code_regressions_41_inp/out.kt`
+Compact the narration in `test/README.txt` from `real_code_regressions_42_inp/out.kt` to `...`
 
 
 
@@ -31,10 +31,9 @@ Continue with Java work (search in /tmp first, clone the repo if not found; use 
 `github.com/openrewrite/rewrite`
 
 Continue with Kotlin work (search in /tmp first, clone the repo again if not found; use one sub-agent):
-`github.com/Kotlin/kotlinx.coroutines` (idempotency bug) <<< CURRENT
 `github.com/arrow-kt/arrow`
 `github.com/JetBrains/kotlin`
-`github.com/square/kotlinpoet` (idempotency bug)
+`github.com/square/kotlinpoet` (IDEMPOTENCY BUG)
 
 ####################################################################################################
 ####################################################################################################

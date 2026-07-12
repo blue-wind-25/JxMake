@@ -423,45 +423,17 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   renamed, confirmed real C++) plus `tests/catch.hpp`. 10 bugs fixed total; full narratives
   available via `git log`/`git show` on commits touching `ScopePipeline.java`/
   `DeclarationAlignmentRule.java`/`TokenizerCore.java`/`CppSpecificRule.java` around
-  2026-07-06/07. One-line summary each:
-  1. `ScopePipeline.findParentIndent` off-by-one indent when a nested construct shares a source
-     line with its parent (`struct Foo { enum Bar {`).
-  2. `DeclarationAlignmentRule.parseDeclaration` depth-tracking bugs when a struct's last member
-     is a braceless control statement before the class's own `};`. Fixture:
-     `test/real_code_regressions_12`.
-  3. Oversized brace-initializer's dangling `}` left glued to the last data line — new
-     `ScopePipeline.applyOversizedAggregateInitClosingBracePass`. Fixture:
-     `test/real_code_regressions_11_out.c`.
-  4. `map.hpp` getter-padding growth — `enforceTemplateAngleBracketSpacing` ran after
-     `GetterSetterRule`'s column-width measurement; pulled forward.
-  5. `set.hpp` operator one-liners flipping K&R→Allman between passes — re-run
-     `enforceFunctionDefinitionAllmanBraceStyle` once more after `enforceCallLineBreaking`.
-  6. `catch.hpp` first-pass corruption — `TokenizerCore.emitPreprocessor()` didn't handle
-     backslash-continued directives. Fixture: `test/real_code_regressions_13`.
-  7. `ScopePipeline.findParentIndent`'s fallback used `depth * indentWidth`, wrong whenever a
-     `namespace` nests in between (namespace bodies don't increment `depth`); fixed by threading
-     a real accumulated `inheritedIndent` string through the recursion alongside `depth`.
-     Fixture: `test/real_code_regressions_14`.
-  8. `catch.hpp`'s `#ifdef __OBJC__` block: nested message sends (`[[NSString alloc] ...]`)
-     were mistokenized as a C++17 `[[attribute]]` open, permanently desyncing bracket depth for
-     the rest of the file. Fixed with a forward-scan `looksLikeAttributeOpen` guard in
-     `TokenizerCore` that only merges `[[` when a genuine attribute-shaped close follows.
-     Fixture: `test/real_code_regressions_15`.
-  9. Once bug 8's file-wide desync was gone, 4 further small `catch.hpp` divergences surfaced:
-     (a) `ScopePipeline.isNamespaceScope` passed `idx - 1` to a helper that already offsets by
-     one, double-skipping some `namespace NAME{` forms; (b)/(c) member-initializer-list
-     signatures (`Ctor(...) : field(val)`) found their closing paren via "nearest `)` before
-     `{`", which lands on the *last initializer's* paren, not the constructor's — fixed via
-     `ScopePipeline.findTopLevelMemberInitColon` redirecting to the real paren, plus a
-     `trailingLen` parameter threaded into `MiscRule.render` so the line-fit check accounts for
-     the member-init-list opener on the same output line (scoped to only this case, since an
-     un-Allman'd function body's `{` would otherwise reintroduce instability elsewhere); (d)
-     `struct sigaction sa = {};` (elaborated-type declaration, not a struct body) was misdetected
-     by `isScopeOpeningBrace` as a construct definition, duplicating its trailing `;` on every
-     reformat — fixed by bailing out on an intervening top-level `=`. Fixture:
-     `test/real_code_regressions_16` (all 4 shapes combined in one file).
-  `make test` 32/32; full `frozen`/`catch.hpp` round1/round2 diff empty; full 156-file
-  `frozen` tree (`.c`/`.h`/`.cpp`/`.hpp`) fully idempotent round1-vs-round2.
+  2026-07-06/07: parent-indent off-by-one on a shared-line nested construct; struct
+  depth-tracking bug with a trailing braceless member before `};`; dangling `}` after an
+  oversized brace-initializer; getter-padding growth from pass ordering (`map.hpp`); K&R/Allman
+  flapping operator one-liners (`set.hpp`); `catch.hpp` first-pass corruption from unhandled
+  backslash-continued preprocessor directives; `findParentIndent`'s namespace-unaware depth
+  fallback; Objective-C message-send brackets mistokenized as C++17 attributes; and 4 further
+  `catch.hpp` divergences once that desync was fixed (namespace-detection off-by-one,
+  member-initializer-list closing-paren misdetection landing on the wrong paren, and an
+  elaborated-type `struct sigaction sa = {};` misdetected as a struct body, duplicating its
+  `;` every pass). Fixtures: `test/real_code_regressions_12` through `_16`. `make test` 32/32;
+  full 156-file `frozen` tree (`.c`/`.h`/`.cpp`/`.hpp`) fully idempotent round1-vs-round2.
 
 - **C++20**: `github.com/fmtlib/fmt` — DONE (2026-07-06). 15 `.h` headers + 4 `.cc` sources.
   Idempotent at default `indent-size = 4`; re-testing at this codebase's real 2-space/flush-
@@ -473,32 +445,20 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   tree now fully idempotent.
 
 - **C++20**: `github.com/taocpp/PEGTL` — DONE (2026-07-12). 355 `.hpp` files under `include/`.
-  1 bug fixed: `TokenizerCore.reclassifyAngleBrackets`'s single-tracked-open-`<` branch for
-  splitting a literal `>>` token (e.g. `has_eol_rule<Input> >` after outer-template-prefix
-  spacing collapse) retyped the `>>` token to `ANGLE_BRACKET_CLOSE` via `retype()`, which
-  preserves the original 2-char `">>"` text, then *also* appended a new 1-char literal `>` OP
-  token for the leftover close — duplicating a character on the very first format pass (breaking
-  compilation of `internal/rematch_input.hpp`'s `template<typename Guard, typename Input, bool =
-  has_eol_rule<Input>>>` forward declaration, `>>>` where only `>>` is valid). The sibling
-  size-≥2 branch (splitting a `>>` that closes 2 tracked nested opens at once) avoids this by
-  using a zero-width placeholder for its second token; the size==1 branch didn't trim the first
-  token's text to match. Fixed by giving the retyped `ANGLE_BRACKET_CLOSE` token its own explicit
-  1-char `">"` text instead of reusing the original 2-char token via `retype()`. Fixture:
-  `test/real_code_regressions_28_{inp,out}.hpp`. Also found (no-op, no fixture, per the
-  `fmtlib/fmt`/`indent-size` precedent): `ScopePipeline.normalizeIndent` rounds only
-  *declaration*-statement indentation up to the nearest `indent-size` multiple
-  (`applyDeclarationsPass`-only), never non-declaration statements in the same scope — at
-  PEGTL's real 3-space indent convention vs. this formatter's default 4-space `indent-size`,
-  that asymmetry between a `case`-block declaration and its non-declaration siblings produces a
-  non-idempotent round1-vs-round2 divergence in exactly 2 files
-  (`debug/internal/analyze_cycles.hpp`, `internal/unwind_guard.hpp`). No-op at default
-  `indent-size` (48/48, unrelated to this candidate); confirmed non-issue by re-testing at
-  `indent-size = 3` (PEGTL's own convention) — full 355-file tree fully idempotent round1-vs-
-  round2 at that setting, with only the above compile-breaking bug (now fixed) remaining
-  otherwise. `make test` 48/48; PEGTL's own 5 `src/example/*.cpp` files
-  (`hello_world`/`json_count`/`s_expression`/`parse_tree`/`proto3_analyze`) all
-  `-fsyntax-only`-compile clean (0 errors) against the fixed round1 output, matching the
-  unmodified original's 0-error baseline.
+  1 bug fixed: `TokenizerCore.reclassifyAngleBrackets`'s single-open-`<` branch for splitting a
+  literal `>>` token retyped it via `retype()` (which preserves the original 2-char text) while
+  also appending a new 1-char literal `>` token — duplicating a character on the first format
+  pass and breaking compilation of `internal/rematch_input.hpp`'s `template<...>` forward
+  declaration (`>>>` where only `>>` is valid). Fixed by giving the retyped token its own
+  explicit 1-char `">"` text instead of reusing the original via `retype()`. Fixture:
+  `test/real_code_regressions_28_{inp,out}.hpp`. Also found a no-op (per the `fmtlib/fmt`/
+  `indent-size` precedent): `ScopePipeline.normalizeIndent` rounds only declaration-statement
+  indentation to the nearest `indent-size` multiple, never non-declaration statements in the
+  same scope — produces a non-idempotent divergence in 2 files at PEGTL's real 3-space
+  convention but is a no-op at the formatter's default 4-space `indent-size` (48/48, unrelated);
+  confirmed non-issue by re-testing at `indent-size = 3` — full 355-file tree fully idempotent
+  at that setting. `make test` 48/48; PEGTL's 5 example programs all `-fsyntax-only`-compile
+  clean (0 errors) against the fixed round1 output, matching the unmodified baseline.
 
 - **C++17/20**: `github.com/foonathan/lexy` — DONE (2026-07-12). Header-only parser-combinator
   library, 121 `.hpp` files under `include/` (both `lexy/` and `lexy_ext/`). No bugs found:
@@ -516,112 +476,32 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
   `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
 
-- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), clean pass. 4 bugs found and fixed
-  across three sessions; full 192-file `include/` tree round1/round2-diffed clean (0
-  divergences) as of the final session. Header-only `std::execution` (P2300) senders/receivers
-  implementation, 192 `.hpp`/`.cpp` files
-  under `include/`. Toolchain note: `/opt/gcc-12.2.0/bin/g++` needs
-  `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` set first or `cc1plus` fails to load (`libisl.so.15` not
-  found) -- new finding, not previously recorded for this GCC. Also: this GCC's `<execution>`/PSTL
-  headers require Intel TBB 2018+, absent here, producing a fixed deterministic baseline of exactly
-  10 pre-existing (formatter-unrelated) compile errors whenever `<execution>` is transitively
-  included -- confirmed identical against the unmodified original, not formatter-induced.
-  - **Bug 1 (idempotency, fixed)**: a C++20 requires-expression compound-requirement
-    (`requires { { expr } -> Concept; }`, found in `__detail/__stop_token.hpp`'s
-    `unstoppable_token` concept) had its inner `}` -- immediately followed by `->`, never `;` --
-    misidentified by `ScopePipeline.splitTopLevelSpans` as a genuine scope-closing brace (the
-    existing `isScopeOpeningBrace` disambiguation only guarded the `;`-followed case), mis-recursing
-    into it as a child scope and corrupting indentation non-idempotently. Fixed by also checking for
-    an immediately-following `->` and never splitting a span there.
-  - **Bug 2 (compile-breaking, fixed)**: found via `g++ -fsyntax-only`, not merely idempotency
-    diffing. In `stop_token.hpp`, two semicolon-less macro-invocation "statements"
-    (`STDEXEC_PRAGMA_PUSH()` / `STDEXEC_PRAGMA_IGNORE_GNU(...)`) immediately preceding a
-    `#if defined(_MSC_VER) ... #endif` guarding `extern "C" void _mm_pause();` caused
-    `DeclarationAlignmentRule.splitStatements` to never close the current statement before reaching
-    the `#if` (no trailing `;` to trigger the close), folding the directive into the middle of the
-    next real statement's token list -- invisible to `parseDeclaration`'s field-based
-    reconstruction, which silently drops unrecognized tokens. The `#if` vanished from the output
-    while its paired `#endif` (now leading the next statement) survived, producing `#endif without
-    #if` plus 150+ cascading downstream errors in every file transitively including this header.
-    Fixed by adding a depth-0 check in `splitStatements` that always closes any accumulated
-    statement and starts fresh when a `PREPROCESSOR`/`MACRO_DEF` token is reached, matching
-    `hasCommentBefore`'s existing leading-directive handling.
-    Both bugs combined into fixture `test/real_code_regressions_34_{inp,out}.hpp`.
-  - **Bug 3 (compile-breaking, found and fixed 2026-07-12, follow-up session)**:
-    `__detail/__counting_scopes.hpp`'s `struct __base_scope` failed to compile with a
-    50-error cascade rooted in `expected '}' at end of input` (matched open reported at the
-    struct's own `{`) plus multiple `'__bits_'/'__count'/... was not declared in this scope`
-    errors inside the struct's own member functions. Root cause, located exactly this session
-    (confirmed via debug prints in `enforceCallLineBreaking` showing it never even saw the
-    `compare_exchange_weak` call -- something earlier in the pipeline had already collapsed it):
-    `BlockStructureRule.tryCollapse` (the STYLE.md §10 single-statement `if(cond) body;` collapse,
-    which runs in Phase 1, well before `MiscRule.enforceCallLineBreaking`) builds its collapsed
-    condition text via `renderInline`, which flattens every whitespace/newline gap to a single
-    space with no awareness that a `//` line comment consumes the rest of its original physical
-    line. `__base_scope::try_join`'s `if (__bits_.compare_exchange_weak(__old_bits, __new_bits,
-    // comment\n __std::memory_order_acq_rel, // comment\n __std::memory_order_relaxed)) { return
-    true; }` has exactly this shape (a braced single-statement `if` whose *condition*, not its
-    body, spans multiple lines with trailing `//` comments between arguments) -- `renderInline`
-    flattened the whole condition onto one line, and every token that followed the first `//`
-    comment in the source (the remaining call arguments, the closing `)`, and -- via the
-    caller's own `prefix + " " + body` join -- `return true;` and the enclosing `}` too) was
-    silently absorbed into that one comment and vanished from the rendered output, producing the
-    observed unmatched-brace cascade. A second, identically-shaped `compare_exchange_weak` call a
-    few lines later in the same function hit the same bug. This is distinct from Bug 1/Bug 2 --
-    a comment-vs-code merging defect in `BlockStructureRule.tryCollapse`/`renderInline`, not a
-    brace-depth-tracking bug in `ScopePipeline`/`DeclarationAlignmentRule`, and not in
-    `MiscRule.enforceCallLineBreaking`/`renderCallCandidate` as originally suspected (that pass's
-    own `hasCommentBetween` guard already worked correctly and was never reached for this call).
-    Fixed by adding `BlockStructureRule.containsLineComment` and checking it in `tryCollapse`:
-    refuse the collapse (leave the original braced, multi-line `if` untouched) whenever the
-    condition span carries a `COMMENT_LINE` token; block comments (`/* ... */`, which don't extend
-    to end-of-line) remain safe to flatten as before. Verified: minimal repro reproduced the exact
-    deletion first (debug prints confirmed `enforceCallLineBreaking` never touches this call);
-    after the fix, `make test` is 55/55 (fixture `real_code_regressions_35_{inp,out}.hpp` added);
-    reformatting `__counting_scopes.hpp` alone is idempotent (round1 == round2) and compiles with
-    `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only -I include` (with
-    `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`) at 0 errors, identical to the unmodified original (only
-    a harmless `#pragma once in main file` warning on both). This bug was generally applicable,
-    not stdexec-specific: any braced single-statement `if`/`while`/`for` whose *condition* spans
-    multiple lines with an inline `//` comment between tokens was at risk of silent code deletion
-    when STYLE.md §10's collapse fired -- now guarded against for all three languages sharing
-    `BlockStructureRule`.
-  - **Bug 4 (idempotency, found and fixed 2026-07-12, third session)**: the previously-open
-    `exec/on_coro_disposition.hpp` flap (`task_disposition __d = co_await __get_disposition();`
-    gaining ~61 spaces of bogus column padding on round2 but not round1) was root-caused this
-    session by elimination via debug prints: `DeclarationAlignmentRule`'s statement-splitting/
-    grouping/parsing for the `__d` declaration itself proved byte-identical both rounds, and
-    `BlockStructureRule.collapseSingleExpressionBlocks`'s collapse of the neighboring
-    `if (__d == _OnCompletion) { ... }` also proved stable/identical both rounds -- ruling out
-    both as the direct cause. Debug prints added at `ScopePipeline.applyDeclarationsPass`'s
-    splice-back site (comparing `group.size()` between rounds) then showed the real signal:
-    `groupSize=1` on round1 vs `groupSize=2` on round2. Root cause: once round1 has collapsed
-    the `if` to its braceless one-liner form (STYLE.md §10/§11), round2's *input* contains that
-    one-liner directly, and `DeclarationAlignmentRule.parseDeclaration` had no guard rejecting a
-    statement starting with `if`/`while`/`for`/`switch`/`do`/`else` -- its generic type/name-
-    around-`=` heuristics misparsed the collapsed `if (__d == _OnCompletion) co_await
-    static_cast<_Action&&>(__action)(...);` line as a bogus `Declaration` (mirroring the existing
-    `case`/`default` guard's own rationale, just for control-keyword statements instead of switch
-    labels), which then merged into the same alignment group as the preceding real `__d`
-    declaration and padded its column to match the misparsed "type"'s huge width. This bug is
-    generally applicable (not stdexec-specific): any braceless-collapsed `if`/`while`/`for`/
-    `switch`/`do`/`else` one-liner immediately following a real declaration in the same scope was
-    at risk, on any second formatting pass, once STYLE.md §10/§11's collapse had run once.
-    Fixed by rejecting those six leading keywords in `parseDeclaration`, same shape as the
-    existing `case`/`default` rejection just above it. Fixture
-    `test/real_code_regressions_36_{inp,out}.cpp` hand-authors the already-collapsed one-liner
-    directly so the bug reproduces on a single forward pass (no round-trip needed in the fixture
-    itself). Verified: full 192-file stdexec `include/` tree round1-vs-round2 diffed clean (0
-    divergences, confirming this was the *only* remaining flap in the whole tree and no new
-    bugs were introduced); `exec/on_coro_disposition.hpp` alone confirmed idempotent; compile-
-    check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only -I include` (with
-    `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`) unchanged at the same pre-existing ~10-error TBB/PSTL
-    baseline (17 `error:` lines across a handful of distinct redefinition/TBB-version messages,
-    matching prior sessions' baseline description), no new errors.
-  - `make test`: 56/56 forward, 56/56 idempotency (after adding fixtures 34, 35, and 36).
-    Compile-check: all four fixed bugs verified via minimal repro + full-file/full-tree round1
-    vs round2 comparison; the pre-existing TBB/PSTL baseline is unchanged. Candidate is now a
-    clean pass end to end -- no open gaps remain.
+- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), clean pass. Header-only
+  `std::execution` (P2300) senders/receivers implementation, 192 `.hpp`/`.cpp` files under
+  `include/`. 4 bugs found and fixed across three sessions: (1) idempotency — a C++20
+  requires-expression compound-requirement's inner `}` (followed by `->`, not `;`)
+  misidentified by `ScopePipeline.splitTopLevelSpans` as a scope-closing brace, mis-recursing
+  into it and corrupting indentation non-idempotently; fixed by also checking for a following
+  `->`. (2) compile-breaking (found via `g++ -fsyntax-only`) — two semicolon-less
+  macro-invocation statements immediately preceding a `#if`/`#endif` guard caused
+  `DeclarationAlignmentRule.splitStatements` to never close the current statement before
+  reaching the `#if`, silently dropping the directive and cascading 150+ downstream errors;
+  fixed with a depth-0 check that always closes the accumulated statement at a
+  `PREPROCESSOR`/`MACRO_DEF` token. (3) compile-breaking — `BlockStructureRule.tryCollapse`'s
+  `renderInline` flattened a multi-line `if` condition containing a `//` comment between call
+  arguments, silently absorbing every following token (including the closing `}`) into the
+  comment and producing a 50-error unmatched-brace cascade; fixed with a `containsLineComment`
+  guard that refuses the collapse when the condition carries a line comment. (4) idempotency —
+  `DeclarationAlignmentRule.parseDeclaration` misparsed an already-collapsed one-liner
+  `if`/`while`/`for`/`switch`/`do`/`else` statement (produced by STYLE.md §10/§11's collapse) as
+  a bogus declaration on a second pass, padding a neighboring real declaration's column; fixed
+  by rejecting those six leading keywords, mirroring the existing `case`/`default` guard.
+  Toolchain notes: `/opt/gcc-12.2.0/bin/g++` needs `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`; a fixed
+  baseline of ~10 pre-existing TBB/PSTL errors is expected whenever `<execution>` is
+  transitively included (confirmed unrelated to formatting). Fixtures:
+  `test/real_code_regressions_34_{inp,out}.hpp` (bugs 1+2), `_35_{inp,out}.hpp` (bug 3),
+  `_36_{inp,out}.cpp` (bug 4). `make test` 56/56 forward+idempotency; full 192-file `include/`
+  tree round1/round2-diffed clean, no open gaps remain.
 
 **NEXT SESSION — continue here:** stdexec is now fully DONE (clean pass, no open gaps). Continue
 real-code testing against remaining C/C++ candidates in this order unless redirected: the

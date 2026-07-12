@@ -352,223 +352,106 @@ Real-code regressions:
                                             through a separate untyped sigForRender path.
 
   real_code_regressions_28_inp/out.hpp   -- C++, real-code test against taocpp/PEGTL
-                                            (rematch_input.hpp): TokenizerCore.reclassifyAngleBrackets'
-                                            single-open-`<` branch for splitting a literal `>>` token
-                                            retyped the token to ANGLE_BRACKET_CLOSE via `retype()`,
-                                            which preserves the original 2-char ">>" text, then ALSO
-                                            appended a new 1-char literal `>` OP token -- duplicating
-                                            a character on the very first format pass (e.g.
-                                            `has_eol_rule<Input> >` collapsed to `has_eol_rule<Input>>>`,
-                                            3 close characters instead of 2), breaking compilation of
-                                            an otherwise-untouched `template<...>` forward-declaration
-                                            prefix. Fixed by giving the retyped ANGLE_BRACKET_CLOSE
-                                            token its own explicit 1-char ">" text instead of reusing
-                                            the original 2-char token via `retype()`.
+                                            (rematch_input.hpp): reclassifyAngleBrackets'
+                                            single-open-`<` branch retyped a literal `>>` token
+                                            via `retype()` (preserving its 2-char text) while
+                                            also appending a new 1-char `>` token, duplicating a
+                                            character on the first format pass and breaking a
+                                            `template<...>` forward declaration. Fixed by giving
+                                            the retyped token its own explicit 1-char text.
 
   real_code_regressions_29_inp/out.java  -- Java, real-code test against local `anemonesoft`
                                             candidate (HelpBox.java/Spreadsheet.java):
-                                            MiscRule.renderCallCandidate's containsNewline branch
-                                            calls groupByOriginalLine, which tracks only paren/
-                                            bracket/angle-bracket depth, not brace depth -- once a
-                                            multi-argument call's trailing argument is itself a
-                                            multi-line brace body (e.g. `new Timer(0, new
-                                            ActionListener() { ...multi-statement... })`), every
-                                            line inside that body (having no top-level comma to
-                                            split on) gets silently swallowed into a single row and
-                                            rendered via one `collapseTokensToOneLine` call with no
-                                            line-length check, producing an unboundedly long output
-                                            line whose later re-formatting (Java's Allman brace pass
-                                            reacting to the now-multi-line body) made the bug visible
-                                            as an idempotency failure. Fixed by widening an existing
+                                            renderCallCandidate's groupByOriginalLine tracks only
+                                            paren/bracket depth, not brace depth, so a call's
+                                            multi-line brace-body trailing argument got silently
+                                            swallowed into one unbounded output line, flapping to
+                                            an idempotency failure once a later pass reacted to
+                                            the now-multi-line body. Fixed by widening an existing
                                             Kotlin-only "leave such an argument untouched" bail to
-                                            all languages, using a new `containsInternalNewline`
-                                            check (newline strictly between an argument's own first
-                                            and last significant token, not merely in its leading
-                                            formatting gap) so `real_code_regressions_1`'s
-                                            single-line `{ ret, level1(ret) }` brace argument is
-                                            unaffected.
+                                            all languages via a new containsInternalNewline check.
 
   real_code_regressions_30_inp/out.kt    -- Kotlin, real-code test against `square/okio`: three
-                                            co-occurring, unrelated bugs. (1)
-                                            KotlinDeclarationAlignmentRule.renderTokens had no
-                                            notion of unary vs. binary `-`/`+`, unconditionally
-                                            inserting a space between a leading unary minus and its
-                                            operand (`val x = -1` -> `= - 1`); fixed with a new
-                                            isUnaryMinusOperand lookback. (2)
-                                            ScopePipeline.applySignaturePass's Kotlin `:
-                                            ReturnType` tail detection matched a top-level `)` with
-                                            no check that the span to the next `{` stays within one
-                                            statement, so a headerless multiplatform declaration
-                                            followed by a blank line and an unrelated later
-                                            declaration got merged into one bogus signature+tail;
-                                            fixed with a new hasTopLevelBlankLine guard. (3)
-                                            BlockStructureRule's braceless if/while/for collapse
-                                            (both tryCollapse and tryCollapseBraceless) rendered
-                                            the condition prefix with the original source's
-                                            keyword-to-paren space still present, one character
-                                            wider than the final tightened form a later
-                                            MiscRule.TIGHT_PAREN_KEYWORDS pass produces --
-                                            enforceCallLineBreaking's length check measured the
-                                            stale, wider text and over-wrapped a line that fits
-                                            exactly at the line-length limit in its true final
-                                            width, an idempotency bug; fixed by tightening the
-                                            keyword-to-paren space at collapse time in both
-                                            methods.
+                                            co-occurring bugs. (1) renderTokens had no unary-vs-
+                                            binary `-`/`+` notion, corrupting `val x = -1` into
+                                            `= - 1`; fixed with an isUnaryMinusOperand lookback.
+                                            (2) applySignaturePass's `: ReturnType` tail detection
+                                            merged a headerless declaration with an unrelated
+                                            later one across a blank line; fixed with a
+                                            hasTopLevelBlankLine guard. (3) braceless if/while/for
+                                            collapse rendered a stale, untightened keyword-paren
+                                            space, causing enforceCallLineBreaking to over-wrap a
+                                            line that fits at its true final width; fixed by
+                                            tightening the space at collapse time.
 
-  real_code_regressions_31_inp/out.kt    -- Kotlin, two more compile-breaking bugs found via
-                                            `kotlinc` compile-checking against `square/okio` (not
-                                            caught by round1-vs-round2 diffing, since both are
-                                            broken consistently from the first pass). (1)
-                                            TokenizerCore.MULTI_CHAR_OPS was entirely missing
-                                            Kotlin's `===`/`!==` referential equality operators --
-                                            `next !== this` lexed as separate `!=`/`=` tokens,
-                                            later re-spaced into the invalid `!= =`; fixed by
-                                            adding `===`/`!==` ahead of their 2-char prefixes. (2)
-                                            BlockStructureRule's braceless-collapse dispatch
-                                            treated a do-while's trailing `while (cond)` (no `{`
-                                            after its `)`) the same as a genuine loop-starting
-                                            `while`, fusing the following unrelated statement onto
-                                            the same line with no separator; fixed with a new
-                                            isDoWhileTailKeyword lookback that bails the collapse
-                                            for that shape.
+  real_code_regressions_31_inp/out.kt    -- Kotlin, two compile-breaking bugs found via `kotlinc`
+                                            against `square/okio` (not caught by idempotency
+                                            diffing). (1) MULTI_CHAR_OPS was missing `===`/`!==`,
+                                            so `!==` lexed as separate tokens and got re-spaced
+                                            into invalid `!= =`; fixed by adding both operators.
+                                            (2) the braceless-collapse dispatch treated a
+                                            do-while's trailing `while (cond)` as a loop-starting
+                                            `while`, fusing the next statement onto the same line;
+                                            fixed with an isDoWhileTailKeyword lookback.
 
   real_code_regressions_32_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
-                                            nested `when { ... }` used as a `when` branch's own
-                                            body (`is Class<*> ->` followed by `when { ... }` on
-                                            the next line in the original source) round1-vs-round2
-                                            flapped its closing `}`'s indentation between two
-                                            different columns. Root cause: ScopePipeline's Kotlin
-                                            braceLineIndent anchors a scope's indent on the
-                                            physical line its opening `{` sits on at the moment
-                                            ScopePipeline runs (Phase 0) -- but
-                                            KotlinSpecificRule.formatWhenExpressions' later
-                                            arrow-alignment pass (Phase 4) merges the branch's
-                                            label line and the nested `when {` onto one physical
-                                            line whenever it fits (always true here, since the
-                                            body's own first line is just `{`). A fresh format
-                                            computes the indent against the pre-merge line; a
-                                            reformat of already-merged output computes it against
-                                            the post-merge line -- disagreeing. Fixed with a new
-                                            findMergingWhenBranchLineStart lookahead in
-                                            ScopePipeline.braceLineIndent that detects this exact
-                                            shape (a lone `when {` line immediately preceded by a
-                                            line ending in a top-level `->`) and anchors on the
-                                            eventual post-merge line up front, Kotlin-gated.
+                                            nested `when { ... }` used as a `when` branch's body
+                                            flapped its closing `}`'s indentation round1-vs-round2,
+                                            since Kotlin's braceLineIndent anchors on the brace's
+                                            pre-merge physical line at Phase 0 but
+                                            formatWhenExpressions' Phase 4 arrow-alignment pass
+                                            later merges the branch label onto that same line.
+                                            Fixed with a findMergingWhenBranchLineStart lookahead
+                                            that anchors on the eventual post-merge line up front.
 
-  real_code_regressions_33_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`:
-                                            a real, first-pass, compile-breaking bug found via
-                                            `kotlinc` syntax-checking (not merely idempotency
-                                            diffing) -- an expression-bodied function whose body is
-                                            itself a trailing-lambda call (`fun addTypes(...): T =
-                                            apply { ... } as T`) had `apply`'s own unrelated `{`
-                                            wrongly Allman-converted as if it were the function's
-                                            own body brace, splitting `apply` from `{ ... }` across
-                                            lines with no valid Kotlin grammar joining them. Root
-                                            cause: `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s
-                                            backward scan for a `: ReturnType` clause before a
-                                            candidate body `{` had no bail-out on an intervening
-                                            depth-0 `=` -- it kept scanning past `apply`/`=` and
-                                            found the function's own real `: T` further back,
-                                            wrongly treating the unrelated nested `{` as this
-                                            function's own body brace. Fixed with a new bail-out
-                                            when a depth-0 `=` is encountered before any `:`.
+  real_code_regressions_33_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
+                                            first-pass compile-breaking bug found via `kotlinc` --
+                                            an expression-bodied function whose body is itself a
+                                            trailing-lambda call (`fun addTypes(...): T = apply {
+                                            ... } as T`) had `apply`'s own unrelated `{` wrongly
+                                            Allman-converted as the function's own body brace.
+                                            Root cause: findSignatureCloseParenBeforeBrace's
+                                            backward scan for `: ReturnType` had no bail-out on an
+                                            intervening depth-0 `=`. Fixed with that bail-out.
 
   real_code_regressions_34_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`:
-                                            combines two distinct bugs found while formatting
-                                            `include/`. (1) A C++20 requires-expression
-                                            compound-requirement (`requires { { expr } ->
-                                            Concept; }`) had its inner `}` -- immediately followed
-                                            by `->`, never by `;` -- misidentified by
-                                            `ScopePipeline.splitTopLevelSpans` as a genuine
-                                            scope-closing brace, since the existing
-                                            `isScopeOpeningBrace` disambiguation only guarded the
-                                            `;`-followed case; this mis-recursed into the
-                                            compound-requirement as if it were its own child
-                                            scope, corrupting indentation non-idempotently
-                                            (round1 != round2). Fixed by also checking for an
-                                            immediately-following `->` and never splitting a span
-                                            there. (2) A real, first-pass, compile-breaking bug
-                                            found via `g++ -fsyntax-only`: two semicolon-less
-                                            macro-invocation "statements" (no trailing `;`)
-                                            immediately preceding a `#if ... #endif` pair caused
-                                            `DeclarationAlignmentRule.splitStatements` to never
-                                            close the current statement before reaching the `#if`,
-                                            folding the directive into the *middle* of the next
-                                            real statement's token list -- invisible to
-                                            `parseDeclaration`'s field-based reconstruction, which
-                                            silently drops any token it doesn't recognize as part
-                                            of a declaration's shape. The `#if` vanished on
-                                            output while its paired `#endif` (now leading the next
-                                            statement) survived, producing an `#endif without #if`
-                                            error and 150+ cascading downstream errors in any file
-                                            that includes the corrupted header. Fixed by adding a
-                                            depth-0 check in `splitStatements` that always closes
-                                            out any accumulated statement and starts a fresh one
-                                            when a `PREPROCESSOR`/`MACRO_DEF` token is reached,
-                                            consistent with `hasCommentBefore`'s existing
-                                            leading-directive handling.
+                                            combines two bugs. (1) A requires-expression
+                                            compound-requirement's inner `}` (followed by `->`,
+                                            not `;`) was misidentified by splitTopLevelSpans as a
+                                            scope-closing brace, corrupting indentation
+                                            non-idempotently; fixed by also checking for a
+                                            following `->`. (2) Compile-breaking: semicolon-less
+                                            macro-invocation statements before a `#if`/`#endif`
+                                            guard caused splitStatements to never close the
+                                            current statement, silently dropping the `#if` and
+                                            cascading 150+ downstream errors; fixed with a depth-0
+                                            check that always closes the statement at a
+                                            preprocessor token.
 
   real_code_regressions_35_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`
-                                            (continuing the candidate above): a real,
-                                            first-pass, compile-breaking bug ("Bug 3" in
-                                            STATE_C_CPP_JAVA.md's stdexec entry) found via
-                                            `g++ -fsyntax-only` in `__detail/__counting_scopes.hpp`'s
-                                            `__base_scope::try_join`. `BlockStructureRule.
-                                            tryCollapse` (the STYLE.md §10 single-statement
-                                            `if(cond) body;` collapse) builds its collapsed
-                                            condition text via `renderInline`, which flattens
-                                            every whitespace/newline gap to a single space with
-                                            no awareness that a `//` line comment consumes the
-                                            rest of its original physical line -- so once an
-                                            `if`'s multi-line condition containing a trailing `//`
-                                            comment between arguments (here, two `compare_
-                                            exchange_weak(...)` calls) got flattened, every token
-                                            that followed the comment in the source (the
-                                            remaining call arguments, the closing `)`, `return
-                                            true;`, and the enclosing `}`) was silently absorbed
-                                            into that one comment and vanished from the output,
-                                            producing a 50-error `expected '}' at end of input`
-                                            cascade. Fixed by adding a `containsLineComment` check
-                                            in `tryCollapse` that refuses the collapse (leaves the
-                                            original braced, multi-line `if` untouched) whenever
-                                            its condition span carries a `COMMENT_LINE` token;
-                                            block comments (`/* ... */`, which don't extend to
-                                            end-of-line) remain safe to flatten as before.
+                                            (continuing the candidate above): a compile-breaking
+                                            bug ("Bug 3") in `__counting_scopes.hpp` -- tryCollapse's
+                                            renderInline flattened a multi-line `if` condition
+                                            containing a `//` comment between call arguments,
+                                            silently absorbing every following token (including
+                                            the closing `}`) into the comment and producing a
+                                            50-error unmatched-brace cascade. Fixed with a
+                                            containsLineComment guard that refuses the collapse
+                                            when the condition carries a line comment.
 
   real_code_regressions_36_inp/out.cpp   -- C++, real-code test against `NVIDIA/stdexec`
-                                            (continuing the candidate above): the last known
-                                            idempotency flap in `exec/on_coro_disposition.hpp`
-                                            (`task_disposition __d = co_await
-                                            __get_disposition();` gaining ~61 spaces of bogus
-                                            column padding on a second formatting pass only).
-                                            Root cause: `DeclarationAlignmentRule.
-                                            parseDeclaration` had no guard rejecting a
-                                            collapsed-to-one-line control statement (`if (...)
-                                            stmt;`, `while (...) stmt;`, etc. -- the braceless
-                                            form `BlockStructureRule.collapseSingleExpressionBlocks`
-                                            produces per STYLE.md §10/§11) as a candidate
-                                            declaration; its generic type/name-around-`=`
-                                            heuristics misparsed such a line as a bogus
-                                            `Declaration`, which then merged into the alignment
-                                            group of the preceding real declaration and padded
-                                            its column width to match the misparsed "type"'s huge
-                                            length. This only reproduced once the `if` had
-                                            already been collapsed onto one physical line --
-                                            i.e. never on a first pass, only from a second pass
-                                            onward -- which is why it slipped past forward-pass
-                                            testing and only showed up as an idempotency
-                                            divergence. Fixed by rejecting `if`/`while`/`for`/
-                                            `switch`/`do`/`else` as a statement's leading keyword
-                                            in `parseDeclaration`, mirroring the existing `case`/
-                                            `default` guard. This fixture's `_inp.cpp` hand-writes
-                                            the already-braceless `if (__d == _OnCompletion)
-                                            do_call(__action);` directly (no round-trip needed)
-                                            so the bug reproduces on a single forward pass.
-                                            Confirmed via full-tree round1/round2 diffing across
-                                            all 192 stdexec `include/` files that this was the
-                                            only remaining divergence in the tree, and that the
-                                            fix clears it with no new divergences introduced;
-                                            marks the stdexec candidate DONE.
+                                            (continuing the candidate above): the last remaining
+                                            idempotency flap -- parseDeclaration had no guard
+                                            rejecting an already-collapsed one-liner `if`/`while`/
+                                            `for`/`switch`/`do`/`else` statement (produced by
+                                            STYLE.md §10/§11's collapse) as a candidate
+                                            declaration, so on a second pass it misparsed one as a
+                                            bogus `Declaration` and padded a neighboring real
+                                            declaration's column. Fixed by rejecting those six
+                                            leading keywords, mirroring the existing `case`/
+                                            `default` guard; confirmed via full-tree round1/round2
+                                            diffing this was the only remaining divergence, marking
+                                            the stdexec candidate DONE.
 
 How Tests Are Run
 -----------------

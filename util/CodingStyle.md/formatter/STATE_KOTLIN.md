@@ -143,93 +143,43 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 ## Open Questions
 
-- ~~**First-statement double-indentation bug**~~ **RESOLVED — was a
-  test-harness artifact, not a real formatter bug.** Root-caused with a
-  debug-print harness (RDD_KEY_122): a stray `/tmp/kt_test/.jxmake-code-formatter`
-  config left over from earlier ad-hoc testing had `indent-size=8`, silently
-  picked up by every fixture formatted under that directory. `normalizeIndent`
-  was correctly rounding a real 4-space indent up to the nearest multiple of
-  the wrongly-configured 8-width, doubling it. With the stray config deleted
-  the symptom doesn't reproduce, confirmed against both a minimal repro and
-  the full `kt_combined_inp.kt` fixture. Step 4 punch-list item 4 (nested
-  `for` getting a spurious `} // for` comment) also stopped reproducing once
-  the same stray config (`closing-comment-min-lines=1`) was removed — same
-  artifact. **A different, real bug was found in the same area while
-  re-testing with a clean config, fixed under RDD_KEY_122**: a Kotlin
-  property's `set(value) { ... }` accessor body, immediately following a
-  `;`-less `var`/`val` line, had its closing `}` under-indented by one level —
-  `ScopePipeline.findParentIndent` didn't recognize a Kotlin newline-terminated
-  declaration as a statement boundary, only C/Java's `;`. Fixed with a
-  narrowly-scoped Kotlin-only rule (depth-0 `NEWLINE` immediately followed by
-  `get`/`set`).
-- **Reversed declaration grammar (§6/§7, found during Step 1) — RESOLVED.**
-  `DeclarationAlignmentRule.Declaration` (and `MiscRule`'s parameter/signature
-  model) assume C/Java's `[modifiers] Type name [= init]` order. Kotlin's
-  grammar is `[modifiers] val/var name : Type [= init]` — name first, type
-  optional after `:`. Affects both §6 (variable/property declarations) and
-  §7 (function parameter lists), which the style doc expects column-aligned
-  the same way C/Java declarations are. Two options considered: (1) extend
-  `DeclarationAlignmentRule`'s shared `Declaration` model for a
-  name-before-type mode — a behavior change to an already-COMPLETE shared
-  class, requiring a stop-and-ask per the Hard Constraint; (2) give
-  `KotlinSpecificRule.java` its own independent parser/renderer reusing only
-  lower-level primitives (`ColumnGrid`, `ModifierPriority`) — no shared-class
-  behavior change, more duplicated logic. **Resolved for both §6
-  (RDD_KEY_103) and §7 (RDD_KEY_104)** with a third approach: loosen the
-  relevant shared class's visibility on its C/C++/Java-agnostic private
-  helpers (additive, behavior-neutral), then extend it
-  (`KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` for §6;
-  `KotlinSignatureRule extends MiscRule` for §7), each with its own
-  name-before-type model/parser/`ColumnGrid` renderer.
+- **First-statement double-indentation bug — RESOLVED, see RDD_KEY_122.**
+  Asked whether a first-statement double-indentation was a real formatter
+  bug; turned out to be a stray leftover test-harness config
+  (`indent-size=8`) inflating a real 4-space indent, not a bug — but a
+  different, real bug was found in the same area (a Kotlin property's
+  `set(value) { ... }` accessor closing-brace under-indented by one level)
+  and fixed under the same key.
+- **Reversed declaration grammar (§6/§7) — RESOLVED, see RDD_KEY_103/104.**
+  Asked how to reconcile `DeclarationAlignmentRule`/`MiscRule`'s C/Java
+  `[modifiers] Type name [= init]` model with Kotlin's reversed
+  `[modifiers] val/var name : Type [= init]` grammar for §6 (declarations)
+  and §7 (parameter lists). Resolved by loosening the shared classes'
+  private helpers to `protected` and extending them
+  (`KotlinDeclarationAlignmentRule`/`KotlinSignatureRule`), each with its own
+  name-before-type parser/renderer.
 - **String template tokenizing (§19) — RESOLVED, see RDD_KEY_116/117.**
-  Originally flagged: not yet verified whether `TokenizerCore.emitString()`
-  correctly closes a Kotlin string when a `${...}` interpolation contains its
-  own nested `"..."` (e.g. `"${foo("x")}"`) — written for C/Java strings,
-  which never nest quotes. Confirmed a real tokenizer-correctness risk and
-  fixed; see RDD table above for detail.
-- **§8/§9 one-liner getter/setter grouping — RESOLVED for both §9
-  (RDD_KEY_132) and §8 plain expression-bodied `get()` accessors
-  (RDD_KEY_133).** Originally confirmed broken via live standalone-JAR
-  testing: three adjacent `fun getX(): Int = 1`/`getY`/`getZ` one-liners got
-  zero column alignment (equivalent Java aligned correctly), with and
-  without an explicit `public` modifier. Root cause: `GetterSetterRule
-  .groupOneLiners`'s `isClassScope` gate (`lang.isJava ||
-  hasAccessSpecifier(...)`) is always `false` for Kotlin since
-  `hasAccessSpecifier` looks for C++-style `public:`/`private:` labels which
-  don't exist in Kotlin; more fundamentally `parseOneLinerMember`'s
-  modifier-consuming loop and name-finding logic assume C/Java's
-  `[modifiers] ReturnType name(...)` order — the same reversed-grammar
-  problem already solved for §6/§7 (RDD_KEY_103/104), not yet extended to
-  this shared class. **§9 fix**: `KotlinGetterSetterRule extends
-  GetterSetterRule` — verified via harness (`getX`/`getLongName`/`getZ`
-  column-align correctly including outlier exclusion) plus a
-  `test/kt_combined_inp.kt` case. **§8 fix**: a plain no-initializer
-  `val`/`var name: Type` immediately followed by a bare `get() = expr` (no
-  `set`, no block body) now merges onto one line and column-aligns across
-  siblings — verified via harness (varying name widths, outlier exclusion,
-  mixed §8+§9 groups staying separate, block-bodied/setter/initializer cases
-  untouched, trailing-comment case) plus a `class PropertyAccessors { ... }`
-  case in `test/kt_combined_inp.kt`/`kt_combined_out.kt`. **Remaining
-  documented gap**: block-bodied accessors (`get() { ... }`/`set(v) { ... }`),
-  a getter+setter pair, and a property with both an initializer and a custom
-  accessor are all still "preserved as written, not grouped" — §8's
-  "preserve as written" requirement is still met, only the alignment upgrade
-  for those wider shapes is out of scope. Until these landed,
-  `AI_PREAMBLE_AESTHETIC.md`'s Rule 2 ("JAR aligns standard-prefix
-  getter/setter groups automatically") was flagged as not true for Kotlin.
-- **Bare `else` single-statement collapse — RESOLVED (RDD_KEY_127 +
-  RDD_KEY_128).** `kt_combined_out.kt` shows a bare `else` (no condition of
-  its own, following an `if(...)  0`-shaped one-liner) collapsed onto one
-  line and column-padded to align with the `if` branch above it:
-  `else               it.toInt()`. RDD_KEY_124's fix only handled
-  `if`/`while`/`for` (each keyed off its own `(...)` condition) — the
-  collapse loop never triggered on a standalone `else`. RDD_KEY_127 fixed the
-  collapse-to-one-line half; RDD_KEY_128 (user-confirmed via the fixture)
-  fixed the column-padding half with a standalone pass run deliberately last
-  in the pipeline, after every paren-tightening/spacing pass has settled the
-  `if` line's final width — an earlier collapse-time attempt was stale by one
-  column because `MiscRule.enforceComplexityPadding` tightens `if (` to
-  `if(` in a pass that runs after the collapse.
+  Asked whether `TokenizerCore.emitString()` correctly closes a Kotlin
+  string when a `${...}` interpolation contains its own nested `"..."`;
+  confirmed a real tokenizer-correctness risk (also surfacing triple-quoted
+  raw strings as a related gap) and fixed both.
+- **§8/§9 one-liner getter/setter grouping — RESOLVED for §9 (RDD_KEY_132)
+  and §8 plain expression-bodied `get()` accessors (RDD_KEY_133).** Asked
+  why adjacent one-liner Kotlin accessors got no column alignment (Java's
+  equivalent aligns); root cause was the same reversed-grammar problem as
+  §6/§7, not yet extended to `GetterSetterRule`. Fixed via
+  `KotlinGetterSetterRule extends GetterSetterRule` for both shapes.
+  Block-bodied accessors, getter+setter pairs, and initializer+accessor
+  properties remain a documented, deliberately out-of-scope gap (still
+  correctly preserved as written, just not column-aligned).
+- **Bare `else` single-statement collapse — RESOLVED, see RDD_KEY_127 +
+  RDD_KEY_128.** Asked why a bare `else` (no condition of its own) wasn't
+  collapsing/aligning like its `if`/`while`/`for` siblings (RDD_KEY_124 was
+  keyed off each's own `(...)` condition, never a standalone `else`).
+  RDD_KEY_127 fixed the collapse-to-one-line half; RDD_KEY_128 fixed the
+  column-padding half with a standalone pass run last in the pipeline (an
+  earlier collapse-time attempt was stale by one column against a later
+  paren-tightening pass).
 - **Signature param column-alignment/trailing-comma silently lost after
   splice-back — OPEN, RDD_KEY_149.** Found via `square/okio` real-code
   testing (`RealBufferedSink.kt`'s `commonWriteUtf8`, also reproduces in

@@ -249,7 +249,7 @@ accept `final` there). Applies to all `.java` files under `src/`.
 - [x] `README.md` update for Phase 1 + Phase 2 (added `auto` to `indent-style`
       comment; all other Phase 1+2 items already present)
 
-All 15 file-pair tests below PASS (forward + idempotency), zero known regressions. Full
+All file-pair tests below PASS (forward + idempotency), zero known regressions. Full
 bug-by-bug root-cause narratives have been compacted out of this file — available via
 `git log`/`git show` on the commits noted per entry.
 
@@ -323,7 +323,7 @@ bug-by-bug root-cause narratives have been compacted out of this file — availa
 wait for instruction. Do not fix either the formatter or the `*_out` file without explicit
 user direction — `*_out` files are hand-authored and may themselves contain errors.**
 
-**After all 15 file-pair tests pass (or are resolved — ask the user first):**
+**After all file-pair tests above pass (or are resolved — ask the user first):**
 - [x] Dogfood self-format pass: run formatter on all `src/**/*.java`, write
       to `target/dogfood-src/`
 - [x] Dogfood self-format compile: `javac` the `target/dogfood-src/` tree;

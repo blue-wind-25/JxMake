@@ -490,6 +490,27 @@ Real-code regressions:
                                             space after (unlike a jump's `@label`, which is followed
                                             by a value expression).
 
+  real_code_regressions_40_inp/out.kt    -- Kotlin, real-code test against
+                                            `Kotlin/kotlinx.coroutines`: `LimitedDispatcher.kt`'s
+                                            `obtainTaskOrDeallocateWorker()` had a `while (true) {
+                                            when (...) { null -> synchronized(lock) { stmt; stmt;
+                                            stmt } ... } }` -- the `while`'s sole statement (the
+                                            `when` expression) qualified as a collapsible
+                                            single-statement body, but that statement itself owned a
+                                            nested, genuinely multi-line `synchronized(...) { ... }`
+                                            block; `BlockStructureRule.tryCollapse`'s `renderInline`
+                                            flattens every whitespace/newline in the collapsed body
+                                            to a single space with no brace-depth awareness, fusing
+                                            the `synchronized` block's three separate statements onto
+                                            one physical line with no separators (Kotlin has no
+                                            mandatory `;`) -- a real, first-pass syntax error, not
+                                            merely an idempotency flap. Fixed with a new
+                                            `BlockStructureRule.containsMultilineNestedBrace` check
+                                            in `isKotlinSingleStatementBody`: bails out of the
+                                            single-statement/collapsible classification whenever the
+                                            body contains a nested `{...}` block with an internal
+                                            newline at brace-depth > 0.
+
 How Tests Are Run
 -----------------
 

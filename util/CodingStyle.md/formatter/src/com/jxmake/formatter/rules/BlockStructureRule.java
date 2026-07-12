@@ -487,6 +487,20 @@ public class BlockStructureRule {
      *  marks a statement boundary; any further significant token after that boundary means more
      *  than one statement, so the body doesn't qualify for the §10 single-statement omission. */
     private boolean isKotlinSingleStatementBody(final List<Token> contents) {
+        // A syntactically-single statement (e.g. a `when`/`synchronized`/`if`-as-expression) can
+        // still carry its own nested `{...}` block with several statements inside -- `renderInline`
+        // (used by every caller of this method to actually produce the collapsed text) flattens
+        // *all* whitespace/newlines in `contents` to a single space with no brace-depth awareness,
+        // so collapsing here would fuse that nested block's separate statements onto one physical
+        // line with no `;` separators (Kotlin has none) -- a real compile error. Found via
+        // kotlinx.coroutines real-code testing (`LimitedDispatcher.kt`'s
+        // `obtainTaskOrDeallocateWorker()`: a `while (true) { when (...) { null -> synchronized(lock)
+        // { stmt; stmt; stmt } ... } }` had the entire multi-statement `synchronized` body fused).
+        // Bail out (refuse to treat as a collapsible single statement) whenever a nested `{...}`
+        // block contains an internal newline at brace-depth > 0 -- that block must stay exploded.
+        if (containsMultilineNestedBrace(contents)) {
+            return false;
+        }
         int depth = 0;
         boolean sawContent = false;
         boolean sawBoundaryAfterContent = false;
@@ -516,6 +530,26 @@ public class BlockStructureRule {
             sawContent = true;
         }
         return sawContent;
+    }
+
+    /** True iff {@code contents} contains a nested {@code {...}} block (brace-depth > 0 relative
+     *  to {@code contents} itself) with at least one NEWLINE inside it -- i.e. the block is not a
+     *  trivial one-liner and must stay exploded across physical lines. See
+     *  {@link #isKotlinSingleStatementBody}'s javadoc for why this matters: a single Kotlin
+     *  statement (one `when`/`synchronized`/etc.) can itself own such a block, and flattening it
+     *  via {@code renderInline} would fuse its separate inner statements with no separator. */
+    private boolean containsMultilineNestedBrace(final List<Token> contents) {
+        int braceDepth = 0;
+        for (final Token t : contents) {
+            if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
+                braceDepth++;
+            } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
+                braceDepth--;
+            } else if (t.type == TokenType.NEWLINE && braceDepth > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Kotlin-only sibling of {@link #tryCollapse} for a body that is already brace-free but

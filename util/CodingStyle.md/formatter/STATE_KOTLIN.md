@@ -141,6 +141,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_154 | `Kotlin/kotlinx.coroutines` idempotency bug: `KotlinSignatureRule.renderWithTail`'s `exprStr` baked a trailing space onto `"= "` even when `tail.exprTokens` was empty (a `{`-led lambda-literal expression body, left unconsumed by the tail parser by design) -- since the untouched remainder downstream keeps its own original leading whitespace, this stacked an extra space on every re-format (unbounded growth, non-idempotent). Fixed by rendering bare `"="` when `exprTokens` is empty. New `test/real_code_regressions_37_inp.kt`/`_out.kt`. `make test`: 56/56 before, 57/57 after. |
 | RDD_KEY_155 | `Kotlin/kotlinx.coroutines` compile-check bug #1 (`SyntaxCheck` syntax-only tool): a KDoc code example containing its own literal `/* ... */` snippet is valid Kotlin (block comments nest, unlike C/C++/Java) but `TokenizerCore.emitBlockComment` closed the outer doc-comment at that inner `*/`, corrupting/truncating everything after (`Guidance.kt`, ~330 lines dropped). Fixed with Kotlin-gated nesting-depth tracking; C/C++/Java unchanged. New `test/real_code_regressions_38_inp.kt`/`_out.kt`. `make test`: 57/57 before, 58/58 after. |
 | RDD_KEY_156 | `Kotlin/kotlinx.coroutines` compile-check bug #2 (`SyntaxCheck`): a qualified-this label reference (`this@Label`) had a space wrongly inserted before `@` since `KotlinSpecificRule.enforceLabeledJumpSpacing`'s §11 state machine had no case for the `this` keyword (only jump keywords/plain identifiers). Fixed with new `AFTER_THIS_KEYWORD`/`AFTER_THIS_AT` states, tight through the label with no forced trailing space (unlike a jump's `@label`). New `test/real_code_regressions_39_inp.kt`/`_out.kt`. `make test`: 58/58 before, 59/59 after. |
+| RDD_KEY_157 | `Kotlin/kotlinx.coroutines` compile-check bug #3, `LimitedDispatcher.kt`'s last remaining `SyntaxCheck` error (root-caused this session via a minimal repro extracted from the file itself + temporary phase-bracketing debug prints in `Formatter.formatOne`, not the previous session's static reasoning): `obtainTaskOrDeallocateWorker()`'s `while (true) { when (...) { null -> synchronized(lock) { stmt; stmt; stmt } ... } }` had the `synchronized` block's three statements fused onto one line with no separators. Root cause: `BlockStructureRule.isKotlinSingleStatementBody` correctly identifies the `while`'s sole body statement (the `when` expression) as syntactically one statement, but has no notion that statement can itself own a nested, genuinely multi-line `{...}` block -- `tryCollapse`'s `renderInline` flattens all whitespace/newlines in the approved span with no brace-depth awareness, silently fusing that unrelated nested block's own statements too. **Fix**: new `containsMultilineNestedBrace` helper (bails whenever a nested `{...}` contains a NEWLINE at brace-depth > 0), called from `isKotlinSingleStatementBody`; inert for C/C++/Java (only gates the Kotlin-only branch). New `test/real_code_regressions_40_inp.kt`/`_out.kt`. `make test`: 60/60 before and after. Narrow re-check: `SyntaxCheck` against just the real `LimitedDispatcher.kt` confirmed clean post-fix. Closes the `kotlinx.coroutines` compile-breaking investigation; the 10-file idempotency-diff open question remains open (out of scope this session). |
 
 ---
 
@@ -278,8 +279,8 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   forward + 53/53 idempotency with the source tree back at its
   RDD_KEY_153 state (no code changes this session).
 
-- **`kotlinx.coroutines` remaining idempotency diffs (10 files) and one unresolved compile-breaking
-  bug — OPEN, found this session.** After RDD_KEY_154's fix, 10 files still round1-vs-round2 diff
+- **`kotlinx.coroutines` remaining idempotency diffs (10 files) — still OPEN; the compile-breaking
+  bug in this same entry is RESOLVED, see RDD_KEY_157.** After RDD_KEY_154's fix, 10 files still round1-vs-round2 diff
   (`BufferedChannel.kt`/`AbstractSharedFlow.kt`/`ChannelFlow.kt`/`ConcurrentLinkedList.kt`/
   `ThreadSafeHeap.kt`/`JobSupport.kt`/`Select.kt`/`DebugProbesImpl.kt`/`ExceptionsConstructor.kt`/
   `SystemProps.kt`); at least two distinct shapes observed but not root-caused: a closing-`}`
@@ -287,24 +288,28 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   `ExceptionsConstructor.kt`'s `} to N` similarly), and a `try`/`catch`-as-expression brace-style/
   indentation confusion (`SystemProps.kt`'s `systemProp()`: a multi-line broken signature's
   `try { ... } catch (...) { ... }` expression body gets its `catch` moved to its own line with a
-  `catch(e:` spacing loss and a drifting closing-brace indent). Separately, `SyntaxCheck` still
-  finds one genuine, unresolved syntax error: `LimitedDispatcher.kt`'s
-  `obtainTaskOrDeallocateWorker()` has a `when (val nextTask = ...) { null -> synchronized(lock) {
-  multi-statement } ... }` branch whose `synchronized(...) { ... }` trailing-lambda body (three
-  statements) gets fused onto one physical line with no `;` separators — confirmed a first-pass
-  corruption (reproduces on a fresh format, not merely an idempotency flap). Investigated enough to
-  rule out the obvious suspects: `MiscRule.renderCallCandidate`'s Option 2 multi-line-argument path
-  is not reached (the `synchronized(lock)` parens hold only a single non-newline-containing
-  argument; the trailing lambda sits outside the parens entirely, so `containsNewline(paramsSlice)`
-  is false and the candidate is never touched by that pass), and `KotlinSpecificRule.
-  applyArrowAlignment` only rewrites the branch's label+arrow span, never touching
-  `bodyStart..bodyEnd` — so the fusion must happen in some other pass not yet identified. Not
-  guessed at further this session (no debug-print-confirmed root cause) — per STATE_COMMON.md's
-  ambiguity protocol, documenting here rather than continuing without evidence. Next step is
-  probably a debug print in whichever pass is suspected of collapsing a trailing-lambda call
-  argument sitting outside a call's own parens (the RDD_KEY_134/151 class of bug covered call
-  arguments *inside* parens and a do-while's own trailing `while (...)`, but not this
-  outside-the-parens trailing-lambda shape used as a `when` branch's value).
+  `catch(e:` spacing loss and a drifting closing-brace indent). These 10 idempotency diffs remain
+  open and out of scope (not investigated further this session, per explicit instruction).
+  Separately, `SyntaxCheck` had found one genuine syntax error in `LimitedDispatcher.kt`'s
+  `obtainTaskOrDeallocateWorker()` — a `when (val nextTask = ...) { null -> synchronized(lock) {
+  multi-statement } ... }` branch whose `synchronized(...) { ... }` body (three statements) got
+  fused onto one physical line with no `;` separators. **RESOLVED this session, see RDD_KEY_157.**
+  The prior session's ruled-out suspects (`MiscRule.renderCallCandidate`'s Option 2 multi-line-
+  argument path; `KotlinSpecificRule.applyArrowAlignment`, which only rewrites the branch's own
+  label+arrow span) were confirmed correct — a minimal repro extracted directly from
+  `LimitedDispatcher.kt`, formatted with temporary phase-bracketing debug prints in
+  `Formatter.formatOne` (removed before commit), showed the fusion already present immediately
+  after `BlockStructureRule.collapseSingleExpressionBlocks` — the very first Phase 1 pass, and not
+  a `KotlinSpecificRule` pass at all. The actual root cause was one layer further out: the `while`
+  loop's own single-statement-body collapse (`isKotlinSingleStatementBody`/`tryCollapse`) correctly
+  treats its sole body statement (the `when` expression) as one collapsible statement, but has no
+  awareness that this statement can itself own a nested, genuinely multi-line `{...}` block (the
+  `when` branch's `synchronized(...) { ... }`) — `tryCollapse`'s `renderInline` flattens every
+  whitespace/newline in the approved span to a single space with no brace-depth awareness at all,
+  silently fusing that unrelated nested block's own statements too. Fixed with a new
+  `BlockStructureRule.containsMultilineNestedBrace` guard in `isKotlinSingleStatementBody`. New
+  fixture `test/real_code_regressions_40_inp.kt`/`_out.kt`; `make test` 60/60 before and after;
+  narrow re-check of `SyntaxCheck` against just the real `LimitedDispatcher.kt` confirmed clean.
 
 ---
 

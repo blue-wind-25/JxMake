@@ -516,8 +516,9 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
   `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
 
-- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), 3 bugs found and fixed across two
-  sessions; not a clean pass. Header-only `std::execution` (P2300) senders/receivers
+- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), clean pass. 4 bugs found and fixed
+  across three sessions; full 192-file `include/` tree round1/round2-diffed clean (0
+  divergences) as of the final session. Header-only `std::execution` (P2300) senders/receivers
   implementation, 192 `.hpp`/`.cpp` files
   under `include/`. Toolchain note: `/opt/gcc-12.2.0/bin/g++` needs
   `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` set first or `cc1plus` fails to load (`libisl.so.15` not
@@ -585,20 +586,46 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
     multiple lines with an inline `//` comment between tokens was at risk of silent code deletion
     when STYLE.md §10's collapse fired -- now guarded against for all three languages sharing
     `BlockStructureRule`.
-  - **Known remaining gap (idempotency-only, not investigated further, lower priority per this
-    session's "prioritize compile-breaking bugs" instruction)**: `exec/on_coro_disposition.hpp`'s
-    `task_disposition __d = co_await __get_disposition();` gains roughly 61 spaces of column
-    padding on round2 but not round1 -- confirmed real and confirmed to persist after Bug 1's fix
-    (so it's a distinct issue, not a duplicate), but root cause not isolated. Needs its own
-    bisection session.
-  - `make test`: 55/55 forward, 55/55 idempotency (after adding fixtures 34 and 35). Compile-check:
-    all three fixed bugs verified via minimal repro + full-file/full-tree round1 vs round0
-    comparison; the pre-existing 10-error TBB/PSTL baseline is unchanged. The
-    `on_coro_disposition.hpp` idempotency flap (see below) was not investigated this session and
-    remains open.
+  - **Bug 4 (idempotency, found and fixed 2026-07-12, third session)**: the previously-open
+    `exec/on_coro_disposition.hpp` flap (`task_disposition __d = co_await __get_disposition();`
+    gaining ~61 spaces of bogus column padding on round2 but not round1) was root-caused this
+    session by elimination via debug prints: `DeclarationAlignmentRule`'s statement-splitting/
+    grouping/parsing for the `__d` declaration itself proved byte-identical both rounds, and
+    `BlockStructureRule.collapseSingleExpressionBlocks`'s collapse of the neighboring
+    `if (__d == _OnCompletion) { ... }` also proved stable/identical both rounds -- ruling out
+    both as the direct cause. Debug prints added at `ScopePipeline.applyDeclarationsPass`'s
+    splice-back site (comparing `group.size()` between rounds) then showed the real signal:
+    `groupSize=1` on round1 vs `groupSize=2` on round2. Root cause: once round1 has collapsed
+    the `if` to its braceless one-liner form (STYLE.md §10/§11), round2's *input* contains that
+    one-liner directly, and `DeclarationAlignmentRule.parseDeclaration` had no guard rejecting a
+    statement starting with `if`/`while`/`for`/`switch`/`do`/`else` -- its generic type/name-
+    around-`=` heuristics misparsed the collapsed `if (__d == _OnCompletion) co_await
+    static_cast<_Action&&>(__action)(...);` line as a bogus `Declaration` (mirroring the existing
+    `case`/`default` guard's own rationale, just for control-keyword statements instead of switch
+    labels), which then merged into the same alignment group as the preceding real `__d`
+    declaration and padded its column to match the misparsed "type"'s huge width. This bug is
+    generally applicable (not stdexec-specific): any braceless-collapsed `if`/`while`/`for`/
+    `switch`/`do`/`else` one-liner immediately following a real declaration in the same scope was
+    at risk, on any second formatting pass, once STYLE.md §10/§11's collapse had run once.
+    Fixed by rejecting those six leading keywords in `parseDeclaration`, same shape as the
+    existing `case`/`default` rejection just above it. Fixture
+    `test/real_code_regressions_36_{inp,out}.cpp` hand-authors the already-collapsed one-liner
+    directly so the bug reproduces on a single forward pass (no round-trip needed in the fixture
+    itself). Verified: full 192-file stdexec `include/` tree round1-vs-round2 diffed clean (0
+    divergences, confirming this was the *only* remaining flap in the whole tree and no new
+    bugs were introduced); `exec/on_coro_disposition.hpp` alone confirmed idempotent; compile-
+    check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only -I include` (with
+    `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`) unchanged at the same pre-existing ~10-error TBB/PSTL
+    baseline (17 `error:` lines across a handful of distinct redefinition/TBB-version messages,
+    matching prior sessions' baseline description), no new errors.
+  - `make test`: 56/56 forward, 56/56 idempotency (after adding fixtures 34, 35, and 36).
+    Compile-check: all four fixed bugs verified via minimal repro + full-file/full-tree round1
+    vs round2 comparison; the pre-existing TBB/PSTL baseline is unchanged. Candidate is now a
+    clean pass end to end -- no open gaps remain.
 
-**NEXT SESSION — continue here:** Continue real-code testing against remaining C/C++ candidates
-in this order unless redirected: the additional candidates below.
+**NEXT SESSION — continue here:** stdexec is now fully DONE (clean pass, no open gaps). Continue
+real-code testing against remaining C/C++ candidates in this order unless redirected: the
+additional candidates below (mp11/lexy's neighbors).
 Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
 failure also reproduces against the unmodified original before treating it as formatter-induced).
 For any C++ candidate distributed under a `.h`/`.hpp` extension, check which it actually is

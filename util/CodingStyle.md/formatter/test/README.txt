@@ -535,6 +535,41 @@ Real-code regressions:
                                             block comments (`/* ... */`, which don't extend to
                                             end-of-line) remain safe to flatten as before.
 
+  real_code_regressions_36_inp/out.cpp   -- C++, real-code test against `NVIDIA/stdexec`
+                                            (continuing the candidate above): the last known
+                                            idempotency flap in `exec/on_coro_disposition.hpp`
+                                            (`task_disposition __d = co_await
+                                            __get_disposition();` gaining ~61 spaces of bogus
+                                            column padding on a second formatting pass only).
+                                            Root cause: `DeclarationAlignmentRule.
+                                            parseDeclaration` had no guard rejecting a
+                                            collapsed-to-one-line control statement (`if (...)
+                                            stmt;`, `while (...) stmt;`, etc. -- the braceless
+                                            form `BlockStructureRule.collapseSingleExpressionBlocks`
+                                            produces per STYLE.md §10/§11) as a candidate
+                                            declaration; its generic type/name-around-`=`
+                                            heuristics misparsed such a line as a bogus
+                                            `Declaration`, which then merged into the alignment
+                                            group of the preceding real declaration and padded
+                                            its column width to match the misparsed "type"'s huge
+                                            length. This only reproduced once the `if` had
+                                            already been collapsed onto one physical line --
+                                            i.e. never on a first pass, only from a second pass
+                                            onward -- which is why it slipped past forward-pass
+                                            testing and only showed up as an idempotency
+                                            divergence. Fixed by rejecting `if`/`while`/`for`/
+                                            `switch`/`do`/`else` as a statement's leading keyword
+                                            in `parseDeclaration`, mirroring the existing `case`/
+                                            `default` guard. This fixture's `_inp.cpp` hand-writes
+                                            the already-braceless `if (__d == _OnCompletion)
+                                            do_call(__action);` directly (no round-trip needed)
+                                            so the bug reproduces on a single forward pass.
+                                            Confirmed via full-tree round1/round2 diffing across
+                                            all 192 stdexec `include/` files that this was the
+                                            only remaining divergence in the tree, and that the
+                                            fix clears it with no new divergences introduced;
+                                            marks the stdexec candidate DONE.
+
 How Tests Are Run
 -----------------
 

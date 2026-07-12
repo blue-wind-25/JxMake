@@ -907,6 +907,25 @@ public class DeclarationAlignmentRule {
                 && ("case".equals(body.get(0).text) || "default".equals(body.get(0).text))) {
             return null;
         }
+        // A collapsed-to-one-line control statement (`if (...) stmt;`, `while (...) stmt;`,
+        // `for (...) stmt;`, `switch (...) { ... }`, `do stmt while (...);`) is never a
+        // declaration -- reject it here, same reasoning as the `case`/`default` guard above.
+        // Without this, `BlockStructureRule.collapseSingleExpressionBlocks` braceless-collapsing
+        // an `if`/`while`/`for` body down to one physical line (STYLE.md §10/§11) makes that
+        // whole line look like a plausible `Type name = init;` declarator to the generic
+        // heuristics below (e.g. `if (__d == _OnCompletion) co_await ...(...);` misparses as
+        // type/name around the first top-level `=`-less split), which then wrongly joins it
+        // into the preceding real declaration's alignment group and pads a huge, bogus column
+        // width into that sibling. This only reproduces on a *second* formatting pass (the
+        // collapse doesn't exist yet on the first pass), which is how it slipped through
+        // idempotency testing on `exec/on_coro_disposition.hpp` in stdexec real-code-testing
+        // (see STATE.md).
+        if (body.get(0).type == TokenType.KEYWORD
+                && ("if".equals(body.get(0).text) || "while".equals(body.get(0).text)
+                        || "for".equals(body.get(0).text) || "switch".equals(body.get(0).text)
+                        || "do".equals(body.get(0).text) || "else".equals(body.get(0).text))) {
+            return null;
+        }
 
         int i = 0;
         List<Token> templatePrefix = Collections.emptyList();

@@ -509,6 +509,25 @@ Real-code regressions:
                                             to its own header. Fixed by gating `braceIndent` off
                                             entirely for named scopes.
 
+  real_code_regressions_43_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `Kotlin/kotlinx.coroutines`: `JobSupport.kt`'s
+                                            `makeCompletingOnce`, a wrapped multi-argument
+                                            `throw IllegalStateException(...)` call used as a
+                                            keyword-less `when` branch's body (`label ->` on one
+                                            line, body starting the next) had its continuation
+                                            lines/closing `)` one level deeper on round1 than
+                                            round2. `MiscRule.enforceCallLineBreaking` (Phase 1)
+                                            computed the call's base indent from its own physical
+                                            line before `KotlinSpecificRule.formatWhenExpressions`
+                                            (Phase 4) unconditionally merges the branch label and
+                                            body onto one line -- stale by one level the moment
+                                            that merge happens, correct only once reformatted from
+                                            already-merged input. Fixed with a new
+                                            `MiscRule.effectiveCallBaseIndent`: when a call
+                                            candidate's own line is immediately preceded by a
+                                            top-level `->` (Kotlin only), use that arrow line's
+                                            indent instead of the candidate's own.
+
 How Tests Are Run
 -----------------
 

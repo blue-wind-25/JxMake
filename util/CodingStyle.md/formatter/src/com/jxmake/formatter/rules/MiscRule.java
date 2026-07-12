@@ -2717,7 +2717,7 @@ public class MiscRule {
         final Signature sigForRender = lang.isKotlin ? null : sig;
 
         final List<Token> paramsSlice = tokens.subList(openIdx + 1, closeIdx);
-        final String baseIndent = lineIndent(tokens, nameIdx);
+        final String baseIndent = effectiveCallBaseIndent(tokens, nameIdx);
 
         if (containsNewline(paramsSlice)) {
             // renderCallPreserveGroups/renderDeclarationPreserveGroups re-split each original
@@ -3140,6 +3140,53 @@ public class MiscRule {
             return tokens.get(afterNewline).text;
         }
         return "";
+    }
+
+    /** {@link #lineIndent}, except for a Kotlin call candidate whose own physical line will be
+     *  MERGED onto the line above it later in the same pipeline by {@code
+     *  KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass (Phase 4, run well after
+     *  this pass, Phase 1 -- see {@code Formatter.formatOne}'s phase ordering). That happens
+     *  whenever a `when` branch's keyword-less body starts its own line (`label -> \n    body`,
+     *  the body not itself `{`-bodied): `formatWhenExpressions` unconditionally collapses label,
+     *  arrow, and body onto one line (RDD_KEY_101/§4), no line-length gate. A candidate whose
+     *  first token is exactly such a body-start reads its own (deeper, branch-body) physical-line
+     *  indent here, one phase too early -- correct on a fresh format's OWN first pass in isolation,
+     *  but stale by one level the moment the merge actually happens, so the call's already-baked
+     *  continuation-line/closing-paren indent visually sits one level deeper than the arrow line
+     *  it now shares. Reformatting that output (round 2) starts from the already-merged line and
+     *  gets it right, hence a round1-vs-round2 flap (same "physical-line-anchored decision
+     *  invalidated by a later merge" root cause as RDD_KEY_136/152/158/159, this time inside
+     *  {@code MiscRule} rather than {@code ScopePipeline}). Detected the same way {@code
+     *  ScopePipeline.findMergingWhenBranchLineStart} detects its own nested-`when` variant: the
+     *  line immediately before {@code nameIdx}'s own line ends (modulo whitespace) with a
+     *  top-level `->`. Not itself proof the `->` belongs to a genuine `when` branch (a lambda
+     *  arrow could in principle match too), but a lambda's `->` is essentially never followed by
+     *  its whole body starting on the very next line with nothing else on the arrow's own line --
+     *  and {@code formatWhenExpressions} only runs for Kotlin, so this is gated to Kotlin only. */
+    private String effectiveCallBaseIndent(final List<Token> tokens, final int nameIdx) {
+        final String ownIndent = lineIndent(tokens, nameIdx);
+        if (!lang.isKotlin) {
+            return ownIndent;
+        }
+        // `lineStart` need not be `nameIdx` itself (e.g. `throw IllegalStateException(` -- `throw`
+        // leads); the merge-detection below only needs to know THIS line is the branch body's own
+        // line, which `lineStart` already tells us regardless of who leads it.
+        final int lineStart = lineStartIndex(tokens, nameIdx);
+        int p = lineStart - 1;
+        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
+            p--;
+        }
+        if (p < 0 || tokens.get(p).type != TokenType.NEWLINE) {
+            return ownIndent;
+        }
+        int q = p - 1;
+        while (q >= 0 && tokens.get(q).type == TokenType.WHITESPACE) {
+            q--;
+        }
+        if (q < 0 || !Token.isOp(tokens.get(q), "->")) {
+            return ownIndent;
+        }
+        return lineIndent(tokens, q);
     }
 
     // ── Token-scanning helpers ───────────────────────────────────────────────────

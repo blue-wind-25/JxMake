@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk *)",
+      "Bash(cat *)",
+      "Bash(export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git stash *)",
+      "Bash(git status *)",
+      "Bash(grep *)",
+      "Bash(javac *)",
+      "Bash(java -jar target/code-formatter-1.00.jar --standalone --out /tmp/* *)",
+      "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out /tmp/* *)",
+      "Bash(*=* java -jar target/code-formatter-1.00.jar --standalone --out /tmp/* *)",
+      "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out /tmp/* *)",
+      "Bash(jobs)",
+      "Bash(make *)",
+      "Bash(mkdir -p /tmp/**)",
+      "Bash(python3 *)",
+      "Bash(xargs ls -la *)",
+      "Read(//home/aloysius/.config/jxmake-code-formatter/**)",
+      "Read(//home/aloysius/Projects/JxMake/util/CodingStyle.md/**)",
+      "Read(//opt/openjdk-21_linux-x64_bin/jdk-21/**)",
+      "Read(//tmp/**)",
+      "Write(//tmp/**)",
+      "Edit(//tmp/**)"
+    ],
+    "deny": [
+      "Bash(find /)",
+      "Bash(find / *)",
+      "Bash(find /home/aloysius)",
+      "Bash(find /home/aloysius *)"
+    ]
+  }
+}

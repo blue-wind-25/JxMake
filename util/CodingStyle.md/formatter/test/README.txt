@@ -581,6 +581,45 @@ Real-code regressions:
                                             forever regardless of length (see
                                             `real_code_regressions_18`, unaffected by this fix).
 
+  real_code_regressions_46_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `square/kotlinpoet`'s Shape 1 idempotency-gap group
+                                            (`CodeWriter.kt`/`LambdaTypeName.kt`/
+                                            `MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/
+                                            `TypeVariableName.kt`/`WildcardTypeName.kt`), two
+                                            distinct bugs both in `MiscRule.enforceCallLineBreaking`.
+                                            Bug A (`MemberSpecHolder.kt`'s
+                                            `addProperties`/`addFunctions`): a multi-line,
+                                            column-broken function signature with a trailing
+                                            `= apply { ... }` expression body wraps its own params
+                                            on a fresh format but collapses to one line on a
+                                            reformat. Root cause: `lineEndIndex`'s "does the whole
+                                            line fit" measurement stops at the first NEWLINE token,
+                                            which on a reformat sits earlier than on a fresh format
+                                            whenever an unrelated NESTED call inside the tail's own
+                                            untouched trailing text (e.g. `apply { x.map(\n  y\n) }`)
+                                            happens to already be wrapped from the previous round --
+                                            undercounting the true rendered width and flipping the
+                                            fits-or-not verdict. Fixed with a new depth-aware
+                                            `effectiveLineEndIndex` that skips over a NEWLINE still
+                                            inside an unclosed `(`/`[`/`{` instead of stopping there.
+                                            Bug B (the other 5 files, e.g. `LambdaTypeName.kt`'s
+                                            `copy(...)`): a genuine Kotlin function signature with
+                                            an explicit `: ReturnType {` block-body tail (no `=`) had
+                                            its already-correctly-rendered, column-padded,
+                                            trailing-comma-preserved multi-line param list (from
+                                            `ScopePipeline`/`KotlinSignatureRule`) silently
+                                            re-wrapped by this same pass as if it were a plain
+                                            untyped call, discarding the padding and trailing comma
+                                            (this is RDD_KEY_149's originally-deferred bug, now
+                                            root-caused): the "is this really a call, not a true
+                                            signature" exemption only recognized an immediate `{`
+                                            right after the closing `)`, missing the
+                                            `: ReturnType {` shape entirely. Fixed with a new
+                                            `isKotlinReturnTypeThenBlockBody` lookahead extending
+                                            the exemption to that shape (deliberately NOT extended to
+                                            a `: ReturnType = expr` tail, which still needs Bug A's
+                                            fix to account for its own untouched trailing text).
+
 How Tests Are Run
 -----------------
 

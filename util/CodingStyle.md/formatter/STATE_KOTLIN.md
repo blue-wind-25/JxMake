@@ -146,6 +146,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_159 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, category 1 (closing-brace/closing-comment indent drift, `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/`ThreadSafeHeap.kt`/`ExceptionsConstructor.kt`): root-caused via the standalone `ThreadSafeHeap.kt` repro left at the prior session's pause point -- `ScopePipeline.processScope`'s `effectiveSpanIndent` selection preferred `braceIndent` (the physical line the span's own `{` sits on) over `spanIndent` (the construct's own header/start-column indent) whenever `braceIndent` was deeper, correct for RDD_KEY_136's UNNAMED trailing-lambda-at-end-of-fluent-chain shape but wrong for a NAMED construct (class/fun/object) whose header wraps across multiple lines for unrelated reasons (here, a long generic `where` clause wrapped by `enforceWhereClausePlacement`/RDD_KEY_106) -- a named construct's body must always indent relative to its own header, never a wrapped continuation line. **Fix**: `effectiveSpanIndent` now forces `spanIndent` whenever `isNamedScope` is true, regardless of `braceIndent`. Kotlin-relevant in practice (`braceIndent` is `null` for non-Kotlin languages). New `test/real_code_regressions_42_inp.kt`/`_out.kt`. `make test`: 61/61 before, 62/62 after. Resolves 4 of the 7 remaining files (all of category 1). 3 files remain open, unrelated shapes: `BufferedChannel.kt` (bare `}` drift inside an unnamed nested lambda chain), `ChannelFlow.kt` (declaration-alignment padding-width flap), `JobSupport.kt` (call-argument continuation-line indent flap). |
 | RDD_KEY_160 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `JobSupport.kt`'s call-argument continuation-line indent flap (1 of the 3 files RDD_KEY_159 left open): root-caused via a temporary env-gated debug print in `MiscRule.renderCallCandidate` on the real file -- `enforceCallLineBreaking` (Phase 1) computes a call candidate's base indent from its own physical line before `KotlinSpecificRule.formatWhenExpressions` (Phase 4) unconditionally merges a keyword-less `when` branch's label/arrow/body onto one line (RDD_KEY_101/§4), so a call that IS such a branch body reads a stale, one-level-deeper pre-merge indent on a fresh format -- same "physical-line-anchored decision invalidated by a later merge" family as RDD_KEY_136/152/158/159, this time in `MiscRule` rather than `ScopePipeline`; directly relevant to (but not itself a fix for) the still-open `square/kotlinpoet` `CodeWriter.kt` continuation-indent question below, which theorized this same method/family as the likely culprit. **Fix**: new `MiscRule.effectiveCallBaseIndent`, mirroring `ScopePipeline.findMergingWhenBranchLineStart`'s detection shape -- uses the preceding line's indent instead of the candidate's own whenever that preceding line ends (modulo whitespace) with a top-level `->`; Kotlin-gated, no-op for C/C++/Java. New `test/real_code_regressions_43_inp.kt`/`_out.kt`. `make test`: 62/62 before, 63/63 after. Confirmed `JobSupport.kt` itself now round1-vs-round2 clean; the other 8 previously-tracked `kotlinx.coroutines` files re-checked and unaffected (7 still clean, `BufferedChannel.kt`/`ChannelFlow.kt` still diverge, unrelated shapes). |
 | RDD_KEY_161 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `BufferedChannel.kt`'s bare `}` closing-brace drift (1 of the 2 files RDD_KEY_160 left open), confirmed unrelated to RDD_KEY_159's named-scope fix since the surrounding scopes are all unnamed lambda bodies: root cause is in `ScopePipeline.findParentIndent`, not `processScope` -- `splitTopLevelSpans` extracts a braceless `if (...) { ... } else expr` statement's braced `if`-branch as its own top-level span, leaving the braceless `else expr` as dangling leading text at the START of the NEXT real span rather than a genuine statement; `findParentIndent`'s backward scan (bounded by that next span's own `span.start`) defaulted its anchor onto this dangling `else`, which only returned a real (wrong) indent once a LATER phase's re-alignment happened to put it alone on its own physical line (round2 only, explaining the idempotency-only nature of the bug). **Fix**: when the anchor found is itself a dangling `else`/`catch`/`finally` keyword, skip forward past its one-line body to the next real statement before deriving the indent; Kotlin-gated (`lang.isKotlin`). A broader statement-boundary heuristic (any depth-0 NEWLINE followed by a declaration-starter keyword) was tried first, also fixed this file, but regressed `real_code_regressions_33` (an unrelated, deliberately misindented nested `interface` header) -- reverted in favor of the narrower dangling-keyword-only fix. New `test/real_code_regressions_44_inp.kt`/`_out.kt`. `make test`: 63/63 before, 64/64 after. `ChannelFlow.kt` remains open, unrelated shape (declaration-alignment padding-width flap, not a closing-brace issue). |
+| RDD_KEY_163 | **RESOLVES `square/kotlinpoet`'s Shape 1 idempotency gap (6 of the 10 open files)** -- two distinct `MiscRule.enforceCallLineBreaking` bugs: Bug A (`MemberSpecHolder.kt`) fixed via new depth-aware `effectiveLineEndIndex` (a nested already-wrapped call inside an expression-bodied signature's untouched tail text was undercounting the true line width on a reformat, flipping the wrap verdict); Bug B (`CodeWriter.kt`/`LambdaTypeName.kt`/`ParameterizedTypeName.kt`/`TypeVariableName.kt`/`WildcardTypeName.kt`, also **resolves RDD_KEY_149's originally-deferred `square/okio` bug**) fixed via new `isKotlinReturnTypeThenBlockBody` lookahead extending the true-signature exemption to a `: ReturnType {` tail (previously only a bare `{` was recognized), stopping this pass from re-wrapping an already-correctly-rendered signature as a plain untyped call and discarding its column padding/trailing comma. New `test/real_code_regressions_46_inp.kt`/`_out.kt`. `make test`: 65/65 before, 66/66 after. All 6 Shape-1 files + a fresh full-125-file re-run confirmed clean; 4 files remain open (Shapes 2/3/4, unrelated). |
 | RDD_KEY_162 | **RESOLVES RDD_KEY_161's last open question**, `ChannelFlow.kt`'s declaration-alignment padding-width flap -- the final file of the 10-file `kotlinx.coroutines` idempotency investigation. `KotlinDeclarationAlignmentRule.renderAlignedGroup` padded typeless `countOrElement` out to match sibling `emitRef`'s type-column width, widening `emitRef`'s own line enough that a later pass wrapped its brace-bodied lambda initializer; re-parsing the resulting multi-line initializer next pass correctly bailed `emitRef` out of its group via `spansMultipleLines`'s brace-depth check, collapsing `countOrElement`'s padding -- an inverted instance of the "later phase invalidates an earlier phase's physical-shape decision" family (RDD_KEY_136/152/158/159/160/161), here the *early* alignment phase destabilizing a *later* wrap phase. **Fix**: indent-width/line-length-limit awareness plumbed into `renderAlignedGroup` (new indent-width-aware constructor, `DeclarationAlignmentRule.lineLengthLimit` loosened protected, `ScopePipeline` threads `depth` through the declarations pass); a fixed-point loop excludes a row from the shared column grid only when its group-aligned width overflows the budget AND its initializer is brace-bodied (new `hasBraceBodiedInit` -- the only shape `spansMultipleLines` can ever bail on; a plain call/expression initializer, no matter how long, is never excluded since any future wrap of it lands inside parens only, already handled idempotently by RDD_KEY_135's carve-out -- confirmed via `real_code_regressions_18`, which an overflow-only or solo-width-only first attempt wrongly regressed). New `test/real_code_regressions_45_inp.kt`/`_out.kt`. `make test`: 64/64 before, 65/65 after. All 9 previously-fixed files re-verified clean; `ChannelFlow.kt` itself now round1-vs-round2 clean. Closes the entire `kotlinx.coroutines` idempotency investigation. |
 
 ---
@@ -650,6 +651,18 @@ explicit user request) — catches parse errors only, weaker confidence than
    the updated shape breakdown. Not deprioritized-and-untouched anymore in
    the sense of "unchecked" — this session re-verified the gap is real and
    current, just not closed.
+   **Re-checked/fixed 2026-07-13 (later same day):** Shape 1 (6 files:
+   `CodeWriter.kt`, `LambdaTypeName.kt`, `MemberSpecHolder.kt`,
+   `ParameterizedTypeName.kt`, `TypeVariableName.kt`, `WildcardTypeName.kt`)
+   fully root-caused and resolved — RDD_KEY_163, two distinct
+   `MiscRule.enforceCallLineBreaking` bugs (also resolves RDD_KEY_149's
+   originally-deferred `square/okio` bug, same mechanism as Bug B). New
+   `test/real_code_regressions_46_inp.kt`/`_out.kt`. `make test`: 65/65
+   before, 66/66 after. All 6 files individually re-verified clean against
+   the real tree, plus a fresh full-125-file round1/round2 re-run confirms
+   zero new regressions. **4 files remain non-idempotent** (Shapes 2/3/4 —
+   `AbstractTypesTest.kt`, `ReflectiveClassInspector.kt`, `kmAnnotations.kt`,
+   `KotlinPoetMetadataSpecsTest.kt`), not investigated this session.
 
 **Not started dogfood / real-code testing**
 1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
@@ -663,28 +676,46 @@ explicit user request) — catches parse errors only, weaker confidence than
    coverage (compiler-internal code tends to use every language feature,
    including obscure/edge-case syntax). Last-resort/stress candidate,
    similar posture to `microsoft/STL`/`llvm-project` in the C++ list.
-3. **`square/okio`'s RDD_KEY_149 deferred bug** (IN PROGRESS - DEFERRED) —
-   signature param column-alignment/trailing-comma silently lost after
-   splice-back, affecting `RealBufferedSink.kt`/`FakeFileSystem.kt`. Full
-   repro/investigation detail in **In progress dogfood / real-code testing
-   details** below.
-4. **`square/kotlinpoet`'s remaining 10-file idempotency gap** (IN PROGRESS -
-   DEPRIORITIZED) — confirmed non-compile-breaking, deprioritized per user
-   request but not root-caused. Re-verified current as of 2026-07-13 (down
-   from 13/14 originally tracked to 10, 3-4 files cleaned as an apparent
-   side effect of RDD_KEY_159–162; none of the remaining 10 fixed this
-   session). Full evidence in **In progress dogfood / real-code testing
+3. **`square/okio`'s RDD_KEY_149 deferred bug** — **RESOLVED, same session as
+   RDD_KEY_163** (2026-07-13). RDD_KEY_149's own symptom (`RealBufferedSink.kt`/
+   `FakeFileSystem.kt`) was never independently re-verified this session (out
+   of scope, `square/okio` re-clone not re-run), but the root cause found for
+   `square/kotlinpoet`'s Shape 1 Bug B is the identical mechanism RDD_KEY_149
+   described (signature param column-alignment/trailing-comma lost after
+   splice-back) — see RDD_KEY_163.
+4. **`square/kotlinpoet`'s remaining 4-file idempotency gap** (IN PROGRESS -
+   DEPRIORITIZED) — Shape 1 (6 files) resolved this session via RDD_KEY_163;
+   Shapes 2/3/4 (4 files: `AbstractTypesTest.kt`, `ReflectiveClassInspector.kt`,
+   `kmAnnotations.kt`, `KotlinPoetMetadataSpecsTest.kt`) confirmed
+   non-compile-breaking, deprioritized per user request, still not
+   root-caused. Full evidence in **In progress dogfood / real-code testing
    details** below.
 
 **In progress dogfood / real-code testing details**
 
 *`square/okio` — RDD_KEY_149 (signature param alignment/trailing-comma lost
-after splice-back):* found via `square/okio` real-code testing
-(`RealBufferedSink.kt`'s `commonWriteUtf8`, also reproduces in
-`FakeFileSystem.kt`): a multi-line Kotlin function parameter list that needs
-to break (doesn't fit inline) is rendered correctly by
-`KotlinSignatureRule.render`'s `ColumnGrid`-based path — confirmed via a
-temporary debug print directly at its own return point, e.g.
+after splice-back):* **RESOLVED via RDD_KEY_163** (2026-07-13, root-caused
+while investigating `square/kotlinpoet`'s Shape 1 Bug B, not by re-testing
+`square/okio` itself this session). The "something downstream re-normalizes
+the already-rendered text" mystery below was actually
+`MiscRule.enforceCallLineBreaking`: its "is this really a call, not a true
+signature" exemption only recognized an immediate `{` right after the
+candidate's closing `)`, missing a Kotlin signature whose `)` is instead
+followed by a `: ReturnType {` tail — so a genuine, already-correctly-rendered
+(column-padded, trailing-comma-preserved) multi-line signature like
+`RealBufferedSink.kt`'s `commonWriteUtf8` got silently re-processed as an
+ordinary untyped call by this same pass, discarding the padding and comma.
+Fixed with a new `MiscRule.isKotlinReturnTypeThenBlockBody` lookahead
+extending the exemption to that shape. See RDD_KEY_163 for full detail; the
+original repro/investigation narrative below is kept for continuity but its
+"still unidentified" conclusion is superseded.
+
+Original (pre-RDD_KEY_163) investigation notes, kept for continuity: found
+via `square/okio` real-code testing (`RealBufferedSink.kt`'s
+`commonWriteUtf8`, also reproduces in `FakeFileSystem.kt`): a multi-line
+Kotlin function parameter list that needs to break (doesn't fit inline) is
+rendered correctly by `KotlinSignatureRule.render`'s `ColumnGrid`-based path —
+confirmed via a temporary debug print directly at its own return point, e.g.
 `"string     : String,"`/`"beginIndex : Int,"`/`"endIndex   : Int,"`, each
 column padded to its sibling's width and the trailing comma preserved. But
 the text that ends up in the final written file has the padding collapsed to
@@ -719,37 +750,26 @@ session): `FileSpec.kt`, `FunSpec.kt`, `TaggableTest.kt`, and one
 `interop/kotlin-metadata` file are now confirmed clean. **10 files remain**,
 sorted into four distinct shapes:
 
-- **Shape 1 (7 files: `CodeWriter.kt`, `LambdaTypeName.kt`,
+- **Shape 1 (6 files: `CodeWriter.kt`, `LambdaTypeName.kt`,
   `MemberSpecHolder.kt`, `ParameterizedTypeName.kt`, `TypeVariableName.kt`,
-  `WildcardTypeName.kt`, plus `MemberSpecHolder.kt`'s own pre-existing
-  case)** — a multi-parameter function signature that the ORIGINAL source
-  already had column-broken across lines (with a space before each `:`,
-  e.g. `nullable : Boolean,\n    annotations : List<AnnotationSpec>,\n
-  tags : Map<KClass<*>, Any>`) stays broken/padded on round1 but collapses
-  to one unpadded inline line on round2 (`nullable: Boolean, annotations:
-  List<AnnotationSpec>, tags: Map<KClass<*>, Any>`). Minimized to a
-  standalone repro (`class Foo { public fun addProperties(\n
-  propertySpecs: Iterable<PropertySpec>\n): T = apply { propertySpecs.map(
-  ::addProperty) } }`) — confirms round1 keeps the wrap, round2 merges it.
-  Re-checked `KotlinSignatureRule.renderWithTail`'s tier-1 fits-check by
-  hand (not via debug print this session, but by re-deriving `inline`'s
-  length from `renderTokens` output): `inline` = `head + params + ")" +
-  " = apply"` is well under the 100-col limit regardless of the ORIGINAL
-  source's own line breaks (the rendered token text is identical either
-  way), so if `renderWithTail`'s own decision were the sole authority it
-  would return the same single-line form BOTH rounds — it does not, which
-  reconfirms the prior session's conclusion that a later pass (still
-  believed to be `MiscRule.enforceCallLineBreaking`, since it treats a
-  rendered `name(...)` span as a re-wrappable call candidate) is
-  responsible for the divergence, and that this later pass's decision
-  differs based on round1 vs round2's differing PRIOR physical shape, not
-  on the token content. **RDD_KEY_160's `effectiveCallBaseIndent` fix does
-  NOT resolve this** — confirmed empirically (this shape still reproduces
-  after that fix is in the tree). Not further root-caused this session
-  (would need a fresh debug-print pass inside `enforceCallLineBreaking`
-  itself, per STATE_COMMON's evidence-over-reasoning methodology, which
-  this session did not have scope to do) — still an open question, not a
-  quick/established-pattern fix.
+  `WildcardTypeName.kt`) — RESOLVED 2026-07-13, RDD_KEY_163.** Two distinct
+  `MiscRule.enforceCallLineBreaking` bugs. Bug A (`MemberSpecHolder.kt`
+  only): `lineEndIndex`'s "stop at the first NEWLINE" line-fits measurement
+  undercounts the true rendered width whenever an unrelated nested call
+  inside an expression-bodied signature's own untouched trailing tail text
+  (e.g. `apply { x.map(\n  y\n) }`) happens to already be wrapped from the
+  previous round — fixed with a new depth-aware `effectiveLineEndIndex`.
+  Bug B (the other 5 files): the "is this really a call, not a true
+  signature" exemption only recognized an immediate `{` right after the
+  candidate's own `)`, missing a Kotlin signature whose tail is
+  `: ReturnType {` (return type before the body brace) — so an
+  already-correctly-rendered, column-padded, trailing-comma-preserved
+  multi-line signature got silently re-wrapped as a plain untyped call,
+  same mechanism RDD_KEY_149 (`square/okio`) left deferred/unidentified —
+  fixed with a new `isKotlinReturnTypeThenBlockBody` lookahead. New
+  `test/real_code_regressions_46_inp.kt`/`_out.kt`. `make test`: 65/65
+  before, 66/66 after. All 6 files + a fresh full-125-file round1/round2
+  re-run confirmed zero regressions.
 - **Shape 2 (1 file: `AbstractTypesTest.kt`)** — a multi-line `where`
   clause's continuation lines are indented one level deeper on round2 than
   round1 (`where IntersectionOfInterfaces : Runnable,` at 4 spaces round1

@@ -2652,6 +2652,22 @@ public class MiscRule {
             if (afterClose >= 0 && isPunct(tokens.get(afterClose), "{")) {
                 continue; // true signature -- ScopePipeline's concern, not ours
             }
+            if (lang.isKotlin && afterClose >= 0 && isOp(tokens.get(afterClose), ":")
+                    && isKotlinReturnTypeThenBlockBody(tokens, afterClose)) {
+                // Kotlin function signature with an explicit `: ReturnType` tail followed by a
+                // real `{`-bodied block (no `=` in between) -- e.g. `override fun copy(...):
+                // LambdaTypeName {`. The plain immediate-`{` check above misses this shape since
+                // the return type sits between `)` and `{`. Without this, ScopePipeline's own
+                // KotlinSignatureRule.render already fully resolved this candidate's column
+                // padding + trailing-comma-preserved multi-line form, but this pass would still
+                // treat it as an ordinary untyped call and re-wrap it via the untyped
+                // call-argument path (RDD_KEY_144's `sigForRender` forcing), silently discarding
+                // that padding and trailing comma (RDD_KEY_149). A `: ReturnType = expr`
+                // tail is deliberately NOT exempted here -- that shape's untouched trailing
+                // expression body is exactly what this pass still needs to account for when
+                // deciding whether the signature's own params must wrap (see effectiveLineEndIndex).
+                continue; // true signature -- ScopePipeline's concern, not ours
+            }
             if (hasCommentBetween(tokens, i, closeIdx)) {
                 continue; // see "Comments" above
             }
@@ -2765,7 +2781,7 @@ public class MiscRule {
         }
 
         final String wholeLine = baseIndent
-                + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), lineEndIndex(tokens, closeIdx) - 1);
+                + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1);
         if (wholeLine.length() <= lineLengthLimit) {
             return null; // Option 0 -- already fits, no change
         }
@@ -3115,6 +3131,65 @@ public class MiscRule {
     private int lineEndIndex(final List<Token> tokens, final int idx) {
         int i = idx;
         while (i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE) {
+            i++;
+        }
+        return i;
+    }
+
+    /** Same intent as {@link #lineEndIndex} (the true end of the candidate's own rendered line,
+     *  including same-line trailing text like a nested {@code std::rotr(...)}), but paren/bracket/
+     *  brace-depth aware: a NEWLINE encountered while still inside an unclosed {@code (}/{@code [}/
+     *  {@code {} opened at or after {@code idx} does not end the line -- it is skipped over, since
+     *  that nested group is still part of the same logical statement even though it happens to
+     *  already span multiple physical lines. Needed because {@link #lineEndIndex}'s plain
+     *  "stop at the first NEWLINE" rule undercounts a candidate's true rendered width whenever a
+     *  trailing sibling call (e.g. a lambda-tail's own nested call) is ALREADY wrapped across lines
+     *  from a prior format round -- on a fresh format that same nested call is still one physical
+     *  line, so the two rounds measure a genuinely different "line" for the identical outer
+     *  candidate, causing the outer candidate's own wrap decision to flap round-to-round (the
+     *  "physical-line-anchored decision invalidated by a later/prior pass's own wrap" family, see
+     *  RDD_KEY_136/152/158/159/160/161/162). */
+    /** Kotlin-only lookahead used by {@link #enforceCallLineBreaking}'s true-signature exemption:
+     *  starting at a top-level `:` immediately after a candidate's own `)`, scans forward
+     *  (depth-aware over `(`/`[`/`{`/`<`) through the return-type tokens to determine whether the
+     *  signature's tail is a real `{`-bodied block (returns {@code true}) rather than an `=`-led
+     *  expression body (returns {@code false}) -- a top-level `=` encountered before any top-level
+     *  `{` means this is NOT the block-body shape. Stops at end of file or the first NEWLINE run
+     *  that isn't inside an open group (a return type is never itself broken across a blank
+     *  top-level line). */
+    private boolean isKotlinReturnTypeThenBlockBody(final List<Token> tokens, final int colonIdx) {
+        int depth = 0;
+        for (int i = colonIdx + 1; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                if (depth == 0 && isPunct(t, "{")) {
+                    return true; // top-level `{` reached with no top-level `=` first -- block body
+                }
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")
+                    || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isOp(t, "=")) {
+                return false; // `=`-led expression-bodied tail -- not this shape
+            }
+        }
+        return false;
+    }
+
+    private int effectiveLineEndIndex(final List<Token> tokens, final int idx) {
+        int i = idx;
+        int depth = 0;
+        while (i < tokens.size()) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.NEWLINE) {
+                if (depth <= 0) {
+                    return i;
+                }
+            } else if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                depth--;
+            }
             i++;
         }
         return i;

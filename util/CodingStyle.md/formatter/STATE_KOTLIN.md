@@ -145,6 +145,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_158 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `SystemProps.kt`'s try/catch-as-expression brace-style bug (one of the 10 files RDD_KEY_157 left open): `KotlinSignatureRule`'s function-tail merge collapses a multi-line signature (`fun systemProp(\n  propertyName: String\n): String? =\n  try {`) onto one physical line inside `ScopePipeline.processScope`'s own pass, correctly re-deriving the `try` span's own indent against the new, shallower line -- but the following `catch (...) {` span's `{` still sits on its ORIGINAL pre-merge physical line, one level deeper, so `braceLineIndent` read a stale indent for `catch`'s scope with nothing to correct it, so the two rounds disagreed on its closing-brace placement. **Fix**: `ScopePipeline.processScope`'s span loop now tracks the immediately preceding span's resolved indent/close-brace index; a `catch`/`finally` span found directly chained onto that preceding span's own `}` (same adjacency `BlockStructureRule.placeCatchFinallyOnOwnLine` already tests for) inherits that indent instead of deriving its own. Kotlin-gated, inert for C/C++/Java. New `test/real_code_regressions_41_inp.kt`/`_out.kt`. `make test`: 60/60 before, 61/61 after. Narrow re-check confirmed `SystemProps.kt` itself is now clean, and incidentally so are `Select.kt`/`DebugProbesImpl.kt` (not independently investigated). 7 of the 10 files remain open -- see Open Questions. |
 | RDD_KEY_159 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, category 1 (closing-brace/closing-comment indent drift, `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/`ThreadSafeHeap.kt`/`ExceptionsConstructor.kt`): root-caused via the standalone `ThreadSafeHeap.kt` repro left at the prior session's pause point -- `ScopePipeline.processScope`'s `effectiveSpanIndent` selection preferred `braceIndent` (the physical line the span's own `{` sits on) over `spanIndent` (the construct's own header/start-column indent) whenever `braceIndent` was deeper, correct for RDD_KEY_136's UNNAMED trailing-lambda-at-end-of-fluent-chain shape but wrong for a NAMED construct (class/fun/object) whose header wraps across multiple lines for unrelated reasons (here, a long generic `where` clause wrapped by `enforceWhereClausePlacement`/RDD_KEY_106) -- a named construct's body must always indent relative to its own header, never a wrapped continuation line. **Fix**: `effectiveSpanIndent` now forces `spanIndent` whenever `isNamedScope` is true, regardless of `braceIndent`. Kotlin-relevant in practice (`braceIndent` is `null` for non-Kotlin languages). New `test/real_code_regressions_42_inp.kt`/`_out.kt`. `make test`: 61/61 before, 62/62 after. Resolves 4 of the 7 remaining files (all of category 1). 3 files remain open, unrelated shapes: `BufferedChannel.kt` (bare `}` drift inside an unnamed nested lambda chain), `ChannelFlow.kt` (declaration-alignment padding-width flap), `JobSupport.kt` (call-argument continuation-line indent flap). |
 | RDD_KEY_160 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `JobSupport.kt`'s call-argument continuation-line indent flap (1 of the 3 files RDD_KEY_159 left open): root-caused via a temporary env-gated debug print in `MiscRule.renderCallCandidate` on the real file -- `enforceCallLineBreaking` (Phase 1) computes a call candidate's base indent from its own physical line before `KotlinSpecificRule.formatWhenExpressions` (Phase 4) unconditionally merges a keyword-less `when` branch's label/arrow/body onto one line (RDD_KEY_101/§4), so a call that IS such a branch body reads a stale, one-level-deeper pre-merge indent on a fresh format -- same "physical-line-anchored decision invalidated by a later merge" family as RDD_KEY_136/152/158/159, this time in `MiscRule` rather than `ScopePipeline`; directly relevant to (but not itself a fix for) the still-open `square/kotlinpoet` `CodeWriter.kt` continuation-indent question below, which theorized this same method/family as the likely culprit. **Fix**: new `MiscRule.effectiveCallBaseIndent`, mirroring `ScopePipeline.findMergingWhenBranchLineStart`'s detection shape -- uses the preceding line's indent instead of the candidate's own whenever that preceding line ends (modulo whitespace) with a top-level `->`; Kotlin-gated, no-op for C/C++/Java. New `test/real_code_regressions_43_inp.kt`/`_out.kt`. `make test`: 62/62 before, 63/63 after. Confirmed `JobSupport.kt` itself now round1-vs-round2 clean; the other 8 previously-tracked `kotlinx.coroutines` files re-checked and unaffected (7 still clean, `BufferedChannel.kt`/`ChannelFlow.kt` still diverge, unrelated shapes). |
+| RDD_KEY_161 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `BufferedChannel.kt`'s bare `}` closing-brace drift (1 of the 2 files RDD_KEY_160 left open), confirmed unrelated to RDD_KEY_159's named-scope fix since the surrounding scopes are all unnamed lambda bodies: root cause is in `ScopePipeline.findParentIndent`, not `processScope` -- `splitTopLevelSpans` extracts a braceless `if (...) { ... } else expr` statement's braced `if`-branch as its own top-level span, leaving the braceless `else expr` as dangling leading text at the START of the NEXT real span rather than a genuine statement; `findParentIndent`'s backward scan (bounded by that next span's own `span.start`) defaulted its anchor onto this dangling `else`, which only returned a real (wrong) indent once a LATER phase's re-alignment happened to put it alone on its own physical line (round2 only, explaining the idempotency-only nature of the bug). **Fix**: when the anchor found is itself a dangling `else`/`catch`/`finally` keyword, skip forward past its one-line body to the next real statement before deriving the indent; Kotlin-gated (`lang.isKotlin`). A broader statement-boundary heuristic (any depth-0 NEWLINE followed by a declaration-starter keyword) was tried first, also fixed this file, but regressed `real_code_regressions_33` (an unrelated, deliberately misindented nested `interface` header) -- reverted in favor of the narrower dangling-keyword-only fix. New `test/real_code_regressions_44_inp.kt`/`_out.kt`. `make test`: 63/63 before, 64/64 after. `ChannelFlow.kt` remains open, unrelated shape (declaration-alignment padding-width flap, not a closing-brace issue). |
 
 ---
 
@@ -282,54 +283,75 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   forward + 53/53 idempotency with the source tree back at its
   RDD_KEY_153 state (no code changes this session).
 
-- **`kotlinx.coroutines` remaining idempotency diffs — 2 of 10 files still OPEN (RESOLVED for
+- **`kotlinx.coroutines` remaining idempotency diffs — 1 of 10 files still OPEN (RESOLVED for
   `SystemProps.kt`, see RDD_KEY_158; RESOLVED for `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/
   `ThreadSafeHeap.kt`/`ExceptionsConstructor.kt`, see RDD_KEY_159; RESOLVED for `JobSupport.kt`, see
-  RDD_KEY_160; the compile-breaking bug originally in this same entry is RESOLVED, see RDD_KEY_157).**
+  RDD_KEY_160; RESOLVED for `BufferedChannel.kt`, see RDD_KEY_161; the compile-breaking bug
+  originally in this same entry is RESOLVED, see RDD_KEY_157).**
   After RDD_KEY_154's fix, 10 files round1-vs-round2 diverged (`BufferedChannel.kt`/
   `AbstractSharedFlow.kt`/`ChannelFlow.kt`/`ConcurrentLinkedList.kt`/`ThreadSafeHeap.kt`/
   `JobSupport.kt`/`Select.kt`/`DebugProbesImpl.kt`/`ExceptionsConstructor.kt`/`SystemProps.kt`).
   `SystemProps.kt`, `Select.kt`, and `DebugProbesImpl.kt` were resolved in an earlier session
-  (RDD_KEY_157/158). A later session confirmed the standalone `ThreadSafeHeap.kt` repro left at the
-  prior session's pause point (`/tmp/kx_repro/orig_tsh.kt`/`tsh1`/`tsh2`) reproduces category 1 below,
-  root-caused and fixed it under RDD_KEY_159, and confirmed via a fresh full-tree round1/round2
-  re-derivation that the same fix also resolves `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/
-  `ExceptionsConstructor.kt` (all four shared the identical named-scope-with-wrapped-header root
-  cause). This session root-caused and fixed `JobSupport.kt`'s call-argument continuation-line indent
-  flap under RDD_KEY_160 (`MiscRule.enforceCallLineBreaking` reading a call candidate's own,
-  pre-merge physical-line indent one phase before `KotlinSpecificRule.formatWhenExpressions`
-  unconditionally merges its `when`-branch label/arrow/body onto one line) — this confirms the
-  `MiscRule.enforceCallLineBreaking` continuation-indent family theorized (but not confirmed) as the
-  likely culprit for the still-open `square/kotlinpoet` `CodeWriter.kt` shape below; that file itself
-  was NOT re-checked this session (different candidate, out of scope), so the kotlinpoet question
-  remains open, just with a stronger lead. **2 files remain open**, in two distinct shapes, neither
-  root-caused:
-  1. **Bare `}` drift inside an unnamed nested lambda chain** — `BufferedChannel.kt`: a bare `}` (no
-     closing comment) drifts from col 4 to col 8 at one specific site (~line 1599), inside
-     `onUndeliveredElementReceiveCancellationConstructor`'s nested
-     `onUndeliveredElement?.let { { select, _, element -> { _, _, _ -> ... } } }` lambda-in-lambda
-     chain. Confirmed by inspection NOT to share RDD_KEY_159's root cause — the surrounding scopes
-     are all unnamed (lambda bodies, `isNamedScope == false`), so `spanIndent` was never forced
-     there; still open. Not investigated further — worth checking `braceLineIndent`'s own
-     physical-line read for a lambda nested inside another lambda's argument list, a shape none of
-     RDD_KEY_136/152/158/159/160 specifically covered.
-  2. **Declaration alignment padding-width flap** — `ChannelFlow.kt`: `private val countOrElement =
-     threadContextElements(...)` has column-alignment padding after `countOrElement` on round1 (many
-     spaces before `=`, presumably aligned to a sibling declaration's name width) but round2 renders
-     it with a single plain space — a different shape from anything previously logged (not a
-     closing-brace issue at all). Not investigated beyond re-confirming the diff still reproduces.
-  Neither of these 2 was root-caused or fixed this session — per STATE_COMMON.md's ambiguity
-  protocol, stopping here rather than guessing further without a debug-print-confirmed root cause.
-  All debug instrumentation added this session (an env-gated print in `MiscRule.renderCallCandidate`)
-  was removed before committing the RDD_KEY_160 fix; none remains in the source. Reusable
-  checkout/output locations left in `/tmp`: `/tmp/kx_orig` (pristine clone, reused again this
-  session), `/tmp/kx_round1`/`/tmp/kx_round2` (full-tree round1/round2, stale — re-derive before
-  reusing), `/tmp/kx_repro/` (standalone repros: `orig.kt`/`orig2.kt` for the resolved
-  `SystemProps.kt` bug, `orig_tsh.kt`/`tsh1`/`tsh2` confirmed clean, `fixture42_inp.kt`/`f42_r1`/
-  `f42_r2` now checked in as `test/real_code_regressions_42_inp.kt`/`_out.kt`, and this session's
+  (RDD_KEY_157/158). A later session root-caused and fixed category 1 (`ThreadSafeHeap.kt`/
+  `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/`ExceptionsConstructor.kt`, shared named-scope-
+  with-wrapped-header root cause) under RDD_KEY_159. A further session root-caused and fixed
+  `JobSupport.kt`'s call-argument continuation-line indent flap under RDD_KEY_160
+  (`MiscRule.enforceCallLineBreaking` reading a call candidate's own, pre-merge physical-line indent
+  one phase before `KotlinSpecificRule.formatWhenExpressions` unconditionally merges its `when`-
+  branch label/arrow/body onto one line) — this confirms the `MiscRule.enforceCallLineBreaking`
+  continuation-indent family theorized (but not confirmed) as the likely culprit for the still-open
+  `square/kotlinpoet` `CodeWriter.kt` shape below; that file itself was NOT re-checked this session
+  (different candidate, out of scope), so the kotlinpoet question remains open, just with a stronger
+  lead. This session root-caused and fixed `BufferedChannel.kt`'s bare `}` closing-brace drift under
+  RDD_KEY_161 (a dangling braceless `else`/`catch`/`finally` continuation left at a span boundary by
+  `splitTopLevelSpans` mis-anchoring `findParentIndent`'s indent derivation). **1 file remains open**,
+  fully root-caused but deliberately NOT fixed:
+  - **Declaration-alignment padding-width flap, root-caused this session** — `ChannelFlow.kt`:
+    `UndispatchedContextCollector`'s `countOrElement`/`emitRef` `val` pair. On round1,
+    `KotlinDeclarationAlignmentRule.groupAlignableDeclarations` correctly groups the two (both parsed
+    from their original, single-line source form) and `renderAlignedGroup` pads `countOrElement`'s
+    (typeless) row out to match `emitRef`'s type-column width — this is by design (STYLE_KOTLIN.md
+    §6's shared-type-column rule). But that padding, plus `emitRef`'s own `: suspend (T) -> Unit`
+    type-column padding, widens both physical lines enough that a *later* pass reflows their call-
+    argument-list initializers (`threadContextElements(emitContext)` → wrapped across 3 lines,
+    `{ downstream.emit(it) }` → wrapped across 3 lines) — confirmed by inspecting round1's own
+    output (`test`-equivalent scratch run), which already shows both initializers wrapped multi-line
+    in the emitted text. On round2, `parseKotlinDeclaration` re-parses this now-genuinely-multi-line
+    initializer and correctly bails per its own documented "never guess past a multi-line block
+    initializer" rule (`spansMultipleLines(stmt, eqToken)` check, `KotlinDeclarationAlignmentRule.java`
+    ~line 217) — an existing, intentional design decision, not a bug. That bail-out breaks the
+    `countOrElement`/`emitRef` grouping on round2 (`emitRef` no longer produces a `Row` at all;
+    confirmed via a temporary `GAD_DEBUG`-gated print showing 13 `ROW`/`NULLROW` lines in that region
+    on round1 vs. 12 on round2, with `emitRef` present as `ROW` on round1 and absent — falling into
+    the `NULLROW` branch — on round2), so `countOrElement` renders solo with no shared type column,
+    collapsing its padding to a single space. Net effect: alignment (an early rule) widens a line
+    enough to trigger a later line-wrap rule, whose reflowed output then fails to re-parse as
+    alignable on the next pass — the same "later phase changes physical shape, invalidating an
+    earlier phase's decision" bug family as RDD_KEY_136/152/158/159/160/161, but inverted in
+    direction (here the *early* alignment phase is what destabilizes a *later* wrap phase, rather
+    than a later merge invalidating an earlier physical-line read) and, unlike those, requires the
+    alignment rule to become width-budget-aware (checking whether its own padding would push a
+    rendered line's *indented* length past `lineLengthLimit`) to fix correctly. `renderAlignedGroup`
+    currently has no indent context available to it — indentation is only computed afterward, in
+    `ScopePipeline.addKotlinDeclReplacement` — so a correct fix needs indent-width plumbed through
+    `groupAlignableDeclarations`/`renderAlignedGroup`'s call chain, then a decision about what to do
+    when a prospective group would overflow (drop the offending row into its own group? render the
+    group without the type-column padding entirely?). Deferred per STATE_COMMON.md's ambiguity
+    protocol rather than guessing at that policy under time pressure — no code change was made for
+    this file. All debug instrumentation added while investigating this file (two `GAD_DEBUG`-gated
+    prints in `KotlinDeclarationAlignmentRule.groupAlignableDeclarations`) was removed before
+    committing; none remains in the source. `make test` reconfirmed 64/64 clean after removal.
+  All debug instrumentation added this session was removed before committing each fix; none remains
+  in the source. Reusable checkout/output locations left in `/tmp`: `/tmp/kx_orig` (pristine clone,
+  reused again this session), `/tmp/kx_round1`/`/tmp/kx_round2` (full-tree round1/round2, stale —
+  re-derive before reusing), `/tmp/kx_repro/` (standalone repros: `orig.kt`/`orig2.kt` for the
+  resolved `SystemProps.kt` bug, `orig_tsh.kt`/`tsh1`/`tsh2` confirmed clean, `fixture42_inp.kt`/
+  `f42_r1`/`f42_r2` now checked in as `test/real_code_regressions_42_inp.kt`/`_out.kt`, and
   `min2.kt`/`min2_r1.kt`/`min2_r2.kt` now checked in as `test/real_code_regressions_43_inp.kt`/
   `_out.kt`), `/tmp/kx_v3`/`/tmp/kx_v4` (RDD_KEY_159 session's fresh orig→round1→round2 pass, now
-  stale against the RDD_KEY_160 fix).
+  stale against later fixes), and this session's scratchpad `bc_test/` (min45.kt repro now checked in
+  as `test/real_code_regressions_44_inp.kt`/`_out.kt`; `cf_orig.kt`/`cf_r1`/`cf_r2`/`cf_dbg*.log`
+  hold the `ChannelFlow.kt` investigation evidence referenced above, not checked in).
 
 ---
 

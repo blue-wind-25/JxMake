@@ -526,7 +526,11 @@ public class ScopePipeline {
             if (parenDepth > 0) {
                 continue;
             }
-            if (isPunct(tok, ";") || isPunct(tok, "}")) {
+            if (isPunct(tok, ";")) {
+                stmtStart = i + 1;
+                break;
+            }
+            if (isPunct(tok, "}")) {
                 stmtStart = i + 1;
                 break;
             }
@@ -573,6 +577,39 @@ public class ScopePipeline {
             if (!isGapToken(tokens.get(i)) && tokens.get(i).type != TokenType.PREPROCESSOR) {
                 anchor = i;
                 break;
+            }
+        }
+        // Kotlin-only: `splitTopLevelSpans` splits the token stream on top-level BRACE spans, so
+        // a braceless `if (...) { ... } else someExpr` statement (the `if`-branch has its own
+        // brace span, the braceless `else someExpr` branch does not) gets cut in two -- the
+        // `if`-branch is processed as its own span, and `else someExpr` becomes leading, unbraced
+        // text at the very START of the NEXT real (braced) span, rather than a genuine new
+        // statement. `stmtStart`/`anchor` above default to that next span's own start, landing
+        // squarely on this dangling `else` -- which is not a real statement boundary at all, just
+        // where the previous span's extraction happened to stop. Left uncorrected, a LATER
+        // declaration's own brace search (backward scan bounded by ITS span.start, which sits
+        // after this dangling `else someExpr`) can walk straight past several real statements
+        // with no `;`/`}` of their own (Kotlin's brace-less, newline-terminated expression-bodied
+        // declarations) and wrongly land back on this same dangling `else` as its anchor --
+        // returning that unrelated, EARLIER statement's line indent instead of its own. Found via
+        // `kotlinx.coroutines`'s `BufferedChannel.kt`
+        // (`onUndeliveredElementReceiveCancellationConstructor`, a bare, unnamed nested-lambda-
+        // chain closing-brace drift distinct from RDD_KEY_136/152/158/159/160). Fix: when the
+        // anchor found above is itself a dangling `else`/`catch`/`finally`, it can never be a
+        // real statement's own start -- skip forward past its one-line, brace-less body to the
+        // next depth-0 NEWLINE, then re-anchor on whatever real statement follows.
+        if (lang.isKotlin && anchor < span.openBraceIdx && tokens.get(anchor).type == TokenType.KEYWORD
+                && ("else".equals(tokens.get(anchor).text) || "catch".equals(tokens.get(anchor).text)
+                        || "finally".equals(tokens.get(anchor).text))) {
+            int k = anchor + 1;
+            while (k < span.openBraceIdx && tokens.get(k).type != TokenType.NEWLINE) {
+                k++;
+            }
+            for (int i = k; i < span.openBraceIdx; i++) {
+                if (!isGapToken(tokens.get(i)) && tokens.get(i).type != TokenType.PREPROCESSOR) {
+                    anchor = i;
+                    break;
+                }
             }
         }
         // Search backward across the whole token list, not just from span.start: a preceding

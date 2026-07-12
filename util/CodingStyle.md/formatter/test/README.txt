@@ -528,6 +528,30 @@ Real-code regressions:
                                             top-level `->` (Kotlin only), use that arrow line's
                                             indent instead of the candidate's own.
 
+  real_code_regressions_44_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `Kotlin/kotlinx.coroutines`: `BufferedChannel.kt`'s
+                                            `onUndeliveredElementReceiveCancellationConstructor`, a
+                                            bare, unnamed nested-lambda-chain closing `}` drifted
+                                            from col 4 to col 8 on round2.
+                                            `ScopePipeline.findParentIndent`'s backward
+                                            statement-boundary scan is bounded by the current
+                                            span's own `span.start`, which `splitTopLevelSpans`
+                                            (splitting on top-level BRACE spans) can position mid-
+                                            statement: a braceless `if (...) { ... } else expr`
+                                            statement's braced `if`-branch is its own span, so the
+                                            braceless `else expr` becomes dangling leading text at
+                                            the very start of the NEXT real span rather than a
+                                            genuine new statement. A later declaration's own
+                                            backward brace-search (bounded by that span.start) then
+                                            landed on this dangling `else` as its anchor -- wrongly
+                                            returning an unrelated, earlier statement's own line
+                                            indent once a later phase's re-alignment happened to put
+                                            that `else` alone on its own physical line (only on
+                                            round2, not round1). Fixed by detecting an anchor that
+                                            is itself a dangling `else`/`catch`/`finally` and
+                                            skipping forward past its one-line body to the next real
+                                            statement before deriving the indent.
+
 How Tests Are Run
 -----------------
 

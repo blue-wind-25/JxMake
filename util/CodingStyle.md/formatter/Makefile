@@ -124,6 +124,7 @@ INP_FILES += real_code_regressions_40_inp.kt
 INP_FILES += real_code_regressions_41_inp.kt
 INP_FILES += real_code_regressions_42_inp.kt
 INP_FILES += real_code_regressions_43_inp.kt
+INP_FILES += real_code_regressions_44_inp.kt
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

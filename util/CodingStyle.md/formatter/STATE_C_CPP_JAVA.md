@@ -957,4 +957,3 @@ whitespace pass through unchanged.
 RDD_KEY_130. Fixtures updated: `test/c_combined_out.c`, `test/cpp_modern_out.cpp`,
 `test/java_combined_out.java`, `test/java_core_out.java`, `test/java_modern_out.java`,
 `test/real_code_regressions_15_out.hpp`.
-</content>

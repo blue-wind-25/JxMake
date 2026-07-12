@@ -455,76 +455,43 @@ Real-code regressions:
 
   real_code_regressions_37_inp/out.kt    -- Kotlin, real-code test against
                                             `Kotlin/kotlinx.coroutines`: an expression-bodied
-                                            function whose `=` is immediately followed by a
-                                            `{`-led lambda-literal body (not consumed as
-                                            `FunctionTail.exprTokens`) had `KotlinSignatureRule.
-                                            renderWithTail` bake a trailing space onto the
-                                            rendered `= ` regardless, while the untouched
-                                            remainder (the lambda body itself) kept its own
-                                            leading whitespace -- growing the gap by one space on
-                                            every re-format (non-idempotent). Fixed by omitting
-                                            the trailing space when `exprTokens` is empty.
+                                            function's unconsumed `{`-led lambda tail made
+                                            `renderWithTail` bake a trailing space onto `= `
+                                            regardless, growing the gap by one space per reformat.
+                                            Fixed by omitting the space when `exprTokens` is empty.
 
   real_code_regressions_38_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: a KDoc code example
-                                            containing its own literal `/* ... */` snippet (Kotlin,
-                                            unlike C/C++/Java, allows block comments to nest) had
-                                            `TokenizerCore.emitBlockComment` close the outer `/**`
-                                            doc-comment at that inner `*/` instead of continuing
-                                            past it -- everything after was mis-lexed as real code,
-                                            corrupting/truncating the rest of the file (found via
-                                            `Guidance.kt`, ~330 lines silently dropped). Fixed by
-                                            tracking nesting depth for Kotlin only; C/C++/Java block
-                                            comments still close at the first `*/` unchanged.
+                                            `Kotlin/kotlinx.coroutines`: a KDoc's own nested
+                                            `/* ... */` snippet closed the outer `/**` doc-comment
+                                            early, mis-lexing and silently truncating the rest of
+                                            the file (`Guidance.kt`, ~330 lines dropped). Fixed by
+                                            tracking block-comment nesting depth, Kotlin-only.
 
   real_code_regressions_39_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: a qualified-this label
-                                            reference (`this@Label`) had a space wrongly inserted
-                                            before the `@` by a generic keyword-spacing default,
-                                            since `KotlinSpecificRule.enforceLabeledJumpSpacing`'s
-                                            §11 state machine only recognized `return`/`break`/
-                                            `continue`/a plain identifier before `@`, not the `this`
-                                            keyword -- a real syntax error (`this @Label`). Fixed
-                                            with a new `AFTER_THIS_KEYWORD`/`AFTER_THIS_AT` state
-                                            pair tightening `this@Label` with no forced trailing
-                                            space after (unlike a jump's `@label`, which is followed
-                                            by a value expression).
+                                            `Kotlin/kotlinx.coroutines`: `this@Label` got a stray
+                                            space inserted before `@` (`this @Label`, a real syntax
+                                            error) since `enforceLabeledJumpSpacing`'s state
+                                            machine didn't recognize `this` before `@`. Fixed with a
+                                            new state pair tightening `this@Label`.
 
   real_code_regressions_40_inp/out.kt    -- Kotlin, real-code test against
                                             `Kotlin/kotlinx.coroutines`: `LimitedDispatcher.kt`'s
-                                            `obtainTaskOrDeallocateWorker()` had a `while (true) {
-                                            when (...) { null -> synchronized(lock) { stmt; stmt;
-                                            stmt } ... } }` -- the `while`'s sole statement (the
-                                            `when` expression) qualified as a collapsible
-                                            single-statement body, but that statement itself owned a
-                                            nested, genuinely multi-line `synchronized(...) { ... }`
-                                            block; `BlockStructureRule.tryCollapse`'s `renderInline`
-                                            flattens every whitespace/newline in the collapsed body
-                                            to a single space with no brace-depth awareness, fusing
-                                            the `synchronized` block's three separate statements onto
-                                            one physical line with no separators (Kotlin has no
-                                            mandatory `;`) -- a real, first-pass syntax error, not
-                                            merely an idempotency flap. Fixed with a new
-                                            `BlockStructureRule.containsMultilineNestedBrace` check
-                                            in `isKotlinSingleStatementBody`: bails out of the
-                                            single-statement/collapsible classification whenever the
-                                            body contains a nested `{...}` block with an internal
-                                            newline at brace-depth > 0.
+                                            collapsible `while (true) { when (...) { ... } }` body
+                                            owned a nested multi-line `synchronized(...) { ... }`
+                                            block; `tryCollapse`'s brace-depth-unaware flattening
+                                            fused its statements onto one line with no separators --
+                                            a real syntax error. Fixed with a
+                                            `containsMultilineNestedBrace` bail in
+                                            `isKotlinSingleStatementBody`.
 
-  real_code_regressions_41_inp/out.kt    -- Kotlin, real-code idempotency test
-                                            against `Kotlin/kotlinx.coroutines`:
-                                            `SystemProps.kt`'s `systemProp()` -- a
-                                            `try { ... } catch (...) { ... }` expression body whose
-                                            multi-line signature gets merged onto one line
-                                            (`KotlinSignatureRule`) had its `catch` span's own
-                                            indent read from its (now-stale) pre-merge physical
-                                            line, one level deeper than the `try` span's correctly
-                                            re-derived indent -- the two disagreed round1 vs round2.
-                                            Fixed with a new `ScopePipeline.processScope` check:
-                                            a `catch`/`finally` span directly chained onto the
-                                            immediately preceding span's own closing `}` now
-                                            inherits that preceding span's resolved indent instead
-                                            of deriving one of its own.
+  real_code_regressions_41_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `Kotlin/kotlinx.coroutines`: `SystemProps.kt`'s chained
+                                            `catch` span kept its stale pre-merge indent once
+                                            `KotlinSignatureRule` merged the `try` signature onto
+                                            one line, disagreeing with the `try` span's re-derived
+                                            indent round1 vs round2. Fixed by having a chained
+                                            `catch`/`finally` span inherit its preceding span's
+                                            resolved indent.
 
 How Tests Are Run
 -----------------

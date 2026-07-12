@@ -960,4 +960,3 @@ overall — see the "RECOMMENDED NEXT" note in `STATE_C_CPP_JAVA.md`'s Modern C+
   language feature, including obscure/edge-case syntax real application code rarely touches) —
   not yet started, treat as a last-resort/stress candidate similar in posture to
   `microsoft/STL`/`llvm-project` in the C++ list, given its size.
-</content>

@@ -453,6 +453,43 @@ Real-code regressions:
                                             diffing this was the only remaining divergence, marking
                                             the stdexec candidate DONE.
 
+  real_code_regressions_37_inp/out.kt    -- Kotlin, real-code test against
+                                            `Kotlin/kotlinx.coroutines`: an expression-bodied
+                                            function whose `=` is immediately followed by a
+                                            `{`-led lambda-literal body (not consumed as
+                                            `FunctionTail.exprTokens`) had `KotlinSignatureRule.
+                                            renderWithTail` bake a trailing space onto the
+                                            rendered `= ` regardless, while the untouched
+                                            remainder (the lambda body itself) kept its own
+                                            leading whitespace -- growing the gap by one space on
+                                            every re-format (non-idempotent). Fixed by omitting
+                                            the trailing space when `exprTokens` is empty.
+
+  real_code_regressions_38_inp/out.kt    -- Kotlin, real-code test against
+                                            `Kotlin/kotlinx.coroutines`: a KDoc code example
+                                            containing its own literal `/* ... */` snippet (Kotlin,
+                                            unlike C/C++/Java, allows block comments to nest) had
+                                            `TokenizerCore.emitBlockComment` close the outer `/**`
+                                            doc-comment at that inner `*/` instead of continuing
+                                            past it -- everything after was mis-lexed as real code,
+                                            corrupting/truncating the rest of the file (found via
+                                            `Guidance.kt`, ~330 lines silently dropped). Fixed by
+                                            tracking nesting depth for Kotlin only; C/C++/Java block
+                                            comments still close at the first `*/` unchanged.
+
+  real_code_regressions_39_inp/out.kt    -- Kotlin, real-code test against
+                                            `Kotlin/kotlinx.coroutines`: a qualified-this label
+                                            reference (`this@Label`) had a space wrongly inserted
+                                            before the `@` by a generic keyword-spacing default,
+                                            since `KotlinSpecificRule.enforceLabeledJumpSpacing`'s
+                                            §11 state machine only recognized `return`/`break`/
+                                            `continue`/a plain identifier before `@`, not the `this`
+                                            keyword -- a real syntax error (`this @Label`). Fixed
+                                            with a new `AFTER_THIS_KEYWORD`/`AFTER_THIS_AT` state
+                                            pair tightening `this@Label` with no forced trailing
+                                            space after (unlike a jump's `@label`, which is followed
+                                            by a value expression).
+
 How Tests Are Run
 -----------------
 

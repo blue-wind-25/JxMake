@@ -555,7 +555,8 @@ public class KotlinSpecificRule {
     /** Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
      *  `label@` declaration, as tokens are consumed left to right. */
     private enum JumpState {
-        NONE, AFTER_JUMP_KEYWORD, AFTER_JUMP_AT, AFTER_JUMP_LABEL, AFTER_PLAIN_IDENT, AFTER_DECL_AT
+        NONE, AFTER_JUMP_KEYWORD, AFTER_JUMP_AT, AFTER_JUMP_LABEL, AFTER_PLAIN_IDENT, AFTER_DECL_AT,
+        AFTER_THIS_KEYWORD, AFTER_THIS_AT
     }
 
     /**
@@ -591,9 +592,10 @@ public class KotlinSpecificRule {
             final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
                     || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean tightBeforeAt = isOp(t, "@")
-                    && (state == JumpState.AFTER_JUMP_KEYWORD
+                    && (state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD
                             || (state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(tokens, i + 1)));
-            final boolean tightAfterJumpAt = state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER;
+            final boolean tightAfterJumpAt = (state == JumpState.AFTER_JUMP_AT || state == JumpState.AFTER_THIS_AT)
+                    && t.type == TokenType.IDENTIFIER;
             final boolean forceSpace = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
 
             if (gapBlocked) {
@@ -614,10 +616,20 @@ public class KotlinSpecificRule {
 
             if (t.type == TokenType.KEYWORD && isJumpKeyword(t.text)) {
                 state = JumpState.AFTER_JUMP_KEYWORD;
+            } else if (t.type == TokenType.KEYWORD && "this".equals(t.text)) {
+                // A qualified-this expression, `this@Label` -- unlike `return@label`/`break@loop`,
+                // there's no forced trailing space after the label (it's an expression operand, not
+                // a jump followed by a value or a declaration prefixing a loop), and the `@` is
+                // unambiguous here (a `this` keyword is never followed by an unrelated annotation).
+                state = JumpState.AFTER_THIS_KEYWORD;
             } else if (state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@") && !gapBlocked) {
                 state = JumpState.AFTER_JUMP_AT;
+            } else if (state == JumpState.AFTER_THIS_KEYWORD && isOp(t, "@") && !gapBlocked) {
+                state = JumpState.AFTER_THIS_AT;
             } else if (state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_JUMP_LABEL;
+            } else if (state == JumpState.AFTER_THIS_AT && t.type == TokenType.IDENTIFIER) {
+                state = JumpState.NONE;
             } else if (t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_PLAIN_IDENT;
             } else if (state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@") && !gapBlocked

@@ -24,9 +24,9 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build clean test bench test-server
+.PHONY: all build jar clean test bench test-server
 
-all build: $(JAR_FILE)
+all build jar: $(JAR_FILE)
 
 $(CLASS_DIR):
 	@mkdir -p $(CLASS_DIR)
@@ -117,6 +117,9 @@ INP_FILES += real_code_regressions_33_inp.kt
 INP_FILES += real_code_regressions_34_inp.hpp
 INP_FILES += real_code_regressions_35_inp.hpp
 INP_FILES += real_code_regressions_36_inp.cpp
+INP_FILES += real_code_regressions_37_inp.kt
+INP_FILES += real_code_regressions_38_inp.kt
+INP_FILES += real_code_regressions_39_inp.kt
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

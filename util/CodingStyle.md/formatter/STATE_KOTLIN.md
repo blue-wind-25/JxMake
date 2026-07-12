@@ -138,6 +138,9 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_151 | `square/okio` compile-check bug #2: `BlockStructureRule`'s braceless-collapse dispatch treated a do-while's trailing `while (cond)` the same as a genuine loop-starting `while`, fusing the following unrelated statement onto the same line with no separator. Fixed with a new `isDoWhileTailKeyword` lookback gating the `while` dispatch entry. Not Kotlin-gated but confirmed inert for C/C++/Java (they always have a `;` right after a do-while's `)`, never reaching the Kotlin-only braceless branch). New combined fixture `test/real_code_regressions_31_inp.kt`/`_out.kt` (with RDD_KEY_150). `make test`: 50/50 before fixture, 51/51 after. |
 | RDD_KEY_152 | `square/kotlinpoet` real-code testing (idempotency bug): a nested `when { ... }` used as a `when` branch's own body had its closing `}`'s indentation flap across rounds — `ScopePipeline.braceLineIndent` (RDD_KEY_136) anchored on the brace's physical line at Phase 0, before `KotlinSpecificRule.formatWhenExpressions`' Phase 4 arrow-alignment pass merges the branch label and the nested `when {` onto one line. Fixed with a new `findMergingWhenBranchLineStart` lookahead anchoring on the eventual post-merge line up front. Kotlin-gated shared-class change. New `test/real_code_regressions_32_inp.kt`/`_out.kt`. `make test`: 51/51 before, 52/52 after. |
 | RDD_KEY_153 | `square/kotlinpoet` real-code testing (compile-check bug, `kotlinc` against `jvmMain`): `KotlinSpecificRule.findSignatureCloseParenBeforeBrace`'s backward scan for a `: ReturnType` clause had no bail-out on a depth-0 `=`, so an expression-bodied function whose body is itself a trailing-lambda call (`fun addTypes(...): T = apply { ... } as T`) had `apply`'s own `{` wrongly Allman-converted as the function's own body brace, splitting `apply` from `{ ... }` with no valid Kotlin grammar joining them. Fixed with a new depth-0-`=` bail-out. Kotlin-only file, no cross-language risk. New `test/real_code_regressions_33_inp.kt`/`_out.kt`. `make test`: 52/52 before, 53/53 after. |
+| RDD_KEY_154 | `Kotlin/kotlinx.coroutines` idempotency bug: `KotlinSignatureRule.renderWithTail`'s `exprStr` baked a trailing space onto `"= "` even when `tail.exprTokens` was empty (a `{`-led lambda-literal expression body, left unconsumed by the tail parser by design) -- since the untouched remainder downstream keeps its own original leading whitespace, this stacked an extra space on every re-format (unbounded growth, non-idempotent). Fixed by rendering bare `"="` when `exprTokens` is empty. New `test/real_code_regressions_37_inp.kt`/`_out.kt`. `make test`: 56/56 before, 57/57 after. |
+| RDD_KEY_155 | `Kotlin/kotlinx.coroutines` compile-check bug #1 (`SyntaxCheck` syntax-only tool): a KDoc code example containing its own literal `/* ... */` snippet is valid Kotlin (block comments nest, unlike C/C++/Java) but `TokenizerCore.emitBlockComment` closed the outer doc-comment at that inner `*/`, corrupting/truncating everything after (`Guidance.kt`, ~330 lines dropped). Fixed with Kotlin-gated nesting-depth tracking; C/C++/Java unchanged. New `test/real_code_regressions_38_inp.kt`/`_out.kt`. `make test`: 57/57 before, 58/58 after. |
+| RDD_KEY_156 | `Kotlin/kotlinx.coroutines` compile-check bug #2 (`SyntaxCheck`): a qualified-this label reference (`this@Label`) had a space wrongly inserted before `@` since `KotlinSpecificRule.enforceLabeledJumpSpacing`'s §11 state machine had no case for the `this` keyword (only jump keywords/plain identifiers). Fixed with new `AFTER_THIS_KEYWORD`/`AFTER_THIS_AT` states, tight through the label with no forced trailing space (unlike a jump's `@label`). New `test/real_code_regressions_39_inp.kt`/`_out.kt`. `make test`: 58/58 before, 59/59 after. |
 
 ---
 
@@ -274,6 +277,34 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   reverted before ending the session; `make test` reconfirmed 53/53
   forward + 53/53 idempotency with the source tree back at its
   RDD_KEY_153 state (no code changes this session).
+
+- **`kotlinx.coroutines` remaining idempotency diffs (10 files) and one unresolved compile-breaking
+  bug — OPEN, found this session.** After RDD_KEY_154's fix, 10 files still round1-vs-round2 diff
+  (`BufferedChannel.kt`/`AbstractSharedFlow.kt`/`ChannelFlow.kt`/`ConcurrentLinkedList.kt`/
+  `ThreadSafeHeap.kt`/`JobSupport.kt`/`Select.kt`/`DebugProbesImpl.kt`/`ExceptionsConstructor.kt`/
+  `SystemProps.kt`); at least two distinct shapes observed but not root-caused: a closing-`}`
+  indentation drift (`ThreadSafeHeap.kt`'s `} // class ThreadSafeHeap` flapping indent columns,
+  `ExceptionsConstructor.kt`'s `} to N` similarly), and a `try`/`catch`-as-expression brace-style/
+  indentation confusion (`SystemProps.kt`'s `systemProp()`: a multi-line broken signature's
+  `try { ... } catch (...) { ... }` expression body gets its `catch` moved to its own line with a
+  `catch(e:` spacing loss and a drifting closing-brace indent). Separately, `SyntaxCheck` still
+  finds one genuine, unresolved syntax error: `LimitedDispatcher.kt`'s
+  `obtainTaskOrDeallocateWorker()` has a `when (val nextTask = ...) { null -> synchronized(lock) {
+  multi-statement } ... }` branch whose `synchronized(...) { ... }` trailing-lambda body (three
+  statements) gets fused onto one physical line with no `;` separators — confirmed a first-pass
+  corruption (reproduces on a fresh format, not merely an idempotency flap). Investigated enough to
+  rule out the obvious suspects: `MiscRule.renderCallCandidate`'s Option 2 multi-line-argument path
+  is not reached (the `synchronized(lock)` parens hold only a single non-newline-containing
+  argument; the trailing lambda sits outside the parens entirely, so `containsNewline(paramsSlice)`
+  is false and the candidate is never touched by that pass), and `KotlinSpecificRule.
+  applyArrowAlignment` only rewrites the branch's label+arrow span, never touching
+  `bodyStart..bodyEnd` — so the fusion must happen in some other pass not yet identified. Not
+  guessed at further this session (no debug-print-confirmed root cause) — per STATE_COMMON.md's
+  ambiguity protocol, documenting here rather than continuing without evidence. Next step is
+  probably a debug print in whichever pass is suspected of collapsing a trailing-lambda call
+  argument sitting outside a call's own parens (the RDD_KEY_134/151 class of bug covered call
+  arguments *inside* parens and a do-while's own trailing `while (...)`, but not this
+  outside-the-parens trailing-lambda shape used as a `when` branch's value).
 
 ---
 
@@ -805,13 +836,29 @@ that, further digging on it is **not urgent**; it's deprioritized below the fres
 until a session has spare budget to return to it. `stdexec`/`lexy` (C++) is the actual next pick
 overall — see the "RECOMMENDED NEXT" note in `STATE_C_CPP_JAVA.md`'s Modern C++ candidates list.
 
-- **`github.com/Kotlin/kotlinx.coroutines`** — JetBrains' own coroutines library. Medium-large,
-  multiplatform (`commonMain`/`jvmMain`/`nativeMain`/etc.), heavy real `suspend`/`co_await`-style
-  coroutine-machinery code (raw `suspend fun`, `CoroutineScope` receivers, `Flow`-builder DSLs)
-  — expected to stress §17/§17.1's lambda-with-receiver exemption (RDD_KEY_109) more than any
-  candidate tested so far, since `Flow`/`launch`/`async` builders are exactly that shape used at
-  scale. Will need the Gradle-copy dance (multiplatform build, external deps) per this section's
-  standard caveat, unlike `okio`/`kotlinpoet`.
+- **`github.com/Kotlin/kotlinx.coroutines`** — DONE (this session). Scoped to
+  `kotlinx-coroutines-core`'s `common`+`jvm` source sets (163 `.kt` files; `.editorconfig`
+  `indent_size=4` matches this tool's default, no override needed) rather than the full
+  multiplatform tree, per user instruction to use the new lightweight `SyntaxCheck` tool instead of
+  a Gradle build. Round1-vs-round2 idempotency diffing found 11 non-idempotent files; root-caused
+  and fixed 1 (RDD_KEY_154, `KotlinSignatureRule.renderWithTail`'s baked trailing space after a
+  bare `=` growing unboundedly across reformats), leaving 10 open (surveyed, not yet root-caused —
+  at least two distinct shapes, a closing-brace indentation drift and a `try`/`catch`-as-expression
+  brace-style/indentation confusion in `SystemProps.kt`; see Open Questions). `SyntaxCheck` against
+  all 163 round1 files found 9 with genuine syntax errors (0 on the unformatted originals);
+  root-caused and fixed 2 (RDD_KEY_155, a nesting-unaware `TokenizerCore.emitBlockComment`
+  truncating `Guidance.kt` by ~330 lines on a KDoc's nested `/* */` code example; RDD_KEY_156, a
+  `this@Label` qualified-this reference corrupted to `this @Label` by
+  `KotlinSpecificRule.enforceLabeledJumpSpacing` having no case for the `this` keyword), bringing
+  the syntax-error count down to 1 remaining (`LimitedDispatcher.kt`'s `when`-branch
+  `synchronized(lock) { multi-statement }` body fused onto one line with no separators — not yet
+  root-caused, left open). New fixtures `test/real_code_regressions_37/38/39_inp.kt`/`_out.kt`.
+  `make test`: 56/56 before this session's fixes, 59/59 after. Per the user's explicit request,
+  only the PSI-based syntax-only `SyntaxCheck` tool was used as the compile-check step here, not a
+  full Gradle build — it catches parse/syntax errors but not semantic/type errors, so it cannot
+  rule out a formatter bug that produces syntactically-valid-but-semantically-wrong Kotlin; treat
+  this candidate's compile-check confidence as weaker than the Gradle-verified `gui_frontend_android`
+  dogfood candidate above.
 - **`github.com/square/kotlinpoet`** — DONE (this session), at kotlinpoet's own
   `.editorconfig` `indent_size=2` convention (like okio, no Gradle-copy dance
   needed). Round1-vs-round2 idempotency diffing across all 131 `.kt` files

@@ -415,7 +415,16 @@ public class KotlinSignatureRule extends MiscRule {
     public List<String> renderWithTail(final KotlinSignature sig, final FunctionTail tail,
             final int indentLevel, final String indentStyle) {
         final String returnTypeStr = tail.returnTypeTokens.isEmpty() ? "" : ": " + renderTokens(tail.returnTypeTokens);
-        final String exprStr = tail.hasEqual ? "= " + renderTokens(tail.exprTokens) : "";
+        // tail.exprTokens is empty when the `=` is immediately followed by a `{`-led construct
+        // (e.g. a lambda literal body) that the tail parser deliberately doesn't consume, leaving
+        // the remainder of the statement untouched downstream. In that case appending "= " (with
+        // a trailing space baked in) double-spaces against the untouched remainder's own leading
+        // whitespace before its own `{`/next line -- and since a bare "=" with no baked space is
+        // recomputed identically every format pass while the untouched remainder is preserved
+        // as-is, the trailing-space count would otherwise grow by one on every re-format
+        // (non-idempotent). Only append the separating space when there is an actual rendered
+        // expression to separate it from.
+        final String exprStr = tail.hasEqual ? (tail.exprTokens.isEmpty() ? "=" : "= " + renderTokens(tail.exprTokens)) : "";
         final String tailStr = returnTypeStr.isEmpty() ? exprStr
                 : (exprStr.isEmpty() ? returnTypeStr : returnTypeStr + " " + exprStr);
 

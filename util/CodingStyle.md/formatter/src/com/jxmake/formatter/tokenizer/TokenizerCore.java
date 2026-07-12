@@ -727,11 +727,31 @@ public class TokenizerCore {
     private Token emitBlockComment() {
         final int start = pos;
         pos += 2;
-        while (pos < length && !(source.charAt(pos) == '*' && peek(1) == '/')) {
-            pos++;
-        }
-        if (pos < length) {
-            pos += 2;
+        // Kotlin, unlike C/C++/Java, allows block comments to nest (`/* ... /* ... */ ... */`) --
+        // a doc-comment code example containing its own literal `/* ... */` snippet (e.g.
+        // kotlinx.coroutines's Guidance.kt KDoc) is valid Kotlin and must not have the outer
+        // comment close at that inner `*/`. Track nesting depth for Kotlin only; C/C++/Java block
+        // comments still close at the first `*/`, matching those languages' real grammar.
+        if (lang.isKotlin) {
+            int depth = 1;
+            while (pos < length && depth > 0) {
+                if (source.charAt(pos) == '/' && peek(1) == '*') {
+                    depth++;
+                    pos += 2;
+                } else if (source.charAt(pos) == '*' && peek(1) == '/') {
+                    depth--;
+                    pos += 2;
+                } else {
+                    pos++;
+                }
+            }
+        } else {
+            while (pos < length && !(source.charAt(pos) == '*' && peek(1) == '/')) {
+                pos++;
+            }
+            if (pos < length) {
+                pos += 2;
+            }
         }
         return new Token(TokenType.COMMENT_BLOCK, source.substring(start, pos), braceDepth,
                 parenDepth, null);

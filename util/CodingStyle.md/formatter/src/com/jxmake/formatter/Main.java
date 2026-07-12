@@ -101,11 +101,11 @@ public final class Main {
                 }
             } else if ("--lang".equals(arg)) {
                 if (i + 1 >= args.length) {
-                    return usageError("--lang requires an argument (c, cpp, or java)");
+                    return usageError("--lang requires an argument (c, cpp, java, or kotlin)");
                 }
                 final String langArg = args[++i];
-                if (!"c".equals(langArg) && !"cpp".equals(langArg) && !"java".equals(langArg)) {
-                    return usageError("--lang must be one of: c, cpp, java (got: " + langArg + ")");
+                if (!"c".equals(langArg) && !"cpp".equals(langArg) && !"java".equals(langArg) && !"kotlin".equals(langArg)) {
+                    return usageError("--lang must be one of: c, cpp, java, kotlin (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
             } else if (arg.startsWith("--")) {

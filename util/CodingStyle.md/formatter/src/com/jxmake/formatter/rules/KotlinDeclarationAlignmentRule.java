@@ -35,13 +35,30 @@ import java.util.List;
 public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
 
     private final KotlinModifierPriority modifierPriority = new KotlinModifierPriority();
+    // RDD_KEY_162: needed so renderAlignedGroup can estimate a row's true rendered column (this
+    // class has no scope-depth of its own -- ScopePipeline passes down depth * indentWidth as
+    // its best estimate, same "nestDepth * indentWidth" approximation GetterSetterRule's own
+    // width pre-check (RDD_KEY_139) already uses). 0 when constructed via the legacy
+    // one/two-arg constructors, which disables the new budget check entirely (see
+    // renderAlignedGroup's own doc comment).
+    private final int indentWidth;
 
     public KotlinDeclarationAlignmentRule(final Lang lang) {
         super(lang);
+        this.indentWidth = 0;
     }
 
     public KotlinDeclarationAlignmentRule(final Lang lang, final int lineLengthLimit) {
         super(lang, lineLengthLimit);
+        this.indentWidth = 0;
+    }
+
+    /** RDD_KEY_162: indent-width-aware constructor, used by {@code ScopePipeline} so {@link
+     *  #renderAlignedGroup(List, int)} can estimate a group member's true rendered column and
+     *  refuse to pad another member wide enough to push it past {@code lineLengthLimit}. */
+    public KotlinDeclarationAlignmentRule(final Lang lang, final int indentWidth, final int lineLengthLimit) {
+        super(lang, lineLengthLimit);
+        this.indentWidth = indentWidth;
     }
 
     /** One parsed `val`/`var` property or local-variable declaration. */
@@ -815,6 +832,134 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * if some row in the group actually has one.
      */
     public List<String> renderAlignedGroup(final List<Row> group) {
+        return renderAlignedGroup(group, 0);
+    }
+
+    /**
+     * RDD_KEY_162: width-budget-aware entry point, used by {@code ScopePipeline} (which knows
+     * the group's own scope depth, unlike this class). {@code indent} is the estimated column
+     * this group's lines render at ({@code depth * indentWidth}, the same "nestDepth *
+     * indentWidth" approximation {@code GetterSetterRule}'s own width pre-check (RDD_KEY_139)
+     * already uses -- an estimate, not the exact final indent {@code ScopePipeline
+     * .addKotlinDeclReplacement} later derives from the raw leading gap, but close enough to
+     * budget against since Kotlin declarations are never re-indented relative to their own
+     * scope).
+     *
+     * <p>Root cause fixed here (RDD_KEY_161's open question, `ChannelFlow.kt`): naively padding
+     * every row in a group out to a shared column width can widen a DIFFERENT row's line enough
+     * to push it past {@code lineLengthLimit}, triggering a later line-wrap pass on that row;
+     * re-parsing the resulting multi-line initializer on the next pass then correctly (by
+     * {@link #parseKotlinDeclaration}'s existing design) bails that row out of alignment
+     * entirely, collapsing padding for the group's OTHER rows -- an idempotency flap. Fixed with
+     * a fixed-point loop: a row is pulled out of the shared column grid (rendered solo instead,
+     * single-space, same as today's post-flap steady state but now stable/idempotent from the
+     * very first pass) whenever its group-aligned rendered width overflows the budget AND its
+     * initializer is brace-bodied ({@link #hasBraceBodiedInit} -- a lambda/object/block, the
+     * exact shape {@link #spansMultipleLines}'s brace-depth check bails on). A row whose
+     * initializer contains no brace at all (a plain call/expression, e.g.
+     * `test/real_code_regressions_18`'s `display = if (...) full.substring(...) ... `) is never
+     * excluded no matter how long it renders -- any future wrap of such an initializer lands
+     * strictly inside parens with no enclosing brace, which {@link #spansMultipleLines}'s own
+     * paren-depth carve-out (RDD_KEY_135) already keeps groupable/idempotent forever, so
+     * excluding it would only needlessly discard a sibling's legitimate column alignment. This is
+     * option (a) of the two considered, matching this codebase's established per-member-exclusion
+     * pattern ({@code GetterSetterRule}/RDD_KEY_139) rather than inventing a new
+     * column-width-capping shape. Excluding a row can shrink the remaining group's own widest
+     * column, so the check re-runs against the smaller set until nothing more needs excluding
+     * (bounded by group size). A zero-{@code indentWidth} construction (the legacy one/two-arg
+     * constructors) disables this check entirely -- {@code indent} is meaningless without a real
+     * {@code indentWidth}, and every existing caller of those constructors predates this
+     * budget-awareness.
+     */
+    public List<String> renderAlignedGroup(final List<Row> group, final int indent) {
+        if (group.size() <= 1 || indentWidth <= 0) {
+            return renderAlignedGroupRaw(group);
+        }
+
+        final boolean[] excluded = new boolean[group.size()];
+        while (true) {
+            final List<Integer> safeIndices = new ArrayList<>();
+            for (int i = 0; i < group.size(); i++) {
+                if (!excluded[i]) {
+                    safeIndices.add(i);
+                }
+            }
+            if (safeIndices.size() <= 1) {
+                break; // nothing left to budget-check against
+            }
+            final List<Row> safeRows = new ArrayList<>();
+            for (final int idx : safeIndices) {
+                safeRows.add(group.get(idx));
+            }
+            final List<String> safeLines = renderAlignedGroupRaw(safeRows);
+
+            int overflowAt = -1;
+            for (int k = 0; k < safeRows.size(); k++) {
+                final Row r = safeRows.get(k);
+                if (!hasBraceBodiedInit(r.initTokens)) {
+                    continue;
+                }
+                if (indent + safeLines.get(k).length() > lineLengthLimit) {
+                    overflowAt = safeIndices.get(k);
+                    break;
+                }
+            }
+            if (overflowAt < 0) {
+                break; // fixed point reached -- no remaining row overflows its budget
+            }
+            excluded[overflowAt] = true;
+        }
+
+        final List<String> result = new ArrayList<>(java.util.Collections.nCopies(group.size(), null));
+        final List<Integer> safeIndices = new ArrayList<>();
+        for (int i = 0; i < group.size(); i++) {
+            if (!excluded[i]) {
+                safeIndices.add(i);
+            }
+        }
+        final List<Row> safeRows = new ArrayList<>();
+        for (final int idx : safeIndices) {
+            safeRows.add(group.get(idx));
+        }
+        final List<String> safeLines = renderAlignedGroupRaw(safeRows);
+        for (int k = 0; k < safeIndices.size(); k++) {
+            result.set(safeIndices.get(k), safeLines.get(k));
+        }
+        for (int i = 0; i < group.size(); i++) {
+            if (excluded[i]) {
+                result.set(i, renderAlignedGroupRaw(java.util.Collections.singletonList(group.get(i))).get(0));
+            }
+        }
+        return result;
+    }
+
+    /** True iff {@code initTokens} contains a literal {@code {} -- a lambda/object/block
+     *  expression -- anywhere. This, not a generic "has a breakable call" check, is the correct
+     *  gate for the width-budget exclusion above: {@link #spansMultipleLines} only ever bails a
+     *  re-parsed declaration out of its alignment group over a newline found at brace-depth > 0
+     *  (or a genuine top-level one); a later phase wrapping a call's arguments that sit strictly
+     *  inside PARENS with no enclosing brace (e.g. `full.substring(0, N)`,
+     *  `test/real_code_regressions_18`'s shape, or `threadContextElements(emitContext)` above)
+     *  never lands inside a brace, so {@code spansMultipleLines} correctly does NOT bail on it --
+     *  that row stays groupable/idempotent forever regardless of how long it is or how much
+     *  alignment padding it carries, so it must never be excluded here. A row whose initializer
+     *  is itself brace-bodied (a trailing lambda, `ChannelFlow.kt`'s
+     *  `emitRef = { downstream.emit(it) }`), by contrast, WILL have any future line-break land
+     *  inside that brace, guaranteeing a bail (and the resulting group-wide padding collapse) the
+     *  moment it overflows -- so once its own group-aligned width overflows the budget, excluding
+     *  it pre-emptively (rendering solo from the very first pass) is what actually restores
+     *  idempotency, regardless of whether it was already going to wrap on its own merits (e.g. a
+     *  long trailing comment) independent of any alignment padding. */
+    private boolean hasBraceBodiedInit(final List<Token> initTokens) {
+        for (final Token t : initTokens) {
+            if (isPunct(t, "{")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<String> renderAlignedGroupRaw(final List<Row> group) {
         final int modifierColumns = modifierPriority.columnCount();
         final boolean[] modifierActive = new boolean[modifierColumns];
         boolean anyType = false;

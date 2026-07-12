@@ -60,6 +60,10 @@ public class ScopePipeline {
     private final KotlinDeclarationAlignmentRule kotlinDeclarationRule;
     private final KotlinSignatureRule kotlinSignatureRule;
     private final boolean formatOff;
+    // RDD_KEY_162: needed so applyKotlinDeclarationsPass can estimate a group's rendered column
+    // (depth * indentWidth) and pass it to KotlinDeclarationAlignmentRule.renderAlignedGroup's
+    // width-budget check.
+    private final int indentWidth;
 
     public ScopePipeline(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod) {
@@ -94,10 +98,11 @@ public class ScopePipeline {
         this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 commentNormalizationClassifier, indentWidth, lineLengthLimit);
         this.kotlinDeclarationRule = lang.isKotlin
-                ? new KotlinDeclarationAlignmentRule(lang, lineLengthLimit) : null;
+                ? new KotlinDeclarationAlignmentRule(lang, indentWidth, lineLengthLimit) : null;
         this.kotlinSignatureRule = lang.isKotlin
                 ? new KotlinSignatureRule(lang, indentWidth, lineLengthLimit) : null;
         this.formatOff = formatOff;
+        this.indentWidth = indentWidth;
     }
 
     /** Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
@@ -770,9 +775,9 @@ public class ScopePipeline {
      * enclosing {@link Span} supplies the actual replacement range -- the span already includes
      * the statement's trailing `;`/comment via the identical depth-aware algorithm.
      */
-    private String applyDeclarationsPass(final List<Token> tokens) {
+    private String applyDeclarationsPass(final List<Token> tokens, final int depth) {
         if (lang.isKotlin) {
-            return applyKotlinDeclarationsPass(tokens);
+            return applyKotlinDeclarationsPass(tokens, depth);
         }
         final List<List<Declaration>> groups = declarationRule.groupDeclarations(tokens);
         final List<Span> spans = splitTopLevelSpans(tokens);
@@ -843,15 +848,21 @@ public class ScopePipeline {
      *  revisited and reversed on explicit user request, matching this codebase's existing C++
      *  structured-bindings precedent (`auto [b, c] = ...` already aligns in the same group as a
      *  plain `int a = ...`); see RDD_LOG.md's RDD_KEY_107 entry for the full revision note. */
-    private String applyKotlinDeclarationsPass(final List<Token> tokens) {
+    private String applyKotlinDeclarationsPass(final List<Token> tokens, final int depth) {
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
         final List<Replacement> replacements = new ArrayList<>();
+        // RDD_KEY_162: depth * indentWidth is the same "nestDepth * indentWidth" column estimate
+        // GetterSetterRule's own width pre-check (RDD_KEY_139) uses -- this group's true final
+        // indent isn't known until addKotlinDeclReplacement below derives it from the raw leading
+        // gap text, but that's close enough to budget against (Kotlin declarations are never
+        // re-indented relative to their own scope).
+        final int estimatedIndent = depth * indentWidth;
 
         for (final List<Row> group : kotlinDeclarationRule.groupAlignableDeclarations(tokens)) {
             final Row first = group.get(0);
             final Row last = group.get(group.size() - 1);
             addKotlinDeclReplacement(tokens, indexOf, replacements, first.firstAnchor, last.lastAnchor,
-                    kotlinDeclarationRule.renderAlignedGroup(group));
+                    kotlinDeclarationRule.renderAlignedGroup(group, estimatedIndent));
         }
         return splice(tokens, replacements);
     }
@@ -1424,7 +1435,7 @@ public class ScopePipeline {
     private String processScope(final List<Token> tokens, final int depth, final boolean scopeStartFrozen,
             final String inheritedIndent) {
         List<Token> current = tokens;
-        current = tokenize(applyDeclarationsPass(current), scopeStartFrozen);
+        current = tokenize(applyDeclarationsPass(current, depth), scopeStartFrozen);
         current = tokenize(applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen);
         current = tokenize(applyAssignmentsPass(current), scopeStartFrozen);
         current = tokenize(applySignaturePass(current, depth), scopeStartFrozen);

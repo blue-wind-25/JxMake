@@ -44,7 +44,10 @@ public class DeclarationAlignmentRule {
     private final Lang lang;
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
-    private final int lineLengthLimit;
+    // Raised private -> protected (RDD_KEY_139's "loosen-then-extend" precedent) so
+    // KotlinDeclarationAlignmentRule can reuse it for its own width-budget pre-check
+    // (RDD_KEY_162) -- purely additive, no behavior change.
+    protected final int lineLengthLimit;
 
     public DeclarationAlignmentRule(final Lang lang) {
         this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);

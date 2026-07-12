@@ -552,6 +552,35 @@ Real-code regressions:
                                             skipping forward past its one-line body to the next real
                                             statement before deriving the indent.
 
+  real_code_regressions_45_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `Kotlin/kotlinx.coroutines`: `ChannelFlow.kt`'s
+                                            `UndispatchedContextCollector`'s `countOrElement`/
+                                            `emitRef` `val` pair. `KotlinDeclarationAlignmentRule
+                                            .renderAlignedGroup` padded `countOrElement`'s
+                                            (typeless) row out to match `emitRef`'s type-column
+                                            width, widening `emitRef`'s own line enough that a
+                                            later pass wrapped its brace-bodied lambda
+                                            initializer; re-parsing that now-multi-line
+                                            initializer on the next pass correctly bailed `emitRef`
+                                            out of its alignment group (by design --
+                                            `spansMultipleLines` never guesses past a genuine
+                                            multi-line block), collapsing `countOrElement`'s
+                                            padding to a single space -- an idempotency flap.
+                                            Fixed by plumbing `indentWidth`/`lineLengthLimit`
+                                            awareness into `renderAlignedGroup`: a row whose
+                                            group-aligned width would overflow the budget is
+                                            excluded from the shared column grid (rendered solo
+                                            instead) whenever its own initializer is brace-bodied
+                                            (a lambda/object/block -- the only shape
+                                            `spansMultipleLines`'s brace-depth check can ever bail
+                                            on); a plain call/expression initializer is never
+                                            excluded, since any future wrap of it lands strictly
+                                            inside parens with no enclosing brace, which
+                                            `spansMultipleLines`'s existing paren-depth carve-out
+                                            (RDD_KEY_135) already keeps groupable/idempotent
+                                            forever regardless of length (see
+                                            `real_code_regressions_18`, unaffected by this fix).
+
 How Tests Are Run
 -----------------
 

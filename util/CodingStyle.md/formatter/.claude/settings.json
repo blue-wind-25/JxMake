@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '--- STATE.md (re-injected after /compact) ---'; cat /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/STATE.md"
+            "command": "echo '--- STATE_COMMON.md (re-injected after /compact) ---'; cat /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/STATE_COMMON.md"
           }
         ]
       }

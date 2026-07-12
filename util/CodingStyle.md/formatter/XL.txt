@@ -8,33 +8,33 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-I jave run `make test` and all test passed.
+Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
+
+Compact the narration in `test/README.txt` from `real_code_regressions_37_inp/out.kt` to `real_code_regressions_41_inp/out.kt`
 
 
 
-Continue with C/C++/Java work (search in /tmp first, download the repo as needed; use one sub-agent):
-`**C++20**: `github.com/NVIDIA/stdexec`
-`**Bug 3 (compile-breaking, found, NOT fixed — budget cap reached at 2 fixes/session)**`
+I have run `make test` and all test passed.
+
+/tmp contains many undeleted artifacts from this and previous sessions, can you find them and delete them?
 
 
 
-Continue with C/C++/Java work (search in /tmp first, download the repo as needed; use one sub-agent):
+Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
 `github.com/ericniebler/range-v3`
-`github.com/boostorg/mp11`
 `github.com/microsoft/STL`
 `github.com/llvm/llvm-project`
 `github.com/gcc-mirror`
 
+Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent):
 `github.com/javaparser/javaparser`
 `github.com/openrewrite/rewrite`
 
-
-
-Continue with Kotlin work (search in /tmp first, download the repo as needed; use one sub-agent):
-`github.com/Kotlin/kotlinx.coroutines`
+Continue with Kotlin work (search in /tmp first, clone the repo again if not found; use one sub-agent):
+`github.com/Kotlin/kotlinx.coroutines` (idempotency bug)
 `github.com/arrow-kt/arrow`
 `github.com/JetBrains/kotlin`
-`github.com/square/kotlinpoet`
+`github.com/square/kotlinpoet` (idempotency bug)
 
 ####################################################################################################
 ####################################################################################################

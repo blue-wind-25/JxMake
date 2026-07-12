@@ -142,6 +142,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_155 | `Kotlin/kotlinx.coroutines` compile-check bug #1 (`SyntaxCheck` syntax-only tool): a KDoc code example containing its own literal `/* ... */` snippet is valid Kotlin (block comments nest, unlike C/C++/Java) but `TokenizerCore.emitBlockComment` closed the outer doc-comment at that inner `*/`, corrupting/truncating everything after (`Guidance.kt`, ~330 lines dropped). Fixed with Kotlin-gated nesting-depth tracking; C/C++/Java unchanged. New `test/real_code_regressions_38_inp.kt`/`_out.kt`. `make test`: 57/57 before, 58/58 after. |
 | RDD_KEY_156 | `Kotlin/kotlinx.coroutines` compile-check bug #2 (`SyntaxCheck`): a qualified-this label reference (`this@Label`) had a space wrongly inserted before `@` since `KotlinSpecificRule.enforceLabeledJumpSpacing`'s §11 state machine had no case for the `this` keyword (only jump keywords/plain identifiers). Fixed with new `AFTER_THIS_KEYWORD`/`AFTER_THIS_AT` states, tight through the label with no forced trailing space (unlike a jump's `@label`). New `test/real_code_regressions_39_inp.kt`/`_out.kt`. `make test`: 58/58 before, 59/59 after. |
 | RDD_KEY_157 | `Kotlin/kotlinx.coroutines` compile-check bug #3, `LimitedDispatcher.kt`'s last remaining `SyntaxCheck` error (root-caused this session via a minimal repro extracted from the file itself + temporary phase-bracketing debug prints in `Formatter.formatOne`, not the previous session's static reasoning): `obtainTaskOrDeallocateWorker()`'s `while (true) { when (...) { null -> synchronized(lock) { stmt; stmt; stmt } ... } }` had the `synchronized` block's three statements fused onto one line with no separators. Root cause: `BlockStructureRule.isKotlinSingleStatementBody` correctly identifies the `while`'s sole body statement (the `when` expression) as syntactically one statement, but has no notion that statement can itself own a nested, genuinely multi-line `{...}` block -- `tryCollapse`'s `renderInline` flattens all whitespace/newlines in the approved span with no brace-depth awareness, silently fusing that unrelated nested block's own statements too. **Fix**: new `containsMultilineNestedBrace` helper (bails whenever a nested `{...}` contains a NEWLINE at brace-depth > 0), called from `isKotlinSingleStatementBody`; inert for C/C++/Java (only gates the Kotlin-only branch). New `test/real_code_regressions_40_inp.kt`/`_out.kt`. `make test`: 60/60 before and after. Narrow re-check: `SyntaxCheck` against just the real `LimitedDispatcher.kt` confirmed clean post-fix. Closes the `kotlinx.coroutines` compile-breaking investigation; the 10-file idempotency-diff open question remains open (out of scope this session). |
+| RDD_KEY_158 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `SystemProps.kt`'s try/catch-as-expression brace-style bug (one of the 10 files RDD_KEY_157 left open): `KotlinSignatureRule`'s function-tail merge collapses a multi-line signature (`fun systemProp(\n  propertyName: String\n): String? =\n  try {`) onto one physical line inside `ScopePipeline.processScope`'s own pass, correctly re-deriving the `try` span's own indent against the new, shallower line -- but the following `catch (...) {` span's `{` still sits on its ORIGINAL pre-merge physical line, one level deeper, so `braceLineIndent` read a stale indent for `catch`'s scope with nothing to correct it, so the two rounds disagreed on its closing-brace placement. **Fix**: `ScopePipeline.processScope`'s span loop now tracks the immediately preceding span's resolved indent/close-brace index; a `catch`/`finally` span found directly chained onto that preceding span's own `}` (same adjacency `BlockStructureRule.placeCatchFinallyOnOwnLine` already tests for) inherits that indent instead of deriving its own. Kotlin-gated, inert for C/C++/Java. New `test/real_code_regressions_41_inp.kt`/`_out.kt`. `make test`: 60/60 before, 61/61 after. Narrow re-check confirmed `SystemProps.kt` itself is now clean, and incidentally so are `Select.kt`/`DebugProbesImpl.kt` (not independently investigated). 7 of the 10 files remain open -- see Open Questions. |
 
 ---
 
@@ -279,17 +280,60 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
   forward + 53/53 idempotency with the source tree back at its
   RDD_KEY_153 state (no code changes this session).
 
-- **`kotlinx.coroutines` remaining idempotency diffs (10 files) — still OPEN; the compile-breaking
-  bug in this same entry is RESOLVED, see RDD_KEY_157.** After RDD_KEY_154's fix, 10 files still round1-vs-round2 diff
+- **`kotlinx.coroutines` remaining idempotency diffs — 7 of 10 files still OPEN (RESOLVED for
+  `SystemProps.kt`, see RDD_KEY_158; the compile-breaking bug in this same entry is RESOLVED, see
+  RDD_KEY_157).** After RDD_KEY_154's fix, 10 files round1-vs-round2 diverged
   (`BufferedChannel.kt`/`AbstractSharedFlow.kt`/`ChannelFlow.kt`/`ConcurrentLinkedList.kt`/
   `ThreadSafeHeap.kt`/`JobSupport.kt`/`Select.kt`/`DebugProbesImpl.kt`/`ExceptionsConstructor.kt`/
-  `SystemProps.kt`); at least two distinct shapes observed but not root-caused: a closing-`}`
-  indentation drift (`ThreadSafeHeap.kt`'s `} // class ThreadSafeHeap` flapping indent columns,
-  `ExceptionsConstructor.kt`'s `} to N` similarly), and a `try`/`catch`-as-expression brace-style/
-  indentation confusion (`SystemProps.kt`'s `systemProp()`: a multi-line broken signature's
-  `try { ... } catch (...) { ... }` expression body gets its `catch` moved to its own line with a
-  `catch(e:` spacing loss and a drifting closing-brace indent). These 10 idempotency diffs remain
-  open and out of scope (not investigated further this session, per explicit instruction).
+  `SystemProps.kt`). This session re-derived round1/round2 for exactly these 10 files (reusing
+  `/tmp/kx_orig`/`/tmp/kx_round1`/`/tmp/kx_round2` from prior sessions, no re-clone) and confirmed
+  all 10 still diverged before starting. `SystemProps.kt`'s try/catch-as-expression brace-style/
+  indentation bug is now root-caused and fixed, see RDD_KEY_158 — narrow re-check confirms it is
+  clean, and **`Select.kt`/`DebugProbesImpl.kt` are incidentally also now clean** (not
+  independently investigated; likely a side effect of RDD_KEY_157 or RDD_KEY_158's fix). **7 files
+  remain open**, in three distinct, none yet root-caused (all found via the same re-derivation this
+  session, not the original prior-session pass):
+  1. **Closing-brace/closing-comment indent drift** — `AbstractSharedFlow.kt`, `ConcurrentLinkedList.kt`,
+     `ThreadSafeHeap.kt` all show the exact same shape: a top-level class's own closing brace +
+     closing comment (`} // class X`) is correctly at column 0 on round1 but drifts deeper on
+     round2 (e.g. `ThreadSafeHeap.kt`: `} // class ThreadSafeHeap` at col 0 → col 10). `BufferedChannel.kt`
+     shows a similar bare `}` (no closing comment) drifting from col 4 to col 8 at one specific site
+     (line ~1599). `ExceptionsConstructor.kt` shows the same shape at a `} to N` site (col 20 → col 16,
+     several occurrences). Not yet root-caused. A minimal repro was in progress at session-pause time:
+     `/tmp/kx_repro/orig_tsh.kt` (a full copy of the real `ThreadSafeHeap.kt`, 158 lines — small enough
+     to use directly rather than trim further) with round1/round2 output directories
+     `/tmp/kx_repro/tsh1`/`/tmp/kx_repro/tsh2` — the `diff tsh1 tsh2` command to confirm the standalone
+     repro reproduces the bug had not yet been run when the session ended. Next step: run that diff,
+     then (if it reproduces) debug-print `ScopePipeline.processScope`'s indent decision for the
+     class's own top-level span across both rounds — leading theory, unconfirmed, is a variant of the
+     same "a later phase changes a line's physical shape after an earlier phase already anchored an
+     indent decision on it" family as RDD_KEY_136/152/158, quite possibly interacting with the `private
+     var size: Int / get() = ... / private set(value) { ... }` one-liner-accessor-adjacent `when`
+     expression a few lines above the class close in `ThreadSafeHeap.kt` (worth checking whether the
+     drift is specifically downstream of that `when` block's own closing-brace/comment handling).
+  2. **Declaration alignment padding-width flap** — `ChannelFlow.kt`: `private val countOrElement =
+     threadContextElements(...)` has column-alignment padding after `countOrElement` on round1 (many
+     spaces before `=`, presumably aligned to a sibling declaration's name width) but round2 renders
+     it with a single plain space — a different shape from anything previously logged (not a
+     closing-brace issue at all). Not investigated this session beyond the initial diff.
+  3. **Call-argument continuation-line indent flap** — `JobSupport.kt`: a wrapped multi-argument call
+     (`"Job $this is already complete or completing, " + "..."`, `proposedUpdate.exceptionOrNull`,
+     closing `)`) has its continuation lines and closing `)` one level deeper on round1 than round2 —
+     plausibly the same `MiscRule.enforceCallLineBreaking` continuation-indent family flagged as
+     unresolved in the `square/kotlinpoet` open question above (`CodeWriter.kt`'s similar shape), but
+     not confirmed or traced this session.
+  None of these 7 were root-caused or fixed this session — per STATE_COMMON.md's ambiguity protocol,
+  stopping here (session paused by explicit user request) rather than guessing. All temporary debug
+  instrumentation added while investigating `SystemProps.kt` (env-gated `SP_DEBUG` prints in
+  `ScopePipeline.processScope`) was removed before committing the fix; none remains in the source.
+  Reusable checkout/output locations left in `/tmp` for the next session: `/tmp/kx_orig` (pristine
+  clone), `/tmp/kx_round1`/`/tmp/kx_round2` (this project's own prior full-tree round1/round2, still
+  valid), `/tmp/kx_re2` (this session's from-round1 reformat of just the 10 known files, confirmed
+  byte-identical to `/tmp/kx_round2` for all 10), `/tmp/kx_v1`/`/tmp/kx_v2` (this session's fresh
+  orig→round1→round2 pass for the 9 non-`SystemProps.kt` files, showing the current, post-fix diff
+  state quoted above), `/tmp/kx_verify1`/`/tmp/kx_verify2` (confirms `SystemProps.kt` alone is now
+  clean), `/tmp/kx_repro/` (standalone minimal repros: `orig.kt`/`orig2.kt` for the resolved
+  `SystemProps.kt` bug, `orig_tsh.kt`/`tsh1`/`tsh2` for the in-progress `ThreadSafeHeap.kt` repro).
   Separately, `SyntaxCheck` had found one genuine syntax error in `LimitedDispatcher.kt`'s
   `obtainTaskOrDeallocateWorker()` — a `when (val nextTask = ...) { null -> synchronized(lock) {
   multi-statement } ... }` branch whose `synchronized(...) { ... }` body (three statements) got

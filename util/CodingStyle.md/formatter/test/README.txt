@@ -511,6 +511,21 @@ Real-code regressions:
                                             body contains a nested `{...}` block with an internal
                                             newline at brace-depth > 0.
 
+  real_code_regressions_41_inp/out.kt    -- Kotlin, real-code idempotency test
+                                            against `Kotlin/kotlinx.coroutines`:
+                                            `SystemProps.kt`'s `systemProp()` -- a
+                                            `try { ... } catch (...) { ... }` expression body whose
+                                            multi-line signature gets merged onto one line
+                                            (`KotlinSignatureRule`) had its `catch` span's own
+                                            indent read from its (now-stale) pre-merge physical
+                                            line, one level deeper than the `try` span's correctly
+                                            re-derived indent -- the two disagreed round1 vs round2.
+                                            Fixed with a new `ScopePipeline.processScope` check:
+                                            a `catch`/`finally` span directly chained onto the
+                                            immediately preceding span's own closing `}` now
+                                            inherits that preceding span's resolved indent instead
+                                            of deriving one of its own.
+
 How Tests Are Run
 -----------------
 

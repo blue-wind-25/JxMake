@@ -1395,6 +1395,8 @@ public class ScopePipeline {
 
         final List<Span> spans = splitTopLevelSpans(current);
         final List<Replacement> replacements = new ArrayList<>();
+        int prevCloseBraceIdx = -1;
+        String prevEffectiveSpanIndent = null;
         for (final Span span : spans) {
             if (span.openBraceIdx < 0) {
                 continue;
@@ -1427,7 +1429,30 @@ public class ScopePipeline {
             // languages' own multi-line-chain shapes.
             final String braceIndent = lang.isKotlin ? braceLineIndent(current, span.openBraceIdx) : null;
             final String effectiveSpanIndent;
-            if (braceIndent == null) {
+            // Kotlin-only: a `catch`/`finally` span directly chained onto the immediately
+            // preceding span's own closing `}` (`} catch (...) {` / `} finally {`, i.e. one
+            // logical try/catch/finally statement split into multiple top-level spans by this
+            // method) must share that PRECEDING span's own resolved indent, not derive one of
+            // its own. `spanIndent`/`braceIndent` above are both read from this span's own
+            // physical text -- for a `try { ... }` whose own multi-line signature got merged
+            // onto a single line earlier in this same pass (KotlinSignatureRule's
+            // parseFunctionTail, e.g. `internal actual fun f(x: String): String? = try {`), the
+            // `try` block's own indent is correctly re-derived as the (now shallower) merged
+            // line's indent, but the following `catch`'s `{` still sits on its ORIGINAL,
+            // pre-merge physical line -- one level deeper than it now truly is -- so
+            // `braceIndent` reads a stale, too-deep value with nothing to correct it (found via
+            // `kotlinx.coroutines`'s `SystemProps.kt`, the try/catch-as-expression idempotency
+            // bug documented in STATE_KOTLIN.md's Open Questions).
+            final int chainKwIdx = nextSignificantIndex(current, span.start - 1);
+            final boolean isChainedCatchFinally = lang.isKotlin && prevEffectiveSpanIndent != null
+                    && prevCloseBraceIdx >= 0
+                    && nextSignificantIndex(current, prevCloseBraceIdx) == chainKwIdx
+                    && chainKwIdx >= 0 && chainKwIdx < current.size()
+                    && current.get(chainKwIdx).type == TokenType.KEYWORD
+                    && ("catch".equals(current.get(chainKwIdx).text) || "finally".equals(current.get(chainKwIdx).text));
+            if (isChainedCatchFinally) {
+                effectiveSpanIndent = prevEffectiveSpanIndent;
+            } else if (braceIndent == null) {
                 effectiveSpanIndent = spanIndent;
             } else if (spanIndent == null || braceIndent.length() > spanIndent.length()) {
                 effectiveSpanIndent = braceIndent;
@@ -1494,6 +1519,8 @@ public class ScopePipeline {
                 }
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));
+            prevCloseBraceIdx = span.closeBraceIdx;
+            prevEffectiveSpanIndent = effectiveSpanIndent;
         }
         return splice(current, replacements);
     }

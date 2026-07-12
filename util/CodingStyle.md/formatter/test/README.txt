@@ -508,6 +508,33 @@ Real-code regressions:
                                             consistent with `hasCommentBefore`'s existing
                                             leading-directive handling.
 
+  real_code_regressions_35_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`
+                                            (continuing the candidate above): a real,
+                                            first-pass, compile-breaking bug ("Bug 3" in
+                                            STATE_C_CPP_JAVA.md's stdexec entry) found via
+                                            `g++ -fsyntax-only` in `__detail/__counting_scopes.hpp`'s
+                                            `__base_scope::try_join`. `BlockStructureRule.
+                                            tryCollapse` (the STYLE.md §10 single-statement
+                                            `if(cond) body;` collapse) builds its collapsed
+                                            condition text via `renderInline`, which flattens
+                                            every whitespace/newline gap to a single space with
+                                            no awareness that a `//` line comment consumes the
+                                            rest of its original physical line -- so once an
+                                            `if`'s multi-line condition containing a trailing `//`
+                                            comment between arguments (here, two `compare_
+                                            exchange_weak(...)` calls) got flattened, every token
+                                            that followed the comment in the source (the
+                                            remaining call arguments, the closing `)`, `return
+                                            true;`, and the enclosing `}`) was silently absorbed
+                                            into that one comment and vanished from the output,
+                                            producing a 50-error `expected '}' at end of input`
+                                            cascade. Fixed by adding a `containsLineComment` check
+                                            in `tryCollapse` that refuses the collapse (leaves the
+                                            original braced, multi-line `if` untouched) whenever
+                                            its condition span carries a `COMMENT_LINE` token;
+                                            block comments (`/* ... */`, which don't extend to
+                                            end-of-line) remain safe to flatten as before.
+
 How Tests Are Run
 -----------------
 

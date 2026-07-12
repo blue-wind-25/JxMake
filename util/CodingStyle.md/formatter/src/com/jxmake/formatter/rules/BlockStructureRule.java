@@ -339,10 +339,37 @@ public class BlockStructureRule {
         if (!isSingleStatementBody(contents)) {
             return null;
         }
+        // `renderInline` flattens every gap (whitespace/newline) to a single space, with no
+        // special handling for a `//` line comment -- a line comment's text runs to the end of
+        // its original physical line, so once flattened, every token that followed it in the
+        // source (remaining condition tokens, the closing `)`, and -- via the caller's own
+        // `prefix + " " + body` join -- the entire collapsed body/`;`/enclosing `}` too) gets
+        // silently absorbed into that one `//` comment and vanishes from the rendered output.
+        // Found via real-code testing (NVIDIA/stdexec's `__detail/__counting_scopes.hpp`,
+        // `__base_scope::try_join`'s two `compare_exchange_weak(...)` calls, each with a
+        // multi-line argument list carrying trailing `//` comments between arguments) -- a
+        // 50-error compile cascade rooted in "expected '}' at end of input" once collapsed.
+        // Refuse to collapse (leave the original braced, multi-line form untouched) whenever the
+        // condition itself carries a line comment; block comments (`/* ... */`) don't extend to
+        // end-of-line and are safe to inline as-is.
+        if (containsLineComment(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
+            return null;
+        }
         final String prefix = tightenParenPrefix(tokens.get(kwIndex).text,
                 renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1)));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /** True iff any token in {@code slice} is a {@code COMMENT_LINE} -- the "unsafe to flatten
+     *  onto one physical line via {@link #renderInline}" signal used by {@link #tryCollapse}. */
+    private boolean containsLineComment(final List<Token> slice) {
+        for (final Token t : slice) {
+            if (t.type == TokenType.COMMENT_LINE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Strips the space between {@code keyword} and a following `(` in {@code rendered} if

@@ -516,9 +516,9 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   dense declaration-alignment), none of those surfaced a new defect this pass — the earlier
   `frozen`/PEGTL/nanobench work already appears to have covered this construct family well.
 
-- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), 2 bugs found and fixed (budget-capped
-  at 2 per session), 1 more found but left undocumented-no-longer -- see below; not a clean pass.
-  Header-only `std::execution` (P2300) senders/receivers implementation, 192 `.hpp`/`.cpp` files
+- **C++20**: `github.com/NVIDIA/stdexec` — DONE (2026-07-12), 3 bugs found and fixed across two
+  sessions; not a clean pass. Header-only `std::execution` (P2300) senders/receivers
+  implementation, 192 `.hpp`/`.cpp` files
   under `include/`. Toolchain note: `/opt/gcc-12.2.0/bin/g++` needs
   `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` set first or `cc1plus` fails to load (`libisl.so.15` not
   found) -- new finding, not previously recorded for this GCC. Also: this GCC's `<execution>`/PSTL
@@ -546,45 +546,56 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
     statement and starts fresh when a `PREPROCESSOR`/`MACRO_DEF` token is reached, matching
     `hasCommentBefore`'s existing leading-directive handling.
     Both bugs combined into fixture `test/real_code_regressions_34_{inp,out}.hpp`.
-  - **Bug 3 (compile-breaking, found, NOT fixed — budget cap reached at 2 fixes/session)**:
-    `__detail/__counting_scopes.hpp`'s `struct __base_scope` fails to compile with a
+  - **Bug 3 (compile-breaking, found and fixed 2026-07-12, follow-up session)**:
+    `__detail/__counting_scopes.hpp`'s `struct __base_scope` failed to compile with a
     50-error cascade rooted in `expected '}' at end of input` (matched open reported at the
     struct's own `{`) plus multiple `'__bits_'/'__count'/... was not declared in this scope`
-    errors inside the struct's own member functions. Root cause (confirmed via a standalone
-    char-level brace-balance script showing the *whole file* balances fine, so this is NOT a
-    literal missing `}` in the visible text): when the formatter collapses a multi-argument
-    function call onto one line, it joins arguments preceded by trailing `//` line comments with
-    a plain space instead of preserving a line break. E.g. `__bits_.compare_exchange_weak(
-    __old_bits, __new_bits, // comment text\n __std::memory_order_acq_rel, ...)` becomes one
-    physical line where everything after the first `//` -- the remaining arguments, the closing
-    `)`, the `;`, `return true;`, and even the enclosing `}` -- is silently swallowed into the `//`
-    comment and deleted from the token stream, producing the observed unmatched-brace cascade.
-    Concretely: round1 line 466 of `__counting_scopes.hpp`
-    (`if( __bits_.compare_exchange_weak( __old_bits, __new_bits, // on success, ... // that the
-    scope is closed ... __std::memory_order_acq_rel, // on failure, ... __std::memory_order_relaxed)
-    ) return true;`) is a single merged line where round0's original had this same call spread
-    across `__old_bits`/`__new_bits`/two `//`-commented arguments/`)`/`{ return true; }` on
-    separate physical lines (`__start_join_sender`, originally at lines ~478-491). A second,
-    identically-shaped instance exists a few lines later in the same function (round1 line 480,
-    `compare_exchange_weak` in the `else` branch). This is distinct from Bug 1/Bug 2 -- it's a
-    comment-vs-code merging defect in whatever pass performs single-line call-argument collapsing
-    (not yet located to an exact class/method; candidates to check first next session: whatever
-    rule renders/collapses call-argument lists, and any comment-attachment logic feeding it), not
-    a brace-depth-tracking bug in `ScopePipeline`/`DeclarationAlignmentRule` themselves. Left
-    unfixed, no fixture added -- needs a fresh session with full budget to safely
-    locate and fix (this is a serious, generally-applicable bug: any multi-line call with an
-    inline `//` comment between arguments that the formatter chooses to collapse onto one line is
-    at risk of silently deleting real code, not stdexec-specific).
+    errors inside the struct's own member functions. Root cause, located exactly this session
+    (confirmed via debug prints in `enforceCallLineBreaking` showing it never even saw the
+    `compare_exchange_weak` call -- something earlier in the pipeline had already collapsed it):
+    `BlockStructureRule.tryCollapse` (the STYLE.md §10 single-statement `if(cond) body;` collapse,
+    which runs in Phase 1, well before `MiscRule.enforceCallLineBreaking`) builds its collapsed
+    condition text via `renderInline`, which flattens every whitespace/newline gap to a single
+    space with no awareness that a `//` line comment consumes the rest of its original physical
+    line. `__base_scope::try_join`'s `if (__bits_.compare_exchange_weak(__old_bits, __new_bits,
+    // comment\n __std::memory_order_acq_rel, // comment\n __std::memory_order_relaxed)) { return
+    true; }` has exactly this shape (a braced single-statement `if` whose *condition*, not its
+    body, spans multiple lines with trailing `//` comments between arguments) -- `renderInline`
+    flattened the whole condition onto one line, and every token that followed the first `//`
+    comment in the source (the remaining call arguments, the closing `)`, and -- via the
+    caller's own `prefix + " " + body` join -- `return true;` and the enclosing `}` too) was
+    silently absorbed into that one comment and vanished from the rendered output, producing the
+    observed unmatched-brace cascade. A second, identically-shaped `compare_exchange_weak` call a
+    few lines later in the same function hit the same bug. This is distinct from Bug 1/Bug 2 --
+    a comment-vs-code merging defect in `BlockStructureRule.tryCollapse`/`renderInline`, not a
+    brace-depth-tracking bug in `ScopePipeline`/`DeclarationAlignmentRule`, and not in
+    `MiscRule.enforceCallLineBreaking`/`renderCallCandidate` as originally suspected (that pass's
+    own `hasCommentBetween` guard already worked correctly and was never reached for this call).
+    Fixed by adding `BlockStructureRule.containsLineComment` and checking it in `tryCollapse`:
+    refuse the collapse (leave the original braced, multi-line `if` untouched) whenever the
+    condition span carries a `COMMENT_LINE` token; block comments (`/* ... */`, which don't extend
+    to end-of-line) remain safe to flatten as before. Verified: minimal repro reproduced the exact
+    deletion first (debug prints confirmed `enforceCallLineBreaking` never touches this call);
+    after the fix, `make test` is 55/55 (fixture `real_code_regressions_35_{inp,out}.hpp` added);
+    reformatting `__counting_scopes.hpp` alone is idempotent (round1 == round2) and compiles with
+    `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only -I include` (with
+    `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`) at 0 errors, identical to the unmodified original (only
+    a harmless `#pragma once in main file` warning on both). This bug was generally applicable,
+    not stdexec-specific: any braced single-statement `if`/`while`/`for` whose *condition* spans
+    multiple lines with an inline `//` comment between tokens was at risk of silent code deletion
+    when STYLE.md §10's collapse fired -- now guarded against for all three languages sharing
+    `BlockStructureRule`.
   - **Known remaining gap (idempotency-only, not investigated further, lower priority per this
     session's "prioritize compile-breaking bugs" instruction)**: `exec/on_coro_disposition.hpp`'s
     `task_disposition __d = co_await __get_disposition();` gains roughly 61 spaces of column
     padding on round2 but not round1 -- confirmed real and confirmed to persist after Bug 1's fix
     (so it's a distinct issue, not a duplicate), but root cause not isolated. Needs its own
     bisection session.
-  - `make test`: 54/54 forward, 54/54 idempotency (after adding fixture 34). Compile-check: both
-    fixed bugs verified via minimal repro + full-tree round1 vs round0 comparison; the pre-existing
-    10-error TBB/PSTL baseline is unchanged; Bug 3's 50-error cascade and the
-    `on_coro_disposition.hpp` flap remain open in the full `include/` tree.
+  - `make test`: 55/55 forward, 55/55 idempotency (after adding fixtures 34 and 35). Compile-check:
+    all three fixed bugs verified via minimal repro + full-file/full-tree round1 vs round0
+    comparison; the pre-existing 10-error TBB/PSTL baseline is unchanged. The
+    `on_coro_disposition.hpp` idempotency flap (see below) was not investigated this session and
+    remains open.
 
 **NEXT SESSION — continue here:** Continue real-code testing against remaining C/C++ candidates
 in this order unless redirected: the additional candidates below.

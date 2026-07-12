@@ -503,9 +503,23 @@ concrete example of STATE_COMMON.md's "re-test at the candidate's own convention
   `_36_{inp,out}.cpp` (bug 4). `make test` 56/56 forward+idempotency; full 192-file `include/`
   tree round1/round2-diffed clean, no open gaps remain.
 
-**NEXT SESSION — continue here:** stdexec is now fully DONE (clean pass, no open gaps). Continue
-real-code testing against remaining C/C++ candidates in this order unless redirected: the
-additional candidates below (mp11/lexy's neighbors).
+- **C++11**: `github.com/boostorg/mp11` — DONE (2026-07-12), clean pass. Tiny metaprogramming
+  library, 34 self-contained `.hpp` headers (no non-mp11 `#include`s besides std headers),
+  5483 lines total under `include/`. Idempotent at default `indent-size = 4` (which also matches
+  mp11's own actual 4-space convention, confirmed by eyeball — no non-default re-test needed).
+  Compile-check via `/opt/gcc-12.2.0/bin/g++ -std=c++20 -fsyntax-only` (with
+  `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib`, same toolchain note as `stdexec`) on every header
+  standalone (each is self-contained, so no `test/`-tree boost dependency was needed — the
+  repo's own `test/*.cpp` files all pull in `boost/core`/`boost/config` etc. not vendored in this
+  checkout, so those were skipped as out of scope): 0 errors on both the unmodified originals and
+  the round1-formatted tree, identical. No bug found — matches the state file's own prediction
+  (narrow construct diversity, mostly `template<...>` alias declarations, little runtime control
+  flow) that this would be a fast, low-risk smoke test. No fixture added. `make test` 56/56,
+  unchanged.
+
+**NEXT SESSION — continue here:** stdexec and mp11 are now both fully DONE (clean passes, no open
+gaps). Continue real-code testing against remaining C/C++ candidates in this order unless
+redirected: `range-v3` / `STL` / `llvm-project` / `gcc-mirror`, per the priority notes below.
 Use `/opt/gcc-12.2.0/bin/g++ -std=c++20` (bump if a library needs newer; confirm any compile
 failure also reproduces against the unmodified original before treating it as formatter-induced).
 For any C++ candidate distributed under a `.h`/`.hpp` extension, check which it actually is
@@ -562,13 +576,10 @@ written as `~` below so this file never embeds the actual account/user name):
   - `github.com/foonathan/lexy` — DONE, see the real-code-testing entry above (no bugs found;
     121-header header-only parser-combinator library, idempotent + compiles clean both before and
     after formatting).
-  - `github.com/boostorg/mp11` — a tiny, single-purpose C++11 metaprogramming library (a handful
-    of headers, likely the smallest of this whole list by raw line count). Expected to be a fast,
-    low-risk smoke test but a narrow one: almost entirely `template<...>` alias declarations and
-    `using`-based metafunctions, very little runtime control flow (few if/for/while/switch
-    bodies, no classes with member functions to speak of) — good for a quick pass, unlikely to
-    surface many *new* bug classes beyond what `frozen`/`mp11`-style template-heavy testing
-    already covered via `serge-sans-paille/frozen`.
+  - `github.com/boostorg/mp11` — DONE, see the real-code-testing entry above. Prediction
+    confirmed correct: a fast, low-risk, narrow smoke test (34 self-contained headers, almost
+    entirely `template<...>` alias declarations) that found no new bug, consistent with the
+    template-heavy construct family already covered by `frozen`/PEGTL/lexy/stdexec.
   - `github.com/NVIDIA/stdexec` — DONE, see the real-code-testing entry above. Prediction
     confirmed correct (concepts/`requires`, deep template metaprogramming did surface new bugs) —
     2 bugs found and fixed this session (budget cap), a 3rd compile-breaking bug found and

@@ -149,6 +149,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_163 | **RESOLVES `square/kotlinpoet`'s Shape 1 idempotency gap (6 of the 10 open files)** -- two distinct `MiscRule.enforceCallLineBreaking` bugs: Bug A (`MemberSpecHolder.kt`) fixed via new depth-aware `effectiveLineEndIndex` (a nested already-wrapped call inside an expression-bodied signature's untouched tail text was undercounting the true line width on a reformat, flipping the wrap verdict); Bug B (`CodeWriter.kt`/`LambdaTypeName.kt`/`ParameterizedTypeName.kt`/`TypeVariableName.kt`/`WildcardTypeName.kt`, also **resolves RDD_KEY_149's originally-deferred `square/okio` bug**) fixed via new `isKotlinReturnTypeThenBlockBody` lookahead extending the true-signature exemption to a `: ReturnType {` tail (previously only a bare `{` was recognized), stopping this pass from re-wrapping an already-correctly-rendered signature as a plain untyped call and discarding its column padding/trailing comma. New `test/real_code_regressions_46_inp.kt`/`_out.kt`. `make test`: 65/65 before, 66/66 after. All 6 Shape-1 files + a fresh full-125-file re-run confirmed clean; 4 files remain open (Shapes 2/3/4, unrelated). |
 | RDD_KEY_164 | **RESOLVES `square/kotlinpoet`'s Shape 2 idempotency gap** (`AbstractTypesTest.kt`'s `Parameterized<...> where ...` headerless generic class): `KotlinSpecificRule.enforceWhereClausePlacement` derived the wrapped `where` clause's base indent from `where`'s own current physical line, which on a reformat is already the previously-wrapped line -- one level deeper than the true signature indent, compounding an extra indent level per round. **Fix**: new `signatureLineIndent` helper mirroring `ScopePipeline.findParentIndent`'s "true statement start" posture (backward scan tracking paren/bracket/angle-bracket depth to the nearest depth-0 `;`/`}`/`{`) instead of `lineStartIndex`'s "back up one physical line", which lands on a generic parameter list's own continuation line once already wrapped. New `test/real_code_regressions_47_inp.kt`/`_out.kt`. `make test`: 66/66 before, 67/67 after. Confirmed clean against the real `AbstractTypesTest.kt` file. Shapes 3/4 remain open. |
 | RDD_KEY_165 | **RESOLVES `square/kotlinpoet`'s Shape 3 idempotency gap** (2 files: `ReflectiveClassInspector.kt`'s subject-form `when(kotlin) { ... }`, `kmAnnotations.kt`'s plain trailing-lambda call `buildCodeBlock { ... }`, both used as a `when` branch's own multi-line body): `ScopePipeline.findMergingWhenBranchLineStart` (RDD_KEY_152) only recognized a bare `when {` line as the shape `KotlinSpecificRule.formatWhenExpressions`'s later arrow-merge pass folds onto the preceding branch-label line -- generalized the lookahead to accept an optional parenthesized subject after `when`, and a plain call-head identifier (not just the `when` keyword). New `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67 before, 68/68 after. Confirmed clean against both real files plus a fresh full-125-file re-run (only Shape 4 remains). |
+| RDD_KEY_166 | **RESOLVES `square/kotlinpoet`'s Shape 4 idempotency gap — all 4 shapes now resolved, full tree idempotent** (`KotlinPoetMetadataSpecsTest.kt`'s `val fooAliasData` declaration-alignment padding flap): root cause was in `TokenizerCore`, not `KotlinDeclarationAlignmentRule` -- the `class`-keyword-arms-`namedConstructKeywordSeen` branch fired even when `class` is the RHS of a Kotlin class-literal reflection expression (`Foo::class`, not an actual declaration); with no following `;`/`}`/`{` to clear it before the bare-expression statement ends, it stayed armed across the statement boundary and wrongly captured the next IDENTIFIER anywhere later in the file as `pendingNamedConstructName`, corrupting an unrelated later scope's name (a following `.first { ... }` lambda's enclosing function wrongly gaining named-construct blank-line/comment treatment), which then perturbed `KotlinDeclarationAlignmentRule`'s padding-exclusion fixed-point logic on a reformat. **Fix**: new `isPrecededByDoubleColon()` guard, Kotlin-only, skips arming when `class` is immediately preceded by `::`. While root-causing/verifying, a from-clean rebuild (`rm -rf target/test-out && make test`) exposed two more bugs that a stale `target/test-out` had been masking, both in `KotlinSpecificRule.signatureLineIndent` (the RDD_KEY_164 helper): a crash (`ArrayIndexOutOfBoundsException: -1`) on a top-of-file `where`-clause statement with no preceding boundary at all, and (once crash-fixed naively) a regression of `real_code_regressions_47`'s Shape 2 fix, since the helper's correct semantics anchor on the *boundary token's own line* (the enclosing scope's indent), not the new statement's own first token. Final fix keeps the original boundary-token anchor when found, only falling back to scanning from index `0` (never `-1`) when no boundary exists. Confirmed via the real `KotlinPoetMetadataSpecsTest.kt` file and a fresh full-125-file re-run: `diff -rq round1 round2` empty across the entire tree. New `test/real_code_regressions_49_inp.kt`/`_out.kt`. `make test`: 68/68 before (stale-output-masked) and 68/68 after (clean rebuild, genuinely passing, including `_42`'s prior crash and `_47`'s prior semantic break both now for-real passing). |
 | RDD_KEY_162 | **RESOLVES RDD_KEY_161's last open question**, `ChannelFlow.kt`'s declaration-alignment padding-width flap -- the final file of the 10-file `kotlinx.coroutines` idempotency investigation. `KotlinDeclarationAlignmentRule.renderAlignedGroup` padded typeless `countOrElement` out to match sibling `emitRef`'s type-column width, widening `emitRef`'s own line enough that a later pass wrapped its brace-bodied lambda initializer; re-parsing the resulting multi-line initializer next pass correctly bailed `emitRef` out of its group via `spansMultipleLines`'s brace-depth check, collapsing `countOrElement`'s padding -- an inverted instance of the "later phase invalidates an earlier phase's physical-shape decision" family (RDD_KEY_136/152/158/159/160/161), here the *early* alignment phase destabilizing a *later* wrap phase. **Fix**: indent-width/line-length-limit awareness plumbed into `renderAlignedGroup` (new indent-width-aware constructor, `DeclarationAlignmentRule.lineLengthLimit` loosened protected, `ScopePipeline` threads `depth` through the declarations pass); a fixed-point loop excludes a row from the shared column grid only when its group-aligned width overflows the budget AND its initializer is brace-bodied (new `hasBraceBodiedInit` -- the only shape `spansMultipleLines` can ever bail on; a plain call/expression initializer, no matter how long, is never excluded since any future wrap of it lands inside parens only, already handled idempotently by RDD_KEY_135's carve-out -- confirmed via `real_code_regressions_18`, which an overflow-only or solo-width-only first attempt wrongly regressed). New `test/real_code_regressions_45_inp.kt`/`_out.kt`. `make test`: 64/64 before, 65/65 after. All 9 previously-fixed files re-verified clean; `ChannelFlow.kt` itself now round1-vs-round2 clean. Closes the entire `kotlinx.coroutines` idempotency investigation. |
 
 ---
@@ -679,8 +680,22 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    call-head trailing lambda like `buildCodeBlock {`). New
    `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67
    before, 68/68 after. Confirmed clean against both real files plus a
-   fresh full-125-file re-run. **1 file remains non-idempotent** (Shape 4 —
-   `KotlinPoetMetadataSpecsTest.kt`).
+   fresh full-125-file re-run. Shape 4 (`KotlinPoetMetadataSpecsTest.kt`)
+   also fully root-caused and resolved in the same session -- RDD_KEY_166, a
+   `TokenizerCore` named-construct-tracking bug (a Kotlin class-literal
+   reflection expression like `Foo::class` wrongly armed
+   `namedConstructKeywordSeen`, corrupting an unrelated later scope's name
+   two bugs also surfaced and fixed in
+   `KotlinSpecificRule.signatureLineIndent` while root-causing this (a crash
+   on a top-of-file `where` clause with no preceding boundary, and a
+   regression of `real_code_regressions_47`'s Shape 2 fix that a naive crash
+   fix introduced) — both only visible after a from-clean rebuild
+   (`rm -rf target/test-out`) exposed a stale-output false-PASS. New
+   `test/real_code_regressions_49_inp.kt`/`_out.kt`. `make test`: 68/68
+   before (stale-output-masked) and 68/68 after (clean rebuild, genuinely
+   passing). **`square/kotlinpoet` is now fully round1-vs-round2 idempotent
+   — confirmed via a fresh full-125-file re-run, `diff -rq round1 round2`
+   empty. All 4 shapes resolved.**
 
 **Not started dogfood / real-code testing**
 1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
@@ -701,13 +716,16 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    `square/kotlinpoet`'s Shape 1 Bug B is the identical mechanism RDD_KEY_149
    described (signature param column-alignment/trailing-comma lost after
    splice-back) — see RDD_KEY_163.
-4. **`square/kotlinpoet`'s remaining 1-file idempotency gap** (IN PROGRESS) —
-   Shape 1 (6 files) resolved via RDD_KEY_163, Shape 2 (`AbstractTypesTest.kt`)
-   resolved via RDD_KEY_164, Shape 3 (`ReflectiveClassInspector.kt`/
-   `kmAnnotations.kt`) resolved via RDD_KEY_165; Shape 4 (1 file:
-   `KotlinPoetMetadataSpecsTest.kt`) confirmed non-compile-breaking, still not
-   root-caused. Full evidence in **In progress dogfood / real-code testing
-   details** below.
+4. **`square/kotlinpoet`'s idempotency gap** — **RESOLVED**. Shape 1 (6 files)
+   resolved via RDD_KEY_163, Shape 2 (`AbstractTypesTest.kt`) resolved via
+   RDD_KEY_164, Shape 3 (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`)
+   resolved via RDD_KEY_165, Shape 4 (`KotlinPoetMetadataSpecsTest.kt`)
+   resolved via RDD_KEY_166. A fresh full-125-file round1/round2 re-run
+   confirms zero diffs across the entire tree — `square/kotlinpoet` is now
+   fully idempotent. Full evidence in **In progress dogfood / real-code
+   testing details** below. Candidates 1/2 above (`arrow-kt/arrow`,
+   `JetBrains/kotlin`) are the next queued candidates if further dogfooding
+   is wanted.
 
 **In progress dogfood / real-code testing details**
 
@@ -827,14 +845,63 @@ sorted into four distinct shapes:
   New `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67
   before, 68/68 after. Confirmed clean against both real files plus a
   fresh full-125-file re-run (only Shape 4 remains).
-- **Shape 4 (1 file: `KotlinPoetMetadataSpecsTest.kt`)** — a `val`
-  declaration-alignment padding flap: `val fooAliasData    = ...` is padded
-  to match a sibling's column round1, unpadded round2 (`val fooAliasData =
-  ...`). Same surface symptom as RDD_KEY_162's `ChannelFlow.kt` fix (the
-  "early alignment phase destabilizes a later wrap phase" family), but
-  RDD_KEY_162 is confirmed already in the tree for this re-check, so if
-  this is the same root cause, RDD_KEY_162's fix has a gap for this
-  specific case — not root-caused, just flagged.
+- **Shape 4 (1 file: `KotlinPoetMetadataSpecsTest.kt`) — RESOLVED
+  2026-07-14, RDD_KEY_166.** A `val` declaration-alignment padding flap:
+  `val fooAliasData    = ...` is padded to match a sibling's column round1,
+  unpadded round2 (`val fooAliasData = ...`). Initially looked like the same
+  surface symptom as RDD_KEY_162's `ChannelFlow.kt` fix (the "early
+  alignment phase destabilizes a later wrap phase" family), but that
+  turned out to be a red herring -- `KotlinDeclarationAlignmentRule`'s own
+  padding-exclusion logic (RDD_KEY_162) is working correctly; the actual
+  root cause is upstream in `TokenizerCore`. Narrowed via ~10 rounds of
+  minimal-repro bisection (`/tmp/shape4/Repro.kt`...`Repro10.kt`, not
+  committed) down to: the bug only reproduces when a PRECEDING sibling
+  `val` declaration (separated by a blank line, so not in the same
+  alignment group) has an initializer containing the literal token sequence
+  `::class` (a class-literal reflection expression, e.g. `Foo::class`) --
+  `Foo::bar` (single colon or a different member) does not reproduce, and
+  removing the preceding declaration entirely does not reproduce, isolating
+  the trigger to `class` specifically appearing right after `::`.
+  Root cause: `TokenizerCore`'s `class`-keyword-arms-`namedConstructKeywordSeen`
+  branch fires unconditionally, including for the `class` in `::class` --
+  since a bare-expression statement has no following `;`/`}`/`{` to clear
+  the flag before the statement ends, it stays armed across the statement
+  boundary and the next IDENTIFIER anywhere later in the file (here, the
+  following `.first { ... }` lambda's enclosing function name) gets wrongly
+  captured as `pendingNamedConstructName`, corrupting that later scope's
+  named-construct treatment (wrongly gains a blank line after `{` and a
+  closing name comment), which in turn perturbs
+  `KotlinDeclarationAlignmentRule`'s fixed-point exclusion loop for the
+  following `val` group on a reformat. **Fix**: new
+  `isPrecededByDoubleColon()` helper in `TokenizerCore`, Kotlin-only guard on
+  the `class`-arms branch. While root-causing/verifying this fix (a
+  shared-class touch, mandating `make test` before/after per
+  STATE_COMMON.md), a from-clean rebuild (`rm -rf target/test-out && make
+  test`) exposed that the batch `make test` run had been silently PASSing
+  two files via stale leftover output in `target/test-out` from a prior
+  build rather than freshly regenerated results -- `real_code_regressions_42`
+  was actually crashing (`ArrayIndexOutOfBoundsException: -1` in
+  `KotlinSpecificRule.signatureLineIndent`, the RDD_KEY_164 helper, on a
+  top-of-file `where` clause with no preceding `;`/`}`/`{` boundary at all --
+  the old `stmtStart == 0 ? -1 : stmtStart - 1` sentinel fed a literal `-1`
+  into `nextSignificantIndex`'s unguarded `for (int i = from; ...)` loop).
+  A naive crash fix (scanning forward from `stmtStart` itself instead of
+  `-1`) avoided the crash but silently regressed `real_code_regressions_47`
+  (Shape 2) -- the helper's correct semantics anchor on the *boundary
+  token's own physical line* (the enclosing scope's indent, since the
+  `where` wrap's `baseIndent + indentUnit` is meant to land at the
+  signature's own level, one indent under the *enclosing* scope, not one
+  indent under the signature's own already-one-level-deeper line), not the
+  new statement's own first token. Final fix keeps the original
+  `stmtStart - 1` boundary-token anchor when a boundary is found, only
+  falling back to scanning from index `0` (never `-1`) when none exists.
+  Confirmed all three fixes via the real `KotlinPoetMetadataSpecsTest.kt`
+  file (round1-vs-round2 now clean) and a fresh full-125-file
+  `square/kotlinpoet` re-run: `diff -rq round1 round2` empty across the
+  entire tree. New `test/real_code_regressions_49_inp.kt`/`_out.kt`.
+  `make test`: 68/68 before (stale-output-masked, not a true baseline) and
+  68/68 after (clean rebuild, genuinely passing). **`square/kotlinpoet` is
+  now fully round1-vs-round2 idempotent — all 4 shapes resolved.**
 
 Original (pre-2026-07-13) investigation notes on Shape 1, kept for
 continuity: (1) `MemberSpecHolder.kt`'s

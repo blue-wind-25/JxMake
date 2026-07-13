@@ -431,7 +431,16 @@ public class TokenizerCore {
                     // `pendingRecordName` field, never touching `pendingNamedConstructName`).
                     pendingNamedConstructName = null;
                 } else if (t.type == TokenType.KEYWORD && namedConstructKeywords.contains(t.text)
-                        && !"concept".equals(t.text)) {
+                        && !"concept".equals(t.text)
+                        && !(lang.isKotlin && "class".equals(t.text) && isPrecededByDoubleColon())) {
+                    // Kotlin class-literal reflection expressions (`Foo::class`) tokenize `class`
+                    // as a KEYWORD, but it is not introducing a new construct here -- it's a
+                    // property-like reference to the `Foo` class's KClass object. Arming
+                    // namedConstructKeywordSeen here would let the *next* IDENTIFIER anywhere later
+                    // in the file (there being no `{`/`}`/`;` in between for a bare expression like
+                    // `TypeAliases::class` used as a whole statement's RHS) get wrongly captured as
+                    // pendingNamedConstructName, corrupting an unrelated later scope's name (e.g. a
+                    // following `.first { ... }` lambda wrongly treated as a named construct).
                     namedConstructKeywordSeen = true;
                 }
                 recentSignificant.addLast(t);
@@ -463,6 +472,17 @@ public class TokenizerCore {
                     }
                 }
         }
+    }
+
+    /** True iff the most recent significant token tracked so far is the {@code ::} operator --
+     *  used to recognize Kotlin class-literal expressions ({@code Foo::class}) so the {@code class}
+     *  keyword there is not mistaken for the start of an actual class declaration. */
+    private boolean isPrecededByDoubleColon() {
+        if (recentSignificant.isEmpty()) {
+            return false;
+        }
+        final Token prev = recentSignificant.peekLast();
+        return prev.type == TokenType.OP && "::".equals(prev.text);
     }
 
     /** True iff the last two significant tokens (before the `=` currently being tracked) are the

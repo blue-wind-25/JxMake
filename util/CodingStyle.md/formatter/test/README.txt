@@ -656,6 +656,42 @@ Real-code regressions:
                                             (not just the `when` keyword) as the line's first
                                             significant token.
 
+  real_code_regressions_49_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `square/kotlinpoet`'s Shape 4
+                                            (`KotlinPoetMetadataSpecsTest.kt`): a `val` declaration's
+                                            alignment padding flapped on/off between rounds, gated by
+                                            an unrelated PRECEDING sibling declaration's own
+                                            initializer containing a class-literal reflection
+                                            expression (`Foo::class`). Root cause:
+                                            `TokenizerCore`'s named-construct-name tracking armed
+                                            `namedConstructKeywordSeen` on ANY `class` KEYWORD token,
+                                            including the one inside a `::class` reflection literal
+                                            (not an actual class declaration) -- with no following
+                                            `;`/`}`/`{` in between (a bare expression statement, no
+                                            semicolon), this stayed armed across the statement
+                                            boundary and wrongly captured the *next* IDENTIFIER
+                                            anywhere later in the file as `pendingNamedConstructName`,
+                                            corrupting an unrelated later scope's name (here, a
+                                            following `.first { ... }` lambda's enclosing function
+                                            wrongly treated as a named construct -- gaining a
+                                            blank-line-after-`{` and closing name comment it should
+                                            never have gotten -- which in turn perturbed the
+                                            declaration-alignment padding-exclusion logic for the
+                                            following `val` group on the next round). Fixed by adding
+                                            a guard so a Kotlin `class` KEYWORD immediately preceded
+                                            by `::` never arms `namedConstructKeywordSeen`. Also
+                                            uncovered and fixed two side bugs while root-causing this:
+                                            (1) a genuine crash (`ArrayIndexOutOfBoundsException: -1`)
+                                            in `KotlinSpecificRule.signatureLineIndent`
+                                            (RDD_KEY_164's helper) when a `where`-clause-bearing
+                                            statement sits at the very top of the file with no
+                                            preceding `;`/`}`/`{` boundary at all; (2) that same
+                                            helper's boundary-anchoring semantics need to stay
+                                            anchored on the *boundary token's own line* (the enclosing
+                                            scope's indent) rather than skip past it to the new
+                                            statement's own first token, matching
+                                            `real_code_regressions_47`'s original fix intent exactly.
+
 How Tests Are Run
 -----------------
 

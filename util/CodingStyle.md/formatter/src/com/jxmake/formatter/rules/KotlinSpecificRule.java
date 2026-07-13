@@ -1071,7 +1071,15 @@ public class KotlinSpecificRule {
                 break;
             }
         }
-        final int firstSig = nextSignificantIndex(tokens, stmtStart == 0 ? -1 : stmtStart - 1);
+        // When a boundary (`;`/`}`/`{`) was found, anchor on that boundary token's own line --
+        // matching the enclosing scope's indent, since the wrapped `where` should sit one level
+        // under the *enclosing scope*, not one level under the statement's own (already one-level
+        // deeper) line. When no boundary exists (statement starts at the very top of the file,
+        // stmtStart == 0), there is no boundary token to anchor on -- fall back to scanning from
+        // index 0 itself rather than -1, which would throw (index 0 is always safely in range for
+        // a non-empty token list).
+        final int scanFrom = stmtStart == 0 ? 0 : stmtStart - 1;
+        final int firstSig = nextSignificantIndex(tokens, scanFrom);
         return lineIndent(tokens, firstSig < 0 ? idx : firstSig);
     }
 

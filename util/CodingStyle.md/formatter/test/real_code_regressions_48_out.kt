@@ -21,8 +21,8 @@ class Container {
             } // when
         }
 
-    fun toCodeBlock(value: Int): CodeBlock {
-
+    fun toCodeBlock(value: Int): CodeBlock
+    {
         return when {
 
             value == 1 -> CodeBlock.of("%L", value)
@@ -33,7 +33,6 @@ class Container {
             else       -> CodeBlock.of("%L", value)
 
         } // when
-
-    } // class Char
+    }
 
 } // class Container

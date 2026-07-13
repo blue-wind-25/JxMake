@@ -129,6 +129,7 @@ INP_FILES += real_code_regressions_45_inp.kt
 INP_FILES += real_code_regressions_46_inp.kt
 INP_FILES += real_code_regressions_47_inp.kt
 INP_FILES += real_code_regressions_48_inp.kt
+INP_FILES += real_code_regressions_49_inp.kt
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
@@ -143,6 +144,7 @@ test: $(JAR_FILE)
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
 		mkdir -p $(TEST_TMP);                                                  \
+		rm $(TEST_TMP)/*;                                                      \
 		clear;                                                                 \
 		echo "";                                                               \
 		echo "=== Forward pass (inp → out) ===";                               \

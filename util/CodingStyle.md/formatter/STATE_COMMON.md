@@ -44,7 +44,7 @@ are very long, and `-A` context will flood output unnecessarily.
      active checklist.
   2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
   3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -m "<message>"` — short descriptive message, no strict
+  4. `git commit -S -m "<message>"` — short descriptive message, no strict
      format required, trailer ending with
      `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
 - Small related items within a section may be grouped into one commit if they

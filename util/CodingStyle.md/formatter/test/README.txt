@@ -620,6 +620,22 @@ Real-code regressions:
                                             a `: ReturnType = expr` tail, which still needs Bug A's
                                             fix to account for its own untouched trailing text).
 
+  real_code_regressions_47_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `square/kotlinpoet`'s Shape 2 (`AbstractTypesTest.kt`):
+                                            a multi-line generic `where` clause's continuation
+                                            lines gained one extra indent level every round.
+                                            Root cause: `KotlinSpecificRule.enforceWhereClausePlacement`
+                                            derived the wrap's base indent from `where`'s own
+                                            current physical line, which on a reformat is already
+                                            the previously-wrapped, one-level-deeper line rather
+                                            than the signature's true (headerless class
+                                            declaration's) own line -- compounding one indent level
+                                            per round. Fixed with a new `signatureLineIndent` helper
+                                            that scans backward tracking paren/bracket/angle depth
+                                            to the nearest depth-0 `;`/`}`/`{`, mirroring
+                                            `ScopePipeline.findParentIndent`'s "true statement start"
+                                            posture, instead of just backing up one physical line.
+
 How Tests Are Run
 -----------------
 

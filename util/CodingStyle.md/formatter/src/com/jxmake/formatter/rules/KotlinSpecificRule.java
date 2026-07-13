@@ -915,7 +915,15 @@ public class KotlinSpecificRule {
             }
 
             final int lineStartIdx = lineStartIndex(tokens, i);
-            final String baseIndent = lineIndent(tokens, i);
+            // Anchor on the true statement start's own line-leading indent, not `where`'s own
+            // current line -- if a prior format pass already wrapped `where` onto its own
+            // indented line, re-deriving from `where`'s own (or its immediately preceding)
+            // line would compound one indent level per round (non-idempotent), since a
+            // multi-line generic parameter list means the immediately preceding physical line
+            // is itself just a continuation line, not the signature's true start. Same
+            // "physical-line-anchored decision invalidated by a later pass" family as
+            // RDD_KEY_136/152/158/159/160/161.
+            final String baseIndent = signatureLineIndent(tokens, i);
             final String sigLine = collapseToOneLine(tokens, lineStartIdx, i - 1);
             final List<String> boundTexts = new ArrayList<>();
             for (final WhereBound b : bounds) {
@@ -1032,6 +1040,39 @@ public class KotlinSpecificRule {
             sb.append(' ');
         }
         return sb.toString();
+    }
+
+    /** Line-leading indent of the physical line where the multi-line construct governing
+     *  {@code idx} truly begins -- scans backward from {@code idx} tracking paren/bracket/angle
+     *  depth, stopping at the nearest depth-0 {@code ;}/{@code }}/{@code {}, same "true statement
+     *  start" posture as {@code ScopePipeline.findParentIndent}. Distinct from
+     *  {@link #lineStartIndex}/{@link #lineIndent}, which only back up to the immediately
+     *  preceding physical line and can land on a continuation line of an already-wrapped
+     *  multi-line header (e.g. a generic parameter list broken across several lines) instead of
+     *  the header's own true first line. */
+    private String signatureLineIndent(final List<Token> tokens, final int idx) {
+        int depth = 0;
+        int stmtStart = 0;
+        for (int i = idx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(t, ")") || isPunct(t, "]")) {
+                depth++;
+                continue;
+            }
+            if (t.type == TokenType.ANGLE_BRACKET_OPEN || isPunct(t, "(") || isPunct(t, "[")) {
+                depth--;
+                continue;
+            }
+            if (depth > 0) {
+                continue;
+            }
+            if (isPunct(t, ";") || isPunct(t, "}") || isPunct(t, "{")) {
+                stmtStart = i + 1;
+                break;
+            }
+        }
+        final int firstSig = nextSignificantIndex(tokens, stmtStart == 0 ? -1 : stmtStart - 1);
+        return lineIndent(tokens, firstSig < 0 ? idx : firstSig);
     }
 
     /** The index of the first significant token on the physical line containing {@code idx} --

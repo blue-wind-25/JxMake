@@ -115,6 +115,28 @@ faster):
    same error count as the unmodified original (no new, formatter-induced
    errors).
 
+**Invoke the formatter JAR once per batch, not once per file.** `Main.run()`
+accepts any number of positional file-path arguments and formats them all in
+one JVM process (each file independently resolves its own
+`.jxmake-code-formatter` boundary via `Config.resolve`, so mixing files from
+different directories in one invocation is safe). Looping
+`code-formatter.sh <file>` per file re-pays JVM startup for every single
+file, which dominates wall-clock time on a large candidate tree. Instead
+collect the file list first (e.g. `find <dir> -name '*.hpp' -o -name
+'*.cpp'`) and pass it to one invocation, e.g.:
+
+```bash
+find <candidate-dir> \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0 \
+  | xargs -0 <path-to>/code-formatter.sh --out /tmp/round1
+```
+
+If the file count is large enough to risk hitting the shell/`exec` argv
+length limit, group by subdirectory (one invocation per top-level
+subdirectory under the candidate tree) rather than falling back to one
+invocation per file — `xargs` (without `-n1`) already chunks automatically if
+needed, so this is mainly a concern for a manually-constructed argument list.
+Same applies to round2 and to any `--diff`/`--check` verification pass.
+
 **Run one candidate at a time, via one sub-agent — never launch multiple
 real-code-testing sub-agents concurrently.** Wait for one to finish (or stop
 it) before starting the next.

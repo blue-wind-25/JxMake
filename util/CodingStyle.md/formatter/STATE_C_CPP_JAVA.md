@@ -553,39 +553,54 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
      a full round1/round2 idempotency pass over the whole 318-file tree — `view.hpp`/`action.hpp`
      do not appear in the round1-vs-round2 diff, confirming zero regressions tree-wide. Config:
      default. Fixture: `real_code_regressions_51`.
+(21) C++20 `boost-ext/ut` (44 `.hpp`/`.cpp` under `include/`, `example/`, `test/ft/`, `test/ut/`;
+     the single-header `include/boost/ut.hpp` is the priority file) — 1 idempotency bug: a
+     deduction-guide statement (`test(...) -> test<Test, TArg>;`, itself re-broken across lines
+     by `enforceCallLineBreaking`) directly followed by an unrelated `struct suite { ... };`
+     caused `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s
+     `findCloseParenBeforeTrailingReturnType` backward scan to cross the `;` statement boundary
+     between them and misidentify the deduction guide's own close-paren as `struct suite`'s
+     "function close paren", Allman-converting the struct's brace onto its own line with a bogus
+     indent derived from deep inside the unrelated prior statement; a later K&R re-collapse pass
+     on the next format pass joined it back, producing a stable round1-vs-round2 diff. Fixed by
+     making both `findCloseParenBeforeTrailingReturnType` and
+     `findCloseParenBeforeRequiresClause`'s backward scans stop (return -1) at a depth-0 `;`, not
+     just `{`/`}`. Verified with a minimal standalone repro, `make test` (72/72 forward + 72/72
+     idempotency, zero regressions), and a full round1/round2 idempotency pass over the whole
+     44-file tree (clean). Compile-checked all 32 `example/*.cpp` files and `test/ut/ut.cpp` with
+     (2) (`g++ -std=c++20 -fsyntax-only`, 0 errors, matching baseline) and with (3) (`clang++
+     -std=c++23 -fsyntax-only`, 1 pre-existing environment error per file — missing libc++
+     `<version>` header, identical before/after formatting, not formatter-induced). Config:
+     default. Fixture: `real_code_regressions_52`.
 
 **Not started dogfood / real-code testing**
-(1) `github.com/boost-ext/ut` — Kris Jusiak's single-header C++20 micro unit-testing
-    framework; extremely template/concept-heavy (UDL-based matchers, compile-time reflection
-    tricks), actively tracks newest standard features. Good `format-macros`/dense-template
-    stress test in a small tree. Would verify with (2)/(3). (NOT STARTED)
-(2) `github.com/microsoft/proxy` — Microsoft's reference implementation of the Proxy library
+(1) `github.com/microsoft/proxy` — Microsoft's reference implementation of the Proxy library
     (WG21 P0957, polymorphism without inheritance/virtual dispatch); heavy C++20/23 template
     metaprogramming, deliberately pushes newest-standard facilities. Would verify with (2)/(3)
     (clang++ preferred — may need very recent toolchain support). (NOT STARTED)
-(3) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
+(2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
     coverage on the list but high testing-time cost; planned as one of the last picked up.
     Would verify with (2)/(3) (or newer, bump toolchain version if needed). (NOT STARTED)
-(4) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
+(3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
     partial/targeted subtree run is practical (e.g. `clang/lib/Format/` or
     `llvm/include/llvm/ADT/`). Try to exercise C++23 features specifically. Would verify with
     (2)/(3). (NOT STARTED)
-(5) `github.com/gcc-mirror/gcc` — GCC monorepo; similarly enormous, and GCC's own source may
+(4) `github.com/gcc-mirror/gcc` — GCC monorepo; similarly enormous, and GCC's own source may
     target an older/conservative C++ dialect in parts (bootstrapping), so may exercise less
     modern-C++ surface than its size suggests — lowest priority of the four for
     modern-feature testing specifically. Try to exercise C++23 features specifically. Would
     verify with (2)/(3). (NOT STARTED)
-(6) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
+(5) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
     exercise generics-heavy declarations, deep visitor-pattern hierarchies, extensive Javadoc
     (§15 comment-scope, RDD_KEY_47-50), large switch-heavy dispatch code (§13). Would verify
     with (4). (NOT STARTED)
-(7) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
+(6) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
 
-Priority order for the C/C++ queue above unless the user redirects: `boost-ext/ut` →
-`microsoft/proxy` → `STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`
+Priority order for the C/C++ queue above unless the user redirects: `microsoft/proxy` →
+`STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`
 already DONE, see "Finished" above — `mp11` was smallest/narrowest, `lexy` next for touching
 operator overloading/concepts/CRTP/dense declaration-alignment in one small tree, `stdexec` for
 concepts/`requires`/deep metaprogramming, `range-v3` for its own distinct

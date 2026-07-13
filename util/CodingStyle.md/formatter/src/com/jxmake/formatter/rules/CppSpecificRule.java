@@ -400,7 +400,12 @@ public class CppSpecificRule {
                     beforeArrow = prevSignificantIndex(tokens, beforeArrow);
                 }
                 return (beforeArrow >= 0 && isPunct(tokens.get(beforeArrow), ")")) ? beforeArrow : -1;
-            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) {
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";"))) {
+                // A `;` at depth 0 ends the *previous* statement -- e.g. a deduction guide
+                // (`test(...) -> test<Test, TArg>;`) immediately followed by an unrelated
+                // `struct suite {` must never let this backward scan cross into that prior
+                // statement's own `->`/`)` (found via real-code testing, boost-ext/ut's
+                // `struct suite` directly after `ut::test`'s deduction guide).
                 return -1;
             }
         }
@@ -424,7 +429,9 @@ public class CppSpecificRule {
                 final int closeParen = prevSignificantIndex(tokens, i);
                 return (closeParen >= 0 && isPunct(tokens.get(closeParen), ")")) ? closeParen : -1;
             }
-            else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}"))) { return -1; }
+            // A `;` at depth 0 ends the previous statement -- must not let this backward scan
+            // cross into it (same fix as findCloseParenBeforeTrailingReturnType above).
+            else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";"))) { return -1; }
         }
         return -1;
     }

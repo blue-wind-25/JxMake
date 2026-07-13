@@ -763,6 +763,29 @@ Real-code regressions:
                                             range-v3's 318-file `include/range/v3/` tree (this
                                             file does not appear in the round1-vs-round2 diff).
 
+  real_code_regressions_52_inp/out.cpp   -- C++, boost-ext/ut idempotency bug: a C++20
+                                            deduction-guide statement (`test(...) ->
+                                            test<Test, TArg>;`, itself getting re-broken across
+                                            lines by `enforceCallLineBreaking`) immediately
+                                            followed by an unrelated `struct suite { ... };`
+                                            caused `CppSpecificRule.enforceFunctionDefinition
+                                            AllmanBraceStyle`'s `findCloseParenBeforeTrailing
+                                            ReturnType` backward scan to cross the `;` statement
+                                            boundary between them and misidentify the deduction
+                                            guide's own `test(...)` close-paren as `struct
+                                            suite`'s "function close paren", Allman-converting the
+                                            struct's brace onto its own line with a bogus
+                                            indent derived from deep inside the unrelated prior
+                                            statement -- a later K&R re-collapse pass on the next
+                                            format pass then joined it back, producing a stable
+                                            round1-vs-round2 diff. Fixed by making both
+                                            `findCloseParenBeforeTrailingReturnType` and
+                                            `findCloseParenBeforeRequiresClause`'s backward scans
+                                            stop (return -1) at a depth-0 `;`, not just `{`/`}`.
+                                            Verified with a minimal standalone repro and full
+                                            `make test` (71/71 forward + idempotency, no
+                                            regressions).
+
 How Tests Are Run
 -----------------
 

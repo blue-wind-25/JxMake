@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public final class Main {
@@ -101,11 +100,11 @@ public final class Main {
                 }
             } else if ("--lang".equals(arg)) {
                 if (i + 1 >= args.length) {
-                    return usageError("--lang requires an argument (" + SUPPORTED_LANGUAGES + ")");
+                    return usageError("--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ")");
                 }
                 final String langArg = args[++i];
-                if (!isSupportedLanguage(langArg)) {
-                    return usageError("--lang must be one of: " + SUPPORTED_LANGUAGES + " (got: " + langArg + ")");
+                if (!Lang.isSupported(langArg)) {
+                    return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + " (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
             } else if (arg.startsWith("--")) {
@@ -374,38 +373,8 @@ public final class Main {
         return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
     }
 
-    /* When updating the supported language here, also update the language/extension list in:
-     *    `SUPPORTED_LANGUAGES` and `isSupportedLanguage()` below in this file
-     *    the `--lang` validation in `run()` above
-     *    `ServerMode.FormatHandler.handle()`, which calls into these shared methods
-     */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin";
-
-    public static boolean isSupportedLanguage(final String language) {
-        return "c".equals(language) || "cpp".equals(language)
-                || "java".equals(language) || "kotlin".equals(language);
-    }
-
-    public static String inferLanguage(final String path) {
-        final String lower = path.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".java")) {
-            return "java";
-        }
-        if (lower.endsWith(".c") || lower.endsWith(".h")) {
-            return "c";
-        }
-        if (lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
-                || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
-            return "cpp";
-        }
-        if (lower.endsWith(".kt") || lower.endsWith(".kts")) {
-            return "kotlin";
-        }
-        return null;
-    }
-
     private static String inferLanguage(final Path path) {
-        return inferLanguage(path.getFileName().toString());
+        return Lang.infer(path.getFileName().toString());
     }
 
     private static String readFile(final Path path) throws IOException {

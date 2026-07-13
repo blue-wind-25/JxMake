@@ -299,7 +299,7 @@ public final class ServerMode {
                         return;
                     }
                 } else if (language == null) {
-                    language = Main.inferLanguage(path);
+                    language = Lang.infer(path);
                     if (language == null) {
                         respond(exchange, 400, "could not infer language from path extension: " + path
                                 + " (client should pass an explicit 'lang' query parameter)");
@@ -307,8 +307,8 @@ public final class ServerMode {
                     }
                 }
 
-                if (language != null && !Main.isSupportedLanguage(language)) {
-                    respond(exchange, 400, "'lang' query parameter must be one of: " + Main.SUPPORTED_LANGUAGES
+                if (language != null && !Lang.isSupported(language)) {
+                    respond(exchange, 400, "'lang' query parameter must be one of: " + Lang.SUPPORTED_LANGUAGES
                             + " (got: " + language + ")");
                     return;
                 }

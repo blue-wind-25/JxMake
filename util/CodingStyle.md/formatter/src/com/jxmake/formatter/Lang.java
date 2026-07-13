@@ -7,6 +7,8 @@
 
 package com.jxmake.formatter;
 
+import java.util.Locale;
+
 /**
  * Precomputes the `"c"`/`"cpp"`/`"java"`/`"kotlin"` language identity of the file being formatted
  * exactly once per {@link Formatter#formatOne}, so rule classes read {@link #isC}/{@link #isCpp}/
@@ -25,5 +27,35 @@ public final class Lang {
         this.isCpp = "cpp".equals(language);
         this.isJava = "java".equals(language);
         this.isKotlin = "kotlin".equals(language);
+    }
+
+    /* When updating the supported language here, also update the language/extension list in:
+     *    the {@link Lang} constructor above (isC/isCpp/isJava/isKotlin)
+     *    the `--lang` validation in `Main.run()`
+     *    `ServerMode.FormatHandler.handle()`
+     */
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin";
+
+    public static boolean isSupported(final String language) {
+        return "c".equals(language) || "cpp".equals(language)
+                || "java".equals(language) || "kotlin".equals(language);
+    }
+
+    public static String infer(final String path) {
+        final String lower = path.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".java")) {
+            return "java";
+        }
+        if (lower.endsWith(".c") || lower.endsWith(".h")) {
+            return "c";
+        }
+        if (lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
+                || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
+            return "cpp";
+        }
+        if (lower.endsWith(".kt") || lower.endsWith(".kts")) {
+            return "kotlin";
+        }
+        return null;
     }
 }

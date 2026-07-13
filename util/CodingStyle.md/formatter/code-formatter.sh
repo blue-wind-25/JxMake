@@ -9,6 +9,8 @@ if [ -f "$SCRIPT_DIR/code-formatter.jar" ]; then
     exec java -jar "$SCRIPT_DIR/code-formatter.jar" "$@"
 elif [ -f "$SCRIPT_DIR/$VERSIONED_JAR" ]; then
     exec java -jar "$SCRIPT_DIR/$VERSIONED_JAR" "$@"
+elif [ -f "$SCRIPT_DIR/target/$VERSIONED_JAR" ]; then
+    exec java -jar "$SCRIPT_DIR/target/$VERSIONED_JAR" "$@"
 else
     echo "error: neither code-formatter.jar nor $VERSIONED_JAR found in $SCRIPT_DIR" >&2
     exit 1

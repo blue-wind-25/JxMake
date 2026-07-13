@@ -13,5 +13,9 @@ if exist "%SCRIPT_DIR%%VERSIONED_JAR%" (
     java -jar "%SCRIPT_DIR%%VERSIONED_JAR%" %*
     exit /b %ERRORLEVEL%
 )
+if exist "%SCRIPT_DIR%\target\%VERSIONED_JAR%" (
+    java -jar "%SCRIPT_DIR%\target\%VERSIONED_JAR%" %*
+    exit /b %ERRORLEVEL%
+)
 echo error: neither code-formatter.jar nor %VERSIONED_JAR% found in %SCRIPT_DIR%
 exit /b 1

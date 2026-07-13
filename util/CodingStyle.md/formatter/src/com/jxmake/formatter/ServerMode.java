@@ -299,7 +299,7 @@ public final class ServerMode {
                         return;
                     }
                 } else if (language == null) {
-                    language = inferLanguage(path);
+                    language = Main.inferLanguage(path);
                     if (language == null) {
                         respond(exchange, 400, "could not infer language from path extension: " + path
                                 + " (client should pass an explicit 'lang' query parameter)");
@@ -307,10 +307,9 @@ public final class ServerMode {
                     }
                 }
 
-                if (language != null && !"c".equals(language) && !"cpp".equals(language) && !"java".equals(language)
-                        && !"kotlin".equals(language)) {
-                    respond(exchange, 400, "'lang' query parameter must be one of: c, cpp, java, kotlin (got: "
-                            + language + ")");
+                if (language != null && !Main.isSupportedLanguage(language)) {
+                    respond(exchange, 400, "'lang' query parameter must be one of: " + Main.SUPPORTED_LANGUAGES
+                            + " (got: " + language + ")");
                     return;
                 }
 
@@ -323,19 +322,6 @@ public final class ServerMode {
             } catch (final Exception e) {
                 respond(exchange, 500, e.getMessage() != null ? e.getMessage() : e.toString());
             }
-        }
-
-        private static String inferLanguage(final String path) {
-            final String lower = path.toLowerCase(java.util.Locale.ROOT);
-            if (lower.endsWith(".java")) {
-                return "java";
-            }
-            if (lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
-                    || lower.endsWith(".h") || lower.endsWith(".hh") || lower.endsWith(".hpp")
-                    || lower.endsWith(".hxx")) {
-                return "cpp";
-            }
-            return null;
         }
     }
 

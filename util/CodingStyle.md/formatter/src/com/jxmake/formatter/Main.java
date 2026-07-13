@@ -101,11 +101,11 @@ public final class Main {
                 }
             } else if ("--lang".equals(arg)) {
                 if (i + 1 >= args.length) {
-                    return usageError("--lang requires an argument (c, cpp, java, or kotlin)");
+                    return usageError("--lang requires an argument (" + SUPPORTED_LANGUAGES + ")");
                 }
                 final String langArg = args[++i];
-                if (!"c".equals(langArg) && !"cpp".equals(langArg) && !"java".equals(langArg) && !"kotlin".equals(langArg)) {
-                    return usageError("--lang must be one of: c, cpp, java, kotlin (got: " + langArg + ")");
+                if (!isSupportedLanguage(langArg)) {
+                    return usageError("--lang must be one of: " + SUPPORTED_LANGUAGES + " (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
             } else if (arg.startsWith("--")) {
@@ -374,8 +374,20 @@ public final class Main {
         return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
     }
 
-    private static String inferLanguage(final Path path) {
-        final String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+    /* When updating the supported language here, also update the language/extension list in:
+     *    `SUPPORTED_LANGUAGES` and `isSupportedLanguage()` below in this file
+     *    the `--lang` validation in `run()` above
+     *    `ServerMode.FormatHandler.handle()`, which calls into these shared methods
+     */
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin";
+
+    public static boolean isSupportedLanguage(final String language) {
+        return "c".equals(language) || "cpp".equals(language)
+                || "java".equals(language) || "kotlin".equals(language);
+    }
+
+    public static String inferLanguage(final String path) {
+        final String lower = path.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".java")) {
             return "java";
         }
@@ -390,6 +402,10 @@ public final class Main {
             return "kotlin";
         }
         return null;
+    }
+
+    private static String inferLanguage(final Path path) {
+        return inferLanguage(path.getFileName().toString());
     }
 
     private static String readFile(final Path path) throws IOException {

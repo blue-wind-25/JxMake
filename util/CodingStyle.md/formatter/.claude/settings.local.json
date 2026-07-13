@@ -15,13 +15,16 @@
       "Bash(java -jar target/code-formatter-1.00.jar --help)",
       "Bash(java -jar target/code-formatter-1.00.jar --standalone /tmp/**)",
       "Bash(java -jar target/code-formatter-1.00.jar --standalone --out /tmp/** *)",
+      "Bash(java -jar target/code-formatter-1.00.jar --standalone --out * *)",
       "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --help)",
       "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone /tmp/**)",
       "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out /tmp/** *)",
+      "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out * *)",
       "Bash(*=* java -jar target/code-formatter-1.00.jar --standalone /tmp/**)",
       "Bash(*=* java -jar target/code-formatter-1.00.jar --standalone --out /tmp/** *)",
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone /tmp/**)",
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out /tmp/** *)",
+      "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out * *)",
       "Bash(jobs)",
       "Bash(make *)",
       "Bash(mkdir -p /tmp/**)",
@@ -39,7 +42,18 @@
       "Bash(find /)",
       "Bash(find / *)",
       "Bash(find /home/aloysius)",
-      "Bash(find /home/aloysius *)"
+      "Bash(find /home/aloysius *)",
+      "Bash(gpg *)",
+      "Bash(*gpg*)",
+      "Bash(* /home/aloysius/.gnupg)",
+      "Bash(* /home/aloysius/.gnupg/**)",
+      "Bash(*.gnupg*)",
+      "Bash(*~/.gnupg*)",
+      "Bash(*.bashrc*)",
+      "Bash(*~/.bashrc*)",
+      "Read(//home/aloysius/.gnupg)",
+      "Read(//home/aloysius/.gnupg/**)",
+      "Read(//home/aloysius/.bashrc)"
     ]
   }
 }

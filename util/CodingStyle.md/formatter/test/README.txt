@@ -494,297 +494,147 @@ Real-code regressions:
                                             resolved indent.
 
   real_code_regressions_42_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: `ThreadSafeHeap.kt`'s (and
-                                            `AbstractSharedFlow.kt`/`ConcurrentLinkedList.kt`/
-                                            `ExceptionsConstructor.kt`'s) top-level class closing
-                                            brace/comment drifted deeper once a wrapped multi-line
-                                            generic `where` clause put the class's own `{` on a
-                                            deeply-indented continuation line -- `ScopePipeline`'s
-                                            `effectiveSpanIndent` chose `braceIndent` (that
-                                            continuation line's indent) over `spanIndent` (the
-                                            class header's own indent) whenever it was deeper,
-                                            correct for an unnamed trailing-lambda body
-                                            (RDD_KEY_136) but wrong for a NAMED construct
-                                            (class/fun/object), which must always indent relative
-                                            to its own header. Fixed by gating `braceIndent` off
-                                            entirely for named scopes.
+                                            `Kotlin/kotlinx.coroutines`: a class with a wrapped
+                                            multi-line generic `where` clause had its closing
+                                            brace/comment indent drift deeper, since
+                                            `effectiveSpanIndent` preferred the deeper
+                                            continuation-line `braceIndent` over the header's own
+                                            `spanIndent` (correct for unnamed lambda bodies,
+                                            RDD_KEY_136, but wrong for named class/fun/object
+                                            scopes). Fixed by gating `braceIndent` off for named
+                                            scopes.
 
   real_code_regressions_43_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: `JobSupport.kt`'s
-                                            `makeCompletingOnce`, a wrapped multi-argument
-                                            `throw IllegalStateException(...)` call used as a
-                                            keyword-less `when` branch's body (`label ->` on one
-                                            line, body starting the next) had its continuation
-                                            lines/closing `)` one level deeper on round1 than
-                                            round2. `MiscRule.enforceCallLineBreaking` (Phase 1)
-                                            computed the call's base indent from its own physical
-                                            line before `KotlinSpecificRule.formatWhenExpressions`
-                                            (Phase 4) unconditionally merges the branch label and
-                                            body onto one line -- stale by one level the moment
-                                            that merge happens, correct only once reformatted from
-                                            already-merged input. Fixed with a new
-                                            `MiscRule.effectiveCallBaseIndent`: when a call
-                                            candidate's own line is immediately preceded by a
-                                            top-level `->` (Kotlin only), use that arrow line's
-                                            indent instead of the candidate's own.
+                                            `Kotlin/kotlinx.coroutines`: a wrapped multi-argument
+                                            call used as a keyword-less `when` branch body had its
+                                            continuation lines one level deeper on round1 than
+                                            round2, since `enforceCallLineBreaking` computed the
+                                            base indent before the branch label/body got merged
+                                            onto one line by a later phase. Fixed with
+                                            `effectiveCallBaseIndent`, which uses the preceding
+                                            `->` line's indent when present.
 
   real_code_regressions_44_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: `BufferedChannel.kt`'s
-                                            `onUndeliveredElementReceiveCancellationConstructor`, a
-                                            bare, unnamed nested-lambda-chain closing `}` drifted
-                                            from col 4 to col 8 on round2.
-                                            `ScopePipeline.findParentIndent`'s backward
-                                            statement-boundary scan is bounded by the current
-                                            span's own `span.start`, which `splitTopLevelSpans`
-                                            (splitting on top-level BRACE spans) can position mid-
-                                            statement: a braceless `if (...) { ... } else expr`
-                                            statement's braced `if`-branch is its own span, so the
-                                            braceless `else expr` becomes dangling leading text at
-                                            the very start of the NEXT real span rather than a
-                                            genuine new statement. A later declaration's own
-                                            backward brace-search (bounded by that span.start) then
-                                            landed on this dangling `else` as its anchor -- wrongly
-                                            returning an unrelated, earlier statement's own line
-                                            indent once a later phase's re-alignment happened to put
-                                            that `else` alone on its own physical line (only on
-                                            round2, not round1). Fixed by detecting an anchor that
-                                            is itself a dangling `else`/`catch`/`finally` and
-                                            skipping forward past its one-line body to the next real
-                                            statement before deriving the indent.
+                                            `Kotlin/kotlinx.coroutines`: a nested-lambda-chain's
+                                            closing `}` drifted from col 4 to col 8 on round2.
+                                            `findParentIndent`'s backward scan could anchor on a
+                                            dangling braceless `else expr` (left as leading text at
+                                            the start of the next span by `splitTopLevelSpans`),
+                                            returning a wrong, unrelated line's indent. Fixed by
+                                            skipping forward past a dangling `else`/`catch`/
+                                            `finally` anchor to the next real statement.
 
   real_code_regressions_45_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: `ChannelFlow.kt`'s
-                                            `UndispatchedContextCollector`'s `countOrElement`/
-                                            `emitRef` `val` pair. `KotlinDeclarationAlignmentRule
-                                            .renderAlignedGroup` padded `countOrElement`'s
-                                            (typeless) row out to match `emitRef`'s type-column
-                                            width, widening `emitRef`'s own line enough that a
-                                            later pass wrapped its brace-bodied lambda
-                                            initializer; re-parsing that now-multi-line
-                                            initializer on the next pass correctly bailed `emitRef`
-                                            out of its alignment group (by design --
-                                            `spansMultipleLines` never guesses past a genuine
-                                            multi-line block), collapsing `countOrElement`'s
-                                            padding to a single space -- an idempotency flap.
-                                            Fixed by plumbing `indentWidth`/`lineLengthLimit`
-                                            awareness into `renderAlignedGroup`: a row whose
-                                            group-aligned width would overflow the budget is
-                                            excluded from the shared column grid (rendered solo
-                                            instead) whenever its own initializer is brace-bodied
-                                            (a lambda/object/block -- the only shape
-                                            `spansMultipleLines`'s brace-depth check can ever bail
-                                            on); a plain call/expression initializer is never
-                                            excluded, since any future wrap of it lands strictly
-                                            inside parens with no enclosing brace, which
-                                            `spansMultipleLines`'s existing paren-depth carve-out
-                                            (RDD_KEY_135) already keeps groupable/idempotent
-                                            forever regardless of length (see
-                                            `real_code_regressions_18`, unaffected by this fix).
+                                            `Kotlin/kotlinx.coroutines`: a `val` alignment group
+                                            padded a typeless row to match a sibling's type-column
+                                            width, widening that sibling's line enough to trigger a
+                                            lambda-initializer wrap on the next pass, which then
+                                            correctly bailed it out of the group -- an idempotency
+                                            flap. Fixed by making `renderAlignedGroup` budget-aware:
+                                            a row is excluded from the shared column grid up front
+                                            when its own brace-bodied initializer would overflow the
+                                            line-length budget once padded.
 
   real_code_regressions_46_inp/out.kt    -- Kotlin, real-code idempotency test against
                                             `square/kotlinpoet`'s Shape 1 idempotency-gap group
-                                            (`CodeWriter.kt`/`LambdaTypeName.kt`/
-                                            `MemberSpecHolder.kt`/`ParameterizedTypeName.kt`/
-                                            `TypeVariableName.kt`/`WildcardTypeName.kt`), two
-                                            distinct bugs both in `MiscRule.enforceCallLineBreaking`.
-                                            Bug A (`MemberSpecHolder.kt`'s
-                                            `addProperties`/`addFunctions`): a multi-line,
-                                            column-broken function signature with a trailing
-                                            `= apply { ... }` expression body wraps its own params
-                                            on a fresh format but collapses to one line on a
-                                            reformat. Root cause: `lineEndIndex`'s "does the whole
-                                            line fit" measurement stops at the first NEWLINE token,
-                                            which on a reformat sits earlier than on a fresh format
-                                            whenever an unrelated NESTED call inside the tail's own
-                                            untouched trailing text (e.g. `apply { x.map(\n  y\n) }`)
-                                            happens to already be wrapped from the previous round --
-                                            undercounting the true rendered width and flipping the
-                                            fits-or-not verdict. Fixed with a new depth-aware
-                                            `effectiveLineEndIndex` that skips over a NEWLINE still
-                                            inside an unclosed `(`/`[`/`{` instead of stopping there.
-                                            Bug B (the other 5 files, e.g. `LambdaTypeName.kt`'s
-                                            `copy(...)`): a genuine Kotlin function signature with
-                                            an explicit `: ReturnType {` block-body tail (no `=`) had
-                                            its already-correctly-rendered, column-padded,
-                                            trailing-comma-preserved multi-line param list (from
-                                            `ScopePipeline`/`KotlinSignatureRule`) silently
-                                            re-wrapped by this same pass as if it were a plain
-                                            untyped call, discarding the padding and trailing comma
-                                            (this is RDD_KEY_149's originally-deferred bug, now
-                                            root-caused): the "is this really a call, not a true
-                                            signature" exemption only recognized an immediate `{`
-                                            right after the closing `)`, missing the
-                                            `: ReturnType {` shape entirely. Fixed with a new
-                                            `isKotlinReturnTypeThenBlockBody` lookahead extending
-                                            the exemption to that shape (deliberately NOT extended to
-                                            a `: ReturnType = expr` tail, which still needs Bug A's
-                                            fix to account for its own untouched trailing text).
+                                            (6 files), two bugs in `enforceCallLineBreaking`.
+                                            Bug A: a wrapped signature with a trailing
+                                            `= apply { ... }` body re-collapsed on reformat because
+                                            `lineEndIndex`'s width check stopped at the first
+                                            NEWLINE, undercounting width when the tail's own nested
+                                            call was already wrapped from a previous round; fixed
+                                            with a depth-aware `effectiveLineEndIndex` that skips
+                                            NEWLINEs still inside an unclosed bracket. Bug B
+                                            (RDD_KEY_149, now root-caused): a signature with an
+                                            explicit `: ReturnType {` block body got its correctly
+                                            wrapped, padded param list re-wrapped as a plain call,
+                                            discarding padding/trailing comma, since the "is this a
+                                            call" exemption only recognized `{` right after `)`.
+                                            Fixed with an `isKotlinReturnTypeThenBlockBody`
+                                            lookahead.
 
   real_code_regressions_47_inp/out.kt    -- Kotlin, real-code idempotency test against
                                             `square/kotlinpoet`'s Shape 2 (`AbstractTypesTest.kt`):
-                                            a multi-line generic `where` clause's continuation
-                                            lines gained one extra indent level every round.
-                                            Root cause: `KotlinSpecificRule.enforceWhereClausePlacement`
-                                            derived the wrap's base indent from `where`'s own
-                                            current physical line, which on a reformat is already
-                                            the previously-wrapped, one-level-deeper line rather
-                                            than the signature's true (headerless class
-                                            declaration's) own line -- compounding one indent level
-                                            per round. Fixed with a new `signatureLineIndent` helper
-                                            that scans backward tracking paren/bracket/angle depth
-                                            to the nearest depth-0 `;`/`}`/`{`, mirroring
-                                            `ScopePipeline.findParentIndent`'s "true statement start"
-                                            posture, instead of just backing up one physical line.
+                                            a multi-line generic `where` clause gained one extra
+                                            indent level every round, since
+                                            `enforceWhereClausePlacement` derived the base indent
+                                            from `where`'s own (already-wrapped) physical line
+                                            instead of the true signature line. Fixed with a
+                                            `signatureLineIndent` helper that scans backward to the
+                                            nearest depth-0 `;`/`}`/`{`.
 
   real_code_regressions_48_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 3 (`ReflectiveClassInspector.kt`,
-                                            `kmAnnotations.kt`): a `when` branch's own multi-line body
-                                            (a nested `when(subject) { ... }`, or a plain
-                                            trailing-lambda call like `buildCodeBlock { ... }`) had
-                                            its closing `}` sit 2 spaces shallower on round2 than
-                                            round1. Root cause: `ScopePipeline.
-                                            findMergingWhenBranchLineStart` (RDD_KEY_152) only
-                                            recognized a bare `when {` as the merging shape --
-                                            `ReflectiveClassInspector.kt`'s subject-form
-                                            `when(kotlin) { ... }` and `kmAnnotations.kt`'s plain call
-                                            head `buildCodeBlock { ... }` both fell through
-                                            unrecognized, so their scope's indent was still computed
-                                            against the pre-merge physical line on a fresh format but
-                                            the post-merge line on a reformat. Fixed by generalizing
-                                            the lookahead to accept an optional parenthesized subject
-                                            after `when`, and to accept a plain call-head identifier
-                                            (not just the `when` keyword) as the line's first
-                                            significant token.
+                                            `square/kotlinpoet`'s Shape 3: a `when` branch's
+                                            multi-line body (nested `when(subject) { ... }` or a
+                                            trailing-lambda call) had its closing `}` sit 2 spaces
+                                            shallower on round2, since `findMergingWhenBranchLineStart`
+                                            (RDD_KEY_152) only recognized a bare `when {` as the
+                                            merging shape. Fixed by generalizing the lookahead to
+                                            accept a parenthesized `when` subject or a plain
+                                            call-head identifier.
 
   real_code_regressions_49_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 4
-                                            (`KotlinPoetMetadataSpecsTest.kt`): a `val` declaration's
-                                            alignment padding flapped on/off between rounds, gated by
-                                            an unrelated PRECEDING sibling declaration's own
-                                            initializer containing a class-literal reflection
-                                            expression (`Foo::class`). Root cause:
-                                            `TokenizerCore`'s named-construct-name tracking armed
-                                            `namedConstructKeywordSeen` on ANY `class` KEYWORD token,
-                                            including the one inside a `::class` reflection literal
-                                            (not an actual class declaration) -- with no following
-                                            `;`/`}`/`{` in between (a bare expression statement, no
-                                            semicolon), this stayed armed across the statement
-                                            boundary and wrongly captured the *next* IDENTIFIER
-                                            anywhere later in the file as `pendingNamedConstructName`,
-                                            corrupting an unrelated later scope's name (here, a
-                                            following `.first { ... }` lambda's enclosing function
-                                            wrongly treated as a named construct -- gaining a
-                                            blank-line-after-`{` and closing name comment it should
-                                            never have gotten -- which in turn perturbed the
-                                            declaration-alignment padding-exclusion logic for the
-                                            following `val` group on the next round). Fixed by adding
-                                            a guard so a Kotlin `class` KEYWORD immediately preceded
-                                            by `::` never arms `namedConstructKeywordSeen`. Also
-                                            uncovered and fixed two side bugs while root-causing this:
-                                            (1) a genuine crash (`ArrayIndexOutOfBoundsException: -1`)
-                                            in `KotlinSpecificRule.signatureLineIndent`
-                                            (RDD_KEY_164's helper) when a `where`-clause-bearing
-                                            statement sits at the very top of the file with no
-                                            preceding `;`/`}`/`{` boundary at all; (2) that same
-                                            helper's boundary-anchoring semantics need to stay
-                                            anchored on the *boundary token's own line* (the enclosing
-                                            scope's indent) rather than skip past it to the new
-                                            statement's own first token, matching
-                                            `real_code_regressions_47`'s original fix intent exactly.
+                                            `square/kotlinpoet`'s Shape 4: a `val` declaration's
+                                            alignment padding flapped between rounds because a
+                                            preceding sibling's `Foo::class` reflection literal
+                                            wrongly armed `namedConstructKeywordSeen` (which only
+                                            checks for the `class` KEYWORD, not a real class
+                                            declaration), corrupting a later unrelated scope's name
+                                            tracking. Fixed by never arming on a `class` KEYWORD
+                                            preceded by `::`. Also fixed two side bugs found while
+                                            root-causing this: an `ArrayIndexOutOfBoundsException`
+                                            in `signatureLineIndent` (RDD_KEY_164) for a
+                                            `where`-clause statement with no preceding boundary
+                                            token, and a boundary-anchoring correction matching
+                                            `real_code_regressions_47`'s original fix intent.
 
   real_code_regressions_50_inp/out.cpp   -- C++, real-code test against
                                             `ericniebler/range-v3`'s concept-emulation-macro
-                                            convention (`#define template(...) ...` /
-                                            `CPP_ret`/`CPP_member`, see `detail/prologue.hpp`):
-                                            two compile-breaking bugs. (1)
-                                            `ScopePipeline.extendOverLeadingRequiresAndTemplate`
-                                            pulled a preceding `template(...)`-spelled macro
-                                            invocation onto a declarator's line whenever a
-                                            `requires`-line sat directly above it, without
-                                            checking the `template` keyword was actually followed
-                                            by `<` (the only shape the classic `template<T>\n
-                                            requires ...\nDecl` pull is valid for) -- for
-                                            range-v3's `template(typename I)(requires ...)` macro
-                                            shape this silently glued the requires-clause's own
-                                            trailing `//` comment onto the same rendered line as
-                                            the declarator that followed, commenting out the
-                                            declarator. A second, related divergence: even after
-                                            gating the `template` pull on `<`, the `requires`-line
-                                            pull alone still glued a `//`-terminated requires line
-                                            onto the following declarator line. Fixed by adding a
-                                            `<`-check before pulling a `template` line, and by
-                                            refusing to pull a `requires` line whose own last
-                                            token (before its terminating NEWLINE) is a `//` line
-                                            comment (a `/* ... */` block comment is still safely
-                                            pulled -- it's self-terminating). (2)
-                                            `CppSpecificRule.enforceEmptyParameterList`'s C++
-                                            `IDENTIFIER(void)` -> `IDENTIFIER()` rewrite fired on
-                                            `CPP_ret(void)(requires ...)` -- a macro invocation,
-                                            not a function declarator -- deleting the macro's
-                                            `void` argument (which the macro needs to expand to
-                                            the wrapped return type) entirely. Fixed by adding a
-                                            guard: never rewrite `(void)` when the matching `)` is
-                                            immediately followed by another `(` (a shape no real
-                                            C++ empty-parameter-list declarator produces). Verified
-                                            with `g++ -std=c++20 -fsyntax-only` (tool (2)) and full
-                                            round1/round2 idempotency over range-v3's 311-file
-                                            `include/range/v3/` tree.
+                                            convention (`template(...)`/`CPP_ret`/`CPP_member`,
+                                            see `detail/prologue.hpp`): two compile-breaking bugs.
+                                            (1) `extendOverLeadingRequiresAndTemplate` pulled a
+                                            preceding `template(...)`-macro invocation onto a
+                                            declarator's line without checking for a following `<`,
+                                            gluing a `requires`-line's trailing `//` comment onto
+                                            the declarator and commenting it out; fixed by requiring
+                                            `<` before the pull and refusing to pull a `requires`
+                                            line ending in a `//` comment. (2)
+                                            `enforceEmptyParameterList`'s `IDENTIFIER(void)` ->
+                                            `IDENTIFIER()` rewrite fired on the macro invocation
+                                            `CPP_ret(void)(requires ...)`, deleting an argument the
+                                            macro needs; fixed by never rewriting `(void)` when the
+                                            matching `)` is immediately followed by another `(`.
+                                            Verified with `g++ -std=c++20 -fsyntax-only` and full
+                                            round1/round2 idempotency over range-v3's 311-file tree.
 
   real_code_regressions_51_inp/out.cpp   -- C++, follow-up to `_50`: another range-v3
-                                            compile-breaking bug, in `view/view.hpp` /
-                                            `action/action.hpp`. A `;`-terminated declaration
-                                            (not a function body) whose source spans multiple
-                                            lines each ending in its own `//` ASCII-banner
-                                            comment (a `friend ... operator|(...) ->
-                                            CPP_broken_friend_ret(Rng)( requires ...) = delete;`
-                                            deleted-overload declaration) was getting collapsed
-                                            onto one rendered line, swallowing the
-                                            `requires`/`= delete;` tail into the first `//`
-                                            comment. Root cause:
-                                            `DeclarationAlignmentRule.parseDeclaration`'s
-                                            function-pointer-detection branch (`Type
-                                            (*name)(params)`) misfired on
-                                            `CPP_broken_friend_ret(Rng)(requires ...)` -- a
-                                            concept-emulation-macro call syntactically identical
-                                            to a func-ptr's `(name)(params)` -- and that branch's
-                                            raw token capture preserves `//` line comments
-                                            verbatim, which later got flattened onto one line by
-                                            `renderTokens`/`joinVerbatim`. Fixed with a narrow
-                                            guard local to that one branch: check
-                                            `funcPtrSizeTokens` for a `COMMENT_LINE` token before
-                                            mutating any shared token, and if found, skip the
-                                            branch entirely (falling through untouched to the
-                                            generic path, whose own `->` type-token rejection
-                                            correctly returns `null` for this shape) -- narrower
-                                            than a previously tried and reverted blanket "bail on
-                                            any interior `//` comment" guard, which broke ~12
-                                            unrelated fixtures. Verified with `g++ -std=c++20
-                                            -fsyntax-only` and full round1/round2 idempotency over
-                                            range-v3's 318-file `include/range/v3/` tree (this
-                                            file does not appear in the round1-vs-round2 diff).
+                                            compile-breaking bug in `view/view.hpp`/
+                                            `action/action.hpp`. A `;`-terminated declaration whose
+                                            source spans multiple `//`-commented lines (a
+                                            `CPP_broken_friend_ret(Rng)(requires ...) = delete;`
+                                            deleted-overload) got collapsed onto one line,
+                                            swallowing the tail into the first comment, because
+                                            `parseDeclaration`'s function-pointer-detection branch
+                                            misfired on the macro call (syntactically identical to
+                                            `(name)(params)`) and its raw token capture preserved
+                                            `//` comments that later got flattened. Fixed with a
+                                            narrow guard: skip that branch when a `COMMENT_LINE`
+                                            token is present, falling through to the generic path.
+                                            Verified with `g++ -std=c++20 -fsyntax-only` and full
+                                            round1/round2 idempotency over range-v3's 318-file tree.
 
   real_code_regressions_52_inp/out.cpp   -- C++, boost-ext/ut idempotency bug: a C++20
-                                            deduction-guide statement (`test(...) ->
-                                            test<Test, TArg>;`, itself getting re-broken across
-                                            lines by `enforceCallLineBreaking`) immediately
-                                            followed by an unrelated `struct suite { ... };`
-                                            caused `CppSpecificRule.enforceFunctionDefinition
-                                            AllmanBraceStyle`'s `findCloseParenBeforeTrailing
-                                            ReturnType` backward scan to cross the `;` statement
-                                            boundary between them and misidentify the deduction
-                                            guide's own `test(...)` close-paren as `struct
-                                            suite`'s "function close paren", Allman-converting the
-                                            struct's brace onto its own line with a bogus
-                                            indent derived from deep inside the unrelated prior
-                                            statement -- a later K&R re-collapse pass on the next
-                                            format pass then joined it back, producing a stable
-                                            round1-vs-round2 diff. Fixed by making both
-                                            `findCloseParenBeforeTrailingReturnType` and
-                                            `findCloseParenBeforeRequiresClause`'s backward scans
-                                            stop (return -1) at a depth-0 `;`, not just `{`/`}`.
-                                            Verified with a minimal standalone repro and full
-                                            `make test` (71/71 forward + idempotency, no
-                                            regressions).
+                                            deduction-guide statement immediately followed by an
+                                            unrelated `struct suite { ... };` caused
+                                            `enforceFunctionDefinitionAllmanBraceStyle`'s backward
+                                            close-paren scan to cross the `;` boundary and
+                                            misidentify the deduction guide's close-paren as the
+                                            struct's own, Allman-converting its brace with a bogus
+                                            indent that a later K&R re-collapse then joined back --
+                                            a stable round1-vs-round2 diff. Fixed by making both
+                                            backward close-paren scans stop at a depth-0 `;`, not
+                                            just `{`/`}`. Verified with a minimal repro and full
+                                            `make test` (71/71, no regressions).
 
 How Tests Are Run
 -----------------

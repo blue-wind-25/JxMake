@@ -360,6 +360,15 @@ still available via `git log`/`git show` on the noted commits/fixtures.
     format with `#line` directives stripped first (they legitimately shift with line-count
     changes); plain `gcc -E`/`cpp` does NOT work as a substitute (hard-errors on real `##`
     token-pasting tricks)
+(6) `java_sc` — AST-based syntax-only checker. Used when a full javac is not wanted/needed
+    (dependency problem) — catches parse errors only, weaker confidence than (4) (no semantic/type
+    checking). Build/run commands:
+```bash
+JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
+"$JDK/bin/javac" java_sc.java
+"$JDK/bin/java" java_sc <file.kt>
+```
 
 **Finished dogfood / real-code testing**
 (1) `blake-madden/tinyexpr-plusplus` (C++20) — 3 bugs in `MiscRule`'s multi-line

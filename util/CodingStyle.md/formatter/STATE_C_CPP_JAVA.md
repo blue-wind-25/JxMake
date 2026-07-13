@@ -145,7 +145,32 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Open Questions
 
-*(none)*
+- **range-v3 real-code-testing item 20, bug (a):** idempotency divergence found in
+  `utility/any.hpp`, `iterator/common_iterator.hpp`, and (newly confirmed in a follow-up
+  full-tree round1/round2 verification pass) `meta.hpp` — none of these reproduce in any
+  minimal repro attempted (only the full real files trigger it, suggesting a cumulative/
+  stateful cross-declaration-group interaction). Two symptoms seen: (1) a nested
+  template-argument angle bracket (`meta::if_c<std::is_reference<T>() || copyable<T>, T>`)
+  fails to converge tight/loose spacing between round1 and round2; (2) a closing-brace-plus-
+  trailing-comment line (e.g. `}; // namespace ranges`, `}; // struct partition_`,
+  `}; // namespace detail`) renders at a different indentation level between round1 and
+  round2. Root-cause lead for (1): `TokenizerCore.reclassifyAngleBrackets`/
+  `isGenericSafeToken`'s forward-scanning stack calls `invalidateAll(openStack)` (poisoning
+  all currently-open angle-bracket-stack entries) whenever a non-"generic-safe" token is seen
+  while the stack is non-empty; `||`/`&&`/`!` are not in `isGenericSafeToken`'s OP whitelist,
+  so a boolean trait expression like `std::is_reference<T>() || copyable<T>` inside a
+  `meta::if_c<...>` non-type template argument poisons the outer `<...>` pair. Tried: adding
+  `||`/`&&`/`!` to `isGenericSafeToken`'s OP case — rebuilt and ran `make test` (70/70 forward
+  + 70/70 idempotency, no regressions to existing fixtures), but this did NOT fix the
+  divergence — it only changed which round showed tight vs. loose spacing, round1 still != round2.
+  Reverted (`git checkout -- src/com/jxmake/formatter/tokenizer/TokenizerCore.java`) rather than
+  leave an unproven, only-partially-effective change in a correctness-sensitive tokenizer
+  heuristic. Symptom (2) (the brace/comment indentation divergence) has not yet been
+  root-caused at all. Per the ambiguity-handling protocol, stopping here rather than guessing
+  further — needs a fresh investigation session (likely tracing how angle-bracket
+  classification and brace/scope-depth tracking each depend on retokenized-text state that
+  itself differs between a first format and a reformat-of-already-formatted-output, which is
+  the general shape both symptoms share).
 
 ---
 
@@ -500,29 +525,34 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
      matching `)` is immediately followed by another `(`. Verified with (2)
      (`view/iota.hpp`/`detail/variant.hpp` before/after error counts now match baseline) and full
      round1/round2 idempotency over the whole 311-file tree. Config: default. Fixture:
-     `real_code_regressions_50`. Known unresolved (NOT fixed, left for a follow-up session —
-     each is architecturally deeper than a local guard and a rushed fix regressed ~12 unrelated
-     `make test` fixtures when attempted, see below): (a) `utility/any.hpp`/
-     `iterator/common_iterator.hpp` — idempotency divergence: a nested template-argument angle
-     bracket (`meta::if_c<std::is_reference<T>() || ...>`) fails to converge tight/loose spacing
-     between round1 and round2, and a `// namespace ranges` trailing comment gets detached from
-     its true closing brace (end of file) and reattached to an earlier, unrelated closing `};`
-     mid-file — likely a brace/scope-depth tracking corruption from an earlier unusual
-     macro/angle-bracket shape in the same file, not yet root-caused. (b) `view/view.hpp` /
-     `action/action.hpp` — compile-breaking: a declaration ending in `;` (not a function body)
-     whose original source spans multiple lines each deliberately ending in its own `//`
-     ASCII-banner comment (e.g. a `friend ... operator|(...) -> CPP_broken_friend_ret(...)(
-     requires ...) = delete;` deleted-overload declaration) still gets collapsed onto one
-     rendered line elsewhere in `DeclarationAlignmentRule`'s multi-line-declaration join path
-     (a different code path than the two fixed bugs above, and not the same as the already-fixed
-     `MiscRule.parseSignature` leadTokens case — that guard doesn't cover semicolon-terminated
-     declarations), silently swallowing the `requires`/`= delete;` tail into the first `//`
-     comment. A blanket "bail if any interior `//` comment" guard in
-     `DeclarationAlignmentRule.parseDeclaration` was tried and reverted — it broke ~12 unrelated
-     `make test` fixtures (ordinary multi-line declarations with legitimate per-line trailing
-     comments rely on that same join path rendering correctly). Needs a narrower, correctly
-     targeted fix in a future session, not attempted further here to avoid another rushed
-     regression.
+     `real_code_regressions_50`. Follow-up session resolved bug (b) below with a narrow,
+     verified guard; bug (a) remains open and is now tracked in **Open Questions** (also found
+     to additionally affect `meta.hpp`, not just `any.hpp`/`common_iterator.hpp`). (a) OPEN —
+     see Open Questions. (b) RESOLVED — `view/view.hpp` / `action/action.hpp` compile-breaking
+     bug: a declaration ending in `;` (not a function body) whose original source spans multiple
+     lines each deliberately ending in its own `//` ASCII-banner comment (e.g. a `friend ...
+     operator|(...) -> CPP_broken_friend_ret(...)( requires ...) = delete;` deleted-overload
+     declaration) was getting collapsed onto one rendered line. Root cause:
+     `DeclarationAlignmentRule.parseDeclaration`'s function-pointer-detection branch (the
+     `Type (*name)(params)` shape) misfired on this concept-emulation-macro call shape
+     (`CPP_broken_friend_ret(Rng)(requires ...)` is syntactically identical to a func-ptr's
+     `(name)(params)`), and that branch's `rawSliceBetween`-based token capture preserves raw
+     `COMMENT_LINE` tokens verbatim, which later got flattened onto one rendered line by
+     `renderTokens`/`joinVerbatim`, silently swallowing the `requires`/`= delete;` tail into the
+     first `//` comment. Fixed with a narrow guard local to that one branch only (not the blanket
+     "bail if any interior `//` comment" guard tried previously, which broke ~12 unrelated
+     `make test` fixtures by also catching ordinary multi-line declarations with legitimate
+     per-line trailing comments): scan `funcPtrSizeTokens` for a `COMMENT_LINE` token *before*
+     mutating `nameToken.text`, and if found, skip the func-ptr branch entirely (falling through,
+     with the statement's tokens left completely untouched, to the generic parsing path, whose
+     own `->` type-token rejection check correctly returns `null` for this shape). A second,
+     narrower defense-in-depth guard was also added on the generic path's own
+     `sizeTokens`/`initTokens` in case some other shape ever reaches it with a raw-sliced
+     comment-carrying token list. Verified with (2) (minimal repro, byte-for-byte correct and
+     idempotent) and `make test` (70/70 forward + 70/70 idempotency, zero regressions), and with
+     a full round1/round2 idempotency pass over the whole 318-file tree — `view.hpp`/`action.hpp`
+     do not appear in the round1-vs-round2 diff, confirming zero regressions tree-wide. Config:
+     default. Fixture: `real_code_regressions_51`.
 
 **Not started dogfood / real-code testing**
 (1) `github.com/boost-ext/ut` — Kris Jusiak's single-header C++20 micro unit-testing

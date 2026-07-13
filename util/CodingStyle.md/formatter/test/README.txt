@@ -730,6 +730,39 @@ Real-code regressions:
                                             round1/round2 idempotency over range-v3's 311-file
                                             `include/range/v3/` tree.
 
+  real_code_regressions_51_inp/out.cpp   -- C++, follow-up to `_50`: another range-v3
+                                            compile-breaking bug, in `view/view.hpp` /
+                                            `action/action.hpp`. A `;`-terminated declaration
+                                            (not a function body) whose source spans multiple
+                                            lines each ending in its own `//` ASCII-banner
+                                            comment (a `friend ... operator|(...) ->
+                                            CPP_broken_friend_ret(Rng)( requires ...) = delete;`
+                                            deleted-overload declaration) was getting collapsed
+                                            onto one rendered line, swallowing the
+                                            `requires`/`= delete;` tail into the first `//`
+                                            comment. Root cause:
+                                            `DeclarationAlignmentRule.parseDeclaration`'s
+                                            function-pointer-detection branch (`Type
+                                            (*name)(params)`) misfired on
+                                            `CPP_broken_friend_ret(Rng)(requires ...)` -- a
+                                            concept-emulation-macro call syntactically identical
+                                            to a func-ptr's `(name)(params)` -- and that branch's
+                                            raw token capture preserves `//` line comments
+                                            verbatim, which later got flattened onto one line by
+                                            `renderTokens`/`joinVerbatim`. Fixed with a narrow
+                                            guard local to that one branch: check
+                                            `funcPtrSizeTokens` for a `COMMENT_LINE` token before
+                                            mutating any shared token, and if found, skip the
+                                            branch entirely (falling through untouched to the
+                                            generic path, whose own `->` type-token rejection
+                                            correctly returns `null` for this shape) -- narrower
+                                            than a previously tried and reverted blanket "bail on
+                                            any interior `//` comment" guard, which broke ~12
+                                            unrelated fixtures. Verified with `g++ -std=c++20
+                                            -fsyntax-only` and full round1/round2 idempotency over
+                                            range-v3's 318-file `include/range/v3/` tree (this
+                                            file does not appear in the round1-vs-round2 diff).
+
 How Tests Are Run
 -----------------
 

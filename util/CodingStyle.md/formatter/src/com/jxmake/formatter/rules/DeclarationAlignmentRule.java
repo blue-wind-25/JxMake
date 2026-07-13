@@ -1134,20 +1134,45 @@ public class DeclarationAlignmentRule {
                     }
                     if (isFuncPtrName) {
                         final Token nameToken = inner.get(inner.size() - 1);
-                        final StringBuilder wrapped = new StringBuilder("(");
-                        for (int k = 0; k < inner.size() - 1; k++) {
-                            wrapped.append(inner.get(k).text);
-                        }
-                        wrapped.append(nameToken.text).append(')');
-                        nameToken.text = wrapped.toString();
                         final List<Token> funcPtrTypeTokens = new ArrayList<>(body.subList(i, nameOpenIdx));
                         if (!funcPtrTypeTokens.isEmpty()) {
                             final List<Token> rawParams = rawSliceBetween(stmt,
                                     body.get(paramsOpenIdx), body.get(end - 1));
                             final List<Token> funcPtrSizeTokens = new ArrayList<>(
                                     rawParams != null ? rawParams : body.subList(paramsOpenIdx, end));
-                            return new Declaration(modifiers, funcPtrTypeTokens, nameToken, funcPtrSizeTokens,
-                                    initTokens, new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix);
+                            // This "two adjacent parenthesized groups" shape also matches a C++
+                            // concept-emulation macro call whose own args happen to look like a
+                            // function-pointer's `(name)(params)` (e.g. range-v3's
+                            // `CPP_broken_friend_ret(Rng)(requires ...)`), not a real function
+                            // pointer -- rawParams there is a raw (comment-carrying) slice of a
+                            // multi-line `//`-commented requires-clause, and this class only has a
+                            // one-rendered-line render path for it (renderTokens/joinVerbatim
+                            // downstream would flatten every interior `//` comment onto that one
+                            // line, silently swallowing the rest of the declaration into it -- a
+                            // `/* ... */` block comment is self-terminating and safe, so only
+                            // COMMENT_LINE disqualifies). Checked (and, on failure, left completely
+                            // untouched -- including nameToken.text below, which must stay unmutated
+                            // -- falling through to the generic path, whose own checks such as the
+                            // `->` type-token rejection are what actually catch this shape) before
+                            // any mutation happens, so a disqualified statement is never partially
+                            // rewritten.
+                            boolean hasLineComment = false;
+                            for (final Token t : funcPtrSizeTokens) {
+                                if (t.type == TokenType.COMMENT_LINE) {
+                                    hasLineComment = true;
+                                    break;
+                                }
+                            }
+                            if (!hasLineComment) {
+                                final StringBuilder wrapped = new StringBuilder("(");
+                                for (int k = 0; k < inner.size() - 1; k++) {
+                                    wrapped.append(inner.get(k).text);
+                                }
+                                wrapped.append(nameToken.text).append(')');
+                                nameToken.text = wrapped.toString();
+                                return new Declaration(modifiers, funcPtrTypeTokens, nameToken, funcPtrSizeTokens,
+                                        initTokens, new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix);
+                            }
                         }
                     }
                 }
@@ -1258,6 +1283,24 @@ public class DeclarationAlignmentRule {
             return null; // e.g. a bare `++`/`--`/`!` prefix -- not a type, not a declaration
         }
 
+        // sizeTokens/initTokens get flattened verbatim by renderTokens (space-joined, on one
+        // rendered line) -- a `//` line comment landing inside either (e.g. a multi-line C++
+        // trailing-return-type/requires-clause declaration with its own per-line ASCII-banner
+        // `//` comments, range-v3's `CPP_broken_friend_ret(Rng)(requires ...) = delete;` shape)
+        // would otherwise get silently swallowed into that one joined line, corrupting everything
+        // after it on the same rendered line into commented-out text. A `/* ... */` block comment
+        // is self-terminating and safe to flatten this way, so only COMMENT_LINE bails here.
+        // trailingComment itself (already pulled out separately, rendered on its own) is exempt.
+        for (final Token t : sizeTokens) {
+            if (t.type == TokenType.COMMENT_LINE && t != trailingComment) {
+                return null;
+            }
+        }
+        for (final Token t : initTokens) {
+            if (t.type == TokenType.COMMENT_LINE && t != trailingComment) {
+                return null;
+            }
+        }
         return new Declaration(modifiers, typeTokens, name, sizeTokens, initTokens,
                 new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix);
     }

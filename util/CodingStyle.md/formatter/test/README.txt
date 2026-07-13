@@ -636,6 +636,26 @@ Real-code regressions:
                                             `ScopePipeline.findParentIndent`'s "true statement start"
                                             posture, instead of just backing up one physical line.
 
+  real_code_regressions_48_inp/out.kt    -- Kotlin, real-code idempotency test against
+                                            `square/kotlinpoet`'s Shape 3 (`ReflectiveClassInspector.kt`,
+                                            `kmAnnotations.kt`): a `when` branch's own multi-line body
+                                            (a nested `when(subject) { ... }`, or a plain
+                                            trailing-lambda call like `buildCodeBlock { ... }`) had
+                                            its closing `}` sit 2 spaces shallower on round2 than
+                                            round1. Root cause: `ScopePipeline.
+                                            findMergingWhenBranchLineStart` (RDD_KEY_152) only
+                                            recognized a bare `when {` as the merging shape --
+                                            `ReflectiveClassInspector.kt`'s subject-form
+                                            `when(kotlin) { ... }` and `kmAnnotations.kt`'s plain call
+                                            head `buildCodeBlock { ... }` both fell through
+                                            unrecognized, so their scope's indent was still computed
+                                            against the pre-merge physical line on a fresh format but
+                                            the post-merge line on a reformat. Fixed by generalizing
+                                            the lookahead to accept an optional parenthesized subject
+                                            after `when`, and to accept a plain call-head identifier
+                                            (not just the `when` keyword) as the line's first
+                                            significant token.
+
 How Tests Are Run
 -----------------
 

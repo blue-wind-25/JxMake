@@ -44,13 +44,9 @@ are very long, and `-A` context will flood output unnecessarily.
      active checklist.
   2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
   3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -S -m "<message>"` — short descriptive message, no strict
+  4. `git commit -m "<message>"` — short descriptive message, no strict
      format required, trailer ending with
-     `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`. **Note:** in
-     an agent/sandbox shell with no real tty, `gpg` fails with `cannot open
-     /dev/tty` even though `-S` works fine from an interactive shell — if
-     `git commit -S` fails with that specific gpg/tty error, drop `-S` for
-     that commit rather than retrying indefinitely.
+     `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - Small related items within a section may be grouped into one commit if they
   are trivially connected — use judgment based on line count (~50 lines
   threshold).

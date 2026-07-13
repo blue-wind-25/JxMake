@@ -128,11 +128,12 @@ INP_FILES += real_code_regressions_44_inp.kt
 INP_FILES += real_code_regressions_45_inp.kt
 INP_FILES += real_code_regressions_46_inp.kt
 INP_FILES += real_code_regressions_47_inp.kt
+INP_FILES += real_code_regressions_48_inp.kt
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
-# git push && svn commit -m 'Follow GIT changes' && svn stat && git status
+# git push && svn commit -m 'Follow GIT changes' && echo && git status && echo && svn stat && echo
 # clear && git status && echo && svn stat && echo
 
 # make test

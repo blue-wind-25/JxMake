@@ -148,6 +148,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_161 | Continued `Kotlin/kotlinx.coroutines` idempotency investigation, `BufferedChannel.kt`'s bare `}` closing-brace drift (1 of the 2 files RDD_KEY_160 left open), confirmed unrelated to RDD_KEY_159's named-scope fix since the surrounding scopes are all unnamed lambda bodies: root cause is in `ScopePipeline.findParentIndent`, not `processScope` -- `splitTopLevelSpans` extracts a braceless `if (...) { ... } else expr` statement's braced `if`-branch as its own top-level span, leaving the braceless `else expr` as dangling leading text at the START of the NEXT real span rather than a genuine statement; `findParentIndent`'s backward scan (bounded by that next span's own `span.start`) defaulted its anchor onto this dangling `else`, which only returned a real (wrong) indent once a LATER phase's re-alignment happened to put it alone on its own physical line (round2 only, explaining the idempotency-only nature of the bug). **Fix**: when the anchor found is itself a dangling `else`/`catch`/`finally` keyword, skip forward past its one-line body to the next real statement before deriving the indent; Kotlin-gated (`lang.isKotlin`). A broader statement-boundary heuristic (any depth-0 NEWLINE followed by a declaration-starter keyword) was tried first, also fixed this file, but regressed `real_code_regressions_33` (an unrelated, deliberately misindented nested `interface` header) -- reverted in favor of the narrower dangling-keyword-only fix. New `test/real_code_regressions_44_inp.kt`/`_out.kt`. `make test`: 63/63 before, 64/64 after. `ChannelFlow.kt` remains open, unrelated shape (declaration-alignment padding-width flap, not a closing-brace issue). |
 | RDD_KEY_163 | **RESOLVES `square/kotlinpoet`'s Shape 1 idempotency gap (6 of the 10 open files)** -- two distinct `MiscRule.enforceCallLineBreaking` bugs: Bug A (`MemberSpecHolder.kt`) fixed via new depth-aware `effectiveLineEndIndex` (a nested already-wrapped call inside an expression-bodied signature's untouched tail text was undercounting the true line width on a reformat, flipping the wrap verdict); Bug B (`CodeWriter.kt`/`LambdaTypeName.kt`/`ParameterizedTypeName.kt`/`TypeVariableName.kt`/`WildcardTypeName.kt`, also **resolves RDD_KEY_149's originally-deferred `square/okio` bug**) fixed via new `isKotlinReturnTypeThenBlockBody` lookahead extending the true-signature exemption to a `: ReturnType {` tail (previously only a bare `{` was recognized), stopping this pass from re-wrapping an already-correctly-rendered signature as a plain untyped call and discarding its column padding/trailing comma. New `test/real_code_regressions_46_inp.kt`/`_out.kt`. `make test`: 65/65 before, 66/66 after. All 6 Shape-1 files + a fresh full-125-file re-run confirmed clean; 4 files remain open (Shapes 2/3/4, unrelated). |
 | RDD_KEY_164 | **RESOLVES `square/kotlinpoet`'s Shape 2 idempotency gap** (`AbstractTypesTest.kt`'s `Parameterized<...> where ...` headerless generic class): `KotlinSpecificRule.enforceWhereClausePlacement` derived the wrapped `where` clause's base indent from `where`'s own current physical line, which on a reformat is already the previously-wrapped line -- one level deeper than the true signature indent, compounding an extra indent level per round. **Fix**: new `signatureLineIndent` helper mirroring `ScopePipeline.findParentIndent`'s "true statement start" posture (backward scan tracking paren/bracket/angle-bracket depth to the nearest depth-0 `;`/`}`/`{`) instead of `lineStartIndex`'s "back up one physical line", which lands on a generic parameter list's own continuation line once already wrapped. New `test/real_code_regressions_47_inp.kt`/`_out.kt`. `make test`: 66/66 before, 67/67 after. Confirmed clean against the real `AbstractTypesTest.kt` file. Shapes 3/4 remain open. |
+| RDD_KEY_165 | **RESOLVES `square/kotlinpoet`'s Shape 3 idempotency gap** (2 files: `ReflectiveClassInspector.kt`'s subject-form `when(kotlin) { ... }`, `kmAnnotations.kt`'s plain trailing-lambda call `buildCodeBlock { ... }`, both used as a `when` branch's own multi-line body): `ScopePipeline.findMergingWhenBranchLineStart` (RDD_KEY_152) only recognized a bare `when {` line as the shape `KotlinSpecificRule.formatWhenExpressions`'s later arrow-merge pass folds onto the preceding branch-label line -- generalized the lookahead to accept an optional parenthesized subject after `when`, and a plain call-head identifier (not just the `when` keyword). New `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67 before, 68/68 after. Confirmed clean against both real files plus a fresh full-125-file re-run (only Shape 4 remains). |
 | RDD_KEY_162 | **RESOLVES RDD_KEY_161's last open question**, `ChannelFlow.kt`'s declaration-alignment padding-width flap -- the final file of the 10-file `kotlinx.coroutines` idempotency investigation. `KotlinDeclarationAlignmentRule.renderAlignedGroup` padded typeless `countOrElement` out to match sibling `emitRef`'s type-column width, widening `emitRef`'s own line enough that a later pass wrapped its brace-bodied lambda initializer; re-parsing the resulting multi-line initializer next pass correctly bailed `emitRef` out of its group via `spansMultipleLines`'s brace-depth check, collapsing `countOrElement`'s padding -- an inverted instance of the "later phase invalidates an earlier phase's physical-shape decision" family (RDD_KEY_136/152/158/159/160/161), here the *early* alignment phase destabilizing a *later* wrap phase. **Fix**: indent-width/line-length-limit awareness plumbed into `renderAlignedGroup` (new indent-width-aware constructor, `DeclarationAlignmentRule.lineLengthLimit` loosened protected, `ScopePipeline` threads `depth` through the declarations pass); a fixed-point loop excludes a row from the shared column grid only when its group-aligned width overflows the budget AND its initializer is brace-bodied (new `hasBraceBodiedInit` -- the only shape `spansMultipleLines` can ever bail on; a plain call/expression initializer, no matter how long, is never excluded since any future wrap of it lands inside parens only, already handled idempotently by RDD_KEY_135's carve-out -- confirmed via `real_code_regressions_18`, which an overflow-only or solo-width-only first attempt wrongly regressed). New `test/real_code_regressions_45_inp.kt`/`_out.kt`. `make test`: 64/64 before, 65/65 after. All 9 previously-fixed files re-verified clean; `ChannelFlow.kt` itself now round1-vs-round2 clean. Closes the entire `kotlinx.coroutines` idempotency investigation. |
 
 ---
@@ -670,9 +671,16 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    root-caused and resolved -- RDD_KEY_164, a `KotlinSpecificRule.
    enforceWhereClausePlacement` base-indent bug. New
    `test/real_code_regressions_47_inp.kt`/`_out.kt`. `make test`: 66/66
-   before, 67/67 after. Confirmed clean against the real file. **3 files
-   remain non-idempotent** (Shapes 3/4 — `ReflectiveClassInspector.kt`,
-   `kmAnnotations.kt`, `KotlinPoetMetadataSpecsTest.kt`).
+   before, 67/67 after. Confirmed clean against the real file. Shape 3 (2
+   files, `ReflectiveClassInspector.kt`/`kmAnnotations.kt`) also fully
+   root-caused and resolved in the same session -- RDD_KEY_165, a
+   `ScopePipeline.findMergingWhenBranchLineStart` gap (only recognized a
+   bare `when {` line, not a subject-form `when(subject) {` or a plain
+   call-head trailing lambda like `buildCodeBlock {`). New
+   `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67
+   before, 68/68 after. Confirmed clean against both real files plus a
+   fresh full-125-file re-run. **1 file remains non-idempotent** (Shape 4 —
+   `KotlinPoetMetadataSpecsTest.kt`).
 
 **Not started dogfood / real-code testing**
 1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
@@ -693,12 +701,13 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    `square/kotlinpoet`'s Shape 1 Bug B is the identical mechanism RDD_KEY_149
    described (signature param column-alignment/trailing-comma lost after
    splice-back) — see RDD_KEY_163.
-4. **`square/kotlinpoet`'s remaining 3-file idempotency gap** (IN PROGRESS) —
+4. **`square/kotlinpoet`'s remaining 1-file idempotency gap** (IN PROGRESS) —
    Shape 1 (6 files) resolved via RDD_KEY_163, Shape 2 (`AbstractTypesTest.kt`)
-   resolved via RDD_KEY_164; Shapes 3/4 (3 files: `ReflectiveClassInspector.kt`,
-   `kmAnnotations.kt`, `KotlinPoetMetadataSpecsTest.kt`) confirmed
-   non-compile-breaking, still not root-caused. Full evidence in **In progress
-   dogfood / real-code testing details** below.
+   resolved via RDD_KEY_164, Shape 3 (`ReflectiveClassInspector.kt`/
+   `kmAnnotations.kt`) resolved via RDD_KEY_165; Shape 4 (1 file:
+   `KotlinPoetMetadataSpecsTest.kt`) confirmed non-compile-breaking, still not
+   root-caused. Full evidence in **In progress dogfood / real-code testing
+   details** below.
 
 **In progress dogfood / real-code testing details**
 
@@ -798,14 +807,26 @@ sorted into four distinct shapes:
   line. New `test/real_code_regressions_47_inp.kt`/`_out.kt`. `make test`:
   66/66 before, 67/67 after. Confirmed clean against the real
   `AbstractTypesTest.kt` file.
-- **Shape 3 (2 files: `ReflectiveClassInspector.kt`, `kmAnnotations.kt`)**
-  — a lone closing `}` (one plain, one `} // when kotlin`) sits 2 spaces
-  shallower on round2 than round1. Same surface symptom as the
-  closing-brace-indent-drift family RDD_KEY_159/161 fixed for
-  `kotlinx.coroutines`, but neither of those fixes' specific trigger
-  conditions (named-scope header wrap, dangling braceless
-  `else`/`catch`/`finally`) were confirmed present here — not root-caused,
-  just flagged as plausibly-related.
+- **Shape 3 (2 files: `ReflectiveClassInspector.kt`, `kmAnnotations.kt`) —
+  RESOLVED 2026-07-14, RDD_KEY_165.** A lone closing `}` (one plain, one
+  `} // when kotlin`) sat 2 spaces shallower on round2 than round1. Root
+  cause: `ScopePipeline.findMergingWhenBranchLineStart` (RDD_KEY_152) only
+  recognized a bare `when {` line as the shape
+  `KotlinSpecificRule.formatWhenExpressions`'s later arrow-merge pass folds
+  onto the preceding branch-label line -- `ReflectiveClassInspector.kt`'s
+  subject-form `when(kotlin) { ... }` (extra `(...)` before the brace) and
+  `kmAnnotations.kt`'s plain call head `buildCodeBlock { ... }` (no `when`
+  keyword at all, just a trailing-lambda call as a `when` branch's whole
+  body) both fell through unrecognized, so the nested scope's indent was
+  computed against the pre-merge physical line on a fresh format but the
+  post-merge line on a reformat. Fixed by generalizing the lookahead to
+  accept an optional balanced `(...)` span after `when` (subject form), and
+  to accept a plain `IDENTIFIER` as the line's head token (not just the
+  `when` keyword), keeping the existing "immediately followed by the open
+  brace" and "preceding line ends in a top-level `->`" guards unchanged.
+  New `test/real_code_regressions_48_inp.kt`/`_out.kt`. `make test`: 67/67
+  before, 68/68 after. Confirmed clean against both real files plus a
+  fresh full-125-file re-run (only Shape 4 remains).
 - **Shape 4 (1 file: `KotlinPoetMetadataSpecsTest.kt`)** — a `val`
   declaration-alignment padding flap: `val fooAliasData    = ...` is padded
   to match a sibling's column round1, unpadded round2 (`val fooAliasData =

@@ -700,12 +700,16 @@ public class ScopePipeline {
     }
 
     /** If {@code openBrace}'s own physical line (whose leading NEWLINE is {@code ownLineNewline})
-     *  consists of nothing but a bare `when {` (i.e. {@code openBrace} is a nested `when`
-     *  expression used as a `when` branch's body), and the immediately preceding physical line
-     *  ends with a top-level `->`, returns the index of the NEWLINE that starts THAT preceding
-     *  line (the branch label's own line) -- the line the two will be merged onto by
+     *  consists of nothing but a bare `when {`/`when(subject) {` (a nested `when` expression used
+     *  as a `when` branch's body) OR a plain trailing-lambda call head (`identifier(...)? {`, e.g.
+     *  `buildCodeBlock {`), and the immediately preceding physical line ends with a top-level
+     *  `->`, returns the index of the NEWLINE that starts THAT preceding line (the branch label's
+     *  own line) -- the line the two will be merged onto by
      *  {@code KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass, later in the same
-     *  pipeline. Returns -1 if the shape doesn't match. */
+     *  pipeline. Returns -1 if the shape doesn't match. The plain-call-head case covers a `when`
+     *  branch whose body is a call with only a trailing lambda, no other body content
+     *  (`kmAnnotations.kt`'s `is ArrayKClassValue -> \n  buildCodeBlock { ... }`), same merge
+     *  mechanism as the `when`-only case originally handled. */
     private int findMergingWhenBranchLineStart(final List<Token> tokens, final int ownLineNewline,
             final int openBrace) {
         if (!lang.isKotlin || ownLineNewline < 0) {
@@ -715,19 +719,48 @@ public class ScopePipeline {
         while (j < tokens.size() && tokens.get(j).type == TokenType.WHITESPACE) {
             j++;
         }
-        if (j >= openBrace || tokens.get(j).type != TokenType.KEYWORD || !"when".equals(tokens.get(j).text)) {
+        if (j >= openBrace) {
+            return -1;
+        }
+        final Token head = tokens.get(j);
+        final boolean isWhenHead = head.type == TokenType.KEYWORD && "when".equals(head.text);
+        final boolean isCallHead = head.type == TokenType.IDENTIFIER;
+        if (!isWhenHead && !isCallHead) {
             return -1;
         }
         int k = j + 1;
         while (k < openBrace && tokens.get(k).type == TokenType.WHITESPACE) {
             k++;
         }
+        // A subject-form `when(subject) { ... }` has a parenthesized subject expression between
+        // the keyword and the brace -- skip a balanced `(...)` span before checking for the
+        // brace, same shape as bare `when { ... }` otherwise (RDD_KEY_152 originally only handled
+        // the subject-less form; `ReflectiveClassInspector.kt`'s `when(kotlin) { ... }` nested
+        // inside a `when` branch surfaced this gap).
+        if (k < openBrace && isPunct(tokens.get(k), "(")) {
+            int depth = 0;
+            while (k < openBrace) {
+                if (isPunct(tokens.get(k), "(")) {
+                    depth++;
+                } else if (isPunct(tokens.get(k), ")")) {
+                    depth--;
+                    if (depth == 0) {
+                        k++;
+                        break;
+                    }
+                }
+                k++;
+            }
+            while (k < openBrace && tokens.get(k).type == TokenType.WHITESPACE) {
+                k++;
+            }
+        }
         if (k != openBrace) {
             return -1;
         }
         // `when` is the first significant token on its own line, immediately followed (modulo
-        // whitespace) by `openBrace` itself -- now check the preceding physical line ends with a
-        // top-level `->`.
+        // whitespace, or an optional parenthesized subject expression) by `openBrace` itself --
+        // now check the preceding physical line ends with a top-level `->`.
         int p = ownLineNewline - 1;
         while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
             p--;

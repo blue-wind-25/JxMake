@@ -1199,6 +1199,21 @@ public class MiscRule {
         }
 
         final List<Token> leadTokens = new ArrayList<>(sig.subList(0, nameIdx));
+        // A `//` line comment anywhere among the return-type/qualifier lead tokens (e.g. a
+        // multi-line signature where each original line deliberately ends in its own `//`
+        // banner/decoration comment) can never be safely rendered here -- the renderer joins
+        // `leadTokens` followed by `name`/`(`/params onto one text stream with no
+        // per-line-comment awareness, so anything after the *first* such comment would be
+        // silently swallowed into it (a compile-breaking corruption, not just a missed
+        // reformat -- reproduced by range-v3's `view/view.hpp` `operator|` deleted-overload
+        // ASCII-banner-commented declaration). Bail out and leave the whole declaration
+        // untouched rather than risk that; a block comment (`/* ... */`) is self-terminating and
+        // stays safe to join.
+        for (final Token lt : leadTokens) {
+            if (lt.type == TokenType.COMMENT_LINE) {
+                return null;
+            }
+        }
         final Token name = sig.get(nameIdx);
         final List<Token> paramsSlice = sig.subList(openParen + 1, closeParen);
 

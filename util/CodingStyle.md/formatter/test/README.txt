@@ -692,6 +692,44 @@ Real-code regressions:
                                             statement's own first token, matching
                                             `real_code_regressions_47`'s original fix intent exactly.
 
+  real_code_regressions_50_inp/out.cpp   -- C++, real-code test against
+                                            `ericniebler/range-v3`'s concept-emulation-macro
+                                            convention (`#define template(...) ...` /
+                                            `CPP_ret`/`CPP_member`, see `detail/prologue.hpp`):
+                                            two compile-breaking bugs. (1)
+                                            `ScopePipeline.extendOverLeadingRequiresAndTemplate`
+                                            pulled a preceding `template(...)`-spelled macro
+                                            invocation onto a declarator's line whenever a
+                                            `requires`-line sat directly above it, without
+                                            checking the `template` keyword was actually followed
+                                            by `<` (the only shape the classic `template<T>\n
+                                            requires ...\nDecl` pull is valid for) -- for
+                                            range-v3's `template(typename I)(requires ...)` macro
+                                            shape this silently glued the requires-clause's own
+                                            trailing `//` comment onto the same rendered line as
+                                            the declarator that followed, commenting out the
+                                            declarator. A second, related divergence: even after
+                                            gating the `template` pull on `<`, the `requires`-line
+                                            pull alone still glued a `//`-terminated requires line
+                                            onto the following declarator line. Fixed by adding a
+                                            `<`-check before pulling a `template` line, and by
+                                            refusing to pull a `requires` line whose own last
+                                            token (before its terminating NEWLINE) is a `//` line
+                                            comment (a `/* ... */` block comment is still safely
+                                            pulled -- it's self-terminating). (2)
+                                            `CppSpecificRule.enforceEmptyParameterList`'s C++
+                                            `IDENTIFIER(void)` -> `IDENTIFIER()` rewrite fired on
+                                            `CPP_ret(void)(requires ...)` -- a macro invocation,
+                                            not a function declarator -- deleting the macro's
+                                            `void` argument (which the macro needs to expand to
+                                            the wrapped return type) entirely. Fixed by adding a
+                                            guard: never rewrite `(void)` when the matching `)` is
+                                            immediately followed by another `(` (a shape no real
+                                            C++ empty-parameter-list declarator produces). Verified
+                                            with `g++ -std=c++20 -fsyntax-only` (tool (2)) and full
+                                            round1/round2 idempotency over range-v3's 311-file
+                                            `include/range/v3/` tree.
+
 How Tests Are Run
 -----------------
 

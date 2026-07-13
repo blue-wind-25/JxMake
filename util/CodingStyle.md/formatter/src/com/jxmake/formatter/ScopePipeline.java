@@ -1746,12 +1746,39 @@ public class ScopePipeline {
                 break;
             }
             final Token first = tokens.get(prevLineFirst);
-            if (!pulledRequires && first.type == TokenType.KEYWORD && "requires".equals(first.text)) {
+            // A trailing `//` line comment on this line (its own last significant token,
+            // scanning strictly within [prevLineFirst, ownLineSep)) means the line was
+            // deliberately ended there in the original source -- joining it onto `cur`'s line
+            // would silently swallow everything appended after it into the comment (compile-
+            // breaking). Range-v3's `template(...)(\n    requires (...)) //\nDecl(...)` macro-
+            // emulation shape hits exactly this. A trailing `/* ... */` block comment is *not*
+            // the same hazard -- it's self-terminating, so joining more code after it on the
+            // same rendered line is safe (and is the existing, intended behavior exercised by
+            // `cpp_comments_inp.cpp`'s `requires /* numeric */ ... /* constraint */` case).
+            int lastOnPrevLine = -1;
+            for (int j = ownLineSep - 1; j >= prevLineFirst; j--) {
+                final TokenType tt = tokens.get(j).type;
+                if (tt != TokenType.WHITESPACE && tt != TokenType.NEWLINE) { lastOnPrevLine = j; break; }
+            }
+            final boolean prevLineEndsInComment = lastOnPrevLine >= 0
+                    && tokens.get(lastOnPrevLine).type == TokenType.COMMENT_LINE;
+            if (!pulledRequires && first.type == TokenType.KEYWORD && "requires".equals(first.text)
+                    && !prevLineEndsInComment) {
                 cur = prevLineFirst;
                 pulledRequires = true;
                 continue;
             }
-            if (pulledRequires && first.type == TokenType.KEYWORD && "template".equals(first.text)) {
+            // Only a genuine `template<...>` generic-parameter header may be pulled in here --
+            // range-v3's concept-emulation-macro convention (`#define template(...) ...`, see
+            // `detail/prologue.hpp`) reuses the bare `template` keyword spelling followed by `(`
+            // instead of `<` for a completely different macro-call shape
+            // (`template(typename I)(requires ...)`). Without this `<`-check, that shape was
+            // mistaken for the classic header and pulled onto the declarator's line together
+            // with its own trailing `//` comment, silently commenting out the declarator that
+            // followed on the same rendered line (a compile-breaking bug, not just cosmetic).
+            final int afterTemplateIdx = nextSignificantIndex(tokens, prevLineFirst);
+            if (pulledRequires && first.type == TokenType.KEYWORD && "template".equals(first.text)
+                    && afterTemplateIdx >= 0 && isOp(tokens.get(afterTemplateIdx), "<")) {
                 cur = prevLineFirst;
             }
             break;

@@ -108,7 +108,7 @@ public class CppSpecificRule {
                 if (isEmptyBetween(tokens, i, closeIdx) && isFollowedByFunctionBody(tokens, closeIdx)) {
                     spans.put(i, closeIdx);
                 }
-            } else if (isOnlyVoidBetween(tokens, i, closeIdx)) {
+            } else if (isOnlyVoidBetween(tokens, i, closeIdx) && !isFollowedByOpenParen(tokens, closeIdx)) {
                 spans.put(i, closeIdx);
             }
         }
@@ -156,6 +156,19 @@ public class CppSpecificRule {
     private boolean isFollowedByFunctionBody(final List<Token> tokens, final int closeIdx) {
         final int next = nextSignificantIndex(tokens, closeIdx);
         return next >= 0 && isPunct(tokens.get(next), "{");
+    }
+
+    /** True iff {@code closeIdx} (a `)`) is directly followed by another `(` -- never true for a
+     *  real C++ function declarator's empty parameter list (a bare `foo(void)` is followed by
+     *  `;`, `{`, a trailing-const/noexcept/override specifier, or a trailing-return-type `->`,
+     *  never by another paren group). Concept-emulation-macro conventions like range-v3's
+     *  `CPP_ret(void)(requires ...)` (see `detail/prologue.hpp`) reuse this exact
+     *  `IDENTIFIER(void)` shape as a macro invocation whose `void` argument is a real,
+     *  meaningful macro parameter (the wrapped return type placeholder) -- not an empty
+     *  parameter list -- so it must never be silently rewritten away here. */
+    private boolean isFollowedByOpenParen(final List<Token> tokens, final int closeIdx) {
+        final int next = nextSignificantIndex(tokens, closeIdx);
+        return next >= 0 && isPunct(tokens.get(next), "(");
     }
 
     private boolean isEmptyBetween(final List<Token> tokens, final int openIdx, final int closeIdx) {

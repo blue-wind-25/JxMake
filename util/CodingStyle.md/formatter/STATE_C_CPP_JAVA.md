@@ -485,39 +485,83 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
 (19) Local PCPP-heavy `../../../src/jxm/ugc/ARMCortexMThumbC.java.in` (not
      standalone-compilable, a `.java.in` template) — no bug found; verified with (5), 0-line
      token-stream diff on 105366 tokens. Config: default.
+(20) C++20 `ericniebler/range-v3` (311 `.hpp` under `include/range/v3/`) — 2 compile-breaking
+     bugs from the concept-emulation-macro convention (`#define template(...) ...` /
+     `CPP_ret`/`CPP_member`, `detail/prologue.hpp`): (1)
+     `ScopePipeline.extendOverLeadingRequiresAndTemplate` pulled a `template(...)`-spelled macro
+     invocation onto a declarator's line whenever a `requires` line sat above it (no check the
+     `template` keyword was followed by `<`), and separately still glued a `//`-terminated
+     `requires` line onto the following declarator even after that was fixed — both silently
+     commented out the declarator; fixed by gating the `template` pull on `<` and refusing to
+     pull a `requires` line whose own last token is a `//` comment (a `/* ... */` block comment
+     stays safe to pull). (2) `CppSpecificRule.enforceEmptyParameterList` rewrote
+     `CPP_ret(void)(...)` (a macro call, not a declarator) to `CPP_ret()(...)`, deleting the
+     macro's real `void` argument; fixed by refusing the `(void)` -> `()` rewrite when the
+     matching `)` is immediately followed by another `(`. Verified with (2)
+     (`view/iota.hpp`/`detail/variant.hpp` before/after error counts now match baseline) and full
+     round1/round2 idempotency over the whole 311-file tree. Config: default. Fixture:
+     `real_code_regressions_50`. Known unresolved (NOT fixed, left for a follow-up session —
+     each is architecturally deeper than a local guard and a rushed fix regressed ~12 unrelated
+     `make test` fixtures when attempted, see below): (a) `utility/any.hpp`/
+     `iterator/common_iterator.hpp` — idempotency divergence: a nested template-argument angle
+     bracket (`meta::if_c<std::is_reference<T>() || ...>`) fails to converge tight/loose spacing
+     between round1 and round2, and a `// namespace ranges` trailing comment gets detached from
+     its true closing brace (end of file) and reattached to an earlier, unrelated closing `};`
+     mid-file — likely a brace/scope-depth tracking corruption from an earlier unusual
+     macro/angle-bracket shape in the same file, not yet root-caused. (b) `view/view.hpp` /
+     `action/action.hpp` — compile-breaking: a declaration ending in `;` (not a function body)
+     whose original source spans multiple lines each deliberately ending in its own `//`
+     ASCII-banner comment (e.g. a `friend ... operator|(...) -> CPP_broken_friend_ret(...)(
+     requires ...) = delete;` deleted-overload declaration) still gets collapsed onto one
+     rendered line elsewhere in `DeclarationAlignmentRule`'s multi-line-declaration join path
+     (a different code path than the two fixed bugs above, and not the same as the already-fixed
+     `MiscRule.parseSignature` leadTokens case — that guard doesn't cover semicolon-terminated
+     declarations), silently swallowing the `requires`/`= delete;` tail into the first `//`
+     comment. A blanket "bail if any interior `//` comment" guard in
+     `DeclarationAlignmentRule.parseDeclaration` was tried and reverted — it broke ~12 unrelated
+     `make test` fixtures (ordinary multi-line declarations with legitimate per-line trailing
+     comments rely on that same join path rendering correctly). Needs a narrower, correctly
+     targeted fix in a future session, not attempted further here to avoid another rushed
+     regression.
 
 **Not started dogfood / real-code testing**
-(1) `github.com/ericniebler/range-v3` — pre-standardization Ranges library; heavy
-    template/concept-emulation-macro use (good `format-macros` stress). Lower priority —
-    "modern concepts" coverage already superseded by `stdexec`. Would verify with (2).
-    (NOT STARTED)
-(2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
+(1) `github.com/boost-ext/ut` — Kris Jusiak's single-header C++20 micro unit-testing
+    framework; extremely template/concept-heavy (UDL-based matchers, compile-time reflection
+    tricks), actively tracks newest standard features. Good `format-macros`/dense-template
+    stress test in a small tree. Would verify with (2)/(3). (NOT STARTED)
+(2) `github.com/microsoft/proxy` — Microsoft's reference implementation of the Proxy library
+    (WG21 P0957, polymorphism without inheritance/virtual dispatch); heavy C++20/23 template
+    metaprogramming, deliberately pushes newest-standard facilities. Would verify with (2)/(3)
+    (clang++ preferred — may need very recent toolchain support). (NOT STARTED)
+(3) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
     coverage on the list but high testing-time cost; planned as one of the last picked up.
     Would verify with (2)/(3) (or newer, bump toolchain version if needed). (NOT STARTED)
-(3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
+(4) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
     partial/targeted subtree run is practical (e.g. `clang/lib/Format/` or
     `llvm/include/llvm/ADT/`). Try to exercise C++23 features specifically. Would verify with
     (2)/(3). (NOT STARTED)
-(4) `github.com/gcc-mirror/gcc` — GCC monorepo; similarly enormous, and GCC's own source may
+(5) `github.com/gcc-mirror/gcc` — GCC monorepo; similarly enormous, and GCC's own source may
     target an older/conservative C++ dialect in parts (bootstrapping), so may exercise less
     modern-C++ surface than its size suggests — lowest priority of the four for
     modern-feature testing specifically. Try to exercise C++23 features specifically. Would
     verify with (2)/(3). (NOT STARTED)
-(5) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
+(6) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
     exercise generics-heavy declarations, deep visitor-pattern hierarchies, extensive Javadoc
     (§15 comment-scope, RDD_KEY_47-50), large switch-heavy dispatch code (§13). Would verify
     with (4). (NOT STARTED)
-(6) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
+(7) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
 
-Priority order for the C/C++ queue above unless the user redirects: `range-v3` → `STL` →
-`llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec` already DONE, see "Finished" above —
-`mp11` was smallest/narrowest, `lexy` next for touching operator overloading/concepts/CRTP/
-dense declaration-alignment in one small tree, `stdexec` for concepts/`requires`/deep
-metaprogramming). For any C/C++ candidate distributed under a `.h`/`.hpp` extension, confirm
-which language it actually is before testing — copy to `.hpp` first if really C++.
+Priority order for the C/C++ queue above unless the user redirects: `boost-ext/ut` →
+`microsoft/proxy` → `STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`
+already DONE, see "Finished" above — `mp11` was smallest/narrowest, `lexy` next for touching
+operator overloading/concepts/CRTP/dense declaration-alignment in one small tree, `stdexec` for
+concepts/`requires`/deep metaprogramming, `range-v3` for its own distinct
+`template(...)`/`CPP_ret`-style concept-emulation-macro convention). For any C/C++ candidate
+distributed under a `.h`/`.hpp` extension, confirm which language it actually is before testing —
+copy to `.hpp` first if really C++.
 
 **In progress dogfood / real-code testing details**
 

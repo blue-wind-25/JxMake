@@ -226,14 +226,22 @@ synchronize it with `README.md` and the implementation of
 ## In-file Config Support
 
 **TODO (not started) — In-file `JXM_CFMT_CFG` config directive.** A top-of-file
-comment directive, e.g. `//% JXM_CFMT_CFG line-length=100;indent-size=2`,
+comment directive, e.g. `//% JXM_CFMT_CFG line-length=100;indent-size=2` or,
+using a block comment, `/*% JXM_CFMT_CFG line-length=100;indent-size=2 */`,
 letting a single source file override any **Config Keys and Defaults** key
 (above) for itself only, same spirit as the existing
 `JXM_CFMT_DIS`/`JXM_CFMT_ENA` markers (`TokenizerCore.markFrozenSpans`) but
 detected via an earlier raw-text scan (before `Config.resolve`/`Formatter`
 construction, since config values are baked into rule objects before
 tokenizing even starts — the DIS/ENA post-tokenization detection point is
-too late to reuse directly). Design notes for whoever picks this up:
+too late to reuse directly). Note the marker syntax above (`//`, `/* */`) is
+specific to the languages currently supported (C/C++/Java/Kotlin); future
+languages on the **On the horizon** roadmap will need their own comment
+syntax for the same directive (e.g. `#` for a hash-comment language), and at
+least one planned target (JSON, strictly) has no comment syntax at all —
+that language simply won't be able to carry this directive and must fall
+back to file-based/CLI/env config only. Design notes for whoever picks this
+up:
 
 - Almost every config key is a simple additive map-layer override at the
   existing `Config.fromRawMap`/`Main.formatStandalone` choke point —
@@ -243,6 +251,11 @@ too late to reuse directly). Design notes for whoever picks this up:
   directory via `IndentationDetector`) — forcing a concrete `spaces`/`tabs`
   value via the directive is still fine, only the `auto` inference itself
   doesn't apply per-file.
+- `server-port` (or any other key that isn't a valid, per-file-applicable
+  **Config Keys and Defaults** entry) appearing inside `JXM_CFMT_CFG` is a
+  hard error, same bucket as the duplicate-directive and
+  not-at-top-of-file cases below — one consistent rule: anything wrong with
+  the directive fails loudly, never a silent partial-apply or ignore.
 - **`JXM_CFMT_CFG`, when present, must override every other config source for
   that file — file-based `.jxmake-code-formatter` (any directory level),
   env vars, CLI flags, AND the server's own inline query-param config
@@ -269,19 +282,37 @@ too late to reuse directly). Design notes for whoever picks this up:
   ambiguous, per this file's usual ambiguity-handling protocol.
 
 **Required alongside implementation — new test fixtures covering this
-directive, for all four supported languages (C, C++, Java, Kotlin):**
-- Add `test/real_code_regressions_N_{inp,out}.<ext>` pairs (next available
-  `N`) exercising the directive per the usual convention above (standard
-  copyright header, etc.) — at minimum: one fixture per language proving a
-  `JXM_CFMT_CFG`-set key actually takes effect and overrides file-based
-  config; one fixture proving it overrides a CLI/server inline-config value
-  for the same key; one fixture proving the hard-error path (duplicate
-  `JXM_CFMT_CFG` occurrences, and one proving the not-at-top-of-file case).
-- Register each new pair in the `Makefile`'s `INP_FILES` list, inserted
-  **before** the existing `real_code_regressions_*` entries (i.e. keep this
-  new directive's fixtures as their own clearly-grouped block ahead of the
-  general regression-fixture block, not interleaved into it).
-- Document each new pair in `test/README.txt`, inserted **before** that
+directive.** These are deliberately minimal, synthetic fixtures (a bare-bones
+class/header, not real-code samples) — their only job is to prove the
+`JXM_CFMT_CFG`-set values are actually read and honored, not to exercise
+language features (that's already covered elsewhere):
+- `test/in_file_config_{inp,out}.hpp`, `.java`, `.kt` — one fixture per
+  language (C and C++ share the single `.hpp` fixture). Each input's
+  top-of-file directive sets every **Config Keys and Defaults** key that is
+  valid to set per-file (i.e. all of them except `server-port`, which is not
+  per-file-applicable — see hard-error note above), with `indent-size`
+  overridden to `2`. Additionally: the `.hpp` fixture turns on
+  `header-guard-rename`; the `.java` and `.kt` fixtures set their respective
+  `*-import-order` to the reverse of the default list. Each input file's
+  body must actually contain something the corresponding overridden key
+  would visibly change — i.e. a header guard whose name the rename would
+  alter, and imports whose relative order would change under the
+  reversed-order key — so the expected output only matches if the directive
+  was truly applied. Same fixture files double as the server-mode proof
+  (posted to `/format` and asserted the same way); server-mode exercise is
+  not driven through the Makefile, so no separate server-mode fixture is
+  needed.
+- `test/in_file_config_error_{inp,out}.hpp` — proves the hard-error path
+  (e.g. a duplicate `JXM_CFMT_CFG` occurrence, or one placed past the
+  top-of-file preamble). Registered in the Makefile but **commented out by
+  default**, since a deliberately-erroring fixture would print an error and
+  make a normal `make test` run look broken; uncomment to exercise it
+  manually.
+- Register the `in_file_config_*` pairs in the `Makefile`'s `INP_FILES`
+  list, inserted **before** the existing `real_code_regressions_*` entries
+  (own clearly-grouped block ahead of the general regression-fixture block,
+  not interleaved into it).
+- Document the same pairs in `test/README.txt`, inserted **before** that
   file's existing `Real-code regressions:` section header (own clearly-
   grouped block ahead of it, matching the Makefile ordering above).
 - Update `README.md` after this feature is fully implemented and tested.

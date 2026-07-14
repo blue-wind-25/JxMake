@@ -342,7 +342,9 @@ the same pipeline as Java/C++. An earlier stale framing implying otherwise
 has been removed. Config uses `.jxmake-code-formatter`, `key=value` format
 (not YAML); boolean keys accept `on`/`off` only, not `true`/`false`.
 
-- [x] `line-length`/`indent-size`/`indent-style`: wired, same behavior as Java/C++.
+- [x] `line-length`/`indent-size`/`indent-style`: wired, same behavior as
+      Java/C++. See `STATE_COMMON.md` → **Config Keys and Defaults** for the
+      full config table (shared across all four languages).
 - [x] `closing-comment-min-lines`: wired via shared `BlockStructureRule`.
 - [x] `format-macros`: permanent no-op for Kotlin (no preprocessor) — not a gap.
 - [x] `line-endings`: language-agnostic, applied post-format in `Main.java`.

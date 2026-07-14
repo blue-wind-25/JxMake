@@ -198,40 +198,8 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Config Keys and Defaults
 
-Configurable values with their in-class defaults. All overridable via config file or CLI.
-
-```properties
-# ── Structural constants ──────────────────────────────────────────────────────
-line-length                      = 100
-indent-size                      = 4
-indent-style                     = spaces      # spaces | tabs | auto
-server-port                      = 17173
-
-# ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                     = lf          # lf | crlf | preserve
-normalize-comment-start-case     = on          # on | off
-normalize-comment-end-period     = on          # on | off
-comment-normalization-classifier = off         # off | on
-closing-comment-min-lines        = 5
-format-macros                    = off         # off | on
-
-# ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename              = off         # off | on (warn only by default)
-
-# ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order                = java, com, org, other, local, static
-java-import-sort                 = on
-java-import-depth                = 2
-java-import-blank-lines          = 1
-
-# ── Kotlin ────────────────────────────────────────────────────────────────────
-kotlin-import-order              = kotlin, java, android, com, org, other, local
-kotlin-import-sort               = on
-kotlin-import-depth              = 2
-kotlin-import-blank-lines        = 1
-```
-
-For every added, deleted, or modified configuration item, synchronize it with the implementation of *In‑file Config Support* (the `JXM_CFMT_CFG` directive).
+See `STATE_COMMON.md` → **Config Keys and Defaults** (moved there since the
+table is shared across all four supported languages, not C/C++/Java-specific).
 
 ---
 

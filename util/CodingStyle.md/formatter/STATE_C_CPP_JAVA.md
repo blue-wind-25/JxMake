@@ -172,6 +172,28 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   itself differs between a first format and a reformat-of-already-formatted-output, which is
   the general shape both symptoms share).
 
+  **Untested alternative hypothesis (raised in a later session, not yet checked):** the
+  formatter tracks brace/paren/angle-bracket depth from raw token text and does not run a real
+  preprocessor — `PREPROCESSOR` is its own skipped token type, branches are never selected. A
+  file with `#if`/`#ifdef`/`#else` blocks whose branches are NOT independently brace-balanced
+  (only balanced once a preprocessor picks one branch) would look genuinely inconsistent to a
+  linear depth-tracker scanning through both branches — which could produce exactly this
+  "cumulative, doesn't reproduce in a minimal repro" signature, since the confusion only
+  compounds once enough real `#if` blocks accumulate before the failing construct. This would
+  reframe the issue as a documented limitation ("assumes textually balanced braces per file,
+  does not preprocess"), not a tokenizer/rule defect. Cheap to check before further
+  instrumentation: inspect whether `any.hpp`/`common_iterator.hpp`/`meta.hpp` contain
+  `#if`-family blocks with asymmetric brace nesting across branches, and whether normalizing
+  those away (e.g. picking one branch, or running through a real preprocessor first) makes the
+  divergence disappear.
+
+  **Separate, unconfirmed observation to verify independently — do not conflate with the above:**
+  some already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode
+  while passing under `gcc 12` in C++20 mode. This may be a real language-version mismatch in
+  the fixture's source (version-gated syntax, e.g. concepts/reflection) unrelated to the
+  formatter, or may indicate the formatter's output triggers stricter-parser-only diagnostics.
+  Needs its own investigation; not yet linked to bug (a) above.
+
 ---
 
 ## Config Keys and Defaults

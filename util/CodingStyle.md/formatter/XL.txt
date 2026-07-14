@@ -8,54 +8,43 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
+Compact `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
+Be careful not to lose important information, especially the `**Tools/compiler used**`, `indent-size` exception, etc.
 
-Compact the narration in `test/README.txt` from `real_code_regressions_42_inp/out.kt` to `real_code_regressions_52_inp/out.cpp`
+Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
+Be careful not to lose important information, especially the `**Tools/compiler used**`, `indent-size` exception, etc.
+
+Compact the narration in `test/README.txt` from `real_code_regressions_53_inp/out.cpp` to `...`
 
 
 
 I have run `make test` and all test passed.
 
-/tmp contains many undeleted artifacts from this and previous sessions, can you find them and delete them?
-
-
-
-Read `STATE_COMMON.md` and continue with `## In-file Config Support`.
-
-
-
-Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
-`github.com/ericniebler/range-v3` - `none of these reproduce in any minimal repro`
-When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed.
-
-RANGE_V3_IDEMPOTENCY_STRATEGY.md
+`/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
+for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
+Hmm do you think it is a good idea to delete them?
 
 
 
 Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
 ...
-When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling the already correct files is a waste of time.
 Only after all bugs are fixed is a full reformat and recompile test allowed.
-
-`github.com/ericniebler/range-v3` (IDEMPOTENCY BUG)
-
-`github.com/microsoft/proxy`
 `github.com/microsoft/STL`
 `github.com/llvm/llvm-project`
 `github.com/gcc-mirror`
 
 Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent):
-...
-When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed.
+`github.com/javaparser/javaparser`
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling the already correct files is a waste of time.
+Only after all bugs are fixed is a full reformat and recompile test allowed. Use `java_sc` instead of `javac`.
 `github.com/javaparser/javaparser`
 `github.com/openrewrite/rewrite`
 
 Continue with Kotlin work (search in /tmp first, clone the repo again if not found; use one sub-agent):
 ...
 When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed.
+Only after all bugs are fixed is a full reformat and recompile test allowed. Use `kotlin_sc` instead of Gradle-copy dance.
 `github.com/arrow-kt/arrow`
 `github.com/JetBrains/kotlin`
 

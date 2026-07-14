@@ -121,6 +121,44 @@ The file stays completely untouched unless it contains its own `JXM_CFMT_ENA` ma
 at which point formatting resumes from that point onward, same as the in-code marker
 pair above.
 
+### In-file config overrides
+
+A single source file can override any per-file config key for itself only, via a
+top-of-file `JXM_CFMT_CFG` directive:
+
+```java
+//% JXM_CFMT_CFG indent-size=2;line-length=80
+```
+
+The block-comment form works the same way:
+
+```c
+/*% JXM_CFMT_CFG indent-size=2;line-length=80 */
+```
+
+Entries are `key=value` pairs separated by `;`. Any key valid in a
+`.jxmake-code-formatter` file is valid here, except `server-port` (a process-wide
+property that cannot be set per-file). Values set by this directive are the
+highest-priority config layer — they override the project's `.jxmake-code-formatter`
+files, environment variables, CLI flags, and (in server mode) the request's own inline
+query-param config, all for the same key.
+
+The directive must appear before the first non-comment/non-blank line of the file —
+i.e. somewhere within the leading run of blank lines and whole comments at the top of
+the file, not necessarily on line 1 itself. It must also be its own separate comment:
+it is **not** recognized when merged into another comment's prose, such as inside a
+copyright header. For example, this is *not* detected:
+
+```c
+/*
+ * Copyright (C) 2024 Example Corp.
+ * JXM_CFMT_CFG indent-size=2
+ */
+```
+
+Only one `JXM_CFMT_CFG` directive is allowed per file; a second occurrence is a hard
+error (nonzero exit, no output), not a "last one wins" merge.
+
 ### Makefile integration
 
 ```makefile
@@ -144,7 +182,8 @@ precedence (later sources override earlier ones):
 3. `JXMAKE_CODE_FORMATTER_*` environment variables
 4. `.jxmake-code-formatter` in the project root — per-project config (commit this to the repo)
 5. `.jxmake-code-formatter` in the source subdirectory — inherits from parent, overrides specific keys
-6. CLI flags — always win
+6. CLI flags / server request's inline query-param config
+7. A file's own `JXM_CFMT_CFG` directive (see [In-file config overrides](#in-file-config-overrides)) — always wins
 
 ### Config file format
 
@@ -161,10 +200,10 @@ normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
 comment-normalization-classifier = off         # off | on
 closing-comment-min-lines        = 5
-format-macros                    = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename              = off         # off | on (warn only by default)
+format-macros                    = off         # off | on
 
 # ── Java ──────────────────────────────────────────────────────────────────────
 java-import-order                = java, com, org, other, local, static

@@ -140,6 +140,41 @@ C/C++ Headers:
                                             template base class, concrete subclass, factory
                                             declaration, extern "C" block.
 
+In-file config directive:
+  in_file_config_inp/out.hpp             -- Top-of-file JXM_CFMT_CFG directive (STATE_COMMON.md
+                                            "In-file Config Support", RDD_KEY_167/168): sets every
+                                            per-file-applicable Config Keys and Defaults key (all
+                                            except server-port). Proves indent-size=2 (1-space raw
+                                            source indentation rounded up to 2, not left at the
+                                            source's already-4-space-multiple width) and
+                                            format-macros=off (macro value columns stay unaligned
+                                            despite `make test`'s own FORMAT_MACROS=on env var --
+                                            proof the directive outranks env vars too).
+                                            header-guard-rename intentionally left off this fixture
+                                            (see RDD_KEY_168 -- untestable via the _inp/_out diff
+                                            convention, since the guard name derives from the
+                                            invocation path and _inp/_out always differ).
+
+  in_file_config_inp/out.java            -- Same directive coverage as the .hpp fixture, plus
+                                            java-import-order reversed from its default
+                                            (java, com, org, other, local, static) to
+                                            (static, local, other, org, com, java); one import per
+                                            bucket proves the full reversed order is honored.
+
+  in_file_config_inp/out.kt              -- Same directive coverage again, plus
+                                            kotlin-import-order reversed from its default
+                                            (kotlin, java, android, com, org, other, local) to
+                                            (local, other, org, com, android, java, kotlin); one
+                                            import per bucket proves the full reversed order.
+
+  in_file_config_error_inp/out.hpp       -- Proves the hard-error path (two JXM_CFMT_CFG
+                                            directives in one file must be rejected, never
+                                            silently resolved). Deliberately not run by `make
+                                            test` (commented out of the Makefile's INP_FILES) --
+                                            a hard-erroring input has no formatted result to diff
+                                            against, and would always show as a spurious FAIL.
+                                            See the file itself for how to exercise it manually.
+
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling
                                             call-argument mis-split, an undercounted call "does it

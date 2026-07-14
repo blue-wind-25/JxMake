@@ -81,6 +81,15 @@ INP_FILES += java_preprocessor_method_inp.java
 INP_FILES += kt_combined_inp.kt
 INP_FILES += kt_comments_inp.kt
 
+INP_FILES += in_file_config_inp.hpp
+INP_FILES += in_file_config_inp.java
+INP_FILES += in_file_config_inp.kt
+# Deliberately error-only (duplicate JXM_CFMT_CFG directive) -- would always FAIL the normal
+# diff loop, since the formatter exits 1 with no output for it. Kept commented out so `make
+# test` stays green; uncomment to exercise its hard-error path manually. See
+# test/in_file_config_error_out.hpp for the expected error message.
+# INP_FILES += in_file_config_error_inp.hpp
+
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
 INP_FILES += real_code_regressions_3_inp.java
@@ -136,9 +145,9 @@ INP_FILES += real_code_regressions_52_inp.cpp
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
+# clear && git status && echo && svn stat && echo
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
 # git push && svn commit -m 'Follow GIT changes' && echo && git status && echo && svn stat && echo
-# clear && git status && echo && svn stat && echo
 
 # make test
 # make test 2>/dev/null

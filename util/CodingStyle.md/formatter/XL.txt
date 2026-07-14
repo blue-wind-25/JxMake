@@ -20,6 +20,8 @@ I have run `make test` and all test passed.
 
 
 
+Read `STATE_COMMON.md` and continue with `## In-file Config Support`.
+
 Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
 ...
 When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.

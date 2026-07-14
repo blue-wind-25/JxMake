@@ -241,14 +241,14 @@ bench: $(JAR_FILE)
 		done;                                                                                                                                   \
 		end=$$(date +%s%N);                                                                                                                     \
 		base_ns=$$(( end - start ));                                                                                                            \
-		printf "Total: %4dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
+		printf "Total: %5dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
 		echo "";                                                                                                                                \
 		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
 		start=$$(date +%s%N);                                                                                                                   \
 		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;                                                                        \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
 		$(JAVA) -jar $(JAR_FILE) --server 2>&1 &                                                                                                \
 		sleep 1;                                                                                                                                \
@@ -266,14 +266,14 @@ bench: $(JAR_FILE)
 		done;                                                                                                                                   \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
 		echo "=== Bench: client-server, all-at-once ===";                                                                                       \
 		start=$$(date +%s%N);                                                                                                                   \
 		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                                                                     \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %4dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
 		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
 		echo "";                                                                                                                                \
@@ -300,6 +300,8 @@ test-server: $(JAR_FILE)
 	@(                                                                                                                        \
 		mkdir -p $(TEST_SERVER_TMP);                                                                                      \
 		fail=0;                                                                                                           \
+		clear;                                                                                                            \
+		echo "";                                                                                                          \
 		printf 'class X {\n  void f() {\n    if (true) {\n      int y = 1;\n    }\n  }\n}\n'                              \
 			> $(TEST_SERVER_TMP)/Sample.java;                                                                         \
 		printf 'indent-size = 8\n' > $(TEST_SERVER_TMP)/.jxmake-code-formatter;                                           \
@@ -336,4 +338,5 @@ test-server: $(JAR_FILE)
 		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                              \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                             \
 		echo "All server tests passed.";                                                                                  \
+		echo "";                                                                                                          \
 	)

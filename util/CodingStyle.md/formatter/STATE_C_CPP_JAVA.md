@@ -143,6 +143,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_167 | `JXM_CFMT_CFG` top-of-file placement semantics -- own separate comment required, "before first non-comment/non-blank token" not literal line 1 |
 | RDD_KEY_168 | `in_file_config_*.hpp` fixture -- `header-guard-rename` untestable via this harness (guard name derives from invocation path, `_inp`/`_out` always differ); swapped for `format-macros=off`, which also proves override of the `test` target's own `FORMAT_MACROS=on` env var |
 | RDD_KEY_169 | range-v3 item 20 bug (a) RESOLVED -- `BlockStructureRule.enforceKAndRBraceStyle` glued a named construct's `{` onto a preceding bare `#endif` line, which a later retokenize then swallowed whole into the `#endif` PREPROCESSOR token, permanently dropping that brace from every downstream scope-depth/frame-stack pass and desyncing both the closing-comment indentation and (as a downstream side effect, not a separate bug) angle-bracket classification; fixed by skipping the K&R glue when the preceding real token is a PREPROCESSOR directive |
+| RDD_KEY_170 | microsoft/proxy dogfood: 3 bugs in `CppSpecificRule.enforceRequiresClausePlacement` -- (a)/(b) baseIndent/fit-check derived from the trailing `requires` clause's unstable-across-passes closing-paren line instead of the parameter list's own opening-paren line (with chained-specifier unwinding for `noexcept(...)`); (c) a preprocessor directive inside the clause's own constraint expression got spliced mid-line, producing invalid C++ -- fixed by leaving any clause containing a `PREPROCESSOR` token untouched |
 
 ---
 
@@ -401,12 +402,19 @@ on the noted commits/fixtures)
      an unrelated following struct's "function close paren" (scan didn't stop at a depth-0 `;`).
      Verified with minimal repro, `make test` 72/72, full-tree idempotency, and (2)/(3) compile
      checks matching baseline. Fixture: `real_code_regressions_52`.
+(22) C++20/23 `microsoft/proxy` (28 `.h`/`.cpp`, `include/proxy/{,v4/}proxy{,_macros,_fmt}.h`
+     + `tests/`/`benchmarks/`/`tools/`) — 3 bugs in `CppSpecificRule.enforceRequiresClausePlacement`
+     (trailing `requires` clause after a wrapped multi-line parameter list): (a)/(b) unstable
+     baseIndent/fit-check derived from the closing-paren's own physical line (varies across
+     passes and across chained `noexcept(...)` specifiers) instead of the parameter list's real
+     opening-paren line; (c) a preprocessor directive inside the clause's own constraint
+     expression got spliced mid-line by `collapseToOneLine`, producing invalid C++ (compile-
+     breaking, not just cosmetic) — fixed by leaving any clause containing a `PREPROCESSOR` token
+     untouched. Verified with `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (0-error baseline
+     unchanged on `include/proxy/{,v4/}proxy.h` before/after), full round1/round2 idempotency over
+     the whole tree, and `make test` 77/77. Fixture: `real_code_regressions_53`. RDD_KEY_170.
 
 **Not started dogfood / real-code testing**
-(1) `github.com/microsoft/proxy` — Microsoft's reference implementation of the Proxy library
-    (WG21 P0957, polymorphism without inheritance/virtual dispatch); heavy C++20/23 template
-    metaprogramming, deliberately pushes newest-standard facilities. Would verify with (2)/(3)
-    (clang++ preferred — may need very recent toolchain support). (NOT STARTED)
 (2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
     coverage on the list but high testing-time cost; planned as one of the last picked up.
     Would verify with (2)/(3) (or newer, bump toolchain version if needed). (NOT STARTED)
@@ -428,9 +436,9 @@ on the noted commits/fixtures)
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
 
-Priority order for the C/C++ queue above unless the user redirects: `microsoft/proxy` →
-`STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`
-already DONE, see "Finished" above — `mp11` was smallest/narrowest, `lexy` next for touching
+Priority order for the C/C++ queue above unless the user redirects:
+`STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/
+`microsoft/proxy` already DONE, see "Finished" above — `mp11` was smallest/narrowest, `lexy` next for touching
 operator overloading/concepts/CRTP/dense declaration-alignment in one small tree, `stdexec` for
 concepts/`requires`/deep metaprogramming, `range-v3` for its own distinct
 `template(...)`/`CPP_ret`-style concept-emulation-macro convention). For any C/C++ candidate

@@ -683,6 +683,36 @@ Real-code regressions:
                                             just `{`/`}`. Verified with a minimal repro and full
                                             `make test` (71/71, no regressions).
 
+  real_code_regressions_53_inp/out.cpp   -- C++, microsoft/proxy: 3 bugs in
+                                            `CppSpecificRule.enforceRequiresClausePlacement`. (a)
+                                            baseIndent/fit-check were derived from the trailing
+                                            `requires` clause's preceding `)` own physical line --
+                                            when a multi-line parameter list's `)` sits on a
+                                            source continuation-alignment column (or, after a
+                                            reformat, alone on a short dedented line), that made
+                                            the own-line-vs-inline decision and indent width
+                                            unstable across passes (idempotency bug: round2
+                                            re-collapsed an own-line `requires` back onto `)`'s
+                                            line, or indented it to a bogus alignment column).
+                                            Fixed by deriving both from the parameter list's own
+                                            *opening* paren's line instead, unwinding through any
+                                            chained trailing specifier (e.g. `noexcept(...)`)
+                                            between the parameter list and `requires` to reach the
+                                            real declarator paren (b). (c) A preprocessor directive
+                                            (`#if`/`#else`/`#endif`) inside the clause's own
+                                            constraint expression was being spliced into the
+                                            middle of a collapsed rendered line by
+                                            `collapseToOneLine`, producing invalid C++ (a directive
+                                            is only recognized at the start of a physical line) --
+                                            fixed by leaving any clause containing a `PREPROCESSOR`
+                                            token completely untouched, same posture as the
+                                            existing comment/frozen-span checks. Verified with
+                                            `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (same
+                                            0-error baseline on `include/proxy/{,v4/}proxy.h`
+                                            before and after) and full round1/round2 idempotency
+                                            over the whole `microsoft/proxy` tree; full `make test`
+                                            (76/76, no regressions).
+
 How Tests Are Run
 -----------------
 

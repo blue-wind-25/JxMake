@@ -205,6 +205,19 @@ public class CppSpecificRule {
         return false;
     }
 
+    /** True iff a {@code PREPROCESSOR} directive token sits anywhere in
+     *  {@code (fromExclusive, toExclusive)} -- see
+     *  {@link #enforceRequiresClausePlacement}'s preprocessor-in-clause check. */
+    private boolean hasPreprocessorBetween(final List<Token> tokens, final int fromExclusive,
+            final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            if (tokens.get(i).type == TokenType.PREPROCESSOR) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * STYLE_C_CPP.md §2 (brace-placement half only): a recognized function <b>definition</b>'s
      * own brace moves to its own line (Allman) whenever it is currently K&amp;R/same-line -- the
@@ -648,11 +661,70 @@ public class CppSpecificRule {
             if (anyFrozen(tokens, closeParenIdx, clauseEndIdx)) {
                 continue;
             }
+            // A preprocessor directive (`#if`/`#else`/`#endif`) inside the clause's own
+            // constraint-expression -- e.g. `requires(\n#if COND\n std::formattable<T, CharT>
+            // \n#else\n ...\n#endif\n)` (microsoft/proxy's `proxy_fmt.h`/`proxy.h`) -- must stay
+            // on its own physical line; collapseToOneLine below would otherwise splice it into
+            // the middle of a rendered line, producing invalid, non-compiling C++ (a directive is
+            // only ever recognized at the start of a physical line). Same "leave completely
+            // untouched" posture as the comment/frozen-span checks above.
+            if (hasPreprocessorBetween(tokens, closeParenIdx, clauseEndIdx)) {
+                continue;
+            }
 
-            final int lineStartIdx = lineStartIndex(tokens, closeParenIdx);
-            final String baseIndent = lineIndent(tokens, closeParenIdx);
+            // Use the parameter list's own OPENING paren's line as the declaration's real
+            // leading line, not the closing paren's line -- when the source parameter list
+            // already spans multiple lines with per-line continuation alignment (e.g. params
+            // column-aligned under the function name), `)` can sit on a deeply-indented
+            // continuation line that has nothing to do with the declaration's real leading
+            // indent, and its collapsed single-line content varies depending on whether the
+            // params have already been wrapped by a prior/future enforceCallLineBreaking pass
+            // (which runs AFTER this one in Formatter's Phase 1/2 ordering). Measuring fit off
+            // of the CLOSE paren's own current physical line was therefore unstable across
+            // passes: on a fresh source the params are still on their original (unwrapped)
+            // line(s), so the combined length overflowed and `requires` was pushed to its own
+            // line -- but on a reformat of already-wrapped output, `)` sits alone on a short
+            // line, the combined length fits, and `requires` gets glued back onto it, diverging
+            // from round1 (an idempotency bug). Deriving both baseIndent and the fit measurement
+            // from the declarator's own opening-paren line instead is stable across passes: it
+            // only depends on token content (collapsed to one line), never on incidental
+            // wrapping already present in the input. Found via microsoft/proxy dogfood testing
+            // (`allocate_proxy` initializer_list overloads in `include/proxy/v4/proxy.h`).
+            //
+            // The paren directly before `requires` isn't always the parameter list's own close
+            // paren -- a trailing `noexcept(...)` exception-spec (or any other chained
+            // parenthesized specifier) can sit between the parameter list and `requires`
+            // (`foo(Args...) noexcept(expr) requires Clause`). Unwind through any such chain --
+            // each closing paren's own opening paren, if immediately preceded by either another
+            // `)` or a `noexcept` keyword that itself follows a `)`, is itself just another
+            // specifier, not the declarator -- to reach the real parameter list's opening paren
+            // (whose own predecessor is the function name, not another specifier). Using an
+            // intermediate specifier's own opening-paren line (e.g. a `noexcept(` continuation
+            // line, itself possibly awkwardly wrapped by an unrelated pass) as baseIndent would
+            // reproduce the same class of instability this fix is for.
+            int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+            while (openParenIdx >= 0) {
+                final int beforeOpen = prevSignificantIndex(tokens, openParenIdx);
+                if (beforeOpen >= 0 && isPunct(tokens.get(beforeOpen), ")")) {
+                    openParenIdx = matchParenBackward(tokens, beforeOpen);
+                    continue;
+                }
+                if (beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
+                        && "noexcept".equals(tokens.get(beforeOpen).text)) {
+                    final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
+                    if (beforeSpecifier >= 0 && isPunct(tokens.get(beforeSpecifier), ")")) {
+                        openParenIdx = matchParenBackward(tokens, beforeSpecifier);
+                        continue;
+                    }
+                }
+                break;
+            }
+            final int declLineStartIdx = openParenIdx >= 0
+                    ? lineStartIndex(tokens, openParenIdx)
+                    : lineStartIndex(tokens, closeParenIdx);
+            final String baseIndent = lineIndent(tokens, declLineStartIdx);
             final String clauseExpr = collapseToOneLine(tokens, i + 1, clauseEndIdx - 1);
-            final String combined = baseIndent + collapseToOneLine(tokens, lineStartIdx, closeParenIdx)
+            final String combined = baseIndent + collapseToOneLine(tokens, declLineStartIdx, closeParenIdx)
                     + " requires " + clauseExpr;
 
             final String rendered = combined.length() <= lineLengthLimit

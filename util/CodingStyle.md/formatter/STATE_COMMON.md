@@ -225,7 +225,34 @@ synchronize it with `README.md` and the implementation of
 
 ## In-file Config Support
 
-**TODO (not started) — In-file `JXM_CFMT_CFG` config directive.** A top-of-file
+**IN PROGRESS — In-file `JXM_CFMT_CFG` config directive.** Core mechanism landed
+(RDD_KEY_167): new `InFileConfig.parse(source)` (raw-text regex scan, top-of-file
+preamble detection, duplicate/misplaced/invalid-key hard errors, all wired as an
+ordinary per-file `IOException`), a new `Config.resolve(Path, Map, Map)` overload
+taking the in-file layer as highest priority, wired into both `Main.formatStandalone`
+and `ServerMode.FormatHandler` (so it also overrides the server's own inline
+query-param config). Verified live (not just `make test`, which has no directive
+fixtures yet): `line-endings=crlf` override applied, and all three hard-error paths
+(duplicate directive, directive past the leading preamble, `server-port` /
+unrecognized key) correctly exit 1 through the existing per-file error path.
+`make test` 72/72 forward + 72/72 idempotency, zero regressions (shared classes
+untouched by this change; only `Config.java`/`Main.java`/`ServerMode.java` plus the
+new `InFileConfig.java`).
+
+**Remaining work (not yet started):**
+- Test fixtures: `test/in_file_config_{inp,out}.hpp`/`.java`/`.kt` (one directive
+  setting every per-file-applicable key, `indent-size=2`, plus the `.hpp`
+  `header-guard-rename` case and the `.java`/`.kt` reversed-`*-import-order` case)
+  and `test/in_file_config_error_{inp,out}.hpp` (registered but commented out in
+  the Makefile). Register both blocks in the Makefile's `INP_FILES`, ahead of the
+  `real_code_regressions_*` block, and in `test/README.txt` the same way.
+- `README.md` update, including RDD_KEY_167's placement-semantics answer (directive
+  must be its own separate comment, never merged into another comment's prose;
+  "before first non-comment/non-blank line", not literal line 1).
+- Original design note's "not started" text below is stale where it discusses
+  design tradeoffs already resolved above (kept for the remaining implementation
+  detail it still documents: per-key applicability list, `indent-style = auto`
+  carve-out, hard-error posture). A top-of-file
 comment directive, e.g. `//% JXM_CFMT_CFG line-length=100;indent-size=2` or,
 using a block comment, `/*% JXM_CFMT_CFG line-length=100;indent-size=2 */`,
 letting a single source file override any **Config Keys and Defaults** key

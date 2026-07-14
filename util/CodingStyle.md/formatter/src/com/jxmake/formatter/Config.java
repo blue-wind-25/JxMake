@@ -157,6 +157,17 @@ public final class Config {
     }
 
     public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides) {
+        return resolve(targetFile, cliOverrides, null);
+    }
+
+    /**
+     * Same as {@link #resolve(Path, Map)}, plus an optional {@code inFileOverrides} layer (the
+     * {@code JXM_CFMT_CFG} directive, see {@link InFileConfig}) applied with higher priority than
+     * everything else, including {@code cliOverrides} -- it is the highest-priority layer, full
+     * stop (RDD_KEY_167 and the "In-file Config Support" design notes in STATE_COMMON.md).
+     */
+    public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides,
+            final Map<String, String> inFileOverrides) {
         final Map<String, String> merged = new LinkedHashMap<String, String>();
 
         final Path globalConfigPath = Paths.get(System.getProperty("user.home"), CONFIG_DIR, CONFIG_FILE);
@@ -172,6 +183,10 @@ public final class Config {
 
         if (cliOverrides != null) {
             merged.putAll(cliOverrides);
+        }
+
+        if (inFileOverrides != null) {
+            merged.putAll(inFileOverrides);
         }
 
         return fromRawMap(merged);

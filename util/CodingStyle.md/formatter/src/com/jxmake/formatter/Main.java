@@ -239,12 +239,13 @@ public final class Main {
 
     private static String formatStandalone(final Path path, final String language, final String original,
             final boolean formatOff, final Map<String, String> baseCliOverrides) throws IOException {
-        Config config = Config.resolve(path, baseCliOverrides);
+        final Map<String, String> inFileOverrides = InFileConfig.parse(original);
+        Config config = Config.resolve(path, baseCliOverrides, inFileOverrides);
         if ("auto".equals(config.indentStyle())) {
             final String resolvedStyle = resolveAutoIndentStyle(path);
             final Map<String, String> merged = new LinkedHashMap<String, String>(baseCliOverrides);
             merged.put("indent-style", resolvedStyle);
-            config = Config.resolve(path, merged);
+            config = Config.resolve(path, merged, inFileOverrides);
         }
         final String formatted = Formatter.formatOne(original, language, path.toString(), config, formatOff);
         return applyLineEndings(formatted, original, config.lineEndings());

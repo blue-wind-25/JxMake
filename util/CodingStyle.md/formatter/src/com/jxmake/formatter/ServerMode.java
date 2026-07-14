@@ -316,7 +316,9 @@ public final class ServerMode {
                 final boolean formatOff = "true".equals(params.get("format-off"));
                 final String content = readBody(exchange.getRequestBody());
                 final Path targetFile = path == null ? null : Paths.get(path);
-                final Config config = Config.resolve(targetFile, inlineConfig.isEmpty() ? null : inlineConfig);
+                final Map<String, String> inFileOverrides = InFileConfig.parse(content);
+                final Config config = Config.resolve(targetFile, inlineConfig.isEmpty() ? null : inlineConfig,
+                        inFileOverrides);
                 final String formatted = Formatter.formatOne(content, language, path == null ? "" : path, config, formatOff);
                 respond(exchange, 200, formatted);
             } catch (final Exception e) {

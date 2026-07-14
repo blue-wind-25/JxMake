@@ -140,6 +140,18 @@ C/C++ Headers:
                                             template base class, concrete subclass, factory
                                             declaration, extern "C" block.
 
+K&R brace / preprocessor interaction:
+  kandr_brace_preprocessor_inp/out.hpp   -- RDD_KEY_169: a named construct (struct/namespace)
+                                            whose base-clause is guarded by #if/#endif, with
+                                            the body `{` immediately following the bare #endif
+                                            line. Proves enforceKAndRBraceStyle no longer glues
+                                            the `{` onto the #endif line (which a later
+                                            retokenize would swallow into the PREPROCESSOR
+                                            token, desyncing brace/frame tracking and producing
+                                            wrong closing-comment labels/indentation --
+                                            originally found via ericniebler/range-v3 item 20
+                                            bug (a), see STATE_C_CPP_JAVA.md Open Questions).
+
 In-file config directive:
   in_file_config_inp/out.hpp             -- Top-of-file JXM_CFMT_CFG directive (STATE_COMMON.md
                                             "In-file Config Support", RDD_KEY_167/168): sets every

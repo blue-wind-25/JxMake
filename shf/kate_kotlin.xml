@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE language SYSTEM "language.dtd"
+[
+    <!ENTITY symname  "[_a-zA-Z][_a-zA-Z0-9]*">
+    <!ENTITY hexdigit "[0-9a-fA-F]">
+    <!ENTITY decnum   "[0-9]+(?:_+[0-9]+)*">
+    <!ENTITY hexnum   "[0-9a-fA-F]+(?:_+[0-9a-fA-F]+)*">
+    <!ENTITY binnum   "[01]+(?:_+[01]+)*">
+]>
+<!-- Kotlin syntax highlighting for KDE4 kate    -->
+<!-- Install: ~/.kde/share/apps/katepart/syntax/ -->
+<language
+    name="Kotlin (KDE4)"
+    section="Sources"
+    version="1"
+    kateversion="2.4"
+    extensions="*.kt;*.kts"
+    mimetype="text/x-kotlin"
+    author="Aloysius Indrayanto"
+    license="LGPL"
+    style="cstyle"
+    indenter="cstyle"
+    casesensitive="1"
+    priority="99"
+>
+    <highlighting>
+
+        <!-- ============================================================ -->
+        <!--  Keyword lists                                               -->
+        <!-- ============================================================ -->
+
+        <list name="Keywords">
+            <item> class      </item>
+            <item> interface  </item>
+            <item> object     </item>
+            <item> enum       </item>
+            <item> sealed     </item>
+            <item> data       </item>
+            <item> annotation </item>
+            <item> companion  </item>
+            <item> fun        </item>
+            <item> val        </item>
+            <item> var        </item>
+            <item> constructor</item>
+            <item> init       </item>
+            <item> override   </item>
+            <item> abstract   </item>
+            <item> open       </item>
+            <item> final      </item>
+            <item> inner      </item>
+            <item> inline     </item>
+            <item> noinline   </item>
+            <item> crossinline</item>
+            <item> reified    </item>
+            <item> tailrec    </item>
+            <item> infix      </item>
+            <item> operator   </item>
+            <item> external   </item>
+            <item> const      </item>
+            <item> lateinit   </item>
+            <item> typealias  </item>
+            <item> typeof     </item>
+            <item> vararg     </item>
+            <item> private    </item>
+            <item> protected  </item>
+            <item> public     </item>
+            <item> internal   </item>
+            <item> in         </item>
+            <item> out        </item>
+            <item> get        </item>
+            <item> set        </item>
+            <item> by         </item>
+            <item> where      </item>
+            <item> as         </item>
+            <item> is         </item>
+            <item> return     </item>
+            <item> throw      </item>
+        </list>
+
+        <list name="ControlFlow">
+            <item> if       </item>
+            <item> else     </item>
+            <item> when     </item>
+            <item> for      </item>
+            <item> while    </item>
+            <item> do       </item>
+            <item> try      </item>
+            <item> catch    </item>
+            <item> finally  </item>
+            <item> continue </item>
+            <item> break    </item>
+            <item> yield    </item>
+        </list>
+
+        <list name="Predeclared">
+            <item> this  </item>
+            <item> super </item>
+            <item> null  </item>
+            <item> true  </item>
+            <item> false </item>
+        </list>
+
+        <list name="BuiltinTypes">
+            <item> Unit    </item>
+            <item> Nothing </item>
+            <item> Any     </item>
+            <item> String  </item>
+            <item> Char    </item>
+            <item> Boolean </item>
+            <item> Byte    </item>
+            <item> Short   </item>
+            <item> Int     </item>
+            <item> Long    </item>
+            <item> Float   </item>
+            <item> Double  </item>
+            <item> dynamic </item>
+        </list>
+
+        <!-- ============================================================ -->
+        <!--  Contexts                                                     -->
+        <!-- ============================================================ -->
+
+        <contexts>
+
+            <!-- ======================================================== -->
+            <!--  NormalText: main context                                 -->
+            <!-- ======================================================== -->
+            <context name="NormalText" attribute="NormalText" lineEndContext="#stay">
+                <!-- Shebang line -->
+                <Detect2Chars char="#" char1="!"     attribute="Comment" context="LineComment"                    />
+                <!-- Comments -->
+                <IncludeRules context="Comments"/>
+                <!-- Code folding -->
+                <RegExpr      String="\bclass\b"     attribute="Keyword" context="#stay" beginRegion="Class"      />
+                <RegExpr      String="\bobject\b"    attribute="Keyword" context="#stay" beginRegion="Class"      />
+                <RegExpr      String="\binterface\b" attribute="Keyword" context="#stay" beginRegion="Class"      />
+                <DetectChar   char="{"               attribute="Symbol"  context="#stay" beginRegion="Brace"      />
+                <DetectChar   char="}"               attribute="Symbol"  context="#stay"   endRegion="Brace"      />
+                <!-- Annotations -->
+                <RegExpr      String="@&symname;"    attribute="Annotation"  context="#stay"                      />
+                <!-- Strings -->
+                <StringDetect String="&quot;&quot;&quot;" attribute="String" context="MultiLineString" beginRegion="MultiLineString"/>
+                <DetectChar   char="&quot;"               attribute="String" context="SingleLineString"                             />
+                <!-- Char literals -->
+                <RegExpr      String="'\\u&hexdigit;{4}'" attribute="Char"  context="#stay"                       />
+                <RegExpr      String="'\\?.'"             attribute="Char"  context="#stay"                       />
+                <RegExpr      String="'[^']*'"            attribute="Error" context="#stay"                       />
+                <!-- Numbers -->
+                <RegExpr      String="\b0[xX]&hexnum;[uUlL]?\b"                      attribute="Hex"     context="#stay"/>
+                <RegExpr      String="\b0[bB]&binnum;[uUlL]?\b"                      attribute="Binary"  context="#stay"/>
+                <RegExpr      String="\b&decnum;\.[0-9]+(?:[eE][-+]?[0-9]+)?[fF]?\b" attribute="Float"   context="#stay"/>
+                <RegExpr      String="\b&decnum;[eE][-+]?[0-9]+[fF]?\b"              attribute="Float"   context="#stay"/>
+                <RegExpr      String="\b&decnum;[fF]\b"                              attribute="Float"   context="#stay"/>
+                <RegExpr      String="\b&decnum;[uUlL]?\b"                           attribute="Decimal" context="#stay"/>
+                <!-- Type annotation colon -->
+                <DetectChar   char=":"               attribute="Symbol"  context="TypeAnnotation"                 />
+                <!-- Keywords (before context-pushing rules) -->
+                <keyword      String="ControlFlow"   attribute="ControlFlow" context="#stay"                      />
+                <keyword      String="Predeclared"   attribute="Keyword"     context="#stay"                      />
+                <keyword      String="Keywords"      attribute="Keyword"     context="#stay"                      />
+                <keyword      String="BuiltinTypes"  attribute="DataType"    context="#stay"                      />
+                <!-- Context-pushing keywords (after keyword rules) -->
+                <RegExpr      String="\bfun\b"       attribute="Keyword" context="FunctionName" beginRegion="Function"/>
+                <RegExpr      String="\bval\b"       attribute="Keyword" context="VariableName"                   />
+                <RegExpr      String="\bvar\b"       attribute="Keyword" context="VariableName"                   />
+                <RegExpr      String="\bimport\b"    attribute="Keyword" context="ImportPath"                     />
+                <RegExpr      String="\bpackage\b"   attribute="Keyword" context="ImportPath"                     />
+                <RegExpr      String="\bas\b"        attribute="Keyword" context="TypeAnnotation"                 />
+                <!-- Identifier before generic: highlight as DataType -->
+                <RegExpr      String="&symname;(?=\s*&lt;)" attribute="DataType" context="TypeParamsExpr"         />
+                <!-- Operators and symbols -->
+                <AnyChar      String="()[]&amp;|+,-/*=&lt;&gt;;!%?:~^." attribute="Symbol" context="#stay"        />
+                <!-- Plain identifiers -->
+                <RegExpr      String="&symname;"     attribute="NormalText" context="#stay"                       />
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Comments                                                 -->
+            <!-- ======================================================== -->
+            <context name="Comments" attribute="NormalText" lineEndContext="#stay">
+                <Detect2Chars char="/" char1="/" attribute="Comment" context="LineComment"                            />
+                <Detect2Chars char="/" char1="*" attribute="Comment" context="BlockComment" beginRegion="BlockComment"/>
+            </context>
+
+            <context name="LineComment" attribute="Comment" lineEndContext="#pop">
+            </context>
+
+            <context name="BlockComment" attribute="Comment" lineEndContext="#stay">
+                <Detect2Chars char="*" char1="/" attribute="Comment" context="#pop"           endRegion="BlockComment"/>
+                <Detect2Chars char="/" char1="*" attribute="Comment" context="BlockComment" beginRegion="BlockComment"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Strings                                                  -->
+            <!-- ======================================================== -->
+            <context name="SingleLineString" attribute="String" lineEndContext="#pop">
+                <DetectChar   char="&quot;"             attribute="String"        context="#pop"         />
+                <Detect2Chars char="\" char1="$"        attribute="StringEscape"  context="#stay"        />
+                <RegExpr      String="\\u&hexdigit;{4}" attribute="StringEscape"  context="#stay"        />
+                <RegExpr      String="\\."              attribute="StringEscape"  context="#stay"        />
+                <Detect2Chars char="$" char1="{"        attribute="Interpolation" context="Interpolation"/>
+                <RegExpr      String="\$&symname;"      attribute="Interpolation" context="#stay"        />
+            </context>
+
+            <context name="MultiLineString" attribute="String" lineEndContext="#stay">
+                <StringDetect String="&quot;&quot;&quot;" attribute="String"        context="#pop"  endRegion="MultiLineString"/>
+                <Detect2Chars char="\" char1="$"          attribute="StringEscape"  context="#stay"                            />
+                <Detect2Chars char="$" char1="{"          attribute="Interpolation" context="Interpolation"                    />
+                <RegExpr      String="\$&symname;"        attribute="Interpolation" context="#stay"                            />
+            </context>
+
+            <!-- ${...} block: everything inside is cyan, matching KDE5 original behaviour -->
+            <context name="Interpolation" attribute="Interpolation" lineEndContext="#stay">
+                <DetectChar char="}" attribute="Interpolation" context="#pop"         />
+                <DetectChar char="{" attribute="Interpolation" context="Interpolation"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Type annotation: after ':', 'as'                        -->
+            <!-- ======================================================== -->
+            <context name="TypeAnnotation" attribute="NormalText" lineEndContext="#pop">
+                <DetectChar   char="="   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char=";"   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char=","   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char=")"   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char="("   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char="{"   attribute="Symbol"  context="#pop" lookAhead="true"/>
+                <DetectChar   char="?"   attribute="Symbol"  context="#stay"                />
+                <DetectChar   char="&lt;" attribute="Symbol" context="TypeParams"           />
+                <DetectChar   char="."   attribute="Symbol"  context="#stay"                />
+                <IncludeRules context="Comments"/>
+                <keyword      String="BuiltinTypes" attribute="DataType" context="#stay"/>
+                <RegExpr      String="&symname;"    attribute="DataType" context="#stay"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Function name                                            -->
+            <!-- ======================================================== -->
+            <context name="FunctionName" attribute="Function" lineEndContext="#pop">
+                <RegExpr    String="\b&symname;" attribute="Function" context="#stay"                />
+                <DetectChar char="("             attribute="Symbol"   context="#pop!Parameters"      />
+                <DetectChar char=":"             attribute="Symbol"   context="TypeAnnotation"       />
+                <DetectChar char="{"             attribute="Symbol"   context="#pop" lookAhead="true"/>
+                <DetectChar char="="             attribute="Symbol"   context="#pop" lookAhead="true"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Variable name (after val/var)                           -->
+            <!-- ======================================================== -->
+            <context name="VariableName" attribute="Variable" lineEndContext="#pop">
+                <RegExpr    String="\b&symname;" attribute="Variable" context="#stay"                />
+                <DetectChar char=":"             attribute="Symbol"   context="#pop!TypeAnnotation"  />
+                <DetectChar char="="             attribute="Symbol"   context="#pop" lookAhead="true"/>
+                <DetectChar char="{"             attribute="Symbol"   context="#pop" lookAhead="true"/>
+                <DetectChar char=")"             attribute="Symbol"   context="#pop" lookAhead="true"/>
+                <DetectChar char=","             attribute="Symbol"   context="#pop" lookAhead="true"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Import/package path                                      -->
+            <!-- ======================================================== -->
+            <context name="ImportPath" attribute="Imports" lineEndContext="#pop">
+                <DetectChar char=";" attribute="Symbol"  context="#pop" />
+                <DetectChar char="*" attribute="Imports" context="#stay"/>
+                <DetectChar char="." attribute="Symbol"  context="#stay"/>
+                <RegExpr    String="&symname;" attribute="Imports" context="#stay"/>
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Function parameter list                                  -->
+            <!-- ======================================================== -->
+            <context name="Parameters" attribute="Variable" lineEndContext="#stay">
+                <DetectChar   char=")"             attribute="Symbol"       context="#pop"          />
+                <DetectChar   char="("             attribute="Symbol"       context="Parameters"    />
+                <RegExpr      String="\bval\b"     attribute="Keyword"      context="#stay"         />
+                <RegExpr      String="\bvar\b"     attribute="Keyword"      context="#stay"         />
+                <RegExpr      String="@&symname;"  attribute="Annotation"   context="#stay"         />
+                <DetectChar   char=":"             attribute="Symbol"       context="TypeAnnotation"/>
+                <DetectChar   char=","             attribute="Symbol"       context="#stay"         />
+                <DetectChar   char="="             attribute="Symbol"       context="#stay"         />
+                <StringDetect String="&quot;&quot;&quot;" attribute="String" context="MultiLineString" beginRegion="MultiLineString"/>
+                <DetectChar   char="&quot;"                     attribute="String"  context="SingleLineString"/>
+                <RegExpr      String="\b0[xX]&hexnum;[uUlL]?\b" attribute="Hex"     context="#stay"           />
+                <RegExpr      String="\b0[bB]&binnum;[uUlL]?\b" attribute="Binary"  context="#stay"           />
+                <RegExpr      String="\b&decnum;[uUlL]?\b"      attribute="Decimal" context="#stay"           />
+                <IncludeRules context="Comments"/>
+                <keyword      String="ControlFlow"                   attribute="ControlFlow" context="#stay"         />
+                <keyword      String="Predeclared"                   attribute="Keyword"     context="#stay"         />
+                <keyword      String="Keywords"                      attribute="Keyword"     context="#stay"         />
+                <keyword      String="BuiltinTypes"                  attribute="DataType"    context="#stay"         />
+                <RegExpr      String="&symname;(?=\s*&lt;)"          attribute="DataType"    context="TypeParamsExpr"/>
+                <AnyChar      String="[]&amp;|+,-/*&lt;&gt;;!%?:~^." attribute="Symbol"      context="#stay"         />
+            </context>
+
+            <!-- ======================================================== -->
+            <!--  Generic type parameters                                  -->
+            <!-- ======================================================== -->
+
+            <!-- Trampoline: consume '<' then enter TypeParams -->
+            <context name="TypeParamsExpr" attribute="NormalText" lineEndContext="#pop">
+                <DetectChar char="&lt;"           attribute="Symbol"     context="#pop!TypeParams"      />
+                <AnyChar    String=" \t(){}[];,." attribute="NormalText" context="#pop" lookAhead="true"/>
+            </context>
+
+            <!-- Inside <...> -->
+            <context name="TypeParams" attribute="NormalText" lineEndContext="#stay">
+                <DetectChar   char="&gt;" attribute="Symbol" context="#pop"      />
+                <DetectChar   char="&lt;" attribute="Symbol" context="TypeParams"/>
+                <DetectChar   char="?"    attribute="Symbol" context="#stay"     />
+                <DetectChar   char=","    attribute="Symbol" context="#stay"     />
+                <DetectChar     char=":"    attribute="Symbol" context="#stay"     />
+                <DetectChar   char="*"    attribute="Symbol" context="#stay"     />
+                <IncludeRules context="Comments"/>
+                <keyword      String="Keywords"     attribute="Keyword"  context="#stay"/>
+                <keyword      String="BuiltinTypes" attribute="DataType" context="#stay"/>
+                <RegExpr      String="&symname;"    attribute="DataType" context="#stay"/>
+            </context>
+
+        </contexts>
+
+        <!-- ============================================================ -->
+        <!--  Item data / colour roles                                     -->
+        <!-- ============================================================ -->
+        <itemDatas>
+            <itemData name="NormalText"    defStyleNum="dsNormal"   spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="false" underline="false"/>
+            <itemData name="Keyword"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="false"/>
+            <itemData name="ControlFlow"   defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="false"/>
+            <itemData name="Function"      defStyleNum="dsFunction" spellChecking="false" color="#0000BF" selColor="#0000BF" bold="false" italic="false" underline="false"/>
+            <itemData name="Variable"      defStyleNum="dsVariable" spellChecking="false" color="#006A00" selColor="#006A00" bold="false" italic="false" underline="false"/>
+            <itemData name="Imports"       defStyleNum="dsNormal"   spellChecking="false" color="#5A00B3" selColor="#5A00B3" bold="false" italic="false" underline="false"/>
+            <itemData name="DataType"      defStyleNum="dsKeyword"  spellChecking="false" color="#0055AF" selColor="#0055AF" bold="false" italic="false" underline="false"/>
+            <itemData name="Annotation"    defStyleNum="dsNormal"   spellChecking="false" color="#808000" selColor="#808000" bold="false" italic="false" underline="false"/>
+            <itemData name="Error"         defStyleNum="dsError"    spellChecking="false" color="#FF0000" selColor="#FF0000" bold="true"  italic="true"  underline="true" />
+            <itemData name="Decimal"       defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
+            <itemData name="Hex"           defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
+            <itemData name="Binary"        defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
+            <itemData name="Float"         defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
+            <itemData name="Char"          defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="false" italic="false" underline="false"/>
+            <itemData name="String"        defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="false" italic="false" underline="false"/>
+            <itemData name="StringEscape"  defStyleNum="dsString"   spellChecking="false" color="#005AB3" selColor="#005AB3" bold="true"  italic="false" underline="false"/>
+            <itemData name="Interpolation" defStyleNum="dsNormal"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="true"  underline="false"/>
+            <itemData name="Comment"       defStyleNum="dsComment"  spellChecking="true"  color="#808080" selColor="#808080" bold="false" italic="false" underline="false"/>
+            <itemData name="Symbol"        defStyleNum="dsOperator" spellChecking="false" color="#CF6E00" selColor="#CF6E00" bold="false" italic="false" underline="false"/>
+        </itemDatas>
+
+    </highlighting>
+
+    <general>
+        <comments>
+            <comment name="singleLine" start="//"/>
+            <comment name="multiLine"  start="/*" end="*/" region="BlockComment"/>
+        </comments>
+        <keywords casesensitive="1"/>
+    </general>
+
+</language>

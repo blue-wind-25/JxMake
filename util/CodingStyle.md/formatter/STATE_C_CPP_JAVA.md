@@ -230,6 +230,9 @@ kotlin-import-sort               = on
 kotlin-import-depth              = 2
 kotlin-import-blank-lines        = 1
 ```
+
+For every added, deleted, or modified configuration item, synchronize it with the implementation of *In‑file Config Support* (the `JXM_CFMT_CFG` directive).
+
 ---
 
 ## Java File Header

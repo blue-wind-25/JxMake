@@ -142,6 +142,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_90 | Task A (`JXM_CFMT_DIS`/`ENA`) -- rejected split-file-into-tmp-dirs approach in favor of in-memory token masking |
 | RDD_KEY_167 | `JXM_CFMT_CFG` top-of-file placement semantics -- own separate comment required, "before first non-comment/non-blank token" not literal line 1 |
 | RDD_KEY_168 | `in_file_config_*.hpp` fixture -- `header-guard-rename` untestable via this harness (guard name derives from invocation path, `_inp`/`_out` always differ); swapped for `format-macros=off`, which also proves override of the `test` target's own `FORMAT_MACROS=on` env var |
+| RDD_KEY_169 | range-v3 item 20 bug (a) RESOLVED -- `BlockStructureRule.enforceKAndRBraceStyle` glued a named construct's `{` onto a preceding bare `#endif` line, which a later retokenize then swallowed whole into the `#endif` PREPROCESSOR token, permanently dropping that brace from every downstream scope-depth/frame-stack pass and desyncing both the closing-comment indentation and (as a downstream side effect, not a separate bug) angle-bracket classification; fixed by skipping the K&R glue when the preceding real token is a PREPROCESSOR directive |
 
 ---
 
@@ -214,6 +215,61 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   further root-cause work on `TokenizerCore.reclassifyAngleBrackets`, scoped again to only these
   3 files, then (once/if fixed) a full round1/round2 + syntax-check pass over the entire 311-file
   range-v3 tree to confirm no regressions before closing bug (a).
+
+  **RESOLVED.** Root cause: `BlockStructureRule.enforceKAndRBraceStyle`'s `qualifiesForKAndR`
+  unconditionally glues a named construct's (`class`/`struct`/`enum`/`namespace`, tagged via
+  `Token.name`) body `{` onto the end of the immediately preceding physical line whenever that
+  brace qualifies for K&R placement — with no check on what that preceding line actually is.
+  When a construct's base-clause/underlying-type is itself guarded by a preprocessor conditional
+  (e.g. `struct any\n  #if RANGES_BROKEN_CPO_LOOKUP\n  : private _any_::_base\n  #endif\n{`), the
+  brace legitimately sits right after a bare `#endif` line with nothing else in between, and the
+  K&R-gluing pass collapses the newline into a space, producing `#endif {` on one physical line.
+  On the very next tokenization pass (`addClosingComments`'s own `tokenizer.apply(text)` call
+  within round1 itself, and again on round2's full re-tokenize), `TokenizerCore.emitPreprocessor`
+  — which opaquely lexes a `#`-directive to end-of-physical-line, correctly per its own contract,
+  since a real `#endif { ... }` on one line is never valid C/C++ to begin with — swallows the `{`
+  into the `#endif` directive's own PREPROCESSOR token text. The `{` then permanently vanishes as
+  a distinct `PUNCT "{"` token for every brace-depth-tracking pass downstream (confirmed via
+  temporary instrumentation dumping the full token stream: the struct's own body brace has zero
+  push/pop trace entries at all, meaning `BlockStructureRule.addClosingComments`'s frame stack
+  never sees this scope open). This one dropped push desyncs the stack for the rest of the
+  scan: the following `}` (the construct's true closing brace) instead pops whatever frame is
+  next on the stack — the enclosing `namespace ranges` frame — explaining symptom (1)'s
+  `}; // namespace ranges`-on-the-wrong-brace-at-the-wrong-indent (the label is for a frame that
+  is really still several scopes further out, and the label/indent are simply wrong from that
+  point until the real `namespace` frame is popped again, later than it should be, at the file's
+  actual closing brace). Symptom (2) (`meta::if_c<std::is_reference<T>() || copyable<T>, T>`'s
+  inner angle brackets getting spaced on round2) shares this exact root cause rather than being a
+  separate bug: `any_cast`'s own `friend` declarations sit inside this same brace-desynced
+  region, and the stray, permanently-unclosed frame shifts every subsequent brace-depth-derived
+  heuristic (including `TokenizerCore.reclassifyAngleBrackets`'s view of what counts as
+  "top-level" for a given angle-bracket pair) for the remainder of the scan on round2 — the
+  original `isGenericSafeToken`/`invalidateAll(openStack)` root-cause lead was a red herring; the
+  angle-bracket-classifier code itself was never buggy, it was just operating on a token stream
+  whose brace/scope bookkeeping had already been silently corrupted upstream by the vanished `{`.
+  **Fix**: `enforceKAndRBraceStyle` now looks up the nearest real (non-whitespace/newline/comment)
+  token before the candidate `{` via the existing `prevSignificantIndex` helper and skips the
+  K&R glue (leaving the brace on its own line, gap untouched) whenever that token is a
+  `TokenType.PREPROCESSOR` directive — gluing real code onto a preprocessor-directive line is
+  never a safe rewrite regardless of what construct the brace belongs to, since a following
+  retokenization pass has no way to tell the difference between an intentional one-line `#define
+  FOO { ... }`-style macro body and an accidental glue artifact. Change is narrowly scoped to
+  this one gap-collapse decision; `qualifiesForKAndR`'s own classification logic (what kinds of
+  braces get K&R treatment at all) is untouched. Verified: (1) minimal repros (`struct`/`enum
+  class` bodies with an `#if`/`: base #endif` clause before `{`) now leave the brace on its own
+  line and are round1-vs-round2 clean; (2) the 3 real files (`utility/any.hpp`,
+  `iterator/common_iterator.hpp`, `meta/meta.hpp`) now produce byte-identical round1 and round2
+  output (`diff` empty on all three — both the closing-comment-indentation and the angle-bracket
+  over-spacing symptoms are gone); (3) `make test`: 75/75 forward + 75/75 idempotency both before
+  and after the fix, zero regressions; (4) a full round1/round2 pass over the entire 311-file
+  `include/range/v3/` tree (`diff -rq` between the two output trees) is completely empty — the
+  whole tree is round1-vs-round2 idempotent, not just the 3 originally-flagged files; (5) a
+  `g++ -std=c++20 -fsyntax-only` syntax-check pass over all 311 files, baseline (original,
+  unformatted) vs. formatted (round1 output), shows the exact same single failing file
+  (`detail/epilogue.hpp`, a header that `#error`s when included standalone without its paired
+  `prologue.hpp` — a pre-existing, formatting-unrelated single-header-compilation artifact) with
+  the identical 2-error output in both passes; every other file compiles clean in both. Fixed in
+  `BlockStructureRule.enforceKAndRBraceStyle`. See `RDD_KEY_169`.
 
   **Separate, unconfirmed observation to verify independently — do not conflate with the above:**
   some already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode
@@ -547,9 +603,10 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
      (`view/iota.hpp`/`detail/variant.hpp` before/after error counts now match baseline) and full
      round1/round2 idempotency over the whole 311-file tree. Config: default. Fixture:
      `real_code_regressions_50`. Follow-up session resolved bug (b) below with a narrow,
-     verified guard; bug (a) remains open and is now tracked in **Open Questions** (also found
-     to additionally affect `meta.hpp`, not just `any.hpp`/`common_iterator.hpp`). (a) OPEN —
-     see Open Questions. (b) RESOLVED — `view/view.hpp` / `action/action.hpp` compile-breaking
+     verified guard; bug (a) was tracked in **Open Questions** (also found to additionally
+     affect `meta.hpp`, not just `any.hpp`/`common_iterator.hpp`) and later resolved there too —
+     see Open Questions for the full root-cause/fix writeup (`RDD_KEY_169`). (a) RESOLVED — see
+     Open Questions. (b) RESOLVED — `view/view.hpp` / `action/action.hpp` compile-breaking
      bug: a declaration ending in `;` (not a function body) whose original source spans multiple
      lines each deliberately ending in its own `//` ASCII-banner comment (e.g. a `friend ...
      operator|(...) -> CPP_broken_friend_ret(...)( requires ...) = delete;` deleted-overload

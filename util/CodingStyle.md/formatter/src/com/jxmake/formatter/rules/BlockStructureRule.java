@@ -983,8 +983,19 @@ public class BlockStructureRule {
                 continue;
             }
 
+            // RDD_KEY_169: never collapse the gap onto a single space when the nearest real
+            // token before it is a PREPROCESSOR directive (e.g. `#endif`) -- gluing the `{`
+            // onto that line would put real code after the directive on the same physical
+            // line, which a `#endif`/`#if`/etc. token's own opaque to-end-of-line lexing then
+            // swallows whole on the next retokenization pass (the `{` vanishes into the
+            // PREPROCESSOR token's text instead of being lexed as PUNCT), desyncing every
+            // brace-depth/frame counter downstream. Leave the brace on its own line instead.
+            final int prevRealIdx = prevSignificantIndex(tokens, i - 1);
+            final boolean prevIsPreprocessor = prevRealIdx >= 0
+                    && tokens.get(prevRealIdx).type == TokenType.PREPROCESSOR;
             if (isPunct(t, "{") && gap.stream().noneMatch(Token::isComment)
-                    && qualifiesForKAndR(tokens, i) && !t.frozen && gap.stream().noneMatch(g -> g.frozen)) {
+                    && qualifiesForKAndR(tokens, i) && !t.frozen && gap.stream().noneMatch(g -> g.frozen)
+                    && !prevIsPreprocessor) {
                 out.append(' ');
             } else {
                 for (final Token g : gap) {

@@ -5,7 +5,7 @@ Files in this directory
 -----------------------
   STYLE.md                  Common rules for all languages (read this first)
   STYLE_C_CPP.md            C and C++ extensions/overrides (baseline)
-  STYLE_CPP20.md                  C++ extensions/overrides (newer constructs, read after STYLE_C_CPP.md)
+  STYLE_CPP20.md            C++ extensions/overrides (newer constructs, read after STYLE_C_CPP.md)
   STYLE_CPP26.md            C++26 extensions/overrides (read after STYLE_CPP20.md)
   STYLE_JAVA.md             Java extensions/overrides (baseline)
   STYLE_JAVA17.md           Java extensions/overrides (newer constructs, read after STYLE_JAVA.md)

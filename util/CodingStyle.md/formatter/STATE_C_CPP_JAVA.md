@@ -189,6 +189,32 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   those away (e.g. picking one branch, or running through a real preprocessor first) makes the
   divergence disappear.
 
+  **REFUTED (checked in a follow-up session).** `any.hpp` and `common_iterator.hpp` contain
+  **zero** brace/paren-imbalanced `#if`-family branches anywhere in either file (every branch
+  independently nets to 0), yet both still show the exact same divergence as before. `meta.hpp`
+  does contain one genuinely branch-imbalanced block (lines 3808-3823, an `inline namespace
+  __cxx11 { ... }` opened/closed across two separate `#if defined(_GLIBCXX_USE_CXX11_ABI) &&
+  _GLIBCXX_USE_CXX11_ABI` guards) — but it sits well downstream (line 3808) of `meta.hpp`'s own
+  divergence point (line 3308), so it cannot be the cause there either. A full GCC-preprocessed
+  round-trip was not completable (system `gcc` is 4.8.5, predates `__has_include`, which
+  `range_fwd.hpp` requires) but was unnecessary — brace-balance inspection alone is conclusive.
+  **Conclusion: this is a genuine formatter bug, not a preprocessor/`#if`-branch gap; do NOT
+  document it in `README.md` as a limitation.** Confirmed symptoms on round1-vs-round2 diff of
+  the original (unmodified) files: (1) `}; // namespace ranges` / `}; // struct partition_` /
+  `}; // namespace detail` trailing-comment lines shift indentation level between rounds
+  (`any.hpp:181`, `common_iterator.hpp:230`, `meta.hpp:3308/3313/3378`); (2)
+  `meta::if_c<std::is_reference<T>() || copyable<T>, T>` — round1 spaces only the outer
+  `if_c<...>` angle brackets, but reformatting that (round2) *additionally* and *incorrectly*
+  spaces the previously-untouched inner `std::is_reference<T>`/`copyable<T>` angle brackets,
+  i.e. round2 gets *less* correct, not more — matching the pre-existing root-cause lead pointing
+  at `TokenizerCore.reclassifyAngleBrackets`/`isGenericSafeToken`'s `invalidateAll(openStack)`
+  poisoning behavior (see above; the earlier `||`/`&&`/`!` OP-whitelist attempt did not fix this
+  and was reverted). Investigation was read-only, scoped to only these 3 files
+  (`/tmp/range-v3`), no formatter source was touched. **Next step, pending user decision:**
+  further root-cause work on `TokenizerCore.reclassifyAngleBrackets`, scoped again to only these
+  3 files, then (once/if fixed) a full round1/round2 + syntax-check pass over the entire 311-file
+  range-v3 tree to confirm no regressions before closing bug (a).
+
   **Separate, unconfirmed observation to verify independently — do not conflate with the above:**
   some already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode
   while passing under `gcc 12` in C++20 mode. This may be a real language-version mismatch in

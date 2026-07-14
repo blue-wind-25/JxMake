@@ -23,14 +23,20 @@ Files in this directory
       the author's grouping intent should be preserved or improved)
     - Getter/setter groups with non-standard naming conventions
 
-  NOTE — Kotlin: JAR support for STYLE_KOTLIN.md / STYLE_KOTLIN2.md now exists
-  (`.kt`/`.kts` files are auto-detected), but it is newer than the C/C++/Java
-  support and has not yet been through the same real-world dogfood testing --
-  see formatter/STATE_KOTLIN.md for current status. The full-file AI pass
-  below remains a fallback for Kotlin files if you hit a JAR gap; there is no
-  post-JAR layout-judgment workflow for Kotlin files yet (same limitation as
-  before -- AI_PREAMBLE_AESTHETIC.md's two aesthetic decisions are scoped to
-  C/C++/Java only).
+  NOTE — Kotlin: the deterministic JAR's Kotlin support (STYLE_KOTLIN.md /
+  STYLE_KOTLIN2.md, `.kt`/`.kts` auto-detected) is on the same footing as
+  C/C++/Java — same dogfood-testing process, same regression-fix cadence (see
+  formatter/STATE_KOTLIN.md and formatter/RDD_LOG.md). Both AI passes below
+  apply to Kotlin the same way they apply to C/C++/Java. The one real
+  exception: three specific property-accessor shapes — block-bodied accessors
+  (`get() {...}`/`set(v) {...}`), a property pairing a getter with a setter,
+  and a property with both an initializer and a custom accessor — are left
+  preserved-as-written by the JAR rather than grouped/aligned. This is a
+  deliberate scope boundary (these shapes are considerably more complex to
+  group correctly than the plain one-liner cases the JAR already handles),
+  not an immaturity gap — see formatter/STATE_KOTLIN.md's Open Questions.
+  AI_PREAMBLE_AESTHETIC.md's Rule 2 covers aligning these three shapes
+  manually when you hit one.
 
   There are two AI passes, described below. Use only one per file per run.
 

@@ -23,19 +23,20 @@ Do **not** use this preamble with small on-device models (Qwen2.5-Coder-3B, Llam
 3.2 3B, etc.) — they fail inconsistently on column alignment and bracket-padding rules.
 
 This preamble is language-agnostic; combine it with the style files for the target
-language (see README.txt). For Kotlin, the deterministic JAR now implements Kotlin
-support (`.kt`/`.kts`, auto-detected) — prefer running the JAR first, same as
-C/C++/Java. There is still no post-JAR layout-judgment pass for Kotlin files
-(`AI_PREAMBLE_AESTHETIC.md`'s two aesthetic decisions are scoped to C/C++/Java only),
-so this full-file pass remains the fallback for any Kotlin construct the JAR doesn't
-yet handle. The JAR now groups/aligns the common Kotlin one-liner-accessor shapes
-(expression-bodied functions and plain no-initializer `get() = expr` properties) —
-a remaining gap covers only block-bodied accessors (`get() {...}`/`set(v) {...}`), a
+language (see README.txt). Kotlin support (`.kt`/`.kts`, auto-detected) is on the same
+footing as C/C++/Java — same dogfood-testing process, same regression-fix cadence
+(see `formatter/STATE_KOTLIN.md`/`formatter/RDD_LOG.md`) — so prefer running the JAR
+first for Kotlin exactly as you would for the others, and use this full-file pass only
+as a fallback for a construct the JAR doesn't handle. The layout judgment pass
+(`AI_PREAMBLE_AESTHETIC.md`) applies to Kotlin the same way it applies to C/C++/Java.
+The one real exception, both for the JAR and for the layout judgment pass: three
+property-accessor shapes — block-bodied accessors (`get() {...}`/`set(v) {...}`), a
 property pairing a getter with a setter, and a property with both an initializer and
-a custom accessor, all of which the JAR still leaves preserved-as-written rather than
-grouped (see `formatter/STATE_KOTLIN.md`'s Open Questions). Apply STYLE.md §14's
-getter/setter alignment manually only to those three residual shapes when
-reformatting Kotlin.
+a custom accessor — are left preserved-as-written rather than grouped, a deliberate
+scope boundary given how much more complex correctly grouping these shapes is than
+the plain one-liner cases already handled (see `formatter/STATE_KOTLIN.md`'s Open
+Questions), not an immaturity gap. Apply STYLE.md §14's getter/setter alignment
+manually only to those three residual shapes when reformatting Kotlin.
 
 ---
 

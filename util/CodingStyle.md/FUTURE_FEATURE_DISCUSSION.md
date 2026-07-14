@@ -70,6 +70,22 @@ One area looks meaningfully harder:
   tested against real reflection code, before any style rule for it is
   trusted — not inferred from the standard's grammar alone.
 
+**Update (Q&A, drafted):** `STYLE_CPP26.md` has been drafted covering all five
+constructs above (pack indexing, `= delete("reason")`, placeholder `_`, contracts,
+reflection). C++26 itself shipped/finalized 28 March 2026 — confirmed via web search.
+Two things worth recording from that check:
+- **Trivial relocatability was removed from C++26** during finalization (implementation
+  bugs) and deferred to a later standard — deliberately *not* included in
+  `STYLE_CPP26.md`.
+- **C++29** work only began June 2026 (first WG21 meeting, Brno); a few items are
+  adopted into the *draft* (UB catalog — no syntax impact; contract pre/post for
+  virtual functions — semantic extension of already-covered contracts syntax, no new
+  tokens; `=default` for postfix increment/decrement — the one real syntax addition,
+  trivial in shape). Decided **not** to include any C++29 content — "adopted into
+  draft" this early isn't the same as frozen, and the trivial-relocatability removal
+  above is a live example of C++26 losing a feature even at its finalization stage.
+  Revisit only once C++29 itself ships.
+
 **If this is ever picked up — file structure recommendation:** create a new
 `STYLE_CPP26.md`, rather than extending `STYLE_CPP20.md`. Two reasons:
 1. Java and Kotlin both already split "baseline" from "newer constructs"
@@ -149,6 +165,9 @@ for the §5-style key/value alignment above. Tracked here, same reasoning as
 the Python3 config-properties note below — not yet in the real config schema
 or a `STATE.md` task.
 
+**Update (Q&A, drafted):** folded into `STYLE_DATA_FORMATS.md` §1 as planned, alongside
+XML/CSS/HTML5.
+
 **Test-fixture repos:**
 - `json5/json5` — the reference JSON5 implementation; ships its own
   `json5-tests` fixture suite of edge-case `.json5` files.
@@ -201,6 +220,17 @@ do to recognize tags/attributes.
 - `w3c/svgwg` — SVG working-group repo; real, spec-adjacent SVG markup for
   the "SVG" variant rather than hand-wavy samples.
 
+**Update (Q&A, drafted):** folded into `STYLE_DATA_FORMATS.md` §2, as planned. Two
+things resolved during Q&A that weren't obvious from "standard formatting":
+- **Indentation** uses the formatter's existing global `indent-size`/`indent-style`
+  config keys (already in README.md's config table) — no XML-specific indent config,
+  no special tabs-vs-spaces handling.
+- **CDATA** is opaque/preserved verbatim by default, *except* when it's the direct
+  content of a `<script>`/`<style>` tag (the old XHTML `<script><![CDATA[...]]>` idiom),
+  in which case it's unwrapped, dispatched through the CSS/JS formatter same as plain
+  `<script>`/`<style>` content, then re-wrapped on output. No separate CDATA formatter
+  class needed — it's a check inside the existing script/style dispatcher.
+
 ---
 
 ## JavaScript
@@ -233,6 +263,17 @@ file for C and C++ rather than two.
   complexity-based bracket padding (STYLE.md §3.1) on chained calls.
 - `microsoft/TypeScript` — the compiler itself is written in a large,
   disciplined JS/TS-adjacent style; also doubles as a TypeScript fixture.
+
+**Update (Q&A, drafted):** drafted as `STYLE_JS_TS.md`, deriving from STYLE_JAVA.md /
+STYLE_KOTLIN.md by section-number citation (not copied content — those files are
+stable, so a reference stays correct if they're ever revised, whereas a copy would
+silently drift). Cross-references from `STYLE_DATA_FORMATS.md` to this file use the
+filename only, not a section number, so they can't go stale if this file's numbering
+changes. One item was **not** resolvable from the existing doc and needed new design
+during Q&A: import grouping/classification (built-in vs. third-party vs. local) has no
+Java/Kotlin analog to derive from — flagged as an open item in `STYLE_JS_TS.md` §10,
+same unresolved-tier-classification shape as the Python3 import-sorting question
+below (though Python3's ended up resolved much more simply — see that section).
 
 ---
 
@@ -303,6 +344,8 @@ real schema" reasoning as JSON's and Python3's config-properties notes.
 - `primer/css` — GitHub's own production design-system CSS; real, actively
   maintained, different declaration-density patterns again.
 
+**Update (Q&A, drafted):** folded into `STYLE_DATA_FORMATS.md` §3, as planned.
+
 ---
 
 ## HTML5
@@ -337,6 +380,13 @@ the same minimal rules as the XML subsection.
 - `whatwg/html` — the HTML Living Standard's own source, real large-scale
   HTML5 authored under the standard itself.
 
+**Update (Q&A, drafted):** folded into `STYLE_DATA_FORMATS.md` §4, as planned —
+confirmed this is the correct file-plan grouping despite CSS/HTML5 sitting in the
+"web group" for *priority* purposes alongside JS/TS; the file-plan grouping (which
+file the rules live in) is separate from the priority grouping (implementation
+order), and CSS/HTML5's lack of functions/control-flow is what puts them in
+`STYLE_DATA_FORMATS.md` rather than `STYLE_JS_TS.md`.
+
 ---
 
 ## Python3
@@ -360,6 +410,11 @@ heuristic has no bucket for at all:
   C/Java/Kotlin indexing; whether an expression-bearing slice
   (`a[i+1:j-1]`) counts as "simple ops" (tight) or forces loose is an open
   design question, not inherited from §3.1.
+  **Resolved (Q&A):** the `:` is punctuation, never spaced, regardless of
+  looseness — `a[i+1:j-1]` stays tight; `a[ i+1:(j*k)-1 ]` goes loose because of
+  the nested `()`, but the colon itself stays tight either way (`(j*k)-1`, not
+  `(j*k) -1` or spaced around `:`). Looseness is decided per side of each `:`
+  using the normal §3.1 call/nested-bracket signal, same as any other `[]`.
 - **Star-unpacking** (`*args`, `**kwargs`, `[*a, *b]`) — no direct analog in
   the bracket contents of any currently-supported language.
 - **Dict vs. set literal ambiguity** — `{}` is an empty dict, `{1, 2}` a
@@ -372,20 +427,49 @@ for C/Java/Kotlin. Group/break rules should mirror §6 directly (blank line or
 comment breaks the group; an augmented-assignment operator like `+=` aligns
 in the same group as `=`, same as §6 already does for C-family languages).
 
-**Import sorting (new — flagged, not yet Q&A'd):** also not a straight port
-of Java's import-sorting rule (STYLE_JAVA.md, and `java-import-order` in
-`STATE_C_CPP_JAVA.md`'s config table). Java sorts a flat list by package
-prefix. Python's de facto convention (PEP 8, codified by `isort`) groups
-into four tiers instead — `__future__` first, then standard-library, then
-third-party, then local/first-party — each tier blank-line-separated and
-alphabetized within itself, with its own `import x` vs. `from x import y`
-ordering. The hard part is the **stdlib-vs-third-party classification**
-itself: unlike Java/Kotlin (where sorting never needs to know whether a
-package is "yours" or a dependency), Python's convention requires knowing
-that, which means either bundling a stdlib module list to check against, or
-requiring the user to configure their own project's first-party package
-names. This needs its own Q&A pass before it's scoped, same as the other
-new-rule sections above — noted here so it isn't lost.
+**Import sorting — RESOLVED (Q&A), simpler than originally scoped:** the
+original framing below (a PEP 8/`isort`-style four-tier grouping requiring
+stdlib-vs-third-party classification) was **not adopted**. Decided instead:
+Python import order has no runtime-correctness requirement (imports execute
+top-to-bottom like any statement), so this is purely a formatting convention.
+Sort key: `import` before `from`; alphabetical by module name within each
+keyword; for `from X import a, b, c`, tie-break by first name, then second,
+etc. Relative imports (`from .`/`from ..`) need no special-casing — `.` sorts
+before letters in plain ASCII, so they land first naturally. **No stdlib
+list or first-party config is needed at all** — the classification problem
+below is avoided entirely by not grouping by tier in the first place.
+
+Critical grouping caveat added during Q&A: a contiguous run of imports at the
+same block level is one sortable group; **any non-import statement breaks the
+group**, including a statement that itself contains nested imports (an `if`,
+`try`, function body). Imports nested inside such a block form their own
+group, sorted only among themselves, never merged with imports outside the
+block — reordering across that boundary is a real behavioral risk (changes
+*when* an import executes), not just cosmetic. `from __future__ import ...`
+is moved to the top of its own group (not necessarily the top of the file)
+since it's already required to be first — promoting it within its existing
+group doesn't cross a group boundary, so it's safe.
+
+Drafted as `STYLE_PYTHON3.md` §3. The paragraph below is preserved for
+context on what was originally considered and rejected.
+
+<details>
+<summary>Original (rejected) framing — four-tier PEP 8/isort grouping</summary>
+
+Also not a straight port of Java's import-sorting rule (STYLE_JAVA.md, and
+`java-import-order` in `STATE_C_CPP_JAVA.md`'s config table). Java sorts a
+flat list by package prefix. Python's de facto convention (PEP 8, codified by
+`isort`) groups into four tiers instead — `__future__` first, then
+standard-library, then third-party, then local/first-party — each tier
+blank-line-separated and alphabetized within itself, with its own `import x`
+vs. `from x import y` ordering. The hard part is the **stdlib-vs-third-party
+classification** itself: unlike Java/Kotlin (where sorting never needs to
+know whether a package is "yours" or a dependency), Python's convention
+requires knowing that, which means either bundling a stdlib module list to
+check against, or requiring the user to configure their own project's
+first-party package names.
+
+</details>
 
 **Indentation note:** Python's significant whitespace means this formatter
 would, for the first time, need to treat indentation itself as semantically
@@ -404,15 +488,16 @@ a config schema / `STATE.md` task exists for them):**
 - `python-complexity-detector` (on/off) — toggle for the extended §3.1-style
   bracket/comprehension/slice heuristic above.
 - `python-assignment-align` (on/off) — toggle for the `=`-alignment rule.
-- `python-import-order`, `python-import-sort`, `python-import-blank-lines` —
-  mirroring the existing `java-import-*`/`kotlin-import-*` shape in
-  `STATE_C_CPP_JAVA.md`'s Config Keys and Defaults table.
-- `python-import-stdlib-list` / `python-import-first-party-packages` — the
-  classification inputs the import-sorting tier logic above depends on.
+- `python-import-sort` (on/off), `python-import-blank-lines` — resolved and
+  drafted in `STYLE_PYTHON3.md` §3.4. The `python-import-stdlib-list` /
+  `python-import-first-party-packages` keys originally anticipated here are
+  **no longer needed** — the simplified sort rule decided via Q&A has no tier
+  classification to configure.
 
-None of this is implemented or even fully designed — it's a placeholder list
-so the eventual implementation session updates the real config schema and
-`STATE.md`/`STATE_COMMON.md` instead of missing it.
+The complexity-detector and assignment-alignment config keys above, plus the
+import-sort keys, are drafted in `STYLE_PYTHON3.md` — still not yet in the
+real config schema or a `STATE.md` task, but no longer just a placeholder
+list; see that file for the resolved shape.
 
 **Test-fixture repos:**
 - `python/cpython` — the reference implementation's own standard library;

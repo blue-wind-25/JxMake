@@ -179,3 +179,63 @@ only, decided design, do not re-litigate). Covered by the `make
 test-server` Makefile target and documented in `README.md`'s Server Wire
 Protocol section. No follow-up work remains; the bundled CLI exposing
 inline config via its own flags is optional, not required.
+
+**TODO (not started) — In-file `JXM_CFMT_CFG` config directive.** A top-of-file
+comment directive, e.g. `//% JXM_CFMT_CFG line-length=100;indent-size=2`,
+letting a single source file override any `STATE_C_CPP_JAVA.md` → **Config
+Keys and Defaults** key for itself only, same spirit as the existing
+`JXM_CFMT_DIS`/`JXM_CFMT_ENA` markers (`TokenizerCore.markFrozenSpans`) but
+detected via an earlier raw-text scan (before `Config.resolve`/`Formatter`
+construction, since config values are baked into rule objects before
+tokenizing even starts — the DIS/ENA post-tokenization detection point is
+too late to reuse directly). Design notes for whoever picks this up:
+
+- Almost every config key is a simple additive map-layer override at the
+  existing `Config.fromRawMap`/`Main.formatStandalone` choke point —
+  `server-port` is the one key that's NOT applicable (a `--server` process
+  property, not a per-file one); `indent-style = auto` specifically can't be
+  resolved this way either (its whole point is scanning sibling files in the
+  directory via `IndentationDetector`) — forcing a concrete `spaces`/`tabs`
+  value via the directive is still fine, only the `auto` inference itself
+  doesn't apply per-file.
+- **`JXM_CFMT_CFG`, when present, must override every other config source for
+  that file — file-based `.jxmake-code-formatter` (any directory level),
+  env vars, CLI flags, AND the server's own inline query-param config
+  (the "Improving Server Protocol" feature directly above this TODO) for the
+  same request.** It is the highest-priority layer, full stop — do not make
+  it lose to CLI/query-param overrides the way `.jxmake-code-formatter` does.
+- **Multiple `JXM_CFMT_CFG` occurrences anywhere in the same file: hard
+  error, not a warn-and-ignore.** Deliberately diverges from DIS/ENA's silent
+  idempotent-toggle precedent — unlike a repeated DIS/ENA toggle, a second
+  conflicting CFG line would silently change formatting output depending on
+  which one "wins," which is a real footgun in a merge/copy-paste scenario;
+  there's no legitimate reason to want two, so fail loudly instead of
+  guessing. Same treatment for a `JXM_CFMT_CFG` found anywhere past the
+  file's leading comment/blank-line preamble (i.e. not honored as a top-of-
+  file directive) — hard error telling the user to move it, not a silent
+  partial-apply or ignore. Wire both as an ordinary per-file `IOException`
+  through `Main.run`'s existing per-file `catch`/stderr-report/exit-1 path —
+  no new error-handling machinery needed.
+- Decide and document exact top-of-file placement semantics before
+  implementing: literal line 1, or "before the first non-comment/non-blank
+  token" (so a copyright header above it doesn't count as a violation) — lean
+  toward the latter to match how other header-comment-aware passes already
+  work in this formatter, but confirm with the user first if genuinely
+  ambiguous, per this file's usual ambiguity-handling protocol.
+
+**Required alongside implementation — new test fixtures covering this
+directive, for all four supported languages (C, C++, Java, Kotlin):**
+- Add `test/real_code_regressions_N_{inp,out}.<ext>` pairs (next available
+  `N`) exercising the directive per the usual convention above (standard
+  copyright header, etc.) — at minimum: one fixture per language proving a
+  `JXM_CFMT_CFG`-set key actually takes effect and overrides file-based
+  config; one fixture proving it overrides a CLI/server inline-config value
+  for the same key; one fixture proving the hard-error path (duplicate
+  `JXM_CFMT_CFG` occurrences, and one proving the not-at-top-of-file case).
+- Register each new pair in the `Makefile`'s `INP_FILES` list, inserted
+  **before** the existing `real_code_regressions_*` entries (i.e. keep this
+  new directive's fixtures as their own clearly-grouped block ahead of the
+  general regression-fixture block, not interleaved into it).
+- Document each new pair in `test/README.txt`, inserted **before** that
+  file's existing `Real-code regressions:` section header (own clearly-
+  grouped block ahead of it, matching the Makefile ordering above).

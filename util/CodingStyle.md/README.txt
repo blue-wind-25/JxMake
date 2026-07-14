@@ -6,13 +6,25 @@ Files in this directory
   STYLE.md                  Common rules for all languages (read this first)
   STYLE_C_CPP.md            C and C++ extensions/overrides (baseline)
   STYLE_CPP20.md                  C++ extensions/overrides (newer constructs, read after STYLE_C_CPP.md)
+  STYLE_CPP26.md            C++26 extensions/overrides (read after STYLE_CPP20.md)
   STYLE_JAVA.md             Java extensions/overrides (baseline)
   STYLE_JAVA17.md           Java extensions/overrides (newer constructs, read after STYLE_JAVA.md)
   STYLE_KOTLIN.md           Kotlin extensions/overrides (baseline)
   STYLE_KOTLIN2.md          Kotlin extensions/overrides (newer constructs, read after STYLE_KOTLIN.md)
+  STYLE_JS_TS.md            JavaScript/TypeScript rules (derives from STYLE_JAVA.md/STYLE_KOTLIN.md)
+  STYLE_DATA_FORMATS.md     JSON/JSON5, XML, CSS, HTML5 rules (borrows from STYLE.md)
+  STYLE_PYTHON3.md          Python 3 rules
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
+
+  NOTE — STYLE_CPP26.md, STYLE_JS_TS.md, STYLE_DATA_FORMATS.md, and
+  STYLE_PYTHON3.md are drafted but not yet implemented in the deterministic
+  JAR — the JAR still only handles C, C++, Java, and Kotlin (per
+  STYLE_C_CPP.md/STYLE_CPP20.md, STYLE_JAVA.md/STYLE_JAVA17.md, and
+  STYLE_KOTLIN.md/STYLE_KOTLIN2.md). The four newer files are usable today
+  only via the full-file AI pass below, which is LLM-driven and doesn't
+  depend on JAR support.
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
   1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
@@ -105,6 +117,9 @@ Combine the relevant preamble with the style files for the target language:
 
   FULL-FILE PASS — C++ files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md STYLE_CPP20.md > /tmp/style_cpp_full.txt
+
+  FULL-FILE PASS — C++ files (including C++26 constructs):
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md STYLE_CPP20.md STYLE_CPP26.md > /tmp/style_cpp26_full.txt
 
   FULL-FILE PASS — Java files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_JAVA17 > /tmp/style_java_full.txt

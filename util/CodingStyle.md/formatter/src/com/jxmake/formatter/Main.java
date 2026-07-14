@@ -149,8 +149,12 @@ public final class Main {
                         explicitLanguage)) {
                     anyChanged = true;
                 }
-            } catch (final Exception e) {
+            } catch (final IOException e) {
                 System.err.println("jxmake-code-formatter: error: " + file + ": " + e.getMessage());
+                anyError = true;
+            } catch (final Exception e) {
+                System.err.println("jxmake-code-formatter: internal error: " + file + ": " + e);
+                e.printStackTrace();
                 anyError = true;
             }
         }

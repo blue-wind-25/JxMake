@@ -148,134 +148,21 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Open Questions
 
-- **range-v3 real-code-testing item 20, bug (a):** idempotency divergence found in
-  `utility/any.hpp`, `iterator/common_iterator.hpp`, and (newly confirmed in a follow-up
-  full-tree round1/round2 verification pass) `meta.hpp` — none of these reproduce in any
-  minimal repro attempted (only the full real files trigger it, suggesting a cumulative/
-  stateful cross-declaration-group interaction). Two symptoms seen: (1) a nested
-  template-argument angle bracket (`meta::if_c<std::is_reference<T>() || copyable<T>, T>`)
-  fails to converge tight/loose spacing between round1 and round2; (2) a closing-brace-plus-
-  trailing-comment line (e.g. `}; // namespace ranges`, `}; // struct partition_`,
-  `}; // namespace detail`) renders at a different indentation level between round1 and
-  round2. Root-cause lead for (1): `TokenizerCore.reclassifyAngleBrackets`/
-  `isGenericSafeToken`'s forward-scanning stack calls `invalidateAll(openStack)` (poisoning
-  all currently-open angle-bracket-stack entries) whenever a non-"generic-safe" token is seen
-  while the stack is non-empty; `||`/`&&`/`!` are not in `isGenericSafeToken`'s OP whitelist,
-  so a boolean trait expression like `std::is_reference<T>() || copyable<T>` inside a
-  `meta::if_c<...>` non-type template argument poisons the outer `<...>` pair. Tried: adding
-  `||`/`&&`/`!` to `isGenericSafeToken`'s OP case — rebuilt and ran `make test` (70/70 forward
-  + 70/70 idempotency, no regressions to existing fixtures), but this did NOT fix the
-  divergence — it only changed which round showed tight vs. loose spacing, round1 still != round2.
-  Reverted (`git checkout -- src/com/jxmake/formatter/tokenizer/TokenizerCore.java`) rather than
-  leave an unproven, only-partially-effective change in a correctness-sensitive tokenizer
-  heuristic. Symptom (2) (the brace/comment indentation divergence) has not yet been
-  root-caused at all. Per the ambiguity-handling protocol, stopping here rather than guessing
-  further — needs a fresh investigation session (likely tracing how angle-bracket
-  classification and brace/scope-depth tracking each depend on retokenized-text state that
-  itself differs between a first format and a reformat-of-already-formatted-output, which is
-  the general shape both symptoms share).
+- **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
+  `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp` (closing-brace-comment
+  indentation + nested angle-bracket spacing not converging round1-vs-round2). Root cause:
+  `BlockStructureRule.enforceKAndRBraceStyle` glued a named construct's `{` onto a preceding
+  bare `#endif` line, which a later retokenize swallowed whole into the `#endif` PREPROCESSOR
+  token, desyncing brace-depth tracking downstream. Fixed by skipping the K&R glue when the
+  preceding real token is a PREPROCESSOR directive. Verified: minimal repros, all 3 real files
+  byte-identical round1/round2, full 311-file tree round1/round2 clean, `make test` 75/75 both
+  ways, `g++ -fsyntax-only` matching baseline error count. Full root-cause narrative and the
+  refuted/untested alternative hypotheses explored along the way: `RDD_KEY_169` in `RDD_LOG.md`.
 
-  **Untested alternative hypothesis (raised in a later session, not yet checked):** the
-  formatter tracks brace/paren/angle-bracket depth from raw token text and does not run a real
-  preprocessor — `PREPROCESSOR` is its own skipped token type, branches are never selected. A
-  file with `#if`/`#ifdef`/`#else` blocks whose branches are NOT independently brace-balanced
-  (only balanced once a preprocessor picks one branch) would look genuinely inconsistent to a
-  linear depth-tracker scanning through both branches — which could produce exactly this
-  "cumulative, doesn't reproduce in a minimal repro" signature, since the confusion only
-  compounds once enough real `#if` blocks accumulate before the failing construct. This would
-  reframe the issue as a documented limitation ("assumes textually balanced braces per file,
-  does not preprocess"), not a tokenizer/rule defect. Cheap to check before further
-  instrumentation: inspect whether `any.hpp`/`common_iterator.hpp`/`meta.hpp` contain
-  `#if`-family blocks with asymmetric brace nesting across branches, and whether normalizing
-  those away (e.g. picking one branch, or running through a real preprocessor first) makes the
-  divergence disappear.
-
-  **REFUTED (checked in a follow-up session).** `any.hpp` and `common_iterator.hpp` contain
-  **zero** brace/paren-imbalanced `#if`-family branches anywhere in either file (every branch
-  independently nets to 0), yet both still show the exact same divergence as before. `meta.hpp`
-  does contain one genuinely branch-imbalanced block (lines 3808-3823, an `inline namespace
-  __cxx11 { ... }` opened/closed across two separate `#if defined(_GLIBCXX_USE_CXX11_ABI) &&
-  _GLIBCXX_USE_CXX11_ABI` guards) — but it sits well downstream (line 3808) of `meta.hpp`'s own
-  divergence point (line 3308), so it cannot be the cause there either. A full GCC-preprocessed
-  round-trip was not completable (system `gcc` is 4.8.5, predates `__has_include`, which
-  `range_fwd.hpp` requires) but was unnecessary — brace-balance inspection alone is conclusive.
-  **Conclusion: this is a genuine formatter bug, not a preprocessor/`#if`-branch gap; do NOT
-  document it in `README.md` as a limitation.** Confirmed symptoms on round1-vs-round2 diff of
-  the original (unmodified) files: (1) `}; // namespace ranges` / `}; // struct partition_` /
-  `}; // namespace detail` trailing-comment lines shift indentation level between rounds
-  (`any.hpp:181`, `common_iterator.hpp:230`, `meta.hpp:3308/3313/3378`); (2)
-  `meta::if_c<std::is_reference<T>() || copyable<T>, T>` — round1 spaces only the outer
-  `if_c<...>` angle brackets, but reformatting that (round2) *additionally* and *incorrectly*
-  spaces the previously-untouched inner `std::is_reference<T>`/`copyable<T>` angle brackets,
-  i.e. round2 gets *less* correct, not more — matching the pre-existing root-cause lead pointing
-  at `TokenizerCore.reclassifyAngleBrackets`/`isGenericSafeToken`'s `invalidateAll(openStack)`
-  poisoning behavior (see above; the earlier `||`/`&&`/`!` OP-whitelist attempt did not fix this
-  and was reverted). Investigation was read-only, scoped to only these 3 files
-  (`/tmp/range-v3`), no formatter source was touched. **Next step, pending user decision:**
-  further root-cause work on `TokenizerCore.reclassifyAngleBrackets`, scoped again to only these
-  3 files, then (once/if fixed) a full round1/round2 + syntax-check pass over the entire 311-file
-  range-v3 tree to confirm no regressions before closing bug (a).
-
-  **RESOLVED.** Root cause: `BlockStructureRule.enforceKAndRBraceStyle`'s `qualifiesForKAndR`
-  unconditionally glues a named construct's (`class`/`struct`/`enum`/`namespace`, tagged via
-  `Token.name`) body `{` onto the end of the immediately preceding physical line whenever that
-  brace qualifies for K&R placement — with no check on what that preceding line actually is.
-  When a construct's base-clause/underlying-type is itself guarded by a preprocessor conditional
-  (e.g. `struct any\n  #if RANGES_BROKEN_CPO_LOOKUP\n  : private _any_::_base\n  #endif\n{`), the
-  brace legitimately sits right after a bare `#endif` line with nothing else in between, and the
-  K&R-gluing pass collapses the newline into a space, producing `#endif {` on one physical line.
-  On the very next tokenization pass (`addClosingComments`'s own `tokenizer.apply(text)` call
-  within round1 itself, and again on round2's full re-tokenize), `TokenizerCore.emitPreprocessor`
-  — which opaquely lexes a `#`-directive to end-of-physical-line, correctly per its own contract,
-  since a real `#endif { ... }` on one line is never valid C/C++ to begin with — swallows the `{`
-  into the `#endif` directive's own PREPROCESSOR token text. The `{` then permanently vanishes as
-  a distinct `PUNCT "{"` token for every brace-depth-tracking pass downstream (confirmed via
-  temporary instrumentation dumping the full token stream: the struct's own body brace has zero
-  push/pop trace entries at all, meaning `BlockStructureRule.addClosingComments`'s frame stack
-  never sees this scope open). This one dropped push desyncs the stack for the rest of the
-  scan: the following `}` (the construct's true closing brace) instead pops whatever frame is
-  next on the stack — the enclosing `namespace ranges` frame — explaining symptom (1)'s
-  `}; // namespace ranges`-on-the-wrong-brace-at-the-wrong-indent (the label is for a frame that
-  is really still several scopes further out, and the label/indent are simply wrong from that
-  point until the real `namespace` frame is popped again, later than it should be, at the file's
-  actual closing brace). Symptom (2) (`meta::if_c<std::is_reference<T>() || copyable<T>, T>`'s
-  inner angle brackets getting spaced on round2) shares this exact root cause rather than being a
-  separate bug: `any_cast`'s own `friend` declarations sit inside this same brace-desynced
-  region, and the stray, permanently-unclosed frame shifts every subsequent brace-depth-derived
-  heuristic (including `TokenizerCore.reclassifyAngleBrackets`'s view of what counts as
-  "top-level" for a given angle-bracket pair) for the remainder of the scan on round2 — the
-  original `isGenericSafeToken`/`invalidateAll(openStack)` root-cause lead was a red herring; the
-  angle-bracket-classifier code itself was never buggy, it was just operating on a token stream
-  whose brace/scope bookkeeping had already been silently corrupted upstream by the vanished `{`.
-  **Fix**: `enforceKAndRBraceStyle` now looks up the nearest real (non-whitespace/newline/comment)
-  token before the candidate `{` via the existing `prevSignificantIndex` helper and skips the
-  K&R glue (leaving the brace on its own line, gap untouched) whenever that token is a
-  `TokenType.PREPROCESSOR` directive — gluing real code onto a preprocessor-directive line is
-  never a safe rewrite regardless of what construct the brace belongs to, since a following
-  retokenization pass has no way to tell the difference between an intentional one-line `#define
-  FOO { ... }`-style macro body and an accidental glue artifact. Change is narrowly scoped to
-  this one gap-collapse decision; `qualifiesForKAndR`'s own classification logic (what kinds of
-  braces get K&R treatment at all) is untouched. Verified: (1) minimal repros (`struct`/`enum
-  class` bodies with an `#if`/`: base #endif` clause before `{`) now leave the brace on its own
-  line and are round1-vs-round2 clean; (2) the 3 real files (`utility/any.hpp`,
-  `iterator/common_iterator.hpp`, `meta/meta.hpp`) now produce byte-identical round1 and round2
-  output (`diff` empty on all three — both the closing-comment-indentation and the angle-bracket
-  over-spacing symptoms are gone); (3) `make test`: 75/75 forward + 75/75 idempotency both before
-  and after the fix, zero regressions; (4) a full round1/round2 pass over the entire 311-file
-  `include/range/v3/` tree (`diff -rq` between the two output trees) is completely empty — the
-  whole tree is round1-vs-round2 idempotent, not just the 3 originally-flagged files; (5) a
-  `g++ -std=c++20 -fsyntax-only` syntax-check pass over all 311 files, baseline (original,
-  unformatted) vs. formatted (round1 output), shows the exact same single failing file
-  (`detail/epilogue.hpp`, a header that `#error`s when included standalone without its paired
-  `prologue.hpp` — a pre-existing, formatting-unrelated single-header-compilation artifact) with
-  the identical 2-error output in both passes; every other file compiles clean in both. Fixed in
-  `BlockStructureRule.enforceKAndRBraceStyle`. See `RDD_KEY_169`.
-
-  **Separate, unconfirmed observation to verify independently — do not conflate with the above:**
-  some already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode
-  while passing under `gcc 12` in C++20 mode. This may be a real language-version mismatch in
-  the fixture's source (version-gated syntax, e.g. concepts/reflection) unrelated to the
-  formatter, or may indicate the formatter's output triggers stricter-parser-only diagnostics.
+- **Separate, unconfirmed observation — still OPEN, do not conflate with the above:** some
+  already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode while
+  passing under `gcc 12` in C++20 mode. May be a real language-version mismatch in the fixture's
+  source, or may indicate the formatter's output triggers stricter-parser-only diagnostics.
   Needs its own investigation; not yet linked to bug (a) above.
 
 ---
@@ -359,67 +246,47 @@ bug-by-bug root-cause narratives have been compacted out of this file — availa
 - [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
 - [x] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (PASS)
 - [x] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp` (PASS) — 6 bugs fixed
-  (named-construct/attribute detection, C++ modifier/specifier recognition, `::`-qualified name
-  spacing, constructor Allman-brace close-paren resolution, getter/setter param column padding,
-  trailing-return-type detection, if/else-if chain collapsing).
+  (named-construct/attribute/modifier detection, `::`-qualified spacing, constructor Allman
+  close-paren, getter/setter padding, trailing-return-type, if/else-if chain collapsing).
 - [x] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS) — 8 bugs fixed
-  (header-spacing modifier-keyword skip, `this`/`super` as assignment LHS, stale closing-comment
-  replacement, `throws`-clause Allman conversion, inline-switch fallthrough/`break` padding,
-  `catch`/`finally` own-line placement, `@Annotation` skip before signature parsing).
+  (header-spacing, `this`/`super` as LHS, stale closing-comment, `throws` Allman conversion,
+  inline-switch padding, `catch`/`finally` placement, `@Annotation` skip).
 - [x] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (PASS) — 11 bugs fixed
-  (comment no-capitalize set, named-construct one-liner pre-expansion, `T::version;` misparse,
-  `template<...>`/`requires`-clause signature handling, one-liner bodies always K&R,
-  Java-only static reordering, operator-overload function detection, coroutine promise_type
-  grouping, brace-initializer/structured-binding spacing, tight cast-template angle brackets,
-  `namespace a::b::c` closing-comment name chain) plus a critical idempotency regression fix
-  (declaration-group column padding double-counted as indentation on a second pass).
+  (comment no-capitalize set, named-construct one-liners, `template`/`requires` signatures,
+  operator-overload detection, coroutine promise_type grouping, brace-init/structured-binding
+  spacing, tight cast-template brackets, namespace closing-comment chain) + an idempotency fix
+  (column padding double-counted as indentation on a second pass).
 - [x] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (PASS) — 5 bugs
-  fixed (empty named-construct bodies no longer expanded, `.`/`=`-bearing one-liner calls
-  rejected from getter/setter grouping, multi-statement one-liner bodies left unsplit, RDD_KEY_75
-  adjacency heuristic removed so one-liners always stay K&R, blank line before a named-construct's
-  leading comment).
+  fixed (empty named-construct bodies, one-liner-call getter/setter rejection, multi-statement
+  one-liners left unsplit, RDD_KEY_75 adjacency heuristic removed, blank line before leading
+  comment).
 - [x] File-pair test: `combined_inp.h` → diff vs `combined_out.h` (PASS) — 3 bugs fixed
-  (`format-macros` value-column alignment, `extern "C"` closing-comment fixture correction,
-  enum-with-alias closing comment + `#if`-guard depth-tracking + blank-line placement).
-  Committed as `efeb6df`.
-- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS) — 4 bugs fixed
-  (struct member group indentation strip safety, flat brace-aggregate initializers accepted into
-  declaration groups + C-style cast rejoining, parameter inline block comments preserved in
-  signatures, switch closing-comment idempotency ordering).
-- [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS) — 1 bug fixed, 1 not
-  feasible (mid-word-dot vs. sentence period disambiguation needs semantic understanding — logged
-  as Tier-3 AI-assist candidate in `STATE_NEXT_AI.md`, fixture hand-edited instead), 1 more fixed
-  (constructor/destructor/operator-overload exclusion from one-liner grouping, `template<...>`
-  prefix recognized as a valid declaration prefix with its own tight-angle-bracket render path).
+  (`format-macros` alignment, `extern "C"` fixture correction, enum-alias closing comment +
+  `#if`-guard depth). Committed as `efeb6df`.
+- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS) — 4 bugs fixed (struct
+  member indentation strip safety, flat brace-aggregate initializers + C-style cast rejoining,
+  parameter inline comments preserved, switch closing-comment idempotency).
+- [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS) — 2 bugs fixed
+  (constructor/destructor/operator-overload one-liner exclusion, `template<...>` prefix
+  recognition); 1 not feasible (mid-word-dot vs. sentence-period needs semantic understanding —
+  Tier-3 AI-assist candidate in `STATE_NEXT_AI.md`, fixture hand-edited instead).
 - [x] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp` (PASS) — 4 bugs fixed
-  (destructor `~` marker vs. return type, out-of-line class-template member one-liner tight
-  angle brackets + column layout, structured-binding `auto [...]` misparsed as assignment,
-  trailing comment duplication on group-gap trim).
+  (destructor `~` vs. return type, class-template member tight brackets + layout,
+  structured-binding misparse, trailing comment duplication on group-gap trim).
 - [x] File-pair test: `combined_inp.java` → diff vs `combined_out.java` (PASS) — 3 bugs fixed
-  (multi-line `//` prose paragraph period-stripping evaluated as a whole via
-  `computeLineCommentGroups`, enum constant-list-terminating `;` detached onto its own line as a
-  new feature, blank line before final `return` in a `throws`-clause method).
+  (multi-line `//` prose period-stripping, enum constant-list `;` detached, blank line before
+  final `return` in a `throws`-clause method).
 - [x] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c` (PASS) — 6 bugs fixed
-  (mid-param `//` comment reattachment + forced multi-line rendering, fixing a brace-depth
-  desync that silently truncated the rest of the file; compound-assignment statements no longer
-  misparsed as declarations; one-param-per-line double-space padding; standalone comment between
-  two same-group declarations no longer silently dropped via new `hasCommentBefore` group-break
-  guard; last-param trailing-comment column alignment; `#define ... // comment` trailing-comment
-  capitalization via `PREPROCESSOR`-token branch in `enforceCommentStyle`). One fixture-only
-  correction (line-count blank-line theory didn't hold for `Trio`; `c_comments_out.c` hand-edited).
+  (mid-param `//` comment reattachment fixing a brace-depth desync, compound-assignment
+  misparse, one-param-per-line padding, `hasCommentBefore` group-break guard, last-param
+  comment alignment, `#define` trailing-comment capitalization). One fixture-only correction.
 - [x] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp` (PASS) — 5 bugs
-  fixed (member-function forward-declaration param/trailing comments preserved + isolated from
-  free-function column alignment, stale-closing-comment/capitalization guards narrowed to the
-  `// end `-prefixed and own-line-brace shapes only, namespace-body non-indentation + tight
-  function-type template arguments + keyword-before-`(` spacing, leading `requires`-clause
-  gating a `template<...>` header pull into a collapsed signature, blank line after a member with
-  a trailing same-line comment, structured-binding bracket-interior comments + template-argument
-  brace-init spacing).
+  fixed (forward-declaration comment isolation, stale-closing-comment guard narrowing,
+  namespace-body/template-argument/keyword spacing, `requires`-clause signature pull, blank
+  line after trailing-comment member, structured-binding/template-argument comment spacing).
 - [x] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java` (PASS) — 4 bugs
-  fixed (multi-line signature param leading/trailing comment reattachment + column exclusion,
-  per-language `COMMENT_NO_CAPITALIZE_C`/`_CPP`/`_JAVA` keyword sets, switch-case comment
-  blank-line preservation via `caseSpansMultipleLines` + sub-gap restriction, flat-aggregate
-  initializers with per-element comments left byte-for-byte untouched rather than collapsed).
+  fixed (multi-line param comment reattachment, per-language no-capitalize keyword sets,
+  switch-case comment blank-line preservation, flat-aggregate per-element comments untouched).
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the user, and
 wait for instruction. Do not fix either the formatter or the `*_out` file without explicit
@@ -472,184 +339,68 @@ cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
 "$JDK/bin/java" java_sc <file.kt>
 ```
 
-**Finished dogfood / real-code testing**
-(1) `blake-madden/tinyexpr-plusplus` (C++20) — 3 bugs in `MiscRule`'s multi-line
-    call/declaration rendering + `Formatter` pass ordering (commits `1c10946`/`26a9715`).
-    Verified with (2). Config: default. Fixture: `real_code_regressions_1`.
-(2) RobotCoding `gui_frontend` (71 `.java` files) — 4 pass-ordering idempotency bugs
-    (`>>>` mistokenization, getter/setter + call-line-breaking column-padding ordering).
-    Verified with (4). Config: default. Fixture: `real_code_regressions_2`.
+**Finished dogfood / real-code testing** (one line each; full narratives via `git log`/`git show`
+on the noted commits/fixtures)
+(1) `blake-madden/tinyexpr-plusplus` (C++20) — 3 bugs, `MiscRule` multi-line call/decl
+    rendering + pass ordering. Verified (2). Fixture: `real_code_regressions_1`.
+(2) RobotCoding `gui_frontend` (71 `.java`) — 4 pass-ordering idempotency bugs (`>>>`
+    mistokenization, getter/setter padding order). Verified (4). Fixture: `real_code_regressions_2`.
 (3) Self-dogfood (formatter's own `src/`, 20 files) — 1 pass-ordering bug in
-    `MiscRule.parseAssignment` (RHS already wrapped by a later call-line-breaking pass).
-    Verified with (4). Config: default. Fixture: `real_code_regressions_3`.
-(4) `martinus/nanobench` (`nanobench.h`, 3484 lines, tested as `.hpp`) — 2 bugs: missing
-    C++11 raw-string-literal tokenizer support (brace-depth corruption), dropped
-    `template<...>` prefix on a bare forward declaration. Verified with (2). Config: default.
-    Fixture: `real_code_regressions_4`. Known non-bug: testing the same file under its real
-    `.h` (C) extension hits an unrelated, real-C-can't-produce-this-shape mismatch in
-    `CppSpecificRule.enforceEmptyParameterList` — not fixed, out of scope.
-(5) User-reported bug (`real_code_regressions_1_out.cpp`'s `} // while` indentation) —
-    `ScopePipeline` never re-derived a scope's own closing-brace gap from depth; fixed in
-    `processScope`'s child recursion, surfacing 4 `findParentIndent` edge cases. Verified
-    with (2) (re-ran full `nanobench` round-trip too). Config: default.
-    Fixture: `real_code_regressions_5`.
-(6) Local `pcpp_java` tool source (41 `.java` files) — 2 idempotency bugs: `SwitchRule`
-    inline-alignment overflow (no `lineLengthLimit` check), `ScopePipeline.processScope`
-    one-liner-body raw-newline check misfiring on an already-broken call. Verified with (4).
-    Config: default. Fixtures: `real_code_regressions_9`, `real_code_regressions_10`.
-(7) C17 `Tongsuo-Project/tongsuo-mini` (56 `.c`/`.h` files) — 1 bug: flat aggregate-init
-    collapse in `DeclarationAlignmentRule` had no line-length check, producing an
-    unboundedly long rendered line for large byte tables; fixed by threading
-    `lineLengthLimit` through a new constructor. Verified with (1) (identical pre-existing
-    error count in `src/log.c`, unrelated to formatting). Config: default.
-    Fixture: `real_code_regressions_11`.
-(8) C++20 `serge-sans-paille/frozen` (44 `.hpp` + `tests/catch.hpp`) — 10 bugs across
-    `ScopePipeline`/`DeclarationAlignmentRule`/`TokenizerCore`/`CppSpecificRule` (parent-indent
-    off-by-one, struct depth-tracking, oversized-brace-init dangling `}`, getter-padding
-    pass-ordering growth, K&R/Allman flapping one-liners, `catch.hpp` backslash-continued
-    preprocessor corruption + 4 follow-on divergences, namespace-unaware indent fallback,
-    Objective-C-message-send/C++17-attribute mistokenization). Verified via idempotency only
-    (full 156-file tree round1-vs-round2 clean); no compiler used. Config: default.
-    Fixtures: `real_code_regressions_12` through `_16`.
-(9) C++20 `fmtlib/fmt` (15 `.h` + 4 `.cc`) — idempotent at default `indent-size`; re-testing
-    at the codebase's real 2-space/flush-case-label convention found `SwitchRule.deriveUnit`'s
-    hardcoded 4-space fallback (same class as the `MiscRule.INDENT_WIDTH` dead-config bug, see
-    "Other findings" below), causing unbounded case-body indent growth in 3 files; fixed by
-    threading `indentWidth` through `SwitchRule`. No-op at default `indent-size` (no fixture);
-    verified live at `indent-size = 2`.
-(10) C++20 `taocpp/PEGTL` (355 `.hpp` under `include/`) — 1 bug:
-     `TokenizerCore.reclassifyAngleBrackets`'s `>>`-split branch duplicated a character via
-     `retype()` reusing the original 2-char text; fixed by giving the retyped token its own
-     explicit `">"` text. Verified with (2) (PEGTL's 5 example programs, 0 errors, matching
-     baseline). Config: default. Fixture: `real_code_regressions_28`. Also found a no-op:
-     `ScopePipeline.normalizeIndent` only rounds declaration-statement indentation, never
-     non-declaration statements — a real divergence at PEGTL's actual 3-space convention but
-     invisible at the formatter's default 4-space; confirmed non-issue by re-testing at
-     `indent-size = 3` (full tree idempotent there too). No fixture (no-op at default).
-(11) C++17/20 `foonathan/lexy` (121 `.hpp` under `include/`) — no bug found; idempotent at
-     default `indent-size = 4` (matches lexy's own convention). Verified with (2) on all 9
-     `examples/` files (0 errors, matching baseline); `tests/` doctest suite skipped
-     (external `doctest` header not vendored). Despite predicting relevance to the
-     RDD_KEY_85/RDD_KEY_56-adjacent (concepts/`requires`, tight template angle brackets)
-     construct family, none of those surfaced a new defect here — already covered by
-     `frozen`/PEGTL/stdexec. Config: default. No fixture.
-(12) C++20 `NVIDIA/stdexec` (192 `.hpp`/`.cpp` under `include/`) — 4 bugs across three
-     sessions: (1) idempotency — a C++20 requires-expression compound-requirement's inner `}`
-     (followed by `->`) misidentified as a scope-closing brace by
-     `ScopePipeline.splitTopLevelSpans`; (2) compile-breaking — a depth-0
-     `PREPROCESSOR`/`MACRO_DEF` token didn't force-close the current statement in
-     `DeclarationAlignmentRule.splitStatements`, silently dropping `#if`/`#endif` guards;
-     (3) compile-breaking — `BlockStructureRule.tryCollapse`'s `renderInline` absorbed
-     everything after a `//` comment between call arguments into the comment, needs a
-     `containsLineComment` guard; (4) idempotency — `DeclarationAlignmentRule.parseDeclaration`
-     misparsed an already-collapsed one-liner `if`/`while`/`for`/`switch`/`do`/`else` as a
-     bogus declaration on a second pass. Verified with (2) (`LD_LIBRARY_PATH` needed; ~10
-     pre-existing TBB/PSTL errors expected/unrelated). Config: default. Fixtures:
-     `real_code_regressions_34` (bugs 1+2), `_35` (bug 3), `_36` (bug 4).
-(13) C++11 `boostorg/mp11` (34 self-contained `.hpp`, 5483 lines) — no bug found; idempotent
-     at default `indent-size = 4` (matches mp11's own convention). Verified with (2)
-     (`LD_LIBRARY_PATH` needed) on every header standalone (repo's own `test/*.cpp` needs
-     unvendored boost deps, skipped). Config: default. No fixture.
-(14) C++23 `basvas-jkj/cpp_modules` (7 `.cpp`/`.hpp`/`.mpp` files, confirmed real
-     C++20/23 language-modules usage) — no formatter bug found; idempotent on every file. One
-     suspicious-looking diff (`foo(bar())` → `foo( bar() )`) confirmed intentional per the
-     "universal complexity padding" design (commit `7b4c80d`), not a regression. Compile-check
-     via (3): identical pre-/post-format failures on every file (missing `std`/header-unit BMI
-     cache, missing `cr.hpp` — checkout-environment issues, not formatter-induced). Config:
-     default. No fixture. (Compared first against `V1niciosLins/StartCpp`, which turned out to
-     be a project-generator script with no real C++ source of its own to format — not a
-     formatter candidate, superseded by testing `cpp_modules` instead.)
-(15) `google/google-java-format` (SMALL, 84 `.java` files) — idempotency check found 5
-     diverging files, resolved by 3 distinct bug fixes: `SwitchRule.ensureBlankLineInGap`
-     wrongly splitting a trailing same-line comment onto its own line (fixed via
-     `startsOwnLine` check; fixture `real_code_regressions_6`); `Doc.java`'s divergence
-     resolved entirely by the config-key wiring audit (see "Other findings" below, no
-     additional code change, confirmed byte-identical at `indent-size = 2`);
-     `JavaSpecificRule.applyArrowAlignment` joining an arrow-switch case onto its body with no
-     line-length check (fixed by predicting joined width first; fixture
-     `real_code_regressions_7`); `GetterSetterRule.parseOneLinerMember`'s `findNameBeforeParen`
-     misparsing `case X, Y -> call(...);`/`default -> throw ...;` arrow arms as fake one-liner
-     members (fixed by rejecting `case`/`default`-leading one-liners; fixture
-     `real_code_regressions_8`). Verified with (4). Config: default (Doc.java re-verified at
-     indent-size = 2).
+    `MiscRule.parseAssignment`. Verified (4). Fixture: `real_code_regressions_3`.
+(4) `martinus/nanobench` (`nanobench.h` as `.hpp`) — 2 bugs: raw-string-literal tokenizer gap,
+    dropped `template<...>` on forward decl. Verified (2). Fixture: `real_code_regressions_4`.
+(5) User-reported `} // while` indentation bug — `ScopePipeline` closing-brace gap not
+    re-derived from depth. Verified (2). Fixture: `real_code_regressions_5`.
+(6) Local `pcpp_java` tool (41 `.java`) — 2 idempotency bugs: `SwitchRule` inline-alignment
+    overflow, one-liner raw-newline misfire. Verified (4). Fixtures: `_9`, `_10`.
+(7) C17 `Tongsuo-Project/tongsuo-mini` (56 files) — 1 bug: unbounded flat aggregate-init line
+    length, no `lineLengthLimit` check. Verified (1). Fixture: `real_code_regressions_11`.
+(8) C++20 `serge-sans-paille/frozen` (44 `.hpp` + `catch.hpp`) — 10 bugs across
+    `ScopePipeline`/`DeclarationAlignmentRule`/`TokenizerCore`/`CppSpecificRule` (parent-indent,
+    struct depth, brace-init, getter padding, K&R/Allman flapping, backslash-continued
+    preprocessor corruption, namespace indent fallback, ObjC/attribute mistokenization). Verified
+    via idempotency (156-file tree clean). Fixtures: `_12`–`_16`.
+(9) C++20 `fmtlib/fmt` — idempotent at default; at real 2-space convention found
+    `SwitchRule.deriveUnit`'s hardcoded 4-space fallback. No-op at default, no fixture.
+(10) C++20 `taocpp/PEGTL` (355 `.hpp`) — 1 bug: `reclassifyAngleBrackets`'s `>>`-split
+     duplicated a char via `retype()`. Verified (2). Fixture: `real_code_regressions_28`. Also a
+     no-op found (`normalizeIndent` non-declaration rounding gap, invisible at default indent).
+(11) C++17/20 `foonathan/lexy` (121 `.hpp`) — no bug found, idempotent at default. Verified (2)
+     on all 9 examples.
+(12) C++20 `NVIDIA/stdexec` (192 files) — 4 bugs across 3 sessions: requires-expression `}`
+     misidentified as scope-close; `#if`/`#endif` guard dropped by `splitStatements`;
+     `tryCollapse` absorbing text past a `//` comment; already-collapsed one-liner misparsed as
+     declaration. Verified (2). Fixtures: `_34`, `_35`, `_36`.
+(13) C++11 `boostorg/mp11` (34 `.hpp`) — no bug found, idempotent at default. Verified (2).
+(14) C++23 `basvas-jkj/cpp_modules` (7 files) — no bug found, idempotent. Verified (3)
+     (pre-existing environment failures only, identical before/after).
+(15) `google/google-java-format` (84 `.java`) — 3 bugs: `ensureBlankLineInGap` splitting a
+     trailing comment (fixture `_6`); `Doc.java` divergence resolved by the config-key wiring
+     audit below (no code change); `applyArrowAlignment` joining arrow-case with no
+     line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
+     arms as one-liner members (fixture `_8`). Verified (4).
 (16) MEDIUM `javaparser/javaparser` — see "Not started" below (queued, not started).
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
-(18) Local `VMA-GIT/anemonesoft/` (`gui/`, `i18n/`, 82 `.java` files, JDK8-source/JDK21-javac)
-     — copied to `/tmp/anemonesoft_test/` for testing (original tree verified untouched
-     before/after). Idempotency check found 2 diverging files, 1 bug:
-     `MiscRule.renderCallCandidate`'s `containsNewline` branch used `groupByOriginalLine`
-     (paren/bracket depth only, not brace depth), swallowing a multi-line brace-bodied trailing
-     argument into one unboundedly-long rendered line; fixed by widening an existing
-     Kotlin-only "leave such an argument untouched" bail to all languages via a new
-     `containsInternalNewline` helper. Verified with (4) (28 pre-existing missing-`Jama`-
-     dependency errors, identical before/after). Config: default.
+(18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
+     multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
      Fixture: `real_code_regressions_29`.
-(19) Local PCPP-heavy `../../../src/jxm/ugc/ARMCortexMThumbC.java.in` (not
-     standalone-compilable, a `.java.in` template) — no bug found; verified with (5), 0-line
-     token-stream diff on 105366 tokens. Config: default.
-(20) C++20 `ericniebler/range-v3` (311 `.hpp` under `include/range/v3/`) — 2 compile-breaking
-     bugs from the concept-emulation-macro convention (`#define template(...) ...` /
-     `CPP_ret`/`CPP_member`, `detail/prologue.hpp`): (1)
-     `ScopePipeline.extendOverLeadingRequiresAndTemplate` pulled a `template(...)`-spelled macro
-     invocation onto a declarator's line whenever a `requires` line sat above it (no check the
-     `template` keyword was followed by `<`), and separately still glued a `//`-terminated
-     `requires` line onto the following declarator even after that was fixed — both silently
-     commented out the declarator; fixed by gating the `template` pull on `<` and refusing to
-     pull a `requires` line whose own last token is a `//` comment (a `/* ... */` block comment
-     stays safe to pull). (2) `CppSpecificRule.enforceEmptyParameterList` rewrote
-     `CPP_ret(void)(...)` (a macro call, not a declarator) to `CPP_ret()(...)`, deleting the
-     macro's real `void` argument; fixed by refusing the `(void)` -> `()` rewrite when the
-     matching `)` is immediately followed by another `(`. Verified with (2)
-     (`view/iota.hpp`/`detail/variant.hpp` before/after error counts now match baseline) and full
-     round1/round2 idempotency over the whole 311-file tree. Config: default. Fixture:
-     `real_code_regressions_50`. Follow-up session resolved bug (b) below with a narrow,
-     verified guard; bug (a) was tracked in **Open Questions** (also found to additionally
-     affect `meta.hpp`, not just `any.hpp`/`common_iterator.hpp`) and later resolved there too —
-     see Open Questions for the full root-cause/fix writeup (`RDD_KEY_169`). (a) RESOLVED — see
-     Open Questions. (b) RESOLVED — `view/view.hpp` / `action/action.hpp` compile-breaking
-     bug: a declaration ending in `;` (not a function body) whose original source spans multiple
-     lines each deliberately ending in its own `//` ASCII-banner comment (e.g. a `friend ...
-     operator|(...) -> CPP_broken_friend_ret(...)( requires ...) = delete;` deleted-overload
-     declaration) was getting collapsed onto one rendered line. Root cause:
-     `DeclarationAlignmentRule.parseDeclaration`'s function-pointer-detection branch (the
-     `Type (*name)(params)` shape) misfired on this concept-emulation-macro call shape
-     (`CPP_broken_friend_ret(Rng)(requires ...)` is syntactically identical to a func-ptr's
-     `(name)(params)`), and that branch's `rawSliceBetween`-based token capture preserves raw
-     `COMMENT_LINE` tokens verbatim, which later got flattened onto one rendered line by
-     `renderTokens`/`joinVerbatim`, silently swallowing the `requires`/`= delete;` tail into the
-     first `//` comment. Fixed with a narrow guard local to that one branch only (not the blanket
-     "bail if any interior `//` comment" guard tried previously, which broke ~12 unrelated
-     `make test` fixtures by also catching ordinary multi-line declarations with legitimate
-     per-line trailing comments): scan `funcPtrSizeTokens` for a `COMMENT_LINE` token *before*
-     mutating `nameToken.text`, and if found, skip the func-ptr branch entirely (falling through,
-     with the statement's tokens left completely untouched, to the generic parsing path, whose
-     own `->` type-token rejection check correctly returns `null` for this shape). A second,
-     narrower defense-in-depth guard was also added on the generic path's own
-     `sizeTokens`/`initTokens` in case some other shape ever reaches it with a raw-sliced
-     comment-carrying token list. Verified with (2) (minimal repro, byte-for-byte correct and
-     idempotent) and `make test` (70/70 forward + 70/70 idempotency, zero regressions), and with
-     a full round1/round2 idempotency pass over the whole 318-file tree — `view.hpp`/`action.hpp`
-     do not appear in the round1-vs-round2 diff, confirming zero regressions tree-wide. Config:
-     default. Fixture: `real_code_regressions_51`.
-(21) C++20 `boost-ext/ut` (44 `.hpp`/`.cpp` under `include/`, `example/`, `test/ft/`, `test/ut/`;
-     the single-header `include/boost/ut.hpp` is the priority file) — 1 idempotency bug: a
-     deduction-guide statement (`test(...) -> test<Test, TArg>;`, itself re-broken across lines
-     by `enforceCallLineBreaking`) directly followed by an unrelated `struct suite { ... };`
-     caused `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s
-     `findCloseParenBeforeTrailingReturnType` backward scan to cross the `;` statement boundary
-     between them and misidentify the deduction guide's own close-paren as `struct suite`'s
-     "function close paren", Allman-converting the struct's brace onto its own line with a bogus
-     indent derived from deep inside the unrelated prior statement; a later K&R re-collapse pass
-     on the next format pass joined it back, producing a stable round1-vs-round2 diff. Fixed by
-     making both `findCloseParenBeforeTrailingReturnType` and
-     `findCloseParenBeforeRequiresClause`'s backward scans stop (return -1) at a depth-0 `;`, not
-     just `{`/`}`. Verified with a minimal standalone repro, `make test` (72/72 forward + 72/72
-     idempotency, zero regressions), and a full round1/round2 idempotency pass over the whole
-     44-file tree (clean). Compile-checked all 32 `example/*.cpp` files and `test/ut/ut.cpp` with
-     (2) (`g++ -std=c++20 -fsyntax-only`, 0 errors, matching baseline) and with (3) (`clang++
-     -std=c++23 -fsyntax-only`, 1 pre-existing environment error per file — missing libc++
-     `<version>` header, identical before/after formatting, not formatter-induced). Config:
-     default. Fixture: `real_code_regressions_52`.
+(19) Local `ARMCortexMThumbC.java.in` (PCPP template) — no bug found; verified (5), 0-line
+     token-stream diff.
+(20) C++20 `ericniebler/range-v3` (311 `.hpp`) — 2 compile-breaking bugs from its
+     concept-emulation-macro convention: `template(...)` macro wrongly pulled onto a
+     declarator line (fixed by gating on `<`); `CPP_ret(void)(...)` mis-rewritten to
+     `CPP_ret()(...)`, deleting the macro's real argument. Verified (2) + full-tree idempotency.
+     Fixture: `real_code_regressions_50`. Follow-up bug (b): a multi-line `//`-banner-commented
+     deletion declaration got collapsed by the function-pointer-detection branch misfiring on
+     the macro-call shape; fixed with a narrow `COMMENT_LINE`-scan guard local to that branch.
+     Verified (2) + `make test` 70/70 + full 318-file tree idempotency. Fixture: `_51`. Bug (a)
+     (the range-v3-item-20 idempotency bug) tracked and resolved separately — see Open Questions
+     / `RDD_KEY_169`.
+(21) C++20 `boost-ext/ut` (44 files) — 1 idempotency bug: a deduction-guide statement's
+     close-paren misidentified by `findCloseParenBeforeTrailingReturnType`'s backward scan as
+     an unrelated following struct's "function close paren" (scan didn't stop at a depth-0 `;`).
+     Verified with minimal repro, `make test` 72/72, full-tree idempotency, and (2)/(3) compile
+     checks matching baseline. Fixture: `real_code_regressions_52`.
 
 **Not started dogfood / real-code testing**
 (1) `github.com/microsoft/proxy` — Microsoft's reference implementation of the Proxy library
@@ -697,36 +448,24 @@ detail block here) and add it to "Finished dogfood / real-code testing" above �
 
 **Other findings outside the candidate list**
 
-**Config-key wiring audit (2026-07-06)**, done ahead of the `Doc.java` bug above at user
-request. Root-caused `Doc.java`'s divergence to `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT`
-being `public static final` constants disconnected from `Config.indentSize()`/
-`Config.lineLength()`. Full audit of the example `.jxmake-code-formatter`: only
-`line-length`/`indent-size` were dead/unwired; every other key was already correctly wired.
-Fixed by converting those constants to instance fields, threaded through every constructor
-that needs them (`MiscRule`, `GetterSetterRule`, `JavaSpecificRule`, `CppSpecificRule`,
-`ScopePipeline`), with `Formatter.formatOne` reading `config.indentSize()`/`config.lineLength()`
-once per file. No-op at default settings; verified live at `indent-size = 2`.
+**Config-key wiring audit (2026-07-06)** — root-caused `Doc.java`'s divergence to
+`MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` being dead `static final` constants disconnected
+from `Config`; only `line-length`/`indent-size` were unwired, every other key already correct.
+Fixed by converting to instance fields threaded through the relevant rule constructors. No-op
+at default settings; verified live at `indent-size = 2`.
 
-**Follow-up (same day):** several rule classes also carried their own independent hardcoded
-`DEFAULT_INDENT_UNIT = "    "` fallback (same bug class) — found and fixed in `MiscRule`'s §8
-call/declaration-wrapping pass, `JavaSpecificRule.deriveIndentUnit`, and
-`CppSpecificRule.enforceRequiresClausePlacement`. No-op at default `indent-size`; re-running
-the `frozen` tree while re-verifying this is what surfaced the `map.hpp`/`set.hpp`/`catch.hpp`
-bugs in that entry above (unrelated to this audit itself).
+**Follow-up (same day):** several rule classes also carried their own hardcoded
+`DEFAULT_INDENT_UNIT = "    "` fallback (same bug class) — fixed in `MiscRule`, `JavaSpecificRule`,
+`CppSpecificRule`. No-op at default `indent-size`.
 
-**Removal (same day):** `header-guard-style` removed entirely (was silently-dead config
-surface — accepted `ifndef`/`pragma-once` with zero effect) from `Config.java`, `README.md`,
-and this file's sample config. Re-add if guard-style conversion is ever actually implemented.
+**Removal (same day):** `header-guard-style` removed entirely (silently-dead config surface)
+from `Config.java`, `README.md`, and this file's sample config.
 
-**Dogfood-compile-check bug** (fixed before the round1/round2 real-code methodology existed —
-this is what the Step A "Dogfood self-format compile" checklist item above refers to):
-`MiscRule.renderCallPreserveGroups`/`renderDeclarationPreserveGroups` split each source line's
-tokens on top-level commas independently, resetting paren/bracket/angle depth to 0 at each line
-start — a nested call whose own arguments wrap onto a second physical line (real depth > 0
-carried across the break) caused a misread trailing comma and a duplicate comma insertion,
-corrupting output (including the formatter's own `TokenizerCore.java`). Fixed with a new
-`groupByOriginalLine` helper that tracks depth cumulatively across the whole multi-line slice;
-the old buggy `splitOnNewlines` removed.
+**Dogfood-compile-check bug** (predates the round1/round2 methodology; referenced by Step A's
+"Dogfood self-format compile" item above): `MiscRule`'s call/declaration preserve-group
+renderers reset paren/bracket/angle depth to 0 at each physical line start, corrupting
+multi-line nested calls (including the formatter's own `TokenizerCore.java`). Fixed with a
+`groupByOriginalLine` helper tracking depth cumulatively across the whole slice.
 
 **Known pre-existing gaps** (discovered during `Main.java` smoke-testing, left unfixed as
 out of scope, flagged to user): `ServerMode.FormatHandler` doesn't resolve
@@ -779,134 +518,66 @@ sweep after A) — smallest/lowest-risk first, the large cross-cutting frozen-sp
 last. One-line summaries below; full detail via `git log`/`git show`.
 
 ### A — Enable/disable formatting via markers/CLI flag (DONE)
-`Token.frozen` + `TokenizerCore.markFrozenSpans` (scans `//% JXM_CFMT_DIS`/`ENA` and block-
-comment equivalents); every rule class given a frozen-span guard (skip transformation, still
-counted for brace/depth/line bookkeeping); `--format-off` CLI flag (starts the whole file
-frozen). Design direction (RDD_KEY_90): in-memory token masking, not fragment/tmp-dir
-splitting, since disabled regions aren't guaranteed to align to block boundaries. Two bugs
-found and fixed while adding the `format_toggle_inp/out.java` fixture: (1) frozen-span checks
-used a group's/member's leading gap (which can contain a previous statement's own trailing
-marker) instead of its first real token, falsely freezing the next unfrozen item; (2)
-`ScopePipeline.processScope`'s child-scope recursion re-tokenizes a substring from scratch,
-losing frozen-entry state from outside that substring — fixed by threading an explicit
-`startFrozen` parameter through `processScope`/`tokenize`. `README.md` documents the marker
-syntax and flag. `make test` 16/16 PASS.
+`Token.frozen` + `TokenizerCore.markFrozenSpans` (scans `//% JXM_CFMT_DIS`/`ENA` and block
+equivalents, in-memory token masking not fragment/tmp-dir splitting — RDD_KEY_90); every rule
+class given a frozen-span guard; `--format-off` CLI flag. Two bugs fixed while adding the
+`format_toggle_inp/out.java` fixture (leading-gap vs. first-real-token frozen check;
+child-scope re-tokenize losing frozen state, fixed via a `startFrozen` param). `README.md`
+documents the marker syntax. `make test` 16/16 PASS.
 
 ### B — New config entries: `normalize-comment-start-case`/`normalize-comment-end-period` (DONE)
-Two new `Config.java` keys (default `on`/`on`), following the existing `format-macros`
-pattern; `MiscRule` gates both at the two shared comment-normalization methods every comment
-call site already funnels through. `make test` 15/15 PASS.
-
-### C — Don't damage C-preprocessor macros embedded in Java source (DONE)
-`TokenizerCore.isPreprocessorLanguage()` now returns `true` unconditionally (was
-`!"java".equals(language)`), so `#`-directive lines in `.java` lex as opaque
-`PREPROCESSOR`/`MACRO_DEF` tokens like C/C++, with no further per-rule Java-specific handling
-needed. Surfaced two pre-existing bugs (not introduced by this change, confirmed via
-`git stash` against unmodified C++), both now fixed — see "Known Gaps — Fixed" above.
+Two new `Config.java` keys (default `on`/`on`), following the `format-macros` pattern.
 `make test` 15/15 PASS.
 
+### C — Don't damage C-preprocessor macros embedded in Java source (DONE)
+`TokenizerCore.isPreprocessorLanguage()` now returns `true` unconditionally, so `#`-directives
+in `.java` lex as opaque tokens like C/C++. Surfaced two pre-existing bugs, fixed — see "Known
+Gaps — Fixed" above. `make test` 15/15 PASS.
+
 ### D — Multi-file smoke test + benchmarking (DONE)
-New `bench` Makefile target times all-at-once vs. one-by-one formatting in both
-`--standalone` and client-server mode (the all-at-once passes double as the multi-file smoke
-test). Server started/stopped around the client-server timing only; a real client request
-polls until ready before the timer starts, excluding startup/lockfile-race time.
+New `bench` Makefile target times all-at-once vs. one-by-one formatting in both standalone and
+client-server mode.
 
 ### E — Code cleanups (DONE)
-1. New `Lang` class computes `isC`/`isCpp`/`isJava` once per file in `Formatter.formatOne`
-   and is threaded into every rule class's constructor, replacing scattered
-   `"c"/"cpp"/"java".equals(language)` checks.
-2. Five null-safe static helpers (`isPunct`/`isOp`/`isKeyword`/`isComment`/`isGapToken`)
-   centralized on `TokenizerCore.Token`; every rule class's duplicate private copy deleted in
-   favor of a `static import`. Two semantically-different rule-local helpers deliberately kept
-   separate: `MiscRule.isCommentOrNewline`, `ScopePipeline.isWhitespaceOrNewline`.
+New `Lang` class centralizes `isC`/`isCpp`/`isJava` per file (replacing scattered string
+checks); five null-safe token helpers centralized on `TokenizerCore.Token`, duplicate copies
+removed from rule classes.
 
 ### F — Add more tests (DONE)
 `test/c_cpp_decl_gaps_inp/out.c` added, covering the three `DeclarationAlignmentRule` fixes
-under "Known Gaps — Fixed" (`* const` column gap, `typedef` grouping, function-pointer
-declarations). `make test` 17/17 PASS. This was the final F sweep after Task A landed; each
-of A/B/C/D/E's own fixtures were added as each task landed, not batched here.
+under "Known Gaps — Fixed". `make test` 17/17 PASS.
 
 ### G — Verify `AI_PREAMBLE_FULL.md`'s `### Edge Case` sections against actual JAR behavior (DONE)
-Both of `../AI_PREAMBLE_FULL.md`'s `### Edge Case` sections (renamed from `### Unresolved`)
-turned out to already be enforced by the JAR, not genuine gaps requiring manual AI
-judgment — confirmed with real `--standalone` runs, not static analysis, per
-STATE_COMMON.md's "evidence over reasoning" rule:
-1. **`else`/`else if` closing comments** — `BlockStructureRule.classifyBrace` returns
-   `Frame.excluded(braceIdx)` for both the `else`/`if` brace immediately after an `else`
-   keyword and a bare `else` brace, so neither ever reaches the closing-comment-adding path
-   (only `IF`/`FOR`/`WHILE`/`SWITCH` frame kinds do). Verified on a fresh
-   `if`/`else if`/`else` fixture (6-line bodies each, over `closing-comment-min-lines`): only
-   the leading `if`'s `}` got `// if`; both `else if`'s and `else`'s `}` got no comment.
-2. **`type* const` in a mixed declaration group** — `DeclarationAlignmentRule.splitCppType`
-   renders the whole type including any trailing `* const` as a single cell, so the existing
-   widest-cell-pads-all column logic already pads `uint8_t* const cptr;` in a group with
-   `uint8_t value;`/`uint8_t* ptr;`/`uint16_t count;` exactly as `AI_PREAMBLE_FULL.md`'s own
-   worked example shows. Verified byte-for-byte against that example via `--standalone`.
-
-Both sections removed from `AI_PREAMBLE_FULL.md` as redundant with already-COMPLETE JAR
-behavior — nothing left there for an AI reader to act on manually.
+Both edge cases (`else`/`else if` closing comments; `type* const` in a mixed declaration group)
+confirmed already correctly handled by the JAR via live `--standalone` runs, not genuine gaps.
+Both sections removed from `AI_PREAMBLE_FULL.md` as redundant.
 
 ### H — Comment-grammar classifier accuracy upgrade (DONE)
-Formerly tracked in its own `STATE_COMMENT_GRAMMAR.md` (deleted once complete — see
-`RDD_LOG.md`'s `RDD_KEY_94`–`RDD_KEY_98` for the full design history). Adds an optional
-classifier-backed decision path for the `normalize-comment-start-case`/
-`normalize-comment-end-period` keys, behind a new `comment-normalization-classifier` config key
-(default `off`, zero behavior change when off). New `com.jxmake.formatter.classifier` package:
-`CommentFeatureExtractor`/`CommentFeatureVector` (pure feature extraction), `NonLatinScriptGate`
-(RDD_KEY_95: any non-Latin codepoint disables the classifier for that comment), `KeywordAmbiguityGate`
-(RDD_KEY_96: per-language keyword lists + two-stage ambiguity check for a keyword-leading comment
-word, e.g. "static" as an English adjective vs. the C keyword), `CommentClassifier`/
-`CommentClassifierWeights` (score/threshold decision, `YES`/`NO`/`ABSTAIN`; `ABSTAIN` behaves
-exactly like `off` for that one comment — never guess). Weights (RDD_KEY_97: frontier-model-assisted,
-not corpus-trained, for v1) generated from 40 labeled per-language examples under `cwg/` via
-`cwg/derive_weights.py` (L2-regularized logistic regression, reproducible/reusable for future
-re-derivation — see `cwg/README.md` and `cwg/weights.md`). Four features feed the
-keyword-ambiguity path's scoring (`nextCharIsOpenParen`, `nextTokenIsArrow`, `containsSemicolon`,
-`containsUrlOrFilenameOrNumber`); `nextTokenIsArrow` was added after the initial weight pass to
-close a real miss on a Kotlin `when`-branch shape (`is Foo -> handle(foo)`) — see
-`cwg/weights.md`'s "Adding a feature" for the worked example and the recipe for adding another.
-`make test` 70/70 PASS unchanged (default `off`); classifier `on` verified via a 4-language `/tmp`
-smoke test and 39/40 against the labeled example set (one documented accepted tradeoff remains,
-not a defect — see `cwg/weights.md`).
+Formerly its own `STATE_COMMENT_GRAMMAR.md` (deleted once complete — full design history in
+`RDD_LOG.md`'s `RDD_KEY_94`–`RDD_KEY_98`). Adds an optional classifier-backed decision path for
+the comment-normalization keys behind a new `comment-normalization-classifier` config key
+(default `off`, zero behavior change when off). New `com.jxmake.formatter.classifier` package
+(feature extraction, non-Latin-script gate, keyword-ambiguity gate, weighted
+`YES`/`NO`/`ABSTAIN` classifier — never guesses). Weights derived from 40 labeled examples under
+`cwg/` (`cwg/derive_weights.py`, see `cwg/README.md`/`cwg/weights.md`). `make test` 70/70 PASS
+unchanged (default `off`); classifier `on` verified via smoke test, 39/40 on the labeled set.
 
-**TODO:** the 40-example `cwg/` set is synthetic (written by the assisting AI, not pulled from
-real code), and covers only the four features that exist today. Growing it — especially with
-real comments pulled from this codebase or the `test/` fixtures, per the "is it easy to add more
-examples" discussion — would firm up the weight magnitudes and might surface new feature-set
-gaps the same way `nextTokenIsArrow` did. This is independent of the C/C++/Java formatter's own
-test suite (`make test`'s 70 fixtures) — the classifier defaults to `off` and ships no runtime
-AI dependency, so this TODO is about `cwg/`'s example quality only, not formatter correctness.
+**TODO (still open):** the 40-example `cwg/` set is synthetic; growing it with real comments
+would firm up weight magnitudes and might surface new feature-set gaps. Independent of the
+formatter's own `make test` suite — classifier defaults to `off`, ships no runtime AI
+dependency; this is about `cwg/`'s example quality only.
 
 ### I — C/C++/Java braceless else-if chain collapse + alignment (DONE)
-User request: extend Kotlin's braceless if/else-if/else collapse + column alignment
-(RDD_KEY_124/127/128) to C/C++/Java, but only when **every** branch in the chain already
-qualifies for single-statement collapse — a mixed or fully-braced chain must be left
-untouched byte-for-byte, never partially collapsed (RDD_KEY_129). New whole-chain scan
-`BlockStructureRule.chainAllBranchesCollapsible`, backed by `findChainStart`/
-`prevChainBranchIf` (only ever hops backward through an explicit `else` token, never a bare
-`}` alone — an early version that did so incorrectly absorbed an unrelated standalone `if`
-statement preceding a real chain into the chain-start search) and comment-aware
-`skipWhitespaceOnly`/`skipWhitespaceOnlyBackward` (a comment between branches blocks the
-whole chain, is never silently skipped past). `isPartOfElseChain` restructured: Kotlin's
-per-branch-suppression behavior is unchanged; C/C++/Java now suppresses only when the whole
-chain fails to qualify. A new bare-terminal-`else{...}` collapse path was added (previously
-unreachable — the main loop only ever dispatched on `if`/`while`/`for`, which have a `(...)`
-condition to anchor on). `alignBracelessElseIfChain` moved from `KotlinSpecificRule.java`
-into the shared `BlockStructureRule.java` and now runs for all languages from
-`Formatter.java`'s Phase 4, after every paren-tightening/spacing pass has settled.
+Extended Kotlin's braceless if/else-if/else collapse + column alignment (RDD_KEY_124/127/128)
+to C/C++/Java, only when every branch in the chain qualifies (RDD_KEY_129) — a mixed/braced
+chain is left untouched. New `BlockStructureRule.chainAllBranchesCollapsible` +
+`alignBracelessElseIfChain` (moved from `KotlinSpecificRule.java` into the shared rule class,
+runs for all languages from `Formatter.java` Phase 4). Two follow-up defects fixed immediately
+after (RDD_KEY_130): an idempotency bug in the render loop (leading-space stripping grew
+alignment spacing each pass) and a K&R `} else` collapsing the whole chain onto one line
+instead of Allman-style column alignment.
 
-Two follow-up defects found and fixed immediately after, both in the same feature
-(RDD_KEY_130): (1) an idempotency bug in `alignBracelessElseIfChain`'s render loop — it
-stripped only one leading space when re-extracting an already-padded `else` line's body,
-so alignment spacing grew on every successive formatting pass; fixed by stripping all
-leading spaces before re-padding. (2) a K&R `} else` (same physical line as the closing
-brace) caused an entire chain to collapse onto one giant line instead of the user's actual
-intent — Allman-style, one branch per line, column-aligned, matching Kotlin's own shape;
-fixed by `mostRecentLineIndent`/`appendChainNewlineBeforeElse`, which force a `\n` + the
-chain's original indent before a following `else` instead of letting K&R same-line
-whitespace pass through unchanged.
-
-`make test` full suite green (forward + idempotency) after both RDD_KEY_129 and
-RDD_KEY_130. Fixtures updated: `test/c_combined_out.c`, `test/cpp_modern_out.cpp`,
-`test/java_combined_out.java`, `test/java_core_out.java`, `test/java_modern_out.java`,
+`make test` full suite green after RDD_KEY_129 and RDD_KEY_130. Fixtures updated:
+`test/c_combined_out.c`, `test/cpp_modern_out.cpp`, `test/java_combined_out.java`,
+`test/java_core_out.java`, `test/java_modern_out.java`,
 `test/real_code_regressions_15_out.hpp`.

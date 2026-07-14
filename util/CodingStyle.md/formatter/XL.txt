@@ -22,6 +22,17 @@ I have run `make test` and all test passed.
 
 Read `STATE_COMMON.md` and continue with `## In-file Config Support`.
 
+
+
+Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
+`github.com/ericniebler/range-v3` - `none of these reproduce in any minimal repro`
+When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
+Only after all bugs are fixed is a full reformat and recompile test allowed.
+
+RANGE_V3_IDEMPOTENCY_STRATEGY.md
+
+
+
 Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
 ...
 When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.

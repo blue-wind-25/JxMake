@@ -284,3 +284,4 @@ directive, for all four supported languages (C, C++, Java, Kotlin):**
 - Document each new pair in `test/README.txt`, inserted **before** that
   file's existing `Real-code regressions:` section header (own clearly-
   grouped block ahead of it, matching the Makefile ordering above).
+- Update `README.md` after this feature is fully implemented and tested.

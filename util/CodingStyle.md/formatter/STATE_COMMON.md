@@ -180,6 +180,10 @@ test-server` Makefile target and documented in `README.md`'s Server Wire
 Protocol section. No follow-up work remains; the bundled CLI exposing
 inline config via its own flags is optional, not required.
 
+---
+
+## In-file Config Support
+
 **TODO (not started) — In-file `JXM_CFMT_CFG` config directive.** A top-of-file
 comment directive, e.g. `//% JXM_CFMT_CFG line-length=100;indent-size=2`,
 letting a single source file override any `STATE_C_CPP_JAVA.md` → **Config

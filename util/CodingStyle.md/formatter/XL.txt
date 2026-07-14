@@ -10,8 +10,8 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 
 Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
 
-Compact the narration in `test/README.txt` from `real_code_regressions_42_inp/out.kt` to `...`
-real_code_regressions_49_inp/out.kt
+Compact the narration in `test/README.txt` from `real_code_regressions_42_inp/out.kt` to `real_code_regressions_52_inp/out.cpp`
+
 
 
 I have run `make test` and all test passed.
@@ -21,16 +21,28 @@ I have run `make test` and all test passed.
 
 
 Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
-`github.com/ericniebler/range-v3`
+...
+When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
+Only after all bugs are fixed is a full reformat and recompile test allowed.
+
+`github.com/ericniebler/range-v3` (IDEMPOTENCY BUG)
+
+`github.com/microsoft/proxy`
 `github.com/microsoft/STL`
 `github.com/llvm/llvm-project`
 `github.com/gcc-mirror`
 
 Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent):
+...
+When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
+Only after all bugs are fixed is a full reformat and recompile test allowed.
 `github.com/javaparser/javaparser`
 `github.com/openrewrite/rewrite`
 
 Continue with Kotlin work (search in /tmp first, clone the repo again if not found; use one sub-agent):
+...
+When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
+Only after all bugs are fixed is a full reformat and recompile test allowed.
 `github.com/arrow-kt/arrow`
 `github.com/JetBrains/kotlin`
 

@@ -119,6 +119,7 @@ xstat:
 ##### Archive the whole project
 arcv: distclean
 	@(                                                                                                \
+		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                   \
 		echo;                                                                                     \
 		echo -e "$(C_YELLOW)Synchronizing project shadow checkout ...$(C_RESET)";                 \
 		cd ../Shadow/jxmake;                                                                      \
@@ -137,7 +138,6 @@ arcv: distclean
 			echo "    Shadow : $$SHW_SIZE bytes";                                             \
 			exit 1;                                                                           \
 		fi;                                                                                       \
-		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                   \
 		echo -e "$(C_GREEN)Copying the project tree (excluding '.git' and '.svn') ...$(C_RESET)"; \
 		cd ..;                                                                                    \
 		rsync -a --quiet --exclude=.git --exclude=.svn JxMake/ "$$COPY_NAME/" || exit $$?;        \

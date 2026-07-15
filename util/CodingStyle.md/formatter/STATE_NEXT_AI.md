@@ -55,8 +55,9 @@ started, this is a design note, not scoped implementation work yet):
       an endpoint — NOT STARTED
 - [ ] Wire the LLM fallback into the existing `CommentClassifier` ABSTAIN path —
       NOT STARTED
-- [ ] `com.jxmake.formatter.classifier.lstm` package (future option only, not v1) —
-      NOT STARTED, only pursue if the LLM step proves to be a bottleneck
+- [ ] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
+      preferred v1 approach (see "Model size determination" below), supersedes the
+      earlier LLM-for-v1 lean — NOT STARTED
 
 ---
 
@@ -148,18 +149,22 @@ llama.cpp/Ollama/vLLM/LM Studio, fail-safe fallback to `ABSTAIN`-equivalent beha
 caching described in `RDD_EXT_9`. Only the target decision changes — a class label
 instead of a layout-candidate index.
 
-### Why an LLM over an LSTM for v1
+### Model size determination — GRU now preferred for v1 (supersedes earlier LLM-for-v1 lean)
 
-A small LSTM (~100k params) is technically feasible and would be faster/lighter, but:
-requires implementing and maintaining a training/inference pipeline, requires
-collecting and validating a labeled training set from scratch, and is limited by
-that training data — no broad world knowledge, no multi-language understanding.
+Earlier reasoning in this doc favored a small instruction-tuned LLM for v1, since it
+needs no training set and already understands programming terminology and multiple
+languages out of the box, while a GRU/LSTM/MLP would need a training pipeline and a
+labeled dataset built from scratch.
 
-A small instruction-tuned LLM already understands programming terminology, multiple
-natural languages, comment/code conventions, and common technical phrases out of the
-box — no training set required for v1. The LSTM is kept as a **future option only**,
-to be inserted as an intermediate confidence gate ahead of the LLM if profiling later
-shows too many abstained cases are reaching the LLM step:
+Further research changes this determination: a **bidirectional GRU with ~500k
+parameters, trained on ~5M examples, is the best balance** of accuracy, latency, and
+footprint for this narrow classification decision (not open-ended generation), and is
+preferred over an LLM fallback for v1. Bidirectional is chosen because the full
+comment text is available upfront at inference time (not streamed token-by-token),
+so there is no autoregressive-latency downside — only roughly 2x encoding compute
+for the added backward pass, which should be affordable at this parameter count.
+This is a design-only determination — nothing scoped or started yet; see "GRU
+implementation design" below for the layout this targets.
 
 ```text
 Rules
@@ -168,17 +173,15 @@ Rules
    │
    └── Abstain
          │
-      Small LSTM/MLP (future option, not v1)
+      Bidirectional GRU classifier (~500k params, ~5M training examples) — v1
          │
-   High confidence?
-      │        │
-     Yes      No
-      │        │
-   Accept   Small LLM
+      Final decision
 ```
 
-This optimization should only be pursued if the LLM step becomes a measurable
-latency/resource bottleneck — not built preemptively.
+The small-LLM fallback design above (grammar-constrained selection,
+`/v1/chat/completions`, fail-safe caching) remains documented as a valid architecture
+and is kept as a fallback option if the GRU's accuracy proves insufficient in
+practice — but GRU is now the v1 target, not a future-only option.
 
 ### Non-Latin comments
 
@@ -220,37 +223,43 @@ release exists, and realistic single-token/short-response latency on that hardwa
 then document the chosen model(s) here the same way Step 2 documents its tested
 Qwen2.5-Coder-3B reference.
 
-### If the future LSTM/MLP option is pursued
+### GRU implementation design (v1 target)
 
-Design layout for when/if this is picked up:
+Design layout for when this is picked up (~500k param bidirectional GRU, ~5M
+training examples, per the determination above):
 
-**Files** (new `com.jxmake.formatter.classifier.lstm` package, parallel to the
+**Files** (new `com.jxmake.formatter.classifier.gru` package, parallel to the
 existing `com.jxmake.formatter.classifier` package):
-- `LstmClassifier.java` — inference-only runtime code, shipped in the JAR. Loads a
+- `GruClassifier.java` — inference-only runtime code, shipped in the JAR. Loads a
   trained weights file at startup; never contains literal weight arrays in source
   (unlike `CommentClassifierWeights`'s baked-in linear-model constants — a neural
   net's weight count isn't hand-editable the same way, and retraining shouldn't
   require a JAR rebuild).
-- `LstmWeights.java` — loader/schema for the external weights file (JSON or a flat
+- `GruWeights.java` — loader/schema for the external weights file (JSON or a flat
   binary tensor dump; JSON preferred for v1 for easy diffing/inspection over a
   binary format).
 - A `main()` training entry point in a **separate, non-shipped** location — e.g.
-  `tools/lstm/LstmTrainer.java` or a `cwg/`-sibling directory, not under `src/`, so
+  `tools/gru/GruTrainer.java` or a `cwg/`-sibling directory, not under `src/`, so
   the runtime JAR never bundles training code or a training-only ML dependency.
   Takes a labeled example set path + hyperparameters as arguments, writes the
-  trained weights file `LstmClassifier` reads — the trainer **writes a weights
+  trained weights file `GruClassifier` reads — the trainer **writes a weights
   file for the Java classifier to read at runtime; it does not overwrite or
   generate `.java` source**, so a retrain is a resource-file swap, not a
   recompile.
 
 **Training-set acquisition, verification, fixing** (extends the existing `cwg/`
 pattern from `RDD_KEY_97`, which is already frontier-model-assisted rather than
-corpus-trained):
-- **Acquisition:** grow the existing 40-example synthetic `cwg/` set with real
-  comments pulled from this codebase and the `test/` fixtures (per the open TODO
-  already in `cwg/`'s own notes), rather than only synthetic examples.
+corpus-trained; reaching ~5M examples is a materially larger acquisition effort than
+`cwg/`'s current 40-example set):
+- **Acquisition:** primary source is public web/search data (e.g. sourced via Google
+  search or similar large-scale crawling) of real code comments across languages,
+  supplemented with real comments pulled from this codebase and the `test/` fixtures
+  (per the open TODO already in `cwg/`'s own notes). Licensing/provenance of any
+  bulk-sourced data needs checking before use — not addressed yet, flagged as open
+  work for implementation time.
 - **Labeling:** frontier-model-assisted labeling (same precedent as `RDD_KEY_97`),
-  with spot-check review rather than blind acceptance.
+  with spot-check review rather than blind acceptance — at 5M-example scale this
+  spot-check needs to be sampling-based rather than exhaustive.
 - **Verification:** flag likely-mislabeled examples via disagreement between the
   existing rule-based classifier's confidence and the assigned label, and via
   held-out accuracy regressions when a new batch is added — not just eyeballing.
@@ -258,9 +267,10 @@ corpus-trained):
   `cwg/derive_weights.py`/`cwg/weights.md` already established for the linear
   classifier's weights — document each addition/correction and re-derive.
 
-**Fail-safe:** a missing or unreadable weights file makes `LstmClassifier` behave as
-`ABSTAIN` (falls through to the LLM step), matching the fail-safe posture everywhere
-else in this design — never blocks formatting.
+**Fail-safe:** a missing or unreadable weights file makes `GruClassifier` behave as
+`ABSTAIN` (falls through to the LLM fallback, or classifier `off` if that is also
+unavailable), matching the fail-safe posture everywhere else in this design — never
+blocks formatting.
 
 ---
 

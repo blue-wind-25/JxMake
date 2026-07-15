@@ -464,10 +464,26 @@ word, a stray trailing space only caught by an unrelated trim on the next pass -
 trailing whitespace in the same step. Fixture: `real_code_regressions_54_{inp,out}.java`. `make
 test` 78/78.
 
-**Still OPEN — not yet root-caused, full-tree idempotency not yet re-verified after the above
-fixes**, found via round1/round2 diff over the whole tree (42 files differed before the two
-fixes above; re-checked a 10-file sample after rebuilding — 5 of those 10 are now clean, 5
-still differ):
+Fixed and committed (bug 4 of the 4 originally-open items, this session): `TypeExtractor.java`
+(both the `javaparser-symbol-solver-core` and `javaparser-symbol-solver-testing` copies) — a
+blank line just before a block-closing `}` present in round1 was dropped in round2.
+Root-caused to `ScopePipeline.processScope`'s trailing-gap force-reindent: it always collapsed
+a span's trailing gap to exactly one newline once `effectiveSpanIndent` was text-derivable, and
+`findParentIndent` only returns a text-derivable indent for a statement anchored on a bare
+`else`/`catch`/`finally` once that keyword sits on its own physical line (Allman) — it returns
+`null` (skip force-reindent, gap left untouched) while `else` still shares a line with the
+preceding `}` (K&R). A fresh format sees K&R and skips the force-reindent (blank line survives
+by luck); every reformat after the first sees the now-Allman `else` (real indent, force-reindent
+fires, blank line dropped) — an idempotency bug. Fixed by counting the trailing whitespace run's
+own newline count (new `trailingRunNewlineCount` helper) and replaying that many newlines in the
+force-reindent instead of always forcing exactly one. Verified: minimal repro, both real
+`TypeExtractor.java` copies round1/round2 byte-identical, full `make test` 79/79. Fixture:
+`real_code_regressions_55_{inp,out}.java`.
+
+**Still OPEN — 3 of the original 4 bugs, not yet root-caused, full-tree idempotency not yet
+re-verified after the fix above**, found via round1/round2 diff over the whole tree (42 files
+differed before the (a)/(b) fixes; re-checked a 10-file sample after rebuilding — 5 of those 10
+were clean, 5 still differed; the `TypeExtractor.java` bug above was one of those 5):
 - `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
   paren and its single-statement body (`reporter.report(...)`) is present after round1 but
   missing after round2 -- only reproduces in situ (inside a lambda argument passed to
@@ -484,17 +500,13 @@ still differ):
   between round1 (10-space struct, "final String" left-padded to a wide column) and round2
   (12-space, unpadded) -- looks like a `DeclarationAlignmentRule`/`ColumnGrid` state not
   surviving a second pass over already-aligned output; root cause not yet identified.
-- `TypeExtractor.java`: a blank line just before a block-closing `}` present in round1 is
-  dropped in round2 (and a similar case elsewhere in the same file) -- looks like a
-  blank-line-before-closing-brace normalization pass whose trigger condition isn't idempotent;
-  root cause not yet identified.
 
-None of the four above have been minimally repro'd yet (only observed in the real files), so no
+None of the three above have been minimally repro'd yet (only observed in the real files), so no
 fixtures exist for them. Compile-check (`javac`) against the full tree has NOT yet been run --
 next session should re-run the full round1/round2 diff first (to get an accurate current count
-now that (a)/(b) are fixed), root-cause and fix any of the four above that are tractable, and
-only then run `javac`/`java_sc` and move this candidate from "In progress" to "Finished" in the
-usual style.
+now that the `TypeExtractor.java` fix also landed), root-cause and fix any of the three above
+that are tractable, and only then run `javac`/`java_sc` and move this candidate from "In
+progress" to "Finished" in the usual style.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps.)*
 

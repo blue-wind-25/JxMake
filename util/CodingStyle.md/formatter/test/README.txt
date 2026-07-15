@@ -738,6 +738,33 @@ Real-code regressions:
                                             whitespace off the result in both methods. Verified
                                             with minimal repros and full `make test`.
 
+  real_code_regressions_55_inp/out.java  -- Java, javaparser/javaparser real-code testing
+                                            (continued): `ScopePipeline.processScope`'s
+                                            force-reindent of a span's trailing gap (right before
+                                            its closing `}`) always collapsed the gap down to a
+                                            single newline once `effectiveSpanIndent` was
+                                            text-derivable, discarding any deliberate blank
+                                            source line(s) that had sat there. `findParentIndent`
+                                            only returns a text-derivable indent for a statement
+                                            anchored on a bare `else`/`catch`/`finally` once that
+                                            keyword sits on its OWN physical line (Allman) --
+                                            returns `null` (no force-reindent) while it still
+                                            shares a line with the preceding `}` (K&R). A fresh
+                                            format sees K&R (`null`, gap left untouched, blank
+                                            line survives); every format after the first sees the
+                                            now-Allman `else` (real indent, force-reindent fires,
+                                            blank line dropped) -- an idempotency bug (round1 !=
+                                            round2), found in `TypeExtractor.java` (both the
+                                            `javaparser-symbol-solver-core` and
+                                            `javaparser-symbol-solver-testing` copies). Fixed by
+                                            counting the trailing whitespace run's own newline
+                                            count (`trailingRunNewlineCount`) and replaying that
+                                            many newlines instead of always forcing exactly one,
+                                            so any blank line(s) already present survive the
+                                            force-reindent unchanged. Verified: minimal repro,
+                                            both real `TypeExtractor.java` copies round1/round2
+                                            byte-identical, full `make test` 78/78.
+
 How Tests Are Run
 -----------------
 

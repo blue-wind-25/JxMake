@@ -790,6 +790,25 @@ public class ScopePipeline {
         return s.substring(0, end);
     }
 
+    /** Counts the {@code '\n'} characters in the pure-whitespace run at the very end of {@code s}
+     *  (what {@link #trimTrailingWhitespace} would strip) -- one for a plain trailing newline,
+     *  two or more when genuine blank source line(s) sat in the gap being force-reindented. */
+    private int trailingRunNewlineCount(final String s) {
+        int newlineCount = 0;
+        int i = s.length() - 1;
+        while (i >= 0) {
+            final char c = s.charAt(i);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            if (c == '\n') {
+                newlineCount++;
+            }
+            i--;
+        }
+        return newlineCount;
+    }
+
     private Map<Token, Integer> buildIndexMap(final List<Token> tokens) {
         final Map<Token, Integer> indexOf = new IdentityHashMap<>();
         for (int i = 0; i < tokens.size(); i++) {
@@ -1612,7 +1631,26 @@ public class ScopePipeline {
                     // doing (see STATE.md's java_modern empty-named-construct-body entry).
                     childResult = rawChildResult;
                 } else {
-                    childResult = trimTrailingWhitespace(rawChildResult) + "\n" + effectiveSpanIndent;
+                    // Whether the trailing gap being force-reindented already contained one or
+                    // more deliberate blank source lines (extra consecutive NEWLINEs in the
+                    // whitespace run being trimmed) -- if so, preserve that same blank-line count
+                    // rather than collapsing straight to the closing brace. Whether this force-
+                    // reindent branch fires at all depends on effectiveSpanIndent being
+                    // text-derivable, which is NOT idempotent across passes for a statement
+                    // anchored on a bare `else`/`catch`/`finally`: `findParentIndent` returns
+                    // null (skip force-reindent) when that keyword still shares its physical
+                    // line with the preceding `}` (K&R, pre-placeElseOnOwnLine, i.e. a fresh
+                    // format's first pass), but returns a real indent (force-reindent fires) once
+                    // a prior pass has already moved it onto its own line (Allman, i.e. every
+                    // pass after the first) -- without this blank-line rescue, blank line(s) right
+                    // before such a closing brace survived round1 only to be silently dropped (or
+                    // reduced) on round2 (found via `javaparser/javaparser`'s `TypeExtractor.java`).
+                    final int trailingNewlines = Math.max(1, trailingRunNewlineCount(rawChildResult));
+                    final StringBuilder newlines = new StringBuilder();
+                    for (int nlI = 0; nlI < trailingNewlines; nlI++) {
+                        newlines.append('\n');
+                    }
+                    childResult = trimTrailingWhitespace(rawChildResult) + newlines + effectiveSpanIndent;
                 }
             }
             replacements.add(new Replacement(span.openBraceIdx + 1, span.closeBraceIdx, childResult));

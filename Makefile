@@ -118,31 +118,43 @@ xstat:
 
 ##### Archive the whole project
 arcv: distclean
-	@(                                                                                                            \
-		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                               \
-		echo;                                                                                                 \
-		echo -e "$(C_MAGENTA)Cleaning-up the project tree ...$(C_RESET)";                                     \
-		cp -Rav util/CodingStyle.md/formatter  util/CodingStyle.md/formatter2 > /dev/null;                    \
-		rm -rvf util/CodingStyle.md/formatter                                 > /dev/null;                    \
-		mv      util/CodingStyle.md/formatter2 util/CodingStyle.md/formatter  > /dev/null;                    \
-		cp -Rav src/jxm/gcomp                  src/jxm/gcomp2                 > /dev/null;                    \
-		rm -rvf src/jxm/gcomp                                                 > /dev/null;                    \
-		mv      src/jxm/gcomp2                 src/jxm/gcomp                  > /dev/null;                    \
-		cp -Rav src/jxm/tool                   src/jxm/tool2                  > /dev/null;                    \
-		rm -rvf src/jxm/tool                                                  > /dev/null;                    \
-		mv      src/jxm/tool2                  src/jxm/tool                   > /dev/null;                    \
-		cp -Rav src/jxm/ugc                    src/jxm/ugc2                   > /dev/null;                    \
-		rm -rvf src/jxm/ugc                                                   > /dev/null;                    \
-		mv      src/jxm/ugc2                   src/jxm/ugc                    > /dev/null;                    \
-		cp -Rav test                           test2                          > /dev/null;                    \
-		rm -rvf test                                                          > /dev/null;                    \
-		mv      test2                          test                           > /dev/null;                    \
-		echo -e "$(C_GREEN)Copying the project tree (excluding '.svn' and '.svn' directories) ...$(C_RESET)"; \
-		cd ..;                                                                                                \
-		rsync -av --exclude={'.svn','.git'} JxMake/ "$$COPY_NAME";                                            \
-		echo;                                                                                                 \
-		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";                        \
-		tar -cjvpf $${COPY_NAME}.tar.bz2 $$COPY_NAME > /dev/null;                                             \
-		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                                           \
-		echo;                                                                                                 \
+	@(                                                                                                \
+		echo;                                                                                     \
+		echo -e "$(C_YELLOW)Synchronizing project shadow checkout ...$(C_RESET)";                 \
+		cd ../Shadow/jxmake;                                                                      \
+		svn cleanup >/dev/null && svn update >/dev/null && svn cleanup >/dev/null;                \
+		cd -  >/dev/null;                                                                         \
+		echo -e "$(C_MAGENTA)Comparing the project tree with the shadow checkout ...$(C_RESET)";  \
+		SRC_SIZE=$$(find .                                                                        \
+			\( -name .git -o -name .svn -o -name 0_excluded_directory \) -prune -o            \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
+		SHW_SIZE=$$(find ../Shadow/jxmake                                                         \
+			\( -name .git -o -name .svn \) -prune -o                                          \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
+		if [ "$$SRC_SIZE" != "$$SHW_SIZE" ]; then                                                 \
+			echo -e "$(C_RED)ERROR$(C_RESET) - Shadow checkout size is different!";           \
+			echo "    Source : $$SRC_SIZE bytes";                                             \
+			echo "    Shadow : $$SHW_SIZE bytes";                                             \
+			exit 1;                                                                           \
+		fi;                                                                                       \
+		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                   \
+		echo -e "$(C_GREEN)Copying the project tree (excluding '.git' and '.svn') ...$(C_RESET)"; \
+		cd ..;                                                                                    \
+		rsync -a --quiet --exclude=.git --exclude=.svn JxMake/ "$$COPY_NAME/" || exit $$?;        \
+		SRC_SIZE=$$(find .                                                                        \
+			\( -name .git -o -name .svn \) -prune -o                                          \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
+		DST_SIZE=$$(find "$$COPY_NAME"                                                            \
+			\( -name .git -o -name .svn \) -prune -o                                          \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
+		if [ "$$SRC_SIZE" != "$$DST_SIZE" ]; then                                                 \
+			echo -e "$(C_RED)ERROR$(C_RESET) - Copy verification size failed!";               \
+			echo "    Source : $$SRC_SIZE bytes";                                             \
+			echo "    Target : $$DST_SIZE bytes";                                             \
+			exit 1;                                                                           \
+		fi;                                                                                       \
+		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";            \
+		tar -cjpf "$${COPY_NAME}.tar.bz2" "$$COPY_NAME";                                          \
+		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                               \
+		echo;                                                                                     \
 	)

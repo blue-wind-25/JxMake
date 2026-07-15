@@ -557,15 +557,72 @@ etc. -- since the two copies differ from each other in small ways (different jav
 this doesn't necessarily mean 26 independent bugs, quite possibly fewer distinct root causes
 hitting a shared code shape across duplicated files. Full file list captured in this session's
 scratch dir (`fulltree_r1`/`fulltree_r2` under the scratchpad) but not preserved long-term; a
-future session should re-run the round1/round2 diff fresh rather than rely on this note. Since the
-full-tree diff is not clean, per the task's own criterion this candidate **stays "In progress",
-not "Finished"** -- `javac` compile-check was NOT run (gated on a clean idempotency diff first,
-per the standard real-code-testing methodology order). Next session should either (a) treat this
-as good enough given the two originally-tracked bugs are resolved and move to Finished with a
-"known residual idempotency gaps, tracked separately" caveat if the user agrees that's acceptable,
-or (b) continue root-causing the 26 remaining files (sample a few representative ones first, e.g.
-one from each vendored-copy pair, since they likely collapse to a handful of distinct bugs) before
-re-attempting the full clean-tree + `javac` verification and moving to Finished.
+future session should re-run the round1/round2 diff fresh rather than rely on this note.
+
+**Re-verified next session: the "26 files" figure did not reproduce -- only 1 file diverges.**
+Rebuilt the jar (no source changes since the prior session's 4 fixes were already committed),
+re-cloned nothing (reused the existing scratch checkout), and re-ran a full clean round1/round2
+over all 1997 files with the same in-place-copy methodology (`fulltree_r1`/`fulltree_r2` under the
+scratchpad, this time using `find -print0`/`xargs -0` to avoid a filename-with-no-extension false
+match that broke `find -name '*.java'` without `-print0` on the first attempt). Result: only
+**one** file differs -- `javaparser-symbol-solver-testing/src/test/test_sourcecode/
+javaparser_new_src/javaparser-generated-sources/com/github/javaparser/ASTParser.java` (the
+JavaCC-generated parser, ~5500 lines). The other 25 previously-uncatalogued files are no longer
+divergent; most likely they were actually already fixed by this session's four prior bug fixes
+(`_55`-`_58`) and the "26" count in the earlier note was either stale (computed before all 4
+fixes' jars were rebuilt) or the note's own scratch dirs were never preserved to confirm, so this
+can't be fully reconciled -- but the CURRENT, freshly-verified state is 1 diverging file, not 26.
+
+**`ASTParser.java` root-caused (not fixed) via minimal repro + debug prints -- left OPEN, low
+priority.** Symptom: inside a `case LABEL:{ ... }` body, one specific statement's indentation
+drifts by +2 between round1 and round2 (round3 then stays stable, so the bug is a one-time
+non-convergence on the first pass, not unbounded drift). Root cause, confirmed via temporary
+debug prints in `ScopePipeline.applyAssignmentsPass` and `SwitchRule.applyNonInlineCaseIndent`
+(both reverted after diagnosis, not committed): `ASTParser.java` is JavaCC-generated code whose
+OWN source has pre-existing, internally-INCONSISTENT statement indentation inside switch-case
+bodies (e.g. `case STATIC:{` at column 4, `jj_consume_token(STATIC);` at column 12,
+`isStatic = true;` at column 0, `break;` at column 12, all inside the same one case body -- a
+generator quirk, not something realistic hand-written code exhibits). Two passes interact badly
+on this shape: (1) `ScopePipeline.normalizeIndent` rounds a non-multiple-of-`indentWidth` raw
+indent UP to the nearest multiple, but only for statement KINDS it explicitly reindents
+(assignments via `applyAssignmentsPass`, declarations via `applyDeclarationsPass`) -- a plain call
+statement like `jj_consume_token(...)` is left untouched by this pass. On round1 the assignment's
+raw column-0 indent normalizes to itself (0 is already a valid multiple, untouched); on round2,
+with the assignment now sitting at whatever column round1 left it at (6, from cause (2) below),
+`normalizeIndent` sees 6 (not a multiple of 4) and rounds it UP to 8 -- a value that did not
+exist on round1's own pass over the same statement. (2) `SwitchRule.applyNonInlineCaseIndent`'s
+`shiftLines` computes ONE relative delta from the case body's FIRST line only, then applies that
+same delta to every line in the body, deliberately preserving each line's relative offset from
+the first line (needed so genuinely-nested content inside the case, e.g. a nested `if`, doesn't
+get flattened) -- but this assumes the body was already internally consistent before the shift,
+which is false for this pathological input, so lines that started at a different relative offset
+than the first line (here, the column-0 assignment) land at a target that has no relation to the
+"true" per-STYLE.md target (which is the SAME indent as its call/`break` siblings, 12 -- neither
+round1's 6 nor round2's converged 8 is actually correct). A real fix would need
+`applyNonInlineCaseIndent` to detect each body line's brace-nesting depth relative to the case
+body's own top level and drive an absolute per-line target from that, rather than one delta
+derived from a single reference line -- a nontrivial rework of `shiftLines`/
+`applyNonInlineCaseIndent` with real regression risk to the existing switch-formatting behavior
+covered by the current 82/82 passing test fixtures, for the sake of one file whose OWN source
+indentation is already internally malformed in a way no realistic hand-written or other
+javaparser-generated file in this same 1997-file tree exhibits (confirmed: it is the only such
+file in the whole candidate). Given the narrow blast radius (1 file out of 1997) and the
+regression risk of the general fix required, this is being left OPEN and documented here rather
+than attempted -- no fixture added (nothing was actually fixed). Minimal repro (not preserved,
+reproducible from the description above: a `switch` where one case's body statements have
+inconsistent leading-whitespace columns in the raw source, one of which is a non-multiple of
+`indent-size`) confirmed the mechanism above via `JXM_DEBUG_ASSIGN=1 JXM_DEBUG_SWITCH=1`-gated
+temporary `System.err` prints (removed; `make test` re-confirmed 82/82 forward + 82/82 idempotency
+after reverting, so no source changes landed this session).
+
+Since the full-tree diff is not clean (1 file), per the task's own criterion this candidate
+**stays "In progress", not "Finished"** -- `javac` compile-check was NOT run (gated on a clean
+idempotency diff first, per the standard real-code-testing methodology order). Next session should
+either (a) treat this as good enough given only 1 of 1997 files has a known, root-caused,
+low-severity residual gap and move to Finished with that caveat if the user agrees that's
+acceptable, or (b) attempt the `applyNonInlineCaseIndent` per-line-absolute-target rework described
+above (higher effort, real regression risk) before re-attempting the full clean-tree + `javac`
+verification and moving to Finished.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps.)*
 

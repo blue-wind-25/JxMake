@@ -150,15 +150,9 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 ## Open Questions
 
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
-  `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp` (closing-brace-comment
-  indentation + nested angle-bracket spacing not converging round1-vs-round2). Root cause:
-  `BlockStructureRule.enforceKAndRBraceStyle` glued a named construct's `{` onto a preceding
-  bare `#endif` line, which a later retokenize swallowed whole into the `#endif` PREPROCESSOR
-  token, desyncing brace-depth tracking downstream. Fixed by skipping the K&R glue when the
-  preceding real token is a PREPROCESSOR directive. Verified: minimal repros, all 3 real files
-  byte-identical round1/round2, full 311-file tree round1/round2 clean, `make test` 75/75 both
-  ways, `g++ -fsyntax-only` matching baseline error count. Full root-cause narrative and the
-  refuted/untested alternative hypotheses explored along the way: `RDD_KEY_169` in `RDD_LOG.md`.
+  `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause and fix: see entry
+  (20) in "Finished dogfood / real-code testing" below. Full narrative and refuted alternative
+  hypotheses: `RDD_KEY_169` in `RDD_LOG.md`.
 
 - **Separate, unconfirmed observation — still OPEN, do not conflate with the above:** some
   already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode while
@@ -381,19 +375,55 @@ on the noted commits/fixtures)
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
 (16) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — 6 idempotency bugs
-     found and fixed across sessions: braceless-if-as-getter/setter misparse + trailing-period
-     whitespace (fixture `_54`); blank-line-before-`}` force-reindent newline-count loss
-     (`_55`); switch-case call-wrapping pass-ordering (`_56`); control-flow-condition
-     misclassified as C-style cast, dropping a space (`_57`); Java enum-constant-list
-     alignment-group/indent drift (`_58`). One residual gap accepted as a documented known
-     limitation rather than fixed: `ASTParser.java` (JavaCC-generated parser) has one
-     switch-case body whose *own* source indentation is internally inconsistent (a generator
-     quirk), causing one non-idempotent re-indent; root-caused via minimal repro but not fixed
-     (nontrivial `SwitchRule.applyNonInlineCaseIndent` rework needed, real regression risk, 1
-     file out of 1997 affected) — see "Known Gaps — Open" below and `README.md`'s "Known
-     Limitations" section. Full-tree round1/round2 clean except that one file; `javac`
-     compile-check not run (gated on fully-clean idempotency, which this candidate doesn't
-     reach) — accepted as Finished with this documented caveat per user decision.
+     found and fixed across sessions, verified via full-tree round1/round2 (in-place-copy
+     methodology — NOT `--out DIR`, which flattens all files to basenames in one flat directory
+     and silently collides same-named files across modules) + `make test`:
+     - `GetterSetterRule.parseOneLinerMember`/`findNameBeforeParen`: braceless `if (cond)
+       throw/return ...` misparsed as a one-liner getter/setter, grid-padding garbage. Fixed by
+       rejecting any "return type" span containing a control-flow keyword.
+     - `MiscRule.stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines`: stripped a
+       comment's sole trailing `.` but left the separating whitespace, caught only by a later
+       unrelated trim. Both fixed in fixture `real_code_regressions_54_{inp,out}.java`.
+     - `ScopePipeline.processScope`'s trailing-gap force-reindent always collapsed to exactly one
+       newline once `findParentIndent` returned a text-derivable indent — which it only does for
+       a statement anchored on a bare `else`/`catch`/`finally` once that keyword is Allman
+       (own line), not K&R. Dropped a real blank line before `}` in `TypeExtractor.java` (both
+       `javaparser-symbol-solver-core`/`-testing` copies) once round2 rendered `else` as Allman.
+       Fixed via a new `trailingRunNewlineCount` helper replaying the original newline count.
+       Fixture `_55`.
+     - Pass ordering: `MiscRule.enforceCallLineBreaking`'s line-fits check ran before
+       `SwitchRule.formatNonInlineSwitches` reindented case bodies one level deeper, so a call
+       could measure "fits" pre-reindent then overflow post-reindent on the next pass
+       (`CsmAttribute.java`'s `getTokenType`). Fixed by re-running `enforceCallLineBreaking`
+       again immediately after `formatNonInlineSwitches`. Fixture `_56`.
+     - `DeclarationAlignmentRule.isCStyleCastClose`'s guard against misreading a call/subscript
+       `)` as a C-style cast close excluded a preceding IDENTIFIER/`)`/`]` but not control-flow
+       KEYWORD tokens, so `if(node instanceof RecordPatternExpr)` misclassified as a cast
+       `(Type)`, dropping the space before the body statement — only surfaced when rendered as a
+       declaration initializer (`Java1_0Validator.java`/`Java5Validator.java`). Fixed via a new
+       `CONTROL_FLOW_KEYWORDS` exclusion set. Fixture `_57`.
+     - `DeclarationAlignmentRule.groupDeclarations` had no Java-enum-constant-list exclusion, so a
+       constant list could merge into an adjacent field's alignment group and grid-pad a bogus
+       column into it on a fresh parse only; compounded by `JavaSpecificRule
+       .findEnumConstantListTerminators` re-deriving its indent from the first member's own
+       *current* line each pass instead of an absolute depth (drift compounding 8→10→12→...).
+       Symptom: `JavaParserJsonSerializer.java`'s enum indentation/column differed round1 vs
+       round2. Fixed via a new `isJavaEnumConstantListShape` singleton-group helper (isolates the
+       constant list the same way `isMemberFunctionForwardDecl` already does, preserving its
+       one-line-when-it-fits collapsing) plus deriving the re-emitted indent from the enum body's
+       own stable `{`-line indent. Fixture `_58`.
+
+     One residual gap accepted as a documented known limitation rather than fixed:
+     `.../javaparser-generated-sources/com/github/javaparser/ASTParser.java` (JavaCC-generated
+     parser, ~5500 lines) has one switch-case body whose own source indentation is internally
+     inconsistent (a generator quirk), causing one non-idempotent re-indent; root-caused via
+     minimal repro + temporary debug prints (reverted, not committed) but not fixed (nontrivial
+     `SwitchRule.applyNonInlineCaseIndent`/`shiftLines` rework needed, real regression risk, 1
+     file out of 1997 affected, no other file in any candidate tested exhibits the pattern) — see
+     "Known Gaps — Open" below and `README.md`'s "Known Limitations" section. Full-tree
+     round1/round2 clean except that one file; `javac` compile-check not run (gated on fully-clean
+     idempotency, which this candidate doesn't reach) — accepted as Finished with this documented
+     caveat per user decision.
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
@@ -454,182 +484,11 @@ concepts/`requires`/deep metaprogramming, `range-v3` for its own distinct
 distributed under a `.h`/`.hpp` extension, confirm which language it actually is before testing —
 copy to `.hpp` first if really C++.
 
-**In progress dogfood / real-code testing details**
-
-(15b) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — FINISHED (see summary
-in the "Finished dogfood / real-code testing" list above, entry (16)). Full narrative below kept
-for history. Cloned to a scratch checkout under `/tmp/claude-1000/.../scratchpad/javaparser`. Round1/round2
-methodology used full in-place-copy formatting (NOT `--out DIR`, which flattens all files to
-basenames in one flat directory and silently collides same-named files across modules — 1997
-files became 1558 unique basenames; confirmed via file-count drop, not itself a formatter bug,
-just a testing-harness gotcha worth remembering for future large multi-module candidates).
-
-Fixed and committed (`4bcd56d`): (a) `GetterSetterRule.parseOneLinerMember` misparsed a
-braceless `if (cond) throw new X(...)`/`if (cond) return ...` statement as a one-liner
-getter/setter-style member (same misparse class as the existing `case`/`default` guard --
-`findNameBeforeParen` landed on the exception/call's own name, treating the `if (...) ... throw
-new` prefix as a bogus "return type"), grid-aligning garbage padding that grew unboundedly
-across passes. Fixed by rejecting any "return type" span containing a control-flow/statement
-keyword. (b) `MiscRule.stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines` stripped a
-comment's sole trailing `.` but left the whitespace that had separated it from the preceding
-word, a stray trailing space only caught by an unrelated trim on the next pass -- fixed to trim
-trailing whitespace in the same step. Fixture: `real_code_regressions_54_{inp,out}.java`. `make
-test` 78/78.
-
-Fixed and committed (bug 4 of the 4 originally-open items, this session): `TypeExtractor.java`
-(both the `javaparser-symbol-solver-core` and `javaparser-symbol-solver-testing` copies) — a
-blank line just before a block-closing `}` present in round1 was dropped in round2.
-Root-caused to `ScopePipeline.processScope`'s trailing-gap force-reindent: it always collapsed
-a span's trailing gap to exactly one newline once `effectiveSpanIndent` was text-derivable, and
-`findParentIndent` only returns a text-derivable indent for a statement anchored on a bare
-`else`/`catch`/`finally` once that keyword sits on its own physical line (Allman) — it returns
-`null` (skip force-reindent, gap left untouched) while `else` still shares a line with the
-preceding `}` (K&R). A fresh format sees K&R and skips the force-reindent (blank line survives
-by luck); every reformat after the first sees the now-Allman `else` (real indent, force-reindent
-fires, blank line dropped) — an idempotency bug. Fixed by counting the trailing whitespace run's
-own newline count (new `trailingRunNewlineCount` helper) and replaying that many newlines in the
-force-reindent instead of always forcing exactly one. Verified: minimal repro, both real
-`TypeExtractor.java` copies round1/round2 byte-identical, full `make test` 79/79. Fixture:
-`real_code_regressions_55_{inp,out}.java`.
-
-Fixed and committed (bug 2 of the 4 originally-open items, this session): `CsmAttribute.java`'s
-`getTokenType` — an already-one-line `if (GeneratedJavaParserConstants.tokenImage[i].equals(
-expectedImage)) return i;` inside a `switch`-`case` block stayed one line on round1 but got
-wrapped across 3 lines by `enforceCallLineBreaking` on round2. Root-caused to pass ordering in
-`Formatter.formatOne`'s Phase 1: `MiscRule.enforceCallLineBreaking`'s "does this call fit in
-`lineLengthLimit`" measurement ran BEFORE `SwitchRule.formatNonInlineSwitches` reindents
-switch-case bodies one level deeper. On a fresh format, the call's line measured "fits" against
-the pre-reindent (shallower) column and was left alone; `formatNonInlineSwitches` then
-reindented the surrounding `case` body one level deeper, pushing the *rendered* line past the
-limit with no further re-check. On a reformat, the input already has the deeper indent baked in
-from the first run, so the same fits-check correctly measures it as too long and wraps it —
-round1 != round2. This is the same pass-ordering bug class already documented at length in
-`Formatter.java`'s own comments around `enforceComplexityPadding`/`enforceCallLineBreaking`
-(the tinyexpr-plusplus-discovered case). Fixed by re-running `enforceCallLineBreaking` again
-immediately after `formatNonInlineSwitches` (idempotent: a no-op on anything already correctly
-fitting or wrapped), so the fits-vs-wraps decision is re-derived against the now-final column.
-Verified: minimal repro (fails idempotency without the fix, passes with it), real
-`CsmAttribute.java` round1/round2 byte-identical, both `TypeExtractor.java` copies still
-round1/round2 byte-identical (no regression on bug 4's fix), full `make test` 80/80. Fixture:
-`real_code_regressions_56_{inp,out}.java`.
-
-**Both previously-OPEN bugs now FIXED and committed this session** (fixtures
-`real_code_regressions_57`/`_58`):
-
-- `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
-  paren and its single-statement body (`reporter.report(...)`) was present after round1 but
-  missing after round2. Root-caused to `DeclarationAlignmentRule.isCStyleCastClose`: its guard
-  against misreading a call/subscript's `)` as a C-style cast close only excluded a preceding
-  IDENTIFIER/`)`/`]`, not control-flow keywords -- `if`/`while`/`for`/`switch`/`catch`/`do`/`else`
-  are KEYWORD tokens and slipped past, so `if(node instanceof RecordPatternExpr)` (an
-  IDENTIFIER/KEYWORD-only condition) got misclassified as a cast `(Type)`, suppressing the space
-  before the following statement. Only surfaced when the whole braceless-if-plus-call construct
-  was itself rendered as a declaration's initializer via `renderInitTokens` (e.g. a lambda
-  argument passed to a field initializer's constructor call) -- this is why a minimal repro
-  without the surrounding field-declaration context didn't reproduce it in the prior session.
-  Fixed by adding a `CONTROL_FLOW_KEYWORDS` exclusion set. Verified: minimal repro (`test/
-  real_code_regressions_57_{inp,out}.java`), both real `Java1_0Validator.java`/`Java5Validator.java`
-  round1/round2 byte-identical, `make test` 82/82.
-- `JavaParserJsonSerializer.java`: an enum constant list's indentation/alignment column differed
-  between round1 (10-space struct, `final String` left-padded to a wide column) and round2
-  (12-space, unpadded). Two compounding root causes: (a) `DeclarationAlignmentRule.groupDeclarations`
-  had no Java-enum-constant-list exclusion, so a constant list like `BEGIN_TOKEN("beginToken"),
-  END_TOKEN("endToken");` (same top-level shape as a C-style multi-declarator statement, just with
-  no leading type) could merge into the same alignment group as an unrelated adjacent field (the
-  enum's own trailing `final String propertyKey;`), grid-padding a bogus wide column into that
-  field only on a fresh parse -- a reformat of the already-separated output no longer merged the
-  groups, so the padding vanished (idempotency bug). (b) `JavaSpecificRule
-  .findEnumConstantListTerminators` derived its re-emitted indent from the first constant-list
-  member's own *current* line indent (`lineIndentAt`) rather than an absolute depth-based
-  recompute, so each pass's drift compounded onto the next (8 -> 10 -> 12 -> ...). Fixed by (a) a
-  new `isJavaEnumConstantListShape` helper isolating a Java enum-constant-list statement into its
-  own singleton group in `groupDeclarations` (same isolation pattern already used for
-  `isMemberFunctionForwardDecl`, preserving the constant list's own existing one-line-when-it-fits
-  collapsing behavior, unlike an earlier attempt that outright rejected it from `parseDeclaration`
-  and broke that collapsing -- caught by `make test` regressions on `test/java_core_inp.java`/
-  `test/java_combined_inp.java`, reverted in favor of this singleton-group approach), and (b)
-  deriving `findEnumConstantListTerminators`'s indent from the enum body's own stable `{`-line
-  indent plus one indent unit instead of the first member's own line indent. Verified: minimal
-  repro (`test/real_code_regressions_58_{inp,out}.java`), real `JavaParserJsonSerializer.java`
-  round1/round2 byte-identical, `make test` 82/82.
-
-**Full-tree re-verification run this session (after both fixes): NOT clean.** Re-ran round1/round2
-over the whole 1997-file tree (in-place-copy methodology, same as before) -- both previously-open
-bugs' own files (`Java1_0Validator.java`, `Java5Validator.java`, `JavaParserJsonSerializer.java`)
-are now byte-identical round1 vs round2 (confirmed via direct diff), but the full-tree diff still
-shows **26 other files differing**, none of which are the 3 files above -- these are additional,
-previously-uncatalogued idempotency bugs beyond the original 4 (the original "42 files differed"
-count was never fully individually catalogued, only sampled). Notable pattern: several of the 26
-are literal duplicate copies of the same source files vendored twice under
-`javaparser-symbol-solver-testing/src/test/test_sourcecode/{javaparser_new_src,javaparser_src/
-proper_source}/.../{MethodDeclaration,TypeDeclaration,CloneVisitor,ModifierVisitorAdapter}.java`
-etc. -- since the two copies differ from each other in small ways (different javaparser vintage),
-this doesn't necessarily mean 26 independent bugs, quite possibly fewer distinct root causes
-hitting a shared code shape across duplicated files. Full file list captured in this session's
-scratch dir (`fulltree_r1`/`fulltree_r2` under the scratchpad) but not preserved long-term; a
-future session should re-run the round1/round2 diff fresh rather than rely on this note.
-
-**Re-verified next session: the "26 files" figure did not reproduce -- only 1 file diverges.**
-Rebuilt the jar (no source changes since the prior session's 4 fixes were already committed),
-re-cloned nothing (reused the existing scratch checkout), and re-ran a full clean round1/round2
-over all 1997 files with the same in-place-copy methodology (`fulltree_r1`/`fulltree_r2` under the
-scratchpad, this time using `find -print0`/`xargs -0` to avoid a filename-with-no-extension false
-match that broke `find -name '*.java'` without `-print0` on the first attempt). Result: only
-**one** file differs -- `javaparser-symbol-solver-testing/src/test/test_sourcecode/
-javaparser_new_src/javaparser-generated-sources/com/github/javaparser/ASTParser.java` (the
-JavaCC-generated parser, ~5500 lines). The other 25 previously-uncatalogued files are no longer
-divergent; most likely they were actually already fixed by this session's four prior bug fixes
-(`_55`-`_58`) and the "26" count in the earlier note was either stale (computed before all 4
-fixes' jars were rebuilt) or the note's own scratch dirs were never preserved to confirm, so this
-can't be fully reconciled -- but the CURRENT, freshly-verified state is 1 diverging file, not 26.
-
-**`ASTParser.java` root-caused (not fixed) via minimal repro + debug prints -- left OPEN, low
-priority.** Symptom: inside a `case LABEL:{ ... }` body, one specific statement's indentation
-drifts by +2 between round1 and round2 (round3 then stays stable, so the bug is a one-time
-non-convergence on the first pass, not unbounded drift). Root cause, confirmed via temporary
-debug prints in `ScopePipeline.applyAssignmentsPass` and `SwitchRule.applyNonInlineCaseIndent`
-(both reverted after diagnosis, not committed): `ASTParser.java` is JavaCC-generated code whose
-OWN source has pre-existing, internally-INCONSISTENT statement indentation inside switch-case
-bodies (e.g. `case STATIC:{` at column 4, `jj_consume_token(STATIC);` at column 12,
-`isStatic = true;` at column 0, `break;` at column 12, all inside the same one case body -- a
-generator quirk, not something realistic hand-written code exhibits). Two passes interact badly
-on this shape: (1) `ScopePipeline.normalizeIndent` rounds a non-multiple-of-`indentWidth` raw
-indent UP to the nearest multiple, but only for statement KINDS it explicitly reindents
-(assignments via `applyAssignmentsPass`, declarations via `applyDeclarationsPass`) -- a plain call
-statement like `jj_consume_token(...)` is left untouched by this pass. On round1 the assignment's
-raw column-0 indent normalizes to itself (0 is already a valid multiple, untouched); on round2,
-with the assignment now sitting at whatever column round1 left it at (6, from cause (2) below),
-`normalizeIndent` sees 6 (not a multiple of 4) and rounds it UP to 8 -- a value that did not
-exist on round1's own pass over the same statement. (2) `SwitchRule.applyNonInlineCaseIndent`'s
-`shiftLines` computes ONE relative delta from the case body's FIRST line only, then applies that
-same delta to every line in the body, deliberately preserving each line's relative offset from
-the first line (needed so genuinely-nested content inside the case, e.g. a nested `if`, doesn't
-get flattened) -- but this assumes the body was already internally consistent before the shift,
-which is false for this pathological input, so lines that started at a different relative offset
-than the first line (here, the column-0 assignment) land at a target that has no relation to the
-"true" per-STYLE.md target (which is the SAME indent as its call/`break` siblings, 12 -- neither
-round1's 6 nor round2's converged 8 is actually correct). A real fix would need
-`applyNonInlineCaseIndent` to detect each body line's brace-nesting depth relative to the case
-body's own top level and drive an absolute per-line target from that, rather than one delta
-derived from a single reference line -- a nontrivial rework of `shiftLines`/
-`applyNonInlineCaseIndent` with real regression risk to the existing switch-formatting behavior
-covered by the current 82/82 passing test fixtures, for the sake of one file whose OWN source
-indentation is already internally malformed in a way no realistic hand-written or other
-javaparser-generated file in this same 1997-file tree exhibits (confirmed: it is the only such
-file in the whole candidate). Given the narrow blast radius (1 file out of 1997) and the
-regression risk of the general fix required, this is being left OPEN and documented here rather
-than attempted -- no fixture added (nothing was actually fixed). Minimal repro (not preserved,
-reproducible from the description above: a `switch` where one case's body statements have
-inconsistent leading-whitespace columns in the raw source, one of which is a non-multiple of
-`indent-size`) confirmed the mechanism above via `JXM_DEBUG_ASSIGN=1 JXM_DEBUG_SWITCH=1`-gated
-temporary `System.err` prints (removed; `make test` re-confirmed 82/82 forward + 82/82 idempotency
-after reverting, so no source changes landed this session).
-
-**Accepted as a known gap (user decision) — candidate moved to Finished below with this caveat.**
-See "Known Gaps — Open" for the permanent record of the `ASTParser.java` root cause and
-`README.md`'s new "Known Limitations" section for the user-facing summary.
-
-*(`stdexec`, `mp11` reached DONE with no open gaps.)*
+*(`stdexec`, `mp11` reached DONE with no open gaps. javaparser/javaparser's (15b) full narrative —
+including two intermediate full-tree re-verification passes, one of which showed a spurious "26
+files differing" reading later found to not reproduce (stale pre-rebuild jar) — is compacted into
+entry (16) above and "Known Gaps — Open" below; nothing in the removed narrative was still-open
+or unrecorded.)*
 
 When a test completes, remove/compact its entry from "Not started" (or its "In progress"
 detail block here) and add it to "Finished dogfood / real-code testing" above — and to

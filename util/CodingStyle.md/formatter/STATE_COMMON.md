@@ -248,32 +248,29 @@ synchronize it with `README.md` and the implementation of
 
 ## In-file Config Support
 
-**DONE — In-file `JXM_CFMT_CFG` config directive.** Core mechanism landed
-(RDD_KEY_167): new `InFileConfig.parse(source)` (raw-text regex scan, top-of-file
-preamble detection, duplicate/misplaced/invalid-key hard errors, all wired as an
-ordinary per-file `IOException`), a new `Config.resolve(Path, Map, Map)` overload
-taking the in-file layer as highest priority, wired into both `Main.formatStandalone`
-and `ServerMode.FormatHandler` (so it also overrides the server's own inline
-query-param config).
+**DONE — In-file `JXM_CFMT_CFG` config directive.** Core mechanism (RDD_KEY_167): new
+`InFileConfig.parse(source)` (raw-text regex scan, top-of-file preamble detection,
+duplicate/misplaced/invalid-key hard errors as an ordinary per-file `IOException`), a new
+`Config.resolve(Path, Map, Map)` overload with the in-file layer as highest priority, wired into
+both `Main.formatStandalone` and `ServerMode.FormatHandler` (overrides the server's own inline
+query-param config too).
 
-Test fixtures landed (RDD_KEY_168 records the `.hpp` fixture's design pivot away from
-`header-guard-rename`, which is untestable via the `_inp`/`_out` diff convention since
-the guard name derives from the invocation path, to `format-macros=off` instead, which
-also proves override precedence over the Makefile `test:` target's own
-`FORMAT_MACROS=on` env var): `test/in_file_config_{inp,out}.hpp`/`.java`/`.kt` (one
-directive setting every per-file-applicable key, `indent-size=2` proven via 1-space raw
-indentation, `.java`/`.kt` each proving their reversed `*-import-order`) and
-`test/in_file_config_error_{inp,out}.hpp` (registered but commented out in the
-Makefile — a hard-erroring input has no formatted result to diff, so it's excluded from
-`make test`'s loop and exercised manually instead). Both blocks registered in the
-Makefile's `INP_FILES` and in `test/README.txt`, ahead of the `real_code_regressions_*`
-block. `make test`: 75/75 forward + 75/75 idempotency, zero regressions.
+Fixtures: `test/in_file_config_{inp,out}.hpp`/`.java`/`.kt` (one directive setting every
+per-file-applicable key; `indent-size=2` proven via 1-space raw indentation; `.java`/`.kt` each
+prove their reversed `*-import-order`) and `test/in_file_config_error_{inp,out}.hpp` (registered
+but commented out in the Makefile — a hard-erroring input has no formatted result to diff, so
+it's excluded from `make test`'s loop and exercised manually). Both registered in the Makefile's
+`INP_FILES` and `test/README.txt`, ahead of `real_code_regressions_*`. `make test`: 75/75
+forward + 75/75 idempotency, zero regressions. RDD_KEY_168 records the `.hpp` fixture's design
+pivot away from `header-guard-rename` (untestable via `_inp`/`_out` diffing since the guard name
+derives from the invocation path) to `format-macros=off` instead, which also proves override
+precedence over the Makefile `test:` target's own `FORMAT_MACROS=on` env var.
 
-`README.md` updated with a new "In-file config overrides" section (including
-RDD_KEY_167's placement-semantics answer: the directive must be its own separate
-comment, never merged into another comment's prose such as a copyright header; must
-appear "before the first non-comment/non-blank line", not literal line 1) and the
-Configuration precedence list extended to a 7th tier for this directive.
+`README.md` updated with a new "In-file config overrides" section (incl. RDD_KEY_167's
+placement-semantics answer: the directive must be its own separate comment, never merged into
+another comment's prose such as a copyright header; must appear "before the first
+non-comment/non-blank line", not literal line 1) and the Configuration precedence list extended
+to a 7th tier for this directive.
 
 **Historical design tradeoffs** (per-key applicability list, `indent-style =
 auto` carve-out, hard-error posture, placement semantics, test fixture

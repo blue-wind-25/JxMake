@@ -115,27 +115,28 @@ faster):
    same error count as the unmodified original (no new, formatter-induced
    errors).
 
-**TODO — `--out DIR` flattens output to basename, losing subdirectory
-structure.** `Main.processFile` resolves each output path as
-`Paths.get(outDir).resolve(path.getFileName())` (`Main.java` ~line 209) —
-only the file's basename is kept, so two input files with the same name in
-different source directories (common in large real-code-testing candidates,
-e.g. multiple `Visitor.java`/`package-info.java` across packages) silently
-collide and overwrite each other under `--out`. Needs a fix before running
-the real-code-testing methodology on any candidate with duplicate basenames
-across directories — until fixed, work around it per-subdirectory (one
-`--out` invocation per top-level source subdirectory, mirroring the existing
-argv-length-limit grouping advice below) rather than batching the whole tree
-through one `--out` dir. Proposed fix direction (not yet implemented, needs
-a design decision before coding): add a `--preserve-tree` flag (or make it
-the default when input paths share a common root) that resolves the output
-path by rebasing each input's full path onto `outDir` instead of just its
-basename — needs a decision on what "common root" means when input paths
-are passed as an arbitrary flat file list rather than a single directory
-tree (e.g. relative-to-cwd, or relative to a shared ancestor computed across
-all args, or requiring an explicit `--root DIR` companion flag). Ambiguity —
-do not implement without resolving this per STATE_COMMON.md's ambiguity
-protocol first.
+**DONE — `--preserve-tree` + `--root DIR` fix `--out DIR` basename-flattening
+collisions.** `Main.java` gained two new CLI flags: `--preserve-tree`
+(boolean) and `--root DIR` (String). When both are given alongside `--out
+DIR`, each input file's output path is computed as
+`outDir.resolve(rootDir.relativize(inputPath))` (`Main.processFile`'s
+`OUT_DIR` case), preserving subdirectory structure instead of the previous
+`Paths.get(outDir).resolve(path.getFileName())` basename-only flattening —
+two input files with the same basename in different source directories no
+longer collide. Validation (usage error, exit 2, via `usageError`):
+`--preserve-tree` requires `--out DIR`; `--preserve-tree` requires `--root
+DIR`; `--root DIR` given without `--preserve-tree` is also a usage error. An
+input file that doesn't resolve under `--root DIR` is a per-file
+`IOException`, surfaced the same way every other per-file processing error
+already is (caught in `run()`'s per-file loop, printed, contributes to a
+non-zero overall exit code). Fully opt-in and backward-compatible — omitting
+`--preserve-tree` leaves the original flattening behavior byte-for-byte
+unchanged. `README.md`'s Output modes section documents both new flags.
+`make test` 78/78 forward + 78/78 idempotency, no regressions. Manually
+smoke-tested: preserve-tree avoids collision on duplicate basenames across
+subdirectories; flattening still collides as before when `--preserve-tree`
+is omitted (regression check); all three new validation errors exit 2; a
+file outside `--root DIR` surfaces as a per-file error.
 
 **Invoke the formatter JAR once per batch, not once per file.** `Main.run()`
 accepts any number of positional file-path arguments and formats them all in

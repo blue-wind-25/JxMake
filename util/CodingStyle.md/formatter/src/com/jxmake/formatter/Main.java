@@ -57,6 +57,8 @@ public final class Main {
         String outDir = null;
         Integer port = null;
         String explicitLanguage = null;
+        boolean preserveTree = false;
+        String rootDir = null;
         final List<String> files = new ArrayList<String>();
 
         for (int i = 0; i < args.length; i++) {
@@ -107,6 +109,13 @@ public final class Main {
                     return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + " (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
+            } else if ("--preserve-tree".equals(arg)) {
+                preserveTree = true;
+            } else if ("--root".equals(arg)) {
+                if (i + 1 >= args.length) {
+                    return usageError("--root requires a directory argument");
+                }
+                rootDir = args[++i];
             } else if (arg.startsWith("--")) {
                 return usageError("unknown flag: " + arg);
             } else {
@@ -122,6 +131,15 @@ public final class Main {
         }
         if ((serverMode || stopMode) && explicitLanguage != null) {
             return usageError("--server/--stop do not take --lang");
+        }
+        if (preserveTree && outputMode != OutputMode.OUT_DIR) {
+            return usageError("--preserve-tree requires --out DIR");
+        }
+        if (preserveTree && rootDir == null) {
+            return usageError("--preserve-tree requires --root DIR");
+        }
+        if (rootDir != null && !preserveTree) {
+            return usageError("--root DIR has no effect without --preserve-tree");
         }
 
         final Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
@@ -146,7 +164,7 @@ public final class Main {
         for (final String file : files) {
             try {
                 if (processFile(Paths.get(file), outputMode, outDir, standalone, formatOff, cliOverrides,
-                        explicitLanguage)) {
+                        explicitLanguage, preserveTree, rootDir)) {
                     anyChanged = true;
                 }
             } catch (final IOException e) {
@@ -175,7 +193,7 @@ public final class Main {
 
     private static void printUsage() {
         System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] [--lang c|cpp|java|kotlin] "
-                + "[--diff | --check | --out DIR] [file...]");
+                + "[--diff | --check | --out DIR [--preserve-tree --root DIR]] [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");
     }
@@ -183,7 +201,7 @@ public final class Main {
     /** Returns {@code true} if the file's formatted content differs from its original content. */
     private static boolean processFile(final Path path, final OutputMode outputMode, final String outDir,
             final boolean standalone, final boolean formatOff, final Map<String, String> cliOverrides,
-            final String explicitLanguage) throws IOException {
+            final String explicitLanguage, final boolean preserveTree, final String rootDir) throws IOException {
         if (!Files.isRegularFile(path)) {
             throw new IOException("no such file: " + path);
         }
@@ -206,7 +224,17 @@ public final class Main {
             case CHECK:
                 break;
             case OUT_DIR:
-                final Path outPath = Paths.get(outDir).resolve(path.getFileName());
+                final Path outPath;
+                if (preserveTree) {
+                    final Path absRoot = Paths.get(rootDir).toAbsolutePath().normalize();
+                    final Path absPath = path.toAbsolutePath().normalize();
+                    if (!absPath.startsWith(absRoot)) {
+                        throw new IOException("file is not under --root " + rootDir + ": " + path);
+                    }
+                    outPath = Paths.get(outDir).resolve(absRoot.relativize(absPath));
+                } else {
+                    outPath = Paths.get(outDir).resolve(path.getFileName());
+                }
                 final Path outParent = outPath.toAbsolutePath().getParent();
                 if (outParent != null) {
                     Files.createDirectories(outParent);

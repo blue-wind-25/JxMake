@@ -65,11 +65,22 @@ place of its own extension-based guess for that request.
 ### Output modes
 
 ```sh
-java -jar code-formatter-1.00.jar File.java              # in-place edit (default)
-java -jar code-formatter-1.00.jar --diff File.java       # print unified diff, do not edit
-java -jar code-formatter-1.00.jar --check File.java      # exit 1 if file would change (CI)
-java -jar code-formatter-1.00.jar --out DIR File.java    # write to DIR/File.java instead
+java -jar code-formatter-1.00.jar File.java             # in-place edit (default)
+java -jar code-formatter-1.00.jar --diff File.java      # print unified diff, do not edit
+java -jar code-formatter-1.00.jar --check File.java     # exit 1 if file would change (CI)
+java -jar code-formatter-1.00.jar --out DIR File.java   # write to DIR/File.java instead
+java -jar code-formatter-1.00.jar --out DIR \           # write to DIR/sub/File.java, preserving
+    --preserve-tree --root ROOT sub/File.java           # ROOT-relative subdirectory structure
+
 ```
+
+`--out DIR` alone flattens every input file to its basename under `DIR` — two input files
+with the same name in different source directories will collide and overwrite each other.
+`--preserve-tree` (requires both `--out DIR` and `--root DIR`) avoids this by rebasing each
+input file's path relative to `--root DIR` onto `--out DIR` instead, preserving subdirectory
+structure. `--root DIR` has no effect and is a usage error without `--preserve-tree`; an
+input file that doesn't resolve under `--root DIR` is a per-file error. Opt-in only — omitting
+`--preserve-tree` keeps the original flattening behavior unchanged.
 
 ### Server mode (faster for batch)
 

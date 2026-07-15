@@ -778,49 +778,37 @@ Real-code regressions:
                                             byte-identical, full `make test`.
 
   real_code_regressions_59_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a generic
-                                            type-parameter bound's `:` (e.g.
-                                            `<A : Comparable<A>, B : Comparable<B>>`) was not
+                                            bound's `:` (e.g. `<A : Comparable<A>>`) wasn't
                                             recognized as generic-safe by
-                                            `TokenizerCore.isGenericSafeToken`, so it invalidated
-                                            the enclosing `<...>` angle-bracket tracking stack; a
-                                            second bound clause ending in `>>` then found its
-                                            outer `<` already marked invalid and left the whole
-                                            `>>` unsplit, corrupting both bounds' spacing. Fixed
+                                            `TokenizerCore.isGenericSafeToken`, invalidating the
+                                            angle-bracket tracking stack so a second bound's `>>`
+                                            stayed unsplit, corrupting both bounds' spacing. Fixed
                                             by adding a Kotlin-gated `:` case to
                                             `isGenericSafeToken`'s `OP` branch. Found in
                                             `arrow-core`'s `Pair.kt` (`compareTo` extension).
                                             Verified: minimal repro, full `make test`.
 
-  real_code_regressions_60_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing
-                                            (continued, found via `kotlin_sc` compile-checking
-                                            round1's output rather than round1/round2 diffing):
-                                            `isKotlinSingleStatementBody`
-                                            (`BlockStructureRule`) allowed a braced `if` body
-                                            whose sole statement was a local declaration
-                                            (`val`/`var`) to be collapsed to a braceless form,
-                                            producing `if (x) val y = ...`, which is illegal
-                                            Kotlin -- a declaration is a statement, not an
-                                            expression, and cannot stand alone as a braceless
-                                            control-flow body. Fixed by disqualifying a body
-                                            whose first token is `val`/`var` from collapse, the
-                                            same way `COMPOUND_BODY_KEYWORDS` disqualifies a
-                                            nested compound body. Found in `RaiseAccumulate.kt`'s
-                                            `addErrors`. Verified: minimal repro, full
-                                            `make test`.
+  real_code_regressions_60_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (found via
+                                            `kotlin_sc` compile-checking round1's output, not
+                                            round1/round2 diffing): `BlockStructureRule
+                                            .isKotlinSingleStatementBody` let a braced `if` body
+                                            whose sole statement was a `val`/`var` declaration
+                                            collapse to braceless form (`if (x) val y = ...`),
+                                            which is illegal Kotlin. Fixed by disqualifying a body
+                                            whose first token is `val`/`var` from collapse, same
+                                            as `COMPOUND_BODY_KEYWORDS` does for nested compound
+                                            bodies. Found in `RaiseAccumulate.kt`'s `addErrors`.
+                                            Verified: minimal repro, full `make test`.
 
-  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing
-                                            (continued, also found via `kotlin_sc`):
-                                            `MiscRule.needsSpaceBetween` had no tight-after case
-                                            for a Kotlin annotation's `@` -- when an annotation
+  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (also found
+                                            via `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
+                                            tight-after case for a Kotlin annotation's `@` when it
                                             shares its source line with the function signature
-                                            (so it becomes part of `sig.leadTokens` and is
-                                            rendered through `MiscRule.renderTokens`'s shared join
-                                            point, the same path `KotlinSignatureRule` uses), the
-                                            default "insert a space" fallback produced
-                                            `@ RaiseDSL`, which the Kotlin parser rejects
-                                            (`Expected annotation identifier after '@'`). Fixed by
-                                            adding a Kotlin-gated tight-after case for `@` in
-                                            `needsSpaceBetween`. Kotlin's other `@`-uses
+                                            (rendered through `MiscRule.renderTokens`'s shared
+                                            join point, used by `KotlinSignatureRule`); the
+                                            default space-insert fallback produced invalid
+                                            `@ RaiseDSL`. Fixed by adding a Kotlin-gated
+                                            tight-after case for `@`. Kotlin's other `@`-uses
                                             (`return@label`, `label@`, `this@Label`) go through a
                                             separate rule (`KotlinSpecificRule
                                             .enforceLabeledJumpSpacing`) and are unaffected. Found
@@ -829,41 +817,35 @@ Real-code regressions:
 
   real_code_regressions_62_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: two
                                             round1-vs-round2 idempotency bugs found chasing the
-                                            two flaps deferred by RDD_KEY_173 in
-                                            `RaiseContext.kt`/`Iterable.kt`. (A)
-                                            `KotlinSignatureRule.parseKotlinSignature`'s
-                                            first-`IDENTIFIER (` scan mistook a leading `context(
-                                            raise: Raise<Error>)` clause's own parenthesis for the
-                                            real signature's parameter list when both still shared
-                                            one physical line (before `MiscRule
-                                            .enforceCallLineBreaking` had split `context(...)` onto
-                                            its own lines); its close paren wasn't the slice's last
-                                            token, so parsing bailed (returned null), leaving the
-                                            real `fun ensureNotNull(...)` signature completely
-                                            unwrapped on round1 even past the line-length limit --
-                                            round2 (re-parsing round1's own already-split output)
-                                            no longer had the ambiguity and wrapped it correctly.
-                                            Fixed by skipping past a non-matching candidate paren
-                                            and continuing the scan instead of bailing on the first
-                                            one found. (B) `Formatter.java`'s pipeline ran
-                                            `KotlinSpecificRule.formatWhenExpressions` (which can
-                                            insert blank lines inside a `when {}` body, STYLE_KOTLIN
-                                            .md §4) in Phase 4, after `BlockStructureRule
-                                            .addClosingComments` (Phase 3) had already counted the
-                                            enclosing `for` loop's content lines against
-                                            `closing-comment-min-lines` -- a fresh format saw the
-                                            pre-blank-line-insertion count and skipped the `// for`
-                                            comment, while a reformat of already-formatted output
-                                            (blank lines already baked in) saw the post-insertion
-                                            count and added it. Fixed by moving
-                                            `formatWhenExpressions` ahead of `addClosingComments`,
-                                            same precedent as `alignInlineSwitches`/
-                                            `markFallthrough`'s existing placement ahead of it.
-                                            Found in `RaiseContext.kt`'s `ensureNotNull` (A) and
-                                            `Iterable.kt`'s `separateEither` (B). Verified: minimal
+                                            flaps deferred by RDD_KEY_173. (A)
+                                            `KotlinSignatureRule.parseKotlinSignature`'s first
+                                            `IDENTIFIER (` scan mistook a leading `context(raise:
+                                            Raise<Error>)` clause's own paren for the real
+                                            parameter list while both still shared one line
+                                            (before `MiscRule.enforceCallLineBreaking` split
+                                            `context(...)` out); its close paren wasn't the
+                                            slice's last token so parsing bailed (returned null),
+                                            leaving `fun ensureNotNull(...)` unwrapped past the
+                                            line-length limit on round1 but correctly wrapped on
+                                            round2. Fixed by skipping a non-matching candidate
+                                            paren and continuing the scan instead of bailing.
+                                            Found in `RaiseContext.kt`'s `ensureNotNull`. (B)
+                                            `Formatter.java`'s pipeline ran
+                                            `KotlinSpecificRule.formatWhenExpressions` (can insert
+                                            blank lines in a `when {}` body, STYLE_KOTLIN.md §4)
+                                            in Phase 4, after `BlockStructureRule
+                                            .addClosingComments` (Phase 3) had already counted
+                                            `closing-comment-min-lines` against the enclosing
+                                            `for` loop -- a fresh format missed the pre-insertion
+                                            count and skipped the `// for` comment, while
+                                            reformatting already-formatted output (blank lines
+                                            baked in) added it. Fixed by moving
+                                            `formatWhenExpressions` ahead of
+                                            `addClosingComments`, same precedent as
+                                            `alignInlineSwitches`/`markFallthrough`. Found in
+                                            `Iterable.kt`'s `separateEither`. Verified: minimal
                                             repro combining both, both real files individually
-                                            confirmed round1/round2 byte-identical, full
-                                            `make test`.
+                                            round1/round2 byte-identical, full `make test`.
 
 How Tests Are Run
 -----------------

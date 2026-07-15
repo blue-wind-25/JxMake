@@ -8,13 +8,13 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Compact `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
-Be careful not to lose important information, especially the `**Tools/compiler used**`, `indent-size` exception, etc.
+Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
 
-Compact `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`
-Be careful not to lose important information, especially the `**Tools/compiler used**`, `indent-size` exception, etc.
-
-Compact the narration in `test/README.txt` from `real_code_regressions_53_inp/out.cpp` to `...`
+Compact (use one sub-agent) the narration in `test/README.txt`
+from `real_code_regressions_62_inp/out.kt`
+to `...`
 
 
 
@@ -26,27 +26,34 @@ Hmm do you think it is a good idea to delete them?
 
 
 
-Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent):
+Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
 ...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling the already correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed.
-`github.com/microsoft/STL`
-`github.com/llvm/llvm-project`
-`github.com/gcc-mirror`
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files is a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/microsoft/STL`     [~350 kLOC of effective C/C++ code] [NEXT - #1]
+    `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
 
-Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent):
-`github.com/javaparser/javaparser`
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling the already correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed. Use `java_sc` instead of `javac`.
-`github.com/javaparser/javaparser`
-`github.com/openrewrite/rewrite`
-
-Continue with Kotlin work (search in /tmp first, clone the repo again if not found; use one sub-agent):
+Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
 ...
-When fixing bugs, only reformat and recompile the incorrect files; reformatting and recompiling the correct files is a waste of time.
-Only after all bugs are fixed is a full reformat and recompile test allowed. Use `kotlin_sc` instead of Gradle-copy dance.
-`github.com/arrow-kt/arrow`
-`github.com/JetBrains/kotlin`
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files is a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Use `java_sc` instead of `javac` if necessary. Try reformat with
+`indent-size = 2` if the idempotency test failed.
+    `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code] [NEXT - #2]
+
+Continue with Kotlin work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+    `github.com/arrow-kt/arrow`
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files is a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Use `kotlin_sc` instead of Gradle-copy dance. Try reformat with
+`indent-size = 2` if the idempotency test failed.
+    `github.com/arrow-kt/arrow`   [~5 kLOC of effective Kotlin code - CURRENT - Either.kt LEFT]
+    `github.com/JetBrains/kotlin` [~3000 kLOC of effective Kotlin code]
 
 ####################################################################################################
 ####################################################################################################

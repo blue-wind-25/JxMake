@@ -168,7 +168,7 @@ When an idempotency (or forward-pass) failure doesn't reproduce at the
 default config, try re-testing with a `.jxmake-code-formatter` overriding
 `indent-size`, `indent-style`, etc. to match the candidate's own actual
 convention before concluding "no bug" — some real bugs are only observable
-at a non-default `indent-size`.
+at a non-default `indent-size` (e.g, `indent-size = 2`).
 
 **When a bug is found and fixed, add a new permanent fixture pair:**
 `test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`)
@@ -186,6 +186,11 @@ Use this standard copyright header on every new test fixture file:
  * Copyright (C) 2024 Example Corp.
  * SPDX-License-Identifier: MIT
  */
+```
+
+Use in-file config in the text fixture as needed, e.g.:
+```
+/*% JXM_CFMT_CFG indent-size=2 */
 ```
 
 ---

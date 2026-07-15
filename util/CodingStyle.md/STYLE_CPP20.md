@@ -163,3 +163,39 @@ No special rule needed. STYLE.md §3.1's `isLoose` check applies to the full
 condition content as usual — the `;` is just another token. A condition like
 `auto x = 10; x > 0` containing no `(` or `[` tokens is correctly classified
 tight; one like `auto x = f(); x > 0` containing a call `(` is correctly loose.
+
+### 4.4 Attribute Specifiers (`[[ ]]`)
+
+Reuses STYLE.md §3.1's tight/loose bracket rule directly, applied to `[[ ]]` the same
+way it applies to `()`/`[]` — this is existing JAR-verified behavior, documented here
+for the first time rather than newly introduced:
+
+```cpp
+[[nodiscard]]
+int getValue() { ... }
+
+void f(int x)
+{
+    [[maybe_unused]]
+    int temp = x;
+
+    if(x > 0) [[likely]] {
+        ++x;
+    }
+    else [[unlikely]] {
+        --x;
+    }
+
+    [[ assume(a >= 0) ]];
+}
+```
+
+- A bare identifier or identifier list (`[[nodiscard]]`, `[[maybe_unused]]`,
+  `[[likely]]`, `[[unlikely]]`) stays tight — no space after the outer `[[` or before
+  `]]`.
+- Content containing a call (e.g. `[[assume(a >= 0)]]`) goes loose, same
+  call-triggers-looseness signal as any other bracket content — space after `[[` and
+  before `]]`.
+- Placement (attribute on its own line before a declaration vs. inline after a
+  keyword like `if`/`else`) is preserved as written; this section governs only the
+  internal `[[ ]]` spacing, not attribute placement.

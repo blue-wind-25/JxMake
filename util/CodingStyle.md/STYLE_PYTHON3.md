@@ -224,16 +224,296 @@ needed — the simplified sort rule above has no tier classification to configur
 
 ---
 
-## 4. Known Open Items
+## 4. Decorators
+
+A decorator (`@app.route("/")`, `@dataclass`, `@property`) is always its own
+statement-level line by grammar — there's no inline-vs-own-line placement ambiguity
+to resolve, so no placement rule is needed. Structurally it's just `@` plus a name or
+a call, so the `()` content reuses §1's existing bracket complexity/padding rules
+directly, no extension needed. `@` binds tight to the decorator name, no space, same
+as any other unary prefix.
+
+```python
+@app.route("/users/<int:user_id>")
+def get_user(user_id: int) -> User:
+    ...
+
+@dataclass
+class Point:
+    x: int
+    y: int
+```
+
+**Overflow:** since a decorator is already on its own line, there's no separate
+placement-adjustment step needed — the only overflow case is the decorator's own
+call exceeding STYLE.md §2's line-length limit, which wraps its argument list per
+§1's normal call-argument overflow rules (one-per-line inside the decorator's `()`),
+same as any other overflowing call.
+
+```python
+@app.route(
+    "/users/<int:user_id>/orders/<int:order_id>/items",
+    methods=["GET", "POST"],
+)
+def get_user_order_items(user_id: int, order_id: int):
+    ...
+```
+
+**`@property` / `@x.setter`:** no special getter/setter alignment rule, unlike
+STYLE.md §14's group alignment for C/Java/Kotlin or STYLE_JS_TS.md §7's `get`/`set`
+accessor grouping. Those languages can compact a short accessor onto one line and
+align a group of them; Python function bodies never compact (§8 explicitly excludes
+`def`), so there's nothing short to align — a `@property` getter and its
+`@x.setter` are just two ordinary decorated method definitions, formatted with this
+section's decorator rules plus normal function-def block-body formatting, no
+different from any other pair of methods that happen to share a name via decorator.
+
+```python
+@property
+def x(self) -> int:
+    return self._x
+
+@x.setter
+def x(self, value: int) -> None:
+    self._x = value
+```
+
+---
+
+## 5. F-Strings
+
+An f-string's `{...}` interpolation holds an expression, not literal text — whitespace
+directly inside the braces is never part of the printed output (`f"{ x + 1 }"` and
+`f"{x+1}"` produce identical results), so the expression portion follows §1's normal
+expression-spacing rules:
+
+```python
+name  = f"{first} {last}"
+total = f"Total: {price * quantity}"
+```
+
+**Format spec is opaque.** An f-string field can carry an optional `!conversion`
+(`!r`, `!s`, `!a`) and/or `:format_spec` after the expression
+(`f"{value:.2f}"`, `f"{x:>10}"`) — unlike the expression itself, the format-spec
+portion is a literal spec string, not code, and its characters (including whitespace,
+e.g. alignment/fill specifiers) are significant to the output. Only the expression
+before `!`/`:` gets spacing rules applied; everything from `!` or `:` onward is
+preserved exactly as written.
+
+```python
+f"{value:.2f}"        # ".2f" is a literal spec — never touched
+f"{value !r}"          # conversion marker — never touched
+f"{x + 1:>{width}}"    # expression spacing applies to "x + 1";
+                        # ">{width}" (including its own nested field) stays opaque
+```
+
+---
+
+## 6. Function Signature Wrapping
+
+STYLE.md §8's inline-vs-break-to-one-per-line rule applies as-is (inline if the full
+signature fits within the line-length limit, one-per-line otherwise, closing `)`
+indented to match the first character of the signature). The per-parameter alignment
+target differs from C, though: C's declaration order is `type name`, so §8 aligns the
+*type* column; Python's order is `name: type = default`, so the alignment target is
+the `:` and, when a default value is present, the `=` — both column-aligned across
+the broken-out parameter group, same alignment shape as §2's assignment alignment:
+
+```python
+def process(
+    x:    int,
+    y:    "List[int]",
+    name: str = "default",
+) -> Optional[str]:
+    ...
+```
+
+A parameter with no type hint (bare `name` or `name=default`) still participates in
+the group — it's simply padded as if its `:` column were empty, same as any
+partial-row case in a STYLE.md §5/§2-style alignment grid.
+
+The return-type arrow (`-> Optional[str]`) stays on the closing `)` line, immediately
+after `)`, followed by `:` — this is a fixed position, not part of the per-parameter
+alignment grid.
+
+---
+
+## 7. Structural Pattern Matching (`match` / `case`)
+
+Derives from STYLE_JAVA17.md §3/§6's switch-expression pattern matching (type
+patterns, record deconstruction, arrow-column alignment) by citation, not copied
+content — the underlying idea (align the case-separator column across a group of
+cases, one pattern per case) transfers directly. The one structural difference:
+Python's `case pattern:` always takes an indented block body — there is no
+single-line arrow-expression form the way Java's `->` allows — so this is closer to
+Java's block-body case shape (STYLE_JAVA17.md §3.2) than its arrow-expression form.
+
+```python
+match command.split():
+    case [action]:
+        run(action)
+    case [action, obj]:
+        run(action, obj)
+    case Point(x=0, y=0):
+        print("Origin")
+    case Point(x=x, y=y) if x == y:
+        print("Diagonal")
+    case [1, 2, *rest]:
+        handle(rest)
+    case {"action": action, **rest}:
+        handle(action, rest)
+    case _:
+        unknown()
+```
+
+- One pattern per `case`. Whether the body stays on the same line as the pattern or
+  drops to an indented block follows §8's single-statement-body rule below — same
+  compactness principle as `if`/`while`/`for`, not a match-specific exception.
+- **Column alignment for compact cases:** when a contiguous run of `case` lines all
+  use the compact one-line form (§8), the `:` column aligns across the group, same
+  spirit as STYLE_JAVA17.md §3.1's `->` alignment for Java's arrow-form switch
+  expressions:
+  ```python
+  match command:
+      case 1: return "one"
+      case 2: return "two"
+      case _: return "unknown"
+  ```
+  **All-or-nothing:** if any case in the group drops to a block body, alignment for
+  that group is abandoned — no case in the group gets `:`-aligned. Same conservative
+  posture as Java's own all-or-nothing rule.
+- Multi-value patterns use `|` (or-pattern: `case 1 | 2 | 3:`), spaced as an
+  ordinary binary operator (STYLE.md §3.1).
+- A guard clause (`case Point(x, y) if x == y:`) — the `if` and its condition follow
+  ordinary keyword-spacing (STYLE.md §3.2), no special treatment.
+- Class deconstruction (`case Point(x=0, y=0):`), sequence (`case [1, 2, *rest]:`),
+  and mapping (`case {"action": action, **rest}:`) patterns all reuse §1's existing
+  bracket-complexity and star-unpacking rules directly — a pattern is just another
+  bracket-content shape, not a new category.
+- Wildcard `_` pattern — ordinary identifier for formatting purposes, no new rule,
+  same treatment C++26's placeholder `_` gets (an unrelated language, same
+  reasoning: it's just a name token).
+
+**Closing comment:** `match` is a control-flow block for STYLE.md §7's purposes,
+same category as `while`/`switch` — see AI_PREAMBLE_FULL.md §7's Defaults for the
+subject-expression extraction rule (`match obj:` → `# match obj` when the subject is
+exactly one identifier).
+
+---
+
+## 8. Single-Statement Bodies
+
+Extends STYLE.md §10's principle (single-expression bodies stay compact, not
+expanded to a block) to Python's own syntax. C-family omits `{}` for a single
+statement (`if(x) return y;`); Python has no braces to omit, but the same
+compactness idea maps directly onto keeping a single *simple* statement on the same
+line after `:` rather than dropping to an indented block:
+
+```python
+if x: return y
+while x: x -= 1
+
+match command:
+    case 1: return "one"
+    case 2: return "two"
+```
+
+- Applies to `if`/`elif`/`else`, `while`, `for`, and each `case` in a `match` block —
+  the constructs STYLE.md §10 already has a direct C-family analog for.
+- **Never applies to `def`, `class`, `try`/`except`/`finally`, or `with`** — even
+  though Python's grammar permits a single-line simple-statement suite for these
+  too, each always expands to a full indented block, matching how every other
+  language in this project treats them: function/method bodies are always a block
+  (C/Java functions have no compact form at all; even Kotlin's compact function
+  syntax, STYLE_KOTLIN.md §9, is a distinct opt-in expression-body feature, not the
+  same mechanism as its `if`/`while` handling), class bodies always get STYLE.md
+  §7's blank-line-and-closing-comment treatment, and `try`/`with` have no C-family
+  compact analog to extend at all. A one-off exception just for `def` would look
+  inconsistent against every other block in the same file, so the line is drawn at
+  the exact set of constructs STYLE.md §10 already covers, not extended by Python's
+  grammar simply permitting more cases.
+- "Simple statement" means one that doesn't itself open a new block — `return`,
+  `continue`, `break`, `pass`, a single assignment, a single call. A nested compound
+  statement (another `if`, `for`, `while`, `with`, `match`) never qualifies — it
+  always drops to its own indented block, since it needs one regardless.
+- **Overflow:** if the one-line form would exceed STYLE.md §2's line-length limit,
+  expand to a normal indented block instead — same overflow-triggered pattern used
+  throughout this file (decorator overflow in §4, function signature wrapping in
+  §6):
+  ```python
+  if some_long_condition_that_is_already_quite_verbose_and_overflows_the_limit:
+      do_something()
+  ```
+- Python's `;`-separated multi-statement lines (`if x: y; z`) are never produced by
+  the formatter regardless of length — only a single simple statement qualifies for
+  the compact form; anything requiring `;` to chain statements always expands to a
+  block, same "don't chain multiple statements onto one line" posture C-family
+  already has (STYLE.md §10 only covers one statement per omitted-brace body, not a
+  comma/semicolon-chained sequence).
+
+---
+
+## 9. Control Flow Blank Lines
+
+Two related STYLE.md/AI_PREAMBLE_FULL.md rules, both un-addressed for Python until
+now — neither is exclusive to brace-delimited syntax, both transfer directly since
+they're about blank-line placement, not braces themselves.
+
+### 9.1 Blank line before `return`
+
+Same as STYLE.md §9: add a blank line before `return` when the function body is
+multi-line **and** the `return` is at function scope — the final statement of the
+function body, not nested inside an `if`/`while`/`for`/`match`/`with`/`try` block.
+A `return` inside a nested block never gets a blank line before it under this rule.
+
+```python
+def process(data):
+    result = transform(data)
+    validate(result)
+
+    return result
+```
+
+Does not apply to a compact one-line body (§8's `if x: return y` form) — same
+exclusion STYLE.md §9 already states for C-family one-liner functions/single-
+expression `if`.
+
+### 9.2 Blank line before `elif` / `else`
+
+Same as AI_PREAMBLE_FULL.md §12's default: add a blank line before `elif`/`else`
+**only** when the last statement of the preceding block is an unconditional exit
+(`return`, `break`, or `continue`) — note this list does not currently include
+`raise`, matching the existing C-family list exactly rather than extending it (the
+existing list's omission of `throw`/exception-raising applies equally to C++/Java/
+Kotlin, not something introduced here for Python).
+
+```python
+def check(x):
+    if x < 0:
+        return None
+
+    if x == 0:
+        return 0
+
+    return x * 2
+```
+
+In all other cases, place `elif`/`else` directly after the preceding block's last
+line with no blank line, same as the C-family default.
+
+---
+
+## 10. Known Open Items
 
 Not yet designed, deliberately deferred (see FUTURE_FEATURE_DISCUSSION.md if this
 ever needs revisiting):
 
-- Decorator formatting conventions beyond "preserve as written."
-- f-string internal expression formatting (`f"{x + 1}"`) — likely mirrors §1's
-  general expression-spacing rules, but not explicitly Q&A'd yet.
-- Type-hint-heavy signatures (`def f(x: int, y: "List[int]") -> Optional[str]:`)
-  interaction with STYLE.md §8 (Function Signatures) line-wrapping.
+None currently — decorators, f-strings, and type-hint-heavy signature wrapping
+(previously listed here) were resolved via Q&A and moved into §4–§6 above.
+Structural pattern matching (`match`/`case`, §7), single-statement compound-body
+compactness (§8), and control-flow blank-line placement (§9) were separate gaps
+found during the AI_PREAMBLE_FULL.md review pass — not originally listed here — and
+resolved the same way. Section kept for future use if new gaps surface.
 
 ---
 
@@ -249,3 +529,36 @@ ever needs revisiting):
   curated set of formatting edge cases that may be directly reusable.
 - `pallets/click` — dense decorator and nested-call-argument use, good additional
   stress test for the §1.1 tight/loose bracket heuristic on call sites.
+
+---
+
+## Test Fixtures (Local)
+
+Planned local dogfood pairs (unlike the external-repo list above, which is for
+corpus-scale validation) are staged in **FUTURE_TEST_FIXTURES.md**, under its
+"Python3" section — not written here, so this file doesn't carry fixture-status
+content that isn't actually a style rule. See that file for the pair list and what
+each covers.
+
+**Not a style reference — must move at implementation time.** This cross-reference
+itself is implementation-tracker information, not a style rule. When
+`STATE_PYTHON3.md` is created (Implementation Note below), this pointer moves there
+too — FUTURE_TEST_FIXTURES.md's "Python3" section is then emptied out (its pairs
+having been authored and registered in `formatter/test/README.txt` per that file's
+own instructions).
+
+---
+
+## Implementation Note
+
+This file is style rules only — no implementation-tracker content (open questions,
+commit history, ambiguity log), same separation STATE_C_CPP_JAVA.md keeps from
+STYLE_C_CPP.md/STYLE_CPP20.md.
+
+When actual JAR implementation of Python3 support begins, create `STATE_PYTHON3.md`:
+copy `formatter/STATE_C_CPP_JAVA.md`, strip everything not relevant to Python3, and
+fold in this file's non-style content (open items, provisional notes, the Test
+Fixtures (Local) pointer above) as tracker entries. This file then goes back to being
+pure style rules — same extract-copy-modify step applies independently to each new
+language's style file when its own implementation begins, regardless of which order
+they're picked up in.

@@ -122,14 +122,33 @@ Combine the relevant preamble with the style files for the target language:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_C_CPP.md STYLE_CPP20.md STYLE_CPP26.md > /tmp/style_cpp26_full.txt
 
   FULL-FILE PASS — Java files:
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_JAVA17 > /tmp/style_java_full.txt
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_JAVA17.md > /tmp/style_java_full.txt
 
   FULL-FILE PASS — Kotlin files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin_full.txt
 
-  LAYOUT JUDGMENT PASS — any language:
+  FULL-FILE PASS — Python3 files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_PYTHON3.md > /tmp/style_python3_full.txt
+
+  FULL-FILE PASS — JavaScript/TypeScript files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_KOTLIN.md STYLE_JS_TS.md > /tmp/style_js_ts_full.txt
+    (STYLE_JAVA.md/STYLE_KOTLIN.md included because STYLE_JS_TS.md derives most of
+    its rules from them by section-number citation rather than restating content)
+
+  FULL-FILE PASS — JSON/JSON5, XML, CSS, or HTML5 files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_DATA_FORMATS.md > /tmp/style_data_formats_full.txt
+    (HTML5 files that embed <script> also need STYLE_JS_TS.md's own combination
+    above added to the same cat, since HTML5's formatter dispatches embedded
+    <script> content to it)
+
+  LAYOUT JUDGMENT PASS — C, C++, Java, or Kotlin only:
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
     (no style files needed — the preamble is self-contained for this pass)
+    Does NOT apply to C++26 additions, JSON/JSON5/XML/CSS/HTML5, JavaScript/
+    TypeScript, or Python3 — none of these have JAR support yet, so there is no
+    JAR-processed baseline for a layout judgment pass to sit on top of. Use the
+    full-file pass above for these instead; see AI_PREAMBLE_AESTHETIC.md's Scope
+    section for why.
 
 Store the combined file once and reuse it across multiple calls.
 
@@ -158,33 +177,72 @@ style files (the preamble is self-contained):
 
 Batch reformatting a directory (shell script):
 
+  Mirrors reformat_file.py's language dispatch below — same lang codes, same
+  RULES combinations — so the two examples stay consistent instead of the shell
+  version only demonstrating one language.
+
   #!/usr/bin/env bash
   set -euo pipefail
 
   STYLE_DIR="$(dirname "$0")"   # assumes script lives next to the style files
-  RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
-  SRC_DIR="$1"
-  OUT_DIR="${2:-$SRC_DIR/reformatted}"
+  LANG="$1"
+  SRC_DIR="$2"
+  OUT_DIR="${3:-$SRC_DIR/reformatted}"
   mkdir -p "$OUT_DIR"
 
-  for f in "$SRC_DIR"/*.{c,h}; do
-      [ -f "$f" ] || continue
-      base=$(basename "$f")
-      echo "Reformatting $base..."
-      source_text=$(cat "$f")
-      claude -p --model claude-sonnet-4-6 "$RULES
+  case "$LANG" in
+    c)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
+      GLOBS=("*.c" "*.h") ;;
+    cpp)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md "$STYLE_DIR"/STYLE_CPP20.md)
+      GLOBS=("*.cpp" "*.hpp") ;;
+    cpp26)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md "$STYLE_DIR"/STYLE_CPP20.md "$STYLE_DIR"/STYLE_CPP26.md)
+      GLOBS=("*.cpp" "*.hpp") ;;
+    java)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_JAVA.md "$STYLE_DIR"/STYLE_JAVA17.md)
+      GLOBS=("*.java") ;;
+    kotlin)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_KOTLIN2.md)
+      GLOBS=("*.kt" "*.kts") ;;
+    python3)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_PYTHON3.md)
+      GLOBS=("*.py") ;;
+    js)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_JAVA.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_JS_TS.md)
+      GLOBS=("*.js") ;;
+    ts)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_JAVA.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_JS_TS.md)
+      GLOBS=("*.ts") ;;
+    json|json5|xml|css|html)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_DATA_FORMATS.md)
+      GLOBS=("*.$LANG") ;;
+    *)
+      echo "Unknown language: $LANG"; exit 1 ;;
+  esac
+
+  for pattern in "${GLOBS[@]}"; do
+    for f in "$SRC_DIR"/$pattern; do
+        [ -f "$f" ] || continue
+        base=$(basename "$f")
+        echo "Reformatting $base..."
+        source_text=$(cat "$f")
+        claude -p --model claude-sonnet-4-6 "$RULES
 
 === SOURCE FILE: $base ===
 $source_text
 === END SOURCE ===" > "$OUT_DIR/$base"
-      echo "  -> $OUT_DIR/$base"
+        echo "  -> $OUT_DIR/$base"
+    done
   done
 
   echo "Done. Review diffs with:"
   echo "  diff -r $SRC_DIR $OUT_DIR"
 
 Save as reformat.sh next to the style files, make executable (chmod +x reformat.sh):
-  ./reformat.sh src/mymodule/
+  ./reformat.sh cpp src/mymodule/
+  ./reformat.sh python3 src/mymodule/
 
 
 API / Bot Mode  (Anthropic Python SDK)
@@ -218,7 +276,9 @@ Script (reformat_file.py):
 
   if __name__ == "__main__":
       if len(sys.argv) < 3:
-          print(f"Usage: {sys.argv[0]} <source_file> <lang: c|cpp|java|kotlin> [pass: full|aesthetic]")
+          print(f"Usage: {sys.argv[0]} <source_file> "
+                f"<lang: c|cpp|cpp26|java|kotlin|python3|js|ts|json|json5|xml|css|html> "
+                f"[pass: full|aesthetic]")
           sys.exit(1)
 
       src, lang = sys.argv[1], sys.argv[2]
@@ -226,16 +286,36 @@ Script (reformat_file.py):
       style_dir = pathlib.Path(__file__).parent
 
       if mode == "aesthetic":
+          # C/C++/Java/Kotlin only — see AI_PREAMBLE_AESTHETIC.md's Scope section.
           rules = load_rules(style_dir / "AI_PREAMBLE_AESTHETIC.md")
-      elif lang in ("c", "cpp"):
+      elif lang == "cpp":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_C_CPP.md", style_dir / "STYLE_CPP20.md")
+      elif lang == "cpp26":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_C_CPP.md", style_dir / "STYLE_CPP20.md",
+                             style_dir / "STYLE_CPP26.md")
+      elif lang == "c":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_C_CPP.md")
       elif lang == "java":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_JAVA.md", style_dir / "STYLE_JAVA17.md")
       elif lang == "kotlin":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_KOTLIN.md", style_dir / "STYLE_KOTLIN2.md")
+      elif lang == "python3":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_PYTHON3.md")
+      elif lang in ("js", "ts"):
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_JAVA.md", style_dir / "STYLE_KOTLIN.md",
+                             style_dir / "STYLE_JS_TS.md")
+      elif lang in ("json", "json5", "xml", "css", "html"):
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_DATA_FORMATS.md")
+          # HTML files embedding <script> also need the js/ts combination above
+          # added to this same rules set — not handled automatically here.
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 
@@ -252,11 +332,26 @@ Usage:
   # Full-file pass (un-JAR-processed file):
   python3 reformat_file.py src/Utils.c c
 
-  # Layout judgment pass (post-JAR file):
+  # C++ full-file pass (baseline, no C++26 constructs):
+  python3 reformat_file.py src/Utils.cpp cpp
+
+  # C++ full-file pass, including C++26 constructs:
+  python3 reformat_file.py src/Utils.cpp cpp26
+
+  # Layout judgment pass (post-JAR file, C/C++/Java/Kotlin only):
   python3 reformat_file.py src/Utils.c c aesthetic
 
   # Kotlin full-file pass (fallback if the JAR doesn't handle a construct yet):
   python3 reformat_file.py src/Utils.kt kotlin
+
+  # Python3 full-file pass (no JAR exists yet — this is the only path):
+  python3 reformat_file.py src/utils.py python3
+
+  # JavaScript/TypeScript full-file pass (no JAR exists yet — this is the only path):
+  python3 reformat_file.py src/utils.ts ts
+
+  # Data-format full-file pass (no JAR exists yet — this is the only path):
+  python3 reformat_file.py config.json json
 
 
 Tips and Limitations
@@ -275,4 +370,8 @@ Tips and Limitations
 4. Some comment changes in a full-file pass diff are intentional: the model applies
    §15 (removes trailing periods from // comments; converts multi-sentence comments
    to /* */ form). Watch for unintentional changes — dropped comments or altered
-   wording — which are bugs, not style fixes.
+   wording — which are bugs, not style fixes. §15's mechanism varies by language for
+   the four newer ones — Python's `#`-only syntax keeps multi-sentence comments as
+   consecutive `#` lines rather than switching to a block form; CSS/XML/HTML5 are
+   already block-only, so there's no line-to-block switch to look for at all. See
+   AI_PREAMBLE_FULL.md §15 for the per-language specifics.

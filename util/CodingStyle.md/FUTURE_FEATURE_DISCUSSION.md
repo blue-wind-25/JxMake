@@ -271,9 +271,20 @@ silently drift). Cross-references from `STYLE_DATA_FORMATS.md` to this file use 
 filename only, not a section number, so they can't go stale if this file's numbering
 changes. One item was **not** resolvable from the existing doc and needed new design
 during Q&A: import grouping/classification (built-in vs. third-party vs. local) has no
-Java/Kotlin analog to derive from — flagged as an open item in `STYLE_JS_TS.md` §10,
+Java/Kotlin analog to derive from — flagged as an open item in `STYLE_JS_TS.md` §13,
 same unresolved-tier-classification shape as the Python3 import-sorting question
 below (though Python3's ended up resolved much more simply — see that section).
+
+**Update (gap-review pass):** a later pass found and resolved several additional
+gaps not covered above: statement termination/semicolons (JS's ASI is an
+error-recovery hazard, not a clean design like Kotlin's — resolved as always-explicit,
+`STYLE_JS_TS.md` §2), decorators (§7, including the own-line/inline placement and
+two-step overflow cascade), TS enums (§10, derived from C++ `enum class` rather than
+Java's plain-enum packing), TS union/intersection type wrapping (§9.1, preserves
+author's break-before/break-after choice), and TS class field modifier priority/
+alignment (§9.2, a new `TSModifierPriority`-equivalent table since TS has modifiers
+Java doesn't — `readonly`/`override`/`declare`). JSX/TSX was also raised and
+deliberately scoped **out** of this file entirely — see the JSX/TSX entry below.
 
 ---
 
@@ -386,6 +397,42 @@ confirmed this is the correct file-plan grouping despite CSS/HTML5 sitting in th
 file the rules live in) is separate from the priority grouping (implementation
 order), and CSS/HTML5's lack of functions/control-flow is what puts them in
 `STYLE_DATA_FORMATS.md` rather than `STYLE_JS_TS.md`.
+
+---
+
+## JSX / TSX
+
+**Status:** exploratory discussion only, nothing scoped, nothing started.
+**Priority:** not assigned — raised during the STYLE_JS_TS.md gap-review pass,
+not part of the original seven-language plan above.
+
+Neither JSX nor TSX ever reaches a browser directly — both require a build step
+(Babel/`tsc`/esbuild/swc) that strips types and/or transforms JSX tag syntax
+into plain JS function calls (`React.createElement(...)` or the newer `jsx()`
+runtime) before execution. This distinguishes JSX from TypeScript's
+relationship to JavaScript: TS adds a type-annotation layer on top of the same
+runtime grammar (which is why `STYLE_JS_TS.md` treats JS/TS as one file today),
+but JSX embeds XML/HTML-like tag syntax directly inside expression position
+(`<div className="x">{content}</div>` as a value) — a structurally different
+grammar the tokenizer has no support for at all, not a small addition to
+existing rules.
+
+**Compound-language framing:** JSX/TSX is closer in kind to HTML5 (which
+dispatches embedded `<script>`/`<style>` content to separate formatters) than
+to a same-file JS/TS extension — it's markup embedded inside a host language's
+expression grammar, not an additive JS/TS construct. For that reason it does
+not belong in `STYLE_JS_TS.md` even once scoped; it would need its own file
+plan (likely a `STYLE_JSX.md` dispatching to `STYLE_JS_TS.md` for expression
+content and something XML/tag-shaped for the markup itself, mirroring HTML5's
+dispatch design) rather than a new section in the existing JS/TS file.
+
+**Tokenizer risk:** comparable in kind to C++26's reflection tokens
+(`STYLE_CPP26.md` §5) — new tokens the existing tokenizer doesn't recognize,
+not new keywords slotted into an existing grammar shape. Any rule set drafted
+before that tokenizer work would carry the same "provisional, unvalidated"
+caveat §5 already carries for reflection.
+
+No test-fixture repos recorded yet — not scoped enough to pick a corpus.
 
 ---
 
@@ -512,3 +559,14 @@ list; see that file for the resolved shape.
   directly reusable rather than just inspirational.
 - `pallets/click` — dense use of decorators and nested call arguments, good
   additional stress test for the tight/loose bracket heuristic on call sites.
+
+**Update (gap-review pass):** the three items originally left in `STYLE_PYTHON3.md`'s
+Known Open Items were resolved via Q&A and drafted into the file: decorator
+placement/overflow (§4 — decorators are always their own statement-level line by
+grammar, so only the call-overflow cascade needed defining), f-string internal
+expression formatting (§5 — braces hold an expression so normal spacing applies, but
+the `!conversion`/`:format_spec` tail is a literal spec string and stays opaque), and
+type-hint-heavy signature wrapping (§6 — same inline/one-per-line rule as STYLE.md
+§8, but the alignment target is `:`/`=` rather than the type column, since Python's
+declaration order is `name: type = default` rather than `type name`). Known Open
+Items (§7) is now empty, kept for future use.

@@ -109,17 +109,20 @@ way STYLE_CPP20.md's constructs were (JAR cross-check). Treat as draft until tha
 validation pass happens.
 
 ```cpp
-constexpr auto refl = ^^SomeType;         // reflection operator
-constexpr auto splice = [: refl :];        // splice brackets
+constexpr auto refl   = ^^SomeType;              // reflection operator
+constexpr auto splice = [:refl:];                // splice brackets — tight, bare value
+constexpr auto computed = [: computeRefl(x) :];  // splice brackets — loose, contains a call
 ```
 
 - `^^` binds tight to the operand, no space, same as C++'s existing unary operators
-  (STYLE_C_CPP.md's `*`/`&` spacing).
-- `[:` / `:]` are bracket-shaped but kept **fully opaque** for now — the decision on
-  whether they interact with STYLE.md §3.1's complexity-based bracket-padding rule is
-  explicitly deferred pending the dedicated tokenizer pass; until then, preserve
-  splice-bracket content exactly as written rather than applying padding logic that
-  hasn't been validated.
+  (STYLE_C_CPP.md's `*`/`&` spacing). It is not a type, so it sticks to the name or
+  expression that follows it, not the other way around.
+- `[:` / `:]` follow the same tight/loose complexity rule as `[[ ]]`
+  (STYLE_CPP20.md §4.4), applied to splice brackets the same way: simple content
+  (a bare reflection value, e.g. `[:refl:]`) stays tight, content containing a call or
+  nested bracket goes loose (`[: computeRefl(x) :]`). This mirrors the existing
+  JAR-verified `[[ assume(a >= 0) ]]` case — a call inside a double-bracket construct
+  triggers looseness the same way it does anywhere else.
 - No alignment rule is defined yet for reflection-heavy declarations (e.g. a run of
   `constexpr auto x = ^^...;` statements) — revisit once the tokenizer pass confirms
   the tokens are handled correctly at all.
@@ -130,3 +133,47 @@ this is the section that actually needs them for validation):
 - `wrocpp/cpp26-reflection-examples`
 - `simdjson/experimental_json_builder`
 - `stephenberry/glaze`
+
+---
+
+## 6. Config
+
+No new config keys. §1–4 reuse existing STYLE.md/STYLE_CPP20.md logic with no
+toggle-able behavior; §5 (Reflection) is still provisional and pending the tokenizer
+validation pass, so it's premature to define config for it — any knob added now would
+be speculation about a rule set that isn't trusted yet. Revisit once §5 graduates out
+of draft status.
+
+## 7. Test Fixtures (Local)
+
+Planned local dogfood pairs (unlike §5's external-repo list above, which is for
+corpus-scale reflection validation) are staged in **FUTURE_TEST_FIXTURES.md**, under
+its "CPP26" section — not written here, so this file doesn't carry fixture-status
+content that isn't actually a style rule. See that file for the pair list and what
+each covers.
+
+**Not a style reference — must move at implementation time.** Like the rest of this
+section's content, the cross-reference to FUTURE_TEST_FIXTURES.md itself is
+implementation-tracker information, not a style rule. When `STATE_CPP26.md` is
+created (§8 below), this pointer moves there too, same as the rest of this section's
+content — FUTURE_TEST_FIXTURES.md's "CPP26" section is then emptied out (its pairs
+having been authored and registered in `formatter/test/README.txt` per that file's
+own instructions).
+
+## 8. Implementation Note
+
+This file is style rules only — it intentionally carries no implementation-tracker
+content (open questions, commit history, ambiguity log), matching STATE_C_CPP_JAVA.md's
+separation of concerns for the existing languages.
+
+When actual JAR implementation of C++26 support begins, create `STATE_CPP26.md`:
+copy `formatter/STATE_C_CPP_JAVA.md`, strip everything not relevant to C++26, and fold
+in the non-style content from this file (open items, provisional/draft flags like §5's
+tokenizer-gate, the §7 FUTURE_TEST_FIXTURES.md pointer) as tracker entries. This file
+then goes back to being pure style rules, same as STYLE_C_CPP.md/STYLE_CPP20.md are
+today.
+
+The same extract-copy-modify step applies when implementation begins for
+STYLE_JS_TS.md, STYLE_DATA_FORMATS.md, and STYLE_PYTHON3.md — each spins off its own
+`STATE_*.md` at that point, copied from `STATE_C_CPP_JAVA.md` and adapted the same way,
+including moving their own FUTURE_TEST_FIXTURES.md pointer into their new STATE file.

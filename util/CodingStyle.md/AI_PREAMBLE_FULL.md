@@ -38,6 +38,20 @@ the plain one-liner cases already handled (see `formatter/STATE_KOTLIN.md`'s Ope
 Questions), not an immaturity gap. Apply STYLE.md §14's getter/setter alignment
 manually only to those three residual shapes when reformatting Kotlin.
 
+**C++26, JSON/JSON5/XML/CSS/HTML5, JavaScript/TypeScript, and Python3** have drafted
+style files (`STYLE_CPP26.md`, `STYLE_DATA_FORMATS.md`, `STYLE_JS_TS.md`,
+`STYLE_PYTHON3.md`) but **no JAR support at all** — unlike Kotlin above, there is no
+"run the JAR first, fall back to this preamble" option for these; this full-file pass
+is currently the *only* way to apply their rules. Combine this preamble with
+`STYLE.md` plus the relevant language-specific file(s) the same way as any other
+language (see README.txt for the exact file combinations per language). The
+"Defaults for Judgment-Call Rules" below are written against C/Java/Kotlin's
+constructs (`for`/`while`/`switch`/`else`, brace-delimited getter/setter groups) —
+where a newer language has its own judgment-call shape not covered by those defaults
+(e.g. Python's bare-vs-typed parameter alignment, CSS's at-rule-vs-declaration
+distinction, JS/TS's decorator overflow cascade), the relevant `STYLE_*.md` file's own
+text is authoritative; nothing below should be assumed to override it.
+
 ---
 
 ## Defaults for Judgment-Call Rules
@@ -57,10 +71,21 @@ When a key variable name is needed, extract it as follows:
 
 - **`for`** — first identifier in the init clause; if init is empty, first identifier
   in the increment clause; for for-each (`for(T x : xs)`), the identifier immediately
-  before the top-level `:`. None of these match (`for(;;)`) → bare `// for`.
+  before the top-level `:`. None of these match (`for(;;)`) → bare `// for`. This
+  extraction assumes C-style `for(init; cond; incr)` syntax — for languages without
+  that shape, use the language-specific extraction below instead:
+  - **Python `for x in iterable:`** — the bound identifier(s) immediately after
+    `for` and before `in`. For a tuple target (`for k, v in items:`), use the first
+    identifier only, same "first identifier wins" principle as C's init-clause rule.
+  - **JS/TS `for...of` / `for...in`** — the bound identifier immediately after the
+    loop keyword and before `of`/`in`, same position as Python's rule above. A
+    C-style `for(init; cond; incr)` in JS/TS still uses the original init-clause
+    rule, since JS/TS supports both forms in the same language.
 - **`while` / `switch`** — only if the controlling expression is exactly one identifier,
   or `!` followed by one identifier. Any more compound condition → bare `// while` /
   `// switch`. Do not attempt further simplification.
+- **Python `match`** — same treatment as `while`/`switch` above: only if the subject
+  expression is exactly one identifier. Any more compound subject → bare `// match`.
 
 ### §12 — Blank line before `else` / `else if`
 
@@ -93,6 +118,18 @@ When generating or preserving comments:
 - When inline comments in an aligned group all use a separator (`—`, `:`, etc.),
   align that separator column by padding the label with spaces.
 
+**Python (`#` only, no block-comment form):** the period/capitalization/label rules
+above apply unchanged, but the block-form switch does not — Python has no `/* */`
+equivalent, so a comment requiring two or more sentences stays as consecutive `#`
+lines instead of changing syntax, each sentence still ending with a period (the
+underlying "multi-sentence comments get periods, single-line labels don't" principle
+is unchanged; only the mechanism for holding multiple sentences differs).
+
+**CSS, XML, HTML5 (`/* */` / `<!-- -->` only, no line-comment form):** the block-form
+switch is moot — these languages only ever have the block form, so a multi-sentence
+comment already uses it by default; apply the period/capitalization rules directly
+without a "switch to block form" step, since there's no other form to switch from.
+
 ### Non-standard getter/setter grouping
 
 The JAR detects and aligns getter/setter groups automatically when methods follow
@@ -105,3 +142,18 @@ for a standard group (STYLE.md §14). Do not rename the methods — alignment on
 If the non-standard names are inconsistent within the group (e.g. `fetchX` alongside
 `getY`), flag the inconsistency in a comment at the end of the file rather than
 silently aligning a mixed group.
+
+**For the four languages with no JAR at all** (C++26 additions, Data Formats,
+JS/TS, Python3): apply this same principle directly in the full-file pass — there's
+no "JAR already handles standard names" baseline to compare against, just align a
+non-standard-named accessor cluster the same way §14 would align a standard one.
+Applicability varies by language:
+- **JSON/JSON5, XML, CSS, HTML5** — not applicable; these have no functions/methods.
+- **Python3** — not applicable; §8's exclusion of `def` means accessor methods never
+  compact onto one line, so there's nothing to align regardless of naming
+  convention (see STYLE_PYTHON3.md §4's `@property`/`@x.setter` note).
+- **JavaScript/TypeScript** — applies directly, same as Java: a cluster of plain
+  camelCase accessor-style methods (`fetchX()`, `retrieveY()`) that happen to be
+  short enough to fit on one line aligns the same way STYLE_JS_TS.md §7 aligns real
+  `get`/`set` keyword accessors — the naming convention doesn't change the
+  mechanism, just whether it's JAR-automatic (moot here) or manual.

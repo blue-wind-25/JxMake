@@ -29,6 +29,13 @@ across all four:
 
 Everything else is already correct. Do not touch it.
 
+**Does not apply to C++26 additions, JSON/JSON5/XML/CSS/HTML5, JavaScript/
+TypeScript, or Python3.** This entire preamble is premised on a JAR-processed input
+file — none of these four have JAR support at all (see AI_PREAMBLE_FULL.md's Scope
+section), so there is no deterministic baseline for a layout judgment pass to sit on
+top of. Use AI_PREAMBLE_FULL.md exclusively for these languages until JAR support
+exists; this file's rules below are C/C++/Java/Kotlin-only.
+
 ---
 
 ## Hard Constraints — What You Must Never Change

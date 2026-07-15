@@ -380,7 +380,8 @@ on the noted commits/fixtures)
      audit below (no code change); `applyArrowAlignment` joining arrow-case with no
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
-(16) MEDIUM `javaparser/javaparser` — see "Not started" below (queued, not started).
+(16) MEDIUM `javaparser/javaparser` — see "In progress dogfood / real-code testing details"
+     below: 2 bugs fixed/committed, 4 more found and still open (not yet root-caused).
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
@@ -427,10 +428,6 @@ on the noted commits/fixtures)
     modern-C++ surface than its size suggests — lowest priority of the four for
     modern-feature testing specifically. Try to exercise C++23 features specifically. Would
     verify with (2)/(3). (NOT STARTED)
-(5) MEDIUM `github.com/javaparser/javaparser` — Java parser/AST library; expected to
-    exercise generics-heavy declarations, deep visitor-pattern hierarchies, extensive Javadoc
-    (§15 comment-scope, RDD_KEY_47-50), large switch-heavy dispatch code (§13). Would verify
-    with (4). (NOT STARTED)
 (6) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
@@ -447,8 +444,59 @@ copy to `.hpp` first if really C++.
 
 **In progress dogfood / real-code testing details**
 
-*(none currently — all previously in-progress candidates (`stdexec`, `mp11`) reached DONE
-with no open gaps.)*
+(15b) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — IN PROGRESS,
+resumed session found 2 more bugs beyond what's fixed so far and left 3-4 open (see below).
+Cloned to a scratch checkout under `/tmp/claude-1000/.../scratchpad/javaparser`. Round1/round2
+methodology used full in-place-copy formatting (NOT `--out DIR`, which flattens all files to
+basenames in one flat directory and silently collides same-named files across modules — 1997
+files became 1558 unique basenames; confirmed via file-count drop, not itself a formatter bug,
+just a testing-harness gotcha worth remembering for future large multi-module candidates).
+
+Fixed and committed (`4bcd56d`): (a) `GetterSetterRule.parseOneLinerMember` misparsed a
+braceless `if (cond) throw new X(...)`/`if (cond) return ...` statement as a one-liner
+getter/setter-style member (same misparse class as the existing `case`/`default` guard --
+`findNameBeforeParen` landed on the exception/call's own name, treating the `if (...) ... throw
+new` prefix as a bogus "return type"), grid-aligning garbage padding that grew unboundedly
+across passes. Fixed by rejecting any "return type" span containing a control-flow/statement
+keyword. (b) `MiscRule.stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines` stripped a
+comment's sole trailing `.` but left the whitespace that had separated it from the preceding
+word, a stray trailing space only caught by an unrelated trim on the next pass -- fixed to trim
+trailing whitespace in the same step. Fixture: `real_code_regressions_54_{inp,out}.java`. `make
+test` 78/78.
+
+**Still OPEN — not yet root-caused, full-tree idempotency not yet re-verified after the above
+fixes**, found via round1/round2 diff over the whole tree (42 files differed before the two
+fixes above; re-checked a 10-file sample after rebuilding — 5 of those 10 are now clean, 5
+still differ):
+- `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
+  paren and its single-statement body (`reporter.report(...)`) is present after round1 but
+  missing after round2 -- only reproduces in situ (inside a lambda argument passed to
+  `TreeVisitorValidator(...)`, itself inside a field initializer, where the *original* source
+  has `if (cond) { stmt; }` with real braces that get collapsed to braceless during round1); a
+  minimal standalone repro of just the collapse (braced if inside a lambda arg, no surrounding
+  field context) did NOT reproduce, so the trigger needs the full field-declaration context to
+  isolate further.
+- `CsmAttribute.java`: an already-one-line `if (...) return i;` stays one line on round1 but
+  gets wrapped across 3 lines by `enforceCallLineBreaking` on round2 -- both renderings are
+  well past the line-length limit either way, so it isn't a length-boundary flip; root cause not
+  yet identified.
+- `JavaParserJsonSerializer.java`: an enum constant list's indentation/alignment column differs
+  between round1 (10-space struct, "final String" left-padded to a wide column) and round2
+  (12-space, unpadded) -- looks like a `DeclarationAlignmentRule`/`ColumnGrid` state not
+  surviving a second pass over already-aligned output; root cause not yet identified.
+- `TypeExtractor.java`: a blank line just before a block-closing `}` present in round1 is
+  dropped in round2 (and a similar case elsewhere in the same file) -- looks like a
+  blank-line-before-closing-brace normalization pass whose trigger condition isn't idempotent;
+  root cause not yet identified.
+
+None of the four above have been minimally repro'd yet (only observed in the real files), so no
+fixtures exist for them. Compile-check (`javac`) against the full tree has NOT yet been run --
+next session should re-run the full round1/round2 diff first (to get an accurate current count
+now that (a)/(b) are fixed), root-cause and fix any of the four above that are tractable, and
+only then run `javac`/`java_sc` and move this candidate from "In progress" to "Finished" in the
+usual style.
+
+*(`stdexec`, `mp11` reached DONE with no open gaps.)*
 
 When a test completes, remove/compact its entry from "Not started" (or its "In progress"
 detail block here) and add it to "Finished dogfood / real-code testing" above — and to

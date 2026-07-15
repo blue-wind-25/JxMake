@@ -477,7 +477,20 @@ public class BlockStructureRule {
         }
 
         final Token first = sig.get(0);
-        return first.type != TokenType.KEYWORD || !COMPOUND_BODY_KEYWORDS.contains(first.text);
+        if (first.type != TokenType.KEYWORD) {
+            return true;
+        }
+        // A local declaration (`val`/`var`) is a statement, not an expression -- Kotlin does not
+        // allow `if (x) val y = ...` without braces (declarations are illegal as the sole body of
+        // a braceless control-flow statement). Disqualify it the same way COMPOUND_BODY_KEYWORDS
+        // disqualifies a nested compound body, or `renderInline`/`collapseBracelessBody`'s later
+        // flattening step would emit invalid Kotlin. Found via arrow-kt/arrow real-code testing
+        // (`RaiseAccumulate.kt`'s `addErrors`: `if (errors != null) { val _ = accumulateAll(errors) }`
+        // was collapsed to the illegal `if (errors != null) val _ = accumulateAll(errors)`).
+        if ("val".equals(first.text) || "var".equals(first.text)) {
+            return false;
+        }
+        return !COMPOUND_BODY_KEYWORDS.contains(first.text);
     }
 
     /** Kotlin-only sibling of the `;`-count check above: true iff {@code contents} (a braced

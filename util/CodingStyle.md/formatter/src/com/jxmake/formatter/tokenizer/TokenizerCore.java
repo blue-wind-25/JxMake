@@ -1327,8 +1327,17 @@ public class TokenizerCore {
                 return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text)
                         || "(".equals(t.text) || ")".equals(t.text);
             case OP:
+                // `:` (Kotlin-only) marks a type-parameter bound inside a generic clause
+                // (`<A : Comparable<A>, B : Comparable<B>>`) -- without recognizing it as
+                // generic-safe, the bound's own `:` invalidates the enclosing `<...>` tracking,
+                // which then cascades: a second bound clause ending in `>>` finds its outer `<`
+                // already marked invalid and leaves the whole `>>` unsplit, corrupting both
+                // bound clauses' spacing (found via arrow-kt/arrow real-code testing,
+                // Pair.kt's `compareTo` extension function). No-op for C/C++/Java, which never
+                // use `:` inside a generic argument/parameter list.
                 return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
-                        || "*".equals(t.text) || "&".equals(t.text);
+                        || "*".equals(t.text) || "&".equals(t.text)
+                        || (lang.isKotlin && ":".equals(t.text));
             default:
                 return false;
         }

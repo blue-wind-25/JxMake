@@ -777,6 +777,56 @@ Real-code regressions:
                                             Verified: minimal repro, real file round1/round2
                                             byte-identical, full `make test`.
 
+  real_code_regressions_59_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a generic
+                                            type-parameter bound's `:` (e.g.
+                                            `<A : Comparable<A>, B : Comparable<B>>`) was not
+                                            recognized as generic-safe by
+                                            `TokenizerCore.isGenericSafeToken`, so it invalidated
+                                            the enclosing `<...>` angle-bracket tracking stack; a
+                                            second bound clause ending in `>>` then found its
+                                            outer `<` already marked invalid and left the whole
+                                            `>>` unsplit, corrupting both bounds' spacing. Fixed
+                                            by adding a Kotlin-gated `:` case to
+                                            `isGenericSafeToken`'s `OP` branch. Found in
+                                            `arrow-core`'s `Pair.kt` (`compareTo` extension).
+                                            Verified: minimal repro, full `make test`.
+
+  real_code_regressions_60_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing
+                                            (continued, found via `kotlin_sc` compile-checking
+                                            round1's output rather than round1/round2 diffing):
+                                            `isKotlinSingleStatementBody`
+                                            (`BlockStructureRule`) allowed a braced `if` body
+                                            whose sole statement was a local declaration
+                                            (`val`/`var`) to be collapsed to a braceless form,
+                                            producing `if (x) val y = ...`, which is illegal
+                                            Kotlin -- a declaration is a statement, not an
+                                            expression, and cannot stand alone as a braceless
+                                            control-flow body. Fixed by disqualifying a body
+                                            whose first token is `val`/`var` from collapse, the
+                                            same way `COMPOUND_BODY_KEYWORDS` disqualifies a
+                                            nested compound body. Found in `RaiseAccumulate.kt`'s
+                                            `addErrors`. Verified: minimal repro, full
+                                            `make test`.
+
+  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing
+                                            (continued, also found via `kotlin_sc`):
+                                            `MiscRule.needsSpaceBetween` had no tight-after case
+                                            for a Kotlin annotation's `@` -- when an annotation
+                                            shares its source line with the function signature
+                                            (so it becomes part of `sig.leadTokens` and is
+                                            rendered through `MiscRule.renderTokens`'s shared join
+                                            point, the same path `KotlinSignatureRule` uses), the
+                                            default "insert a space" fallback produced
+                                            `@ RaiseDSL`, which the Kotlin parser rejects
+                                            (`Expected annotation identifier after '@'`). Fixed by
+                                            adding a Kotlin-gated tight-after case for `@` in
+                                            `needsSpaceBetween`. Kotlin's other `@`-uses
+                                            (`return@label`, `label@`, `this@Label`) go through a
+                                            separate rule (`KotlinSpecificRule
+                                            .enforceLabeledJumpSpacing`) and are unaffected. Found
+                                            in `RaiseAccumulateContext.kt`'s `mapOrAccumulate`.
+                                            Verified: minimal repro, full `make test`.
+
 How Tests Are Run
 -----------------
 

@@ -1582,6 +1582,19 @@ public class MiscRule {
                 || templateOpens.contains(prev)) {
             return false;
         }
+        // A Kotlin annotation's `@` (e.g. `@RaiseDSL public inline fun ...`) is tight against the
+        // identifier that follows it -- without this, an annotation that shares its source line
+        // with the function signature (so it becomes part of `sig.leadTokens` and gets rendered
+        // through this same join point) comes out as `@ RaiseDSL`, which is not valid Kotlin (the
+        // parser requires the identifier immediately after `@`). Kotlin's other `@`-uses
+        // (`return@label`, `label@`, `this@Label`) are handled separately by
+        // `KotlinSpecificRule.enforceLabeledJumpSpacing` over the whole token stream, not through
+        // this lead-token join, so no annotation-vs-jump disambiguation is needed here. Found via
+        // arrow-kt/arrow real-code testing (`RaiseAccumulateContext.kt`'s `@RaiseDSL public inline
+        // fun ... mapOrAccumulate`, confirmed a genuine kotlin_sc parse error, not just cosmetic).
+        if (lang.isKotlin && isOp(prev, "@")) {
+            return false;
+        }
         return true;
     }
 

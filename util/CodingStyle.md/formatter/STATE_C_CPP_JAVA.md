@@ -480,10 +480,32 @@ force-reindent instead of always forcing exactly one. Verified: minimal repro, b
 `TypeExtractor.java` copies round1/round2 byte-identical, full `make test` 79/79. Fixture:
 `real_code_regressions_55_{inp,out}.java`.
 
-**Still OPEN — 3 of the original 4 bugs, not yet root-caused, full-tree idempotency not yet
-re-verified after the fix above**, found via round1/round2 diff over the whole tree (42 files
+Fixed and committed (bug 2 of the 4 originally-open items, this session): `CsmAttribute.java`'s
+`getTokenType` — an already-one-line `if (GeneratedJavaParserConstants.tokenImage[i].equals(
+expectedImage)) return i;` inside a `switch`-`case` block stayed one line on round1 but got
+wrapped across 3 lines by `enforceCallLineBreaking` on round2. Root-caused to pass ordering in
+`Formatter.formatOne`'s Phase 1: `MiscRule.enforceCallLineBreaking`'s "does this call fit in
+`lineLengthLimit`" measurement ran BEFORE `SwitchRule.formatNonInlineSwitches` reindents
+switch-case bodies one level deeper. On a fresh format, the call's line measured "fits" against
+the pre-reindent (shallower) column and was left alone; `formatNonInlineSwitches` then
+reindented the surrounding `case` body one level deeper, pushing the *rendered* line past the
+limit with no further re-check. On a reformat, the input already has the deeper indent baked in
+from the first run, so the same fits-check correctly measures it as too long and wraps it —
+round1 != round2. This is the same pass-ordering bug class already documented at length in
+`Formatter.java`'s own comments around `enforceComplexityPadding`/`enforceCallLineBreaking`
+(the tinyexpr-plusplus-discovered case). Fixed by re-running `enforceCallLineBreaking` again
+immediately after `formatNonInlineSwitches` (idempotent: a no-op on anything already correctly
+fitting or wrapped), so the fits-vs-wraps decision is re-derived against the now-final column.
+Verified: minimal repro (fails idempotency without the fix, passes with it), real
+`CsmAttribute.java` round1/round2 byte-identical, both `TypeExtractor.java` copies still
+round1/round2 byte-identical (no regression on bug 4's fix), full `make test` 80/80. Fixture:
+`real_code_regressions_56_{inp,out}.java`.
+
+**Still OPEN — 2 of the original 4 bugs, not yet root-caused, full-tree idempotency not yet
+re-verified after the fixes above**, found via round1/round2 diff over the whole tree (42 files
 differed before the (a)/(b) fixes; re-checked a 10-file sample after rebuilding — 5 of those 10
-were clean, 5 still differed; the `TypeExtractor.java` bug above was one of those 5):
+were clean, 5 still differed; the `TypeExtractor.java` and `CsmAttribute.java` bugs above were
+two of those 5):
 - `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
   paren and its single-statement body (`reporter.report(...)`) is present after round1 but
   missing after round2 -- only reproduces in situ (inside a lambda argument passed to
@@ -492,21 +514,17 @@ were clean, 5 still differed; the `TypeExtractor.java` bug above was one of thos
   minimal standalone repro of just the collapse (braced if inside a lambda arg, no surrounding
   field context) did NOT reproduce, so the trigger needs the full field-declaration context to
   isolate further.
-- `CsmAttribute.java`: an already-one-line `if (...) return i;` stays one line on round1 but
-  gets wrapped across 3 lines by `enforceCallLineBreaking` on round2 -- both renderings are
-  well past the line-length limit either way, so it isn't a length-boundary flip; root cause not
-  yet identified.
 - `JavaParserJsonSerializer.java`: an enum constant list's indentation/alignment column differs
   between round1 (10-space struct, "final String" left-padded to a wide column) and round2
   (12-space, unpadded) -- looks like a `DeclarationAlignmentRule`/`ColumnGrid` state not
   surviving a second pass over already-aligned output; root cause not yet identified.
 
-None of the three above have been minimally repro'd yet (only observed in the real files), so no
+Neither of the two above has been minimally repro'd yet (only observed in the real files), so no
 fixtures exist for them. Compile-check (`javac`) against the full tree has NOT yet been run --
 next session should re-run the full round1/round2 diff first (to get an accurate current count
-now that the `TypeExtractor.java` fix also landed), root-cause and fix any of the three above
-that are tractable, and only then run `javac`/`java_sc` and move this candidate from "In
-progress" to "Finished" in the usual style.
+now that the `TypeExtractor.java` and `CsmAttribute.java` fixes also landed), root-cause and fix
+either of the two above that is tractable, and only then run `javac`/`java_sc` and move this
+candidate from "In progress" to "Finished" in the usual style.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps.)*
 

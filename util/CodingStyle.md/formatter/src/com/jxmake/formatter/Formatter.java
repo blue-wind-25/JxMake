@@ -144,6 +144,16 @@ public final class Formatter {
         // call whose layout enforceCallLineBreaking just finalized.
         text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
         text = switchRule.formatNonInlineSwitches(tokenizer.apply(text));
+        // formatNonInlineSwitches reindents switch-case bodies one level deeper -- but
+        // enforceCallLineBreaking's own "does it fit in LINE_LENGTH_LIMIT" measurement, above,
+        // already ran against the pre-reindent (one-level-shallower) column, so a line right at the
+        // boundary can measure as "fits" there and stay on one line, only to render past the limit
+        // once the deeper switch-case indent is applied here -- with no further re-check. Stable
+        // only on a second format pass, once the input already has the deeper indent baked in from
+        // the start. Re-running enforceCallLineBreaking here (idempotent: a no-op on anything that
+        // already fits or is already wrapped) re-derives the fits-vs-wraps decision against the
+        // now-final column (see javaparser/javaparser's `CsmAttribute.java` bug).
+        text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
 
         // Phase 2: comment-style normalization -- must precede Phase 3 (RDD_KEY_47).

@@ -765,6 +765,34 @@ Real-code regressions:
                                             both real `TypeExtractor.java` copies round1/round2
                                             byte-identical, full `make test` 78/78.
 
+  real_code_regressions_56_inp/out.java  -- Java, javaparser/javaparser real-code testing
+                                            (continued): `Formatter.formatOne`'s Phase 1 ran
+                                            `MiscRule.enforceCallLineBreaking`'s "does this call fit
+                                            in `lineLengthLimit`" measurement BEFORE
+                                            `SwitchRule.formatNonInlineSwitches` reindents
+                                            switch-case bodies one level deeper. A call inside a
+                                            `switch`-`case` block sitting right at the boundary
+                                            measured "fits" against the pre-reindent (shallower)
+                                            column and was left on one line, but the case body's
+                                            real, one-level-deeper column pushed the same rendered
+                                            line past the limit with no further re-check -- stable
+                                            only on a second pass, once the input already has the
+                                            deeper indent baked in from `formatNonInlineSwitches`'s
+                                            first run. Found in `CsmAttribute.java`'s
+                                            `getTokenType`, where `if (...tokenImage[i].equals(
+                                            expectedImage)) return i;` stayed one line on round1
+                                            but got wrapped across 3 lines on round2. Fixed by
+                                            re-running `enforceCallLineBreaking` again right after
+                                            `formatNonInlineSwitches` (idempotent: a no-op on
+                                            anything already correctly fitting or wrapped), so the
+                                            fits-vs-wraps decision is re-derived against the
+                                            now-final column. Verified: minimal repro (fails
+                                            idempotency without the fix, passes with it), real
+                                            `CsmAttribute.java` round1/round2 byte-identical, both
+                                            `TypeExtractor.java` copies still round1/round2
+                                            byte-identical (no regression on bug 4's fix), full
+                                            `make test` 79/79.
+
 How Tests Are Run
 -----------------
 

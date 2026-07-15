@@ -115,6 +115,28 @@ faster):
    same error count as the unmodified original (no new, formatter-induced
    errors).
 
+**TODO — `--out DIR` flattens output to basename, losing subdirectory
+structure.** `Main.processFile` resolves each output path as
+`Paths.get(outDir).resolve(path.getFileName())` (`Main.java` ~line 209) —
+only the file's basename is kept, so two input files with the same name in
+different source directories (common in large real-code-testing candidates,
+e.g. multiple `Visitor.java`/`package-info.java` across packages) silently
+collide and overwrite each other under `--out`. Needs a fix before running
+the real-code-testing methodology on any candidate with duplicate basenames
+across directories — until fixed, work around it per-subdirectory (one
+`--out` invocation per top-level source subdirectory, mirroring the existing
+argv-length-limit grouping advice below) rather than batching the whole tree
+through one `--out` dir. Proposed fix direction (not yet implemented, needs
+a design decision before coding): add a `--preserve-tree` flag (or make it
+the default when input paths share a common root) that resolves the output
+path by rebasing each input's full path onto `outDir` instead of just its
+basename — needs a decision on what "common root" means when input paths
+are passed as an arbitrary flat file list rather than a single directory
+tree (e.g. relative-to-cwd, or relative to a shared ancestor computed across
+all args, or requiring an explicit `--root DIR` companion flag). Ambiguity —
+do not implement without resolving this per STATE_COMMON.md's ambiguity
+protocol first.
+
 **Invoke the formatter JAR once per batch, not once per file.** `Main.run()`
 accepts any number of positional file-path arguments and formats them all in
 one JVM process (each file independently resolves its own

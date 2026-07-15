@@ -151,6 +151,8 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_165 | **RESOLVES `kotlinpoet` Shape 3** (2 files): `findMergingWhenBranchLineStart` only recognized bare `when {`, not a subject-form `when(x) {` or a plain trailing-lambda call — lookahead generalized. Fixture `_48` |
 | RDD_KEY_166 | **RESOLVES `kotlinpoet` Shape 4 — all 4 shapes resolved, full tree idempotent** (`KotlinPoetMetadataSpecsTest.kt`): `Foo::class` class-literal wrongly armed `namedConstructKeywordSeen`, corrupting a later scope's name — new `isPrecededByDoubleColon()` guard; also fixed 2 masked bugs found via a from-clean rebuild in `signatureLineIndent` (a `-1` crash, a Shape-2-fix regression). Fixture `_49` |
 | RDD_KEY_162 | **RESOLVES RDD_KEY_161's last open question**, `ChannelFlow.kt` declaration-alignment padding flap (final file of the `kotlinx.coroutines` investigation) — early alignment phase widened a sibling line enough to trigger a later wrap, which then un-widened it next pass; fix plumbs indent-width/line-length awareness into `renderAlignedGroup` with a brace-bodied-initializer-only exclusion. Fixture `_45`. Closes the entire investigation. |
+| RDD_KEY_174 | `arrow-kt/arrow` dogfood, idempotency bug 1 (`RaiseContext.kt`'s `ensureNotNull`, deferred by RDD_KEY_173): `KotlinSignatureRule.parseKotlinSignature`'s first-`IDENTIFIER (` scan mistook a leading `context(raise: Raise<Error>)` clause's own paren for the real signature's param list when both shared one physical line — fixed by skipping a non-matching candidate paren and continuing the scan. Combined fixture `_62` (with RDD_KEY_175). |
+| RDD_KEY_175 | `arrow-kt/arrow` dogfood, idempotency bug 2 (`Iterable.kt`'s `separateEither`, deferred by RDD_KEY_173): `Formatter.java` ran `formatWhenExpressions` (can insert `when{}` blank lines) after `addClosingComments` had already counted the enclosing `for` loop's line total against `closing-comment-min-lines` — fixed by moving `formatWhenExpressions` ahead of `addClosingComments`, same precedent as `alignInlineSwitches`/`markFallthrough`. Combined fixture `_62` (with RDD_KEY_174). |
 
 ---
 
@@ -677,8 +679,18 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    (annotation `@` sharing its line with a function signature rendering as
    `@ Foo`). Fixtures `test/real_code_regressions_59`–`_61`. `make test`:
    85/85 clean, zero regressions.
-   **Two bugs remain found but NOT fixed, deferred (same posture as
-   RDD_KEY_149's earlier `okio` deferral):**
+   **Both idempotency flaps deferred at the end of the prior session are now
+   FIXED, this session** — RDD_KEY_174 (`RaiseContext.kt`'s `ensureNotNull`,
+   `KotlinSignatureRule.parseKotlinSignature`'s `context(...)`-clause paren
+   misdetection) and RDD_KEY_175 (`Iterable.kt`'s `separateEither`,
+   `formatWhenExpressions`/`addClosingComments` pipeline-ordering bug).
+   Combined fixture `test/real_code_regressions_62_{inp,out}.kt`. Both real
+   files individually confirmed round1/round2 byte-identical after the
+   fixes; `make test` 86/86 clean, zero regressions.
+
+   **One bug remains found but NOT fixed, deferred (same posture as
+   RDD_KEY_149's earlier `okio` deferral) — still the only known gap for
+   this candidate:**
    - `MiscRule.enforceCallLineBreaking`'s width measurement for nested call
      candidates (e.g. `leq(a, b)` inside an expression-bodied function tail)
      uses the full original physical line's width even when an
@@ -689,25 +701,27 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
      add(a.value) ... }` block with 10 sequential `if`/`add` statements gets
      its statements fused with no separator between them, since Kotlin has
      no mandatory `;`) — this is the ONLY remaining `kotlin_sc`-flagged
-     syntax error in the 63-file scope as of RDD_KEY_173. Also produces a
+     syntax error in the 63-file scope as of this session. Also produces a
      pure idempotency (non-compile-breaking) flap in `Comparison.kt`'s
-     `sort2`. A fix was attempted (threading a `lastClaimedEnd`/`floor`
-     value into `renderCallCandidate`) but caused 3 regressions in existing
-     fixtures (`_33`, `_46`, `_55`) because `enforceCallLineBreaking` runs
-     twice in `Formatter`'s pipeline and the floor logic incorrectly
-     suppressed a legitimately-needed wrap on the second pass — reverted via
-     `git checkout --`, not committed. Needs a more careful fix that
-     accounts for both pipeline passes before attempting again.
-   - `raise/context/RaiseContext.kt` shows a pure idempotency (non-compile-
-     breaking) wrapping-shape flap for `ensureNotNull`'s params between
-     round1 (collapsed/fits) and round2 (re-wrapped with column padding),
-     and `Iterable.kt` shows a `for`-loop closing-comment threshold flap
-     (round1: bare `}`; round2: `} // for`). Neither investigated/root-
-     caused yet.
+     `sort2` (confirmed still present, unchanged, this session's full-scope
+     round1/round2 re-diff). A fix was attempted (threading a
+     `lastClaimedEnd`/`floor` value into `renderCallCandidate`) but caused 3
+     regressions in existing fixtures (`_33`, `_46`, `_55`) because
+     `enforceCallLineBreaking` runs twice in `Formatter`'s pipeline and the
+     floor logic incorrectly suppressed a legitimately-needed wrap on the
+     second pass — reverted via `git checkout --`, not committed. Needs a
+     more careful fix that accounts for both pipeline passes before
+     attempting again. Not attempted this session (explicit user priority:
+     chase the idempotency bugs first; both finished with no budget spent
+     confirming this one is still tractable-but-unattempted).
    Verification method: `kotlin_sc` run against a fresh round1 build of the
-   full 63-file scope (baseline: 0 errors on unmodified `orig/`; before this
-   session's fixes: 5 files with genuine syntax errors; after: 1 file,
-   `Either.kt`, the deferred `enforceCallLineBreaking` bug above).
+   full 63-file scope (baseline: 0 errors on unmodified `orig/`; before
+   RDD_KEY_171-173: 5 files with genuine syntax errors; after RDD_KEY_173
+   and still true after RDD_KEY_174/175 this session, which touched no
+   `enforceCallLineBreaking`-related code: 1 file, `Either.kt`). Full-scope
+   round1/round2 idempotency diff this session: only `Comparison.kt` differs
+   (the known `Either.kt`-sibling flap above) — every other file in the
+   63-file scope is round1/round2 byte-identical.
 
 **When a test completes:** move/compact its entry from "Not started" (or its
 "In progress" detail) into "Finished dogfood / real-code testing", and add a

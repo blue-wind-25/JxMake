@@ -167,6 +167,19 @@ public final class Formatter {
         // (and thus idempotency) stable across repeated format passes.
         text = switchRule.markFallthrough(tokenizer.apply(text));
         text = switchRule.alignInlineSwitches(tokenizer.apply(text));
+        // Same reasoning as alignInlineSwitches/markFallthrough above, extended to Kotlin's own
+        // `when` expression formatting: formatWhenExpressions can insert blank lines inside a
+        // `when {}` body (STYLE_KOTLIN.md §4), expanding an enclosing `for`/`while` block's own
+        // line count -- if it ran later (Phase 4, as it originally did), a fresh format sees the
+        // pre-expansion line count here while a reformat of already-formatted output (which
+        // already has those blank lines baked in) sees the post-expansion count, so a `for`/
+        // `while` block straddling the closing-comment-min-lines threshold gets a `// for`/`//
+        // while` comment on round2 but not round1 -- a genuine idempotency bug, not just
+        // cosmetic (found via arrow-kt/arrow's `Iterable.kt` `separateEither`, RDD_KEY_174). Moved
+        // ahead of addClosingComments so its line-count decisions always see the final line count.
+        if (lang.isKotlin) {
+            text = kotlinRule.formatWhenExpressions(tokenizer.apply(text));
+        }
         text = blockRule.addClosingComments(tokenizer.apply(text));
         if (lang.isJava) {
             text = javaRule.enforceSwitchExpressionArrowAlignment(tokenizer.apply(text));
@@ -183,7 +196,6 @@ public final class Formatter {
             text = cppRule.alignMacroDefinitions(tokenizer.apply(text));
         }
         if (lang.isKotlin) {
-            text = kotlinRule.formatWhenExpressions(tokenizer.apply(text));
             text = kotlinRule.enforceNullSafetyOperatorSpacing(tokenizer.apply(text));
             text = kotlinRule.enforceRangeOperatorSpacing(tokenizer.apply(text));
             text = kotlinRule.enforceLabeledJumpSpacing(tokenizer.apply(text));

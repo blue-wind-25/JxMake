@@ -827,6 +827,44 @@ Real-code regressions:
                                             in `RaiseAccumulateContext.kt`'s `mapOrAccumulate`.
                                             Verified: minimal repro, full `make test`.
 
+  real_code_regressions_62_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: two
+                                            round1-vs-round2 idempotency bugs found chasing the
+                                            two flaps deferred by RDD_KEY_173 in
+                                            `RaiseContext.kt`/`Iterable.kt`. (A)
+                                            `KotlinSignatureRule.parseKotlinSignature`'s
+                                            first-`IDENTIFIER (` scan mistook a leading `context(
+                                            raise: Raise<Error>)` clause's own parenthesis for the
+                                            real signature's parameter list when both still shared
+                                            one physical line (before `MiscRule
+                                            .enforceCallLineBreaking` had split `context(...)` onto
+                                            its own lines); its close paren wasn't the slice's last
+                                            token, so parsing bailed (returned null), leaving the
+                                            real `fun ensureNotNull(...)` signature completely
+                                            unwrapped on round1 even past the line-length limit --
+                                            round2 (re-parsing round1's own already-split output)
+                                            no longer had the ambiguity and wrapped it correctly.
+                                            Fixed by skipping past a non-matching candidate paren
+                                            and continuing the scan instead of bailing on the first
+                                            one found. (B) `Formatter.java`'s pipeline ran
+                                            `KotlinSpecificRule.formatWhenExpressions` (which can
+                                            insert blank lines inside a `when {}` body, STYLE_KOTLIN
+                                            .md §4) in Phase 4, after `BlockStructureRule
+                                            .addClosingComments` (Phase 3) had already counted the
+                                            enclosing `for` loop's content lines against
+                                            `closing-comment-min-lines` -- a fresh format saw the
+                                            pre-blank-line-insertion count and skipped the `// for`
+                                            comment, while a reformat of already-formatted output
+                                            (blank lines already baked in) saw the post-insertion
+                                            count and added it. Fixed by moving
+                                            `formatWhenExpressions` ahead of `addClosingComments`,
+                                            same precedent as `alignInlineSwitches`/
+                                            `markFallthrough`'s existing placement ahead of it.
+                                            Found in `RaiseContext.kt`'s `ensureNotNull` (A) and
+                                            `Iterable.kt`'s `separateEither` (B). Verified: minimal
+                                            repro combining both, both real files individually
+                                            confirmed round1/round2 byte-identical, full
+                                            `make test`.
+
 How Tests Are Run
 -----------------
 

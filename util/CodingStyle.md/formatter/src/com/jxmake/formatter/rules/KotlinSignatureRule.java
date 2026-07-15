@@ -115,9 +115,30 @@ public class KotlinSignatureRule extends MiscRule {
                 depth--;
             } else if (depth == 0 && isPunct(t, "(") && i > 0
                     && sig.get(i - 1).type == TokenType.IDENTIFIER) {
-                openParen = i;
-                nameIdx = i - 1;
-                break;
+                // The first `IDENTIFIER (` on the line is not always the real signature -- a
+                // leading `context(raise: Raise<Error>)` clause (Kotlin context receivers) is
+                // itself an `IDENTIFIER (...)` shape that can share the same physical line as the
+                // real `fun name(...)` when this pass runs before MiscRule.enforceCallLineBreaking
+                // has had a chance to split it onto its own line(s) -- confirmed via harness
+                // (arrow-kt/arrow's `RaiseContext.kt`, `context(raise: Raise<Error>) @RaiseDSL
+                // @IgnorableReturnValue public inline fun <Error, B : Any> ensureNotNull(...)`)
+                // this caused a round1-vs-round2 idempotency flap: round1 misidentified
+                // `context(`'s own paren as the signature, found its close paren wasn't the
+                // slice's last token, and bailed out (returning null) leaving the real signature
+                // completely unprocessed/unwrapped; round2 (re-parsing round1's own output, where
+                // `context(...)` was by then already split across lines by the unrelated call-
+                // breaking pass) no longer had this ambiguity and correctly wrapped it. Instead of
+                // bailing on the first non-matching candidate, skip past it and keep scanning for
+                // the real signature's own `(`.
+                final int candidateClose = matchParenForward(sig, i);
+                if (candidateClose == sig.size() - 1) {
+                    openParen = i;
+                    nameIdx = i - 1;
+                    break;
+                }
+                if (candidateClose > i) {
+                    i = candidateClose;
+                }
             }
         }
         if (openParen < 0) {

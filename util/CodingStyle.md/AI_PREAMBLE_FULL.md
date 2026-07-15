@@ -154,6 +154,6 @@ Applicability varies by language:
   convention (see STYLE_PYTHON3.md §4's `@property`/`@x.setter` note).
 - **JavaScript/TypeScript** — applies directly, same as Java: a cluster of plain
   camelCase accessor-style methods (`fetchX()`, `retrieveY()`) that happen to be
-  short enough to fit on one line aligns the same way STYLE_JS_TS.md §7 aligns real
+  short enough to fit on one line aligns the same way STYLE_JS_TS.md §8 aligns real
   `get`/`set` keyword accessors — the naming convention doesn't change the
   mechanism, just whether it's JAR-automatic (moot here) or manual.

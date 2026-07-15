@@ -260,7 +260,7 @@ def get_user_order_items(user_id: int, order_id: int):
 ```
 
 **`@property` / `@x.setter`:** no special getter/setter alignment rule, unlike
-STYLE.md §14's group alignment for C/Java/Kotlin or STYLE_JS_TS.md §7's `get`/`set`
+STYLE.md §14's group alignment for C/Java/Kotlin or STYLE_JS_TS.md §8's `get`/`set`
 accessor grouping. Those languages can compact a short accessor onto one line and
 align a group of them; Python function bodies never compact (§8 explicitly excludes
 `def`), so there's nothing short to align — a `@property` getter and its

@@ -52,7 +52,8 @@ takes the opposite default: **always insert explicit semicolons, never rely on A
 
 ```typescript
 const x = 1;
-function f() {
+function f()
+{
     return {
         value: x,
     };
@@ -96,7 +97,39 @@ const msg = `Hello, ${user.name}!`;
 `${...}` interpolation expressions follow normal expression spacing internally
 (STYLE.md §3.1), same as Kotlin's `${...}` string-template interpolation.
 
-## 5. Arrow Functions
+## 5. Function / Method Declaration Brace Style
+
+Named function declarations (`function foo() {}`) and class methods use **Allman**
+style, matching STYLE_JAVA.md §2's general Method Brace Style rule (opening `{` on
+its own line) — this applies whether the function is a top-level declaration or a
+method inside a class, same as Java draws the line between named methods (Allman)
+and lambdas (K&R, §6 below):
+
+```typescript
+function process(data: string, count: number): Promise<Result>
+{
+    return doWork(data, count);
+}
+
+class Widget {
+    render()
+    {
+        return this.template;
+    }
+}
+```
+
+**Exceptions that stay K&R / one-liner, not Allman:**
+- Arrow function block bodies (§6) — JS/TS's lambda equivalent, same lambda
+  exception STYLE_JAVA.md §2 and STYLE_KOTLIN.md §3 already carve out for Java/
+  Kotlin lambdas, not a JS/TS-specific divergence.
+- Getter/setter one-liner groups (§7) and other short one-liner methods that fit
+  STYLE.md §14's squeeze-onto-one-line shape — a distinct mechanism from Allman's
+  multi-line body case, same as Java's own `void setX(int x) { _x = x; }` example.
+- An empty-body method or constructor (`constructor(...) {}`) — nothing to put on
+  its own line, same reasoning as any zero-content block.
+
+## 6. Arrow Functions
 
 Closest analog is Kotlin's lambda-with-receiver / function types (STYLE_KOTLIN.md §17,
 §17.1 for arrow spacing). Arrow spacing rule carries over directly: space before and
@@ -112,12 +145,14 @@ const process = (data) => {
 
 - Single-expression body — same-line, no braces (mirrors STYLE.md §10,
   Single-Expression Blocks).
-- Block body — braces required, same brace style as STYLE_JAVA.md §2 (Method Brace
-  Style).
+- Block body — braces required, **K&R style** (`{` on the same line as `=>`) — an
+  arrow function is JS/TS's lambda equivalent, so it follows STYLE_JAVA.md §2's
+  lambda exception and STYLE_KOTLIN.md §3's matching exception, not the general
+  Allman rule §5 above applies to named function declarations.
 - Parameter parens: keep even for a single untyped parameter (`(n) => ...`, not
   `n => ...`) for alignment consistency with multi-parameter arrows in the same group.
 
-## 6. Optional Chaining / Nullish Coalescing
+## 7. Optional Chaining / Nullish Coalescing
 
 Direct analog to Kotlin's null-safety operators (STYLE_KOTLIN.md §5). Same treatment:
 `?.` is tight (no surrounding space, same as Kotlin's `?.`), `??` is spaced like a
@@ -128,7 +163,7 @@ const len    = str?.length ?? 0;
 const name   = user?.profile?.name;
 ```
 
-## 7. Getter/Setter Accessors (`get`/`set`)
+## 8. Getter/Setter Accessors (`get`/`set`)
 
 Unlike Python (which loses this mechanism entirely — see STYLE_PYTHON3.md §8's
 exclusion of `def` from its compact-body rule, since Python function bodies are
@@ -151,7 +186,7 @@ Same STYLE.md §14 rules apply directly: align the `)` column, `{` column, body,
 signature; exclude a member from the group (write it normally below, Allman style)
 if its body alone would push the line past 100 characters.
 
-## 8. Decorators
+## 9. Decorators
 
 No direct STYLE_JAVA.md/STYLE_KOTLIN.md analog (Java annotations are visually similar
 but always own-line by convention; JS/TS decorators mix own-line and inline usage by
@@ -186,7 +221,7 @@ cascade already used for call-argument overflow (AI_PREAMBLE_AESTHETIC.md Rule 1
    line, wrap its argument list per STYLE.md §3.1's normal call-argument overflow
    rules — one-per-line inside the decorator's `()`.
 
-## 9. `async` / `await`
+## 10. `async` / `await`
 
 No direct Java/Kotlin analog (closest conceptually is Kotlin's `suspend`, but the
 formatting is unaffected either way — both are ordinary keyword-before-expression
@@ -195,7 +230,8 @@ space after the keyword itself:
 
 ```javascript
 const data = await fetchData();
-async function load() {
+async function load()
+{
     const result = await api.get(url);
     return result;
 }
@@ -204,21 +240,22 @@ async function load() {
 `async` before a function/arrow declaration follows the same single-space-after-
 keyword rule as any other modifier keyword (STYLE_JAVA.md's modifier spacing, §2).
 
-## 10. TypeScript Type Annotations
+## 11. TypeScript Type Annotations
 
 Colon spacing after a parameter or return type is a direct analog to
 STYLE_KOTLIN.md §6's `: type` tail handling (visibility/modifiers/val|var/name `:` type
 slot order) — no space before `:`, one space after:
 
 ```typescript
-function process(data: string, count: number): Promise<Result> {
+function process(data: string, count: number): Promise<Result>
+{
     return doWork(data, count);
 }
 
 const handler: (event: Event) => void = (event) => { ... };
 ```
 
-### 9.1 Union / Intersection Types (`|`, `&`)
+### 11.1 Union / Intersection Types (`|`, `&`)
 
 Ordinary binary-operator spacing — space both sides, same as any other operator
 (STYLE.md §3.1):
@@ -249,7 +286,7 @@ Variable/property declarations with a type annotation align the same way STYLE.m
 and STYLE_KOTLIN.md §6 align declaration groups — same group/group-break rules (blank
 line or comment breaks the group).
 
-### 9.2 Class Field Modifiers
+### 11.2 Class Field Modifiers
 
 TS has modifier keywords Java doesn't (`readonly`, `override`, `declare`), so it
 can't borrow Java's `JavaModifierPriority` ordering wholesale — it gets its own
@@ -287,7 +324,7 @@ class Config {
 }
 ```
 
-## 11. Enums
+## 12. Enums
 
 TS/JS enums have no direct STYLE_KOTLIN.md analog (Kotlin enum classes can carry
 methods; TS enums cannot — they're a flat member list, structurally closer to a
@@ -319,7 +356,7 @@ style consistently lists enum members one-per-line either way.
 - Closing brace gets a closing comment, same convention as §1's Baseline
   (`} // enum Status`) — no trailing `;` needed, unlike C++'s `enum class`.
 
-## 12. Generics (`<T>`)
+## 13. Generics (`<T>`)
 
 Reuses the same bracket-complexity approach as C++/Java generics (STYLE.md §3.1's
 tight/loose signal, applied to `<>` the same way it's applied to `()`/`[]`): a simple
@@ -327,15 +364,19 @@ type parameter list stays tight, one containing a nested generic or a complex
 constraint goes loose.
 
 ```typescript
-function identity<T>(value: T): T { return value; }
+function identity<T>(value: T): T
+{
+    return value;
+}
+
 class Container<T extends Comparable<T>> { ... }
 ```
 
-## 13. `interface` / `type` Alias Declarations
+## 14. `interface` / `type` Alias Declarations
 
 Structurally closest to a Kotlin `data class` or Java `record` for alignment purposes —
 member/property lists inside an `interface` or object-shaped `type` alias align their
-`:` the same way §10 above aligns parameter/variable type annotations:
+`:` the same way §11 above aligns parameter/variable type annotations:
 
 ```typescript
 interface Props {
@@ -350,11 +391,13 @@ type Point = {
 };
 ```
 
-Brace style for the declaration itself follows STYLE_JAVA.md §2 (Method Brace Style),
-applied to `interface`/`type`/`class` bodies the same way it already applies to Java
-class bodies.
+Brace style for the declaration itself is **K&R** (`{` on the same line as the
+declaration) — `interface`/`type`/`class` bodies are container constructs, not
+function/method definitions, so they follow STYLE.md §11 (Non-function Block Brace
+Style), the same rule Java's own class/interface/enum bodies use, not §5 above's
+Allman rule for named functions/methods.
 
-## 14. Import Ordering
+## 15. Import Ordering
 
 TypeScript/JavaScript's `import`/`export` statements are grouped and sorted with the
 same group/blank-line shape as STYLE_JAVA.md §7, but the groups themselves differ —
@@ -400,7 +443,7 @@ the responsibility of the IDE or a separate lint tool (e.g. ESLint).
   at scale; also doubles as a JS fixture.
 - `angular/angular` — large, idiomatic, decorator-heavy real TS.
 - `nestjs/nest` — decorator- and generic-heavy backend TS, good coverage of the
-  type-annotation-alignment cases (§10, §13).
+  type-annotation-alignment cases (§11, §14).
 - `vuejs/core` — modern TS with heavy generics and type-level code.
 
 ---
@@ -432,7 +475,7 @@ Not yet designed, deliberately deferred:
 - **JSX/TSX** — out of scope entirely, not just deferred within this file; see
   FUTURE_FEATURE_DISCUSSION.md's JSX/TSX entry and this file's "Out of scope" note
   in the intro.
-- Import-path built-in/third-party/local classification's resolution logic (§14) —
+- Import-path built-in/third-party/local classification's resolution logic (§15) —
   same open item as Python3's stdlib-vs-third-party question.
 
 ---

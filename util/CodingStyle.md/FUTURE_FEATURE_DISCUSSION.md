@@ -271,18 +271,18 @@ silently drift). Cross-references from `STYLE_DATA_FORMATS.md` to this file use 
 filename only, not a section number, so they can't go stale if this file's numbering
 changes. One item was **not** resolvable from the existing doc and needed new design
 during Q&A: import grouping/classification (built-in vs. third-party vs. local) has no
-Java/Kotlin analog to derive from — flagged as an open item in `STYLE_JS_TS.md` §13,
+Java/Kotlin analog to derive from — flagged as an open item in `STYLE_JS_TS.md` §15,
 same unresolved-tier-classification shape as the Python3 import-sorting question
 below (though Python3's ended up resolved much more simply — see that section).
 
 **Update (gap-review pass):** a later pass found and resolved several additional
 gaps not covered above: statement termination/semicolons (JS's ASI is an
 error-recovery hazard, not a clean design like Kotlin's — resolved as always-explicit,
-`STYLE_JS_TS.md` §2), decorators (§7, including the own-line/inline placement and
-two-step overflow cascade), TS enums (§10, derived from C++ `enum class` rather than
-Java's plain-enum packing), TS union/intersection type wrapping (§9.1, preserves
+`STYLE_JS_TS.md` §2), decorators (§9, including the own-line/inline placement and
+two-step overflow cascade), TS enums (§12, derived from C++ `enum class` rather than
+Java's plain-enum packing), TS union/intersection type wrapping (§11.1, preserves
 author's break-before/break-after choice), and TS class field modifier priority/
-alignment (§9.2, a new `TSModifierPriority`-equivalent table since TS has modifiers
+alignment (§11.2, a new `TSModifierPriority`-equivalent table since TS has modifiers
 Java doesn't — `readonly`/`override`/`declare`). JSX/TSX was also raised and
 deliberately scoped **out** of this file entirely — see the JSX/TSX entry below.
 

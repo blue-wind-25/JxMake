@@ -19,12 +19,24 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * STYLE.md §14 / STYLE_JAVA.md §5 -- Getter/Setter/Checker Group Alignment.
  */
 public class GetterSetterRule {
+
+    /**
+     * Statement keywords that can never legitimately begin a method's return type -- used to
+     * reject a braceless single-statement control-flow body (e.g. {@code if (x == null) throw
+     * new Y(...);}) from being misparsed as a one-liner getter/setter-style member. See
+     * {@link #parseOneLinerMember} for the full rationale.
+     */
+    private static final Set<String> STATEMENT_KEYWORDS = new HashSet<>(Arrays.asList(
+            "if", "else", "while", "for", "do", "switch", "try", "catch", "finally", "throw",
+            "return", "synchronized"));
 
     private final Lang lang;
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
@@ -659,6 +671,19 @@ public class GetterSetterRule {
         for (int k = returnTypeFrom; k < returnTypeTo; k++) {
             final Token t = tokens.get(k);
             if (isOp(t, ".") || isOp(t, "=")) {
+                return null;
+            }
+        }
+        // Reject candidates whose "return type" span contains a control-flow/statement keyword
+        // (e.g. `if (begin == null) throw new IllegalArgumentException(...)`) -- those only
+        // appear here when this is actually a braceless single-statement `if`/`while`/etc. body
+        // (or its trailing call), not a method declaration/definition whose "return type" just
+        // happens to end in `identifier(...)`. Same misparse class as the `case`/`default`
+        // guard above, generalized to every statement keyword that can never legitimately begin
+        // a return type.
+        for (int k = returnTypeFrom; k < returnTypeTo; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.KEYWORD && STATEMENT_KEYWORDS.contains(t.text)) {
                 return null;
             }
         }

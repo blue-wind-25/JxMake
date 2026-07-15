@@ -713,6 +713,31 @@ Real-code regressions:
                                             over the whole `microsoft/proxy` tree; full `make test`
                                             (76/76, no regressions).
 
+  real_code_regressions_54_inp/out.java  -- Java, javaparser/javaparser real-code testing: 2
+                                            bugs. (a) `GetterSetterRule.parseOneLinerMember`
+                                            misparsed a braceless single-statement `if (cond)
+                                            throw new X(...)`/`if (cond) return ...` as a
+                                            one-liner getter/setter-style member -- the scan for
+                                            `identifier(` before the statement's own trailing
+                                            call landed on the exception/call name, treating the
+                                            `if (...) ... throw new` prefix as a bogus "return
+                                            type" and grid-aligning its padding against a sibling
+                                            one-liner, growing unboundedly across passes (same
+                                            misparse class as the existing `case`/`default`
+                                            guard). Fixed by rejecting any candidate whose
+                                            "return type" span contains a control-flow/statement
+                                            keyword (`if`/`while`/`for`/`do`/`switch`/`try`/
+                                            `catch`/`finally`/`throw`/`return`/`synchronized`).
+                                            (b) `MiscRule.stripSoleTrailingPeriod`/
+                                            `stripSoleTrailingPeriodAcrossLines` stripped a
+                                            comment's sole trailing `.` but left the whitespace
+                                            that had separated it from the preceding word
+                                            (`"...type ."` -> `"...type "`), a stray trailing
+                                            space only caught by an unrelated trim on the next
+                                            pass -- idempotency bug. Fixed by trimming trailing
+                                            whitespace off the result in both methods. Verified
+                                            with minimal repros and full `make test`.
+
 How Tests Are Run
 -----------------
 

@@ -2492,7 +2492,8 @@ public class MiscRule {
         if (last.isEmpty() || last.charAt(last.length() - 1) != '.') {
             return;
         }
-        lines.set(lastIdx, last.substring(0, last.length() - 1));
+        // Same trailing-whitespace-before-the-period fix as `stripSoleTrailingPeriod`.
+        lines.set(lastIdx, trimTrailing(last.substring(0, last.length() - 1)));
     }
 
     /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on
@@ -2595,7 +2596,12 @@ public class MiscRule {
         if (dotCount != 1) {
             return content;
         }
-        return content.substring(0, end - 1) + content.substring(end);
+        // Also trim any whitespace that was between the last word and the period being
+        // stripped (e.g. "...specified type ." -> "...specified type", not "...specified
+        // type " with a stray trailing space) -- otherwise the trailing space survives this
+        // pass and only gets caught by a later, unrelated trailing-whitespace pass, making the
+        // comment converge over two formatter passes instead of one (idempotency bug).
+        return trimTrailing(content.substring(0, end - 1)) + content.substring(end);
     }
 
     // ── §8 Function Calls and Forward Declarations ──────────────────────────────

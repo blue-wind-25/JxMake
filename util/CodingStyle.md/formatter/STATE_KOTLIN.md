@@ -654,13 +654,7 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    empty — fully round1-vs-round2 idempotent.**
 
 **Not started dogfood / real-code testing**
-1. **`github.com/arrow-kt/arrow`** (NOT STARTED) — functional-programming
-   library (typed errors, optics, effects); multi-module Gradle structure
-   similar in spirit to `kotlinx.coroutines`, will need the Gradle-copy dance
-   (tool (2)). Expected to exercise heavy generics/variance (§13,
-   RDD_KEY_113), extension-function-heavy DSLs (§22), and infix-function call
-   sites (§15) more than any candidate tested so far.
-2. **`github.com/JetBrains/kotlin`** (NOT STARTED) — the Kotlin compiler's
+1. **`github.com/JetBrains/kotlin`** (NOT STARTED) — the Kotlin compiler's
    own source tree; large, likely the most demanding candidate for grammar
    coverage (compiler-internal code tends to use every language feature,
    including obscure/edge-case syntax). Last-resort/stress candidate,
@@ -668,11 +662,52 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 
 **In progress dogfood / real-code testing details**
 
-*(none currently — `square/okio`'s RDD_KEY_149 and `square/kotlinpoet`'s
-4-shape idempotency gap both reached fully RESOLVED, see "Finished dogfood /
-real-code testing" item 4 above and RDD_KEY_149/163/164/165/166 in
-`RDD_LOG.md` for full root-cause narratives. `arrow-kt/arrow` and
-`JetBrains/kotlin` above are the next queued candidates.)*
+1. **`github.com/arrow-kt/arrow`** (IN PROGRESS) — functional-programming
+   library (typed errors, optics, effects). Scoped to `arrow-core`'s and
+   `arrow-optics`'s `commonMain/kotlin` source sets (63 `.kt` files total),
+   using tool (3) `kotlin_sc` for compile-checking per explicit user
+   instruction instead of the Gradle-copy dance (tool (2)) — no Gradle
+   wrapper build or persistent dogfood copy needed. Config: `indent-size=2`
+   override (matches arrow's own `.editorconfig`, same convention as
+   okio/kotlinpoet). Three bugs found and fixed this session, all confirmed
+   as genuine `kotlin_sc`-rejected (compiler-invalid) output, not just
+   idempotency-diff artifacts — see RDD_KEY_171 (generic type-parameter
+   bound `:` corrupting angle-bracket tracking), RDD_KEY_172 (`val`/`var`
+   declaration wrongly collapsed into a braceless `if`), RDD_KEY_173
+   (annotation `@` sharing its line with a function signature rendering as
+   `@ Foo`). Fixtures `test/real_code_regressions_59`–`_61`. `make test`:
+   85/85 clean, zero regressions.
+   **Two bugs remain found but NOT fixed, deferred (same posture as
+   RDD_KEY_149's earlier `okio` deferral):**
+   - `MiscRule.enforceCallLineBreaking`'s width measurement for nested call
+     candidates (e.g. `leq(a, b)` inside an expression-bodied function tail)
+     uses the full original physical line's width even when an
+     enclosing/preceding candidate on the same line has already been
+     claimed for multi-line rewriting, causing spurious redundant wrapping.
+     Confirmed as a genuine `kotlin_sc` compile error (not just cosmetic)
+     in `arrow-core`'s `Either.kt` (a `buildList(10) { if (a is Left)
+     add(a.value) ... }` block with 10 sequential `if`/`add` statements gets
+     its statements fused with no separator between them, since Kotlin has
+     no mandatory `;`) — this is the ONLY remaining `kotlin_sc`-flagged
+     syntax error in the 63-file scope as of RDD_KEY_173. Also produces a
+     pure idempotency (non-compile-breaking) flap in `Comparison.kt`'s
+     `sort2`. A fix was attempted (threading a `lastClaimedEnd`/`floor`
+     value into `renderCallCandidate`) but caused 3 regressions in existing
+     fixtures (`_33`, `_46`, `_55`) because `enforceCallLineBreaking` runs
+     twice in `Formatter`'s pipeline and the floor logic incorrectly
+     suppressed a legitimately-needed wrap on the second pass — reverted via
+     `git checkout --`, not committed. Needs a more careful fix that
+     accounts for both pipeline passes before attempting again.
+   - `raise/context/RaiseContext.kt` shows a pure idempotency (non-compile-
+     breaking) wrapping-shape flap for `ensureNotNull`'s params between
+     round1 (collapsed/fits) and round2 (re-wrapped with column padding),
+     and `Iterable.kt` shows a `for`-loop closing-comment threshold flap
+     (round1: bare `}`; round2: `} // for`). Neither investigated/root-
+     caused yet.
+   Verification method: `kotlin_sc` run against a fresh round1 build of the
+   full 63-file scope (baseline: 0 errors on unmodified `orig/`; before this
+   session's fixes: 5 files with genuine syntax errors; after: 1 file,
+   `Either.kt`, the deferred `enforceCallLineBreaking` bug above).
 
 **When a test completes:** move/compact its entry from "Not started" (or its
 "In progress" detail) into "Finished dogfood / real-code testing", and add a

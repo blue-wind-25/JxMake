@@ -381,7 +381,9 @@ on the noted commits/fixtures)
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
 (16) MEDIUM `javaparser/javaparser` — see "In progress dogfood / real-code testing details"
-     below: 2 bugs fixed/committed, 4 more found and still open (not yet root-caused).
+     below: 4 bugs fixed/committed (all 4 originally-tracked bugs resolved); full-tree
+     re-verification found 26 more previously-uncatalogued idempotency diffs, not yet
+     root-caused -- still IN PROGRESS, not moved to Finished.
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
@@ -501,30 +503,69 @@ Verified: minimal repro (fails idempotency without the fix, passes with it), rea
 round1/round2 byte-identical (no regression on bug 4's fix), full `make test` 80/80. Fixture:
 `real_code_regressions_56_{inp,out}.java`.
 
-**Still OPEN — 2 of the original 4 bugs, not yet root-caused, full-tree idempotency not yet
-re-verified after the fixes above**, found via round1/round2 diff over the whole tree (42 files
-differed before the (a)/(b) fixes; re-checked a 10-file sample after rebuilding — 5 of those 10
-were clean, 5 still differed; the `TypeExtractor.java` and `CsmAttribute.java` bugs above were
-two of those 5):
-- `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
-  paren and its single-statement body (`reporter.report(...)`) is present after round1 but
-  missing after round2 -- only reproduces in situ (inside a lambda argument passed to
-  `TreeVisitorValidator(...)`, itself inside a field initializer, where the *original* source
-  has `if (cond) { stmt; }` with real braces that get collapsed to braceless during round1); a
-  minimal standalone repro of just the collapse (braced if inside a lambda arg, no surrounding
-  field context) did NOT reproduce, so the trigger needs the full field-declaration context to
-  isolate further.
-- `JavaParserJsonSerializer.java`: an enum constant list's indentation/alignment column differs
-  between round1 (10-space struct, "final String" left-padded to a wide column) and round2
-  (12-space, unpadded) -- looks like a `DeclarationAlignmentRule`/`ColumnGrid` state not
-  surviving a second pass over already-aligned output; root cause not yet identified.
+**Both previously-OPEN bugs now FIXED and committed this session** (fixtures
+`real_code_regressions_57`/`_58`):
 
-Neither of the two above has been minimally repro'd yet (only observed in the real files), so no
-fixtures exist for them. Compile-check (`javac`) against the full tree has NOT yet been run --
-next session should re-run the full round1/round2 diff first (to get an accurate current count
-now that the `TypeExtractor.java` and `CsmAttribute.java` fixes also landed), root-cause and fix
-either of the two above that is tractable, and only then run `javac`/`java_sc` and move this
-candidate from "In progress" to "Finished" in the usual style.
+- `Java1_0Validator.java`/`Java5Validator.java`: a space between a braceless `if(...)`'s closing
+  paren and its single-statement body (`reporter.report(...)`) was present after round1 but
+  missing after round2. Root-caused to `DeclarationAlignmentRule.isCStyleCastClose`: its guard
+  against misreading a call/subscript's `)` as a C-style cast close only excluded a preceding
+  IDENTIFIER/`)`/`]`, not control-flow keywords -- `if`/`while`/`for`/`switch`/`catch`/`do`/`else`
+  are KEYWORD tokens and slipped past, so `if(node instanceof RecordPatternExpr)` (an
+  IDENTIFIER/KEYWORD-only condition) got misclassified as a cast `(Type)`, suppressing the space
+  before the following statement. Only surfaced when the whole braceless-if-plus-call construct
+  was itself rendered as a declaration's initializer via `renderInitTokens` (e.g. a lambda
+  argument passed to a field initializer's constructor call) -- this is why a minimal repro
+  without the surrounding field-declaration context didn't reproduce it in the prior session.
+  Fixed by adding a `CONTROL_FLOW_KEYWORDS` exclusion set. Verified: minimal repro (`test/
+  real_code_regressions_57_{inp,out}.java`), both real `Java1_0Validator.java`/`Java5Validator.java`
+  round1/round2 byte-identical, `make test` 82/82.
+- `JavaParserJsonSerializer.java`: an enum constant list's indentation/alignment column differed
+  between round1 (10-space struct, `final String` left-padded to a wide column) and round2
+  (12-space, unpadded). Two compounding root causes: (a) `DeclarationAlignmentRule.groupDeclarations`
+  had no Java-enum-constant-list exclusion, so a constant list like `BEGIN_TOKEN("beginToken"),
+  END_TOKEN("endToken");` (same top-level shape as a C-style multi-declarator statement, just with
+  no leading type) could merge into the same alignment group as an unrelated adjacent field (the
+  enum's own trailing `final String propertyKey;`), grid-padding a bogus wide column into that
+  field only on a fresh parse -- a reformat of the already-separated output no longer merged the
+  groups, so the padding vanished (idempotency bug). (b) `JavaSpecificRule
+  .findEnumConstantListTerminators` derived its re-emitted indent from the first constant-list
+  member's own *current* line indent (`lineIndentAt`) rather than an absolute depth-based
+  recompute, so each pass's drift compounded onto the next (8 -> 10 -> 12 -> ...). Fixed by (a) a
+  new `isJavaEnumConstantListShape` helper isolating a Java enum-constant-list statement into its
+  own singleton group in `groupDeclarations` (same isolation pattern already used for
+  `isMemberFunctionForwardDecl`, preserving the constant list's own existing one-line-when-it-fits
+  collapsing behavior, unlike an earlier attempt that outright rejected it from `parseDeclaration`
+  and broke that collapsing -- caught by `make test` regressions on `test/java_core_inp.java`/
+  `test/java_combined_inp.java`, reverted in favor of this singleton-group approach), and (b)
+  deriving `findEnumConstantListTerminators`'s indent from the enum body's own stable `{`-line
+  indent plus one indent unit instead of the first member's own line indent. Verified: minimal
+  repro (`test/real_code_regressions_58_{inp,out}.java`), real `JavaParserJsonSerializer.java`
+  round1/round2 byte-identical, `make test` 82/82.
+
+**Full-tree re-verification run this session (after both fixes): NOT clean.** Re-ran round1/round2
+over the whole 1997-file tree (in-place-copy methodology, same as before) -- both previously-open
+bugs' own files (`Java1_0Validator.java`, `Java5Validator.java`, `JavaParserJsonSerializer.java`)
+are now byte-identical round1 vs round2 (confirmed via direct diff), but the full-tree diff still
+shows **26 other files differing**, none of which are the 3 files above -- these are additional,
+previously-uncatalogued idempotency bugs beyond the original 4 (the original "42 files differed"
+count was never fully individually catalogued, only sampled). Notable pattern: several of the 26
+are literal duplicate copies of the same source files vendored twice under
+`javaparser-symbol-solver-testing/src/test/test_sourcecode/{javaparser_new_src,javaparser_src/
+proper_source}/.../{MethodDeclaration,TypeDeclaration,CloneVisitor,ModifierVisitorAdapter}.java`
+etc. -- since the two copies differ from each other in small ways (different javaparser vintage),
+this doesn't necessarily mean 26 independent bugs, quite possibly fewer distinct root causes
+hitting a shared code shape across duplicated files. Full file list captured in this session's
+scratch dir (`fulltree_r1`/`fulltree_r2` under the scratchpad) but not preserved long-term; a
+future session should re-run the round1/round2 diff fresh rather than rely on this note. Since the
+full-tree diff is not clean, per the task's own criterion this candidate **stays "In progress",
+not "Finished"** -- `javac` compile-check was NOT run (gated on a clean idempotency diff first,
+per the standard real-code-testing methodology order). Next session should either (a) treat this
+as good enough given the two originally-tracked bugs are resolved and move to Finished with a
+"known residual idempotency gaps, tracked separately" caveat if the user agrees that's acceptable,
+or (b) continue root-causing the 26 remaining files (sample a few representative ones first, e.g.
+one from each vendored-copy pair, since they likely collapse to a handful of distinct bugs) before
+re-attempting the full clean-tree + `javac` verification and moving to Finished.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps.)*
 

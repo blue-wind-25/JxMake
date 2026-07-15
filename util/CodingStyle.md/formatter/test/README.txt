@@ -793,6 +793,59 @@ Real-code regressions:
                                             byte-identical (no regression on bug 4's fix), full
                                             `make test` 79/79.
 
+  real_code_regressions_57_inp/out.java  -- Java, javaparser/javaparser real-code testing
+                                            (continued): `DeclarationAlignmentRule.isCStyleCastClose`
+                                            misclassified a braceless control-flow condition's own
+                                            closing paren (`if(node instanceof RecordPatternExpr)`)
+                                            as a C-style cast close (`(Type)expr`, which STYLE.md
+                                            renders with no space before the value) because its
+                                            guard only excluded IDENTIFIER/`)`/`]` immediately
+                                            before the matching `(`, not control-flow keywords --
+                                            `if`/`while`/`for`/`switch`/`catch`/`do`/`else` are
+                                            KEYWORD tokens and slipped past. Only surfaced when the
+                                            whole braceless-if-plus-call construct was itself
+                                            rendered as a declaration's initializer via
+                                            `renderInitTokens` (e.g. inside a lambda argument
+                                            passed to a field initializer's constructor call),
+                                            suppressing the space that must separate the closing
+                                            paren from the following statement. Fixed by adding a
+                                            `CONTROL_FLOW_KEYWORDS` exclusion set to
+                                            `isCStyleCastClose`. Found in `Java1_0Validator.java`/
+                                            `Java5Validator.java`. Verified: minimal repro, both
+                                            real files round1/round2 byte-identical, full
+                                            `make test`.
+
+  real_code_regressions_58_inp/out.java  -- Java, javaparser/javaparser real-code testing
+                                            (continued): a Java enum constant list
+                                            (`BEGIN_TOKEN("beginToken"), END_TOKEN("endToken");`)
+                                            has the same top-level shape as a comma-separated
+                                            C-style multi-declarator statement that
+                                            `DeclarationAlignmentRule.parseDeclaration` handles
+                                            generically, but with no leading type. Left ungrouped
+                                            off from neighboring declarations, it could merge into
+                                            the same alignment group as an unrelated adjacent field
+                                            (the enum's own trailing `final String propertyKey;`),
+                                            grid-padding a bogus wide column into that field only
+                                            on a fresh parse -- a reformat of the already-separated
+                                            output no longer merged the groups, so the padding
+                                            vanished and the surrounding indent also crept one level
+                                            deeper each pass (8 -> 10 -> 12 -> ...) because
+                                            `JavaSpecificRule.findEnumConstantListTerminators`
+                                            derived its re-emitted indent from the first member's
+                                            own *current* line indent (`lineIndentAt`) instead of an
+                                            absolute depth-based recompute, compounding drift left
+                                            by the previous pass. Fixed by (a) isolating a Java
+                                            enum-constant-list statement into its own singleton
+                                            group in `DeclarationAlignmentRule.groupDeclarations`
+                                            (new `isJavaEnumConstantListShape` helper), and (b)
+                                            deriving `findEnumConstantListTerminators`'s indent from
+                                            the enum body's own stable `{`-line indent plus one
+                                            indent unit instead of the first member's own
+                                            (potentially drifted) line indent. Found in
+                                            `JavaParserJsonSerializer.java`. Verified: minimal
+                                            repro, real file round1/round2 byte-identical, full
+                                            `make test`.
+
 How Tests Are Run
 -----------------
 

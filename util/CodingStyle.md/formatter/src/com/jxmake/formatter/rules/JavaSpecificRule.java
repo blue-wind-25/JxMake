@@ -437,7 +437,14 @@ public class JavaSpecificRule {
             if (firstMember < 0 || firstMember >= closeBraceIdx) {
                 continue;
             }
-            final String indent = lineIndentAt(tokens, firstMember);
+            // Derived from the enum body's own opening-brace line indent plus one indent unit,
+            // NOT from `lineIndentAt(tokens, firstMember)`'s own current line: on a reformat, the
+            // first member's line indent already reflects whatever this same pass (or a later
+            // alignment pass) stamped onto it last round, so reusing it verbatim compounds by one
+            // level per pass (8 -> 10 -> 12 -> ...) -- an idempotency bug. The enum body's own
+            // `{` line indent is stable across passes (it comes from brace-depth-based reindent,
+            // not append-only drift), so anchoring to it plus a single indent unit is absolute.
+            final String indent = lineIndentAt(tokens, i) + defaultIndentUnit;
             int depth = 0;
             for (int p = i + 1; p < closeBraceIdx; p++) {
                 final Token t = tokens.get(p);

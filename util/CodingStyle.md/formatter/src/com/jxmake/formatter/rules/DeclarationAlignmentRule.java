@@ -41,6 +41,11 @@ public class DeclarationAlignmentRule {
     private static final Set<String> TYPE_KEYWORDS_JAVA = setOf(
             "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "var");
 
+    /** Control-flow keywords whose own condition/argument parens must never be mistaken for a
+     *  C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site. */
+    private static final Set<String> CONTROL_FLOW_KEYWORDS = setOf(
+            "if", "while", "for", "switch", "catch", "do", "else");
+
     private final Lang lang;
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
@@ -142,7 +147,9 @@ public class DeclarationAlignmentRule {
             // a blank line: `render(group)` fully regenerates the group's whole span, so a
             // comment surviving only in the raw leading gap of a mid-group declaration would be
             // silently discarded otherwise.
-            final boolean breakBefore = blankBefore || hasCommentBefore(stmt) || isMemberFunctionForwardDecl(decl);
+            final boolean isEnumConstantList = lang.isJava && isJavaEnumConstantListShape(stmt);
+            final boolean breakBefore = blankBefore || hasCommentBefore(stmt) || isMemberFunctionForwardDecl(decl)
+                    || isEnumConstantList;
             if (breakBefore && !current.isEmpty()) {
                 groups.add(current);
                 current = new ArrayList<>();
@@ -155,7 +162,19 @@ public class DeclarationAlignmentRule {
             // qualifier (`V get(...) const;`) only ever appears on a member function, never a
             // free one. Isolate such a declaration into its own singleton group so it renders
             // solo (whitespace-normalized, not grid-padded against neighboring declarations).
-            if (isMemberFunctionForwardDecl(decl)) {
+            //
+            // A Java enum constant list (`BEGIN_TOKEN("beginToken"), END_TOKEN("endToken");`)
+            // gets the same singleton-group isolation for a different reason: it parses with the
+            // same top-level shape as a comma-separated C-style multi-declarator statement
+            // (`Type name(args), name2(args2);`), but with no leading type -- each comma segment
+            // starts directly with the constant's own NAME token. Left ungrouped-off, it could
+            // merge into the alignment group of an unrelated adjacent field (e.g. the enum's own
+            // trailing `final String propertyKey;`), grid-padding a bogus wide column into that
+            // field only on a fresh parse -- a reformat of already-separated output no longer
+            // merges the groups, so the padding vanishes on the next pass (idempotency bug).
+            // Isolating it here (rather than rejecting it from `parseDeclaration` outright) keeps
+            // its own existing one-line-when-it-fits collapsing/rendering behavior intact.
+            if (isMemberFunctionForwardDecl(decl) || isEnumConstantList) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
@@ -532,6 +551,20 @@ public class DeclarationAlignmentRule {
                 || isPunct(before, ")") || isPunct(before, "]"))) {
             return false; // function call / subscript, not a cast
         }
+        // A control-flow keyword's own condition parens (`if(node instanceof X)`,
+        // `while(cond)`, `for(...)`, `switch(...)`, `catch(...)`) has the exact same shape this
+        // method looks for -- IDENTIFIER/KEYWORD-only content, and `if`/`while`/etc. are
+        // KEYWORD tokens, not IDENTIFIER/`)`/`]`, so they slip past the check above. Left
+        // unguarded, a braceless `if(cond)stmt` collapsed onto one line by
+        // `BlockStructureRule` gets its condition's closing paren misclassified as a C-style
+        // cast close, suppressing the space that must separate it from the following
+        // statement (`if(node instanceof RecordPatternExpr)reporter.report(...)` instead of
+        // `... RecordPatternExpr) reporter.report(...)`) -- only when this whole construct is
+        // itself rendered as a declaration's initializer via `renderInitTokens`.
+        if (before != null && before.type == TokenType.KEYWORD
+                && CONTROL_FLOW_KEYWORDS.contains(before.text)) {
+            return false;
+        }
         for (int k = openIdx + 1; k < closeIdx; k++) {
             final Token t = tokens.get(k);
             if (t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD
@@ -889,6 +922,51 @@ public class DeclarationAlignmentRule {
             }
         }
         return raw;
+    }
+
+    /** True iff {@code stmt} (a whole raw statement, trailing {@code ;} included) is literally
+     *  one or more comma-separated {@code IDENT} or {@code IDENT ( ... )} segments followed by
+     *  {@code ;} and nothing else -- the shape of a Java enum constant list. See the call site in
+     *  {@link #groupDeclarations} for why this must be isolated into its own singleton group. */
+    private boolean isJavaEnumConstantListShape(final List<Token> stmt) {
+        final List<Token> sig = significantOnly(stmt);
+        if (sig.isEmpty() || !isPunct(sig.get(sig.size() - 1), ";")) {
+            return false;
+        }
+        final List<Token> body = sig.subList(0, sig.size() - 1);
+        if (body.isEmpty()) {
+            return false;
+        }
+        int j = 0;
+        while (j < body.size()) {
+            if (body.get(j).type != TokenType.IDENTIFIER) {
+                return false;
+            }
+            j++;
+            if (j < body.size() && isPunct(body.get(j), "(")) {
+                int depth = 1;
+                j++;
+                while (j < body.size() && depth > 0) {
+                    if (isPunct(body.get(j), "(")) {
+                        depth++;
+                    } else if (isPunct(body.get(j), ")")) {
+                        depth--;
+                    }
+                    j++;
+                }
+                if (depth != 0) {
+                    return false;
+                }
+            }
+            if (j == body.size()) {
+                return true;
+            }
+            if (!isPunct(body.get(j), ",")) {
+                return false;
+            }
+            j++;
+        }
+        return true;
     }
 
     private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore) {

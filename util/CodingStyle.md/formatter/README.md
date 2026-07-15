@@ -362,6 +362,27 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ---
 
+## Known Limitations
+
+- **Non-idempotent switch-case re-indent on internally-inconsistent generated source.**
+  `SwitchRule.applyNonInlineCaseIndent` shifts every line of a `case` body by one delta
+  computed from the body's first line, preserving relative offsets — this assumes the body's
+  original indentation was internally consistent. On JavaCC/ANTLR-style generated sources
+  whose *own* output has inconsistent per-line indentation within a single `case` body (a
+  generator quirk, not something realistic hand-written code exhibits), one reformat pass can
+  land a line one indent level off from its true target, and a second pass then converges it to
+  a different value than either round1 or its original source — i.e. two formatting passes are
+  not guaranteed to produce byte-identical output on such input. Observed on exactly one file in
+  the `javaparser/javaparser` real-code-testing candidate (`ASTParser.java`, its JavaCC-generated
+  parser) out of thousands of real-world files tested across all candidates; no other file in
+  that tree or any other tested candidate exhibits it. A real fix would need
+  `applyNonInlineCaseIndent` to derive each line's target from its own brace-nesting depth
+  rather than one relative delta from the first line — a nontrivial rework with regression risk
+  to existing switch-formatting behavior, not planned unless a broader pattern of real-world
+  impact emerges.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)

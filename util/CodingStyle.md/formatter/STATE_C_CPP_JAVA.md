@@ -380,10 +380,20 @@ on the noted commits/fixtures)
      audit below (no code change); `applyArrowAlignment` joining arrow-case with no
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
-(16) MEDIUM `javaparser/javaparser` — see "In progress dogfood / real-code testing details"
-     below: 4 bugs fixed/committed (all 4 originally-tracked bugs resolved); full-tree
-     re-verification found 26 more previously-uncatalogued idempotency diffs, not yet
-     root-caused -- still IN PROGRESS, not moved to Finished.
+(16) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — 6 idempotency bugs
+     found and fixed across sessions: braceless-if-as-getter/setter misparse + trailing-period
+     whitespace (fixture `_54`); blank-line-before-`}` force-reindent newline-count loss
+     (`_55`); switch-case call-wrapping pass-ordering (`_56`); control-flow-condition
+     misclassified as C-style cast, dropping a space (`_57`); Java enum-constant-list
+     alignment-group/indent drift (`_58`). One residual gap accepted as a documented known
+     limitation rather than fixed: `ASTParser.java` (JavaCC-generated parser) has one
+     switch-case body whose *own* source indentation is internally inconsistent (a generator
+     quirk), causing one non-idempotent re-indent; root-caused via minimal repro but not fixed
+     (nontrivial `SwitchRule.applyNonInlineCaseIndent` rework needed, real regression risk, 1
+     file out of 1997 affected) — see "Known Gaps — Open" below and `README.md`'s "Known
+     Limitations" section. Full-tree round1/round2 clean except that one file; `javac`
+     compile-check not run (gated on fully-clean idempotency, which this candidate doesn't
+     reach) — accepted as Finished with this documented caveat per user decision.
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
@@ -446,9 +456,9 @@ copy to `.hpp` first if really C++.
 
 **In progress dogfood / real-code testing details**
 
-(15b) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — IN PROGRESS,
-resumed session found 2 more bugs beyond what's fixed so far and left 3-4 open (see below).
-Cloned to a scratch checkout under `/tmp/claude-1000/.../scratchpad/javaparser`. Round1/round2
+(15b) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — FINISHED (see summary
+in the "Finished dogfood / real-code testing" list above, entry (16)). Full narrative below kept
+for history. Cloned to a scratch checkout under `/tmp/claude-1000/.../scratchpad/javaparser`. Round1/round2
 methodology used full in-place-copy formatting (NOT `--out DIR`, which flattens all files to
 basenames in one flat directory and silently collides same-named files across modules — 1997
 files became 1558 unique basenames; confirmed via file-count drop, not itself a formatter bug,
@@ -615,14 +625,9 @@ inconsistent leading-whitespace columns in the raw source, one of which is a non
 temporary `System.err` prints (removed; `make test` re-confirmed 82/82 forward + 82/82 idempotency
 after reverting, so no source changes landed this session).
 
-Since the full-tree diff is not clean (1 file), per the task's own criterion this candidate
-**stays "In progress", not "Finished"** -- `javac` compile-check was NOT run (gated on a clean
-idempotency diff first, per the standard real-code-testing methodology order). Next session should
-either (a) treat this as good enough given only 1 of 1997 files has a known, root-caused,
-low-severity residual gap and move to Finished with that caveat if the user agrees that's
-acceptable, or (b) attempt the `applyNonInlineCaseIndent` per-line-absolute-target rework described
-above (higher effort, real regression risk) before re-attempting the full clean-tree + `javac`
-verification and moving to Finished.
+**Accepted as a known gap (user decision) — candidate moved to Finished below with this caveat.**
+See "Known Gaps — Open" for the permanent record of the `ASTParser.java` root cause and
+`README.md`'s new "Known Limitations" section for the user-facing summary.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps.)*
 
@@ -661,6 +666,30 @@ fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` i
 **Step 2 — AI integration: NOT FEASIBLE (deferred) — see `STATE_NEXT_AI.md`.**
 
 ---
+
+## Known Gaps — Open
+
+- **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
+  (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`
+  real-code-testing candidate (15b/16 above): `ASTParser.java`, a JavaCC-generated parser
+  (~5500 lines), has one `case LABEL:{ ... }` body whose own source indentation is
+  internally inconsistent across statements (a generator quirk — e.g. `jj_consume_token(...)`
+  at column 12, `isStatic = true;` at column 0, in the same case body). Root cause, confirmed
+  via temporary debug prints (reverted, not committed): `ScopePipeline.normalizeIndent` rounds
+  a non-multiple-of-`indentWidth` raw indent up to the nearest multiple for statement kinds it
+  explicitly reindents, while `SwitchRule.applyNonInlineCaseIndent`'s `shiftLines` applies one
+  relative delta (computed from the case body's first line only) to every line in the body —
+  correct when the body's original indentation is internally consistent, but on this
+  pathological input the two passes converge to a different value on round2 than round1
+  produced, so round1 != round2 for this one statement. Neither round's value is actually
+  STYLE.md-correct (both differ from the true target, which matches the statement's `call`/
+  `break` siblings). Real fix: rework `applyNonInlineCaseIndent`/`shiftLines` to derive each
+  line's absolute target from its own brace-nesting depth rather than one delta from a single
+  reference line — nontrivial, real regression risk to switch-formatting behavior covered by
+  the current passing test suite, for a shape that doesn't occur in any other file across every
+  candidate tested so far (1 file out of 1997 in this candidate; zero elsewhere). Left open;
+  revisit only if a broader real-world pattern of impact emerges. Documented for users in
+  `README.md`'s "Known Limitations" section. No fixture (nothing was fixed).
 
 ## Known Gaps — Fixed
 

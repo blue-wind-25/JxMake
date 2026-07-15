@@ -38,7 +38,7 @@ object — the colon never sticks directly to the key:
     displayName : "Widget",
     enabled     : true,
     // a comment breaks the group
-    tags        : ["a", "b"],
+    tags : ["a", "b"],
 }
 ```
 
@@ -164,7 +164,7 @@ directly to the property name:
     align-items : center;
     color       : #333;
     /* a comment breaks the group */
-    margin      : 0 auto;
+    margin : 0 auto;
 }
 ```
 

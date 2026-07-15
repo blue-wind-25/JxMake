@@ -23,7 +23,7 @@ call or nested bracket goes loose, same as any other `[]`:
 
 ```cpp
 template<typename... T>
-using Nth = T...[N];              // constant index — tight
+using Nth = T...[N];                     // constant index — tight
 
 template<typename... T>
 using Selected = T...[computeIndex()];   // call inside index — loose (per §3.1)
@@ -109,9 +109,9 @@ way STYLE_CPP20.md's constructs were (JAR cross-check). Treat as draft until tha
 validation pass happens.
 
 ```cpp
-constexpr auto refl   = ^^SomeType;              // reflection operator
-constexpr auto splice = [:refl:];                // splice brackets — tight, bare value
-constexpr auto computed = [: computeRefl(x) :];  // splice brackets — loose, contains a call
+constexpr auto refl     = ^^SomeType;             // reflection operator
+constexpr auto splice   = [:refl:];               // splice brackets — tight, bare value
+constexpr auto computed = [: computeRefl(x) :];   // splice brackets — loose, contains a call
 ```
 
 - `^^` binds tight to the operand, no space, same as C++'s existing unary operators

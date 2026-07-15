@@ -272,14 +272,13 @@ choice for assignment right-hand sides — the formatter doesn't rewrite one sty
 the other, only aligns to the appropriate column for whichever was used:
 
 ```typescript
-type X =
-    | A
-    | B
-    | C;
-
-type Y = A |
+type X = A |
          B |
          C;
+
+type Y = A
+       | B
+       | C;
 ```
 
 Variable/property declarations with a type annotation align the same way STYLE.md §5
@@ -318,9 +317,9 @@ whole group, same as Java's `private static final int` vs. `private int` grid:
 
 ```typescript
 class Config {
-    private static readonly DEFAULT: string = "en";
-    private                 locale:  string;
-    protected                count:  number;
+    private static readonly DEFAULT : string = "en";
+    private                 locale  : string;
+    protected               count   : number;
 }
 ```
 
@@ -380,14 +379,14 @@ member/property lists inside an `interface` or object-shaped `type` alias align 
 
 ```typescript
 interface Props {
-    id:       string;
-    label:    string;
-    onSelect: (id: string) => void;
+    id       : string;
+    label    : string;
+    onSelect : (id: string) => void;
 }
 
 type Point = {
-    x: number;
-    y: number;
+    x : number;
+    y : number;
 };
 ```
 
@@ -417,7 +416,7 @@ Configurable, mirroring `java-import-*` shape:
 ```
 js-import-order       = builtin, third-party, local   # group order
 js-import-sort        = on                            # alphabetical within group
-js-import-blank-lines = 1                              # blank lines between groups
+js-import-blank-lines = 1                             # blank lines between groups
 ```
 
 **Local import detection:** an import path is "local" if it's relative (starts with

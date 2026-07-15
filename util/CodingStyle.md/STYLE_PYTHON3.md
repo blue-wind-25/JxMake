@@ -28,10 +28,10 @@ has no bucket for.
 
 ```python
 if(a and b):            # atoms, simple ops — tight
-if(isReady(x)):          # NOT this — see below, actually loose
-if( isReady(x) ):        # contains a call — loose
-a[10]                     # constant index — tight
-a[ callSomething(x) ]    # call inside index — loose
+if(isReady(x)):         # NOT this — see below, actually loose
+if( isReady(x) ):       # contains a call — loose
+a[10]                   # constant index — tight
+a[ callSomething(x) ]   # call inside index — loose
 ```
 
 ### 1.2 Comprehensions
@@ -42,10 +42,10 @@ the enclosing bracket is always loose, regardless of how simple the expression o
 filter is, since a comprehension is never a bare atom/simple-op case:
 
 ```python
-squares    = [ x * x for x in range(10) ]
-evens      = [ x for x in range(10) if x % 2 == 0 ]
-pairs      = { (x, y) for x in range(3) for y in range(3) }
-lookup     = { k: v for k, v in items.items() }
+squares = [ x * x for x in range(10) ]
+evens   = [ x for x in range(10) if x % 2 == 0 ]
+pairs   = { (x, y) for x in range(3) for y in range(3) }
+lookup  = { k: v for k, v in items.items() }
 ```
 
 A nested comprehension (comprehension inside a comprehension) stays loose at every
@@ -58,10 +58,10 @@ looseness — it is punctuation between slice parts, not an operator, and is nev
 padded regardless of whether the enclosing bracket is tight or loose:
 
 ```python
-a[1:2:3]                 # simple slice — tight
-a[::2]                    # simple slice — tight
-a[i+1:j-1]                # simple ops on either side of : — still tight
-a[ i+1:(j*k)-1 ]          # nested () triggers outer looseness — colon stays tight
+a[1:2:3]           # simple slice — tight
+a[::2]             # simple slice — tight
+a[i+1:j-1]         # simple ops on either side of : — still tight
+a[ i+1:(j*k)-1 ]   # nested () triggers outer looseness — colon stays tight
 ```
 
 The bracket's tight/loose decision is made the same way as any other `[]` content
@@ -79,7 +79,7 @@ applies to, whether in a call, a definition, or a literal:
 def merge(*args, **kwargs): ...
 result = combine(*first, *second)
 merged = [*a, *b, *c]
-config  = {**defaults, **overrides}
+config = {**defaults, **overrides}
 ```
 
 Presence of `*`/`**` unpacking inside `[]`/`{}` does not by itself force looseness —
@@ -115,12 +115,12 @@ breaks the group; an augmented-assignment operator (`+=`, `-=`, etc.) aligns in 
 same group as `=`, same as §6 already does for C-family languages.
 
 ```python
-flags      = 0x01
-flags     |= 0x02
-timeout    = 100
-retries    = 3
+flags    = 0x01
+flags   |= 0x02
+timeout  = 100
+retries  = 3
 # a comment breaks the group
-name       = "worker"
+name = "worker"
 ```
 
 Multi-line right-hand sides follow the same continuation-alignment target as
@@ -194,7 +194,7 @@ import sys
 if platform.system() == "Windows":
     import winreg          # own group — sorted alone, not merged with anything outside
 
-import json                 # new group — starts fresh, does not merge with the top pair
+import json                # new group — starts fresh, does not merge with the top pair
 import re
 ```
 
@@ -240,8 +240,8 @@ def get_user(user_id: int) -> User:
 
 @dataclass
 class Point:
-    x: int
-    y: int
+    x : int
+    y : int
 ```
 
 **Overflow:** since a decorator is already on its own line, there's no separate
@@ -302,9 +302,9 @@ preserved exactly as written.
 
 ```python
 f"{value:.2f}"        # ".2f" is a literal spec — never touched
-f"{value !r}"          # conversion marker — never touched
-f"{x + 1:>{width}}"    # expression spacing applies to "x + 1";
-                        # ">{width}" (including its own nested field) stays opaque
+f"{value !r}"         # conversion marker — never touched
+f"{x + 1:>{width}}"   # expression spacing applies to "x + 1";
+                      # ">{width}" (including its own nested field) stays opaque
 ```
 
 ---
@@ -321,9 +321,10 @@ the broken-out parameter group, same alignment shape as §2's assignment alignme
 
 ```python
 def process(
-    x:    int,
-    y:    "List[int]",
-    name: str = "default",
+    x    : int,
+    y    : "List[int]",
+    name : str = "default",
+    desc : str = "default"
 ) -> Optional[str]:
     ...
 ```

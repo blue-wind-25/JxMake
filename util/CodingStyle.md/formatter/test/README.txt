@@ -685,131 +685,72 @@ Real-code regressions:
 
   real_code_regressions_53_inp/out.cpp   -- C++, microsoft/proxy: 3 bugs in
                                             `CppSpecificRule.enforceRequiresClausePlacement`. (a)
-                                            baseIndent/fit-check were derived from the trailing
-                                            `requires` clause's preceding `)` own physical line --
-                                            when a multi-line parameter list's `)` sits on a
-                                            source continuation-alignment column (or, after a
-                                            reformat, alone on a short dedented line), that made
-                                            the own-line-vs-inline decision and indent width
-                                            unstable across passes (idempotency bug: round2
-                                            re-collapsed an own-line `requires` back onto `)`'s
-                                            line, or indented it to a bogus alignment column).
-                                            Fixed by deriving both from the parameter list's own
-                                            *opening* paren's line instead, unwinding through any
-                                            chained trailing specifier (e.g. `noexcept(...)`)
-                                            between the parameter list and `requires` to reach the
-                                            real declarator paren (b). (c) A preprocessor directive
-                                            (`#if`/`#else`/`#endif`) inside the clause's own
-                                            constraint expression was being spliced into the
-                                            middle of a collapsed rendered line by
-                                            `collapseToOneLine`, producing invalid C++ (a directive
-                                            is only recognized at the start of a physical line) --
-                                            fixed by leaving any clause containing a `PREPROCESSOR`
-                                            token completely untouched, same posture as the
-                                            existing comment/frozen-span checks. Verified with
-                                            `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (same
-                                            0-error baseline on `include/proxy/{,v4/}proxy.h`
-                                            before and after) and full round1/round2 idempotency
-                                            over the whole `microsoft/proxy` tree; full `make test`
-                                            (76/76, no regressions).
+                                            baseIndent/fit-check anchored on the trailing
+                                            `requires` clause's preceding `)`, unstable across
+                                            passes when that `)` sits on a continuation-alignment
+                                            or dedented line; fixed by deriving from the parameter
+                                            list's own opening paren instead, unwinding any chained
+                                            trailing specifier (e.g. `noexcept(...)`). (b)/(c) a
+                                            preprocessor directive inside the clause's constraint
+                                            expression got spliced mid-line by `collapseToOneLine`,
+                                            producing invalid C++; fixed by leaving any clause
+                                            containing a `PREPROCESSOR` token untouched. Verified
+                                            with `clang++ -std=c++23 -fsyntax-only` and full
+                                            round1/round2 idempotency over `microsoft/proxy`.
 
   real_code_regressions_54_inp/out.java  -- Java, javaparser/javaparser real-code testing: 2
                                             bugs. (a) `GetterSetterRule.parseOneLinerMember`
-                                            misparsed a braceless single-statement `if (cond)
-                                            throw new X(...)`/`if (cond) return ...` as a
-                                            one-liner getter/setter-style member -- the scan for
-                                            `identifier(` before the statement's own trailing
-                                            call landed on the exception/call name, treating the
-                                            `if (...) ... throw new` prefix as a bogus "return
-                                            type" and grid-aligning its padding against a sibling
-                                            one-liner, growing unboundedly across passes (same
-                                            misparse class as the existing `case`/`default`
-                                            guard). Fixed by rejecting any candidate whose
-                                            "return type" span contains a control-flow/statement
-                                            keyword (`if`/`while`/`for`/`do`/`switch`/`try`/
-                                            `catch`/`finally`/`throw`/`return`/`synchronized`).
+                                            misparsed a braceless `if (cond) throw new X(...)`/
+                                            `if (cond) return ...` as a one-liner getter/setter,
+                                            grid-aligning bogus padding that grew unboundedly
+                                            across passes; fixed by rejecting any candidate whose
+                                            "return type" span contains a control-flow keyword.
                                             (b) `MiscRule.stripSoleTrailingPeriod`/
                                             `stripSoleTrailingPeriodAcrossLines` stripped a
-                                            comment's sole trailing `.` but left the whitespace
-                                            that had separated it from the preceding word
-                                            (`"...type ."` -> `"...type "`), a stray trailing
-                                            space only caught by an unrelated trim on the next
-                                            pass -- idempotency bug. Fixed by trimming trailing
-                                            whitespace off the result in both methods. Verified
+                                            comment's sole trailing `.` but left the preceding
+                                            whitespace, a stray-space idempotency bug; fixed by
+                                            trimming trailing whitespace in both methods. Verified
                                             with minimal repros and full `make test`.
 
   real_code_regressions_55_inp/out.java  -- Java, javaparser/javaparser real-code testing
                                             (continued): `ScopePipeline.processScope`'s
-                                            force-reindent of a span's trailing gap (right before
-                                            its closing `}`) always collapsed the gap down to a
-                                            single newline once `effectiveSpanIndent` was
-                                            text-derivable, discarding any deliberate blank
-                                            source line(s) that had sat there. `findParentIndent`
-                                            only returns a text-derivable indent for a statement
-                                            anchored on a bare `else`/`catch`/`finally` once that
-                                            keyword sits on its OWN physical line (Allman) --
-                                            returns `null` (no force-reindent) while it still
-                                            shares a line with the preceding `}` (K&R). A fresh
-                                            format sees K&R (`null`, gap left untouched, blank
-                                            line survives); every format after the first sees the
-                                            now-Allman `else` (real indent, force-reindent fires,
-                                            blank line dropped) -- an idempotency bug (round1 !=
-                                            round2), found in `TypeExtractor.java` (both the
-                                            `javaparser-symbol-solver-core` and
-                                            `javaparser-symbol-solver-testing` copies). Fixed by
+                                            force-reindent of a span's trailing gap collapsed a
+                                            deliberate blank source line once `findParentIndent`
+                                            started returning a real indent for a chained
+                                            `else`/`catch`/`finally` that moved to its own line
+                                            (Allman) -- an idempotency bug (round1 K&R vs. round2
+                                            Allman), found in `TypeExtractor.java`. Fixed by
                                             counting the trailing whitespace run's own newline
                                             count (`trailingRunNewlineCount`) and replaying that
-                                            many newlines instead of always forcing exactly one,
-                                            so any blank line(s) already present survive the
-                                            force-reindent unchanged. Verified: minimal repro,
-                                            both real `TypeExtractor.java` copies round1/round2
-                                            byte-identical, full `make test` 78/78.
+                                            many newlines instead of always forcing one. Verified:
+                                            minimal repro, both real `TypeExtractor.java` copies
+                                            round1/round2 byte-identical, full `make test` 78/78.
 
   real_code_regressions_56_inp/out.java  -- Java, javaparser/javaparser real-code testing
                                             (continued): `Formatter.formatOne`'s Phase 1 ran
-                                            `MiscRule.enforceCallLineBreaking`'s "does this call fit
-                                            in `lineLengthLimit`" measurement BEFORE
-                                            `SwitchRule.formatNonInlineSwitches` reindents
-                                            switch-case bodies one level deeper. A call inside a
-                                            `switch`-`case` block sitting right at the boundary
-                                            measured "fits" against the pre-reindent (shallower)
-                                            column and was left on one line, but the case body's
-                                            real, one-level-deeper column pushed the same rendered
-                                            line past the limit with no further re-check -- stable
-                                            only on a second pass, once the input already has the
-                                            deeper indent baked in from `formatNonInlineSwitches`'s
-                                            first run. Found in `CsmAttribute.java`'s
-                                            `getTokenType`, where `if (...tokenImage[i].equals(
-                                            expectedImage)) return i;` stayed one line on round1
-                                            but got wrapped across 3 lines on round2. Fixed by
+                                            `MiscRule.enforceCallLineBreaking`'s fit measurement
+                                            BEFORE `SwitchRule.formatNonInlineSwitches` reindents
+                                            switch-case bodies one level deeper, so a boundary call
+                                            measured "fits" against the pre-reindent column and
+                                            stayed unwrapped -- stable only on a second pass. Found
+                                            in `CsmAttribute.java`'s `getTokenType`. Fixed by
                                             re-running `enforceCallLineBreaking` again right after
-                                            `formatNonInlineSwitches` (idempotent: a no-op on
-                                            anything already correctly fitting or wrapped), so the
-                                            fits-vs-wraps decision is re-derived against the
-                                            now-final column. Verified: minimal repro (fails
-                                            idempotency without the fix, passes with it), real
-                                            `CsmAttribute.java` round1/round2 byte-identical, both
-                                            `TypeExtractor.java` copies still round1/round2
-                                            byte-identical (no regression on bug 4's fix), full
-                                            `make test` 79/79.
+                                            `formatNonInlineSwitches` (idempotent no-op otherwise).
+                                            Verified: minimal repro, real `CsmAttribute.java`
+                                            round1/round2 byte-identical, both `TypeExtractor.java`
+                                            copies still byte-identical (no regression on bug 4's
+                                            fix), full `make test` 79/79.
 
   real_code_regressions_57_inp/out.java  -- Java, javaparser/javaparser real-code testing
                                             (continued): `DeclarationAlignmentRule.isCStyleCastClose`
                                             misclassified a braceless control-flow condition's own
                                             closing paren (`if(node instanceof RecordPatternExpr)`)
-                                            as a C-style cast close (`(Type)expr`, which STYLE.md
-                                            renders with no space before the value) because its
-                                            guard only excluded IDENTIFIER/`)`/`]` immediately
-                                            before the matching `(`, not control-flow keywords --
-                                            `if`/`while`/`for`/`switch`/`catch`/`do`/`else` are
-                                            KEYWORD tokens and slipped past. Only surfaced when the
-                                            whole braceless-if-plus-call construct was itself
-                                            rendered as a declaration's initializer via
-                                            `renderInitTokens` (e.g. inside a lambda argument
-                                            passed to a field initializer's constructor call),
-                                            suppressing the space that must separate the closing
-                                            paren from the following statement. Fixed by adding a
-                                            `CONTROL_FLOW_KEYWORDS` exclusion set to
+                                            as a C-style cast close, because its guard excluded
+                                            IDENTIFIER/`)`/`]` before the matching `(` but not
+                                            control-flow KEYWORD tokens, suppressing a required
+                                            space when the construct was rendered as a
+                                            declaration's initializer via `renderInitTokens`. Fixed
+                                            by adding a `CONTROL_FLOW_KEYWORDS` exclusion set to
                                             `isCStyleCastClose`. Found in `Java1_0Validator.java`/
                                             `Java5Validator.java`. Verified: minimal repro, both
                                             real files round1/round2 byte-identical, full
@@ -818,33 +759,23 @@ Real-code regressions:
   real_code_regressions_58_inp/out.java  -- Java, javaparser/javaparser real-code testing
                                             (continued): a Java enum constant list
                                             (`BEGIN_TOKEN("beginToken"), END_TOKEN("endToken");`)
-                                            has the same top-level shape as a comma-separated
-                                            C-style multi-declarator statement that
-                                            `DeclarationAlignmentRule.parseDeclaration` handles
-                                            generically, but with no leading type. Left ungrouped
-                                            off from neighboring declarations, it could merge into
-                                            the same alignment group as an unrelated adjacent field
-                                            (the enum's own trailing `final String propertyKey;`),
-                                            grid-padding a bogus wide column into that field only
-                                            on a fresh parse -- a reformat of the already-separated
-                                            output no longer merged the groups, so the padding
-                                            vanished and the surrounding indent also crept one level
-                                            deeper each pass (8 -> 10 -> 12 -> ...) because
-                                            `JavaSpecificRule.findEnumConstantListTerminators`
+                                            shares its top-level shape with a comma-separated
+                                            C-style multi-declarator statement, so
+                                            `DeclarationAlignmentRule.parseDeclaration` could merge
+                                            it into an unrelated adjacent field's alignment group,
+                                            and `JavaSpecificRule.findEnumConstantListTerminators`
                                             derived its re-emitted indent from the first member's
-                                            own *current* line indent (`lineIndentAt`) instead of an
-                                            absolute depth-based recompute, compounding drift left
-                                            by the previous pass. Fixed by (a) isolating a Java
-                                            enum-constant-list statement into its own singleton
-                                            group in `DeclarationAlignmentRule.groupDeclarations`
-                                            (new `isJavaEnumConstantListShape` helper), and (b)
-                                            deriving `findEnumConstantListTerminators`'s indent from
-                                            the enum body's own stable `{`-line indent plus one
-                                            indent unit instead of the first member's own
-                                            (potentially drifted) line indent. Found in
-                                            `JavaParserJsonSerializer.java`. Verified: minimal
-                                            repro, real file round1/round2 byte-identical, full
-                                            `make test`.
+                                            own current (possibly drifted) line indent instead of
+                                            an absolute recompute, compounding drift each pass.
+                                            Fixed by (a) isolating a Java enum-constant-list
+                                            statement into its own singleton group in
+                                            `DeclarationAlignmentRule.groupDeclarations` (new
+                                            `isJavaEnumConstantListShape` helper), and (b) deriving
+                                            `findEnumConstantListTerminators`'s indent from the
+                                            enum body's own stable `{`-line indent plus one indent
+                                            unit. Found in `JavaParserJsonSerializer.java`.
+                                            Verified: minimal repro, real file round1/round2
+                                            byte-identical, full `make test`.
 
 How Tests Are Run
 -----------------

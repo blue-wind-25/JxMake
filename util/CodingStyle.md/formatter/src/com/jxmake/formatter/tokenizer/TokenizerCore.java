@@ -1291,6 +1291,66 @@ public class TokenizerCore {
                 continue;
             }
 
+            if (cur.type == TokenType.OP && ">>>".equals(cur.text)) {
+                // Mirrors the `>>` handling above, generalized to a third nesting level (e.g.
+                // `HashMap<String, HashMap<String, ArrayList<String>>>>`-style triple-nested
+                // generics). Previously unhandled: `>>>` fell through to the generic-safe-token
+                // fallback below, which is not generic-safe, so it invalidated the whole open
+                // stack -- the outer `<`s never became ANGLE_BRACKET_OPEN and were then padded
+                // as ordinary `<`/`>` relational operators on the next tokenize pass (idempotency
+                // bug: round1's tightly-rendered `<...>` gets spaced out to `< ... >` on round2,
+                // since round1's own output re-lexes the three adjacent `>` characters as a
+                // single `>>>` token).
+                if (openStack.size() >= 3) {
+                    final int[] inner = openStack.pop();
+                    final int[] mid = openStack.pop();
+                    final int[] outer = openStack.pop();
+                    if (inner[1] == 1 && mid[1] == 1 && outer[1] == 1) {
+                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(mid[0], retype(tokens.get(mid[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
+                                cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s, idx + 1);
+                        tokens.add(idx + 2, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
+                                cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s + 1, idx + 2);
+                    }
+                } else if (openStack.size() == 2) {
+                    final int[] inner = openStack.pop();
+                    final int[] outer = openStack.pop();
+                    if (inner[1] == 1 && outer[1] == 1) {
+                        // Two real closes plus one leftover literal `>` -- split `cur`'s 3-char
+                        // text as 1+1+1 (see the `>>` size==1 branch's comment on why the text
+                        // must be distributed across tokens, not duplicated).
+                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
+                                cur.braceDepth, cur.parenDepth, null));
+                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
+                                cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s, idx + 1);
+                        tokens.add(idx + 2,
+                                new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s + 1, idx + 2);
+                    }
+                } else if (openStack.size() == 1) {
+                    final int[] open = openStack.pop();
+                    if (open[1] == 1) {
+                        // One real close plus two leftover literal `>` characters (rendered back
+                        // as a literal `>>` operator token).
+                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
+                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
+                                cur.braceDepth, cur.parenDepth, null));
+                        tokens.add(idx + 1,
+                                new Token(TokenType.OP, ">>", cur.braceDepth, cur.parenDepth, null));
+                        shiftSigAfter(sig, s, idx + 1);
+                    }
+                }
+                continue;
+            }
+
             if (!isGenericSafeToken(cur) && !openStack.isEmpty()) {
                 invalidateAll(openStack);
             }

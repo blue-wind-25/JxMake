@@ -891,6 +891,45 @@ Real-code regressions:
                                             isolation onto its own now-short-looking line, which
                                             then measured as fitting and stayed collapsed -- two
                                             different stable states depending on pass ordering.
+
+  real_code_regressions_65_inp/out.java  -- Java, local `src/jxm` real-code testing: two
+                                            idempotency bugs combined in one fixture.
+                                            (1) `TokenizerCore.reclassifyAngleBrackets` had no
+                                            case for a literal `>>>` token (only `>` and `>>`),
+                                            needed for triple-nested generics
+                                            (`HashMap<String, HashMap<String,
+                                            ArrayList<String>>>>`); round1 renders the three
+                                            closes tight (correct), but re-lexing that output on
+                                            round2 greedily matches all three `>` as one `>>>`
+                                            token, which fell through to the generic-safe-token
+                                            fallback and invalidated the whole open-`<` stack,
+                                            spacing the generics out as ordinary relational
+                                            operators (`HashMap < String, ...`). Fixed by adding
+                                            an explicit `>>>` case mirroring the existing `>>`
+                                            one, generalized to split three nesting levels (plus
+                                            the 2-open/1-leftover-`>` and 1-open/2-leftover-`>`
+                                            partial-match cases).
+                                            (2) `JavaSpecificRule.isSingleLineBody`'s
+                                            fits-under-`lineLengthLimit` prediction (used to
+                                            decide whether a one-liner method stays K&R even
+                                            though its call body will be broken across lines by
+                                            `MiscRule.enforceCallLineBreaking`) measured only the
+                                            method's own significant-token span, omitting both
+                                            the line's leading indentation and any trailing
+                                            same-line `//` comment (e.g. a hand-aligned §14-group
+                                            comment) -- both of which count toward
+                                            `enforceCallLineBreaking`'s own whole-physical-line
+                                            fit-check. When the indent+comment alone pushed an
+                                            otherwise-under-limit line over the limit, round1
+                                            wrongly predicted "fits" and kept `{` K&R while the
+                                            call body still got broken under it anyway; round2
+                                            then saw genuine embedded newlines in the body and
+                                            flipped to Allman -- an idempotency bug. Fixed by
+                                            including the leading indent width and any trailing
+                                            same-line comment in the measurement, whitespace-run-
+                                            collapsed the same way `MiscRule.collapseToOneLine`
+                                            does (not raw character count, to avoid overstating
+                                            width from un-collapsed original-source padding).
                                             Fixed in two parts: (1) extended the exemption to also
                                             cover a depth-0 `if` directly preceded by a bare `=`
                                             that is itself a function's (not a `val`/`var`

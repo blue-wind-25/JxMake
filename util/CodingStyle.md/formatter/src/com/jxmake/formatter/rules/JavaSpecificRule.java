@@ -227,9 +227,46 @@ public class JavaSpecificRule {
         }
         if (hasBreakableCall(tokens, braceIdx, closeBraceIdx)) {
             final int lineStart = lineStartIndex(tokens, braceIdx);
-            int width = 0;
-            for (int k = lineStart; k <= closeBraceIdx; k++) {
-                width += tokens.get(k).text.length();
+            // Find the end of the physical line, including any trailing same-line `//` comment
+            // (e.g. a §14-group alignment comment) -- `MiscRule.enforceCallLineBreaking`'s own
+            // fit-check (`collapseToOneLine`) measures the whole physical line including such a
+            // trailing comment, so omitting it here made this prediction disagree with that later
+            // pass whenever the comment alone pushed an otherwise-under-limit line over
+            // `lineLengthLimit`: round1 predicted "fits" (comment excluded) and kept `{` K&R, but
+            // the call got broken onto multiple lines under it anyway; round2 then saw genuine
+            // embedded NEWLINEs and flipped to Allman -- an idempotency bug.
+            int lineEnd = closeBraceIdx;
+            for (int k = closeBraceIdx + 1; k < tokens.size(); k++) {
+                if (tokens.get(k).type == TokenType.NEWLINE) {
+                    break;
+                }
+                lineEnd = k;
+            }
+            // Match `collapseToOneLine`'s own width measurement exactly: any whitespace/newline
+            // run (including this method's own body's internal single-space gaps, and any
+            // wide alignment-padding gap before a trailing comment) collapses to exactly one
+            // space, not its raw character count -- otherwise leftover un-collapsed source
+            // padding (e.g. hand-aligned comment columns already present in the *original*
+            // source, not yet re-collapsed by this early pass) could overstate the width and
+            // wrongly predict "too long" for a line that, once rendered, actually fits.
+            // `MiscRule.enforceCallLineBreaking`'s own fit-check measures `baseIndent +
+            // collapseToOneLine(...)` -- the physical line's leading indentation counts too, not
+            // just the significant-token span starting at `lineStart` (which is the first
+            // *significant* token, excluding leading whitespace). Omitting it undercounted every
+            // indented one-liner's width by its indent depth.
+            int width = lineIndent(tokens, lineStart).length();
+            boolean lastWasSpace = false;
+            for (int k = lineStart; k <= lineEnd; k++) {
+                final Token t = tokens.get(k);
+                if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                    if (!lastWasSpace && width > 0) {
+                        width++;
+                    }
+                    lastWasSpace = true;
+                    continue;
+                }
+                width += t.text.length();
+                lastWasSpace = false;
             }
             if (width > lineLengthLimit) {
                 return false;

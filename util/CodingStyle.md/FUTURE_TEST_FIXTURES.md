@@ -253,9 +253,143 @@ Referenced from: `STYLE_DATA_FORMATS.md`.
   showing the header-vs-declaration distinction, and native CSS nesting (`&`,
   including both a `&:pseudo-class` block and a `& descendant` block) showing the
   same header-vs-declaration recursion applied one level deeper.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `css_combined_inp.css`:
+  ```css
+  .widget {
+  display:flex;
+  align-items: center;
+  color:#333;
+  /* a comment breaks the group */
+  margin:0 auto;
+  }
+
+  @media (min-width: 600px) {
+  .widget {
+  display: flex;
+  align-items:center;
+  }
+  }
+
+  @font-face {
+  font-family:"Custom";
+  src:url("custom.woff2") format("woff2");
+  }
+
+  .card {
+  display: flex;
+  color: #555;
+
+  &:hover {
+  color:#777;
+  cursor:pointer;
+  }
+
+  & .icon {
+  margin-right:4px;
+  }
+  }
+  ```
+
+  `css_combined_out.css`:
+  ```css
+  .widget {
+      display     : flex;
+      align-items : center;
+      color       : #333;
+      /* a comment breaks the group */
+      margin : 0 auto;
+  }
+
+  @media (min-width: 600px) {
+      .widget {
+          display     : flex;
+          align-items : center;
+      }
+  }
+
+  @font-face {
+      font-family : "Custom";
+      src         : url("custom.woff2") format("woff2");
+  }
+
+  .card {
+      display : flex;
+      color   : #555;
+
+      &:hover {
+          color  : #777;
+          cursor : pointer;
+      }
+
+      & .icon {
+          margin-right : 4px;
+      }
+  }
+  ```
+
+  Covers: three-member `.widget` group aligned by widest property name
+  (`align-items`), then the comment breaking it so the trailing `margin` gets no
+  padding (single-member group, nothing to align against); `@media`'s condition
+  `(min-width: 600px)` never joining any alignment group (it's a header, not a
+  declaration) while its nested `.widget` selector starts its own independent
+  two-member group one level deeper; `@font-face` as the flat-declaration at-rule
+  case, colon-aligning its own two members directly with no nested selector in
+  between; `.card`'s own two-member group, then `&:hover` and `& .icon` each
+  starting a fresh, independently-aligned group one level deeper — same
+  header-vs-declaration recursion `@media` demonstrates, now via native nesting
+  instead of an at-rule; the blank line before each `&` block, present here for
+  readability but not required by the rule (STYLE.md §12's optional-grouping
+  posture).
+  </details>
+
 - **css_comments_inp/out.css** — uncommon `/* */` placement, plus a
   `JXM_CFMT_DIS`/`ENA` directive pair using CSS's single block-comment directive
   syntax.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `css_comments_inp.css`:
+  ```css
+  .alert {
+  color: red;
+  /* first sentence.
+     second sentence. */
+  background:pink;
+  /*% JXM_CFMT_DIS */
+  border:  2px    dashed    red;
+  /*% JXM_CFMT_ENA */
+  padding:8px;
+  }
+  ```
+
+  `css_comments_out.css`:
+  ```css
+  .alert {
+      color : red;
+      /* first sentence.
+         second sentence. */
+      background : pink;
+  /*% JXM_CFMT_DIS */
+  border:  2px    dashed    red;
+  /*% JXM_CFMT_ENA */
+      padding : 8px;
+  }
+  ```
+
+  Covers: a multi-line `/* */` block comment breaking `color` and `background`
+  into two separate single-member groups (each gets no alignment padding, nothing
+  else in its group to align against); the `JXM_CFMT_DIS`/`ENA` pair suspending
+  formatting entirely for the `border` line in between — preserved byte-for-byte,
+  including its original indentation and internal multi-space runs, neither
+  reindented to the rule's 4-space level nor colon-aligned — with normal
+  formatting (indentation and colon alignment) resuming immediately for `padding`
+  after `JXM_CFMT_ENA`.
+  </details>
 
 Referenced from: `STYLE_DATA_FORMATS.md`.
 

@@ -120,6 +120,12 @@ formal blocked Open Question here since real implementation hasn't started.
       introduced `--lang cpp26` as an explicit-only selector under
       RDD_KEY_179 — reverted this session as an unnecessary departure from
       that precedent.)
+- [ ] Before the tokenizer support pass below: run the tokenizer against a
+      small hand-written local `^^`/`[:`/`:]` snippet (not a real fixture,
+      no expected-output pair — just enough source to see whether it
+      crashes, mis-splits the tokens, or silently swallows them). This is a
+      cheap smoke check to catch gross tokenizer breakage before spending
+      time on the full external-repo pass below, not a substitute for it.
 - [ ] Tokenizer support pass for §5 Reflection (`^^`, `[:`, `:]`) — new
       `MULTI_CHAR_OPS` entries, longest-prefix-first ordering, full
       existing C/C++/Java/Kotlin regression suite re-run for zero
@@ -133,5 +139,5 @@ formal blocked Open Question here since real implementation hasn't started.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_CPP26.md` §5's listed test-fixture repos
       (`bloomberg/clang-p2996`, `wrocpp/cpp26-reflection-examples`,
-      `simdjson/experimental_json_builder`, `stephenberry/glaze`) once §5
-      is implemented.
+      `simdjson/experimental_json_builder`, `stephenberry/glaze`,
+      `ryanjk5.github.io/posts/rjk-duck`) once §5 is implemented.

@@ -133,6 +133,10 @@ this is the section that actually needs them for validation):
 - `wrocpp/cpp26-reflection-examples`
 - `simdjson/experimental_json_builder`
 - `stephenberry/glaze`
+- `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo — `^^`/`[:`/`:]`/`template for`
+  examples covering vtable generation and member-pointer substitution; formatting-wise
+  the examples are plain, no unusual whitespace/nesting, so it's useful as an extra
+  real-world source but doesn't substitute for the repos above)
 
 Implementation-tracker content (config keys, test-fixture tracking) for this
 file lives in `formatter/STATE_CPP26.md`, not here — see that file.

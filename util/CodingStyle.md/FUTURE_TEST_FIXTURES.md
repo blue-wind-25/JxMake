@@ -238,9 +238,116 @@ Referenced from: `STYLE_DATA_FORMATS.md`.
   order preservation, CDATA (including the `<script>`/`<style>` CDATA-unwrap
   exception), DOCTYPE and processing instructions, at least one non-plain-XML
   dialect (e.g. SVG or Android XML) to exercise namespace-bearing attributes.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `xml_combined_inp.xml`:
+  ```xml
+  <?xml   version="1.0"   encoding="UTF-8"?>
+  <!DOCTYPE catalog   SYSTEM  "catalog.dtd">
+  <catalog xmlns="http://example.com/catalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://example.com/catalog catalog.xsd">
+  <book id="bk101" category="fiction" available="true">
+  <title>The Great Adventure</title>
+  <author>Jane Doe</author>
+  </book>
+  <image href="cover.png"/>
+  <notes><![CDATA[Raw <unparsed> content & symbols, left untouched.]]></notes>
+  <script><![CDATA[
+  function greet(name) {
+  return "Hello, " + name
+  }
+  ]]></script>
+  </catalog>
+  ```
+
+  `xml_combined_out.xml`:
+  ```xml
+  <?xml   version="1.0"   encoding="UTF-8"?>
+  <!DOCTYPE catalog   SYSTEM  "catalog.dtd">
+  <catalog
+      xmlns="http://example.com/catalog"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://example.com/catalog catalog.xsd">
+      <book id="bk101" category="fiction" available="true">
+          <title>The Great Adventure</title>
+          <author>Jane Doe</author>
+      </book>
+      <image href="cover.png"/>
+      <notes><![CDATA[Raw <unparsed> content & symbols, left untouched.]]></notes>
+      <script><![CDATA[
+          function greet(name)
+          {
+              return "Hello, " + name;
+          }
+      ]]></script>
+  </catalog>
+  ```
+
+  Covers: the `<?xml ... ?>` PI and `<!DOCTYPE ...>` line kept byte-for-byte
+  identical to the input, including their irregular internal spacing — §2.3's
+  "opaque, preserved verbatim, never reflowed regardless of length" rule, which
+  would otherwise be indistinguishable from a no-op if the input were already
+  tidily spaced; `<catalog>`'s three-attribute opening tag overflowing the
+  line-length limit and wrapping one attribute per line, each indented one level
+  from the tag itself (§2.2) — including the `xmlns`/`xmlns:xsi` namespace
+  declarations, whose relative order versus `xsi:schemaLocation` is preserved
+  exactly as written per §2.2's no-reordering rule; `<book>`'s three attributes
+  fitting on one line, so no wrap triggered, attribute order preserved there too;
+  `<image href="cover.png"/>` staying self-closing (§2.2); `<notes>`'s CDATA
+  content preserved verbatim, untouched by the surrounding reindentation despite
+  containing `<`/`&` characters that would otherwise need escaping outside CDATA
+  (§2.4's default-opaque case); `<script>`'s CDATA content as the §2.4 exception —
+  unwrapped, its JS content reformatted per `STYLE_JS_TS.md` (Allman brace for the
+  named function, inserted semicolon on `return`), then re-wrapped and reindented
+  to the `<script>` tag's own nesting depth, per §4.2's dispatch description.
+  </details>
+
 - **xml_comments_inp/out.xml** — uncommon `<!-- -->` placement, plus a
   `JXM_CFMT_DIS`/`ENA` directive pair using XML's single block-comment directive
   syntax.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `xml_comments_inp.xml`:
+  ```xml
+  <config>
+  <!-- top-level settings -->
+  <timeout>30</timeout>
+  <retries>3</retries><!-- inline trailing comment -->
+  <!--% JXM_CFMT_DIS -->
+  <weird    attr="1"   other = "2" ></weird>
+  <!--% JXM_CFMT_ENA -->
+  <name>worker</name>
+  </config>
+  ```
+
+  `xml_comments_out.xml`:
+  ```xml
+  <config>
+      <!-- top-level settings -->
+      <timeout>30</timeout>
+      <retries>3</retries><!-- inline trailing comment -->
+  <!--% JXM_CFMT_DIS -->
+  <weird    attr="1"   other = "2" ></weird>
+  <!--% JXM_CFMT_ENA -->
+      <name>worker</name>
+  </config>
+  ```
+
+  Covers: a standalone leading `<!-- -->` comment reindented to its structural
+  nesting depth like any other content line — unlike DOCTYPE/PI/CDATA, §2.3/§2.4
+  don't list ordinary comments as opaque, so this fixture takes the position that
+  they follow §2.2's normal indent handling (worth confirming against real JAR
+  behavior once implemented, flagged here since the style doc doesn't spell this
+  case out explicitly); an inline trailing comment staying on the same line as
+  its preceding `<retries>` tag rather than being moved to its own line; the
+  `JXM_CFMT_DIS`/`ENA` pair suspending all reformatting — indentation and
+  attribute-spacing normalization alike — for the enclosed `<weird>` tag,
+  preserved byte-for-byte including its irregular internal spacing, with normal
+  formatting resuming immediately for `<name>` after `JXM_CFMT_ENA`.
+  </details>
 
 Referenced from: `STYLE_DATA_FORMATS.md`.
 

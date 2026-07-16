@@ -71,6 +71,37 @@ JSON/JSON5 has no function calls, but the same nesting-complexity signal that go
 "contains a call → loose" in STYLE.md §3.1 applies to "contains a nested
 object/array → loose" here.
 
+### 1.3 Multi-line Strings (Line Continuation)
+
+JSON5-only — plain RFC 8259 JSON has no line-continuation syntax, so a string in a
+`.json` file can never contain a raw newline. JSON5 allows a string to span
+multiple source lines via a backslash immediately followed by a line terminator;
+only that `\`+newline sequence is elided from the string's value — any other
+character on the continuation line, including leading whitespace, is literal string
+content, not structural indentation:
+
+```json5
+{
+    message: "First line \
+second line \
+third line",
+}
+```
+
+The formatter treats the entire string — opening quote through closing quote,
+including every embedded continuation line — as **opaque, preserved exactly as
+written**, same treatment as STYLE_JAVA17.md §4's text blocks and STYLE_JS_TS.md
+§4's template literals. This means:
+
+- Whitespace at the start of a continuation line is **never** stripped, added, or
+  realigned, even though it visually looks like it could be structural indentation.
+- This holds even when the surrounding object's indentation level changes (e.g. the
+  string moves one nesting level deeper during reformatting) — the string's internal
+  content doesn't follow the new indent level, exactly as STYLE_JAVA17.md §4
+  specifies for text blocks moving inside differently-indented surrounding code.
+- Only the *position of the opening quote* participates in §1.1's colon alignment;
+  nothing after it, across all continuation lines, is touched.
+
 §1.1's key/value alignment is unconditional, same as STYLE.md §5/§6's declaration
 and assignment alignment — no config toggle, for the same reason those have none:
 alignment is baseline formatting behavior in this project, not an opt-in feature.
@@ -193,6 +224,33 @@ directly to the property name:
     src         : url("custom.woff2") format("woff2");
 }
 ```
+
+**Native nesting (`&`)** — a nested plain-selector block (CSS Nesting Module, not
+an at-rule) is the same "selector boundary" case named above, not a new mechanism:
+a `&`-prefixed nested rule is a *header* exactly like an at-rule is, so it never
+joins its parent's alignment group, and its own declarations start a fresh,
+independently-aligned group one level deeper — same recursion §3.1 already applies
+to `@media`'s block content:
+
+```css
+.widget {
+    display : flex;
+    color   : #333;
+
+    &:hover {
+        color  : #555;
+        cursor : pointer;
+    }
+
+    & .icon {
+        margin-right : 4px;
+    }
+}
+```
+
+A blank line before a nested `&` block is not required, same optional-grouping
+posture as STYLE.md §12's `else` blank-line rule — shown above for readability, not
+because the rule mandates it.
 
 ### 3.2 Bracket / Indentation
 

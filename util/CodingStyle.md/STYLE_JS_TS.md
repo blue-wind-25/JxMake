@@ -423,12 +423,8 @@ js-import-blank-lines = 1                             # blank lines between grou
 `./` or `../`) or resolves within the project's configured source root; everything
 else resolvable from `node_modules` is third-party; anything matching Node's built-in
 module list (or prefixed `node:`) is built-in. Same "not yet in the real config
-schema" caveat as the config-properties notes in FUTURE_FEATURE_DISCUSSION.md.
-Python3 faced a structurally similar tiering question (stdlib vs. third-party) but
-resolved it by dropping tier classification entirely (STYLE_PYTHON3.md §3) — that
-resolution doesn't transfer here, since JS/TS's built-in/third-party/local split is
-load-bearing for `js-import-order`'s default grouping in a way Python's simplified
-single-tier sort isn't. The resolution logic above is still open.
+schema" caveat as the config-properties notes in FUTURE_FEATURE_DISCUSSION.md — the
+resolution logic for this classification is still an open item.
 
 **Unused imports** — not removed by the formatter, same as STYLE_JAVA.md §7 — that's
 the responsibility of the IDE or a separate lint tool (e.g. ESLint).
@@ -478,10 +474,7 @@ Not yet designed, deliberately deferred:
   FUTURE_FEATURE_DISCUSSION.md's JSX/TSX entry and this file's "Out of scope" note
   in the intro.
 - Import-path built-in/third-party/local classification's resolution logic (§15) —
-  unresolved; unlike Python3's structurally similar stdlib-vs-third-party question,
-  which was resolved by dropping tiering entirely (STYLE_PYTHON3.md §3), JS/TS's
-  tiering is load-bearing for `js-import-order`'s grouping and can't be dropped the
-  same way.
+  not yet designed.
 
 ---
 

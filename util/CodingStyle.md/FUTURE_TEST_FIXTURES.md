@@ -1,11 +1,22 @@
-# FUTURE_TEST_FIXTURES.md — Planned Local Test Fixture Pairs (Not Authored)
+# FUTURE_TEST_FIXTURES.md — Planned Local Test Fixture Pairs
 
 This file is a staging area for **local dogfood test-fixture pairs** (`<name>_inp/out.<ext>`,
 same convention as `formatter/test/README.txt`) for languages that don't have a JAR
 implementation yet: C++26 extensions, JSON/JSON5, XML, CSS, HTML5, JavaScript,
-TypeScript, and Python3. None of the pairs below are authored — this is a planning
-list only, same "notes for later, not a task list" spirit as
-FUTURE_FEATURE_DISCUSSION.md.
+TypeScript, and Python3. Same "notes for later, not a task list" spirit as
+FUTURE_FEATURE_DISCUSSION.md — a pair listed here is not a commitment to implement
+the language.
+
+**Draft content vs. authored/registered.** Some entries below carry a pre-drafted
+`inp`/`out` pair inline, hand-reasoned against the relevant `STYLE_*.md` rules by a
+capable general-purpose model (the same job `AI_PREAMBLE_FULL.md` describes) since
+there's no JAR to generate or verify it. This is **not** the same as "authored" in
+the sense the rest of this file uses that word — draft content here has not been
+run through a formatter or cross-checked, and needs the same "review every diff
+carefully" scrutiny `README.txt` asks of any AI-pass output. A pair is only
+"authored" once it's been reviewed, moved to `formatter/test/`, and registered in
+`formatter/test/README.txt` per that file's own instructions — draft content
+staying here, even pre-written, doesn't skip that step.
 
 **Sections are named, not numbered**, and never will be — this file is meant to be
 referenced from multiple `STYLE_*.md` files by section name, and numbering would go
@@ -58,6 +69,48 @@ syntax, so there's nothing to test placement of.
   commas, no comments; key/value colon alignment (§1.1), array bracket complexity
   (§1.2).
 
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `json_core_inp.json`:
+  ```json
+  {
+  "id": 1001,
+  "displayName":"Widget",
+  "enabled" : true,
+  "tags": ["a","b","c"],
+  "scores": [1, 2, 3],
+  "metrics": [{"id": 1}, {"id": 2}],
+  "nested": {"a": 1, "bb": 2}
+  }
+  ```
+
+  `json_core_out.json`:
+  ```json
+  {
+      "id"          : 1001,
+      "displayName" : "Widget",
+      "enabled"     : true,
+      "tags"        : ["a", "b", "c"],
+      "scores"      : [1, 2, 3],
+      "metrics"     : [
+          { "id" : 1 },
+          { "id" : 2 }
+      ],
+      "nested"      : {
+          "a"  : 1,
+          "bb" : 2
+      }
+  }
+  ```
+
+  Covers: top-level colon alignment across seven keys of varying width (§1.1);
+  `"tags"`/`"scores"` as tight atom arrays vs. `"metrics"` going loose because its
+  elements are objects (§1.2); `"nested"` starting its own independent alignment
+  group at the deeper nesting depth; the mandatory space-before-colon even on the
+  single-key `{ "id" : 1 }`/`{ "id" : 2 }` objects inside the loose array.
+  </details>
+
 Referenced from: `STYLE_DATA_FORMATS.md`.
 
 ---
@@ -66,9 +119,114 @@ Referenced from: `STYLE_DATA_FORMATS.md`.
 
 - **json5_combined_inp/out.json5** — JSON5-specific syntax (unquoted keys, trailing
   commas), key/value colon alignment with mixed group/group-break cases, nested
-  object/array bracket complexity.
+  object/array bracket complexity, and §1.3's line-continuation multi-line strings
+  (both a no-indent and an indented continuation-line case).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `json5_combined_inp.json5`:
+  ```json5
+  {
+  id:1001,
+  displayName: "Widget",
+  enabled:true,
+  tags:["a","b"],
+  metrics:[{id:1},{id:2}],
+  config:{
+  timeout:30,
+  retries:3,
+  },
+  noIndent: "First line \
+  second line \
+  third line",
+  indented: "First line \
+      second line \
+      third line",
+  }
+  ```
+
+  `json5_combined_out.json5`:
+  ```json5
+  {
+      id          : 1001,
+      displayName : "Widget",
+      enabled     : true,
+      tags        : ["a", "b"],
+      metrics     : [
+          { id : 1 },
+          { id : 2 }
+      ],
+      config      : {
+          timeout : 30,
+          retries : 3,
+      },
+      noIndent : "First line \
+  second line \
+  third line",
+      indented : "First line \
+      second line \
+      third line",
+  }
+  ```
+
+  Covers: unquoted keys preserved as written (no rule forces quoting either way);
+  trailing commas preserved (both the nested `config` object's and the outer
+  object's); the same colon-alignment/loose-array behavior as `json_core` above,
+  now with JSON5 syntax instead of strict JSON; §1.3's line-continuation
+  multi-line strings — `noIndent`'s continuation lines stay flush-left and
+  `indented`'s keep their original 4-space lead exactly as written, in both cases
+  *despite* the key itself now sitting at the object's 4-space structural indent —
+  the two must not be conflated. Verified against the `json5` npm parser: both
+  `inp`/`out` parse to the identical string value (`"First line second line third
+  line"` / `"First line     second line     third line"`, respectively), confirming
+  reformatting changed only the surrounding layout, never the string content.
+  </details>
+
 - **json5_comments_inp/out.json5** — uncommon `//` and `/* */` placement (JSON5
   supports both).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `json5_comments_inp.json5`:
+  ```json5
+  {
+  id:1001,
+  displayName:"Widget",
+  // Comment breaks the group here
+  enabled:true,
+  timeout:30,
+  /* Block comment
+     describing config below */
+  config:{retries:3,backoff:100},
+  }
+  ```
+
+  `json5_comments_out.json5`:
+  ```json5
+  {
+      id          : 1001,
+      displayName : "Widget",
+      // Comment breaks the group here
+      enabled : true,
+      timeout : 30,
+      /* Block comment
+         describing config below */
+      config : {
+          retries : 3,
+          backoff : 100
+      },
+  }
+  ```
+
+  Covers: a `//` line comment splitting `{id, displayName}` from `{enabled,
+  timeout}` into two independently-aligned groups; a `/* */` block comment
+  preceding the single-key `config` group; comment text preserved verbatim in both
+  position and content — §1's "no normalization between the two styles" note means
+  neither comment gets STYLE.md §15's case/period treatment, since STYLE_DATA_FORMATS.md
+  never cites §15 as borrowed.
+  </details>
 
 Referenced from: `STYLE_DATA_FORMATS.md`.
 
@@ -92,7 +250,9 @@ Referenced from: `STYLE_DATA_FORMATS.md`.
 
 - **css_combined_inp/out.css** — property/value colon alignment with mixed group/
   group-break cases, at-rules (`@media`, `@supports`, `@keyframes`, `@font-face`)
-  showing the header-vs-declaration distinction, nested rule blocks.
+  showing the header-vs-declaration distinction, and native CSS nesting (`&`,
+  including both a `&:pseudo-class` block and a `& descendant` block) showing the
+  same header-vs-declaration recursion applied one level deeper.
 - **css_comments_inp/out.css** — uncommon `/* */` placement, plus a
   `JXM_CFMT_DIS`/`ENA` directive pair using CSS's single block-comment directive
   syntax.

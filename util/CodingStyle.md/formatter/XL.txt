@@ -71,6 +71,8 @@ When fixing bugs, only reformat, re-java_pcpp, and re-syntax-check the affected 
 
 Create standard test fixtures   `real_code_regressions_N_inp/out.java` as usual. However, **if the bug is because of the presence of the preprocessor**, it maybe better to append the fixture in `java_preprocessor_method_inp/out.java`. Ask me if unsure.
 
+You may want to update `STATE_C_CPP_JAVA.md` first with how this `src/jxm` job must be run, before launching the sub-agent.
+
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
